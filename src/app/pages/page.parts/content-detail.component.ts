@@ -28,6 +28,7 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
 import { LocalizationService } from '../../core/services/localization.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { interpolate } from '../../core/i18n/interpolate';
+import { notFoundText, NotFoundStringKey } from './not-found-strings';
 import { MediaSettingsService } from '../../core/services/media-settings.service';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
@@ -89,9 +90,9 @@ const MAX_BLOCK_NODES = 12;
         <div class="not-found-container">
             <div class="container text-center py-5">
                 <i class="fas fa-file-alt fa-4x text-muted mb-4"></i>
-                <h2>Content Not Found</h2>
-                <p class="text-muted">The content you're looking for doesn't exist or has been removed.</p>
-                <a href="/" class="btn btn-primary mt-3">Go Home</a>
+                <h2>{{ notFound('content_not_found_title') }}</h2>
+                <p class="text-muted">{{ notFound('content_not_found_body') }}</p>
+                <a href="/" class="btn btn-primary mt-3">{{ notFound('go_home') }}</a>
             </div>
         </div>
     } @else if(!currentContent() && !showNotFound()) {
@@ -167,6 +168,12 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private mediaSettings = inject(MediaSettingsService);
     private auth = inject(Auth);
     private gaTracking = inject(GaTrackingService);
+
+    /** The not-found text in the page's language (the site's strings). */
+    notFound(key: NotFoundStringKey): string {
+        return notFoundText(this.uiStrings.strings(), key);
+    }
+
     private trackedContent = false;
 
     contentTypeSlug = signal<string>('');

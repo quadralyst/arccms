@@ -19,6 +19,7 @@
       <thead><tr><th>File</th><th>What it holds</th><th>Read</th></tr></thead>
       <tbody>
         <tr><td><code>src/custom/features.ts</code></td><td><code>CUSTOM_FEATURES</code>: the Arc CMS features the app turns off, and the installable app turned on</td><td><a href="choose-features.html">Choose your app's features</a></td></tr>
+        <tr><td><code>src/custom/languages.ts</code></td><td><code>MEMBER_LANGUAGES</code>: languages the app adds for its members, with their files in <code>src/custom/i18n/</code></td><td><a href="member-languages.html">Member languages</a></td></tr>
         <tr><td><code>src/custom/routes.ts</code></td><td><code>CUSTOM_ROUTES</code>: the app's pages as Angular routes</td><td><a href="pages-and-routes.html">Add pages and routes</a></td></tr>
         <tr><td><code>src/custom/pages/</code></td><td>Page files found by name, like <code>src/app/pages/</code> (<code class="new">learn.page.ts</code> is <code>/learn</code>)</td><td><a href="pages-and-routes.html">Add pages and routes</a></td></tr>
         <tr><td><code>src/custom/nav.ts</code></td><td><code>CUSTOM_NAV</code>: the app's items in the admin menu</td><td><a href="admin-menu.html">Add admin menu items</a></td></tr>
@@ -61,7 +62,7 @@
         <tr><td><code>src/custom/nav.ts</code></td><td><code>src/shared/components/side-navbar/side-navbar.component.ts</code></td><td>Inserted before Profile; an item with a <code>feature</code> is left out when that feature is off</td></tr>
         <tr><td><code>src/custom/user-dashboard.ts</code></td><td><code>src/app/app.routes.ts</code></td><td>Loaded at <code>/user/dashboard</code> in place of the blank core page</td></tr>
         <tr><td><code>src/custom/home.ts</code></td><td><code>src/app/core/home/home.ts</code></td><td>Laid over the defaults (admins to <code>/admin/dashboard</code>, everyone else to <code>/user/dashboard</code>)</td></tr>
-        <tr><td><code>src/custom/i18n/</code></td><td><code>src/app/core/i18n/translation.loader.ts</code></td><td>Merged over the core translation file key by key: new keys are added, existing keys are reworded</td></tr>
+        <tr><td><code>src/custom/i18n/</code></td><td><code>src/app/core/i18n/translation.loader.ts</code></td><td>Found by file name. Merged over the core translation file key by key: new keys are added, existing keys are reworded. A language core does not have is the app's file alone, with English filling any gap</td></tr>
         <tr><td><code>src/custom/styles.css</code></td><td><code>index.html</code></td><td>Loaded as the last stylesheet, so its rules win</td></tr>
         <tr><td><code>src/custom/pwa.ts</code> and the icon</td><td><code>vite.config.ts</code>, <code>src/app/core/pwa/pwa.service.ts</code></td><td>Laid over the core defaults at build time; the icon is found by its file name</td></tr>
         <tr><td><code class="new">src/custom/site/</code></td><td><code>scripts/arc-site.mjs</code>, through <code>scripts/vite-arc-site.ts</code> in <code>vite.config.ts</code></td><td>Laid over Arc CMS's <code>public/</code> and <code>public/_site/</code> when <code>npm run dev</code> and <code>npm run build</code> start, file by file: a file at the same served path replaces Arc CMS's, strings files are merged key by key. The result is served at <code>/_site/</code> and listed in <code>/_site/site.json</code>; the app and the publish functions read only that</td></tr>
@@ -82,7 +83,7 @@
   "custom": { "nav": { "lessons": "Lessons" } },
   "admin": { "nav": { "users": "Parents" } }
 }</code></pre>
-    <p>The admin has two languages, English and Hindi, and each reads its own file in <code>src/custom/i18n/</code>. See <a href="../features/languages.html">Languages</a>.</p>
+    <p>The admin has two languages, English and Hindi, and each reads its own file in <code>src/custom/i18n/</code>. See <a href="../features/languages.html">Languages</a>. For a language your members use and the admin does not, such as German, declare it in <code>src/custom/languages.ts</code> and write <code class="new">src/custom/i18n/de.json</code>: see <a href="member-languages.html">Member languages</a>.</p>
 
     <h2>Use core building blocks</h2>
     <p>The rule forbids editing core files, not using them. Your pages import core components the same way core pages do and get every later fix for free. These are meant for apps:</p>

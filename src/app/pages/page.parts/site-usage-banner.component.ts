@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, OnInit, signal, ChangeDetectionStrategy, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { SiteUsageService } from '../admin/(settings)/site-usage/site-usage.service';
@@ -13,7 +14,7 @@ import { SitePagesService } from '../../core/site/site-pages.service';
 @Component({
     selector: 'arc-site-usage-banner',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         @if (showBanner()) {
@@ -25,7 +26,7 @@ import { SitePagesService } from '../../core/site/site-pages.service';
                     <a [href]="policyLink()" 
                        class="arc-site-usage-banner__link"
                        [style.color]="getTextColor()">
-                        Learn more
+                        {{ 'member.cookie_banner.learn_more' | transloco }}
                     </a>
                     }
                 </div>
@@ -34,13 +35,13 @@ import { SitePagesService } from '../../core/site/site-pages.service';
                             [style.borderColor]="getTextColor()"
                             [style.color]="getTextColor()"
                             (click)="rejectCookies()">
-                        {{ settings()?.rejectButtonText || 'Reject All' }}
+                        {{ settings()?.rejectButtonText || ('member.cookie_banner.reject_all' | transloco) }}
                     </button>
                     <button class="arc-site-usage-banner__btn arc-site-usage-banner__btn--accept" 
                             [style.background]="getTextColor()"
                             [style.color]="getGradient()"
                             (click)="acceptCookies()">
-                        {{ settings()?.acceptButtonText || 'Accept All' }}
+                        {{ settings()?.acceptButtonText || ('member.cookie_banner.accept_all' | transloco) }}
                     </button>
                 </div>
             </div>

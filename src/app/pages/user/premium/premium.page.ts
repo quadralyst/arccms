@@ -24,8 +24,8 @@ import { PageHeaderComponent } from '../../../../shared/components/page-header/p
                     <i class="fa-solid fa-star"></i>
                     <p class="text-muted">
                         <span [innerHTML]="'user.premium.on_plan' | transloco: {
-                            plan: (entitlements.premiumType() || 'Pro'),
-                            type: (entitlements.premiumStatus() || 'active')
+                            plan: (entitlements.premiumType() || ('user.pro' | transloco)),
+                            type: (entitlements.premiumStatus() || ('user.active' | transloco))
                         }"></span>
                     </p>
                 </div>

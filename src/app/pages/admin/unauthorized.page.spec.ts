@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import UnauthorizedComponent from './unauthorized.page';
+import UnauthorizedComponent, { fallbackHtml } from './unauthorized.page';
 import { HttpClient } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { vi, describe, beforeEach, it, expect } from 'vitest';
@@ -101,5 +101,11 @@ describe('UnauthorizedComponent — error fallback', () => {
         // The fallback contains a 403 heading and a link back to signup
         expect(div.innerHTML).toContain('403');
         expect(div.innerHTML).toContain('signup');
+    });
+
+    it('says it in the person\'s language', () => {
+        fixture.detectChanges();
+        expect(fixture.nativeElement.textContent).toContain('Access Denied');
+        expect(fallbackHtml((key) => key)).toContain('>member.unauthorized.sign_up</a>');
     });
 });

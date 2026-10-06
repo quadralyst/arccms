@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Member languages | Arc CMS docs</title>
+  <meta name="description" content="Show your members a language Arc CMS does not ship, such as German, while the admin keeps Arc CMS's own languages: declare it, translate it, check it.">
+  <meta name="docs:sources" content="src/custom/languages.ts, src/app/core/i18n/member-languages.ts, src/app/core/i18n/member-language.service.ts, src/app/core/i18n/member-keys.ts, src/app/core/i18n/translation.loader.ts, src/app/core/i18n/admin-locale.provider.ts, scripts/i18n-member.mjs, scripts/i18n-pseudo.mjs, src/test/member-language-parity.spec.ts, src/test/pseudo-language.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/member-languages.html">
+  <main>
+    <h1>Member languages</h1>
+    <p class="lead">Your members, signed in or about to sign in, can use your app in a language Arc CMS does not ship, such as German. You declare it and write the translations; Arc CMS shows it on the member screens. The admin keeps Arc CMS's own languages.</p>
+
+    <h2>Add a language</h2>
+    <ol class="steps">
+      <li><p><strong>Declare it</strong> in <code>src/custom/languages.ts</code>:</p>
+        <pre><code>import type { MemberLanguage } from '../app/core/i18n/member-languages';
+
+export const MEMBER_LANGUAGES: readonly MemberLanguage[] = [
+    { code: 'de', label: 'Deutsch', locale: 'de-CH', localeData: () =&gt; import('@angular/common/locales/de-CH') },
+];</code></pre>
+        <p><code>code</code> names the translation file, <code>label</code> is the language's name in itself, <code>locale</code> is how dates and numbers are written, and <code>localeData</code> loads Angular's data for that locale (leave it out for an English locale). A mistake here stops <code>npm run dev</code> and <code>npm run build</code> with a message saying what to change.</p></li>
+      <li><p><strong>Translate it</strong> in <code class="new">src/custom/i18n/de.json</code>, with the same keys as English. To see what is left to translate:</p>
+        <pre><code>npm run i18n:member -- --lang=de</code></pre>
+        <p>It lists every member-facing Arc CMS key and every key of your own <code>src/custom/i18n/en.json</code> that <code>de.json</code> lacks. A key you leave out shows in English, never as the key itself.</p></li>
+      <li><p><strong>Run the tests.</strong> The parity test fails naming each missing key. While a language is still being translated, add <code>partial: true</code> to its entry: the missing keys are then listed as a warning instead.</p></li>
+    </ol>
+    <p>Members get English plus the languages you declare. Arc CMS's Hindi is offered to members only if you declare it too (<code>{ code: 'hi', label: 'हिन्दी', locale: 'hi', localeData: () =&gt; import('@angular/common/locales/hi') }</code>); its member keys are already translated.</p>
+
+    <h2>Example: German for a shop's staff</h2>
+    <p>An app that declared <code>de</code> above, with one screen of its own whose English is in <code>src/custom/i18n/en.json</code>:</p>
+    <pre><code>{ "custom": { "till": { "open": "Open the till" } } }</code></pre>
+    <p>Its <code class="new">src/custom/i18n/de.json</code> translates Arc CMS's member keys and its own, with the same nesting:</p>
+    <pre><code>{
+  "member": { "auth": { "continue": "Weiter" } },
+  "user": { "nav": { "dashboard": "Übersicht" } },
+  "custom": { "till": { "open": "Kasse öffnen" } }
+}</code></pre>
+    <p>With only these three keys, <code>npm run i18n:member -- --lang=de</code> lists the rest, and the parity test fails naming them until <code>partial: true</code> is set. A German-speaking member then sees "Weiter" on the sign-in button, "Übersicht" in the member menu and "Kasse öffnen" on your screen, and English for every key not yet written. A language picker of your own switches it:</p>
+    <pre><code>import { setMemberLanguage } from '../../app/core/i18n/member-language.service';
+
+// In your component, for a button such as &lt;button (click)="german()"&gt;Deutsch&lt;/button&gt;
+german(): void {
+  setMemberLanguage('de');
+}</code></pre>
+
+    <h2>Which language a member sees</h2>
+    <ul>
+      <li><strong>Their choice on this device.</strong> Set it from your app's own picker or settings: <code>setMemberLanguage('de')</code>, from <code>src/app/core/i18n/member-language.service.ts</code>, or <code>use()</code> on <code>MemberLanguageService</code>. It is kept on the device, so a shared device shows it on the sign-in screen too.</li>
+      <li><strong>On a first visit,</strong> the browser's language, when you declared it (<code>de-AT</code> finds <code>de</code>); otherwise English.</li>
+      <li><strong>In the admin area</strong> (<code>/admin</code>), the admin's own language, always. Pages outside it use the member language.</li>
+    </ul>
+    <p>The language picker in the page header is the admin's: once you declare member languages it shows only in the admin area, since the admin's choice does not change member pages. Members choose through a picker of your own (below).</p>
+    <p>With no languages declared, nothing changes: member screens follow the admin language as they always did.</p>
+
+    <h2>Dates and numbers</h2>
+    <p>The text switches at once. Angular's date and number pipes take the locale when the page loads, so they follow a new choice on the next load; <code>setMemberLanguage('de', { reload: true })</code> reloads at once. For a value that must follow the switch without a reload, pass the locale yourself: <code>{{ when | date: 'mediumDate' : undefined : member.activeLocale() }}</code>. A person who opens the admin first and then a member page in the same visit keeps the admin's formats until the next load.</p>
+
+    <h2>Which screens follow the language</h2>
+    <p>Sign-in and sign-up (with email, phone and PIN, and Google), forgot password and PIN, the code steps, the profile with its sign-in methods, the account and membership page, the member area with its menu, dashboard, payments and premium pages, the install and update prompts, the feedback panel, the reload message, the page-not-found and no-access pages, and the cookie banner's own words (its "Learn more" link, and the buttons when the admin leaves their text empty). The sign-in errors Arc CMS shows itself, including Firebase's, are translated too. Messages the server sends back for a code or a PIN (a wrong code, too many tries) stay in English; see <a href="#what-stays-in-english">What stays in English</a>.</p>
+
+    <h2>Which keys are member-facing</h2>
+    <p>The list is <code>src/app/core/i18n/member-keys.ts</code>: everything under <code>member.*</code>, <code>user.*</code> (the member area), <code>common.pwa.*</code> (install and update prompts), <code>common.feedback.*</code> (the feedback panel), <code>common.version.*</code> (the reload message), and a few shared keys such as <code>common.actions.close</code>. A test fails when a member screen uses a key the list does not cover.</p>
+
+    <h2>Check every screen by eye</h2>
+    <pre><code>npm run i18n:pseudo -- --out=src/custom/i18n/zz.json</code></pre>
+    <p>This writes a pseudo translation of the member keys, every word accented and in brackets. Declare <code>{ code: 'zz', label: 'Pseudo', locale: 'en-GB' }</code>, call <code>setMemberLanguage('zz')</code>, and walk the member screens: any plain English left is text that is not translated yet. Remove the file and the entry afterwards.</p>
+    <p>Your own screens can be checked the same way in a spec: render them with <code>pseudoTestingModule()</code> from <code>src/test/pseudo-language.ts</code> and expect <code>textNotInPseudo(fixture.nativeElement)</code> to be empty. To include your own keys, pass your English: <code>pseudoTestingModule(customEnglish)</code>, with <code>customEnglish</code> imported from <code>src/custom/i18n/en.json</code>.</p>
+
+    <h2 id="what-stays-in-english">What stays in English</h2>
+    <ul>
+      <li><strong>Emails and SMS.</strong> The password reset email is Firebase's own: Arc CMS asks Firebase for it in the member language, which Firebase uses where it has a template for it (its wording is edited in the Firebase console). The sign-up code emails and SMS that Arc CMS sends stay in English.</li>
+      <li><strong>Messages from the server</strong> about a code or a PIN, such as a wrong code or too many tries.</li>
+      <li><strong>Pages of optional features</strong>: pricing and checkout, signup forms and leaderboards, notifications. An app that needs them in its language rewords their text in its own files once they have keys.</li>
+      <li><strong>The published site</strong>, content and list pages included (with what they say when there is nothing to show): it follows the page's own language, through the site's strings files, not the member language. See <a href="../features/languages.html">Languages</a>.</li>
+      <li><strong>What an admin writes</strong>, such as the cookie banner's message: it is the site's own content.</li>
+      <li><strong>The browser tab's title</strong> on most pages.</li>
+      <li><strong>The "Powered by Arc CMS" line</strong>, which an admin can turn off in Settings.</li>
+      <li><strong>The sign-in page's brand panel</strong> beside the form: it is your site's HTML (see <a href="../website/sign-in-page.html">Brand the sign-in page</a>) and follows the site's language.</li>
+    </ul>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

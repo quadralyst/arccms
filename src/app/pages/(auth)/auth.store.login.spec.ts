@@ -11,7 +11,8 @@ import { Auth } from '@angular/fire/auth';
 
 vi.mock('@angular/fire/auth', () => ({ Auth: class {}, onAuthStateChanged: vi.fn(() => () => undefined) }));
 
-import { AuthState, NO_ACCESS_CODE, NO_ACCESS_MESSAGE, UNFINISHED_SIGNUP_MESSAGE } from './auth.store';
+import { AuthState, NO_ACCESS_CODE } from './auth.store';
+import { english } from '../../../test/english';
 import { AuthService } from './auth.service';
 import { SignInService } from './sign-in.service';
 import { ToastService } from '../../../shared/services/toast.service';
@@ -73,7 +74,7 @@ describe('AuthState.login', () => {
         await vi.waitFor(() => expect(authService.logout).toHaveBeenCalled());
         expect(signIn.createAccountRecord).toHaveBeenCalledWith('Member', { finish: true });
         expect(toast.success).not.toHaveBeenCalled();
-        expect(store.error()).toBe(NO_ACCESS_MESSAGE);
+        expect(store.error()).toBe(english('member.auth.no_access'));
         expect(store.errorCode()).toBe(NO_ACCESS_CODE);
         expect(store.isSuccess()).toBe(false);
     });
@@ -112,7 +113,7 @@ describe('AuthState.login', () => {
         authService.register.mockReturnValue(of({ uid: 'u1', delete: del }));
         const store = TestBed.inject(AuthState);
         store.signup({ name: 'Asha', email: 'a@x.com', password: 'longenough' });
-        await vi.waitFor(() => expect(store.error()).toBe(UNFINISHED_SIGNUP_MESSAGE), { timeout: 8000 });
+        await vi.waitFor(() => expect(store.error()).toBe(english('member.auth.unfinished_signup')), { timeout: 8000 });
         expect(signIn.createAccountRecord).toHaveBeenCalledTimes(3);
         expect(del).not.toHaveBeenCalled();
     }, 10000);

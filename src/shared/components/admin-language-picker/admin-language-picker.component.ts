@@ -7,16 +7,19 @@
  * navigations away.
  *
  * Renders nothing when only one admin language ships, the same way the public
- * switcher does on a single-language site.
+ * switcher does on a single-language site, and nothing outside the admin area when the
+ * app declares member languages: there the page is in the member's language, which the
+ * admin's choice does not change (docs/app/member-languages.html).
  *
  * Spec: specs/multilingual-spec.md — Phase M6.
  */
 
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { AdminLanguageService } from '../../../app/core/i18n/admin-language.service';
+import { LanguageAreaService, MEMBER_LANGUAGES_DECLARED } from '../../../app/core/i18n/member-language.service';
 
 @Component({
     selector: 'arc-admin-language-picker',
@@ -24,7 +27,7 @@ import { AdminLanguageService } from '../../../app/core/i18n/admin-language.serv
     imports: [MatMenuModule, MatTooltipModule, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
-        @if (languages.length > 1) {
+        @if (shown() && languages.length > 1) {
         <button
             type="button"
             class="lang-btn"
@@ -75,4 +78,6 @@ import { AdminLanguageService } from '../../../app/core/i18n/admin-language.serv
 export class AdminLanguagePickerComponent {
     readonly i18n = inject(AdminLanguageService);
     readonly languages = this.i18n.languages;
+    private readonly area = inject(LanguageAreaService);
+    readonly shown = computed(() => !MEMBER_LANGUAGES_DECLARED || this.area.inAdmin());
 }

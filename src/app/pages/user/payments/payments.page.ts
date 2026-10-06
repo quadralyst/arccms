@@ -20,6 +20,8 @@ import { ICreditLedgerEntry } from '../../payments-ui/credit-ledger.model';
 import { toJsDate } from '../../payments-ui/date-utils';
 import { formatMoney } from '../../payments-ui/pricing-utils';
 import { arcCallable } from '../../../core/config/arc-functions';
+import { injectT } from '../../../core/i18n/inject-t';
+import { memberLocaleNow } from '../../../core/i18n/member-language-now';
 
 export const routeMeta: RouteMeta = {
     title: 'Payments | Arc CMS',
@@ -76,39 +78,39 @@ interface ActivityItem {
                 <div class="status-tiles-grid animate-slide-up">
                     <mat-card class="status-tile-card">
                         <div class="tile-header">
-                            <span class="tile-label">Membership</span>
+                            <span class="tile-label">{{ 'user.payments.membership' | transloco }}</span>
                             <span class="tile-icon icon-blue"><i class="fa-solid fa-crown"></i></span>
                         </div>
                         <div class="tile-content">
                             @if (entitlements.isPro()) {
-                                <span class="tile-value value-pro">{{ entitlements.premiumType() || 'Pro' }}</span>
-                                <span class="tile-sub badge-active">{{ entitlements.premiumStatus() || 'active' }}</span>
+                                <span class="tile-value value-pro">{{ entitlements.premiumType() || ('user.pro' | transloco) }}</span>
+                                <span class="tile-sub badge-active">{{ entitlements.premiumStatus() || ('user.active' | transloco) }}</span>
                             } @else {
-                                <span class="tile-value">Free Tier</span>
-                                <a class="tile-action-link" routerLink="/pricing">Upgrade Plan →</a>
+                                <span class="tile-value">{{ 'user.payments.free_tier' | transloco }}</span>
+                                <a class="tile-action-link" routerLink="/pricing">{{ 'user.payments.upgrade_plan' | transloco }}</a>
                             }
                         </div>
                     </mat-card>
 
                     <mat-card class="status-tile-card">
                         <div class="tile-header">
-                            <span class="tile-label">Available Credits</span>
+                            <span class="tile-label">{{ 'user.payments.available_credits' | transloco }}</span>
                             <span class="tile-icon icon-yellow"><i class="fa-solid fa-coins"></i></span>
                         </div>
                         <div class="tile-content">
                             <span class="tile-value">{{ entitlements.creditBalance() }}</span>
-                            <a class="tile-action-link" routerLink="/account">View Ledger →</a>
+                            <a class="tile-action-link" routerLink="/account">{{ 'user.payments.view_ledger' | transloco }}</a>
                         </div>
                     </mat-card>
 
                     <mat-card class="status-tile-card">
                         <div class="tile-header">
-                            <span class="tile-label">Plan Tier</span>
+                            <span class="tile-label">{{ 'user.payments.plan_tier' | transloco }}</span>
                             <span class="tile-icon icon-purple"><i class="fa-solid fa-arrow-up-right-dots"></i></span>
                         </div>
                         <div class="tile-content">
                             <span class="tile-value">{{ entitlements.tierRank() >= 0 ? '#' + entitlements.tierRank() : '—' }}</span>
-                            <span class="tile-sub text-truncate">{{ entitlement()?.premiumTierLabel || 'No Active Plan' }}</span>
+                            <span class="tile-sub text-truncate">{{ entitlement()?.premiumTierLabel || ('user.payments.no_active_plan' | transloco) }}</span>
                         </div>
                     </mat-card>
                 </div>
@@ -121,7 +123,7 @@ interface ActivityItem {
                         } @else {
                             <i class="fa-solid fa-bolt me-1"></i>
                         }
-                        Use 1 Credit
+                        {{ 'user.payments.use_credit' | transloco }}
                     </button>
                     <a mat-stroked-button routerLink="/pricing"><i class="fa-solid fa-plus me-1"></i>{{ 'user.dashboard.buy_credits' | transloco }}</a>
                     <a mat-stroked-button routerLink="/account"><i class="fa-solid fa-receipt me-1"></i>{{ 'user.dashboard.manage_billing' | transloco }}</a>
@@ -154,7 +156,7 @@ interface ActivityItem {
                     </div>
                 </mat-card>
 
-                <!-- {{ 'user.dashboard.recent_activity' | transloco }} (summary; full history on /account) -->
+                <!-- Recent activity (summary; full history on /account) -->
                 <div class="section-head">
                     <h2>{{ 'user.dashboard.recent_activity' | transloco }}</h2>
                     <a routerLink="/account" class="link">{{ 'user.dashboard.view_all' | transloco }}</a>
@@ -177,27 +179,27 @@ interface ActivityItem {
                 }
 
                 <div class="section-layout animate-slide-up">
-                    <h2 class="section-title">Quick Navigation</h2>
+                    <h2 class="section-title">{{ 'user.payments.quick_navigation' | transloco }}</h2>
                     <div class="quick-links-grid">
                         <a class="quick-link-item" routerLink="/account">
                             <span class="ql-icon"><i class="fa-solid fa-credit-card"></i></span>
                             <div class="ql-text">
-                                <span class="ql-title">Account &amp; Billing</span>
-                                <span class="ql-desc">View invoices, subscription, and check credit ledger.</span>
+                                <span class="ql-title">{{ 'user.payments.account_billing' | transloco }}</span>
+                                <span class="ql-desc">{{ 'user.payments.account_billing_hint' | transloco }}</span>
                             </div>
                         </a>
                         <a class="quick-link-item" routerLink="/user/profile">
                             <span class="ql-icon"><i class="fa-solid fa-user-gear"></i></span>
                             <div class="ql-text">
-                                <span class="ql-title">Profile Settings</span>
-                                <span class="ql-desc">Update your name, contact email, and security credentials.</span>
+                                <span class="ql-title">{{ 'user.payments.profile_settings' | transloco }}</span>
+                                <span class="ql-desc">{{ 'user.payments.profile_hint' | transloco }}</span>
                             </div>
                         </a>
                         <a class="quick-link-item" routerLink="/pricing">
                             <span class="ql-icon"><i class="fa-solid fa-tags"></i></span>
                             <div class="ql-text">
-                                <span class="ql-title">Membership Plans</span>
-                                <span class="ql-desc">Upgrade, downgrade or adjust your billing frequency.</span>
+                                <span class="ql-title">{{ 'user.payments.membership_plans' | transloco }}</span>
+                                <span class="ql-desc">{{ 'user.payments.plans_hint' | transloco }}</span>
                             </div>
                         </a>
                     </div>
@@ -633,6 +635,7 @@ export default class UserPaymentsComponent implements OnInit {
     private transactionsService = inject(TransactionsService);
     private creditLedger = inject(CreditLedgerService);
     private functions = inject(Functions);
+    private readonly t = injectT();
 
     private recentTxns = signal<ITransaction[]>([]);
     private recentLedger = signal<ICreditLedgerEntry[]>([]);
@@ -656,8 +659,8 @@ export default class UserPaymentsComponent implements OnInit {
             id: 'led:' + e.id,
             date: toJsDate(e.createdAt),
             icon: 'fa-solid fa-coins',
-            label: `Credits · ${e.reason}`,
-            amount: `${e.delta > 0 ? '+' : ''}${e.delta} cr`,
+            label: this.t('user.payments.credits_activity', { reason: e.reason }),
+            amount: this.t('user.payments.credits_amount', { amount: `${e.delta > 0 ? '+' : ''}${e.delta}` }),
             positive: e.delta > 0,
         }));
         return [...txns, ...credits]
@@ -721,7 +724,7 @@ export default class UserPaymentsComponent implements OnInit {
             this.loadActivity();
         } catch (e) {
             const msg = (e as { message?: string })?.message ?? '';
-            this.creditError.set(msg.includes('Insufficient') ? 'Insufficient credits.' : 'Could not use a credit.');
+            this.creditError.set(this.t(msg.includes('Insufficient') ? 'user.account.credit_insufficient' : 'user.account.credit_failed'));
         } finally {
             this.spending.set(false);
         }
@@ -736,6 +739,6 @@ export default class UserPaymentsComponent implements OnInit {
 
     fmtDate(value: unknown): string {
         const d = toJsDate(value);
-        return d ? d.toLocaleDateString() : '—';
+        return d ? d.toLocaleDateString(memberLocaleNow()) : '—';
     }
 }

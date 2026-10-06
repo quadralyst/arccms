@@ -18,6 +18,8 @@ import { Injectable, PLATFORM_ID, computed, effect, inject, signal } from '@angu
 import { isPlatformBrowser } from '@angular/common';
 import { TranslocoService } from '@jsverse/transloco';
 import { AuthState } from '../../pages/(auth)/auth.store';
+import { MEMBER_LANGUAGES } from '../../../custom/languages';
+import { isAdminUrl } from './member-languages';
 import {
     ADMIN_LANGUAGES,
     ADMIN_LANGUAGE_CACHE_KEY,
@@ -84,9 +86,15 @@ export class AdminLanguageService {
     }
 
     private apply(code: string): void {
-        this.transloco.setActiveLang(code);
+        // With member languages declared, LanguageAreaService applies the admin language
+        // only in the admin area (docs/app/member-languages.html); without, as always.
+        if (!MEMBER_LANGUAGES.length || this.inAdminArea()) this.transloco.setActiveLang(code);
         this.activeLang.set(code);
         this.cache(code);
+    }
+
+    private inAdminArea(): boolean {
+        return typeof location !== 'undefined' && isAdminUrl(location.pathname);
     }
 
     private cache(code: string): void {

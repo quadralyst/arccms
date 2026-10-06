@@ -7,6 +7,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 export const routeMeta: RouteMeta = {
     title: 'Page Not Found | Arc CMS',
@@ -15,16 +16,14 @@ export const routeMeta: RouteMeta = {
 @Component({
     selector: 'arc-not-found',
     standalone: true,
-    imports: [RouterLink],
+    imports: [RouterLink, TranslocoPipe],
     template: `
     <div class="not-found-container">
       <div class="not-found-content">
         <h1 class="error-code">404</h1>
-        <p class="error-message"><span class="text-danger">Oops!</span> Page Not Found.</p>
-        <p class="error-description">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <a routerLink="/" class="btn-home">Go to Home</a>
+        <p class="error-message"><span class="text-danger">{{ 'member.not_found.oops' | transloco }}</span> {{ 'member.not_found.heading' | transloco }}</p>
+        <p class="error-description">{{ 'member.not_found.description' | transloco }}</p>
+        <a routerLink="/" class="btn-home">{{ 'member.not_found.home' | transloco }}</a>
       </div>
     </div>
   `,

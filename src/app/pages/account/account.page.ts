@@ -19,6 +19,8 @@ import { CreditLedgerService } from '../payments-ui/credit-ledger.service';
 import { ICreditLedgerEntry } from '../payments-ui/credit-ledger.model';
 import { toJsDate } from '../payments-ui/date-utils';
 import { arcCallable } from '../../core/config/arc-functions';
+import { injectT } from '../../core/i18n/inject-t';
+import { memberLocaleNow } from '../../core/i18n/member-language-now';
 
 /**
  * Public account / membership page. Shows the signed-in user's entitlement
@@ -47,10 +49,10 @@ import { arcCallable } from '../../core/config/arc-functions';
                             <div class="signin-icon">
                                 <i class="fa-solid fa-lock"></i>
                             </div>
-                            <h2>Access Restricted</h2>
-                            <p class="mb-4 text-muted">Please sign in to manage your premium membership and credits.</p>
+                            <h2>{{ 'user.account.access_restricted' | transloco }}</h2>
+                            <p class="mb-4 text-muted">{{ 'user.account.sign_in_manage' | transloco }}</p>
                             <a mat-raised-button color="primary" routerLink="/signup" [queryParams]="{ redirect: '/account' }" class="signin-btn">
-                                Sign In / Register
+                                {{ 'user.account.sign_in_register' | transloco }}
                             </a>
                         </mat-card-content>
                     </mat-card>
@@ -58,12 +60,12 @@ import { arcCallable } from '../../core/config/arc-functions';
             } @else {
                 <div class="dashboard-header">
                     <div class="header-info">
-                        <h1>Membership & Billing</h1>
-                        <p class="subtitle text-muted">Manage your subscription, credits, and view past billing transactions.</p>
+                        <h1>{{ 'user.account.billing_title' | transloco }}</h1>
+                        <p class="subtitle text-muted">{{ 'user.account.billing_subtitle' | transloco }}</p>
                     </div>
                     <button mat-flat-button class="refresh-btn" type="button" (click)="refresh()" [disabled]="loadingEntitlement()">
                         <i class="fa-solid fa-rotate" [class.fa-spin]="loadingEntitlement()"></i>
-                        <span>Refresh Data</span>
+                        <span>{{ 'user.account.refresh' | transloco }}</span>
                     </button>
                 </div>
 
@@ -79,13 +81,13 @@ import { arcCallable } from '../../core/config/arc-functions';
                                         <i class="fa-solid fa-crown"></i>
                                     </div>
                                     <div class="tier-info">
-                                        <h3>Current Plan</h3>
+                                        <h3>{{ 'user.account.current_plan' | transloco }}</h3>
                                         <div class="badge-row">
                                             @if (entitlement()?.isPro) {
                                                 <span class="plan-badge pro">{{ entitlement()?.premiumType | uppercase }}</span>
-                                                <span class="status-badge active"><span class="pulse-dot"></span>Active</span>
+                                                <span class="status-badge active"><span class="pulse-dot"></span>{{ 'user.account.active' | transloco }}</span>
                                             } @else {
-                                                <span class="plan-badge free">FREE TIER</span>
+                                                <span class="plan-badge free">{{ 'user.account.free_tier' | transloco }}</span>
                                             }
                                         </div>
                                     </div>
@@ -97,7 +99,7 @@ import { arcCallable } from '../../core/config/arc-functions';
                                     <div class="info-item">
                                         <div class="info-icon"><i class="fa-solid fa-calendar-days"></i></div>
                                         <div class="info-data">
-                                            <span class="info-label">Renews / Expires</span>
+                                            <span class="info-label">{{ 'user.account.renews_expires' | transloco }}</span>
                                             <span class="info-val font-semibold">{{ fmtDate(entitlement()?.premiumExpiresAt) }}</span>
                                         </div>
                                     </div>
@@ -105,7 +107,7 @@ import { arcCallable } from '../../core/config/arc-functions';
                                     <div class="info-item">
                                         <div class="info-icon"><i class="fa-solid fa-arrow-up-right-dots"></i></div>
                                         <div class="info-data">
-                                            <span class="info-label">Tier Rank</span>
+                                            <span class="info-label">{{ 'user.account.tier_rank' | transloco }}</span>
                                             <span class="info-val">{{ entitlement()?.premiumTierRank ?? '—' }}</span>
                                         </div>
                                     </div>
@@ -113,7 +115,7 @@ import { arcCallable } from '../../core/config/arc-functions';
                                     <div class="info-item">
                                         <div class="info-icon"><i class="fa-solid fa-receipt"></i></div>
                                         <div class="info-data">
-                                            <span class="info-label">Subscription ID</span>
+                                            <span class="info-label">{{ 'user.account.subscription_id' | transloco }}</span>
                                             <span class="info-val mono">{{ entitlement()?.providerSubscriptionId || '—' }}</span>
                                         </div>
                                     </div>
@@ -121,7 +123,7 @@ import { arcCallable } from '../../core/config/arc-functions';
                                     <div class="info-item">
                                         <div class="info-icon"><i class="fa-solid fa-id-card"></i></div>
                                         <div class="info-data">
-                                            <span class="info-label">Customer ID</span>
+                                            <span class="info-label">{{ 'user.account.customer_id' | transloco }}</span>
                                             <span class="info-val mono">{{ entitlement()?.providerCustomerId || '—' }}</span>
                                         </div>
                                     </div>
@@ -129,9 +131,9 @@ import { arcCallable } from '../../core/config/arc-functions';
 
                                 @if (!entitlement()?.isPro) {
                                     <div class="upgrade-section">
-                                        <p class="text-muted mb-3">Unlock advanced CMS capabilities and credits by upgrading.</p>
+                                        <p class="text-muted mb-3">{{ 'user.account.upgrade_note' | transloco }}</p>
                                         <a mat-flat-button class="upgrade-btn" routerLink="/pricing">
-                                            Upgrade Plan <i class="fa-solid fa-arrow-right ms-2"></i>
+                                            {{ 'user.account.upgrade' | transloco }} <i class="fa-solid fa-arrow-right ms-2"></i>
                                         </a>
                                     </div>
                                 }
@@ -147,8 +149,8 @@ import { arcCallable } from '../../core/config/arc-functions';
                                     <i class="fa-solid fa-coins"></i>
                                 </div>
                                 <div class="tier-info">
-                                    <h3>Prepaid Credits</h3>
-                                    <p class="subtitle text-muted">Use credits for querying AI and generation tools.</p>
+                                    <h3>{{ 'user.account.credits_title' | transloco }}</h3>
+                                    <p class="subtitle text-muted">{{ 'user.account.credits_subtitle' | transloco }}</p>
                                 </div>
                             </div>
                         </div>
@@ -157,7 +159,7 @@ import { arcCallable } from '../../core/config/arc-functions';
                             <div class="balance-display">
                                 <div class="balance-count">
                                     <span class="count">{{ creditBalance() }}</span>
-                                    <span class="label">Available Credits</span>
+                                    <span class="label">{{ 'user.account.available_credits' | transloco }}</span>
                                 </div>
                                 <button mat-flat-button class="use-credit-btn" type="button" (click)="useCredit()" [disabled]="spending() || creditBalance() < 1">
                                     @if (spending()) { 
@@ -165,7 +167,7 @@ import { arcCallable } from '../../core/config/arc-functions';
                                     } @else {
                                         <i class="fa-solid fa-bolt me-2"></i>
                                     }
-                                    Use 1 Credit
+                                    {{ 'user.account.use_credit' | transloco }}
                                 </button>
                             </div>
                             
@@ -179,7 +181,7 @@ import { arcCallable } from '../../core/config/arc-functions';
                             <!-- Ledger Sub-list -->
                             @if (ledger().length > 0) {
                                 <div class="ledger-summary">
-                                    <h4>Recent Ledger Activity</h4>
+                                    <h4>{{ 'user.account.ledger_title' | transloco }}</h4>
                                     <div class="ledger-list">
                                         @for (e of ledger().slice(0, 3); track e.id) {
                                             <div class="ledger-item">
@@ -202,30 +204,30 @@ import { arcCallable } from '../../core/config/arc-functions';
                 <!-- Transaction History -->
                 <div class="history-container animate-slide-up" style="animation-delay: 0.1s;">
                     <div class="history-header">
-                        <h2>Billing & Activity History</h2>
+                        <h2>{{ 'user.account.history_title' | transloco }}</h2>
                     </div>
 
                     <div class="history-tables">
                         <!-- Transactions Table -->
                         <div class="table-section">
-                            <h3>Transactions</h3>
+                            <h3>{{ 'user.account.transactions' | transloco }}</h3>
                             @if (loadingTxns()) {
                                 <div class="spinner-container"><mat-spinner diameter="32"></mat-spinner></div>
                             } @else if (transactions().length === 0) {
                                 <div class="empty-state">
                                     <i class="fa-solid fa-receipt"></i>
-                                    <p>No billing transactions found.</p>
+                                    <p>{{ 'user.account.no_billing' | transloco }}</p>
                                 </div>
                             } @else {
                                 <div class="premium-table-wrap">
                                     <table class="premium-table">
                                         <thead>
                                             <tr>
-                                                <th>Date</th>
-                                                <th>Amount</th>
-                                                <th>Plan</th>
-                                                <th>Status</th>
-                                                <th>Event</th>
+                                                <th>{{ 'user.account.col_date' | transloco }}</th>
+                                                <th>{{ 'user.account.col_amount' | transloco }}</th>
+                                                <th>{{ 'user.account.col_plan' | transloco }}</th>
+                                                <th>{{ 'user.account.col_status' | transloco }}</th>
+                                                <th>{{ 'user.account.col_event' | transloco }}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -732,6 +734,7 @@ import { arcCallable } from '../../core/config/arc-functions';
 })
 export default class AccountPageComponent implements OnInit {
     private authState = inject(AuthState);
+    private readonly t = injectT();
     private membership = inject(MembershipService);
     private transactionsService = inject(TransactionsService);
     private creditLedger = inject(CreditLedgerService);
@@ -825,8 +828,8 @@ export default class AccountPageComponent implements OnInit {
             await consume({ amount: 1, note: 'account page test' });
             this.refresh();
         } catch (e) {
-            const msg = (e as { message?: string })?.message ?? 'Could not use a credit.';
-            this.creditError.set(msg.includes('Insufficient') ? 'Insufficient credits.' : 'Could not use a credit.');
+            const msg = (e as { message?: string })?.message ?? '';
+            this.creditError.set(this.t(msg.includes('Insufficient') ? 'user.account.credit_insufficient' : 'user.account.credit_failed'));
         } finally {
             this.spending.set(false);
         }
@@ -834,6 +837,6 @@ export default class AccountPageComponent implements OnInit {
 
     fmtDate(value: unknown): string {
         const d = toJsDate(value);
-        return d ? d.toLocaleString() : '—';
+        return d ? d.toLocaleString(memberLocaleNow()) : '—';
     }
 }

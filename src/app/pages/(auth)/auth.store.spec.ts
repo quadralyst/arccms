@@ -218,7 +218,7 @@ describe('AuthState Store', () => {
         });
 
         it('should map Firebase error codes for user-friendly messages', () => {
-            expect(source).toContain('constant.firebaseAuthErrors.filter');
+            expect(source).toContain('firebaseErrorMessage(say');
         });
 
         it('should set isLoading to true at start', () => {

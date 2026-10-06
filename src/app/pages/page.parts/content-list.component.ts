@@ -26,6 +26,7 @@ import { PageSpinnerComponent } from './page-spinner.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
+import { notFoundText, NotFoundStringKey } from './not-found-strings';
 import { MediaSettingsService } from '../../core/services/media-settings.service';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import {
@@ -59,9 +60,9 @@ import {
         <div class="not-found-container">
             <div class="container text-center py-5">
                 <i class="fas fa-folder-open fa-4x text-muted mb-4"></i>
-                <h2>Content Type Not Found</h2>
-                <p class="text-muted">The content type "{{ contentTypeSlug() }}" does not exist.</p>
-                <a href="/" class="btn btn-primary mt-3">Go Home</a>
+                <h2>{{ notFound('type_not_found_title') }}</h2>
+                <p class="text-muted">{{ notFound('type_not_found_body', { type: contentTypeSlug() }) }}</p>
+                <a href="/" class="btn btn-primary mt-3">{{ notFound('go_home') }}</a>
             </div>
         </div>
     } @else if(templateHtml()) {
@@ -122,6 +123,11 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     private trackedContentTypes = new Set<string>();
 
     contentTypeSlug = signal<string>('');
+
+    /** The not-found text in the page's language (the site's strings). */
+    notFound(key: NotFoundStringKey, params?: Record<string, unknown>): string {
+        return notFoundText(this.uiStrings.strings(), key, params);
+    }
     templateHtml = signal<string>('');
 
     /**

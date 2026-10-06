@@ -10,6 +10,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { injectT } from '../../../core/i18n/inject-t';
+import { sentenceParts } from '../../../core/i18n/sentence-parts';
+import type { TranslationKey } from '../../../core/i18n/translation-keys';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthState } from '../auth.store';
@@ -35,11 +39,11 @@ interface Flow {
 @Component({
     selector: 'arc-sign-in-methods',
     standalone: true,
-    imports: [FormsModule, NgTemplateOutlet, CodeInputComponent],
+    imports: [FormsModule, NgTemplateOutlet, TranslocoPipe, CodeInputComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="card-title-row">
-            <h2 class="section-title"><i class="fas fa-key me-2"></i> Sign-in methods</h2>
+            <h2 class="section-title"><i class="fas fa-key me-2"></i> {{ 'member.methods.title' | transloco }}</h2>
         </div>
 
         @if (message()) {
@@ -48,15 +52,15 @@ interface Flow {
 
         <!-- Email -->
         <div class="info-row">
-            <label>Email</label>
+            <label>{{ 'member.methods.email' | transloco }}</label>
             @if (flow()?.kind !== 'email') {
                 <div class="info-value">
-                    <span [class.text-muted]="!user()?.email">{{ user()?.email || 'Not added' }}</span>
+                    <span [class.text-muted]="!user()?.email">{{ user()?.email || ('member.methods.not_added' | transloco) }}</span>
                     @if (user()?.email && user()?.emailVerified) {
-                        <span class="verified-badge"><i class="fas fa-check-circle me-1"></i>Verified</span>
+                        <span class="verified-badge"><i class="fas fa-check-circle me-1"></i>{{ 'member.methods.verified' | transloco }}</span>
                     }
                     <button class="btn btn-sm btn-outline-secondary" (click)="start('email')" [disabled]="!!flow()">
-                        {{ user()?.email ? 'Change' : 'Add' }}
+                        {{ (user()?.email ? 'member.methods.change' : 'member.methods.add') | transloco }}
                     </button>
                 </div>
             } @else {
@@ -67,30 +71,30 @@ interface Flow {
         <!-- Phone -->
         @if (phoneEnabled() || user()?.phone) {
             <div class="info-row">
-                <label>Phone number</label>
+                <label>{{ 'member.methods.phone' | transloco }}</label>
                 @if (flow()?.kind !== 'phone' && !changingPin()) {
                     <div class="info-value">
-                        <span [class.text-muted]="!user()?.phone">{{ user()?.phone ? phoneShown() : 'Not added' }}</span>
+                        <span [class.text-muted]="!user()?.phone">{{ user()?.phone ? phoneShown() : ('member.methods.not_added' | transloco) }}</span>
                         @if (user()?.phone) {
-                            <button class="btn btn-sm btn-link" (click)="startPinChange()" [disabled]="!!flow()">Change PIN</button>
+                            <button class="btn btn-sm btn-link" (click)="startPinChange()" [disabled]="!!flow()">{{ 'member.methods.change_pin' | transloco }}</button>
                         }
                         @if (phoneEnabled()) {
                             <button class="btn btn-sm btn-outline-secondary" (click)="start('phone')" [disabled]="!!flow()">
-                                {{ user()?.phone ? 'Change' : 'Add' }}
+                                {{ (user()?.phone ? 'member.methods.change' : 'member.methods.add') | transloco }}
                             </button>
                         }
                     </div>
                 } @else if (changingPin()) {
                     <div class="edit-form">
-                        <div class="form-label small">New 6-digit PIN</div>
-                        <arc-code-input label="New PIN" [masked]="true" [oneTimeCode]="false" [disabled]="busy()"
+                        <div class="form-label small">{{ 'member.methods.new_pin_heading' | transloco }}</div>
+                        <arc-code-input [label]="'member.methods.new_pin' | transloco" [masked]="true" [oneTimeCode]="false" [disabled]="busy()"
                             (changed)="secret.set($event)" />
                         @if (error()) { <div class="text-danger small mt-2">{{ error() }}</div> }
                         <div class="edit-actions">
                             <button class="btn btn-sm btn-primary" (click)="savePin()" [disabled]="busy()">
-                                Save PIN @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
+                                {{ 'member.methods.save_pin' | transloco }} @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
                             </button>
-                            <button class="btn btn-sm btn-light" (click)="cancel()">Cancel</button>
+                            <button class="btn btn-sm btn-light" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
                         </div>
                     </div>
                 } @else {
@@ -102,11 +106,11 @@ interface Flow {
         <!-- Google -->
         @if (googleEnabled()) {
             <div class="info-row">
-                <label>Google</label>
+                <label>{{ 'member.methods.google' | transloco }}</label>
                 <div class="info-value">
-                    <span [class.text-muted]="!googleConnected()">{{ googleConnected() ? 'Connected' : 'Not connected' }}</span>
+                    <span [class.text-muted]="!googleConnected()">{{ (googleConnected() ? 'member.methods.connected' : 'member.methods.not_connected') | transloco }}</span>
                     @if (!googleConnected()) {
-                        <button class="btn btn-sm btn-outline-secondary" (click)="connectGoogle()" [disabled]="!!flow() || busy()">Connect</button>
+                        <button class="btn btn-sm btn-outline-secondary" (click)="connectGoogle()" [disabled]="!!flow() || busy()">{{ 'member.methods.connect' | transloco }}</button>
                     }
                 </div>
             </div>
@@ -118,33 +122,34 @@ interface Flow {
                 @switch (f.step) {
                     @case ('enter') {
                         <input class="form-control" [type]="f.kind === 'email' ? 'email' : 'tel'"
-                            [placeholder]="f.kind === 'email' ? 'name@example.com' : '98765 43210'"
+                            [placeholder]="(f.kind === 'email' ? 'member.methods.email_placeholder' : 'member.methods.phone_placeholder') | transloco"
                             [autocomplete]="f.kind === 'email' ? 'email' : 'tel'"
                             [ngModel]="f.typed" (ngModelChange)="setTyped($event)"
                             (paste)="cleanTyped()" (blur)="cleanTyped()" (keydown.enter)="sendCode()" />
                         @if (f.check?.status === 'other') {
                             <div class="small mt-2 move-note">
-                                This {{ f.kind === 'email' ? 'email' : 'number' }} is linked to another account. Verify it to move it here.
-                                <a class="ms-1" role="button" (click)="signInElsewhere()">Sign in to that account instead</a>
+                                {{ (f.kind === 'email' ? 'member.methods.move_email' : 'member.methods.move_number') | transloco }}
+                                <a class="ms-1" role="button" (click)="signInElsewhere()">{{ 'member.methods.sign_in_elsewhere' | transloco }}</a>
                             </div>
                         }
                     }
                     @case ('code') {
-                        <div class="small text-muted mb-2">Enter the 6-digit code sent to <strong>{{ shownValue() }}</strong></div>
-                        <arc-code-input #codeBoxes label="Verification code" [disabled]="busy()" [invalid]="!!error()"
+                        @let sent = codeSentParts();
+                        <div class="small text-muted mb-2">{{ sent[0] }}<strong>{{ shownValue() }}</strong>{{ sent[1] }}</div>
+                        <arc-code-input #codeBoxes [label]="'member.auth.code_label' | transloco" [disabled]="busy()" [invalid]="!!error()"
                             (completed)="verifyCode($event)" />
                         @if (testCodeInLogs()) {
-                            <div class="small text-muted mt-2">Test mode, no SMS sent. An admin can read the code in SMS Logs.</div>
+                            <div class="small text-muted mt-2">{{ 'member.auth.test_code_in_logs' | transloco }}</div>
                         }
                     }
                     @case ('secret') {
                         @if (f.kind === 'phone') {
-                            <div class="form-label small">Choose a 6-digit PIN for signing in with your number</div>
-                            <arc-code-input label="New PIN" [masked]="true" [oneTimeCode]="false" [disabled]="busy()"
+                            <div class="form-label small">{{ 'member.methods.choose_pin_number' | transloco }}</div>
+                            <arc-code-input [label]="'member.methods.new_pin' | transloco" [masked]="true" [oneTimeCode]="false" [disabled]="busy()"
                                 (changed)="secret.set($event)" />
                         } @else {
-                            <div class="form-label small">Choose a password for signing in with your email</div>
-                            <input class="form-control" type="password" autocomplete="new-password" placeholder="At least 8 characters"
+                            <div class="form-label small">{{ 'member.methods.choose_password_email' | transloco }}</div>
+                            <input class="form-control" type="password" autocomplete="new-password" [placeholder]="'member.methods.password_placeholder' | transloco"
                                 [ngModel]="secret()" (ngModelChange)="secret.set($event)" (keydown.enter)="finish()" />
                         }
                     }
@@ -154,22 +159,22 @@ interface Flow {
                     @switch (f.step) {
                         @case ('enter') {
                             <button class="btn btn-sm btn-primary" (click)="sendCode()" [disabled]="busy()">
-                                Send code @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
+                                {{ 'member.methods.send_code' | transloco }} @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
                             </button>
                         }
                         @case ('code') {
                             <button class="btn btn-sm btn-primary" (click)="verifyCode()" [disabled]="busy()">
-                                Verify @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
+                                {{ 'member.auth.verify' | transloco }} @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
                             </button>
-                            <button class="btn btn-sm btn-link" (click)="resend()" [disabled]="busy()">Resend</button>
+                            <button class="btn btn-sm btn-link" (click)="resend()" [disabled]="busy()">{{ 'member.auth.resend' | transloco }}</button>
                         }
                         @case ('secret') {
                             <button class="btn btn-sm btn-primary" (click)="finish()" [disabled]="busy()">
-                                Save @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
+                                {{ 'member.profile.save' | transloco }} @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
                             </button>
                         }
                     }
-                    <button class="btn btn-sm btn-light" (click)="cancel()">Cancel</button>
+                    <button class="btn btn-sm btn-light" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
                 </div>
             </div>
         </ng-template>
@@ -197,6 +202,7 @@ export class SignInMethodsComponent implements OnInit {
     private readonly toast = inject(ToastService);
     private readonly settings = inject(UserSettingService);
     private readonly router = inject(Router);
+    private readonly t = injectT();
 
     readonly user = this.authStore.currentUser;
     readonly phoneShown = computed(() => formatPhone(this.user()?.phone ?? ''));
@@ -217,6 +223,11 @@ export class SignInMethodsComponent implements OnInit {
     readonly testCodeInLogs = signal(false);
 
     private readonly codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
+
+    /** "Enter the 6-digit code sent to {value}", split so the value can be bold (L-D15). */
+    codeSentParts(): [string, string] {
+        return sentenceParts((k, p) => this.t(k as TranslationKey, p), 'member.methods.code_sent_to');
+    }
 
     readonly shownValue = computed(() => {
         const f = this.flow();
@@ -280,7 +291,7 @@ export class SignInMethodsComponent implements OnInit {
         if (!f || this.busy()) return;
         const id = classifyIdentifier(f.typed);
         if (id.kind !== f.kind) {
-            this.error.set(f.kind === 'email' ? 'Enter a valid email address.' : 'Enter a valid mobile number.');
+            this.error.set(this.t(f.kind === 'email' ? 'member.methods.invalid_email' : 'member.methods.invalid_phone'));
             return;
         }
         await this.run(async () => {
@@ -288,8 +299,8 @@ export class SignInMethodsComponent implements OnInit {
             if (!check) {
                 check = await this.signIn.checkForLink(f.typed);
                 this.flow.set({ ...f, check });
-                if (check.status === 'yours') throw { code: 'local', message: `This ${f.kind === 'email' ? 'email' : 'number'} is already on your account.` };
-                if (check.status === 'blocked') throw { code: 'local', message: 'This email is used by an account that cannot be moved here.' };
+                if (check.status === 'yours') throw { code: 'local', message: this.t(f.kind === 'email' ? 'member.methods.already_yours_email' : 'member.methods.already_yours_number') };
+                if (check.status === 'blocked') throw { code: 'local', message: this.t('member.methods.blocked_email') };
                 if (check.status === 'other') return; // shown; the next press sends the code
             }
             await this.requestCode(check);
@@ -303,7 +314,7 @@ export class SignInMethodsComponent implements OnInit {
         await this.run(async () => {
             await this.requestCode(check);
             this.codeBoxes()?.reset();
-            this.toast.success('A new code is on its way');
+            this.toast.success(this.t('member.methods.new_code'));
         });
     }
 
@@ -323,7 +334,7 @@ export class SignInMethodsComponent implements OnInit {
         const value = code ?? this.codeBoxes()?.value() ?? '';
         if (!f?.check || this.busy()) return;
         if (value.length !== 6) {
-            this.error.set('Please enter the 6-digit code.');
+            this.error.set(this.t('member.methods.enter_code'));
             return;
         }
         const check = f.check;
@@ -348,34 +359,38 @@ export class SignInMethodsComponent implements OnInit {
         const secret = this.secret();
         if (f.step === 'secret') {
             if (check.kind === 'phone' && !/^\d{6}$/.test(secret)) {
-                this.error.set('Choose a 6-digit PIN.');
+                this.error.set(this.t('member.methods.choose_pin'));
                 return;
             }
             if (check.kind === 'email' && secret.length < 8) {
-                this.error.set('Use at least 8 characters.');
+                this.error.set(this.t('member.methods.password_min'));
                 return;
             }
         }
-        const label = check.kind === 'email' ? 'Email' : 'Phone number';
+
         await this.run(async () => {
             const result = check.kind === 'email'
                 ? await this.signIn.linkEmail(check.value, secret || undefined)
                 : await this.signIn.linkPhone(check.value, secret || undefined);
             await this.authStore.refreshCurrentUser();
             this.reset();
-            this.message.set(result.moved ? `${label} moved to this account.` : `${label} saved.`);
+            // Whole sentences per case, so each language orders its own words (L-D15).
+            const email = check.kind === 'email';
+            this.message.set(this.t(result.moved
+                ? (email ? 'member.methods.email_moved' : 'member.methods.phone_moved')
+                : (email ? 'member.methods.email_saved' : 'member.methods.phone_saved')));
         });
     }
 
     async savePin(): Promise<void> {
         if (!/^\d{6}$/.test(this.secret())) {
-            this.error.set('Choose a 6-digit PIN.');
+            this.error.set(this.t('member.methods.choose_pin'));
             return;
         }
         await this.run(async () => {
             await this.signIn.setPin(this.secret());
             this.reset();
-            this.message.set('PIN changed.');
+            this.message.set(this.t('member.methods.pin_changed'));
         });
     }
 
@@ -383,12 +398,12 @@ export class SignInMethodsComponent implements OnInit {
         const ok = await this.run(() => this.signIn.connectGoogle(), (err) => {
             const code = String((err as { code?: string })?.code ?? '');
             if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return '';
-            if (code === 'auth/credential-already-in-use') return 'This Google account is already used by another account.';
-            return 'Google could not be connected. Please try again.';
+            if (code === 'auth/credential-already-in-use') return this.t('member.methods.google_in_use');
+            return this.t('member.methods.google_failed');
         });
         if (ok) {
             this.googleConnected.set(true);
-            this.message.set('Google connected.');
+            this.message.set(this.t('member.methods.google_connected'));
         }
     }
 

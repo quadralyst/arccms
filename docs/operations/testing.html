@@ -39,7 +39,7 @@
     <p>The rules tests in <code>tests/rules/</code> are left out of this run (see <a href="#rules-tests">Rules tests</a>).</p>
 
     <h2>Write a component spec</h2>
-    <p>Component specs use Angular's <code>TestBed</code> with Vitest (<code>vi.fn()</code>, <code>vi.mock()</code>). <code>src/test/setup.ts</code> already starts the Angular test environment and gives every spec Transloco with the real English strings, so a rendered template shows the text a person sees.</p>
+    <p>Component specs use Angular's <code>TestBed</code> with Vitest (<code>vi.fn()</code>, <code>vi.mock()</code>). <code>src/test/setup.ts</code> already starts the Angular test environment and gives every spec Transloco with the real English strings, so a rendered template shows the text a person sees. Code that builds a message with a key, outside a template, can be checked against the same English with <code>english(key, params)</code> from <code>src/test/english.ts</code>, which also stands in for a component's translate function on a mock. To prove a screen has no English left, render it with <code>pseudoTestingModule()</code> from <code>src/test/pseudo-language.ts</code>, a pseudo language of the member keys, and expect <code>textNotInPseudo(fixture.nativeElement)</code> to be empty (see <a href="../app/member-languages.html">Member languages</a>).</p>
     <p>The part to plan for is Firebase. Many services reach it indirectly, and a spec must mock whatever would:</p>
     <table>
       <thead><tr><th>Your component uses</th><th>It pulls in</th><th>Do this</th></tr></thead>

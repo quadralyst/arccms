@@ -21,6 +21,7 @@ vi.mock('@angular/fire/functions', () => ({
 
 import SignupComponent from './signup.page';
 import { homeFor } from '../../../core/home/home';
+import { english } from '../../../../test/english';
 
 describe('SignupComponent', () => {
     describe('Component Definition', () => {
@@ -315,6 +316,7 @@ describe('SignupComponent', () => {
         it.each(['', '123'])('verifyOtp asks for all 6 digits when given %j', async (entered) => {
             const mockOtpError = { set: vi.fn() };
             const mockContext = {
+                t: english,
                 codeBoxes: () => ({ value: () => entered }),
                 otpError: mockOtpError,
                 isLoading: loading(),
@@ -338,6 +340,7 @@ describe('SignupComponent', () => {
 
         function ctx(channel: 'email' | 'phone' = 'email', purpose: 'signup' | 'reset' = 'signup') {
             return {
+                t: english,
                 email: 'new@user.com',
                 channel: () => channel,
                 phone: () => '+919876543210',
@@ -393,6 +396,7 @@ describe('SignupComponent', () => {
 
         function ctx(account: Record<string, unknown>) {
             return {
+                t: english,
                 isLoading: { set: vi.fn() },
                 errorMessage: { set: vi.fn() },
                 channel: { set: vi.fn() },
@@ -450,6 +454,7 @@ describe('SignupComponent', () => {
             let shown = '';
             let inLogs = false;
             return {
+                t: english,
                 channel: () => 'phone',
                 phone: () => '+919876543210',
                 phonePurpose: () => purpose,
@@ -497,6 +502,7 @@ describe('SignupComponent', () => {
 
         function ctx(error?: Record<string, unknown>) {
             const c: Record<string, any> = {
+                t: english,
                 phone: () => '+919876543210',
                 isLoading: Object.assign(() => false, { set: vi.fn() }),
                 errorMessage: { set: vi.fn() },
@@ -535,6 +541,7 @@ describe('SignupComponent', () => {
 
         function ctx(mustVerify: boolean, emailExists = false, status?: string) {
             return {
+                t: english,
                 email: 'new@user.com',
                 isLoading: { set: vi.fn() },
                 errorMessage: { set: vi.fn() },
@@ -596,6 +603,7 @@ describe('SignupComponent', () => {
         function ctx(isAdmin: boolean, inProgress = false, url = '/signup', role = 'user') {
             const navigate = vi.fn();
             return {
+                t: english,
                 navigationInProgress: inProgress,
                 authStore: { currentUser: () => ({ uid: 'u1', role }), isAdmin: () => isAdmin },
                 toastService: { success: vi.fn() },
@@ -658,6 +666,7 @@ describe('SignupComponent', () => {
 
     describe('handleAuthError', () => {
         const ctx = (step: string) => ({
+            t: english,
             currentStep: vi.fn(() => step),
             goToStep: vi.fn(),
             errorMessage: { set: vi.fn() },

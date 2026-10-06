@@ -3,14 +3,17 @@ import { AsyncPipe } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
+import { TranslocoService } from '@jsverse/transloco';
 import { catchError, map, of } from 'rxjs';
 
 export const routeMeta: RouteMeta = {
     title: 'Unauthorized | Arc CMS',
 };
 
-const FALLBACK_HTML =
-    '<div class="container p-5 text-center"><h1>403 - Forbidden</h1><p>Access Denied</p><a href="/signup">Go to Signup</a></div>';
+/** What shows when /403.html cannot be read: the same message, in the person's language. */
+export function fallbackHtml(t: (key: string) => string): string {
+    return `<div class="container p-5 text-center"><h1>${t('member.unauthorized.heading')}</h1><p>${t('member.unauthorized.description')}</p><a href="/signup">${t('member.unauthorized.sign_up')}</a></div>`;
+}
 
 @Component({
     selector: 'app-unauthorized',
@@ -24,12 +27,13 @@ const FALLBACK_HTML =
 export default class UnauthorizedComponent {
     private http = inject(HttpClient);
     private sanitizer = inject(DomSanitizer);
+    private transloco = inject(TranslocoService);
 
     pageContent$ = this.http.get('/403.html', { responseType: 'text' }).pipe(
         map((html) => this.sanitizer.bypassSecurityTrustHtml(html)),
         catchError((err) => {
             console.error('Failed to load unauthorized template', err);
-            return of(this.sanitizer.bypassSecurityTrustHtml(FALLBACK_HTML));
+            return of(this.sanitizer.bypassSecurityTrustHtml(fallbackHtml((key) => this.transloco.translate(key))));
         }),
     );
 }

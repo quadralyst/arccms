@@ -17,14 +17,14 @@
     <table>
       <thead><tr><th></th><th>Public site</th><th>Admin interface</th></tr></thead>
       <tbody>
-        <tr><td>Who reads it</td><td>Visitors</td><td>Admins and signed-in members</td></tr>
+        <tr><td>Who reads it</td><td>Visitors</td><td>Admins, and signed-in members unless the app gives them languages of their own</td></tr>
         <tr><td>What it translates</td><td>Content, content type names, and the words in templates and partials</td><td>Buttons, labels, menus, messages</td></tr>
         <tr><td>Language list</td><td>Admin, Settings, Localization (<code>Settings/localization</code>)</td><td><code>ADMIN_LANGUAGES</code> in <code>src/app/core/i18n/admin-languages.ts</code></td></tr>
-        <tr><td>Chosen by</td><td>The URL</td><td>The language picker in the page header</td></tr>
+        <tr><td>Chosen by</td><td>The URL</td><td>The language picker in the page header (in the admin area only, when the app declares member languages)</td></tr>
         <tr><td>Mechanism</td><td>Translation documents, plus <code>data-arc-t</code> and the site's strings files (<code>/_site/strings/{lang}.json</code>)</td><td>Transloco, with <code>src/assets/i18n/{lang}.json</code></td></tr>
       </tbody>
     </table>
-    <p>Arc CMS ships English and Hindi for both.</p>
+    <p>Arc CMS ships English and Hindi for both. An app can give its members, and people on the sign-in page, a language Arc CMS does not ship, such as German, while the admin keeps English and Hindi: see <a href="../app/member-languages.html">Member languages</a>.</p>
     <div class="note"><p>Emails are English only, and so are the unsubscribe and email preferences pages. Nothing in the email engine reads a language.</p></div>
 
     <h3>URLs</h3>
@@ -73,7 +73,7 @@ arc_articles/{id}/translations/hi     Hindi: only what is translated</code></pre
 &lt;span data-arc-t="min_read"&gt;{{ readTime }} min read&lt;/span&gt;
 &lt;span data-arc-t="seats_left" data-arc-t-params='{"count": 5}'&gt;5 seats left&lt;/span&gt;</code></pre>
     <p>Then add each key to the language's strings file, <code class="new">src/custom/site/strings/{lang}.json</code>, a flat JSON object of <code>"key": "text"</code> pairs. Arc CMS ships one for Hindi (<code>public/_site/strings/hi.json</code>); an app's file for a language Arc CMS ships is merged over it key by key, so it holds only the keys the app adds or rewords, and keeps receiving Arc CMS's new keys. For any other language the app's file is the whole list. A file for the default language is not used, and an empty value counts as untranslated. Values may use <code>{{ }}</code> template values (<code>"min_read": "{{ readTime }} मिनट का पठन"</code>), because strings are applied before the template is filled, or values from <code>data-arc-t-params</code> (<code>"seats_left": "{{ count }} सीटें बाकी"</code>). <code>data-arc-t</code> replaces everything inside the element, so keep icons outside it. The same three attributes work on published pages and in the Angular app. Published pages bake the strings in at publish time, and the functions cache the strings files for five minutes. The website walkthrough is <a href="../website/languages.html#write-a-strings-file">Write a strings file</a>.</p>
-    <div class="note"><p>A few keys are read by publishing as well as by <code>data-arc-t</code>: <code>min_read</code> becomes <code>{{ readingTime }}</code> ("5 min read"), <code>latest_of_type</code> the default heading of a card block, the <code>signup_*</code> keys the signup panels, the <code>contact_*</code> keys the contact form's messages, and <code>legal_*</code> and <code>contact_notice</code> the notices under the forms (see <code>public/_site/strings/hi.json</code> for the full list). A <code>&lt;time data-arc-bind&gt;</code> date is written in the page's language.</p></div>
+    <div class="note"><p>A few keys are read by publishing as well as by <code>data-arc-t</code>: <code>min_read</code> becomes <code>{{ readingTime }}</code> ("5 min read"), <code>latest_of_type</code> the default heading of a card block, the <code>signup_*</code> keys the signup panels, the <code>contact_*</code> keys the contact form's messages, <code>content_not_found_*</code>, <code>type_not_found_*</code> and <code>go_home</code> what a content or list page says when there is nothing to show, and <code>legal_*</code> and <code>contact_notice</code> the notices under the forms (see <code>public/_site/strings/hi.json</code> for the full list). A <code>&lt;time data-arc-bind&gt;</code> date is written in the page's language.</p></div>
 
     <h3>The language switcher</h3>
     <p>The site header's <code>&lt;arc-language-switcher&gt;</code> becomes the switcher: markup on published pages, a component in the app. It offers only the languages the current page exists in, never every enabled language, so it never links to a missing page. A page in the app declares its languages with <code>LocalizationService.languageVariants.set([...])</code> and clears it with <code>set(null)</code> when it leaves; a page that sets nothing shows no switcher. The switcher stores the visitor's choice in <code>localStorage</code> as <code>arc-lang</code>, but nothing reads it: a visitor landing on <code>/</code> gets the default language.</p>

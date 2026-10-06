@@ -33,7 +33,8 @@ import { environment } from '../environments/environment';
 import { arcFirestore, arcFunctions, arcStorage } from './core/config/arc-firebase';
 import { ADMIN_LANGUAGE_CODES, DEFAULT_ADMIN_LANGUAGE } from './core/i18n/admin-languages';
 import { AdminTranslationLoader } from './core/i18n/translation.loader';
-import { provideAdminLocale } from './core/i18n/admin-locale.provider';
+import { loadStartupLocaleData, provideAdminLocale } from './core/i18n/admin-locale.provider';
+import { LanguageAreaService, MEMBER_LANGUAGE_LIST } from './core/i18n/member-language.service';
 import { TranslatedPaginatorIntl } from './core/i18n/paginator-intl';
 import { PwaService } from './core/pwa/pwa.service';
 import { AnalyticsService } from './core/analytics/analytics.service';
@@ -78,7 +79,8 @@ export const appConfig: ApplicationConfig = {
     // will — see core/i18n/translation.loader.ts.
     provideTransloco({
       config: {
-        availableLangs: [...ADMIN_LANGUAGE_CODES],
+        // The admin's languages, and the ones the app adds for its members (docs/app/member-languages.html).
+        availableLangs: [...new Set([...ADMIN_LANGUAGE_CODES, ...MEMBER_LANGUAGE_LIST.map((l) => l.code)])],
         defaultLang: DEFAULT_ADMIN_LANGUAGE,
         // A key missing from a translation falls back to English rather than
         // rendering the key itself. This is what makes M7 shippable in
@@ -91,6 +93,9 @@ export const appConfig: ApplicationConfig = {
       loader: AdminTranslationLoader,
     }),
     provideAdminLocale(),
+    // Member languages: their locale data before the first render, and the language per area.
+    provideAppInitializer(() => loadStartupLocaleData()),
+    provideAppInitializer(() => { inject(LanguageAreaService); }),
     // Material's paginator ships its own English; see paginator-intl.ts.
     { provide: MatPaginatorIntl, useClass: TranslatedPaginatorIntl },
 

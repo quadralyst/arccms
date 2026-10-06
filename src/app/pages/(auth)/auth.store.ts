@@ -18,15 +18,15 @@ import { ToastService } from '../../../shared/services/toast.service';
 import { IAuth } from './auth.model';
 import { AuthService } from './auth.service';
 import { readSignInError, SignInService } from './sign-in.service';
+import { TranslocoService } from '@jsverse/transloco';
+import { BLOCKED_KEY, FALLBACK_KEY, NO_ACCESS_KEY, UNFINISHED_SIGNUP_KEY, firebaseErrorMessage, type Translate } from './auth-messages';
 
 /** Signed in with a valid password but no ArcCMS record: no access (CO6.6). */
 export const NO_ACCESS_CODE = 'arccms/no-access';
-export const NO_ACCESS_MESSAGE = "This account doesn't have access to this site. Ask an administrator to add you.";
 /** Signed in with a valid password, but an admin blocked the account. */
 export const BLOCKED_CODE = 'arccms/blocked';
-export const BLOCKED_MESSAGE = 'This account is blocked. Please contact the site administrator.';
-const FALLBACK_MESSAGE = 'Something went wrong. Please try again.';
-export const UNFINISHED_SIGNUP_MESSAGE = "We couldn't finish creating your account. Check your connection, then sign in with your email and password.";
+// The messages, as translation keys (auth-messages.ts, specs/app-member-language-spec.md).
+export { BLOCKED_KEY, NO_ACCESS_KEY, UNFINISHED_SIGNUP_KEY } from './auth-messages';
 
 /** Answers from createAccountRecord that mean it wrote nothing: safe to remove the new sign-in. */
 const RECORD_REFUSALS = ['already-exists', 'failed-precondition', 'invalid-argument', 'permission-denied', 'unauthenticated'];
@@ -117,7 +117,10 @@ export const AuthState = signalStore(
             constant = inject(ConstantVariables),
             toastService = inject(ToastService),
             injector = inject(Injector),
+            transloco = inject(TranslocoService),
         ) => {
+            // Messages in the person's language (specs/app-member-language-spec.md, A1b).
+            const say: Translate = (key, params) => transloco.translate(key, params);
             // Looked up when first needed, so everything that only reads the auth
             // state does not also need Firebase Functions.
             const signIn = () => injector.get(SignInService);
@@ -190,16 +193,16 @@ export const AuthState = signalStore(
                                             // the login is older than a day (another app's user, most
                                             // likely), and then this is no access.
                                             const name = String((res as { displayName?: string }).displayName || form.email.split('@')[0]).trim();
-                                            return from(createRecordWithRetry(() => signIn().createAccountRecord(name.length >= 2 ? name : 'Member', { finish: true }))).pipe(
+                                            return from(createRecordWithRetry(() => signIn().createAccountRecord(name.length >= 2 ? name : say('user.member'), { finish: true }))).pipe(
                                                 switchMap((result) => (result.outcome === 'ok'
                                                     ? from(this.refreshCurrentUser()).pipe(map(() => res))
                                                     : authService.logout().pipe(
-                                                        tap(() => patchState(store, { error: NO_ACCESS_MESSAGE, errorCode: NO_ACCESS_CODE, isSuccess: false })),
+                                                        tap(() => patchState(store, { error: say(NO_ACCESS_KEY), errorCode: NO_ACCESS_CODE, isSuccess: false })),
                                                         map(() => null),
                                                     ))),
                                             );
                                         }
-                                        const [error, errorCode] = [BLOCKED_MESSAGE, BLOCKED_CODE];
+                                        const [error, errorCode] = [say(BLOCKED_KEY), BLOCKED_CODE];
                                         return authService.logout().pipe(
                                             tap(() => patchState(store, { error, errorCode, isSuccess: false })),
                                             map(() => null),
@@ -209,14 +212,12 @@ export const AuthState = signalStore(
                             }),
                             tap((res) => {
                                 if (res && res.uid) {
-                                    const message = 'Logged in successfully.';
-                                    toastService.success(message);
+                                    toastService.success(say('member.auth.logged_in'));
                                 }
                             }),
                             catchError((err) => {
                                 console.error('Login error:', err.code);
-                                const findMessage = constant.firebaseAuthErrors.filter((item) => item.code === err.code);
-                                patchState(store, { isLoading: false, isSuccess: false, error: findMessage[0]?.message || FALLBACK_MESSAGE, errorCode: err.code || '' });
+                                patchState(store, { isLoading: false, isSuccess: false, error: firebaseErrorMessage(say, err.code), errorCode: err.code || '' });
                                 return of(null);
                             }),
                             finalize(() => {
@@ -247,24 +248,23 @@ export const AuthState = signalStore(
                                             return;
                                         }
                                         console.error('Failed to create the account record:', result.error);
-                                        const error = readSignInError(result.error, FALLBACK_MESSAGE);
+                                        const error = readSignInError(result.error, say(FALLBACK_KEY));
                                         if (result.outcome === 'refused') {
                                             // Nothing was written: leave no sign-in behind, so the person can simply try again.
                                             await res.delete().catch(() => undefined);
                                             patchState(store, { isLoading: false, error: error.message, errorCode: error.code, isSuccess: false });
                                         } else {
-                                            patchState(store, { isLoading: false, error: UNFINISHED_SIGNUP_MESSAGE, errorCode: error.code, isSuccess: false });
+                                            patchState(store, { isLoading: false, error: say(UNFINISHED_SIGNUP_KEY), errorCode: error.code, isSuccess: false });
                                         }
                                     })
                                     .catch((err) => {
                                         console.error('Failed to load the new account:', err);
-                                        patchState(store, { isLoading: false, error: UNFINISHED_SIGNUP_MESSAGE, isSuccess: false });
+                                        patchState(store, { isLoading: false, error: say(UNFINISHED_SIGNUP_KEY), isSuccess: false });
                                     });
                             }),
                             catchError((err) => {
                                 console.error('Signup error:', err.code);
-                                const errorMessage = constant.firebaseAuthErrors.find((item) => item.code === err.code)?.message || FALLBACK_MESSAGE;
-                                patchState(store, { isLoading: false, error: errorMessage, errorCode: err.code || '', isSuccess: false });
+                                patchState(store, { isLoading: false, error: firebaseErrorMessage(say, err.code), errorCode: err.code || '', isSuccess: false });
                                 return of(null);
                             }),
                         )
@@ -288,7 +288,7 @@ export const AuthState = signalStore(
                             patchState(store, {
                                 isLoading: false,
                                 isSuccess: false,
-                                error: error.message || 'Logout failed',
+                                error: error.message || say('member.auth.logout_failed'),
                             });
                             return throwError(() => error);
                         }),
@@ -316,7 +316,7 @@ export const AuthState = signalStore(
                             patchState(store, {
                                 isLoading: false,
                                 isSuccess: false,
-                                error: result || 'An error occurred while updating the profile',
+                                error: result || say('member.auth.profile_update_failed'),
                             });
                         }
                     } catch (error: any) {
@@ -333,13 +333,10 @@ export const AuthState = signalStore(
                         if (result === 'Password updated') {
                             patchState(store, { isLoading: false, isSuccess: true, error: '' });
                         } else {
-                            const findMessage = constant.firebaseAuthErrors.filter(
-                                (item) => item.code === result,
-                            );
-                            const errorMsg =
-                                findMessage.length > 0
-                                    ? findMessage[0].message
-                                    : result || 'Failed to update password';
+                            // A Firebase code reads as its message; anything else is shown as it came.
+                            const errorMsg = result && result.startsWith('auth/')
+                                ? firebaseErrorMessage(say, result, 'member.auth.password_update_failed')
+                                : result || say('member.auth.password_update_failed');
                             patchState(store, { isLoading: false, isSuccess: false, error: errorMsg });
                         }
                     } catch (error: any) {
