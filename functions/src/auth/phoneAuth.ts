@@ -33,6 +33,7 @@ import {
     issueSignInToken,
     isValidPin,
     isWeakPin,
+    newUserRecord,
     requireOwnRecord,
     requirePhoneSignIn,
     setPin as storePin,
@@ -157,23 +158,7 @@ export const completePhoneSignup = onCall(async (request) => {
         await db.runTransaction(async (tx) => {
             if ((await tx.get(indexRef)).exists) throw new HttpsError('already-exists', 'This number already has an account.');
             tx.create(indexRef, { userDocId: ref.id, uid, createdAt: now });
-            tx.set(ref, {
-                id: ref.id,
-                uid,
-                name,
-                email: '',
-                emailVerified: false,
-                phone,
-                phoneVerified: true,
-                role: signIn.defaultRole,
-                status: 'Active',
-                isActive: true,
-                by: 'phone',
-                createdBy: uid,
-                modifiedBy: uid,
-                createdAt: now,
-                modifiedAt: now,
-            });
+            tx.set(ref, newUserRecord({ id: ref.id, uid, name, role: signIn.defaultRole, by: 'phone', now, phone, phoneVerified: true }));
         });
     } catch (err) {
         // Never leave a sign-in account behind that no record points to.

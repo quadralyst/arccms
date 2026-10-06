@@ -1,6 +1,6 @@
 # App Accounts Without Email or Phone, and App Claims: Build Spec (A5)
 
-**Status:** spec written 2026-10-06, not built.
+**Status:** built 2026-10-06 on `feat/app-accounts`; suite and rules tests green, docs updated (docs/app/app-accounts.html, docs/app/app-kit.html). A real create, sign-in and delete on the dev project is in the end-of-work checks. Not yet merged to `dev`.
 **Branch:** `feat/app-accounts`, cut from `dev` (10c8734).
 **Scope:** an app built on Arc CMS can create people who have no email and no phone (for
 example shop staff), sign them in with a custom token, put its own claims on them without
@@ -109,3 +109,26 @@ copying it, so the two cannot drift apart.
   the app is still there after an Arc role change, then deleting the account removes it and
   the event appears. Rules unchanged, so no rules deploy.
 - Frontend checks at `localhost:5173` for the three admin changes.
+
+**Built 2026-10-06.** As specced, plus three things found while building:
+
+- **No "just signed up" alert for app accounts.** `onUserCreated` would have told every admin
+  "Anna just signed up" for each staff account an app creates. It now skips the admin alert
+  for `by: 'app'` and still emits `user.signed_up`.
+- **`isArcAdmin` is in the kit,** because the docs' admin-only callable example needs it and
+  apps should import only from the kit.
+- **Claims before the record.** `createAppAccount` writes all claims first, then the record,
+  so the first sign-in's token already carries them; the role trigger's later write merges.
+- **Test mocks made realistic.** Five existing specs mocked `getUser` with fixed claims, so the
+  new read-back could never see a write land. Their fakes now keep what is written, as
+  Firebase does.
+- The empty-value audit covered eleven exact-email lookups (no exact-phone ones exist: phone
+  lookups go through the hashed index). The riskiest were the payment webhook
+  (`entitlements.ts`, would have matched the first blank-email person on a payment with no
+  email) and contact erasure (`eraseContact.ts`).
+
+**End-of-work checks (functions deploy, targeted, by Gunjan):** a custom callable creates an
+app account, signs in with the token, the member area shows the person signed in, a claim
+added with `mergeAppClaims` survives an admin role change, the users list shows the badge
+and the edit form saves without an email (retake the users list screenshot), and
+`deleteAppAccount` removes everything and emits `user.deleted`.

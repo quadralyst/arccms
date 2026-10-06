@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
 import { removeContactFromLists } from './contacts.js';
 import { exitAllEnrollments } from './dripEnrollment.js';
+import { isBlank } from '../shared/blank.js';
 
 /**
  * Right-to-erasure for a single audience member.
@@ -124,6 +125,7 @@ export async function eraseContact(
  * `Waitlists` collection; a top-level `users` doc has `parent.parent === null`.
  */
 async function deleteFormMemberDocs(email: string): Promise<number> {
+  if (isBlank(email)) return 0;
   const snap = await db.collectionGroup('users').where('email', '==', email).get();
   const memberDocs = snap.docs.filter((d) => d.ref.parent.parent?.parent.id === 'Waitlists');
   await Promise.all(memberDocs.map((d) => d.ref.delete()));
@@ -136,6 +138,7 @@ async function deleteFormMemberDocs(email: string): Promise<number> {
  * readable address, so erasure has to reach them.
  */
 async function deleteLegacyRegistryDocs(email: string): Promise<number> {
+  if (isBlank(email)) return 0;
   const snap = await db.collection('WaitlistedUsers').where('email', '==', email).get();
   await Promise.all(snap.docs.map((d) => d.ref.delete()));
   return snap.size;

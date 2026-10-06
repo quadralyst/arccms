@@ -18,6 +18,7 @@ import { requireAdmin } from '../search/auth.js';
 import { AUTH_OWNER } from './authOwner.js';
 import { KNOWN_ROLES } from './syncUserRole.js';
 import { setRecordClaims } from './claims.js';
+import { isBlank } from '../shared/blank.js';
 
 /** Firebase Auth's own minimum. */
 export const MIN_PASSWORD_LENGTH = 6;
@@ -38,7 +39,7 @@ export function validateAdminCreateUser(raw: unknown): AdminCreateUserInput {
     const password = typeof data['password'] === 'string' ? data['password'] : '';
     const role = typeof data['role'] === 'string' && data['role'] ? data['role'] : 'user';
     if (!name) throw new HttpsError('invalid-argument', 'A name is required.');
-    if (!EMAIL_PATTERN.test(email)) throw new HttpsError('invalid-argument', 'A valid email address is required.');
+    if (isBlank(email) || !EMAIL_PATTERN.test(email)) throw new HttpsError('invalid-argument', 'A valid email address is required.');
     if (!KNOWN_ROLES.includes(role)) throw new HttpsError('invalid-argument', `Unknown role: ${role}.`);
     return { name, email, password, role };
 }

@@ -8,6 +8,7 @@ import { setRecipientConsent } from './recipientConsent.js';
 import { exitAllEnrollments } from './dripEnrollment.js';
 import { getUnsubscribeSecret } from './unsubscribeSecret.js';
 import { isFeatureOn } from '../feature-flags.js';
+import { isBlank } from '../shared/blank.js';
 
 /**
  * One-click unsubscribe endpoint: `/unsubscribe?e={emailHash}&t={hmac}`.
@@ -119,7 +120,7 @@ export async function unsubscribeByEmailHash(emailHash: string): Promise<void> {
   }
 
   // Best-effort: keep legacy waitlist readers in sync (isSubscribed:false).
-  if (email && isFeatureOn('forms')) {
+  if (!isBlank(email) && isFeatureOn('forms')) {
     try {
       const snap = await db
         .collection('WaitlistedUsers')

@@ -77,19 +77,33 @@ export default class EditUserComponent extends BaseComponent {
         }
     }
 
+    /**
+     * Whether this person must have an email. A person who has none (an app account, or a
+     * phone sign-up, docs/app/app-accounts.html) can be saved without one; an email
+     * typed in is still checked.
+     */
+    emailRequired = true;
+
     private updateFormData(currentItem: any): void {
+        this.emailRequired = !!currentItem.email;
+        const check = this.globalService.emailValidator();
+        this.editForm.controls['email'].setValidators(this.emailRequired
+            ? [Validators.required, check]
+            : [(control) => (control.value ? check(control) : null)]);
         this.editForm.patchValue({
-            email: currentItem.email,
+            email: currentItem.email ?? '',
             name: currentItem.name,
         });
+        this.editForm.controls['email'].updateValueAndValidity({ emitEvent: false });
     }
 
     ngOnInit(): void {
         this.editForm.valueChanges.subscribe((value) => {
             const items = this.userStore.items();
-            this.alreadyExist = items.find(
-                (user) => user.email === value.email && user.id !== this.id
-            );
+            // An empty email is no one's: never a duplicate (many accounts have none).
+            this.alreadyExist = value.email
+                ? items.find((user) => user.email === value.email && user.id !== this.id)
+                : undefined;
             this.clearErrorMessages(this.editForm);
             this.errorMessages = [];
         });

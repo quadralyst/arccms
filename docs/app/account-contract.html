@@ -25,6 +25,7 @@
         <tr><td>Their plan</td><td>The premium fields on the record: <a href="payments.html">Add payments and premium features</a></td></tr>
         <tr><td>Their private data</td><td><code>users/{userDocId}/...</code> in Firestore and in Storage</td></tr>
         <tr><td>Clean up data kept elsewhere</td><td>A trigger on <code>users/{docId}</code> deletes, or the <code>user.deleted</code> event</td></tr>
+        <tr><td>An account for someone with no email and no phone</td><td><code>createAppAccount()</code> from the app kit: <a href="app-accounts.html">App accounts</a>. Its record has <code>email</code> and <code>phone</code> set to <code>''</code> and <code>by: 'app'</code></td></tr>
       </tbody>
     </table>
 
@@ -91,7 +92,7 @@ export const onUserRecordDeleted = onDocumentDeleted(arcDocument('users/{docId}'
         <tr><td>Write its own data under <code>users/{userDocId}/</code>, with its own rules</td><td>Create <code>users</code> documents from the browser. Only admins may; every sign-up creates its record on the server.</td></tr>
         <tr><td>Let the person edit their own record's other fields</td><td>Write <code>role</code>, <code>uid</code>, <code>isActive</code>, <code>status</code>, <code>authOwner</code>, <code>email</code>, <code>phone</code>, <code>phoneVerified</code>, or any premium or credit field. The rules refuse these from the owner; the server writes them.</td></tr>
         <tr><td>Give its own users a plain <code>role</code> claim. Arc CMS never reads or writes <code>role</code>, so it grants no Arc CMS access.</td><td>Name a claim <code>arccms_</code> anything</td></tr>
-        <tr><td>Set claims of its own, merged with the existing ones</td><td>Replace all claims. Arc CMS always merges; <code>setCustomUserClaims</code> with only your keys wipes <code>arccms_role</code> and <code>arccms_uid</code>.</td></tr>
+        <tr><td>Set claims of its own with <code>mergeAppClaims()</code> from the app kit, which merges them with the existing ones (see <a href="app-accounts.html#your-own-claims">App accounts</a>)</td><td>Replace all claims. Arc CMS always merges; <code>setCustomUserClaims</code> with only your keys wipes <code>arccms_role</code> and <code>arccms_uid</code>.</td></tr>
       </tbody>
     </table>
     <div class="trap"><p>An app that sets claims with <code>setCustomUserClaims(uid, { plan: 'pro' })</code> removes the Arc CMS claims from that account: its rules then deny the person their own record, and an admin loses the admin area until the Arc CMS app next loads and puts the claims back. Read the current claims, add yours, and write them all back.</p></div>

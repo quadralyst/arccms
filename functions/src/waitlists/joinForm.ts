@@ -2,6 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
+import { isBlank } from '../shared/blank.js';
 
 /**
  * Server-authoritative "join this form" — find-or-create the member record.
@@ -62,7 +63,7 @@ export const joinForm = onCall(async (request): Promise<JoinResult> => {
   const signupMetadata = (request.data?.signupMetadata as Record<string, unknown>) || {};
 
   if (!waitlistId) throw new HttpsError('invalid-argument', 'waitlistId is required.');
-  if (!email || !email.includes('@') || email.length > 254) {
+  if (isBlank(email) || !email.includes('@') || email.length > 254) {
     throw new HttpsError('invalid-argument', 'A valid email is required.');
   }
 

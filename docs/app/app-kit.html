@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The app kit | Arc CMS docs</title>
+  <meta name="description" content="The supported server exports an app's own Cloud Functions use for accounts, claims, sessions and sign-in, from one import that stays stable across Arc CMS updates.">
+  <meta name="docs:sources" content="functions/src/app-kit, functions/src/users/claims.ts, functions/src/auth/accounts.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/app-kit.html">
+  <main>
+    <h1>The app kit</h1>
+    <p class="lead">Your own Cloud Functions in <code>functions/src/custom/</code> use Arc CMS's accounts, claims and sign-in through one import, <code>functions/src/app-kit/index.ts</code>. What it exports is supported: it keeps its meaning across Arc CMS updates, and a test fails if it changes without this page.</p>
+
+    <pre><code>import { createAppAccount, issueSignInToken, mergeAppClaims } from '../app-kit/index.js';</code></pre>
+    <p>Everything else in <code>functions/src</code> is core's to change. You may read it to learn how something works, but import from the kit, and ask for a missing export in Arc CMS rather than reaching past it.</p>
+
+    <h2>Exports</h2>
+    <table id="exports">
+      <thead><tr><th>Export</th><th>What it does</th><th>Guide</th></tr></thead>
+      <tbody>
+        <tr><td><code>createAppAccount()</code></td><td>Creates a sign-in account and its <code>users</code> record for a person with no email and no phone. Takes <code>{ displayName, claims?, uid? }</code>, returns <code>{ uid, userDocId }</code>.</td><td><a href="app-accounts.html">App accounts</a></td></tr>
+        <tr><td><code>deleteAppAccount()</code></td><td>Deletes a person's account by their Auth uid; Arc CMS's account deletion does the rest and announces <code>user.deleted</code>.</td><td><a href="app-accounts.html#delete-an-account">App accounts</a></td></tr>
+        <tr><td><code>APP_ACCOUNT</code></td><td><code>'app'</code>: the <code>by</code> value of a record <code>createAppAccount()</code> made.</td><td><a href="app-accounts.html">App accounts</a></td></tr>
+        <tr><td><code>mergeAppClaims()</code></td><td>Merges your own claims into any account: refuses <code>arccms_</code> and Firebase's reserved names and anything over Firebase's 1000-byte limit, never replaces what is there, removes a claim with <code>null</code>.</td><td><a href="app-accounts.html#your-own-claims">App accounts</a></td></tr>
+        <tr><td><code>isArcAdmin()</code></td><td>Whether an ID token (<code>request.auth?.token</code>) or an account's claims make the holder an Arc CMS admin, for a callable only admins may use.</td><td><a href="app-accounts.html#sign-them-in">App accounts</a></td></tr>
+        <tr><td><code>revokeSessions()</code></td><td>Signs a person out everywhere: their sessions end at the next token refresh, within the hour.</td><td><a href="app-accounts.html#sessions">App accounts</a></td></tr>
+        <tr><td><code>issueSignInToken()</code></td><td>A custom token for a uid, which the browser exchanges with <code>signInWithCustomToken</code>. When Google Cloud cannot sign tokens yet, it says so and alerts the admins.</td><td><a href="app-accounts.html#sign-them-in">App accounts</a></td></tr>
+      </tbody>
+    </table>
+    <p>Errors a person can act on are <code>HttpsError</code>s with code <code>invalid-argument</code> or <code>not-found</code>, so a callable can let them through as they are.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

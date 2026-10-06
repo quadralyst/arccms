@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>App accounts | Arc CMS docs</title>
+  <meta name="description" content="Create accounts for people with no email and no phone, such as staff, sign them in from your own function, give them your own claims, and clean up when they are deleted.">
+  <meta name="docs:sources" content="functions/src/app-kit, functions/src/users/claims.ts, functions/src/users/onUserCreate.ts, functions/src/users/onUserDelete.ts, functions/src/shared/blank.ts, src/app/pages/admin/users">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/app-accounts.html">
+  <main>
+    <h1>App accounts</h1>
+    <p class="lead">Some people your app serves have no email and no phone: staff on a shared device, a child, a kiosk. Your own Cloud Function can still give each of them an Arc CMS account, so the member area, the guards and your rules treat them as signed in like anyone else.</p>
+
+    <h2>What such an account is</h2>
+    <ul>
+      <li>A Firebase Auth account with only a display name.</li>
+      <li>A <code>users</code> record with <code>email</code> and <code>phone</code> set to <code>''</code>, Arc CMS role <code>user</code>, <code>isActive: true</code> and <code>by: 'app'</code>. The admin's users list shows it with an <strong>App account</strong> badge, and an admin can edit it without adding an email.</li>
+      <li>The usual claims, <code>arccms_uid</code> and <code>arccms_role</code> (see <a href="account-contract.html">Follow the account contract</a>), plus any of your own.</li>
+    </ul>
+    <p>Arc CMS sends such a person no email or SMS, since it has neither address. The admins get no "just signed up" alert for it, because your app created it; the <code>user.signed_up</code> event is still sent. The role is always <code>user</code>: an app helper never makes an Arc CMS admin. Your app's own roles go in your claims.</p>
+
+    <h2>Create an account and sign the person in</h2>
+    <p id="sign-them-in">How the person proves who they are is your app's choice. The usual one is a PIN (the PIN building block), checked in your own callable, which then returns a sign-in token:</p>
+    <pre><code>// functions/src/custom/staff.ts
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { createAppAccount, isArcAdmin, issueSignInToken } from '../app-kit/index.js';
+
+/** A manager adds a member of staff. */
+export const addStaff = onCall(async (request) =&gt; {
+  if (!isArcAdmin(request.auth?.token)) throw new HttpsError('permission-denied', 'Managers only.');
+  const { name, shopId } = request.data ?? {};
+  const { uid } = await createAppAccount({ displayName: String(name ?? ''), claims: { shop: String(shopId), staffRole: 'cashier' } });
+  return { uid };
+});
+
+/** Signs a member of staff in once your own check has passed. */
+export const staffSignIn = onCall(async (request) =&gt; {
+  const uid = String(request.data?.uid ?? '');
+  // ... check the person here (a PIN, a badge), and refuse if it fails ...
+  return { token: await issueSignInToken(uid) };
+});</code></pre>
+    <p>Add both names to <code>functions/src/custom/public-callables.txt</code> (see <a href="functions.html">Write your own Cloud Functions</a>). In the browser, exchange the token:</p>
+    <pre><code>import { signInWithCustomToken } from '@angular/fire/auth';
+
+const { token } = (await arcCallable&lt;{ uid: string }, { token: string }&gt;(this.functions, 'custom-staffSignIn')({ uid })).data;
+await signInWithCustomToken(this.auth, token);</code></pre>
+    <p>From then on the person is signed in: the member area and <code>userGuard</code> let them in, and their token carries <code>arccms_uid</code> and your claims from the first sign-in.</p>
+
+    <h2 id="your-own-claims">Your own claims</h2>
+    <p><code>mergeAppClaims(uid, patch)</code> adds or changes your claims on any account, an app account or not:</p>
+    <pre><code>await mergeAppClaims(uid, { staffRole: 'manager', perms: ['refund', 'void'] });
+await mergeAppClaims(uid, { shop: null }); // removes your "shop" claim</code></pre>
+    <ul>
+      <li>It merges: Arc CMS's claims and every other claim stay.</li>
+      <li>It refuses a name starting <code>arccms_</code> and the names Firebase reserves (<code>sub</code>, <code>firebase</code>, <code>exp</code> and the like).</li>
+      <li>All of an account's claims together may take 1000 bytes as JSON. It refuses before writing when they would pass that.</li>
+      <li>A new value reaches the browser at the person's next token refresh (within the hour), or at once after <code>getIdToken(true)</code>.</li>
+    </ul>
+    <div class="trap"><p>Firebase cannot merge claims in one step: a write reads the claims, then replaces them all. Arc CMS reads each write back and redoes it if another write replaced it in between, so Arc CMS's claims and those set through <code>mergeAppClaims()</code> never lose each other. A program outside Arc CMS that calls <code>setCustomUserClaims</code> on the same accounts can still overwrite them; use <code>mergeAppClaims()</code> for all of your claims.</p></div>
+
+    <h2 id="sessions">Sessions</h2>
+    <p><code>revokeSessions(uid)</code> signs the person out on every device: their refresh tokens are revoked, so each session ends at its next token refresh, within the hour. Use it when a member of staff leaves or a device is lost. They can sign in again as usual afterwards.</p>
+
+    <h2 id="delete-an-account">Delete an account</h2>
+    <p><code>deleteAppAccount(uid)</code> deletes the person's <code>users</code> record. Arc CMS's account deletion then does what it does for anyone (see <a href="account-contract.html#what-deleting-an-account-removes">Follow the account contract</a>): it ends their access, deletes the sign-in, their PIN and their data under the record, and last emits <code>user.deleted</code> with <code>userId</code> (the Auth uid) and <code>data.userDocId</code>. Clean up your own data from that event:</p>
+    <pre><code>export const onStaffDeleted = onDocumentCreated(arcDocument('AppEvents/{id}'), async (event) =&gt; {
+  const e = event.data?.data();
+  if (e?.['type'] !== 'user.deleted') return;
+  await removeShifts(e['userId']); // your own data, keyed by the Auth uid
+});</code></pre>
+
+    <h2>Empty email and phone never match</h2>
+    <p>Many records with an empty email or phone could match a lookup by an empty value. Every Arc CMS lookup by exact email or phone checks for an empty value first and finds nothing, and a test fails on a new one that does not. Do the same in your own functions: never query <code>where('email', '==', x)</code> without checking that <code>x</code> is not blank.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

@@ -37,11 +37,11 @@
 
     <h2>Use it</h2>
     <h3>Users (admin)</h3>
-    <p>Admin, <strong>Users</strong> (<code>/admin/users</code>) lists every record with name, email, phone, role and status.</p>
+    <p>Admin, <strong>Users</strong> (<code>/admin/users</code>) lists every record with name, email, phone, role and status. An account an app created for someone with no email and no phone shows <strong>App account</strong> in the email column (see <a href="../app/app-accounts.html">App accounts</a>).</p>
     <ul>
       <li><strong>Add User</strong> creates the sign-in account and the record together, with a temporary password you share with the person (at least 8 characters). Sign-ups do not have to be on. If the address already has a sign-in account (another app's user in a shared Firebase project), that account is reused unchanged, the person keeps their existing password, and the record is marked <code>authOwner: 'shared'</code>.</li>
       <li><strong>Add an admin:</strong> open <code>/admin/users/admin</code>, which lists the admins, and press <strong>Add Admin</strong>. People added from <code>/admin/users</code> get the <code>user</code> role. The admin screens do not change the role of someone who already has a record.</li>
-      <li><strong>View</strong> opens the record in a side panel, and <strong>Edit</strong> changes the person's name there. People change their own email or phone number on their profile, with a code (see <a href="sign-in.html#profile-sign-in-methods">Sign-in methods</a>).</li>
+      <li><strong>View</strong> opens the record in a side panel, and <strong>Edit</strong> changes the person's name there. A person who has no email can be saved without one; an email typed in is still checked. People change their own email or phone number on their profile, with a code (see <a href="sign-in.html#profile-sign-in-methods">Sign-in methods</a>).</li>
       <li><strong>Block</strong> sets <code>isActive</code> to <code>false</code>. The person's Arc CMS claims are removed and every session is ended within the hour, and they cannot sign in until an admin presses <strong>Unblock</strong>, which puts the claims back.</li>
       <li><strong>Detached accounts</strong> shows records whose only email or phone number moved to another account (see <a href="sign-in.html#moving-an-email-or-number-to-another-account">Sign-in methods</a>). They are kept and cannot sign in; an admin can delete them.</li>
       <li><strong>Delete</strong> removes the record, and the server then removes everything listed below.</li>
@@ -94,7 +94,7 @@
         <tr><td><code>claimFirstAdmin</code></td><td>Callable: the setup wizard's first admin, once.</td></tr>
         <tr><td><code>syncAllUserRoles</code></td><td>Callable, admins: re-applies every account's claims from its record.</td></tr>
         <tr><td><code>onUserRoleChange</code></td><td>On every record write: applies the default role to a sign-up, and keeps the claims in step with the role and the block.</td></tr>
-        <tr><td><code>onUserCreated</code>, <code>onUserCreateWelcomeEmail</code></td><td>On a new record: the email lookup, the admin alert and <code>user.signed_up</code> event, and the welcome email.</td></tr>
+        <tr><td><code>onUserCreated</code>, <code>onUserCreateWelcomeEmail</code></td><td>On a new record: the email lookup, the admin alert (not for an app account) and <code>user.signed_up</code> event, and the welcome email.</td></tr>
         <tr><td><code>onUserDeleted</code></td><td>On a deleted record: the cleanup above.</td></tr>
       </tbody>
     </table>

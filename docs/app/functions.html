@@ -77,8 +77,8 @@ complete(lessonId: string) {
         <tr><td><code>arccms_role</code></td><td>The Arc CMS role, such as <code>admin</code></td></tr>
       </tbody>
     </table>
-    <p>For an admin-only callable, check the role with <code>isArcAdmin</code> from <code>functions/src/users/claims.ts</code>:</p>
-    <pre><code>import { isArcAdmin } from '../users/claims.js';
+    <p>For an admin-only callable, check the role with <code>isArcAdmin</code>, which the app kit exports. The kit, <code>functions/src/app-kit/index.ts</code>, is the supported way to use core from your functions: accounts, claims, sessions and sign-in tokens (see <a href="app-kit.html">The app kit</a>):</p>
+    <pre><code>import { isArcAdmin } from '../app-kit/index.js';
 
 if (!isArcAdmin(request.auth?.token)) throw new HttpsError('permission-denied', 'Admin access required.');</code></pre>
     <p>See <a href="../concepts/roles-and-claims.html">Roles and claims</a> and <a href="account-contract.html">Follow the account contract</a>.</p>

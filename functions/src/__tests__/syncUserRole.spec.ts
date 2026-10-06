@@ -133,7 +133,8 @@ beforeEach(() => {
     metadataAnswers('my-project', '449144539409');
     claimsByUid = { 'admin-uid': { arccms_role: 'admin' } };
     mockGetUser.mockImplementation(async (uid: string) => ({ uid, customClaims: claimsByUid[uid] }));
-    mockSetCustomUserClaims.mockResolvedValue(undefined);
+    // Firebase keeps what is written: mergeUserClaims reads its write back (specs/app-accounts-spec.md C-D6).
+    mockSetCustomUserClaims.mockImplementation(async (uid: string, claims: Record<string, unknown>) => { claimsByUid[uid] = claims; });
 });
 
 // ─── setRoleClaim ─────────────────────────────────────────────────────────────

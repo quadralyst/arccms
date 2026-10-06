@@ -32,7 +32,7 @@ describe('ViewUserComponent', () => {
 
     const mockUserStore = {
         items: signal([mockUser]),
-        currentItem: signal(mockUser),
+        currentItem: signal<Record<string, unknown>>(mockUser),
         getById: vi.fn(),
     };
 
@@ -153,6 +153,22 @@ describe('ViewUserComponent', () => {
         it('should return secondary class when no current item', () => {
             mockUserStore.currentItem = signal(null);
             expect(component.getStatusBadgeClass()).toBe('bg-secondary');
+        });
+    });
+
+    describe('A person with no email (docs/app/app-accounts.html)', () => {
+        it('shows N/A and no empty mailto: link', () => {
+            mockUserStore.currentItem.set({ ...mockUser, email: '', by: 'app' });
+            fixture.detectChanges();
+            const el: HTMLElement = fixture.nativeElement;
+            expect(el.querySelector('a[href^="mailto:"]')).toBeNull();
+            expect(el.textContent).toContain('N/A');
+        });
+
+        it('links an email that is there', () => {
+            mockUserStore.currentItem.set({ ...mockUser, email: 'a@b.co' });
+            fixture.detectChanges();
+            expect((fixture.nativeElement as HTMLElement).querySelector('a[href="mailto:a@b.co"]')).not.toBeNull();
         });
     });
 });

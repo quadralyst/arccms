@@ -19,7 +19,11 @@
         <div class="detail-row">
             <label class="detail-label">Email</label>
             <p class="detail-value">
-                <a href="mailto:{{ currentItem.email }}">{{ currentItem.email || 'N/A' }}</a>
+                @if (currentItem.email) {
+                <a href="mailto:{{ currentItem.email }}">{{ currentItem.email }}</a>
+                } @else {
+                <span>N/A</span>
+                }
             </p>
         </div>
 

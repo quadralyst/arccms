@@ -5,12 +5,15 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Claims as Firebase keeps them: what setCustomUserClaims writes, getUser reads back
+// (mergeUserClaims reads its write back, specs/app-accounts-spec.md C-D6).
+const claims = vi.hoisted(() => ({} as Record<string, Record<string, unknown>>));
 const owner = vi.hoisted(() => ({
     createUser: vi.fn(),
     deleteUser: vi.fn(),
     createCustomToken: vi.fn(async (uid: string) => `token-${uid}`),
-    getUser: vi.fn(async (uid: string) => ({ uid, customClaims: {} })),
-    setCustomUserClaims: vi.fn(),
+    getUser: vi.fn(async (uid: string) => ({ uid, customClaims: claims[uid] ?? {} })),
+    setCustomUserClaims: vi.fn(async (uid: string, next: Record<string, unknown>) => { claims[uid] = next; }),
     revokeRefreshTokens: vi.fn(),
 }));
 
@@ -67,6 +70,7 @@ async function signUp(pin = '246810'): Promise<string> {
 beforeEach(() => {
     mem.store.clear();
     vi.clearAllMocks();
+    for (const uid of Object.keys(claims)) delete claims[uid];
     owner.createUser.mockResolvedValue({ uid: 'uid-asha' });
     mem.seed('Settings', 'users', { isSignupEnabled: true, phoneSignIn: true });
 });
