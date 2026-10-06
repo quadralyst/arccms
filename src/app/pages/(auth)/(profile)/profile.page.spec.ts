@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import ProfileComponent from './profile.page';
+import { english } from '../../../../test/english';
 
 describe('ProfileComponent', () => {
     describe('Component Definition', () => {
@@ -475,6 +476,20 @@ describe('ProfileComponent', () => {
             // Regression: getInitials("  John  ") would crash with undefined[0]
             expect(source).toContain('.trim()');
             expect(source).toContain('filter(Boolean)');
+        });
+    });
+
+    describe('role badge', () => {
+        const label = (role?: string) => ProfileComponent.prototype.roleLabel.call({ currentUser: () => (role === undefined ? null : { role }), t: english } as never);
+
+        it('names Arc CMS\'s roles in the person\'s language', () => {
+            expect(label('admin')).toBe('Admin');
+            expect(label('user')).toBe('User');
+            expect(label(undefined)).toBe('User');
+        });
+
+        it('shows an app\'s own role as it is', () => {
+            expect(label('cashier')).toBe('cashier');
         });
     });
 });

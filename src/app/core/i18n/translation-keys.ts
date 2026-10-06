@@ -1684,7 +1684,8 @@ export type TranslationKey =
     | 'member.profile.photo_updated'
     | 'member.profile.photo_upload_failed'
     | 'member.profile.remove'
-    | 'member.profile.role_fallback'
+    | 'member.profile.role_admin'
+    | 'member.profile.role_user'
     | 'member.profile.save'
     | 'member.profile.security'
     | 'member.profile.sign_in_again'
@@ -3484,7 +3485,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.profile.photo_updated',
     'member.profile.photo_upload_failed',
     'member.profile.remove',
-    'member.profile.role_fallback',
+    'member.profile.role_admin',
+    'member.profile.role_user',
     'member.profile.save',
     'member.profile.security',
     'member.profile.sign_in_again',

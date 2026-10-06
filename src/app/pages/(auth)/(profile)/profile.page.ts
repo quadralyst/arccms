@@ -66,6 +66,13 @@ export default class ProfileComponent extends BaseComponent {
 
   currentUser = computed(() => this.authStore.currentUser());
 
+  /** The role in the person's language: Arc CMS's own roles are translated, an app's own shows as it is. */
+  roleLabel(): string {
+    const role = this.currentUser()?.role;
+    if (role === 'admin') return this.t('member.profile.role_admin');
+    return role && role !== 'user' ? role : this.t('member.profile.role_user');
+  }
+
   /** Only accounts that sign in with email and password can change a password. */
   hasPassword(): boolean {
     return this.signIn.hasPassword();

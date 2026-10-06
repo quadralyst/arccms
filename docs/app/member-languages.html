@@ -52,6 +52,7 @@ german(): void {
       <li><strong>On a first visit,</strong> the browser's language, when you declared it (<code>de-AT</code> finds <code>de</code>); otherwise English.</li>
       <li><strong>In the admin area</strong> (<code>/admin</code>), the admin's own language, always. Pages outside it use the member language.</li>
     </ul>
+    <p>The language picker in the page header is the admin's: once you declare member languages it shows only in the admin area, since the admin's choice does not change member pages. Members choose through a picker of your own (below).</p>
     <p>With no languages declared, nothing changes: member screens follow the admin language as they always did.</p>
 
     <h2>Dates and numbers</h2>
@@ -76,6 +77,8 @@ german(): void {
       <li><strong>The published site</strong>, content and list pages included (with what they say when there is nothing to show): it follows the page's own language, through the site's strings files, not the member language. See <a href="../features/languages.html">Languages</a>.</li>
       <li><strong>What an admin writes</strong>, such as the cookie banner's message: it is the site's own content.</li>
       <li><strong>The browser tab's title</strong> on most pages.</li>
+      <li><strong>The "Powered by Arc CMS" line</strong>, which an admin can turn off in Settings.</li>
+      <li><strong>The sign-in page's brand panel</strong> beside the form: it is your site's HTML (see <a href="../website/sign-in-page.html">Brand the sign-in page</a>) and follows the site's language.</li>
     </ul>
   </main>
   <script src="../assets/nav.js"></script>

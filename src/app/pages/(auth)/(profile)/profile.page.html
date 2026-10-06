@@ -59,7 +59,7 @@
 
       <h3 class="user-display-name">{{ currentUser()?.name }}</h3>
       <div class="badge-row">
-        <span class="role-badge">{{ currentUser()?.role || ('member.profile.role_fallback' | transloco) }}</span>
+        <span class="role-badge">{{ roleLabel() }}</span>
         <span class="status-badge" [class.active]="currentUser()?.isActive">
           {{ (currentUser()?.isActive ? 'member.profile.status_active' : 'member.profile.status_inactive') | transloco }}
         </span>

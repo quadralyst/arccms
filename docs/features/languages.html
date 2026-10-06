@@ -20,7 +20,7 @@
         <tr><td>Who reads it</td><td>Visitors</td><td>Admins, and signed-in members unless the app gives them languages of their own</td></tr>
         <tr><td>What it translates</td><td>Content, content type names, and the words in templates and partials</td><td>Buttons, labels, menus, messages</td></tr>
         <tr><td>Language list</td><td>Admin, Settings, Localization (<code>Settings/localization</code>)</td><td><code>ADMIN_LANGUAGES</code> in <code>src/app/core/i18n/admin-languages.ts</code></td></tr>
-        <tr><td>Chosen by</td><td>The URL</td><td>The language picker in the page header</td></tr>
+        <tr><td>Chosen by</td><td>The URL</td><td>The language picker in the page header (in the admin area only, when the app declares member languages)</td></tr>
         <tr><td>Mechanism</td><td>Translation documents, plus <code>data-arc-t</code> and the site's strings files (<code>/_site/strings/{lang}.json</code>)</td><td>Transloco, with <code>src/assets/i18n/{lang}.json</code></td></tr>
       </tbody>
     </table>

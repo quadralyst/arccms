@@ -211,3 +211,23 @@ that its core keys exist in English and are member keys. The rule for core autho
 member-facing string is never hard-coded") is in `docs/contributing/frontend-notes.html`;
 `docs/app/sign-in.html`, `docs/app/custom-space.html`, `docs/features/languages.html` and
 `docs/contributing/keep-core-generic.html` point to member languages.
+
+**Browser check 2026-10-06** (worktree dev server on port 5182, the pseudo language and Hindi
+declared locally, then removed). Checked: the sign-in page and a validation message (signed
+out, on `member.localhost`), the member dashboard, payments, account, profile and its
+sign-in methods (add phone step), the 404 page, Hindi on payments, the admin staying English,
+and the language switching back on in-app navigation from the admin to the site without a
+reload. Fixed from it:
+
+- The admin language picker showed on member pages, with the admin's language, and did
+  nothing there once member languages were declared: it now hides outside the admin area
+  in that case (with no member languages, unchanged).
+- The profile's role badge showed the raw role (`admin`): Arc CMS's roles are now
+  `member.profile.role_admin` and `role_user` (replacing `role_fallback`); an app's own role
+  shows as it is.
+
+Left as they are, and documented: the "Powered by Arc CMS" line, and the sign-in brand panel,
+which is the site's HTML in the site's language. Making the panel follow the member language
+is a possible follow-up. Not checked in the browser: the cookie banner (off on this project;
+covered by the render test) and the unauthorized fallback (only when `/403.html` fails).
+
