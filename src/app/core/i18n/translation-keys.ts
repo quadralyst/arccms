@@ -1483,6 +1483,8 @@ export type TranslationKey =
     | 'common.validation.maxlength'
     | 'common.validation.minlength'
     | 'common.validation.required'
+    | 'common.version.not_loaded'
+    | 'common.version.reload'
     | 'common.yes'
     | 'user.account.balance'
     | 'user.account.change'
@@ -3023,6 +3025,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.validation.maxlength',
     'common.validation.minlength',
     'common.validation.required',
+    'common.version.not_loaded',
+    'common.version.reload',
     'common.yes',
     'user.account.balance',
     'user.account.change',

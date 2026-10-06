@@ -89,6 +89,9 @@ npm run deploy:prod</code></pre>
     <p>Each runs the deploy with <code>--project &lt;alias&gt; --non-interactive --force</code> and no <code>--only</code>, which builds the website for that project and the functions first, then publishes the static pages (<code>npm run seed:dev</code> or <code>npm run seed:prod</code>). For any other project, use <code>npm run deploy -- --project &lt;alias&gt;</code>, then <code>npm run seed -- &lt;alias&gt;</code>.</p>
     <div class="warn"><p>Both pass <code>--force</code>, so they delete the deployed functions the build no longer has without asking. Use the guided deploy when you are not sure what the build contains.</p></div>
 
+    <h2 id="pages-left-open">Pages left open across a deploy</h2>
+    <p>A website deploy replaces the hashed code files on Hosting. A visitor whose page was open before it keeps the old version until the page loads again. When they open a screen the old page had not loaded yet, its code file is gone: Arc CMS then loads that address afresh, so they land on it in the new version. An installed app offers its update instead (see <a href="../app/pwa.html#open-screens-offline-and-after-a-deploy">Open screens offline and after a deploy</a>).</p>
+
     <h2 id="regions">Regions</h2>
     <p>Every database read or write a function makes travels to the database and back. Functions far from their database are slow: with the database in Mumbai (<code>asia-south1</code>) and the functions in Iowa (<code>us-central1</code>, the Firebase default), one sign-in step takes several seconds. So the functions run next to the database, in the region set by <code>functionsRegion</code> (see <a href="../reference/config-keys.html">Config keys</a>).</p>
     <p>Before every deploy that includes functions, the deploy compares the two. It looks up the database's location once per project and remembers it in <code>.arc-deploy-state.json</code>.</p>

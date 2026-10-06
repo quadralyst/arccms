@@ -9,10 +9,12 @@ import { NavProgressComponent } from './pages/page.parts/nav-progress.component'
 import { PwaUpdateBarComponent } from '../shared/components/install-prompt/update-bar.component';
 import { FeedbackComponent } from '../shared/components/feedback/feedback.component';
 import { FullScreenService } from './core/layout/full-screen.service';
+import { StaleCodeService } from './core/version/stale-code.service';
+import { StaleCodeBarComponent } from './core/version/stale-code-bar.component';
 
 @Component({
   selector: 'arc-root',
-  imports: [RouterOutlet, GlobalMessageBannerComponent, SiteUsageBannerComponent, PoweredByFooterComponent, NavProgressComponent, PwaUpdateBarComponent, FeedbackComponent],
+  imports: [RouterOutlet, GlobalMessageBannerComponent, SiteUsageBannerComponent, PoweredByFooterComponent, NavProgressComponent, PwaUpdateBarComponent, StaleCodeBarComponent, FeedbackComponent],
   host: { '[class.arc-full-screen]': 'fullScreen.active()' },
   template: `
     <arc-global-message-banner />
@@ -25,6 +27,7 @@ import { FullScreenService } from './core/layout/full-screen.service';
     <arc-powered-by-footer />
     <arc-site-usage-banner />
     <arc-pwa-update-bar />
+    <arc-stale-code-bar />
     <arc-feedback />
   `,
   styles: [
@@ -74,6 +77,8 @@ export class App {
   private router = inject(Router);
   private document = inject(DOCUMENT);
   readonly fullScreen = inject(FullScreenService);
+  // Recovers a tap whose screen's code a deploy removed (specs/app-route-code-spec.md).
+  private staleCode = inject(StaleCodeService);
 
   /**
    * True while the router is between pages, when the lazy chunk of the next
