@@ -2,7 +2,7 @@
 
 **Status:** spec written 2026-10-06, not built.
 **Branch:** `feat/app-pin-kit`, cut from `dev` (10c8734).
-**Depends on:** `specs/app-accounts-spec.md` (A5), which creates the app kit entry point
+**Depends on:** the A5 spec (on branch `feat/app-accounts`), which creates the app kit entry point
 `functions/src/app-kit/index.ts`. This branch adds to it, so merge A5 first.
 **Scope:** an app's own functions can set and check a 6 digit PIN, with lockout and rate
 limits, using Arc's existing PIN code through documented exports. The app's PINs are kept
