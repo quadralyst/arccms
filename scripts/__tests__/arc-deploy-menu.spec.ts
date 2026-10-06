@@ -86,6 +86,15 @@ describe('the install check (review O5)', () => {
         ]);
         expect(installSummary({})[1]).toBe("Website:    the project's main site");
     });
+
+    it('shows the build mode only for a project with its own web settings and a website', () => {
+        const web = { firebaseConfig: { projectId: 'acme-staging' } };
+        expect(installSummary({}).some((line: string) => line.startsWith('Build:'))).toBe(false);
+        expect(installSummary(web).at(-1)).toBe('Build:      development (debug tools, instance label on sign-in)');
+        expect(installSummary({ ...web, production: 'yes' }).at(-1)).toBe('Build:      like production');
+        expect(installSummary({ ...web, buildMode: 'production' }).at(-1)).toBe('Build:      like production');
+        expect(installSummary({ ...web, hostingSite: 'none', buildMode: 'production' }).some((line: string) => line.startsWith('Build:'))).toBe(false);
+    });
 });
 
 describe('what to deploy', () => {

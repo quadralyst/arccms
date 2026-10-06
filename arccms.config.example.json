@@ -8,6 +8,9 @@
       "hostingSite": "your-project-arccms",
       "storageBucket": "your-project-arccms",
       "storagePrefix": ""
+    },
+    "your-staging-project-id": {
+      "buildMode": "production"
     }
   }
 }

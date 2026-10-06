@@ -23,13 +23,13 @@
         <p><strong>Which Firebase project?</strong> The aliases in <code>.firebaserc</code>, plus the project chosen with <code>firebase use</code>. The default is the project you deployed to last from this checkout. "Another project id" takes any other.</p>
       </li>
       <li>
-        <p><strong>Its settings.</strong> The deploy prints the database, website, storage bucket, app users and functions region the project uses. They come from <code>arccms.config.json</code>, and the files generated from it are rebuilt on every deploy, so they are never stale. A project with no settings yet is offered a short setup, the same as <code>npm run arc:configure</code> (see <a href="../getting-started/configure.html">Configure a project</a>).</p>
+        <p><strong>Its settings.</strong> The deploy prints the database, website, storage bucket, app users and functions region the project uses, and, for a project with its own web settings, whether its website builds like production or in development mode (see <a href="../app/environments.html#build-like-production">Build like production</a>). They come from <code>arccms.config.json</code>, and the files generated from it are rebuilt on every deploy, so they are never stale. A project with no settings yet is offered a short setup, the same as <code>npm run arc:configure</code> (see <a href="../getting-started/configure.html">Configure a project</a>).</p>
       </li>
       <li>
         <p><strong>What to deploy?</strong> See the table below. A choice whose files changed since its last deploy is marked "(changed since the last deploy)".</p>
       </li>
       <li>
-        <p><strong>Confirm.</strong> The summary shows the project, the Firebase config file and the exact command. For a production project (the alias <code>production</code>, or an id with <code>prod</code>, <code>production</code> or <code>live</code> as a part of it) you type the project id instead of pressing Enter.</p>
+        <p><strong>Confirm.</strong> The summary shows the project, the Firebase config file and the exact command. For a production project (one marked <code>--production=yes</code>, the alias <code>production</code>, or an id with <code>prod</code>, <code>production</code> or <code>live</code> as a part of it) you type the project id instead of pressing Enter.</p>
       </li>
     </ol>
     <p>The choices, remembered per project in <code>.arc-deploy-state.json</code> (not committed), are the defaults next time.</p>

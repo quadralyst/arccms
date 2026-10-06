@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dev, staging and production | Arc CMS docs</title>
-  <meta name="description" content="Run an app on as many Firebase projects as it needs, each with its own web settings: add a project, build for it, deploy and seed it, and guard production.">
+  <meta name="description" content="Run an app on as many Firebase projects as it needs, each with its own web settings: add a project, build for it, build staging like production, deploy and seed it, and guard production.">
   <meta name="docs:sources" content="scripts/arc-environment.mjs, scripts/arc-build.mjs, scripts/arc-configure.mjs, scripts/arc-install-config.mjs, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-admin-script.mjs, functions/scripts/call-seed.cjs, vite.config.ts, package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
@@ -42,10 +42,17 @@
     <pre><code>npm run build:project -- --project=staging</code></pre>
     <p>The same as <code>ARC_PROJECT=staging npm run build</code>, on every operating system. The build prints the project and the file it used. <code>ARC_PROJECT</code> works with <code>npm run dev</code> too, to run the app against another project on your machine.</p>
 
+    <h2>Build like production</h2>
+    <p>A project's <strong>build mode</strong> says how a build for it runs. <code>production</code> builds the site as your users get it: Angular's production mode, no debug mode, no missing-translation warnings in the console, and no instance label (the project and database) on the sign-in page. <code>development</code> keeps all of those, so you always know which project you are signed in to.</p>
+    <p>By default a project marked production (below) builds as <code>production</code> and every other project as <code>development</code>, as builds always ran. To rehearse a release on staging exactly as it will run live, build staging like production:</p>
+    <pre><code>npm run arc:configure -- --project=staging --build-mode=production</code></pre>
+    <p>This is not the production guard: staging still deploys without typing its id back. The build mode applies to a project with its own web settings (fetched above); the guided deploy shows it in the summary as <code>Build:</code>.</p>
+    <p>The generated <code>firebase-web.&lt;id&gt;.ts</code> imports <code>environment.ts</code> and sets only <code>production</code> and <code>firebaseConfig</code>, so every other key you add to <code>environment.ts</code> reaches every project's build, with no need to configure again. Keep a key that differs per project out of <code>environment.ts</code>: put it in <code>arccms.config.json</code> or read it at run time.</p>
+
     <h2>Guard production</h2>
     <p>Mark any project as production, whatever its alias is called:</p>
     <pre><code>npm run arc:configure -- --project=live --production=yes</code></pre>
-    <p>The guided deploy then asks you to type the project id back before it deploys there, and admin scripts print <code>(production)</code> next to the project. The <code>production</code> alias and ids that say <code>prod</code> or <code>live</code> are guarded as before.</p>
+    <p>The guided deploy then asks you to type the project id back before it deploys there, admin scripts print <code>(production)</code> next to the project, and its builds run like production unless you set <code>--build-mode=development</code>. The <code>production</code> alias and ids that say <code>prod</code> or <code>live</code> are guarded as before.</p>
     <div class="warn"><p><code>npm run deploy:dev</code> and <code>npm run deploy:prod</code> never ask. They are for the <code>default</code> and <code>production</code> aliases only; use <code>npm run deploy -- --project=&lt;alias&gt;</code> for every other project.</p></div>
 
     <h2>Scripts take the same project</h2>
@@ -67,6 +74,7 @@
         <tr><td>"&lt;project&gt; has N web apps. Choose one with --web-app"</td><td>Pick the app your site uses from the list and run the command again with <code>--web-app=&lt;appId&gt;</code>.</td></tr>
         <tr><td>"The Firebase CLI did not answer"</td><td>Install the Firebase CLI and sign in with <code>firebase login</code>, or use <code>--web-config=&lt;file&gt;</code>.</td></tr>
         <tr><td>"firebaseConfig is for X, not Y"</td><td>The settings you gave belong to another project. Fetch them for the right one.</td></tr>
+        <tr><td>"The build mode applies once ... has its own web settings"</td><td>The build mode is stored, but the project still builds from a hand-edited environment file. Fetch its web settings with the command the message prints.</td></tr>
       </tbody>
     </table>
   </main>
