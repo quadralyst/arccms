@@ -65,7 +65,7 @@ export const FEATURE_PARAM_ROUTES: Readonly<Record<string, FeatureId>> = {
  * (src/app/core/features/feature-coverage.spec.ts).
  */
 export const CORE_URLS: readonly string[] = [
-    '', '**', 'not-found', 'onboarding', 'signup', 'profile', 'auth-checker', ':lang', 'tiptap-test', 'notifications',
+    '', '**', 'not-found', 'onboarding', 'signup', 'profile', 'auth-checker', ':lang', 'notifications',
     'unsubscribe/**', 'user/dashboard', 'user/profile/**',
     'admin', 'admin/dashboard', 'admin/profile', 'admin/media', 'admin/users/**', 'admin/unauthorized', 'admin/notifications',
     'admin/feedback', 'admin/email', 'admin/email/brand-kit', 'admin/email/composer', 'admin/email-logs',
