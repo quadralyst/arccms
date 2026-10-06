@@ -12,7 +12,7 @@ import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
 import { oneBuildAtATime } from './scripts/vite-build-order';
 import { arcSite } from './scripts/vite-arc-site';
-import { environmentFor } from './scripts/arc-environment.mjs';
+import { environmentFor, environmentSwap } from './scripts/arc-environment.mjs';
 import { routeCode } from './scripts/vite-route-code';
 
 // The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
@@ -142,26 +142,15 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       mainFields: ['module'],
-      alias: {
-        ...(environmentFile
-          ? {
-              [resolve('./src/environments/environment.ts')]: environmentFile,
-              '../environments/environment': environmentFile,
-            }
-          : mode === 'production' && process.env['USE_DEV_ENV'] !== 'true'
-          ? {
-              [resolve('./src/environments/environment.ts')]: resolve(
-                './src/environments/environment.prod.ts',
-              ),
-              // Keep relative match as fallback or strictly for the known import
-              '../environments/environment': resolve(
-                './src/environments/environment.prod.ts',
-              ),
-            }
-          : {}),
-      },
     },
     plugins: [
+      // The environment file every import of src/environments/environment.ts gets: the
+      // project's (ARC_PROJECT), else environment.prod.ts in a production build unless
+      // USE_DEV_ENV=true, else environment.ts as written (scripts/arc-environment.mjs).
+      environmentSwap(
+        environmentFile
+          ?? (mode === 'production' && process.env['USE_DEV_ENV'] !== 'true' ? resolve('./src/environments/environment.prod.ts') : null),
+      ),
       // Frees a closed dev server (see releaseClosedServer).
       release.plugin,
       // The public website: core's public/ with the app's src/custom/site/ laid over it,

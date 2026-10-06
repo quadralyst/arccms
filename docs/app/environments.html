@@ -20,6 +20,7 @@
       <li>otherwise the environment file you edited by hand: <code>environment.prod.ts</code> for the <code>production</code> alias, <code>environment.ts</code> for any other, <strong>only if it names that very project</strong>. If it names another, the build stops and prints the command that fixes it.</li>
     </ol>
     <p>With no <code>ARC_PROJECT</code>, nothing changes: <code>npm run dev</code> uses <code>environment.ts</code>, and <code>npm run build</code> uses <code>environment.prod.ts</code> (or <code>environment.ts</code> with <code>USE_DEV_ENV=true</code>). An install with two projects keeps working as it is.</p>
+    <p>Every part of the app gets the chosen file, wherever it imports <code>src/environments/environment.ts</code> from: the build swaps the file the import leads to, not the words of the import (<code>environmentSwap</code> in <code>scripts/arc-environment.mjs</code>). A test builds a small app with shallow, deep and barrel imports and fails if any of them keeps another project's settings.</p>
 
     <h2>Add a project</h2>
     <ol class="steps">

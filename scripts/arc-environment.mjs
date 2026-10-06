@@ -13,7 +13,7 @@
  *
  * With no ARC_PROJECT nothing here runs and the build works as it always did.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { ROOT, readFirebaseAliases, resolveProjectId, webConfigPath } from './arc-install-config.mjs';
 
@@ -36,4 +36,28 @@ export function environmentFor(aliasOrId, { root = ROOT, aliases = readFirebaseA
             + `Add them with: npm run arc:configure -- --project=${aliasOrId} --web-config=fetch`);
     }
     return { projectId, file: fallback, source: 'environment file' };
+}
+
+/** The environment file the app imports, which a build may serve another file in place of. */
+export const ENVIRONMENT_FILE = 'src/environments/environment.ts';
+
+/**
+ * A Vite plugin that serves `target` wherever the app imports src/environments/environment.ts,
+ * however the import is written (`../environments/environment`, `../../../environments/environment`,
+ * `./environment` from the barrel). It compares what an import resolves to, not its text, so no
+ * part of the app can keep another project's settings. No target: it does nothing.
+ */
+export function environmentSwap(target, { root = ROOT } = {}) {
+    // Real paths: Vite resolves through links (a project under a linked folder).
+    const real = (path) => (existsSync(path) ? realpathSync(path) : path);
+    const original = real(resolve(root, ENVIRONMENT_FILE));
+    return {
+        name: 'arc-environment-swap',
+        enforce: 'pre',
+        async resolveId(source, importer, options) {
+            if (!target || !/(^|\/)environment(\.ts)?$/.test(source)) return null;
+            const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
+            return resolved && real(resolve(resolved.id.split('?')[0])) === original ? target : null;
+        },
+    };
 }

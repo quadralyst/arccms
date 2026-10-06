@@ -1,12 +1,15 @@
+// @vitest-environment node
 /**
  * Which web settings a build uses (specs/app-project-settings-spec.md, E-D3 to E-D5).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { build } from 'vite';
 // @ts-expect-error: plain ESM script without type declarations
-import { environmentFor, projectIdIn } from '../arc-environment.mjs';
+import { environmentFor, environmentSwap, projectIdIn } from '../arc-environment.mjs';
 // @ts-expect-error: plain ESM script without type declarations
 import { buildsFor, websiteBuildEnv } from '../arc-deploy.mjs';
 // @ts-expect-error: plain ESM script without type declarations
@@ -73,3 +76,53 @@ describe('a deploy always builds first (E-D6)', () => {
         expect(buildProject([], {})).toBe('');
     });
 });
+
+describe('every import gets the build\'s environment file (environmentSwap)', () => {
+    let root: string;
+    const write = (path: string, text: string) => {
+        mkdirSync(join(root, path, '..'), { recursive: true });
+        writeFileSync(join(root, path), text);
+    };
+
+    beforeEach(() => {
+        root = mkdtempSync(join(tmpdir(), 'arc-swap-'));
+        write('src/environments/environment.ts', "export const environment = { firebaseConfig: { projectId: 'acme-dev' } };\n");
+        write('src/environments/firebase-web.acme-staging.ts', "export const environment = { firebaseConfig: { projectId: 'acme-staging' } };\n");
+        write('src/environments/index.ts', "export * from './environment';\n");
+        // The ways the app imports it: next to it, three folders down (what the old swap missed), and the barrel.
+        write('src/app/near.ts', "import { environment } from '../environments/environment';\nexport const near = environment.firebaseConfig.projectId;\n");
+        write('src/app/core/analytics/deep.ts', "import { environment } from '../../../environments/environment';\nexport const deep = environment.firebaseConfig.projectId;\n");
+        write('src/app/barrel.ts', "import { environment } from '../environments';\nexport const barrel = environment.firebaseConfig.projectId;\n");
+        write('src/main.ts', "export { near } from './app/near';\nexport { deep } from './app/core/analytics/deep';\nexport { barrel } from './app/barrel';\n");
+    });
+    afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+    async function built(target: string | null): Promise<string> {
+        const result = await build({
+            root, configFile: false, logLevel: 'silent',
+            plugins: [environmentSwap(target, { root })],
+            build: { write: false, minify: false, lib: { entry: join(root, 'src/main.ts'), formats: ['es'], fileName: 'main' } },
+        });
+        const outputs = (Array.isArray(result) ? result : [result]) as { output: { code?: string }[] }[];
+        return outputs.flatMap((r) => r.output.map((o) => o.code ?? '')).join('\n');
+    }
+
+    it('serves the project\'s file to every import, however it is written', async () => {
+        const code = await built(join(root, 'src/environments/firebase-web.acme-staging.ts'));
+        expect(code).toContain('acme-staging');
+        expect(code).not.toContain('acme-dev');
+    }, 30_000);
+
+    it('changes nothing without a target', async () => {
+        const code = await built(null);
+        expect(code).toContain('acme-dev');
+        expect(code).not.toContain('acme-staging');
+    }, 30_000);
+
+    it('is what vite.config.ts uses, with no import aliases for the environment file', () => {
+        const config = readFileSync(resolve(__dirname, '../../vite.config.ts'), 'utf8');
+        expect(config).toContain('environmentSwap(');
+        expect(config).not.toMatch(/['"]\.\.\/environments\/environment['"]\s*:/);
+    });
+});
+

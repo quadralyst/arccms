@@ -120,3 +120,15 @@ that project would switch the site's Google Analytics stream. Left unchanged; Gu
 staging alias, `npm run arc:configure -- --project=staging --web-config=fetch`,
 `npm run deploy -- --project=staging` (the site talks only to staging), `npm run seed -- staging`,
 and the typed-id prompt for a project marked `--production=yes`.
+
+**Fixed 2026-10-06 (found in the build-only check):** a staging build fetched and started
+Firebase with staging's settings, but the install settings (`arc-config.ts`: database, bucket,
+hosting site) and Analytics' measurement id still came from `environment.ts`. The swap was a
+Vite alias on the import text (`'../environments/environment'` and the absolute path), so the
+eight files importing it as `'../../../environments/environment'` or deeper kept the original.
+It never showed before because `environment.prod.ts` names the same project as `environment.ts`
+here. Now `environmentSwap()` (`scripts/arc-environment.mjs`) swaps by what an import resolves
+to; a test builds a sample app with shallow, deep and barrel imports, and a staging build of
+this repo names only `sanskrit-app-live` (checked against that project's fetched settings,
+nothing deployed).
+
