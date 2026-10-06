@@ -29,6 +29,23 @@ export const MEMBER_LANGUAGES: readonly MemberLanguage[] = [
     </ol>
     <p>Members get English plus the languages you declare. Arc CMS's Hindi is offered to members only if you declare it too (<code>{ code: 'hi', label: 'हिन्दी', locale: 'hi', localeData: () =&gt; import('@angular/common/locales/hi') }</code>); its member keys are already translated.</p>
 
+    <h2>Example: German for a shop's staff</h2>
+    <p>An app that declared <code>de</code> above, with one screen of its own whose English is in <code>src/custom/i18n/en.json</code>:</p>
+    <pre><code>{ "custom": { "till": { "open": "Open the till" } } }</code></pre>
+    <p>Its <code class="new">src/custom/i18n/de.json</code> translates Arc CMS's member keys and its own, with the same nesting:</p>
+    <pre><code>{
+  "member": { "auth": { "continue": "Weiter" } },
+  "user": { "nav": { "dashboard": "Übersicht" } },
+  "custom": { "till": { "open": "Kasse öffnen" } }
+}</code></pre>
+    <p>With only these three keys, <code>npm run i18n:member -- --lang=de</code> lists the rest, and the parity test fails naming them until <code>partial: true</code> is set. A German-speaking member then sees "Weiter" on the sign-in button, "Übersicht" in the member menu and "Kasse öffnen" on your screen, and English for every key not yet written. A language picker of your own switches it:</p>
+    <pre><code>import { setMemberLanguage } from '../../app/core/i18n/member-language.service';
+
+// In your component, for a button such as &lt;button (click)="german()"&gt;Deutsch&lt;/button&gt;
+german(): void {
+  setMemberLanguage('de');
+}</code></pre>
+
     <h2>Which language a member sees</h2>
     <ul>
       <li><strong>Their choice on this device.</strong> Set it from your app's own picker or settings: <code>setMemberLanguage('de')</code>, from <code>src/app/core/i18n/member-language.service.ts</code>, or <code>use()</code> on <code>MemberLanguageService</code>. It is kept on the device, so a shared device shows it on the sign-in screen too.</li>

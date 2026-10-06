@@ -39,3 +39,18 @@ describe('the parity check itself, with a fake language', () => {
         expect(languageParity([{ code: 'en' }, { code: 'zz', partial: true }], fakeCore, fakeCustom).map((r) => [r.code, r.partial])).toEqual([['zz', true]]);
     });
 });
+
+describe('the worked example in docs/app/member-languages.html', () => {
+    it('uses member keys that exist in English', async () => {
+        const { readFileSync } = await import('node:fs');
+        const { resolve } = await import('node:path');
+        const { flattenKeys, isMemberKey } = await import('../app/core/i18n/member-keys');
+        const page = readFileSync(resolve(__dirname, '../../docs/app/member-languages.html'), 'utf8');
+        const example = /<pre><code>(\{\s*\n\s*"member"[\s\S]*?)<\/code><\/pre>/.exec(page)?.[1];
+        expect(example, 'the German example is on the page').toBeTruthy();
+        const coreKeys = flattenKeys(JSON.parse(example!)).filter((key) => !key.startsWith('custom.'));
+        const english = new Set(flattenKeys(core['en']));
+        expect(coreKeys.length).toBeGreaterThan(0);
+        expect(coreKeys.filter((key) => !english.has(key) || !isMemberKey(key))).toEqual([]);
+    });
+});

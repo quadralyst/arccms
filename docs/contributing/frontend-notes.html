@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Frontend notes | Arc CMS docs</title>
   <meta name="description" content="What a contributor must know about the Arc CMS Angular app: components, stores, translations, routing, change detection without zone.js, the page header and styles.">
-  <meta name="docs:sources" content="src/main.ts, src/app/app.ts, src/app/app.config.ts, src/app/app.routes.ts, vite.config.ts, src/shared/components/page-header/page-header.component.ts, src/shared/components/row-actions/row-actions.component.ts, src/shared/services/generic-store.service.ts, src/app/core/i18n, src/assets/i18n, scripts/generate-i18n-keys.mjs, src/app/core/config/arc-functions.ts, src/app/core/config/arc-firebase.ts, src/styles.css, src/shared/utils/status-badge.ts, index.html">
+  <meta name="docs:sources" content="src/main.ts, src/app/app.ts, src/app/app.config.ts, src/app/app.routes.ts, vite.config.ts, src/shared/components/page-header/page-header.component.ts, src/shared/components/row-actions/row-actions.component.ts, src/shared/services/generic-store.service.ts, src/app/core/i18n, src/assets/i18n, src/test/pseudo-language.ts, scripts/generate-i18n-keys.mjs, src/app/core/config/arc-functions.ts, src/app/core/config/arc-firebase.ts, src/styles.css, src/shared/utils/status-badge.ts, index.html">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="contributing/frontend-notes.html">
@@ -27,7 +27,7 @@
     <p>Page state lives in NgRx Signals stores (<code>signalStore</code> from <code>@ngrx/signals</code>), such as the auth store in <code>src/app/pages/(auth)/auth.store.ts</code>. A store for a Firestore collection is usually made with <code>createGenericStore()</code> from <code>src/shared/services/generic-store.service.ts</code>, which gives it loading, paging, sorting and the create, update and delete calls. Templates read store state as signals.</p>
 
     <h2>Translations</h2>
-    <p>The admin area's text is translated with Transloco. English is the source language:</p>
+    <p>The admin's and the members' text is translated with Transloco. English is the source language:</p>
     <ol class="steps">
       <li><p>Add the key and its English text to <code>src/assets/i18n/en.json</code>, and the translation to each other language file in that folder, such as <code>src/assets/i18n/hi.json</code>.</p></li>
       <li><p>Use it: <code>{{ 'admin.nav.broadcasts' | transloco }}</code> in a template, or <code>injectT()</code> from <code>src/app/core/i18n/inject-t.ts</code> in TypeScript.</p></li>
@@ -38,7 +38,16 @@
       </li>
     </ol>
     <p>A spec (<code>src/test/i18n-parity.spec.ts</code>) fails when a translation misses a key, has a key English does not, or the generated keys are out of date. A missing translation falls back to English in the app, so without that spec the gap would be invisible. Keys written in templates are plain strings to the compiler; the spec is their only check.</p>
-    <p>This covers the admin interface only. The languages a site publishes its content in are a separate setting: see <a href="../features/languages.html">Languages</a>.</p>
+    <h3 id="member-facing-text">Text members see</h3>
+    <p>Apps add languages for their members that core has never seen (see <a href="../app/member-languages.html">Member languages</a>), so <strong>a member-facing string is never hard-coded</strong>, not even a fallback such as <code>{{ name || 'Member' }}</code>:</p>
+    <ul>
+      <li>Put its key under <code>member.*</code> (or <code>user.*</code> in the member area), in <code>en.json</code> and <code>hi.json</code>. A key elsewhere must be added to <code>MEMBER_KEYS</code> in <code>src/app/core/i18n/member-keys.ts</code>.</li>
+      <li>Add a new member screen's file to <code>MEMBER_SCREEN_FILES</code> in the same file.</li>
+      <li>Write a sentence that shows a value as one key with <code>{{ value }}</code>, never as words joined in code. To style the value, split the sentence with <code>sentenceParts()</code> from <code>src/app/core/i18n/sentence-parts.ts</code>.</li>
+      <li>Format dates with the member's locale (<code>memberLocaleNow()</code> from <code>src/app/core/i18n/member-language-now.ts</code>), not the browser's.</li>
+    </ul>
+    <p><code>src/app/core/i18n/member-screens-translated.spec.ts</code> fails on English in a member screen's template or messages, and <code>member-screens-pseudo.spec.ts</code> renders screens in a pseudo language and fails on any plain English left. Values a person or an admin wrote (a name, the cookie banner's message) are data, not text to translate.</p>
+    <p>The languages a site publishes its content in are a separate setting: see <a href="../features/languages.html">Languages</a>.</p>
 
     <h2 id="routing">Routing</h2>
     <p>AnalogJS turns files into routes. A file ending in <code>.page.ts</code> with a default export, under <code>src/app/pages/</code> (or <code>src/custom/pages/</code> in an app), is a page: <code>search.page.ts</code> is <code>/search</code>, <code>[contentTypeSlug]</code> in a name is a parameter, and a folder in parentheses such as <code>(settings)</code> groups files without adding to the URL.</p>

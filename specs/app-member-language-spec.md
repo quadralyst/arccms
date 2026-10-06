@@ -1,6 +1,6 @@
 # Member Languages Added by the App: Build Spec (A1)
 
-**Status:** A1a (the mechanism), A1b (sign-in, profile, account) and A1c (the remaining member screens) built 2026-10-06 on `feat/app-member-language`; A1d not built.
+**Status:** A1a to A1d built 2026-10-06 on `feat/app-member-language` (the mechanism; sign-in, profile, account; the remaining member screens; docs). Not yet merged into `dev`.
 **Branch:** `feat/app-member-language`, cut from `dev` (10c8734).
 **Scope:** an app built on Arc CMS adds a language Arc does not ship (for example German)
 and shows it to its members: signed-in non-admin people, and visitors on the sign-in
@@ -204,3 +204,10 @@ English; the app can set its own.
   `npm run i18n:pseudo`): not-found, the cookie banner, sign-in methods (two states), the
   member shell. A key missing from the member list shows as the key there and fails.
 - The English of `user.premium.on_plan` lost its em dash.
+
+**A1d built 2026-10-06.** `docs/app/member-languages.html` gains a worked German example (two
+core keys and one of the app's, and a picker calling `setMemberLanguage`), checked by a test
+that its core keys exist in English and are member keys. The rule for core authors ("a
+member-facing string is never hard-coded") is in `docs/contributing/frontend-notes.html`;
+`docs/app/sign-in.html`, `docs/app/custom-space.html`, `docs/features/languages.html` and
+`docs/contributing/keep-core-generic.html` point to member languages.
