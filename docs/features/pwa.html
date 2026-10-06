@@ -19,7 +19,7 @@
       <li><strong>An install card</strong> that shows the right steps for their browser.</li>
       <li><strong>Fast opening:</strong> the app's main code, styles and fonts are stored on the device; other code, images and fonts from the site and common font and script CDNs are stored the first time they load. A person's own files in Storage (<code>users/...</code>) are never stored, so nothing private stays on a shared device.</li>
       <li><strong>Fresh content:</strong> pages always come from the network first. Without a connection, or after 4 seconds of waiting, the stored copy opens instead. Signed-in data still needs a connection.</li>
-      <li><strong>Safe updates:</strong> after a deploy, an open app shows "A new version is ready." with an <strong>Update</strong> button. It checks on each page load and every hour, and never reloads by itself.</li>
+      <li><strong>Safe updates:</strong> after a deploy, an open app shows "A new version is ready." with an <strong>Update</strong> button. It checks on each page load and every hour, and never reloads by itself. Once someone updates in one tab, the other open tabs reload into the new version too, except pages that show the update themselves (see <a href="../app/pwa.html#other-tabs">Make it installable</a>).</li>
     </ul>
     <p>Admins see install numbers on the admin dashboard. For when an app should use this, see <a href="../app/pwa.html">Make it installable</a>.</p>
 
