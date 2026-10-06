@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Keep working offline | Arc CMS docs</title>
+  <meta name="description" content="Turn on Firestore's offline cache so a signed-in app keeps showing its data and saves changes through short connection drops, and wipe it when a device changes hands.">
+  <meta name="docs:sources" content="src/app/core/config/arc-firebase.ts, src/app/core/config/arc-config.ts, scripts/arc-configure.mjs, arccms.config.example.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/offline.html">
+  <main>
+    <h1>Keep working offline</h1>
+    <p class="lead">An app used where the connection comes and goes, such as a till or a phone on the move, can keep the data it has loaded on the device. Pages keep showing it while offline, and changes made offline are saved when the connection returns.</p>
+
+    <h2>Turn it on</h2>
+    <p>It is an install setting, off unless you turn it on, and can differ per Firebase project:</p>
+    <pre><code>npm run arc:configure -- --offline-cache=multi-tab</code></pre>
+    <table>
+      <thead><tr><th>Value</th><th>Means</th></tr></thead>
+      <tbody>
+        <tr><td><code>off</code></td><td>The default. Firestore keeps nothing on the device, as before.</td></tr>
+        <tr><td><code>single-tab</code></td><td>The cache is kept for one browser tab at a time. A second tab of the same site works without it.</td></tr>
+        <tr><td><code>multi-tab</code></td><td>Every tab of the site shares the cache. Choose this unless you know the app runs in one tab only.</td></tr>
+      </tbody>
+    </table>
+    <p>The value is written to <code>arccms.config.json</code> (key <code>offlineCache</code>) and to <code>src/environments/arc-install.ts</code>. Build and deploy the website for it to take effect. Firestore starts with the cache in the browser only, on the install's own database, named or not.</p>
+    <p>If the browser refuses the cache (some private windows have no storage for it), Firestore starts without it and the page works as before, online only. The browser console says so once.</p>
+
+    <h2>What works offline, and what does not</h2>
+    <table>
+      <thead><tr><th>Works offline</th><th>Needs a connection</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>
+            <ul>
+              <li>Pages that already loaded their data keep showing it, and reading it again comes from the device.</li>
+              <li>Writes (add, set, update, delete) are queued and sent in order when the connection returns. The page shows the change at once.</li>
+              <li>Live listeners keep working on what is stored, and catch up on reconnect.</li>
+            </ul>
+          </td>
+          <td>
+            <ul>
+              <li>Cloud Functions callables, such as sign-in by phone or PIN, payments and search.</li>
+              <li>Transactions, and writes that must read the server first.</li>
+              <li>Signing in for the first time on a device, or as someone new. A person already signed in stays signed in.</li>
+              <li>Data never loaded on this device.</li>
+              <li>File uploads to Storage.</li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>The cache holds data, not the app's code. A screen whose code was never loaded on the device cannot open offline. With the <a href="pwa.html">installable app</a> on, the code of every screen opened before is kept; screens never opened are not.</p></div>
+
+    <h2>Shared devices</h2>
+    <div class="trap"><p><strong>Reads from the cache are not checked by your security rules.</strong> The rules run on the server, and offline there is no server. Whatever one person loaded on a device can come back to the next person's queries on that device while offline. On a device several people use, either accept that (staff who share the same data anyway), or wipe the cache when the person changes.</p></div>
+    <p>To wipe it, call <code>clearOfflineCache()</code> from <code>src/app/core/config/arc-firebase.ts</code> with the app's Firestore. It first waits up to 5 seconds for changes made offline to be sent, and refuses with <code>OfflineWritesPendingError</code> if they cannot be, so nothing is lost by accident. It then stops Firestore, deletes the stored data and reloads the page.</p>
+    <pre><code>import { inject } from '@angular/core';
+import { Firestore } from '@angular/fire/firestore';
+import { clearOfflineCache, OfflineWritesPendingError } from '../app/core/config/arc-firebase'; // from src/custom/
+
+export class SwitchUserService {
+    private firestore = inject(Firestore);
+
+    async handOver(): Promise&lt;void&gt; {
+        try {
+            await clearOfflineCache(this.firestore);
+        } catch (error) {
+            if (error instanceof OfflineWritesPendingError) {
+                // Ask the person to connect first, or, if the device is being retired:
+                // await clearOfflineCache(this.firestore, { discardPendingWrites: true });
+            }
+        }
+    }
+}</code></pre>
+    <p>Arc CMS does not wipe the cache by itself when someone signs out, because signing out offline would then lose their unsent changes. The choice belongs to the app.</p>
+
+    <h2>Check it</h2>
+    <ol class="steps">
+      <li><p>Set the value and run <code>npm run arc:configure</code>, then <code>npm run dev</code>.</p></li>
+      <li><p>Sign in and open a page that lists data. In Chrome's DevTools, Network, choose Offline.</p></li>
+      <li><p>Open the same page again: the data is still there. Change something: the page shows it.</p></li>
+      <li><p>Go back online. The change reaches Firestore (check it in the Firebase console).</p></li>
+    </ol>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

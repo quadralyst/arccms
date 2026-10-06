@@ -28,6 +28,8 @@
  *   --app-users=own   the audience is this install's own users collection (CO6.8), for a
  *                     standalone site or an app built on ArcCMS; sets the two flags above
  *   --admin-only-sign-in=yes|no   onboarding turns sign-ups off (CO6.6; default yes for backend)
+ *   --offline-cache=off|single-tab|multi-tab   keep Firestore data on the device for use
+ *                     offline (docs/app/offline.html; default off)
  *   --dry-run   print what would change, write nothing
  *
  * With no arccms.config.json and no flags, every output is the default and a
@@ -72,7 +74,11 @@ const FLAG_KEYS = {
     'app-users-path': 'appUsersPath',
     'admin-only-sign-in': 'adminOnlySignIn',
     'app-users': 'appUsers',
+    'offline-cache': 'offlineCache',
 };
+
+/** Firestore's offline cache in the browser (docs/app/offline.html). */
+export const OFFLINE_CACHE_MODES = ['off', 'single-tab', 'multi-tab'];
 
 /** When no host collection is configured: a path nothing writes to (App audience, CO6). */
 export const APP_USERS_UNCONFIGURED = '_arccms_app_users_not_configured/{id}';
@@ -129,6 +135,9 @@ export function validateConfig(config) {
     const errors = [];
     if (!PROFILES.includes(config.profile)) {
         errors.push(`profile must be one of ${PROFILES.join(', ')}, not "${config.profile}".`);
+    }
+    if (config.offlineCache && !OFFLINE_CACHE_MODES.includes(config.offlineCache)) {
+        errors.push(`offline-cache must be one of ${OFFLINE_CACHE_MODES.join(', ')}, not "${config.offlineCache}".`);
     }
     if (config.adminOnlySignIn && !['yes', 'no'].includes(config.adminOnlySignIn)) {
         errors.push(`admin-only-sign-in must be yes or no, not "${config.adminOnlySignIn}".`);
@@ -193,6 +202,8 @@ export function appValues(config) {
     if (ownFunctionsRegion(config)) values.functionsRegion = config.functionsRegion;
     // The admin compares local site files with this site's (docs/website/home-page.html).
     if (config.hostingSite) values.hostingSite = config.hostingSite;
+    // Browser only: the functions never read it, so it is not in functions/.env.
+    if (config.offlineCache && config.offlineCache !== 'off') values.offlineCache = config.offlineCache;
     return Object.keys(values).length ? values : null;
 }
 

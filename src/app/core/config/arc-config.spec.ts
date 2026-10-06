@@ -13,6 +13,7 @@ describe('arc-config (frontend)', () => {
                 adminOnlySignIn: false,
                 functionsRegion: 'us-central1',
                 hostingSite: '',
+                offlineCache: 'off',
             });
             expect(resolveArcConfig({})).toEqual(resolveArcConfig(undefined));
             expect(DEFAULT_DATABASE_ID).toBe('(default)');
@@ -40,10 +41,20 @@ describe('arc-config (frontend)', () => {
                 adminOnlySignIn: false,
                 functionsRegion: 'us-central1',
                 hostingSite: '',
+                offlineCache: 'off',
             });
             expect(resolveArcConfig({ adminOnlySignIn: true }).adminOnlySignIn).toBe(true);
             expect(resolveArcConfig({ functionsRegion: ' asia-south1 ' }).functionsRegion).toBe('asia-south1');
             expect(resolveArcConfig({ hostingSite: ' acme-arccms ' }).hostingSite).toBe('acme-arccms');
+        });
+
+        it('turns the offline cache on only for a known mode (docs/app/offline.html)', () => {
+            expect(resolveArcConfig({ offlineCache: 'single-tab' }).offlineCache).toBe('single-tab');
+            expect(resolveArcConfig({ offlineCache: 'multi-tab' }).offlineCache).toBe('multi-tab');
+            expect(resolveArcConfig({ offlineCache: 'off' }).offlineCache).toBe('off');
+            // A typo never half-enables a cache.
+            expect(resolveArcConfig({ offlineCache: 'multitab' as never }).offlineCache).toBe('off');
+            expect(resolveArcConfig({}).offlineCache).toBe('off');
         });
 
         it('treats blank values as unset', () => {

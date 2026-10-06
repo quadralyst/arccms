@@ -38,6 +38,19 @@ describe('arc-configure', () => {
                 .toContain('admin-only-sign-in must be yes or no, not "maybe".');
         });
 
+        it('offline cache (docs/app/offline.html): off by default, validated, written only when on, never to the functions', () => {
+            expect(configure.parseFlags(['--offline-cache=multi-tab']).updates).toEqual({ offlineCache: 'multi-tab' });
+            expect(configure.appValues(configure.normalizeConfig({ offlineCache: 'off' }))).toBeNull();
+            expect(configure.appValues(configure.normalizeConfig({ offlineCache: 'single-tab' }))).toEqual({ offlineCache: 'single-tab' });
+            expect(configure.appValues(configure.normalizeConfig({ offlineCache: 'multi-tab' }))).toEqual({ offlineCache: 'multi-tab' });
+            expect(configure.validateConfig(configure.normalizeConfig({ offlineCache: 'always' })))
+                .toContain('offline-cache must be one of off, single-tab, multi-tab, not "always".');
+            expect(configure.validateConfig(configure.normalizeConfig({ offlineCache: 'multi-tab' }))).toEqual([]);
+            expect(configure.updateFunctionsEnv('', configure.normalizeConfig({ offlineCache: 'multi-tab' }))).not.toMatch(/OFFLINE/i);
+            expect(configure.renderArcInstall({ 'p-1': configure.normalizeConfig({ offlineCache: 'multi-tab' }) }))
+                .toContain('offlineCache: "multi-tab"');
+        });
+
         it('generates no Firebase config, so the committed firebase.json is used', () => {
             expect(configure.renderFirebaseConfig(committedFirebase, config)).toBeNull();
         });

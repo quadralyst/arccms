@@ -1,5 +1,6 @@
 {
   "profile": "standalone",
+  "offlineCache": "off",
   "projects": {
     "your-project-id": {
       "profile": "backend",
