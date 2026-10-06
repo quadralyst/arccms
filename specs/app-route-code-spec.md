@@ -7,7 +7,7 @@ A6's route flag. Merge A6 first, then rebase this on `dev`.
 
 1. **Stored ahead.** With the PWA on, an app can have the code of its screens stored on the
    device when the app installs or updates, so a screen opens even if it was never opened
-   before: offline (with A3's data cache, `specs/app-offline-cache-spec.md`) and after a
+   before: offline (with A3's data cache, specced on branch `feat/app-offline-cache`) and after a
    deploy has removed the old version's files from the server.
 2. **Recovery.** When a screen's code cannot be loaded (with or without the PWA), Arc does
    something sensible instead of nothing: today the click does nothing at all and the
