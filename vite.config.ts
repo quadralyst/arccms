@@ -12,6 +12,7 @@ import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
 import { oneBuildAtATime } from './scripts/vite-build-order';
 import { arcSite } from './scripts/vite-arc-site';
+import { environmentFor } from './scripts/arc-environment.mjs';
 
 // The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
@@ -21,6 +22,17 @@ const features = resolveFeatures(CUSTOM_FEATURES);
 // on when the features ask for it.
 const pwa = resolvePwaConfig(CUSTOM_PWA, features.has('pwa'));
 const pwaIcon = PWA_ICON_CANDIDATES.find((path) => existsSync(resolve(path))) ?? DEFAULT_PWA_ICON;
+
+// The Firebase project this build talks to (specs/app-project-settings-spec.md): with
+// ARC_PROJECT=<alias or id>, that project's web settings; without it, the environment
+// files as always (environment.prod.ts in a production build unless USE_DEV_ENV=true).
+// npm run deploy sets it to the project it deploys to.
+const arcProject = process.env['ARC_PROJECT'];
+const projectEnvironment = arcProject ? environmentFor(arcProject) : null;
+if (projectEnvironment) {
+  console.log(`Firebase project: ${projectEnvironment.projectId} (${projectEnvironment.source}, ${projectEnvironment.file.split('/src/')[1] ?? projectEnvironment.file})`);
+}
+const environmentFile = projectEnvironment?.file ?? null;
 
 // Nitro's own, set before Nitro does it from inside the dev server (releaseClosedServer).
 (globalThis as { defineNitroConfig?: (config: unknown) => unknown }).defineNitroConfig ??= (config) => config;
@@ -126,7 +138,12 @@ export default defineConfig(({ mode }) => {
     resolve: {
       mainFields: ['module'],
       alias: {
-        ...(mode === 'production' && process.env['USE_DEV_ENV'] !== 'true'
+        ...(environmentFile
+          ? {
+              [resolve('./src/environments/environment.ts')]: environmentFile,
+              '../environments/environment': environmentFile,
+            }
+          : mode === 'production' && process.env['USE_DEV_ENV'] !== 'true'
           ? {
               [resolve('./src/environments/environment.ts')]: resolve(
                 './src/environments/environment.prod.ts',

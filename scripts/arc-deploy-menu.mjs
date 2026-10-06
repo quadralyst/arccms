@@ -20,7 +20,7 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from '
 import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-    DEFAULT_DATABASE_ID, ROOT, configForProject, readArcInstallConfig, readFirebaseAliases,
+    DEFAULT_DATABASE_ID, ROOT, configForProject, isMarkedProduction, readArcInstallConfig, readFirebaseAliases,
 } from './arc-install-config.mjs';
 import {
     checkFunctionsRegion, cliActiveProject, functionsRegionOf, generatedConfigPath, runDeploy,
@@ -52,9 +52,12 @@ export function projectOptions(aliases, active, last) {
     return { options, defaultIndex: index };
 }
 
-/** Production is confirmed by typing its id back: an alias or id that says prod or live. */
-export function needsTypedConfirmation(alias, projectId) {
-    return alias === 'production' || /(^|[-_])(prod|production|live)([-_]|$)/i.test(projectId);
+/**
+ * Production is confirmed by typing its id back: a project marked `"production": "yes"`
+ * in arccms.config.json (E-D9), the `production` alias, or an id that says prod or live.
+ */
+export function needsTypedConfirmation(alias, projectId, markedProduction = false) {
+    return markedProduction || alias === 'production' || /(^|[-_])(prod|production|live)([-_]|$)/i.test(projectId);
 }
 
 // ---------------------------------------------------------------------------
@@ -142,20 +145,16 @@ const TARGET_PATHS = {
     website: [/^src\//, /^public\//, /^index\.html$/, /^vite\.config\.ts$/, /^package(-lock)?\.json$/],
 };
 
-/** Builds the website and publishes its pages: only these projects have a build set up for them. */
-export const WEBSITE_BUILDS = {
-    default: { env: { USE_DEV_ENV: 'true' }, seed: 'dev' },
-    production: { env: {}, seed: 'prod' },
-};
 
 /**
  * The deploy menu for a project. `changed` is from changedFunctions() (null
  * when there is no earlier deploy to compare with); `dirty` says which other
  * targets changed since their last deploy.
  */
-export function deployChoices({ websiteOn, websiteBuild, changed, dirty = {}, storageOn = true }) {
+export function deployChoices({ websiteOn, changed, dirty = {}, storageOn = true }) {
     const mark = (key) => (dirty[key] ? '  (changed since the last deploy)' : '');
-    const website = websiteOn && websiteBuild;
+    // Any project: the deploy builds the website with that project's settings (E-D6).
+    const website = !!websiteOn;
     const choices = [];
     if (changed && changed.targets.length) {
         choices.push({
@@ -486,11 +485,9 @@ async function menu(rl) {
         dirty[key] = !!since && since.some((path) => patterns.some((re) => re.test(path)));
     }
     const websiteOn = config.hostingSite !== HOSTING_OFF;
-    const websiteBuild = WEBSITE_BUILDS[alias];
-    if (websiteOn && !websiteBuild) console.log(`The website is deployed with npm run deploy:dev or deploy:prod; ${alias || projectId} has no website build set up.`);
     const storageOn = !sharesDefaultBucket(config);
     if (!storageOn) console.log('Storage rules are not offered: Arc CMS shares the default bucket with the other app, and a bucket has one rules file (docs/operations/deploy.html).');
-    const choices = deployChoices({ websiteOn, websiteBuild, changed, dirty, storageOn });
+    const choices = deployChoices({ websiteOn, changed, dirty, storageOn });
     const lastKey = state.choice?.[projectId];
     const preferred = Math.max(0, choices.findIndex((c) => c.key === lastKey));
     const choice = await choose(rl, 'What to deploy?', choices, lastKey ? preferred : 0);
@@ -513,9 +510,9 @@ async function menu(rl) {
     console.log(`  Project:  ${project.other ? projectId : project.label}`);
     console.log(`  Config:   ${generated ? relative(ROOT, generatedConfigPath(projectId)) : 'firebase.json'}`);
     console.log(`  What:     ${choice.label}`);
-    if (choice.website) console.log(`  First:    build the website (${Object.keys(websiteBuild.env).length ? 'dev' : 'production'} settings); after: publish its static pages`);
+    if (choice.website) console.log(`  First:    build the website with ${projectId}'s settings; after: publish its static pages`);
     console.log(`  Command:  npm run deploy -- ${args.join(' ')}`);
-    if (needsTypedConfirmation(alias, projectId)) {
+    if (needsTypedConfirmation(alias, projectId, isMarkedProduction(file, projectId))) {
         const typed = await ask(rl, `\nThis is ${projectId}. Type the project id to deploy`);
         if (typed !== projectId) {
             console.log('Not deployed.');
@@ -526,17 +523,7 @@ async function menu(rl) {
         return 1;
     }
 
-    // 5. Deploy.
-    if (choice.website) {
-        console.log('\n> npm run build (the website)');
-        const build = spawnSync('npm', ['run', 'build'], {
-            cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32', env: { ...process.env, ...websiteBuild.env },
-        });
-        if (build.status !== 0) {
-            console.error('\nThe website build failed, so nothing was deployed.');
-            return build.status ?? 1;
-        }
-    }
+    // 5. Deploy. The deploy builds the website itself, for this project (E-D6).
     // The functions were built above, to see what changed. A deploy of all the
     // functions lists any it would delete and asks here, on the menu's prompt.
     const result = await runDeploy(args, {
@@ -556,7 +543,7 @@ async function menu(rl) {
         }
     }
     if (result.status === 0 && choice.website) {
-        spawnSync('node', [resolve(ROOT, 'functions/scripts/call-seed.cjs'), websiteBuild.seed], { stdio: 'inherit' });
+        spawnSync('node', [resolve(ROOT, 'functions/scripts/call-seed.cjs'), projectId], { stdio: 'inherit' });
     }
 
     // 6. Remember.

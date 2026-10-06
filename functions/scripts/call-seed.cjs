@@ -5,16 +5,24 @@
  * Called automatically after deploy, or manually via:
  *   npm run seed:dev
  *   npm run seed:prod
+ *   npm run seed -- staging          (any .firebaserc alias, or a project id)
  *
  * The project, the install's database and the credentials (Firebase CLI login, or
  * GOOGLE_APPLICATION_CREDENTIALS) come from runAdminScript (scripts/arc-admin-script.mjs).
  */
 
-// Determine environment from CLI arg (default: "dev")
-const envArg = (process.argv[2] || 'dev').toLowerCase();
-if (envArg !== 'dev' && envArg !== 'prod') {
-    console.error(`Error: Unknown environment "${envArg}". Use "dev" or "prod".`);
+// The project: `dev` (the default alias), `prod` (the production alias), or any other
+// alias or project id, the same way npm run deploy takes it (specs/app-project-settings-spec.md).
+const envArg = process.argv[2] || 'dev';
+if (envArg.startsWith('-')) {
+    console.error(`Error: give the project as a plain word: npm run seed -- <alias or id>, not "${envArg}".`);
     process.exit(1);
+}
+/** runAdminScript's arguments for the project asked for. */
+function projectArgv(arg) {
+    if (arg === 'dev') return [];
+    if (arg === 'prod') return ['--prod'];
+    return [`--project=${arg}`];
 }
 
 async function seed() {
@@ -94,7 +102,7 @@ async function main() {
     console.log('');
 
     const { runAdminScript } = await import('../../scripts/arc-admin-script.mjs');
-    await runAdminScript(seed, { argv: envArg === 'prod' ? ['--prod'] : [] });
+    await runAdminScript(seed, { argv: projectArgv(envArg) });
     // The built functions keep their own Admin SDK connection open, so leave explicitly.
     process.exit(process.exitCode ?? 0);
 }

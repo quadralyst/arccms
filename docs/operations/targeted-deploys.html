@@ -46,11 +46,10 @@
     </table>
     <p>Each of these combines the core rules and indexes with the app's own before uploading (see <a href="security-rules.html">Security rules</a>).</p>
 
-    <p>For the website, build it first, deploy Hosting, then publish the static pages again. For the <code>default</code> alias:</p>
-    <pre><code>USE_DEV_ENV=true npm run build
-npm run deploy -- --only hosting --project default
+    <p>For the website, deploy Hosting (the deploy builds the site for that project first), then publish the static pages again. For the <code>default</code> alias:</p>
+    <pre><code>npm run deploy -- --only hosting --project default
 npm run seed:dev</code></pre>
-    <p>For <code>production</code>, build without <code>USE_DEV_ENV</code> and run <code>npm run seed:prod</code>. The guided deploy's "Website" choice does all three steps.</p>
+    <p>For another project, give its alias to both: <code>npm run deploy -- --only hosting --project production</code>, then <code>npm run seed -- production</code>. The guided deploy's "Website" choice does both steps.</p>
 
     <h2>I changed this, so I deploy that</h2>
     <table>

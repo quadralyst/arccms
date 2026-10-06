@@ -32,6 +32,12 @@
  *                     offline (docs/app/offline.html; default off)
  *   --analytics-consent=always|required   track every visitor, or only those who accepted
  *                     the site usage banner (docs/features/analytics.html; default always)
+ *   --web-config=fetch|<file>   the project's Firebase web settings: fetched with the
+ *                     Firebase CLI, or read from a JSON file or the console's snippet;
+ *                     written to src/environments/firebase-web.<id>.ts so a build for
+ *                     this project uses them (ARC_PROJECT, npm run deploy)
+ *   --web-app=<appId>   which web app to fetch, when the project has several
+ *   --production=yes|no   deploying asks for the project id to be typed back
  *   --dry-run   print what would change, write nothing
  *
  * With no arccms.config.json and no flags, every output is the default and a
@@ -40,11 +46,12 @@
  * The script never creates cloud resources. For a backend profile it prints the
  * commands that create the database, hosting site and bucket.
  */
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
-    DEFAULT_DATABASE_ID, configForProject, readFirebaseAliases, resolveProjectId,
+    DEFAULT_DATABASE_ID, REQUIRED_WEB_CONFIG_KEYS, WEB_CONFIG_KEYS, configForProject, readFirebaseAliases, resolveProjectId, webConfigPath,
 } from './arc-install-config.mjs';
 import { DEFAULT_FUNCTIONS_REGION, functionsRegionFor } from './arc-region.mjs';
 
@@ -78,6 +85,7 @@ const FLAG_KEYS = {
     'app-users': 'appUsers',
     'offline-cache': 'offlineCache',
     'analytics-consent': 'analyticsConsent',
+    production: 'production',
 };
 
 /** When Google Analytics tracks a visitor (docs/features/analytics.html). */
@@ -98,20 +106,91 @@ export function parseFlags(argv) {
     const updates = {};
     let dryRun = false;
     let project = '';
+    let webConfig = '';
+    let webApp = '';
     for (const arg of argv) {
         if (arg === '--dry-run') { dryRun = true; continue; }
         if (arg.startsWith('--project=')) { project = arg.slice('--project='.length); continue; }
+        if (arg.startsWith('--web-config=')) { webConfig = arg.slice('--web-config='.length); continue; }
+        if (arg.startsWith('--web-app=')) { webApp = arg.slice('--web-app='.length); continue; }
         const match = /^--([a-z-]+)=(.*)$/.exec(arg);
         if (!match || !(match[1] in FLAG_KEYS)) throw new Error(`Unknown argument: ${arg}`);
         updates[FLAG_KEYS[match[1]]] = match[2];
     }
-    return { updates, dryRun, project };
+    return { updates, dryRun, project, webConfig, webApp };
+}
+
+/** The web settings Arc CMS keeps, as strings, from whatever was given (the CLI's sdkConfig, a JSON file). */
+export function pickWebConfig(raw) {
+    const config = {};
+    for (const key of WEB_CONFIG_KEYS) {
+        if (typeof raw?.[key] === 'string' && raw[key].trim()) config[key] = raw[key].trim();
+    }
+    return config;
+}
+
+/**
+ * Web settings from a file: JSON, or the snippet the Firebase console shows
+ * (`const firebaseConfig = { apiKey: "...", ... };`).
+ */
+export function parseWebConfigText(text) {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start < 0 || end < start) throw new Error('No { ... } with the web settings found.');
+    const body = text.slice(start, end + 1);
+    try {
+        return pickWebConfig(JSON.parse(body));
+    } catch {
+        const json = body
+            .replace(/\/\/.*$/gm, '')
+            .replace(/'([^']*)'/g, '"$1"')
+            .replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":')
+            .replace(/,(\s*})/g, '$1');
+        return pickWebConfig(JSON.parse(json));
+    }
+}
+
+/**
+ * The project's web settings from the Firebase CLI (`apps:sdkconfig WEB`). A project
+ * with several web apps needs one chosen: `appId`, else the one an environment file
+ * already names, else an error listing them.
+ */
+export function fetchWebConfig(projectId, { appId = '', knownAppIds = [], run = spawnSync } = {}) {
+    const cli = (args) => {
+        const result = run('firebase', [...args, '--project', projectId, '--json', '--non-interactive'], { encoding: 'utf8', shell: process.platform === 'win32' });
+        let parsed;
+        try {
+            parsed = JSON.parse(String(result.stdout || ''));
+        } catch {
+            throw new Error(`The Firebase CLI did not answer (${String(result.stderr || '').trim() || 'is it installed and signed in? firebase login'}).`);
+        }
+        if (parsed.status !== 'success') throw new Error(`Firebase CLI: ${parsed.error || 'failed'}`);
+        return parsed.result;
+    };
+    let chosen = appId;
+    if (!chosen) {
+        const apps = (cli(['apps:list', 'WEB']) ?? []).filter((app) => app.state !== 'DELETED');
+        if (!apps.length) throw new Error(`${projectId} has no web app. Add one in the Firebase console (Project settings, Your apps), then run this again.`);
+        const known = apps.find((app) => knownAppIds.includes(app.appId));
+        if (apps.length === 1) chosen = apps[0].appId;
+        else if (known) chosen = known.appId;
+        else {
+            throw new Error(`${projectId} has ${apps.length} web apps. Choose one with --web-app=<appId>:\n`
+                + apps.map((app) => `  ${app.appId}  ${app.displayName ?? ''}`).join('\n'));
+        }
+    }
+    return pickWebConfig(cli(['apps:sdkconfig', 'WEB', chosen])?.sdkConfig);
 }
 
 /** Trims values, drops blanks and fills the profile default. */
 export function normalizeConfig(raw) {
     const config = {};
     for (const [key, value] of Object.entries(raw ?? {})) {
+        // The one object value: a project's web settings (E-D1).
+        if (key === 'firebaseConfig' && value && typeof value === 'object' && !Array.isArray(value)) {
+            config.firebaseConfig = pickWebConfig(value);
+            continue;
+        }
         if (typeof value !== 'string') continue;
         const trimmed = value.trim();
         if (trimmed) config[key] = trimmed;
@@ -137,8 +216,18 @@ export function normalizeConfig(raw) {
 }
 
 /** Problems that make the config unsafe to deploy. Empty when it is fine. */
-export function validateConfig(config) {
+export function validateConfig(config, projectId = '') {
     const errors = [];
+    if (config.production && !['yes', 'no'].includes(config.production)) {
+        errors.push(`production must be yes or no, not "${config.production}".`);
+    }
+    if (config.firebaseConfig) {
+        const missing = REQUIRED_WEB_CONFIG_KEYS.filter((key) => !config.firebaseConfig[key]);
+        if (missing.length) errors.push(`firebaseConfig is missing ${missing.join(', ')}.`);
+        if (projectId && config.firebaseConfig.projectId && config.firebaseConfig.projectId !== projectId) {
+            errors.push(`firebaseConfig is for ${config.firebaseConfig.projectId}, not ${projectId}: a site built with it would talk to the wrong project.`);
+        }
+    }
     if (!PROFILES.includes(config.profile)) {
         errors.push(`profile must be one of ${PROFILES.join(', ')}, not "${config.profile}".`);
     }
@@ -216,6 +305,31 @@ export function appValues(config) {
     // Browser only, like the cache: the functions do not track anyone.
     if (config.analyticsConsent === 'required') values.analyticsConsent = 'required';
     return Object.keys(values).length ? values : null;
+}
+
+/** The header every generated web settings file starts with, so stale ones can be recognised and removed. */
+export const WEB_CONFIG_HEADER = '// Generated by npm run arc:configure from arccms.config.json. Do not edit.';
+
+/**
+ * Contents of src/environments/firebase-web.<id>.ts (E-D1): the same shape as
+ * environment.ts, for a build of that project only. Null when it has no web settings.
+ */
+export function renderWebConfig(config) {
+    if (!config.firebaseConfig || !Object.keys(config.firebaseConfig).length) return null;
+    const keys = Object.entries(config.firebaseConfig).map(([key, value]) => `        ${key}: ${JSON.stringify(value)},`).join('\n');
+    return `${WEB_CONFIG_HEADER}
+// This project's Firebase web settings (specs/app-project-settings-spec.md). A build with
+// ARC_PROJECT set to this project, as npm run deploy does, uses this file in place of
+// environment.ts. The values are public: they identify the project, they grant nothing.
+
+export const environment = {
+    production: ${config.production === 'yes'},
+
+    firebaseConfig: {
+${keys}
+    },
+};
+`;
 }
 
 /**
@@ -341,6 +455,24 @@ export function setupCommands(config) {
     ];
 }
 
+/** Project ids that have a generated web settings file (recognised by its header). */
+function generatedWebConfigs(root) {
+    const dir = resolve(root, 'src/environments');
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir)
+        .map((name) => /^firebase-web\.(.+)\.ts$/.exec(name)?.[1])
+        .filter((id) => id && readFileSync(webConfigPath(id, root), 'utf8').startsWith(WEB_CONFIG_HEADER));
+}
+
+/** App ids the environment files already name: the web app to fetch when a project has several. */
+function knownAppIds(root) {
+    return ['environment.ts', 'environment.prod.ts'].flatMap((name) => {
+        const path = resolve(root, 'src/environments', name);
+        const id = existsSync(path) ? /appId:\s*['"]([^'"]+)['"]/.exec(readFileSync(path, 'utf8'))?.[1] : undefined;
+        return id ? [id] : [];
+    });
+}
+
 function readJson(path) {
     return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
 }
@@ -359,8 +491,8 @@ function write(path, content, dryRun, changes) {
     if (!dryRun) writeFileSync(path, content);
 }
 
-export function main(argv = process.argv.slice(2), paths = PATHS, log = console.log) {
-    const { updates, dryRun, project } = parseFlags(argv);
+export function main(argv = process.argv.slice(2), paths = PATHS, log = console.log, options = {}) {
+    const { updates, dryRun, project, webConfig, webApp } = parseFlags(argv);
     const aliases = readFirebaseAliases(paths.firebaserc);
     const projectId = resolveProjectId(project, aliases);
     if (!projectId) {
@@ -370,13 +502,23 @@ export function main(argv = process.argv.slice(2), paths = PATHS, log = console.
 
     const stored = readJson(paths.config) ?? {};
     const file = structuredClone(stored);
+    if (webConfig) {
+        try {
+            updates.firebaseConfig = webConfig === 'fetch'
+                ? fetchWebConfig(projectId, { appId: webApp, knownAppIds: knownAppIds(paths.root), run: options.run })
+                : parseWebConfigText(readFileSync(resolve(paths.root, webConfig), 'utf8'));
+        } catch (error) {
+            log(`error: web settings for ${projectId}: ${error.message}`);
+            return 1;
+        }
+    }
     if (Object.keys(updates).length) {
         file.projects ??= {};
         file.projects[projectId] = { ...(file.projects[projectId] ?? {}), ...updates };
     }
     const config = normalizeConfig(configForProject(file, projectId));
 
-    const errors = validateConfig(config);
+    const errors = validateConfig(config, projectId);
     if (errors.length) {
         for (const error of errors) log(`error: ${error}`);
         return 1;
@@ -391,6 +533,14 @@ export function main(argv = process.argv.slice(2), paths = PATHS, log = console.
     const byProject = {};
     for (const id of Object.keys(file.projects ?? {})) byProject[id] = normalizeConfig(configForProject(file, id));
     write(paths.install, renderArcInstall(byProject), dryRun, changes);
+
+    // Each project's web settings in its own file; a project that has none left loses its file.
+    for (const [id, projectConfig] of Object.entries(byProject)) {
+        write(webConfigPath(id, paths.root), renderWebConfig(projectConfig), dryRun, changes);
+    }
+    for (const stale of generatedWebConfigs(paths.root).filter((id) => !byProject[id]?.firebaseConfig)) {
+        write(webConfigPath(stale, paths.root), null, dryRun, changes);
+    }
 
     const envPath = resolve(paths.functionsDir, `.env.${projectId}`);
     const env = updateFunctionsEnv(existsSync(envPath) ? readFileSync(envPath, 'utf8') : '', config);

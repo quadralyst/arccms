@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -229,6 +229,83 @@ describe('arc-configure', () => {
         });
     });
 
+    describe('web settings per project (specs/app-project-settings-spec.md)', () => {
+        const web = { apiKey: 'k', authDomain: 'acme-staging.firebaseapp.com', projectId: 'acme-staging', appId: '1:2:web:3', storageBucket: 'acme-staging.appspot.com' };
+
+        it('keeps the web settings object and the production marker through normalizing', () => {
+            const config = configure.normalizeConfig({ firebaseConfig: { ...web, extra: 'dropped', locationId: 'x' }, production: 'yes' });
+            expect(config.firebaseConfig).toEqual(web);
+            expect(config.production).toBe('yes');
+            expect(configure.parseFlags(['--production=yes', '--web-config=fetch', '--web-app=1:2:web:3']))
+                .toEqual({ updates: { production: 'yes' }, dryRun: false, project: '', webConfig: 'fetch', webApp: '1:2:web:3' });
+        });
+
+        it('refuses settings for another project, incomplete settings and a bad production value', () => {
+            expect(configure.validateConfig(configure.normalizeConfig({ firebaseConfig: web }), 'acme-prod'))
+                .toContain('firebaseConfig is for acme-staging, not acme-prod: a site built with it would talk to the wrong project.');
+            expect(configure.validateConfig(configure.normalizeConfig({ firebaseConfig: { apiKey: 'k', projectId: 'acme-staging' } }), 'acme-staging'))
+                .toContain('firebaseConfig is missing authDomain, appId.');
+            expect(configure.validateConfig(configure.normalizeConfig({ production: 'maybe' })))
+                .toContain('production must be yes or no, not "maybe".');
+            expect(configure.validateConfig(configure.normalizeConfig({ firebaseConfig: web, production: 'no' }), 'acme-staging')).toEqual([]);
+        });
+
+        it('reads a JSON file or the Firebase console snippet', () => {
+            expect(configure.parseWebConfigText(JSON.stringify(web))).toEqual(web);
+            const snippet = `// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "k",
+  authDomain: 'acme-staging.firebaseapp.com',
+  projectId: "acme-staging",
+  storageBucket: "acme-staging.appspot.com",
+  appId: "1:2:web:3",
+};`;
+            expect(configure.parseWebConfigText(snippet)).toEqual(web);
+            expect(() => configure.parseWebConfigText('nothing here')).toThrow('No { ... }');
+        });
+
+        it('renders the generated file in the shape of environment.ts, only when there are settings', () => {
+            const text = configure.renderWebConfig(configure.normalizeConfig({ firebaseConfig: web, production: 'yes' }));
+            expect(text.startsWith(configure.WEB_CONFIG_HEADER)).toBe(true);
+            expect(text).toContain('export const environment = {');
+            expect(text).toContain('production: true,');
+            expect(text).toContain('projectId: "acme-staging",');
+            expect(configure.renderWebConfig(configure.normalizeConfig({}))).toBeNull();
+        });
+
+        describe('fetching with the Firebase CLI', () => {
+            const answer = (result: unknown, status = 'success') => ({ stdout: JSON.stringify(status === 'success' ? { status, result } : { status, error: result }) });
+            const sdk = { ...web, locationId: 'eur3', projectNumber: '2', version: '2' };
+
+            it('takes the only web app', () => {
+                const run = vi.fn((_cmd: string, args: string[]) => args[0] === 'apps:list'
+                    ? answer([{ appId: '1:2:web:3', state: 'ACTIVE' }])
+                    : answer({ sdkConfig: sdk }));
+                expect(configure.fetchWebConfig('acme-staging', { run })).toEqual(web);
+                expect(run.mock.calls[1][1]).toEqual(['apps:sdkconfig', 'WEB', '1:2:web:3', '--project', 'acme-staging', '--json', '--non-interactive']);
+            });
+
+            it('with several apps, takes the one an environment file names, else asks for --web-app', () => {
+                const apps = [{ appId: 'a', displayName: 'Admin', state: 'ACTIVE' }, { appId: 'b', displayName: 'Shop', state: 'ACTIVE' }];
+                const run = vi.fn((_cmd: string, args: string[]) => args[0] === 'apps:list' ? answer(apps) : answer({ sdkConfig: sdk }));
+                configure.fetchWebConfig('acme-staging', { run, knownAppIds: ['b'] });
+                expect(run.mock.calls[1][1][2]).toBe('b');
+                expect(() => configure.fetchWebConfig('acme-staging', { run, knownAppIds: [] }))
+                    .toThrow(/2 web apps\. Choose one with --web-app=<appId>:\n {2}a {2}Admin\n {2}b {2}Shop/);
+            });
+
+            it('skips the list when the app is given, and says what the CLI said when it fails', () => {
+                const run = vi.fn(() => answer({ sdkConfig: sdk }));
+                configure.fetchWebConfig('acme-staging', { run, appId: 'x' });
+                expect(run).toHaveBeenCalledTimes(1);
+                expect(() => configure.fetchWebConfig('acme-staging', { run: () => answer('Permission denied', 'error') }))
+                    .toThrow('Firebase CLI: Permission denied');
+                expect(() => configure.fetchWebConfig('acme-staging', { run: () => ({ stdout: '', stderr: 'command not found' }) }))
+                    .toThrow('The Firebase CLI did not answer (command not found).');
+            });
+        });
+    });
+
     describe('main', () => {
         let dir: string;
         let paths: Record<string, string>;
@@ -256,6 +333,34 @@ describe('arc-configure', () => {
         afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
         const run = (...args: string[]) => configure.main(args, paths, (line: string) => log.push(line));
+
+        it('writes a project\'s web settings to its own file, and removes the file when they go', () => {
+            mkdirSync(join(dir, 'src', 'environments'), { recursive: true });
+            const web = { apiKey: 'k', authDomain: 'acme-prod.firebaseapp.com', projectId: 'acme-prod', appId: '1:2:web:3' };
+            writeFileSync(join(dir, 'web.json'), JSON.stringify(web));
+            const file = join(dir, 'src', 'environments', 'firebase-web.acme-prod.ts');
+
+            expect(run('--project=prod', '--web-config=web.json', '--production=yes')).toBe(0);
+            expect(readFileSync(file, 'utf8')).toContain('projectId: "acme-prod",');
+            expect(readFileSync(file, 'utf8')).toContain('production: true,');
+            expect(JSON.parse(readFileSync(paths.config, 'utf8')).projects['acme-prod']).toEqual({ firebaseConfig: web, production: 'yes' });
+            // The install map stays free of web settings.
+            expect(existsSync(paths.install) ? readFileSync(paths.install, 'utf8') : '').not.toContain('apiKey');
+
+            const stored = JSON.parse(readFileSync(paths.config, 'utf8'));
+            delete stored.projects['acme-prod'].firebaseConfig;
+            writeFileSync(paths.config, JSON.stringify(stored));
+            expect(run('--project=prod')).toBe(0);
+            expect(existsSync(file)).toBe(false);
+        });
+
+        it('refuses web settings for another project, writing nothing', () => {
+            mkdirSync(join(dir, 'src', 'environments'), { recursive: true });
+            writeFileSync(join(dir, 'web.json'), JSON.stringify({ apiKey: 'k', authDomain: 'x', projectId: 'someone-else', appId: 'a' }));
+            expect(run('--project=prod', '--web-config=web.json')).toBe(1);
+            expect(log.join('\n')).toContain('firebaseConfig is for someone-else, not acme-prod');
+            expect(existsSync(join(dir, 'src', 'environments', 'firebase-web.acme-prod.ts'))).toBe(false);
+        });
 
         it('configures one project from flags, leaving the others and the shared .env alone', () => {
             expect(run('--project=prod', '--profile=backend', '--database=arccms', '--site=acme-admin', '--bucket=acme-arccms')).toBe(0);

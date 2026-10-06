@@ -22,6 +22,7 @@ describe('check-core', () => {
             ['src/environments/environment.ts', 'install'],
             ['src/environments/environment.prod.ts', 'install'],
             ['src/environments/arc-install.ts', 'install'],
+            ['src/environments/firebase-web.acme-staging.ts', 'install'],
             ['package.json', 'review'],
             ['functions/package-lock.json', 'review'],
             ['src/app/app.routes.ts', 'core'],

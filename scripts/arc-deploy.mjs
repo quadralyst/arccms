@@ -393,6 +393,22 @@ export function createdFunctions(output) {
 }
 
 /**
+ * What a deploy builds first (specs/app-project-settings-spec.md, E-D6). A deploy always
+ * builds what it deploys: the website for the project it goes to, and the functions
+ * (unless the guided deploy built them moments ago, to see what changed). Rules and
+ * indexes need no build. There is no way to skip the website build.
+ */
+export function buildsFor({ website, functions, functionsBuilt = false }) {
+    return [...(website ? ['website'] : []), ...(functions && !functionsBuilt ? ['functions'] : [])];
+}
+
+/** The environment of a website build for a project: that project's web settings (ARC_PROJECT, E-D3). */
+export function websiteBuildEnv(projectId, env = process.env) {
+    const { USE_DEV_ENV: _old, ...rest } = env;
+    return { ...rest, ARC_PROJECT: projectId };
+}
+
+/**
  * Deploys with these `firebase deploy` arguments: the flag path, and what the
  * guided deploy (arc-deploy-menu.mjs) runs. Returns the exit status and the
  * functions this deploy created. `options.built`: the functions are built
@@ -430,7 +446,19 @@ export async function runDeploy(args, options = {}) {
     const website = deploysWebsite(args) && !!firebaseConfig?.hosting;
     const mainArgs = website ? withoutHosting(args) : args;
     const firebaseArgs = mainArgs ? deployArgs(mainArgs, generated, projectId) : null;
-    if (deploysFunctions(args) && !options.built) {
+    const builds = buildsFor({ website, functions: deploysFunctions(args), functionsBuilt: !!options.built });
+    // The website first: if it does not build, nothing is deployed.
+    if (builds.includes('website')) {
+        console.log(`> npm run build (the website, with ${projectId}'s settings)`);
+        const build = spawnSync('npm', ['run', 'build'], {
+            cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32', env: websiteBuildEnv(projectId),
+        });
+        if (build.status !== 0) {
+            console.error('\nThe website build failed, so nothing was deployed.');
+            return { status: build.status ?? 1, created: [] };
+        }
+    }
+    if (builds.includes('functions')) {
         console.log('> npm run build --prefix functions');
         const build = spawnSync('npm', ['run', 'build', '--prefix', resolve(ROOT, 'functions')], {
             stdio: 'inherit', shell: process.platform === 'win32',

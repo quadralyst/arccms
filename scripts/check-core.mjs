@@ -44,6 +44,8 @@ const CUSTOM = [
 const INSTALL = [
     /^src\/environments\/environment(\.prod)?\.ts$/,
     /^src\/environments\/arc-install\.ts$/,
+    // Each project's web settings, written by arc:configure (specs/app-project-settings-spec.md).
+    /^src\/environments\/firebase-web\.[^/]+\.ts$/,
 ];
 
 const REVIEW = [

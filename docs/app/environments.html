@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dev, staging and production | Arc CMS docs</title>
+  <meta name="description" content="Run an app on as many Firebase projects as it needs, each with its own web settings: add a project, build for it, deploy and seed it, and guard production.">
+  <meta name="docs:sources" content="scripts/arc-environment.mjs, scripts/arc-build.mjs, scripts/arc-configure.mjs, scripts/arc-install-config.mjs, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-admin-script.mjs, functions/scripts/call-seed.cjs, vite.config.ts, package.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/environments.html">
+  <main>
+    <h1>Dev, staging and production</h1>
+    <p class="lead">An app usually needs several Firebase projects: one to develop on, one to test a release on, one for real users. Each has its own web settings, and every build, deploy and script picks the project the same way: by its <code>.firebaserc</code> alias or its id.</p>
+
+    <h2>How a build knows its project</h2>
+    <p>A build gets the Firebase project it talks to from <code>ARC_PROJECT</code>. <code>npm run deploy</code> sets it to the project it is deploying to, so <strong>a deploy always builds the site for that project</strong>, and a site can never go out talking to another one. For that project, the build uses:</p>
+    <ol>
+      <li><code>src/environments/firebase-web.&lt;projectId&gt;.ts</code>, the project's own web settings, when you have fetched them (below);</li>
+      <li>otherwise the environment file you edited by hand: <code>environment.prod.ts</code> for the <code>production</code> alias, <code>environment.ts</code> for any other, <strong>only if it names that very project</strong>. If it names another, the build stops and prints the command that fixes it.</li>
+    </ol>
+    <p>With no <code>ARC_PROJECT</code>, nothing changes: <code>npm run dev</code> uses <code>environment.ts</code>, and <code>npm run build</code> uses <code>environment.prod.ts</code> (or <code>environment.ts</code> with <code>USE_DEV_ENV=true</code>). An install with two projects keeps working as it is.</p>
+
+    <h2>Add a project</h2>
+    <ol class="steps">
+      <li><p><strong>Give it an alias</strong> in the Firebase CLI:</p>
+        <pre><code>firebase use --add</code></pre>
+        <p>Choose the project and call it, for example, <code>staging</code>. This writes <code>.firebaserc</code>, which git ignores.</p></li>
+      <li><p><strong>Fetch its web settings:</strong></p>
+        <pre><code>npm run arc:configure -- --project=staging --web-config=fetch</code></pre>
+        <p>The Firebase CLI reads the project's web app settings. They are stored in <code>arccms.config.json</code> under <code>projects.&lt;id&gt;.firebaseConfig</code> and written to <code>src/environments/firebase-web.&lt;id&gt;.ts</code>, which you commit. If the project has several web apps, the one an environment file already names is used; otherwise the command lists them and asks for <code>--web-app=&lt;appId&gt;</code>. Without the CLI, save the settings the Firebase console shows (Project settings, Your apps) to a file and pass <code>--web-config=&lt;file&gt;</code>; JSON and the console's snippet both work.</p></li>
+      <li><p><strong>Set it up</strong> like any project, with the other <code>arc:configure</code> flags if it needs its own database, bucket or site (see <a href="../getting-started/configure.html">Configure a project</a>).</p></li>
+      <li><p><strong>Deploy it:</strong></p>
+        <pre><code>npm run deploy -- --project=staging</code></pre>
+        <p>This builds the website with staging's settings and the functions, then deploys. The guided <code>npm run deploy</code> offers every alias. Then publish its static pages:</p>
+        <pre><code>npm run seed -- staging</code></pre></li>
+    </ol>
+    <div class="note"><p>The web settings are public: they tell the browser which project to talk to and grant nothing, so committing them is safe. What a visitor may read or write is decided by your security rules.</p></div>
+
+    <h2>Build without deploying</h2>
+    <pre><code>npm run build:project -- --project=staging</code></pre>
+    <p>The same as <code>ARC_PROJECT=staging npm run build</code>, on every operating system. The build prints the project and the file it used. <code>ARC_PROJECT</code> works with <code>npm run dev</code> too, to run the app against another project on your machine.</p>
+
+    <h2>Guard production</h2>
+    <p>Mark any project as production, whatever its alias is called:</p>
+    <pre><code>npm run arc:configure -- --project=live --production=yes</code></pre>
+    <p>The guided deploy then asks you to type the project id back before it deploys there, and admin scripts print <code>(production)</code> next to the project. The <code>production</code> alias and ids that say <code>prod</code> or <code>live</code> are guarded as before.</p>
+    <div class="warn"><p><code>npm run deploy:dev</code> and <code>npm run deploy:prod</code> never ask. They are for the <code>default</code> and <code>production</code> aliases only; use <code>npm run deploy -- --project=&lt;alias&gt;</code> for every other project.</p></div>
+
+    <h2>Scripts take the same project</h2>
+    <table>
+      <thead><tr><th>Command</th><th>Project</th></tr></thead>
+      <tbody>
+        <tr><td><code>npm run deploy -- --project=staging</code></td><td>The alias or id given; without one, the Firebase CLI's active project</td></tr>
+        <tr><td><code>npm run seed -- staging</code></td><td>Any alias or id; <code>seed:dev</code> and <code>seed:prod</code> stay for <code>default</code> and <code>production</code></td></tr>
+        <tr><td>Your scripts through <code>runAdminScript</code></td><td><code>--project=&lt;alias or id&gt;</code>, or <code>--prod</code> for the <code>production</code> alias (see <a href="scripts-and-data.html">Run scripts and keep data</a>)</td></tr>
+        <tr><td><code>npm run arc:configure -- --project=staging</code></td><td>That project's install settings</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>You see</th><th>Why, and what to do</th></tr></thead>
+      <tbody>
+        <tr><td>"No web settings for &lt;project&gt;: ... is for &lt;another&gt;"</td><td>The project has no web settings of its own and its environment file is for another project. Run the command the message prints.</td></tr>
+        <tr><td>"&lt;project&gt; has N web apps. Choose one with --web-app"</td><td>Pick the app your site uses from the list and run the command again with <code>--web-app=&lt;appId&gt;</code>.</td></tr>
+        <tr><td>"The Firebase CLI did not answer"</td><td>Install the Firebase CLI and sign in with <code>firebase login</code>, or use <code>--web-config=&lt;file&gt;</code>.</td></tr>
+        <tr><td>"firebaseConfig is for X, not Y"</td><td>The settings you gave belong to another project. Fetch them for the right one.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>
