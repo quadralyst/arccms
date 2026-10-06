@@ -14,3 +14,9 @@ export { isArcAdmin, mergeAppClaims, revokeSessions } from '../users/claims.js';
 
 // Signing a person in: a custom token for signInWithCustomToken in the browser
 export { issueSignInToken } from '../auth/accounts.js';
+
+// PINs an app checks itself, and rate limits (specs/app-pin-spec.md)
+export { APP_PINS, createPinStore, hashedKey } from './pins.js';
+export type { PinStore } from './pins.js';
+export { callerKey, consumeRateLimit, isValidPin, isWeakPin } from '../auth/accounts.js';
+export type { PinCheck } from '../auth/accounts.js';

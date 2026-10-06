@@ -402,6 +402,10 @@ service cloud.firestore {
     match /auth_pins/{uid} {
       allow read, write: if false;
     }
+    // An app's own PINs (docs/app/pin.html): only its functions, through the app kit.
+    match /app_pins/{id} {
+      allow read, write: if false;
+    }
     match /_rate_limits/{key} {
       allow read, write: if false;
     }

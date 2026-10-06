@@ -1,6 +1,6 @@
 # PIN Building Block for Apps: Build Spec (A4)
 
-**Status:** spec written 2026-10-06, not built.
+**Status:** built 2026-10-06 on `feat/app-pin-kit`; suite and rules tests green, docs updated (new page docs/app/pin.html). A real PIN sign-in on the dev project is in the end-of-work checks. Not yet merged to `dev`.
 **Branch:** `feat/app-pin-kit`, cut from `dev` (10c8734).
 **Depends on:** the A5 spec (on branch `feat/app-accounts`), which creates the app kit entry point
 `functions/src/app-kit/index.ts`. This branch adds to it, so merge A5 first.
@@ -100,3 +100,21 @@ default-deny already protects it before then.)
   targeted commands; set and check a PIN for an A5 account, watch the lock at the limit,
   clear it, sign in with the returned token. The rules deploy is separate (functions first,
   then rules).
+
+**Built 2026-10-06.** As specced. Notes from building:
+
+- `checkPin`, `setPin`, `hasPin` take an optional location (`PinLocation`: collection, doc id,
+  attempt limit, extra fields), defaulting to `auth_pins/{uid}` and 5, so phone sign-in runs
+  the same code unchanged; `clearPinLock` and `removePin` are new. A v1 PIN rewritten on a
+  correct check keeps the app PIN's `uid` and `namespace` fields.
+- `check()` treats a value that is not a string as a wrong PIN (it costs a try), so a client
+  cannot probe the lock state for free.
+- `hashedKey` keys start `app-<scope>-`, apart from every Arc CMS key.
+- Account deletion queries `app_pins` by `uid`, so it needs no import from the app kit.
+- The docs reference pages list `app_pins` (data model, security rules), and the rules page
+  now warns apps that `arc_` and `Tags_` collection names are public.
+
+**End-of-work checks (targeted functions deploy and a rules deploy, by Gunjan):** deploy the
+docs' `signInWithAppPin` and `setStaffPin` as custom functions, set a PIN for an A5 app
+account, sign in with it, watch it lock at the limit and unlock with `clearLock`, and see the
+rate limit refuse after too many tries from one device id.

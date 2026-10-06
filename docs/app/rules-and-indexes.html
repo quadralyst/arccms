@@ -71,6 +71,7 @@ match /Lessons/{lessonId} {
       <li><strong>It can only add access.</strong> Firebase allows a request when any matching rule allows it. Your rule can grant more; it can never take away what a core rule grants.</li>
       <li><strong>Keep it to your own paths.</strong> A rule on a core collection can only widen access to it. If core's access is wrong for your app, that is a change to Arc CMS.</li>
       <li><strong>Name your functions differently from core's.</strong> Besides the helpers above, the core Firestore file defines functions such as <code>isAuthenticated</code>, <code>isOwnUserDoc</code>, <code>hasNoPassword</code> and <code>arcRole</code>. Prefix your own, for example <code>appIsTeacher()</code>.</li>
+      <li><strong>Choose collection names core does not use.</strong> Core's rules make every collection named <code>arc_...</code> or <code>Tags_...</code> readable by anyone and writable by editors, so a collection of yours with such a name is public whatever your rule says. <code>app_pins</code> is core's too, closed to every browser: it holds your app's PINs (see <a href="pin.html">PINs for your app</a>).</li>
       <li><strong>No wrapper.</strong> A <code>rules_version</code> line or a <code>service</code> block in your file breaks the combined file.</li>
     </ul>
     <p>Firestore denies every path no rule matches, so a collection of yours without a rule is closed to the browser. Cloud Functions are not bound by rules.</p>

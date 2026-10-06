@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>The app kit | Arc CMS docs</title>
   <meta name="description" content="The supported server exports an app's own Cloud Functions use for accounts, claims, sessions and sign-in, from one import that stays stable across Arc CMS updates.">
-  <meta name="docs:sources" content="functions/src/app-kit, functions/src/users/claims.ts, functions/src/auth/accounts.ts">
+  <meta name="docs:sources" content="functions/src/app-kit, functions/src/users/claims.ts, functions/src/auth/accounts.ts, functions/src/app-kit/pins.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/app-kit.html">
@@ -27,6 +27,13 @@
         <tr><td><code>isArcAdmin()</code></td><td>Whether an ID token (<code>request.auth?.token</code>) or an account's claims make the holder an Arc CMS admin, for a callable only admins may use.</td><td><a href="app-accounts.html#sign-them-in">App accounts</a></td></tr>
         <tr><td><code>revokeSessions()</code></td><td>Signs a person out everywhere: their sessions end at the next token refresh, within the hour.</td><td><a href="app-accounts.html#sessions">App accounts</a></td></tr>
         <tr><td><code>issueSignInToken()</code></td><td>A custom token for a uid, which the browser exchanges with <code>signInWithCustomToken</code>. When Google Cloud cannot sign tokens yet, it says so and alerts the admins.</td><td><a href="app-accounts.html#sign-them-in">App accounts</a></td></tr>
+        <tr><td><code>createPinStore()</code></td><td>A place for your app's PINs, apart from Arc CMS's phone PINs: <code>createPinStore(namespace, { maxAttempts })</code> gives <code>set</code>, <code>check</code>, <code>has</code>, <code>clearLock</code> and <code>remove</code>.</td><td><a href="pin.html">PINs for your app</a></td></tr>
+        <tr><td><code>APP_PINS</code></td><td><code>'app_pins'</code>: the collection every app PIN is kept in, closed to the browser.</td><td><a href="pin.html">PINs for your app</a></td></tr>
+        <tr><td><code>isValidPin()</code></td><td>Whether a value is a PIN at all: exactly 6 digits.</td><td><a href="pin.html">PINs for your app</a></td></tr>
+        <tr><td><code>isWeakPin()</code></td><td>Whether a 6-digit PIN is too easy to guess (one digit repeated, a straight run, a common pattern).</td><td><a href="pin.html">PINs for your app</a></td></tr>
+        <tr><td><code>consumeRateLimit()</code></td><td>Counts one use of a key in a time window and refuses with <code>resource-exhausted</code> once the limit is reached: <code>consumeRateLimit(key, max, windowMs, message)</code>.</td><td><a href="pin.html#rate-limits">PINs for your app</a></td></tr>
+        <tr><td><code>hashedKey()</code></td><td>A rate-limit key you choose, such as a device id, hashed and kept apart from Arc CMS's keys: <code>hashedKey('till-device', deviceId)</code>.</td><td><a href="pin.html#rate-limits">PINs for your app</a></td></tr>
+        <tr><td><code>callerKey()</code></td><td>A rate-limit key for the caller's address, hashed. <code>{ trustedProxies: 1 }</code> for a function reached through a Hosting rewrite.</td><td><a href="pin.html#rate-limits">PINs for your app</a></td></tr>
       </tbody>
     </table>
     <p>Errors a person can act on are <code>HttpsError</code>s with code <code>invalid-argument</code> or <code>not-found</code>, so a callable can let them through as they are.</p>
