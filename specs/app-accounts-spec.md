@@ -7,7 +7,7 @@ example shop staff), sign them in with a custom token, put its own claims on the
 ever disturbing Arc's, and clean up its own data when they are deleted. This is the first
 of two items that add the **app kit**, a small, documented, tested set of server exports
 for an app's own functions (`functions/src/app-kit/`). The second is
-`specs/app-pin-spec.md`.
+the A4 spec (on branch `feat/app-pin-kit`).
 
 **Out of scope:** how such a person proves who they are (the app decides: A4 gives it a
 PIN), a UI for creating them in Arc's admin, changing the account-deletion flow itself,
