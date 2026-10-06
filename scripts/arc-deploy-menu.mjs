@@ -387,6 +387,7 @@ function optionHelp() {
         '  npm run deploy -- --only storage --project default                 storage rules',
         '  npm run deploy -- --only hosting --project default                 the website (build it first)',
         'Add --probe to check afterwards that the callables are reachable.',
+        'A project marked production also needs --confirm-production=<project id>.',
     ].join('\n');
 }
 
@@ -533,7 +534,8 @@ async function menu(rl) {
     // The functions were built above, to see what changed. A deploy of all the
     // functions lists any it would delete and asks here, on the menu's prompt.
     const result = await runDeploy(args, {
-        built: true, record: false, isTTY: true, regionChecked: true,
+        // The production confirmation was step 4.
+        built: true, record: false, isTTY: true, regionChecked: true, productionConfirmed: true,
         ask: async () => ((await yes(rl, 'Delete them?', false)) ? 'y' : 'n'),
         askSignInSetup: async () => ((await yes(rl, 'Set it up now?', true)) ? 'y' : 'n'),
     });

@@ -33,7 +33,8 @@
  *   --analytics-consent=always|required   track every visitor, or only those who accepted
  *                     the site usage banner (docs/features/analytics.html; default always)
  *   --web-config=fetch|<file>   the project's Firebase web settings: fetched with the
- *                     Firebase CLI, or read from a JSON file or the console's snippet;
+ *                     Firebase CLI, or read from a JSON file, the console's snippet or an
+ *                     environment file (a committed firebase-web.<id>.ts, as CI does);
  *                     written to src/environments/firebase-web.<id>.ts so a build for
  *                     this project uses them (ARC_PROJECT, npm run deploy)
  *   --web-app=<appId>   which web app to fetch, when the project has several
@@ -148,19 +149,23 @@ export function pickWebConfig(raw) {
 }
 
 /**
- * Web settings from a file: JSON, or the snippet the Firebase console shows
- * (`const firebaseConfig = { apiKey: "...", ... };`).
+ * Web settings from a file: JSON, the snippet the Firebase console shows
+ * (`const firebaseConfig = { apiKey: "...", ... };`), or an environment file that
+ * has a `firebaseConfig: { ... }` (environment.ts, or a committed firebase-web.<id>.ts,
+ * which is how CI recreates arccms.config.json from what git has).
  */
 export function parseWebConfigText(text) {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
+    const named = /firebaseConfig\s*[:=]\s*\{/.exec(text);
+    const start = named ? named.index + named[0].length - 1 : text.indexOf('{');
+    const end = named ? text.indexOf('}', start) : text.lastIndexOf('}');
     if (start < 0 || end < start) throw new Error('No { ... } with the web settings found.');
     const body = text.slice(start, end + 1);
     try {
         return pickWebConfig(JSON.parse(body));
     } catch {
         const json = body
-            .replace(/\/\/.*$/gm, '')
+            // Comments, but not the // in an address such as databaseURL's.
+            .replace(/(^|[,{]\s*)\/\/.*$/gm, '$1')
             .replace(/'([^']*)'/g, '"$1"')
             .replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":')
             .replace(/,(\s*})/g, '$1');

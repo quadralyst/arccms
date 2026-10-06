@@ -29,11 +29,11 @@
         <p>Choose the project and call it, for example, <code>staging</code>. This writes <code>.firebaserc</code>, which git ignores.</p></li>
       <li><p><strong>Fetch its web settings:</strong></p>
         <pre><code>npm run arc:configure -- --project=staging --web-config=fetch</code></pre>
-        <p>The Firebase CLI reads the project's web app settings. They are stored in <code>arccms.config.json</code> under <code>projects.&lt;id&gt;.firebaseConfig</code> and written to <code>src/environments/firebase-web.&lt;id&gt;.ts</code>, which you commit. If the project has several web apps, the one an environment file already names is used; otherwise the command lists them and asks for <code>--web-app=&lt;appId&gt;</code>. Without the CLI, save the settings the Firebase console shows (Project settings, Your apps) to a file and pass <code>--web-config=&lt;file&gt;</code>; JSON and the console's snippet both work.</p></li>
+        <p>The Firebase CLI reads the project's web app settings. They are stored in <code>arccms.config.json</code> under <code>projects.&lt;id&gt;.firebaseConfig</code> and written to <code>src/environments/firebase-web.&lt;id&gt;.ts</code>, which you commit. If the project has several web apps, the one an environment file already names is used; otherwise the command lists them and asks for <code>--web-app=&lt;appId&gt;</code>. Without the CLI, save the settings the Firebase console shows (Project settings, Your apps) to a file and pass <code>--web-config=&lt;file&gt;</code>; JSON, the console's snippet and an environment file (such as the committed <code>firebase-web.&lt;id&gt;.ts</code>) all work.</p></li>
       <li><p><strong>Set it up</strong> like any project, with the other <code>arc:configure</code> flags if it needs its own database, bucket or site (see <a href="../getting-started/configure.html">Configure a project</a>).</p></li>
       <li><p><strong>Deploy it:</strong></p>
         <pre><code>npm run deploy -- --project=staging</code></pre>
-        <p>This builds the website with staging's settings and the functions, then deploys. The guided <code>npm run deploy</code> offers every alias. Then publish its static pages:</p>
+        <p>This builds the website with staging's settings and the functions, then deploys. To deploy from CI instead, see <a href="ci.html">Deploy from CI</a>. The guided <code>npm run deploy</code> offers every alias. Then publish its static pages:</p>
         <pre><code>npm run seed -- staging</code></pre></li>
     </ol>
     <div class="note"><p>The web settings are public: they tell the browser which project to talk to and grant nothing, so committing them is safe. What a visitor may read or write is decided by your security rules.</p></div>
@@ -53,7 +53,8 @@
     <p>Mark any project as production, whatever its alias is called:</p>
     <pre><code>npm run arc:configure -- --project=live --production=yes</code></pre>
     <p>The guided deploy then asks you to type the project id back before it deploys there, admin scripts print <code>(production)</code> next to the project, and its builds run like production unless you set <code>--build-mode=development</code>. The <code>production</code> alias and ids that say <code>prod</code> or <code>live</code> are guarded as before.</p>
-    <div class="warn"><p><code>npm run deploy:dev</code> and <code>npm run deploy:prod</code> never ask. They are for the <code>default</code> and <code>production</code> aliases only; use <code>npm run deploy -- --project=&lt;alias&gt;</code> for every other project.</p></div>
+    <p>A deploy with options, such as one from a script or CI, deploys a marked project only with its id given back, <code>--confirm-production=&lt;project id&gt;</code>; without it a terminal asks for the id and anywhere else the deploy stops (see <a href="ci.html#production-from-ci">Deploy from CI</a>). Projects that are not marked need nothing.</p>
+    <div class="warn"><p><code>npm run deploy:dev</code> and <code>npm run deploy:prod</code> ask nothing, except the id of a project marked production, which they ask for in a terminal. They are for the <code>default</code> and <code>production</code> aliases only; use <code>npm run deploy -- --project=&lt;alias&gt;</code> for every other project.</p></div>
 
     <h2>Scripts take the same project</h2>
     <table>
