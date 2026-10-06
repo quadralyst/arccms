@@ -2,7 +2,8 @@
     <div class="container-fluid p-0">
         <div class="row g-0">
 
-            <div class="col-md-6 d-none d-md-block m-0 p-0">
+            <!-- Shown from the width the brand panel is drawn at (992px, signup.page.scss), so it is never an empty half -->
+            <div class="col-lg-6 d-none d-lg-block m-0 p-0">
                 <!-- <arc-image [imgName]="'Mask.png'"></arc-image> -->
                 <div class="auth-container">
                     <!-- Left Panel - Gradient Background -->
@@ -12,7 +13,9 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-lg-6 auth-form-column">
+                <!-- English and the app's member languages; nothing when it declares none -->
+                <arc-member-language-picker class="auth-language"></arc-member-language-picker>
                 <form [formGroup]="registrationForm" (ngSubmit)="handleSubmit()">
 
                     <!-- Request Slide: phone number or email -->

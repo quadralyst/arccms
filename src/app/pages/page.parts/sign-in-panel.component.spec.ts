@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ARC_CMS_LOGO, signInBrand } from './sign-in-panel.component';
+import { ARC_CMS_LOGO, panelLanguage, signInBrand } from './sign-in-panel.component';
 
 // Arc CMS's own panel, not the app's (src/custom/site/sign-in.html may replace it).
 const signIn = readFileSync(resolve(__dirname, '../../../../public/_site/sign-in.html'), 'utf8');
@@ -28,6 +28,14 @@ describe('signInBrand', () => {
     });
 });
 
+describe('panelLanguage', () => {
+    it('shows the panel as written for English, and through the site strings for another member language', () => {
+        expect(panelLanguage('en')).toBe('');
+        expect(panelLanguage('de')).toBe('de');
+        expect(panelLanguage('hi')).toBe('hi');
+    });
+});
+
 describe('the sign-in page', () => {
     it('shows the site\'s brand panel and names, with no Arc CMS text of its own', () => {
         const html = page('signup.page.html');
@@ -43,6 +51,16 @@ describe('the sign-in page', () => {
             '--arc-sign-in-button-hover-background', '--arc-sign-in-accent', '--arc-sign-in-font']) {
             expect(scss).toContain(`var(${name}`);
         }
+    });
+
+    it('shows the panel\'s column from the width the panel is drawn at, never as an empty half', () => {
+        // Bootstrap's lg is 992px: the column (d-lg-block) and the panel (min-width: 992px) agree,
+        // and below it the form column takes the whole width, centred.
+        const html = page('signup.page.html');
+        expect(html).toMatch(/class="col-lg-6 d-none d-lg-block[^"]*">[\s\S]{0,200}<div class="auth-container">/);
+        expect(html).toContain('class="col-lg-6 auth-form-column"');
+        expect(html).not.toMatch(/col-md-6/);
+        expect(page('signup.page.scss')).toMatch(/@media \(min-width: 992px\) \{[^}]*?\.auth-left \{\s*display: block;/);
     });
 
     it('switches the site\'s stylesheet on', () => {
