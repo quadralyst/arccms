@@ -31,7 +31,7 @@
 
         <div class="row mb-4">
             <div class="col-12">
-                <label for="email" class="form-label">Email <span class="required">*</span></label>
+                <label for="email" class="form-label">Email @if (emailRequired) {<span class="required">*</span>}</label>
                 <input type="email" placeholder="Enter valid email" formControlName="email" class="form-control"
                     (blur)="trimUnwantedSpace(editForm.controls['email'])" id="email" [class]="{
                         'is-invalid': email?.invalid && (email?.dirty || email?.touched),

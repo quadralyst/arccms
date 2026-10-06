@@ -6,6 +6,7 @@ import { db } from '../init.js';
 import { queueEmail } from '../email-core/queueEmail.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { getEmailTemplate } from '../utils/emailTemplateHelper.js';
+import { isBlank } from '../shared/blank.js';
 
 /**
  * Server-authoritative OTP for signup forms (audience-unification spec U5, U-D5).
@@ -140,7 +141,7 @@ export const verifyFormOtp = onCall(async (request) => {
   const waitlistId = String(request.data?.waitlistId || '').trim();
   const email = normalizeEmail(request.data?.email);
   const code = String(request.data?.code || '');
-  if (!waitlistId || !email || !code) {
+  if (!waitlistId || isBlank(email) || !code) {
     throw new HttpsError('invalid-argument', 'waitlistId, email and code are required.');
   }
 

@@ -21,6 +21,7 @@ import { phoneHash } from './phoneNumber.js';
 import { KNOWN_ROLES } from '../users/syncUserRole.js';
 import { setRecordClaims } from '../users/claims.js';
 import { SIGN_IN_NOT_READY, alertSigningProblem, signingProblem } from './signInSetup.js';
+import { isBlank } from '../shared/blank.js';
 
 const scryptAsync = promisify(scrypt) as (pin: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -89,6 +90,7 @@ export async function findUserByUid(uid: string): Promise<UserRecord | null> {
 }
 
 export async function findUserByEmail(email: string): Promise<UserRecord | null> {
+    if (isBlank(email)) return null;
     const snap = await db.collection('users').where('email', '==', email).limit(1).get();
     return snap.empty ? null : toRecord(snap.docs[0]);
 }
@@ -101,6 +103,43 @@ export async function findUserByPhone(e164: string): Promise<UserRecord | null> 
     const record = toRecord(await db.collection('users').doc(String(userDocId)).get());
     // A stale index entry (record deleted, or the number no longer on it) is no account.
     return record && record.data['phone'] === e164 ? record : null;
+}
+
+/**
+ * The fields of a `users` record that the server creates for a new person, with no
+ * email unless one is given and no phone unless one is given. Phone sign-up and app
+ * accounts (specs/app-accounts-spec.md) both use it, so the two shapes cannot drift.
+ * `email` and `phone` are '' rather than missing, so ordered queries and the admin list
+ * still find the record; lookups by exact value check isBlank() first (C-D13).
+ */
+export function newUserRecord(input: {
+    id: string;
+    uid: string;
+    name: string;
+    role: string;
+    by: string;
+    now: Timestamp;
+    email?: string;
+    phone?: string;
+    phoneVerified?: boolean;
+}): Record<string, unknown> {
+    return {
+        id: input.id,
+        uid: input.uid,
+        name: input.name,
+        email: input.email ?? '',
+        emailVerified: false,
+        phone: input.phone ?? '',
+        phoneVerified: input.phoneVerified ?? false,
+        role: input.role,
+        status: 'Active',
+        isActive: true,
+        by: input.by,
+        createdBy: input.uid,
+        modifiedBy: input.uid,
+        createdAt: input.now,
+        modifiedAt: input.now,
+    };
 }
 
 /** Whether this record may sign in at all. */

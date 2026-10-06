@@ -1368,6 +1368,7 @@ export type TranslationKey =
     | 'admin.transactions.test_badge_hint'
     | 'admin.transactions.title'
     | 'admin.users.add'
+    | 'admin.users.app_account'
     | 'admin.users.detached_hint'
     | 'admin.users.empty_description'
     | 'admin.users.empty_title'
@@ -2907,6 +2908,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.transactions.test_badge_hint',
     'admin.transactions.title',
     'admin.users.add',
+    'admin.users.app_account',
     'admin.users.detached_hint',
     'admin.users.empty_description',
     'admin.users.empty_title',

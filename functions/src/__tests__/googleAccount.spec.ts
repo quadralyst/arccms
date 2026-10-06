@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const owner = vi.hoisted(() => ({ getUser: vi.fn(), setCustomUserClaims: vi.fn() }));
+// What setCustomUserClaims writes, getUser reads back (specs/app-accounts-spec.md C-D6).
+let storedClaims: Record<string, unknown> = {};
 
 vi.mock('../init', async () => {
     const { MemoryFirestore } = await import('./helpers/memoryFirestore.js');
@@ -30,7 +32,9 @@ const call = (token: Record<string, unknown> = googleToken, uid = 'uid-g') =>
 
 beforeEach(() => {
     mem.store.clear();
-    owner.getUser.mockResolvedValue({ uid: 'uid-g', displayName: 'Ravi K', metadata: { creationTime: new Date().toUTCString() } });
+    storedClaims = {};
+    owner.getUser.mockImplementation(async () => ({ uid: 'uid-g', displayName: 'Ravi K', metadata: { creationTime: new Date().toUTCString() }, customClaims: storedClaims }));
+    owner.setCustomUserClaims.mockImplementation(async (_uid: string, next: Record<string, unknown>) => { storedClaims = next; });
     mem.seed('Settings', 'users', { isSignupEnabled: true, googleSignIn: true });
 });
 

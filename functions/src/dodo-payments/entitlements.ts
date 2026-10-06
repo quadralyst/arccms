@@ -2,6 +2,7 @@ import { Timestamp, DocumentReference, FieldValue } from 'firebase-admin/firesto
 import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
 import { DodoWebhookData, ProductDoc, UserEntitlement, PAYMENT_PROVIDER } from './types.js';
+import { isBlank } from '../shared/blank.js';
 
 /**
  * Locate the users/{id} document for a webhook event.
@@ -16,7 +17,7 @@ export async function findUserRef(data: DodoWebhookData): Promise<DocumentRefere
   }
 
   const email = data?.customer?.email;
-  if (email) {
+  if (!isBlank(email)) {
     const byEmail = await db.collection('users').where('email', '==', email).limit(1).get();
     if (!byEmail.empty) return byEmail.docs[0].ref;
   }

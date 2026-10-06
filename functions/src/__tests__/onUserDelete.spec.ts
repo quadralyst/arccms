@@ -77,6 +77,8 @@ const HANDLER = vi.mocked(registered).mock.calls.at(-1)?.[1] as unknown as (even
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
+let storedClaims: Record<string, unknown> = {};
+
 describe('onUserDelete Cloud Function', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -84,7 +86,11 @@ describe('onUserDelete Cloud Function', () => {
         mockDocDelete.mockResolvedValue(undefined);
         mockRecursiveDelete.mockResolvedValue(undefined);
         mockDeleteFiles.mockResolvedValue(undefined);
-        mockGetUser.mockResolvedValue({ customClaims: {} });
+        // Claims as Firebase keeps them: written by setCustomUserClaims, read back by getUser
+        // (mergeUserClaims reads its write back, specs/app-accounts-spec.md C-D6).
+        storedClaims = {};
+        mockGetUser.mockImplementation(async () => ({ customClaims: storedClaims }));
+        mockSetClaims.mockImplementation(async (_uid: string, claims: Record<string, unknown>) => { storedClaims = claims; });
         mockRevoke.mockResolvedValue(undefined);
         mockEmitAppEvent.mockResolvedValue('event-1');
     });
@@ -173,9 +179,9 @@ describe('onUserDelete Cloud Function', () => {
 
         it('ends access first: claims off and every session revoked, then the sign-in deleted (review F)', async () => {
             const handler = await getHandler();
-            mockGetUser.mockResolvedValue({ customClaims: { arccms_role: 'admin', arccms_uid: 'rec-9', plan: 'pro' } });
+            storedClaims = { arccms_role: 'admin', arccms_uid: 'rec-9', plan: 'pro' };
             const order: string[] = [];
-            mockSetClaims.mockImplementation(async () => void order.push('claims'));
+            mockSetClaims.mockImplementation(async (_uid: string, claims: Record<string, unknown>) => { order.push('claims'); storedClaims = claims; });
             mockRevoke.mockImplementation(async () => void order.push('revoke'));
             mockDeleteUser.mockImplementation(async () => void order.push('delete'));
             await handler(makeEvent({ uid: 'u-9' }, 'rec-9'));
@@ -258,8 +264,9 @@ describe('onUserDelete Cloud Function', () => {
             const handler = await getHandler();
             for (const authOwner of ['shared', 'host']) {
                 vi.clearAllMocks();
-                mockGetUser.mockResolvedValue({ customClaims: { role: 'admin', plan: 'pro', arccms_role: 'admin', arccms_uid: 'doc-1' } });
-                mockSetClaims.mockResolvedValue(undefined);
+                storedClaims = { role: 'admin', plan: 'pro', arccms_role: 'admin', arccms_uid: 'doc-1' };
+                mockGetUser.mockImplementation(async () => ({ customClaims: storedClaims }));
+                mockSetClaims.mockImplementation(async (_uid: string, claims: Record<string, unknown>) => { storedClaims = claims; });
                 await handler(makeEvent({ uid: 'kept-uid', authOwner }));
                 expect(mockDeleteUser).not.toHaveBeenCalled();
                 // The host app's own claims, `role` included, stay.
@@ -304,6 +311,17 @@ describe('onUserDelete Cloud Function', () => {
             expect(mockCollection).toHaveBeenCalledWith('Feedback');
             expect(mockWhere).toHaveBeenCalledWith('userDocId', '==', 'rec-9');
             expect(feedbackDelete).toHaveBeenCalledTimes(2);
+        });
+
+        it('deletes an app account (no email, no phone) cleanly, and announces both ids (docs/app/app-accounts.html)', async () => {
+            const handler = await getHandler();
+            await handler(makeEvent({ id: 'rec-7', uid: 'u-7', name: 'Anna', email: '', phone: '', by: 'app', role: 'user', isActive: true }, 'rec-7'));
+            expect(mockCollection).not.toHaveBeenCalledWith('email_lookup');
+            expect(mockCollection).not.toHaveBeenCalledWith('phone_index');
+            expect(mockDeleteUser).toHaveBeenCalledWith('u-7');
+            expect(mockEmitAppEvent).toHaveBeenCalledWith('user.deleted', { userId: 'u-7', data: { userDocId: 'rec-7' } });
+            const payload = JSON.stringify(mockEmitAppEvent.mock.calls);
+            expect(payload).not.toContain('contactEmail');
         });
 
         it('announces user.deleted for data an app keeps elsewhere', async () => {

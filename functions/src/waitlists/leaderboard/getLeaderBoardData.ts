@@ -1,6 +1,7 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { CollectionReference, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { db } from '../../init.js';
+import { isBlank } from '../../shared/blank.js';
 
 interface LeaderboardUser {
   maskedEmail: string;
@@ -202,6 +203,7 @@ async function findUserPosition(
   leaderboardRef: CollectionReference,
   userEmail: string,
 ): Promise<UserPositionData | null> {
+  if (isBlank(userEmail)) return null;
   try {
     // First, get the user's document
     const userQuery = await leaderboardRef.where('email', '==', userEmail).limit(1).get();

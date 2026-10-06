@@ -1,6 +1,7 @@
 import { db } from '../init.js';
 import { computeEmailHash } from './unsubscribeToken.js';
 import { waitlistDisplayName } from './defaultTemplates.js';
+import { isBlank } from '../shared/blank.js';
 
 /**
  * Per-list merge context for drip sends (U5).
@@ -34,7 +35,7 @@ const waitlistResolver: ContextResolver = {
   matches: (listId) => listId.startsWith('waitlist-'),
   resolve: async (listId, email) => {
     const formId = listId.slice('waitlist-'.length);
-    if (!formId || !email) return {};
+    if (!formId || isBlank(email)) return {};
 
     try {
       const [formSnap, memberSnap] = await Promise.all([

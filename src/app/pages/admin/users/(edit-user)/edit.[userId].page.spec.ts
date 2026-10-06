@@ -238,4 +238,24 @@ describe('EditUserComponent', () => {
             expect(component.alreadyExist).toBeTruthy();
         });
     });
+
+    describe('A person with no email (an app account, docs/app/app-accounts.html)', () => {
+        const appAccount = { id: 'user-2', name: 'Anna', email: '', phone: '', by: 'app', status: 'Active', role: 'user', isActive: true };
+
+        it('saves without an email, and never calls an empty email a duplicate', () => {
+            mockUserStore.items.set([mockUser, appAccount, { ...appAccount, id: 'user-3', name: 'Ben' }] as never);
+            (component as unknown as { updateFormData: (u: unknown) => void }).updateFormData(appAccount);
+            expect(component.emailRequired).toBe(false);
+            component.editForm.patchValue({ name: 'Anna K', email: '' });
+            expect(component.editForm.valid).toBe(true);
+            expect(component.alreadyExist).toBeUndefined();
+        });
+
+        it('still needs an email for a person who has one', () => {
+            (component as unknown as { updateFormData: (u: unknown) => void }).updateFormData(mockUser);
+            expect(component.emailRequired).toBe(true);
+            component.editForm.patchValue({ email: '' });
+            expect(component.editForm.get('email')?.errors?.['required']).toBe(true);
+        });
+    });
 });

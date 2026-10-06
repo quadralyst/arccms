@@ -52,13 +52,16 @@ export const onUserCreated = onDocumentCreated(
 
         // Notifications & event bus (Phase 5) — additive, non-fatal.
         const who = createdData.name || email || maskPhone(String(createdData.phone || ''));
+        // An account an app created (staff, by: 'app', docs/app/app-accounts.html) did not sign up:
+        // no "just signed up" alert for the admins, but the event still goes out for automations.
+        const appAccount = createdData.by === 'app';
         await Promise.allSettled([
             emitAppEvent('user.signed_up', { userId: createdData.uid, ...(email ? { contactEmail: email } : {}) }),
-            notifyAdmins('admin_new_signup', {
+            ...(appAccount ? [] : [notifyAdmins('admin_new_signup', {
                 title: 'New signup',
                 body: `${who} just signed up.`,
                 link: '/admin/users',
-            }),
+            })]),
         ]);
     }
 );

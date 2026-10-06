@@ -389,3 +389,32 @@ describe('feedback (docs/features/feedback.html)', () => {
         await assertSucceeds(setDoc(doc(admin(), 'Settings', 'feedback'), { enabled: true }));
     });
 });
+
+describe('app accounts: no email, no phone (docs/app/app-accounts.html)', () => {
+    const STAFF = 'staff-uid';
+    const staff = () => env.authenticatedContext(STAFF, { arccms_uid: 'staff-doc', arccms_role: 'user', shop: 's-1' }).firestore();
+
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await setDoc(doc(ctx.firestore(), 'users', 'staff-doc'), {
+                id: 'staff-doc', uid: STAFF, name: 'Anna', email: '', phone: '', emailVerified: false, phoneVerified: false,
+                role: 'user', status: 'Active', isActive: true, by: 'app',
+            });
+        });
+    });
+
+    it('lets the person read their own record, and nobody else\'s', async () => {
+        await assertSucceeds(getDoc(doc(staff(), 'users', 'staff-doc')));
+        await assertFails(getDoc(doc(staff(), 'users', 'alice-doc')));
+    });
+
+    it('never lets them make themselves an admin, or add an email or phone from the browser', async () => {
+        await assertFails(updateDoc(doc(staff(), 'users', 'staff-doc'), { role: 'admin' }));
+        await assertFails(updateDoc(doc(staff(), 'users', 'staff-doc'), { email: 'anna@x.com' }));
+        await assertFails(updateDoc(doc(staff(), 'users', 'staff-doc'), { phone: '+15550100' }));
+    });
+
+    it('cannot be created from the browser: only the server makes them', async () => {
+        await assertFails(setDoc(doc(staff(), 'users', 'staff-2'), { uid: 'other', name: 'Ben', email: '', phone: '', role: 'user', by: 'app' }));
+    });
+});

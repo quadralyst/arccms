@@ -65,6 +65,8 @@ window.ARC_DOCS_NAV = [
       { path: "app/scripts-and-data.html", title: "Run scripts and keep data" },
       { path: "app/rules-and-indexes.html", title: "Set security rules and indexes" },
       { path: "app/account-contract.html", title: "Follow the account contract" },
+      { path: "app/app-accounts.html", title: "App accounts" },
+      { path: "app/app-kit.html", title: "The app kit" },
       { path: "app/sign-in.html", title: "Set up sign-in" },
       { path: "app/payments.html", title: "Add payments and premium features" },
       { path: "app/pwa.html", title: "Make it installable" },

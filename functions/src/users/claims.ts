@@ -16,6 +16,7 @@
  *
  * Claims are always merged, never replaced, so claims set by anything else survive.
  */
+import { HttpsError } from 'firebase-functions/v2/https';
 import { owner } from '../init.js';
 
 export const USER_RECORD_CLAIM = 'arccms_uid';
@@ -32,27 +33,57 @@ export function isArcAdmin(claims: unknown): boolean {
     return arcRoleOf(claims) === 'admin';
 }
 
-/**
- * Merge claims into an account. A value of `null` or `''` removes that claim.
- * Writes nothing when every claim already has its value.
- *
- * Firebase has no atomic merge: this reads the claims, then writes them all. If
- * another app sharing the sign-in pool sets its own claims on the same account
- * in between, one of the two writes is lost (review F). ArcCMS writes claims
- * rarely (sign-up, a role change, blocking, deletion), so this is accepted
- * rather than guarded; an app that writes claims often should re-read and
- * merge in the same way, and `syncAllUserRoles` re-applies ArcCMS's own.
- */
-export async function mergeUserClaims(uid: string, patch: Record<string, string | null>): Promise<void> {
-    const user = await owner.getUser(uid);
-    const current: Record<string, unknown> = { ...(user.customClaims ?? {}) };
+/** How many times a claims write is read back and redone when another write landed in between. */
+const CLAIM_WRITE_ATTEMPTS = 3;
+
+type ClaimPatch = Record<string, unknown>;
+
+const removes = (value: unknown) => value === null || value === '';
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** The claims an account would have after `patch`: merged, never replaced. */
+export function mergedClaims(current: Record<string, unknown>, patch: ClaimPatch): Record<string, unknown> {
     const next: Record<string, unknown> = { ...current };
     for (const [key, value] of Object.entries(patch)) {
-        if (value === null || value === '') delete next[key];
+        if (removes(value)) delete next[key];
         else next[key] = value;
     }
-    const changed = Object.keys({ ...current, ...next }).some((key) => current[key] !== next[key]);
-    if (changed) await owner.setCustomUserClaims(uid, next);
+    return next;
+}
+
+/** Whether an account's claims already say what `patch` asks for. */
+function applied(claims: Record<string, unknown>, patch: ClaimPatch): boolean {
+    return Object.entries(patch).every(([key, value]) => (removes(value) ? !(key in claims) : same(claims[key], value)));
+}
+
+/**
+ * Merge claims into an account: a value of `null` or `''` removes that claim, and
+ * nothing is written when every claim already has its value.
+ *
+ * Firebase has no atomic merge: this reads the claims, then writes them all, so a
+ * write by anyone else in between would be lost. Each write is therefore read back,
+ * and redone on the fresh claims if the patch is missing (up to three times), so two
+ * writers going through here (ArcCMS's own claims and an app's, mergeAppClaims)
+ * both end up applied. A writer outside ArcCMS can still race (review F).
+ * `check` sees the claims about to be written, and may refuse them.
+ */
+export async function mergeClaims(uid: string, patch: ClaimPatch, check?: (next: Record<string, unknown>) => void): Promise<void> {
+    for (let attempt = 1; attempt <= CLAIM_WRITE_ATTEMPTS; attempt++) {
+        const user = await owner.getUser(uid);
+        const current: Record<string, unknown> = { ...(user.customClaims ?? {}) };
+        if (applied(current, patch)) return;
+        const next = mergedClaims(current, patch);
+        check?.(next);
+        await owner.setCustomUserClaims(uid, next);
+        const after = (await owner.getUser(uid)).customClaims ?? {};
+        if (applied(after, patch)) return;
+    }
+    throw new Error(`Could not set the claims on ${uid}: another write kept replacing them.`);
+}
+
+/** Merge ArcCMS's claims into an account (see mergeClaims). */
+export function mergeUserClaims(uid: string, patch: Record<string, string | null>): Promise<void> {
+    return mergeClaims(uid, patch);
 }
 
 /** Point an account's `arccms_uid` claim at its `users` record. */
@@ -71,4 +102,49 @@ export function setRecordClaims(uid: string, role: string, userDocId: string): P
  */
 export function clearArcClaims(uid: string): Promise<void> {
     return mergeUserClaims(uid, { [ROLE_CLAIM]: null, [USER_RECORD_CLAIM]: null });
+}
+
+// ---------------------------------------------------------------------------
+// An app's own claims (specs/app-accounts-spec.md, C-D5, C-D7)
+// ---------------------------------------------------------------------------
+
+/** Firebase sets these itself; a custom claim may not use them. */
+export const RESERVED_CLAIMS = ['acr', 'amr', 'at_hash', 'aud', 'auth_time', 'azp', 'cnf', 'c_hash', 'exp', 'firebase', 'iat', 'iss', 'jti', 'nbf', 'nonce', 'sub'];
+
+/** Firebase's limit for an account's custom claims, as JSON. */
+export const MAX_CLAIMS_BYTES = 1000;
+
+/** Problems with an app's claim patch: an `arccms_` name, a reserved name, no names at all. */
+export function appClaimProblems(patch: Record<string, unknown>): string[] {
+    const keys = Object.keys(patch ?? {});
+    if (!keys.length) return ['Give at least one claim.'];
+    return keys.flatMap((key) => [
+        ...(key.startsWith('arccms_') ? [`"${key}" is ArcCMS's own claim; an app's claims may not start with arccms_.`] : []),
+        ...(RESERVED_CLAIMS.includes(key) ? [`"${key}" is reserved by Firebase.`] : []),
+    ]);
+}
+
+/**
+ * Merge an app's own claims into an account (docs/app/app-accounts.html). Refuses any
+ * `arccms_` name and the names Firebase reserves, and refuses before writing when the
+ * account's claims would pass Firebase's 1000-byte limit. Never replaces the claims
+ * already there; `null` removes one of the app's. Values may be any JSON value.
+ */
+export async function mergeAppClaims(uid: string, patch: Record<string, unknown>): Promise<void> {
+    const problems = appClaimProblems(patch);
+    if (problems.length) throw new HttpsError('invalid-argument', problems.join(' '));
+    await mergeClaims(uid, patch, (next) => {
+        const bytes = Buffer.byteLength(JSON.stringify(next), 'utf8');
+        if (bytes > MAX_CLAIMS_BYTES) {
+            throw new HttpsError('invalid-argument', `These claims would take ${bytes} bytes; Firebase allows ${MAX_CLAIMS_BYTES} for all of an account's claims.`);
+        }
+    });
+}
+
+/**
+ * Ends the person's sign-in sessions: their refresh tokens are revoked, so every device
+ * is signed out at its next token refresh, within the hour. A new sign-in works as usual.
+ */
+export function revokeSessions(uid: string): Promise<void> {
+    return owner.revokeRefreshTokens(uid);
 }

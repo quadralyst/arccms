@@ -110,6 +110,19 @@ describe('UsersComponent', () => {
         component = fixture.componentInstance;
     });
 
+    describe('App accounts in the list (docs/app/app-accounts.html)', () => {
+        it('shows "App account" in the email column for an account an app made, and the email otherwise', () => {
+            component.initColumns();
+            const email = component.tableColumns.find((c) => c.key === 'email')!;
+            const app = { by: 'app', email: '' };
+            expect(email.transformFn!(app)).toBe('App account');
+            expect(email.classFn!(app)).toContain('badge');
+            expect(email.transformFn!({ by: 'phone', email: '' })).toBe('');
+            expect(email.transformFn!({ by: 'admin', email: 'a@b.co' })).toBe('a@b.co');
+            expect(email.classFn!({ by: 'admin', email: 'a@b.co' })).toBe('');
+        });
+    });
+
     describe('Initialization', () => {
         it('should create the component', () => {
             expect(component).toBeTruthy();

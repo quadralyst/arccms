@@ -27,7 +27,8 @@ import { ToastService } from '../../../../shared/services/toast.service';
 import AddUserComponent from './(add-user)/add.page';
 import EditUserComponent from './(edit-user)/edit.[userId].page';
 import ViewUserComponent from './(view-user)/view.[userId].page';
-import { IUser } from './user.model';
+import { IUser, isAppAccount } from './user.model';
+import { injectT } from '../../../core/i18n/inject-t';
 import { UserStore } from './user.store';
 import { roleGuard } from '../../../guards/role.guard';
 import { AuthService } from '../../(auth)/auth.service';
@@ -68,6 +69,7 @@ export default class UsersComponent {
     @ViewChild('drawer') drawer!: MatDrawer;
 
     userStore = inject(UserStore);
+    private t = injectT();
     private authStore = inject(AuthState);
     private authService = inject(AuthService);
     dialog = inject(MatDialog);
@@ -371,7 +373,10 @@ export default class UsersComponent {
             {
                 key: 'email',
                 header: 'common.table.email',
-                type: 'text'
+                type: 'text',
+                // An app account has no email: say what it is instead (docs/app/app-accounts.html).
+                transformFn: (row: IUser) => (isAppAccount(row) && !row.email ? this.t('admin.users.app_account') : row.email),
+                classFn: (row: IUser) => (isAppAccount(row) && !row.email ? 'badge bg-light text-secondary border' : ''),
             },
             {
                 key: 'phone',

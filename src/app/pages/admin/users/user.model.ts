@@ -21,6 +21,9 @@ export interface IUser extends IBaseModel {
     uid: string;
     isOnBoardingComplete?: boolean;
     updatedAt?: Date;
+    /** How the account was made: `phone`, `admin`, `app` (an app account, no email or phone) and so on. */
+    by?: string;
+    phone?: string;
     /**
      * The admin UI language this person reads (M-D11). Independent of the
      * languages the site publishes in — see core/i18n/admin-language.service.ts.
@@ -54,3 +57,11 @@ export interface IUser extends IBaseModel {
 export type UserFormData = OmitCommonFields<IUser>;
 
 export const COMPONENT_NAME: string = 'Users';
+
+/**
+ * An account an app created for a person with no email and no phone, such as staff
+ * (`by: 'app'`, docs/app/app-accounts.html).
+ */
+export function isAppAccount(user: { by?: unknown } | null | undefined): boolean {
+    return user?.by === 'app';
+}
