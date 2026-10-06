@@ -6,10 +6,11 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db, owner } from '../init.js';
 import { findUserByUid, newUserRecord } from '../auth/accounts.js';
+import { APP_ACCOUNT_BY, SELF_SERVICE } from '../users/lockedAppAccount.js';
 import { appClaimProblems, mergeClaims, MAX_CLAIMS_BYTES, ROLE_CLAIM, USER_RECORD_CLAIM } from '../users/claims.js';
 
 /** What sets an app account apart in the users list. */
-export const APP_ACCOUNT = 'app';
+export const APP_ACCOUNT = APP_ACCOUNT_BY;
 
 export interface CreateAppAccountInput {
     /** The name shown in the admin and the member area. */
@@ -18,6 +19,12 @@ export interface CreateAppAccountInput {
     claims?: Record<string, unknown>;
     /** The Firebase Auth uid to use, for an app that keys people by its own ids. Default: a new one. */
     uid?: string;
+    /**
+     * Let this person change their own account like any member: name, photo, sign-in
+     * methods, deleting it. Default false: the account is locked and only the app's
+     * own functions change it (docs/app/app-accounts.html).
+     */
+    selfService?: boolean;
 }
 
 export interface AppAccount {
@@ -34,6 +41,9 @@ const MAX_NAME_LENGTH = 100;
  * phone. The record has ArcCMS role `user` (always: an app's own roles are its claims),
  * `by: 'app'`, and the `arccms_uid` and `arccms_role` claims, plus the app's own claims,
  * all in one claims write. Sign the person in with issueSignInToken(uid).
+ *
+ * The account is locked (`selfService: false`): it cannot change its name, photo or
+ * sign-in methods, or delete itself. `selfService: true` lets it change itself as any member can.
  */
 export async function createAppAccount(input: CreateAppAccountInput): Promise<AppAccount> {
     const name = typeof input?.displayName === 'string' ? input.displayName.trim() : '';
@@ -56,7 +66,10 @@ export async function createAppAccount(input: CreateAppAccountInput): Promise<Ap
                 throw new HttpsError('invalid-argument', `These claims would take ${bytes} bytes; Firebase allows ${MAX_CLAIMS_BYTES} for all of an account's claims.`);
             }
         });
-        await ref.set(newUserRecord({ id: ref.id, uid, name, role: 'user', by: APP_ACCOUNT, now: Timestamp.now() }));
+        await ref.set({
+            ...newUserRecord({ id: ref.id, uid, name, role: 'user', by: APP_ACCOUNT, now: Timestamp.now() }),
+            [SELF_SERVICE]: input.selfService === true,
+        });
     } catch (err) {
         // Never leave a sign-in account behind that no record points to.
         await owner.deleteUser(uid).catch(() => undefined);

@@ -7,7 +7,7 @@ import { queueEmail } from '../email-core/queueEmail.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { ensureDefaultTemplates } from '../email-core/defaultTemplates.js';
 import type { EmailTemplateData } from '../types.js';
-import { callerKey, consumeRateLimit } from './accounts.js';
+import { callerKey, consumeRateLimit, requireOwnRecord } from './accounts.js';
 import { newOtpTicket, ticketMatches } from './otpTicket.js';
 import { isWarmUp, WARM } from './warmUp.js';
 
@@ -161,6 +161,8 @@ export const verifySignupOtp = onCall(async (request) => {
     throw new HttpsError('invalid-argument', "That code didn't work.");
   }
   const purpose: EmailOtpPurpose = request.data?.purpose === 'link' ? 'link' : 'signup';
+  // A link code is for the signed-in account's own record (never a locked app account).
+  if (purpose === 'link') await requireOwnRecord(request);
 
   const emailHash = computeEmailHash(email);
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);

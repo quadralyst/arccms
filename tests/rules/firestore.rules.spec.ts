@@ -418,3 +418,63 @@ describe('app accounts: no email, no phone (docs/app/app-accounts.html)', () => 
         await assertFails(setDoc(doc(staff(), 'users', 'staff-2'), { uid: 'other', name: 'Ben', email: '', phone: '', role: 'user', by: 'app' }));
     });
 });
+
+describe('app accounts are locked (docs/app/app-accounts.html)', () => {
+    const LOCKED = 'locked-uid';
+    const OPEN = 'open-uid';
+    const locked = () => env.authenticatedContext(LOCKED, { arccms_uid: 'locked-doc', arccms_role: 'user' }).firestore();
+    const open = () => env.authenticatedContext(OPEN, { arccms_uid: 'open-doc', arccms_role: 'user' }).firestore();
+    const record = (uid: string, extra: Record<string, unknown>) => ({
+        uid, name: 'Anna', photo: '', email: '', phone: '', emailVerified: false, phoneVerified: false,
+        role: 'user', status: 'Active', isActive: true, by: 'app', preferredLanguage: 'en', ...extra,
+    });
+
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            // Made before the lock existed: no selfService field, so locked.
+            await setDoc(doc(ctx.firestore(), 'users', 'locked-doc'), record(LOCKED, {}));
+            await setDoc(doc(ctx.firestore(), 'users', 'open-doc'), record(OPEN, { selfService: true }));
+        });
+    });
+
+    it('never lets a locked account change its name, photo or sign-in fields', async () => {
+        const mine = doc(locked(), 'users', 'locked-doc');
+        await assertFails(updateDoc(mine, { name: 'Someone else' }));
+        await assertFails(updateDoc(mine, { photo: 'https://example.com/me.png' }));
+        await assertFails(updateDoc(mine, { emailVerified: false, name: 'X' }));
+        await assertFails(updateDoc(mine, { email: 'anna@x.com' }));
+        await assertFails(updateDoc(mine, { phone: '+15550100', phoneVerified: true }));
+    });
+
+    it('never lets a locked account unlock itself, or change who made it', async () => {
+        const mine = doc(locked(), 'users', 'locked-doc');
+        await assertFails(updateDoc(mine, { selfService: true }));
+        await assertFails(updateDoc(mine, { by: 'email' }));
+        await assertFails(updateDoc(mine, { by: 'email', name: 'Anna B' }));
+    });
+
+    it('still lets a locked account change what is not its identity', async () => {
+        await assertSucceeds(updateDoc(doc(locked(), 'users', 'locked-doc'), { preferredLanguage: 'hi' }));
+    });
+
+    it('lets an account made with selfService: true change itself like any member', async () => {
+        const mine = doc(open(), 'users', 'open-doc');
+        await assertSucceeds(updateDoc(mine, { name: 'Anna B' }));
+        await assertSucceeds(updateDoc(mine, { photo: 'https://example.com/me.png' }));
+        // The lock flag and `by` stay out of reach for it too.
+        await assertFails(updateDoc(mine, { selfService: false }));
+        await assertFails(updateDoc(mine, { by: 'email' }));
+    });
+
+    it('leaves ordinary accounts as they were, except that `by` and `selfService` are the server\'s', async () => {
+        const mine = doc(alice(), 'users', 'alice-doc');
+        await assertSucceeds(updateDoc(mine, { name: 'Alice B' }));
+        await assertSucceeds(updateDoc(mine, { photo: 'https://example.com/a.png' }));
+        await assertFails(updateDoc(mine, { by: 'app' }));
+        await assertFails(updateDoc(mine, { selfService: true }));
+    });
+
+    it('lets an admin change a locked account', async () => {
+        await assertSucceeds(updateDoc(doc(admin(), 'users', 'locked-doc'), { name: 'Anna B', selfService: true }));
+    });
+});

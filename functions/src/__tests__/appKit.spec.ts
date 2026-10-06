@@ -75,6 +75,13 @@ describe('createAppAccount', () => {
         expect(recordsWhenClaimsSet).toBe(0);
     });
 
+    it('locks the account unless the app asks for selfService (specs/app-account-lock-spec.md)', async () => {
+        await createAppAccount({ displayName: 'Anna' });
+        await createAppAccount({ displayName: 'Ben', selfService: true });
+        expect(fb.state.records[0].data['selfService']).toBe(false);
+        expect(fb.state.records[1].data['selfService']).toBe(true);
+    });
+
     it('uses the app\'s own uid when given', async () => {
         await createAppAccount({ displayName: 'Anna', uid: 'staff-42' });
         expect(fb.owner.createUser).toHaveBeenCalledWith({ displayName: 'Anna', uid: 'staff-42' });
