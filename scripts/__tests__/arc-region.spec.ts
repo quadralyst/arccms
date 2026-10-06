@@ -127,13 +127,27 @@ describe('checkFunctionsRegion', () => {
         expect(d.log.mock.calls.join('\n')).toContain('The functions will run in asia-south1, next to your database (asia-south1).');
     });
 
-    it('stops a first deploy that also publishes a website built for the old region', () => {
+    it('a first deploy that also publishes the website goes on: the website is built after the check', () => {
         const d = deps();
-        expect(checkFunctionsRegion('p', { includesWebsite: true, deps: d }).proceed).toBe(false);
-        expect(d.log.mock.calls.join('\n')).toContain('Nothing was deployed.');
+        expect(checkFunctionsRegion('p', { deps: d }).proceed).toBe(true);
+        expect(d.log.mock.calls.join('\n')).not.toContain('Nothing was deployed.');
         expect(deploysWebsite(['--only', 'functions,hosting'])).toBe(true);
         expect(deploysWebsite(['--project', 'p'])).toBe(true);
         expect(deploysWebsite(['--only', 'functions:arccms'])).toBe(false);
+        // The order in runDeploy that makes this safe: the region check, then the website build.
+        const source = readFileSync(resolve(__dirname, '../arc-deploy.mjs'), 'utf8');
+        const body = source.slice(source.indexOf('export async function runDeploy('));
+        expect(body.indexOf('checkFunctionsRegion(projectId)')).toBeGreaterThan(0);
+        expect(body.indexOf('checkFunctionsRegion(projectId)')).toBeLessThan(body.indexOf("builds.includes('website')"));
+    });
+
+    it('says what is committed and what is not, and what CI must pass', () => {
+        const d = deps();
+        checkFunctionsRegion('p', { deps: d });
+        const said = d.log.mock.calls.join('\n');
+        expect(said).toContain('Saved in arccms.config.json, which git ignores, and in src/environments/arc-install.ts: commit that one');
+        expect(said).toContain('add --functions-region=asia-south1 to arc:configure');
+        expect(said).not.toContain('commit it with');
     });
 
     it('with functions already deployed elsewhere, warns and deploys, unless the warning is off', () => {

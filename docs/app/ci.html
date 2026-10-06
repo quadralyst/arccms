@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deploy from CI | Arc CMS docs</title>
+  <meta name="description" content="Deploy an app from CI, such as GitHub Actions: the files git ignores and how to recreate them with flags, the service account's permissions, Java for the rules tests, a working workflow, and the production guard.">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-configure.mjs, scripts/arc-region.mjs, scripts/arc-install-config.mjs, scripts/arc-admin-script.mjs, functions/scripts/call-seed.cjs, package.json, .gitignore">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/ci.html">
+  <main>
+    <h1>Deploy from CI</h1>
+    <p class="lead">A CI job starts from a clean checkout, with no terminal and nobody to answer a question. Recreate the few files git ignores, then one <code>npm run deploy</code> builds and deploys the project in one pass, with no prompt.</p>
+
+    <h2>What CI must recreate</h2>
+    <p>Some files hold one checkout's settings, so git ignores them. A clean checkout does not have them:</p>
+    <table>
+      <thead><tr><th>File</th><th>In git?</th><th>How CI gets it</th></tr></thead>
+      <tbody>
+        <tr><td><code>.firebaserc</code></td><td>No</td><td>Write it in one line, with the aliases the job uses. Optional: every script also takes a project id where it takes an alias.</td></tr>
+        <tr><td><code>arccms.config.json</code></td><td>No</td><td><code>npm run arc:configure</code> with flags (below) writes it.</td></tr>
+        <tr><td><code>firebase.&lt;projectId&gt;.json</code></td><td>No</td><td>Written by the same <code>arc:configure</code>, for a project with its own database, bucket, site or functions region.</td></tr>
+        <tr><td><code>functions/.env.&lt;projectId&gt;</code></td><td>No</td><td>Written by the same <code>arc:configure</code>, which keeps every line it does not own. If your own functions read other values from it, write those lines from CI secrets first.</td></tr>
+        <tr><td><code>src/environments/firebase-web.&lt;projectId&gt;.ts</code></td><td>Yes</td><td>Committed, so CI has it. <code>arc:configure</code> rewrites it from <code>arccms.config.json</code> and removes it when the config has no web settings for the project, so pass it back with <code>--web-config</code>.</td></tr>
+        <tr><td><code>src/environments/arc-install.ts</code></td><td>Yes</td><td>Committed. <code>arc:configure</code> rewrites it with the projects the job configured, which is all the build needs. Never commit it from CI.</td></tr>
+      </tbody>
+    </table>
+    <p><code>.arc-deploy-state.json</code> is ignored too, and CI does not need it: it only remembers the guided deploy's choices.</p>
+
+    <h2>Recreate them with flags</h2>
+    <p>Run <code>arc:configure</code> once per project the job deploys, with the same settings you gave it on your machine. Copy them from your own <code>arccms.config.json</code>: each key has a flag (see <a href="../reference/config-keys.html">Config keys</a>).</p>
+    <pre><code>echo '{"projects":{"staging":"your-staging-project-id"}}' &gt; .firebaserc
+npm run arc:configure -- --project=staging \
+  --web-config=src/environments/firebase-web.your-staging-project-id.ts \
+  --functions-region=asia-south1</code></pre>
+    <p><code>--web-config</code> reads the web settings back from the committed file (an environment file, JSON or the Firebase console's snippet all work), so nothing has to be fetched. Add <code>--database</code>, <code>--site</code>, <code>--bucket</code>, <code>--prefix</code> or <code>--build-mode</code> when the project uses them.</p>
+    <div class="warn"><p><strong>Always pass <code>--functions-region</code>.</strong> On a first deploy, when the database is outside <code>us-central1</code>, the deploy sets the functions next to the database and saves that in <code>arccms.config.json</code>, which CI then throws away. Without the flag, the next run would put the functions in <code>us-central1</code> again. Use the region the first deploy printed, or the one in your own config (see <a href="../operations/deploy.html#regions">Regions</a>).</p></div>
+    <p>Another way is to keep your whole <code>arccms.config.json</code> in a CI secret or variable, write it to the file, and run <code>npm run arc:configure -- --project=staging</code> with no other flags to write the rest. Its values are not secret: the web settings are public, and the rest names databases and buckets.</p>
+
+    <h2>The service account</h2>
+    <p>CI signs in as a Google Cloud service account of the project it deploys. The Firebase CLI, the website release and the static pages all use it through <code>GOOGLE_APPLICATION_CREDENTIALS</code>, which the auth step below sets.</p>
+    <ul>
+      <li><strong>Simplest:</strong> Firebase Admin (<code>roles/firebase.admin</code>) and Service Account User (<code>roles/iam.serviceAccountUser</code>) on the project. Firebase Admin covers Hosting, the rules, the Firestore indexes, the functions and the data the static pages are published from. Service Account User lets the deploy run the functions as the project's default compute account.</li>
+      <li><strong>The region check</strong> runs <code>firebase firestore:databases:get</code>, which needs the <code>datastore.databases.get</code> permission. Firebase Admin has it; with narrower roles, add Cloud Datastore Viewer (<code>roles/datastore.viewer</code>). Without it the deploy cannot see where the database is, and it deploys to the region in <code>arccms.config.json</code> without a check.</li>
+      <li><strong>Narrower roles,</strong> if your organisation asks for them: Cloud Functions Admin, Firebase Hosting Admin, Firebase Rules Admin, Cloud Datastore Index Admin, Cloud Datastore User (the static pages), Service Account User and Cloud Datastore Viewer. A missing permission makes the Firebase CLI stop and name it; add that one.</li>
+      <li>With the <code>sms</code> feature, the deploy also checks phone sign-in's Google Cloud setup with <code>gcloud</code>. Off a terminal it never asks, and without <code>gcloud</code> it says so and goes on.</li>
+    </ul>
+    <div class="note"><p>Keyless sign-in (workload identity federation) is safer than a key file: GitHub proves who the job is, and there is no key to leak. The workflow below shows both.</p></div>
+
+    <h2>Java for the rules tests</h2>
+    <p><code>npm run test:rules</code> runs the security rules tests in the Firebase emulators, which need Java 21. Install it with <code>actions/setup-java</code>, as below. The emulators run against a demo project and need no sign-in. <code>npm run test</code> needs no Java.</p>
+
+    <h2>A GitHub Actions workflow</h2>
+    <p>Save this as <code class="new">.github/workflows/deploy-staging.yml</code>. It tests, then deploys the <code>staging</code> project on every push to <code>main</code>, with no prompt. Replace the project id and the region with your own.</p>
+    <pre><code>name: Deploy staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: your-staging-project-id
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm ci
+      - run: npm ci --prefix functions
+      # The Firebase CLI from functions/package-lock.json, for the deploy and the emulators.
+      - run: echo "$GITHUB_WORKSPACE/functions/node_modules/.bin" &gt;&gt; "$GITHUB_PATH"
+
+      - run: npm run test
+      - run: npm run test:rules
+
+      - uses: google-github-actions/auth@v2
+        with:
+          # A key: the service account's JSON key, saved as a repository secret.
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # Or keyless, instead of credentials_json:
+          # workload_identity_provider: projects/123456789/locations/global/workloadIdentityPools/github/providers/your-repo
+          # service_account: deployer@your-staging-project-id.iam.gserviceaccount.com
+
+      - name: Recreate the files git ignores
+        run: |
+          echo "{\"projects\":{\"staging\":\"$PROJECT_ID\"}}" &gt; .firebaserc
+          npm run arc:configure -- --project=staging \
+            --web-config=src/environments/firebase-web.$PROJECT_ID.ts \
+            --functions-region=asia-south1
+
+      - run: npm run deploy -- --project staging --non-interactive --force
+      - run: npm run seed -- staging</code></pre>
+    <ul>
+      <li><code>npm run test</code> runs once and exits in CI (Vitest sees the <code>CI</code> variable GitHub sets).</li>
+      <li>The deploy builds the website with staging's settings and the functions, then deploys everything the config has. <code>--non-interactive</code> tells the Firebase CLI to ask nothing, and <code>--force</code> lets it delete what the code no longer has, such as deployed functions, instead of asking (see <a href="../operations/deploy.html#functions-that-are-deleted">Functions that are deleted</a>); use <code>--only</code> to deploy less.</li>
+      <li><code>npm run seed -- staging</code> publishes the static pages, as after every website deploy.</li>
+      <li>The website build needs a few GB of memory (see <a href="../reference/npm-scripts.html">npm scripts</a>); GitHub's standard runners have enough.</li>
+    </ul>
+
+    <h2>Production from CI</h2>
+    <p>A project marked production (<code>arc:configure --production=yes</code>) is guarded on the command line too. A deploy with options deploys it only with its id given back:</p>
+    <pre><code>npm run deploy -- --project production --confirm-production=your-live-project-id --non-interactive --force</code></pre>
+    <p>Without the flag, a terminal asks you to type the id, and anywhere else the deploy stops before it does anything. An id that is not the target's stops any deploy, marked or not, so a command copied from another job can never deploy the wrong project. Projects that are not marked, like staging above, need nothing. On the job, recreate the marker with <code>--production=yes</code> like any other setting, or the guard is not there.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

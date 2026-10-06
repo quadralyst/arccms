@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import * as configure from '../arc-configure.mjs';
 // @ts-expect-error: plain ESM script without type declarations
 import {
-    cliActiveProject, deployArgs, deployProject, deploysFunctions, deploysOnlyFunctions, namesHosting, namesTarget, generatedConfigPath, projectArg, retryArgs, retryTargets, unconfirmed, unconfirmedFunctions,
+    cliActiveProject, confirmProductionArg, deployArgs, deployProject, productionGuard, deploysFunctions, deploysOnlyFunctions, namesHosting, namesTarget, generatedConfigPath, projectArg, retryArgs, retryTargets, unconfirmed, unconfirmedFunctions,
 } from '../arc-deploy.mjs';
 
 const ROOT = resolve(__dirname, '..', '..');
@@ -264,6 +264,24 @@ const firebaseConfig = {
             expect(() => configure.parseWebConfigText('nothing here')).toThrow('No { ... }');
         });
 
+        it('reads the settings back from an environment file or a generated one (how CI recreates them)', () => {
+            const handWritten = `export const environment = {
+    production: false,
+    // For local testing
+    firebaseConfig: {
+        apiKey: 'k',
+        authDomain: 'acme-staging.firebaseapp.com',
+        databaseURL: 'https://acme-staging.firebaseio.com',
+        projectId: 'acme-staging', // the project
+        storageBucket: 'acme-staging.appspot.com',
+        appId: '1:2:web:3',
+    },
+};`;
+            expect(configure.parseWebConfigText(handWritten)).toEqual({ ...web, databaseURL: 'https://acme-staging.firebaseio.com' });
+            const generated = configure.renderWebConfig(configure.normalizeConfig({ firebaseConfig: web }));
+            expect(configure.parseWebConfigText(generated)).toEqual(web);
+        });
+
         it('renders the generated file in the shape of environment.ts, only when there are settings', () => {
             const text = configure.renderWebConfig(configure.normalizeConfig({ firebaseConfig: web, production: 'yes' }));
             expect(text.startsWith(configure.WEB_CONFIG_HEADER)).toBe(true);
@@ -477,6 +495,31 @@ describe('arc-deploy', () => {
     it('leaves an explicit --config alone and never passes --probe or --no-probe to firebase', () => {
         expect(deployArgs(['--config', 'other.json', '--no-probe'], true, 'acme-prod')).toEqual(['deploy', '--config', 'other.json', '--project', 'acme-prod']);
         expect(deployArgs(['--probe', '--only', 'functions', '-P', 'prod'], false, 'acme-prod')).toEqual(['deploy', '--only', 'functions', '-P', 'prod']);
+    });
+
+    describe('the production guard on the command line (--confirm-production)', () => {
+        it('leaves a project that is not marked alone, so deploy:dev and CI for staging run as before', () => {
+            expect(productionGuard(['--project', 'default', '--non-interactive', '--force'], 'acme-dev', { marked: false, isTTY: false })).toBe('ok');
+        });
+
+        it('needs the id for a marked project: given, typed on a terminal, else refused', () => {
+            expect(productionGuard(['--confirm-production=acme-live'], 'acme-live', { marked: true, isTTY: false })).toBe('ok');
+            expect(productionGuard([], 'acme-live', { marked: true, isTTY: true })).toBe('ask');
+            expect(productionGuard(['--non-interactive', '--force'], 'acme-live', { marked: true, isTTY: false }))
+                .toBe('acme-live is marked production. Add --confirm-production=acme-live to deploy it. Nothing was deployed.');
+        });
+
+        it('refuses an id that is not the target, for any project', () => {
+            expect(productionGuard(['--confirm-production=acme-live'], 'acme-staging', { marked: false }))
+                .toBe('--confirm-production=acme-live does not match acme-staging, the project this deploys to. Nothing was deployed.');
+            expect(productionGuard(['--confirm-production='], 'acme-live', { marked: true, isTTY: true })).toContain('does not match acme-live');
+            expect(confirmProductionArg(['--x'])).toBeNull();
+        });
+
+        it('is never passed on to the Firebase CLI', () => {
+            expect(deployArgs(['--only', 'functions', '--confirm-production=acme-live'], false, 'acme-live'))
+                .toEqual(['deploy', '--only', 'functions', '--project', 'acme-live']);
+        });
     });
 
     it('targets the project the CLI would: --project, else firebase use, else the default alias (review O4)', () => {

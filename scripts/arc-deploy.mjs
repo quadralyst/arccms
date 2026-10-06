@@ -48,7 +48,10 @@
  *   build goes to a preview channel first, then one live release holds the build
  *   and the pages the functions published, so the home page and content pages
  *   never drop to the browser app between the deploy and the republish. Every
- *   other target goes through `firebase deploy` as before (`--except hosting`).
+ *   other target goes through `firebase deploy` as before (`--except hosting`);
+ * - for a project marked production (arc:configure --production=yes), needs
+ *   --confirm-production=<its project id>, or on a terminal the id typed back;
+ *   off a terminal without it, nothing is deployed (productionGuard).
  *
  *   node scripts/arc-deploy.mjs --only functions --project default
  */
@@ -58,7 +61,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-    DEFAULT_DATABASE_ID, ROOT, configForProject, readArcInstallConfig, readFirebaseAliases, resolveProjectId,
+    DEFAULT_DATABASE_ID, ROOT, configForProject, isMarkedProduction, readArcInstallConfig, readFirebaseAliases, resolveProjectId,
 } from './arc-install-config.mjs';
 import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
 import { builtArccms } from './arc-built-functions.mjs';
@@ -203,14 +206,14 @@ export function functionsRegionOf(projectId) {
 /**
  * Before a functions deploy: are the functions next to the database
  * (scripts/arc-region.mjs)? With no Arc CMS function deployed yet they are
- * simply set to run where the database is, and the deploy goes on, except when
- * it also publishes a website built for the old region: that must be built
- * again first. Deployed elsewhere: a warning, unless turned off for the
+ * simply set to run where the database is, and the deploy goes on: it builds
+ * the website after this check, so the site calls the functions in the region
+ * just chosen. Deployed elsewhere: a warning, unless turned off for the
  * project, and the deploy goes on. Returns `{ proceed, decision }`.
  *
  * `deps` replaces the lookups, the listing and the config writer in tests.
  */
-export function checkFunctionsRegion(projectId, { includesWebsite = false, deps = {} } = {}) {
+export function checkFunctionsRegion(projectId, { deps = {} } = {}) {
     const {
         config = projectConfig(projectId), state = readState(), save = writeState,
         lookup = lookupDatabaseLocation, list = listDeployed, write = configure, log = console.log,
@@ -230,16 +233,23 @@ export function checkFunctionsRegion(projectId, { includesWebsite = false, deps 
             log(messages.join('\n'));
             return { proceed: false, decision };
         }
-        log(`\nThe functions will run in ${decision.suggested}, next to your database (${decision.location}).`
-            + ' Saved in arccms.config.json: commit it with src/environments/arc-install.ts.');
-        if (includesWebsite) {
-            log('The website calls the functions there only once it is built again. Build it, then deploy again. Nothing was deployed.');
-            return { proceed: false, decision };
-        }
+        log(adoptMessage(decision));
         return { proceed: true, decision };
     }
     if (!found.state.regionWarningOff?.[projectId]) log(`\n${regionWarning(decision, projectId)}\n`);
     return { proceed: true, decision };
+}
+
+/**
+ * What a first deploy says when it sets the functions region. arccms.config.json is
+ * ignored by git, so the region lives on only in this checkout (and in the committed
+ * arc-install.ts): wherever the file is recreated, as in CI, it must be given again.
+ */
+export function adoptMessage({ suggested, location }) {
+    return `\nThe functions will run in ${suggested}, next to your database (${location}).`
+        + ' Saved in arccms.config.json, which git ignores, and in src/environments/arc-install.ts: commit that one, the website reads it.'
+        + ` Where arccms.config.json is recreated, as in CI, add --functions-region=${suggested} to arc:configure,`
+        + ` or a later deploy puts the functions in ${DEFAULT_FUNCTIONS_REGION} again.`;
 }
 
 /** Whether a deploy with these arguments publishes the website: hosting named, or no --only at all. */
@@ -279,7 +289,7 @@ export function deploysOnlyFunctions(args) {
  * always named, so the CLI deploys to the project whose config this is.
  */
 export function deployArgs(args, generatedExists, projectId, cwd = process.cwd()) {
-    const passthrough = args.filter((a) => a !== '--no-probe' && a !== '--probe' && a !== '--yes');
+    const passthrough = args.filter((a) => a !== '--no-probe' && a !== '--probe' && a !== '--yes' && !a.startsWith('--confirm-production='));
     const withProject = projectArg(passthrough) || !projectId ? passthrough : [...passthrough, '--project', projectId];
     const hasConfig = passthrough.some((a) => a === '--config' || a === '-c' || a.startsWith('--config='));
     if (hasConfig || !generatedExists || !projectId) return ['deploy', ...withProject];
@@ -408,6 +418,31 @@ export function websiteBuildEnv(projectId, env = process.env) {
     return { ...rest, ARC_PROJECT: projectId };
 }
 
+/** The `--confirm-production=<project id>` value, or null when it is not given. */
+export function confirmProductionArg(args) {
+    const arg = args.find((a) => a.startsWith('--confirm-production='));
+    return arg === undefined ? null : arg.slice('--confirm-production='.length);
+}
+
+/**
+ * The production guard for a deploy started outside the guided deploy, which asks
+ * for the id itself. A project marked production deploys only with
+ * `--confirm-production=<its project id>`, or with the id typed back on a terminal
+ * (`'ask'`); off a terminal without the flag it is refused, so a script or CI job
+ * can never deploy the live project by mistake. A project not marked is not
+ * touched, and a flag naming another project is refused for any project.
+ * Returns `'ok'`, `'ask'` or the reason it is refused.
+ */
+export function productionGuard(args, projectId, { marked = false, isTTY = false } = {}) {
+    const given = confirmProductionArg(args);
+    if (given !== null && given !== projectId) {
+        return `--confirm-production=${given} does not match ${projectId}, the project this deploys to. Nothing was deployed.`;
+    }
+    if (!marked || given === projectId) return 'ok';
+    if (isTTY) return 'ask';
+    return `${projectId} is marked production. Add --confirm-production=${projectId} to deploy it. Nothing was deployed.`;
+}
+
 /**
  * Deploys with these `firebase deploy` arguments: the flag path, and what the
  * guided deploy (arc-deploy-menu.mjs) runs. Returns the exit status and the
@@ -422,9 +457,25 @@ export async function runDeploy(args, options = {}) {
         console.error('No Firebase project: pass --project=<alias or id>, run firebase use, or add a "default" alias to .firebaserc.');
         return { status: 1, created: [] };
     }
+    // Before anything runs: the guided deploy has asked already (options.productionConfirmed).
+    if (!options.productionConfirmed) {
+        const guard = productionGuard(args, projectId, {
+            marked: isMarkedProduction(readArcInstallConfig(), projectId), isTTY: options.isTTY ?? !!process.stdin.isTTY,
+        });
+        if (guard === 'ask') {
+            const typed = await (options.askProductionId ?? askOnce)(`\n${projectId} is marked production. Type the project id to deploy: `);
+            if (typed.trim() !== projectId) {
+                console.log('Not deployed.');
+                return { status: 1, created: [] };
+            }
+        } else if (guard !== 'ok') {
+            console.error(guard);
+            return { status: 1, created: [] };
+        }
+    }
     // Before the config is read: a first deploy may set the functions region.
     if (deploysFunctions(args) && !options.regionChecked) {
-        if (!checkFunctionsRegion(projectId, { includesWebsite: deploysWebsite(args) }).proceed) return { status: 1, created: [] };
+        if (!checkFunctionsRegion(projectId).proceed) return { status: 1, created: [] };
     }
     const generated = !!projectId && existsSync(generatedConfigPath(projectId));
     // Hosting off (arc:configure --site=none) leaves no hosting in the generated
