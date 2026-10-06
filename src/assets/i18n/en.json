@@ -140,6 +140,10 @@
       "thanks": "Thank you! We got your feedback.",
       "send_failed": "Could not send. Check your connection and try again.",
       "taking_screenshot": "Taking a screenshot..."
+    },
+    "version": {
+      "not_loaded": "This page could not load. A newer version of the site is out.",
+      "reload": "Reload"
     }
   },
   "admin": {

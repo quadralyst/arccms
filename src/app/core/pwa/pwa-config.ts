@@ -22,7 +22,17 @@ export interface PwaConfig {
     backgroundColor: string;
     /** The page the home-screen icon opens. */
     startUrl: string;
+    /**
+     * Which screens' code is stored on the device when the app installs or updates
+     * (docs/app/pwa.html#open-screens-offline-and-after-a-deploy): `visited` (only
+     * what every page needs; the rest as it is first opened), `app` (every screen
+     * outside the admin area too) or `all` (every screen).
+     */
+    routeCode: RouteCodeMode;
 }
+
+export const ROUTE_CODE_MODES = ['visited', 'app', 'all'] as const;
+export type RouteCodeMode = (typeof ROUTE_CODE_MODES)[number];
 
 export const DEFAULT_PWA_CONFIG: PwaConfig = {
     enabled: false,
@@ -32,6 +42,7 @@ export const DEFAULT_PWA_CONFIG: PwaConfig = {
     themeColor: '#1d47a3',
     backgroundColor: '#ffffff',
     startUrl: '/',
+    routeCode: 'visited',
 };
 
 /** The icon the app provides, first match wins; else Arc CMS's own. Paths from the repo root. */
@@ -50,6 +61,9 @@ export function resolvePwaConfig(custom: Partial<PwaConfig> | undefined, enabled
             "src/custom/pwa.ts: the PWA is now switched in src/custom/features.ts. " +
             "Delete `enabled` from pwa.ts, and to keep the PWA add on: ['pwa'] to CUSTOM_FEATURES.",
         );
+    }
+    if (custom?.routeCode !== undefined && !ROUTE_CODE_MODES.includes(custom.routeCode)) {
+        throw new Error(`src/custom/pwa.ts: routeCode must be one of ${ROUTE_CODE_MODES.join(', ')}, not "${custom.routeCode}".`);
     }
     const merged = { ...DEFAULT_PWA_CONFIG, ...(custom ?? {}), enabled };
     return { ...merged, shortName: merged.shortName || merged.name };

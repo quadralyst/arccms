@@ -13,6 +13,7 @@ import { CUSTOM_FEATURES } from './src/custom/features';
 import { oneBuildAtATime } from './scripts/vite-build-order';
 import { arcSite } from './scripts/vite-arc-site';
 import { environmentFor } from './scripts/arc-environment.mjs';
+import { routeCode } from './scripts/vite-route-code';
 
 // The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
@@ -22,6 +23,10 @@ const features = resolveFeatures(CUSTOM_FEATURES);
 // on when the features ask for it.
 const pwa = resolvePwaConfig(CUSTOM_PWA, features.has('pwa'));
 const pwaIcon = PWA_ICON_CANDIDATES.find((path) => existsSync(resolve(path))) ?? DEFAULT_PWA_ICON;
+// Which screens' code the service worker stores ahead (src/custom/pwa.ts routeCode,
+// specs/app-route-code-spec.md). 'visited', the default, keeps the settings below as they were.
+const storedCode = routeCode(pwa.routeCode);
+const storesRouteCode = pwa.enabled && pwa.routeCode !== 'visited';
 
 // The Firebase project this build talks to (specs/app-project-settings-spec.md): with
 // ARC_PROJECT=<alias or id>, that project's web settings; without it, the environment
@@ -167,6 +172,7 @@ export default defineConfig(({ mode }) => {
       // Browser build only: Analog also builds the server bundle with these plugins,
       // and the PWA plugin skips the service worker when it last saw a server build.
       appleLinks(),
+      ...(storesRouteCode ? [storedCode.recorder] : []),
       ...clientOnly(VitePWA({
         disable: !pwa.enabled,
         // Never swap versions under someone: the update bar asks first (PwaService).
@@ -198,8 +204,11 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           // Up front, only the files every page needs; the rest is stored the
-          // first time it loads (below), which spares mobile data.
-          globPatterns: ['**/*.{css,woff2}', 'assets/index-*.js'],
+          // first time it loads (below), which spares mobile data. With routeCode
+          // 'app' or 'all', also the code of those screens, chosen from the build's
+          // own chunk graph.
+          globPatterns: storesRouteCode ? ['**/*.{css,woff2}', 'assets/**/*.js'] : ['**/*.{css,woff2}', 'assets/index-*.js'],
+          ...(storesRouteCode ? { manifestTransforms: [storedCode.transform] } : {}),
           globIgnores: ['**/*.map'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           // The SPA shell (copied to __shell.html after the build): what opens offline.

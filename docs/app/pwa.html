@@ -100,7 +100,25 @@ export default class LockComponent {
     }
 }</code></pre>
     <div class="trap"><p>Arc CMS never calls <code>applyUpdate()</code> itself, on any page, so a page is never reloaded in the middle of a task. Call it only when the person is at a safe point. On a page without the flag, nothing changes: the bar shows as before.</p></div>
-    <div class="trap"><p>Do not leave an update waiting for long. A deploy replaces the old version's code files on the server, so a page of the old version that has not opened a route yet cannot load that route until the update is applied (in a test it failed with "Failed to fetch dynamically imported module"). Offer the update at the next quiet moment, such as the lock screen.</p></div>
+    <div class="trap"><p>Do not leave an update waiting for long. A deploy replaces the old version's code files on the server, so a page of the old version that has not opened a screen yet cannot load it until the update is applied, unless its code was stored ahead (below). Offer the update at the next quiet moment, such as the lock screen.</p></div>
+
+    <h2 id="open-screens-offline-and-after-a-deploy">Open screens offline and after a deploy</h2>
+    <p>The service worker stores the code every page needs when the app installs. The code of each screen is stored the first time it opens. So a screen never opened on this device cannot open offline, nor after a deploy has removed the old version's files from the server. An app that must open every screen, such as a till used through the day, has them stored ahead in <code>src/custom/pwa.ts</code>:</p>
+    <pre><code>export const CUSTOM_PWA: Partial&lt;PwaConfig&gt; = {
+    routeCode: 'app',
+};</code></pre>
+    <table>
+      <thead><tr><th><code>routeCode</code></th><th>Stored when the app installs or updates</th><th>Size, Arc CMS on its own</th></tr></thead>
+      <tbody>
+        <tr><td><code>visited</code> (the default)</td><td>What every page needs; each screen's code when it first opens</td><td>About 1.8 MB</td></tr>
+        <tr><td><code>app</code></td><td>Also every screen outside the admin area, with everything it uses. Chosen from the build's own code graph, so your pages are found by themselves; the admin's editors and settings are left out, except code public pages share</td><td>About 3.8 MB</td></tr>
+        <tr><td><code>all</code></td><td>Every screen, the admin's too, for an app whose admins also work offline</td><td>About 6.6 MB</td></tr>
+      </tbody>
+    </table>
+    <p>The build prints what it stores ("PWA: 110 code files, 3.8 MB stored ...") and warns above 15 MB. Your own pages add to the sizes above. Data is a separate matter: to show data offline too, turn on the offline cache (see <a href="offline.html">Keep working offline</a>).</p>
+
+    <h3>When a screen's code is missing anyway</h3>
+    <p>Without the PWA, or with a screen that was not stored, a tab left open across a deploy can still meet a missing code file. Arc CMS then loads the address the person asked for afresh, so the tap opens that screen in the new version. If that fails as well within 10 seconds, a short message with a <strong>Reload</strong> button shows instead of trying again. On a page with <code>data: { pwaUpdate: 'app' }</code>, Arc CMS never reloads: <code>StaleCodeService</code> (<code>src/app/core/version/stale-code.service.ts</code>) sets <code>stale()</code>, and your page decides when to call <code>reload()</code>, as it does for updates.</p>
 
     <h2>iPhone and iPad</h2>
     <ul>

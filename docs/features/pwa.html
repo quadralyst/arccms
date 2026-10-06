@@ -52,6 +52,7 @@
             <tr><td><code>themeColor</code></td><td><code>#1d47a3</code></td><td>The browser bar and phone status bar, and the install card's accent.</td></tr>
             <tr><td><code>backgroundColor</code></td><td><code>#ffffff</code></td><td>The splash screen while the app opens.</td></tr>
             <tr><td><code>startUrl</code></td><td><code>/</code></td><td>The page the home-screen icon opens.</td></tr>
+            <tr><td><code>routeCode</code></td><td><code>visited</code></td><td>Which screens' code is stored when the app installs or updates: <code>visited</code> (only what every page needs, the rest as it is first opened), <code>app</code> (every screen outside the admin area) or <code>all</code>. See <a href="../app/pwa.html#open-screens-offline-and-after-a-deploy">Make it installable</a>.</td></tr>
           </tbody>
         </table>
         <p>The defaults are in <code>src/app/core/pwa/pwa-config.ts</code>. The installed app opens in its own window without the browser bar (<code>standalone</code>), with the whole site in scope.</p>

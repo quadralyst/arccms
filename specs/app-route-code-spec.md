@@ -1,6 +1,6 @@
 # Route Code Stored Ahead, and Recovery From Missing Code: Build Spec (A8)
 
-**Status:** spec written 2026-10-06, not built.
+**Status:** built 2026-10-06 on `feat/app-route-code`; suite green, docs updated. Browser checks are in the end-of-work pass. Not yet merged to `dev`.
 **Branch:** `feat/app-route-code`, cut from `feat/app-pwa-update` (e5a7c45), because it uses
 A6's route flag. Merge A6 first, then rebase this on `dev`.
 **Scope:** two gaps found while testing A6 (`specs/app-pwa-update-spec.md`, section 6):
@@ -96,3 +96,18 @@ message for R-D6's stop case is a small core component with `en` and `hi` string
      opened before: it opens in the new version (R-D6). On a `pwaUpdate: 'app'` page the same
      tap does nothing and `stale()` turns true (R-D7).
 - Temporary routes and settings removed afterwards.
+
+**Built 2026-10-06.** As specced; R-D8 (recovery on for every install) kept, Gunjan had not
+asked for it to be opt-in. Checked at build level, without a browser: with the PWA on and
+`routeCode: 'app'` the build printed "PWA: 110 code files, 3.8 MB stored" (of 215 files,
+about 6.6 MB in all) and the service worker's precache list held the member, sign-in, profile
+and pricing screens and not the admin's content and export pages; with `visited` the
+precache list was exactly as before (the main bundles, styles and fonts). The content editor
+is stored under `app` because `src/app/pages/tiptap-test.page.ts`, a public developer page,
+uses it: correct by the rules, and raised with Gunjan as a page that probably should not
+ship. `media-settings` is shared with public content pages, so it is stored too.
+
+**End-of-work browser pass:** (1) `routeCode: 'app'`, install, stop the server, open an app
+screen never visited: it opens. (2) PWA off, open `/`, ship a new build, tap a link to a
+screen not opened before: it opens in the new version. (3) The same on a `pwaUpdate: 'app'`
+page: nothing reloads and `stale()` is true.

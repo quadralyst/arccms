@@ -37,4 +37,15 @@ describe('no silent reloads', () => {
             .filter((file) => file !== 'src/app/core/pwa/pwa.service.ts');
         expect(callers).toEqual(['src/shared/components/install-prompt/update-bar.component.ts']);
     });
+
+    it('loads a page by itself only to recover a missing screen, and never on a page that owns its updates (A8)', () => {
+        const files = [...sources(join(ROOT, 'src/app')), ...sources(join(ROOT, 'src/shared'))];
+        const recover = readFileSync(join(ROOT, 'src/app/core/version/stale-code.service.ts'), 'utf8');
+        const body = recover.slice(recover.indexOf('private onNavigationError'));
+        expect(body.indexOf('routeOwnsPwaUpdate')).toBeGreaterThan(-1);
+        expect(body.indexOf('routeOwnsPwaUpdate')).toBeLessThan(body.indexOf('this.page.assign'));
+        // No other core file reloads a page by itself on a router error.
+        const others = files.filter((f) => !f.endsWith('stale-code.service.ts') && /NavigationError[\s\S]*location\.(assign|reload)/.test(readFileSync(f, 'utf8')));
+        expect(others).toEqual([]);
+    });
 });
