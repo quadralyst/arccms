@@ -54,6 +54,7 @@ What breaks for such a record today:
 | C-D9 | `user.deleted` | Unchanged in shape, now **pinned by a test and documented**: `userId` is the Auth uid, `data.userDocId` is the record id, there is no email. Apps clean up their own data from an `AppEvents` trigger (docs example). |
 | C-D10 | Admin screens | The edit form accepts a record that has no email (the field is only required when the record has one or the admin types one); the duplicate check skips an empty value; the view page shows no link without an email. The users list shows a small "App account" badge when `by === 'app'`. Nothing else in admin changes. |
 | C-D11 | Profile, sign-in methods | **Unchanged.** The card already shows "Not added" for a missing email, and a person who links an email later becomes an ordinary account. A test pins that nothing crashes for such a record. |
+| C-D13 | Empty values never match | App accounts add many records with `email: ''` and `phone: ''`. Every lookup by exact email or phone (for example `functions/src/dodo-payments/entitlements.ts`, `email-core/dripContext.ts`, `email-core/eraseContact.ts`, `auth/accounts.ts` `findUserByEmail`) is audited, and each refuses an empty or whitespace value **before** querying, so an empty value can never match these records. A source test fails on a new `where('email', '==', …)` or `where('phone', '==', …)` without that guard. |
 | C-D12 | No rules change | Records are created by the Admin SDK only, as phone accounts are. A rules test pins that the owner reads their record by `arccms_uid` and cannot change `role`, `email` or `phone`. |
 
 ## 3. Build
@@ -85,6 +86,8 @@ copying it, so the two cannot drift apart.
 - `app-kit.spec`: exports equal the documented list.
 - Frontend: the edit form saves an email-less record; the view page has no empty link; the
   list shows the badge only for `by: 'app'`; sign-in methods and profile render for it.
+- C-D13: each audited lookup returns nothing for `''` and `'  '` and never queries; the source
+  test for new exact email or phone lookups.
 - `tests/rules`: C-D12. (Rules tests need Java 21.)
 - `npm run build --prefix functions` (it type-checks the tests too) before calling a phase done.
 
