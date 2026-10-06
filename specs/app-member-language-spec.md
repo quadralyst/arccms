@@ -1,6 +1,6 @@
 # Member Languages Added by the App: Build Spec (A1)
 
-**Status:** A1a (the mechanism) and A1b (sign-in, profile, account) built 2026-10-06 on `feat/app-member-language`; A1c and A1d not built.
+**Status:** A1a (the mechanism), A1b (sign-in, profile, account) and A1c (the remaining member screens) built 2026-10-06 on `feat/app-member-language`; A1d not built.
 **Branch:** `feat/app-member-language`, cut from `dev` (10c8734).
 **Scope:** an app built on Arc CMS adds a language Arc does not ship (for example German)
 and shows it to its members: signed-in non-admin people, and visitors on the sign-in
@@ -185,3 +185,22 @@ English; the app can set its own.
   sentences in messages; the not-yet-translated member files are listed there for A1c.
 - Existing specs that asserted English now read it from `en.json` (`src/test/english.ts`).
 - The Hindi was written for this work and needs a native speaker's read.
+
+**A1c built 2026-10-06.** 31 new keys in `en` and `hi`, with these notes:
+
+- Translated: the not-found page, the unauthorized page's fallback, the cookie banner's
+  "Learn more" and its fallback button text, the payments page, and the fallbacks in the
+  member shell, dashboard and premium page (`Member`, `Pro`, `active`). The default name a
+  finished sign-up gets when it has none is `user.member` too.
+- **Changed from the plan:** the content and list pages' not-found text is the published
+  site's, so it uses the site strings (`/_site/strings/{lang}.json`: `content_not_found_*`,
+  `type_not_found_*`, `go_home`, Hindi added) in the page's language, not member keys.
+- The member shell showed a fixed "ArcCMS": it now shows the site's name (Settings, About),
+  as the sign-in page does.
+- The dashboard greets a member with no name as "Welcome back" instead of "Welcome back, there".
+- The scan now also catches English in template expressions (`{{ x || 'Member' }}`) and
+  fallbacks or choices in code (`|| 'Member'`, `ok ? 'Done.' : ...`); its `NOT_YET` list is gone.
+- Render tests in a pseudo language (`src/test/pseudo-language.ts`, the same rule as
+  `npm run i18n:pseudo`): not-found, the cookie banner, sign-in methods (two states), the
+  member shell. A key missing from the member list shows as the key there and fails.
+- The English of `user.premium.on_plan` lost its em dash.

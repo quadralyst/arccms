@@ -193,7 +193,7 @@ export const AuthState = signalStore(
                                             // the login is older than a day (another app's user, most
                                             // likely), and then this is no access.
                                             const name = String((res as { displayName?: string }).displayName || form.email.split('@')[0]).trim();
-                                            return from(createRecordWithRetry(() => signIn().createAccountRecord(name.length >= 2 ? name : 'Member', { finish: true }))).pipe(
+                                            return from(createRecordWithRetry(() => signIn().createAccountRecord(name.length >= 2 ? name : say('user.member'), { finish: true }))).pipe(
                                                 switchMap((result) => (result.outcome === 'ok'
                                                     ? from(this.refreshCurrentUser()).pipe(map(() => res))
                                                     : authService.logout().pipe(

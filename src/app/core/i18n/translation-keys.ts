@@ -1572,6 +1572,9 @@ export type TranslationKey =
     | 'member.auth.unfinished_signup'
     | 'member.auth.verify'
     | 'member.auth.welcome_back_greeting'
+    | 'member.cookie_banner.accept_all'
+    | 'member.cookie_banner.learn_more'
+    | 'member.cookie_banner.reject_all'
     | 'member.errors.account_exists_with_different_credential'
     | 'member.errors.cancelled_popup_request'
     | 'member.errors.code_expired'
@@ -1639,6 +1642,10 @@ export type TranslationKey =
     | 'member.methods.sign_in_elsewhere'
     | 'member.methods.title'
     | 'member.methods.verified'
+    | 'member.not_found.description'
+    | 'member.not_found.heading'
+    | 'member.not_found.home'
+    | 'member.not_found.oops'
     | 'member.profile.account_deleted'
     | 'member.profile.back'
     | 'member.profile.change_password'
@@ -1686,6 +1693,9 @@ export type TranslationKey =
     | 'member.profile.subtitle'
     | 'member.profile.title'
     | 'member.profile.update_password'
+    | 'member.unauthorized.description'
+    | 'member.unauthorized.heading'
+    | 'member.unauthorized.sign_up'
     | 'user.account.access_restricted'
     | 'user.account.active'
     | 'user.account.available_credits'
@@ -1728,6 +1738,7 @@ export type TranslationKey =
     | 'user.account.upgrade_note'
     | 'user.account.use_credit'
     | 'user.account.view_plans'
+    | 'user.active'
     | 'user.credits'
     | 'user.dashboard.account_hint'
     | 'user.dashboard.buy_credits'
@@ -1757,7 +1768,9 @@ export type TranslationKey =
     | 'user.dashboard.upgrade'
     | 'user.dashboard.view_all'
     | 'user.dashboard.welcome'
+    | 'user.dashboard.welcome_no_name'
     | 'user.free'
+    | 'user.member'
     | 'user.nav.account'
     | 'user.nav.dashboard'
     | 'user.nav.home'
@@ -1766,8 +1779,25 @@ export type TranslationKey =
     | 'user.nav.premium'
     | 'user.nav.profile'
     | 'user.nav.sign_out'
+    | 'user.payments.account_billing'
+    | 'user.payments.account_billing_hint'
+    | 'user.payments.available_credits'
+    | 'user.payments.credits_activity'
+    | 'user.payments.credits_amount'
+    | 'user.payments.free_tier'
+    | 'user.payments.membership'
+    | 'user.payments.membership_plans'
+    | 'user.payments.no_active_plan'
+    | 'user.payments.plan_tier'
+    | 'user.payments.plans_hint'
+    | 'user.payments.profile_hint'
+    | 'user.payments.profile_settings'
+    | 'user.payments.quick_navigation'
     | 'user.payments.subtitle'
     | 'user.payments.title'
+    | 'user.payments.upgrade_plan'
+    | 'user.payments.use_credit'
+    | 'user.payments.view_ledger'
     | 'user.premium.advanced_analytics'
     | 'user.premium.back'
     | 'user.premium.on_plan'
@@ -1775,6 +1805,7 @@ export type TranslationKey =
     | 'user.premium.priority_processing'
     | 'user.premium.priority_support'
     | 'user.premium.title'
+    | 'user.pro'
     | 'user.profile.subtitle'
     | 'user.profile.title';
 
@@ -3341,6 +3372,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.unfinished_signup',
     'member.auth.verify',
     'member.auth.welcome_back_greeting',
+    'member.cookie_banner.accept_all',
+    'member.cookie_banner.learn_more',
+    'member.cookie_banner.reject_all',
     'member.errors.account_exists_with_different_credential',
     'member.errors.cancelled_popup_request',
     'member.errors.code_expired',
@@ -3408,6 +3442,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.methods.sign_in_elsewhere',
     'member.methods.title',
     'member.methods.verified',
+    'member.not_found.description',
+    'member.not_found.heading',
+    'member.not_found.home',
+    'member.not_found.oops',
     'member.profile.account_deleted',
     'member.profile.back',
     'member.profile.change_password',
@@ -3455,6 +3493,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.profile.subtitle',
     'member.profile.title',
     'member.profile.update_password',
+    'member.unauthorized.description',
+    'member.unauthorized.heading',
+    'member.unauthorized.sign_up',
     'user.account.access_restricted',
     'user.account.active',
     'user.account.available_credits',
@@ -3497,6 +3538,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'user.account.upgrade_note',
     'user.account.use_credit',
     'user.account.view_plans',
+    'user.active',
     'user.credits',
     'user.dashboard.account_hint',
     'user.dashboard.buy_credits',
@@ -3526,7 +3568,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'user.dashboard.upgrade',
     'user.dashboard.view_all',
     'user.dashboard.welcome',
+    'user.dashboard.welcome_no_name',
     'user.free',
+    'user.member',
     'user.nav.account',
     'user.nav.dashboard',
     'user.nav.home',
@@ -3535,8 +3579,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'user.nav.premium',
     'user.nav.profile',
     'user.nav.sign_out',
+    'user.payments.account_billing',
+    'user.payments.account_billing_hint',
+    'user.payments.available_credits',
+    'user.payments.credits_activity',
+    'user.payments.credits_amount',
+    'user.payments.free_tier',
+    'user.payments.membership',
+    'user.payments.membership_plans',
+    'user.payments.no_active_plan',
+    'user.payments.plan_tier',
+    'user.payments.plans_hint',
+    'user.payments.profile_hint',
+    'user.payments.profile_settings',
+    'user.payments.quick_navigation',
     'user.payments.subtitle',
     'user.payments.title',
+    'user.payments.upgrade_plan',
+    'user.payments.use_credit',
+    'user.payments.view_ledger',
     'user.premium.advanced_analytics',
     'user.premium.back',
     'user.premium.on_plan',
@@ -3544,6 +3605,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'user.premium.priority_processing',
     'user.premium.priority_support',
     'user.premium.title',
+    'user.pro',
     'user.profile.subtitle',
     'user.profile.title',
 ];

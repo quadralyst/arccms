@@ -90,5 +90,10 @@
   "contact_too_many": "आप पहले ही कई संदेश भेज चुके हैं। एक घंटे बाद फिर कोशिश करें।",
   "contact_invalid": "अपना ईमेल पता और संदेश जाँचें, फिर भेजें।",
   "contact_invalid_email": "एक सही ईमेल पता लिखें।",
-  "contact_no_message": "कृपया संदेश लिखें।"
+  "contact_no_message": "कृपया संदेश लिखें।",
+  "content_not_found_title": "सामग्री नहीं मिली",
+  "content_not_found_body": "आप जो सामग्री ढूँढ रहे हैं वह मौजूद नहीं है या हटा दी गई है।",
+  "type_not_found_title": "सामग्री प्रकार नहीं मिला",
+  "type_not_found_body": "सामग्री प्रकार \"{{ type }}\" मौजूद नहीं है।",
+  "go_home": "होम पर जाएँ"
 }

@@ -1673,7 +1673,24 @@
     "credits": "credits",
     "payments": {
       "title": "Payments",
-      "subtitle": "Your plan, credits and recent activity."
+      "subtitle": "Your plan, credits and recent activity.",
+      "membership": "Membership",
+      "free_tier": "Free Tier",
+      "upgrade_plan": "Upgrade Plan →",
+      "available_credits": "Available Credits",
+      "view_ledger": "View Ledger →",
+      "plan_tier": "Plan Tier",
+      "no_active_plan": "No Active Plan",
+      "use_credit": "Use 1 Credit",
+      "quick_navigation": "Quick Navigation",
+      "account_billing": "Account & Billing",
+      "account_billing_hint": "View invoices, subscription, and check credit ledger.",
+      "profile_settings": "Profile Settings",
+      "profile_hint": "Update your name, contact email, and security credentials.",
+      "membership_plans": "Membership Plans",
+      "plans_hint": "Upgrade, downgrade or adjust your billing frequency.",
+      "credits_activity": "Credits · {{ reason }}",
+      "credits_amount": "{{ amount }} cr"
     },
     "dashboard": {
       "empty": "Nothing here yet.",
@@ -1703,7 +1720,8 @@
       "account_hint": "Membership, credits, transaction history",
       "profile_hint": "Name, email, password, photo",
       "plans_pricing": "Plans & Pricing",
-      "plans_hint": "Upgrade or change your plan"
+      "plans_hint": "Upgrade or change your plan",
+      "welcome_no_name": "Welcome back"
     },
     "profile": {
       "title": "Profile",
@@ -1711,7 +1729,7 @@
     },
     "premium": {
       "title": "Premium area",
-      "on_plan": "You're on the <strong>{{ plan }}</strong> plan ({{ type }}). This page is only reachable by members — it's guarded by <code>entitledGuard</code>.",
+      "on_plan": "You're on the <strong>{{ plan }}</strong> plan ({{ type }}). This page is only reachable by members: it's guarded by <code>entitledGuard</code>.",
       "priority_processing": "Priority processing",
       "placeholder": "Placeholder premium feature.",
       "advanced_analytics": "Advanced analytics",
@@ -1761,7 +1779,10 @@
       "col_event": "Event",
       "credit_failed": "Could not use a credit.",
       "credit_insufficient": "Insufficient credits."
-    }
+    },
+    "member": "Member",
+    "pro": "Pro",
+    "active": "active"
   },
   "member": {
     "auth": {
@@ -1971,6 +1992,22 @@
       "google_connected": "Google connected.",
       "already_yours_email": "This email is already on your account.",
       "already_yours_number": "This number is already on your account."
+    },
+    "not_found": {
+      "oops": "Oops!",
+      "heading": "Page Not Found.",
+      "description": "The page you're looking for doesn't exist or has been moved.",
+      "home": "Go to Home"
+    },
+    "unauthorized": {
+      "heading": "403 - Forbidden",
+      "description": "Access Denied",
+      "sign_up": "Go to Signup"
+    },
+    "cookie_banner": {
+      "learn_more": "Learn more",
+      "reject_all": "Reject All",
+      "accept_all": "Accept All"
     }
   }
 }

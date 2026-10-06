@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { Component, computed, inject, OnInit } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,6 +7,9 @@ import { AuthState } from '../(auth)/auth.store';
 import { EntitlementService } from './entitlement.service';
 import { isOn } from '../../core/features/features';
 import { homeFor, USER_DASHBOARD } from '../../core/home/home';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { signInBrand } from '../page.parts/sign-in-panel.component';
+import { ConstantVariables } from '../../../shared/constants/common-constants';
 
 /**
  * Sidebar layout for the signed-in member area (dashboard, profile, and with the
@@ -23,15 +26,15 @@ import { homeFor, USER_DASHBOARD } from '../../core/home/home';
     template: `
         <div class="shell">
             <aside class="sidebar">
-                <a routerLink="/" class="brand">ArcCMS</a>
+                <a routerLink="/" class="brand">{{ brandName() }}</a>
 
                 <div class="userbox">
                     <div class="avatar">{{ initial() }}</div>
                     <div class="who">
-                        <span class="name">{{ displayName() }}</span>
+                        <span class="name">{{ displayName() || ('user.member' | transloco) }}</span>
                         @if (paymentsOn) {
                             @if (entitlements.isPro()) {
-                                <span class="badge pro">{{ entitlements.premiumType() || 'Pro' }}</span>
+                                <span class="badge pro">{{ entitlements.premiumType() || ('user.pro' | transloco) }}</span>
                             } @else {
                                 <span class="badge free">{{ 'user.free' | transloco }}</span>
                             }
@@ -97,6 +100,12 @@ export class UserShellComponent implements OnInit {
     authState = inject(AuthState);
     entitlements = inject(EntitlementService);
     private router = inject(Router);
+    private transloco = inject(TranslocoService);
+    private siteIdentity = inject(SiteIdentityService);
+    /** The site's own name (Settings, About), as on the sign-in page; nothing until it is in, so Arc CMS's never flashes. */
+    readonly brandName = computed(() => this.siteIdentity.loaded()
+        ? signInBrand(this.siteIdentity.identity(), new ConstantVariables().APPLICATION_NAME).name
+        : '');
     readonly paymentsOn = isOn('payments');
 
     /** The app's own home page for this person (src/custom/home.ts), when it is not this area's dashboard. */
@@ -107,14 +116,15 @@ export class UserShellComponent implements OnInit {
 
     displayName(): string {
         const u = this.authState.currentUser();
-        return u?.name || u?.email || 'Member';
+        return u?.name || u?.email || '';
     }
 
     initial(): string {
-        return (this.displayName().trim()[0] || 'M').toUpperCase();
+        return (this.displayName().trim()[0] || this.transloco.translate('user.member')[0] || '').toUpperCase();
     }
 
     ngOnInit(): void {
+        void this.siteIdentity.load();
         if (this.paymentsOn) this.entitlements.load().subscribe();
     }
 

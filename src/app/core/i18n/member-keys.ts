@@ -35,6 +35,10 @@ export const MEMBER_SCREEN_FILES = [
     'src/app/pages/(auth)/auth-messages.ts',
     'src/app/pages/(auth)/sign-in.service.ts',
     'src/shared/constants/common-constants.ts',
+    // Not-found and no-access pages, the cookie banner (A1c)
+    'src/app/pages/not-found.page.ts',
+    'src/app/pages/admin/unauthorized.page.ts',
+    'src/app/pages/page.parts/site-usage-banner.component.ts',
 ] as const;
 
 export function isMemberKey(key: string): boolean {

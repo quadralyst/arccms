@@ -1665,7 +1665,24 @@
     "credits": "क्रेडिट",
     "payments": {
       "title": "भुगतान",
-      "subtitle": "आपका प्लान, क्रेडिट और हाल की गतिविधि।"
+      "subtitle": "आपका प्लान, क्रेडिट और हाल की गतिविधि।",
+      "membership": "सदस्यता",
+      "free_tier": "मुफ़्त टियर",
+      "upgrade_plan": "योजना अपग्रेड करें →",
+      "available_credits": "उपलब्ध क्रेडिट",
+      "view_ledger": "लेजर देखें →",
+      "plan_tier": "योजना श्रेणी",
+      "no_active_plan": "कोई सक्रिय योजना नहीं",
+      "use_credit": "1 क्रेडिट का उपयोग करें",
+      "quick_navigation": "त्वरित नेविगेशन",
+      "account_billing": "खाता और बिलिंग",
+      "account_billing_hint": "चालान, सदस्यता देखें और क्रेडिट लेजर जाँचें।",
+      "profile_settings": "प्रोफ़ाइल सेटिंग्स",
+      "profile_hint": "अपना नाम, संपर्क ईमेल और सुरक्षा विवरण अपडेट करें।",
+      "membership_plans": "सदस्यता योजनाएँ",
+      "plans_hint": "अपग्रेड, डाउनग्रेड करें या बिलिंग की आवृत्ति बदलें।",
+      "credits_activity": "क्रेडिट · {{ reason }}",
+      "credits_amount": "{{ amount }} क्रे."
     },
     "dashboard": {
       "empty": "यहाँ अभी कुछ नहीं है।",
@@ -1695,7 +1712,8 @@
       "account_hint": "सदस्यता, क्रेडिट, लेन-देन इतिहास",
       "profile_hint": "नाम, ईमेल, पासवर्ड, फ़ोटो",
       "plans_pricing": "योजनाएँ और मूल्य",
-      "plans_hint": "अपनी योजना अपग्रेड या बदलें"
+      "plans_hint": "अपनी योजना अपग्रेड या बदलें",
+      "welcome_no_name": "वापसी पर स्वागत है"
     },
     "profile": {
       "title": "प्रोफ़ाइल",
@@ -1703,7 +1721,7 @@
     },
     "premium": {
       "title": "प्रीमियम क्षेत्र",
-      "on_plan": "आप <strong>{{ plan }}</strong> योजना ({{ type }}) पर हैं। यह पेज केवल सदस्यों के लिए है — इसे <code>entitledGuard</code> सुरक्षित रखता है।",
+      "on_plan": "आप <strong>{{ plan }}</strong> योजना ({{ type }}) पर हैं। यह पेज केवल सदस्यों के लिए है, इसे <code>entitledGuard</code> सुरक्षित रखता है।",
       "priority_processing": "प्राथमिकता से प्रोसेसिंग",
       "placeholder": "प्लेसहोल्डर प्रीमियम सुविधा।",
       "advanced_analytics": "उन्नत एनालिटिक्स",
@@ -1753,7 +1771,10 @@
       "col_event": "घटना",
       "credit_failed": "क्रेडिट का उपयोग नहीं हो सका।",
       "credit_insufficient": "पर्याप्त क्रेडिट नहीं हैं।"
-    }
+    },
+    "member": "सदस्य",
+    "pro": "प्रो",
+    "active": "सक्रिय"
   },
   "member": {
     "auth": {
@@ -1963,6 +1984,22 @@
       "google_connected": "Google जुड़ गया।",
       "already_yours_email": "यह ईमेल पहले से आपके खाते में है।",
       "already_yours_number": "यह नंबर पहले से आपके खाते में है।"
+    },
+    "not_found": {
+      "oops": "उफ़!",
+      "heading": "पेज नहीं मिला।",
+      "description": "आप जो पेज ढूँढ रहे हैं वह मौजूद नहीं है या हटा दिया गया है।",
+      "home": "होम पर जाएँ"
+    },
+    "unauthorized": {
+      "heading": "403 - वर्जित",
+      "description": "पहुँच अस्वीकृत",
+      "sign_up": "साइन अप पर जाएँ"
+    },
+    "cookie_banner": {
+      "learn_more": "और जानें",
+      "reject_all": "सभी अस्वीकार करें",
+      "accept_all": "सभी स्वीकार करें"
     }
   }
 }

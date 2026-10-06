@@ -25,7 +25,8 @@ export const routeMeta: RouteMeta = {
     template: `
         <app-user-shell>
             <div class="dash">
-                <arc-page-header [title]="'user.dashboard.welcome' | transloco: { name: firstName() }"></arc-page-header>
+                @let name = firstName();
+                <arc-page-header [title]="name ? ('user.dashboard.welcome' | transloco: { name }) : ('user.dashboard.welcome_no_name' | transloco)"></arc-page-header>
 
                 <!-- Shows only where the app can be installed and is not yet (docs/features/pwa.html) -->
                 <arc-install-prompt class="d-block mb-3" />
@@ -48,6 +49,6 @@ export default class UserDashboardComponent {
 
     firstName = computed(() => {
         const u = this.authState.currentUser();
-        return (u?.name || u?.email || 'there').split(' ')[0].split('@')[0];
+        return (u?.name || u?.email || '').split(' ')[0].split('@')[0];
     });
 }
