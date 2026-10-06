@@ -36,7 +36,7 @@ describe('ProfileComponent', () => {
         it('opens the file picker, not the media library, for a non-admin', () => {
             const click = vi.fn();
             const open = vi.fn();
-            const ctx = { currentUser: () => ({ role: 'user' }), dialog: { open } };
+            const ctx = { currentUser: () => ({ role: 'user' }), locked: () => false, dialog: { open } };
             ProfileComponent.prototype.openPhotoSelector.call(ctx, { click } as any);
             expect(click).toHaveBeenCalled();
             expect(open).not.toHaveBeenCalled();
@@ -45,7 +45,7 @@ describe('ProfileComponent', () => {
         it('opens the media library for an admin', () => {
             const click = vi.fn();
             const open = vi.fn().mockReturnValue({ afterClosed: () => ({ subscribe: vi.fn() }) });
-            const ctx = { currentUser: () => ({ role: 'admin' }), dialog: { open } };
+            const ctx = { currentUser: () => ({ role: 'admin' }), locked: () => false, dialog: { open } };
             ProfileComponent.prototype.openPhotoSelector.call(ctx, { click } as any);
             expect(open).toHaveBeenCalled();
             expect(click).not.toHaveBeenCalled();
@@ -343,7 +343,7 @@ describe('ProfileComponent', () => {
         });
 
         it('should show the password card only to accounts with a password', () => {
-            expect(template).toContain('@if (hasPassword())');
+            expect(template).toContain('@if (hasPassword() && !locked())');
         });
 
         it('should have password change form with current/new/confirm fields', () => {

@@ -22,6 +22,7 @@ import { KNOWN_ROLES } from '../users/syncUserRole.js';
 import { setRecordClaims } from '../users/claims.js';
 import { SIGN_IN_NOT_READY, alertSigningProblem, signingProblem } from './signInSetup.js';
 import { isBlank } from '../shared/blank.js';
+import { refuseLockedAppAccount } from '../users/lockedAppAccount.js';
 
 const scryptAsync = promisify(scrypt) as (pin: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -152,11 +153,22 @@ export function requireSignedIn(request: CallableRequest): string {
     return request.auth.uid;
 }
 
-/** The caller's own record, or an error the profile page can show. */
-export async function requireOwnRecord(request: CallableRequest): Promise<UserRecord> {
+/**
+ * The caller's own record, or an error the profile page can show.
+ *
+ * Every caller of this changes the person's own account (a sign-in method, a PIN,
+ * deleting it), so a locked app account is refused here, by default. Only a
+ * callable a locked account must still reach passes `allowLockedAppAccount`
+ * (refreshMyClaims); a test keeps that list short.
+ */
+export async function requireOwnRecord(
+    request: CallableRequest,
+    options: { allowLockedAppAccount?: boolean } = {},
+): Promise<UserRecord> {
     const uid = requireSignedIn(request);
     const record = await findUserByUid(uid);
     if (!record) throw new HttpsError('failed-precondition', "This account doesn't have access to this site.");
+    if (!options.allowLockedAppAccount) refuseLockedAppAccount(record.data);
     return record;
 }
 

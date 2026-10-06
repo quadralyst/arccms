@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cloud Functions | Arc CMS docs</title>
   <meta name="description" content="Every Cloud Function Arc CMS deploys: its kind, who may call it or what starts it, what it does, and which feature it belongs to.">
-  <meta name="docs:sources" content="functions/src, functions/src/index.ts, functions/src/all.ts, functions/src/function-names.ts, functions/src/features, functions/src/feature-flags.ts, functions/src/arc-config.ts, functions/src/users/claims.ts, functions/src/search/auth.ts, functions/src/auth/accounts.ts, scripts/arc-features.mjs, src/app/core/config/arc-functions.ts">
+  <meta name="docs:sources" content="functions/src, functions/src/index.ts, functions/src/all.ts, functions/src/function-names.ts, functions/src/features, functions/src/feature-flags.ts, functions/src/arc-config.ts, functions/src/users/claims.ts, functions/src/search/auth.ts, functions/src/auth/accounts.ts, functions/src/users/lockedAppAccount.ts, functions/src/auth/appAccountLock.ts, scripts/arc-features.mjs, src/app/core/config/arc-functions.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="reference/cloud-functions.html">
@@ -38,7 +38,7 @@
       <tbody>
         <tr><td>Admin</td><td>The caller's <code>arccms_role</code> claim is <code>admin</code> (<code>functions/src/users/claims.ts</code>). Some functions also read the claim from the account itself (<code>functions/src/search/auth.ts</code>), so a fresh claim works before the token refreshes.</td></tr>
         <tr><td>Signed in</td><td>Any signed-in account, whatever its role.</td></tr>
-        <tr><td>Own record</td><td>Signed in, with a <code>users</code> record of their own (<code>requireOwnRecord()</code> in <code>functions/src/auth/accounts.ts</code>).</td></tr>
+        <tr><td>Own record</td><td>Signed in, with a <code>users</code> record of their own (<code>requireOwnRecord()</code> in <code>functions/src/auth/accounts.ts</code>), and not a locked app account (<a href="../app/app-accounts.html#locked">App accounts</a>). Only <code>refreshMyClaims</code> also takes a locked app account.</td></tr>
         <tr><td>Public</td><td>No sign-in needed. Where a limit is given, it counts per caller (a hash of the IP address) or per address, in a fixed hour.</td></tr>
       </tbody>
     </table>
@@ -224,9 +224,9 @@
       <tbody>
         <tr><td><code>checkEmailAccount</code></td><td>Callable</td><td>Public, 100 an hour per caller</td><td>Says whether an email is registered, new, an unfinished sign-up, or has no access.</td></tr>
         <tr><td><code>requestSignupOtp</code></td><td>Callable</td><td>Public, 20 an hour per caller and 5 an hour per address</td><td>Emails a sign-up code.</td></tr>
-        <tr><td><code>verifySignupOtp</code></td><td>Callable</td><td>Public</td><td>Checks a sign-up or link code and returns a ticket.</td></tr>
-        <tr><td><code>createAccountRecord</code></td><td>Callable</td><td>Signed in with email and password</td><td>Creates the person's <code>users</code> record with the default role and sets the claims.</td></tr>
-        <tr><td><code>ensureGoogleAccount</code></td><td>Callable</td><td>Signed in with Google</td><td>Creates a <code>users</code> record for a new Google sign-in, when Google sign-in and sign-ups are on.</td></tr>
+        <tr><td><code>verifySignupOtp</code></td><td>Callable</td><td>Public; own record for a link code</td><td>Checks a sign-up or link code and returns a ticket.</td></tr>
+        <tr><td><code>createAccountRecord</code></td><td>Callable</td><td>Signed in with email and password</td><td>Creates the person's <code>users</code> record with the default role and sets the claims. Refuses a locked app account a password was linked to, and takes the password off it.</td></tr>
+        <tr><td><code>ensureGoogleAccount</code></td><td>Callable</td><td>Signed in with Google</td><td>Creates a <code>users</code> record for a new Google sign-in, when Google sign-in and sign-ups are on. Refuses a locked app account Google was linked to, takes Google off it and ends its sessions.</td></tr>
         <tr><td><code>checkIdentifierForLink</code></td><td>Callable</td><td>Own record</td><td>Says whether an email or number is free, already theirs, or on another account.</td></tr>
         <tr><td><code>requestEmailLinkOtp</code></td><td>Callable</td><td>Own record, 10 an hour</td><td>Emails a code to an address being added.</td></tr>
         <tr><td><code>linkEmail</code></td><td>Callable</td><td>Own record</td><td>Adds the verified address to the account, moving it from another account if needed.</td></tr>
@@ -241,7 +241,7 @@
       <tbody>
         <tr><td><code>checkPhoneAccount</code></td><td>Callable</td><td>Public, 100 an hour per caller</td><td>Says whether a number has an account and a PIN.</td></tr>
         <tr><td><code>requestPhoneOtp</code></td><td>Callable</td><td>Public, 20 an hour per caller; own record to add a number</td><td>Texts a code for sign-up, a PIN reset, or adding the number to an account.</td></tr>
-        <tr><td><code>verifyPhoneOtp</code></td><td>Callable</td><td>Public</td><td>Checks a text code and returns a ticket.</td></tr>
+        <tr><td><code>verifyPhoneOtp</code></td><td>Callable</td><td>Public; own record for a link code</td><td>Checks a text code and returns a ticket.</td></tr>
         <tr><td><code>completePhoneSignup</code></td><td>Callable</td><td>Public, with a verified ticket</td><td>Creates the sign-in account and <code>users</code> record for a number, with its PIN.</td></tr>
         <tr><td><code>signInWithPin</code></td><td>Callable</td><td>Public, 30 an hour per caller</td><td>Checks the PIN and returns a sign-in token.</td></tr>
         <tr><td><code>resetPin</code></td><td>Callable</td><td>Public, with a verified ticket</td><td>Sets a new PIN, signs out every other session and returns a sign-in token.</td></tr>
@@ -268,11 +268,11 @@
         <tr><td><code>onUserCreateWelcomeEmail</code></td><td>Firestore trigger: <code>users/{docId}</code> created</td><td>A new user with an email</td><td>Queues the sign-up welcome email.</td></tr>
         <tr><td><code>onUserRoleChange</code></td><td>Firestore trigger: <code>users/{docId}</code> written</td><td>A user record created or changed</td><td>Sets the <code>arccms_role</code> and <code>arccms_uid</code> claims from the record. A blocked or detached record loses them and its sessions end.</td></tr>
         <tr><td><code>onUserDeleted</code></td><td>Firestore trigger: <code>users/{docId}</code> deleted; retried for up to an hour</td><td>Deleting a user</td><td>Ends access, deletes the sign-in (unless another app owns it), the lookups, PIN, subcollections, Storage folders, feedback and notifications, then emits <code>user.deleted</code>.</td></tr>
-        <tr><td><code>claimFirstAdmin</code></td><td>Callable</td><td>Signed in with a <code>users</code> record, only while no admin has ever existed</td><td>Makes the caller the site's first admin. Called again by that admin, it restores the role if it was lost before setup finished.</td></tr>
+        <tr><td><code>claimFirstAdmin</code></td><td>Callable</td><td>Signed in with a <code>users</code> record that is not a locked app account, only while no admin has ever existed</td><td>Makes the caller the site's first admin. Called again by that admin, it restores the role if it was lost before setup finished.</td></tr>
         <tr><td><code>syncAllUserRoles</code></td><td>Callable</td><td>Admin, by the <code>role</code> on their <code>users</code> record</td><td>Applies every user's claims again from their records.</td></tr>
         <tr><td><code>adminCreateUser</code></td><td>Callable</td><td>Admin</td><td>Creates a sign-in account and <code>users</code> record with a role, or reuses an existing sign-in.</td></tr>
-        <tr><td><code>refreshMyClaims</code></td><td>Callable</td><td>Own record</td><td>Applies the caller's claims again. A blocked account loses them instead.</td></tr>
-        <tr><td><code>deleteMyAccount</code></td><td>Callable</td><td>Own record, signed in within the last 10 minutes, not an admin</td><td>Erases the person's contact and deletes their record; <code>onUserDeleted</code> does the rest.</td></tr>
+        <tr><td><code>refreshMyClaims</code></td><td>Callable</td><td>Signed in with a <code>users</code> record, a locked app account too</td><td>Applies the caller's claims again. A blocked account loses them instead. A locked app account signed in without the app's token is refused, loses that way in and is signed out everywhere.</td></tr>
+        <tr><td><code>deleteMyAccount</code></td><td>Callable</td><td>Own record, signed in within the last 10 minutes, not an admin, not a locked app account</td><td>Erases the person's contact and deletes their record; <code>onUserDeleted</code> does the rest.</td></tr>
       </tbody>
     </table>
 

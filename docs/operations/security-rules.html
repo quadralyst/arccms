@@ -68,7 +68,7 @@
     <ul>
       <li><strong>Read:</strong> your own record, or any as an admin. A browser query on <code>users</code> must filter on <code>uid == request.auth.uid</code>, or the rules refuse the whole query.</li>
       <li><strong>Create:</strong> admins only. Every sign-up creates its record on the server, which checks the email, sets the site's default role and refuses when sign-ups are closed.</li>
-      <li><strong>Update:</strong> your own record, but never <code>role</code>, <code>uid</code>, <code>isActive</code>, <code>status</code>, <code>authOwner</code>, <code>email</code>, <code>phone</code>, <code>phoneVerified</code>, the detach fields, the premium and credit fields, and <code>emailVerified</code> only to <code>false</code>. Admins may update any record. No record may hold a <code>password</code>.</li>
+      <li><strong>Update:</strong> your own record, but never <code>role</code>, <code>uid</code>, <code>isActive</code>, <code>status</code>, <code>authOwner</code>, <code>by</code>, <code>selfService</code>, <code>email</code>, <code>phone</code>, <code>phoneVerified</code>, the detach fields, the premium and credit fields, and <code>emailVerified</code> only to <code>false</code>. A locked app account (<code>by: 'app'</code> without <code>selfService: true</code>, see <a href="../app/app-accounts.html#locked">App accounts</a>) also never changes its <code>name</code>, <code>photo</code> or <code>emailVerified</code>. Admins may update any record. No record may hold a <code>password</code>.</li>
       <li><strong>Delete:</strong> admins only.</li>
     </ul>
 

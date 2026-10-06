@@ -13,6 +13,7 @@ import { CUSTOM_ROUTES } from '../custom/routes';
 import { CUSTOM_NAV } from '../custom/nav';
 import { CUSTOM_USER_DASHBOARD } from '../custom/user-dashboard';
 import { CUSTOM_HOME } from '../custom/home';
+import { CUSTOM_APP_ACCOUNTS } from '../custom/app-accounts';
 import customEn from '../custom/i18n/en.json';
 import customHi from '../custom/i18n/hi.json';
 
@@ -27,6 +28,7 @@ describe('custom space', () => {
         expect(CUSTOM_NAV).toEqual([]);
         expect(CUSTOM_USER_DASHBOARD).toBeNull();
         expect(CUSTOM_HOME).toEqual({});
+        expect(CUSTOM_APP_ACCOUNTS).toEqual({});
         // Specs always see every feature on (src/test/setup.ts), so read the file itself.
         expect(read('src/custom/features.ts')).toMatch(/^export const CUSTOM_FEATURES: FeatureChoice = \{\};$/m);
         expect(customEn).toEqual({});
@@ -92,6 +94,17 @@ describe('custom space', () => {
             const { routes } = await import('./app.routes');
             expect(await dashboardRoute(routes).loadComponent()).toBe(LessonsHome);
             vi.doUnmock('../custom/user-dashboard');
+        });
+    });
+
+    describe('app accounts', () => {
+        it('keeps locked app accounts out of the member pages when the app says so', async () => {
+            vi.resetModules();
+            vi.doMock('../custom/app-accounts', () => ({ CUSTOM_APP_ACCOUNTS: { memberPages: false } }));
+            const { memberPagesOpen } = await import('./core/app-accounts/app-account-lock');
+            expect(memberPagesOpen({ by: 'app' })).toBe(false);
+            expect(memberPagesOpen({ by: 'email' })).toBe(true);
+            vi.doUnmock('../custom/app-accounts');
         });
     });
 

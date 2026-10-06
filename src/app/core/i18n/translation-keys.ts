@@ -1648,6 +1648,7 @@ export type TranslationKey =
     | 'member.not_found.home'
     | 'member.not_found.oops'
     | 'member.profile.account_deleted'
+    | 'member.profile.app_managed'
     | 'member.profile.back'
     | 'member.profile.change_password'
     | 'member.profile.change_photo'
@@ -3450,6 +3451,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.not_found.home',
     'member.not_found.oops',
     'member.profile.account_deleted',
+    'member.profile.app_managed',
     'member.profile.back',
     'member.profile.change_password',
     'member.profile.change_photo',

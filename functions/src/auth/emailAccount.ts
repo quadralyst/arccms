@@ -26,6 +26,7 @@ import { readName } from './phoneAuth.js';
 import { authOwnerFor } from './googleAccount.js';
 import { consumeVerifiedSignupCode } from './signupOtp.js';
 import { isWarmUp, WARM } from './warmUp.js';
+import { refuseOtherSignIn } from './appAccountLock.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -80,7 +81,11 @@ export const createAccountRecord = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
     const uid = requireSignedIn(request);
     const existing = await findUserByUid(uid);
-    if (existing) return { id: existing.ref.id, created: false };
+    if (existing) {
+        // A locked app account with a password linked to it in the browser (appAccountLock.ts).
+        await refuseOtherSignIn(request, existing);
+        return { id: existing.ref.id, created: false };
+    }
 
     const token = request.auth!.token as { email?: string; firebase?: { sign_in_provider?: string } };
     const email = String(token.email ?? '').trim().toLowerCase();

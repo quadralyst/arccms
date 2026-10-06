@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>App accounts | Arc CMS docs</title>
-  <meta name="description" content="Create accounts for people with no email and no phone, such as staff, sign them in from your own function, give them your own claims, and clean up when they are deleted.">
-  <meta name="docs:sources" content="functions/src/app-kit, functions/src/users/claims.ts, functions/src/users/onUserCreate.ts, functions/src/users/onUserDelete.ts, functions/src/shared/blank.ts, src/app/pages/admin/users">
+  <meta name="description" content="Create accounts for people with no email and no phone, such as staff, sign them in from your own function, give them your own claims, keep them from changing themselves, and clean up when they are deleted.">
+  <meta name="docs:sources" content="functions/src/app-kit, functions/src/users/claims.ts, functions/src/users/onUserCreate.ts, functions/src/users/onUserDelete.ts, functions/src/shared/blank.ts, functions/src/users/lockedAppAccount.ts, functions/src/auth/appAccountLock.ts, src/app/core/app-accounts, src/custom/app-accounts.ts, src/app/pages/admin/users">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/app-accounts.html">
@@ -16,8 +16,9 @@
     <h2>What such an account is</h2>
     <ul>
       <li>A Firebase Auth account with only a display name.</li>
-      <li>A <code>users</code> record with <code>email</code> and <code>phone</code> set to <code>''</code>, Arc CMS role <code>user</code>, <code>isActive: true</code> and <code>by: 'app'</code>. The admin's users list shows it with an <strong>App account</strong> badge, and an admin can edit it without adding an email.</li>
+      <li>A <code>users</code> record with <code>email</code> and <code>phone</code> set to <code>''</code>, Arc CMS role <code>user</code>, <code>isActive: true</code>, <code>by: 'app'</code> and <code>selfService: false</code>. The admin's users list shows it with an <strong>App account</strong> badge, and an admin can edit it without adding an email.</li>
       <li>The usual claims, <code>arccms_uid</code> and <code>arccms_role</code> (see <a href="account-contract.html">Follow the account contract</a>), plus any of your own.</li>
+      <li>Locked: the person cannot change the account themselves (<a href="#locked">below</a>).</li>
     </ul>
     <p>Arc CMS sends such a person no email or SMS, since it has neither address. The admins get no "just signed up" alert for it, because your app created it; the <code>user.signed_up</code> event is still sent. The role is always <code>user</code>: an app helper never makes an Arc CMS admin. Your app's own roles go in your claims.</p>
 
@@ -30,8 +31,8 @@ import { createAppAccount, isArcAdmin, issueSignInToken } from '../app-kit/index
 /** A manager adds a member of staff. */
 export const addStaff = onCall(async (request) =&gt; {
   if (!isArcAdmin(request.auth?.token)) throw new HttpsError('permission-denied', 'Managers only.');
-  const { name, shopId } = request.data ?? {};
-  const { uid } = await createAppAccount({ displayName: String(name ?? ''), claims: { shop: String(shopId), staffRole: 'cashier' } });
+  const { name, siteId } = request.data ?? {};
+  const { uid } = await createAppAccount({ displayName: String(name ?? ''), claims: { site: String(siteId), staffRole: 'front-desk' } });
   return { uid };
 });
 
@@ -50,8 +51,8 @@ await signInWithCustomToken(this.auth, token);</code></pre>
 
     <h2 id="your-own-claims">Your own claims</h2>
     <p><code>mergeAppClaims(uid, patch)</code> adds or changes your claims on any account, an app account or not:</p>
-    <pre><code>await mergeAppClaims(uid, { staffRole: 'manager', perms: ['refund', 'void'] });
-await mergeAppClaims(uid, { shop: null }); // removes your "shop" claim</code></pre>
+    <pre><code>await mergeAppClaims(uid, { staffRole: 'manager', perms: ['approve', 'cancel'] });
+await mergeAppClaims(uid, { site: null }); // removes your "site" claim</code></pre>
     <ul>
       <li>It merges: Arc CMS's claims and every other claim stay.</li>
       <li>It refuses a name starting <code>arccms_</code> and the names Firebase reserves (<code>sub</code>, <code>firebase</code>, <code>exp</code> and the like).</li>
@@ -59,6 +60,33 @@ await mergeAppClaims(uid, { shop: null }); // removes your "shop" claim</code></
       <li>A new value reaches the browser at the person's next token refresh (within the hour), or at once after <code>getIdToken(true)</code>.</li>
     </ul>
     <div class="trap"><p>Firebase cannot merge claims in one step: a write reads the claims, then replaces them all. Arc CMS reads each write back and redoes it if another write replaced it in between, so Arc CMS's claims and those set through <code>mergeAppClaims()</code> never lose each other. A program outside Arc CMS that calls <code>setCustomUserClaims</code> on the same accounts can still overwrite them; use <code>mergeAppClaims()</code> for all of your claims.</p></div>
+
+    <h2 id="locked">Locked by default</h2>
+    <p>An app account belongs to your app, not to the person using it. So it is locked: the person cannot change it, and Arc CMS's server and rules refuse each try, whatever the browser sends.</p>
+    <ul>
+      <li>No new name or photo, and no new email, phone, Google sign-in, password or PIN.</li>
+      <li>No deleting it. <code>deleteMyAccount</code> refuses it even right after a sign-in; your app deletes it with <code>deleteAppAccount()</code>.</li>
+      <li>It never becomes the site's first admin.</li>
+      <li>No account, locked or not, can change its own <code>by</code> or <code>selfService</code>.</li>
+    </ul>
+    <p>It still signs in with your token, reads its own record, gets its claims refreshed and keeps settings that are not its identity, such as a language. Your own functions are not affected: they use the Admin SDK, which the lock does not apply to. A manager renaming someone:</p>
+    <pre><code>import { db, owner } from '../init.js';
+
+await owner.updateUser(uid, { displayName: name });
+await db.collection('users').doc(userDocId).update({ name, modifiedAt: new Date() });</code></pre>
+    <p>To let one person change their own account like any member, create it with <code>selfService: true</code>:</p>
+    <pre><code>await createAppAccount({ displayName: 'Anna', selfService: true });</code></pre>
+    <p>Accounts made before the lock existed have no <code>selfService</code> field, so they are locked too.</p>
+
+    <h3 id="member-pages">The member pages</h3>
+    <p>By default a locked account can open the member pages (<code>/user/...</code> and <code>/account</code>, see <a href="member-area.html">Build the member area</a>). Its profile shows the name and photo with nothing to change: no sign-in methods, no password and no delete. To keep locked accounts out of those pages, say so in <code>src/custom/app-accounts.ts</code>:</p>
+    <pre><code>import type { AppAccountChoice } from '../app/core/app-accounts/app-account-lock';
+
+export const CUSTOM_APP_ACCOUNTS: AppAccountChoice = { memberPages: false };</code></pre>
+    <p>A locked account that opens one then goes to its home page from <code>src/custom/home.ts</code>, or to the site's home page when that home is itself a member page. The member menu hides those pages for it. Your own pages are not affected: a route with <code>userGuard</code> still lets it in.</p>
+
+    <h3 id="client-links">What the browser can still do</h3>
+    <div class="trap"><p>Firebase lets a signed-in browser link Google, a password or a phone to its own sign-in account without asking Arc CMS's server. Refusing that needs Identity Platform's blocking functions, which Arc CMS does not use. Arc CMS hides every control that does it for a locked account, and the <code>users</code> record never follows such a link. When the person later signs in that way, the server sees a locked account signed in without your token: it takes that way in off the account, ends all its sessions and refuses. Until then that sign-in carries your claims, so a rule that trusts a claim alone trusts it too. Where that matters, also check that the token came from your app: <code>request.auth.token.firebase.sign_in_provider == 'custom'</code>.</p></div>
 
     <h2 id="sessions">Sessions</h2>
     <p><code>revokeSessions(uid)</code> signs the person out on every device: their refresh tokens are revoked, so each session ends at its next token refresh, within the hour. Use it when a member of staff leaves or a device is lost. They can sign in again as usual afterwards.</p>

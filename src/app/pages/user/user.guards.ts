@@ -5,6 +5,7 @@ import { map, switchMap, take } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { AuthState } from '../(auth)/auth.store';
 import { EntitlementService } from './entitlement.service';
+import { lockedAccountLanding, memberPagesOpen } from '../../core/app-accounts/app-account-lock';
 
 /**
  * Requires any signed-in user (regardless of role). Redirects anonymous visitors
@@ -22,6 +23,30 @@ export const userGuard: CanActivateFn = (_route, state) => {
     return authState.initAuthStateListener().pipe(
         take(1),
         map((user) => (user ? true : router.createUrlTree(['/signup'], { queryParams: { redirect: state.url } }))),
+    );
+};
+
+/**
+ * Arc CMS's own member pages (/user/..., /account): userGuard, and a locked app account
+ * goes to its home page instead when the app keeps it out of them
+ * (src/custom/app-accounts.ts, docs/app/app-accounts.html). An app's own pages use
+ * userGuard, so a locked account still reaches them.
+ */
+export const memberPagesGuard: CanActivateFn = (_route, state) => {
+    const platformId = inject(PLATFORM_ID);
+    if (!isPlatformBrowser(platformId)) return false; // see userGuard
+
+    const authState = inject(AuthState);
+    const router = inject(Router);
+
+    return authState.initAuthStateListener().pipe(
+        take(1),
+        map((user) => {
+            if (!user) return router.createUrlTree(['/signup'], { queryParams: { redirect: state.url } });
+            // The listener has put the person's record in the store by now.
+            const record = authState.currentUser();
+            return memberPagesOpen(record) ? true : router.parseUrl(lockedAccountLanding(record?.role));
+        }),
     );
 };
 

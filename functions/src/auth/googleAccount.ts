@@ -12,6 +12,7 @@ import { db, owner } from '../init.js';
 import { AUTH_OWNER } from '../users/authOwner.js';
 import { applyNewAccountClaims, findUserByEmail, findUserByUid, readSignInSettings } from './accounts.js';
 import { isWarmUp, WARM } from './warmUp.js';
+import { refuseOtherSignIn } from './appAccountLock.js';
 
 /**
  * A sign-in account older than this was not made by the Google sign-in that
@@ -29,7 +30,12 @@ export const ensureGoogleAccount = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Please sign in again.');
-    if (await findUserByUid(uid)) return { created: false };
+    const existing = await findUserByUid(uid);
+    if (existing) {
+        // A locked app account with Google linked to it in the browser (appAccountLock.ts).
+        await refuseOtherSignIn(request, existing);
+        return { created: false };
+    }
 
     const token = request.auth!.token as { email?: string; email_verified?: boolean; name?: string; picture?: string; firebase?: { sign_in_provider?: string } };
     const email = String(token.email ?? '').trim().toLowerCase();

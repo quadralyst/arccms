@@ -133,7 +133,8 @@ export const verifyPhoneOtp = onCall(async (request) => {
     const { phone } = await phoneContext(request);
     const code = String(request.data?.code ?? '');
     if (!/^\d{6}$/.test(code)) throw new HttpsError('invalid-argument', "That code didn't work.");
-    const uid = purpose === 'link' ? request.auth?.uid : undefined;
+    // A link code is for the signed-in account's own record (never a locked app account).
+    const uid = purpose === 'link' ? String((await requireOwnRecord(request)).data['uid']) : undefined;
     const ticket = await checkPhoneOtp(phone, code, purpose, uid);
     return { verified: true, ticket };
 });

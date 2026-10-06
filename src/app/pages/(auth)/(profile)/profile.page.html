@@ -32,7 +32,7 @@
       <div class="avatar-section">
         <input #avatarInput type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden
                (change)="onAvatarFileSelected($event)" />
-        <div class="avatar-wrapper" (click)="openPhotoSelector(avatarInput)">
+        <div class="avatar-wrapper" [class.read-only]="locked()" (click)="openPhotoSelector(avatarInput)">
           @if (currentUser()?.photo) {
             <img [src]="currentUser()?.photo" [alt]="'member.profile.photo_alt' | transloco" class="avatar-img" />
           } @else {
@@ -40,11 +40,14 @@
               {{ getInitials(currentUser()?.name || '') }}
             </div>
           }
-          <div class="avatar-overlay">
-            <i class="fas fa-camera"></i>
-          </div>
+          @if (!locked()) {
+            <div class="avatar-overlay">
+              <i class="fas fa-camera"></i>
+            </div>
+          }
         </div>
 
+        @if (!locked()) {
         <div class="avatar-actions">
           <button class="btn btn-sm btn-outline-primary" (click)="openPhotoSelector(avatarInput)">
             <i class="fas fa-image me-1"></i> {{ 'member.profile.change_photo' | transloco }}
@@ -55,6 +58,7 @@
             </button>
           }
         </div>
+        }
       </div>
 
       <h3 class="user-display-name">{{ currentUser()?.name }}</h3>
@@ -80,9 +84,11 @@
         @if (!isEditingName()) {
           <div class="info-value">
             <span>{{ currentUser()?.name }}</span>
-            <button class="btn btn-sm btn-outline-secondary" (click)="editName()">
-              <i class="fas fa-pen me-1"></i> {{ 'member.profile.edit' | transloco }}
-            </button>
+            @if (!locked()) {
+              <button class="btn btn-sm btn-outline-secondary" (click)="editName()">
+                <i class="fas fa-pen me-1"></i> {{ 'member.profile.edit' | transloco }}
+              </button>
+            }
           </div>
         } @else {
           <div class="edit-form">
@@ -103,15 +109,21 @@
           </div>
         }
       </div>
+      @if (locked()) {
+        <p class="text-muted small mb-0 app-managed-note">{{ 'member.profile.app_managed' | transloco }}</p>
+      }
     </div>
 
-    <!-- CARD 3: Sign-in methods (email, phone, Google), each changed with a code -->
+    <!-- CARD 3: Sign-in methods (email, phone, Google), each changed with a code.
+         A locked app account signs in only the way its app chose. -->
+    @if (!locked()) {
     <div class="profile-card">
       <arc-sign-in-methods></arc-sign-in-methods>
     </div>
+    }
 
     <!-- CARD 4: Security (email sign-in only) -->
-    @if (hasPassword()) {
+    @if (hasPassword() && !locked()) {
     <div class="profile-card">
       <div class="card-title-row">
         <h2 class="section-title">

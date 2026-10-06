@@ -76,7 +76,7 @@ export const CUSTOM_ROUTES: Routes = [
     loadComponent: () =&gt; import('./learn/learn.component').then((m) =&gt; m.default),
   },
 ];</code></pre>
-    <p>To keep the member menu around a member page, see <a href="member-area.html">Build the member area</a>.</p>
+    <p>To keep the member menu around a member page, see <a href="member-area.html">Build the member area</a>. Arc CMS's own member pages use <code>memberPagesGuard</code> instead, so an app can keep the accounts it manages out of them (<a href="app-accounts.html#member-pages">App accounts</a>); your pages with <code>userGuard</code> are not affected.</p>
     <div class="note"><p>A guard only decides what the browser shows. The data a page reads is protected by security rules (<a href="rules-and-indexes.html">Set security rules and indexes</a>).</p></div>
 
     <h2>Add an admin page</h2>

@@ -5,14 +5,18 @@
  *                     (the browser calls it when its token lacks them or they
  *                     differ, for example an account made before the claim existed);
  *                     a blocked or detached record gets none
+ *                     (a locked app account too, but only when it signed in
+ *                     with the app's token: appAccountLock.ts)
  *   deleteMyAccount   delete the account and everything under it: the person's
  *                     contact (their address, lists and consent) here, the rest
- *                     in onUserDelete.ts
+ *                     in onUserDelete.ts (never a locked app account: its app
+ *                     deletes it, with deleteAppAccount)
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { clearArcClaims, setRecordClaims, USER_RECORD_CLAIM } from './claims.js';
 import { canSignIn, requireOwnRecord } from '../auth/accounts.js';
+import { refuseOtherSignIn } from '../auth/appAccountLock.js';
 import { eraseContact } from '../email-core/eraseContact.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 
@@ -20,7 +24,9 @@ import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 export const RECENT_SIGN_IN_MS = 10 * 60 * 1000;
 
 export const refreshMyClaims = onCall(async (request) => {
-    const record = await requireOwnRecord(request);
+    // The browser needs its claims, so a locked app account gets here too.
+    const record = await requireOwnRecord(request, { allowLockedAppAccount: true });
+    await refuseOtherSignIn(request, record);
     const uid = String(record.data['uid']);
     // Blocking or detaching a record removes its claims (syncUserRole.ts); this
     // must not hand them back (review F).

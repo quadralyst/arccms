@@ -12,6 +12,7 @@ app: see docs/app/custom-space.html, and run `npm run check:core`.
 | `nav.ts` | the app's items in the admin menu |
 | `user-dashboard.ts` | the app's own page where members land, `/user/dashboard` |
 | `home.ts` | where each role lands after signing in |
+| `app-accounts.ts` | whether locked app accounts may open the member pages (docs/app/app-accounts.html) |
 | `i18n/{lang}.json` | the app's translations (and rewording of core ones) |
 | `styles.css` | the app's global styles, loaded after everything else |
 | `pwa.ts`, `pwa-icon.svg` or `.png` | the installable app: name, colours, icon (docs/features/pwa.html) |

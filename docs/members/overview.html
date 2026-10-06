@@ -24,7 +24,7 @@
           <tr><td><strong>Payments</strong></td><td>The member's payments and credits.</td><td>payments</td></tr>
           <tr><td><strong>Account &amp; Billing</strong></td><td>The member's subscription and billing.</td><td>payments</td></tr>
           <tr><td><strong>Premium</strong></td><td>What the member's plan unlocks.</td><td>payments</td></tr>
-          <tr><td><strong>Profile</strong></td><td>The member's own details.</td><td>Always on</td></tr>
+          <tr><td><strong>Profile</strong></td><td>The member's own details. Read-only for an account an app manages (<a href="../app/app-accounts.html#locked">App accounts</a>).</td><td>Always on</td></tr>
           <tr><td><strong>Plans</strong></td><td>The public pricing page.</td><td>payments</td></tr>
           <tr><td><strong>Sign out</strong></td><td>Ends the session. It is a button at the foot of the sidebar.</td><td>Always on</td></tr>
         </tbody>
@@ -40,6 +40,7 @@
     <ul>
       <li>The app's own page at <code>/user/dashboard</code>, set with <code>CUSTOM_USER_DASHBOARD</code>.</li>
       <li>A different home for a role, set with <code>CUSTOM_HOME</code>.</li>
+      <li>Whether accounts the app manages may open these pages at all, set with <code>CUSTOM_APP_ACCOUNTS</code> (<a href="../app/app-accounts.html#member-pages">App accounts</a>).</li>
     </ul>
     <p>Both are explained in <a href="../app/member-area.html">Build the member area</a>.</p>
   </main>

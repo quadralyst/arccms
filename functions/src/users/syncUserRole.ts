@@ -28,6 +28,7 @@ import { owner, db } from '../init.js';
 import { arcDocument } from '../arc-config.js';
 import { thisProjectKeys } from '../utils/runtimeIdentity.js';
 import { clearArcClaims, isArcAdmin, mergeUserClaims, ROLE_CLAIM, setRecordClaims, USER_RECORD_CLAIM } from './claims.js';
+import { refuseLockedAppAccount } from './lockedAppAccount.js';
 
 /** Roles anyone may hold without an admin granting them. Keep in step with firestore.rules. */
 export const SELF_ASSIGNABLE_ROLES: readonly string[] = ['', 'user'];
@@ -237,6 +238,9 @@ export const claimFirstAdmin = onCall(async (request) => {
             throw new HttpsError('failed-precondition', 'Create your user profile before claiming admin.');
         }
         const myDoc = mine.docs[0];
+        // A locked app account cannot change itself, and becoming admin is a change
+        // (specs/app-account-lock-spec.md).
+        refuseLockedAppAccount(myDoc.data());
 
         if (sentinel.exists) {
             if (sentinel.data()?.['uid'] !== uid) {

@@ -25,7 +25,7 @@
         <tr><td>Plans</td><td><code>/pricing</code></td><td>With the <code>payments</code> feature</td></tr>
       </tbody>
     </table>
-    <p>What members see on these pages is described in <a href="../members/overview.html">What members see</a>.</p>
+    <p>What members see on these pages is described in <a href="../members/overview.html">What members see</a>. These pages are guarded by <code>memberPagesGuard</code>, which is <code>userGuard</code> plus one rule: an account your app manages (<a href="app-accounts.html#locked">App accounts</a>) sees a read-only profile, and is kept out of these pages altogether when <code>src/custom/app-accounts.ts</code> says so (<a href="app-accounts.html#member-pages">The member pages</a>).</p>
 
     <h2>Show your own dashboard</h2>
     <p>As shipped, <code>/user/dashboard</code> shows a greeting and an empty card. To show your own page there:</p>

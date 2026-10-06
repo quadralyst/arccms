@@ -229,7 +229,9 @@ service cloud.firestore {
     //     sign-ups are open. A client-created record could carry another
     //     person's email, a plan or credits (review F).
     //   - update: never `role`, `uid`, the admin switches (`isActive`,
-    //     `status`), or the premium fields; `emailVerified` may only go to false.
+    //     `status`), `by`, `selfService`, or the premium fields; `emailVerified`
+    //     may only go to false. A locked app account (isLockedAppRecord) also
+    //     never changes its `name` or `photo`.
     //   - the first admin of a fresh install comes from the `claimFirstAdmin`
     //     callable, which grants admin once and only while no admin exists.
     // Reads are own doc or admin. Client queries on `users` must therefore
@@ -241,6 +243,14 @@ service cloud.firestore {
     // Passwords live in Firebase Auth only, never in a user record.
     function hasNoPassword(data) {
       return !('password' in data);
+    }
+
+    // An account made by the app kit's createAppAccount (`by: 'app'`) is locked
+    // unless the app made it with `selfService: true`: its owner cannot change
+    // its name, photo or sign-in fields. The app's own functions still can (the
+    // Admin SDK skips rules). Read the same way in functions/src/users/lockedAppAccount.ts.
+    function isLockedAppRecord(data) {
+      return data.get('by', '') == 'app' && data.get('selfService', false) != true;
     }
 
     match /users/{userId} {
@@ -256,14 +266,16 @@ service cloud.firestore {
       allow update: if hasNoPassword(request.resource.data) && (isAdmin() ||
         (isOwnUserDoc()
          && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['role', 'uid', 'isActive', 'status', 'authOwner',
+              .hasAny(['role', 'uid', 'isActive', 'status', 'authOwner', 'by', 'selfService',
                        'email', 'phone', 'phoneVerified', 'detachedAt', 'detachedReason',
                        'isPro', 'premiumType', 'premiumTierRank', 'premiumStatus',
                        'premiumExpiresAt', 'provider', 'providerSubscriptionId', 'providerCustomerId',
                        'premiumTrialReminderSent', 'premiumEventAt', 'updatesUntil',
                        'premiumTierLabel', 'premiumDiscountCode', 'creditBalance'])
          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['emailVerified'])
-             || request.resource.data.emailVerified == false)));
+             || request.resource.data.emailVerified == false)
+         && !(isLockedAppRecord(resource.data)
+              && request.resource.data.diff(resource.data).affectedKeys().hasAny(['name', 'photo', 'emailVerified']))));
       allow delete: if isAdmin();
     }
 
