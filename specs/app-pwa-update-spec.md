@@ -1,6 +1,6 @@
 # App-Chosen PWA Update: Build Spec (A6)
 
-**Status:** spec written 2026-10-06, not built.
+**Status:** built 2026-10-06 on `feat/app-pwa-update`; suite green, docs updated, checked in a real browser against a production build (see section 6). Not yet merged to `dev`.
 **Branch:** `feat/app-pwa-update`, cut from `dev` (10c8734).
 **Scope:** an app built on Arc CMS decides when its people are offered a waiting PWA
 update. Today the update bar is held by CSS on full-screen routes and comes back on the
@@ -31,9 +31,9 @@ check on demand, and a way for an app to own the prompt on routes that are not f
 | # | Decision | Choice |
 |---|----------|--------|
 | P-D1 | Public API | `PwaService` documents three members: `updateReady` (a **read-only** signal), `applyUpdate()` and `checkForUpdate()`. `update()` stays as an alias of `applyUpdate()` so nothing breaks. |
-| P-D2 | Read-only signal | `updateReady` is exposed with `asReadonly()`. The bar's close button uses a new `dismissUpdate()` instead of writing the signal, so an app cannot put the service in a wrong state. |
+| P-D2 | Read-only signal | `updateReady` is exposed with `asReadonly()`. The bar's close button uses a new `dismissUpdate()`, which sets a separate read-only `updateBarClosed` signal. **Closing the bar does not clear `updateReady`**, so an app can still apply an update the person closed. A newer version found later opens the bar again. |
 | P-D3 | Check on demand | `checkForUpdate()` asks the service worker to look now, resolving when it has looked. An app can call it when a lock screen opens, instead of waiting up to an hour. It does nothing when the `pwa` feature is off. |
-| P-D4 | Route opt-in | `data: { pwaUpdate: 'app' }` on a route. **Deepest route wins and children inherit**, the same rule `data.feedbackButton` uses. On such a route Arc's bar is not shown at all (not merely held), because the app shows the update itself. |
+| P-D4 | Route opt-in | `data: { pwaUpdate: 'app' }` on a route. **Any route on the way to the page can set it, and every page below inherits it.** On such a page Arc's bar is not shown at all (not merely held), because the app shows the update itself. |
 | P-D5 | Full-screen routes without the flag | **Unchanged.** The bar is held and returns on the next normal page, as today. |
 | P-D6 | No silent reloads | Arc never calls `applyUpdate()` on its own, on any route. A test asserts that the only callers are the bar's button and app code, and that the service worker config has no `skipWaiting`, `clientsClaim` or `autoUpdate`. |
 | P-D7 | Feature off | With the `pwa` feature off there is no service worker: `updateReady` is always false and both methods do nothing. Documented. |
@@ -45,25 +45,28 @@ check on demand, and a way for an app to own the prompt on routes that are not f
 `checkForUpdate()`, `dismissUpdate()`. Keep the registration from `registerSW`'s
 `onRegisteredSW` so `checkForUpdate()` can call `registration.update()`.
 
-**A6.2 Route flag.** A small helper reads `pwaUpdate` from the deepest activated route,
-the way `routeIsFullScreen` and the feedback button read theirs (reuse a shared reader if
-one exists; otherwise add one used by all three, without changing their behaviour).
-`app.ts` adds a host class when the flag is `'app'`, and the stylesheet hides
-`arc-pwa-update-bar` on it, next to the existing full-screen rule.
+**A6.2 Route flag.** `src/app/core/pwa/pwa-update-route.ts`: `routeOwnsPwaUpdate()` reads
+`pwaUpdate` along the activated route, and `PwaUpdateRouteService` keeps a signal of it
+(like `FullScreenService`). The two existing readers differ (`fullScreen` takes the deepest
+value, the feedback button hides if any route says so) and are left alone. The bar itself
+reads the signal and renders nothing on such a page, so no CSS in `app.ts` is needed.
 
-**A6.3 Bar.** `update-bar.component.ts` calls `dismissUpdate()` rather than writing the
-signal.
+**A6.3 Bar.** `update-bar.component.ts` calls `applyUpdate()` and `dismissUpdate()`, and
+shows only when an update is waiting, the bar was not closed and the app does not own the
+update on this page.
 
 ## 4. Tests
 
 - `pwa.service.spec.ts`: `updateReady` follows `onNeedRefresh`; `applyUpdate()` applies
   and clears it; `checkForUpdate()` calls the registration's update and is a no-op with
   the feature off; the signal cannot be written from outside.
-- `app.spec.ts`: the bar is hidden on a route with `pwaUpdate: 'app'`, also when that
-  route is not full screen; a full-screen route without the flag still hides it and the
-  bar returns on a normal page; a child inherits the flag; a normal page is unchanged.
-- A guard test for P-D6: the service worker options contain none of the three words, and
-  update calls in `src/app` sit only in the bar and the service.
+- `pwa-update-route.spec.ts` and `update-bar.component.spec.ts`: the flag is read from the
+  page or any route above it, other values are ignored, the bar is hidden on a flagged page
+  (full screen or not) and shown on a normal one. The existing `app.spec.ts` full-screen
+  tests keep passing unchanged: a full-screen page without the flag still holds the bar.
+- `pwa-no-silent-reload.spec.ts` (P-D6): prompt mode and none of the three words in
+  `vite.config.ts`, and the only caller of `applyUpdate()`/`update()` is the bar.
+- `pwa-update-off.spec.ts` (P-D7): the feature off registers nothing and the methods do nothing.
 - Existing PWA and bar specs keep passing.
 
 ## 5. Docs
@@ -81,3 +84,13 @@ signal.
   `npm run build` then a preview server: ship a second build, see `updateReady` flip on a
   flagged full-screen route, see the bar stay hidden, see `applyUpdate()` reload to the new
   build. No deploy needed.
+
+**Checked 2026-10-06** with a temporary full-screen route carrying `pwaUpdate: 'app'`, the
+`pwa` feature on, a production build served by `vite preview` and two further builds
+shipped over it: `checkForUpdate()` found the new version and `updateReady()` turned true;
+Arc's bar stayed hidden on the flagged page and the page stayed on the old build (no
+reload); `applyUpdate()` reloaded into the new build; on a normal page with a newer build
+waiting, Arc's bar showed as before. Finding: a deploy removes the old version's code files,
+so an old page cannot load a route it had not opened yet until the update is applied; the
+docs tell apps to offer the update early. The temporary route and features change were
+removed.

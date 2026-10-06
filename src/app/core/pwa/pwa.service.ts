@@ -49,11 +49,19 @@ export class PwaService {
 
     /** Running from the home screen (or as an installed desktop app). */
     readonly installed = signal(false);
-    /** A new version is waiting: the update bar shows. */
-    readonly updateReady = signal(false);
+    private readonly waiting = signal(false);
+    /**
+     * A new version is waiting (read-only). Arc's update bar shows it, and an app that
+     * shows the update itself reads it (docs/app/pwa.html). Always false when the PWA is off.
+     */
+    readonly updateReady = this.waiting.asReadonly();
+    private readonly barClosed = signal(false);
+    /** Arc's update bar was closed with its cross; the update itself is still waiting. */
+    readonly updateBarClosed = this.barClosed.asReadonly();
     readonly snoozed = signal(false);
     private deferredPrompt = signal<BeforeInstallPromptEvent | null>(null);
-    private applyUpdate: ((reload?: boolean) => Promise<void>) | null = null;
+    private applier: ((reload?: boolean) => Promise<void>) | null = null;
+    private registration: ServiceWorkerRegistration | null = null;
 
     /** How to install here, or null when installing is not possible or already done. */
     readonly installMode = computed<InstallMode | null>(() => {
@@ -131,19 +139,52 @@ export class PwaService {
         this.trackOnce('prompt_shown');
     }
 
-    /** Switch to the new version: reloads the page. */
-    async update(): Promise<void> {
-        this.updateReady.set(false);
-        await this.applyUpdate?.(true);
+    /**
+     * Switch to the waiting version: the page reloads. Arc never calls this by itself,
+     * so nobody is cut off mid-way; the person (or the app) chooses when. Does nothing
+     * when no update is waiting.
+     */
+    async applyUpdate(): Promise<void> {
+        if (!this.waiting()) return;
+        this.waiting.set(false);
+        this.barClosed.set(false);
+        await this.applier?.(true);
+    }
+
+    /** The same as `applyUpdate()` (the name Arc's own bar used first). */
+    update(): Promise<void> {
+        return this.applyUpdate();
+    }
+
+    /** Close Arc's update bar. The update stays waiting, so `applyUpdate()` still works. */
+    dismissUpdate(): void {
+        this.barClosed.set(true);
+    }
+
+    /**
+     * Look for a new version now, instead of waiting for the hourly check. Resolves once
+     * the browser has looked; `updateReady()` turns true if it found one. Does nothing
+     * when the PWA is off or the service worker is not registered yet.
+     */
+    async checkForUpdate(): Promise<void> {
+        try {
+            await this.registration?.update();
+        } catch {
+            // offline: the next check will find it
+        }
     }
 
     private async registerServiceWorker(): Promise<void> {
         if (!('serviceWorker' in navigator)) return;
         try {
             const { registerSW } = await import('virtual:pwa-register');
-            this.applyUpdate = registerSW({
-                onNeedRefresh: () => this.updateReady.set(true),
+            this.applier = registerSW({
+                onNeedRefresh: () => {
+                    this.barClosed.set(false);
+                    this.waiting.set(true);
+                },
                 onRegisteredSW: (_url, registration) => {
+                    this.registration = registration ?? null;
                     if (registration) setInterval(() => void registration.update(), UPDATE_CHECK_MS);
                 },
             });
