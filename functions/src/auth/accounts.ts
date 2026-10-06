@@ -182,7 +182,7 @@ export async function issueSignInToken(uid: string): Promise<string> {
     } catch (error) {
         const problem = signingProblem(error);
         if (!problem) throw error;
-        logger.error(`Phone sign-in cannot create sign-in tokens (${problem}). See docs/features/sign-in.html.`, error);
+        logger.error(`Sign-in tokens cannot be created (${problem}). See docs/features/sign-in.html.`, error);
         await alertSigningProblem(problem);
         throw new HttpsError('failed-precondition', SIGN_IN_NOT_READY, { reason: 'sign-in-not-ready' });
     }
@@ -259,7 +259,7 @@ async function hashPinV2(pin: string, salt: Buffer): Promise<string> {
 }
 
 /** A stored PIN record for this PIN: a new salt, the pepper, and no lock. */
-async function pinRecord(pin: string): Promise<Record<string, unknown>> {
+async function pinRecord(pin: string, extra: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
     const salt = randomBytes(16);
     return {
         salt: salt.toString('hex'),
@@ -267,16 +267,46 @@ async function pinRecord(pin: string): Promise<Record<string, unknown>> {
         version: PIN_HASH_VERSION,
         failedAttempts: 0,
         updatedAt: Timestamp.now(),
+        ...extra,
     };
 }
 
-export async function hasPin(uid: string): Promise<boolean> {
-    return (await db.collection(AUTH_PINS).doc(uid).get()).exists;
+/**
+ * Where a PIN is kept and how many wrong tries lock it. Arc CMS's phone PINs are
+ * `auth_pins/{uid}` with 5 tries; an app's PINs (functions/src/app-kit/pins.ts) are in
+ * their own collection with their own limit, so the two never share a document.
+ */
+export interface PinLocation {
+    collection: string;
+    docId: string;
+    maxAttempts: number;
+    /** Fields kept on the document beside the hash (an app PIN's uid and namespace). */
+    extra?: Record<string, unknown>;
+}
+
+const phonePin = (uid: string): PinLocation => ({ collection: AUTH_PINS, docId: uid, maxAttempts: MAX_PIN_ATTEMPTS });
+const pinRef = (at: PinLocation) => db.collection(at.collection).doc(at.docId);
+
+export async function hasPin(uid: string, at: PinLocation = phonePin(uid)): Promise<boolean> {
+    return (await pinRef(at).get()).exists;
 }
 
 /** Set or replace a PIN, which also clears any lock. */
-export async function setPin(uid: string, pin: string): Promise<void> {
-    await db.collection(AUTH_PINS).doc(uid).set(await pinRecord(pin));
+export async function setPin(uid: string, pin: string, at: PinLocation = phonePin(uid)): Promise<void> {
+    await pinRef(at).set(await pinRecord(pin, at.extra));
+}
+
+/** Clear a lock without changing the PIN. Does nothing when there is no PIN. */
+export async function clearPinLock(uid: string, at: PinLocation = phonePin(uid)): Promise<void> {
+    const ref = pinRef(at);
+    await db.runTransaction(async (tx) => {
+        if ((await tx.get(ref)).exists) tx.update(ref, { failedAttempts: 0, updatedAt: Timestamp.now() });
+    });
+}
+
+/** Remove a PIN altogether. */
+export async function removePin(uid: string, at: PinLocation = phonePin(uid)): Promise<void> {
+    await pinRef(at).delete();
 }
 
 export type PinCheck =
@@ -289,15 +319,16 @@ export type PinCheck =
  * check and the count are one transaction, so guesses sent in parallel cannot
  * all read the same count (review F).
  */
-export async function checkPin(uid: string, pin: string): Promise<PinCheck> {
+export async function checkPin(uid: string, pin: string, at: PinLocation = phonePin(uid)): Promise<PinCheck> {
     await pinPepper(); // read (or made) before the transaction below, not inside it
-    const ref = db.collection(AUTH_PINS).doc(uid);
+    const ref = pinRef(at);
+    const max = at.maxAttempts;
     return db.runTransaction(async (tx): Promise<PinCheck> => {
         const snap = await tx.get(ref);
         if (!snap.exists) return { ok: false, reason: 'none' };
         const data = snap.data() ?? {};
         const failed = Number(data['failedAttempts'] ?? 0);
-        if (failed >= MAX_PIN_ATTEMPTS) return { ok: false, reason: 'locked' };
+        if (failed >= max) return { ok: false, reason: 'locked' };
 
         const salt = Buffer.from(String(data['salt'] ?? ''), 'hex');
         const peppered = data['version'] === PIN_HASH_VERSION;
@@ -305,12 +336,12 @@ export async function checkPin(uid: string, pin: string): Promise<PinCheck> {
         const actual = Buffer.from(peppered ? await hashPinV2(pin, salt) : await hashPin(pin, salt), 'hex');
         if (expected.length === actual.length && timingSafeEqual(expected, actual)) {
             // A PIN set before the pepper is stored again with it, now that we know it.
-            if (!peppered) tx.set(ref, await pinRecord(pin));
+            if (!peppered) tx.set(ref, await pinRecord(pin, at.extra));
             else if (failed) tx.update(ref, { failedAttempts: 0 });
             return { ok: true };
         }
         tx.update(ref, { failedAttempts: failed + 1, lastFailedAt: Timestamp.now() });
-        const remaining = MAX_PIN_ATTEMPTS - failed - 1;
+        const remaining = max - failed - 1;
         return remaining > 0 ? { ok: false, reason: 'wrong', remaining } : { ok: false, reason: 'locked' };
     });
 }
@@ -349,10 +380,13 @@ export async function consumeRateLimit(key: string, max: number, windowMs: numbe
  * every request (review F). Called through a proxy (Firebase Hosting), the last
  * entry is the proxy's, which only makes the limit stricter.
  */
-export function callerKey(request: CallableRequest): string {
+export function callerKey(request: CallableRequest, options: { trustedProxies?: number } = {}): string {
+    // A function reached through proxies of its own (a Firebase Hosting rewrite) sees
+    // each one's address after the caller's: skip that many from the end (docs/app/pin.html).
+    const skip = Math.max(0, Math.min(5, Math.floor(options.trustedProxies ?? 0)));
     const raw = request.rawRequest;
     const header = raw?.headers?.['x-forwarded-for'];
     const entries = String(Array.isArray(header) ? header.join(',') : header ?? '').split(',').map((e) => e.trim()).filter(Boolean);
-    const ip = entries[entries.length - 1] || raw?.ip || 'unknown';
+    const ip = entries[entries.length - 1 - skip] || raw?.ip || 'unknown';
     return createHash('sha256').update(ip).digest('hex').slice(0, 32);
 }

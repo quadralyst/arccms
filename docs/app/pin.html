@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PINs for your app | Arc CMS docs</title>
+  <meta name="description" content="Let people sign in with a 6-digit PIN checked by your own function, with Arc CMS's hashing, lockout and rate limits, kept apart from phone sign-in's PINs.">
+  <meta name="docs:sources" content="functions/src/app-kit/pins.ts, functions/src/auth/accounts.ts, functions/src/users/onUserDelete.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/pin.html">
+  <main>
+    <h1>PINs for your app</h1>
+    <p class="lead">A 6-digit PIN lets people sign in on a shared device without an email or a phone: staff at a till, a family tablet. Your own function checks it with Arc CMS's PIN code, the same hashing, rules and lockout phone sign-in uses, and hands back a sign-in token.</p>
+
+    <h2>A PIN store</h2>
+    <pre><code>import { createPinStore } from '../app-kit/index.js';
+
+const pins = createPinStore('till', { maxAttempts: 5 });</code></pre>
+    <p>The namespace keeps kinds of PIN apart: a person can have a <code>till</code> PIN and a <code>staff</code> PIN, each with its own lock. It is lower case letters, digits, <code>-</code> and <code>_</code>, 2 to 31 characters, starting with a letter. <code>maxAttempts</code> is 1 to 20, default 5.</p>
+    <table>
+      <thead><tr><th>Call</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>pins.set(uid, pin)</code></td><td>Sets or replaces the PIN, which also unlocks it. Refuses one that is not exactly 6 digits, or too easy to guess (<code>111111</code>, <code>123456</code>, common patterns), with a message the person can act on.</td></tr>
+        <tr><td><code>pins.check(uid, pin)</code></td><td><code>{ ok: true }</code>, or <code>{ ok: false, reason }</code> with <code>none</code> (no PIN), <code>locked</code>, or <code>wrong</code> and <code>remaining</code> tries. A wrong PIN counts; the last allowed one locks it. A correct PIN resets the count.</td></tr>
+        <tr><td><code>pins.has(uid)</code></td><td>Whether the person has a PIN here.</td></tr>
+        <tr><td><code>pins.clearLock(uid)</code></td><td>Unlocks without changing the PIN, for example when a manager vouches for the person.</td></tr>
+        <tr><td><code>pins.remove(uid)</code></td><td>Removes the PIN.</td></tr>
+      </tbody>
+    </table>
+    <p>The <code>uid</code> is the person's Firebase Auth uid, such as the one <code>createAppAccount()</code> returns (see <a href="app-accounts.html">App accounts</a>).</p>
+
+    <h2>Where PINs are kept</h2>
+    <p>In <code>app_pins/&lt;namespace&gt;__&lt;uid&gt;</code>, which Arc CMS's rules close to every browser. Only your functions reach it, through the store. A PIN is never stored: only a salted, peppered hash, as for phone sign-in. It is a separate collection from phone sign-in's <code>auth_pins</code>, so your PIN and a person's phone PIN never touch. When an account is deleted, its PINs in every namespace go with it.</p>
+    <div class="note"><p>There is no timed unlock and no reset by code: unlocking is your app's decision, with <code>clearLock()</code> or a new <code>set()</code>. Arc CMS's reset by SMS code is for phone sign-in's PINs only.</p></div>
+
+    <h2 id="rate-limits">Rate limits</h2>
+    <p>Lockout protects one person's PIN. A rate limit protects your function from someone trying many people. Count each attempt against a key with <code>consumeRateLimit(key, max, windowMs, message)</code>; it refuses with <code>resource-exhausted</code> and your message once <code>max</code> is reached in the window.</p>
+    <table>
+      <thead><tr><th>Key</th><th>For</th></tr></thead>
+      <tbody>
+        <tr><td><code>hashedKey('till-device', deviceId)</code></td><td>Something your app knows, such as the device. The value is hashed, so no raw id is stored, and the scope keeps it apart from Arc CMS's own keys.</td></tr>
+        <tr><td><code>callerKey(request)</code></td><td>The caller's address, hashed. It takes the address Google's front end saw, right for a callable the browser calls directly. Behind a Firebase Hosting rewrite, the last address is Hosting's: pass <code>{ trustedProxies: 1 }</code>, or count by a key of your own instead.</td></tr>
+      </tbody>
+    </table>
+    <p>Use both: a per-device or per-address limit stops one place from trying many people, and the per-PIN lockout stops anyone from trying many PINs on one person.</p>
+
+    <h2>Sign in with a PIN: a complete callable</h2>
+    <pre><code>// functions/src/custom/pinSignIn.ts
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { consumeRateLimit, createPinStore, hashedKey, issueSignInToken } from '../app-kit/index.js';
+
+const pins = createPinStore('till');
+const MINUTE = 60 * 1000;
+
+/** Staff sign in at a till: { uid, pin, deviceId } in, a sign-in token out. */
+export const signInWithAppPin = onCall(async (request) =&gt; {
+  const uid = String(request.data?.uid ?? '');
+  const deviceId = String(request.data?.deviceId ?? '');
+  const tooMany = 'Too many tries. Wait a few minutes.';
+  await consumeRateLimit(hashedKey('till-device', deviceId), 30, 10 * MINUTE, tooMany);
+  await consumeRateLimit(hashedKey('till-staff', uid), 10, 10 * MINUTE, tooMany);
+
+  const result = await pins.check(uid, request.data?.pin);
+  if (result.ok) return { token: await issueSignInToken(uid) };
+  if (result.reason === 'locked') throw new HttpsError('permission-denied', 'This PIN is locked. Ask a manager.');
+  if (result.reason === 'none') throw new HttpsError('failed-precondition', 'No PIN is set for you yet.');
+  throw new HttpsError('permission-denied', `Wrong PIN. ${result.remaining} left.`);
+});
+
+/** A manager sets or resets a member of staff's PIN. */
+export const setStaffPin = onCall(async (request) =&gt; {
+  // ... check that the caller may do this, for example with isArcAdmin(request.auth?.token) ...
+  await pins.set(String(request.data?.uid ?? ''), String(request.data?.pin ?? ''));
+  return { ok: true };
+});</code></pre>
+    <p>Add <code>signInWithAppPin</code> and <code>setStaffPin</code> to <code>functions/src/custom/public-callables.txt</code>, deploy them (see <a href="functions.html">Write your own Cloud Functions</a>), and in the browser exchange the token:</p>
+    <pre><code>import { signInWithCustomToken } from '@angular/fire/auth';
+
+const { token } = (await arcCallable&lt;{ uid: string; pin: string; deviceId: string }, { token: string }&gt;(
+  this.functions, 'custom-signInWithAppPin')({ uid, pin, deviceId })).data;
+await signInWithCustomToken(this.auth, token);</code></pre>
+    <div class="trap"><p>Say the same thing for a wrong uid as for a wrong PIN if your screen lets people type their own id: otherwise the answer tells a stranger which ids exist. On a till where staff pick their name from a list, that is already known and the plain messages above are fine.</p></div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

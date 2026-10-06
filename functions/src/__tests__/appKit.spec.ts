@@ -177,7 +177,10 @@ describe('revokeSessions', () => {
 });
 
 describe('the app kit\'s exports', () => {
-    const DOCUMENTED = ['APP_ACCOUNT', 'createAppAccount', 'deleteAppAccount', 'isArcAdmin', 'issueSignInToken', 'mergeAppClaims', 'revokeSessions'];
+    const DOCUMENTED = [
+        'APP_ACCOUNT', 'createAppAccount', 'deleteAppAccount', 'isArcAdmin', 'issueSignInToken', 'mergeAppClaims', 'revokeSessions',
+        'APP_PINS', 'callerKey', 'consumeRateLimit', 'createPinStore', 'hashedKey', 'isValidPin', 'isWeakPin',
+    ];
 
     it('are exactly the documented ones', () => {
         expect(Object.keys(kit).sort()).toEqual([...DOCUMENTED].sort());

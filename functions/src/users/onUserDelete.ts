@@ -36,6 +36,8 @@ import { phoneHash } from '../auth/phoneNumber.js';
 
 const PHONE_INDEX = 'phone_index';
 const AUTH_PINS = 'auth_pins';
+/** An app's PINs (functions/src/app-kit/pins.ts), named here so deletion needs no app-kit import. */
+const APP_PINS = 'app_pins';
 
 const EMAIL_LOOKUP_COLLECTION = 'email_lookup';
 
@@ -131,6 +133,11 @@ export const onUserDeleted = onDocumentDeleted(
         }
         if (uid) {
             tasks.push(step('the PIN', () => db.collection(AUTH_PINS).doc(uid).delete()));
+            // An app's own PINs for this person, in every namespace (docs/app/pin.html).
+            tasks.push(step('app PINs', async () => {
+                const snap = await db.collection(APP_PINS).where('uid', '==', uid).get();
+                await Promise.all(snap.docs.map((d) => d.ref.delete()));
+            }));
         }
 
         // 4. Everything stored under the record: subcollections, and the Storage folders.

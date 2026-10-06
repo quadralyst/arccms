@@ -19,7 +19,7 @@ import { metadataValue, runtimeServiceAccount } from '../utils/runtimeIdentity.j
 export type SigningProblem = 'token-creator-missing' | 'api-disabled';
 
 /** What the person signing in sees when the server cannot sign them in yet. */
-export const SIGN_IN_NOT_READY = "Phone sign-in isn't ready on this site yet. Please contact the site's team.";
+export const SIGN_IN_NOT_READY = "Sign-in isn't ready on this site yet. Please contact the site's team.";
 
 export const TOKEN_CREATOR_ROLE = 'roles/iam.serviceAccountTokenCreator';
 export const IAM_CREDENTIALS_API = 'iamcredentials.googleapis.com';

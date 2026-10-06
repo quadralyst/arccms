@@ -22,7 +22,7 @@
     <p>Arc CMS sends such a person no email or SMS, since it has neither address. The admins get no "just signed up" alert for it, because your app created it; the <code>user.signed_up</code> event is still sent. The role is always <code>user</code>: an app helper never makes an Arc CMS admin. Your app's own roles go in your claims.</p>
 
     <h2>Create an account and sign the person in</h2>
-    <p id="sign-them-in">How the person proves who they are is your app's choice. The usual one is a PIN (the PIN building block), checked in your own callable, which then returns a sign-in token:</p>
+    <p id="sign-them-in">How the person proves who they are is your app's choice. The usual one is a PIN (see <a href="pin.html">PINs for your app</a>), checked in your own callable, which then returns a sign-in token:</p>
     <pre><code>// functions/src/custom/staff.ts
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { createAppAccount, isArcAdmin, issueSignInToken } from '../app-kit/index.js';

@@ -324,6 +324,20 @@ describe('onUserDelete Cloud Function', () => {
             expect(payload).not.toContain('contactEmail');
         });
 
+        it('deletes the person\'s app PINs in every namespace, and only theirs (docs/app/pin.html)', async () => {
+            const handler = await getHandler();
+            const pinDelete = vi.fn(async () => undefined);
+            mockWhere.mockImplementation(((field: string, _op: string, value: string) => ({
+                get: vi.fn().mockResolvedValue(field === 'uid' && value === 'u-9'
+                    ? { size: 2, docs: [{ ref: { delete: pinDelete } }, { ref: { delete: pinDelete } }] }
+                    : { size: 0, docs: [] }),
+            })) as never);
+            await handler(makeEvent({ uid: 'u-9' }, 'rec-9'));
+            expect(mockCollection).toHaveBeenCalledWith('app_pins');
+            expect(mockWhere).toHaveBeenCalledWith('uid', '==', 'u-9');
+            expect(pinDelete).toHaveBeenCalledTimes(2);
+        });
+
         it('announces user.deleted for data an app keeps elsewhere', async () => {
             const handler = await getHandler();
             await handler(makeEvent({ uid: 'u-9' }, 'rec-9'));
