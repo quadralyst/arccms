@@ -29,7 +29,7 @@ import { DEFAULT_FUNCTIONS_REGION } from './arc-region.mjs';
 import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
 import {
     APP_USERS_OWN, APP_USERS_UNCONFIGURED, HOSTING_OFF, OWN_USERS_PATH, PATHS,
-    main as configure, normalizeConfig, sharesDefaultBucket,
+    buildModeOf, main as configure, normalizeConfig, sharesDefaultBucket,
 } from './arc-configure.mjs';
 
 const FUNCTIONS_SRC = resolve(ROOT, 'functions/src');
@@ -91,7 +91,10 @@ export function committedInstallEntry(tsText, projectId) {
     return entry;
 }
 
-/** One line per setting, in plain words. */
+/**
+ * One line per setting, in plain words. The build line shows only for a project with its
+ * own web settings, the one case its build mode applies to (arc:configure --build-mode).
+ */
 export function installSummary(config) {
     const hosting = config.hostingSite === HOSTING_OFF
         ? 'off'
@@ -106,6 +109,9 @@ export function installSummary(config) {
             + `${sharesDefaultBucket(config) ? ' (shared with the other app, so no storage rules)' : ''}`,
         `App users:  ${appUsers}`,
         `Functions:  ${config.functionsRegion || DEFAULT_FUNCTIONS_REGION}`,
+        ...(config.firebaseConfig && config.hostingSite !== HOSTING_OFF
+            ? [`Build:      ${buildModeOf(config) === 'production' ? 'like production' : 'development (debug tools, instance label on sign-in)'}`]
+            : []),
     ];
 }
 

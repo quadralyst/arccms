@@ -46,16 +46,21 @@ export const ENVIRONMENT_FILE = 'src/environments/environment.ts';
  * however the import is written (`../environments/environment`, `../../../environments/environment`,
  * `./environment` from the barrel). It compares what an import resolves to, not its text, so no
  * part of the app can keep another project's settings. No target: it does nothing.
+ *
+ * The target itself may import environment.ts (a generated firebase-web.<id>.ts spreads it
+ * to keep every other key): that one import is left alone, or the file would import itself.
  */
 export function environmentSwap(target, { root = ROOT } = {}) {
     // Real paths: Vite resolves through links (a project under a linked folder).
     const real = (path) => (existsSync(path) ? realpathSync(path) : path);
     const original = real(resolve(root, ENVIRONMENT_FILE));
+    const swapped = target ? real(resolve(target)) : '';
     return {
         name: 'arc-environment-swap',
         enforce: 'pre',
         async resolveId(source, importer, options) {
             if (!target || !/(^|\/)environment(\.ts)?$/.test(source)) return null;
+            if (importer && real(resolve(importer.split('?')[0])) === swapped) return null;
             const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
             return resolved && real(resolve(resolved.id.split('?')[0])) === original ? target : null;
         },

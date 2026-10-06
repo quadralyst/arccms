@@ -14,6 +14,9 @@ import { environmentFor, environmentSwap, projectIdIn } from '../arc-environment
 import { buildsFor, websiteBuildEnv } from '../arc-deploy.mjs';
 // @ts-expect-error: plain ESM script without type declarations
 import { buildProject } from '../arc-build.mjs';
+// @ts-expect-error: plain ESM script without type declarations
+import { main as configure } from '../arc-configure.mjs';
+import { pathToFileURL } from 'node:url';
 
 describe('environmentFor', () => {
     let root: string;
@@ -126,3 +129,72 @@ describe('every import gets the build\'s environment file (environmentSwap)', ()
     });
 });
 
+
+describe('a staging project built like production (build mode)', () => {
+    let root: string;
+    const write = (path: string, text: string) => {
+        mkdirSync(join(root, path, '..'), { recursive: true });
+        writeFileSync(join(root, path), text);
+    };
+    const web = { apiKey: 'k', authDomain: 'acme-staging.firebaseapp.com', projectId: 'acme-staging', appId: '1:2:web:3' };
+
+    beforeEach(() => {
+        root = mkdtempSync(join(tmpdir(), 'arc-build-mode-'));
+        mkdirSync(join(root, 'functions'));
+        write('.firebaserc', JSON.stringify({ projects: { default: 'acme-dev', staging: 'acme-staging' } }));
+        write('web.json', JSON.stringify(web));
+        // The base file, with keys of the app's own next to the two a project build sets.
+        write('src/environments/environment.ts', `export const environment = {
+    production: false,
+    supportEmail: 'help@example.test',
+    limits: { uploadMb: 5 },
+    firebaseConfig: { apiKey: 'dev', projectId: 'acme-dev', appId: 'dev-app' },
+};
+`);
+        write('src/environments/index.ts', "export * from './environment';\n");
+        // What the app reads: debug mode (GlobalService) and the sign-in instance label (SignupPage).
+        write('src/app/debug.ts', "import { environment } from '../environments/environment';\nexport const debugMode = !environment.production;\n");
+        write('src/app/pages/auth/label.ts', "import { environment } from '../../../environments/environment';\n"
+            + "export const instanceLabel = environment.production ? '' : environment.firebaseConfig.projectId;\n");
+        write('src/app/keys.ts', "import { environment } from '../environments';\nexport const supportEmail = environment.supportEmail;\nexport const uploadMb = environment.limits.uploadMb;\nexport const projectId = environment.firebaseConfig.projectId;\n");
+        write('src/main.ts', "export { debugMode } from './app/debug';\nexport { instanceLabel } from './app/pages/auth/label';\nexport * from './app/keys';\n");
+    });
+    afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+    const configureStaging = (...flags: string[]) => configure(['--project=staging', '--web-config=web.json', ...flags], {
+        config: join(root, 'arccms.config.json'), firebase: join(root, 'firebase.json'), firebaserc: join(root, '.firebaserc'),
+        root, install: join(root, 'src/environments/arc-install.ts'), functionsDir: join(root, 'functions'),
+    }, () => undefined);
+
+    /** Builds the fixture app for staging as vite.config.ts does, and loads what it exports. */
+    async function builtFor(alias: string): Promise<Record<string, unknown>> {
+        const { file } = environmentFor(alias, { root });
+        const result = await build({
+            root, configFile: false, logLevel: 'silent',
+            plugins: [environmentSwap(file, { root })],
+            build: { write: false, minify: false, lib: { entry: join(root, 'src/main.ts'), formats: ['es'], fileName: 'main' } },
+        });
+        const outputs = (Array.isArray(result) ? result : [result]) as { output: { code?: string }[] }[];
+        const out = join(root, 'out.mjs');
+        writeFileSync(out, outputs.flatMap((r) => r.output.map((o) => o.code ?? '')).join('\n'));
+        return import(`${pathToFileURL(out).href}?t=${Date.now()}`);
+    }
+
+    it('has no debug mode or instance label, talks only to staging and keeps every other key', async () => {
+        expect(configureStaging('--build-mode=production')).toBe(0);
+        const app = await builtFor('staging');
+        expect(app).toMatchObject({ debugMode: false, instanceLabel: '', projectId: 'acme-staging', supportEmail: 'help@example.test', uploadMb: 5 });
+    }, 30_000);
+
+    it('builds in development mode by default, as before, with the same keys', async () => {
+        expect(configureStaging()).toBe(0);
+        const app = await builtFor('staging');
+        expect(app).toMatchObject({ debugMode: true, instanceLabel: 'acme-staging', projectId: 'acme-staging', supportEmail: 'help@example.test', uploadMb: 5 });
+    }, 30_000);
+
+    it('takes a later edit of environment.ts without configuring again', async () => {
+        expect(configureStaging('--build-mode=production')).toBe(0);
+        write('src/environments/environment.ts', readFileSync(join(root, 'src/environments/environment.ts'), 'utf8').replace('help@example.test', 'desk@example.test'));
+        expect((await builtFor('staging')).supportEmail).toBe('desk@example.test');
+    }, 30_000);
+});

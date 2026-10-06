@@ -273,6 +273,39 @@ const firebaseConfig = {
             expect(configure.renderWebConfig(configure.normalizeConfig({}))).toBeNull();
         });
 
+        it('keeps every other key of environment.ts by spreading it, overriding only production and firebaseConfig', () => {
+            const text = configure.renderWebConfig(configure.normalizeConfig({ firebaseConfig: web }));
+            expect(text).toContain("import { environment as base } from './environment';");
+            expect(text).toMatch(/export const environment = \{\n {4}\.\.\.base,\n {4}production: false,/);
+        });
+
+        describe('build mode, separate from the production guard', () => {
+            const mode = (raw: object) => configure.buildModeOf(configure.normalizeConfig(raw));
+            const production = (raw: object) => configure.renderWebConfig(configure.normalizeConfig({ firebaseConfig: web, ...raw })).includes('production: true,');
+
+            it('defaults to how builds ran before: production for a guarded project, development for any other', () => {
+                expect(mode({})).toBe('development');
+                expect(mode({ production: 'no' })).toBe('development');
+                expect(mode({ production: 'yes' })).toBe('production');
+                expect(production({})).toBe(false);
+                expect(production({ production: 'yes' })).toBe(true);
+            });
+
+            it('lets a staging project build like production without being guarded, and the other way round', () => {
+                expect(mode({ buildMode: 'production' })).toBe('production');
+                expect(production({ buildMode: 'production' })).toBe(true);
+                expect(configure.normalizeConfig({ buildMode: 'production' }).production).toBeUndefined();
+                expect(production({ production: 'yes', buildMode: 'development' })).toBe(false);
+            });
+
+            it('takes --build-mode and refuses any other value', () => {
+                expect(configure.parseFlags(['--build-mode=production']).updates).toEqual({ buildMode: 'production' });
+                expect(configure.validateConfig(configure.normalizeConfig({ buildMode: 'prod' })))
+                    .toContain('build-mode must be one of production, development, not "prod".');
+                expect(configure.validateConfig(configure.normalizeConfig({ buildMode: 'development' }))).toEqual([]);
+            });
+        });
+
         describe('fetching with the Firebase CLI', () => {
             const answer = (result: unknown, status = 'success') => ({ stdout: JSON.stringify(status === 'success' ? { status, result } : { status, error: result }) });
             const sdk = { ...web, locationId: 'eur3', projectNumber: '2', version: '2' };
@@ -341,6 +374,7 @@ const firebaseConfig = {
             const file = join(dir, 'src', 'environments', 'firebase-web.acme-prod.ts');
 
             expect(run('--project=prod', '--web-config=web.json', '--production=yes')).toBe(0);
+            expect(log.join('\n')).not.toContain('The build mode applies once');
             expect(readFileSync(file, 'utf8')).toContain('projectId: "acme-prod",');
             expect(readFileSync(file, 'utf8')).toContain('production: true,');
             expect(JSON.parse(readFileSync(paths.config, 'utf8')).projects['acme-prod']).toEqual({ firebaseConfig: web, production: 'yes' });
@@ -352,6 +386,21 @@ const firebaseConfig = {
             writeFileSync(paths.config, JSON.stringify(stored));
             expect(run('--project=prod')).toBe(0);
             expect(existsSync(file)).toBe(false);
+        });
+
+        it('stores --build-mode per project, writes it to the generated file, and says when it does not apply yet', () => {
+            mkdirSync(join(dir, 'src', 'environments'), { recursive: true });
+            expect(run('--project=prod', '--build-mode=production')).toBe(0);
+            expect(JSON.parse(readFileSync(paths.config, 'utf8')).projects['acme-prod']).toEqual({ buildMode: 'production' });
+            expect(log.join('\n')).toContain('The build mode applies once acme-prod has its own web settings: npm run arc:configure -- --project=prod --web-config=fetch');
+
+            writeFileSync(join(dir, 'web.json'), JSON.stringify({ apiKey: 'k', authDomain: 'acme-prod.firebaseapp.com', projectId: 'acme-prod', appId: '1:2:web:3' }));
+            log.length = 0;
+            expect(run('--project=prod', '--web-config=web.json')).toBe(0);
+            const file = readFileSync(join(dir, 'src', 'environments', 'firebase-web.acme-prod.ts'), 'utf8');
+            expect(file).toContain('production: true,');
+            // Not guarded as the live project.
+            expect(JSON.parse(readFileSync(paths.config, 'utf8')).projects['acme-prod'].production).toBeUndefined();
         });
 
         it('refuses web settings for another project, writing nothing', () => {
