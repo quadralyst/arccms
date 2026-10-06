@@ -35,7 +35,7 @@ outside `npm run deploy`.
 
 | # | Decision | Choice |
 |---|----------|--------|
-| E-D1 | Where a project's web settings live | `arccms.config.json`, under `projects.<id>.firebaseConfig`, and written by `arc:configure` into `arc-install.ts` beside the other per-project values. One place per project, no more environment files. |
+| E-D1 | Where a project's web settings live | Entered once in `arccms.config.json`, under `projects.<id>.firebaseConfig`. `arc:configure` writes them to a generated, committed file per project, `src/environments/firebase-web.<id>.ts` (install-owned for `check:core`, like `arc-install.ts`), so a clone builds without the gitignored config. **They are not added to the `arc-install.ts` map**: only the build for that project imports its file (E-D3), so a build carries one project's web settings (E-D11). |
 | E-D2 | Getting them in | `arc:configure --project=<alias\|id>` fetches them with the Firebase CLI (`firebase apps:sdkconfig web --project <id>`) when the project has none yet, so nobody copies a snippet by hand. A `--web-config=<file>` flag is the manual route. The CLI's output format is checked first thing in the build. |
 | E-D3 | Choosing at build time | `ARC_PROJECT=<alias\|id>` (an environment variable, set by `scripts/arc-build.mjs --project=<alias\|id>`). `vite.config.ts` resolves it with the shared `resolveProjectId` and replaces `environment.ts` with the settings of that project. |
 | E-D4 | No `ARC_PROJECT` | **Exactly today's behaviour**: `npm run build` uses `environment.prod.ts`, `USE_DEV_ENV=true` uses `environment.ts`, `npm run dev` uses `environment.ts`. |
@@ -45,14 +45,14 @@ outside `npm run deploy`.
 | E-D8 | Same selector everywhere | `npm run deploy -- --project=<x>`, the guided menu (it already lists every alias), `npm run seed -- <x>` (new script; `seed:dev` and `seed:prod` stay) and `arc-admin-script.mjs --project=<x>` all take an alias or id through `resolveProjectId`. |
 | E-D9 | Production marker | `production: true` per project in `arccms.config.json` (shared or under `projects.<id>`). The typed-id confirmation fires for a project marked production, **as well as** under today's rules (the `production` alias, an id saying prod or live), so no install loses a guard. `arc-admin-script.mjs` prints `(production)` for a marked project too. |
 | E-D10 | Other project-specific file reads | `arc-admin-script.mjs` `storageBucketFor()` reads the project's install settings first, then the environment files as today. |
-| E-D11 | What a staging build contains | The selected project's `firebaseConfig` only. `arc-install.ts` still lists every project's install settings (as now); the web config is not part of that map, so a staging site carries no other project's web settings. |
+| E-D11 | What a staging build contains | The selected project's `firebaseConfig` only, from its own `firebase-web.<id>.ts` (E-D1). `arc-install.ts` still lists every project's install settings (database id, bucket and the like, as now), but no web settings, so a staging site carries no other project's web config. |
 
 ## 3. Build
 
 **A2.1 Config.** `arccms.config.json` and `arc-configure.mjs`: the `firebaseConfig` object
 and `production` flag per project, validated (the web keys the Firebase SDK needs),
-`--web-config`, the CLI fetch (E-D2), written into a per-project generated place the build
-can read. `arccms.config.example.json` shows a three-project file.
+`--web-config`, the CLI fetch (E-D2), written to `src/environments/firebase-web.<id>.ts`
+(E-D1). `arccms.config.example.json` shows a three-project file.
 
 **A2.2 Build.** `scripts/arc-build.mjs` and a pure resolver (testable without Vite) that
 returns the environment module for a project: its `firebaseConfig`, or the E-D5 fallback.
