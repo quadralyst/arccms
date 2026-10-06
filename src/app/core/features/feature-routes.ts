@@ -42,7 +42,8 @@ export const FEATURE_URLS: Record<FeatureId, readonly string[]> = {
     ],
     pwa: [],
     contact: ['admin/messages/**'],
-    analytics: ['admin/settings/analytics'],
+    // admin/analytics-setting is the file router's second URL for the settings page.
+    analytics: ['admin/settings/analytics', 'admin/analytics-setting/**'],
 };
 
 /**
@@ -73,7 +74,7 @@ export const CORE_URLS: readonly string[] = [
     'admin/settings/user', 'admin/settings/message', 'admin/settings/site-usage',
     'admin/settings/localization', 'admin/settings/automations', 'admin/settings/misc',
     // The file router's second URLs for core pages that have an explicit route.
-    'admin/brand-kit', 'admin/email-composer', 'admin/about/**', 'admin/analytics-setting/**', 'admin/email-setting/**',
+    'admin/brand-kit', 'admin/email-composer', 'admin/about/**', 'admin/email-setting/**',
     'admin/integrations-setting/**', 'admin/localization/**', 'admin/message/**', 'admin/site-usage/**', 'admin/user-setting/**',
 ];
 

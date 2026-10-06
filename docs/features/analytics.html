@@ -36,7 +36,7 @@
     <p>The other cards on the dashboard (content, users, sign-ups) are counted from Firestore, not from Google Analytics; see <a href="../admin/overview.html">Use the admin area</a>. App install numbers are on <a href="pwa.html">Installable app (PWA)</a>.</p>
 
     <h2>Turn it on or off</h2>
-    <p>Analytics is the feature <code>analytics</code>, on unless you list it in <code>off</code> in <code>src/custom/features.ts</code> (see <a href="../app/choose-features.html">Choose your app's features</a>). Off, no Google Analytics code loads in the browser at all, and the dashboard's analytics section, Admin, Settings, Analytics and the five functions below go.</p>
+    <p>Analytics is the feature <code>analytics</code>, on unless you list it in <code>off</code> in <code>src/custom/features.ts</code> (see <a href="../app/choose-features.html">Choose your app's features</a>). Off, no Google Analytics code loads in the browser at all, and the dashboard's analytics section, Admin, Settings, Analytics (its tile, its link on the dashboard, and the page at both <code>/admin/settings/analytics</code> and <code>/admin/analytics-setting</code>) and the five functions below go.</p>
     <p>On, tracking runs whenever your Firebase web config has a <code>measurementId</code>. The dashboard part shows numbers only after you connect a property, and stops when you disconnect it.</p>
 
     <h2 id="consent">Consent</h2>
