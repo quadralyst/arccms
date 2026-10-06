@@ -624,3 +624,25 @@ input:focus {
     font-family: monospace;
     color: #6c757d;
 }
+
+// The member language picker, top right of the form column
+.auth-form-column {
+    position: relative;
+}
+
+.auth-language {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 20;
+}
+
+// On a phone it sits above the site's name instead of over it
+@media (max-width: 767.98px) {
+    .auth-language {
+        position: static;
+        display: block;
+        text-align: right;
+        padding: 12px 16px 0;
+    }
+}

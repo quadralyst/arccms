@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ViewEncapsulation, inject } from '@angular/core';
 import { signIn } from 'virtual:arc-site';
 import { renderSiteFragment } from './site-fragment';
+import { DEFAULT_MEMBER_LANGUAGE } from '../../core/i18n/member-languages';
+import { MEMBER_LANGUAGES_DECLARED, MemberLanguageService } from '../../core/i18n/member-language.service';
 
 /** The sign-in page's name and logo, from the site's identity (Settings, About). */
 export interface SignInBrand {
@@ -25,7 +27,8 @@ export function signInBrand(identity: { name?: string; logoUrl?: string }, fallb
 /**
  * The sign-in page's brand panel, beside the form on wide screens: the site's own
  * /_site/sign-in.html (src/custom/site/sign-in.html, else Arc CMS's neutral one),
- * plain HTML like the header, with `data-arc-t` text in the page's language.
+ * plain HTML like the header, with `data-arc-t` text in the page's language, or in the
+ * language a member chose when the app declares member languages.
  */
 @Component({
     selector: 'arc-sign-in-panel',
@@ -60,6 +63,14 @@ export function signInBrand(identity: { name?: string; logoUrl?: string }, fallb
 })
 export class SignInPanelComponent {
     constructor() {
-        renderSiteFragment(signIn, {});
+        // With member languages, the panel speaks the language chosen on the page
+        // (the site's strings file for it); without, the page's language as before.
+        const member = inject(MemberLanguageService);
+        renderSiteFragment(signIn, {}, MEMBER_LANGUAGES_DECLARED ? { language: () => panelLanguage(member.activeLang()) } : {});
     }
+}
+
+/** The site strings language for a member language: none for English, the text as written. */
+export function panelLanguage(memberLanguage: string): string {
+    return memberLanguage === DEFAULT_MEMBER_LANGUAGE ? '' : memberLanguage;
 }

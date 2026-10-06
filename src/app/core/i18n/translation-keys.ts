@@ -1600,6 +1600,7 @@ export type TranslationKey =
     | 'member.errors.user_not_found'
     | 'member.errors.weak_password'
     | 'member.errors.wrong_password'
+    | 'member.language.choose'
     | 'member.methods.add'
     | 'member.methods.already_yours_email'
     | 'member.methods.already_yours_number'
@@ -3401,6 +3402,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.errors.user_not_found',
     'member.errors.weak_password',
     'member.errors.wrong_password',
+    'member.language.choose',
     'member.methods.add',
     'member.methods.already_yours_email',
     'member.methods.already_yours_number',

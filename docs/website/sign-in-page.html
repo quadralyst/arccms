@@ -17,12 +17,12 @@
     <p>The page takes them from <strong>Settings</strong>, <strong>About</strong>: the site name and the logo URL you already fill in for search engines. With a name and no logo it shows the name; with neither, it shows Arc CMS's. The browser tab reads "Sign in | <em>your site name</em>".</p>
 
     <h2>The brand panel</h2>
-    <p>On wide screens a coloured panel sits beside the form. Arc CMS's says only "Welcome" and "Sign in, or create your account, to continue" (<code>public/_site/sign-in.html</code>). Write your own as <code class="new">src/custom/site/sign-in.html</code>, an HTML fragment like the header:</p>
+    <p>On screens 992 pixels wide and more, a coloured panel sits beside the form; narrower, the form is alone and centred. Arc CMS's says only "Welcome" and "Sign in, or create your account, to continue" (<code>public/_site/sign-in.html</code>). Write your own as <code class="new">src/custom/site/sign-in.html</code>, an HTML fragment like the header:</p>
     <pre><code>&lt;div class="auth-left-content"&gt;
     &lt;h1 class="auth-left-title" data-arc-t="sign_in_title"&gt;Sanskrit for the whole family&lt;/h1&gt;
     &lt;p class="auth-left-description" data-arc-t="sign_in_body"&gt;Short daily lessons your child will look forward to.&lt;/p&gt;
 &lt;/div&gt;</code></pre>
-    <p>Keep the <code>auth-left-content</code>, <code>auth-left-title</code> and <code>auth-left-description</code> classes for Arc CMS's layout, or use your own classes and style them in <code class="new">src/custom/site/site.css</code>. Translate the text with <code>data-arc-t</code> keys in <code class="new">src/custom/site/strings/{lang}.json</code> (see <a href="languages.html">Publish in more than one language</a>).</p>
+    <p>Keep the <code>auth-left-content</code>, <code>auth-left-title</code> and <code>auth-left-description</code> classes for Arc CMS's layout, or use your own classes and style them in <code class="new">src/custom/site/site.css</code>. Translate the text with <code>data-arc-t</code> keys in <code class="new">src/custom/site/strings/{lang}.json</code> (see <a href="languages.html">Publish in more than one language</a>). When your app declares member languages, the panel follows the language chosen in the sign-in page's picker instead of the site's, from the same files (see <a href="../app/member-languages.html#sign-in-page">Member languages</a>).</p>
 
     <h2>Colours and font</h2>
     <p>The page loads <code class="new">src/custom/site/site.css</code>, your website's stylesheet. Set these in it:</p>

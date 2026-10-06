@@ -62,6 +62,24 @@ export class UiStringsService {
         return strings;
     }
 
+    /**
+     * The strings for a language without making it the page's language, for a part
+     * of the page shown in another one, such as the sign-in panel in the language a
+     * member chose. Empty for the default language; cached like use().
+     */
+    async load(lang: string): Promise<Record<string, string>> {
+        if (!lang) return {};
+        const cached = this.loaded.get(lang);
+        if (cached) return cached;
+        const pending = this.inFlight.get(lang) ?? this.fetch(lang);
+        this.inFlight.set(lang, pending);
+        try {
+            return await pending;
+        } finally {
+            this.inFlight.delete(lang);
+        }
+    }
+
     private async fetch(lang: string): Promise<Record<string, string>> {
         const url = siteStringsUrl(lang);
         if (!url) {

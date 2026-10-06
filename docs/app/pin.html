@@ -63,9 +63,9 @@ export const signInWithAppPin = onCall(async (request) =&gt; {
 
   const result = await pins.check(uid, request.data?.pin);
   if (result.ok) return { token: await issueSignInToken(uid) };
+  if (result.reason === 'wrong') throw new HttpsError('permission-denied', `Wrong PIN. ${result.remaining} left.`);
   if (result.reason === 'locked') throw new HttpsError('permission-denied', 'This PIN is locked. Ask a manager.');
-  if (result.reason === 'none') throw new HttpsError('failed-precondition', 'No PIN is set for you yet.');
-  throw new HttpsError('permission-denied', `Wrong PIN. ${result.remaining} left.`);
+  throw new HttpsError('failed-precondition', 'No PIN is set for you yet.');
 });
 
 /** A manager sets or resets a member of staff's PIN. */

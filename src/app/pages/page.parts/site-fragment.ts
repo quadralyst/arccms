@@ -21,11 +21,13 @@
  *   time the fragment is drawn again (for the page's language), so it binds to
  *   the elements it finds; a script file is loaded once.
  *
- * It renders again when the page's language or its strings change.
+ * It renders again when the page's language or its strings change. A fragment can
+ * instead follow a language of its own (`options.language`), such as the sign-in panel
+ * in the language a member chose.
  */
 import {
     ApplicationRef, ComponentRef, DestroyRef, ElementRef, EnvironmentInjector, Injector, Type,
-    createComponent, effect, inject, untracked,
+    createComponent, effect, inject, signal, untracked,
 } from '@angular/core';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { applyStringsToElement } from '../../core/i18n/apply-strings-dom';
@@ -41,8 +43,17 @@ import { versionSiteUrls } from '../../core/site/site-urls';
 /** Arc CMS elements a fragment may hold, by tag name, and the component each becomes. */
 export type FragmentElements = Record<string, Type<unknown>>;
 
+export interface FragmentOptions {
+    /**
+     * The language to show the fragment's `data-arc-t` text in, instead of the page's:
+     * a code with a site strings file, or '' for the text as written. Its links keep
+     * their addresses (no language prefix).
+     */
+    language?: () => string;
+}
+
 /** Call from a component's constructor (injection context): renders `html` into its host element. */
-export function renderSiteFragment(html: string, elements: FragmentElements): void {
+export function renderSiteFragment(html: string, elements: FragmentElements, options: FragmentOptions = {}): void {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
     const uiStrings = inject(UiStringsService);
     const contentTypes = inject(PublicContentTypesService);
@@ -53,6 +64,21 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
     const elementInjector = inject(Injector);
     let mounted: ComponentRef<unknown>[] = [];
     const loadedScripts = new Set<string>();
+
+    // The fragment's own language, when it has one: its strings, loaded without
+    // changing the page's language.
+    const ownLanguage = options.language;
+    const ownStrings = signal<Record<string, string>>({});
+    if (ownLanguage) {
+        effect(() => {
+            const code = ownLanguage();
+            untracked(() => void uiStrings.load(code).then((strings) => {
+                if (ownLanguage() === code) ownStrings.set(strings);
+            }));
+        });
+    }
+    const pageLang = () => (ownLanguage ? '' : uiStrings.activeLang());
+    const pageStrings = () => (ownLanguage ? ownStrings() : uiStrings.strings());
 
     /** Runs the fragment's scripts, which innerHTML leaves inert. */
     const runScripts = () => {
@@ -103,17 +129,17 @@ export function renderSiteFragment(html: string, elements: FragmentElements): vo
     const usesSiteInfo = html.includes('data-arc-site');
     if (usesSiteInfo) {
         void siteIdentity.load();
-        void sitePages.load(uiStrings.activeLang());
+        void sitePages.load(pageLang());
     }
     let shown = {
-        lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs(),
+        lang: pageLang(), strings: pageStrings(), types: contentTypes.slugs(),
         identity: siteIdentity.identity(), pages: sitePages.pages(),
     };
     render(shown.lang, shown.strings, shown.types);
     if (shown.lang) void contentTypes.load();
     effect(() => {
         const next = {
-            lang: uiStrings.activeLang(), strings: uiStrings.strings(), types: contentTypes.slugs(),
+            lang: pageLang(), strings: pageStrings(), types: contentTypes.slugs(),
             identity: siteIdentity.identity(), pages: sitePages.pages(),
         };
         if (next.lang === shown.lang && next.strings === shown.strings && next.types === shown.types

@@ -34,7 +34,7 @@
     <div class="trap"><p>Phone sign-in needs one Google Cloud permission on the functions' service account, or every phone sign-in fails after the code is accepted. See the trap in <a href="../features/sign-in.html#set-it-up">Sign-in methods</a>.</p></div>
 
     <h2>In your members' language</h2>
-    <p>The sign-in page, with its codes, PINs and error messages, follows the member language: the one chosen on this device, else the browser's when the app declares it. Firebase's password reset email is asked for in that language too. See <a href="member-languages.html">Member languages</a> for adding one, and for what stays in English.</p>
+    <p>The sign-in page, with its codes, PINs and error messages, follows the member language: the one chosen on this device, else the browser's when the app declares it. When the app declares member languages, a picker at the top right lets people choose, and the brand panel follows it too (see <a href="member-languages.html#sign-in-page">The sign-in page</a>). Firebase's password reset email is asked for in that language too. See <a href="member-languages.html">Member languages</a> for adding one, and for what stays in English.</p>
 
     <h2>Send people back where they were</h2>
     <p>A sign-in link can carry the page to return to: <code>/signup?redirect=/learn</code>. After signing in, the person goes to that page instead of their home page. Only a path on your own site is accepted: a full address, <code>//host</code>, or a sign-in page such as <code>/signup</code> is ignored, so a crafted link cannot send people elsewhere.</p>

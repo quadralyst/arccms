@@ -49,6 +49,7 @@ import { homeFor, safeRedirect } from '../../../core/home/home';
 import { SiteIdentityService } from '../../../core/services/site-identity.service';
 import { useSiteStyles } from '../../../core/site/site-styles';
 import { SignInPanelComponent, signInBrand } from '../../page.parts/sign-in-panel.component';
+import { MemberLanguagePickerComponent } from '../../../../shared/components/member-language-picker/member-language-picker.component';
 import { Title } from '@angular/platform-browser';
 
 export const routeMeta: RouteMeta = {
@@ -61,7 +62,7 @@ type Channel = 'email' | 'phone';
 @Component({
   selector: 'arc-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, LegalNoticeComponent, CodeInputComponent, SignInPanelComponent],
+  imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, LegalNoticeComponent, CodeInputComponent, SignInPanelComponent, MemberLanguagePickerComponent],
   templateUrl: './signup.page.html',
   styleUrls: ['./signup.page.scss'],
 })
