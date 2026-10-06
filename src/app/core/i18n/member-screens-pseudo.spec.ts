@@ -46,9 +46,9 @@ describe('member screens in a pseudo language', () => {
     });
 
     it('an app\'s own keys are in the pseudo language too', async () => {
-        TestBed.configureTestingModule({ imports: [pseudoTestingModule({ till: { open: 'Open the till' } })] });
+        TestBed.configureTestingModule({ imports: [pseudoTestingModule({ desk: { open: 'Open the desk' } })] });
         const transloco = TestBed.inject(TranslocoService);
-        expect(transloco.translate('till.open')).toBe(pseudo('Open the till'));
+        expect(transloco.translate('desk.open')).toBe(pseudo('Open the desk'));
         expect(transloco.translate('member.not_found.home')).toBe(pseudo('Go to Home'));
     });
 
@@ -116,13 +116,13 @@ describe('member screens in a pseudo language', () => {
             },
             {
                 provide: SiteIdentityService,
-                useValue: { loaded: signal(true), identity: signal({ name: 'Corner Shop', logoUrl: '' }), load: async () => ({}) },
+                useValue: { loaded: signal(true), identity: signal({ name: 'Corner Studio', logoUrl: '' }), load: async () => ({}) },
             },
         ]);
         const text = fixture.nativeElement.textContent;
         expect(text).toContain(pseudo('Member'));
         expect(text).toContain(pseudo('Pro'));
-        expect(text).toContain('Corner Shop');
-        expect(textNotInPseudo(fixture.nativeElement, ['Corner Shop'])).toEqual([]);
+        expect(text).toContain('Corner Studio');
+        expect(textNotInPseudo(fixture.nativeElement, ['Corner Studio'])).toEqual([]);
     });
 });

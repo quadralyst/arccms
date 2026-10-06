@@ -1,5 +1,5 @@
 /**
- * Accounts an app creates for people who have no email and no phone, such as shop staff
+ * Accounts an app creates for people who have no email and no phone, such as front desk staff
  * (specs/app-accounts-spec.md, docs/app/app-accounts.html).
  */
 import { HttpsError } from 'firebase-functions/v2/https';

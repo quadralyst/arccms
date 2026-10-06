@@ -29,7 +29,7 @@ export interface PinStore {
 
 /**
  * A place for an app's PINs (docs/app/pin.html). The namespace keeps different kinds
- * apart (`till`, `staff`); `maxAttempts` (1 to 20, default 5) is how many wrong tries
+ * apart (`kiosk`, `staff`); `maxAttempts` (1 to 20, default 5) is how many wrong tries
  * in a row lock a PIN until set() or clearLock().
  */
 export function createPinStore(namespace: string, options: { maxAttempts?: number } = {}): PinStore {
@@ -64,7 +64,7 @@ const SCOPE = /^[a-z][a-z0-9_-]{0,30}$/;
 
 /**
  * A rate-limit key an app chooses (docs/app/pin.html): `scope` names what is counted
- * (`till-device`), `value` is what it is counted for (a device id). The value is hashed,
+ * (`kiosk-device`), `value` is what it is counted for (a device id). The value is hashed,
  * so no raw id lands in `_rate_limits`, and the scope keeps it apart from Arc CMS's keys.
  */
 export function hashedKey(scope: string, value: string): string {

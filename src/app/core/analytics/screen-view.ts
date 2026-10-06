@@ -1,8 +1,8 @@
 /**
- * The `screen_view` event AngularFire's ScreenTrackingService sends, rebuilt for the
- * `required` consent mode, where that service is not loaded (docs/features/analytics.html).
- * The parameter names are AngularFire's own, so reports read the same in both modes;
- * a test compares them with AngularFire's source.
+ * The `screen_view` event AngularFire's ScreenTrackingService sends, rebuilt so Firebase
+ * Analytics can load on demand instead of with AngularFire's providers
+ * (docs/features/analytics.html). The parameter names are AngularFire's own, so reports
+ * read as they did before; a test compares them with AngularFire's source.
  */
 import { reflectComponentType, type Type } from '@angular/core';
 import type { ActivatedRouteSnapshot } from '@angular/router';

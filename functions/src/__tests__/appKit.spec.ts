@@ -70,9 +70,9 @@ describe('createAppAccount', () => {
             recordsWhenClaimsSet = fb.state.records.length;
             fb.state.claims[uid] = claims;
         });
-        await createAppAccount({ displayName: 'Anna', claims: { shop: 's-1', staffRole: 'cashier' } });
+        await createAppAccount({ displayName: 'Anna', claims: { site: 's-1', staffRole: 'reception' } });
         expect(fb.owner.setCustomUserClaims).toHaveBeenCalledTimes(1);
-        expect(fb.state.claims['uid-1']).toEqual({ shop: 's-1', staffRole: 'cashier', arccms_role: 'user', arccms_uid: 'rec-1' });
+        expect(fb.state.claims['uid-1']).toEqual({ site: 's-1', staffRole: 'reception', arccms_role: 'user', arccms_uid: 'rec-1' });
         // The first sign-in's token already carries them: they are set before the record exists.
         expect(recordsWhenClaimsSet).toBe(0);
     });
@@ -122,11 +122,11 @@ describe('deleteAppAccount', () => {
 
 describe('mergeAppClaims', () => {
     it('merges, never replaces, and removes an app claim with null', async () => {
-        fb.state.claims['u'] = { arccms_role: 'user', arccms_uid: 'rec-1', shop: 's-1' };
-        await mergeAppClaims('u', { staffRole: 'manager', perms: ['refund', 'void'] });
-        expect(fb.state.claims['u']).toEqual({ arccms_role: 'user', arccms_uid: 'rec-1', shop: 's-1', staffRole: 'manager', perms: ['refund', 'void'] });
-        await mergeAppClaims('u', { shop: null });
-        expect(fb.state.claims['u']).not.toHaveProperty('shop');
+        fb.state.claims['u'] = { arccms_role: 'user', arccms_uid: 'rec-1', site: 's-1' };
+        await mergeAppClaims('u', { staffRole: 'manager', perms: ['check-in', 'reports'] });
+        expect(fb.state.claims['u']).toEqual({ arccms_role: 'user', arccms_uid: 'rec-1', site: 's-1', staffRole: 'manager', perms: ['check-in', 'reports'] });
+        await mergeAppClaims('u', { site: null });
+        expect(fb.state.claims['u']).not.toHaveProperty('site');
     });
 
     it('refuses arccms_ names, Firebase\'s names and an empty patch', async () => {
@@ -143,11 +143,11 @@ describe('mergeAppClaims', () => {
     });
 
     it('keeps the app\'s claims through ArcCMS\'s own claim writes, and the other way round', async () => {
-        fb.state.claims['u'] = { shop: 's-1' };
+        fb.state.claims['u'] = { site: 's-1' };
         await mergeUserClaims('u', { arccms_role: 'editor', arccms_uid: 'rec-1' });
-        expect(fb.state.claims['u']).toEqual({ shop: 's-1', arccms_role: 'editor', arccms_uid: 'rec-1' });
-        await mergeAppClaims('u', { staffRole: 'cashier' });
-        expect(fb.state.claims['u']).toEqual({ shop: 's-1', arccms_role: 'editor', arccms_uid: 'rec-1', staffRole: 'cashier' });
+        expect(fb.state.claims['u']).toEqual({ site: 's-1', arccms_role: 'editor', arccms_uid: 'rec-1' });
+        await mergeAppClaims('u', { staffRole: 'reception' });
+        expect(fb.state.claims['u']).toEqual({ site: 's-1', arccms_role: 'editor', arccms_uid: 'rec-1', staffRole: 'reception' });
     });
 });
 

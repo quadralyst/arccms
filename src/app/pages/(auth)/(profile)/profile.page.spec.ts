@@ -489,7 +489,7 @@ describe('ProfileComponent', () => {
         });
 
         it('shows an app\'s own role as it is', () => {
-            expect(label('cashier')).toBe('cashier');
+            expect(label('reception')).toBe('reception');
         });
     });
 });

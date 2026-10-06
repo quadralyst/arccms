@@ -32,7 +32,7 @@
         <tr><td><code>isValidPin()</code></td><td>Whether a value is a PIN at all: exactly 6 digits.</td><td><a href="pin.html">PINs for your app</a></td></tr>
         <tr><td><code>isWeakPin()</code></td><td>Whether a 6-digit PIN is too easy to guess (one digit repeated, a straight run, a common pattern).</td><td><a href="pin.html">PINs for your app</a></td></tr>
         <tr><td><code>consumeRateLimit()</code></td><td>Counts one use of a key in a time window and refuses with <code>resource-exhausted</code> once the limit is reached: <code>consumeRateLimit(key, max, windowMs, message)</code>.</td><td><a href="pin.html#rate-limits">PINs for your app</a></td></tr>
-        <tr><td><code>hashedKey()</code></td><td>A rate-limit key you choose, such as a device id, hashed and kept apart from Arc CMS's keys: <code>hashedKey('till-device', deviceId)</code>.</td><td><a href="pin.html#rate-limits">PINs for your app</a></td></tr>
+        <tr><td><code>hashedKey()</code></td><td>A rate-limit key you choose, such as a device id, hashed and kept apart from Arc CMS's keys: <code>hashedKey('kiosk-device', deviceId)</code>.</td><td><a href="pin.html#rate-limits">PINs for your app</a></td></tr>
         <tr><td><code>callerKey()</code></td><td>A rate-limit key for the caller's address, hashed. <code>{ trustedProxies: 1 }</code> for a function reached through a Hosting rewrite.</td><td><a href="pin.html#rate-limits">PINs for your app</a></td></tr>
       </tbody>
     </table>

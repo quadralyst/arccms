@@ -3,7 +3,6 @@ import { TestBed } from '@angular/core/testing';
 import { Component, PLATFORM_ID, signal } from '@angular/core';
 import { ActivationEnd, Router, provideRouter } from '@angular/router';
 
-vi.mock('@angular/fire/analytics', () => ({ Analytics: class Analytics {} }));
 vi.mock('@angular/fire/app', () => ({ FirebaseApp: class FirebaseApp {} }));
 const auth = vi.hoisted(() => ({ listener: null as null | ((user: { uid: string } | null) => void) }));
 vi.mock('@angular/fire/auth', () => ({
@@ -11,7 +10,6 @@ vi.mock('@angular/fire/auth', () => ({
     onAuthStateChanged: (_auth: unknown, cb: (user: { uid: string } | null) => void) => { auth.listener = cb; },
 }));
 
-import { Analytics as ProvidedAnalytics } from '@angular/fire/analytics';
 import { FirebaseApp } from '@angular/fire/app';
 import { Auth } from '@angular/fire/auth';
 import { ANALYTICS_OPTIONS, AnalyticsService, type AnalyticsOptions } from './analytics.service';
@@ -49,6 +47,7 @@ describe('AnalyticsService (docs/features/analytics.html)', () => {
             providers: [
                 provideRouter([
                     { path: '', component: Page },
+                    { path: 'lessons', component: Page },
                     { path: 'kids', component: Page, data: { analytics: false } },
                     { path: 'family', data: { analytics: false }, children: [{ path: 'child', component: Page }] },
                 ]),
@@ -167,7 +166,7 @@ describe('AnalyticsService (docs/features/analytics.html)', () => {
 
     describe('route opt-out: data: { analytics: false }', () => {
         it('turns collection off on the page and below it, and on again after', async () => {
-            const service = await setup({ mode: 'always' }, [{ provide: ProvidedAnalytics, useValue: instance }]);
+            const service = await setup({ mode: 'always' });
             const router = TestBed.inject(Router);
             await router.navigateByUrl('/kids');
             await settle();
@@ -187,7 +186,7 @@ describe('AnalyticsService (docs/features/analytics.html)', () => {
         });
 
         it('is off before the page activates, so no screen view is sent for it', async () => {
-            await setup({ mode: 'always' }, [{ provide: ProvidedAnalytics, useValue: instance }]);
+            await setup({ mode: 'always' });
             const router = TestBed.inject(Router);
             const atActivation: boolean[] = [];
             router.events.subscribe((e) => { if (e instanceof ActivationEnd) atActivation.push(disabledFlag()); });
@@ -198,14 +197,35 @@ describe('AnalyticsService (docs/features/analytics.html)', () => {
     });
 
     describe('always (the default)', () => {
-        it('uses the Analytics AngularFire started, without asking, and never starts its own', async () => {
-            const service = await setup({ mode: 'always' }, [{ provide: ProvidedAnalytics, useValue: instance }]);
+        it('loads Analytics itself as the app starts, without asking, and sends one screen view, then events', async () => {
+            const service = await setup({ mode: 'always' });
             service.log('share_click');
             await settle();
-            expect(fns.initializeAnalytics).not.toHaveBeenCalled();
+            expect(load).toHaveBeenCalledTimes(1);
+            expect(fns.initializeAnalytics).toHaveBeenCalledWith(app);
             expect(fns.logEvent).toHaveBeenCalledWith(instance, 'share_click', undefined);
-            // AngularFire sends its own screen views here.
-            expect(fns.logEvent.mock.calls.map((c) => c[1])).not.toContain('screen_view');
+            const views = fns.logEvent.mock.calls.filter((c) => c[1] === 'screen_view');
+            expect(views).toHaveLength(1);
+            expect(views[0][2]).toMatchObject({ screen_name: '/', page_path: '/' });
+        });
+
+        it('sends a screen view for each new page', async () => {
+            await setup({ mode: 'always' });
+            const router = TestBed.inject(Router);
+            await router.navigateByUrl('/lessons');
+            await settle();
+            await router.navigateByUrl('/family/child');
+            await settle();
+            const views = fns.logEvent.mock.calls.filter((c) => c[1] === 'screen_view').map((c) => c[2]['screen_name']);
+            // The first page and lessons; the opted-out page sends none.
+            expect(views).toEqual(['/', 'lessons']);
+        });
+
+        it('sets the user id when the person signs in', async () => {
+            await setup({ mode: 'always' });
+            await settle();
+            auth.listener?.({ uid: 'u-1' });
+            expect(fns.setUserId).toHaveBeenCalledWith(instance, 'u-1');
         });
     });
 

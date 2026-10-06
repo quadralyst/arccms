@@ -2,14 +2,17 @@
  * The one gate every Google Analytics call goes through (docs/features/analytics.html,
  * specs/app-analytics-consent-spec.md).
  *
- * - `always` (the default): AngularFire's providers in app.config.ts start Analytics and
- *   send page and screen views, exactly as before. This service adds the route opt-out
- *   and carries Arc CMS's own events.
- * - `required`: nothing of Google Analytics loads until the visitor accepts the site
- *   usage banner. Then this service loads it, and sends the same screen views and user
- *   id AngularFire would. Rejecting later stops collection and deletes Google's cookies.
+ * Firebase Analytics is never imported statically: this service loads it with a dynamic
+ * import, so it is a chunk of its own that a visitor downloads only when tracking starts.
+ * It then sends Google's page view, the screen views and the user id AngularFire's
+ * ScreenTrackingService and UserTrackingService sent before (screen-view.ts), the route
+ * opt-out, and Arc CMS's own events.
  *
- * With the `analytics` feature off, or no `measurementId`, nothing is ever sent.
+ * - `always` (the default): it starts as the app starts, without asking.
+ * - `required`: nothing of Google Analytics loads until the visitor accepts the site
+ *   usage banner. Rejecting later stops collection and deletes Google's cookies.
+ *
+ * With the `analytics` feature off, or no `measurementId`, nothing is loaded or sent.
  */
 import { Injectable, InjectionToken, Injector, PLATFORM_ID, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -17,7 +20,6 @@ import { isPlatformBrowser } from '@angular/common';
 import { Title } from '@angular/platform-browser';
 import { NavigationCancel, NavigationEnd, NavigationError, Router, RoutesRecognized } from '@angular/router';
 import { FirebaseApp } from '@angular/fire/app';
-import { Analytics as ProvidedAnalytics } from '@angular/fire/analytics';
 import { Auth, onAuthStateChanged } from '@angular/fire/auth';
 import { environment } from '../../../environments/environment';
 import { arcConfig, type AnalyticsConsentMode } from '../config/arc-config';
@@ -33,7 +35,7 @@ type Call = (fns: AnalyticsModule, analytics: AnalyticsInstance) => void;
 /** Google's cookies: `_ga` and `_ga_<container>`. */
 const GA_COOKIE = /^_ga(_[A-Za-z0-9]+)?$/;
 
-/** Loads Firebase Analytics on demand, so a visitor who never consents never downloads it. */
+/** Loads Firebase Analytics on demand, so a visitor who is not tracked never downloads it. */
 export const loadAnalyticsModule = (): Promise<AnalyticsModule> => import('firebase/analytics');
 
 /** Overrides for tests: the install's mode, the feature, the measurement id and the loader. */
@@ -51,8 +53,6 @@ export class AnalyticsService {
     private readonly injector = inject(Injector);
     private readonly router = inject(Router);
     private readonly consent = inject(SiteUsageService);
-    /** Started by app.config.ts in `always` mode only. */
-    private readonly provided = inject(ProvidedAnalytics, { optional: true }) as AnalyticsInstance | null;
 
     private readonly options = inject(ANALYTICS_OPTIONS, { optional: true }) ?? {};
     readonly mode: AnalyticsConsentMode = this.options.mode ?? arcConfig.analyticsConsent;
@@ -79,16 +79,16 @@ export class AnalyticsService {
         if (!this.browser || !this.featureOn) return;
 
         this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
-            // Off as soon as the page is known, before AngularFire's screen view on activation.
+            // Off as soon as the page is known, before anything is sent for it.
             if (event instanceof RoutesRecognized && !routeAllowsAnalytics(event.state.root)) {
                 this.routeOk.set(false);
-                // Now, not on the next change detection: AngularFire sends its screen view on activation.
+                // Now, not on the next change detection: Google reads the flag before every hit.
                 this.setDisabled(true);
             }
             if (event instanceof NavigationEnd || event instanceof NavigationCancel || event instanceof NavigationError) {
                 this.routeOk.set(routeAllowsAnalytics(this.router.routerState.snapshot.root));
             }
-            if (event instanceof NavigationEnd && this.mode === 'required') this.sendScreenView();
+            if (event instanceof NavigationEnd) this.sendScreenView();
         });
 
         effect(() => {
@@ -144,20 +144,14 @@ export class AnalyticsService {
     private async loadInstance(): Promise<void> {
         try {
             const fns = await this.load();
-            if (this.mode === 'always') {
-                // AngularFire started it; it is the real Firebase Analytics instance.
-                if (!this.provided) return;
-                this.fns = fns;
-                this.instance = this.provided;
-                return;
-            }
             if (!(await fns.isSupported())) return;
             const app = this.injector.get(FirebaseApp);
-            // Google's own page view for this first page is sent as it starts, as it is in `always` mode.
+            // Google's own page view for this first page is sent as it starts.
             this.instance = fns.initializeAnalytics(app);
             this.fns = fns;
             this.trackUser();
-            this.sendScreenView();
+            // The first page's screen view. Before the first navigation ends, NavigationEnd sends it.
+            if (this.router.navigated) this.sendScreenView();
         } catch (error) {
             console.warn('Analytics could not start:', error);
         }
@@ -170,7 +164,7 @@ export class AnalyticsService {
         for (const fn of pending) this.call(fn);
     }
 
-    /** What AngularFire's UserTrackingService does in `always` mode. */
+    /** What AngularFire's UserTrackingService did. */
     private trackUser(): void {
         const auth = this.injector.get(Auth, null);
         if (!auth) return;
@@ -179,7 +173,7 @@ export class AnalyticsService {
         });
     }
 
-    /** What AngularFire's ScreenTrackingService does in `always` mode. */
+    /** What AngularFire's ScreenTrackingService did. */
     private sendScreenView(): void {
         if (!this.allowed() || !this.fns || !this.instance) return;
         const root = this.router.routerState.snapshot.root;

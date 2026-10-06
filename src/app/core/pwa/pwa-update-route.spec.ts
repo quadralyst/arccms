@@ -38,7 +38,7 @@ describe('PwaUpdateRouteService', () => {
         TestBed.configureTestingModule({
             providers: [provideRouter([
                 { path: '', component: Page },
-                { path: 'till', component: Page, data: { fullScreen: true, pwaUpdate: 'app' } },
+                { path: 'kiosk', component: Page, data: { fullScreen: true, pwaUpdate: 'app' } },
                 { path: 'plain', component: Page, data: { fullScreen: true } },
                 { path: 'owned', data: { pwaUpdate: 'app' }, children: [{ path: 'child', component: Page }] },
             ])],
@@ -50,7 +50,7 @@ describe('PwaUpdateRouteService', () => {
         const service = TestBed.inject(PwaUpdateRouteService);
         expect(service.appOwns()).toBe(false);
 
-        await router.navigateByUrl('/till');
+        await router.navigateByUrl('/kiosk');
         expect(service.appOwns()).toBe(true);
         await router.navigateByUrl('/');
         expect(service.appOwns()).toBe(false);

@@ -402,7 +402,7 @@ describe('feedback (docs/features/feedback.html)', () => {
 
 describe('app accounts: no email, no phone (docs/app/app-accounts.html)', () => {
     const STAFF = 'staff-uid';
-    const staff = () => env.authenticatedContext(STAFF, { arccms_uid: 'staff-doc', arccms_role: 'user', shop: 's-1' }).firestore();
+    const staff = () => env.authenticatedContext(STAFF, { arccms_uid: 'staff-doc', arccms_role: 'user', site: 's-1' }).firestore();
 
     beforeEach(async () => {
         await env.withSecurityRulesDisabled(async (ctx) => {

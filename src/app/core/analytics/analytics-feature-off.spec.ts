@@ -13,7 +13,8 @@ vi.mock('@angular/fire/firestore', () => ({ Firestore: class Firestore {}, doc: 
 
 import { Firestore } from '@angular/fire/firestore';
 import { isOn } from '../features/features';
-import { FEATURE_URLS } from '../features/feature-routes';
+import { FEATURE_URLS, featureOffMatcher, featureOfPath, isCorePath } from '../features/feature-routes';
+import { UrlSegment } from '@angular/router';
 import { AnalyticsConnectionStatusService } from '../../../shared/services/analytics-connection-status.service';
 import { AnalyticsTrackingStatusComponent } from './analytics-status.component';
 import { SiteUsageService } from '../../pages/admin/(settings)/site-usage/site-usage.service';
@@ -25,6 +26,19 @@ describe('analytics feature off', () => {
     it('is off, and owns the Analytics settings page', () => {
         expect(isOn('analytics')).toBe(false);
         expect(FEATURE_URLS.analytics).toContain('admin/settings/analytics');
+    });
+
+    it('hides the Analytics settings page at both its URLs, the file router\'s second one too', () => {
+        const matcher = featureOffMatcher();
+        for (const url of ['admin/settings/analytics', 'admin/analytics-setting']) {
+            const path = url.split('/');
+            expect(featureOfPath(path), url).toBe('analytics');
+            expect(isCorePath(path), url).toBe(false);
+            const segments = path.map((p) => new UrlSegment(p, {}));
+            expect(matcher(segments, null as never, null as never), url).toEqual({ consumed: segments });
+            // With the feature on, the page is there as before.
+            expect(featureOffMatcher(() => true)(segments, null as never, null as never), url).toBeNull();
+        }
     });
 
     it('does not listen to the analytics connection', () => {

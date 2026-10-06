@@ -27,12 +27,12 @@ describe('member languages the app declares', () => {
 });
 
 describe('the parity check itself, with a fake language', () => {
-    const fakeCore = { en: { user: { nav: { home: 'Home', shop: 'Shop' } }, member: { auth: { title: 'Sign in' } }, admin: { x: 'Admin' } } };
-    const fakeCustom = { en: { till: { open: 'Open till' } }, zz: { user: { nav: { home: 'Zome' } }, member: { auth: { title: 'Zign in' } } } };
+    const fakeCore = { en: { user: { nav: { home: 'Home', events: 'Events' } }, member: { auth: { title: 'Sign in' } }, admin: { x: 'Admin' } } };
+    const fakeCustom = { en: { desk: { open: 'Open the desk' } }, zz: { user: { nav: { home: 'Zome' } }, member: { auth: { title: 'Zign in' } } } };
 
     it('names each missing key: core member keys and the app\'s own, never admin keys', () => {
         const [zz] = languageParity([{ code: 'zz' }], fakeCore, fakeCustom);
-        expect(zz).toEqual({ code: 'zz', partial: false, missing: ['till.open', 'user.nav.shop'] });
+        expect(zz).toEqual({ code: 'zz', partial: false, missing: ['desk.open', 'user.nav.events'] });
     });
 
     it('marks a partial language, and skips English', () => {

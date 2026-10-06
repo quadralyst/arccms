@@ -83,8 +83,8 @@ describe('arc-admin-script', () => {
     });
 
     it('calls a project marked "production": "yes" production, as well as the production alias', () => {
-        writeFileSync(join(root, 'arccms.config.json'), JSON.stringify({ projects: { 'shop-main': { production: 'yes' } } }));
-        expect(resolveTarget(['--project=shop-main'], root, {}).prod).toBe(true);
+        writeFileSync(join(root, 'arccms.config.json'), JSON.stringify({ projects: { 'acme-main': { production: 'yes' } } }));
+        expect(resolveTarget(['--project=acme-main'], root, {}).prod).toBe(true);
         expect(resolveTarget([], root, {}).prod).toBe(false);
     });
 

@@ -11,13 +11,13 @@
 <body data-root="../" data-page="app/pin.html">
   <main>
     <h1>PINs for your app</h1>
-    <p class="lead">A 6-digit PIN lets people sign in on a shared device without an email or a phone: staff at a till, a family tablet. Your own function checks it with Arc CMS's PIN code, the same hashing, rules and lockout phone sign-in uses, and hands back a sign-in token.</p>
+    <p class="lead">A 6-digit PIN lets people sign in on a shared device without an email or a phone: staff at a front desk, a family tablet. Your own function checks it with Arc CMS's PIN code, the same hashing, rules and lockout phone sign-in uses, and hands back a sign-in token.</p>
 
     <h2>A PIN store</h2>
     <pre><code>import { createPinStore } from '../app-kit/index.js';
 
-const pins = createPinStore('till', { maxAttempts: 5 });</code></pre>
-    <p>The namespace keeps kinds of PIN apart: a person can have a <code>till</code> PIN and a <code>staff</code> PIN, each with its own lock. It is lower case letters, digits, <code>-</code> and <code>_</code>, 2 to 31 characters, starting with a letter. <code>maxAttempts</code> is 1 to 20, default 5.</p>
+const pins = createPinStore('kiosk', { maxAttempts: 5 });</code></pre>
+    <p>The namespace keeps kinds of PIN apart: a person can have a <code>kiosk</code> PIN and a <code>staff</code> PIN, each with its own lock. It is lower case letters, digits, <code>-</code> and <code>_</code>, 2 to 31 characters, starting with a letter. <code>maxAttempts</code> is 1 to 20, default 5.</p>
     <table>
       <thead><tr><th>Call</th><th>Does</th></tr></thead>
       <tbody>
@@ -39,7 +39,7 @@ const pins = createPinStore('till', { maxAttempts: 5 });</code></pre>
     <table>
       <thead><tr><th>Key</th><th>For</th></tr></thead>
       <tbody>
-        <tr><td><code>hashedKey('till-device', deviceId)</code></td><td>Something your app knows, such as the device. The value is hashed, so no raw id is stored, and the scope keeps it apart from Arc CMS's own keys.</td></tr>
+        <tr><td><code>hashedKey('kiosk-device', deviceId)</code></td><td>Something your app knows, such as the device. The value is hashed, so no raw id is stored, and the scope keeps it apart from Arc CMS's own keys.</td></tr>
         <tr><td><code>callerKey(request)</code></td><td>The caller's address, hashed. It takes the address Google's front end saw, right for a callable the browser calls directly. Behind a Firebase Hosting rewrite, the last address is Hosting's: pass <code>{ trustedProxies: 1 }</code>, or count by a key of your own instead.</td></tr>
       </tbody>
     </table>
@@ -50,16 +50,16 @@ const pins = createPinStore('till', { maxAttempts: 5 });</code></pre>
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { consumeRateLimit, createPinStore, hashedKey, issueSignInToken } from '../app-kit/index.js';
 
-const pins = createPinStore('till');
+const pins = createPinStore('kiosk');
 const MINUTE = 60 * 1000;
 
-/** Staff sign in at a till: { uid, pin, deviceId } in, a sign-in token out. */
+/** Staff sign in at a kiosk: { uid, pin, deviceId } in, a sign-in token out. */
 export const signInWithAppPin = onCall(async (request) =&gt; {
   const uid = String(request.data?.uid ?? '');
   const deviceId = String(request.data?.deviceId ?? '');
   const tooMany = 'Too many tries. Wait a few minutes.';
-  await consumeRateLimit(hashedKey('till-device', deviceId), 30, 10 * MINUTE, tooMany);
-  await consumeRateLimit(hashedKey('till-staff', uid), 10, 10 * MINUTE, tooMany);
+  await consumeRateLimit(hashedKey('kiosk-device', deviceId), 30, 10 * MINUTE, tooMany);
+  await consumeRateLimit(hashedKey('kiosk-staff', uid), 10, 10 * MINUTE, tooMany);
 
   const result = await pins.check(uid, request.data?.pin);
   if (result.ok) return { token: await issueSignInToken(uid) };
@@ -80,7 +80,7 @@ export const setStaffPin = onCall(async (request) =&gt; {
 const { token } = (await arcCallable&lt;{ uid: string; pin: string; deviceId: string }, { token: string }&gt;(
   this.functions, 'custom-signInWithAppPin')({ uid, pin, deviceId })).data;
 await signInWithCustomToken(this.auth, token);</code></pre>
-    <div class="trap"><p>Say the same thing for a wrong uid as for a wrong PIN if your screen lets people type their own id: otherwise the answer tells a stranger which ids exist. On a till where staff pick their name from a list, that is already known and the plain messages above are fine.</p></div>
+    <div class="trap"><p>Say the same thing for a wrong uid as for a wrong PIN if your screen lets people type their own id: otherwise the answer tells a stranger which ids exist. On a kiosk where staff pick their name from a list, that is already known and the plain messages above are fine.</p></div>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

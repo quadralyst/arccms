@@ -17,10 +17,10 @@ describe('npm run i18n:member', () => {
         try {
             mkdirSync(join(root, 'src/assets/i18n'), { recursive: true });
             mkdirSync(join(root, 'src/custom/i18n'), { recursive: true });
-            writeFileSync(join(root, 'src/assets/i18n/en.json'), JSON.stringify({ user: { nav: { home: 'Home', shop: 'Shop' } }, admin: { a: 'A' } }));
-            writeFileSync(join(root, 'src/custom/i18n/en.json'), JSON.stringify({ till: { open: 'Open' } }));
+            writeFileSync(join(root, 'src/assets/i18n/en.json'), JSON.stringify({ user: { nav: { home: 'Home', events: 'Events' } }, admin: { a: 'A' } }));
+            writeFileSync(join(root, 'src/custom/i18n/en.json'), JSON.stringify({ desk: { open: 'Open' } }));
             writeFileSync(join(root, 'src/custom/i18n/de.json'), JSON.stringify({ user: { nav: { home: 'Start' } } }));
-            expect(await memberGaps('de', root, keys)).toEqual(['till.open', 'user.nav.shop']);
+            expect(await memberGaps('de', root, keys)).toEqual(['desk.open', 'user.nav.events']);
         } finally {
             rmSync(root, { recursive: true, force: true });
         }

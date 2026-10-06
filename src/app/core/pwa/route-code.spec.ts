@@ -10,7 +10,7 @@ const chunk = (file: string, facade: string | null, imports: string[] = [], dyna
 // main -> (lazy) app page -> (lazy) app child ; main -> (lazy) translation file
 const GRAPH: CodeChunk[] = [
     chunk('assets/index-A.js', '/r/src/main.ts', ['assets/vendor-A.js'], [
-        'assets/dashboard.page-A.js', 'assets/admin-content.page-A.js', 'assets/admin.page-A.js', 'assets/till.page-A.js', 'assets/hi-A.js',
+        'assets/dashboard.page-A.js', 'assets/admin-content.page-A.js', 'assets/admin.page-A.js', 'assets/kiosk.page-A.js', 'assets/hi-A.js',
     ], true),
     chunk('assets/vendor-A.js', null),
     chunk('assets/dashboard.page-A.js', '/r/src/app/pages/user/(dashboard)/dashboard.page.ts', ['assets/shared-A.js']),
@@ -20,8 +20,8 @@ const GRAPH: CodeChunk[] = [
     chunk('assets/editor-A.js', null),
     chunk('assets/admin-only-lazy-A.js', '/r/src/shared/components/editor/lazy.ts'),
     chunk('assets/shared-A.js', null),
-    chunk('assets/till.page-A.js', '/r/src/custom/pages/till.page.ts', [], ['assets/till-child-A.js']),
-    chunk('assets/till-child-A.js', '/r/src/custom/pages/till/child.ts'),
+    chunk('assets/kiosk.page-A.js', '/r/src/custom/pages/kiosk.page.ts', [], ['assets/kiosk-child-A.js']),
+    chunk('assets/kiosk-child-A.js', '/r/src/custom/pages/kiosk/child.ts'),
     chunk('assets/hi-A.js', '/r/src/assets/i18n/hi.json'),
 ];
 
@@ -33,7 +33,7 @@ describe('routeCodeFiles (specs/app-route-code-spec.md)', () => {
     it('app keeps every screen outside the admin area and what it imports, lazily too', () => {
         const files = routeCodeFiles(GRAPH, 'app');
         for (const f of ['assets/index-A.js', 'assets/vendor-A.js', 'assets/dashboard.page-A.js', 'assets/shared-A.js',
-            'assets/till.page-A.js', 'assets/till-child-A.js', 'assets/hi-A.js']) expect(files, f).toContain(f);
+            'assets/kiosk.page-A.js', 'assets/kiosk-child-A.js', 'assets/hi-A.js']) expect(files, f).toContain(f);
     });
 
     it('app leaves out admin pages and code only they reach, but keeps code they share with others', () => {
