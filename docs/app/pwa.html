@@ -100,6 +100,8 @@ export default class LockComponent {
     }
 }</code></pre>
     <div class="trap"><p>Arc CMS never calls <code>applyUpdate()</code> itself, on any page, so a page is never reloaded in the middle of a task. Call it only when the person is at a safe point. On a page without the flag, nothing changes: the bar shows as before.</p></div>
+    <h3 id="other-tabs">When another tab updates</h3>
+    <p>The app may be open in more than one tab or window. When someone updates in one of them, the new version takes over every open tab. A normal page reloads into it, as before. A page with <code>pwaUpdate: 'app'</code> does not reload: <code>updateReady()</code> stays true (or turns true), and your <code>applyUpdate()</code> reloads it into the new version at the next safe point. Until then the page keeps running the old version and may not open a screen it has not opened yet (<code>stale()</code>, below), so offer the update soon.</p>
     <div class="trap"><p>Do not leave an update waiting for long. A deploy replaces the old version's code files on the server, so a page of the old version that has not opened a screen yet cannot load it until the update is applied, unless its code was stored ahead (below). Offer the update at the next quiet moment, such as the lock screen.</p></div>
 
     <h2 id="open-screens-offline-and-after-a-deploy">Open screens offline and after a deploy</h2>

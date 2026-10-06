@@ -1,5 +1,6 @@
-import { computed, inject, Injectable, Injector, PLATFORM_ID, signal } from '@angular/core';
+import { computed, inject, Injectable, InjectionToken, Injector, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { Router } from '@angular/router';
 import { Auth } from '@angular/fire/auth';
 import { Functions } from '@angular/fire/functions';
 import { arcCallable } from '../config/arc-functions';
@@ -7,6 +8,7 @@ import { CUSTOM_PWA } from '../../../custom/pwa';
 import { resolvePwaConfig } from './pwa-config';
 import { detectPlatform, type PwaPlatform } from './pwa-platform';
 import { isOn } from '../features/features';
+import { routeOwnsPwaUpdate } from './pwa-update-route';
 
 /** This install's PWA settings (src/custom/pwa.ts over the core defaults, docs/features/pwa.html). */
 export const PWA = resolvePwaConfig(CUSTOM_PWA, isOn('pwa'));
@@ -26,6 +28,12 @@ interface BeforeInstallPromptEvent extends Event {
 export const SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
 /** How often an open app checks for a new version. */
 const UPDATE_CHECK_MS = 60 * 60 * 1000;
+
+/** Reloads the page into the new version. A token so tests can watch it. */
+export const PWA_RELOAD = new InjectionToken<() => void>('PwaReload', {
+    providedIn: 'root',
+    factory: () => () => location.reload(),
+});
 
 const KEY = {
     snoozedUntil: 'arc-pwa-snoozed-until',
@@ -62,6 +70,10 @@ export class PwaService {
     private deferredPrompt = signal<BeforeInstallPromptEvent | null>(null);
     private applier: ((reload?: boolean) => Promise<void>) | null = null;
     private registration: ServiceWorkerRegistration | null = null;
+    /** This page asked for the update (`applyUpdate()`), so it reloads once the new version takes over. */
+    private applying = false;
+    /** Another tab applied the update: the new version already runs this page's service worker. */
+    private switched = false;
 
     /** How to install here, or null when installing is not possible or already done. */
     readonly installMode = computed<InstallMode | null>(() => {
@@ -148,6 +160,12 @@ export class PwaService {
         if (!this.waiting()) return;
         this.waiting.set(false);
         this.barClosed.set(false);
+        if (this.switched) {
+            // Another tab already switched the service worker: a reload is all that is left.
+            this.injector.get(PWA_RELOAD)();
+            return;
+        }
+        this.applying = true;
         await this.applier?.(true);
     }
 
@@ -180,9 +198,14 @@ export class PwaService {
             const { registerSW } = await import('virtual:pwa-register');
             this.applier = registerSW({
                 onNeedRefresh: () => {
+                    this.switched = false; // a newer version waits: applying it goes through the service worker again
                     this.barClosed.set(false);
                     this.waiting.set(true);
                 },
+                // The new version took over this page's service worker, because this tab
+                // or another one applied it. Without this, the library reloads every open
+                // tab by itself (vite-plugin-pwa's register.js).
+                onNeedReload: () => this.onNewVersionInControl(),
                 onRegisteredSW: (_url, registration) => {
                     this.registration = registration ?? null;
                     if (registration) setInterval(() => void registration.update(), UPDATE_CHECK_MS);
@@ -191,6 +214,22 @@ export class PwaService {
         } catch (err) {
             console.warn('PWA: the service worker could not be registered.', err);
         }
+    }
+
+    /**
+     * A new version now controls this page. The tab that applied it, and a normal page,
+     * reload into it as before. A page that shows updates itself (`pwaUpdate: 'app'`) is
+     * never reloaded under someone: `updateReady()` turns true and the app calls
+     * `applyUpdate()` when it suits.
+     */
+    private onNewVersionInControl(): void {
+        if (!this.applying && routeOwnsPwaUpdate(this.injector.get(Router).routerState.snapshot.root)) {
+            this.switched = true;
+            this.barClosed.set(false);
+            this.waiting.set(true);
+            return;
+        }
+        this.injector.get(PWA_RELOAD)();
     }
 
     /**
