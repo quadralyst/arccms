@@ -83,7 +83,7 @@ gcloud storage buckets create gs://YOUR_BUCKET --location=YOUR_LOCATION</code></
       <thead><tr><th>File</th><th>Commit it?</th><th>Holds</th></tr></thead>
       <tbody>
         <tr><td><code class="new">arccms.config.json</code></td><td>No</td><td>Your choices, per project</td></tr>
-        <tr><td><code>src/environments/arc-install.ts</code></td><td>Yes</td><td>Each project's database, bucket, upload folder, admin-only sign-in and offline cache, for the website. The build uses the entry for its own Firebase project.</td></tr>
+        <tr><td><code>src/environments/arc-install.ts</code></td><td>Yes</td><td>Each project's database, bucket, upload folder, admin-only sign-in, offline cache and analytics consent, for the website. The build uses the entry for its own Firebase project.</td></tr>
         <tr><td><code class="new">functions/.env.{projectId}</code></td><td>No</td><td><code>ARC_DATABASE_ID</code>, <code>ARC_HOSTING_SITE</code>, <code>ARC_STORAGE_BUCKET</code>, <code>ARC_STORAGE_PREFIX</code> and the app audience settings, for the functions</td></tr>
         <tr><td><code class="new">firebase.{projectId}.json</code></td><td>No</td><td>The Firebase CLI config with the named database, bucket and site. Removed again when a project uses none of them.</td></tr>
       </tbody>

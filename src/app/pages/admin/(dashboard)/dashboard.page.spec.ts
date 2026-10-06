@@ -12,6 +12,7 @@ import { signal } from '@angular/core';
 import { vi, describe, beforeEach, it, expect } from 'vitest';
 import { AnalyticsStore } from './analytics.store';
 import { AnalyticsConnectionStatusService } from '../../../../shared/services/analytics-connection-status.service';
+import { SiteUsageService } from '../(settings)/site-usage/site-usage.service';
 import { GoogleOAuthService } from '../../../../shared/services/google-oauth.service';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
 import { DraftContentsService } from '../contents/draft-content-store/draft-contents.service';
@@ -124,6 +125,8 @@ describe('DashboardComponent', () => {
                 { provide: UserService, useValue: mockUserService },
                 { provide: EmailConfigStatusService, useValue: mockEmailConfigService },
                 { provide: AnalyticsConnectionStatusService, useValue: mockAnalyticsConnectionStatus },
+                // The tracking status line above the numbers (docs/features/analytics.html).
+                { provide: SiteUsageService, useValue: { bannerEnabled: signal(false), settingsLoaded: signal(true) } },
                 { provide: GoogleOAuthService, useValue: mockGoogleOAuthService },
                 { provide: WaitlistAdminStore, useValue: mockWaitlistAdminStore },
                 { provide: Firestore, useValue: mockFirestore }

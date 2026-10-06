@@ -1,4 +1,4 @@
-import { inject, Injectable, OnDestroy, PLATFORM_ID } from '@angular/core';
+import { inject, Injectable, OnDestroy, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Firestore, doc, getDoc, setDoc, serverTimestamp, onSnapshot } from '@angular/fire/firestore';
 import { from, map, Observable, of, catchError, BehaviorSubject } from 'rxjs';
@@ -20,7 +20,19 @@ export class SiteUsageService implements OnDestroy {
 
     private unsubscribeSnapshot: (() => void) | null = null;
 
+    private readonly choice = signal<SiteUsageState>('pending');
+    /** This visitor's answer on this device: `accepted`, `rejected` or `pending` (docs/features/analytics.html). */
+    readonly consent = this.choice.asReadonly();
+
+    private readonly bannerOn = signal(false);
+    private readonly loaded = signal(false);
+    /** Whether an admin turned the site usage banner on. False until the settings arrive. */
+    readonly bannerEnabled = this.bannerOn.asReadonly();
+    /** True once the settings have been read (or could not be), so `bannerEnabled` is the real answer. */
+    readonly settingsLoaded = this.loaded.asReadonly();
+
     constructor() {
+        this.choice.set(this.getUserConsentState());
         this.initRealtimeListener();
     }
 
@@ -53,12 +65,17 @@ export class SiteUsageService implements OnDestroy {
             if (snapshot.exists()) {
                 const data = snapshot.data() as ISiteUsageSettings;
                 this.settingsSubject.next({ ...data, id: snapshot.id });
+                this.bannerOn.set(data.isEnabled === true);
             } else {
                 this.settingsSubject.next({ ...DEFAULT_SITE_USAGE_SETTINGS });
+                this.bannerOn.set(false);
             }
+            this.loaded.set(true);
         }, (error) => {
             console.error('SiteUsageService: Error listening to settings:', error);
             this.settingsSubject.next({ ...DEFAULT_SITE_USAGE_SETTINGS });
+            this.bannerOn.set(false);
+            this.loaded.set(true);
         });
     }
 
@@ -132,6 +149,20 @@ export class SiteUsageService implements OnDestroy {
         } catch {
             // localStorage not available (SSR or restricted context)
         }
+        this.choice.set(state);
+    }
+
+    /**
+     * Ask again: forgets this device's answer, so the banner shows on the next page
+     * (when it is on). For a "Cookie settings" link (docs/features/analytics.html).
+     */
+    reopen(): void {
+        try {
+            if (typeof localStorage !== 'undefined') localStorage.removeItem(SITE_USAGE_STORAGE_KEY);
+        } catch {
+            // localStorage not available (SSR or restricted context)
+        }
+        this.choice.set('pending');
     }
 
     /**

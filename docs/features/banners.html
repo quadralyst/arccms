@@ -49,11 +49,11 @@
     <p>Both banners update in open browsers as soon as you save: nobody has to reload.</p>
     <ul>
       <li>The <strong>global message</strong> stays until you turn it off. Visitors cannot close it.</li>
-      <li>The <strong>site usage</strong> banner disappears for a visitor once they click accept or reject. The choice is kept in that browser only (local storage, key <code>arc_site_usage</code>), so they see it again in another browser or after clearing site data.</li>
+      <li>The <strong>site usage</strong> banner disappears for a visitor once they click accept or reject. The choice is kept in that browser only (local storage, key <code>arc_site_usage</code>), so they see it again in another browser or after clearing site data. An app can ask again with <code>reopen()</code> on <code>SiteUsageService</code>, for a "Cookie settings" link.</li>
       <li>The <strong>email not configured</strong> banner shows while the email master switch is off (see <a href="email.html#turn-it-on-or-off">Email engine</a>). An admin can close it in that browser tab; it shows again in a new tab until email is turned on.</li>
       <li>The <strong>Debug Provider</strong> banner stays while the Debug Provider is active, so a test setup is never taken for a live one.</li>
     </ul>
-    <div class="trap"><p>The site usage banner records the visitor's choice and then hides; tracking does not depend on that choice. Google Analytics runs whether the visitor accepts or rejects (see <a href="analytics.html">Analytics</a>). If your site must wait for consent before tracking, the banner alone does not provide it.</p></div>
+    <div class="trap"><p>Whether the visitor's choice decides tracking is an install setting. With <code>analyticsConsent</code> <code>always</code> (the default) Google Analytics runs whatever they choose; with <code>required</code> it runs only after they accept, and turning this banner off then means nobody is tracked. See <a href="analytics.html#consent">Analytics</a>.</p></div>
     <div class="note"><p>Both banners are drawn in the browser, not in the server-rendered HTML, so search engines and link previews do not see their text.</p></div>
 
     <h2>Extend it</h2>

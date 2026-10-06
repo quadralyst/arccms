@@ -468,11 +468,7 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
                         (result.data as Record<string, unknown>)['queuePosition'] as number || 0,
                         referralCode
                     );
-                    this.gaTracking.linkUserAfterSignup(
-                        this.userId,
-                        this.userData['email'] as string,
-                        this.currentWaitlistId!
-                    );
+                    this.gaTracking.linkUserAfterSignup(this.userId, this.currentWaitlistId!);
 
                     this.waitlistService.clearReferralCodeFromStorage();
 

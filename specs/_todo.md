@@ -155,7 +155,7 @@ and how it interacts with translations (edit the language you are viewing).
 
 ## Analytics
 
-### 6. Analytics that follows consent (future release, raised 2026-10-01)
+### 6. Analytics that follows consent (DONE 2026-10-06, specs/app-analytics-consent-spec.md)
 Today `app.config.ts` starts Firebase Analytics, `ScreenTrackingService` and
 `UserTrackingService` for every visitor. The Site Usage banner saves the visitor's
 choice to localStorage, but nothing applies it (docs/features/analytics.html says so).

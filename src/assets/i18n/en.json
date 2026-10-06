@@ -623,7 +623,15 @@
         "disconnecting": "Disconnecting...",
         "disconnect": "Disconnect",
         "connecting": "Connecting...",
-        "connect_button": "Connect Google Analytics"
+        "connect_button": "Connect Google Analytics",
+        "tracking": {
+          "all_visitors": "Tracking every visitor. This site does not wait for cookie consent.",
+          "consenting_visitors": "Tracking only visitors who accept cookies in the site usage banner, so these numbers cover only them.",
+          "nobody_banner_off": "Not tracking anyone. This site waits for cookie consent, and the site usage banner is off, so nobody can give it.",
+          "turn_on_banner": "Turn on the banner",
+          "no_measurement_id": "Not tracking anyone: the site's Firebase web settings have no measurement ID.",
+          "how_to_change": "A developer sets this for each site with npm run arc:configure -- --analytics-consent=always or required."
+        }
       },
       "test_connection": {
         "title": "Test Email Connection",

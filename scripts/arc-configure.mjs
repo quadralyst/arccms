@@ -30,6 +30,8 @@
  *   --admin-only-sign-in=yes|no   onboarding turns sign-ups off (CO6.6; default yes for backend)
  *   --offline-cache=off|single-tab|multi-tab   keep Firestore data on the device for use
  *                     offline (docs/app/offline.html; default off)
+ *   --analytics-consent=always|required   track every visitor, or only those who accepted
+ *                     the site usage banner (docs/features/analytics.html; default always)
  *   --dry-run   print what would change, write nothing
  *
  * With no arccms.config.json and no flags, every output is the default and a
@@ -75,7 +77,11 @@ const FLAG_KEYS = {
     'admin-only-sign-in': 'adminOnlySignIn',
     'app-users': 'appUsers',
     'offline-cache': 'offlineCache',
+    'analytics-consent': 'analyticsConsent',
 };
+
+/** When Google Analytics tracks a visitor (docs/features/analytics.html). */
+export const ANALYTICS_CONSENT_MODES = ['always', 'required'];
 
 /** Firestore's offline cache in the browser (docs/app/offline.html). */
 export const OFFLINE_CACHE_MODES = ['off', 'single-tab', 'multi-tab'];
@@ -138,6 +144,9 @@ export function validateConfig(config) {
     }
     if (config.offlineCache && !OFFLINE_CACHE_MODES.includes(config.offlineCache)) {
         errors.push(`offline-cache must be one of ${OFFLINE_CACHE_MODES.join(', ')}, not "${config.offlineCache}".`);
+    }
+    if (config.analyticsConsent && !ANALYTICS_CONSENT_MODES.includes(config.analyticsConsent)) {
+        errors.push(`analytics-consent must be one of ${ANALYTICS_CONSENT_MODES.join(', ')}, not "${config.analyticsConsent}".`);
     }
     if (config.adminOnlySignIn && !['yes', 'no'].includes(config.adminOnlySignIn)) {
         errors.push(`admin-only-sign-in must be yes or no, not "${config.adminOnlySignIn}".`);
@@ -204,6 +213,8 @@ export function appValues(config) {
     if (config.hostingSite) values.hostingSite = config.hostingSite;
     // Browser only: the functions never read it, so it is not in functions/.env.
     if (config.offlineCache && config.offlineCache !== 'off') values.offlineCache = config.offlineCache;
+    // Browser only, like the cache: the functions do not track anyone.
+    if (config.analyticsConsent === 'required') values.analyticsConsent = 'required';
     return Object.keys(values).length ? values : null;
 }
 

@@ -16,6 +16,7 @@ import { AnalyticsConnectionStatusService } from '../../../../../shared/services
 import { GoogleOAuthService } from '../../../../../shared/services/google-oauth.service';
 import { roleGuard } from '../../../../guards/role.guard';
 import { AnalyticsSettingService } from './analytics-setting.service';
+import { AnalyticsTrackingStatusComponent } from '../../../../core/analytics/analytics-status.component';
 import { DEFAULT_ANALYTICS_SETTINGS, IAnalyticsSettings } from './analytics-setting.model';
 
 export const routeMeta: RouteMeta = {
@@ -35,9 +36,10 @@ export const routeMeta: RouteMeta = {
         MatButtonModule,
         MatIconModule,
         MatProgressSpinnerModule,
-        MatTooltipModule, TranslocoPipe],
+        MatTooltipModule, TranslocoPipe, AnalyticsTrackingStatusComponent],
     template: `
         <div class="analytics-settings">
+            <arc-analytics-tracking-status />
             @if (isLoading()) {
                 <div class="disabled-state">
                     <div class="disabled-content">

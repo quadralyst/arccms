@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Analytics | Arc CMS docs</title>
-  <meta name="description" content="Track visits with Google Analytics and show your GA4 numbers on the admin dashboard by connecting the property once.">
-  <meta name="docs:sources" content="functions/src/AnalyticsDashboard, src/app/pages/admin/(settings)/analytics-setting, src/app/pages/admin/(dashboard), src/shared/services/ga-tracking.service.ts, src/shared/services/google-oauth.service.ts, src/shared/services/analytics-connection-status.service.ts, src/app/app.config.ts, src/app/app.ts, src/environments/environment.example.ts, firestore.rules">
+  <meta name="description" content="Track visits with Google Analytics, for every visitor or only after cookie consent, and show your GA4 numbers on the admin dashboard by connecting the property once.">
+  <meta name="docs:sources" content="functions/src/AnalyticsDashboard, functions/src/features/analytics.ts, src/app/core/analytics, src/app/pages/admin/(settings)/site-usage/site-usage.service.ts, src/app/pages/admin/(settings)/analytics-setting, src/app/pages/admin/(dashboard), src/shared/services/ga-tracking.service.ts, src/shared/services/google-oauth.service.ts, src/shared/services/analytics-connection-status.service.ts, src/app/app.config.ts, src/app/app.ts, src/environments/environment.example.ts, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/analytics.html">
@@ -31,13 +31,32 @@
         <tr><td><code>referral_code_used</code>, <code>referral_link_copy</code>, <code>leaderboard_view</code>, <code>unsubscribe_view</code></td><td>A <code>ref</code> code is in the address (any page), a referral link is copied, or a leaderboard or unsubscribe page is viewed</td></tr>
       </tbody>
     </table>
-    <p>Content events need the <a href="content.html">Content</a> feature, and signup form events the <a href="forms.html">Signup forms</a> feature. UTM parameters and a <code>ref</code> code in the address are saved as user properties. After a form sign-up, the visitor is linked to their user id, their email domain and the form.</p>
+    <p>Content events need the <a href="content.html">Content</a> feature, and signup form events the <a href="forms.html">Signup forms</a> feature. UTM parameters and a <code>ref</code> code in the address are saved as user properties. After a form sign-up, the visitor is linked to their user id and the form. Nothing from their email address is sent.</p>
     <p>The dashboard shows nine numbers for the last 28 days, each compared with the 28 days before: Users, New Users, Sessions, Bounce Rate, Avg. Duration, Pages/Session, Pageviews, Event Count and Engaged Sessions. Beside them are five lists: Top Pages, Traffic Sources, Devices, Top Countries, and AI assistants (sessions sent by AI assistants, which GA4 files under Referral).</p>
     <p>The other cards on the dashboard (content, users, sign-ups) are counted from Firestore, not from Google Analytics; see <a href="../admin/overview.html">Use the admin area</a>. App install numbers are on <a href="pwa.html">Installable app (PWA)</a>.</p>
 
     <h2>Turn it on or off</h2>
-    <p>Analytics is always on: it is core, not a switchable feature. Tracking runs whenever your Firebase web config has a <code>measurementId</code>. The dashboard part shows numbers only after you connect a property, and stops when you disconnect it.</p>
-    <div class="trap"><p>Tracking starts when a page loads and does not wait for the Site Usage banner (see <a href="banners.html">Banners</a>): Google Analytics runs whether a visitor accepts or rejects. If your site must have consent before tracking, the banner alone does not provide it.</p></div>
+    <p>Analytics is the feature <code>analytics</code>, on unless you list it in <code>off</code> in <code>src/custom/features.ts</code> (see <a href="../app/choose-features.html">Choose your app's features</a>). Off, no Google Analytics code loads in the browser at all, and the dashboard's analytics section, Admin, Settings, Analytics and the five functions below go.</p>
+    <p>On, tracking runs whenever your Firebase web config has a <code>measurementId</code>. The dashboard part shows numbers only after you connect a property, and stops when you disconnect it.</p>
+
+    <h2 id="consent">Consent</h2>
+    <p>Each install chooses whether Google Analytics waits for the visitor's consent, per Firebase project:</p>
+    <pre><code>npm run arc:configure -- --analytics-consent=required</code></pre>
+    <table>
+      <thead><tr><th>Value</th><th>Who is tracked</th></tr></thead>
+      <tbody>
+        <tr><td><code>always</code></td><td>The default, as Arc CMS always did: every visitor, from the first page. The <a href="banners.html">site usage banner</a>, if on, only records the visitor's choice.</td></tr>
+        <tr><td><code>required</code></td><td>Only visitors who clicked accept on the site usage banner. Until then <strong>no Google Analytics code is even downloaded</strong>, and no cookie is set. <strong>With the banner off, nobody is tracked</strong>, because nobody can accept.</td></tr>
+      </tbody>
+    </table>
+    <p>The value is written to <code>arccms.config.json</code> (key <code>analyticsConsent</code>) and <code>src/environments/arc-install.ts</code>; build and deploy the website for it to apply. Admin, Settings, Analytics and the dashboard say in one line which of these is happening, and warn when nobody is tracked because the banner is off, with a link to turn it on.</p>
+    <p>In <code>required</code> mode, after the visitor accepts, the same events are sent as in <code>always</code> mode: Google's page view, the screen views and user id Arc CMS's AngularFire setup sends, and the events above. The numbers then cover only those who accepted.</p>
+    <ul>
+      <li><strong>Withdrawing.</strong> A visitor who accepted and later rejects is not tracked from that moment, and Google's <code>_ga</code> cookies are deleted.</li>
+      <li><strong>Asking again.</strong> The banner shows once. To let visitors change their mind, add a "Cookie settings" link that calls <code>reopen()</code> on <code>SiteUsageService</code> (<code>src/app/pages/admin/(settings)/site-usage/site-usage.service.ts</code>); the banner then shows again.</li>
+      <li><strong>Per device.</strong> The choice is kept in the visitor's browser only (local storage, <code>arc_site_usage</code>), so they are asked again in another browser or after clearing site data.</li>
+      <li><strong>Pages never tracked.</strong> A route with <code>data: { analytics: false }</code> is never tracked, in either mode, and neither is any page below it (see <a href="../app/pages-and-routes.html#pages-never-tracked">Add pages and routes</a>).</li>
+    </ul>
 
     <h2>Set it up</h2>
     <h3>Tracking</h3>
@@ -56,7 +75,7 @@
     <p>To connect another property or another account, click <strong>Disconnect</strong> on Admin, Settings, Analytics, then connect again. Disconnecting revokes Arc CMS's access at Google.</p>
 
     <h2>Extend it</h2>
-    <p>Firebase Analytics is available in the browser through <code>@angular/fire/analytics</code>, so your own pages can log events with <code>logEvent</code>. Inject <code>Analytics</code> with <code>{ optional: true }</code>: it is not provided during server rendering. <code>GaTrackingService</code> (<code>src/shared/services/ga-tracking.service.ts</code>) is core; call its methods, but put new event helpers in your own code in <code>src/custom/</code>.</p>
+    <p>Log your own events with <code>AnalyticsService</code> (<code>src/app/core/analytics/analytics.service.ts</code>): <code>log(name, params)</code>, <code>setUserProperties()</code> and <code>setUserId()</code>. They send nothing unless this visitor may be tracked on this page right now (the feature, the consent mode and the route), so your events follow the same rules as Arc CMS's. Do not import <code>@angular/fire/analytics</code> or <code>firebase/analytics</code> yourself: that would bypass consent, and a test fails if any file outside <code>src/app/core/analytics</code> does. <code>GaTrackingService</code> (<code>src/shared/services/ga-tracking.service.ts</code>) is core; call its methods, but put new event helpers in your own code in <code>src/custom/</code>.</p>
     <p>The dashboard's metrics and lists are fixed in core (<code>functions/src/AnalyticsDashboard/analyticsHelpers.ts</code>). A different set is a feature request for Arc CMS, not a change in an app.</p>
 
     <h2>What it stores</h2>
@@ -101,7 +120,9 @@
         <tr><td>The Google popup shows an origin or redirect error, or "Authorization timed out"</td><td>The address you are on is not in the OAuth client's origins and redirect URIs; add it in the Google Cloud console. For a timeout, allow popups for your site.</td></tr>
         <tr><td>Dashboard shows placeholders, no numbers</td><td>The stored numbers are for another property. Click <strong>Refresh</strong>.</td></tr>
         <tr><td>"No GA4 property selected."</td><td>No property was picked when you connected, or the account can see none. On Admin, Settings, Analytics, click <strong>Disconnect</strong>, connect again, and pick a property.</td></tr>
-        <tr><td>No page views in Google Analytics</td><td>Check <code>measurementId</code> in the environment file, and look for Analytics in the browser's network requests.</td></tr>
+        <tr><td>No page views in Google Analytics</td><td>Check <code>measurementId</code> in the environment file, and look for Analytics in the browser's network requests. With <code>analyticsConsent</code> <code>required</code>, nothing is sent until you accept the site usage banner.</td></tr>
+        <tr><td>"Not tracking anyone" on Settings or the dashboard</td><td>The install waits for consent and the site usage banner is off. Turn the banner on (Admin, Settings, Site Usage), or set <code>--analytics-consent=always</code> if consent is not needed.</td></tr>
+        <tr><td>Far fewer visitors than before</td><td>With <code>required</code>, only visitors who accept are counted. That is expected.</td></tr>
       </tbody>
     </table>
   </main>

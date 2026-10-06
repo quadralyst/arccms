@@ -57,7 +57,10 @@ describe('App Component', () => {
             getSettings: vi.fn().mockReturnValue(mockSiteUsageSubject.asObservable()),
             getUserConsentState: vi.fn().mockReturnValue('pending'),
             shouldShowBanner: vi.fn().mockReturnValue(false),
-        };
+            consent: signal('pending'),
+            bannerEnabled: signal(false),
+            settingsLoaded: signal(true),
+        } as unknown as Partial<SiteUsageService>;
 
         mockGaTrackingService = {
             initializeTracking: vi.fn(),

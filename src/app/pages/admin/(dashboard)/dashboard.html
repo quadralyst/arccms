@@ -54,7 +54,9 @@
 }
 
 <div class="arc p-4">
-    <!-- Analytics Summary Section -->
+    @if (analyticsOn) {
+    <!-- Analytics Summary Section (the analytics feature) -->
+    <arc-analytics-tracking-status />
     <div class="section-header">
         <h2>{{ 'admin.dashboard.ga_overview' | transloco }}</h2>
         @if (analyticsData()[0]?.dateRange) {
@@ -181,6 +183,8 @@
             }
         </div>
     </div>
+    }
+
     }
 
     <!-- Content & Media Section (Media only, without the content feature) -->

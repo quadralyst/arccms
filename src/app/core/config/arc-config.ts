@@ -27,6 +27,13 @@ export const DEFAULT_FUNCTIONS_REGION = 'us-central1';
 export const OFFLINE_CACHE_MODES = ['off', 'single-tab', 'multi-tab'] as const;
 export type OfflineCacheMode = (typeof OFFLINE_CACHE_MODES)[number];
 
+/**
+ * When Google Analytics tracks a visitor (docs/features/analytics.html): `always`, as
+ * Arc CMS always did, or `required`, only once they accepted the site usage banner.
+ */
+export const ANALYTICS_CONSENT_MODES = ['always', 'required'] as const;
+export type AnalyticsConsentMode = (typeof ANALYTICS_CONSENT_MODES)[number];
+
 /** One project's entry in `arc-install.ts`, as written by `arc:configure`. */
 export interface ArcInstallConfig {
     /** Firestore database id. Default `(default)`. */
@@ -55,6 +62,11 @@ export interface ArcInstallConfig {
      * offline are sent later. Set by `arc:configure --offline-cache`. Default off.
      */
     offlineCache?: OfflineCacheMode;
+    /**
+     * Whether analytics waits for consent. Set by `arc:configure --analytics-consent`.
+     * Default `always`.
+     */
+    analyticsConsent?: AnalyticsConsentMode;
 }
 
 export interface ResolvedArcConfig {
@@ -69,6 +81,8 @@ export interface ResolvedArcConfig {
     hostingSite: string;
     /** `off` unless the install turned it on. */
     offlineCache: OfflineCacheMode;
+    /** `always` unless the install asks for consent first. */
+    analyticsConsent: AnalyticsConsentMode;
 }
 
 /** Fills in the defaults and normalises what was given. */
@@ -86,6 +100,8 @@ export function resolveArcConfig(raw: ArcInstallConfig | undefined): ResolvedArc
         offlineCache: OFFLINE_CACHE_MODES.includes(raw?.offlineCache as OfflineCacheMode)
             ? (raw!.offlineCache as OfflineCacheMode)
             : 'off',
+        // Only the exact word turns consent on; anything else keeps today's tracking.
+        analyticsConsent: raw?.analyticsConsent === 'required' ? 'required' : 'always',
     };
 }
 

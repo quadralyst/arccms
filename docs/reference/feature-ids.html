@@ -34,6 +34,7 @@
         <tr><td><code>data</code></td><td>On</td><td>None</td><td>The Data menu and its import and export pages. It has no functions. See <a href="../features/data.html">Data import and export</a>.</td></tr>
         <tr><td><code>pwa</code></td><td>Off</td><td>None</td><td>Turned on with <code>on: ['pwa']</code>. While off there is no web manifest, no app icons and no service worker, and the install tracking function <code>trackPwaEvent</code> is not deployed. See <a href="../features/pwa.html">Installable app (PWA)</a>.</td></tr>
         <tr><td><code>contact</code></td><td>On</td><td>None</td><td>The Messages menu item and page, and contact forms on published pages (they are removed from the page). Functions: <code>submitContactMessage</code>, <code>onContactMessageCreated</code>. See <a href="../features/contact.html">Contact form</a>.</td></tr>
+        <tr><td><code>analytics</code></td><td>On</td><td>None</td><td>Google Analytics: no tracking code loads in the browser at all, and the admin dashboard's analytics section and the Analytics settings page go. Functions: <code>connectGoogleAnalytics</code>, <code>selectAnalyticsProperty</code>, <code>refreshAnalyticsData</code>, <code>disconnectGoogleAnalytics</code>, <code>testAnalyticsConnection</code>. See <a href="../features/analytics.html">Analytics</a>.</td></tr>
       </tbody>
     </table>
 
@@ -52,7 +53,6 @@
       <li><a href="../features/automations.html">Automations</a> settings.</li>
       <li><a href="../features/notifications.html">Notifications</a> and the admin digest.</li>
       <li>The <a href="../features/feedback.html">Feedback button</a>.</li>
-      <li><a href="../features/analytics.html">Analytics</a>.</li>
       <li><a href="../features/banners.html">Banners</a>: the site message and the site usage banner.</li>
       <li>The member dashboard and profile, see <a href="../app/member-area.html">Build the member area</a>.</li>
     </ul>

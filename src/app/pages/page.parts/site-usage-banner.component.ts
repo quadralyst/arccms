@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit, signal, ChangeDetectionStrategy, PLATFORM_ID } from '@angular/core';
+import { Component, computed, effect, inject, OnInit, signal, ChangeDetectionStrategy, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
@@ -181,6 +181,14 @@ export class SiteUsageBannerComponent implements OnInit {
         return this.sitePages.pages().find((page) => page.url.split('/').pop() === 'cookie-policy')?.url || link;
     });
     private isAdminRoute = signal(false);
+
+    constructor() {
+        // The answer can change elsewhere too: reopen() brings the banner back.
+        effect(() => {
+            this.siteUsageService.consent();
+            this.updateBannerVisibility();
+        });
+    }
 
     ngOnInit(): void {
         // Only run in browser
