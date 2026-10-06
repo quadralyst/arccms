@@ -15,7 +15,7 @@ import { applySiteInfoToElement, applySiteInfoToHtml } from '../../app/core/site
 
 const ABOUT: SiteInfoSource = {
     name: 'Kumar & Sons <Studio>',
-    description: 'Websites for small shops.',
+    description: 'Websites for small businesses.',
     contactEmail: 'hello@kumar.example',
     phone: '+91 98765 43210',
     address: '12 MG Road\nBengaluru 560001',

@@ -63,10 +63,10 @@ describe('member keys (L-D8)', () => {
 
     it('name what a language still lacks, member core keys and the app\'s own', () => {
         const missing = missingMemberKeys({
-            coreEnglish: { user: { nav: { home: 'Home', shop: 'Shop' } }, admin: { x: 'Admin only' } },
-            customEnglish: { till: { open: 'Open till' } },
+            coreEnglish: { user: { nav: { home: 'Home', events: 'Events' } }, admin: { x: 'Admin only' } },
+            customEnglish: { desk: { open: 'Open the desk' } },
             translations: [{ user: { nav: { home: 'Start' } } }],
         });
-        expect(missing).toEqual(['till.open', 'user.nav.shop']);
+        expect(missing).toEqual(['desk.open', 'user.nav.events']);
     });
 });

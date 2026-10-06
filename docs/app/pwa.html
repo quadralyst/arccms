@@ -65,7 +65,7 @@
     </ol>
 
     <h2 id="show-the-update-yourself">Show the update yourself</h2>
-    <p>By default Arc CMS shows its own "A new version is ready" bar, and holds it back on <a href="pages-and-routes.html#full-screen-pages">full-screen pages</a> until a normal page opens. An app that lives entirely on full-screen pages (a kiosk, a till) would never see it. Such an app shows the update where it suits, such as a lock screen, and Arc CMS stays out of the way.</p>
+    <p>By default Arc CMS shows its own "A new version is ready" bar, and holds it back on <a href="pages-and-routes.html#full-screen-pages">full-screen pages</a> until a normal page opens. An app that lives entirely on full-screen pages (a kiosk, a check-in screen) would never see it. Such an app shows the update where it suits, such as a lock screen, and Arc CMS stays out of the way.</p>
     <ol class="steps">
       <li><p><strong>Tell Arc CMS the page owns the update.</strong> Add <code>pwaUpdate: 'app'</code> to the route's <code>data</code>. Every page below that route inherits it, and Arc CMS's own bar is not shown there at all. <code>'app'</code> is the only value; any other is ignored.</p>
         <pre><code>{ path: 'lock', loadComponent: () =&gt; import('./lock.component').then((m) =&gt; m.default),
@@ -103,7 +103,7 @@ export default class LockComponent {
     <div class="trap"><p>Do not leave an update waiting for long. A deploy replaces the old version's code files on the server, so a page of the old version that has not opened a screen yet cannot load it until the update is applied, unless its code was stored ahead (below). Offer the update at the next quiet moment, such as the lock screen.</p></div>
 
     <h2 id="open-screens-offline-and-after-a-deploy">Open screens offline and after a deploy</h2>
-    <p>The service worker stores the code every page needs when the app installs. The code of each screen is stored the first time it opens. So a screen never opened on this device cannot open offline, nor after a deploy has removed the old version's files from the server. An app that must open every screen, such as a till used through the day, has them stored ahead in <code>src/custom/pwa.ts</code>:</p>
+    <p>The service worker stores the code every page needs when the app installs. The code of each screen is stored the first time it opens. So a screen never opened on this device cannot open offline, nor after a deploy has removed the old version's files from the server. An app that must open every screen, such as a kiosk used through the day, has them stored ahead in <code>src/custom/pwa.ts</code>:</p>
     <pre><code>export const CUSTOM_PWA: Partial&lt;PwaConfig&gt; = {
     routeCode: 'app',
 };</code></pre>

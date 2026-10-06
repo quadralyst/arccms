@@ -337,12 +337,12 @@ const firebaseConfig = {
             });
 
             it('with several apps, takes the one an environment file names, else asks for --web-app', () => {
-                const apps = [{ appId: 'a', displayName: 'Admin', state: 'ACTIVE' }, { appId: 'b', displayName: 'Shop', state: 'ACTIVE' }];
+                const apps = [{ appId: 'a', displayName: 'Admin', state: 'ACTIVE' }, { appId: 'b', displayName: 'Kiosk', state: 'ACTIVE' }];
                 const run = vi.fn((_cmd: string, args: string[]) => args[0] === 'apps:list' ? answer(apps) : answer({ sdkConfig: sdk }));
                 configure.fetchWebConfig('acme-staging', { run, knownAppIds: ['b'] });
                 expect(run.mock.calls[1][1][2]).toBe('b');
                 expect(() => configure.fetchWebConfig('acme-staging', { run, knownAppIds: [] }))
-                    .toThrow(/2 web apps\. Choose one with --web-app=<appId>:\n {2}a {2}Admin\n {2}b {2}Shop/);
+                    .toThrow(/2 web apps\. Choose one with --web-app=<appId>:\n {2}a {2}Admin\n {2}b {2}Kiosk/);
             });
 
             it('skips the list when the app is given, and says what the CLI said when it fails', () => {

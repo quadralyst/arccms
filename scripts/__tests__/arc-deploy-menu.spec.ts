@@ -25,12 +25,12 @@ describe('the project', () => {
     it('asks for the id to be typed for production', () => {
         expect(needsTypedConfirmation('production', 'acme')).toBe(true);
         expect(needsTypedConfirmation('', 'arc-cms-live')).toBe(true);
-        expect(needsTypedConfirmation('', 'shop-prod')).toBe(true);
+        expect(needsTypedConfirmation('', 'acme-prod')).toBe(true);
         expect(needsTypedConfirmation('default', 'xlm-project-864ff')).toBe(false);
         expect(needsTypedConfirmation('default', 'deliverables')).toBe(false);
         // A project marked "production": "yes" in arccms.config.json, whatever its name (E-D9).
-        expect(needsTypedConfirmation('staging', 'acme-shop', true)).toBe(true);
-        expect(needsTypedConfirmation('staging', 'acme-shop', false)).toBe(false);
+        expect(needsTypedConfirmation('staging', 'acme-site', true)).toBe(true);
+        expect(needsTypedConfirmation('staging', 'acme-site', false)).toBe(false);
     });
 });
 

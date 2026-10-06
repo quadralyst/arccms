@@ -100,8 +100,8 @@ describe('unsubscribeToken', () => {
 
     it('prefers the liveUrl override and adds one trailing slash', () => {
       constantMock.isProduction = true;
-      expect(getPublicBaseUrl('https://shop.example.com')).toBe('https://shop.example.com/');
-      expect(getPublicBaseUrl('https://shop.example.com/')).toBe('https://shop.example.com/');
+      expect(getPublicBaseUrl('https://site.example.com')).toBe('https://site.example.com/');
+      expect(getPublicBaseUrl('https://site.example.com/')).toBe('https://site.example.com/');
     });
 
     it('uses constant.live_url in production when no override is set', () => {

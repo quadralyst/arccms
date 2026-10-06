@@ -22,7 +22,7 @@ describe('StaleCodeService (specs/app-route-code-spec.md)', () => {
             providers: [
                 provideRouter([
                     { path: '', component: Page },
-                    { path: 'till', component: Page, data: { fullScreen: true, pwaUpdate: 'app' } },
+                    { path: 'kiosk', component: Page, data: { fullScreen: true, pwaUpdate: 'app' } },
                     { path: 'lessons', loadComponent: missing },
                     { path: 'broken', loadComponent: () => Promise.reject(new Error('Something else')) },
                 ]),
@@ -73,7 +73,7 @@ describe('StaleCodeService (specs/app-route-code-spec.md)', () => {
 
     it('never reloads on a page where the app shows updates itself; stale() tells the app', async () => {
         const { service, router } = setup();
-        await router.navigateByUrl('/till');
+        await router.navigateByUrl('/kiosk');
         await router.navigateByUrl('/lessons').catch(() => undefined);
         expect(page.assign).not.toHaveBeenCalled();
         expect(page.reload).not.toHaveBeenCalled();
