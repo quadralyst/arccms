@@ -5,7 +5,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { IUser, UserFormData, COMPONENT_NAME } from './user.model';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { IUser, UserFormData, COMPONENT_NAME, accountKindConditions, ACCOUNT_KINDS, isAppAccount } from './user.model';
 import { UserRole, UserStatus } from '../../../../shared/components/base/base.component';
 import { IBaseModel } from '../../../../shared/models/base-model';
 
@@ -164,6 +166,31 @@ describe('User Model', () => {
         it('should be a string', () => {
             expect(typeof COMPONENT_NAME).toBe('string');
         });
+    });
+});
+
+describe('account kinds: All, People, App accounts', () => {
+    it('are All first, the default, with no condition', () => {
+        expect(ACCOUNT_KINDS).toEqual(['all', 'people', 'app']);
+        expect(accountKindConditions('all')).toEqual([]);
+    });
+
+    it('split the records by by: app accounts are by app, people are everything else', () => {
+        expect(accountKindConditions('app')).toEqual([{ field: 'by', operator: '==', value: 'app' }]);
+        expect(accountKindConditions('people')).toEqual([{ field: 'by', operator: '!=', value: 'app' }]);
+        expect(isAppAccount({ by: 'app' })).toBe(true);
+        expect(isAppAccount({ by: 'unknown' })).toBe(false);
+    });
+
+    it('have the indexes their queries need, with and without the Detached filter', () => {
+        const indexes = JSON.parse(readFileSync(join(__dirname, '..', '..', '..', '..', '..', 'firestore.indexes.json'), 'utf8')).indexes as Array<{ collectionGroup: string; fields: Array<{ fieldPath: string; order: string }> }>;
+        const users = indexes.filter((i) => i.collectionGroup === 'users').map((i) => i.fields.map((f) => `${f.fieldPath} ${f.order}`).join(', '));
+        expect(users).toEqual(expect.arrayContaining([
+            'by ASCENDING, createdAt DESCENDING',
+            'createdAt DESCENDING, by DESCENDING',
+            'status ASCENDING, by ASCENDING, createdAt DESCENDING',
+            'status ASCENDING, createdAt DESCENDING, by DESCENDING',
+        ]));
     });
 });
 

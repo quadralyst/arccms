@@ -1373,6 +1373,10 @@ export type TranslationKey =
     | 'admin.users.empty_description'
     | 'admin.users.empty_title'
     | 'admin.users.invalid_action'
+    | 'admin.users.kind_all'
+    | 'admin.users.kind_app'
+    | 'admin.users.kind_filter'
+    | 'admin.users.kind_people'
     | 'admin.users.none_selected'
     | 'admin.users.page_subtitle'
     | 'admin.users.page_title'
@@ -3176,6 +3180,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.users.empty_description',
     'admin.users.empty_title',
     'admin.users.invalid_action',
+    'admin.users.kind_all',
+    'admin.users.kind_app',
+    'admin.users.kind_filter',
+    'admin.users.kind_people',
     'admin.users.none_selected',
     'admin.users.page_subtitle',
     'admin.users.page_title',

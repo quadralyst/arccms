@@ -49,6 +49,8 @@ export * from './users/syncUserRole.js';
 export * from './users/adminCreateUser.js';
 // The account's own: claim refresh and deleting it (docs/app/account-contract.html).
 export * from './users/accountCallables.js';
+// Gives older records a `by`, so the users list can show only people.
+export * from './users/fillAccountSources.js';
 // Feedback button: sender details and the admins' alert (docs/features/feedback.html).
 export * from './feedback/onFeedbackCreated.js';
 

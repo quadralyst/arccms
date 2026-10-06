@@ -242,6 +242,7 @@ describe('every callable that reads the caller\'s own record has been reviewed f
         'email-core/notificationPrefs.ts': 'email preferences; an app account has no email, so there is nothing to change',
         'pwa/trackPwaEvent.ts': 'counts an install; not a change to the account',
         'users/adminCreateUser.ts': 'admin only',
+        'users/fillAccountSources.ts': 'admin only',
         'email-core/announcements.ts': 'admin only',
         'email-core/adminContactFields.ts': 'admin only',
         'email-core/backfillPendingContacts.ts': 'admin only',
