@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Testing | Arc CMS docs</title>
   <meta name="description" content="Run the Arc CMS test suite, run one file, and write component, Cloud Function, security rules and feature-aware specs the way the existing ones do.">
-  <meta name="docs:sources" content="vitest.config.ts, custom, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json">
+  <meta name="docs:sources" content="vitest.config.ts, custom, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, functions/src/users/claimLock.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/testing.html">
@@ -96,6 +96,8 @@ vi.mock('firebase-functions/v2/https', () =&gt; ({
 import { adminCreateUser } from '../users/adminCreateUser.js';</code></pre>
     <p>For a Firestore trigger, mock <code>firebase-functions/v2/firestore</code> so the trigger records its handler, and take the handler once, at the top of the file: <code>vi.mocked(onDocumentDeleted).mock.calls.at(-1)?.[1]</code>. <code>functions/src/__tests__/onUserDelete.spec.ts</code> shows the whole pattern.</p>
     <div class="trap"><p>Take a trigger's handler at the top of the file, not inside a test. <code>vi.clearAllMocks()</code> in a <code>beforeEach</code> empties the mock's call list, so a handler read inside a test is missing, and a test that returns early when it is missing passes without checking anything.</p></div>
+    <p>Code that writes claims (<code>mergeAppClaims()</code>, <code>createAppAccount()</code> and Arc CMS's own claims writes) takes a short lease in Firestore first, so a spec whose fake <code>db</code> has no transactions mocks the lease to simply run the work, as <code>functions/src/__tests__/appKit.spec.ts</code> does:</p>
+    <pre><code>vi.mock('../users/claimLock.js', () =&gt; ({ withClaimLock: (_uid: string, work: () =&gt; Promise&lt;unknown&gt;) =&gt; work() }));</code></pre>
 
     <h2>Feature switches in specs</h2>
     <p>Core specs test Arc CMS with its features on, whatever an app turns off in <code>src/custom/features.ts</code>, so an app that turns features off can still run the whole suite:</p>

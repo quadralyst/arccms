@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>App accounts | Arc CMS docs</title>
   <meta name="description" content="Create accounts for people with no email and no phone, such as staff, sign them in from your own function, give them your own claims, keep them from changing themselves, and clean up when they are deleted.">
-  <meta name="docs:sources" content="functions/src/app-kit, functions/src/users/claims.ts, functions/src/users/onUserCreate.ts, functions/src/users/onUserDelete.ts, functions/src/shared/blank.ts, functions/src/users/lockedAppAccount.ts, functions/src/auth/appAccountLock.ts, src/app/core/app-accounts, src/custom/app-accounts.ts, src/app/pages/admin/users">
+  <meta name="docs:sources" content="functions/src/app-kit, functions/src/users/claims.ts, functions/src/users/claimLock.ts, functions/src/users/onUserCreate.ts, functions/src/users/onUserDelete.ts, functions/src/shared/blank.ts, functions/src/users/lockedAppAccount.ts, functions/src/auth/appAccountLock.ts, src/app/core/app-accounts, src/custom/app-accounts.ts, src/app/pages/admin/users">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/app-accounts.html">
@@ -59,7 +59,8 @@ await mergeAppClaims(uid, { site: null }); // removes your "site" claim</code></
       <li>All of an account's claims together may take 1000 bytes as JSON. It refuses before writing when they would pass that.</li>
       <li>A new value reaches the browser at the person's next token refresh (within the hour), or at once after <code>getIdToken(true)</code>.</li>
     </ul>
-    <div class="trap"><p>Firebase cannot merge claims in one step: a write reads the claims, then replaces them all. Arc CMS reads each write back and redoes it if another write replaced it in between, so Arc CMS's claims and those set through <code>mergeAppClaims()</code> never lose each other. A program outside Arc CMS that calls <code>setCustomUserClaims</code> on the same accounts can still overwrite them; use <code>mergeAppClaims()</code> for all of your claims.</p></div>
+    <div class="trap"><p>Firebase cannot merge claims in one step: a write reads the claims, then replaces them all. So Arc CMS's own claims writes and <code>mergeAppClaims()</code> take turns on each account: a write holds a short lease (15 seconds) while it reads, writes and reads back, and another write on the same account waits for it. A write that changes nothing takes no lease. Two writes through Arc CMS keep each other's claims, with one exception: a write still running when its lease runs out can race the next one, and is then read back and redone if its claims are missing.</p>
+    <p>A program outside Arc CMS that calls <code>setCustomUserClaims</code> on the same accounts takes no lease, and can still overwrite them. Use <code>mergeAppClaims()</code> for all of your claims.</p></div>
 
     <h2 id="locked">Locked by default</h2>
     <p>An app account belongs to your app, not to the person using it. So it is locked: the person cannot change it, and Arc CMS's server and rules refuse each try, whatever the browser sends.</p>

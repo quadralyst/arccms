@@ -14,10 +14,12 @@
  *   Named with the `arccms_` prefix (specs/coexistence-spec.md, CO-D7) so an app
  *   sharing the sign-in pool cannot collide with it.
  *
- * Claims are always merged, never replaced, so claims set by anything else survive.
+ * Claims are always merged, never replaced, so claims set by anything else survive,
+ * and merges on one account run one at a time (claimLock.ts).
  */
 import { HttpsError } from 'firebase-functions/v2/https';
 import { owner } from '../init.js';
+import { withClaimLock } from './claimLock.js';
 
 export const USER_RECORD_CLAIM = 'arccms_uid';
 export const ROLE_CLAIM = 'arccms_role';
@@ -60,25 +62,31 @@ function applied(claims: Record<string, unknown>, patch: ClaimPatch): boolean {
  * Merge claims into an account: a value of `null` or `''` removes that claim, and
  * nothing is written when every claim already has its value.
  *
- * Firebase has no atomic merge: this reads the claims, then writes them all, so a
- * write by anyone else in between would be lost. Each write is therefore read back,
- * and redone on the fresh claims if the patch is missing (up to three times), so two
- * writers going through here (ArcCMS's own claims and an app's, mergeAppClaims)
- * both end up applied. A writer outside ArcCMS can still race (review F).
+ * Firebase has no atomic merge: a write reads the claims, then replaces them all. So
+ * every write that changes something holds the account's lease (withClaimLock,
+ * claimLock.ts) while it reads, writes and reads back, and writes going through here
+ * (ArcCMS's own claims and an app's, mergeAppClaims) run one after another. The read
+ * back stays as a second line: if the patch is missing (a writer that outlived its
+ * lease, or one outside ArcCMS calling setCustomUserClaims), it is redone on the fresh
+ * claims, up to three times. A writer outside ArcCMS can still overwrite the claims.
  * `check` sees the claims about to be written, and may refuse them.
  */
 export async function mergeClaims(uid: string, patch: ClaimPatch, check?: (next: Record<string, unknown>) => void): Promise<void> {
-    for (let attempt = 1; attempt <= CLAIM_WRITE_ATTEMPTS; attempt++) {
-        const user = await owner.getUser(uid);
-        const current: Record<string, unknown> = { ...(user.customClaims ?? {}) };
-        if (applied(current, patch)) return;
-        const next = mergedClaims(current, patch);
-        check?.(next);
-        await owner.setCustomUserClaims(uid, next);
-        const after = (await owner.getUser(uid)).customClaims ?? {};
-        if (applied(after, patch)) return;
-    }
-    throw new Error(`Could not set the claims on ${uid}: another write kept replacing them.`);
+    // Most calls change nothing (a role sync on an unchanged role): they cost no lease.
+    if (applied({ ...((await owner.getUser(uid)).customClaims ?? {}) }, patch)) return;
+    await withClaimLock(uid, async () => {
+        for (let attempt = 1; attempt <= CLAIM_WRITE_ATTEMPTS; attempt++) {
+            const user = await owner.getUser(uid);
+            const current: Record<string, unknown> = { ...(user.customClaims ?? {}) };
+            if (applied(current, patch)) return;
+            const next = mergedClaims(current, patch);
+            check?.(next);
+            await owner.setCustomUserClaims(uid, next);
+            const after = (await owner.getUser(uid)).customClaims ?? {};
+            if (applied(after, patch)) return;
+        }
+        throw new Error(`Could not set the claims on ${uid}: another write kept replacing them.`);
+    });
 }
 
 /** Merge ArcCMS's claims into an account (see mergeClaims). */
