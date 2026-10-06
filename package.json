@@ -22,6 +22,8 @@
     "test": "vitest",
     "test:rules": "node scripts/arc-rules-build.mjs && firebase emulators:exec --only firestore,storage --project demo-arccms-rules 'vitest run --config vitest.rules.config.ts'",
     "i18n:keys": "node scripts/generate-i18n-keys.mjs",
+    "i18n:member": "node scripts/i18n-member.mjs",
+    "i18n:pseudo": "node scripts/i18n-pseudo.mjs",
     "icons:index": "node scripts/generate-icon-index.mjs",
     "arc:configure": "node scripts/arc-configure.mjs",
     "arc:upgrade": "node scripts/arc-upgrade.mjs",

@@ -68,6 +68,7 @@ window.ARC_DOCS_NAV = [
       { path: "app/app-accounts.html", title: "App accounts" },
       { path: "app/app-kit.html", title: "The app kit" },
       { path: "app/pin.html", title: "PINs for your app" },
+      { path: "app/member-languages.html", title: "Member languages" },
       { path: "app/sign-in.html", title: "Set up sign-in" },
       { path: "app/payments.html", title: "Add payments and premium features" },
       { path: "app/pwa.html", title: "Make it installable" },

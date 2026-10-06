@@ -1,6 +1,6 @@
 # Member Languages Added by the App: Build Spec (A1)
 
-**Status:** spec written 2026-10-06, not built.
+**Status:** A1a (the mechanism) built 2026-10-06 on `feat/app-member-language`; A1b to A1d not built.
 **Branch:** `feat/app-member-language`, cut from `dev` (10c8734).
 **Scope:** an app built on Arc CMS adds a language Arc does not ship (for example German)
 and shows it to its members: signed-in non-admin people, and visitors on the sign-in
@@ -157,3 +157,14 @@ English; the app can set its own.
   sign-in screen after a reload. Remove the local files afterwards.
 - Password reset with a language Firebase has: check the email arrives in it, by Gunjan,
   against the dev project.
+
+**A1a built 2026-10-06.** As specced, with these notes:
+
+- `docs/app/member-languages.html` was written in A1a, not left to A1d, because the code
+  names it and the docs checks fail on a page that does not exist; A1d extends it.
+- The scripts read the TypeScript key list directly (Node 22.18); their tests pass vitest's
+  own loader, which cannot transform a TypeScript file given as a `file://` URL. The new
+  scripts have no shebang line: Vite puts an import above it when a module has a dynamic
+  import, which breaks the parse.
+- `npm run i18n:member -- --lang=de` on Arc CMS today lists 93 member keys; A1b and A1c add
+  the extracted screens to that list.
