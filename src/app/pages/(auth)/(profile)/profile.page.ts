@@ -4,6 +4,8 @@
  * Displays and manages user profile information.
  * Allows users to update their photo, name and password. Email, phone and
  * Google are managed in the Sign-in methods card (sign-in-methods.component.ts).
+ * A locked app account (docs/app/app-accounts.html) sees all of it read-only:
+ * no photo or name change, no sign-in methods, no password, no delete.
  */
 
 import { RouteMeta } from '@analogjs/router';
@@ -19,6 +21,7 @@ import { ConfirmationPopupComponent } from '../../../../shared/components/confir
 import { firstValueFrom } from 'rxjs';
 import { SignInMethodsComponent } from './sign-in-methods.component';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { isLockedAppAccount } from '../../../core/app-accounts/app-account-lock';
 
 export const routeMeta: RouteMeta = {
   title: 'Profile | Arc CMS',
@@ -65,6 +68,9 @@ export default class ProfileComponent extends BaseComponent {
   });
 
   currentUser = computed(() => this.authStore.currentUser());
+
+  /** An app account its app manages: everything here is read-only (the server refuses changes too). */
+  locked = computed(() => isLockedAppAccount(this.currentUser()));
 
   /** The role in the person's language: Arc CMS's own roles are translated, an app's own shows as it is. */
   roleLabel(): string {
@@ -129,6 +135,7 @@ export default class ProfileComponent extends BaseComponent {
    * staff-only in the rules.
    */
   openPhotoSelector(fileInput?: HTMLInputElement): void {
+    if (this.locked()) return;
     if (this.currentUser()?.role !== 'admin') {
       fileInput?.click();
       return;
@@ -177,6 +184,7 @@ export default class ProfileComponent extends BaseComponent {
   // --- Name ---
 
   editName(): void {
+    if (this.locked()) return;
     this.isEditingName.set(true);
     this.nameControl.setValue(this.currentUser()?.name || '');
     this.clearMessages();
@@ -271,9 +279,9 @@ export default class ProfileComponent extends BaseComponent {
   /** The server wants a fresh sign-in before deleting. */
   deleteNeedsSignIn = signal(false);
 
-  /** Admins are removed by another admin, under Users. */
+  /** Admins are removed by another admin, under Users; a locked app account by its app. */
   canDeleteAccount(): boolean {
-    return this.currentUser()?.role !== 'admin';
+    return this.currentUser()?.role !== 'admin' && !this.locked();
   }
 
   /** Deletes the account and everything stored under it (docs/app/account-contract.html). */

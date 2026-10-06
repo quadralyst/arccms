@@ -1948,7 +1948,8 @@
       "password_change_failed": "Failed to change password",
       "password_change_error": "An error occurred while changing password.",
       "delete_confirm_body": "This deletes your account and everything saved in it. <strong>It cannot be undone.</strong>",
-      "account_deleted": "Your account was deleted."
+      "account_deleted": "Your account was deleted.",
+      "app_managed": "This account is managed for you, so these details can't be changed here."
     },
     "methods": {
       "title": "Sign-in methods",

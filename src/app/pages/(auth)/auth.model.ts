@@ -25,6 +25,10 @@ export interface IAuth extends IBaseModel {
      * languages the site publishes in — see core/i18n/admin-language.service.ts.
      */
     preferredLanguage?: string;
+    /** How the account was made: `email`, `phone`, `google`, or `app` (createAppAccount). Server only. */
+    by?: string;
+    /** An app account its app lets change itself (docs/app/app-accounts.html). Server only. */
+    selfService?: boolean;
 }
 
 export const COMPONENT_NAME: string = 'Auth';

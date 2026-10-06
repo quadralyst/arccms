@@ -7,6 +7,7 @@ import { AuthState } from '../(auth)/auth.store';
 import { EntitlementService } from './entitlement.service';
 import { isOn } from '../../core/features/features';
 import { homeFor, USER_DASHBOARD } from '../../core/home/home';
+import { memberPagesOpen } from '../../core/app-accounts/app-account-lock';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { signInBrand } from '../page.parts/sign-in-panel.component';
 import { ConstantVariables } from '../../../shared/constants/common-constants';
@@ -46,6 +47,8 @@ import { ConstantVariables } from '../../../shared/constants/common-constants';
                     @if (appHome(); as home) {
                         <a [routerLink]="home"><i class="fa-solid fa-house"></i> {{ 'user.nav.home' | transloco }}</a>
                     }
+                    <!-- A locked app account its app keeps out of these pages sees none of them. -->
+                    @if (memberPages()) {
                     <a routerLink="/user/dashboard" routerLinkActive="active"><i class="fa-solid fa-gauge"></i> {{ 'user.nav.dashboard' | transloco }}</a>
                     @if (paymentsOn) {
                     <a routerLink="/user/payments" routerLinkActive="active"><i class="fa-solid fa-coins"></i> {{ 'user.nav.payments' | transloco }}</a>
@@ -53,6 +56,7 @@ import { ConstantVariables } from '../../../shared/constants/common-constants';
                     <a routerLink="/user/premium" routerLinkActive="active"><i class="fa-solid fa-star"></i> {{ 'user.nav.premium' | transloco }}</a>
                     }
                     <a routerLink="/user/profile" routerLinkActive="active"><i class="fa-solid fa-user"></i> {{ 'user.nav.profile' | transloco }}</a>
+                    }
                     @if (paymentsOn) {
                     <a routerLink="/pricing" routerLinkActive="active"><i class="fa-solid fa-tag"></i> {{ 'user.nav.plans' | transloco }}</a>
                     }
@@ -113,6 +117,9 @@ export class UserShellComponent implements OnInit {
         const home = homeFor(this.authState.currentUser()?.role);
         return home === USER_DASHBOARD || home.startsWith('/admin') ? null : home;
     });
+
+    /** Whether this person may open Arc CMS's member pages (src/custom/app-accounts.ts). */
+    readonly memberPages = computed(() => memberPagesOpen(this.authState.currentUser()));
 
     displayName(): string {
         const u = this.authState.currentUser();

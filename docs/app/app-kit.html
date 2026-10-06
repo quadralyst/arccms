@@ -20,7 +20,7 @@
     <table id="exports">
       <thead><tr><th>Export</th><th>What it does</th><th>Guide</th></tr></thead>
       <tbody>
-        <tr><td><code>createAppAccount()</code></td><td>Creates a sign-in account and its <code>users</code> record for a person with no email and no phone. Takes <code>{ displayName, claims?, uid? }</code>, returns <code>{ uid, userDocId }</code>.</td><td><a href="app-accounts.html">App accounts</a></td></tr>
+        <tr><td><code>createAppAccount()</code></td><td>Creates a sign-in account and its <code>users</code> record for a person with no email and no phone. Takes <code>{ displayName, claims?, uid?, selfService? }</code>, returns <code>{ uid, userDocId }</code>. The account is locked unless <code>selfService</code> is <code>true</code>.</td><td><a href="app-accounts.html">App accounts</a></td></tr>
         <tr><td><code>deleteAppAccount()</code></td><td>Deletes a person's account by their Auth uid; Arc CMS's account deletion does the rest and announces <code>user.deleted</code>.</td><td><a href="app-accounts.html#delete-an-account">App accounts</a></td></tr>
         <tr><td><code>APP_ACCOUNT</code></td><td><code>'app'</code>: the <code>by</code> value of a record <code>createAppAccount()</code> made.</td><td><a href="app-accounts.html">App accounts</a></td></tr>
         <tr><td><code>mergeAppClaims()</code></td><td>Merges your own claims into any account: refuses <code>arccms_</code> and Firebase's reserved names and anything over Firebase's 1000-byte limit, never replaces what is there, removes a claim with <code>null</code>.</td><td><a href="app-accounts.html#your-own-claims">App accounts</a></td></tr>

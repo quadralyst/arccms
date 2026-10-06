@@ -16,6 +16,7 @@ import { OmitCommonFields } from '../../../shared/models/base-model';
 import { QueryParams, WhereCondition } from '../../../shared/models';
 import { ToastService } from '../../../shared/services/toast.service';
 import { IAuth } from './auth.model';
+import { isLockedAppAccount } from '../../core/app-accounts/app-account-lock';
 import { AuthService } from './auth.service';
 import { readSignInError, SignInService } from './sign-in.service';
 import { TranslocoService } from '@jsverse/transloco';
@@ -299,6 +300,12 @@ export const AuthState = signalStore(
                     patchState(store, { isLoading: true, isSuccess: false, error: '' });
 
                     const oldCurrentUser = store.currentUser();
+                    // A locked app account keeps the name and photo its app gave it: refused
+                    // here before Firebase's own profile changes, as the rules refuse the record.
+                    if (isLockedAppAccount(oldCurrentUser) && ('name' in updatedFields || 'photo' in updatedFields)) {
+                        patchState(store, { isLoading: false, isSuccess: false, error: say('member.profile.app_managed') });
+                        return;
+                    }
                     try {
                         const result = await authService.updateUser(id, updatedFields);
                         if (result === 'auth/wrong-password' || result === 'auth/too-many-requests') {
@@ -328,6 +335,10 @@ export const AuthState = signalStore(
 
                 async changePassword(passwordData: { currentPassword: string; newPassword: string }) {
                     patchState(store, { isLoading: true, isSuccess: false, error: '' });
+                    if (isLockedAppAccount(store.currentUser())) {
+                        patchState(store, { isLoading: false, isSuccess: false, error: say('member.profile.app_managed') });
+                        return;
+                    }
                     try {
                         const result = await authService.updatePassword(passwordData);
                         if (result === 'Password updated') {

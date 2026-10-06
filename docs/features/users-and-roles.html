@@ -76,7 +76,7 @@
     <table>
       <thead><tr><th>Where</th><th>What</th></tr></thead>
       <tbody>
-        <tr><td><code>users/{docId}</code></td><td><code>uid</code>, <code>name</code>, <code>email</code>, <code>phone</code>, <code>photo</code>, <code>role</code>, <code>status</code>, <code>isActive</code>, <code>authOwner</code>, <code>by</code> (how it was made), and the fields of other features (plan, credits, app install).</td></tr>
+        <tr><td><code>users/{docId}</code></td><td><code>uid</code>, <code>name</code>, <code>email</code>, <code>phone</code>, <code>photo</code>, <code>role</code>, <code>status</code>, <code>isActive</code>, <code>authOwner</code>, <code>by</code> (how it was made), <code>selfService</code> (only on app accounts), and the fields of other features (plan, credits, app install).</td></tr>
         <tr><td><code>Settings/users</code></td><td>Sign-ups on or off, the default role, the sign-in method switches.</td></tr>
         <tr><td><code>_system/first_admin</code></td><td>Marks that the first admin was claimed.</td></tr>
         <tr><td><code>ErasureLog/{emailHash}</code></td><td>A receipt for each erased contact, with no address in it.</td></tr>
@@ -89,7 +89,7 @@
       <thead><tr><th>Function</th><th>Does</th></tr></thead>
       <tbody>
         <tr><td><code>adminCreateUser</code></td><td>Callable, admins: Add User.</td></tr>
-        <tr><td><code>deleteMyAccount</code></td><td>Callable: the person deletes their own account.</td></tr>
+        <tr><td><code>deleteMyAccount</code></td><td>Callable: the person deletes their own account. Never a locked app account: its app deletes it (<a href="../app/app-accounts.html#locked">App accounts</a>).</td></tr>
         <tr><td><code>refreshMyClaims</code></td><td>Callable: puts the claims back on the caller's token at sign-in.</td></tr>
         <tr><td><code>claimFirstAdmin</code></td><td>Callable: the setup wizard's first admin, once.</td></tr>
         <tr><td><code>syncAllUserRoles</code></td><td>Callable, admins: re-applies every account's claims from its record.</td></tr>

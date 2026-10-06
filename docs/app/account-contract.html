@@ -25,7 +25,7 @@
         <tr><td>Their plan</td><td>The premium fields on the record: <a href="payments.html">Add payments and premium features</a></td></tr>
         <tr><td>Their private data</td><td><code>users/{userDocId}/...</code> in Firestore and in Storage</td></tr>
         <tr><td>Clean up data kept elsewhere</td><td>A trigger on <code>users/{docId}</code> deletes, or the <code>user.deleted</code> event</td></tr>
-        <tr><td>An account for someone with no email and no phone</td><td><code>createAppAccount()</code> from the app kit: <a href="app-accounts.html">App accounts</a>. Its record has <code>email</code> and <code>phone</code> set to <code>''</code> and <code>by: 'app'</code></td></tr>
+        <tr><td>An account for someone with no email and no phone</td><td><code>createAppAccount()</code> from the app kit: <a href="app-accounts.html">App accounts</a>. Its record has <code>email</code> and <code>phone</code> set to <code>''</code> and <code>by: 'app'</code>, and the person cannot change or delete it (<a href="app-accounts.html#locked">Locked by default</a>)</td></tr>
       </tbody>
     </table>
 

@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 import { roleGuard } from './guards/role.guard';
 import { languageRedirect, languageRouteGuard } from './guards/language.guard';
 import { publicContentTypeGuard } from './core/site/public-content-types';
-import { userGuard, entitledGuard } from './pages/user/user.guards';
+import { memberPagesGuard, entitledGuard } from './pages/user/user.guards';
 import { CUSTOM_ROUTES } from '../custom/routes';
 import { CUSTOM_USER_DASHBOARD } from '../custom/user-dashboard';
 import { FEATURE_OFF_ROUTE, whenOn } from './core/features/feature-routes';
@@ -220,7 +220,7 @@ export const routes: Routes = [
   {
     path: 'user/dashboard',
     title: 'Dashboard | Arc CMS',
-    canActivate: [userGuard],
+    canActivate: [memberPagesGuard],
     loadComponent: CUSTOM_USER_DASHBOARD
       ?? (() => import('./pages/user/(dashboard)/dashboard.page').then((m) => m.default)),
   },
@@ -228,7 +228,7 @@ export const routes: Routes = [
   // Member profile (rendered in the user shell, not the admin shell)
   {
     path: 'user/profile',
-    canActivate: [userGuard],
+    canActivate: [memberPagesGuard],
     loadComponent: () =>
       import('./pages/user/profile/user-profile.page').then((m) => m.default),
   },
@@ -556,7 +556,7 @@ export const routes: Routes = [
   // Member account / billing (sign-in required)
   {
     path: 'account',
-    canActivate: [userGuard],
+    canActivate: [memberPagesGuard],
     loadComponent: () =>
       import('./pages/account/account.page').then((m) => m.default),
   },
@@ -564,14 +564,14 @@ export const routes: Routes = [
   ...whenOn('payments', [{
     path: 'user/payments',
     title: 'Payments | Arc CMS',
-    canActivate: [userGuard],
+    canActivate: [memberPagesGuard],
     loadComponent: () =>
       import('./pages/user/payments/payments.page').then((m) => m.default),
   }]),
   // Members-only premium area (paid entitlement required)
   {
     path: 'user/premium',
-    canActivate: [userGuard, entitledGuard],
+    canActivate: [memberPagesGuard, entitledGuard],
     loadComponent: () =>
       import('./pages/user/premium/premium.page').then((m) => m.default),
   },
