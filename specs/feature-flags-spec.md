@@ -20,7 +20,7 @@ example Broadcasts on and Drips off), removing a feature's security rules or ind
 | # | Decision | Choice |
 |---|----------|--------|
 | F-D1 | Who chooses | **The developer, at build time.** One file in the custom space. A runtime switch could only hide things; it could not keep code and functions out. No admin toggle. |
-| F-D2 | What can be switched | **Ten features** (section 2). Everything else is core and always on, including users, the media manager, multilingual, feedback, notifications and Google Analytics. |
+| F-D2 | What can be switched | **Ten features** (section 2). Everything else is core and always on, including users, the media manager, multilingual, feedback, notifications and Google Analytics. (2026-10-06: Google Analytics became the switchable `analytics` feature, specs/app-analytics-consent-spec.md.) |
 | F-D3 | Functions of a feature that is off | **Not exported, so the next full functions deploy deletes them.** This stops scheduled jobs and triggers costing money and closes their endpoints. |
 | F-D4 | Content | **Switchable.** A pure product app can have no CMS pages at all. Search can stay on for the app's own sources, with nothing of content to index. |
 | F-D5 | Where the choice lives | `src/custom/features.ts`, a new custom starter file that ships empty. **Empty means every feature on except the PWA**, so every existing app pulls this change with nothing to do. The app lists what it does not want, `off: ['payments', 'sms']`, and the off-by-default features it does want, `on: ['pwa']`. No presets. |
@@ -58,7 +58,7 @@ any public site, and the sitemap lists whatever pages exist.
 **Core, always on:** sign-in and sign-up (email, Google), users, profile, the media
 manager (library, pickers, Unsplash), multilingual (Localization settings, public language switcher, `/:lang/...` pages),
 feedback (it has its own on/off in Settings), notifications (bell, pages, digest,
-notification emails), Google Analytics (dashboard, settings, tracking), the settings
+notification emails), the settings
 shell, About, the email engine (provider, brand kit, composer, transactional
 templates, email logs, unsubscribe and preferences), AppEvents and automations,
 global message banner, site-usage banner, "powered by" footer, the admin UI language

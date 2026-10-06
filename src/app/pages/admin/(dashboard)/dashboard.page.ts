@@ -21,6 +21,7 @@ import { UserService } from '../users/user.service';
 import { roleGuard } from '../../../guards/role.guard';
 import { PWA } from '../../../core/pwa/pwa.service';
 import { isOn } from '../../../core/features/features';
+import { AnalyticsTrackingStatusComponent } from '../../../core/analytics/analytics-status.component';
 import { PwaStatsService } from '../../../core/pwa/pwa-stats.service';
 
 export const routeMeta: RouteMeta = {
@@ -32,7 +33,7 @@ export const routeMeta: RouteMeta = {
 @Component({
   selector: 'arc-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, PageHeaderComponent, TranslocoPipe],
+  imports: [CommonModule, RouterLink, PageHeaderComponent, TranslocoPipe, AnalyticsTrackingStatusComponent],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
 })
@@ -91,6 +92,8 @@ export default class DashboardComponent extends BaseComponent {
   readonly contentOn = isOn('content');
   readonly formsOn = isOn('forms');
   readonly audienceOn = isOn('audience');
+  /** Google Analytics: the numbers section, its header buttons and the auto-refresh. */
+  readonly analyticsOn = isOn('analytics');
   /** Where "View all" in Growth & Leads goes: the richest list this app has. */
   readonly growthLink = this.formsOn ? '/admin/waitlists' : this.audienceOn ? '/admin/contacts' : '/admin/users';
   pwaStats = inject(PwaStatsService);
@@ -156,6 +159,7 @@ export default class DashboardComponent extends BaseComponent {
 
     // Reactively auto-refresh analytics when connection status becomes available
     effect(() => {
+      if (!this.analyticsOn) return;
       const connected = this.analyticsConnectionStatus.isConnected();
       const loading = this.analyticsConnectionStatus.isLoading();
       if (loading || this.autoRefreshTriggered) return;
@@ -173,7 +177,7 @@ export default class DashboardComponent extends BaseComponent {
   }
 
   ngOnInit(): void {
-    this.subscribeToData(this.analyticsStore);
+    if (this.analyticsOn) this.subscribeToData(this.analyticsStore);
     // Every content type, through the store's own no-limit default. The
     // BaseComponent helper pages at ten, which silently dropped the oldest
     // types from the cards and the "Managing N content types" line on a

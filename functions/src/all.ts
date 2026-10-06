@@ -65,11 +65,6 @@ export * from './email-log/scheduledPurgeEmailLogs.js';
 
 export * from './mail-config/testSmtpConfigConnection.js';
 export * from './mail-config/testProviderConnection.js';
-export * from './AnalyticsDashboard/testAnalyticsConnection.js';
-export * from './AnalyticsDashboard/connectGoogleAnalytics.js';
-export * from './AnalyticsDashboard/refreshAnalyticsData.js';
-export * from './AnalyticsDashboard/disconnectGoogleAnalytics.js';
-export * from './AnalyticsDashboard/selectAnalyticsProperty.js';
 
 // Unsplash proxy — keeps API key server-side
 export * from './integrations/searchUnsplash.js';

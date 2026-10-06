@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Add pages and routes | Arc CMS docs</title>
   <meta name="description" content="Add your app's public, member and admin pages with CUSTOM_ROUTES and page files, protect them with guards, and avoid the admin page trap.">
-  <meta name="docs:sources" content="src/custom/routes.ts, src/custom/pages, src/app/app.routes.ts, src/app/guards/role.guard.ts, src/app/pages/user/user.guards.ts, src/app/pages/admin.page.ts, src/app/core/features/feature-routes.ts, src/app/core/layout/full-screen.service.ts, src/app/core/pwa/pwa-update-route.ts, src/app/app.ts, src/styles.css, vite.config.ts, firebase.json">
+  <meta name="docs:sources" content="src/custom/routes.ts, src/custom/pages, src/app/app.routes.ts, src/app/guards/role.guard.ts, src/app/pages/user/user.guards.ts, src/app/pages/admin.page.ts, src/app/core/features/feature-routes.ts, src/app/core/layout/full-screen.service.ts, src/app/core/pwa/pwa-update-route.ts, src/app/core/analytics/analytics-route.ts, src/app/app.ts, src/styles.css, vite.config.ts, firebase.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/pages-and-routes.html">
@@ -140,6 +140,11 @@ export const routeMeta: RouteMeta = {
   canActivate: [userGuard],
 };</code></pre>
     <p>A page file needs no entry in <code>src/custom/routes.ts</code>. Your explicit routes come before the file-based pages, so when both give the same address, the explicit route is used. Explicit routes remain the recommended way, and the only one for admin pages.</p>
+
+    <h2 id="pages-never-tracked">Pages that are never tracked</h2>
+    <p>A page that must not be tracked by Google Analytics, such as a children's screen, says so on its route. Every page below that route inherits it:</p>
+    <pre><code>{ path: 'kids', loadChildren: () =&gt; import('./kids/kids.routes').then((m) =&gt; m.KIDS_ROUTES), data: { analytics: false } }</code></pre>
+    <p>On such a page collection is off from the moment the route is recognised, before the page shows, and it turns on again on the next tracked page. Nothing is reloaded. What was sent before the person reached the page stays sent, so keep personal details out of the addresses that lead there. See <a href="../features/analytics.html">Analytics</a>.</p>
 
     <h2>Full-screen pages</h2>
     <p>Around every page, Arc CMS shows the admin's message banner, the powered-by footer, the site usage (cookie) banner, the installed app's update bar and the feedback button. A game, a player, a kiosk or a presentation screen needs the whole screen instead. Say so on its route:</p>

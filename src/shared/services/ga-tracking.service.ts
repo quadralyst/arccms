@@ -1,12 +1,13 @@
 /**
  * Google Analytics Tracking Service
  *
- * Centralized service for custom event tracking and user session management
- * using Firebase/Google Analytics 4.
+ * Arc CMS's own events (docs/features/analytics.html). Every call goes through
+ * AnalyticsService, which sends nothing unless this visitor may be tracked on this page
+ * right now: the analytics feature, the install's consent mode and the route opt-out.
  */
 import { Injectable, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Analytics, logEvent, setUserId, setUserProperties } from '@angular/fire/analytics';
+import { AnalyticsService } from '../../app/core/analytics/analytics.service';
 
 export type WaitlistFunnelEvent =
     | 'waitlist_view'
@@ -21,14 +22,14 @@ export type WaitlistFunnelEvent =
 
 @Injectable({ providedIn: 'root' })
 export class GaTrackingService {
-    private analytics = inject(Analytics, { optional: true });
+    private analytics = inject(AnalyticsService);
     private platformId = inject(PLATFORM_ID);
 
     private initialized = false;
 
     /** Initialize tracking - call once on app startup */
     initializeTracking(): void {
-        if (!isPlatformBrowser(this.platformId) || this.initialized || !this.analytics) return;
+        if (!isPlatformBrowser(this.platformId) || this.initialized) return;
 
         this.trackUtmParameters();
         this.initialized = true;
@@ -51,9 +52,7 @@ export class GaTrackingService {
             this.trackEvent('referral_code_used', { referral_code: refCode });
         }
 
-        if (Object.keys(utmParams).length > 0 && this.analytics) {
-            setUserProperties(this.analytics, utmParams);
-        }
+        if (Object.keys(utmParams).length > 0) this.analytics.setUserProperties(utmParams);
     }
 
     // ========== PUBLIC PAGE EVENTS ==========
@@ -134,26 +133,17 @@ export class GaTrackingService {
         this.trackEvent('unsubscribe_view', { waitlist_id: waitlistId, user_id: userId });
     }
 
-    /** Link anonymous user to registered user after signup */
-    linkUserAfterSignup(userId: string, email: string, waitlistId: string): void {
-        if (!this.analytics) return;
-        setUserId(this.analytics, userId);
-        setUserProperties(this.analytics, {
-            user_email_domain: email.split('@')[1],
-            primary_waitlist: waitlistId,
-        });
+    /**
+     * Link the visitor to their account after a form sign-up: the user id and the form.
+     * Nothing derived from the email address is sent (no domain).
+     */
+    linkUserAfterSignup(userId: string, waitlistId: string): void {
+        this.analytics.setUserId(userId);
+        this.analytics.setUserProperties({ primary_waitlist: waitlistId });
     }
 
     private trackEvent(eventName: string, params?: Record<string, unknown>): void {
-        if (!isPlatformBrowser(this.platformId) || !this.analytics) return;
-
-        try {
-            logEvent(this.analytics, eventName, {
-                ...params,
-                timestamp: Date.now(),
-            });
-        } catch (error) {
-            console.warn(`GA event "${eventName}" failed:`, error);
-        }
+        if (!isPlatformBrowser(this.platformId)) return;
+        this.analytics.log(eventName, { ...params, timestamp: Date.now() });
     }
 }

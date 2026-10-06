@@ -158,4 +158,38 @@ describe('SiteUsageService', () => {
         expect(() => service.ngOnDestroy()).not.toThrow();
         expect(mockUnsubscribe).not.toHaveBeenCalled();
     });
+    describe('consent, for analytics (docs/features/analytics.html)', () => {
+        beforeEach(() => localStorage.clear());
+
+        it('starts from this device\'s saved answer', () => {
+            localStorage.setItem(SITE_USAGE_STORAGE_KEY, 'accepted');
+            expect(makeService('browser').consent()).toBe('accepted');
+        });
+
+        it('follows a new answer, and reopen() asks again', () => {
+            const service = makeService('browser');
+            expect(service.consent()).toBe('pending');
+            service.setUserConsentState('rejected');
+            expect(service.consent()).toBe('rejected');
+            service.reopen();
+            expect(service.consent()).toBe('pending');
+            expect(localStorage.getItem(SITE_USAGE_STORAGE_KEY)).toBeNull();
+        });
+
+        it('knows whether the banner is on once the settings arrive, and treats a failed read as off', () => {
+            const service = makeService('browser');
+            expect(service.settingsLoaded()).toBe(false);
+            expect(service.bannerEnabled()).toBe(false);
+            const [, onNext, onError] = mockOnSnapshot.mock.calls[0];
+            onNext({ exists: () => true, id: 'site-usage', data: () => ({ ...DEFAULT_SITE_USAGE_SETTINGS, isEnabled: true }) });
+            expect(service.bannerEnabled()).toBe(true);
+            expect(service.settingsLoaded()).toBe(true);
+            onNext({ exists: () => false });
+            expect(service.bannerEnabled()).toBe(false);
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            onNext({ exists: () => true, id: 'site-usage', data: () => ({ ...DEFAULT_SITE_USAGE_SETTINGS, isEnabled: true }) });
+            onError(new Error('denied'));
+            expect(service.bannerEnabled()).toBe(false);
+        });
+    });
 });

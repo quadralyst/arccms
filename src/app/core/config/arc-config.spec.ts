@@ -14,6 +14,7 @@ describe('arc-config (frontend)', () => {
                 functionsRegion: 'us-central1',
                 hostingSite: '',
                 offlineCache: 'off',
+                analyticsConsent: 'always',
             });
             expect(resolveArcConfig({})).toEqual(resolveArcConfig(undefined));
             expect(DEFAULT_DATABASE_ID).toBe('(default)');
@@ -42,10 +43,18 @@ describe('arc-config (frontend)', () => {
                 functionsRegion: 'us-central1',
                 hostingSite: '',
                 offlineCache: 'off',
+                analyticsConsent: 'always',
             });
             expect(resolveArcConfig({ adminOnlySignIn: true }).adminOnlySignIn).toBe(true);
             expect(resolveArcConfig({ functionsRegion: ' asia-south1 ' }).functionsRegion).toBe('asia-south1');
             expect(resolveArcConfig({ hostingSite: ' acme-arccms ' }).hostingSite).toBe('acme-arccms');
+        });
+
+        it('waits for consent only when the install says required (docs/features/analytics.html)', () => {
+            expect(resolveArcConfig({ analyticsConsent: 'required' }).analyticsConsent).toBe('required');
+            expect(resolveArcConfig({ analyticsConsent: 'always' }).analyticsConsent).toBe('always');
+            expect(resolveArcConfig({ analyticsConsent: 'Required' as never }).analyticsConsent).toBe('always');
+            expect(resolveArcConfig({}).analyticsConsent).toBe('always');
         });
 
         it('turns the offline cache on only for a known mode (docs/app/offline.html)', () => {

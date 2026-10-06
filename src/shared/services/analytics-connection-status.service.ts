@@ -9,6 +9,7 @@
 import { Injectable, OnDestroy, inject, signal, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Firestore, Timestamp, doc, onSnapshot } from '@angular/fire/firestore';
+import { isOn } from '../../app/core/features/features';
 
 const SETTINGS_COLLECTION = 'Settings';
 const ANALYTICS_STATUS_DOC = 'analytics_status';
@@ -34,6 +35,11 @@ export class AnalyticsConnectionStatusService implements OnDestroy {
   }
 
   private initializeListener(): void {
+    // The analytics feature is off: there is no connection to watch (specs/feature-flags-spec.md).
+    if (!isOn('analytics')) {
+      this.isLoading.set(false);
+      return;
+    }
     if (!isPlatformBrowser(this.platformId)) {
       // Leave isLoading at its default (true) on the server. Forcing it false here
       // makes the SSR render disagree with the client's own pre-listener state

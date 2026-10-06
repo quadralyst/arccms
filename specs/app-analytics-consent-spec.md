@@ -1,6 +1,6 @@
 # Analytics That Respects Consent: Build Spec (A7)
 
-**Status:** spec written 2026-10-06, not built.
+**Status:** built 2026-10-06 on `feat/app-analytics-consent`; suite green, docs updated. Browser checks and the screenshots of Settings, Analytics and the dashboard's analytics section are in the end-of-work browser pass (Gunjan's decision, 2026-10-06). Not yet merged to `dev`.
 **Branch:** `feat/app-analytics-consent`, cut from `dev` (10c8734).
 **Replaces:** item 6 in `specs/_todo.md` ("Analytics that follows consent"), which this
 builds. Mark that item done when this merges.
@@ -39,7 +39,7 @@ numbers the admin dashboard shows (those come from the connected GA4 property).
 | Y-D6 | One gate | `GaTrackingService` and every other caller go through `AnalyticsService.log(...)`, which does nothing unless tracking is allowed **right now**. A guard test (like `arc-config-guard.spec.ts`) fails if any file outside `core/analytics/` imports `firebase/analytics` or `@angular/fire/analytics`, so a new feature cannot bypass consent. Apps use `AnalyticsService.log()`; the docs' old advice to inject `Analytics` is replaced. |
 | Y-D7 | Withdrawing | When a visitor who accepted later rejects, collection stops at once: `setAnalyticsCollectionEnabled(false)`, `window['ga-disable-<measurementId>'] = true`, and the `_ga` and `_ga_<id>` cookies are deleted (on the host and its parent domain). Accepting again turns it back on. |
 | Y-D8 | Reopening the choice | `SiteUsageService.reopen()` clears the saved choice, so the banner shows again, and the banner reacts to the choice as a signal instead of reading it once. Arc adds no new link; the docs show a "Cookie settings" link an app can place that calls it. The service exposes the choice as a signal, so `AnalyticsService` reacts without polling. |
-| Y-D9 | Per route | `data: { analytics: false }` on a route, **deepest wins, children inherit**, as `feedbackButton` does. Entering such a route turns collection off with `setAnalyticsCollectionEnabled(false)` (all hits stop, including Google's automatic ones); leaving it turns it on again if tracking is allowed. **No page reload.** Hits already sent are not recalled, so an app with a strict page (a children's screen) should not link to it from a tracked page with sensitive context in the address; the docs say so. |
+| Y-D9 | Per route | `data: { analytics: false }` on a route: **any route on the way to the page turns it off, and children inherit**, as `feedbackButton` does. Collection goes off when the route is recognised (`RoutesRecognized`), synchronously, so AngularFire's screen view on activation is already blocked; it comes back on at the next tracked page. Entering such a route turns collection off with `setAnalyticsCollectionEnabled(false)` (all hits stop, including Google's automatic ones); leaving it turns it on again if tracking is allowed. **No page reload.** Hits already sent are not recalled, so an app with a strict page (a children's screen) should not link to it from a tracked page with sensitive context in the address; the docs say so. |
 | Y-D10 | No email domain | `linkUserAfterSignup(userId, waitlistId)`: the email argument and `user_email_domain` go. `primary_waitlist` and the user id stay. A test asserts no property value contains an `@` or is derived from an email. |
 | Y-D11 | Always mode | Nothing changes for an install that keeps the default (Y-D4): same providers, same events, same numbers. The route opt-out (Y-D9), the feature switch (Y-D3) and the email domain removal (Y-D10) still apply. |
 | Y-D12 | Telling the admins | A status line, in plain words, on **Settings, Analytics** and above the analytics section of the **admin dashboard**, built from one `AnalyticsStatus` computed value. States: *tracking all visitors* (always mode); *tracking visitors who accepted cookies* (required, banner on); **not tracking anyone: the cookie banner is off and this site waits for consent** with a link to Settings, Site usage (required, banner off); *no measurement id in the web settings* (shows the fix); none when the feature is off (the section is gone). In `required` mode with the banner on, the dashboard also says its numbers cover only visitors who accepted. The install setting is shown read-only with the command that changes it. |
@@ -61,8 +61,8 @@ Y-D5 events, the user id and handles withdrawal. `app.config.ts` includes the th
 only when the feature is on and the mode is `always`. Move `GaTrackingService` onto `log()`.
 
 **A7.3 Banner and consent.** `SiteUsageService`: choice and banner-enabled as signals,
-`reopen()`. The banner component follows them. The settings document is read once at
-startup only in `required` mode.
+`reopen()`. The banner component follows them. The settings document is the one the banner
+already listens to; `settingsLoaded` lets the admin status wait for it instead of warning early.
 
 **A7.4 Route flag.** `data.analytics` reader, shared with the other route-data readers
 (`specs/app-pwa-update-spec.md` adds the same kind of reader; use one).
@@ -114,3 +114,13 @@ startup only in `required` mode.
 - GA4 DebugView, by Gunjan: in `always` mode the same events as before this change for one
   visit; in `required` mode the same events after accepting, and none before.
 - A real GA4 DebugView check of the first page view after accepting, by Gunjan.
+
+**Built 2026-10-06.** As specced, with two findings from the tests: the route opt-out must
+set Google's disable flag at once (an effect ran too late, after AngularFire's screen view);
+and the admin status waits for the banner setting to load, or `required` installs would
+flash the "not tracking anyone" warning on every page open. **For the end-of-work browser
+pass:** in `required` mode no request to Google before accepting, requests after, none after
+rejecting (cookies gone) or on a `data: { analytics: false }` page; `reopen()` brings the
+banner back; the status line in each state on Settings, Analytics and the dashboard (retake
+both screenshots); `always` mode behaves as before; GA4 DebugView shows the same events in
+both modes.

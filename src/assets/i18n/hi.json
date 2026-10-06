@@ -615,7 +615,15 @@
         "disconnecting": "डिस्कनेक्ट हो रहा है...",
         "disconnect": "डिस्कनेक्ट करें",
         "connecting": "कनेक्ट हो रहा है...",
-        "connect_button": "Google Analytics कनेक्ट करें"
+        "connect_button": "Google Analytics कनेक्ट करें",
+        "tracking": {
+          "all_visitors": "हर विज़िटर को ट्रैक किया जा रहा है। यह साइट कुकी सहमति का इंतज़ार नहीं करती।",
+          "consenting_visitors": "केवल उन विज़िटर को ट्रैक किया जा रहा है जो साइट उपयोग बैनर में कुकी स्वीकार करते हैं, इसलिए ये आँकड़े सिर्फ़ उन्हीं के हैं।",
+          "nobody_banner_off": "किसी को ट्रैक नहीं किया जा रहा। यह साइट कुकी सहमति का इंतज़ार करती है, और साइट उपयोग बैनर बंद है, इसलिए कोई सहमति नहीं दे सकता।",
+          "turn_on_banner": "बैनर चालू करें",
+          "no_measurement_id": "किसी को ट्रैक नहीं किया जा रहा: साइट की Firebase वेब सेटिंग्स में measurement ID नहीं है।",
+          "how_to_change": "डेवलपर इसे हर साइट के लिए npm run arc:configure -- --analytics-consent=always या required से तय करता है।"
+        }
       },
       "test_connection": {
         "title": "ईमेल कनेक्शन जाँचें",

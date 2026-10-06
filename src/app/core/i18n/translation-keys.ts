@@ -822,6 +822,12 @@ export type TranslationKey =
     | 'admin.settings.analytics.select_property_failed'
     | 'admin.settings.analytics.subtitle'
     | 'admin.settings.analytics.title'
+    | 'admin.settings.analytics.tracking.all_visitors'
+    | 'admin.settings.analytics.tracking.consenting_visitors'
+    | 'admin.settings.analytics.tracking.how_to_change'
+    | 'admin.settings.analytics.tracking.no_measurement_id'
+    | 'admin.settings.analytics.tracking.nobody_banner_off'
+    | 'admin.settings.analytics.tracking.turn_on_banner'
     | 'admin.settings.analytics.why_note'
     | 'admin.settings.app_audience.channels_hint'
     | 'admin.settings.app_audience.choose_field'
@@ -2355,6 +2361,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.analytics.select_property_failed',
     'admin.settings.analytics.subtitle',
     'admin.settings.analytics.title',
+    'admin.settings.analytics.tracking.all_visitors',
+    'admin.settings.analytics.tracking.consenting_visitors',
+    'admin.settings.analytics.tracking.how_to_change',
+    'admin.settings.analytics.tracking.no_measurement_id',
+    'admin.settings.analytics.tracking.nobody_banner_off',
+    'admin.settings.analytics.tracking.turn_on_banner',
     'admin.settings.analytics.why_note',
     'admin.settings.app_audience.channels_hint',
     'admin.settings.app_audience.choose_field',

@@ -288,6 +288,7 @@ export default class SettingsPageComponent extends BaseComponent {
             label: 'Analytics',
             icon: 'fa-solid fa-chart-line',
             route: '/admin/settings/analytics',
+            feature: 'analytics',
             description: 'Google Analytics OAuth connection',
         },
         {

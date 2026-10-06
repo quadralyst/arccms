@@ -51,6 +51,15 @@ describe('arc-configure', () => {
                 .toContain('offlineCache: "multi-tab"');
         });
 
+        it('analytics consent (docs/features/analytics.html): always by default, validated, written only when required, never to the functions', () => {
+            expect(configure.parseFlags(['--analytics-consent=required']).updates).toEqual({ analyticsConsent: 'required' });
+            expect(configure.appValues(configure.normalizeConfig({ analyticsConsent: 'always' }))).toBeNull();
+            expect(configure.appValues(configure.normalizeConfig({ analyticsConsent: 'required' }))).toEqual({ analyticsConsent: 'required' });
+            expect(configure.validateConfig(configure.normalizeConfig({ analyticsConsent: 'never' })))
+                .toContain('analytics-consent must be one of always, required, not "never".');
+            expect(configure.updateFunctionsEnv('', configure.normalizeConfig({ analyticsConsent: 'required' }))).not.toMatch(/ANALYTICS/i);
+        });
+
         it('generates no Firebase config, so the committed firebase.json is used', () => {
             expect(configure.renderFirebaseConfig(committedFirebase, config)).toBeNull();
         });

@@ -34,6 +34,7 @@ describe('SiteUsageBannerComponent', () => {
             getUserConsentState: vi.fn().mockReturnValue('pending'),
             setUserConsentState: vi.fn(),
             shouldShowBanner: vi.fn().mockReturnValue(true),
+            consent: signal('pending'),
         };
 
         await TestBed.configureTestingModule({
@@ -189,6 +190,24 @@ describe('SiteUsageBannerComponent', () => {
 
         it('should have method to update banner visibility', () => {
             expect(typeof component['updateBannerVisibility']).toBe('function');
+        });
+    });
+
+    describe('Asking again (docs/features/analytics.html)', () => {
+        it('shows the banner again when the answer is cleared with reopen()', async () => {
+            mockSiteUsageService.shouldShowBanner.mockReturnValue(false);
+            mockSettingsSubject.next({ ...DEFAULT_SITE_USAGE_SETTINGS, isEnabled: true });
+            fixture.detectChanges();
+            expect(fixture.nativeElement.querySelector('.arc-site-usage-banner')).toBeNull();
+
+            mockSiteUsageService.shouldShowBanner.mockReturnValue(true);
+            mockSiteUsageService.consent.set('pending');
+            mockSiteUsageService.consent.set('accepted');
+            TestBed.tick();
+            mockSiteUsageService.consent.set('pending');
+            TestBed.tick();
+            fixture.detectChanges();
+            expect(fixture.nativeElement.querySelector('.arc-site-usage-banner')).not.toBeNull();
         });
     });
 });

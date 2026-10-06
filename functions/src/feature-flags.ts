@@ -20,6 +20,7 @@ export const FEATURE_IDS = [
     'data',
     'pwa',
     'contact',
+    'analytics',
 ] as const;
 
 export type FeatureId = (typeof FEATURE_IDS)[number];

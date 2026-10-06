@@ -19,6 +19,7 @@ export const FEATURE_IDS = [
     'data',
     'pwa',
     'contact',
+    'analytics',
 ] as const;
 
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -46,6 +47,8 @@ export const FEATURE_INFO: Record<FeatureId, FeatureInfo> = {
     pwa: { label: 'Installable app', defaultOn: false, needs: [] },
     // A contact form on the site and its Messages inbox (specs/site-sections-spec.md, SS5).
     contact: { label: 'Contact form', defaultOn: true, needs: [] },
+    // Google Analytics: tracking in the browser and the dashboard's numbers (docs/features/analytics.html).
+    analytics: { label: 'Analytics', defaultOn: true, needs: [] },
 };
 
 /** What `src/custom/features.ts` exports. Empty: every feature on except the PWA. */
