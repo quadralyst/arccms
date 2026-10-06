@@ -28,7 +28,10 @@ import { Functions } from '@angular/fire/functions';
 import type { AuthCredential } from '@angular/fire/auth';
 import { filter, firstValueFrom, take } from 'rxjs';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
-import { AuthState, NO_ACCESS_MESSAGE } from '../auth.store';
+import { AuthState, NO_ACCESS_KEY } from '../auth.store';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { sentenceParts } from '../../../core/i18n/sentence-parts';
+import type { TranslationKey } from '../../../core/i18n/translation-keys';
 import { AuthService } from '../auth.service';
 import { ConstantVariables } from '../../../../shared/constants/common-constants';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
@@ -58,7 +61,7 @@ type Channel = 'email' | 'phone';
 @Component({
   selector: 'arc-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterModule, LegalNoticeComponent, CodeInputComponent, SignInPanelComponent],
+  imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, LegalNoticeComponent, CodeInputComponent, SignInPanelComponent],
   templateUrl: './signup.page.html',
   styleUrls: ['./signup.page.scss'],
 })
@@ -145,7 +148,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     useSiteStyles(['site']);
     // In the browser only: a server render may read another database than the browser's.
     if (isPlatformBrowser(this.platformId)) {
-      this.siteIdentity.load().then(() => this.titleService.setTitle(`Sign in | ${this.brandName()}`)).catch(() => undefined);
+      this.siteIdentity.load().then(() => this.titleService.setTitle(this.t('member.auth.title_tab', { brand: this.brandName() }))).catch(() => undefined);
     }
     this.initForm();
 
@@ -189,7 +192,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.authActionPending = false; // a failed attempt must not redirect later
     if (code === 'auth/email-already-in-use' && this.currentStep() === 'signup') {
       this.goToStep('login');
-      this.successMessage.set('You already have an account with this email. Enter your password to sign in.');
+      this.successMessage.set(this.t('member.auth.existing_account_password'));
       return;
     }
     this.errorMessage.set(error);
@@ -270,29 +273,36 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   getStepTitle(): string {
     const phone = this.channel() === 'phone';
-    const titles: Record<SignupStep, string> = {
-      request: 'Welcome',
-      login: 'Welcome Back',
-      pin: 'Welcome Back',
-      verify: phone ? (this.phonePurpose() === 'reset' ? 'Set Your PIN' : 'Verify Number') : 'Verify Email',
-      signup: 'Create Account',
-      newPin: 'Choose a New PIN',
-      disabled: 'Sign-ups are closed',
+    const titles: Record<SignupStep, TranslationKey> = {
+      request: 'member.auth.step_title_welcome',
+      login: 'member.auth.step_title_welcome_back',
+      pin: 'member.auth.step_title_welcome_back',
+      verify: phone
+        ? (this.phonePurpose() === 'reset' ? 'member.auth.step_title_set_pin' : 'member.auth.step_title_verify_number')
+        : 'member.auth.step_title_verify_email',
+      signup: 'member.auth.create_account',
+      newPin: 'member.auth.step_title_new_pin',
+      disabled: 'member.auth.step_title_closed',
     };
-    return titles[this.currentStep()];
+    return this.t(titles[this.currentStep()]);
   }
 
   getStepDescription(): string {
-    const titles: Record<SignupStep, string> = {
-      request: this.phoneEnabled() ? 'Enter your phone number or email to get started' : 'Enter your email to get started',
-      login: 'Sign in to your account',
-      pin: 'Enter your 6-digit PIN',
-      verify: `Enter the 6-digit code sent to your ${this.channel() === 'phone' ? 'phone' : 'email'}`,
-      signup: 'Complete your registration',
-      newPin: 'You will use it to sign in',
-      disabled: "New accounts can't be created right now",
+    const titles: Record<SignupStep, TranslationKey> = {
+      request: this.phoneEnabled() ? 'member.auth.step_desc_start_phone' : 'member.auth.step_desc_start_email',
+      login: 'member.auth.step_desc_sign_in',
+      pin: 'member.auth.enter_pin',
+      verify: this.channel() === 'phone' ? 'member.auth.step_desc_code_phone' : 'member.auth.step_desc_code_email',
+      signup: 'member.auth.step_desc_complete',
+      newPin: 'member.auth.step_desc_new_pin',
+      disabled: 'member.auth.step_desc_closed',
     };
-    return titles[this.currentStep()];
+    return this.t(titles[this.currentStep()]);
+  }
+
+  /** A sentence split around its value, for the template to style the value (L-D15). */
+  parts(key: TranslationKey): [string, string] {
+    return sentenceParts((k, p) => this.t(k as TranslationKey, p), key);
   }
 
   goToStep(step: SignupStep) {
@@ -397,7 +407,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       if (status === 'registered' || status === 'unfinished') {
         this.goToStep('login');
       } else if (status === 'no-access') {
-        this.errorMessage.set(NO_ACCESS_MESSAGE);
+        this.errorMessage.set(this.t(NO_ACCESS_KEY));
       } else {
         if (!this.signupSettings.isSignupEnabled) {
           this.goToStep('disabled');
@@ -417,7 +427,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         }
       }
     } catch (error) {
-      this.errorMessage.set("We couldn't check that email. Please try again.");
+      this.errorMessage.set(this.t('member.auth.check_email_failed'));
     } finally {
       this.isLoading.set(false);
     }
@@ -488,16 +498,16 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         const reply = await this.signIn.requestPhoneCode(this.phone(), this.phonePurpose());
         this.testCode.set(reply.testCode ?? '');
         this.testCodeInLogs.set(!!reply.testMode && !reply.testCode);
-        if (!reply.testMode) this.toastService.success('Code sent by SMS');
+        if (!reply.testMode) this.toastService.success(this.t('member.auth.code_sent_sms'));
       } else {
         const name = this.registrationForm.get('name')?.value || undefined;
         const callable = arcCallable(this.functions, 'requestSignupOtp');
         await callable({ email: this.email, name });
-        this.toastService.success('Verification code sent to your email');
+        this.toastService.success(this.t('member.auth.code_sent_email'));
       }
       this.startCountdown();
     } catch (error: any) {
-      const message = readSignInError(error, 'Could not send verification code. Please try again.').message;
+      const message = readSignInError(error, this.t('member.auth.send_code_failed')).message;
       this.otpError.set(message);
     }
   }
@@ -534,7 +544,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     if (this.isLoading()) return;
 
     if (!otp || otp.length !== 6) {
-      this.otpError.set('Please enter the 6-digit code');
+      this.otpError.set(this.t('member.auth.enter_code'));
       return;
     }
 
@@ -552,14 +562,14 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       const result = await this.signIn.verifySignupCode(this.email, otp);
       if (result.verified) {
         this.otpVerified = true;
-        this.toastService.success('Email verified successfully');
+        this.toastService.success(this.t('member.auth.email_verified'));
         this.goToStep('signup');
       } else {
-        this.otpError.set("That code didn't work. Check it and try again.");
+        this.otpError.set(this.t('member.auth.code_wrong'));
         this.codeBoxes()?.reset();
       }
     } catch (error: any) {
-      this.otpError.set(readSignInError(error, "That code didn't work").message);
+      this.otpError.set(readSignInError(error, this.t('member.auth.code_wrong_short')).message);
       this.codeBoxes()?.reset();
     } finally {
       this.isLoading.set(false);
@@ -608,7 +618,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       return;
     }
     if (this.newPin().length !== 6) {
-      this.errorMessage.set('Choose a 6-digit PIN');
+      this.errorMessage.set(this.t('member.auth.choose_pin'));
       return;
     }
     await this.finishPhoneSignIn(() => this.signIn.completePhoneSignup(this.phone(), nameControl?.value, this.newPin()));
@@ -617,7 +627,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   /** Forgot PIN, or a number that never had one. */
   async saveNewPin(): Promise<void> {
     if (this.newPin().length !== 6) {
-      this.errorMessage.set('Choose a 6-digit PIN');
+      this.errorMessage.set(this.t('member.auth.choose_pin'));
       return;
     }
     await this.finishPhoneSignIn(() => this.signIn.resetPin(this.phone(), this.newPin()));
@@ -628,7 +638,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     const value = pin ?? this.pinBoxes()?.value() ?? '';
     if (this.isLoading()) return;
     if (value.length !== 6) {
-      this.errorMessage.set('Enter your 6-digit PIN');
+      this.errorMessage.set(this.t('member.auth.enter_pin'));
       return;
     }
     const failed = await this.finishPhoneSignIn(() => this.signIn.signInWithPin(this.phone(), value));
@@ -682,9 +692,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     if (email) {
       this.authStore.forgotPassword(email).then((res: any) => {
         if (res?.status === 200) {
-          this.successMessage.set(`We've emailed a link to reset your password to ${email}.`);
+          this.successMessage.set(this.t('member.auth.reset_link_sent', { email }));
         } else {
-          this.errorMessage.set("We couldn't send the reset email. Please try again.");
+          this.errorMessage.set(this.t('member.auth.reset_failed'));
         }
       });
     }
@@ -699,7 +709,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       await this.signIn.signInWithGoogle();
       this.authActionPending = true;
       const user = await this.authStore.refreshCurrentUser();
-      if (!user) throw { code: 'no-record', message: NO_ACCESS_MESSAGE };
+      if (!user) throw { code: 'no-record', message: this.t(NO_ACCESS_KEY) };
     } catch (err) {
       this.authActionPending = false;
       await this.handleGoogleError(err);
@@ -719,17 +729,17 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.registrationForm.get('identifier')?.setValue(email);
       this.channel.set('email');
       this.goToStep('login');
-      this.successMessage.set('You already have an account with this email. Enter your password once to connect Google.');
+      this.successMessage.set(this.t('member.auth.existing_account_google'));
       return;
     }
-    const error = readSignInError(err, 'Google sign-in did not work. Please try again.');
+    const error = readSignInError(err, this.t('member.auth.google_failed'));
     // Signed in to Google but no access here: do not stay half signed in.
     await firstValueFrom(this.authStore.logout()).catch(() => undefined);
     if (error.reason === 'signup-closed') {
       this.goToStep('disabled');
       return;
     }
-    this.errorMessage.set(code.startsWith('auth/') ? 'Google sign-in did not work. Please try again.' : error.message);
+    this.errorMessage.set(code.startsWith('auth/') ? this.t('member.auth.google_failed') : error.message);
   }
 
   /** Back to the first step, keeping what was typed. */
@@ -764,7 +774,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       const asked = safeRedirect(this.router.parseUrl(this.router.url).queryParams['redirect']);
       const route = asked ?? homeFor(role);
 
-      this.toastService.success('Please wait! Redirecting...');
+      this.toastService.success(this.t('member.auth.redirecting'));
       this.router.navigateByUrl(route, { replaceUrl: true });
     }
   }

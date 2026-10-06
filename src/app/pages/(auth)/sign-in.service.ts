@@ -16,6 +16,8 @@ import {
 } from '@angular/fire/auth';
 import { Functions } from '@angular/fire/functions';
 import { arcCallable } from '../../core/config/arc-functions';
+import { TranslocoService } from '@jsverse/transloco';
+import { genericErrorText } from './auth-messages';
 
 export type PhoneOtpPurpose = 'signup' | 'reset' | 'link';
 
@@ -57,7 +59,7 @@ export interface SignInError {
 }
 
 /** Read a Firebase or callable error into something a page can show. */
-export function readSignInError(err: unknown, fallback = 'Something went wrong. Please try again.'): SignInError {
+export function readSignInError(err: unknown, fallback = genericErrorText()): SignInError {
     const e = err as { code?: string; message?: string; details?: { reason?: string } };
     const code = String(e?.code ?? '').replace(/^functions\//, '');
     const message = code && code !== 'internal' && e?.message ? e.message : fallback;
@@ -235,7 +237,7 @@ export class SignInService {
     /** Profile: connect Google to the signed-in account. */
     async connectGoogle(): Promise<void> {
         const user = this.auth.currentUser;
-        if (!user) throw { code: 'unauthenticated', message: 'Please sign in again.' };
+        if (!user) throw { code: 'unauthenticated', message: this.injector.get(TranslocoService).translate('member.errors.sign_in_again') };
         await runInInjectionContext(this.injector, () => linkWithPopup(user, new GoogleAuthProvider()));
     }
 

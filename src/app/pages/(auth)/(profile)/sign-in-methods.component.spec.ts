@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { signal } from '@angular/core';
 import { SignInMethodsComponent } from './sign-in-methods.component';
+import { english } from '../../../../test/english';
 
 const proto = SignInMethodsComponent.prototype as unknown as Record<string, (this: unknown, ...args: unknown[]) => Promise<void>>;
 
 /** A stand-in for the component: its signals plus mocked services. */
 function ctx(check: Record<string, unknown> = { status: 'available' }) {
     const c: Record<string, any> = {
+        t: english,
         flow: signal<any>(null),
         busy: signal(false),
         error: signal(''),

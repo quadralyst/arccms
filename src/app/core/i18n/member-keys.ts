@@ -27,6 +27,14 @@ export const MEMBER_SCREEN_FILES = [
     'src/shared/components/install-prompt/update-bar.component.ts',
     'src/shared/components/feedback/feedback.component.ts',
     'src/app/core/version/stale-code-bar.component.ts',
+    // Sign-in, sign-up, forgot password and verification; profile and its sign-in methods (A1b)
+    'src/app/pages/(auth)/(signup)/signup.page.ts',
+    'src/app/pages/(auth)/(profile)/profile.page.ts',
+    'src/app/pages/(auth)/(profile)/sign-in-methods.component.ts',
+    'src/app/pages/(auth)/auth.store.ts',
+    'src/app/pages/(auth)/auth-messages.ts',
+    'src/app/pages/(auth)/sign-in.service.ts',
+    'src/shared/constants/common-constants.ts',
 ] as const;
 
 export function isMemberKey(key: string): boolean {

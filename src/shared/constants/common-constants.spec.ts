@@ -121,7 +121,8 @@ describe('ConstantVariables', () => {
         it('should have correct structure for auth errors', () => {
             const firstError = constants.firebaseAuthErrors[0];
             expect(firstError).toHaveProperty('code');
-            expect(firstError).toHaveProperty('message');
+            // The message is a translation key (member.errors.*), shown in the person's language.
+            expect(firstError.key).toMatch(/^member\.errors\.[a-z_]+$/);
         });
 
         it('should include common error codes', () => {

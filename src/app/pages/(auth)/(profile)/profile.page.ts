@@ -18,6 +18,7 @@ import { readSignInError, SignInService } from '../sign-in.service';
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { firstValueFrom } from 'rxjs';
 import { SignInMethodsComponent } from './sign-in-methods.component';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 export const routeMeta: RouteMeta = {
   title: 'Profile | Arc CMS',
@@ -26,7 +27,7 @@ export const routeMeta: RouteMeta = {
 @Component({
   selector: 'arc-profile',
   standalone: true,
-  imports: [ReactiveFormsModule, SignInMethodsComponent],
+  imports: [ReactiveFormsModule, TranslocoPipe, SignInMethodsComponent],
   templateUrl: './profile.page.html',
   styleUrls: ['./profile.page.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -106,12 +107,12 @@ export default class ProfileComponent extends BaseComponent {
       const url = await this.fileUpload.uploadAvatar(user.uid, file);
       await this.authStore.updateUserProfile(user.id, { photo: url });
       if (this.authStore.isSuccess()) {
-        this.successMsg.set('Profile photo updated!');
+        this.successMsg.set(this.t('member.profile.photo_updated'));
       } else {
-        this.errorMsg.set(this.authStore.error() || 'Failed to update photo');
+        this.errorMsg.set(this.authStore.error() || this.t('member.profile.photo_update_failed'));
       }
     } catch (err) {
-      this.errorMsg.set(err instanceof Error ? err.message : 'Failed to upload photo');
+      this.errorMsg.set(err instanceof Error ? err.message : this.t('member.profile.photo_upload_failed'));
     }
   }
 
@@ -144,9 +145,9 @@ export default class ProfileComponent extends BaseComponent {
         await this.authStore.updateUserProfile(user.id, { photo: result.mediaUrl });
 
         if (this.authStore.isSuccess()) {
-          this.successMsg.set('Profile photo updated!');
+          this.successMsg.set(this.t('member.profile.photo_updated'));
         } else {
-          this.errorMsg.set(this.authStore.error() || 'Failed to update photo');
+          this.errorMsg.set(this.authStore.error() || this.t('member.profile.photo_update_failed'));
         }
       }
     });
@@ -160,9 +161,9 @@ export default class ProfileComponent extends BaseComponent {
     await this.authStore.updateUserProfile(user.id, { photo: '' });
 
     if (this.authStore.isSuccess()) {
-      this.successMsg.set('Profile photo removed.');
+      this.successMsg.set(this.t('member.profile.photo_removed'));
     } else {
-      this.errorMsg.set(this.authStore.error() || 'Failed to remove photo');
+      this.errorMsg.set(this.authStore.error() || this.t('member.profile.photo_remove_failed'));
     }
   }
 
@@ -181,7 +182,7 @@ export default class ProfileComponent extends BaseComponent {
 
   async saveName(): Promise<void> {
     if (this.nameControl.invalid) {
-      this.errorMsg.set('Please enter a valid name');
+      this.errorMsg.set(this.t('member.profile.name_invalid_short'));
       return;
     }
 
@@ -197,13 +198,13 @@ export default class ProfileComponent extends BaseComponent {
       });
 
       if (this.authStore.isSuccess()) {
-        this.successMsg.set('Name updated successfully!');
+        this.successMsg.set(this.t('member.profile.name_updated'));
         this.isEditingName.set(false);
       } else {
-        this.errorMsg.set(this.authStore.error() || 'Failed to update name');
+        this.errorMsg.set(this.authStore.error() || this.t('member.profile.name_update_failed'));
       }
     } catch (error) {
-      this.errorMsg.set('An error occurred while updating name.');
+      this.errorMsg.set(this.t('member.profile.name_update_error'));
     } finally {
       this.isSavingName.set(false);
     }
@@ -230,7 +231,7 @@ export default class ProfileComponent extends BaseComponent {
     }
 
     if (this.hasPasswordMismatch) {
-      this.errorMsg.set('Passwords do not match.');
+      this.errorMsg.set(this.t('member.profile.passwords_mismatch'));
       return;
     }
 
@@ -244,14 +245,14 @@ export default class ProfileComponent extends BaseComponent {
       });
 
       if (this.authStore.isSuccess()) {
-        this.successMsg.set('Password changed successfully!');
+        this.successMsg.set(this.t('member.profile.password_changed'));
         this.isChangingPassword.set(false);
         this.passwordForm.reset();
       } else {
-        this.errorMsg.set(this.authStore.error() || 'Failed to change password');
+        this.errorMsg.set(this.authStore.error() || this.t('member.profile.password_change_failed'));
       }
     } catch (error) {
-      this.errorMsg.set('An error occurred while changing password.');
+      this.errorMsg.set(this.t('member.profile.password_change_error'));
     } finally {
       this.isSavingPassword.set(false);
     }
@@ -273,11 +274,10 @@ export default class ProfileComponent extends BaseComponent {
     const confirmed = await firstValueFrom(this.dialog.open(ConfirmationPopupComponent, {
       width: '400px',
       data: {
-        dialogType: 'Delete account',
-        dialogMessage: this.sanitizer.bypassSecurityTrustHtml(
-          'This deletes your account and everything saved in it. <strong>It cannot be undone.</strong>',
-        ),
-        btnText: 'Delete my account',
+        dialogType: this.t('member.profile.delete_title'),
+        // A fixed sentence from the translation files, with no user data in it.
+        dialogMessage: this.sanitizer.bypassSecurityTrustHtml(this.t('member.profile.delete_confirm_body')),
+        btnText: this.t('member.profile.delete_my_account'),
         panelType: 'warn',
       },
     }).afterClosed());
@@ -288,7 +288,7 @@ export default class ProfileComponent extends BaseComponent {
     try {
       await this.signIn.deleteMyAccount();
       await firstValueFrom(this.authStore.logout());
-      this.toastService.success('Your account was deleted.');
+      this.toastService.success(this.t('member.profile.account_deleted'));
       await this.router.navigate(['/'], { replaceUrl: true });
     } catch (err) {
       const error = readSignInError(err);

@@ -1486,20 +1486,247 @@ export type TranslationKey =
     | 'common.version.not_loaded'
     | 'common.version.reload'
     | 'common.yes'
+    | 'member.auth.blocked'
+    | 'member.auth.change_email'
+    | 'member.auth.change_number'
+    | 'member.auth.check_email_failed'
+    | 'member.auth.choose_pin'
+    | 'member.auth.closed_body'
+    | 'member.auth.closed_contact'
+    | 'member.auth.closed_have_one'
+    | 'member.auth.closed_sign_in_other'
+    | 'member.auth.code_label'
+    | 'member.auth.code_sent_email'
+    | 'member.auth.code_sent_sms'
+    | 'member.auth.code_sent_to'
+    | 'member.auth.code_wrong'
+    | 'member.auth.code_wrong_short'
+    | 'member.auth.complete_profile'
+    | 'member.auth.continue'
+    | 'member.auth.continue_google'
+    | 'member.auth.create_account'
+    | 'member.auth.email_verified'
+    | 'member.auth.enter_code'
+    | 'member.auth.enter_password_to_continue'
+    | 'member.auth.enter_pin'
+    | 'member.auth.existing_account_google'
+    | 'member.auth.existing_account_password'
+    | 'member.auth.forgot_password'
+    | 'member.auth.forgot_pin'
+    | 'member.auth.google_failed'
+    | 'member.auth.hide_pin'
+    | 'member.auth.identifier_invalid_email'
+    | 'member.auth.identifier_invalid_phone'
+    | 'member.auth.identifier_label_email'
+    | 'member.auth.identifier_label_phone'
+    | 'member.auth.identifier_placeholder_email'
+    | 'member.auth.identifier_placeholder_phone'
+    | 'member.auth.instance_label_title'
+    | 'member.auth.logged_in'
+    | 'member.auth.logging_in_as'
+    | 'member.auth.login'
+    | 'member.auth.logout_failed'
+    | 'member.auth.name_placeholder'
+    | 'member.auth.name_required'
+    | 'member.auth.new_pin_label'
+    | 'member.auth.no_access'
+    | 'member.auth.or'
+    | 'member.auth.password_label'
+    | 'member.auth.password_min'
+    | 'member.auth.password_required'
+    | 'member.auth.password_update_failed'
+    | 'member.auth.passwords_mismatch'
+    | 'member.auth.pin_label'
+    | 'member.auth.pin_next_time'
+    | 'member.auth.profile_update_failed'
+    | 'member.auth.redirecting'
+    | 'member.auth.resend'
+    | 'member.auth.resend_in'
+    | 'member.auth.reset_failed'
+    | 'member.auth.reset_link_sent'
+    | 'member.auth.reset_pin_with_code'
+    | 'member.auth.save_pin'
+    | 'member.auth.send_code_failed'
+    | 'member.auth.show_pin'
+    | 'member.auth.signing_in_as'
+    | 'member.auth.signing_up_as'
+    | 'member.auth.step_desc_closed'
+    | 'member.auth.step_desc_code_email'
+    | 'member.auth.step_desc_code_phone'
+    | 'member.auth.step_desc_complete'
+    | 'member.auth.step_desc_new_pin'
+    | 'member.auth.step_desc_sign_in'
+    | 'member.auth.step_desc_start_email'
+    | 'member.auth.step_desc_start_phone'
+    | 'member.auth.step_title_closed'
+    | 'member.auth.step_title_new_pin'
+    | 'member.auth.step_title_set_pin'
+    | 'member.auth.step_title_verify_email'
+    | 'member.auth.step_title_verify_number'
+    | 'member.auth.step_title_welcome'
+    | 'member.auth.step_title_welcome_back'
+    | 'member.auth.test_code_hint'
+    | 'member.auth.test_code_in_logs'
+    | 'member.auth.test_code_label'
+    | 'member.auth.title_tab'
+    | 'member.auth.unfinished_signup'
+    | 'member.auth.verify'
+    | 'member.auth.welcome_back_greeting'
+    | 'member.errors.account_exists_with_different_credential'
+    | 'member.errors.cancelled_popup_request'
+    | 'member.errors.code_expired'
+    | 'member.errors.credential_already_in_use'
+    | 'member.errors.email_already_in_use'
+    | 'member.errors.generic'
+    | 'member.errors.internal_error'
+    | 'member.errors.invalid_credential'
+    | 'member.errors.invalid_email'
+    | 'member.errors.invalid_phone_number'
+    | 'member.errors.invalid_verification_code'
+    | 'member.errors.missing_password'
+    | 'member.errors.missing_phone_number'
+    | 'member.errors.network_request_failed'
+    | 'member.errors.operation_not_allowed'
+    | 'member.errors.popup_blocked'
+    | 'member.errors.popup_closed_by_user'
+    | 'member.errors.quota_exceeded'
+    | 'member.errors.requires_recent_login'
+    | 'member.errors.sign_in_again'
+    | 'member.errors.too_many_requests'
+    | 'member.errors.user_disabled'
+    | 'member.errors.user_not_found'
+    | 'member.errors.weak_password'
+    | 'member.errors.wrong_password'
+    | 'member.methods.add'
+    | 'member.methods.already_yours_email'
+    | 'member.methods.already_yours_number'
+    | 'member.methods.blocked_email'
+    | 'member.methods.change'
+    | 'member.methods.change_pin'
+    | 'member.methods.choose_password_email'
+    | 'member.methods.choose_pin'
+    | 'member.methods.choose_pin_number'
+    | 'member.methods.code_sent_to'
+    | 'member.methods.connect'
+    | 'member.methods.connected'
+    | 'member.methods.email'
+    | 'member.methods.email_moved'
+    | 'member.methods.email_placeholder'
+    | 'member.methods.email_saved'
+    | 'member.methods.enter_code'
+    | 'member.methods.google'
+    | 'member.methods.google_connected'
+    | 'member.methods.google_failed'
+    | 'member.methods.google_in_use'
+    | 'member.methods.invalid_email'
+    | 'member.methods.invalid_phone'
+    | 'member.methods.move_email'
+    | 'member.methods.move_number'
+    | 'member.methods.new_code'
+    | 'member.methods.new_pin'
+    | 'member.methods.new_pin_heading'
+    | 'member.methods.not_added'
+    | 'member.methods.not_connected'
+    | 'member.methods.password_min'
+    | 'member.methods.password_placeholder'
+    | 'member.methods.phone'
+    | 'member.methods.phone_moved'
+    | 'member.methods.phone_placeholder'
+    | 'member.methods.phone_saved'
+    | 'member.methods.pin_changed'
+    | 'member.methods.save_pin'
+    | 'member.methods.send_code'
+    | 'member.methods.sign_in_elsewhere'
+    | 'member.methods.title'
+    | 'member.methods.verified'
+    | 'member.profile.account_deleted'
+    | 'member.profile.back'
+    | 'member.profile.change_password'
+    | 'member.profile.change_photo'
+    | 'member.profile.confirm_password'
+    | 'member.profile.confirm_password_placeholder'
+    | 'member.profile.current_password'
+    | 'member.profile.current_password_placeholder'
+    | 'member.profile.current_password_required'
+    | 'member.profile.delete_body'
+    | 'member.profile.delete_confirm_body'
+    | 'member.profile.delete_my_account'
+    | 'member.profile.delete_title'
+    | 'member.profile.edit'
+    | 'member.profile.loading'
+    | 'member.profile.name'
+    | 'member.profile.name_invalid'
+    | 'member.profile.name_invalid_short'
+    | 'member.profile.name_placeholder'
+    | 'member.profile.name_update_error'
+    | 'member.profile.name_update_failed'
+    | 'member.profile.name_updated'
+    | 'member.profile.new_password'
+    | 'member.profile.new_password_placeholder'
+    | 'member.profile.password'
+    | 'member.profile.password_change_error'
+    | 'member.profile.password_change_failed'
+    | 'member.profile.password_changed'
+    | 'member.profile.password_min'
+    | 'member.profile.passwords_mismatch'
+    | 'member.profile.personal_info'
+    | 'member.profile.photo_alt'
+    | 'member.profile.photo_remove_failed'
+    | 'member.profile.photo_removed'
+    | 'member.profile.photo_update_failed'
+    | 'member.profile.photo_updated'
+    | 'member.profile.photo_upload_failed'
+    | 'member.profile.remove'
+    | 'member.profile.role_fallback'
+    | 'member.profile.save'
+    | 'member.profile.security'
+    | 'member.profile.sign_in_again'
+    | 'member.profile.status_active'
+    | 'member.profile.status_inactive'
+    | 'member.profile.subtitle'
+    | 'member.profile.title'
+    | 'member.profile.update_password'
+    | 'user.account.access_restricted'
+    | 'user.account.active'
+    | 'user.account.available_credits'
     | 'user.account.balance'
+    | 'user.account.billing_subtitle'
+    | 'user.account.billing_title'
     | 'user.account.change'
+    | 'user.account.col_amount'
+    | 'user.account.col_date'
+    | 'user.account.col_event'
+    | 'user.account.col_plan'
+    | 'user.account.col_status'
+    | 'user.account.credit_failed'
+    | 'user.account.credit_insufficient'
+    | 'user.account.credits_subtitle'
+    | 'user.account.credits_title'
+    | 'user.account.current_plan'
     | 'user.account.customer_id'
     | 'user.account.discount_code'
+    | 'user.account.free_tier'
+    | 'user.account.history_title'
+    | 'user.account.ledger_title'
+    | 'user.account.no_billing'
     | 'user.account.no_transactions'
     | 'user.account.plan_deal'
     | 'user.account.pro_chip'
     | 'user.account.reason'
+    | 'user.account.refresh'
+    | 'user.account.renews_expires'
     | 'user.account.sign_in'
+    | 'user.account.sign_in_manage'
     | 'user.account.sign_in_prompt'
+    | 'user.account.sign_in_register'
     | 'user.account.subscription_id'
     | 'user.account.tier_rank'
     | 'user.account.title'
     | 'user.account.transaction_history'
+    | 'user.account.transactions'
+    | 'user.account.upgrade'
+    | 'user.account.upgrade_note'
+    | 'user.account.use_credit'
     | 'user.account.view_plans'
     | 'user.credits'
     | 'user.dashboard.account_hint'
@@ -3028,20 +3255,247 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.version.not_loaded',
     'common.version.reload',
     'common.yes',
+    'member.auth.blocked',
+    'member.auth.change_email',
+    'member.auth.change_number',
+    'member.auth.check_email_failed',
+    'member.auth.choose_pin',
+    'member.auth.closed_body',
+    'member.auth.closed_contact',
+    'member.auth.closed_have_one',
+    'member.auth.closed_sign_in_other',
+    'member.auth.code_label',
+    'member.auth.code_sent_email',
+    'member.auth.code_sent_sms',
+    'member.auth.code_sent_to',
+    'member.auth.code_wrong',
+    'member.auth.code_wrong_short',
+    'member.auth.complete_profile',
+    'member.auth.continue',
+    'member.auth.continue_google',
+    'member.auth.create_account',
+    'member.auth.email_verified',
+    'member.auth.enter_code',
+    'member.auth.enter_password_to_continue',
+    'member.auth.enter_pin',
+    'member.auth.existing_account_google',
+    'member.auth.existing_account_password',
+    'member.auth.forgot_password',
+    'member.auth.forgot_pin',
+    'member.auth.google_failed',
+    'member.auth.hide_pin',
+    'member.auth.identifier_invalid_email',
+    'member.auth.identifier_invalid_phone',
+    'member.auth.identifier_label_email',
+    'member.auth.identifier_label_phone',
+    'member.auth.identifier_placeholder_email',
+    'member.auth.identifier_placeholder_phone',
+    'member.auth.instance_label_title',
+    'member.auth.logged_in',
+    'member.auth.logging_in_as',
+    'member.auth.login',
+    'member.auth.logout_failed',
+    'member.auth.name_placeholder',
+    'member.auth.name_required',
+    'member.auth.new_pin_label',
+    'member.auth.no_access',
+    'member.auth.or',
+    'member.auth.password_label',
+    'member.auth.password_min',
+    'member.auth.password_required',
+    'member.auth.password_update_failed',
+    'member.auth.passwords_mismatch',
+    'member.auth.pin_label',
+    'member.auth.pin_next_time',
+    'member.auth.profile_update_failed',
+    'member.auth.redirecting',
+    'member.auth.resend',
+    'member.auth.resend_in',
+    'member.auth.reset_failed',
+    'member.auth.reset_link_sent',
+    'member.auth.reset_pin_with_code',
+    'member.auth.save_pin',
+    'member.auth.send_code_failed',
+    'member.auth.show_pin',
+    'member.auth.signing_in_as',
+    'member.auth.signing_up_as',
+    'member.auth.step_desc_closed',
+    'member.auth.step_desc_code_email',
+    'member.auth.step_desc_code_phone',
+    'member.auth.step_desc_complete',
+    'member.auth.step_desc_new_pin',
+    'member.auth.step_desc_sign_in',
+    'member.auth.step_desc_start_email',
+    'member.auth.step_desc_start_phone',
+    'member.auth.step_title_closed',
+    'member.auth.step_title_new_pin',
+    'member.auth.step_title_set_pin',
+    'member.auth.step_title_verify_email',
+    'member.auth.step_title_verify_number',
+    'member.auth.step_title_welcome',
+    'member.auth.step_title_welcome_back',
+    'member.auth.test_code_hint',
+    'member.auth.test_code_in_logs',
+    'member.auth.test_code_label',
+    'member.auth.title_tab',
+    'member.auth.unfinished_signup',
+    'member.auth.verify',
+    'member.auth.welcome_back_greeting',
+    'member.errors.account_exists_with_different_credential',
+    'member.errors.cancelled_popup_request',
+    'member.errors.code_expired',
+    'member.errors.credential_already_in_use',
+    'member.errors.email_already_in_use',
+    'member.errors.generic',
+    'member.errors.internal_error',
+    'member.errors.invalid_credential',
+    'member.errors.invalid_email',
+    'member.errors.invalid_phone_number',
+    'member.errors.invalid_verification_code',
+    'member.errors.missing_password',
+    'member.errors.missing_phone_number',
+    'member.errors.network_request_failed',
+    'member.errors.operation_not_allowed',
+    'member.errors.popup_blocked',
+    'member.errors.popup_closed_by_user',
+    'member.errors.quota_exceeded',
+    'member.errors.requires_recent_login',
+    'member.errors.sign_in_again',
+    'member.errors.too_many_requests',
+    'member.errors.user_disabled',
+    'member.errors.user_not_found',
+    'member.errors.weak_password',
+    'member.errors.wrong_password',
+    'member.methods.add',
+    'member.methods.already_yours_email',
+    'member.methods.already_yours_number',
+    'member.methods.blocked_email',
+    'member.methods.change',
+    'member.methods.change_pin',
+    'member.methods.choose_password_email',
+    'member.methods.choose_pin',
+    'member.methods.choose_pin_number',
+    'member.methods.code_sent_to',
+    'member.methods.connect',
+    'member.methods.connected',
+    'member.methods.email',
+    'member.methods.email_moved',
+    'member.methods.email_placeholder',
+    'member.methods.email_saved',
+    'member.methods.enter_code',
+    'member.methods.google',
+    'member.methods.google_connected',
+    'member.methods.google_failed',
+    'member.methods.google_in_use',
+    'member.methods.invalid_email',
+    'member.methods.invalid_phone',
+    'member.methods.move_email',
+    'member.methods.move_number',
+    'member.methods.new_code',
+    'member.methods.new_pin',
+    'member.methods.new_pin_heading',
+    'member.methods.not_added',
+    'member.methods.not_connected',
+    'member.methods.password_min',
+    'member.methods.password_placeholder',
+    'member.methods.phone',
+    'member.methods.phone_moved',
+    'member.methods.phone_placeholder',
+    'member.methods.phone_saved',
+    'member.methods.pin_changed',
+    'member.methods.save_pin',
+    'member.methods.send_code',
+    'member.methods.sign_in_elsewhere',
+    'member.methods.title',
+    'member.methods.verified',
+    'member.profile.account_deleted',
+    'member.profile.back',
+    'member.profile.change_password',
+    'member.profile.change_photo',
+    'member.profile.confirm_password',
+    'member.profile.confirm_password_placeholder',
+    'member.profile.current_password',
+    'member.profile.current_password_placeholder',
+    'member.profile.current_password_required',
+    'member.profile.delete_body',
+    'member.profile.delete_confirm_body',
+    'member.profile.delete_my_account',
+    'member.profile.delete_title',
+    'member.profile.edit',
+    'member.profile.loading',
+    'member.profile.name',
+    'member.profile.name_invalid',
+    'member.profile.name_invalid_short',
+    'member.profile.name_placeholder',
+    'member.profile.name_update_error',
+    'member.profile.name_update_failed',
+    'member.profile.name_updated',
+    'member.profile.new_password',
+    'member.profile.new_password_placeholder',
+    'member.profile.password',
+    'member.profile.password_change_error',
+    'member.profile.password_change_failed',
+    'member.profile.password_changed',
+    'member.profile.password_min',
+    'member.profile.passwords_mismatch',
+    'member.profile.personal_info',
+    'member.profile.photo_alt',
+    'member.profile.photo_remove_failed',
+    'member.profile.photo_removed',
+    'member.profile.photo_update_failed',
+    'member.profile.photo_updated',
+    'member.profile.photo_upload_failed',
+    'member.profile.remove',
+    'member.profile.role_fallback',
+    'member.profile.save',
+    'member.profile.security',
+    'member.profile.sign_in_again',
+    'member.profile.status_active',
+    'member.profile.status_inactive',
+    'member.profile.subtitle',
+    'member.profile.title',
+    'member.profile.update_password',
+    'user.account.access_restricted',
+    'user.account.active',
+    'user.account.available_credits',
     'user.account.balance',
+    'user.account.billing_subtitle',
+    'user.account.billing_title',
     'user.account.change',
+    'user.account.col_amount',
+    'user.account.col_date',
+    'user.account.col_event',
+    'user.account.col_plan',
+    'user.account.col_status',
+    'user.account.credit_failed',
+    'user.account.credit_insufficient',
+    'user.account.credits_subtitle',
+    'user.account.credits_title',
+    'user.account.current_plan',
     'user.account.customer_id',
     'user.account.discount_code',
+    'user.account.free_tier',
+    'user.account.history_title',
+    'user.account.ledger_title',
+    'user.account.no_billing',
     'user.account.no_transactions',
     'user.account.plan_deal',
     'user.account.pro_chip',
     'user.account.reason',
+    'user.account.refresh',
+    'user.account.renews_expires',
     'user.account.sign_in',
+    'user.account.sign_in_manage',
     'user.account.sign_in_prompt',
+    'user.account.sign_in_register',
     'user.account.subscription_id',
     'user.account.tier_rank',
     'user.account.title',
     'user.account.transaction_history',
+    'user.account.transactions',
+    'user.account.upgrade',
+    'user.account.upgrade_note',
+    'user.account.use_credit',
     'user.account.view_plans',
     'user.credits',
     'user.dashboard.account_hint',

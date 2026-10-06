@@ -60,47 +60,35 @@ export class ConstantVariables {
 
     public defaultEmailTags = ['##OTP##', '##RECEIVER_NAME##', '##COMPANY_NAME##'];
 
-    /** What a person reads when sign-in fails: plain words, and what to do next. */
-    public firebaseAuthErrors = [
-        { code: 'auth/missing-password', message: 'Please enter your password.' },
-        { code: 'auth/email-already-in-use', message: 'You already have an account with this email. Enter your password to sign in.' },
-        { code: 'auth/invalid-email', message: 'That email address does not look right.' },
-        { code: 'auth/operation-not-allowed', message: 'This way of signing in is not turned on for this site.' },
-        { code: 'auth/weak-password', message: 'Use at least 8 characters for your password.' },
-        { code: 'auth/user-disabled', message: 'This account is blocked. Please contact the site administrator.' },
-        { code: 'auth/user-not-found', message: 'Wrong email or password. Please try again.' },
-        { code: 'auth/wrong-password', message: 'Wrong password. Please try again, or use Forgot Password.' },
-        {
-            code: 'auth/account-exists-with-different-credential',
-            message: 'You already have an account with this email. Sign in with your password.',
-        },
-        {
-            code: 'auth/credential-already-in-use',
-            message: 'This sign-in is already used by another account.',
-        },
-        { code: 'auth/popup-closed-by-user', message: 'The sign-in window was closed. Please try again.' },
-        {
-            code: 'auth/cancelled-popup-request',
-            message: 'A sign-in window is already open.',
-        },
-        { code: 'auth/popup-blocked', message: 'Your browser blocked the sign-in window. Allow pop-ups for this site and try again.' },
-        { code: 'auth/invalid-phone-number', message: 'Enter a valid mobile number.' },
-        { code: 'auth/quota-exceeded', message: 'We cannot send more codes right now. Please try again later.' },
-        { code: 'auth/missing-phone-number', message: 'Enter your mobile number.' },
-        { code: 'auth/too-many-requests', message: 'Too many attempts. Please wait a few minutes and try again.' },
-        { code: 'auth/code-expired', message: 'That code has expired. Please ask for a new one.' },
-        { code: 'auth/invalid-verification-code', message: "That code didn't work." },
-        {
-            code: 'auth/network-request-failed',
-            message: 'No internet connection. Check your connection and try again.',
-        },
-        { code: 'auth/internal-error', message: 'Something went wrong. Please try again.' },
-        // Current Firebase returns this for a wrong password or an unknown email alike.
-        { code: 'auth/invalid-credential', message: 'Wrong password. Please try again, or use Forgot Password.' },
-        {
-            code: 'auth/requires-recent-login',
-            message: 'For your security, please sign in again and retry.',
-        },
+    /**
+     * What a person reads when sign-in fails: plain words, and what to do next. Firebase
+     * Auth error codes people can see, each with its message key (member.errors.*,
+     * translated: specs/app-member-language-spec.md). Shown through firebaseErrorMessage().
+     */
+    public firebaseAuthErrors: ReadonlyArray<{ code: string; key: string }> = [
+        { code: 'auth/missing-password', key: 'member.errors.missing_password' },
+        { code: 'auth/email-already-in-use', key: 'member.errors.email_already_in_use' },
+        { code: 'auth/invalid-email', key: 'member.errors.invalid_email' },
+        { code: 'auth/operation-not-allowed', key: 'member.errors.operation_not_allowed' },
+        { code: 'auth/weak-password', key: 'member.errors.weak_password' },
+        { code: 'auth/user-disabled', key: 'member.errors.user_disabled' },
+        { code: 'auth/user-not-found', key: 'member.errors.user_not_found' },
+        { code: 'auth/wrong-password', key: 'member.errors.wrong_password' },
+        { code: 'auth/account-exists-with-different-credential', key: 'member.errors.account_exists_with_different_credential' },
+        { code: 'auth/credential-already-in-use', key: 'member.errors.credential_already_in_use' },
+        { code: 'auth/popup-closed-by-user', key: 'member.errors.popup_closed_by_user' },
+        { code: 'auth/cancelled-popup-request', key: 'member.errors.cancelled_popup_request' },
+        { code: 'auth/popup-blocked', key: 'member.errors.popup_blocked' },
+        { code: 'auth/invalid-phone-number', key: 'member.errors.invalid_phone_number' },
+        { code: 'auth/quota-exceeded', key: 'member.errors.quota_exceeded' },
+        { code: 'auth/missing-phone-number', key: 'member.errors.missing_phone_number' },
+        { code: 'auth/too-many-requests', key: 'member.errors.too_many_requests' },
+        { code: 'auth/code-expired', key: 'member.errors.code_expired' },
+        { code: 'auth/invalid-verification-code', key: 'member.errors.invalid_verification_code' },
+        { code: 'auth/network-request-failed', key: 'member.errors.network_request_failed' },
+        { code: 'auth/internal-error', key: 'member.errors.internal_error' },
+        { code: 'auth/invalid-credential', key: 'member.errors.invalid_credential' },
+        { code: 'auth/requires-recent-login', key: 'member.errors.requires_recent_login' },
     ];
 
     // Soft pastel color palette for tags

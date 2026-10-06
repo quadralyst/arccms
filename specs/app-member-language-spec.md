@@ -1,6 +1,6 @@
 # Member Languages Added by the App: Build Spec (A1)
 
-**Status:** A1a (the mechanism) built 2026-10-06 on `feat/app-member-language`; A1b to A1d not built.
+**Status:** A1a (the mechanism) and A1b (sign-in, profile, account) built 2026-10-06 on `feat/app-member-language`; A1c and A1d not built.
 **Branch:** `feat/app-member-language`, cut from `dev` (10c8734).
 **Scope:** an app built on Arc CMS adds a language Arc does not ship (for example German)
 and shows it to its members: signed-in non-admin people, and visitors on the sign-in
@@ -168,3 +168,20 @@ English; the app can set its own.
   import, which breaks the parse.
 - `npm run i18n:member -- --lang=de` on Arc CMS today lists 93 member keys; A1b and A1c add
   the extracted screens to that list.
+
+**A1b built 2026-10-06.** 227 new keys in `en` and `hi` (`member.auth.*`, `member.errors.*`,
+`member.profile.*`, `member.methods.*`, `user.account.*`), with these notes:
+
+- Sentences that highlight a value ("You are logging in as **email**") are whole-sentence
+  keys with `{{ value }}`, split around the value by `sentenceParts()`, so the value keeps its
+  styling, each language orders its own words, and no user data goes into translated HTML.
+- The Firebase error table maps codes to keys (`member.errors.*`); the store and the sign-in
+  service inject Transloco rather than relying on its global `translate()`, which fails before
+  any component has started it. `readSignInError`'s fallback keeps the English sentence only
+  for that case.
+- The password reset email asks Firebase for the member language (L-D13), only when the app
+  declares member languages.
+- `member-screens-translated.spec.ts` scans the member screens for literal text and English
+  sentences in messages; the not-yet-translated member files are listed there for A1c.
+- Existing specs that asserted English now read it from `en.json` (`src/test/english.ts`).
+- The Hindi was written for this work and needs a native speaker's read.

@@ -377,7 +377,7 @@ describe('ProfileComponent', () => {
         });
 
         it('should have Change Photo and Remove Photo buttons', () => {
-            expect(template).toContain('Change Photo');
+            expect(template).toContain("'member.profile.change_photo' | transloco");
             expect(template).toContain('removePhoto()');
         });
 
@@ -392,7 +392,7 @@ describe('ProfileComponent', () => {
 
         it('should show password mismatch error', () => {
             expect(template).toContain('hasPasswordMismatch');
-            expect(template).toContain('Passwords do not match');
+            expect(template).toContain("'member.profile.passwords_mismatch' | transloco");
         });
     });
 

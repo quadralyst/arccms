@@ -34,17 +34,17 @@
 
                                 <div class="mb-4 mt-4 text-start">
                                     <label for="identifier" class="form-label">
-                                        {{ phoneEnabled() ? 'Phone number or email' : 'Email' }}
+                                        {{ (phoneEnabled() ? 'member.auth.identifier_label_phone' : 'member.auth.identifier_label_email') | transloco }}
                                     </label>
                                     <input type="text" formControlName="identifier" class="form-control" id="identifier"
                                         autocomplete="username" autocapitalize="off" spellcheck="false"
-                                        [placeholder]="phoneEnabled() ? '98765 43210 or name@example.com' : 'name@company.com'"
+                                        [placeholder]="(phoneEnabled() ? 'member.auth.identifier_placeholder_phone' : 'member.auth.identifier_placeholder_email') | transloco"
                                         [readonly]="isLoading()" (paste)="cleanIdentifier()" (blur)="cleanIdentifier()"
                                         [class.is-invalid]="isFieldInvalid('identifier')" />
 
                                     @if(isFieldInvalid('identifier')){
                                     <div class="invalid-feedback">
-                                        {{ phoneEnabled() ? 'Enter a valid mobile number or email' : 'Please enter a valid email address' }}
+                                        {{ (phoneEnabled() ? 'member.auth.identifier_invalid_phone' : 'member.auth.identifier_invalid_email') | transloco }}
                                     </div>
                                     }
                                 </div>
@@ -55,14 +55,14 @@
 
                                 <div class="mb-3">
                                     <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
-                                        Continue
+                                        {{ 'member.auth.continue' | transloco }}
                                         <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
                                             role="status"></span>
                                     </button>
                                 </div>
 
                                 @if (googleEnabled()) {
-                                <div class="or-divider"><span>or</span></div>
+                                <div class="or-divider"><span>{{ 'member.auth.or' | transloco }}</span></div>
                                 <button type="button" class="btn google-button w-100" (click)="continueWithGoogle()"
                                     [disabled]="isLoading()">
                                     <svg class="google-logo" viewBox="0 0 48 48" aria-hidden="true">
@@ -71,7 +71,7 @@
                                         <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
                                         <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
                                     </svg>
-                                    Continue with Google
+                                    {{ 'member.auth.continue_google' | transloco }}
                                 </button>
                                 }
                             </div>
@@ -81,7 +81,7 @@
                     <div class="copyright">
                         &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
-                        <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
+                        <div class="instance-label" [title]="'member.auth.instance_label_title' | transloco">{{ instanceLabel }}</div>
                         }
                     </div>
                     }
@@ -96,18 +96,19 @@
                     <div class="request-container request-height">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title login-title text-primary mb-3">Welcome Back!</h5>
+                                <h5 class="card-title login-title text-primary mb-3">{{ 'member.auth.welcome_back_greeting' | transloco }}</h5>
+                                @let loggingIn = parts('member.auth.logging_in_as');
                                 <p class="login-subtitle m-0">
-                                    You are logging in as <strong>{{ email }}</strong>
+                                    {{ loggingIn[0] }}<strong>{{ email }}</strong>{{ loggingIn[1] }}
                                 </p>
-                                <p class="login-subtitle">Enter your password to continue</p>
+                                <p class="login-subtitle">{{ 'member.auth.enter_password_to_continue' | transloco }}</p>
 
                                 @if (successMessage()) {
                                 <div class="alert alert-info">{{ successMessage() }}</div>
                                 }
 
                                 <div class="mb-3 mt-4">
-                                    <label for="password" class="form-label visually-hidden">Enter your password</label>
+                                    <label for="password" class="form-label visually-hidden">{{ 'member.auth.password_label' | transloco }}</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fas fa-lock"></i></span>
                                         <input [type]="showLoginPassword() ? 'text' : 'password'"
@@ -123,7 +124,7 @@
 
                                     @if(isFieldInvalid('loginPassword')){
                                     <div class="invalid-feedback d-block">
-                                        Please enter your password
+                                        {{ 'member.auth.password_required' | transloco }}
                                     </div>
                                     }
                                 </div>
@@ -138,20 +139,20 @@
                                     <a (click)="changeIdentifier()"
                                         class="change-email cursor text-decoration-none text-dark"
                                         style="cursor: pointer;">
-                                        <i class="bi bi-arrow-left"></i>&nbsp;Change Email
+                                        <i class="bi bi-arrow-left"></i>&nbsp;{{ 'member.auth.change_email' | transloco }}
                                     </a>
                                 </div>
 
                                 <button type="submit" class="btn btn-primary login-button w-100 mt-3"
                                     [disabled]="isLoading()">
-                                    Login
+                                    {{ 'member.auth.login' | transloco }}
                                     <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
 
                                 <div class="mt-3 text-center">
                                     <a (click)="forgotPassword()" class="forgot-password cursor"
-                                        style="cursor: pointer;">Forgot Password?</a>
+                                        style="cursor: pointer;">{{ 'member.auth.forgot_password' | transloco }}</a>
                                 </div>
                             </div>
                         </div>
@@ -159,7 +160,7 @@
                     <div class="copyright">
                         &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
-                        <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
+                        <div class="instance-label" [title]="'member.auth.instance_label_title' | transloco">{{ instanceLabel }}</div>
                         }
                     </div>
                     }
@@ -174,19 +175,20 @@
                     <div class="request-container request-height">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title login-title text-primary mb-3">Welcome Back!</h5>
+                                <h5 class="card-title login-title text-primary mb-3">{{ 'member.auth.welcome_back_greeting' | transloco }}</h5>
+                                @let signingIn = parts('member.auth.signing_in_as');
                                 <p class="login-subtitle m-0">
-                                    You are signing in as <strong>{{ phoneDisplay() }}</strong>
+                                    {{ signingIn[0] }}<strong>{{ phoneDisplay() }}</strong>{{ signingIn[1] }}
                                 </p>
-                                <p class="login-subtitle">Enter your 6-digit PIN</p>
+                                <p class="login-subtitle">{{ 'member.auth.enter_pin' | transloco }}</p>
 
                                 <div class="mt-4">
-                                    <arc-code-input #pinBoxes label="PIN" [masked]="!showPin()" [oneTimeCode]="false"
+                                    <arc-code-input #pinBoxes [label]="'member.auth.pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
                                         [disabled]="isLoading() || pinLocked()" [invalid]="!!errorMessage()"
                                         (completed)="signInWithPin($event)"></arc-code-input>
                                     <button type="button" class="btn btn-link btn-sm pin-toggle"
                                         (click)="showPin.set(!showPin())">
-                                        {{ showPin() ? 'Hide PIN' : 'Show PIN' }}
+                                        {{ (showPin() ? 'member.auth.hide_pin' : 'member.auth.show_pin') | transloco }}
                                     </button>
                                 </div>
 
@@ -197,20 +199,20 @@
                                 <div class="d-flex justify-content-between mt-3">
                                     <a (click)="changeIdentifier()" class="change-email cursor text-decoration-none text-dark"
                                         style="cursor: pointer;">
-                                        <i class="bi bi-arrow-left"></i>&nbsp;Change number
+                                        <i class="bi bi-arrow-left"></i>&nbsp;{{ 'member.auth.change_number' | transloco }}
                                     </a>
-                                    <a (click)="forgotPin()" class="forgot-password cursor" style="cursor: pointer;">Forgot PIN?</a>
+                                    <a (click)="forgotPin()" class="forgot-password cursor" style="cursor: pointer;">{{ 'member.auth.forgot_pin' | transloco }}</a>
                                 </div>
 
                                 @if (pinLocked()) {
                                 <button type="button" class="btn btn-primary w-100 mt-4" (click)="forgotPin()"
                                     [disabled]="isLoading()">
-                                    Reset PIN with a code
+                                    {{ 'member.auth.reset_pin_with_code' | transloco }}
                                 </button>
                                 } @else {
                                 <button type="button" class="btn btn-primary w-100 mt-4" (click)="signInWithPin()"
                                     [disabled]="isLoading()">
-                                    Verify
+                                    {{ 'member.auth.verify' | transloco }}
                                     <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
@@ -221,7 +223,7 @@
                     <div class="copyright">
                         &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
-                        <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
+                        <div class="instance-label" [title]="'member.auth.instance_label_title' | transloco">{{ instanceLabel }}</div>
                         }
                     </div>
                     }
@@ -237,23 +239,24 @@
                         <div class="card verification-card border-0">
                             <div class="card-body customPadding">
                                 <h5 class="card-title verification-title text-center text-primary">{{ getStepTitle() }}</h5>
+                                @let codeSent = parts('member.auth.code_sent_to');
                                 <p class="verification-message">
-                                    We've sent a 6-digit code to <br />
-                                    <span class="email-highlight">{{ sentTo() }}</span>
+                                    {{ codeSent[0] }}<br />
+                                    <span class="email-highlight">{{ sentTo() }}</span>{{ codeSent[1] }}
                                 </p>
 
-                                <arc-code-input #codeBoxes label="Verification code" [disabled]="isLoading()"
+                                <arc-code-input #codeBoxes [label]="'member.auth.code_label' | transloco" [disabled]="isLoading()"
                                     [invalid]="!!otpError()" (completed)="verifyOtp($event)"></arc-code-input>
 
                                 @if (testCode()) {
                                 <button type="button" class="test-code" (click)="useTestCode()" [disabled]="isLoading()">
-                                    <span class="test-code-label">Test mode, no SMS sent. Your code:</span>
+                                    <span class="test-code-label">{{ 'member.auth.test_code_label' | transloco }}</span>
                                     <strong>{{ testCode() }}</strong>
-                                    <span class="test-code-hint">Tap to use</span>
+                                    <span class="test-code-hint">{{ 'member.auth.test_code_hint' | transloco }}</span>
                                 </button>
                                 }
                                 @if (testCodeInLogs()) {
-                                <p class="small text-muted text-center mt-2">Test mode, no SMS sent. An admin can read the code in SMS Logs.</p>
+                                <p class="small text-muted text-center mt-2">{{ 'member.auth.test_code_in_logs' | transloco }}</p>
                                 }
 
                                 @if (otpError()) {
@@ -266,23 +269,24 @@
                                     <a (click)="changeIdentifier()"
                                         class="change-email cursor text-decoration-none text-dark"
                                         style="cursor: pointer;">
-                                        <i class="bi bi-arrow-left"></i>&nbsp;{{ channel() === 'phone' ? 'Change number' : 'Change Email' }}
+                                        <i class="bi bi-arrow-left"></i>&nbsp;{{ (channel() === 'phone' ? 'member.auth.change_number' : 'member.auth.change_email') | transloco }}
                                     </a>
 
                                     <span id="timer" class="">
                                         @if (resendCountdown() === 0) {
                                         <a href="javascript:void(0)" class="text-primary mb-0 text-decoration-none"
-                                            (click)="resendOtp()">Resend</a>
+                                            (click)="resendOtp()">{{ 'member.auth.resend' | transloco }}</a>
                                         } @else {
-                                        <p class="text-primary mb-0">Resend in <span class="counter text-dark">{{
-                                                resendCountdown() }}</span> sec</p>
+                                        @let resendIn = parts('member.auth.resend_in');
+                                        <p class="text-primary mb-0">{{ resendIn[0] }}<span class="counter text-dark">{{
+                                                resendCountdown() }}</span>{{ resendIn[1] }}</p>
                                         }
                                     </span>
                                 </div>
 
                                 <button type="button" (click)="verifyOtp()"
                                     class="btn btn-primary verify-button w-100 mt-4" [disabled]="isLoading()">
-                                    Verify
+                                    {{ 'member.auth.verify' | transloco }}
                                     <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
@@ -292,7 +296,7 @@
                     <div class="copyright">
                         &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
-                        <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
+                        <div class="instance-label" [title]="'member.auth.instance_label_title' | transloco">{{ instanceLabel }}</div>
                         }
                     </div>
                     }
@@ -307,44 +311,45 @@
                     <div class="signup-container request-height">
                         <div class="card signup-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title signup-title text-primary">Complete Your Profile</h5>
+                                <h5 class="card-title signup-title text-primary">{{ 'member.auth.complete_profile' | transloco }}</h5>
+                                @let signingUp = parts('member.auth.signing_up_as');
                                 <p class="signup-subtitle m-0">
-                                    Signing up as <strong>{{ sentTo() }}</strong>
+                                    {{ signingUp[0] }}<strong>{{ sentTo() }}</strong>{{ signingUp[1] }}
                                 </p>
                                 <a (click)="changeIdentifier()" class="change-email cursor text-decoration-none small"
                                     style="cursor: pointer;">
-                                    {{ channel() === 'phone' ? 'Change number' : 'Change email' }}
+                                    {{ (channel() === 'phone' ? 'member.auth.change_number' : 'member.auth.change_email') | transloco }}
                                 </a>
 
                                 <div class="mb-3 mt-4">
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fas fa-user"></i></span>
                                         <input type="text" formControlName="name" class="form-control p-2"
-                                            placeholder="Your full name" autocomplete="name"
+                                            [placeholder]="'member.auth.name_placeholder' | transloco" autocomplete="name"
                                             [class.is-invalid]="isFieldInvalid('name')" [readOnly]="isLoading()">
                                     </div>
                                     @if(isFieldInvalid('name')){
                                     <div class="text-danger mt-2">
-                                        Please enter your name
+                                        {{ 'member.auth.name_required' | transloco }}
                                     </div>
                                     }
                                 </div>
 
                                 @if (channel() === 'phone') {
                                 <div class="mb-2 text-start">
-                                    <label class="form-label">Choose a 6-digit PIN</label>
-                                    <arc-code-input label="New PIN" [masked]="!showPin()" [oneTimeCode]="false"
+                                    <label class="form-label">{{ 'member.auth.choose_pin' | transloco }}</label>
+                                    <arc-code-input [label]="'member.auth.new_pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
                                         [autofocus]="false" [disabled]="isLoading()"
                                         (changed)="newPin.set($event)"></arc-code-input>
                                     <button type="button" class="btn btn-link btn-sm pin-toggle"
                                         (click)="showPin.set(!showPin())">
-                                        {{ showPin() ? 'Hide PIN' : 'Show PIN' }}
+                                        {{ (showPin() ? 'member.auth.hide_pin' : 'member.auth.show_pin') | transloco }}
                                     </button>
-                                    <div class="form-text text-center">You will use it to sign in next time.</div>
+                                    <div class="form-text text-center">{{ 'member.auth.pin_next_time' | transloco }}</div>
                                 </div>
                                 } @else {
                                 <div class="mb-3">
-                                    <label for="password" class="form-label visually-hidden">Enter your password</label>
+                                    <label for="password" class="form-label visually-hidden">{{ 'member.auth.password_label' | transloco }}</label>
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fas fa-lock"></i></span>
                                         <input [type]="showPassword() ? 'text' : 'password'" formControlName="password"
@@ -359,7 +364,7 @@
 
                                     @if(isFieldInvalid('password')){
                                     <div class="text-danger mt-2">
-                                        Password must be at least 8 characters
+                                        {{ 'member.auth.password_min' | transloco }}
                                     </div>
                                     }
                                 </div>
@@ -383,7 +388,7 @@
 
                                     @if(hasPasswordMismatch()){
                                     <div class="text-danger">
-                                        Passwords do not match
+                                        {{ 'member.auth.passwords_mismatch' | transloco }}
                                     </div>
                                     }
                                 </div>
@@ -397,7 +402,7 @@
 
                                 <button type="submit" class="btn btn-primary signup-button w-100 mt-4"
                                     [disabled]="isLoading()">
-                                    Create Account
+                                    {{ 'member.auth.create_account' | transloco }}
                                     <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
@@ -408,7 +413,7 @@
                     <div class="copyright">
                         &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
-                        <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
+                        <div class="instance-label" [title]="'member.auth.instance_label_title' | transloco">{{ instanceLabel }}</div>
                         }
                     </div>
                     }
@@ -427,11 +432,11 @@
                                 <p class="login-subtitle">{{ getStepDescription() }}</p>
 
                                 <div class="mt-4">
-                                    <arc-code-input label="New PIN" [masked]="!showPin()" [oneTimeCode]="false"
+                                    <arc-code-input [label]="'member.auth.new_pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
                                         [disabled]="isLoading()" (changed)="newPin.set($event)"></arc-code-input>
                                     <button type="button" class="btn btn-link btn-sm pin-toggle"
                                         (click)="showPin.set(!showPin())">
-                                        {{ showPin() ? 'Hide PIN' : 'Show PIN' }}
+                                        {{ (showPin() ? 'member.auth.hide_pin' : 'member.auth.show_pin') | transloco }}
                                     </button>
                                 </div>
 
@@ -440,7 +445,7 @@
                                 }
 
                                 <button type="submit" class="btn btn-primary w-100 mt-4" [disabled]="isLoading()">
-                                    Save PIN and sign in
+                                    {{ 'member.auth.save_pin' | transloco }}
                                     <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
@@ -450,7 +455,7 @@
                     <div class="copyright">
                         &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
-                        <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
+                        <div class="instance-label" [title]="'member.auth.instance_label_title' | transloco">{{ instanceLabel }}</div>
                         }
                     </div>
                     }
@@ -473,17 +478,18 @@
                                     <i class="fa-solid fa-user-lock fa-3x text-muted"></i>
                                 </div>
                                 <h2 class="auth-title">{{ getStepTitle() }}</h2>
-                                <p class="auth-subtitle">New accounts can't be created on this site right now.</p>
-                                <p class="text-muted">Please contact the site administrator to get an account.</p>
-                                <p class="text-muted">Already have one? <a (click)="changeIdentifier()" class="text-primary"
-                                        role="button">Sign in with another email or number</a>.</p>
+                                <p class="auth-subtitle">{{ 'member.auth.closed_body' | transloco }}</p>
+                                <p class="text-muted">{{ 'member.auth.closed_contact' | transloco }}</p>
+                                @let haveOne = parts('member.auth.closed_have_one');
+                                <p class="text-muted">{{ haveOne[0] }}<a (click)="changeIdentifier()" class="text-primary"
+                                        role="button">{{ 'member.auth.closed_sign_in_other' | transloco }}</a>{{ haveOne[1] }}</p>
                             </div>
                         </div>
                     </div>
                     <div class="copyright">
                         &copy; {{ currentYear }} {{ brandName() }}
                         @if (instanceLabel) {
-                        <div class="instance-label" title="Firebase project and database (development builds only)">{{ instanceLabel }}</div>
+                        <div class="instance-label" [title]="'member.auth.instance_label_title' | transloco">{{ instanceLabel }}</div>
                         }
                     </div>
                     }

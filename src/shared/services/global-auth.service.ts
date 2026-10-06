@@ -25,6 +25,7 @@ import { firstValueFrom, from, Observable } from 'rxjs';
 import { IAuth } from '../../app/pages/(auth)/auth.model';
 import { OmitCommonFields } from '../models/base-model';
 import { DbService, COLLECTION_NAME } from './db.service';
+import { memberLanguageNow } from '../../app/core/i18n/member-language-now';
 
 @Injectable({
     providedIn: 'root',
@@ -133,6 +134,11 @@ export class GlobalAuthService<T extends IAuth> extends DbService<IAuth> {
 
     async forgotPassword(email: string): Promise<any> {
         try {
+            // Firebase's own reset email, in the member's language where Firebase has a
+            // template for it (docs/app/member-languages.html, L-D13). Unchanged when the
+            // app declares no member languages.
+            const language = memberLanguageNow();
+            if (language) this.firebaseAuth.languageCode = language;
             await sendPasswordResetEmail(this.firebaseAuth, email);
             return {
                 message: 'mail sent',
