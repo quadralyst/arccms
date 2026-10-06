@@ -20,6 +20,13 @@ export const DEFAULT_DATABASE_ID = '(default)';
 /** Where Firebase puts functions that name no region. */
 export const DEFAULT_FUNCTIONS_REGION = 'us-central1';
 
+/**
+ * Firestore's offline cache (docs/app/offline.html): `off`, or kept on the device for one
+ * tab at a time, or shared by every tab of the site.
+ */
+export const OFFLINE_CACHE_MODES = ['off', 'single-tab', 'multi-tab'] as const;
+export type OfflineCacheMode = (typeof OFFLINE_CACHE_MODES)[number];
+
 /** One project's entry in `arc-install.ts`, as written by `arc:configure`. */
 export interface ArcInstallConfig {
     /** Firestore database id. Default `(default)`. */
@@ -43,6 +50,11 @@ export interface ArcInstallConfig {
      * website. Set by `arc:configure`. Default: the project's default site.
      */
     hostingSite?: string;
+    /**
+     * Firestore's offline cache: data loaded stays on the device and writes made
+     * offline are sent later. Set by `arc:configure --offline-cache`. Default off.
+     */
+    offlineCache?: OfflineCacheMode;
 }
 
 export interface ResolvedArcConfig {
@@ -55,6 +67,8 @@ export interface ResolvedArcConfig {
     functionsRegion: string;
     /** The install's own Hosting site, `none` for no website, or '' for the project's default site. */
     hostingSite: string;
+    /** `off` unless the install turned it on. */
+    offlineCache: OfflineCacheMode;
 }
 
 /** Fills in the defaults and normalises what was given. */
@@ -68,6 +82,10 @@ export function resolveArcConfig(raw: ArcInstallConfig | undefined): ResolvedArc
         adminOnlySignIn: raw?.adminOnlySignIn === true,
         functionsRegion: raw?.functionsRegion?.trim() || DEFAULT_FUNCTIONS_REGION,
         hostingSite: raw?.hostingSite?.trim() || '',
+        // Anything but a known mode is off: a typo must never half-enable a cache.
+        offlineCache: OFFLINE_CACHE_MODES.includes(raw?.offlineCache as OfflineCacheMode)
+            ? (raw!.offlineCache as OfflineCacheMode)
+            : 'off',
     };
 }
 

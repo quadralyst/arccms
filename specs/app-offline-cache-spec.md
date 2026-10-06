@@ -1,6 +1,6 @@
 # Offline Firestore Cache: Build Spec (A3)
 
-**Status:** spec written 2026-10-06, not built.
+**Status:** built 2026-10-06 on `feat/app-offline-cache`; suite green, docs updated, checked in the browser against the dev project (section 6). Not yet merged to `dev`.
 **Branch:** `feat/app-offline-cache`, cut from `dev` (10c8734).
 **Scope:** an install can turn on Firestore's offline cache, so a signed-in page keeps
 showing the data it has loaded, and writes made offline are sent when the connection
@@ -38,7 +38,7 @@ and automatic clearing on sign-out (decision O-D5).
 | O-D6 | Guard | The one-file rule in `arc-config-guard.spec.ts` is widened to `initializeFirestore` and `persistentLocalCache` too. |
 | O-D7 | Nothing else changes | No store or service is rewritten. Reads and writes go through the same Firestore instance, so the cache applies to all of them. |
 | O-D8 | Security rules and the cache | **Reads served from the cache are not checked by security rules**: the rules run on the server, and offline there is no server. Whatever one person loaded on a device can be returned to the next person's queries on that device while offline (and, until the server answers, briefly online). The docs say this plainly, with the choice it leaves an app on a shared device: accept it (staff who share the data anyway), or call `clearOfflineCache()` when the person changes. |
-| O-D9 | Opening screens offline | The cache holds **data**, not the app's code. A screen whose code was never loaded on the device cannot open offline. Storing route code ahead is `specs/app-route-code-spec.md` (A8); the docs link the two. |
+| O-D9 | Opening screens offline | The cache holds **data**, not the app's code. A screen whose code was never loaded on the device cannot open offline. Storing route code ahead is the A8 spec (on branch `feat/app-route-code`) (A8); the docs link the two. |
 
 ## 3. Build
 
@@ -86,3 +86,17 @@ instance, so it is a function of `inject`ed state: callable from a component or 
   go offline in the browser tools and reload data views (still shown), make a write
   offline, go online and see it sync. Then set it back to `off` and confirm the old
   behaviour.
+
+**Checked 2026-10-06** on the dev project's named database (`arccms`), with a dev server on
+this branch, signed out (signing in from an automated browser was not possible):
+`arc:configure --offline-cache=multi-tab` wrote the value to `arc-install.ts` and nothing
+to the functions' `.env`; Firestore created its IndexedDB store
+(`firestore/[DEFAULT]/xlm-project-864ff.arccms/main`); a public document read once was still
+on the device after a reload and an offline read returned it (`fromCache: true`), while a
+document never loaded failed offline (`unavailable`). Control with `off`: the same document
+was not on the device after a reload and the offline read failed, and `arc-install.ts`
+matched the committed file. `clearOfflineCache()` removed the stored document (gone after a
+reload) and the cache worked again afterwards. **Not checked in the browser:** a signed-in
+page and a write made offline syncing on reconnect; these follow from Firestore's own cache
+once it is on, and Gunjan can confirm them signed in with the steps in
+`docs/app/offline.html`.

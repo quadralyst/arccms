@@ -20,7 +20,7 @@
       <li>Every component is standalone. There are no NgModules: a component lists what it uses in <code>imports</code>.</li>
       <li>Admin and member pages start with the shared page header (below).</li>
       <li>Components that call Cloud Functions go through <code>arcCallable()</code> in <code>src/app/core/config/arc-functions.ts</code>, with the plain function name. It adds the <code>arccms-</code> prefix the functions are deployed under.</li>
-      <li>Firestore and Storage are injected, never created with <code>getFirestore()</code> or <code>getStorage()</code>: <code>src/app/core/config/arc-firebase.ts</code> points them at the install's database and bucket, which may not be the defaults.</li>
+      <li>Firestore and Storage are injected, never created with <code>getFirestore()</code>, <code>initializeFirestore()</code> or <code>getStorage()</code>: <code>src/app/core/config/arc-firebase.ts</code> points them at the install's database and bucket, which may not be the defaults, and starts the offline cache when the install turns it on (<a href="../app/offline.html">Keep working offline</a>). A test fails if another file does.</li>
     </ul>
 
     <h2>State: NgRx Signals stores</h2>

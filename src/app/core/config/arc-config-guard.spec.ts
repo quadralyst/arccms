@@ -18,10 +18,10 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe('arc-config guard (frontend)', () => {
-    it('only arc-firebase.ts calls getFirestore() or getStorage()', () => {
+    it('only arc-firebase.ts opens Firestore or Storage, or sets up or clears the offline cache', () => {
         const offenders = sourceFiles(SRC)
             .filter((path) => !path.endsWith(join('core', 'config', 'arc-firebase.ts')))
-            .filter((path) => /\b(getFirestore|getStorage)\s*\(/.test(readFileSync(path, 'utf8')))
+            .filter((path) => /\b(getFirestore|getStorage|initializeFirestore|persistentLocalCache|clearIndexedDbPersistence|enableIndexedDbPersistence|enableMultiTabIndexedDbPersistence)\s*\(/.test(readFileSync(path, 'utf8')))
             .map((path) => relative(SRC, path));
         expect(offenders).toEqual([]);
     });

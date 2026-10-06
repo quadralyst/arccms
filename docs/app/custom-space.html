@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Use the custom space | Arc CMS docs</title>
   <meta name="description" content="Know every file and folder of the custom space, what each is for, and where Arc CMS reads it, so your app never edits a core file.">
-  <meta name="docs:sources" content="src/custom, scripts/arc-site.mjs, scripts/vite-arc-site.ts, functions/src/custom, docs/custom, custom, scripts/check-core.mjs, scripts/arc-admin-script.mjs, vitest.config.ts, scripts/arc-rules-build.mjs, scripts/arc-features.mjs, src/app/app.routes.ts, src/app/custom-space.spec.ts, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/home/home.ts, src/app/core/i18n/translation.loader.ts, src/app/core/pwa/pwa.service.ts, src/app/core/features/features.ts, functions/src/all.ts, vite.config.ts, index.html, vitest.rules.config.ts">
+  <meta name="docs:sources" content="src/custom, scripts/arc-site.mjs, scripts/vite-arc-site.ts, functions/src/custom, docs/custom, custom, scripts/check-core.mjs, scripts/arc-admin-script.mjs, vitest.config.ts, scripts/arc-rules-build.mjs, scripts/arc-features.mjs, src/app/app.routes.ts, src/app/custom-space.spec.ts, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/home/home.ts, src/app/core/i18n/translation.loader.ts, src/app/core/pwa/pwa.service.ts, src/app/core/config/arc-firebase.ts, src/app/core/features/features.ts, functions/src/all.ts, vite.config.ts, index.html, vitest.rules.config.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/custom-space.html">
@@ -94,6 +94,7 @@
         <tr><td><code>arc-row-actions</code></td><td><code>src/shared/components/row-actions/row-actions.component.ts</code></td><td>The actions of a row in a table or card you build yourself</td></tr>
         <tr><td><code>app-user-shell</code></td><td><code>src/app/pages/user/user-shell.component.ts</code></td><td>The member area's layout and menu</td></tr>
         <tr><td><code>PwaService</code></td><td><code>src/app/core/pwa/pwa.service.ts</code></td><td>Whether a new version of the installable app is waiting (<code>updateReady()</code>), looking for one now (<code>checkForUpdate()</code>) and switching to it (<code>applyUpdate()</code>), for an app that shows the update itself (<a href="pwa.html#show-the-update-yourself">Make it installable</a>)</td></tr>
+        <tr><td><code>clearOfflineCache()</code></td><td><code>src/app/core/config/arc-firebase.ts</code></td><td>Wipes Firestore's offline cache on this device, for a device that changes hands, when the install keeps data offline (<a href="offline.html">Keep working offline</a>)</td></tr>
       </tbody>
     </table>
     <p>If a building block falls short, the missing option is added to it in Arc CMS. Copying the component into the custom space loses every later fix.</p>

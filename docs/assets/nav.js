@@ -68,6 +68,7 @@ window.ARC_DOCS_NAV = [
       { path: "app/sign-in.html", title: "Set up sign-in" },
       { path: "app/payments.html", title: "Add payments and premium features" },
       { path: "app/pwa.html", title: "Make it installable" },
+      { path: "app/offline.html", title: "Keep working offline" },
       { path: "app/app-audience.html", title: "Connect your app's users" },
       { path: "app/shared-project.html", title: "Share a Firebase project" },
       { path: "app/check-core-and-upgrade.html", title: "Keep core untouched" }
