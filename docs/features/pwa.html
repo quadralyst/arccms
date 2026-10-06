@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Installable app (PWA) | Arc CMS docs</title>
   <meta name="description" content="Make the site installable on phones and computers: name, colors, start page and icon, the install prompt, updates and install numbers.">
-  <meta name="docs:sources" content="src/custom/pwa.ts, src/app/core/pwa, vite.config.ts, src/shared/components/install-prompt, functions/src/pwa, functions/src/features/pwa.ts, src/app/pages/admin/(dashboard)/dashboard.page.ts, src/app/pages/user/(dashboard)/dashboard.page.ts, firestore.rules">
+  <meta name="docs:sources" content="src/custom/pwa.ts, src/app/core/pwa, vite.config.ts, scripts/pwa-workbox.ts, scripts/vite-route-code.ts, src/shared/components/install-prompt, functions/src/pwa, functions/src/features/pwa.ts, src/app/pages/admin/(dashboard)/dashboard.page.ts, src/app/pages/user/(dashboard)/dashboard.page.ts, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/pwa.html">
@@ -18,7 +18,7 @@
     <ul>
       <li><strong>An install card</strong> that shows the right steps for their browser.</li>
       <li><strong>Fast opening:</strong> the app's main code, styles and fonts are stored on the device; other code, images and fonts from the site and common font and script CDNs are stored the first time they load. A person's own files in Storage (<code>users/...</code>) are never stored, so nothing private stays on a shared device.</li>
-      <li><strong>Fresh content:</strong> pages always come from the network first. Without a connection, or after 4 seconds of waiting, the stored copy opens instead. Signed-in data still needs a connection.</li>
+      <li><strong>Fresh content:</strong> pages always come from the network first. Without a connection, or after 4 seconds of waiting (<code>navigationTimeoutSeconds</code>), the stored copy opens instead. After an update, a stored page of the old version is not used: its code is gone, so the app opens on the new version's code at the same address. Signed-in data still needs a connection.</li>
       <li><strong>Safe updates:</strong> after a deploy, an open app shows "A new version is ready." with an <strong>Update</strong> button. It checks on each page load and every hour, and never reloads by itself. Once someone updates in one tab, the other open tabs reload into the new version too, except pages that show the update themselves (see <a href="../app/pwa.html#other-tabs">Make it installable</a>).</li>
     </ul>
     <p>Admins see install numbers on the admin dashboard. For when an app should use this, see <a href="../app/pwa.html">Make it installable</a>.</p>
@@ -52,6 +52,7 @@
             <tr><td><code>themeColor</code></td><td><code>#1d47a3</code></td><td>The browser bar and phone status bar, and the install card's accent.</td></tr>
             <tr><td><code>backgroundColor</code></td><td><code>#ffffff</code></td><td>The splash screen while the app opens.</td></tr>
             <tr><td><code>startUrl</code></td><td><code>/</code></td><td>The page the home-screen icon opens.</td></tr>
+            <tr><td><code>navigationTimeoutSeconds</code></td><td><code>4</code></td><td>How long a page waits for the network before the stored copy opens, from 1 to 30 seconds. Lower it for an app often on a network without internet, such as a kiosk on a closed Wi-Fi: each start then waits less. Too low, and a slow connection gets the stored copy instead of fresh content.</td></tr>
             <tr><td><code>routeCode</code></td><td><code>visited</code></td><td>Which screens' code is stored when the app installs or updates: <code>visited</code> (only what every page needs, the rest as it is first opened), <code>app</code> (every screen outside the admin area) or <code>all</code>. See <a href="../app/pwa.html#open-screens-offline-and-after-a-deploy">Make it installable</a>.</td></tr>
           </tbody>
         </table>

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { isAdminPage, routeCodeFiles, type CodeChunk } from './route-code';
-import { resolvePwaConfig } from './pwa-config';
+import { resolvePwaConfig, type RouteCodeMode } from './pwa-config';
 import { routeCode, ROUTE_CODE_WARN_BYTES } from '../../../../scripts/vite-route-code';
 
 const chunk = (file: string, facade: string | null, imports: string[] = [], dynamicImports: string[] = [], isEntry = false): CodeChunk =>
@@ -26,8 +26,8 @@ const GRAPH: CodeChunk[] = [
 ];
 
 describe('routeCodeFiles (specs/app-route-code-spec.md)', () => {
-    it('visited adds nothing: today\'s behaviour', () => {
-        expect(routeCodeFiles(GRAPH, 'visited').size).toBe(0);
+    it('visited keeps only what every page starts with: the main bundle and its static imports', () => {
+        expect([...routeCodeFiles(GRAPH, 'visited')].sort()).toEqual(['assets/index-A.js', 'assets/vendor-A.js']);
     });
 
     it('app keeps every screen outside the admin area and what it imports, lazily too', () => {
@@ -66,13 +66,27 @@ describe('routeCode in src/custom/pwa.ts', () => {
     });
 });
 
+describe('navigationTimeoutSeconds in src/custom/pwa.ts', () => {
+    it('is 4 unless the app sets it, and the app can lower it', () => {
+        expect(resolvePwaConfig({}, true).navigationTimeoutSeconds).toBe(4);
+        expect(resolvePwaConfig({ navigationTimeoutSeconds: 1.5 }, true).navigationTimeoutSeconds).toBe(1.5);
+        expect(resolvePwaConfig({ navigationTimeoutSeconds: 30 }, true).navigationTimeoutSeconds).toBe(30);
+    });
+
+    it('stops the build on a value that is not a number of seconds from 1 to 30', () => {
+        for (const bad of [0, 0.5, -2, 31, Number.NaN, Number.POSITIVE_INFINITY, '2' as never, null as never]) {
+            expect(() => resolvePwaConfig({ navigationTimeoutSeconds: bad }, true), String(bad)).toThrow('navigationTimeoutSeconds must be a number of seconds from 1 to 30');
+        }
+    });
+});
+
 describe('the Workbox manifest transform', () => {
     const entries = [
         { url: 'assets/index-A.js', size: 1000 }, { url: 'assets/dashboard.page-A.js', size: 200 },
         { url: 'assets/editor-A.js', size: 5000 }, { url: 'styles-A.css', size: 300 }, { url: 'assets/font.woff2', size: 100 },
     ];
 
-    async function run(mode: 'app' | 'all', list = entries) {
+    async function run(mode: RouteCodeMode, list = entries) {
         const log = vi.fn();
         const stored = routeCode(mode, log);
         (stored.recorder.generateBundle as unknown as (o: unknown, b: unknown) => void).call({}, {}, Object.fromEntries(GRAPH.map((c) => [c.file, {
@@ -86,6 +100,12 @@ describe('the Workbox manifest transform', () => {
         expect(manifest.map((e) => e.url)).toEqual(['assets/index-A.js', 'assets/dashboard.page-A.js', 'styles-A.css', 'assets/font.woff2']);
         expect(warnings).toEqual([]);
         expect(log).toHaveBeenCalledWith('PWA: 2 code files, 0.0 MB stored when the app installs or updates (routeCode: app).');
+    });
+
+    it('visited keeps the main bundle and leaves every screen to load when first opened', async () => {
+        const { manifest, log } = await run('visited');
+        expect(manifest.map((e) => e.url)).toEqual(['assets/index-A.js', 'styles-A.css', 'assets/font.woff2']);
+        expect(log).toHaveBeenCalledWith('PWA: 1 code files, 0.0 MB stored when the app installs or updates (routeCode: visited).');
     });
 
     it('warns when more than 15 MB would be stored', async () => {
