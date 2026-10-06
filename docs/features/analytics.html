@@ -50,7 +50,8 @@
       </tbody>
     </table>
     <p>The value is written to <code>arccms.config.json</code> (key <code>analyticsConsent</code>) and <code>src/environments/arc-install.ts</code>; build and deploy the website for it to apply. Admin, Settings, Analytics and the dashboard say in one line which of these is happening, and warn when nobody is tracked because the banner is off, with a link to turn it on.</p>
-    <p>In <code>required</code> mode, after the visitor accepts, the same events are sent as in <code>always</code> mode: Google's page view, the screen views and user id Arc CMS's AngularFire setup sends, and the events above. The numbers then cover only those who accepted.</p>
+    <p>In <code>required</code> mode, after the visitor accepts, the same events are sent as in <code>always</code> mode: Google's page view, the screen views (named as AngularFire's screen tracking names them), the user id, and the events above. The numbers then cover only those who accepted.</p>
+    <p>The Firebase Analytics code is a chunk of its own, never part of the code every page loads. It is downloaded when tracking starts: as the site opens in <code>always</code> mode, after the visitor accepts in <code>required</code> mode, and never with the feature off.</p>
     <ul>
       <li><strong>Withdrawing.</strong> A visitor who accepted and later rejects is not tracked from that moment, and Google's <code>_ga</code> cookies are deleted.</li>
       <li><strong>Asking again.</strong> The banner shows once. To let visitors change their mind, add a "Cookie settings" link that calls <code>reopen()</code> on <code>SiteUsageService</code> (<code>src/app/pages/admin/(settings)/site-usage/site-usage.service.ts</code>); the banner then shows again.</li>

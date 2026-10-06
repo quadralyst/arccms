@@ -17,22 +17,30 @@ function sources(dir: string): string[] {
 }
 
 describe('analytics gate', () => {
-    it('only core/analytics and app.config.ts import Firebase Analytics', () => {
-        const allowed = new Set(['app/app.config.ts']);
+    it('only core/analytics imports Firebase Analytics', () => {
         const offenders = sources(SRC)
             .map((file) => relative(SRC, file))
-            .filter((file) => !file.startsWith('app/core/analytics/') && !allowed.has(file))
+            .filter((file) => !file.startsWith('app/core/analytics/'))
             .filter((file) => /from ['"](@angular\/fire\/analytics|firebase\/analytics)['"]|import\(['"](@angular\/fire\/analytics|firebase\/analytics)['"]\)/
                 .test(readFileSync(join(SRC, file), 'utf8')));
         expect(offenders).toEqual([]);
     });
 
-    it('starts AngularFire\'s Analytics only with the feature on, in always mode, in the browser', () => {
+    it('never imports Firebase Analytics statically, so it stays out of the main bundle', () => {
+        // A static import anywhere (AngularFire's providers included) would put the SDK in the
+        // code every visitor downloads. Only the dynamic import in analytics.service.ts loads it.
+        const statics = sources(SRC)
+            .filter((file) => /^\s*import\s[^;]*?from\s+['"](@angular\/fire\/analytics|firebase\/analytics)['"]/m
+                .test(readFileSync(file, 'utf8').replace(/^\s*import\s+type\s[^;]*;/gm, '')))
+            .map((file) => relative(SRC, file));
+        expect(statics).toEqual([]);
+        const service = readFileSync(join(SRC, 'app/core/analytics/analytics.service.ts'), 'utf8');
+        expect(service).toContain("import('firebase/analytics')");
+    });
+
+    it('starts AnalyticsService before the first navigation', () => {
         const config = readFileSync(join(SRC, 'app/app.config.ts'), 'utf8');
-        expect(config).toMatch(/typeof window !== 'undefined'\s*&& isOn\('analytics'\) && arcConfig\.analyticsConsent === 'always'/);
-        expect(config).toContain('provideAnalytics(() => getAnalytics())');
-        expect(config).toContain('ScreenTrackingService');
-        expect(config).toContain('UserTrackingService');
         expect(config).toContain('inject(AnalyticsService)');
+        expect(config).not.toMatch(/provideAnalytics|ScreenTrackingService|UserTrackingService/);
     });
 });

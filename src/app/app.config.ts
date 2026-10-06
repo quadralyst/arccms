@@ -5,8 +5,6 @@ import {
 } from '@angular/common/http';
 import {
   ApplicationConfig,
-  EnvironmentProviders,
-  Provider,
   inject,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
@@ -23,7 +21,6 @@ import { provideAuth, getAuth } from '@angular/fire/auth';
 import { provideFirestore } from '@angular/fire/firestore';
 import { provideStorage } from '@angular/fire/storage';
 import { provideFunctions } from '@angular/fire/functions';
-import { getAnalytics, provideAnalytics, ScreenTrackingService, UserTrackingService } from '@angular/fire/analytics';
 
 import { provideTransloco } from '@jsverse/transloco';
 import { MatPaginatorIntl } from '@angular/material/paginator';
@@ -38,21 +35,7 @@ import { LanguageAreaService, MEMBER_LANGUAGE_LIST } from './core/i18n/member-la
 import { TranslatedPaginatorIntl } from './core/i18n/paginator-intl';
 import { PwaService } from './core/pwa/pwa.service';
 import { AnalyticsService } from './core/analytics/analytics.service';
-import { arcConfig } from './core/config/arc-config';
-import { isOn } from './core/features/features';
 
-// Google Analytics, exactly as before, for an install that tracks every visitor
-// (analyticsConsent `always`, the default). With `required`, AnalyticsService loads it
-// only after consent; with the analytics feature off, nothing loads
-// (docs/features/analytics.html). Browser only.
-const analyticsProviders: (Provider | EnvironmentProviders)[] = typeof window !== 'undefined'
-  && isOn('analytics') && arcConfig.analyticsConsent === 'always'
-  ? [
-    provideAnalytics(() => getAnalytics()),
-    ScreenTrackingService,
-    UserTrackingService,
-  ]
-  : [];
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -103,8 +86,8 @@ export const appConfig: ApplicationConfig = {
     // Does nothing unless src/custom/pwa.ts turns it on.
     provideAppInitializer(() => inject(PwaService).start()),
 
-    // Google Analytics 4 - Automatic screen/user tracking (browser-only)
-    ...analyticsProviders,
+    // Google Analytics 4: AnalyticsService loads it on demand, in its own chunk, and only
+    // with the feature on and, in `required` mode, after consent (docs/features/analytics.html).
     // Started before the first navigation, so a page with data: { analytics: false }
     // is never tracked, not even the page a visit starts on.
     provideAppInitializer(() => { inject(AnalyticsService); }),

@@ -16,7 +16,7 @@ function root(path: string): ActivatedRouteSnapshot {
     return top;
 }
 
-describe('screen views in required mode (docs/features/analytics.html)', () => {
+describe('screen views (docs/features/analytics.html)', () => {
     it('uses every parameter name AngularFire\'s ScreenTrackingService uses', () => {
         const source = readFileSync(resolve(__dirname, '../../../../node_modules/@angular/fire/fesm2022/angular-fire-analytics.mjs'), 'utf8');
         const theirs = [...source.matchAll(/const \w+_KEY = '([a-z_]+)';/g)].map((m) => m[1]);
