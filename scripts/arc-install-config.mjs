@@ -58,6 +58,25 @@ export function resolveProjectId(aliasOrId, aliases = readFirebaseAliases()) {
     return aliases[wanted] || (aliasOrId ? aliasOrId : '');
 }
 
+/**
+ * A project's Firebase web settings (specs/app-project-settings-spec.md, E-D1): entered
+ * once in arccms.config.json under `projects.<id>.firebaseConfig`, written by
+ * arc:configure to this committed file, which only a build for that project imports.
+ */
+export function webConfigPath(projectId, root = ROOT) {
+    return resolve(root, `src/environments/firebase-web.${projectId}.ts`);
+}
+
+/** The web settings keys kept, and the ones a build cannot do without. */
+export const WEB_CONFIG_KEYS = ['apiKey', 'authDomain', 'databaseURL', 'projectId', 'storageBucket', 'messagingSenderId', 'appId', 'measurementId'];
+export const REQUIRED_WEB_CONFIG_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId'];
+
+/** Whether the install config marks a project as production (`"production": "yes"`, E-D9). */
+export function isMarkedProduction(file, projectId) {
+    const value = configForProject(file, projectId).production;
+    return value === 'yes' || value === true;
+}
+
 /** The Firestore database a project uses. */
 export function arcDatabaseId(config) {
     return (typeof config?.databaseId === 'string' && config.databaseId.trim()) || DEFAULT_DATABASE_ID;

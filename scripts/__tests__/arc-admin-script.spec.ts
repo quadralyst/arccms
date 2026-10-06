@@ -76,6 +76,18 @@ describe('arc-admin-script', () => {
         expect(storageBucketFor('live-project', root)).toBeUndefined();
     });
 
+    it('reads a project\'s generated web settings first (specs/app-project-settings-spec.md)', () => {
+        writeFileSync(join(root, 'src', 'environments', 'firebase-web.live-project.ts'),
+            'export const environment = {\n    firebaseConfig: {\n        projectId: "live-project",\n        storageBucket: "live-project.firebasestorage.app",\n    },\n};\n');
+        expect(storageBucketFor('live-project', root)).toBe('live-project.firebasestorage.app');
+    });
+
+    it('calls a project marked "production": "yes" production, as well as the production alias', () => {
+        writeFileSync(join(root, 'arccms.config.json'), JSON.stringify({ projects: { 'shop-main': { production: 'yes' } } }));
+        expect(resolveTarget(['--project=shop-main'], root, {}).prod).toBe(true);
+        expect(resolveTarget([], root, {}).prod).toBe(false);
+    });
+
     describe('runAdminScript', () => {
         const quiet = { log: () => {}, error: () => {} };
 

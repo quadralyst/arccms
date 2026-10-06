@@ -28,7 +28,7 @@
         <p>Open <code>src/environments/environment.ts</code> and replace the <code>firebaseConfig</code> object with the one you copied. <code>src/environments/environment.example.ts</code> shows the shape.</p>
       </li>
       <li>
-        <p>Do the same in <code>src/environments/environment.prod.ts</code>, with your live project's config if you keep a separate one, and set <code>production: true</code>.</p>
+        <p>Do the same in <code>src/environments/environment.prod.ts</code>, with your live project's config if you keep a separate one, and set <code>production: true</code>. With more than two projects, or to skip copying by hand, let <code>arc:configure</code> fetch each project's settings instead (see <a href="../app/environments.html">Dev, staging and production</a>).</p>
       </li>
       <li>
         <p>Tell the Firebase CLI which project to use. Give your development project the alias <code>default</code>:</p>
@@ -42,8 +42,9 @@
     <table>
       <thead><tr><th>File</th><th>Used by</th></tr></thead>
       <tbody>
-        <tr><td><code>src/environments/environment.ts</code></td><td><code>npm run dev</code>, and website builds for the <code>default</code> alias (the build sets <code>USE_DEV_ENV=true</code>)</td></tr>
-        <tr><td><code>src/environments/environment.prod.ts</code></td><td><code>npm run build</code>, and website builds for the <code>production</code> alias</td></tr>
+        <tr><td><code>src/environments/environment.ts</code></td><td><code>npm run dev</code>, and website builds for the <code>default</code> alias when it has no file of its own (below)</td></tr>
+        <tr><td><code>src/environments/environment.prod.ts</code></td><td><code>npm run build</code> with no project given, and website builds for the <code>production</code> alias when it has no file of its own</td></tr>
+        <tr><td><code>src/environments/firebase-web.&lt;projectId&gt;.ts</code></td><td>Website builds for that project (<code>npm run deploy</code>, <code>ARC_PROJECT</code>). Written by <code>npm run arc:configure -- --web-config=fetch</code>; never edit it by hand. See <a href="../app/environments.html">Dev, staging and production</a></td></tr>
         <tr><td><code>src/environments/environment.example.ts</code></td><td>Nothing: the template to copy from</td></tr>
         <tr><td><code>src/environments/arc-install.ts</code></td><td>The app, for the database, bucket, upload folder and hosting site of each project. Written by <code>npm run arc:configure</code>; never edit it by hand</td></tr>
         <tr><td><code>src/environments/index.ts</code></td><td>Re-exports <code>environment.ts</code></td></tr>
@@ -110,6 +111,8 @@
         <tr><td><code>storagePrefix</code></td><td><code>--prefix</code></td><td>None: the bucket root</td><td>The folder every upload goes in: exactly one folder ending in a slash, such as <code>arccms/</code></td></tr>
         <tr><td><code>region</code></td><td><code>--region</code></td><td>None</td><td>The location written into the printed setup commands, such as <code>nam5</code>; it also chooses the functions region when that is not set</td></tr>
         <tr><td><code>functionsRegion</code></td><td><code>--functions-region</code></td><td><code>us-central1</code>, until the first deploy sets it next to the database</td><td>Where the functions run (see <a href="../operations/deploy.html#regions">Regions</a>)</td></tr>
+        <tr><td><code>firebaseConfig</code></td><td><code>--web-config=fetch</code> or <code>--web-config=&lt;file&gt;</code></td><td>None: the environment files</td><td>The project's Firebase web settings, an object (see <a href="../app/environments.html">Dev, staging and production</a>)</td></tr>
+        <tr><td><code>production</code></td><td><code>--production</code></td><td>Not set</td><td><code>yes</code>: deploying asks for the project id to be typed back</td></tr>
         <tr><td><code>adminOnlySignIn</code></td><td><code>--admin-only-sign-in</code></td><td><code>yes</code> for backend, <code>no</code> for standalone</td><td><code>yes</code>: the setup wizard turns sign-ups off when it finishes</td></tr>
         <tr><td><code>offlineCache</code></td><td><code>--offline-cache</code></td><td><code>off</code></td><td><code>single-tab</code> or <code>multi-tab</code>: data stays on the device for use offline (see <a href="../app/offline.html">Keep working offline</a>)</td></tr>
         <tr><td><code>analyticsConsent</code></td><td><code>--analytics-consent</code></td><td><code>always</code></td><td><code>required</code>: Google Analytics tracks only visitors who accept the site usage banner (see <a href="../features/analytics.html">Analytics</a>)</td></tr>

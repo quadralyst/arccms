@@ -28,6 +28,9 @@ describe('the project', () => {
         expect(needsTypedConfirmation('', 'shop-prod')).toBe(true);
         expect(needsTypedConfirmation('default', 'xlm-project-864ff')).toBe(false);
         expect(needsTypedConfirmation('default', 'deliverables')).toBe(false);
+        // A project marked "production": "yes" in arccms.config.json, whatever its name (E-D9).
+        expect(needsTypedConfirmation('staging', 'acme-shop', true)).toBe(true);
+        expect(needsTypedConfirmation('staging', 'acme-shop', false)).toBe(false);
     });
 });
 
@@ -86,11 +89,10 @@ describe('the install check (review O5)', () => {
 });
 
 describe('what to deploy', () => {
-    it('offers the website only when it is on and has a build for the project', () => {
+    it('offers the website for any project whose website is on: the deploy builds it with that project\'s settings', () => {
         const keys = (o: object) => deployChoices(o as never).map((c: { key: string }) => c.key);
-        expect(keys({ websiteOn: true, websiteBuild: {}, changed: null })).toEqual(['everything', 'functions', 'rules', 'storage', 'website']);
-        expect(keys({ websiteOn: false, websiteBuild: {}, changed: null })).toEqual(['everything', 'functions', 'rules', 'storage']);
-        expect(keys({ websiteOn: true, websiteBuild: undefined, changed: null })).toEqual(['everything', 'functions', 'rules', 'storage']);
+        expect(keys({ websiteOn: true, changed: null })).toEqual(['everything', 'functions', 'rules', 'storage', 'website']);
+        expect(keys({ websiteOn: false, changed: null })).toEqual(['everything', 'functions', 'rules', 'storage']);
     });
 
     it("offers no storage rules when Arc CMS shares another app's bucket (review F)", () => {

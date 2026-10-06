@@ -46,7 +46,7 @@
         <tr><td>Website</td><td><code>hosting</code></td><td>Builds the site, deploys it keeping the published pages, then publishes every page again</td></tr>
       </tbody>
     </table>
-    <p>The website is offered only for the <code>default</code> and <code>production</code> aliases, the two with a website build: <code>default</code> builds with the development environment (<code>src/environments/environment.ts</code>), <code>production</code> with <code>src/environments/environment.prod.ts</code>. It is not offered when the project has no website (set up with <code>--site=none</code>).</p>
+    <p>The website is offered for every project that has one (not for a project set up with <code>--site=none</code>). <strong>A deploy always builds what it deploys</strong>: the website is built for the project being deployed to, with that project's Firebase web settings, so a site can never go out talking to another project. Which settings that is, and how to add a project such as staging, is on <a href="../app/environments.html">Dev, staging and production</a>.</p>
 
     <h2>Deploy from a script or CI</h2>
     <p>With any option, <code>npm run deploy</code> skips the guided questions and passes the options on to <code>firebase deploy</code>. The questions it can still ask, in a terminal, are before it deletes functions (see <a href="#functions-that-are-deleted">Functions that are deleted</a>) and, once per project, whether to set up phone sign-in's Google Cloud setting. Off a terminal and with no options, it prints these examples and stops.</p>
@@ -86,7 +86,7 @@ npm run deploy -- --only hosting --project default</code></pre>
     <p>Two scripts deploy everything to the <code>default</code> or <code>production</code> alias in one go:</p>
     <pre><code>npm run deploy:dev
 npm run deploy:prod</code></pre>
-    <p>Each builds the website (<code>deploy:dev</code> with <code>USE_DEV_ENV=true</code>, so it uses the development environment), builds the functions, runs the deploy with <code>--project &lt;alias&gt; --non-interactive --force</code> and no <code>--only</code>, then publishes the static pages (<code>npm run seed:dev</code> or <code>npm run seed:prod</code>).</p>
+    <p>Each runs the deploy with <code>--project &lt;alias&gt; --non-interactive --force</code> and no <code>--only</code>, which builds the website for that project and the functions first, then publishes the static pages (<code>npm run seed:dev</code> or <code>npm run seed:prod</code>). For any other project, use <code>npm run deploy -- --project &lt;alias&gt;</code>, then <code>npm run seed -- &lt;alias&gt;</code>.</p>
     <div class="warn"><p>Both pass <code>--force</code>, so they delete the deployed functions the build no longer has without asking. Use the guided deploy when you are not sure what the build contains.</p></div>
 
     <h2 id="regions">Regions</h2>
@@ -147,7 +147,7 @@ npm run deploy:prod</code></pre>
       <tbody>
         <tr><td>The guided <code>npm run deploy</code>, choosing <strong>Website</strong> or <strong>Everything</strong></td><td>Every page, by itself, once the deploy succeeds</td></tr>
         <tr><td><code>npm run deploy:dev</code>, <code>npm run deploy:prod</code></td><td>Every page, by itself</td></tr>
-        <tr><td><code>npm run deploy -- --only hosting</code> (build the site first with <code>npm run build</code>)</td><td>Nothing. The published pages are kept, but run <code>npm run seed:dev</code> or <code>npm run seed:prod</code> afterwards</td></tr>
+        <tr><td><code>npm run deploy -- --only hosting --project &lt;alias&gt;</code> (it builds the site first)</td><td>Nothing. The published pages are kept, but run <code>npm run seed -- &lt;alias&gt;</code> afterwards</td></tr>
         <tr><td>Publishing or unpublishing a content item</td><td>That item's pages in every language, its type's list page, the home page when it shows that type, the sitemap and the feeds</td></tr>
         <tr><td><strong>Republish website</strong> (Content, Content types)</td><td>Every content page and list page, the home page, the static pages, the sitemap and the feeds, in one release</td></tr>
         <tr><td>Saving Settings, <strong>About</strong>, the site address, the languages or the powered-by setting</td><td>The home page</td></tr>
@@ -155,8 +155,9 @@ npm run deploy:prod</code></pre>
     </table>
     <p>To publish every page again from a terminal:</p>
     <pre><code>npm run seed:dev
-npm run seed:prod</code></pre>
-    <p><code>seed:dev</code> publishes to the <code>default</code> alias, <code>seed:prod</code> always to <code>production</code>. It republishes the home page in every language, every published content page and list page, every static page the site has, <code>robots.txt</code>, <code>llms.txt</code>, the sitemap and the RSS feeds. It runs on your machine with your Firebase CLI login (run <code>firebase login</code> first), not through a Cloud Function, and does nothing for a project with no website. The <code>seedStaticPages</code> callable does the same from the browser, for admins only.</p>
+npm run seed:prod
+npm run seed -- staging</code></pre>
+    <p><code>seed:dev</code> publishes to the <code>default</code> alias, <code>seed:prod</code> always to <code>production</code>, and <code>npm run seed -- &lt;alias or id&gt;</code> to any project. It republishes the home page in every language, every published content page and list page, every static page the site has, <code>robots.txt</code>, <code>llms.txt</code>, the sitemap and the RSS feeds. It runs on your machine with your Firebase CLI login (run <code>firebase login</code> first), not through a Cloud Function, and does nothing for a project with no website. The <code>seedStaticPages</code> callable does the same from the browser, for admins only.</p>
 
     <div class="note"><p>Publishing reads the templates, header, footer, strings and static pages from the live website (<code>/_site/</code>), so the website deploy comes first and the republish after it, as the guided deploy does. Publishing or <strong>Republish website</strong> before the deploy still uses the old files. A change to the publish functions that reads site files at a new place needs the functions and the website deployed together, then the republish.</p></div>
 

@@ -32,6 +32,7 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isMarkedProduction, readArcInstallConfig } from './arc-install-config.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
@@ -71,7 +72,8 @@ export function resolveTarget(argv, root = ROOT, env = process.env) {
         const alias = wanted ?? 'default';
         throw new Error(`No "${alias}" project in .firebaserc. Add it with: firebase use --add`);
     }
-    const prod = projectId === aliases.production;
+    // Production: the `production` alias, or a project marked "production": "yes" (E-D9).
+    const prod = projectId === aliases.production || isMarkedProduction(readArcInstallConfig(join(root, 'arccms.config.json')), projectId);
     return { projectId, prod, args };
 }
 
@@ -110,16 +112,20 @@ export async function accessToken({ env = process.env, home = homedir(), fetchIm
     return token;
 }
 
-/** The storage bucket the app's environment file names for this project, if any. */
+/**
+ * The storage bucket the app's web settings name for this project, if any: its own
+ * generated file first (firebase-web.<id>.ts), then the environment files.
+ */
 export function storageBucketFor(projectId, root = ROOT) {
-    for (const file of ['environment.ts', 'environment.prod.ts']) {
+    for (const file of [`firebase-web.${projectId}.ts`, 'environment.ts', 'environment.prod.ts']) {
         let text;
         try {
             text = readFileSync(join(root, 'src/environments', file), 'utf8');
         } catch {
             continue;
         }
-        if (!text.includes(`projectId: '${projectId}'`)) continue;
+        // Single quotes in a hand-written environment file, double in a generated one.
+        if (!text.includes(`projectId: '${projectId}'`) && !text.includes(`projectId: "${projectId}"`)) continue;
         const match = /storageBucket:\s*['"]([^'"]+)['"]/.exec(text);
         if (match) return match[1];
     }

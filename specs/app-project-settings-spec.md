@@ -1,6 +1,6 @@
 # Firebase Settings Per Project: Build Spec (A2)
 
-**Status:** spec written 2026-10-06, not built.
+**Status:** built 2026-10-06 on `feat/app-project-settings`; suite green, docs updated (new page docs/app/environments.html). A real deploy to a second project is in the end-of-work checks. Not yet merged to `dev`.
 **Branch:** `feat/app-project-settings`, cut from `dev` (10c8734).
 **Scope:** an app built on Arc CMS can have any number of Firebase projects (dev, staging,
 production, more), each with its own web settings. A build and a deploy pick the project
@@ -36,14 +36,14 @@ outside `npm run deploy`.
 | # | Decision | Choice |
 |---|----------|--------|
 | E-D1 | Where a project's web settings live | Entered once in `arccms.config.json`, under `projects.<id>.firebaseConfig`. `arc:configure` writes them to a generated, committed file per project, `src/environments/firebase-web.<id>.ts` (install-owned for `check:core`, like `arc-install.ts`), so a clone builds without the gitignored config. **They are not added to the `arc-install.ts` map**: only the build for that project imports its file (E-D3), so a build carries one project's web settings (E-D11). |
-| E-D2 | Getting them in | `arc:configure --project=<alias\|id>` fetches them with the Firebase CLI (`firebase apps:sdkconfig web --project <id>`) when the project has none yet, so nobody copies a snippet by hand. A `--web-config=<file>` flag is the manual route. The CLI's output format is checked first thing in the build. |
+| E-D2 | Getting them in | **On request** (changed while building, 2026-10-06): `arc:configure --project=<alias> --web-config=fetch` reads them with the Firebase CLI (`apps:list WEB`, then `apps:sdkconfig WEB <appId>`, `--json`; the settings are `result.sdkConfig`). A project with several web apps (the dev project has four) takes the app id an environment file already names, else `--web-app=<appId>`, else it lists the apps and stops. `--web-config=<file>` reads JSON or the console's snippet. Not automatic, because the guided deploy runs `arc:configure` before every deploy and must not depend on a network call. |
 | E-D3 | Choosing at build time | `ARC_PROJECT=<alias\|id>` (an environment variable, set by `scripts/arc-build.mjs --project=<alias\|id>`). `vite.config.ts` resolves it with the shared `resolveProjectId` and replaces `environment.ts` with the settings of that project. |
 | E-D4 | No `ARC_PROJECT` | **Exactly today's behaviour**: `npm run build` uses `environment.prod.ts`, `USE_DEV_ENV=true` uses `environment.ts`, `npm run dev` uses `environment.ts`. |
 | E-D5 | `ARC_PROJECT` set, project has no `firebaseConfig` | Fall back to the old files (`environment.prod.ts` for the `production` alias, else `environment.ts`), **then check that file's `projectId` is the target**. If not, the build stops: "No web settings for staging. Run npm run arc:configure -- --project=staging". A site that would talk to another project is never built. |
 | E-D6 | Deploy always builds | `runDeploy()` builds what it is about to deploy, every time, with no flag to skip it. A deploy that includes the website builds it with `ARC_PROJECT` set to the target. A deploy that includes functions builds them (as today). Rules, indexes and storage rules need no build. The guided menu stops building the website itself and calls the same path, so there is one build. |
 | E-D7 | `deploy:dev` and `deploy:prod` | Reduced to `node scripts/arc-deploy.mjs --project default\|production --non-interactive --force && seed`. Their own build steps go, since the deploy builds. |
 | E-D8 | Same selector everywhere | `npm run deploy -- --project=<x>`, the guided menu (it already lists every alias), `npm run seed -- <x>` (new script; `seed:dev` and `seed:prod` stay) and `arc-admin-script.mjs --project=<x>` all take an alias or id through `resolveProjectId`. |
-| E-D9 | Production marker | `production: true` per project in `arccms.config.json` (shared or under `projects.<id>`). The typed-id confirmation fires for a project marked production, **as well as** under today's rules (the `production` alias, an id saying prod or live), so no install loses a guard. `arc-admin-script.mjs` prints `(production)` for a marked project too. |
+| E-D9 | Production marker | `"production": "yes"` per project in `arccms.config.json` (a string like every other key; set with `--production=yes`) (shared or under `projects.<id>`). The typed-id confirmation fires for a project marked production, **as well as** under today's rules (the `production` alias, an id saying prod or live), so no install loses a guard. `arc-admin-script.mjs` prints `(production)` for a marked project too. |
 | E-D10 | Other project-specific file reads | `arc-admin-script.mjs` `storageBucketFor()` reads the project's install settings first, then the environment files as today. |
 | E-D11 | What a staging build contains | The selected project's `firebaseConfig` only, from its own `firebase-web.<id>.ts` (E-D1). `arc-install.ts` still lists every project's install settings (database id, bucket and the like, as now), but no web settings, so a staging site carries no other project's web config. |
 
@@ -102,3 +102,21 @@ its "First: build the website" line stays, and the build is the shared one.
 - This checkout's own `production` alias: its `environment.prod.ts` currently names the
   dev project, so under E-D5 a production build refuses until the production web settings
   are added. That is the intended safety, and the docs say so.
+
+**Built 2026-10-06.** Checked without deploying: `--web-config=fetch` against the dev project
+chose the right one of its four web apps from `environment.ts`'s app id and wrote
+`firebase-web.xlm-project-864ff.ts`; `ARC_PROJECT=xlm-project-864ff npm run build` built with
+it (the bundle carries that project's settings); `ARC_PROJECT=nope-project npm run build`
+stopped with the E-D5 message. The generated file was then removed (this checkout keeps its
+environment files). Also confirmed: today's dev/prod swap does reach every import of the
+environment file (a throwaway build with a changed `environment.prod.ts` had none of the dev
+values), so the same alias mechanism is used for `ARC_PROJECT`.
+
+**Finding for Gunjan:** Firebase reports measurement id `G-0M9KE7DL96` for the dev project's
+web app, while the committed `environment.ts` has `G-7JE7LY5876`. Fetching the settings for
+that project would switch the site's Google Analytics stream. Left unchanged; Gunjan decides.
+
+**End-of-work checks (need a second Firebase project, by Gunjan):** `firebase use --add` a
+staging alias, `npm run arc:configure -- --project=staging --web-config=fetch`,
+`npm run deploy -- --project=staging` (the site talks only to staging), `npm run seed -- staging`,
+and the typed-id prompt for a project marked `--production=yes`.
