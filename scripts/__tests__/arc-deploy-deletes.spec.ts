@@ -21,10 +21,18 @@ describe('which deploys can delete', () => {
 
 describe('what a deploy would delete', () => {
     const noop = () => undefined;
-    const built = { search: { __endpoint: {} }, helper: noop, searchSync: { Lessons: { __endpoint: {} } }, custom: { award: { __endpoint: {} } } };
+    const cloudFunction = () => Object.assign(() => undefined, { __endpoint: {} });
+    const built = { search: cloudFunction(), helper: noop, searchSync: { Lessons: cloudFunction() }, custom: { award: cloudFunction() } };
 
     it('names the built functions as they are deployed, nested groups included', () => {
         expect(functionIds(built).sort()).toEqual(['arccms-custom-award', 'arccms-search', 'arccms-searchSync-Lessons']);
+    });
+
+    it("counts a first generation function without reading its __endpoint, which throws outside Firebase", () => {
+        const firstGen = Object.defineProperty(() => undefined, '__endpoint', {
+            get: () => { throw new Error('process.env.GCLOUD_PROJECT is not set.'); },
+        });
+        expect(functionIds({ ...built, onSignInDeleted: firstGen })).toContain('arccms-onSignInDeleted');
     });
 
     it("lists arccms functions the build lacks, never another codebase's", () => {

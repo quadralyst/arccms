@@ -64,7 +64,7 @@ import {
     DEFAULT_DATABASE_ID, ROOT, configForProject, isMarkedProduction, readArcInstallConfig, readFirebaseAliases, resolveProjectId,
 } from './arc-install-config.mjs';
 import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
-import { builtArccms } from './arc-built-functions.mjs';
+import { builtArccms, isCloudFunction } from './arc-built-functions.mjs';
 import { main as configure, normalizeConfig } from './arc-configure.mjs';
 import { checkSignInSetup, smsBuilt } from './arc-sign-in-setup.mjs';
 import { channelDeployArgs, hostingSiteOf, releaseWebsite, withoutHosting } from './arc-hosting-release.mjs';
@@ -127,7 +127,7 @@ export function deploysWholeFunctions(args) {
 /** The deployed ids (`arccms-<name>`) of the functions in a build, nested groups joined with `-`. */
 export function functionIds(group, prefix = 'arccms-') {
     return Object.entries(group ?? {}).flatMap(([key, value]) => {
-        if (value && value.__endpoint) return [prefix + key];
+        if (isCloudFunction(value)) return [prefix + key];
         if (value && typeof value === 'object' && !Array.isArray(value)) return functionIds(value, `${prefix}${key}-`);
         return [];
     });
