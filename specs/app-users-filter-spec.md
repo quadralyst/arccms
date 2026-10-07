@@ -27,7 +27,7 @@ should take `accountKindConditions()` the same way the list does.
 |---|---|---|
 | UF-D1 | People is `where('by', '!=', 'app')`; App accounts is `where('by', '==', 'app')`. | Server-side, so pagination and counts stay exact. `!=` keeps any `by` value Arc does not know (an import, a future sign-in method) among people, where `in [list]` would silently drop it. The Firestore emulator orders such a query by `createdAt` as asked. |
 | UF-D2 | Records with no `by` get `by: 'unknown'` from a new admin callable, `fillAccountSources`, which the page calls by itself, once per visit, when People is chosen and the counts show records missing (`all > people + app`). | Firestore leaves a record without the field out of any `!=` query, and cannot query for a missing field. A stored value is the only exact fix. Doing it on the server, only when needed, costs three count queries per visit and one scan per install, ever; the admin does nothing. |
-| UF-D3 | Indexes in `firestore.indexes.json` (core): `(by, createdAt desc)`, `(createdAt desc, by desc)`, and the same two after `status` for the Detached filter. | Equality plus order needs `(by, createdAt)`; an inequality orders by `createdAt` and then implicitly by `by`, like the existing `(createdAt desc, name desc)` index for the name filter. |
+| UF-D3 | Indexes in `firestore.indexes.json` (core): `(by, createdAt desc)`, `(createdAt desc, by desc)`, and the same two after `status` for the Detached filter, plus `(status, by)` for the live count of Detached people, which has no order (added after the browser pass of 2026-10-07 found Firestore asking for it). | Equality plus order needs `(by, createdAt)`; an inequality orders by `createdAt` and then implicitly by `by`, like the existing `(createdAt desc, name desc)` index for the name filter. |
 | UF-D4 | A `mat-button-toggle-group` under the page header, like Feedback's filter. Labels "All", "People", "App accounts". | Matches the existing filter UI; short copy. |
 | UF-D5 | Default All, no condition added. | Existing installs see exactly today's list. |
 
@@ -51,7 +51,7 @@ should take `accountKindConditions()` the same way the list does.
   from page one; combined with Detached; the three toggles in order; the older-records check
   calls the callable once and lists again, and never runs for All or App accounts or when
   the counts add up.
-- `user.model.spec.ts`: the conditions, and that the four indexes are in
+- `user.model.spec.ts`: the conditions, and that the five indexes are in
   `firestore.indexes.json`.
 - `functions/src/__tests__/fillAccountSources.spec.ts`: fills only missing or blank `by`,
   leaves every other value, idempotent, batches under 500, admin only (a host app's plain

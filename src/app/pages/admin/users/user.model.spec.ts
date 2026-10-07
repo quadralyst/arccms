@@ -190,6 +190,8 @@ describe('account kinds: All, People, App accounts', () => {
             'createdAt DESCENDING, by DESCENDING',
             'status ASCENDING, by ASCENDING, createdAt DESCENDING',
             'status ASCENDING, createdAt DESCENDING, by DESCENDING',
+            // The live count of Detached people has no order: status, then by (found in the browser pass).
+            'status ASCENDING, by ASCENDING',
         ]));
     });
 });
