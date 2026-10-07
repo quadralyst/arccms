@@ -12,7 +12,7 @@
  *
  * The app files are optional. App rules go where the core file has the line
  * `// @arc-app-rules`, inside the same scope, so they can call the core helpers
- * (isSignedIn, isAdmin, isEditor, ownsUserRecord). firebase.json runs this as the
+ * (isSignedIn, isAdmin, isEditor, ownsUserRecord, signedInByApp). firebase.json runs this as the
  * Firestore and Storage `predeploy`, so every deploy builds first; `npm run
  * rules:build` runs it by hand, and `npm run test:rules` tests the result.
  *

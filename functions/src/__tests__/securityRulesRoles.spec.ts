@@ -131,3 +131,16 @@ describe('frontend never self-writes an elevated role', () => {
         expect(page).toMatch(/role:\s*'user'/);
     });
 });
+
+describe('signedInByApp(): a helper for app rules (docs/app/rules-and-indexes.html)', () => {
+    it.each(['firestore.rules', 'storage.rules'])('%s defines it on the custom-token sign-in only', (file) => {
+        expect(effective(file)).toMatch(
+            /function signedInByApp\(\)\s*\{\s*return isSignedIn\(\) && request\.auth\.token\.firebase\.sign_in_provider == 'custom';\s*\}/,
+        );
+    });
+
+    it('is documented for apps', () => {
+        const docs = fs.readFileSync(path.resolve(REPO_ROOT, 'docs/app/rules-and-indexes.html'), 'utf-8');
+        expect(docs).toContain('<code>signedInByApp()</code>');
+    });
+});

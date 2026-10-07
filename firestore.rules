@@ -30,6 +30,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.get('arccms_uid', '') == userDocId;
     }
 
+    // The session came from the app's own sign-in token (signInWithCustomToken),
+    // not Google, a password or a phone code. Not used by core: app rules add it
+    // where they trust their own claims, because a sign-in linked to an app
+    // account in the browser carries the same claims but never passes this
+    // (docs/app/app-accounts.html).
+    function signedInByApp() {
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider == 'custom';
+    }
+
     // The ArcCMS role is the `arccms_role` claim (functions/src/users/claims.ts),
     // never a plain `role`: an app sharing the sign-in pool may give its own
     // admins `role: 'admin'` (specs/coexistence-spec.md, CO-D7).
