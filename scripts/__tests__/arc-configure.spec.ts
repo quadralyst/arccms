@@ -7,7 +7,10 @@ import * as configure from '../arc-configure.mjs';
 // @ts-expect-error: plain ESM script without type declarations
 import {
     cliActiveProject, confirmProductionArg, deployArgs, deployProject, productionGuard, deploysFunctions, deploysOnlyFunctions, namesHosting, namesTarget, generatedConfigPath, projectArg, retryArgs, retryTargets, unconfirmed, unconfirmedFunctions,
+    eventarcSettingUp, retryWaitMs, websiteSkippedMessage, RETRY_WAIT_MS, FIRST_DEPLOY_WAIT_MS,
 } from '../arc-deploy.mjs';
+// @ts-expect-error: plain ESM script without type declarations
+import { withoutHosting } from '../arc-hosting-release.mjs';
 
 const ROOT = resolve(__dirname, '..', '..');
 /** The App audience params (CO6), always written with their defaults. */
@@ -618,6 +621,41 @@ describe('arc-deploy', () => {
                 .toEqual(['deploy', '--only', 'functions:arccms:arccms.reindexSearch']);
             expect(retryArgs(['deploy', '--project', 'default'], targets))
                 .toEqual(['deploy', '--project', 'default', '--only', 'functions:arccms:arccms.reindexSearch']);
+        });
+
+        it('retries a full deploy with a command the Firebase CLI accepts: --only and never --except', () => {
+            // npm run deploy -- --project dev --probe --force, as a full deploy builds it (found 2026-10-07).
+            const full = deployArgs(withoutHosting(['--project', 'dev', '--probe', '--force']), true, 'arc-pos-dev', ROOT);
+            expect(full).toContain('--except');
+            const targets = ['functions:arccms:arccms.onAppEventCreate', 'functions:arccms:arccms.onSignInDeleted'];
+            const again = retryArgs(full, targets);
+            expect(again).toEqual(['deploy', '--config', 'firebase.arc-pos-dev.json', '--project', 'dev', '--force', '--only', targets.join(',')]);
+            // What the CLI checks first: one target list, no --except beside it, every option with its value.
+            expect(again.filter((a: string) => a === '--only' || a.startsWith('--only='))).toHaveLength(1);
+            expect(again.some((a: string) => a === '--except' || a.startsWith('--except='))).toBe(false);
+            for (const flag of ['--config', '--project', '--only']) expect(again[again.indexOf(flag) + 1]).not.toMatch(/^-/);
+            expect(retryArgs(['deploy', '--except=hosting,storage', '--project', 'p'], targets))
+                .toEqual(['deploy', '--project', 'p', '--only', targets.join(',')]);
+        });
+
+        it('waits minutes, not seconds, while Google sets up Eventarc for a project\'s first triggers', () => {
+            const eventarc = 'HTTP Error: 400, Validation failed for trigger projects/p/locations/europe-west6/triggers/arccms-onusercreated-123: '
+                + 'Permission denied while using the Eventarc Service Agent. If you recently started to use Eventarc, it may take a few minutes '
+                + 'before all necessary permissions are propagated to the Service Agent. Otherwise, verify that it has Eventarc Service Agent role.\n'
+                + 'Since this is your first time using 2nd gen functions, we need a little bit longer to finish setting everything up. Retry the deployment in a few minutes.';
+            expect(eventarcSettingUp(eventarc)).toBe(true);
+            expect(eventarcSettingUp(`\x1b[31m${eventarc}\x1b[0m`)).toBe(true);
+            expect(retryWaitMs(eventarc)).toBe(FIRST_DEPLOY_WAIT_MS);
+            expect(FIRST_DEPLOY_WAIT_MS).toBeGreaterThanOrEqual(180_000);
+            expect(eventarcSettingUp('HTTP Error: 429, Quota exceeded for quota metric')).toBe(false);
+            expect(retryWaitMs('HTTP Error: 429, Quota exceeded')).toBe(RETRY_WAIT_MS);
+        });
+
+        it('says how to deploy the website alone when an earlier step failed', () => {
+            const message = websiteSkippedMessage('arc-pos-dev');
+            expect(message).toContain('The website was not deployed');
+            expect(message).toContain('npm run deploy -- --only hosting --project arc-pos-dev');
+            expect(message).toContain('npm run seed -- arc-pos-dev');
         });
 
         it('lets a clean retry clear the failure only for a functions-only deploy', () => {

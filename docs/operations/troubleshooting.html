@@ -70,6 +70,16 @@
           <td>Pass <code>--functions-region</code> to <code>arc:configure</code> in the job (see <a href="../app/ci.html">Deploy from CI</a>)</td>
         </tr>
         <tr>
+          <td>On a project's first deploy, the Firestore triggers fail with "Permission denied while using the Eventarc Service Agent"</td>
+          <td>Google is still giving Eventarc its permissions, minutes after the deploy turned it on</td>
+          <td>Nothing to change: the deploy waits 5 minutes and retries them. If it still fails, wait a few minutes and run the same deploy again (see <a href="deploy.html#first-deploy-to-a-new-project">A first deploy to a new project</a>)</td>
+        </tr>
+        <tr>
+          <td>On a project's first deploy, <code>onSignInDeleted</code> fails with "Build failed: Build error details not available", and its build log says <code>Repository "gcf-artifacts" not found</code></td>
+          <td>Its build started a few seconds before Cloud Functions created the project's image repository</td>
+          <td>Nothing to change: the deploy's retry builds it. If a deploy ended before the retry, deploy it alone: <code>npm run deploy -- --only functions:arccms:arccms.onSignInDeleted</code></td>
+        </tr>
+        <tr>
           <td>New functions are missing after a deploy, or the old code is still live</td>
           <td>The deploy ran with plain <code>firebase deploy</code>, which uploads the last functions build as it is</td>
           <td>Always deploy with <code>npm run deploy</code>, which builds first (see <a href="deploy.html">Deploy</a>)</td>

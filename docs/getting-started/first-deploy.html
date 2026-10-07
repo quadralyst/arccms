@@ -17,6 +17,7 @@
     <ul>
       <li>The dependencies are installed (<a href="install.html">Install</a>) and the Firebase web config is in the environment files (<a href="configure.html">Configure a project</a>).</li>
       <li>You are signed in to the Firebase CLI (<code>firebase login</code>) and the project has an alias in <code>.firebaserc</code> (<code>firebase use --add</code>). Name it <code>default</code> for your development project and <code>production</code> for the live one: the website can only be built and deployed from the deploy for those two aliases.</li>
+      <li>The project is on the Blaze plan, and you can turn on Google Cloud services in it (Owner or Editor). The first deploy turns on the services the functions need, such as Cloud Functions, Cloud Build and Eventarc: see <a href="../operations/deploy.html#first-deploy-to-a-new-project">A first deploy to a new project</a> for the list.</li>
       <li>You run the deploy in a terminal. Anywhere else (a script, CI) it prints the options instead of asking.</li>
     </ul>
 
@@ -49,7 +50,7 @@
       <li><p><strong>The functions region.</strong> With no functions deployed yet, the functions are set to run in the database's region, so every database call stays close (see <a href="../operations/deploy.html#regions">Regions</a>). It is saved in <code>arccms.config.json</code> and in <code>src/environments/arc-install.ts</code>: commit <code>arc-install.ts</code> afterwards (git ignores <code>arccms.config.json</code>). The website is built after this check, so it calls the functions in their region.</p></li>
       <li><p><strong>The website build.</strong> <code>npm run build</code>, with the web settings of the project being deployed (see <a href="../app/environments.html">Dev, staging and production</a>).</p></li>
       <li><p><strong>One Firebase deploy</strong> of the <code>arccms</code> functions, the Firestore rules and indexes, the storage rules and the hosting files. Before the rules go out, <code>scripts/arc-rules-build.mjs</code> combines the core rules and indexes with your app's own into <code>.arc-build/</code>. When the project has generated settings (<code>firebase.{projectId}.json</code>), the deploy uses them.</p></li>
-      <li><p><strong>A retry</strong> of any function Google's per-minute limit on changes held back. A first deploy creates every function at once, so this is common: it waits about a minute and deploys just those, twice at most.</p></li>
+      <li><p><strong>A retry</strong> of any function that failed or that Google's per-minute limit on changes held back. A first deploy creates every function at once, so this is common: it waits about a minute and deploys just those, twice at most. The database triggers fail at first while Google sets up Eventarc for the project; for those it waits 5 minutes. If something still fails, the website is not deployed, and the deploy says what to run (see <a href="../operations/deploy.html#first-deploy-to-a-new-project">A first deploy to a new project</a>).</p></li>
       <li><p><strong>A reachability check</strong> of every callable function it created.</p></li>
       <li><p><strong>The generated pages.</strong> It publishes the static pages, the content pages, the sitemap and the feeds to the site.</p></li>
     </ol>

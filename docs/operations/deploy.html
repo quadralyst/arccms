@@ -74,7 +74,8 @@ npm run deploy -- --only hosting --project default</code></pre>
     <p>Either way, the deploy also:</p>
     <ul>
       <li>builds the functions (<code>npm run build --prefix functions</code>) before any deploy that includes them;</li>
-      <li>waits 65 seconds and deploys again, up to two times, any function the Firebase CLI started but never reported as done (Google limits how many functions can change per minute);</li>
+      <li>waits 65 seconds and deploys again, up to two times, any function the Firebase CLI started but never reported as done (Google limits how many functions can change per minute). When the error says Google is still setting up Eventarc, as on a project's first deploy, it waits 5 minutes instead (see <a href="#first-deploy-to-a-new-project">A first deploy to a new project</a>);</li>
+      <li>when a deploy that includes the website fails before the website step, does not deploy the website, says so and prints the commands that deploy it alone and publish its pages;</li>
       <li>fails when a function still never reported success, and prints the command that redeploys it;</li>
       <li>stops with a plain message when you ask for hosting on a project with no website, or for storage rules on a bucket shared with another app;</li>
       <li>records a whole deploy of a part (all functions, <code>firestore</code>, <code>storage</code>, <code>hosting</code>) for the guided deploy's "only what changed";</li>
@@ -106,6 +107,15 @@ npm run deploy:prod</code></pre>
     <pre><code>npm run arc:configure -- --project=default --functions-region=asia-south1</code></pre>
     <div class="trap"><p>Changing <code>functionsRegion</code> after the functions are deployed moves the whole install: a deploy creates every function in the new region, the website must be built and deployed again to call them there, and the old ones stay until a full functions deploy deletes them. Plan it as a release, not a setting.</p></div>
     <p>A region costs a little more or less than another per call, but at the free allowance most sites stay inside, the difference is nothing, and functions next to the database also stop the paid traffic between regions.</p>
+
+    <h2 id="first-deploy-to-a-new-project">A first deploy to a new project</h2>
+    <p>The first deploy of functions to a project turns on the Google Cloud services they need, without asking: Cloud Functions, Cloud Build, Artifact Registry, Cloud Run, Eventarc, Pub/Sub, Cloud Storage, Cloud Scheduler (for the scheduled functions) and, for a deploy of everything, Firebase Extensions. The project must be on the Blaze plan. Turning a service on costs nothing; you pay for what the functions use, and Artifact Registry stores each function's built image. The account that deploys needs permission to turn services on (Owner, Editor or Service Usage Admin).</p>
+    <p>Two failures are normal on that first deploy, and the deploy's own retry clears them:</p>
+    <ul>
+      <li><strong>The Firestore triggers</strong> fail with "Permission denied while using the Eventarc Service Agent" and "Retry the deployment in a few minutes": Google is still giving Eventarc, which delivers the database events, its permissions. The deploy waits 5 minutes and deploys just those, twice at most. If they still fail, it says so: wait a few minutes and run the same deploy again.</li>
+      <li><strong><code>onSignInDeleted</code></strong>, the one first generation function, can fail with "Build failed: Build error details not available". Its build looked for the project's image repository (<code>gcf-artifacts</code>) a few seconds before Cloud Functions created it for the other functions. The retry a minute later builds it.</li>
+    </ul>
+    <p>Neither needs a setting changed. When the functions fail, the website is not deployed in the same run; the deploy says so and prints how to deploy it alone.</p>
 
     <h2>Functions that are deleted</h2>
     <p>A deploy of all the functions (<code>--only functions</code>, <code>--only functions:arccms</code>, or no <code>--only</code>) makes the project match the build, so it deletes the Arc CMS functions the build no longer has: those of a feature turned off in <code>src/custom/features.ts</code>, a search collection removed from <code>functions/src/custom/search-sources.ts</code>, or a function that was renamed.</p>
@@ -179,6 +189,8 @@ npm run seed -- staging</code></pre>
         <tr><td>"Not deleting without a yes"</td><td>A deploy of all the functions would delete some. Add <code>--yes</code>, or deploy only the functions you changed</td></tr>
         <tr><td>"The functions build failed, so nothing was deployed"</td><td>Run <code>npm run build --prefix functions</code> to see the TypeScript errors</td></tr>
         <tr><td>"These functions were started but never reported success"</td><td>The old version may still be live. Run the redeploy command it prints</td></tr>
+        <tr><td>"Google is still setting up Eventarc for this project's first triggers"</td><td>A project's first deploy (see <a href="#first-deploy-to-a-new-project">A first deploy to a new project</a>). Wait a few minutes, then run the same deploy again</td></tr>
+        <tr><td>"The website was not deployed: the deploy failed before it"</td><td>Fix what failed above it, then run the two commands it prints: the website alone, then its pages</td></tr>
       </tbody>
     </table>
     <p>More problems and their fixes are in <a href="troubleshooting.html">Troubleshooting</a>.</p>
