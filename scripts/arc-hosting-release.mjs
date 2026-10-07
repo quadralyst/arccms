@@ -27,6 +27,11 @@ export const HOSTING_API = 'https://firebasehosting.googleapis.com/v1beta1';
 const BUILD_FOLDERS = /^\/(assets|_site|site)\//;
 /** What the publish functions write at the top level: pages, feeds, robots.txt, llms.txt, key files. */
 const PUBLISHED_TOP_LEVEL = /^\/[^/]+\.(html|xml|txt|md)$/;
+/**
+ * The seo feature's files: robots.txt, the sitemap, llms.txt, llms-full.txt, the
+ * IndexNow key file (32 hex characters) and each content type's feed.
+ */
+export const SEO_FILES = /^\/(?:robots\.txt|sitemap\.xml|llms\.txt|llms-full\.txt|[0-9a-f]{32}\.txt|[^/]+\/feed\.xml)$/;
 /** The home page in the default language and in each other one. */
 export const HOME_PATH = /^\/(?:([a-z]{2,3}(?:-[a-z0-9]{2,8})?)\/)?index\.html$/;
 
@@ -40,12 +45,14 @@ export const HOME_PATH = /^\/(?:([a-z]{2,3}(?:-[a-z0-9]{2,8})?)\/)?index\.html$/
  *              copy (an older build prerendered /index.html and /hi/index.html)
  *   pages      the site's static pages (site.json `pages`); a published static
  *              page the site no longer has is dropped
+ *   seo        whether the seo feature is on; off, its files (SEO_FILES) are
+ *              dropped, so one website deploy removes what an earlier publish wrote
  *
  * A file the build has is the build's, except a published home page, which wins
  * over the build's /index.html (the app shell). Files from older builds, such as
  * hashed scripts, are left behind.
  */
-export function keptPublishedFiles({ live, build, publishedHomes = new Set(), pages = null }) {
+export function keptPublishedFiles({ live, build, publishedHomes = new Set(), pages = null, seo = true }) {
     const keep = {};
     for (const [path, hash] of Object.entries(live)) {
         if (HOME_PATH.test(path)) {
@@ -54,6 +61,7 @@ export function keptPublishedFiles({ live, build, publishedHomes = new Set(), pa
         }
         if (path in build) continue;
         if (BUILD_FOLDERS.test(path)) continue;
+        if (!seo && SEO_FILES.test(path)) continue;
         if (!path.slice(1).includes('/') && !PUBLISHED_TOP_LEVEL.test(path)) continue;
         const page = /^\/pages\/([^/]+)\//.exec(path);
         if (page && pages && !(page[1] in pages)) continue;
@@ -103,7 +111,7 @@ async function isPublishedHome(site, path, fetchImpl) {
  * Step 2: a live release of the channel's build plus the live site's published
  * files. Returns { kept, version }.
  */
-export async function releaseKeepingPublished({ site, api, fetchImpl = fetch, channel = DEPLOY_CHANNEL, log = console.log }) {
+export async function releaseKeepingPublished({ site, api, fetchImpl = fetch, channel = DEPLOY_CHANNEL, log = console.log, seo = true }) {
     const channelInfo = await api('GET', `sites/${site}/channels/${channel}`);
     const buildVersion = channelInfo.release?.version?.name;
     if (!buildVersion) throw new Error(`The ${channel} channel has no build; the channel deploy did not finish.`);
@@ -126,7 +134,9 @@ export async function releaseKeepingPublished({ site, api, fetchImpl = fetch, ch
     } catch {
         pages = null;
     }
-    const kept = keptPublishedFiles({ live, build, publishedHomes, pages });
+    const kept = keptPublishedFiles({ live, build, publishedHomes, pages, seo });
+    const dropped = seo ? [] : Object.keys(live).filter((path) => SEO_FILES.test(path) && !(path in build));
+    if (dropped.length) log(`The seo feature is off: removing ${dropped.join(', ')} from the site.`);
 
     const version = await api('POST', `sites/${site}/versions`, { config: buildVersionInfo.config ?? {} });
     const populated = await api('POST', `${version.name}:populateFiles`, { files: { ...build, ...kept } });
@@ -170,7 +180,7 @@ export function channelDeployArgs({ projectId, configPath, channel = DEPLOY_CHAN
 }
 
 /** Step 2 with the person's own credentials. */
-export async function releaseWebsite({ site, log = console.log }) {
+export async function releaseWebsite({ site, log = console.log, seo = true }) {
     const api = hostingApi(await accessToken());
-    return releaseKeepingPublished({ site, api, log });
+    return releaseKeepingPublished({ site, api, log, seo });
 }

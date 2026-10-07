@@ -21,3 +21,27 @@ export async function builtArccms() {
 export function isCloudFunction(value) {
     return typeof value === 'function' && '__endpoint' in value;
 }
+
+/**
+ * A second generation function's endpoint, or null. Firebase sets it as a plain
+ * value on those; on a first generation function it is the getter that throws,
+ * so that one is never read.
+ */
+export function v2Endpoint(value) {
+    if (!isCloudFunction(value)) return null;
+    const own = Object.getOwnPropertyDescriptor(value, '__endpoint');
+    return own && 'value' in own ? own.value : null;
+}
+
+/**
+ * The callables in a build group, by the plain name the callable check takes:
+ * nested groups joined with `-` (`custom-hello`). Only second generation ones:
+ * Arc CMS has no first generation callable.
+ */
+export function callableNames(group, prefix = '') {
+    return Object.entries(group ?? {}).flatMap(([key, value]) => {
+        if (isCloudFunction(value)) return v2Endpoint(value)?.callableTrigger ? [prefix + key] : [];
+        if (value && typeof value === 'object' && !Array.isArray(value)) return callableNames(value, `${prefix}${key}-`);
+        return [];
+    });
+}

@@ -11,7 +11,7 @@
 <body data-root="../" data-page="getting-started/configure.html">
   <main>
     <h1>Configure a project</h1>
-    <p class="lead">Connect your copy of Arc CMS to a Firebase project in three moves: create the project, paste its web config into the environment files, and pick the Firebase CLI alias. A project that Arc CMS has to itself needs nothing more; one shared with another app also runs <code>npm run arc:configure</code>.</p>
+    <p class="lead">Connect your copy of Arc CMS to a Firebase project in three moves: create the project, give it the Firebase CLI alias <code>default</code>, and fetch its web settings. Do this before the first <code>npm run dev</code>: a fresh copy names no project, and stops until it has one. A project that Arc CMS has to itself needs nothing more; one shared with another app also runs <code>npm run arc:configure</code>.</p>
 
     <h2>Create the Firebase project</h2>
     <ol class="steps">
@@ -19,38 +19,37 @@
       <li><p><strong>Firestore Database:</strong> create the database in production mode, in the region nearest your visitors. Arc CMS deploys its own security rules, and its first deploy puts the functions in the same region (see <a href="../operations/deploy.html#regions">Regions</a>). For a project shared with another app, skip this step: Arc CMS gets a database of its own (see <a href="#install-profiles">Install profiles</a>).</p></li>
       <li><p><strong>Authentication:</strong> click Get started and turn on the <strong>Email/Password</strong> provider. The first admin signs up with it.</p></li>
       <li><p><strong>Storage:</strong> click Get started. Arc CMS deploys its own storage rules.</p></li>
-      <li><p><strong>Project settings, General, Your apps:</strong> add a Web app and copy its <code>firebaseConfig</code> object.</p></li>
+      <li><p><strong>Project settings, General, Your apps:</strong> add a Web app. The next step fetches its settings for you.</p></li>
     </ol>
 
     <h2>Point the code at the project</h2>
     <ol class="steps">
       <li>
-        <p>Open <code>src/environments/environment.ts</code> and replace the <code>firebaseConfig</code> object with the one you copied. <code>src/environments/environment.example.ts</code> shows the shape.</p>
-      </li>
-      <li>
-        <p>Do the same in <code>src/environments/environment.prod.ts</code>, with your live project's config if you keep a separate one, and set <code>production: true</code>. With more than two projects, or to skip copying by hand, let <code>arc:configure</code> fetch each project's settings instead (see <a href="../app/environments.html">Dev, staging and production</a>).</p>
-      </li>
-      <li>
         <p>Tell the Firebase CLI which project to use. Give your development project the alias <code>default</code>:</p>
         <pre><code>firebase use --add</code></pre>
         <p>This writes <code>.firebaserc</code>, which git ignores. Add your live project the same way with the alias <code>production</code> when you have one.</p>
       </li>
+      <li>
+        <p>Fetch the project's web settings:</p>
+        <pre><code>npm run arc:configure -- --project=default --web-config=fetch</code></pre>
+        <p>This writes <code>src/environments/firebase-web.&lt;projectId&gt;.ts</code>; commit it. From then on <code>npm run dev</code> and <code>npm run build</code> use the <code>default</code> alias's project and print it as they start: <code>Firebase project: &lt;id&gt; (the default alias, ...)</code>. Do the same for each other project (see <a href="../app/environments.html">Dev, staging and production</a>).</p>
+      </li>
     </ol>
-    <div class="trap"><p>The environment files in a fresh copy hold the Firebase settings of the project Arc CMS is developed on, not placeholders. If you skip the first two steps, <code>npm run dev</code> talks to a project that is not yours and nothing works. Replace both.</p></div>
+    <div class="note"><p>Arc CMS ships <code>environment.ts</code>, <code>environment.prod.ts</code> and <code>arc-install.ts</code> with no project in them, so a new copy never talks to someone else's project. Until it has one, <code>npm run dev</code> and <code>npm run build</code> stop with "No Firebase project configured: run npm run arc:configure". You can instead paste your web settings into <code>environment.ts</code> by hand (<code>environment.example.ts</code> shows the shape); it is then used whenever the <code>default</code> alias has no file of its own.</p></div>
 
     <h3 id="the-environment-files">The environment files</h3>
     <table>
       <thead><tr><th>File</th><th>Used by</th></tr></thead>
       <tbody>
-        <tr><td><code>src/environments/environment.ts</code></td><td><code>npm run dev</code>, and website builds for the <code>default</code> alias when it has no file of its own (below)</td></tr>
-        <tr><td><code>src/environments/environment.prod.ts</code></td><td><code>npm run build</code> with no project given, and website builds for the <code>production</code> alias when it has no file of its own</td></tr>
-        <tr><td><code>src/environments/firebase-web.&lt;projectId&gt;.ts</code></td><td>Website builds for that project (<code>npm run deploy</code>, <code>ARC_PROJECT</code>). Written by <code>npm run arc:configure -- --web-config=fetch</code>; never edit it by hand. See <a href="../app/environments.html">Dev, staging and production</a></td></tr>
+        <tr><td><code>src/environments/firebase-web.&lt;projectId&gt;.ts</code></td><td>Builds for that project (<code>npm run deploy</code>, <code>ARC_PROJECT</code>), and <code>npm run dev</code> and <code>npm run build</code> when it is the <code>default</code> alias's project. Written by <code>npm run arc:configure -- --web-config=fetch</code>, with the project's install settings too; never edit it by hand. See <a href="../app/environments.html">Dev, staging and production</a></td></tr>
+        <tr><td><code>src/environments/environment.ts</code></td><td><code>npm run dev</code> when the <code>default</code> alias has no file of its own, and website builds for the <code>default</code> alias then. Ships with no project</td></tr>
+        <tr><td><code>src/environments/environment.prod.ts</code></td><td><code>npm run build</code> when the <code>default</code> alias has no file of its own, and website builds for the <code>production</code> alias when it has none. Ships with no project</td></tr>
         <tr><td><code>src/environments/environment.example.ts</code></td><td>Nothing: the template to copy from</td></tr>
-        <tr><td><code>src/environments/arc-install.ts</code></td><td>The app, for the database, bucket, upload folder and hosting site of each project. Written by <code>npm run arc:configure</code>; never edit it by hand</td></tr>
+        <tr><td><code>src/environments/arc-install.ts</code></td><td>The app, for the database, bucket, upload folder and hosting site of each project. Written by <code>npm run arc:configure</code>; never edit it by hand. Ships empty</td></tr>
         <tr><td><code>src/environments/index.ts</code></td><td>Re-exports <code>environment.ts</code></td></tr>
       </tbody>
     </table>
-    <p>The app reads its own entry in <code>arc-install.ts</code> by the <code>projectId</code> in its <code>firebaseConfig</code>, so one build can hold settings for several projects.</p>
+    <p>The app reads its own entry in <code>arc-install.ts</code> by the <code>projectId</code> in its <code>firebaseConfig</code>, so one build can hold settings for several projects. A project with no entry there uses the one its <code>firebase-web.&lt;projectId&gt;.ts</code> carries. These files are yours: Arc CMS never changes their values in an update (see <a href="upgrading.html">Upgrade Arc CMS</a>).</p>
 
     <h2 id="install-profiles">Install profiles</h2>
     <p>The profile says whether Arc CMS has the Firebase project to itself or shares it with another app.</p>

@@ -5,6 +5,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { liveSiteName, siteFileDrift, SiteDriftService, LIVE_MANIFEST_PATH, NO_LIVE_SITE_FILES } from './site-drift';
 import { setSiteManifestForTesting, siteManifest } from './site';
 
+// A project of its own: the shipped environment.ts names none (docs/app/environments.html).
+vi.mock('../../../environments/environment', () => ({ environment: { production: false, firebaseConfig: { projectId: 'acme' } } }));
+
 describe('site drift', () => {
     afterEach(() => {
         vi.unstubAllGlobals();

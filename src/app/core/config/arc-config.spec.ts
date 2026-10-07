@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { arcInstall } from '../../../environments/arc-install';
-import { arcConfig, DEFAULT_DATABASE_ID, installConfigFor, resolveArcConfig, withStoragePrefix } from './arc-config';
+import { arcConfig, DEFAULT_DATABASE_ID, installConfigFor, installEntryFor, resolveArcConfig, withStoragePrefix } from './arc-config';
 import { environment } from '../../../environments/environment';
 
 describe('arc-config (frontend)', () => {
@@ -21,7 +21,7 @@ describe('arc-config (frontend)', () => {
         });
 
         it("arcConfig is this build's project entry in arc-install.ts, resolved", () => {
-            expect(arcConfig).toEqual(resolveArcConfig(installConfigFor(arcInstall, environment.firebaseConfig.projectId)));
+            expect(arcConfig).toEqual(resolveArcConfig(installEntryFor(arcInstall, environment)));
         });
 
         it('leaves upload paths untouched', () => {
@@ -93,6 +93,13 @@ describe('arc-config (frontend)', () => {
 
         it('still reads a single-entry file written before CO3.2, for every project', () => {
             expect(installConfigFor({ databaseId: 'arccms' }, 'anything')).toEqual({ databaseId: 'arccms' });
+        });
+
+        it('takes the entry a generated web settings file carries when arc-install.ts has none, as in Arc CMS itself', () => {
+            const env = { firebaseConfig: { projectId: 'acme-dev' }, arcInstall: { databaseId: 'arccms', storagePrefix: 'arccms/' } };
+            expect(installEntryFor({}, env)).toEqual({ databaseId: 'arccms', storagePrefix: 'arccms/' });
+            expect(installEntryFor({ 'acme-dev': { databaseId: 'other' } }, env)).toEqual({ databaseId: 'other' });
+            expect(installEntryFor({}, { firebaseConfig: { projectId: 'acme-dev' } })).toBeUndefined();
         });
     });
 });
