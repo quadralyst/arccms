@@ -31,7 +31,11 @@ import { IEmailProviderComponent } from './email-provider-base';
                         <strong>No emails are actually sent.</strong>
                         Every message is fully composed and recorded in
                         <a routerLink="/admin/email-logs">Email Logs</a> (status <code>success</code>,
-                        <code>logOnly: true</code>, provider <code>debug_log</code>) — but nothing leaves the system.
+                        <code>logOnly: true</code>, provider <code>debug_log</code>), but nothing leaves the system.
+                        <div class="sign-up-codes mt-1">
+                            The sign-up page shows sign-up codes on screen, so anyone can sign up with any address.
+                            Codes for adding an email to an account are in Email Logs only.
+                        </div>
                         <div class="small text-muted mt-1">
                             No credentials needed. Ideal for testing the pipeline end-to-end without a real
                             provider or inbox. Switch to SMTP / Gmail / Resend before going live.

@@ -24,7 +24,6 @@ import {
 } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { Functions } from '@angular/fire/functions';
 import type { AuthCredential } from '@angular/fire/auth';
 import { filter, firstValueFrom, take } from 'rxjs';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
@@ -38,7 +37,6 @@ import { UserSettingService } from '../../admin/(settings)/user-setting/user-set
 import { phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
 import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
-import { arcCallable } from '../../../core/config/arc-functions';
 import { LegalNoticeComponent } from '../../../../shared/components/legal-notice/legal-notice.component';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
 import { classifyIdentifier, formatPhone } from '../../../../shared/utils/identifier.util';
@@ -88,7 +86,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private setupService = inject(OnboardingSetupService);
   private userSettingService = inject(UserSettingService);
   private emailConfigStatus = inject(EmailConfigStatusService);
-  private functions = inject(Functions);
   private signIn = inject(SignInService);
   currentStep = signal<SignupStep>('request');
 
@@ -118,7 +115,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   newPin = signal('');
   /** The PIN locked after too many wrong tries. */
   pinLocked = signal(false);
-  /** Test SMS provider only: the code that was not sent, shown under the boxes. */
+  /** Test SMS provider or Simulated email provider: the code that was not sent, shown under the boxes. */
   testCode = signal('');
   /** Test SMS provider, reset code: no SMS went out and the code is only in SMS Logs. */
   testCodeInLogs = signal(false);
@@ -501,10 +498,11 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.testCodeInLogs.set(!!reply.testMode && !reply.testCode);
         if (!reply.testMode) this.toastService.success(this.t('member.auth.code_sent_sms'));
       } else {
+        this.testCode.set('');
         const name = this.registrationForm.get('name')?.value || undefined;
-        const callable = arcCallable(this.functions, 'requestSignupOtp');
-        await callable({ email: this.email, name });
-        this.toastService.success(this.t('member.auth.code_sent_email'));
+        const reply = await this.signIn.requestSignupCode(this.email, name);
+        this.testCode.set(reply.testCode ?? '');
+        if (!reply.testMode) this.toastService.success(this.t('member.auth.code_sent_email'));
       }
       this.startCountdown();
     } catch (error: any) {

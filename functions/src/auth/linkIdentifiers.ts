@@ -154,7 +154,8 @@ export const requestEmailLinkOtp = onCall(async (request) => {
     if (!result.sent) {
         throw new HttpsError('unavailable', "We couldn't send the email. Please try again in a moment.");
     }
-    return { sent: true };
+    // Simulated provider: nothing was sent, and the code is in Email Logs, for admins.
+    return result.testMode ? { sent: true, testMode: true } : { sent: true };
 });
 
 export const linkPhone = onCall(async (request) => {

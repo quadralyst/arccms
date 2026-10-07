@@ -223,7 +223,7 @@
       <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
       <tbody>
         <tr><td><code>checkEmailAccount</code></td><td>Callable</td><td>Public, 100 an hour per caller</td><td>Says whether an email is registered, new, an unfinished sign-up, or has no access.</td></tr>
-        <tr><td><code>requestSignupOtp</code></td><td>Callable</td><td>Public, 20 an hour per caller and 5 an hour per address</td><td>Emails a sign-up code.</td></tr>
+        <tr><td><code>requestSignupOtp</code></td><td>Callable</td><td>Public, 20 an hour per caller and 5 an hour per address</td><td>Emails a sign-up code. With the Debug Provider the reply also carries the code, for the sign-up page to show.</td></tr>
         <tr><td><code>verifySignupOtp</code></td><td>Callable</td><td>Public; own record for a link code</td><td>Checks a sign-up or link code and returns a ticket.</td></tr>
         <tr><td><code>createAccountRecord</code></td><td>Callable</td><td>Signed in with email and password</td><td>Creates the person's <code>users</code> record with the default role and sets the claims. Refuses a locked app account a password was linked to, and takes the password off it.</td></tr>
         <tr><td><code>ensureGoogleAccount</code></td><td>Callable</td><td>Signed in with Google</td><td>Creates a <code>users</code> record for a new Google sign-in, when Google sign-in and sign-ups are on. Refuses a locked app account Google was linked to, takes Google off it and ends its sessions.</td></tr>

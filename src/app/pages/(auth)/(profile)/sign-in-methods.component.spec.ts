@@ -55,6 +55,22 @@ describe('SignInMethodsComponent', () => {
         expect(c['flow']().step).toBe('code');
     });
 
+    it('with the Simulated email provider, says the code is in Email Logs', async () => {
+        const c = ctx({ kind: 'email', value: 'new@example.com', needsPassword: false });
+        c['signIn'].requestEmailLinkCode.mockResolvedValue({ sent: true, testMode: true });
+        c['flow'].set({ kind: 'email', step: 'enter', typed: 'new@example.com', check: null });
+        await proto['sendCode'].call(c);
+        expect(c['signIn'].requestEmailLinkCode).toHaveBeenCalledWith('new@example.com');
+        expect(c['testCodeInLogs']()).toBe(true);
+    });
+
+    it('says nothing about logs when the email really went out', async () => {
+        const c = ctx({ kind: 'email', value: 'new@example.com', needsPassword: false });
+        c['flow'].set({ kind: 'email', step: 'enter', typed: 'new@example.com', check: null });
+        await proto['sendCode'].call(c);
+        expect(c['testCodeInLogs']()).toBe(false);
+    });
+
     it('refuses a number that is already yours without sending anything', async () => {
         const c = ctx({ status: 'yours' });
         c['flow'].set({ kind: 'phone', step: 'enter', typed: '98765 43210', check: null });
