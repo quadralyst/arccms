@@ -25,6 +25,7 @@ import {
 import {
     checkFunctionsRegion, cliActiveProject, functionsRegionOf, generatedConfigPath, runDeploy,
 } from './arc-deploy.mjs';
+import { builtArccms, isCloudFunction } from './arc-built-functions.mjs';
 import { DEFAULT_FUNCTIONS_REGION } from './arc-region.mjs';
 import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
 import {
@@ -281,12 +282,18 @@ async function deployableFunctions() {
         encoding: 'utf8', shell: process.platform === 'win32',
     });
     if (build.status !== 0) return null;
-    const { arccms } = await import(`${pathToFileURL(resolve(ROOT, 'functions/lib/index.js')).href}?t=${Date.now()}`);
-    // The app's `custom` group counts only when it has a function in it:
-    // targeting an empty group fails the deploy.
-    return Object.entries(arccms)
-        .filter(([name, value]) => value && (value.__endpoint
-            || (name === 'custom' && Object.values(value).some((fn) => fn?.__endpoint))))
+    return deployableNames(await builtArccms());
+}
+
+/**
+ * The names a deploy can target in the built `arccms` group. The app's `custom`
+ * group counts only when it has a function in it: targeting an empty group
+ * fails the deploy.
+ */
+export function deployableNames(arccms) {
+    return Object.entries(arccms ?? {})
+        .filter(([name, value]) => isCloudFunction(value)
+            || (name === 'custom' && !!value && Object.values(value).some(isCloudFunction)))
         .map(([name]) => name)
         .sort();
 }

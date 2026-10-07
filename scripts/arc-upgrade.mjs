@@ -25,6 +25,7 @@ import { spawnSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { builtArccms, isCloudFunction } from './arc-built-functions.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NEW_CODEBASE = 'arccms';
@@ -78,12 +79,16 @@ function run(cmd, args, { capture = false, cwd = ROOT } = {}) {
 async function arcFunctionNames() {
     run('npm', ['run', 'build', '--prefix', 'functions']);
     const lib = resolve(ROOT, 'functions/lib');
-    const modules = [await import(pathToFileURL(resolve(lib, 'index.js')).href).then((m) => m.arccms)];
+    const modules = [await builtArccms()];
     for (const file of readdirSync(resolve(lib, 'features')).filter((f) => f.endsWith('.js'))) {
         modules.push(await import(pathToFileURL(resolve(lib, 'features', file)).href));
     }
-    const names = modules.flatMap((m) => Object.entries(m).filter(([, v]) => v && v.__endpoint).map(([k]) => k));
-    return [...new Set([...names, ...RETIRED_FUNCTIONS])];
+    return [...new Set([...exportedFunctionNames(modules), ...RETIRED_FUNCTIONS])];
+}
+
+/** The names of the functions the given build modules export, top level only. */
+export function exportedFunctionNames(modules) {
+    return modules.flatMap((m) => Object.entries(m ?? {}).filter(([, v]) => isCloudFunction(v)).map(([k]) => k));
 }
 
 function parseArgs(argv) {
