@@ -139,7 +139,7 @@ interface Flow {
                         <arc-code-input #codeBoxes [label]="'member.auth.code_label' | transloco" [disabled]="busy()" [invalid]="!!error()"
                             (completed)="verifyCode($event)" />
                         @if (testCodeInLogs()) {
-                            <div class="small text-muted mt-2">{{ 'member.auth.test_code_in_logs' | transloco }}</div>
+                            <div class="small text-muted mt-2">{{ (f.kind === 'email' ? 'member.auth.test_code_in_email_logs' : 'member.auth.test_code_in_logs') | transloco }}</div>
                         }
                     }
                     @case ('secret') {
@@ -218,8 +218,10 @@ export class SignInMethodsComponent implements OnInit {
     readonly message = signal('');
     /** The PIN or password being chosen. */
     readonly secret = signal('');
-    /** Test SMS provider only: the code that was not sent. */
-    /** Test SMS provider: no SMS went out, and the code is only in SMS Logs (review F). */
+    /**
+     * Test SMS provider or Simulated email provider: nothing went out, and the
+     * code is only in SMS Logs or Email Logs, for admins (review F).
+     */
     readonly testCodeInLogs = signal(false);
 
     private readonly codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
@@ -320,11 +322,9 @@ export class SignInMethodsComponent implements OnInit {
 
     private async requestCode(check: LinkCheck): Promise<void> {
         this.testCodeInLogs.set(false);
-        if (check.kind === 'email') {
-            await this.signIn.requestEmailLinkCode(check.value);
-            return;
-        }
-        const reply = await this.signIn.requestPhoneCode(check.value, 'link');
+        const reply = check.kind === 'email'
+            ? await this.signIn.requestEmailLinkCode(check.value)
+            : await this.signIn.requestPhoneCode(check.value, 'link');
         this.testCodeInLogs.set(!!reply.testMode);
     }
 

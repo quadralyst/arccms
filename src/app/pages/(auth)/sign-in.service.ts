@@ -137,6 +137,14 @@ export class SignInService {
         return result;
     }
 
+    /**
+     * Email a sign-up code to this address. `testMode`: the Simulated email
+     * provider, where nothing is sent, and the code comes back as `testCode`.
+     */
+    requestSignupCode(email: string, name?: string): Promise<{ sent: boolean; testMode?: boolean; testCode?: string }> {
+        return this.call('requestSignupOtp', { email, ...(name ? { name } : {}) });
+    }
+
     /** Check the sign-up code sent to this address. */
     async verifySignupCode(email: string, code: string): Promise<{ verified: boolean }> {
         const reply = await this.call<{ verified: boolean; ticket?: string }>('verifySignupOtp', { email, code });
@@ -261,7 +269,8 @@ export class SignInService {
         return this.call('checkIdentifierForLink', { identifier });
     }
 
-    requestEmailLinkCode(email: string): Promise<{ sent: boolean }> {
+    /** `testMode`: the Simulated email provider; the code is in Email Logs only. */
+    requestEmailLinkCode(email: string): Promise<{ sent: boolean; testMode?: boolean }> {
         return this.call('requestEmailLinkOtp', { email });
     }
 

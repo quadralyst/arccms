@@ -12,6 +12,7 @@ const {
   mockTemplateGet,
   mockQueueEmail,
   mockEnsureDefaults,
+  mockEmailSettingsGet,
 } = vi.hoisted(() => ({
   mockOtpGet: vi.fn(),
   mockOtpSet: vi.fn().mockResolvedValue(undefined),
@@ -19,6 +20,7 @@ const {
   mockTemplateGet: vi.fn(),
   mockQueueEmail: vi.fn().mockResolvedValue({ id: 'log-1', status: 'pending' }),
   mockEnsureDefaults: vi.fn().mockResolvedValue({ created: [], skipped: [] }),
+  mockEmailSettingsGet: vi.fn(),
 }));
 
 vi.mock('../init', () => ({
@@ -31,6 +33,9 @@ vi.mock('../init', () => ({
       }
       if (name === 'EmailTemplate') {
         return { where: vi.fn().mockReturnValue({ limit: vi.fn().mockReturnValue({ get: mockTemplateGet }) }) };
+      }
+      if (name === 'Settings') {
+        return { doc: vi.fn().mockReturnValue({ get: mockEmailSettingsGet }) };
       }
       return {};
     }),
@@ -73,7 +78,7 @@ vi.mock('firebase-admin/firestore', () => ({
   },
 }));
 
-import { requestSignupOtp, verifySignupOtp } from '../auth/signupOtp.js';
+import { issueEmailOtp, requestSignupOtp, verifySignupOtp } from '../auth/signupOtp.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 
 const reqHandler = requestSignupOtp as unknown as (r: any) => Promise<any>;
@@ -94,6 +99,7 @@ describe('requestSignupOtp', () => {
     mockOtpGet.mockResolvedValue({ exists: false });
     mockTemplateGet.mockResolvedValue(activeTemplate);
     mockQueueEmail.mockResolvedValue({ id: 'log-1', status: 'pending' });
+    mockEmailSettingsGet.mockResolvedValue({ data: () => ({ isEnabled: true, activeProvider: 'resend' }) });
   });
 
   it('limits codes per caller and per address (review F)', async () => {
@@ -160,6 +166,41 @@ describe('requestSignupOtp', () => {
   it('fails cleanly when no template exists even after seeding', async () => {
     mockTemplateGet.mockResolvedValue({ empty: true, docs: [] });
     await expect(reqHandler({ data: { email: EMAIL } })).rejects.toMatchObject({ code: 'failed-precondition' });
+  });
+
+  describe('with the Simulated provider, which sends nothing', () => {
+    const simulated = () => mockEmailSettingsGet.mockResolvedValue({ data: () => ({ isEnabled: true, activeProvider: 'debug_log' }) });
+
+    it('hands the sign-up code back, so the page can show it', async () => {
+      simulated();
+      const res = await reqHandler({ data: { email: EMAIL } });
+      const emailed = mockQueueEmail.mock.calls[0][0].data.otp;
+      expect(res).toEqual({ sent: true, status: 'pending', testMode: true, testCode: emailed });
+      expect(mockOtpSet.mock.calls[0][0].codeHash).toBe(hashCode(emailed));
+    });
+
+    it('never hands back a link code: it would let anyone add any address to their account', async () => {
+      simulated();
+      const res = await issueEmailOtp(EMAIL, 'link', { uid: 'uid-a' });
+      expect(res).toEqual({ sent: true, status: 'pending', testMode: true });
+    });
+
+    it('hands back nothing when the email was not queued', async () => {
+      simulated();
+      mockQueueEmail.mockResolvedValue({ id: 'log-1', status: 'skipped' });
+      expect(await reqHandler({ data: { email: EMAIL } })).toEqual({ sent: false, status: 'skipped' });
+    });
+
+    it('hands back nothing while email is switched off', async () => {
+      mockEmailSettingsGet.mockResolvedValue({ data: () => ({ isEnabled: false, activeProvider: 'debug_log' }) });
+      expect(await reqHandler({ data: { email: EMAIL } })).toEqual({ sent: true, status: 'pending' });
+    });
+  });
+
+  it('hands back no code with a real provider', async () => {
+    const res = await reqHandler({ data: { email: EMAIL } });
+    expect(res).toEqual({ sent: true, status: 'pending' });
+    expect(res.testCode).toBeUndefined();
   });
 });
 

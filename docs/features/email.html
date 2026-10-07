@@ -80,7 +80,7 @@
     </ol>
     <p>Templates need no setup step. The default templates are created the first time something needs one (the first sign-up, the first notification email, the first digest), and opening Email, Announcements creates any that are missing. Creating them never overwrites a template that exists.</p>
     <div class="note"><p>Provider secrets (the SMTP or Gmail password, the Resend API key) are stored in the <code>Settings/email</code> document, which only admins can read. The secret that signs unsubscribe links is created on first use in <code>_system/unsubscribe_secret</code>, which no browser can read.</p></div>
-    <div class="note"><p>Use the Debug Provider (Log Only) while you build and test: every email is composed in full and recorded in the email log, and nothing is sent. The admin dashboard shows a banner while it is active. Switch to a real provider, and test the connection, before real people sign up.</p></div>
+    <div class="note"><p>Use the Debug Provider (Log Only) while you build and test: every email is composed in full and recorded in the email log, and nothing is sent. The sign-up page shows the sign-up code on screen, so you (or a test script) can sign up without an inbox, and so can anyone with any address. Codes for adding an email to an account stay in the email log. The admin dashboard shows a banner while it is active. Switch to a real provider, and test the connection, before real people sign up.</p></div>
 
     <h2>Use it</h2>
     <h3>Edit templates in the composer</h3>

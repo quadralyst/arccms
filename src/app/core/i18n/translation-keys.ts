@@ -1570,8 +1570,10 @@ export type TranslationKey =
     | 'member.auth.step_title_welcome'
     | 'member.auth.step_title_welcome_back'
     | 'member.auth.test_code_hint'
+    | 'member.auth.test_code_in_email_logs'
     | 'member.auth.test_code_in_logs'
     | 'member.auth.test_code_label'
+    | 'member.auth.test_code_label_email'
     | 'member.auth.title_tab'
     | 'member.auth.unfinished_signup'
     | 'member.auth.verify'
@@ -3377,8 +3379,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.step_title_welcome',
     'member.auth.step_title_welcome_back',
     'member.auth.test_code_hint',
+    'member.auth.test_code_in_email_logs',
     'member.auth.test_code_in_logs',
     'member.auth.test_code_label',
+    'member.auth.test_code_label_email',
     'member.auth.title_tab',
     'member.auth.unfinished_signup',
     'member.auth.verify',

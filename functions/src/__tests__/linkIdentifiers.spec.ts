@@ -172,6 +172,11 @@ describe('linkEmail', () => {
         await call(verifySignupOtp, { email, code: lastEmailCode(), purpose: 'link' }, 'uid-a');
     }
 
+    it('with the Simulated email provider, says so but never hands the code back (Email Logs only)', async () => {
+        mem.seed('Settings', 'email', { isEnabled: true, activeProvider: 'debug_log' });
+        await expect(call(link.requestEmailLinkOtp, { email: 'new@example.com' }, 'uid-a')).resolves.toEqual({ sent: true, testMode: true });
+    });
+
     it('changes the email after the code, and swaps the lookup entries', async () => {
         await verifyEmailForA('new@example.com');
         await expect(call(link.linkEmail, { email: 'new@example.com' }, 'uid-a')).resolves.toEqual({ linked: true, moved: false });

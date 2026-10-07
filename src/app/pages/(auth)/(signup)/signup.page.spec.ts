@@ -495,6 +495,31 @@ describe('SignupComponent', () => {
             expect(c.testCode()).toBe('');
             expect(c.toastService.success).toHaveBeenCalledWith('Code sent by SMS');
         });
+
+        function emailCtx(reply: Record<string, unknown>) {
+            return {
+                ...ctx(),
+                channel: () => 'email',
+                email: 'new@example.com',
+                registrationForm: { get: () => ({ value: 'Asha' }) },
+                signIn: { requestSignupCode: vi.fn().mockResolvedValue({ sent: true, status: 'pending', ...reply }) },
+            };
+        }
+
+        it('shows the sign-up code the Simulated email provider did not send', async () => {
+            const c = emailCtx({ testMode: true, testCode: '135790' });
+            await sendOtp.call(c);
+            expect(c.signIn.requestSignupCode).toHaveBeenCalledWith('new@example.com', 'Asha');
+            expect(c.testCode()).toBe('135790');
+            expect(c.toastService.success).not.toHaveBeenCalled();
+        });
+
+        it('shows no code for email with a real provider, just "sent"', async () => {
+            const c = emailCtx({});
+            await sendOtp.call(c);
+            expect(c.testCode()).toBe('');
+            expect(c.toastService.success).toHaveBeenCalledWith(english('member.auth.code_sent_email'));
+        });
     });
 
     describe('signInWithPin', () => {

@@ -80,13 +80,14 @@ export const requestSignupOtp = onCall(async (request) => {
 
 /**
  * Create a code for this address and email it. Shared by the sign-up page and
- * by adding an email to an account (`requestEmailLinkOtp`).
+ * by adding an email to an account (`requestEmailLinkOtp`). With the Simulated
+ * provider the reply says `testMode`, and carries a sign-up code as `testCode`.
  */
 export async function issueEmailOtp(
   email: string,
   purpose: EmailOtpPurpose,
   options: { name?: string; uid?: string } = {},
-): Promise<{ sent: boolean; status: string }> {
+): Promise<{ sent: boolean; status: string; testMode?: boolean; testCode?: string }> {
   const emailHash = computeEmailHash(email);
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
   const now = Date.now();
@@ -142,7 +143,19 @@ export async function issueEmailOtp(
   });
 
   logger.info(`issueEmailOtp: queued ${purpose} OTP for ${email} (status=${result.status}).`);
-  return { sent: result.status === 'pending', status: result.status };
+  const sent = result.status === 'pending';
+  if (!sent || !(await isSimulatedEmail())) return { sent, status: result.status };
+  // Simulated provider: no email goes out, the code is only in Email Logs. The
+  // page shows a sign-up code, which only makes a new account, like the Test SMS
+  // provider. A link code would let anyone add an address to their account:
+  // Email Logs only.
+  return { sent, status: result.status, testMode: true, ...(purpose === 'signup' ? { testCode: code } : {}) };
+}
+
+/** Whether email goes to the Simulated provider, which records it in Email Logs and sends nothing. */
+async function isSimulatedEmail(): Promise<boolean> {
+  const settings = (await db.collection('Settings').doc('email').get()).data();
+  return settings?.['isEnabled'] === true && settings?.['activeProvider'] === 'debug_log';
 }
 
 /**
