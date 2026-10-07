@@ -6,6 +6,8 @@ import { provideRouter } from '@angular/router';
 import SettingsPageComponent from './settings.page';
 import { featureOfPath, isCorePath } from '../../../core/features/feature-routes';
 import { Firestore } from '@angular/fire/firestore';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('SettingsPageComponent', () => {
     let component: SettingsPageComponent;
@@ -111,5 +113,18 @@ describe('SettingsPageComponent', () => {
             expect(tab.feature, tab.id).toBe(featureOfPath(path));
             if (!tab.feature) expect(isCorePath(path), tab.id).toBe(true);
         }
+    });
+
+    // jsdom does no layout, so read the styles: a long menu must scroll inside
+    // its card instead of spilling below it (items used to be flex: 1, which
+    // let them overflow the fixed-height card).
+    it('scrolls the menu inside its card when it is taller than the panel', () => {
+        const source = readFileSync(join(__dirname, 'settings.page.ts'), 'utf8');
+        const rule = (selector: string) =>
+            source.match(new RegExp(`\\n {8}${selector.replace('.', '\\.')} \\{([^}]*)\\}`))?.[1] ?? '';
+        expect(rule('.settings-sidebar')).toMatch(/overflow-y: auto/);
+        expect(rule('.settings-sidebar')).toMatch(/min-height: 0/);
+        expect(rule('.settings-sidebar mat-nav-list')).toMatch(/flex: 1 0 auto/);
+        expect(rule('.setting-item')).toMatch(/flex: 1 0 auto/);
     });
 });

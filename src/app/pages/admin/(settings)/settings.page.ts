@@ -112,18 +112,20 @@ interface SettingCategory {
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             display: flex;
             flex-direction: column;
+            min-height: 0;
+            overflow-y: auto; /* scroll the menu when it is taller than the panel */
         }
 
         .settings-sidebar mat-nav-list {
             padding-top: 4px;
             padding-bottom: 4px;
-            flex: 1;
+            flex: 1 0 auto; /* grow to fill, never shrink below the items */
             display: flex;
             flex-direction: column;
         }
 
         .setting-item {
-            flex: 1 !important;
+            flex: 1 0 auto !important; /* spread out when there is room, never squash */
             height: auto !important;
             padding: 10px 12px !important;
             margin: 2px 6px !important;
@@ -202,6 +204,7 @@ interface SettingCategory {
                 background: transparent;
                 box-shadow: none;
                 border-radius: 0;
+                overflow: visible;
             }
 
             .settings-sidebar mat-nav-list {
