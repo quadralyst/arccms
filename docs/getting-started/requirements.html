@@ -40,6 +40,7 @@
     <p>Install it once, globally, and sign in:</p>
     <pre><code>npm install -g firebase-tools</code></pre>
     <pre><code>firebase login</code></pre>
+    <p>The npm scripts, such as <code>npm run deploy</code> and <code>npm run test:rules</code>, run the copy pinned in the root <code>package.json</code>, so every machine and CI deploys with the same version. The global one is for the commands you type yourself, like <code>firebase login</code> and <code>firebase use</code>.</p>
     <p>A shared-project install (the <code>backend</code> profile) also needs the Google Cloud CLI, <code>gcloud</code>, to create its own storage bucket. A site that has its Firebase project to itself does not.</p>
 
     <h2>A Firebase project</h2>
