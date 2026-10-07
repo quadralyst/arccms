@@ -89,7 +89,8 @@ globalThis.fetch = async (url, init = {}) => {
 
     /** Runs a script the way CI does: no terminal, nothing typed, the stand-ins first on the PATH. */
     function ci(script: string, ...args: string[]) {
-        const result = spawnSync(process.execPath, ['--import', join(root, 'fetch-stub.mjs'), join(root, 'scripts', script), ...args], {
+        const preload = ['--import', join(root, 'fetch-stub.mjs'), ...(existsSync(join(root, 'timer-stub.mjs')) ? ['--import', join(root, 'timer-stub.mjs')] : [])];
+        const result = spawnSync(process.execPath, [...preload, join(root, 'scripts', script), ...args], {
             cwd: root, input: '', encoding: 'utf8', timeout: 60_000,
             env: { PATH: `${join(root, 'bin')}:${process.env['PATH']}`, HOME: join(root, 'home'), CI: 'true' },
         });
@@ -140,6 +141,96 @@ globalThis.fetch = async (url, init = {}) => {
         for (const prompt of PROMPTS) expect(deploy.output).not.toMatch(prompt);
         expect(calls().some((c) => c.cmd === 'firebase' && c.args[0] === 'deploy')).toBe(true);
     }, 60_000);
+
+    describe('a first deploy to a fresh project (found 2026-10-07)', () => {
+        /**
+         * The Firebase CLI as a fresh project answered it: the full deploy leaves the
+         * Firestore triggers failing on Eventarc's setup and the first-generation
+         * function on a build that started before its image repository existed; a
+         * retry with both --only and --except is refused, as the real CLI does.
+         * `eventarc-forever` keeps Eventarc failing on every retry.
+         */
+        function freshProject({ eventarcForever = false } = {}) {
+            const log = join(root, 'calls.log');
+            if (eventarcForever) write('eventarc-forever', '');
+            write('bin/firebase', `#!/usr/bin/env node
+const { appendFileSync, existsSync } = require('node:fs');
+const args = process.argv.slice(2);
+appendFileSync(${JSON.stringify(log)}, JSON.stringify({ cmd: 'firebase', args }) + '\\n');
+const answer = (result) => process.stdout.write(JSON.stringify({ status: 'success', result }));
+const out = (line) => process.stdout.write(line + '\\n');
+const eventarc = 'HTTP Error: 400, Permission denied while using the Eventarc Service Agent. If you recently started to use Eventarc, it may take a few minutes before all necessary permissions are propagated to the Service Agent.\\n'
+    + 'Since this is your first time using 2nd gen functions, we need a little bit longer to finish setting everything up. Retry the deployment in a few minutes.';
+if (args[0] === 'firestore:databases:get') answer({ locationId: 'asia-south1' });
+else if (args[0] === 'functions:list') answer([]);
+else if (args[0] === 'deploy' && args.includes('--only') && args.includes('--except')) {
+    process.stderr.write('Error: Cannot specify both --only and --except\\n');
+    process.exit(1);
+} else if (args[0] === 'deploy' && !args.includes('--only')) {
+    out('i  functions: creating Node.js 22 (2nd Gen) function arccms:arccms-onUserCreated(asia-south1)...');
+    out('i  functions: creating Node.js 22 (1st Gen) function arccms:arccms-onSignInDeleted(asia-south1)...');
+    out('i  functions: creating Node.js 22 (2nd Gen) function arccms:arccms-search(asia-south1)...');
+    out('✔  functions[arccms:arccms-search(asia-south1)] Successful create operation.');
+    out(eventarc);
+    out('Gen1 operation for function projects/${PROJECT}/locations/asia-south1/functions/arccms-onSignInDeleted failed: Build failed: Build error details not available.');
+    process.stderr.write('Error: There was an error deploying functions:\\n');
+    process.exit(1);
+} else if (args[0] === 'deploy') {
+    const only = args[args.indexOf('--only') + 1].split(',');
+    if (only.includes('functions:arccms:arccms.onUserCreated') && existsSync(${JSON.stringify(join(root, 'eventarc-forever'))})) {
+        out('i  functions: creating Node.js 22 (2nd Gen) function arccms:arccms-onUserCreated(asia-south1)...');
+        out(eventarc);
+        process.stderr.write('Error: There was an error deploying functions\\n');
+        process.exit(1);
+    }
+    for (const target of only) {
+        const name = 'arccms-' + target.split(':').pop().split('.').slice(1).join('-');
+        out('i  functions: creating Node.js 22 function arccms:' + name + '(asia-south1)...');
+        out('✔  functions[arccms:' + name + '(asia-south1)] Successful create operation.');
+    }
+    out('Deploy complete!');
+} else out('Deploy complete!');
+`, 0o755);
+            // The retry waits run at once; each wait is logged, to check how long it would be.
+            write('timer-stub.mjs', `import { appendFileSync } from 'node:fs';
+const real = globalThis.setTimeout;
+globalThis.setTimeout = (fn, ms, ...rest) => {
+    if (ms >= 1000) appendFileSync(${JSON.stringify(log)}, JSON.stringify({ cmd: 'wait', ms }) + '\\n');
+    return real(fn, 0, ...rest);
+};
+`);
+        }
+        const deploys = () => calls().filter((c) => c.cmd === 'firebase' && c.args[0] === 'deploy').map((c) => c.args.join(' '));
+        const waits = () => calls().filter((c) => c.cmd === 'wait').map((c) => c.ms);
+
+        it('retries the failed functions with a command the CLI accepts, waits minutes for Eventarc, then deploys the website', () => {
+            expect(recreate('--functions-region=asia-south1').status).toBe(0);
+            freshProject();
+            const deploy = ci('arc-deploy.mjs', '--project', 'staging', '--non-interactive', '--force');
+            expect(deploy.status, deploy.output).toBe(0);
+            expect(deploy.output).not.toContain('Cannot specify both');
+            expect(deploys()).toEqual([
+                `deploy --config firebase.${PROJECT}.json --project staging --non-interactive --force --except hosting`,
+                `deploy --config firebase.${PROJECT}.json --project staging --non-interactive --force --only functions:arccms:arccms.onSignInDeleted,functions:arccms:arccms.onUserCreated`,
+            ]);
+            expect(waits()).toEqual([300_000]);
+            expect(deploy.output).toContain('Google is still setting up Eventarc');
+            expect(calls().some((c) => c.cmd === 'firebase' && c.args[0] === 'hosting:channel:deploy')).toBe(true);
+        }, 60_000);
+
+        it('when Eventarc is still not ready, says to run the deploy again in a few minutes, and that the website was not deployed', () => {
+            expect(recreate('--functions-region=asia-south1').status).toBe(0);
+            freshProject({ eventarcForever: true });
+            const deploy = ci('arc-deploy.mjs', '--project', 'staging', '--non-interactive', '--force');
+            expect(deploy.status).toBe(1);
+            expect(deploy.output).not.toContain('Cannot specify both');
+            expect(waits()).toEqual([300_000, 300_000]);
+            expect(deploy.output).toContain('Wait a few minutes, then run the same deploy again.');
+            expect(deploy.output).toContain('The website was not deployed');
+            expect(deploy.output).toContain('npm run deploy -- --only hosting --project acme-staging');
+            expect(calls().some((c) => c.cmd === 'firebase' && c.args[0] === 'hosting:channel:deploy')).toBe(false);
+        }, 60_000);
+    });
 
     describe('the production guard on the command line', () => {
         it('refuses a project marked production without --confirm-production, before anything runs', () => {

@@ -22,7 +22,9 @@
  *   reported success for. A deploy of many functions hits Google's per-minute
  *   limit on changes (HTTP 429), and the CLI gives up on a few after its own
  *   retries (found 2026-09-28). The wrapper waits for the limit to reset and
- *   deploys just those, up to RETRY_ROUNDS times;
+ *   deploys just those, up to RETRY_ROUNDS times. On a project's first deploy the
+ *   second-generation triggers fail until Google has set up Eventarc, which takes
+ *   minutes, so then it waits FIRST_DEPLOY_WAIT_MS instead (found 2026-10-07);
  * - fails a functions deploy in which a function still never reported success
  *   after that. The CLI can exit 0 after a rate limit quietly skipped an
  *   update, leaving the old code live (found 2026-09-24);
@@ -48,7 +50,8 @@
  *   build goes to a preview channel first, then one live release holds the build
  *   and the pages the functions published, so the home page and content pages
  *   never drop to the browser app between the deploy and the republish. Every
- *   other target goes through `firebase deploy` as before (`--except hosting`);
+ *   other target goes through `firebase deploy` as before (`--except hosting`).
+ *   When that fails, the website is not deployed, and the deploy says so;
  * - for a project marked production (arc:configure --production=yes), needs
  *   --confirm-production=<its project id>, or on a terminal the id typed back;
  *   off a terminal without it, nothing is deployed (productionGuard).
@@ -75,6 +78,8 @@ import {
 /** Retry rounds for functions that never reported success, and the wait before each. */
 export const RETRY_ROUNDS = 2;
 export const RETRY_WAIT_MS = 65_000;
+/** The wait before a retry while Google sets up Eventarc for a project's first triggers. */
+export const FIRST_DEPLOY_WAIT_MS = 300_000;
 
 /** The generated Firebase CLI config for a project. */
 export function generatedConfigPath(projectId) {
@@ -364,16 +369,40 @@ export function retryTargets(functions) {
         .map((fn) => `functions:${fn.codebase ? `${fn.codebase}:` : ''}${fn.name.split('-').join('.')}`);
 }
 
-/** The deploy arguments with `--only` replaced by these targets. */
+/**
+ * The deploy arguments with `--only` replaced by these targets. `--except` goes
+ * too: the CLI refuses both together, and a deploy with no --only has
+ * `--except hosting` (found 2026-10-07, every full deploy's retry failed).
+ */
 export function retryArgs(firebaseArgs, targets) {
     const out = [];
     for (let i = 0; i < firebaseArgs.length; i++) {
         const arg = firebaseArgs[i];
-        if (arg === '--only') { i++; continue; }
-        if (arg.startsWith('--only=')) continue;
+        if (arg === '--only' || arg === '--except') { i++; continue; }
+        if (arg.startsWith('--only=') || arg.startsWith('--except=')) continue;
         out.push(arg);
     }
     return [...out, '--only', targets.join(',')];
+}
+
+/**
+ * Whether the CLI said Google is still setting up Eventarc, as on a project's
+ * first second-generation triggers: "Permission denied while using the Eventarc
+ * Service Agent" and "Retry the deployment in a few minutes".
+ */
+export function eventarcSettingUp(output) {
+    return /Eventarc Service Agent|first time using 2nd gen functions/i.test(output.replace(/\x1b\[[0-9;]*m/g, ''));
+}
+
+/** How long to wait before retrying the functions this output left unconfirmed. */
+export function retryWaitMs(output) {
+    return eventarcSettingUp(output) ? FIRST_DEPLOY_WAIT_MS : RETRY_WAIT_MS;
+}
+
+/** What a deploy that included the website says when an earlier step failed, so the website was skipped. */
+export function websiteSkippedMessage(projectId) {
+    return `\nThe website was not deployed: the deploy failed before it. Once the rest is deployed, deploy the website alone `
+        + `and publish its pages:\n  npm run deploy -- --only hosting --project ${projectId}\n  npm run seed -- ${projectId}`;
 }
 
 /** Runs a command with its output streamed live and also collected. */
@@ -547,15 +576,22 @@ export async function runDeploy(args, options = {}) {
     const created = new Set(createdFunctions(deploy.output));
 
     let missing = unconfirmed(deploy.output);
+    let lastOutput = deploy.output;
     for (let round = 1; round <= RETRY_ROUNDS && retryTargets(missing).length; round++) {
         const targets = retryTargets(missing);
         const deletes = missing.filter((fn) => fn.deleting);
-        console.log(`\n${targets.length} function(s) never reported success, likely Google's per-minute limit on changes. `
-            + `Waiting ${Math.round(RETRY_WAIT_MS / 1000)} seconds, then deploying just those (retry ${round} of ${RETRY_ROUNDS}).`);
-        await new Promise((done) => setTimeout(done, RETRY_WAIT_MS));
+        const wait = retryWaitMs(lastOutput);
+        const why = eventarcSettingUp(lastOutput)
+            ? 'Google is still setting up Eventarc for this project\'s first triggers, which takes a few minutes.'
+            : 'Likely Google\'s per-minute limit on changes, or on a project\'s first deploy, a build that started before Google finished setting up.';
+        console.log(`\n${targets.length} function(s) never reported success. ${why} `
+            + `Waiting ${wait >= 120_000 ? `${Math.round(wait / 60_000)} minutes` : `${Math.round(wait / 1000)} seconds`}, `
+            + `then deploying just those (retry ${round} of ${RETRY_ROUNDS}).`);
+        await new Promise((done) => setTimeout(done, wait));
         const again = retryArgs(firebaseArgs, targets);
         console.log(`> firebase ${again.join(' ')}`);
         const retry = await run('firebase', again);
+        lastOutput = retry.output;
         for (const name of createdFunctions(retry.output)) created.add(name);
         missing = [...deletes, ...unconfirmed(retry.output)];
         // A clean retry clears the first run's failure when that failure was only functions.
@@ -581,10 +617,14 @@ export async function runDeploy(args, options = {}) {
     if (missing.length) {
         const names = missing.map((fn) => `${fn.name}(${fn.region})${fn.deleting ? ', a delete' : ''}`);
         console.error(`\nThese functions were started but never reported success, so the old version may still be live:\n  ${names.join('\n  ')}\nRedeploy them: npm run deploy -- --only ${retryTargets(missing).join(',') || 'functions:<codebase>:<group>.<name>'}`);
+        if (eventarcSettingUp(lastOutput)) {
+            console.error('Google is still setting up Eventarc for this project\'s first triggers. Wait a few minutes, then run the same deploy again.');
+        }
         status = status || 1;
     }
 
     if (website && status === 0) status = await deployWebsite(projectId, generated ? generatedConfigPath(projectId) : null, firebaseConfig);
+    else if (website) console.error(websiteSkippedMessage(projectId));
 
     if (status === 0 && projectId && deploysFunctions(args) && args.includes('--probe')) {
         console.log(`\n> Checking that every callable is publicly invocable on ${projectId}`);
