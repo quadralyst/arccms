@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Publishing reads templates and site files from the live site's `/_site/`; template overrides stored in Firestore are no longer read.
 - The build no longer prerenders or builds a server bundle.
 - **`firebase-functions` is now 7.4.0** (was 7.1.0), which clears the Firebase CLI's "out of date" warning on deploy. No code changes in an app. After merging, run `npm install --prefix functions` and redeploy all the functions.
+- Dependencies refreshed with `npm audit fix` (lock files only, no version range changed): no critical advisories left, root down from 69 to 32 advisories and `functions/` from 52 to 20. Run both installs after merging.
 - `npm run deploy` keeps the published pages when it deploys the website: the build goes to a preview channel, then one live release holds the build and the published pages. Never deploy the website with a plain `firebase deploy --only hosting`.
 - Publishing keeps every file of a site past 1000 files (the live file list is now read page by page).
 - `main.css` styles only the body, header and footer. The old marketing page's styles are in `docs/examples/arc-cms-home.css`. Its global `section { padding: 100px 0 }` rule is gone too.
