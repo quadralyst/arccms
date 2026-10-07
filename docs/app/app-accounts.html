@@ -87,7 +87,13 @@ export const CUSTOM_APP_ACCOUNTS: AppAccountChoice = { memberPages: false };</co
     <p>A locked account that opens one then goes to its home page from <code>src/custom/home.ts</code>, or to the site's home page when that home is itself a member page. The member menu hides those pages for it. Your own pages are not affected: a route with <code>userGuard</code> still lets it in.</p>
 
     <h3 id="client-links">What the browser can still do</h3>
-    <div class="trap"><p>Firebase lets a signed-in browser link Google, a password or a phone to its own sign-in account without asking Arc CMS's server. Refusing that needs Identity Platform's blocking functions, which Arc CMS does not use. Arc CMS hides every control that does it for a locked account, and the <code>users</code> record never follows such a link. When the person later signs in that way, the server sees a locked account signed in without your token: it takes that way in off the account, ends all its sessions and refuses. Until then that sign-in carries your claims, so a rule that trusts a claim alone trusts it too. Where that matters, also check that the token came from your app: <code>request.auth.token.firebase.sign_in_provider == 'custom'</code>.</p></div>
+    <div class="trap"><p>Firebase lets a signed-in browser link Google, a password or a phone to its own sign-in account without asking Arc CMS's server. Refusing that needs Identity Platform's blocking functions, which Arc CMS does not use. Arc CMS hides every control that does it for a locked account, and the <code>users</code> record never follows such a link. When the person later signs in that way, the server sees a locked account signed in without your token: it takes that way in off the account, ends all its sessions and refuses. Until then that sign-in carries your claims, so a rule that trusts a claim alone trusts it too.</p></div>
+    <p>So in your own rules, wherever a claim you put on app accounts grants access, add <code>signedInByApp()</code>. It is true only when the session came from your sign-in token, never from a Google, password or phone sign-in linked in the browser:</p>
+    <pre><code>// firestore.app.rules
+match /bookings/{id} {
+  allow read: if signedInByApp() &amp;&amp; request.auth.token.staffRole == 'front-desk';
+}</code></pre>
+    <p>Leave it out of rules for ordinary members, who sign in with Google, a password or a phone code. The helpers your rules can call are listed in <a href="rules-and-indexes.html">Set security rules and indexes</a>.</p>
 
     <h2 id="sessions">Sessions</h2>
     <p><code>revokeSessions(uid)</code> signs the person out on every device: their refresh tokens are revoked, so each session ends at its next token refresh, within the hour. Use it when a member of staff leaves or a device is lost. They can sign in again as usual afterwards.</p>

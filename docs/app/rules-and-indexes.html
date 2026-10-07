@@ -62,6 +62,7 @@ match /Lessons/{lessonId} {
         <tr><td><code>isAdmin()</code></td><td>The person is an Arc CMS admin: the <code>arccms_role</code> claim is <code>admin</code>. A plain <code>role</code> claim does not count</td></tr>
         <tr><td><code>isEditor()</code></td><td>An admin, or the <code>arccms_role</code> claim is <code>editor</code></td></tr>
         <tr><td><code>ownsUserRecord(userDocId)</code></td><td>The person owns <code>users/{userDocId}</code>: the <code>arccms_uid</code> claim equals it. No document is read</td></tr>
+        <tr><td><code>signedInByApp()</code></td><td>The session came from your app's own sign-in token (<code>signInWithCustomToken</code>), not Google, a password or a phone code. Add it to a rule that trusts your own claims on <a href="app-accounts.html#locked">app accounts</a></td></tr>
       </tbody>
     </table>
     <p>The claims are explained in <a href="../concepts/roles-and-claims.html">Roles and claims</a>, and where per-person data belongs in <a href="account-contract.html">Follow the account contract</a>.</p>

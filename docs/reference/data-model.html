@@ -36,6 +36,7 @@
       <li><code>isAdmin()</code>: the <code>arccms_role</code> claim is <code>admin</code>.</li>
       <li><code>isEditor()</code>, "staff" below: an admin, or the <code>arccms_role</code> claim is <code>editor</code>.</li>
       <li><code>ownsUserRecord(userDocId)</code>: the <code>arccms_uid</code> claim equals that <code>users</code> document id.</li>
+      <li><code>signedInByApp()</code>: the session came from an app's own sign-in token. For app rules; core does not use it.</li>
       <li><code>isOwnUserDoc()</code>: the <code>users</code> document's <code>uid</code> field equals the signed-in Auth uid.</li>
     </ul>
     <p>In the tables below, "Server only" means no browser can read or write it: only Cloud Functions do, through the Admin SDK, which bypasses the rules. Every collection with no rule is server only too, because Firestore denies what no rule allows.</p>

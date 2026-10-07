@@ -85,7 +85,7 @@
     <p>Any folder named <code>users</code> in the first two levels of a path is never public.</p>
 
     <h2>The helper functions</h2>
-    <p>The top of <code>firestore.rules</code> defines these, and <code>storage.rules</code> the same names with the same meaning. App rules may call the four marked stable; keep their names and meaning when you change core.</p>
+    <p>The top of <code>firestore.rules</code> defines these, and <code>storage.rules</code> the same names with the same meaning. App rules may call the five marked stable; keep their names and meaning when you change core.</p>
     <table>
       <thead><tr><th>Function</th><th>True when</th><th>Stable for apps</th></tr></thead>
       <tbody>
@@ -93,6 +93,7 @@
         <tr><td><code>ownsUserRecord(userDocId)</code></td><td>The signed-in person's <code>arccms_uid</code> claim is that record id. No claim means no</td><td>Yes</td></tr>
         <tr><td><code>isAdmin()</code></td><td>The <code>arccms_role</code> claim is <code>admin</code></td><td>Yes</td></tr>
         <tr><td><code>isEditor()</code></td><td>An admin, or the <code>arccms_role</code> claim is <code>editor</code> (content staff)</td><td>Yes</td></tr>
+        <tr><td><code>signedInByApp()</code></td><td>The session came from an app's own sign-in token (<code>sign_in_provider</code> is <code>custom</code>). Core rules do not use it</td><td>Yes</td></tr>
         <tr><td><code>isAuthenticated()</code></td><td>The same as <code>isSignedIn()</code>, used by core</td><td></td></tr>
         <tr><td><code>arcRole()</code></td><td>Returns the <code>arccms_role</code> claim, or an empty string</td><td></td></tr>
       </tbody>
