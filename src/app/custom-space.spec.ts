@@ -3,17 +3,17 @@
  * app's own files, proven with sample content while the shipped files stay empty.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 // @ts-expect-error: plain ESM script without type declarations
 import { isArcCmsRepository } from '../../scripts/check-core.mjs';
+// @ts-expect-error: plain ESM script without type declarations
+import { CUSTOM_STARTERS, isAppSpec } from '../../scripts/custom-starters.mjs';
 import { mergeTranslations } from './core/i18n/translation.loader';
 import { insertCustomNav, type MenuItem } from '../shared/components/side-navbar/side-navbar.component';
-import { CUSTOM_ROUTES } from '../custom/routes';
-import { CUSTOM_NAV } from '../custom/nav';
-import { CUSTOM_USER_DASHBOARD } from '../custom/user-dashboard';
-import { CUSTOM_HOME } from '../custom/home';
-import { CUSTOM_APP_ACCOUNTS } from '../custom/app-accounts';
+import { customAdminKeys, flattenKeys } from './core/i18n/member-keys';
+import coreEn from '../assets/i18n/en.json';
 import customEn from '../custom/i18n/en.json';
 import customHi from '../custom/i18n/hi.json';
 
@@ -23,21 +23,33 @@ const read = (path: string) => readFileSync(resolve(ROOT, path), 'utf8');
 describe('custom space', () => {
     // Only Arc CMS ships them empty: an app fills them in, so in an app this would fail
     // on its first feature. Detected the way check:core detects Arc CMS itself.
-    it.skipIf(!isArcCmsRepository(ROOT))('ships every starter file empty', () => {
-        expect(CUSTOM_ROUTES).toEqual([]);
-        expect(CUSTOM_NAV).toEqual([]);
-        expect(CUSTOM_USER_DASHBOARD).toBeNull();
-        expect(CUSTOM_HOME).toEqual({});
-        expect(CUSTOM_APP_ACCOUNTS).toEqual({});
-        // Specs always see every feature on (src/test/setup.ts), so read the file itself.
-        expect(read('src/custom/features.ts')).toMatch(/^export const CUSTOM_FEATURES: FeatureChoice = \{\};$/m);
+    it.skipIf(!isArcCmsRepository(ROOT))('ships every starter file empty, and no other code there', async () => {
+        // Specs see the shipped values (src/test/setup.ts), so read each real file.
+        for (const { file, exports } of CUSTOM_STARTERS) {
+            expect({ ...(await vi.importActual(resolve(ROOT, file))) }, file).toEqual(exports);
+        }
+        const code = (dir: string) => readdirSync(resolve(ROOT, dir)).filter((f) => f.endsWith('.ts') && !f.endsWith('.spec.ts')).map((f) => `${dir}/${f}`);
+        expect([...code('src/custom'), ...code('functions/src/custom')].sort()).toEqual(CUSTOM_STARTERS.map((s) => s.file).sort());
         expect(customEn).toEqual({});
         expect(customHi).toEqual({});
-        expect(read('functions/src/custom/index.ts')).toMatch(/^export \{\};$/m);
-        expect(read('functions/src/custom/search-sources.ts')).toMatch(/^export const SEARCH_COLLECTIONS: string\[\] = \[\];$/m);
-        expect(read('functions/src/custom/search-sources.ts')).toMatch(/^export const CUSTOM_SEARCH_SOURCES: SearchSource\[\] = \[\];$/m);
         // The app's website: Arc CMS ships nothing there, its defaults live in public/_site/.
         expect(existsSync(resolve(ROOT, 'src/custom/site'))).toBe(false);
+        // CI workflows are the app's (check:core counts .github as custom): Arc CMS ships none.
+        expect(existsSync(resolve(ROOT, '.github'))).toBe(false);
+    });
+
+    it("gives core specs the shipped starter files, whatever an app puts there, and the app's specs the real ones", () => {
+        for (const { file } of CUSTOM_STARTERS) {
+            const [setup, from] = file.startsWith('functions/')
+                ? ['functions/src/__tests__/setup.ts', file.replace('functions/src/', '../').replace(/\.ts$/, '.js')]
+                : ['src/test/setup.ts', file.replace('src/', '../').replace(/\.ts$/, '')];
+            expect(read(setup), `${setup} stubs ${file}`).toContain(`vi.mock('${from}', (actual) => starter('${file}', actual));`);
+        }
+        expect(isAppSpec(resolve(ROOT, 'src/custom/pages/learn.spec.ts'))).toBe(true);
+        expect(isAppSpec(resolve(ROOT, 'functions/src/custom/lessons.spec.ts'))).toBe(true);
+        expect(isAppSpec(resolve(ROOT, 'custom/scripts/import.spec.ts'))).toBe(true);
+        expect(isAppSpec(resolve(ROOT, 'src/app/custom-space.spec.ts'))).toBe(false);
+        expect(isAppSpec(resolve(ROOT, 'src/customer/x.spec.ts'))).toBe(false);
     });
 
     it("lays the app's website (src/custom/site/) over Arc CMS's when the dev server and the build start", () => {
@@ -49,6 +61,21 @@ describe('custom space', () => {
     it("keeps the root custom folder for the app's scripts and data, with its tests in the suite", () => {
         expect(read('custom/README.md')).toContain('runAdminScript');
         expect(read('vitest.config.ts')).toContain("'custom/**/*.spec.ts'");
+    });
+
+    it("ignores node_modules at any depth, so the app's own tools (custom/package.json) leave nothing untracked", () => {
+        const ignored = (path: string) => {
+            try {
+                execFileSync('git', ['check-ignore', '-q', '--no-index', path], { cwd: ROOT, stdio: 'ignore' });
+                return true;
+            } catch {
+                return false;
+            }
+        };
+        expect(ignored('custom/node_modules/left-pad/index.js')).toBe(true);
+        expect(ignored('src/custom/tools/node_modules/x/index.js')).toBe(true);
+        expect(ignored('node_modules')).toBe(true);
+        expect(ignored('custom/package.json')).toBe(false);
     });
 
     describe('features', () => {
@@ -156,14 +183,26 @@ describe('custom space', () => {
             expect(mergeTranslations(core, undefined)).toBe(core);
         });
 
-        it('keeps the custom files in step: every English key has a Hindi one, and no extras', () => {
-            const keys = (node: unknown, prefix = ''): string[] =>
-                node && typeof node === 'object'
-                    ? Object.entries(node as Record<string, unknown>).flatMap(([k, v]) => keys(v, prefix ? `${prefix}.${k}` : k))
-                    : [prefix];
-            const en = keys(customEn).filter(Boolean).sort();
-            const hi = keys(customHi).filter(Boolean).sort();
-            expect(hi).toEqual(en);
+        /**
+         * Hindi is an admin language, so the app's admin strings need it: rewording of a
+         * core admin string, and the labels of its admin menu items (src/custom/nav.ts).
+         * Its other strings may be ones only members see, which need Hindi only when the
+         * app adds Hindi for its members (src/test/member-language-parity.spec.ts). A
+         * missing one shows in English.
+         */
+        it('keeps the custom files in step: every admin string in English has a Hindi one, and Hindi has no extras', async () => {
+            const { CUSTOM_NAV } = await vi.importActual<typeof import('../custom/nav')>('../custom/nav');
+            const en = new Set(flattenKeys(customEn));
+            const hi = new Set(flattenKeys(customHi));
+            expect(customAdminKeys(customEn, coreEn, CUSTOM_NAV).filter((key) => !hi.has(key)), 'add these to src/custom/i18n/hi.json').toEqual([]);
+            expect([...hi].filter((key) => !en.has(key)), 'src/custom/i18n/hi.json has keys en.json lacks').toEqual([]);
+        });
+
+        it('counts as admin strings the rewording of core admin ones and the menu labels, never member strings', () => {
+            const core = { admin: { nav: { users: 'Users' } }, user: { nav: { home: 'Home' } }, common: { actions: { cancel: 'Cancel' } } };
+            const custom = { admin: { nav: { users: 'Parents' } }, user: { nav: { home: 'Start' } }, common: { actions: { cancel: 'Back' } }, lessons: { nav: 'Lessons', plan: 'Plan', title: 'Today' } };
+            const nav: MenuItem[] = [{ label: 'Lessons', labelKey: 'lessons.nav', subItems: [{ label: 'Plan', labelKey: 'lessons.plan' }] }];
+            expect(customAdminKeys(custom, core, nav)).toEqual(['admin.nav.users', 'lessons.nav', 'lessons.plan']);
         });
     });
 

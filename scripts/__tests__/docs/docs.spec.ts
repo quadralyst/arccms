@@ -6,6 +6,8 @@ import { dirname, join } from 'node:path';
 import * as lib from '../../docs-lib.mjs';
 // @ts-expect-error: plain ESM script without type declarations
 import * as checks from '../../docs-checks.mjs';
+// @ts-expect-error: plain ESM script without type declarations
+import { CUSTOM_STARTERS } from '../../custom-starters.mjs';
 
 /**
  * The docs guardrails (specs/developer-docs-strategy.md, section 7). The first block runs
@@ -359,7 +361,9 @@ describe('the checks catch drift', () => {
             };
             put('package.json', JSON.stringify({ scripts: { dev: 'vite', build: 'vite build', 'check:docs': 'x' } }));
             put('arccms.config.example.json', JSON.stringify({ profile: 'standalone', projects: { p: { databaseId: 'arccms' } } }));
-            put('src/custom/features.ts', 'export const CUSTOM_FEATURES = {};\n');
+            // An app's own constants, in a starter file and a file of its own: never asked for.
+            put('src/custom/features.ts', 'export const CUSTOM_FEATURES = {};\nexport const LESSON_LIMIT = 20;\n');
+            put('src/custom/app-constants.ts', 'export const MAX_STREAK_DAYS = 365;\n');
             put('functions/src/custom/search-sources.ts', 'export const SEARCH_COLLECTIONS: string[] = [];\n');
             put('src/app/core/features/feature-registry.ts', "export const FEATURE_IDS = ['content', 'search'] as const;\n");
             put('functions/src/a.ts', "export const doThing = onCall(async () => {});\nexport const onMade = onDocumentCreated('x', () => {});\nexport const helper = makeHelper();\nexport const typed = onCall<{ id: string }>(async () => {});\nexport const onGone = functionsV1\n    .region('r')\n    .auth.user()\n    .onDelete(() => {});\n");
@@ -368,6 +372,11 @@ describe('the checks catch drift', () => {
             put('firestore.rules', "service cloud.firestore {\n  match /databases/{database}/documents {\n    match /Contacts/{id} {\n    }\n    match /Lists/{id} {\n    }\n  }\n}\n");
             return dir;
         };
+        // The starter files Arc CMS ships, as scripts/custom-starters.mjs lists them.
+        const starters = [
+            { file: 'src/custom/features.ts', exports: { CUSTOM_FEATURES: {} } },
+            { file: 'functions/src/custom/search-sources.ts', exports: { SEARCH_COLLECTIONS: [] } },
+        ];
         const table = (names: string[]) => `<table><thead><tr><th>Name</th></tr></thead><tbody>${names.map((n) => `<tr><td><code>${n}</code></td></tr>`).join('')}</tbody></table>`;
         const lookupSite = (overrides: Record<string, string[]> = {}) => {
             const pages: Record<string, PageSpec> = {
@@ -387,16 +396,23 @@ describe('the checks catch drift', () => {
             expect([...checks.functionNames(repo)]).toEqual(['doThing', 'onMade', 'typed', 'onGone']);
             expect([...checks.emailTags(repo)]).toEqual(['##NAME##', '##EMAIL##']);
             expect([...checks.ruleCollections(repo)]).toEqual(['Contacts', 'Lists']);
-            expect([...checks.customExports(repo)].sort()).toEqual(['CUSTOM_FEATURES', 'SEARCH_COLLECTIONS']);
+            expect([...checks.customExports(starters)].sort()).toEqual(['CUSTOM_FEATURES', 'SEARCH_COLLECTIONS']);
             expect([...checks.configKeys(repo)]).toEqual(['profile', 'projects', 'databaseId']);
         });
         it('passes when every reference page lists what the code has', () => {
-            expect(checks.checkLookups(lookupSite(), fakeRepo())).toEqual([]);
+            expect(checks.checkLookups(lookupSite(), fakeRepo(), starters)).toEqual([]);
+        });
+        it("asks only for the starter files' own exports, never an app's constants in the custom space", () => {
+            expect(checks.customExports()).toEqual(new Set(CUSTOM_STARTERS.flatMap((s: { exports: object }) => Object.keys(s.exports))));
+            expect(checks.customExports()).toContain('CUSTOM_HOME');
+            const problems = checks.checkLookups(lookupSite(), fakeRepo(), starters).join('\n');
+            expect(problems).not.toContain('LESSON_LIMIT');
+            expect(problems).not.toContain('MAX_STREAK_DAYS');
         });
         it('fails on a script, function, tag, feature or collection the page does not list', () => {
             const problems = checks.checkLookups(lookupSite({
                 scripts: ['npm run dev'], functions: ['doThing'], tags: ['##NAME##'], features: ['content'], collections: ['Contacts'], config: ['profile', 'projects', 'databaseId', 'CUSTOM_FEATURES'],
-            }), fakeRepo()).join('\n');
+            }), fakeRepo(), starters).join('\n');
             expect(problems).toContain('does not list build');
             expect(problems).toContain('does not list check:docs');
             expect(problems).toContain('does not list onMade');
@@ -409,7 +425,7 @@ describe('the checks catch drift', () => {
             const problems = checks.checkLookups(lookupSite({
                 scripts: ['npm run dev', 'npm run build', 'npm run check:docs', 'npm run gone'], functions: ['doThing', 'onMade', 'typed', 'onGone', 'removed'], tags: ['##NAME##', '##EMAIL##', '##OLD##'], features: ['content', 'search', 'ghost'],
                 config: ['profile', 'projects', 'databaseId', 'CUSTOM_FEATURES', 'SEARCH_COLLECTIONS', 'CUSTOM_MISSING'],
-            }), fakeRepo()).join('\n');
+            }), fakeRepo(), starters).join('\n');
             expect(problems).toContain('lists gone, which is not in the code');
             expect(problems).toContain('lists removed, which is not in the code');
             expect(problems).toContain('lists ##OLD##, which is not in the code');
@@ -418,7 +434,7 @@ describe('the checks catch drift', () => {
         });
         it('fails when a reference page is missing', () => {
             const site = fixture({ 'a/one.html': { title: 'One' } });
-            expect(checks.checkLookups(site, fakeRepo()).filter((p: string) => p.endsWith('is missing (it lists the scripts in package.json)'))).toHaveLength(1);
+            expect(checks.checkLookups(site, fakeRepo(), starters).filter((p: string) => p.endsWith('is missing (it lists the scripts in package.json)'))).toHaveLength(1);
         });
         it('fails on an npm run command that is not a script, in any page, and accepts arguments after it', () => {
             const site = fixture({ 'a/one.html': { title: 'One', body: '<p><code>npm run dev</code> <code>npm run nothing</code></p><pre><code>npm run build -- --flag\nnpm run also-missing</code></pre>' } });

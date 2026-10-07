@@ -2,7 +2,21 @@
  * Vitest setup for Cloud Functions tests.
  * Mocks Firebase Admin SDK for unit testing.
  */
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
+
+/**
+ * Core function specs see the custom starter files as Arc CMS ships them, empty
+ * (scripts/custom-starters.mjs), whatever an app puts there: no app functions, no
+ * extra search sources. An app's own specs (functions/src/custom) see the real
+ * files. A spec about a particular choice mocks the file itself.
+ */
+async function starter(file: string, actual: () => Promise<unknown>) {
+  // @ts-expect-error: plain ESM script without type declarations
+  const { starterFor } = await import('../../../scripts/custom-starters.mjs');
+  return starterFor(file, expect.getState().testPath, actual);
+}
+vi.mock('../custom/index.js', (actual) => starter('functions/src/custom/index.ts', actual));
+vi.mock('../custom/search-sources.js', (actual) => starter('functions/src/custom/search-sources.ts', actual));
 
 /**
  * Core function specs run with every feature on (specs/feature-flags-spec.md),

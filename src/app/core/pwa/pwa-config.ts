@@ -35,6 +35,13 @@ export interface PwaConfig {
      * without internet, such as a kiosk on a closed Wi-Fi. From 1 to 30.
      */
     navigationTimeoutSeconds: number;
+    /**
+     * The square image, at least 512 by 512 pixels, every icon size is made from: an
+     * .svg or .png, from the project folder (`src/custom/brands/acme/icon.svg`). Unset,
+     * it is src/custom/pwa-icon.svg or .png, else Arc CMS's own. A white-label app names
+     * each brand's here.
+     */
+    icon?: string;
 }
 
 export const ROUTE_CODE_MODES = ['visited', 'app', 'all'] as const;
@@ -55,9 +62,28 @@ export const DEFAULT_PWA_CONFIG: PwaConfig = {
 /** The range `navigationTimeoutSeconds` must be in. */
 export const NAVIGATION_TIMEOUT_BOUNDS = { min: 1, max: 30 } as const;
 
-/** The icon the app provides, first match wins; else Arc CMS's own. Paths from the repo root. */
+/** The icon the app provides when pwa.ts names none, first match wins; else Arc CMS's own. Paths from the repo root. */
 export const PWA_ICON_CANDIDATES = ['src/custom/pwa-icon.svg', 'src/custom/pwa-icon.png'];
 export const DEFAULT_PWA_ICON = 'src/app/core/pwa/default-icon.svg';
+
+/**
+ * The image the PWA's icons are made from (`icon` in src/custom/pwa.ts, docs/features/pwa.html):
+ * the file pwa.ts names, else the first of PWA_ICON_CANDIDATES that exists, else Arc CMS's
+ * own. `exists` says whether a path from the repo root is a file. A named file that is
+ * not an .svg or .png, or is not there, stops the build with what to change.
+ */
+export function resolvePwaIcon(custom: Partial<PwaConfig> | undefined, exists: (path: string) => boolean): string {
+    const named = custom?.icon;
+    if (named === undefined) return PWA_ICON_CANDIDATES.find(exists) ?? DEFAULT_PWA_ICON;
+    if (typeof named !== 'string' || !/\.(svg|png)$/i.test(named)) {
+        throw new Error(`src/custom/pwa.ts: icon must name an .svg or .png file, like 'src/custom/brands/acme/icon.svg', not ${JSON.stringify(named)}.`);
+    }
+    const path = named.replace(/^\.?\//, '');
+    if (!exists(path)) {
+        throw new Error(`src/custom/pwa.ts: icon names ${named}, which is not there. Give its path from the project folder, like 'src/custom/brands/acme/icon.svg'.`);
+    }
+    return path;
+}
 
 /**
  * The PWA's settings. `enabled` comes from the features (`on: ['pwa']` in

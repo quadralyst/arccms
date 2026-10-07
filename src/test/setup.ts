@@ -10,15 +10,29 @@ import { ReadableStream } from 'stream/web';
 import 'zone.js';
 import 'zone.js/testing';
 
-import { beforeEach, vi } from 'vitest';
+import { beforeEach, expect, vi } from 'vitest';
 
 /**
- * Core specs test Arc CMS with every feature on (specs/feature-flags-spec.md),
- * whatever an app built on it puts in src/custom/features.ts, so an app that
- * turns features off can still run the whole suite. A spec about a particular
- * choice mocks the file itself, which wins over this.
+ * Core specs test Arc CMS as it ships: each custom starter file reads as Arc CMS
+ * ships it, empty (scripts/custom-starters.mjs), whatever an app built on it puts
+ * there, so an app can still run the whole suite. Every feature is on, no member
+ * language is added, no app route or menu item exists. An app's own specs
+ * (src/custom, custom) see the real files. A spec about a particular choice mocks
+ * the file itself, which wins over this.
  */
-vi.mock('../custom/features', () => ({ CUSTOM_FEATURES: {} }));
+async function starter(file: string, actual: () => Promise<unknown>) {
+    // @ts-expect-error: plain ESM script without type declarations
+    const { starterFor } = await import('../../scripts/custom-starters.mjs');
+    return starterFor(file, expect.getState().testPath, actual);
+}
+vi.mock('../custom/app-accounts', (actual) => starter('src/custom/app-accounts.ts', actual));
+vi.mock('../custom/features', (actual) => starter('src/custom/features.ts', actual));
+vi.mock('../custom/home', (actual) => starter('src/custom/home.ts', actual));
+vi.mock('../custom/languages', (actual) => starter('src/custom/languages.ts', actual));
+vi.mock('../custom/nav', (actual) => starter('src/custom/nav.ts', actual));
+vi.mock('../custom/pwa', (actual) => starter('src/custom/pwa.ts', actual));
+vi.mock('../custom/routes', (actual) => starter('src/custom/routes.ts', actual));
+vi.mock('../custom/user-dashboard', (actual) => starter('src/custom/user-dashboard.ts', actual));
 import { getTestBed, TestBed } from '@angular/core/testing';
 import {
     BrowserTestingModule,

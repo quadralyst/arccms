@@ -6,7 +6,7 @@ import { dirname, resolve } from 'path';
 import { existsSync } from 'node:fs';
 import { VitePWA } from 'vite-plugin-pwa';
 import { minimal2023Preset } from '@vite-pwa/assets-generator/config';
-import { DEFAULT_PWA_ICON, PWA_ICON_CANDIDATES, resolvePwaConfig } from './src/app/core/pwa/pwa-config';
+import { resolvePwaConfig, resolvePwaIcon } from './src/app/core/pwa/pwa-config';
 import { CUSTOM_PWA } from './src/custom/pwa';
 import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
@@ -23,7 +23,7 @@ const features = resolveFeatures(CUSTOM_FEATURES);
 // The install's PWA settings (src/custom/pwa.ts over the core defaults, docs/features/pwa.html),
 // on when the features ask for it.
 const pwa = resolvePwaConfig(CUSTOM_PWA, features.has('pwa'));
-const pwaIcon = PWA_ICON_CANDIDATES.find((path) => existsSync(resolve(path))) ?? DEFAULT_PWA_ICON;
+const pwaIcon = resolvePwaIcon(CUSTOM_PWA, (path) => existsSync(resolve(path)));
 // Which code files the service worker stores up front (src/custom/pwa.ts routeCode,
 // specs/app-route-code-spec.md): with 'visited', the default, what every page starts with.
 const storedCode = routeCode(pwa.routeCode);

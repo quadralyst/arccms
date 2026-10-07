@@ -32,13 +32,14 @@
         <tr><td><code>functions/src/custom/</code></td><td>Empty <code>index.ts</code>, <code>search-sources.ts</code> and <code>public-callables.txt</code></td></tr>
         <tr><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code></td><td>Nothing: the rules build treats them as optional</td></tr>
         <tr><td>A <code>custom</code> folder in <code>tests/rules/</code>, <code>docs/custom/</code> and <code>custom/</code> at the root</td><td>Nothing beyond the README in <code>docs/custom/</code> and in <code>custom/</code></td></tr>
+        <tr><td><code class="new">.github/</code></td><td>Nothing: CI workflows are the app's (<a href="../app/ci.html">Deploy from CI</a>)</td></tr>
       </tbody>
     </table>
     <p>Each starter file exports an empty value (an empty list, an empty object, or <code>null</code>) that core reads as "nothing added". Put nothing else in them in core, not even an example: every app has its own version of these files, so any change there conflicts with every app on its next update. Examples go in the file's comment, or in the docs.</p>
 
     <h3>Add a plug point</h3>
     <ol class="steps">
-      <li><p>Pick the file in the custom space the app will fill in, or add a new starter file that exports an empty value.</p></li>
+      <li><p>Pick the file in the custom space the app will fill in, or add a new starter file that exports an empty value. List a new one, with its empty exports, in <code>scripts/custom-starters.mjs</code>, and stub it in <code>src/test/setup.ts</code> (or <code>functions/src/__tests__/setup.ts</code>) like the others, so core specs see it empty whatever an app puts there (<a href="../operations/testing.html#the-custom-space-in-specs">Testing</a>).</p></li>
       <li><p>Make core read it and behave exactly as before when it is empty.</p></li>
       <li><p>Explain it in the file's own comment, and in the app docs.</p></li>
     </ol>

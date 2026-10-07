@@ -6,8 +6,8 @@
 /out-tsc
 /bazel-out
 
-# Node
-/node_modules
+# Node: at any depth, so an app's own tools (custom/package.json) are ignored too
+node_modules
 npm-debug.log
 yarn-error.log
 

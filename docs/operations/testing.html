@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Testing | Arc CMS docs</title>
   <meta name="description" content="Run the Arc CMS test suite, run one file, and write component, Cloud Function, security rules and feature-aware specs the way the existing ones do.">
-  <meta name="docs:sources" content="vitest.config.ts, custom, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, functions/src/users/claimLock.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json">
+  <meta name="docs:sources" content="vitest.config.ts, custom, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, scripts/custom-starters.mjs, functions/src/users/claimLock.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/testing.html">
@@ -99,11 +99,14 @@ import { adminCreateUser } from '../users/adminCreateUser.js';</code></pre>
     <p>Code that writes claims (<code>mergeAppClaims()</code>, <code>createAppAccount()</code> and Arc CMS's own claims writes) takes a short lease in Firestore first, so a spec whose fake <code>db</code> has no transactions mocks the lease to simply run the work, as <code>functions/src/__tests__/appKit.spec.ts</code> does:</p>
     <pre><code>vi.mock('../users/claimLock.js', () =&gt; ({ withClaimLock: (_uid: string, work: () =&gt; Promise&lt;unknown&gt;) =&gt; work() }));</code></pre>
 
-    <h2>Feature switches in specs</h2>
-    <p>Core specs test Arc CMS with its features on, whatever an app turns off in <code>src/custom/features.ts</code>, so an app that turns features off can still run the whole suite:</p>
+    <h2>The custom space in specs</h2>
+    <p>Core specs test Arc CMS as it ships, whatever an app puts in the custom space's starter files, so an app can run the whole suite with its own routes, menu items, home pages, member languages and feature choices:</p>
     <ul>
-      <li><code>src/test/setup.ts</code> mocks <code>src/custom/features.ts</code> as empty: every feature is on except the installable app (PWA), which is off unless asked for.</li>
-      <li><code>functions/src/__tests__/setup.ts</code> mocks the functions' list of features with all of them on.</li>
+      <li><code>src/test/setup.ts</code> mocks each starter file in <code>src/custom/</code> with the value Arc CMS ships: every feature is on except the installable app (PWA), there are no app routes, menu items or member languages, and every role lands on Arc CMS's own home page.</li>
+      <li><code>functions/src/__tests__/setup.ts</code> does the same for <code>functions/src/custom/</code> (no app functions, no extra search sources), and mocks the functions' list of features with all of them on.</li>
+      <li>The starter files and their shipped values are listed once, in <code>scripts/custom-starters.mjs</code>. A test fails if a starter file is missing from the list or from its setup file.</li>
+      <li>An app's own specs, in <code>src/custom/</code>, <code>functions/src/custom/</code> and <code class="new">custom/</code>, are not mocked: they see the app's real files.</li>
+      <li>The member language check (<code>src/test/member-language-parity.spec.ts</code>) is a core spec that reads the app's real <code>src/custom/languages.ts</code> on purpose, with <code>vi.importActual()</code>: it checks the app's own translations.</li>
     </ul>
     <p>A spec about a particular choice mocks the file itself, and its mock wins:</p>
     <pre><code>vi.mock('../../../custom/features', () =&gt; ({ CUSTOM_FEATURES: { on: ['pwa'] } }));</code></pre>
@@ -112,7 +115,7 @@ vi.mock('../feature-flags.js', () =&gt; ({ isFeatureOn: (id: string) =&gt; !feat
     <p>The feature ids are listed in <a href="../reference/feature-ids.html">Feature ids</a>.</p>
 
     <h2>Specs that meet an app's pages</h2>
-    <p>The same suite runs in an app, so a core spec must not assume the app is empty. Where a spec touches something an app can change, it reads the app's answer instead of a fixed one:</p>
+    <p>The same suite runs in an app. The starter files read as shipped (above), but the rest of the app is real, so a core spec must not assume it is empty. Where a spec touches something an app can change, it reads the app's answer instead of a fixed one:</p>
     <ul>
       <li>Where a role lands after sign-in: compare with <code>homeFor(role)</code>, not with <code>/user/dashboard</code>, because <code>src/custom/home.ts</code> may send people elsewhere.</li>
       <li>The route list: a route may group <code>children</code> without a component of its own, and the app's routes in <code>src/custom/routes.ts</code> are left out of the check that gives every URL to a feature or to core.</li>
@@ -120,7 +123,7 @@ vi.mock('../feature-flags.js', () =&gt; ({ isFeatureOn: (id: string) =&gt; !feat
       <li>A file the check should not find: use a throwaway folder as the repo root, because an app has files such as <code class="new">firestore.app.rules</code> that Arc CMS does not.</li>
       <li>The website: a spec about Arc CMS's own header, footer, sign-in panel, placeholder home page or templates reads them from <code>public/_site/</code>, never from <code>virtual:arc-site</code>, <code>readSiteFile()</code> or the built <code>siteManifest()</code>, which show the app's site when <code class="new">src/custom/site/</code> has one. A spec about pages the app may supply (the legal notice's terms and privacy links) passes its own answer, such as <code>legalNoticeUrls(() =&gt; false)</code>, or sets one with <code>setSiteManifestForTesting()</code>.</li>
     </ul>
-    <p>To check a change against an app's site, put a few files in <code class="new">src/custom/site/</code> (a header without a search box, a home page, a terms page) and run the suite: only the check that Arc CMS ships its starter files empty may fail, and it is skipped in an app.</p>
+    <p>To check a change against an app, fill in a few starter files (routes with <code>userGuard</code>, a menu item, a member language, features turned off) and put a few files in <code class="new">src/custom/site/</code> (a header without a search box, a home page, a terms page), then run the suite: only the check that Arc CMS ships its starter files empty may fail, and it is skipped in an app.</p>
 
     <h2>Rules tests</h2>
     <p>The security rules are tested against the Firestore and Storage emulators:</p>

@@ -108,7 +108,7 @@ arc_articles/{id}/translations/hi     Hindi: only what is translated</code></pre
     <h2>Extend it</h2>
     <p>An app adds its own admin words, and rewords core ones, in <code>src/custom/i18n/en.json</code> and <code>src/custom/i18n/hi.json</code>. Each is laid over the core file key by key when the language loads:</p>
     <pre><code>{ "custom": { "nav": { "lessons": "Lessons" } }, "admin": { "nav": { "users": "Parents" } } }</code></pre>
-    <p>Keep the same keys in both files: a test compares them. Give a custom menu item a <code>labelKey</code> from these files (see <a href="../app/admin-menu.html">Add admin menu items</a>). Custom keys are not in the generated key list, so use them through the <code>transloco</code> pipe or <code>TranslocoService.translate()</code>.</p>
+    <p>Put the words an admin sees in both files. A test checks the ones it can tell are admin words, the labels of your admin menu items and the core admin words you reword, and that <code>hi.json</code> has no key <code>en.json</code> lacks. Words only members see need Hindi only when Hindi is offered to members (<a href="../app/member-languages.html">Member languages</a>); a missing one shows in English. Give a custom menu item a <code>labelKey</code> from these files (see <a href="../app/admin-menu.html">Add admin menu items</a>). Custom keys are not in the generated key list, so use them through the <code>transloco</code> pipe or <code>TranslocoService.translate()</code>.</p>
     <p>For a website, new public words are new <code>data-arc-t</code> keys in your templates and strings files (<a href="#words-in-public-templates">above</a>).</p>
 
     <h2>What it stores</h2>
