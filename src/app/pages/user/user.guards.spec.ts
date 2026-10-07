@@ -87,11 +87,28 @@ describe('user route guards', () => {
             expect(result).toMatchObject({ urlTree: ['/signup'] });
         });
 
-        it('guards every core member page, and only those', async () => {
+        /** Arc CMS's own routes: all but the app's (src/custom/routes.ts), which are added last. */
+        async function coreRoutes() {
             const { routes } = await import('../../app.routes');
-            const guarded = routes.filter((r) => r.canActivate?.includes(memberPagesGuard)).map((r) => r.path).sort();
+            const { CUSTOM_ROUTES } = await import('../../../custom/routes');
+            return { routes, core: routes.filter((r) => !CUSTOM_ROUTES.includes(r)) };
+        }
+
+        it('guards every core member page, and only those', async () => {
+            const { core } = await coreRoutes();
+            const guarded = core.filter((r) => r.canActivate?.includes(memberPagesGuard)).map((r) => r.path).sort();
             expect(guarded).toEqual(['account', 'user/dashboard', 'user/payments', 'user/premium', 'user/profile']);
-            expect(routes.some((r) => r.canActivate?.includes(userGuard))).toBe(false);
+            expect(core.some((r) => r.canActivate?.includes(userGuard))).toBe(false);
+        });
+
+        it("checks only core's routes: an app's own pages use userGuard, as docs/app/pages-and-routes.html says", async () => {
+            vi.resetModules();
+            const guards = await import('./user.guards');
+            vi.doMock('../../../custom/routes', () => ({ CUSTOM_ROUTES: [{ path: 'learn', canActivate: [guards.userGuard] }] }));
+            const { routes, core } = await coreRoutes();
+            expect(routes.some((r) => r.canActivate?.includes(guards.userGuard))).toBe(true);
+            expect(core.some((r) => r.canActivate?.includes(guards.userGuard))).toBe(false);
+            vi.doUnmock('../../../custom/routes');
         });
     });
 

@@ -53,7 +53,7 @@ npm run arc:configure -- --project=staging \
     <p><code>npm run test:rules</code> runs the security rules tests in the Firebase emulators, which need Java 21. Install it with <code>actions/setup-java</code>, as below. The emulators run against a demo project and need no sign-in. <code>npm run test</code> needs no Java.</p>
 
     <h2>A GitHub Actions workflow</h2>
-    <p>Save this as <code class="new">.github/workflows/deploy-staging.yml</code>. It tests, then deploys the <code>staging</code> project on every push to <code>main</code>, with no prompt. Replace the project id and the region with your own.</p>
+    <p>Save this as <code class="new">.github/workflows/deploy-staging.yml</code>. Workflows are your app's own: <code>npm run check:core</code> counts <code>.github/</code> as custom, and Arc CMS ships none. It tests, then deploys the <code>staging</code> project on every push to <code>main</code>, with no prompt. Replace the project id and the region with your own.</p>
     <pre><code>name: Deploy staging
 
 on:
@@ -119,6 +119,7 @@ jobs:
       <li><code>npm run seed -- staging</code> publishes the static pages, as after every website deploy.</li>
       <li>The website build needs a few GB of memory (see <a href="../reference/npm-scripts.html">npm scripts</a>); GitHub's standard runners have enough.</li>
     </ul>
+    <div class="warn"><p><strong><code>--force</code> deletes functions without asking, on every run.</strong> Any Arc CMS or app function deployed in the project that this commit does not have is deleted: one you removed from <code>functions/src/custom/</code>, those of a feature you turned off, one Arc CMS renamed or dropped in an update you merged, or one deployed by hand from another branch. On your machine the deploy asks first; in CI nothing asks. Deploy from your machine once after such a change to see what would go, or deploy less with <code>--only</code>. See <a href="../operations/deploy.html#functions-that-are-deleted">Functions that are deleted</a>.</p></div>
     <div class="warn"><p><strong>The first run on a new project takes longer.</strong> Google sets up Eventarc for the project's first database triggers in the minutes after the deploy turns it on, so they fail at first. The deploy recognises the error, waits 5 minutes and retries them, twice at most, so allow about 15 extra minutes for that run. If they still fail, the job fails with "Wait a few minutes, then run the same deploy again": re-run the job. The website is not deployed in a run whose functions failed. See <a href="../operations/deploy.html#first-deploy-to-a-new-project">A first deploy to a new project</a>.</p></div>
 
     <h2>Production from CI</h2>

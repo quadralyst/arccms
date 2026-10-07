@@ -28,7 +28,7 @@
         <tr><td><code>src/custom/app-accounts.ts</code></td><td><code>CUSTOM_APP_ACCOUNTS</code>: whether the accounts your app manages may open the member pages</td><td><a href="app-accounts.html#member-pages">App accounts</a></td></tr>
         <tr><td><code>src/custom/i18n/en.json</code>, <code>src/custom/i18n/hi.json</code></td><td>The app's translations, and new wording for core ones</td><td><a href="../features/languages.html">Languages</a></td></tr>
         <tr><td><code>src/custom/styles.css</code></td><td>The app's global styles</td><td>This page</td></tr>
-        <tr><td><code>src/custom/pwa.ts</code>, <code class="new">src/custom/pwa-icon.svg</code> (or <code class="new">src/custom/pwa-icon.png</code>)</td><td><code>CUSTOM_PWA</code>: the installable app's name, colors, start page, and its icon</td><td><a href="pwa.html">Make it installable</a></td></tr>
+        <tr><td><code>src/custom/pwa.ts</code>, <code class="new">src/custom/pwa-icon.svg</code> (or <code class="new">src/custom/pwa-icon.png</code>)</td><td><code>CUSTOM_PWA</code>: the installable app's name, colors, start page, and its icon (or name each brand's icon with <code>icon</code>)</td><td><a href="pwa.html">Make it installable</a></td></tr>
         <tr><td><code class="new">src/custom/site/</code></td><td>The public website: the home page (<code>home.html</code>, <code>home.{lang}.html</code>), header, footer, the sign-in page's brand panel (<code>sign-in.html</code>), content templates, static pages, site styles, translations of template text, images and scripts, favicon and error pages. Every file optional; Arc CMS ships none</td><td><a href="../website/home-page.html">Build your home page</a>, <a href="../website/templates.html">Design templates</a>, <a href="../website/static-pages.html">Write static pages</a></td></tr>
       </tbody>
     </table>
@@ -50,6 +50,7 @@
         <tr><td><code class="new">tests/rules/custom/</code></td><td>Tests of the app's rules</td><td><a href="rules-and-indexes.html">Set security rules and indexes</a></td></tr>
         <tr><td><code>docs/custom/</code></td><td>The app's own documentation, in any format</td><td><a href="../contributing/writing-docs.html">Writing docs</a></td></tr>
             <tr><td><code>custom/</code></td><td>Everything that is not part of the built site: command-line scripts, the data they import, design files. Arc CMS ships only its README.</td><td><a href="scripts-and-data.html">Run scripts and keep data</a></td></tr>
+        <tr><td><code class="new">.github/</code></td><td>The app's CI workflows, such as <code class="new">.github/workflows/deploy-staging.yml</code>. Arc CMS ships none.</td><td><a href="ci.html">Deploy from CI</a></td></tr>
       </tbody>
     </table>
 
@@ -80,12 +81,12 @@
 
     <h2>Styles and translations</h2>
     <p>Put global styles in <code>src/custom/styles.css</code>. Styles for one page belong in that page's component. Styles for the public website (header, footer, templates) go in <code class="new">src/custom/site/site.css</code>, and the words of the website's templates in <code class="new">src/custom/site/strings/</code> (see <a href="../website/languages.html">Publish in more than one language</a>).</p>
-    <p>Add the app's words to <code>src/custom/i18n/en.json</code> under a <code>custom</code> key, and the same keys to every other language file. A key that already exists in core is reworded for the whole admin:</p>
+    <p>Add the app's words to <code>src/custom/i18n/en.json</code> under a <code>custom</code> key. A key that already exists in core is reworded for the whole admin:</p>
     <pre><code>{
   "custom": { "nav": { "lessons": "Lessons" } },
   "admin": { "nav": { "users": "Parents" } }
 }</code></pre>
-    <p>The admin has two languages, English and Hindi, and each reads its own file in <code>src/custom/i18n/</code>. See <a href="../features/languages.html">Languages</a>. For a language your members use and the admin does not, such as German, declare it in <code>src/custom/languages.ts</code> and write <code class="new">src/custom/i18n/de.json</code>: see <a href="member-languages.html">Member languages</a>.</p>
+    <p>The admin has two languages, English and Hindi, and each reads its own file in <code>src/custom/i18n/</code>. Put the words an admin sees in <code>src/custom/i18n/hi.json</code> too. The test suite checks the ones it can tell are admin words, the labels of your admin menu items and the core admin words you reword, and that <code>hi.json</code> has no key <code>en.json</code> lacks. Words only members see need Hindi only when you offer Hindi to members; anything missing shows in English. See <a href="../features/languages.html">Languages</a>. For a language your members use and the admin does not, such as German, declare it in <code>src/custom/languages.ts</code> and write <code class="new">src/custom/i18n/de.json</code>: see <a href="member-languages.html">Member languages</a>.</p>
 
     <h2>Use core building blocks</h2>
     <p>The rule forbids editing core files, not using them. Your pages import core components the same way core pages do and get every later fix for free. These are meant for apps:</p>

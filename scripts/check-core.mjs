@@ -4,10 +4,10 @@
  * (core) files the app has changed (docs/app/custom-space.html).
  *
  * An app keeps its own code in the custom space (src/custom, functions/src/custom,
- * the *.app.rules files) and never edits core files, so pulling Arc CMS updates
- * merges cleanly. This compares the working copy, committed or not, with the
- * Arc CMS version it is based on (the `upstream` remote), and sorts every
- * difference into:
+ * custom, the *.app.rules files, its CI workflows in .github) and never edits core
+ * files, so pulling Arc CMS updates merges cleanly. This compares the working copy,
+ * committed or not, with the Arc CMS version it is based on (the `upstream`
+ * remote), and sorts every difference into:
  *
  *   custom    the app's own files: fine
  *   install   this install's settings (Firebase config): fine
@@ -39,6 +39,8 @@ const CUSTOM = [
     /^tests\/rules\/custom\//,
     /^docs\/custom\//,
     /^custom\//,
+    // CI workflows (docs/app/ci.html): Arc CMS ships none, so they are the app's.
+    /^\.github\//,
 ];
 
 const INSTALL = [

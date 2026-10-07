@@ -33,6 +33,11 @@
       </li>
       <li>
         <p><strong>Add one icon</strong>: a square image of at least 512 by 512 pixels, saved as <code class="new">src/custom/pwa-icon.svg</code> or <code class="new">src/custom/pwa-icon.png</code>. Keep the important part inside the middle 80%, since Android crops it into a circle or rounded square.</p>
+        <p>An app built for several brands keeps one icon per brand and names the one to use in <code>pwa.ts</code>, with its path from the project folder:</p>
+        <pre><code>export const CUSTOM_PWA: Partial&lt;PwaConfig&gt; = {
+    name: 'Acme Lessons',
+    icon: 'src/custom/brands/acme/icon.svg',
+};</code></pre>
       </li>
       <li>
         <p><strong>Build and deploy the website.</strong> These settings are read at build time, so every change needs a new build and a hosting deploy. See <a href="../operations/deploy.html">Deploy</a>.</p>

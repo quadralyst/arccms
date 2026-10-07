@@ -11,6 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, posix, resolve } from 'node:path';
 import { REPO_ROOT } from './docs-lib.mjs';
+import { CUSTOM_STARTERS } from './custom-starters.mjs';
 
 const TITLE_SUFFIX = ' | Arc CMS docs';
 
@@ -323,22 +324,13 @@ export function configKeys(repoRoot = REPO_ROOT) {
     return keys;
 }
 
-function listFiles(dir, filter) {
-    if (!existsSync(dir)) return [];
-    return readdirSync(dir).filter((f) => statSync(join(dir, f)).isFile() && filter(f)).map((f) => join(dir, f));
-}
-
-/** The `CUSTOM_*` and search source exports of the custom space's starter files. */
-export function customExports(repoRoot = REPO_ROOT) {
-    const names = new Set();
-    const files = [
-        ...listFiles(join(repoRoot, 'src/custom'), (f) => f.endsWith('.ts') && !f.endsWith('.spec.ts')),
-        ...listFiles(join(repoRoot, 'functions/src/custom'), (f) => f.endsWith('.ts') && !f.endsWith('.spec.ts')),
-    ];
-    for (const file of files) {
-        for (const match of readFileSync(file, 'utf8').matchAll(/^export const ([A-Z][A-Z0-9_]+)\b/gm)) names.add(match[1]);
-    }
-    return names;
+/**
+ * The exports of the starter files Arc CMS ships in the custom space
+ * (scripts/custom-starters.mjs). Read from that list, not from the files: in an app the
+ * files hold its own code too, and reference/config-keys.html is not the app's to edit.
+ */
+export function customExports(starters = CUSTOM_STARTERS) {
+    return new Set(starters.flatMap((s) => Object.keys(s.exports)));
 }
 
 function walkTs(dir, out = []) {
@@ -428,18 +420,18 @@ function compareNames(site, path, wanted, { exact, normalize = (n) => n, label }
 }
 
 /** The reference pages list exactly what the code has. */
-export function checkLookups(site, repoRoot = REPO_ROOT) {
+export function checkLookups(site, repoRoot = REPO_ROOT, starters = CUSTOM_STARTERS) {
     const problems = [
         ...compareNames(site, 'reference/npm-scripts.html', packageScripts(repoRoot), { exact: true, normalize: asScript, label: 'the scripts in package.json' }),
         ...compareNames(site, 'reference/feature-ids.html', new Set(featureIds(repoRoot)), { exact: true, label: 'FEATURE_IDS' }),
         ...compareNames(site, 'reference/cloud-functions.html', functionNames(repoRoot), { exact: true, label: 'the exported functions' }),
         ...compareNames(site, 'reference/email-tags.html', emailTags(repoRoot), { exact: true, label: 'EMAIL_TAG' }),
-        ...compareNames(site, 'reference/config-keys.html', new Set([...configKeys(repoRoot), ...customExports(repoRoot)]), { exact: false, label: 'the install config and the custom starter files' }),
+        ...compareNames(site, 'reference/config-keys.html', new Set([...configKeys(repoRoot), ...customExports(starters)]), { exact: false, label: 'the install config and the custom starter files' }),
         ...compareNames(site, 'reference/data-model.html', ruleCollections(repoRoot), { exact: false, label: 'the collections in firestore.rules' }),
     ];
     const config = site.pages.find((p) => p.path === 'reference/config-keys.html');
     if (config) {
-        const known = customExports(repoRoot);
+        const known = customExports(starters);
         for (const name of firstColumnCodes(config)) {
             if (/^CUSTOM_[A-Z0-9_]+$/.test(name) && !known.has(name)) problems.push(`reference/config-keys.html: lists ${name}, which no custom starter file exports`);
         }

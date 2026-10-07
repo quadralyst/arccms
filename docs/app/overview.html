@@ -42,7 +42,7 @@
     <p>You turn off what your app does not need in one file (<a href="choose-features.html">Choose your app's features</a>).</p>
 
     <h2>The one rule: never edit core</h2>
-    <p>Every file Arc CMS ships is core. Your app's code goes only in the custom space: <code>src/custom/</code>, <code>functions/src/custom/</code>, your own rules and index files, and <code>custom/</code> at the root for scripts and data (<a href="custom-space.html">Use the custom space</a>). Arc CMS ships those files once, empty, and never changes them again, so pulling an update never conflicts with your work.</p>
+    <p>Every file Arc CMS ships is core. Your app's code goes only in the custom space: <code>src/custom/</code>, <code>functions/src/custom/</code>, your own rules and index files, <code>custom/</code> at the root for scripts and data, and your CI workflows in <code class="new">.github/</code> (<a href="custom-space.html">Use the custom space</a>). Arc CMS ships those files once, empty, and never changes them again, so pulling an update never conflicts with your work.</p>
     <p>If your app needs something core does not offer, it becomes a general feature or a new plug point in Arc CMS, and your app pulls it. Before every commit, run:</p>
     <pre><code>npm run check:core</code></pre>
     <p>It lists every core file you changed and fails when there is one. See <a href="../concepts/core-and-custom.html">Core and custom</a> for the reasoning.</p>

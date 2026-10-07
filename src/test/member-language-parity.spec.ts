@@ -4,9 +4,11 @@
  * Names each missing key. A language marked `partial` is reported, not failed, while
  * it is being translated. With no languages declared this passes trivially.
  */
-import { describe, expect, it } from 'vitest';
-import { MEMBER_LANGUAGES } from '../custom/languages';
+import { describe, expect, it, vi } from 'vitest';
 import { languageParity } from '../app/core/i18n/member-keys';
+
+// The app's real list: core specs otherwise see the shipped, empty one (src/test/setup.ts).
+const { MEMBER_LANGUAGES } = await vi.importActual<typeof import('../custom/languages')>('../custom/languages');
 
 const byCode = (files: Record<string, { default: unknown }>) =>
     Object.fromEntries(Object.entries(files).map(([path, mod]) => [/([^/]+)\.json$/.exec(path)![1], mod.default]));

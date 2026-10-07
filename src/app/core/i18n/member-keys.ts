@@ -56,6 +56,28 @@ export function flattenKeys(node: unknown, prefix = ''): string[] {
     });
 }
 
+/** An admin menu item, as far as its translation goes (MenuItem in side-navbar.component.ts). */
+interface LabelledItem {
+    labelKey?: string;
+    subItems?: readonly LabelledItem[];
+}
+
+/**
+ * The keys of the app's English file that admins see, so its admin languages need them:
+ * rewording of a core string that is not a member one, and the labels of the app's admin
+ * menu items (src/custom/nav.ts). Its other keys may be ones only members see.
+ */
+export function customAdminKeys(customEnglish: unknown, coreEnglish: unknown, nav: readonly LabelledItem[]): string[] {
+    const core = new Set(flattenKeys(coreEnglish));
+    const labels = new Set<string>();
+    const collect = (items: readonly LabelledItem[]) => items.forEach((item) => {
+        if (item.labelKey) labels.add(item.labelKey);
+        if (item.subItems) collect(item.subItems);
+    });
+    collect(nav);
+    return flattenKeys(customEnglish).filter((key) => labels.has(key) || (core.has(key) && !isMemberKey(key))).sort();
+}
+
 /**
  * What a language still lacks (L-D10): every member-facing core key, and every key in the
  * app's own English file, that is in none of the language's files.
