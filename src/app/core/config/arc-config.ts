@@ -118,9 +118,19 @@ export function installConfigFor(
     return projectId ? (file[projectId] as ArcInstallConfig | undefined) : undefined;
 }
 
-export const arcConfig: ResolvedArcConfig = resolveArcConfig(
-    installConfigFor(arcInstall as Record<string, unknown>, environment.firebaseConfig?.projectId),
-);
+/**
+ * The build's install entry: its project's in arc-install.ts, else the one its
+ * generated web settings (firebase-web.<id>.ts) carry, as in Arc CMS's own
+ * repository, whose arc-install.ts ships empty.
+ */
+export function installEntryFor(
+    file: Record<string, unknown>,
+    env: { firebaseConfig?: { projectId?: string }; arcInstall?: ArcInstallConfig },
+): ArcInstallConfig | undefined {
+    return installConfigFor(file, env.firebaseConfig?.projectId) ?? env.arcInstall;
+}
+
+export const arcConfig: ResolvedArcConfig = resolveArcConfig(installEntryFor(arcInstall as Record<string, unknown>, environment));
 
 /**
  * Puts a new upload's path inside the install's storage folder. A path that is

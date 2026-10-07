@@ -74,7 +74,7 @@ vi.mock('../pages/generateRobotsTxt', () => ({
     generateAndDeployRobotsTxt: mockGenerateRobotsTxt,
 }));
 vi.mock('../pages/generateLlmsTxt', () => ({
-    generateAndDeployLlmsTxt: vi.fn().mockResolvedValue(undefined),
+    generateAndDeployLlmsTxt: (...args: unknown[]) => mockGenerateLlmsTxt(...args),
 }));
 
 vi.mock('../pages/generateSitemap', () => ({
@@ -84,6 +84,12 @@ vi.mock('../pages/generateSitemap', () => ({
 vi.mock('../pages/generateRssFeed', () => ({
     generateAndDeployRssFeeds: mockGenerateRssFeeds,
 }));
+
+// Every feature on unless a test turns some off (specs/feature-flags-spec.md).
+const featuresOff = vi.hoisted(() => new Set<string>());
+vi.mock('../feature-flags.js', () => ({ isFeatureOn: (id: string) => !featuresOff.has(id) }));
+
+const { mockGenerateLlmsTxt } = vi.hoisted(() => ({ mockGenerateLlmsTxt: vi.fn() }));
 
 import { seedStaticPages, runSeed } from '../pages/seedStaticPages.js';
 
@@ -111,6 +117,8 @@ const MOCK_MANUALS = [
 describe('seedStaticPages', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        featuresOff.clear();
+        mockGenerateLlmsTxt.mockResolvedValue(undefined);
         mockGenerateDetailPage.mockResolvedValue(undefined);
         mockGenerateListPage.mockResolvedValue(undefined);
         mockGenerateStaticPage.mockResolvedValue(undefined);
@@ -518,6 +526,26 @@ describe('seedStaticPages', () => {
             expect(mockGenerateHomePage).toHaveBeenCalled();
             expect(result.errorDetails).toContain('Failed to deploy the home page: The live site has no home page (/_site/home.html). Deploy the website first.');
             expect(mockGenerateStaticPage).toHaveBeenCalled();
+        });
+    });
+
+    describe('the seo feature', () => {
+        it('writes robots.txt, llms.txt, the sitemap and the feeds when seo is on', async () => {
+            mockCollectionGet.mockResolvedValueOnce({ empty: true, docs: [] });
+            const result = await runSeed();
+            for (const fn of [mockGenerateRobotsTxt, mockGenerateLlmsTxt, mockGenerateSitemap, mockGenerateRssFeeds]) expect(fn).toHaveBeenCalledTimes(1);
+            expect(result.details).toContain('\n--- SEO files ---');
+        });
+
+        it('writes none of them when seo is off, as the publish queue does, and still publishes the pages', async () => {
+            featuresOff.add('seo');
+            mockCollectionGet.mockResolvedValueOnce({ empty: true, docs: [] });
+            const result = await runSeed();
+            for (const fn of [mockGenerateRobotsTxt, mockGenerateLlmsTxt, mockGenerateSitemap, mockGenerateRssFeeds]) expect(fn).not.toHaveBeenCalled();
+            expect(result.details).toContain('\nSEO files skipped: the seo feature is off (src/custom/features.ts).');
+            expect(mockGenerateHomePage).toHaveBeenCalled();
+            expect(mockGenerateStaticPage).toHaveBeenCalled();
+            expect(result.success).toBe(true);
         });
     });
 });

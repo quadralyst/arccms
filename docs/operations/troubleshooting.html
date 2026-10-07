@@ -18,8 +18,18 @@
       <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
       <tbody>
         <tr>
+          <td><code>npm run dev</code> or <code>npm run build</code> stops with "No Firebase project configured"</td>
+          <td>The copy has no project set up: Arc CMS ships its environment files with none</td>
+          <td>Give your project the <code>default</code> alias and run <code>npm run arc:configure -- --project=default --web-config=fetch</code> (see <a href="../app/environments.html#before-the-first-npm-run-dev">Before the first npm run dev</a>)</td>
+        </tr>
+        <tr>
+          <td>Sign-in fails at <code>localhost</code>, or your data is not there</td>
+          <td>The local app talks to another project than you think</td>
+          <td>Read the <code>Firebase project:</code> line <code>npm run dev</code> prints as it starts. Change the <code>default</code> alias (<code>firebase use --add</code>), or start with <code>ARC_PROJECT=&lt;alias&gt; npm run dev</code></td>
+        </tr>
+        <tr>
           <td>A change to a Cloud Function makes no difference in the browser at <code>localhost</code></td>
-          <td><code>npm run dev</code> has no emulators: the site talks to the real Firebase project in <code>src/environments/environment.ts</code>, so it calls the deployed functions</td>
+          <td><code>npm run dev</code> has no emulators: the site talks to the real Firebase project it names as it starts, so it calls the deployed functions</td>
           <td>Deploy the function (see <a href="targeted-deploys.html">Deploy only what changed</a>), then test again. Test functions logic with specs first (see <a href="testing.html">Testing</a>)</td>
         </tr>
         <tr>

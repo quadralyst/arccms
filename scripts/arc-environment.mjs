@@ -11,7 +11,8 @@
  *   environment.ts for any other, but only if it names that very project. A site that
  *   would talk to another project is never built.
  *
- * With no ARC_PROJECT nothing here runs and the build works as it always did.
+ * With no ARC_PROJECT, `npm run dev` and `npm run build` use defaultEnvironment: the
+ * `default` alias's generated file, else the environment file, which ships with no project.
  */
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
@@ -36,6 +37,32 @@ export function environmentFor(aliasOrId, { root = ROOT, aliases = readFirebaseA
             + `Add them with: npm run arc:configure -- --project=${aliasOrId} --web-config=fetch`);
     }
     return { projectId, file: fallback, source: 'environment file' };
+}
+
+/** What `npm run dev` and `npm run build` say when no project is set up yet. */
+export const NO_PROJECT_MESSAGE = 'No Firebase project configured: run npm run arc:configure -- --project=default --web-config=fetch '
+    + '(docs/app/environments.html). Arc CMS ships its environment files with no project, so a new copy never talks to someone else\'s.';
+
+/**
+ * `{ projectId, file, source }` for `npm run dev` or `npm run build` without ARC_PROJECT:
+ * the `default` alias's project when arc:configure has written its firebase-web.<id>.ts;
+ * else the environment file (environment.prod.ts for a production build), which must
+ * name a project. Arc CMS ships them with none, so this throws NO_PROJECT_MESSAGE then.
+ */
+export function defaultEnvironment({ production = false, root = ROOT, aliases = readFirebaseAliases(resolve(root, '.firebaserc')) } = {}) {
+    const aliased = aliases.default || '';
+    if (aliased && existsSync(webConfigPath(aliased, root))) {
+        return { projectId: aliased, file: webConfigPath(aliased, root), source: 'the default alias' };
+    }
+    const file = resolve(root, 'src/environments', production ? 'environment.prod.ts' : 'environment.ts');
+    const projectId = existsSync(file) ? projectIdIn(readFileSync(file, 'utf8')) : '';
+    if (!projectId) throw new Error(NO_PROJECT_MESSAGE);
+    return { projectId, file, source: 'environment file' };
+}
+
+/** The line `npm run dev` and `npm run build` print about the project they talk to. */
+export function projectLine({ projectId, file, source }) {
+    return `Firebase project: ${projectId} (${source}, ${file.split('/src/')[1] ?? file})`;
 }
 
 /** The environment file the app imports, which a build may serve another file in place of. */

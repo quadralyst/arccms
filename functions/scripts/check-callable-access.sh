@@ -12,48 +12,59 @@
 #
 # Fix a blocked one with:
 #   gcloud run services add-iam-policy-binding arccms-<lowercased-name> \
-#     --region=us-central1 --member=allUsers --role=roles/run.invoker --project=<id>
+#     --region=<region> --member=allUsers --role=roles/run.invoker --project=<id>
 # (or Cloud Console → Cloud Run → service → Security → allow unauthenticated)
 #
-# Usage: ./check-callable-access.sh [projectId] [region]
+# Usage: [FIREBASE_PROJECT=<alias or id>] [FIREBASE_REGION=<region>] ./check-callable-access.sh [function names...]
+#
+# Exit 0: every callable reachable. 1: some are blocked or not deployed (listed).
+# 2: nothing was checked, with the reason (no project, no build, a build it cannot read).
 set -uo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+CALLABLES_JS="$ROOT/scripts/arc-callables.mjs"
 
 # Project/region come from the environment, not positional args: any positional
 # argument is treated as a function name to check. (Reading them positionally meant
 # `check-callable-access.sh someFunction` silently used "someFunction" as the
-# project id and reported every function as 404 / NOT DEPLOYED.)
-PROJECT="${FIREBASE_PROJECT:-xlm-project-864ff}"
-REGION="${FIREBASE_REGION:-us-central1}"
-BASE="https://${REGION}-${PROJECT}.cloudfunctions.net"
-
-# Every onCall function in the build, by plain name (custom ones as custom-<name>).
-# Read from functions/lib, so the list always matches what was deployed: a feature
-# the app turned off (src/custom/features.ts) is not built, so it is not checked.
-# They deploy as arccms-<name> (specs/coexistence-spec.md, CO-D5).
-LIB="$(cd "$(dirname "$0")/.." && pwd)/lib/index.js"
-if [ ! -f "$LIB" ]; then
-  echo "No build at $LIB. Run: npm run build --prefix functions"
-  exit 1
+# project id and reported every function as 404 / NOT DEPLOYED.) Without them: the
+# project a deploy would go to, and that project's functions region.
+if ! TARGET="$(node "$CALLABLES_JS" target)"; then
+  echo "Nothing was checked."
+  exit 2
 fi
+read -r PROJECT REGION <<< "$TARGET"
+BASE="https://${REGION}-${PROJECT}.cloudfunctions.net"
+echo "Checking the callables of $PROJECT ($REGION)"
+
+LIB="$ROOT/functions/lib/index.js"
 CALLABLES=()
-while IFS= read -r name; do
-  [ -n "$name" ] && CALLABLES+=("$name")
-done < <(node --input-type=module -e "
-  const m = await import('file://$LIB');
-  const walk = (o, p) => Object.entries(o).flatMap(([k, v]) =>
-    v && v.__endpoint ? (v.__endpoint.callableTrigger ? [p + k] : [])
-      : v && typeof v === 'object' ? walk(v, p + k + '-') : []);
-  console.log(walk(m.arccms ?? {}, '').join('\\n'));
-" 2>/dev/null)
-if [ ${#CALLABLES[@]} -eq 0 ]; then
-  echo "Could not read the callables from $LIB."
-  exit 1
+if [ "$#" -gt 0 ]; then
+  # Any positional arguments narrow the check to just those functions.
+  CALLABLES=("$@")
+else
+  # Every onCall function in the build, by plain name (custom ones as custom-<name>).
+  # Read from functions/lib, so the list always matches what was deployed: a feature
+  # the app turned off (src/custom/features.ts) is not built, so it is not checked.
+  # They deploy as arccms-<name> (specs/coexistence-spec.md, CO-D5).
+  if [ ! -f "$LIB" ]; then
+    echo "No build at $LIB. Run: npm run build --prefix functions"
+    echo "Nothing was checked."
+    exit 2
+  fi
+  if ! NAMES="$(node "$CALLABLES_JS" names)"; then
+    echo "Nothing was checked."
+    exit 2
+  fi
+  while IFS= read -r name; do
+    [ -n "$name" ] && CALLABLES+=("$name")
+  done <<< "$NAMES"
 fi
 
 # The app's callables (functions/src/custom/public-callables.txt, docs/app/custom-space.html),
 # deployed as arccms-custom-<name>.
-CUSTOM_LIST="$(dirname "$0")/../src/custom/public-callables.txt"
-if [ -f "$CUSTOM_LIST" ]; then
+CUSTOM_LIST="$ROOT/functions/src/custom/public-callables.txt"
+if [ "$#" -eq 0 ] && [ -f "$CUSTOM_LIST" ]; then
   while IFS= read -r line; do
     name="$(printf '%s' "$line" | sed 's/#.*//' | tr -d '[:space:]')"
     # Already listed when it is in the build; kept here so a missing one is reported.
@@ -63,8 +74,6 @@ fi
 
 blocked=()
 missing=()
-# Any positional arguments narrow the check to just those functions.
-if [ "$#" -gt 0 ]; then CALLABLES=("$@"); fi
 
 for fn in "${CALLABLES[@]}"; do
   resp=$(curl -s -m 20 -w '\n%{http_code}' -X POST "$BASE/arccms-$fn" -H "Content-Type: application/json" -d '{"data":{}}' 2>/dev/null)

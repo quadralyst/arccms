@@ -9,7 +9,7 @@ import { join, resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { build } from 'vite';
 // @ts-expect-error: plain ESM script without type declarations
-import { environmentFor, environmentSwap, projectIdIn } from '../arc-environment.mjs';
+import { NO_PROJECT_MESSAGE, defaultEnvironment, environmentFor, environmentSwap, projectIdIn, projectLine } from '../arc-environment.mjs';
 // @ts-expect-error: plain ESM script without type declarations
 import { buildsFor, websiteBuildEnv } from '../arc-deploy.mjs';
 // @ts-expect-error: plain ESM script without type declarations
@@ -56,6 +56,51 @@ describe('environmentFor', () => {
         expect(projectIdIn("projectId: 'a'")).toBe('a');
         expect(projectIdIn('projectId: "b"')).toBe('b');
         expect(projectIdIn('')).toBe('');
+    });
+});
+
+describe('npm run dev and npm run build without ARC_PROJECT (defaultEnvironment)', () => {
+    let root: string;
+    const REPO = resolve(__dirname, '../..');
+    const env = (name: string, projectId: string) =>
+        writeFileSync(join(root, 'src/environments', name), `export const environment = { firebaseConfig: { projectId: '${projectId}' } };\n`);
+
+    beforeEach(() => {
+        root = mkdtempSync(join(tmpdir(), 'arc-env-default-'));
+        mkdirSync(join(root, 'src/environments'), { recursive: true });
+    });
+    afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+    it('uses the default alias\'s project once arc:configure has written its web settings, in dev and in a production build', () => {
+        env('environment.ts', 'someone-else');
+        writeFileSync(join(root, 'src/environments/firebase-web.acme-dev.ts'), 'projectId: "acme-dev"');
+        for (const production of [false, true]) {
+            const found = defaultEnvironment({ production, root, aliases: { default: 'acme-dev' } });
+            expect(found).toEqual({ projectId: 'acme-dev', file: join(root, 'src/environments/firebase-web.acme-dev.ts'), source: 'the default alias' });
+            expect(projectLine(found)).toBe('Firebase project: acme-dev (the default alias, environments/firebase-web.acme-dev.ts)');
+        }
+    });
+
+    it('falls back to the environment file only when the default alias has no web settings file', () => {
+        env('environment.ts', 'acme-dev');
+        env('environment.prod.ts', 'acme-prod');
+        expect(defaultEnvironment({ root, aliases: { default: 'acme-dev' } })).toMatchObject({ projectId: 'acme-dev', source: 'environment file' });
+        expect(defaultEnvironment({ production: true, root, aliases: {} })).toMatchObject({ projectId: 'acme-prod' });
+    });
+
+    it('stops with what to run when no project is set up, as in a fresh copy of Arc CMS', () => {
+        for (const name of ['environment.ts', 'environment.prod.ts']) {
+            writeFileSync(join(root, 'src/environments', name), readFileSync(join(REPO, 'src/environments', name), 'utf8'));
+        }
+        expect(() => defaultEnvironment({ root, aliases: {} })).toThrow(NO_PROJECT_MESSAGE);
+        expect(() => defaultEnvironment({ production: true, root, aliases: { default: 'acme-dev' } })).toThrow(NO_PROJECT_MESSAGE);
+        expect(NO_PROJECT_MESSAGE).toContain('No Firebase project configured: run npm run arc:configure');
+    });
+
+    it('is what vite.config.ts uses when ARC_PROJECT is not set', () => {
+        const config = readFileSync(join(REPO, 'vite.config.ts'), 'utf8');
+        expect(config).toContain('defaultEnvironment({ production: mode === \'production\' && process.env[\'USE_DEV_ENV\'] !== \'true\' })');
+        expect(config).toContain('console.log(projectLine(found))');
     });
 });
 

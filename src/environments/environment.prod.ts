@@ -1,21 +1,22 @@
 /**
  * Production Environment Configuration
  *
- * Copy environment.example.ts and fill in your Firebase credentials.
- * See docs/getting-started/install.html for setup instructions.
+ * Arc CMS ships this file with no Firebase project, so a new copy never talks to
+ * someone else's. A production build without ARC_PROJECT uses the project of your
+ * `default` alias when arc:configure has written its firebase-web.<projectId>.ts,
+ * else this file, which then must name your project (docs/app/environments.html).
+ * Once you fill it in it is yours: Arc CMS never changes its values.
  */
 
 export const environment = {
     production: false,
 
     firebaseConfig: {
-        apiKey: 'AIzaSyBBCl1esmI7bPFTRAdxm0SbR8Z3R-8LwdY',
-        authDomain: 'xlm-project-864ff.firebaseapp.com',
-        databaseURL: 'https://xlm-project-864ff.firebaseio.com',
-        projectId: 'xlm-project-864ff',
-        storageBucket: 'xlm-project-864ff.appspot.com',
-        messagingSenderId: '957465473852',
-        appId: '1:957465473852:web:8c4b169c444d18b6a36439',
-        measurementId: 'G-7JE7LY5876',
+        apiKey: '',
+        authDomain: '',
+        projectId: '',
+        storageBucket: '',
+        messagingSenderId: '',
+        appId: '',
     },
 };

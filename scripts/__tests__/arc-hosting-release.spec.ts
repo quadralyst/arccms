@@ -29,6 +29,20 @@ describe('which live files a website deploy keeps', () => {
             .toEqual({ '/index.html': 'home', '/hi/index.html': 'home-hi' });
     });
 
+    it('with the seo feature off, drops the files a publish or seed wrote for it, and keeps the rest', () => {
+        const key = '0123456789abcdef0123456789abcdef';
+        const live = {
+            '/robots.txt': 'r', '/sitemap.xml': 's', '/llms.txt': 'x', '/llms-full.txt': 'xf', [`/${key}.txt`]: 'k',
+            '/articles/feed.xml': 'f', '/articles/post.html': 'p', '/articles/post.md': 'm', '/pages/terms/index.html': 't',
+        };
+        expect(keptPublishedFiles({ live, build, seo: false })).toEqual({
+            '/articles/post.html': 'p', '/articles/post.md': 'm', '/pages/terms/index.html': 't',
+        });
+        // The app's own robots.txt in the build is the build's either way.
+        expect(keptPublishedFiles({ live: { '/robots.txt': 'r' }, build: { ...build, '/robots.txt': 'own' }, seo: false })).toEqual({});
+        expect(keptPublishedFiles({ live, build })).toEqual(live);
+    });
+
     it('drops a published static page the site no longer has', () => {
         const live = { '/pages/terms/index.html': 't', '/pages/old-offer/index.html': 'o' };
         expect(keptPublishedFiles({ live, build, pages: { terms: 'app' } })).toEqual({ '/pages/terms/index.html': 't' });
