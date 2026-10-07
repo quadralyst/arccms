@@ -20,7 +20,7 @@
     <pre><code>PORT=5174 npm run dev</code></pre>
 
     <h2 id="it-talks-to-your-real-firebase-project">It talks to your real Firebase project</h2>
-    <p>The local app connects to the project in <code>src/environments/environment.ts</code>. There is no emulator: the app never connects to one, so everything you do locally reads and writes the real Firestore, Authentication and Storage of that project, and calls the Cloud Functions deployed there.</p>
+    <p>The local app connects to the project of your <code>default</code> alias, using the <code>src/environments/firebase-web.&lt;projectId&gt;.ts</code> that <code>npm run arc:configure</code> wrote (else the project in <code>src/environments/environment.ts</code>). It prints which one as it starts: <code>Firebase project: &lt;id&gt; (...)</code>. With none set up it stops and says to run <code>npm run arc:configure</code> (see <a href="configure.html">Configure a project</a>). To run against another project, start it with <code>ARC_PROJECT=&lt;alias&gt; npm run dev</code>. There is no emulator: the app never connects to one, so everything you do locally reads and writes the real Firestore, Authentication and Storage of that project, and calls the Cloud Functions deployed there.</p>
     <table>
       <thead><tr><th>You change</th><th>Shows locally</th></tr></thead>
       <tbody>
@@ -31,7 +31,7 @@
       </tbody>
     </table>
     <div class="trap"><p>A fix in <code>functions/src/</code> that "does not work" in the browser is usually a fix that is not deployed: the local app still calls the old function. Deploy the changed function, then test. Starting the Firebase emulators does not help, because the app does not use them.</p></div>
-    <div class="note"><p>Use a development Firebase project for this. Sign-ups, content and emails you create locally are real, in whichever project <code>environment.ts</code> names.</p></div>
+    <div class="note"><p>Use a development Firebase project for this. Sign-ups, content and emails you create locally are real, in whichever project the start-up line names.</p></div>
 
     <h2>What you see on first load</h2>
     <ul>

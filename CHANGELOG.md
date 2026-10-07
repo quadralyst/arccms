@@ -24,6 +24,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Changed
 
+- **The install files ship with no Firebase project.** `src/environments/environment.ts` and `environment.prod.ts` have empty web settings, and `arc-install.ts` is `{}`. A copy that has not been set up stops at `npm run dev` or `npm run build` with "No Firebase project configured: run npm run arc:configure", instead of talking to Arc CMS's own project. Arc CMS never changes the values in these files again; when it needs a new key in one, this changelog names it.
+- **`npm run dev` and `npm run build` use the `default` alias** in `.firebaserc` when `arc:configure` has written its `firebase-web.<id>.ts`, and print the project as they start. They fall back to the environment files only when there is no such file. `ARC_PROJECT` still wins.
+- `firebase-web.<id>.ts` now carries the project's install settings (`arcInstall`) too; an entry in `arc-install.ts` still wins.
+- With the `seo` feature off, `npm run seed` no longer writes robots.txt, the sitemap, llms.txt, llms-full.txt or the feeds, and the next website deploy removes the ones already on Hosting.
+- The callable check (`npm run deploy -- --probe`, `functions/scripts/check-callable-access.sh`) reads the functions build without `GCLOUD_PROJECT`, checks the deploy's project and its functions region by default instead of a fixed project, and says it checked nothing (exit 2) rather than reporting callables as blocked when it cannot read the build.
+
 - On a translated page, only links to pages that exist in every language take the language prefix: the home page, search and public content types. Sign-in, the member area, an app's own pages, static pages and files keep their address, and a stray `/hi/signup` redirects to `/signup`.
 - The app's own files in `src/custom/site/assets/` are linked with their version (`/site/home.css?v=…`) on published pages, in the preview and in `url()` of the app's stylesheets, so a changed file reaches returning visitors.
 - Publishing reads templates and site files from the live site's `/_site/`; template overrides stored in Firestore are no longer read.
@@ -46,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 1. Merge the new version. If your copy edited files in `public/`, run `npm run arc:own-site`, then `npm run arc:own-site -- --write` (docs/website/move-your-site.html).
 2. Check your own templates and pages for the old marketing classes (`.hero`, `.feature-card`, `.cta-primary`, `.section-headline` and the like) and for sections that relied on the `main.css` padding. `arc:own-site` brings the old styles back for a migrated home page only; elsewhere, copy the rules you use from `docs/examples/arc-cms-home.css` into `src/custom/site/site.css`.
 3. Run `npm run arc:configure` once, so `arc-install.ts` names your hosting site.
+   - The merge conflicts in `src/environments/environment.ts`, `environment.prod.ts` and `arc-install.ts` if your copy filled them in: Arc CMS emptied them. Keep your own version of all three (`git checkout --ours <file>`).
 4. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`).
 5. On an install set up before the standard pages, or before page layouts, open **Content types** and choose **Add standard pages** (it adds the pages and the Info boxes field that are missing). Then pick **Layout: Contact** on your Contact page if you want the new layout. If your own footer listed the old Documentation, GitHub or Community links from Arc CMS's footer, they are gone from the default one; keep your own footer as it is.
 

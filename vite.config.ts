@@ -12,7 +12,7 @@ import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
 import { oneBuildAtATime } from './scripts/vite-build-order';
 import { arcSite } from './scripts/vite-arc-site';
-import { environmentFor, environmentSwap } from './scripts/arc-environment.mjs';
+import { ENVIRONMENT_FILE, defaultEnvironment, environmentFor, environmentSwap, projectLine } from './scripts/arc-environment.mjs';
 import { routeCode } from './scripts/vite-route-code';
 import { pwaWorkbox } from './scripts/pwa-workbox';
 
@@ -29,15 +29,21 @@ const pwaIcon = PWA_ICON_CANDIDATES.find((path) => existsSync(resolve(path))) ??
 const storedCode = routeCode(pwa.routeCode);
 
 // The Firebase project this build talks to (specs/app-project-settings-spec.md): with
-// ARC_PROJECT=<alias or id>, that project's web settings; without it, the environment
-// files as always (environment.prod.ts in a production build unless USE_DEV_ENV=true).
-// npm run deploy sets it to the project it deploys to.
+// ARC_PROJECT=<alias or id>, that project's web settings (npm run deploy sets it to the
+// project it deploys to); without it, the `default` alias's when arc:configure wrote its
+// firebase-web.<id>.ts, else the environment file (environment.prod.ts in a production
+// build unless USE_DEV_ENV=true). The environment files ship with no project, so a copy
+// that has not been set up stops here with what to run (scripts/arc-environment.mjs).
 const arcProject = process.env['ARC_PROJECT'];
-const projectEnvironment = arcProject ? environmentFor(arcProject) : null;
-if (projectEnvironment) {
-  console.log(`Firebase project: ${projectEnvironment.projectId} (${projectEnvironment.source}, ${projectEnvironment.file.split('/src/')[1] ?? projectEnvironment.file})`);
+let projectLogged = false;
+function projectEnvironmentFor(mode: string) {
+  const found = arcProject
+    ? environmentFor(arcProject)
+    : defaultEnvironment({ production: mode === 'production' && process.env['USE_DEV_ENV'] !== 'true' });
+  if (!projectLogged) console.log(projectLine(found));
+  projectLogged = true;
+  return found;
 }
-const environmentFile = projectEnvironment?.file ?? null;
 
 // Nitro's own, set before Nitro does it from inside the dev server (releaseClosedServer).
 (globalThis as { defineNitroConfig?: (config: unknown) => unknown }).defineNitroConfig ??= (config) => config;
@@ -124,6 +130,7 @@ function releaseClosedServer() {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
+  const projectEnvironment = projectEnvironmentFor(mode);
   const release = releaseClosedServer();
   return {
     build: {
@@ -145,12 +152,8 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       // The environment file every import of src/environments/environment.ts gets: the
-      // project's (ARC_PROJECT), else environment.prod.ts in a production build unless
-      // USE_DEV_ENV=true, else environment.ts as written (scripts/arc-environment.mjs).
-      environmentSwap(
-        environmentFile
-          ?? (mode === 'production' && process.env['USE_DEV_ENV'] !== 'true' ? resolve('./src/environments/environment.prod.ts') : null),
-      ),
+      // project's (projectEnvironmentFor above); environment.ts itself needs no swap.
+      environmentSwap(resolve(projectEnvironment.file) === resolve(ENVIRONMENT_FILE) ? null : projectEnvironment.file),
       // Frees a closed dev server (see releaseClosedServer).
       release.plugin,
       // The public website: core's public/ with the app's src/custom/site/ laid over it,

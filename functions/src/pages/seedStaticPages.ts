@@ -11,6 +11,7 @@ import { generateAndDeployRobotsTxt } from './generateRobotsTxt.js';
 import { generateAndDeployLlmsTxt } from './generateLlmsTxt.js';
 import { generateAndDeploySitemap } from './generateSitemap.js';
 import { generateAndDeployRssFeeds } from './generateRssFeed.js';
+import { isFeatureOn } from '../feature-flags.js';
 
 interface SeedResult {
     success: boolean;
@@ -167,7 +168,21 @@ export async function runSeed(): Promise<SeedResult> {
         }
     }
 
-    // 4. Deploy SEO files (robots.txt, sitemap.xml, RSS feeds)
+    // 4. The SEO files (robots.txt, llms.txt, sitemap.xml, RSS feeds) are the seo
+    // feature's, as in the publish queue: with it off, the seed writes none of them.
+    if (isFeatureOn('seo')) {
+        await deploySeoFiles(result);
+    } else {
+        result.details.push('\nSEO files skipped: the seo feature is off (src/custom/features.ts).');
+    }
+
+    result.details.push(`\n=== Seed complete: ${result.deployed} deployed, ${result.errors} errors ===`);
+
+    return result;
+}
+
+/** Step 4 of the seed: robots.txt, llms.txt, the sitemap and the RSS feeds, each reported in `result`. */
+async function deploySeoFiles(result: SeedResult): Promise<void> {
     result.details.push('\n--- SEO files ---');
 
     // robots.txt
@@ -233,10 +248,6 @@ export async function runSeed(): Promise<SeedResult> {
         result.details.push(`ERROR: ${errorMsg}`);
         result.errorDetails.push(errorMsg);
     }
-
-    result.details.push(`\n=== Seed complete: ${result.deployed} deployed, ${result.errors} errors ===`);
-
-    return result;
 }
 
 /**

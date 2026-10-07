@@ -70,6 +70,7 @@ import { deployedParts, gitHead, readState, recordDeploy, writeState } from './a
 import { builtArccms, isCloudFunction } from './arc-built-functions.mjs';
 import { main as configure, normalizeConfig } from './arc-configure.mjs';
 import { checkSignInSetup, smsBuilt } from './arc-sign-in-setup.mjs';
+import { enabledFeatures } from './arc-features.mjs';
 import { channelDeployArgs, hostingSiteOf, releaseWebsite, withoutHosting } from './arc-hosting-release.mjs';
 import {
     DEFAULT_FUNCTIONS_REGION, countArccms, databaseLocation, lookupDatabaseLocation, regionDecision, regionWarning,
@@ -399,6 +400,16 @@ export function retryWaitMs(output) {
     return eventarcSettingUp(output) ? FIRST_DEPLOY_WAIT_MS : RETRY_WAIT_MS;
 }
 
+/**
+ * What the deploy says when the callable check (check-callable-access.sh) fails:
+ * exit 2 means it checked nothing, so it must not claim anything is blocked.
+ */
+export function probeFailureMessage(status) {
+    return status === 2
+        ? 'The callable check could not run, so the callables were not checked (the reason is above). The deploy itself finished.'
+        : 'Some callables are blocked or not deployed (listed above). The list says how to fix each one.';
+}
+
 /** What a deploy that included the website says when an earlier step failed, so the website was skipped. */
 export function websiteSkippedMessage(projectId) {
     return `\nThe website was not deployed: the deploy failed before it. Once the rest is deployed, deploy the website alone `
@@ -633,7 +644,7 @@ export async function runDeploy(args, options = {}) {
             env: { ...process.env, FIREBASE_PROJECT: projectId, FIREBASE_REGION: functionsRegionOf(projectId) },
         });
         if (probe.status !== 0) {
-            console.error('\nSome callables are blocked. Delete and redeploy them (a fresh create grants access).');
+            console.error(`\n${probeFailureMessage(probe.status)}`);
             status = probe.status ?? 1;
         }
     }
@@ -648,6 +659,15 @@ export async function runDeploy(args, options = {}) {
         }
     }
     return { status, created: [...created].sort() };
+}
+
+/** Whether the seo feature is on (src/custom/features.ts); when that cannot be read, its files are kept. */
+async function seoOn() {
+    try {
+        return [...(await enabledFeatures())].includes('seo');
+    } catch {
+        return true;
+    }
 }
 
 function readJsonFile(path) {
@@ -673,7 +693,7 @@ async function deployWebsite(projectId, configPath, firebaseConfig) {
     const site = hostingSiteOf(firebaseConfig, projectId);
     try {
         console.log(`> releasing the build to ${site}, keeping the published pages`);
-        await releaseWebsite({ site });
+        await releaseWebsite({ site, seo: await seoOn() });
         return 0;
     } catch (error) {
         console.error(`\nThe website was not released: ${error.message}\nThe live site is unchanged. Run the same deploy again.`);

@@ -19,7 +19,13 @@
       <li><code>src/environments/firebase-web.&lt;projectId&gt;.ts</code>, the project's own web settings, when you have fetched them (below);</li>
       <li>otherwise the environment file you edited by hand: <code>environment.prod.ts</code> for the <code>production</code> alias, <code>environment.ts</code> for any other, <strong>only if it names that very project</strong>. If it names another, the build stops and prints the command that fixes it.</li>
     </ol>
-    <p>With no <code>ARC_PROJECT</code>, nothing changes: <code>npm run dev</code> uses <code>environment.ts</code>, and <code>npm run build</code> uses <code>environment.prod.ts</code> (or <code>environment.ts</code> with <code>USE_DEV_ENV=true</code>). An install with two projects keeps working as it is.</p>
+    <p>With no <code>ARC_PROJECT</code>, <code>npm run dev</code> and <code>npm run build</code> use the project of the <code>default</code> alias in <code>.firebaserc</code> when <code>arc:configure</code> has written its <code>firebase-web.&lt;projectId&gt;.ts</code>. Only when there is no such file do they fall back to the environment file: <code>environment.ts</code> for <code>npm run dev</code>, <code>environment.prod.ts</code> for <code>npm run build</code> (or <code>environment.ts</code> with <code>USE_DEV_ENV=true</code>). Either way they print the project and the file as they start, such as <code>Firebase project: acme-dev (the default alias, environments/firebase-web.acme-dev.ts)</code>.</p>
+    <h3 id="before-the-first-npm-run-dev">Before the first npm run dev</h3>
+    <p>Arc CMS ships <code>environment.ts</code>, <code>environment.prod.ts</code> and <code>arc-install.ts</code> with no Firebase project in them. A copy that has not been set up stops at start with "No Firebase project configured: run npm run arc:configure", rather than talking to a project that is not yours, where a test sign-up or write would land somewhere you may not be able to clean up. So before the first <code>npm run dev</code>, either give your development project the <code>default</code> alias and fetch its settings:</p>
+    <pre><code>firebase use --add
+npm run arc:configure -- --project=default --web-config=fetch</code></pre>
+    <p>or fill in <code>environment.ts</code> (and <code>environment.prod.ts</code>) by hand.</p>
+    <div class="note"><p>These install files are yours. Arc CMS never changes their values in an update. When it needs a new key in one of them, the <code>CHANGELOG.md</code> entry for that update names the key: merge it in and keep your own values.</p></div>
     <p>Every part of the app gets the chosen file, wherever it imports <code>src/environments/environment.ts</code> from: the build swaps the file the import leads to, not the words of the import (<code>environmentSwap</code> in <code>scripts/arc-environment.mjs</code>). A test builds a small app with shallow, deep and barrel imports and fails if any of them keeps another project's settings.</p>
 
     <h2>Add a project</h2>
@@ -47,7 +53,7 @@
     <p>By default a project marked production (below) builds as <code>production</code> and every other project as <code>development</code>, as builds always ran. To rehearse a release on staging exactly as it will run live, build staging like production:</p>
     <pre><code>npm run arc:configure -- --project=staging --build-mode=production</code></pre>
     <p>This is not the production guard: staging still deploys without typing its id back. The build mode applies to a project with its own web settings (fetched above); the guided deploy shows it in the summary as <code>Build:</code>.</p>
-    <p>The generated <code>firebase-web.&lt;id&gt;.ts</code> imports <code>environment.ts</code> and sets only <code>production</code> and <code>firebaseConfig</code>, so every other key you add to <code>environment.ts</code> reaches every project's build, with no need to configure again. Keep a key that differs per project out of <code>environment.ts</code>: put it in <code>arccms.config.json</code> or read it at run time.</p>
+    <p>The generated <code>firebase-web.&lt;id&gt;.ts</code> imports <code>environment.ts</code> and sets only <code>production</code>, <code>firebaseConfig</code> and the project's install settings (<code>arcInstall</code>, the same as its entry in <code>arc-install.ts</code>, which wins), so every other key you add to <code>environment.ts</code> reaches every project's build, with no need to configure again. Keep a key that differs per project out of <code>environment.ts</code>: put it in <code>arccms.config.json</code> or read it at run time.</p>
 
     <h2>Guard production</h2>
     <p>Mark any project as production, whatever its alias is called:</p>

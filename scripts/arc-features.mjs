@@ -49,6 +49,18 @@ function writeIfChanged(path, content) {
     return true;
 }
 
+/** The features this app has on, from src/custom/features.ts and the registry's defaults. */
+export async function enabledFeatures({ registryPath = REGISTRY, customPath = CUSTOM } = {}) {
+    let registry, custom;
+    try {
+        registry = await import(pathToFileURL(registryPath).href);
+        custom = await import(pathToFileURL(customPath).href);
+    } catch (error) {
+        throw new Error(`arc-features: could not load the feature files (Node 22.18 or later is needed): ${error.message}`);
+    }
+    return registry.resolveFeatures(custom.CUSTOM_FEATURES);
+}
+
 async function main() {
     // Only the functions folder is uploaded on deploy; if a build ever runs there,
     // keep the files generated locally.
@@ -57,15 +69,7 @@ async function main() {
         throw new Error(`arc-features: ${CUSTOM} not found, and no generated files to keep.`);
     }
 
-    let registry, custom;
-    try {
-        registry = await import(pathToFileURL(REGISTRY).href);
-        custom = await import(pathToFileURL(CUSTOM).href);
-    } catch (error) {
-        throw new Error(`arc-features: could not load the feature files (Node 22.18 or later is needed): ${error.message}`);
-    }
-
-    const enabled = registry.resolveFeatures(custom.CUSTOM_FEATURES);
+    const enabled = await enabledFeatures();
     const { enabledFile, exportsFile } = renderFeatureFiles(enabled);
     const changed = [writeIfChanged(ENABLED_OUT, enabledFile), writeIfChanged(EXPORTS_OUT, exportsFile)].some(Boolean);
     if (changed) console.log(`arc-features: functions build with ${[...enabled].join(', ') || 'no optional features'}`);

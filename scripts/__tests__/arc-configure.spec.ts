@@ -409,6 +409,28 @@ const firebaseConfig = {
             expect(existsSync(file)).toBe(false);
         });
 
+        it('puts the install settings in the web settings file too, and in Arc CMS itself leaves arc-install.ts as shipped', () => {
+            mkdirSync(join(dir, 'src', 'environments'), { recursive: true });
+            const web = { apiKey: 'k', authDomain: 'acme-prod.firebaseapp.com', projectId: 'acme-prod', storageBucket: 'acme-prod.appspot.com', appId: '1:2:web:3' };
+            writeFileSync(join(dir, 'web.json'), JSON.stringify(web));
+            const file = join(dir, 'src', 'environments', 'firebase-web.acme-prod.ts');
+            const shipped = 'export const arcInstall = {};\n';
+            writeFileSync(paths.install, shipped);
+            const args = ['--project=prod', '--web-config=web.json', '--database=arccms', '--bucket=acme-arccms', '--prefix=arccms/'];
+
+            expect(configure.main(args, paths, (line: string) => log.push(line), { arcCmsItself: true })).toBe(0);
+            const text = readFileSync(file, 'utf8');
+            expect(text).toMatch(/arcInstall: \{\n {8}databaseId: "arccms",\n {8}storageBucket: "acme-arccms",\n {8}storagePrefix: "arccms\/",\n {4}\},\n\};/);
+            // The web settings are still read from firebaseConfig, not the install bucket.
+            expect(configure.parseWebConfigText(text)).toEqual(web);
+            expect(readFileSync(paths.install, 'utf8')).toBe(shipped);
+            expect(log.join('\n')).toContain('This is Arc CMS itself: src/environments/arc-install.ts stays empty');
+
+            // In an app, arc-install.ts gets the entry as before.
+            expect(configure.main(['--project=prod'], paths, () => {}, { arcCmsItself: false })).toBe(0);
+            expect(readFileSync(paths.install, 'utf8')).toContain('"acme-prod": {');
+        });
+
         it('stores --build-mode per project, writes it to the generated file, and says when it does not apply yet', () => {
             mkdirSync(join(dir, 'src', 'environments'), { recursive: true });
             expect(run('--project=prod', '--build-mode=production')).toBe(0);

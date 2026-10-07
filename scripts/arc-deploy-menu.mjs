@@ -554,7 +554,9 @@ async function menu(rl) {
             stdio: 'inherit', env: { ...process.env, FIREBASE_PROJECT: projectId, FIREBASE_REGION: functionsRegionOf(projectId) },
         });
         if (check.status !== 0) {
-            console.error('\nA new callable is blocked. Delete it and deploy again (a fresh create grants access).');
+            console.error(check.status === 2
+                ? '\nThe callable check could not run, so the new callables were not checked (the reason is above). The deploy itself finished.'
+                : '\nA new callable is blocked. Delete it and deploy again (a fresh create grants access).');
             return check.status ?? 1;
         }
     }

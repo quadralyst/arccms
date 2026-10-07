@@ -63,6 +63,7 @@
     <ul>
       <li><strong>In a core file:</strong> your copy edited it. Take the new version's file, then make your change in the custom space. If the custom space cannot do it, the change belongs in Arc CMS as a general feature: see <a href="../concepts/core-and-custom.html">Core and custom</a>.</li>
       <li><strong>In <code>public/</code>:</strong> your copy edited the website in Arc CMS's files. Run <code>npm run arc:own-site</code>, then <code>npm run arc:own-site -- --write</code>: it moves your edits into <code class="new">src/custom/site/</code> and settles these conflicts (<a href="../website/move-your-site.html">Move your site into src/custom/site</a>).</li>
+      <li><strong>In <code>src/environments/environment.ts</code>, <code>environment.prod.ts</code> or <code>arc-install.ts</code>:</strong> your copy filled them in, and the update that made Arc CMS ship them with no project emptied them. Keep your own version of each (<code>git checkout --ours &lt;file&gt;</code>). Arc CMS never changes their values again; when it adds a key, <code>CHANGELOG.md</code> names it: add only that key.</li>
       <li><strong>In <code>package.json</code> or <code>functions/package.json</code>:</strong> your app added a dependency. Keep both sides' entries, then run the two installs above to rewrite the lock files.</li>
     </ul>
 
