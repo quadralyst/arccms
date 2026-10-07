@@ -104,7 +104,7 @@ export const onLessonDone = onDocumentCreated(
     <p><code>functions/src/init.ts</code> also exports <code>owner</code> (Firebase Auth) and <code>storage</code>.</p>
 
     <h2>React to what happens to a person</h2>
-    <p>When core finishes its own work on a person, it writes a document to <code>AppEvents</code> with a <code>type</code>, such as <code>user.signed_up</code>, <code>user.deleted</code>, <code>payment.succeeded</code>, <code>payment.failed</code> or <code>waitlist.joined</code>. React with your own trigger and return at once for other types:</p>
+    <p>When core finishes its own work on a person, it writes a document to <code>AppEvents</code> with a <code>type</code>, such as <code>user.signed_up</code>, <code>user.deleted</code>, <code>user.signInDeleted</code>, <code>payment.succeeded</code>, <code>payment.failed</code> or <code>waitlist.joined</code>. React with your own trigger and return at once for other types:</p>
     <pre><code>export const onSignedUp = onDocumentCreated(arcDocument('AppEvents/{id}'), async (event) =&gt; {
   const e = event.data?.data();
   if (e?.['type'] !== 'user.signed_up') return;

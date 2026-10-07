@@ -63,7 +63,7 @@
       <thead><tr><th>Variable</th><th>Default</th><th>Read by and effect</th></tr></thead>
       <tbody>
         <tr><td><code>ARC_DATABASE_ID</code></td><td><code>(default)</code></td><td>The functions: the database they use, and, as a deploy-time parameter, the database every Firestore trigger listens on. Always written, because a non-interactive deploy refuses a parameter with no value.</td></tr>
-        <tr><td><code>ARC_FUNCTIONS_REGION</code></td><td><code>us-central1</code></td><td>The functions, as a deploy-time parameter: the region every function runs in (<code>functions/src/region.ts</code>), and the address the published search box calls. Always written, like <code>ARC_DATABASE_ID</code>.</td></tr>
+        <tr><td><code>ARC_FUNCTIONS_REGION</code></td><td><code>us-central1</code></td><td>The functions, as a deploy-time parameter: the region every function runs in (<code>functions/src/region.ts</code>; the one first generation function, <code>onSignInDeleted</code>, reads it itself), and the address the published search box calls. Always written, like <code>ARC_DATABASE_ID</code>.</td></tr>
         <tr><td><code>ARC_HOSTING_SITE</code></td><td>The project id</td><td>The functions and the seed scripts: the Hosting site pages are published to. <code>none</code> turns publishing off.</td></tr>
         <tr><td><code>ARC_STORAGE_BUCKET</code></td><td>The project's default bucket</td><td>The functions: the bucket Arc CMS files live in, such as the folder deleted with an account.</td></tr>
         <tr><td><code>ARC_STORAGE_PREFIX</code></td><td>Empty (bucket root)</td><td>The functions: the upload folder, ending in <code>/</code>.</td></tr>

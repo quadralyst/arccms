@@ -358,7 +358,10 @@ function walkTs(dir, out = []) {
 export function functionNames(repoRoot = REPO_ROOT) {
     const names = new Set();
     for (const file of walkTs(join(repoRoot, 'functions/src'))) {
-        for (const match of readFileSync(file, 'utf8').matchAll(/^export const ([A-Za-z0-9_]+)\s*=\s*(?:on|before)[A-Z]\w*\s*(?:<[^()]{0,300}>)?\s*\(/gm)) names.add(match[1]);
+        const text = readFileSync(file, 'utf8');
+        for (const match of text.matchAll(/^export const ([A-Za-z0-9_]+)\s*=\s*(?:on|before)[A-Z]\w*\s*(?:<[^()]{0,300}>)?\s*\(/gm)) names.add(match[1]);
+        // First generation functions, built from `import * as functionsV1 from 'firebase-functions/v1'`.
+        for (const match of text.matchAll(/^export const ([A-Za-z0-9_]+)\s*=\s*functionsV1\b/gm)) names.add(match[1]);
     }
     return names;
 }

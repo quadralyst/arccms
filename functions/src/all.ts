@@ -59,6 +59,8 @@ export * from './users/onUserCreate.js';
 
 // Delete Firebase Auth account and email_lookup entry when a user document is deleted
 export * from './users/onUserDelete.js';
+// A sign-in deleted outside Arc CMS while its record stays: user.signInDeleted.
+export * from './users/onSignInDeleted.js';
 
 export * from './email-log/handleEmailWebhook.js';
 export * from './email-log/trackEmailOpen.js';
