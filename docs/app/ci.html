@@ -88,10 +88,9 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      # Also installs the Firebase CLI pinned in package.json, which the npm scripts use for the deploy and the emulators.
       - run: npm ci
       - run: npm ci --prefix functions
-      # The Firebase CLI from functions/package-lock.json, for the deploy and the emulators.
-      - run: echo "$GITHUB_WORKSPACE/functions/node_modules/.bin" &gt;&gt; "$GITHUB_PATH"
 
       - run: npm run test
       - run: npm run test:rules
