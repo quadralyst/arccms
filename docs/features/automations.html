@@ -25,7 +25,7 @@
         <tr><td><code>app_user.changed.&lt;field&gt;</code></td><td>A watched field of an app user changes; one event per watched field</td><td>Same as above</td></tr>
       </tbody>
     </table>
-    <p>Arc CMS also emits <code>user.deleted</code> when a user record is deleted. It carries no email address, so its rules cannot send email or change lists. It, and any event your own code emits, shows on the page only once a mapping for it exists.</p>
+    <p>Arc CMS also emits <code>user.deleted</code> when a user record is deleted, and <code>user.signInDeleted</code> when a sign-in is deleted outside Arc CMS while its record stays. They carry no email address, so their rules cannot send email or change lists. They, and any event your own code emits, show on the page only once a mapping for it exists.</p>
     <table>
       <thead><tr><th>Action</th><th>Does</th><th>Not for</th></tr></thead>
       <tbody>

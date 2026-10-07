@@ -43,7 +43,7 @@ vi.mock('../init.js', () => ({ owner: fb.owner, db: fb.db }));
 vi.mock('../users/claimLock.js', () => ({ withClaimLock: (_uid: string, work: () => Promise<unknown>) => work() }));
 
 import * as kit from '../app-kit/index.js';
-import { createAppAccount, deleteAppAccount, issueSignInToken, mergeAppClaims, revokeSessions } from '../app-kit/index.js';
+import { createAppAccount, deleteAppAccount, issueSignInToken, mergeAppClaims, restoreAppSignIn, revokeSessions, signedInByApp } from '../app-kit/index.js';
 import { mergeClaims, mergeUserClaims } from '../users/claims.js';
 
 beforeEach(() => {
@@ -120,6 +120,61 @@ describe('deleteAppAccount', () => {
     });
 });
 
+describe('restoreAppSignIn', () => {
+    const gone = Object.assign(new Error('gone'), { code: 'auth/user-not-found' });
+
+    it('gives a deleted sign-in back with the same uid, the record\'s name, ArcCMS\'s claims and the app\'s', async () => {
+        await createAppAccount({ displayName: 'Anna', uid: 'staff-1', claims: { site: 's-1' } });
+        // The browser deleted the sign-in: Firebase took its claims with it.
+        delete fb.state.claims['staff-1'];
+        fb.owner.getUser.mockRejectedValueOnce(gone);
+        fb.owner.createUser.mockClear();
+
+        const account = await restoreAppSignIn('staff-1', { site: 's-1' });
+        expect(account).toEqual({ uid: 'staff-1', userDocId: 'rec-1' });
+        expect(fb.owner.createUser).toHaveBeenCalledWith({ uid: 'staff-1', displayName: 'Anna' });
+        expect(fb.state.claims['staff-1']).toEqual({ site: 's-1', arccms_role: 'user', arccms_uid: 'rec-1' });
+        expect(fb.state.records).toHaveLength(1);
+    });
+
+    it('only sets the claims again when the sign-in is there, so it is safe to repeat', async () => {
+        await createAppAccount({ displayName: 'Anna', uid: 'staff-2' });
+        fb.owner.createUser.mockClear();
+        await restoreAppSignIn('staff-2', { site: 's-2' });
+        expect(fb.owner.createUser).not.toHaveBeenCalled();
+        expect(fb.state.claims['staff-2']).toMatchObject({ site: 's-2', arccms_uid: 'rec-1' });
+    });
+
+    it('gives a blocked record no ArcCMS claims back', async () => {
+        await createAppAccount({ displayName: 'Anna', uid: 'staff-3' });
+        fb.state.records[0].data['isActive'] = false;
+        delete fb.state.claims['staff-3'];
+        fb.owner.getUser.mockRejectedValueOnce(gone);
+        await restoreAppSignIn('staff-3', { site: 's-3' });
+        expect(fb.state.claims['staff-3']).toEqual({ site: 's-3' });
+    });
+
+    it('refuses an unknown uid, an account the app did not make, and ArcCMS claim names', async () => {
+        await expect(restoreAppSignIn('nobody')).rejects.toMatchObject({ code: 'not-found' });
+        fb.state.records.push({ id: 'rec-9', data: { id: 'rec-9', uid: 'member-9', by: 'email', name: 'Ben' } });
+        await expect(restoreAppSignIn('member-9')).rejects.toMatchObject({ code: 'failed-precondition' });
+        await createAppAccount({ displayName: 'Anna', uid: 'staff-4' });
+        fb.owner.createUser.mockClear();
+        await expect(restoreAppSignIn('staff-4', { arccms_role: 'admin' })).rejects.toMatchObject({ code: 'invalid-argument' });
+        expect(fb.owner.createUser).not.toHaveBeenCalled();
+    });
+});
+
+describe('signedInByApp', () => {
+    const request = (provider?: string) => ({ auth: { uid: 'u', token: { firebase: { sign_in_provider: provider } } } }) as never;
+
+    it('is true only for a session from the app\'s sign-in token, like the rules helper', () => {
+        expect(signedInByApp(request('custom'))).toBe(true);
+        for (const other of ['google.com', 'password', 'phone', undefined]) expect(signedInByApp(request(other))).toBe(false);
+        expect(signedInByApp({ auth: undefined } as never)).toBe(false);
+    });
+});
+
 describe('mergeAppClaims', () => {
     it('merges, never replaces, and removes an app claim with null', async () => {
         fb.state.claims['u'] = { arccms_role: 'user', arccms_uid: 'rec-1', site: 's-1' };
@@ -187,7 +242,8 @@ describe('revokeSessions', () => {
 
 describe('the app kit\'s exports', () => {
     const DOCUMENTED = [
-        'APP_ACCOUNT', 'createAppAccount', 'deleteAppAccount', 'isArcAdmin', 'issueSignInToken', 'mergeAppClaims', 'revokeSessions',
+        'APP_ACCOUNT', 'createAppAccount', 'deleteAppAccount', 'isArcAdmin', 'issueSignInToken', 'mergeAppClaims', 'restoreAppSignIn',
+        'revokeSessions', 'signedInByApp',
         'APP_PINS', 'callerKey', 'consumeRateLimit', 'createPinStore', 'hashedKey', 'isValidPin', 'isWeakPin',
     ];
 

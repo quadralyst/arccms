@@ -62,6 +62,7 @@
       <li><p><strong>Event:</strong> <code>user.deleted</code> on the event bus, with <code>userId</code> (the Auth uid) and <code>data.userDocId</code>, once every step above has worked.</p></li>
     </ol>
     <p>A step that fails makes the whole cleanup run again (each step is safe to repeat) for up to an hour after the delete.</p>
+    <p><strong>A sign-in deleted some other way</strong>, such as by the person's browser, leaves the record as it is. The <code>onSignInDeleted</code> function then emits <code>user.signInDeleted</code> instead, and nothing is removed. An admin can still delete the record. See <a href="../app/account-contract.html#sign-in-deleted">Follow the account contract</a>.</p>
     <p><strong>The person's contact</strong> (their address in the audience): a person deleting their own account also erases it, with its lists, consent and form sign-ups, and an erasure receipt is kept in <code>ErasureLog</code>. An admin deleting a user only unlinks the contact from the account (with the <code>audience</code> feature), since the address may have been on a list before the account existed.</p>
     <p><strong>Kept:</strong> payment records (<code>Transactions</code>, <code>CreditLedger</code>) are not deleted. Data your app keeps outside <code>users/{docId}</code> is your app's to delete: see <a href="../app/account-contract.html">Follow the account contract</a>.</p>
 

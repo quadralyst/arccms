@@ -362,7 +362,7 @@ describe('the checks catch drift', () => {
             put('src/custom/features.ts', 'export const CUSTOM_FEATURES = {};\n');
             put('functions/src/custom/search-sources.ts', 'export const SEARCH_COLLECTIONS: string[] = [];\n');
             put('src/app/core/features/feature-registry.ts', "export const FEATURE_IDS = ['content', 'search'] as const;\n");
-            put('functions/src/a.ts', "export const doThing = onCall(async () => {});\nexport const onMade = onDocumentCreated('x', () => {});\nexport const helper = makeHelper();\nexport const typed = onCall<{ id: string }>(async () => {});\n");
+            put('functions/src/a.ts', "export const doThing = onCall(async () => {});\nexport const onMade = onDocumentCreated('x', () => {});\nexport const helper = makeHelper();\nexport const typed = onCall<{ id: string }>(async () => {});\nexport const onGone = functionsV1\n    .region('r')\n    .auth.user()\n    .onDelete(() => {});\n");
             put('functions/src/__tests__/a.spec.ts', "export const notCounted = onCall(() => {});\n");
             put('src/shared/constants/email-tags.ts', "export const EMAIL_TAG = {\n  NAME: '##NAME##',\n  EMAIL: '##EMAIL##',\n} as const;\n// ##EXAMPLE##\n");
             put('firestore.rules', "service cloud.firestore {\n  match /databases/{database}/documents {\n    match /Contacts/{id} {\n    }\n    match /Lists/{id} {\n    }\n  }\n}\n");
@@ -373,7 +373,7 @@ describe('the checks catch drift', () => {
             const pages: Record<string, PageSpec> = {
                 'reference/npm-scripts.html': { title: 'npm scripts', body: table(overrides.scripts ?? ['npm run dev', 'npm run build', 'npm run check:docs']) },
                 'reference/feature-ids.html': { title: 'Feature ids', body: table(overrides.features ?? ['content', 'search']) },
-                'reference/cloud-functions.html': { title: 'Cloud Functions', body: table(overrides.functions ?? ['doThing', 'onMade', 'typed']) },
+                'reference/cloud-functions.html': { title: 'Cloud Functions', body: table(overrides.functions ?? ['doThing', 'onMade', 'typed', 'onGone']) },
                 'reference/email-tags.html': { title: 'Email merge tags', body: table(overrides.tags ?? ['##NAME##', '##EMAIL##']) },
                 'reference/config-keys.html': { title: 'Configuration keys', body: table(overrides.config ?? ['profile', 'projects', 'databaseId', 'CUSTOM_FEATURES', 'SEARCH_COLLECTIONS']) },
                 'reference/data-model.html': { title: 'Data model', body: table(overrides.collections ?? ['Contacts', 'Lists']) },
@@ -384,7 +384,7 @@ describe('the checks catch drift', () => {
         it('reads the names from the code', () => {
             const repo = fakeRepo();
             expect([...checks.packageScripts(repo)]).toEqual(['dev', 'build', 'check:docs']);
-            expect([...checks.functionNames(repo)]).toEqual(['doThing', 'onMade', 'typed']);
+            expect([...checks.functionNames(repo)]).toEqual(['doThing', 'onMade', 'typed', 'onGone']);
             expect([...checks.emailTags(repo)]).toEqual(['##NAME##', '##EMAIL##']);
             expect([...checks.ruleCollections(repo)]).toEqual(['Contacts', 'Lists']);
             expect([...checks.customExports(repo)].sort()).toEqual(['CUSTOM_FEATURES', 'SEARCH_COLLECTIONS']);
@@ -407,7 +407,7 @@ describe('the checks catch drift', () => {
         });
         it('fails on a documented name the code no longer has (where the list must be exact)', () => {
             const problems = checks.checkLookups(lookupSite({
-                scripts: ['npm run dev', 'npm run build', 'npm run check:docs', 'npm run gone'], functions: ['doThing', 'onMade', 'typed', 'removed'], tags: ['##NAME##', '##EMAIL##', '##OLD##'], features: ['content', 'search', 'ghost'],
+                scripts: ['npm run dev', 'npm run build', 'npm run check:docs', 'npm run gone'], functions: ['doThing', 'onMade', 'typed', 'onGone', 'removed'], tags: ['##NAME##', '##EMAIL##', '##OLD##'], features: ['content', 'search', 'ghost'],
                 config: ['profile', 'projects', 'databaseId', 'CUSTOM_FEATURES', 'SEARCH_COLLECTIONS', 'CUSTOM_MISSING'],
             }), fakeRepo()).join('\n');
             expect(problems).toContain('lists gone, which is not in the code');

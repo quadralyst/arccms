@@ -6,14 +6,16 @@
  */
 
 // Accounts without email or phone (specs/app-accounts-spec.md)
-export { createAppAccount, deleteAppAccount, APP_ACCOUNT } from './accounts.js';
+export { createAppAccount, deleteAppAccount, restoreAppSignIn, APP_ACCOUNT } from './accounts.js';
 export type { AppAccount, CreateAppAccountInput } from './accounts.js';
 
 // Claims and sessions
 export { isArcAdmin, mergeAppClaims, revokeSessions } from '../users/claims.js';
 
-// Signing a person in: a custom token for signInWithCustomToken in the browser
+// Signing a person in: a custom token for signInWithCustomToken in the browser,
+// and whether a callable's caller signed in with it
 export { issueSignInToken } from '../auth/accounts.js';
+export { signedInByApp } from '../auth/appAccountLock.js';
 
 // PINs an app checks itself, and rate limits (specs/app-pin-spec.md)
 export { APP_PINS, createPinStore, hashedKey } from './pins.js';

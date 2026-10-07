@@ -147,6 +147,18 @@ describe('only the functions changed since the last deploy', () => {
         expect(affectedFunctions({ graph, changed: [], deployable, previous: ['search'] }).names).toEqual(['custom', 'onAppEventCreate', 'processDripQueue']);
     });
 
+    it('finds a first generation function, and deploys it only when its own files change', () => {
+        const withV1 = functionsGraph([
+            ['users/onSignInDeleted.ts', "import { findUserByUid } from '../auth/accounts.js';\nexport const onSignInDeleted = functionsV1\n    .region(r)\n    .auth.user()\n    .onDelete(() => {});"],
+            ['auth/accounts.ts', 'export async function findUserByUid() {}'],
+            ['search/search.ts', "export const search = onCall(async () => {});"],
+        ]);
+        const all = ['onSignInDeleted', 'search'];
+        expect(withV1.defines.get('users/onSignInDeleted.ts')).toEqual(['onSignInDeleted']);
+        expect(affectedFunctions({ graph: withV1, changed: ['functions/src/auth/accounts.ts'], deployable: all, previous: all }).names).toEqual(['onSignInDeleted']);
+        expect(affectedFunctions({ graph: withV1, changed: ['functions/src/search/search.ts'], deployable: all, previous: all }).names).toEqual(['search']);
+    });
+
     it('says "all" when dependencies or settings change', () => {
         expect(affectedFunctions({ graph, changed: ['functions/package.json'], deployable, previous: deployable }).all).toBe(true);
         expect(affectedFunctions({ graph, changed: ['functions/.env.acme-dev'], deployable, previous: deployable }).all).toBe(true);

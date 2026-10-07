@@ -209,7 +209,8 @@ export function functionsGraph(files) {
             deps.push(join(dirname(file), match[1]).replace(/\.js$/, '.ts'));
         }
         imports.set(file, deps);
-        const names = [...code.matchAll(/export const (\w+)\s*=\s*(?:on[A-Z]\w*|beforeUser\w*)\s*(?:<[^>]*>)?\s*\(/g)].map((m) => m[1]);
+        // Second generation (onCall(...), onDocumentDeleted(...)) and first (functionsV1.region(...)...).
+        const names = [...code.matchAll(/export const (\w+)\s*=\s*(?:(?:on[A-Z]\w*|beforeUser\w*)\s*(?:<[^>]*>)?\s*\(|functionsV1\b)/g)].map((m) => m[1]);
         if (names.length) defines.set(file, names);
     }
     return { imports, defines };

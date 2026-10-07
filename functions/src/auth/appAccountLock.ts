@@ -26,6 +26,16 @@ export function signInProvider(request: CallableRequest): string {
 }
 
 /**
+ * Whether the caller signed in with the app's own token (issueSignInToken), never with
+ * a Google, password or phone sign-in linked in the browser. The callable twin of the
+ * rules helper `signedInByApp()`: check it wherever your app trusts a claim it put on
+ * app accounts (docs/app/app-accounts.html#client-links).
+ */
+export function signedInByApp(request: CallableRequest): boolean {
+    return signInProvider(request) === APP_SIGN_IN;
+}
+
+/**
  * Take every sign-in method off a locked app account's sign-in account, other than the
  * app's token, and end all its sessions. Returns the methods taken off (none when
  * there was nothing to do; sessions are then left alone).

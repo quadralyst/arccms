@@ -66,7 +66,7 @@ await mergeAppClaims(uid, { site: null }); // removes your "site" claim</code></
     <p>An app account belongs to your app, not to the person using it. So it is locked: the person cannot change it, and Arc CMS's server and rules refuse each try, whatever the browser sends.</p>
     <ul>
       <li>No new name or photo, and no new email, phone, Google sign-in, password or PIN.</li>
-      <li>No deleting it. <code>deleteMyAccount</code> refuses it even right after a sign-in; your app deletes it with <code>deleteAppAccount()</code>.</li>
+      <li>No deleting it. <code>deleteMyAccount</code> refuses it even right after a sign-in; your app deletes it with <code>deleteAppAccount()</code>. The browser can still delete the sign-in itself, which Arc CMS notices (<a href="#client-links">below</a>).</li>
       <li>It never becomes the site's first admin.</li>
       <li>No account, locked or not, can change its own <code>by</code> or <code>selfService</code>.</li>
     </ul>
@@ -87,13 +87,49 @@ export const CUSTOM_APP_ACCOUNTS: AppAccountChoice = { memberPages: false };</co
     <p>A locked account that opens one then goes to its home page from <code>src/custom/home.ts</code>, or to the site's home page when that home is itself a member page. The member menu hides those pages for it. Your own pages are not affected: a route with <code>userGuard</code> still lets it in.</p>
 
     <h3 id="client-links">What the browser can still do</h3>
-    <div class="trap"><p>Firebase lets a signed-in browser link Google, a password or a phone to its own sign-in account without asking Arc CMS's server. Refusing that needs Identity Platform's blocking functions, which Arc CMS does not use. Arc CMS hides every control that does it for a locked account, and the <code>users</code> record never follows such a link. When the person later signs in that way, the server sees a locked account signed in without your token: it takes that way in off the account, ends all its sessions and refuses. Until then that sign-in carries your claims, so a rule that trusts a claim alone trusts it too.</p></div>
-    <p>So in your own rules, wherever a claim you put on app accounts grants access, add <code>signedInByApp()</code>. It is true only when the session came from your sign-in token, never from a Google, password or phone sign-in linked in the browser:</p>
+    <p>Firebase lets a signed-in browser change a few things on its own sign-in account through the Firebase SDK, without asking Arc CMS's server. Refusing them needs Identity Platform's blocking functions, which Arc CMS does not use. Arc CMS hides every control that does them for a locked account, and the <code>users</code> record never follows any of them:</p>
+    <table>
+      <thead><tr><th>The browser can</th><th>What Arc CMS does</th></tr></thead>
+      <tbody>
+        <tr><td>Link a sign-in method: Google, a password or a phone</td><td>When the person later signs in that way, the server sees a locked account signed in without your token: it takes that way in off the account, ends all its sessions and refuses. Until then that sign-in carries your claims (see below).</td></tr>
+        <tr><td>Change the sign-in's display name or photo (<code>updateProfile</code>)</td><td>Nothing, and nothing needs doing: Arc CMS shows the name and photo from the <code>users</code> record, never from the sign-in. The ID token's <code>name</code> and <code>picture</code> do change, so never trust them in your own rules or functions.</td></tr>
+        <tr><td>Delete the sign-in (<code>auth.currentUser.delete()</code>; a sign-in with your token counts as recent, so Firebase asks for nothing more)</td><td>Keeps the record and emits <code>user.signInDeleted</code>, so your app decides what happens (<a href="#sign-in-deleted">below</a>).</td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>A sign-in linked in the browser carries your claims until the server next sees it. So in your own rules, wherever a claim you put on app accounts grants access, add <code>signedInByApp()</code>. It is true only when the session came from your sign-in token, never from a Google, password or phone sign-in linked in the browser:</p></div>
     <pre><code>// firestore.app.rules
 match /bookings/{id} {
   allow read: if signedInByApp() &amp;&amp; request.auth.token.staffRole == 'front-desk';
 }</code></pre>
-    <p>Leave it out of rules for ordinary members, who sign in with Google, a password or a phone code. The helpers your rules can call are listed in <a href="rules-and-indexes.html">Set security rules and indexes</a>.</p>
+    <p>Your callables check the same with <code>signedInByApp(request)</code> from the app kit:</p>
+    <pre><code>import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { signedInByApp } from '../app-kit/index.js';
+
+export const approveBooking = onCall(async (request) =&gt; {
+  if (!signedInByApp(request) || request.auth?.token['staffRole'] !== 'manager') {
+    throw new HttpsError('permission-denied', 'Managers only.');
+  }
+  // ...
+});</code></pre>
+    <p>Leave both out for ordinary members, who sign in with Google, a password or a phone code. The helpers your rules can call are listed in <a href="rules-and-indexes.html">Set security rules and indexes</a>.</p>
+
+    <h3 id="sign-in-deleted">When the browser deletes the sign-in</h3>
+    <p>The <code>users</code> record stays, and so do your app's PIN and your data for that uid. Arc CMS emits <code>user.signInDeleted</code> on the event bus, with <code>userId</code> (the Auth uid), <code>data.userDocId</code> and <code>data.locked</code>. It is not <code>user.deleted</code>: the account still exists, without a way in. Your app picks one of two answers:</p>
+    <ul>
+      <li><strong>Give the sign-in back</strong> with <code>restoreAppSignIn(uid, claims)</code>. It makes a sign-in with the same uid and the record's name, and sets Arc CMS's claims and yours in one write. Firebase deleted your claims with the old sign-in, so pass all of them. The PIN and your data keep working, since the uid is the same.</li>
+      <li><strong>Delete the account</strong> with <code>deleteAppAccount(uid)</code>, which then runs Arc CMS's normal account deletion and emits <code>user.deleted</code>.</li>
+    </ul>
+    <pre><code>import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { arcDocument } from '../arc-config.js';
+import { restoreAppSignIn } from '../app-kit/index.js';
+
+export const onStaffSignInDeleted = onDocumentCreated(arcDocument('AppEvents/{id}'), async (event) =&gt; {
+  const e = event.data?.data();
+  if (e?.['type'] !== 'user.signInDeleted' || !e['data']?.['locked']) return;
+  const staff = await findStaff(e['userId']); // your own data, keyed by the Auth uid
+  await restoreAppSignIn(e['userId'], { site: staff.siteId, staffRole: staff.role });
+});</code></pre>
+    <p>Both are safe to repeat. If the person signs in with your token before your app answers, Firebase makes a new sign-in with that uid. Arc CMS gives it back its own claims at sign-in, but not yours, so your app's access stays off until <code>restoreAppSignIn()</code> runs. Arc CMS's own deletions never emit <code>user.signInDeleted</code>: they delete the record first, and the event is only for a sign-in whose record is still there.</p>
 
     <h2 id="sessions">Sessions</h2>
     <p><code>revokeSessions(uid)</code> signs the person out on every device: their refresh tokens are revoked, so each session ends at its next token refresh, within the hour. Use it when a member of staff leaves or a device is lost. They can sign in again as usual afterwards.</p>
