@@ -1504,6 +1504,7 @@ export type TranslationKey =
     | 'member.auth.closed_sign_in_other'
     | 'member.auth.code_already_sent'
     | 'member.auth.code_label'
+    | 'member.auth.code_sent_again'
     | 'member.auth.code_sent_email'
     | 'member.auth.code_sent_sms'
     | 'member.auth.code_sent_to'
@@ -3367,6 +3368,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.closed_sign_in_other',
     'member.auth.code_already_sent',
     'member.auth.code_label',
+    'member.auth.code_sent_again',
     'member.auth.code_sent_email',
     'member.auth.code_sent_sms',
     'member.auth.code_sent_to',

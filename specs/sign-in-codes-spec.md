@@ -1,6 +1,6 @@
 # Sign-in Codes: Waits, Limits and Server Messages: Build Spec (SC)
 
-**Status:** spec, agreed with Gunjan 2026-10-08 (the team's report on sign-in codes, items 1 to 3;
+**Status:** BUILT 2026-10-08 (SC1 to SC4), agreed with Gunjan 2026-10-08 (the team's report on sign-in codes, items 1 to 3;
 item 4, the country picker, shipped as specs/phone-country-spec.md).
 **Branch:** `fix/sign-in-codes`, cut from `dev` (ee8b075), worktree `../arccms-phone-country`.
 
@@ -14,6 +14,9 @@ item 4, the country picker, shipped as specs/phone-country-spec.md).
 3. Every refusal a member can see carries a reason code (and its numbers) in `details`; the
    page shows it from member strings in the member's language, the server's English only as
    a fallback.
+
+4. **One code at a time (SC4, added 2026-10-08).** Asking again while a code still works
+   sends the same code, so two messages never carry different codes.
 
 **Out of scope:** the "[429]" the team saw after a message. Nothing in Arc CMS or the Firebase
 SDK adds it (the SDK maps HTTP 429 to `resource-exhausted` and keeps the message as sent); it
@@ -48,6 +51,10 @@ no server text reaches members as is. Asked the team for the exact text and resp
 | SC-D5 | **`consumeRateLimit` says when it reopens**: `details.retryAfter` (seconds) and a `reason` (an optional new argument, `too-many-attempts` by default). The page says "Try again after 5:42 PM" in the member's language and clock. | Exact, and a clock time needs no plural forms. The app kit signature only gains an optional argument. |
 | SC-D6 | **Every member-facing refusal carries `details.reason`** (kebab case) and its numbers, through one helper, `refuse(code, reason, message, extra)`. A refusal that means a bug ("Unknown request.") has none. | One place, testable. |
 | SC-D7 | **`SignInService` translates** a refusal with a reason through `member.auth.server_error.<reason>` (dashes become underscores), with its numbers as parameters, before any page sees it; no key, or no reason, keeps the server's text. | Every sign-in page and the profile get it at once, through the `readSignInError()` they already use. |
+| SC-D9 | **A resend sends the same code while it can still be used**: not verified, not expired, under 5 wrong tries, for the same purpose (and, to add a number or email, the same account), and less than 30 minutes since it was first made. Otherwise a new code. | Two messages with different codes leave the person guessing which works; only the newest did. The 30-minute cap keeps one code from living for hours. |
+| SC-D10 | **The code is kept sealed beside its hash**: AES-256-GCM, with a key derived from the server secret in `_system/pin_pepper` and the document id as associated data, so a sealed code cannot be moved to another number. The hash is still what a guess is checked against. A record that cannot be opened (written before SC4) gets a new code. | The hash of a 6-digit code protects nothing (a million tries); sealing is no weaker and lets the code be sent again. |
+| SC-D11 | **A resend restarts the 10 minutes and keeps the wrong tries.** The wait check, the choice of code and the write happen in one transaction. An SMS the provider refuses puts the old times back (a new code is deleted, as before). | The message says "expires in 10 minutes", so it must stay true. Tries no longer start again at 0 with every resend. One transaction closes the race between two requests at once. |
+| SC-D12 | **The reply says `sameCode: true`**, and the page shows "We sent the same code again." in place of the sent toast. | The person knows any message they got works. |
 | SC-D8 | **A test lists every reason the server uses** and fails when one has no English or Hindi member string, or when a member-facing `new HttpsError(` without a reason is added to the sign-in functions. | Keeps 3 from coming back. |
 
 ## 3. Reasons
@@ -112,6 +119,19 @@ the changed functions (no emulator; `npm run dev` uses the real project).
    docs/features/languages.html or member-languages.html (the new member keys), changelog.
 2. `npm run check:docs`, full suite, functions build.
 3. Critical review of SC3 and of the whole SC build against this spec.
+
+### SC4: One code at a time (functions deploy)
+1. `codeSeal.ts`: seal and open a code; the reuse rule (SC-D9, SC-D10).
+2. `issuePhoneOtp` and `issueEmailOtp`: wait check, choice of code and write in one
+   transaction; restart the expiry, keep the tries; put the times back on a refused SMS
+   (SC-D11); `sameCode` in the reply (SC-D12).
+3. The page and the profile: "We sent the same code again."; `code_already_sent` says
+   "ask for it again" (English and Hindi).
+4. Specs: same code on resend, tries kept, new code after expiry, lock, verify, another
+   purpose or 30 minutes; the sealed code is not the code and is bound to its document;
+   the page's line.
+5. Docs: sign-in and SMS pages, changelog.
+6. Critical review of SC4.
 
 ## 5. Deploy
 

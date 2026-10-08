@@ -657,6 +657,16 @@ describe('SignupComponent', () => {
             expect(c.toastService.success).not.toHaveBeenCalled();
         });
 
+        it('says a resend went out with the same code, in place of "sent" (SC-D12)', async () => {
+            const c = ctx(undefined, { sameCode: true });
+            await sendOtp.call(c, true);
+            expect(c.otpNotice()).toBe('We sent the same code again.');
+            expect(c.toastService.success).not.toHaveBeenCalled();
+            const e = emailCtx({ sameCode: true });
+            await sendOtp.call(e, true);
+            expect(e.otpNotice()).toBe('We sent the same code again.');
+        });
+
         it('shows no code for email with a real provider, just "sent"', async () => {
             const c = emailCtx({});
             await sendOtp.call(c);

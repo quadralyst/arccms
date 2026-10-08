@@ -91,6 +91,16 @@ export function translateRefusal(
     return text && text !== key ? text : null;
 }
 
+/**
+ * A code request's reply. `sameCode`: the code sent before still worked, so the
+ * same one went again (specs/sign-in-codes-spec.md, SC-D9).
+ */
+export interface CodeReply {
+    sent: boolean;
+    testMode?: boolean;
+    sameCode?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SignInService {
     private readonly auth = inject(Auth);
@@ -178,8 +188,9 @@ export class SignInService {
     /**
      * Email a sign-up code to this address. `testMode`: the Simulated email
      * provider, where nothing is sent, and the code comes back as `testCode`.
+     * `sameCode`: the address's code still worked, so it went again.
      */
-    requestSignupCode(email: string, name?: string): Promise<{ sent: boolean; testMode?: boolean; testCode?: string }> {
+    requestSignupCode(email: string, name?: string): Promise<CodeReply & { testCode?: string }> {
         return this.call('requestSignupOtp', { email, ...(name ? { name } : {}) });
     }
 
@@ -222,9 +233,10 @@ export class SignInService {
      * `testMode`: the Test SMS provider, where nothing is sent. A sign-up code
      * then comes back as `testCode`, and so does a reset code when an admin turned
      * on "Show PIN reset codes on screen" (Settings, SMS); otherwise reset and link
-     * codes are in SMS Logs only.
+     * codes are in SMS Logs only. `sameCode`: the number's code still worked, so
+     * it went again.
      */
-    requestPhoneCode(phone: string, purpose: PhoneOtpPurpose): Promise<{ sent: boolean; testMode?: boolean; testCode?: string }> {
+    requestPhoneCode(phone: string, purpose: PhoneOtpPurpose): Promise<CodeReply & { testCode?: string }> {
         return this.call('requestPhoneOtp', { phone, purpose });
     }
 
@@ -308,7 +320,7 @@ export class SignInService {
     }
 
     /** `testMode`: the Simulated email provider; the code is in Email Logs only. */
-    requestEmailLinkCode(email: string): Promise<{ sent: boolean; testMode?: boolean }> {
+    requestEmailLinkCode(email: string): Promise<CodeReply> {
         return this.call('requestEmailLinkOtp', { email });
     }
 

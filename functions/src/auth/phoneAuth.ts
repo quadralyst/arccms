@@ -121,8 +121,9 @@ export const requestPhoneOtp = onCall(async (request) => {
     await consumeRateLimit(callerLimit, 20, HOUR, TOO_MANY);
     await consumeRateLimit(numberLimit, 5, HOUR, 'Too many codes for this number. Please try again later.', 'too-many-codes');
     let testCode: string | undefined;
+    let sameCode: boolean | undefined;
     try {
-        ({ testCode } = await issuePhoneOtp(phone, purpose, sms, uid));
+        ({ testCode, sameCode } = await issuePhoneOtp(phone, purpose, sms, uid));
     } catch (err) {
         // Counted but not sent (a refusal from the provider, or a second request at once).
         await Promise.all([releaseRateLimit(callerLimit), releaseRateLimit(numberLimit)]);
@@ -135,9 +136,10 @@ export const requestPhoneOtp = onCall(async (request) => {
     // "Show PIN reset codes on screen"; otherwise it is in SMS Logs, for admins.
     // A link code would let anyone move a number to their account: SMS Logs only
     // (review F).
-    if (!testCode) return { sent: true, phone };
+    const again = sameCode ? { sameCode: true } : {};
+    if (!testCode) return { sent: true, phone, ...again };
     const shown = purpose === 'signup' || (purpose === 'reset' && sms.showResetCodes);
-    return { sent: true, phone, testMode: true, ...(shown ? { testCode } : {}) };
+    return { sent: true, phone, testMode: true, ...(shown ? { testCode } : {}), ...again };
 });
 
 export const verifyPhoneOtp = onCall(async (request) => {

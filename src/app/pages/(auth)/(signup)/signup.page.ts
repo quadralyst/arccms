@@ -613,13 +613,15 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         const reply = await this.signIn.requestPhoneCode(this.phone(), this.phonePurpose());
         this.testCode.set(reply.testCode ?? '');
         this.testCodeInLogs.set(!!reply.testMode && !reply.testCode);
-        if (!reply.testMode) this.toastService.success(this.t('member.auth.code_sent_sms'));
+        if (reply.sameCode) this.otpNotice.set(this.t('member.auth.code_sent_again'));
+        else if (!reply.testMode) this.toastService.success(this.t('member.auth.code_sent_sms'));
       } else {
         this.testCode.set('');
         const name = this.registrationForm.get('name')?.value || undefined;
         const reply = await this.signIn.requestSignupCode(this.email, name);
         this.testCode.set(reply.testCode ?? '');
-        if (!reply.testMode) this.toastService.success(this.t('member.auth.code_sent_email'));
+        if (reply.sameCode) this.otpNotice.set(this.t('member.auth.code_sent_again'));
+        else if (!reply.testMode) this.toastService.success(this.t('member.auth.code_sent_email'));
       }
       this.sentCodes.remember(key, { testCode: this.testCode(), testCodeInLogs: this.testCodeInLogs() });
       this.startCountdown();

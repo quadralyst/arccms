@@ -205,5 +205,14 @@ describe('SignInMethodsComponent', () => {
             await proto['resend'].call(c);
             expect(c['signIn'].requestPhoneCode).not.toHaveBeenCalled();
         });
+
+        it('says Resend sent the same code again (SC-D12)', async () => {
+            const c = ctx();
+            c['signIn'].requestPhoneCode.mockResolvedValue({ sent: true, sameCode: true });
+            c['flow'].set({ kind: 'phone', step: 'code', typed: '', check: { kind: 'phone', value: '+919876543210', status: 'available' } });
+            await proto['resend'].call(c);
+            expect(c['signIn'].requestPhoneCode).toHaveBeenCalledWith('+919876543210', 'link');
+            expect(c['notice']()).toBe('We sent the same code again.');
+        });
     });
 });

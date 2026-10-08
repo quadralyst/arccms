@@ -42,6 +42,7 @@ vi.mock('../init', () => ({
     // A transaction that reads and writes through the same document mocks.
     runTransaction: vi.fn((fn: (tx: any) => Promise<unknown>) => fn({
       get: (ref: any) => ref.get(),
+      set: (ref: any, data: unknown) => ref.set(data),
       update: (ref: any, data: unknown) => ref.update(data),
       delete: (ref: any) => ref.delete?.(),
     })),
@@ -52,7 +53,9 @@ const { mockRateLimit, mockRelease } = vi.hoisted(() => ({
   mockRateLimit: vi.fn().mockResolvedValue(undefined),
   mockRelease: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('../auth/accounts', () => ({ callerKey: () => 'caller', consumeRateLimit: mockRateLimit, releaseRateLimit: mockRelease }));
+vi.mock('../auth/accounts', () => ({
+  callerKey: () => 'caller', consumeRateLimit: mockRateLimit, releaseRateLimit: mockRelease, pinPepper: async () => 'test-pepper',
+}));
 
 vi.mock('../email-core/queueEmail', () => ({ queueEmail: mockQueueEmail }));
 vi.mock('../email-core/defaultTemplates', () => ({ ensureDefaultTemplates: mockEnsureDefaults }));
@@ -222,6 +225,57 @@ describe('requestSignupOtp', () => {
     const res = await reqHandler({ data: { email: EMAIL } });
     expect(res).toEqual({ sent: true, status: 'pending' });
     expect(res.testCode).toBeUndefined();
+  });
+
+  describe('one code at a time (specs/sign-in-codes-spec.md, SC4)', () => {
+    const minutesAgo = (m: number) => ({ toMillis: () => Date.now() - m * 60_000 });
+    /** Send once, then let the next read see what was stored, a minute later. */
+    async function sendFirst(fields: Record<string, unknown> = {}): Promise<string> {
+      await reqHandler({ data: { email: EMAIL } });
+      const stored = mockOtpSet.mock.calls[0][0];
+      mockOtpGet.mockResolvedValue({ exists: true, data: () => ({ ...stored, lastSentAt: minutesAgo(2), ...fields }) });
+      return mockQueueEmail.mock.calls[0][0].data.otp;
+    }
+
+    it('emails the same code again while it still works, its tries kept (SC-D9, SC-D11)', async () => {
+      const code = await sendFirst({ attempts: 2 });
+      const res = await reqHandler({ data: { email: EMAIL } });
+      expect(res).toEqual({ sent: true, status: 'pending', sameCode: true });
+      expect(mockQueueEmail.mock.calls[1][0].data.otp).toBe(code);
+      expect(mockOtpSet).toHaveBeenCalledTimes(1);
+      const update = mockOtpUpdate.mock.calls[0][0];
+      expect(Object.keys(update).sort()).toEqual(['expiresAt', 'lastSentAt']);
+      expect(update.expiresAt.toMillis() - Date.now()).toBeGreaterThan(9 * 60_000);
+    });
+
+    it('stores the code sealed, never as it is (SC-D10)', async () => {
+      const code = await sendFirst();
+      const stored = mockOtpSet.mock.calls[0][0];
+      expect(stored.codeSealed).toMatch(/^v1\./);
+      expect(JSON.stringify(stored)).not.toContain(code);
+    });
+
+    it.each([
+      ['expired', { expiresAt: minutesAgo(1) }],
+      ['out of tries', { attempts: 5 }],
+      ['verified', { verified: true }],
+      ['made 30 minutes ago', { issuedAt: minutesAgo(30) }],
+      ['a link code', { purpose: 'link', uid: 'uid-a' }],
+    ])('emails a new code when the old one is %s', async (_, fields) => {
+      await sendFirst(fields);
+      const res = await reqHandler({ data: { email: EMAIL } });
+      expect(res.sameCode).toBeUndefined();
+      expect(mockOtpSet).toHaveBeenCalledTimes(2);
+      expect(mockOtpSet.mock.calls[1][0].attempts).toBe(0);
+    });
+
+    it('keeps a link code for the account that asked for it', async () => {
+      await issueEmailOtp(EMAIL, 'link', { uid: 'uid-a' });
+      const stored = mockOtpSet.mock.calls[0][0];
+      mockOtpGet.mockResolvedValue({ exists: true, data: () => ({ ...stored, lastSentAt: minutesAgo(2) }) });
+      expect(await issueEmailOtp(EMAIL, 'link', { uid: 'uid-a' })).toMatchObject({ sameCode: true });
+      expect(await issueEmailOtp(EMAIL, 'link', { uid: 'uid-b' })).not.toHaveProperty('sameCode');
+    });
   });
 });
 

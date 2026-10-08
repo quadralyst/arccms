@@ -437,6 +437,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
                 ? await this.signIn.requestEmailLinkCode(check.value)
                 : await this.signIn.requestPhoneCode(check.value, 'link');
             this.testCodeInLogs.set(!!reply.testMode);
+            if (reply.sameCode) this.notice.set(this.t('member.auth.code_sent_again'));
             this.sentCodes.remember(key, { testCode: '', testCodeInLogs: !!reply.testMode });
             this.startCountdown(RESEND_SECONDS);
         } catch (err) {

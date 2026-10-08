@@ -169,7 +169,8 @@ export const requestEmailLinkOtp = onCall(async (request) => {
         throw refuse('unavailable', 'email-failed', "We couldn't send the email. Please try again in a moment.");
     }
     // Simulated provider: nothing was sent, and the code is in Email Logs, for admins.
-    return result.testMode ? { sent: true, testMode: true } : { sent: true };
+    const again = result.sameCode ? { sameCode: true } : {};
+    return result.testMode ? { sent: true, testMode: true, ...again } : { sent: true, ...again };
 });
 
 export const linkPhone = onCall(async (request) => {

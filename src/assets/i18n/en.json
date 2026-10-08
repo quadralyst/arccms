@@ -1896,7 +1896,8 @@
       "unfinished_signup": "We couldn't finish creating your account. Check your connection, then sign in with your email and password.",
       "profile_update_failed": "An error occurred while updating the profile",
       "password_update_failed": "Failed to update password",
-      "code_already_sent": "We sent a code a moment ago. Enter it, or ask for a new one when the timer ends.",
+      "code_already_sent": "We sent a code a moment ago. Enter it, or ask for it again when the timer ends.",
+      "code_sent_again": "We sent the same code again.",
       "server_error": {
         "wait": "Please wait {{ wait }} seconds before asking for another code.",
         "too_many_codes": "Too many codes. Try again after {{ time }}.",
