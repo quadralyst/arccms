@@ -20,6 +20,7 @@
     "build": "NODE_OPTIONS=\"--max-old-space-size=8192 $NODE_OPTIONS\" vite build && cp dist/client/index.html dist/analog/public/__shell.html",
     "build:project": "node scripts/arc-build.mjs",
     "test": "vitest",
+    "typecheck": "node scripts/typecheck.mjs",
     "test:rules": "node scripts/arc-rules-build.mjs && firebase emulators:exec --only firestore,storage --project demo-arccms-rules 'vitest run --config vitest.rules.config.ts'",
     "i18n:keys": "node scripts/generate-i18n-keys.mjs",
     "i18n:member": "node scripts/i18n-member.mjs",

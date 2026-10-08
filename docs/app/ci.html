@@ -114,7 +114,7 @@ jobs:
       - run: npm run deploy -- --project staging --non-interactive --force
       - run: npm run seed -- staging</code></pre>
     <ul>
-      <li><code>npm run test</code> runs once and exits in CI (Vitest sees the <code>CI</code> variable GitHub sets).</li>
+      <li><code>npm run test</code> runs once and exits in CI (Vitest sees the <code>CI</code> variable GitHub sets). It type-checks the app and the functions too, so a type error stops the job before the deploy.</li>
       <li>The deploy builds the website with staging's settings and the functions, then deploys everything the config has. <code>--non-interactive</code> tells the Firebase CLI to ask nothing, and <code>--force</code> lets it delete what the code no longer has, such as deployed functions, instead of asking (see <a href="../operations/deploy.html#functions-that-are-deleted">Functions that are deleted</a>); use <code>--only</code> to deploy less.</li>
       <li><code>npm run seed -- staging</code> publishes the static pages, as after every website deploy.</li>
       <li>The website build needs a few GB of memory (see <a href="../reference/npm-scripts.html">npm scripts</a>); GitHub's standard runners have enough.</li>
