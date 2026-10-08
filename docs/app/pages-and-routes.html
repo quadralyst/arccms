@@ -47,9 +47,9 @@ export const CUSTOM_ROUTES: Routes = [
       <tbody>
         <tr><td><code>path</code></td><td>The address without the leading slash, such as <code>'learn'</code> or <code>'learn/:lessonId'</code></td></tr>
         <tr><td><code>loadComponent</code></td><td>The page, loaded only when someone opens it</td></tr>
-        <tr><td><code>title</code></td><td>The browser tab title</td></tr>
+        <tr><td><code>title</code></td><td>The page's name in the browser tab; Arc CMS adds the site's name after it (see <a href="admin-look.html#browser-tab">Brand the admin</a>)</td></tr>
         <tr><td><code>canActivate</code></td><td>Guards that decide who may open the page (below)</td></tr>
-        <tr><td><code>data</code></td><td>Values a guard reads, such as <code>allowedRoles</code>, and page options such as <code>fullScreen</code> (below)</td></tr>
+        <tr><td><code>data</code></td><td>Values a guard reads, such as <code>allowedRoles</code>, and page options such as <code>fullScreen</code> (below) and <code>titleKey</code>, a translation key for the tab's title in the reader's language</td></tr>
         <tr><td><code>children</code></td><td>Pages shown inside a layout, such as the admin shell</td></tr>
       </tbody>
     </table>

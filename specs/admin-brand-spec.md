@@ -122,7 +122,9 @@ deploy also waits for AB4; none is expected (no functions, no rules).
 2. docs/website/sign-in-page.html: the sign-in image. docs/app/custom-space.html: `brand.ts`,
    `logo.*`, `sign-in-image.*`. reference/config-keys.html: `CUSTOM_BRAND`. The About settings
    page's docs: the media button and where the name and logo show.
-3. Screenshots: the admin in Arc blue and in Tapout teal; the wizard; the sign-in image.
+3. Screenshots: the docs have none yet (their screenshot phase is not built), so none to retake;
+   screenshots of the admin in Arc blue and Tapout teal and of the sign-in image go to Gunjan
+   with the report instead.
 4. `npm run docs:affected`, `npm run check:docs`.
 5. Critical review of AB1 to AB4: correctness, security, data integrity, tests, docs, drift
    from this spec. Fix every critical and high item, re-run the checks.
