@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SMS | Arc CMS docs</title>
   <meta name="description" content="Set up the SMS provider, send a test message, read the SMS log, and let people sign in with a phone number and a PIN.">
-  <meta name="docs:sources" content="functions/src/sms, functions/src/features/sms.ts, functions/src/auth/phoneAuth.ts, functions/src/auth/phoneOtp.ts, functions/src/auth/phoneNumber.ts, functions/src/auth/accounts.ts, src/app/pages/admin/(settings)/sms, src/app/pages/admin/(sms-logs), src/app/pages/admin/(settings)/user-setting/user-setting.model.ts, src/app/core/features/feature-registry.ts, src/app/core/features/feature-routes.ts, firestore.rules">
+  <meta name="docs:sources" content="functions/src/sms, functions/src/features/sms.ts, functions/src/auth/phoneAuth.ts, functions/src/auth/phoneOtp.ts, functions/src/auth/phoneNumber.ts, functions/src/auth/accounts.ts, src/app/pages/admin/(settings)/sms, src/app/pages/admin/(sms-logs), src/app/pages/admin/(settings)/user-setting/user-setting.model.ts, src/shared/components/country-picker, src/shared/data/countries.ts, src/app/core/features/feature-registry.ts, src/app/core/features/feature-routes.ts, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/sms.html">
@@ -17,7 +17,7 @@
     <table>
       <thead><tr><th>Part</th><th>Where</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td>SMS settings</td><td>Admin, Settings, SMS (<code>/admin/settings/sms</code>)</td><td>The provider and its keys, the default country code, the countries allowed, and a test send. It also says whether phone sign-in is on, with a link to its switch in User Settings.</td></tr>
+        <tr><td>SMS settings</td><td>Admin, Settings, SMS (<code>/admin/settings/sms</code>)</td><td>The provider and its keys, the countries people can sign in from and the default one, and a test send. It also says whether phone sign-in is on, with a link to its switch in User Settings.</td></tr>
         <tr><td>SMS Logs</td><td>Admin, Email + SMS, SMS Logs (<code>/admin/sms-logs</code>)</td><td>Every message, sent or only recorded, with its status</td></tr>
         <tr><td>Phone sign-in</td><td>The sign-in page, and the profile's sign-in methods</td><td>Sign up and sign in with a mobile number, a one-time code and a PIN</td></tr>
       </tbody>
@@ -48,10 +48,11 @@
     <h2>Set it up</h2>
     <ol class="steps">
       <li><p>Open Admin, Settings, SMS.</p></li>
-      <li><p>Set the <strong>default country code</strong> (digits only; <code>91</code> is India). It is added to numbers typed without one, on the sign-in page and on the server alike. Saving also copies it to <code>Settings/users</code> (<code>phoneCountryCode</code>), which the sign-in page can read before anyone signs in, while <code>Settings/sms</code> stays admin only. Opening this page puts the copy right if it is missing or out of step.</p></li>
-      <li><p>Set the <strong>allowed country codes</strong>, separated by commas. Only numbers starting with one of them can sign in by phone. Left empty, only the default country is allowed, never every country.</p></li>
+      <li><p>Under <strong>Countries</strong>, list the countries people can sign in from: type a name, an ISO id or a code (<code>44</code> or <code>+44</code>) in the search box and pick one. Each shows with its flag, name and code. Only numbers from these countries can sign in by phone, and the list is never empty: the last country has no remove button. A new site has India only.</p></li>
+      <li><p>With more than one country, choose the <strong>Default country</strong>. The sign-in page's country chip starts on it, and numbers typed without a code belong to it. Removing the default makes the first country left the default. With one country there is nothing to choose.</p></li>
+      <li><p>Saving stores the countries and their calling codes in <code>Settings/sms</code>; the server reads the codes. It also copies the countries to <code>Settings/users</code> (<code>phoneCountry</code>, <code>phoneCountryCode</code>, <code>phoneCountries</code>), which the sign-in page can read before anyone signs in, while <code>Settings/sms</code> stays admin only. Opening this page puts the copy right if it is missing or out of step. A site saved before countries were stored reads each saved code as its main country (<code>91</code> India, <code>44</code> the United Kingdom, <code>1</code> the United States) until it is saved again.</p></li>
       <li><p>To send real messages, choose <strong>MSG91</strong> and enter the auth key and the OTP template id. The key is never shown again: leave the field empty to keep the saved one.</p></li>
-      <li><p>Click <strong>Save SMS settings</strong>. Then, under <strong>Send a test SMS</strong>, enter your own number and click <strong>Send test</strong>. With MSG91 the test is your OTP template with a made-up code; with the test provider it is only recorded in SMS Logs.</p></li>
+      <li><p>Click <strong>Save SMS settings</strong>. Then, under <strong>Send a test SMS</strong>, pick your country beside the box, enter your own number and click <strong>Send test</strong>. With MSG91 the test is your OTP template with a made-up code; with the test provider it is only recorded in SMS Logs.</p></li>
     </ol>
     <p>Then turn phone sign-in on under Admin, Settings, User Settings (the SMS page links there). The switch first checks the one Google Cloud setting phone sign-in needs, and shows how to fix it if it is missing (see <a href="sign-in.html#google-cloud-setup-for-phone-sign-in">Google Cloud setup for phone sign-in</a>). With phone sign-in on and the test provider, User Settings also warns that codes are only logged.</p>
     <div class="warn"><p>With the test provider, no SMS is sent and the sign-in page shows the sign-up code on screen, so a sign-up does not prove the person owns the number. PIN reset codes are only in SMS Logs, unless you turn on <strong>Show PIN reset codes on screen</strong> (it appears with the test provider, off by default). Turn it on only while you test: anyone who knows a number could then reset that PIN and take over the account. Choosing MSG91 turns it off. Link codes are never shown on screen. Switch to MSG91 before real people use phone sign-in.</p></div>
@@ -82,7 +83,7 @@ const result = await sendSms({ to: '+919876543210', purpose: 'otp', code, text: 
     <table>
       <thead><tr><th>Where</th><th>Holds</th></tr></thead>
       <tbody>
-        <tr><td><code>Settings/sms</code></td><td><code>provider</code>, <code>defaultCountryCode</code>, <code>allowedCountryCodes</code>, <code>msg91AuthKey</code>, <code>msg91OtpTemplateId</code></td></tr>
+        <tr><td><code>Settings/sms</code></td><td><code>provider</code>, <code>defaultCountry</code> and <code>allowedCountries</code> (ISO ids such as <code>IN</code>), <code>defaultCountryCode</code> and <code>allowedCountryCodes</code> (their calling codes, which the server reads), <code>msg91AuthKey</code>, <code>msg91OtpTemplateId</code></td></tr>
         <tr><td><code>SmsLogs</code></td><td>One record per message</td></tr>
         <tr><td><code>phone_otps</code></td><td>The current code for each number, hashed, with its purpose, expiry and tries</td></tr>
         <tr><td><code>phone_index</code></td><td>Which user record owns each number (keyed by a hash of the number)</td></tr>
@@ -120,7 +121,7 @@ const result = await sendSms({ to: '+919876543210', purpose: 'otp', code, text: 
       <thead><tr><th>You see</th><th>Why, and what to do</th></tr></thead>
       <tbody>
         <tr><td>"Phone sign-in is not turned on for this site."</td><td>Turn it on in Admin, Settings, User Settings.</td></tr>
-        <tr><td>"Only numbers starting +91 can be used here."</td><td>Add the person's country code to the allowed country codes.</td></tr>
+        <tr><td>"This site takes mobile numbers from India only." on the sign-in page, or "Only numbers starting +91 can be used here." from the server</td><td>Add the person's country under Countries.</td></tr>
         <tr><td>"We couldn't send the SMS."</td><td>The provider refused it. SMS Logs has the <code>failed</code> record and the provider's error. For MSG91, check the auth key and the template id.</td></tr>
         <tr><td>"MSG91 is not set up"</td><td>The auth key or the template id is missing in Settings, SMS.</td></tr>
         <tr><td>"Please wait 42s before asking for another code." or "Too many codes for this number."</td><td>The once-a-minute or 5-an-hour limit per number. Wait.</td></tr>

@@ -1,6 +1,6 @@
 # Phone Country Picker: Build Spec (PC)
 
-**Status:** building. Agreed with Gunjan 2026-10-08. PC1 to PC4 built 2026-10-08.
+**Status:** built 2026-10-08 on `feat/phone-country` (PC1 to PC5), browser-checked on the xlm dev project at localhost:5182; suite, functions build and production build green. Not yet merged to `dev`.
 **Branch:** `feat/phone-country`, cut from `dev` (e945b17), worktree `../arccms-phone-country`.
 **Scope:** wherever a member types a mobile number, the country is shown and chosen
 separately from the number: a flag and calling code (`🇮🇳 +91`) beside the digits. The
