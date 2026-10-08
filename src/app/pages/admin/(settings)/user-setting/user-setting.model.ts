@@ -6,6 +6,7 @@
 
 import { isOn } from '../../../../core/features/features';
 import { DEFAULT_COUNTRY_CODE } from '../../../../../shared/utils/identifier.util';
+import { cleanCountryList, resolveCountrySettings } from '../../../../../shared/data/countries';
 
 export interface IUserSettings {
     id?: string;
@@ -21,6 +22,10 @@ export interface IUserSettings {
      * SmsSettingsService; digits only, `91` when missing.
      */
     phoneCountryCode?: string;
+    /** Copy of Settings, SMS's default country (ISO id, `IN`), which the country chip starts on. */
+    phoneCountry?: string;
+    /** Copy of Settings, SMS's allowed countries (ISO ids), the only ones the country chip offers. */
+    phoneCountries?: string[];
     createdAt?: any;
     updatedAt?: any;
 }
@@ -36,6 +41,23 @@ export function phoneSignInOn(settings: Pick<IUserSettings, 'phoneSignIn'> | nul
 /** The country code a number typed without one belongs to: Settings, SMS's default. */
 export function phoneCountryCode(settings: Pick<IUserSettings, 'phoneCountryCode'> | null | undefined): string {
     return String(settings?.phoneCountryCode ?? '').replace(/\D/g, '') || DEFAULT_COUNTRY_CODE;
+}
+
+/**
+ * The countries the sign-in page's country chip offers (specs/phone-country-spec.md).
+ * `listed` is false for a copy written before countries were stored: the page then
+ * leaves a number with its own `+code` to the server rather than refuse it.
+ */
+export function phoneCountrySettings(
+    settings: Pick<IUserSettings, 'phoneCountryCode' | 'phoneCountry' | 'phoneCountries'> | null | undefined,
+): { country: string; countries: string[]; listed: boolean } {
+    const listed = cleanCountryList(settings?.phoneCountries).length > 0;
+    const resolved = resolveCountrySettings({
+        countries: settings?.phoneCountries,
+        country: settings?.phoneCountry,
+        code: settings?.phoneCountryCode,
+    });
+    return { ...resolved, listed };
 }
 
 export const DEFAULT_USER_SETTINGS: IUserSettings = {

@@ -1268,12 +1268,12 @@ export type TranslationKey =
     | 'admin.settings.site_usage.reject_text_required'
     | 'admin.settings.site_usage.subtitle'
     | 'admin.settings.site_usage.title'
-    | 'admin.settings.sms.allowed_countries'
-    | 'admin.settings.sms.allowed_countries_hint'
     | 'admin.settings.sms.col_message'
     | 'admin.settings.sms.col_status'
     | 'admin.settings.sms.col_time'
     | 'admin.settings.sms.col_to'
+    | 'admin.settings.sms.countries'
+    | 'admin.settings.sms.countries_hint'
     | 'admin.settings.sms.default_country'
     | 'admin.settings.sms.default_country_hint'
     | 'admin.settings.sms.intro'
@@ -1407,6 +1407,9 @@ export type TranslationKey =
     | 'common.actions.search'
     | 'common.actions.show'
     | 'common.actions.view'
+    | 'common.country_picker.none'
+    | 'common.country_picker.remove'
+    | 'common.country_picker.search'
     | 'common.dialog.confirm'
     | 'common.dialog.delete'
     | 'common.dialog.logout'
@@ -3087,12 +3090,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.site_usage.reject_text_required',
     'admin.settings.site_usage.subtitle',
     'admin.settings.site_usage.title',
-    'admin.settings.sms.allowed_countries',
-    'admin.settings.sms.allowed_countries_hint',
     'admin.settings.sms.col_message',
     'admin.settings.sms.col_status',
     'admin.settings.sms.col_time',
     'admin.settings.sms.col_to',
+    'admin.settings.sms.countries',
+    'admin.settings.sms.countries_hint',
     'admin.settings.sms.default_country',
     'admin.settings.sms.default_country_hint',
     'admin.settings.sms.intro',
@@ -3226,6 +3229,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.actions.search',
     'common.actions.show',
     'common.actions.view',
+    'common.country_picker.none',
+    'common.country_picker.remove',
+    'common.country_picker.search',
     'common.dialog.confirm',
     'common.dialog.delete',
     'common.dialog.logout',

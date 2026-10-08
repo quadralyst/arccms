@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { Firestore } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
-import { DEFAULT_SMS_FORM, parseCountryCodes, SmsSettingsService, smsSettingsData } from './sms-settings.service';
+import { DEFAULT_SMS_FORM, publicCountryCopy, SmsSettingsService, smsSettingsData } from './sms-settings.service';
 
 // Firestore stand-in: records every write, and serves `docs` to getDoc.
 const fs = vi.hoisted(() => {
@@ -35,12 +35,25 @@ vi.mock('@angular/fire/functions', () => ({ Functions: class Functions {} }));
 
 describe('SMS settings', () => {
     it('starts on the test provider, India only', () => {
-        expect(DEFAULT_SMS_FORM).toMatchObject({ provider: 'log', defaultCountryCode: '91', allowedCountryCodes: '91' });
+        expect(DEFAULT_SMS_FORM).toMatchObject({ provider: 'log', defaultCountry: 'IN', allowedCountries: ['IN'] });
     });
 
-    it('reads a typed list of country codes', () => {
-        expect(parseCountryCodes('+91, 44 ,, x')).toEqual(['91', '44']);
-        expect(parseCountryCodes('')).toEqual([]);
+    it('saves the countries and their codes, which the server reads', () => {
+        expect(smsSettingsData({ ...DEFAULT_SMS_FORM, defaultCountry: 'CA', allowedCountries: ['IN', 'US', 'CA'] })).toMatchObject({
+            defaultCountry: 'CA',
+            allowedCountries: ['IN', 'US', 'CA'],
+            defaultCountryCode: '1',
+            allowedCountryCodes: ['91', '1'],
+        });
+    });
+
+    it('never saves an empty list, or a default outside the list', () => {
+        expect(smsSettingsData({ ...DEFAULT_SMS_FORM, defaultCountry: 'GB', allowedCountries: [] })).toMatchObject({
+            defaultCountry: 'GB', allowedCountries: ['GB'], defaultCountryCode: '44', allowedCountryCodes: ['44'],
+        });
+        expect(smsSettingsData({ ...DEFAULT_SMS_FORM, defaultCountry: 'GB', allowedCountries: ['IN', 'AE'] })).toMatchObject({
+            defaultCountry: 'IN', defaultCountryCode: '91',
+        });
     });
 
     it('keeps PIN reset codes off screen unless switched on, and only in test mode', () => {
@@ -55,7 +68,7 @@ describe('SMS settings', () => {
     });
 });
 
-describe('SmsSettingsService: the sign-in page\'s copy of the default country code', () => {
+describe('SmsSettingsService: the sign-in page\'s copy of the countries', () => {
     let service: SmsSettingsService;
     beforeEach(() => {
         fs.writes.length = 0;
@@ -66,27 +79,36 @@ describe('SmsSettingsService: the sign-in page\'s copy of the default country co
         service = TestBed.inject(SmsSettingsService);
     });
 
-    it('saves the default country code to Settings/users in the same write', async () => {
-        await service.save({ ...DEFAULT_SMS_FORM, defaultCountryCode: '+44' });
+    it('saves the countries to Settings/users in the same write', async () => {
+        await service.save({ ...DEFAULT_SMS_FORM, defaultCountry: 'GB', allowedCountries: ['IN', 'GB'] });
         expect(fs.writes.map(([id]) => id)).toEqual(['sms', 'users']);
-        expect(fs.writes[0][1]).toMatchObject({ defaultCountryCode: '44' });
-        expect(fs.writes[1][1]).toEqual({ phoneCountryCode: '44' });
+        expect(fs.writes[0][1]).toMatchObject({ defaultCountry: 'GB', defaultCountryCode: '44', allowedCountryCodes: ['91', '44'] });
+        expect(fs.writes[1][1]).toEqual({ phoneCountry: 'GB', phoneCountryCode: '44', phoneCountries: ['IN', 'GB'] });
+    });
+
+    it('reads an install saved before countries were: each code\'s main country', async () => {
+        fs.docs['sms'] = { defaultCountryCode: '44', allowedCountryCodes: ['91', '44', '1'] };
+        fs.docs['users'] = { phoneSignIn: true, phoneCountryCode: '44' };
+        const { form } = await service.load();
+        expect(form).toMatchObject({ defaultCountry: 'GB', allowedCountries: ['IN', 'GB', 'US'] });
+        expect(fs.writes).toEqual([['users', { phoneCountry: 'GB', phoneCountryCode: '44', phoneCountries: ['IN', 'GB', 'US'] }]]);
     });
 
     it('repairs a missing or stale copy when the page opens', async () => {
-        fs.docs['sms'] = { defaultCountryCode: '44' };
-        fs.docs['users'] = { phoneSignIn: true };
+        fs.docs['sms'] = { defaultCountry: 'AE', allowedCountries: ['AE', 'IN'], defaultCountryCode: '971', allowedCountryCodes: ['971', '91'] };
+        fs.docs['users'] = { phoneSignIn: true, phoneCountryCode: '971', phoneCountries: ['AE'] };
         await service.load();
-        expect(fs.writes).toEqual([['users', { phoneCountryCode: '44' }]]);
+        expect(fs.writes).toEqual([['users', { phoneCountry: 'AE', phoneCountryCode: '971', phoneCountries: ['AE', 'IN'] }]]);
     });
 
     it('leaves a copy that is in step, and a site with no SMS settings, alone', async () => {
-        fs.docs['sms'] = { defaultCountryCode: '44' };
-        fs.docs['users'] = { phoneCountryCode: '44' };
+        fs.docs['sms'] = { defaultCountry: 'GB', allowedCountries: ['GB'] };
+        fs.docs['users'] = publicCountryCopy({ country: 'GB', countries: ['GB'] });
         await service.load();
         delete fs.docs['sms'];
         fs.docs['users'] = {};
-        await service.load();
+        const { form } = await service.load();
         expect(fs.writes).toEqual([]);
+        expect(form).toMatchObject({ defaultCountry: 'IN', allowedCountries: ['IN'] });
     });
 });

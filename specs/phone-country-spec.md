@@ -1,6 +1,6 @@
 # Phone Country Picker: Build Spec (PC)
 
-**Status:** building. Agreed with Gunjan 2026-10-08. PC1 built 2026-10-08.
+**Status:** building. Agreed with Gunjan 2026-10-08. PC1 and PC2 built 2026-10-08.
 **Branch:** `feat/phone-country`, cut from `dev` (e945b17), worktree `../arccms-phone-country`.
 **Scope:** wherever a member types a mobile number, the country is shown and chosen
 separately from the number: a flag and calling code (`🇮🇳 +91`) beside the digits. The
@@ -104,9 +104,12 @@ Both are number-only boxes: the chip is always shown, `type="tel"`, `autocomplet
 
 ### 3.6 Settings, SMS
 
-- "Default country": a select of the allowed countries, with flags.
-- "Allowed countries": a searchable multi-select with flags, local names and codes. At
-  least one is required; removing the default asks the admin to pick a new one.
+- "Countries": the chosen countries (flag, local name, code) and a search box to add one,
+  by name in the page language or English, ISO id, or code (`44`, `+44`); the main country
+  of a shared code is listed first. The last country cannot be removed.
+- "Default country": a select of the allowed countries with the default's flag, shown only
+  when more than one is allowed (with one, it is the default). Removing the default makes
+  the first country left the default, which the select then shows.
 - Saving writes the countries and derived codes (PC-D5) and the public copy (PC-D6) in the
   one batch that exists today.
 

@@ -118,6 +118,23 @@ export function codesOf(isos: readonly string[]): string[] {
 }
 
 /**
+ * The default and allowed countries from stored settings: the countries when
+ * stored, else the main country of each stored code (an install saved before
+ * countries were, PC-D7), else India. The default is always one of the allowed
+ * countries; when it is not, the first allowed one is, so a stored mismatch
+ * never opens a country the admin did not list.
+ */
+export function resolveCountrySettings(stored: { countries?: unknown; codes?: unknown; country?: unknown; code?: unknown }): { country: string; countries: string[] } {
+    let countries = cleanCountryList(stored.countries);
+    if (!countries.length && Array.isArray(stored.codes)) countries = countriesFromCodes(stored.codes);
+    const named = countryByIso(stored.country)?.iso
+        ?? countriesForCode(stored.code)[0]?.iso
+        ?? (countries.length ? countries[0] : DEFAULT_COUNTRY);
+    if (!countries.length) countries = [named];
+    return { country: countries.includes(named) ? named : countries[0], countries };
+}
+
+/**
  * The allowed country an E.164 number belongs to: the longest matching code;
  * among countries that share it, `current` when it is one, else the main one.
  */
@@ -136,10 +153,24 @@ export function countryForE164(e164: string, allowed: readonly string[], current
 /** The country's name in `lang` (the browser's own names), or its ISO id when the browser has none. */
 export function countryName(iso: string, lang = 'en'): string {
     try {
-        return new Intl.DisplayNames([lang, 'en'], { type: 'region' }).of(iso) ?? iso;
+        return displayNames(lang)?.of(iso) ?? iso;
     } catch {
         return iso;
     }
+}
+
+const NAMES = new Map<string, Intl.DisplayNames | null>();
+
+/** One `Intl.DisplayNames` per language: a search ranks every country on each keystroke. */
+function displayNames(lang: string): Intl.DisplayNames | null {
+    if (!NAMES.has(lang)) {
+        try {
+            NAMES.set(lang, new Intl.DisplayNames([lang, 'en'], { type: 'region' }));
+        } catch {
+            NAMES.set(lang, null);
+        }
+    }
+    return NAMES.get(lang) ?? null;
 }
 
 /** The flag image for a country (vendored from flag-icons, MIT). */

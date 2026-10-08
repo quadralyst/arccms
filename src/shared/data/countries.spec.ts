@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
     cleanCountryList, codesOf, COUNTRIES, countriesForCode, countriesFromCodes, countryByIso,
-    countryForE164, countryName, DEFAULT_COUNTRY, flagUrl,
+    countryForE164, countryName, DEFAULT_COUNTRY, flagUrl, resolveCountrySettings,
 } from './countries';
 
 const FLAGS = resolve(__dirname, '../../../public/flags/4x3');
@@ -49,6 +49,25 @@ describe('stored lists', () => {
 
     it('turns countries into codes, once each', () => {
         expect(codesOf(['US', 'CA', 'IN', 'ZZ'])).toEqual(['1', '91']);
+    });
+});
+
+describe('resolveCountrySettings', () => {
+    it('takes stored countries first', () => {
+        expect(resolveCountrySettings({ countries: ['GB', 'IN'], codes: ['1'], country: 'IN', code: '1' })).toEqual({ country: 'IN', countries: ['GB', 'IN'] });
+    });
+
+    it('reads an old install\'s codes', () => {
+        expect(resolveCountrySettings({ codes: ['91', '44'], code: '44' })).toEqual({ country: 'GB', countries: ['IN', 'GB'] });
+    });
+
+    it('is India with nothing stored, and the default alone with no list', () => {
+        expect(resolveCountrySettings({})).toEqual({ country: 'IN', countries: ['IN'] });
+        expect(resolveCountrySettings({ code: '971' })).toEqual({ country: 'AE', countries: ['AE'] });
+    });
+
+    it('never widens the list for a default outside it', () => {
+        expect(resolveCountrySettings({ countries: ['IN', 'AE'], country: 'GB' })).toEqual({ country: 'IN', countries: ['IN', 'AE'] });
     });
 });
 

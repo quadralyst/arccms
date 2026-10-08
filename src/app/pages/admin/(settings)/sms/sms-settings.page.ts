@@ -8,14 +8,17 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { injectT } from '../../../../core/i18n/inject-t';
+import { CountryPickerComponent } from '../../../../../shared/components/country-picker/country-picker.component';
+import { countryByIso, countryName, flagUrl } from '../../../../../shared/data/countries';
 import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-settings.service';
 
 @Component({
     selector: 'arc-sms-settings',
     standalone: true,
-    imports: [FormsModule, TranslocoPipe, RouterLink],
+    imports: [FormsModule, TranslocoPipe, RouterLink, CountryPickerComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="settings-section">
@@ -72,23 +75,26 @@ import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-set
                 </div>
             }
 
-            <div class="row">
-                <div class="col-sm-5 mb-3">
+            <div class="mb-3 countries">
+                <label class="form-label" for="smsCountries">{{ 'admin.settings.sms.countries' | transloco }}</label>
+                <arc-country-picker inputId="smsCountries" [value]="form().allowedCountries" (valueChange)="setCountries($event)" />
+                <small class="text-muted d-block mt-1">{{ 'admin.settings.sms.countries_hint' | transloco }}</small>
+            </div>
+            <!-- With one country it is the default too: nothing to choose. -->
+            @if (form().allowedCountries.length > 1) {
+                <div class="mb-3 default-country">
                     <label class="form-label" for="smsDefaultCountry">{{ 'admin.settings.sms.default_country' | transloco }}</label>
                     <div class="input-group">
-                        <span class="input-group-text">+</span>
-                        <input id="smsDefaultCountry" type="text" inputmode="numeric" class="form-control"
-                            [ngModel]="form().defaultCountryCode" (ngModelChange)="update('defaultCountryCode', $event)" />
+                        <span class="input-group-text"><img [src]="flag(form().defaultCountry)" alt="" width="20" height="15" /></span>
+                        <select id="smsDefaultCountry" class="form-select" [ngModel]="form().defaultCountry" (ngModelChange)="update('defaultCountry', $event)">
+                            @for (iso of form().allowedCountries; track iso) {
+                                <option [value]="iso">{{ name(iso) }} (+{{ code(iso) }})</option>
+                            }
+                        </select>
                     </div>
                     <small class="text-muted d-block mt-1">{{ 'admin.settings.sms.default_country_hint' | transloco }}</small>
                 </div>
-                <div class="col-sm-7 mb-3">
-                    <label class="form-label" for="smsAllowed">{{ 'admin.settings.sms.allowed_countries' | transloco }}</label>
-                    <input id="smsAllowed" type="text" class="form-control"
-                        [ngModel]="form().allowedCountryCodes" (ngModelChange)="update('allowedCountryCodes', $event)" />
-                    <small class="text-muted d-block mt-1">{{ 'admin.settings.sms.allowed_countries_hint' | transloco }}</small>
-                </div>
-            </div>
+            }
 
             <button class="btn btn-primary" (click)="save()" [disabled]="saving()">
                 @if (saving()) { <i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.actions.saving' | transloco }} }
@@ -123,11 +129,15 @@ import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-set
         h3 { font-size: 1.25rem; font-weight: 600; color: #212529; }
         h4 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
         .test-row { max-width: 420px; }
+        .default-country .input-group { max-width: 360px; }
+        .default-country img { border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1); }
     `],
 })
 export class SmsSettingsPage implements OnInit {
     private readonly service = inject(SmsSettingsService);
     private readonly t = injectT();
+    private readonly transloco = inject(TranslocoService);
+    private readonly lang = toSignal(this.transloco.langChanges$, { initialValue: this.transloco.getActiveLang() });
 
     readonly form = signal<SmsSettingsForm>({ ...DEFAULT_SMS_FORM });
     readonly hasAuthKey = signal(false);
@@ -151,6 +161,25 @@ export class SmsSettingsPage implements OnInit {
     update<K extends keyof SmsSettingsForm>(key: K, value: SmsSettingsForm[K]): void {
         this.form.update((f) => ({ ...f, [key]: value }));
         this.saveMessage.set('');
+    }
+
+    /** The allowed countries; a default that was taken off becomes the first one left. */
+    setCountries(countries: string[]): void {
+        const defaultCountry = countries.includes(this.form().defaultCountry) ? this.form().defaultCountry : countries[0];
+        this.form.update((f) => ({ ...f, allowedCountries: countries, defaultCountry }));
+        this.saveMessage.set('');
+    }
+
+    name(iso: string): string {
+        return countryName(iso, this.lang());
+    }
+
+    code(iso: string): string {
+        return countryByIso(iso)?.code ?? '';
+    }
+
+    flag(iso: string): string {
+        return flagUrl(iso);
     }
 
     async save(): Promise<void> {
