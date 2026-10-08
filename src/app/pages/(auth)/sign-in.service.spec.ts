@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@angular/fire/functions', () => ({ Functions: class {}, httpsCallable: vi.fn() }));
 
-import { readSignInError, SIGN_IN_FUNCTIONS, SignInService } from './sign-in.service';
+import { readSignInError, translateRefusal, SIGN_IN_FUNCTIONS, SignInService } from './sign-in.service';
+import { english } from '../../../test/english';
 
 const ensureRecordClaim = SignInService.prototype.ensureRecordClaim;
 
@@ -50,8 +51,51 @@ describe('SignInService.ensureRecordClaim', () => {
 describe('readSignInError', () => {
     it('keeps the server message and reason, hides internal errors', () => {
         expect(readSignInError({ code: 'functions/failed-precondition', message: 'Sign in again.', details: { reason: 'recent-sign-in' } }))
-            .toEqual({ code: 'failed-precondition', message: 'Sign in again.', reason: 'recent-sign-in' });
+            .toEqual({ code: 'failed-precondition', message: 'Sign in again.', reason: 'recent-sign-in', details: { reason: 'recent-sign-in' } });
         expect(readSignInError({ code: 'functions/internal', message: 'stack trace' }, 'Oops').message).toBe('Oops');
+    });
+});
+
+describe('translateRefusal (specs/sign-in-codes-spec.md, SC-D7)', () => {
+    const en = (key: string, params: Record<string, unknown>) => english(key, params);
+
+    it('says a refusal with a reason in the member\'s strings, with its numbers', () => {
+        expect(translateRefusal({ reason: 'wait', wait: 39 }, en, 'en')).toBe('Please wait 39 seconds before asking for another code.');
+        expect(translateRefusal({ reason: 'wrong', remaining: 2 }, en, 'en')).toBe('Wrong PIN. 2 left.');
+    });
+
+    it('says when a limit reopens as a clock time in the member\'s language', () => {
+        const now = new Date(2026, 9, 8, 17, 0, 0).getTime();
+        expect(translateRefusal({ reason: 'too-many-codes', retryAfter: 42 * 60 }, en, 'en', now)).toBe('Too many codes. Try again after 5:42 PM.');
+    });
+
+    it('keeps the server\'s text for no reason, or a reason with no string', () => {
+        expect(translateRefusal(undefined, en, 'en')).toBeNull();
+        expect(translateRefusal({ reason: 'something-new' }, en, 'en')).toBeNull();
+        expect(translateRefusal({ reason: '../x' }, en, 'en')).toBeNull();
+    });
+});
+
+describe('every reason the sign-in functions give has a member string (SC-D8)', () => {
+    it('in English and Hindi', async () => {
+        const { readdirSync, readFileSync } = await import('node:fs');
+        const { resolve } = await import('node:path');
+        const auth = resolve(__dirname, '../../../../functions/src/auth');
+        const reasons = new Set<string>(['too-many-attempts']);
+        for (const file of readdirSync(auth).filter((f) => f.endsWith('.ts'))) {
+            const text = readFileSync(resolve(auth, file), 'utf8');
+            for (const m of text.matchAll(/refuse\(\s*'[a-z-]+',\s*'([a-z-]+)'/g)) reasons.add(m[1]);
+            for (const m of text.matchAll(/new HttpsError\(([\s\S]*?)\);/g)) {
+                const reason = /reason: '([a-z-]+)'/.exec(m[1])?.[1];
+                if (reason) reasons.add(reason);
+            }
+            for (const m of text.matchAll(/consumeRateLimit\([^;]*?'([a-z]+(?:-[a-z]+)+)'\);/g)) reasons.add(m[1]);
+        }
+        const hi = (await import('../../../assets/i18n/hi.json')).default as any;
+        const missing = [...reasons].map((r) => r.replace(/-/g, '_'))
+            .filter((k) => english(`member.auth.server_error.${k}`).startsWith('member.') || !hi.member.auth.server_error?.[k]);
+        expect(reasons.size).toBeGreaterThan(30);
+        expect(missing).toEqual([]);
     });
 });
 

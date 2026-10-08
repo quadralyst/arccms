@@ -270,6 +270,9 @@
                                 <p class="small text-muted text-center mt-2">{{ 'member.auth.test_code_in_logs' | transloco }}</p>
                                 }
 
+                                @if (otpNotice()) {
+                                <p class="small text-muted text-center mt-2 otp-notice">{{ otpNotice() }}</p>
+                                }
                                 @if (otpError()) {
                                 <div class="text-danger mt-2 text-center">
                                     {{ otpError() }}

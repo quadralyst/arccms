@@ -13,6 +13,7 @@ import { AUTH_OWNER } from '../users/authOwner.js';
 import { applyNewAccountClaims, findUserByEmail, findUserByUid, readSignInSettings } from './accounts.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuseOtherSignIn } from './appAccountLock.js';
+import { refuse } from './refusal.js';
 
 /**
  * A sign-in account older than this was not made by the Google sign-in that
@@ -29,7 +30,7 @@ export function authOwnerFor(creationTime: string | undefined, now = Date.now())
 export const ensureGoogleAccount = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
     const uid = request.auth?.uid;
-    if (!uid) throw new HttpsError('unauthenticated', 'Please sign in again.');
+    if (!uid) throw refuse('unauthenticated', 'sign-in-again', 'Please sign in again.');
     const existing = await findUserByUid(uid);
     if (existing) {
         // A locked app account with Google linked to it in the browser (appAccountLock.ts).
@@ -40,16 +41,16 @@ export const ensureGoogleAccount = onCall(async (request) => {
     const token = request.auth!.token as { email?: string; email_verified?: boolean; name?: string; picture?: string; firebase?: { sign_in_provider?: string } };
     const email = String(token.email ?? '').trim().toLowerCase();
     if (token.firebase?.sign_in_provider !== 'google.com' || !email || token.email_verified !== true) {
-        throw new HttpsError('failed-precondition', 'Please sign in with Google again.');
+        throw refuse('failed-precondition', 'sign-in-again', 'Please sign in with Google again.');
     }
 
     const settings = await readSignInSettings();
-    if (!settings.googleSignIn) throw new HttpsError('failed-precondition', 'Google sign-in is not turned on for this site.');
+    if (!settings.googleSignIn) throw refuse('failed-precondition', 'google-off', 'Google sign-in is not turned on for this site.');
     if (!settings.signupOpen) {
         throw new HttpsError('failed-precondition', "New accounts can't be created on this site right now.", { reason: 'signup-closed' });
     }
     if (await findUserByEmail(email)) {
-        throw new HttpsError('already-exists', 'An account with this email already exists. Sign in with your password.');
+        throw refuse('already-exists', 'google-email-taken', 'An account with this email already exists. Sign in with your password.');
     }
 
     const account = await owner.getUser(uid);

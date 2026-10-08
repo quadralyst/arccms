@@ -1,4 +1,4 @@
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { createHash, randomInt } from 'node:crypto';
@@ -7,9 +7,11 @@ import { queueEmail } from '../email-core/queueEmail.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { ensureDefaultTemplates } from '../email-core/defaultTemplates.js';
 import type { EmailTemplateData } from '../types.js';
-import { callerKey, consumeRateLimit, requireOwnRecord } from './accounts.js';
+import { callerKey, consumeRateLimit, releaseRateLimit, requireOwnRecord } from './accounts.js';
 import { newOtpTicket, ticketMatches } from './otpTicket.js';
 import { isWarmUp, WARM } from './warmUp.js';
+import { refuse } from './refusal.js';
+import { codeSealKey, resendWait, reusableCode, sealCode } from './codeSeal.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -70,58 +72,97 @@ export const requestSignupOtp = onCall(async (request) => {
   if (isWarmUp(request)) return WARM;
   const email = normalizeEmail(request.data?.email);
   if (!email || !email.includes('@')) {
-    throw new HttpsError('invalid-argument', 'Enter a valid email address.');
+    throw refuse('invalid-argument', 'invalid-email', 'Enter a valid email address.');
   }
   const name = typeof request.data?.name === 'string' && request.data.name ? request.data.name : undefined;
-  await consumeRateLimit(`email-otp-ip-${callerKey(request)}`, 20, HOUR, 'Too many attempts. Please try again later.');
-  await consumeRateLimit(`email-otp-${computeEmailHash(email)}`, 5, HOUR, 'Too many codes for this address. Please try again in an hour.');
-  return issueEmailOtp(email, 'signup', { name });
+  // The wait first: only codes really sent count towards the hourly limits, and
+  // one that could not be queued is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
+  await assertEmailResendReady(email);
+  const callerLimit = `email-otp-ip-${callerKey(request)}`;
+  const addressLimit = `email-otp-${computeEmailHash(email)}`;
+  await consumeRateLimit(callerLimit, 20, HOUR, 'Too many attempts. Please try again later.');
+  await consumeRateLimit(addressLimit, 5, HOUR, 'Too many codes for this address. Please try again later.', 'too-many-codes');
+  try {
+    return await issueEmailOtp(email, 'signup', { name });
+  } catch (err) {
+    // Counted but not sent (a refusal from the provider, or a second request at once).
+    await Promise.all([releaseRateLimit(callerLimit), releaseRateLimit(addressLimit)]);
+    throw err;
+  }
 });
 
 /**
- * Create a code for this address and email it. Shared by the sign-up page and
- * by adding an email to an account (`requestEmailLinkOtp`). With the Simulated
- * provider the reply says `testMode`, and carries a sign-up code as `testCode`.
+ * Refuse with `wait` (and the seconds left) while the last code for this address
+ * is under a minute old. Callers check it before counting the hourly limits, so
+ * a refused send never uses one up (specs/sign-in-codes-spec.md, SC-D3).
+ */
+export async function assertEmailResendReady(email: string, now = Date.now()): Promise<void> {
+  const existing = await db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(email)).get();
+  if (existing.exists) refuseWithinWait(existing.data(), now);
+}
+
+function refuseWithinWait(data: Record<string, unknown> | undefined, now: number): void {
+  const wait = resendWait(data, now, RESEND_THROTTLE_MS);
+  if (wait) throw refuse('resource-exhausted', 'wait', `Please wait ${wait}s before asking for another code.`, { wait });
+}
+
+/**
+ * Email this address its code: the one it already has while that still works
+ * (`sameCode`, specs/sign-in-codes-spec.md SC-D9), else a new one. Shared by
+ * the sign-up page and by adding an email to an account (`requestEmailLinkOtp`).
+ * With the Simulated provider the reply says `testMode`, and carries a sign-up
+ * code as `testCode`.
  */
 export async function issueEmailOtp(
   email: string,
   purpose: EmailOtpPurpose,
   options: { name?: string; uid?: string } = {},
-): Promise<{ sent: boolean; status: string; testMode?: boolean; testCode?: string }> {
+): Promise<{ sent: boolean; status: string; testMode?: boolean; testCode?: string; sameCode?: boolean }> {
   const emailHash = computeEmailHash(email);
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
   const now = Date.now();
 
-  const existing = await ref.get();
-  if (existing.exists) {
-    const lastSent = (existing.data()?.['lastSentAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
-    if (now - lastSent < RESEND_THROTTLE_MS) {
-      const wait = Math.ceil((RESEND_THROTTLE_MS - (now - lastSent)) / 1000);
-      throw new HttpsError('resource-exhausted', `Please wait ${wait}s before asking for another code.`);
-    }
-  }
+  // Checked here too, before the transaction below settles it for two requests at once.
+  await assertEmailResendReady(email, now);
 
   const template = await loadSignupOtpTemplate();
   if (!template) {
-    throw new HttpsError('failed-precondition', "We couldn't send the email. Please try again later.");
+    throw refuse('failed-precondition', 'email-failed', "We couldn't send the email. Please try again later.");
   }
+  const sealKey = await codeSealKey(); // read before the transaction, not inside it
 
-  const code = generateCode();
-  await ref.set(
-    {
+  // The wait, the choice of code and the write in one go (SC-D11).
+  const { code, sameCode } = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : undefined;
+    refuseWithinWait(data, now);
+    const again = reusableCode(data, {
+      samePurpose: !!data && matchesPurpose(data, purpose, options.uid),
+      docId: emailHash, key: sealKey, now, maxAttempts: MAX_ATTEMPTS, hash: (c) => hashCode(c, emailHash),
+    });
+    const times = { expiresAt: Timestamp.fromMillis(now + OTP_TTL_MS), lastSentAt: Timestamp.fromMillis(now) };
+    if (again) {
+      // The same code, its wrong tries kept, for another 10 minutes.
+      tx.update(ref, times);
+      return { code: again, sameCode: true };
+    }
+    const fresh = generateCode();
+    tx.set(ref, {
       email,
       emailHash,
       purpose,
       uid: options.uid ?? null,
-      codeHash: hashCode(code, emailHash),
-      expiresAt: Timestamp.fromMillis(now + OTP_TTL_MS),
+      codeHash: hashCode(fresh, emailHash),
+      codeSealed: sealCode(fresh, emailHash, sealKey),
+      issuedAt: Timestamp.fromMillis(now),
       attempts: 0,
-      lastSentAt: Timestamp.fromMillis(now),
       verified: false,
       createdAt: Timestamp.fromMillis(now),
-    },
-    { merge: true },
-  );
+      ...times,
+    });
+    return { code: fresh, sameCode: false };
+  });
+  const again = sameCode ? { sameCode: true } : {};
 
   const toName = options.name || email.split('@')[0];
 
@@ -144,12 +185,12 @@ export async function issueEmailOtp(
 
   logger.info(`issueEmailOtp: queued ${purpose} OTP for ${email} (status=${result.status}).`);
   const sent = result.status === 'pending';
-  if (!sent || !(await isSimulatedEmail())) return { sent, status: result.status };
+  if (!sent || !(await isSimulatedEmail())) return { sent, status: result.status, ...again };
   // Simulated provider: no email goes out, the code is only in Email Logs. The
   // page shows a sign-up code, which only makes a new account, like the Test SMS
   // provider. A link code would let anyone add an address to their account:
   // Email Logs only.
-  return { sent, status: result.status, testMode: true, ...(purpose === 'signup' ? { testCode: code } : {}) };
+  return { sent, status: result.status, testMode: true, ...(purpose === 'signup' ? { testCode: code } : {}), ...again };
 }
 
 /** Whether email goes to the Simulated provider, which records it in Email Logs and sends nothing. */
@@ -171,7 +212,7 @@ export const verifySignupOtp = onCall(async (request) => {
   const email = normalizeEmail(request.data?.email);
   const code = String(request.data?.code || '');
   if (!email || !code) {
-    throw new HttpsError('invalid-argument', "That code didn't work.");
+    throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
   }
   const purpose: EmailOtpPurpose = request.data?.purpose === 'link' ? 'link' : 'signup';
   // A link code is for the signed-in account's own record (never a locked app account).
@@ -196,10 +237,10 @@ export const verifySignupOtp = onCall(async (request) => {
     return 'ok';
   });
 
-  if (outcome === 'missing') throw new HttpsError('not-found', 'That code has expired. Please ask for a new one.');
-  if (outcome === 'expired') throw new HttpsError('deadline-exceeded', 'That code has expired. Please ask for a new one.');
-  if (outcome === 'locked') throw new HttpsError('resource-exhausted', 'Too many tries. Please ask for a new code.');
-  if (outcome === 'wrong') throw new HttpsError('invalid-argument', "That code didn't work.");
+  if (outcome === 'missing') throw refuse('not-found', 'code-expired', 'That code has expired. Please ask for a new one.');
+  if (outcome === 'expired') throw refuse('deadline-exceeded', 'code-expired', 'That code has expired. Please ask for a new one.');
+  if (outcome === 'locked') throw refuse('resource-exhausted', 'code-tries', 'Too many tries. Please ask for a new code.');
+  if (outcome === 'wrong') throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
   logger.info(`verifySignupOtp: verified ${email}.`);
   return { verified: true, ticket };
 });

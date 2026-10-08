@@ -65,7 +65,7 @@
       <li><strong>A registered number</strong> signs in with its PIN. After 5 wrong PINs, the PIN is locked and the person resets it with a new code.</li>
       <li><strong>Forgot PIN?</strong> sends a code; after it, the person chooses a new PIN, and every other session of that account is signed out within the hour.</li>
     </ol>
-    <p>Codes last 10 minutes and allow 5 tries. A number can get a new code once a minute and 5 codes an hour. PINs such as repeated digits or <code>123456</code> are refused. A signed-in person can also add a number to their account, or change their PIN, from their profile. Adding a number sends a code; a number verified this way moves from any other account that had it (see <a href="sign-in.html">Sign-in methods</a>).</p>
+    <p>Codes last 10 minutes and allow 5 tries. A number can get a code once a minute and 5 codes an hour; a request inside the minute, or an SMS the provider refuses, does not count towards the 5. Asking again while the code still works sends the same code, with another 10 minutes, so two messages never carry different codes. PINs such as repeated digits or <code>123456</code> are refused. A signed-in person can also add a number to their account, or change their PIN, from their profile. Adding a number sends a code; a number verified this way moves from any other account that had it (see <a href="sign-in.html">Sign-in methods</a>).</p>
     <h3>SMS Logs</h3>
     <p>Each message shows the time, the number (To), the message, its type (<strong>Sign-in code</strong> or <strong>Test</strong>), its status and the provider. The status is <strong>Logged</strong> (test provider, stored as <code>logged</code>), <strong>Sent</strong> (<code>sent</code>) or <strong>Failed</strong> (<code>failed</code>), with the provider's error after the message. For a real provider the code is replaced by dots in the stored text, so the log never holds a live code. Filter by status to find failures.</p>
 
@@ -124,7 +124,7 @@ const result = await sendSms({ to: '+919876543210', purpose: 'otp', code, text: 
         <tr><td>"This site takes mobile numbers from India only." on the sign-in page, or "Only numbers starting +91 can be used here." from the server</td><td>Add the person's country under Countries.</td></tr>
         <tr><td>"We couldn't send the SMS."</td><td>The provider refused it. SMS Logs has the <code>failed</code> record and the provider's error. For MSG91, check the auth key and the template id.</td></tr>
         <tr><td>"MSG91 is not set up"</td><td>The auth key or the template id is missing in Settings, SMS.</td></tr>
-        <tr><td>"Please wait 42s before asking for another code." or "Too many codes for this number."</td><td>The once-a-minute or 5-an-hour limit per number. Wait.</td></tr>
+        <tr><td>"We sent a code a moment ago." with a countdown, or "Too many codes. Try again after 5:42 PM."</td><td>The once-a-minute or 5-an-hour limit per number. Use the code already sent, or wait until the time shown.</td></tr>
         <tr><td>No code arrives and the status in SMS Logs is <strong>Logged</strong></td><td>The test provider is active: nothing is sent.</td></tr>
       </tbody>
     </table>

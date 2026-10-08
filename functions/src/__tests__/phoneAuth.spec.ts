@@ -280,6 +280,151 @@ describe('signing in with the PIN', () => {
     });
 });
 
+describe('the one-minute wait and the hourly limit (specs/sign-in-codes-spec.md)', () => {
+    const numberCount = () => Number(mem.read('_rate_limits', `otp-phone-${phoneHash(E164)}`)?.['count'] ?? 0);
+
+    it('refuses inside the minute with the seconds left, and the refusal uses up nothing (SC-D3)', async () => {
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        for (let i = 0; i < 6; i++) {
+            const refused = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' }).catch((e) => e);
+            expect(refused).toMatchObject({ code: 'resource-exhausted', details: { reason: 'wait' } });
+            expect(refused.details.wait).toBeGreaterThan(55);
+        }
+        expect(numberCount()).toBe(1);
+        ageLastCode();
+        await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' })).resolves.toMatchObject({ sent: true });
+        expect(numberCount()).toBe(2);
+    });
+
+    it('says when the hourly limit reopens (SC-D5)', async () => {
+        for (let i = 0; i < 5; i++) {
+            await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+            ageLastCode();
+        }
+        const refused = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' }).catch((e) => e);
+        expect(refused).toMatchObject({ code: 'resource-exhausted', details: { reason: 'too-many-codes' } });
+        expect(refused.details.retryAfter).toBeGreaterThan(3500);
+        expect(refused.details.retryAfter).toBeLessThanOrEqual(3600);
+    });
+
+    it('gives the counts back when the SMS provider refuses the send (SC-D4)', async () => {
+        mem.seed('Settings', 'sms', { provider: 'msg91', msg91AuthKey: 'k', msg91OtpTemplateId: 't' });
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ type: 'error', message: 'down' }) }));
+        try {
+            await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' })).rejects.toMatchObject({ details: { reason: 'sms-failed' } });
+            expect(numberCount()).toBe(0);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('gives every refusal a member sees a reason', async () => {
+        await expect(call(phone.checkPhoneAccount, { phone: '123' })).rejects.toMatchObject({ details: { reason: 'invalid-number' } });
+        await expect(call(phone.checkPhoneAccount, { phone: '+44 7700 900123' })).rejects.toMatchObject({
+            details: { reason: 'country-not-allowed', codes: '+91' },
+        });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810' })).rejects.toMatchObject({ details: { reason: 'no-account' } });
+    });
+});
+
+describe('one code at a time (specs/sign-in-codes-spec.md, SC4)', () => {
+    const stored = () => mem.read('phone_otps', phoneHash(E164))!;
+    const change = (fields: Record<string, unknown>) => mem.seed('phone_otps', phoneHash(E164), { ...stored(), ...fields });
+    const wrongFor = (code: string) => (code === '111111' ? '222222' : '111111');
+    const minutesAgo = (m: number) => ({ toMillis: () => Date.now() - m * 60_000 });
+
+    it('sends the same code again while it still works, and says so (SC-D9, SC-D12)', async () => {
+        const first = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        expect(first.sameCode).toBeUndefined();
+        ageLastCode();
+        const again = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        expect(again).toMatchObject({ sent: true, sameCode: true, testCode: first.testCode });
+        const texts = mem.all('SmsLogs').map((log) => String(log.data['text']).slice(0, 6));
+        expect(texts).toEqual([first.testCode, first.testCode]);
+        // The code from either message works.
+        await expect(call(phone.verifyPhoneOtp, { phone: NUMBER, code: first.testCode, purpose: 'signup' })).resolves.toHaveProperty('ticket');
+    });
+
+    it('keeps the wrong tries and restarts the 10 minutes (SC-D11)', async () => {
+        const { testCode } = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        for (let i = 0; i < 2; i++) {
+            await expect(call(phone.verifyPhoneOtp, { phone: NUMBER, code: wrongFor(testCode), purpose: 'signup' })).rejects.toMatchObject({ details: { reason: 'code-wrong' } });
+        }
+        change({ lastSentAt: minutesAgo(8), expiresAt: { toMillis: () => Date.now() + 2 * 60_000 } });
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        expect(stored()['attempts']).toBe(2);
+        const expiresIn = (stored()['expiresAt'] as { toMillis: () => number }).toMillis() - Date.now();
+        expect(expiresIn).toBeGreaterThan(9 * 60_000);
+        for (let i = 0; i < 3; i++) await call(phone.verifyPhoneOtp, { phone: NUMBER, code: wrongFor(testCode), purpose: 'signup' }).catch(() => undefined);
+        await expect(call(phone.verifyPhoneOtp, { phone: NUMBER, code: testCode, purpose: 'signup' })).rejects.toMatchObject({ details: { reason: 'code-tries' } });
+    });
+
+    it.each([
+        ['expired', { expiresAt: minutesAgo(1) }],
+        ['out of tries', { attempts: 5 }],
+        ['made 30 minutes ago', { issuedAt: minutesAgo(30) }],
+        ['stored before SC4, with no sealed code', { codeSealed: undefined }],
+        ['sealed but damaged', { codeSealed: 'v1.AAAA.AAAA.AAAA' }],
+    ])('makes a new code when the old one is %s', async (_, fields) => {
+        const { testCode } = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        change({ ...fields, lastSentAt: minutesAgo(2) });
+        const reply = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        expect(reply.sameCode).toBeUndefined();
+        expect(stored()['attempts']).toBe(0);
+        // Rarely the new random code is the old one; the stored hash is new either way.
+        expect(reply.testCode === testCode ? stored()['codeSealed'] : reply.testCode).not.toBe(testCode);
+    });
+
+    it('makes a new code once the old one is verified, or for another purpose', async () => {
+        await signUp();
+        ageLastCode();
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'reset' });
+        expect(stored()['purpose']).toBe('reset');
+        const resetCode = lastCode();
+        await call(phone.verifyPhoneOtp, { phone: NUMBER, code: resetCode, purpose: 'reset' });
+        ageLastCode();
+        await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'reset' })).resolves.not.toHaveProperty('sameCode');
+        expect(stored()['verified']).toBe(false);
+    });
+
+    it('keeps a link code for the account that asked for it', async () => {
+        await signUp();
+        const key = phoneHash('+919876500000');
+        const age = () => mem.seed('phone_otps', key, { ...mem.read('phone_otps', key)!, lastSentAt: minutesAgo(2) });
+        await call(phone.requestPhoneOtp, { phone: '98765 00000', purpose: 'link' }, 'uid-asha');
+        age();
+        await expect(call(phone.requestPhoneOtp, { phone: '98765 00000', purpose: 'link' }, 'uid-asha')).resolves.toMatchObject({ sameCode: true });
+        // Another account asking for the same number gets a code of its own.
+        mem.seed('users', 'uid-ravi', { uid: 'uid-ravi', name: 'Ravi', role: 'user' });
+        age();
+        await expect(call(phone.requestPhoneOtp, { phone: '98765 00000', purpose: 'link' }, 'uid-ravi')).resolves.not.toHaveProperty('sameCode');
+        expect(mem.read('phone_otps', key)!['uid']).toBe('uid-ravi');
+    });
+
+    it('keeps the code sealed, never as it is (SC-D10)', async () => {
+        const { testCode } = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        const record = stored();
+        expect(String(record['codeSealed'])).toMatch(/^v1\./);
+        expect(JSON.stringify(record)).not.toContain(testCode);
+    });
+
+    it('puts the old times back when the provider refuses a resend', async () => {
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        const sentAt = minutesAgo(2);
+        change({ lastSentAt: sentAt });
+        const expiresAt = stored()['expiresAt'];
+        mem.seed('Settings', 'sms', { provider: 'msg91', msg91AuthKey: 'k', msg91OtpTemplateId: 't' });
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ type: 'error', message: 'down' }) }));
+        try {
+            await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' })).rejects.toMatchObject({ details: { reason: 'sms-failed' } });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+        expect(stored()['lastSentAt']).toBe(sentAt);
+        expect(stored()['expiresAt']).toBe(expiresAt);
+    });
+});
+
 describe('attempt counters and the caller\'s address (review F)', () => {
     it('count tries inside a transaction, so parallel guesses cannot share one count', async () => {
         const { readFileSync } = await import('node:fs');

@@ -1502,7 +1502,9 @@ export type TranslationKey =
     | 'member.auth.closed_contact'
     | 'member.auth.closed_have_one'
     | 'member.auth.closed_sign_in_other'
+    | 'member.auth.code_already_sent'
     | 'member.auth.code_label'
+    | 'member.auth.code_sent_again'
     | 'member.auth.code_sent_email'
     | 'member.auth.code_sent_sms'
     | 'member.auth.code_sent_to'
@@ -1565,6 +1567,41 @@ export type TranslationKey =
     | 'member.auth.reset_pin_with_code'
     | 'member.auth.save_pin'
     | 'member.auth.send_code_failed'
+    | 'member.auth.server_error.account_blocked'
+    | 'member.auth.server_error.add_phone_first'
+    | 'member.auth.server_error.app_managed'
+    | 'member.auth.server_error.code_expired'
+    | 'member.auth.server_error.code_tries'
+    | 'member.auth.server_error.code_wrong'
+    | 'member.auth.server_error.country_not_allowed'
+    | 'member.auth.server_error.email_failed'
+    | 'member.auth.server_error.email_has_account'
+    | 'member.auth.server_error.email_managed'
+    | 'member.auth.server_error.email_not_movable'
+    | 'member.auth.server_error.google_email_taken'
+    | 'member.auth.server_error.google_off'
+    | 'member.auth.server_error.invalid_email'
+    | 'member.auth.server_error.invalid_number'
+    | 'member.auth.server_error.locked'
+    | 'member.auth.server_error.name_required'
+    | 'member.auth.server_error.no_access'
+    | 'member.auth.server_error.no_account'
+    | 'member.auth.server_error.no_pin'
+    | 'member.auth.server_error.number_taken'
+    | 'member.auth.server_error.password_required'
+    | 'member.auth.server_error.phone_off'
+    | 'member.auth.server_error.pin_format'
+    | 'member.auth.server_error.pin_required'
+    | 'member.auth.server_error.sign_in_again'
+    | 'member.auth.server_error.sign_in_managed'
+    | 'member.auth.server_error.sign_in_not_ready'
+    | 'member.auth.server_error.signup_closed'
+    | 'member.auth.server_error.sms_failed'
+    | 'member.auth.server_error.too_many_attempts'
+    | 'member.auth.server_error.too_many_codes'
+    | 'member.auth.server_error.wait'
+    | 'member.auth.server_error.weak_pin'
+    | 'member.auth.server_error.wrong'
     | 'member.auth.show_pin'
     | 'member.auth.signing_in_as'
     | 'member.auth.signing_up_as'
@@ -3329,7 +3366,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.closed_contact',
     'member.auth.closed_have_one',
     'member.auth.closed_sign_in_other',
+    'member.auth.code_already_sent',
     'member.auth.code_label',
+    'member.auth.code_sent_again',
     'member.auth.code_sent_email',
     'member.auth.code_sent_sms',
     'member.auth.code_sent_to',
@@ -3392,6 +3431,41 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.reset_pin_with_code',
     'member.auth.save_pin',
     'member.auth.send_code_failed',
+    'member.auth.server_error.account_blocked',
+    'member.auth.server_error.add_phone_first',
+    'member.auth.server_error.app_managed',
+    'member.auth.server_error.code_expired',
+    'member.auth.server_error.code_tries',
+    'member.auth.server_error.code_wrong',
+    'member.auth.server_error.country_not_allowed',
+    'member.auth.server_error.email_failed',
+    'member.auth.server_error.email_has_account',
+    'member.auth.server_error.email_managed',
+    'member.auth.server_error.email_not_movable',
+    'member.auth.server_error.google_email_taken',
+    'member.auth.server_error.google_off',
+    'member.auth.server_error.invalid_email',
+    'member.auth.server_error.invalid_number',
+    'member.auth.server_error.locked',
+    'member.auth.server_error.name_required',
+    'member.auth.server_error.no_access',
+    'member.auth.server_error.no_account',
+    'member.auth.server_error.no_pin',
+    'member.auth.server_error.number_taken',
+    'member.auth.server_error.password_required',
+    'member.auth.server_error.phone_off',
+    'member.auth.server_error.pin_format',
+    'member.auth.server_error.pin_required',
+    'member.auth.server_error.sign_in_again',
+    'member.auth.server_error.sign_in_managed',
+    'member.auth.server_error.sign_in_not_ready',
+    'member.auth.server_error.signup_closed',
+    'member.auth.server_error.sms_failed',
+    'member.auth.server_error.too_many_attempts',
+    'member.auth.server_error.too_many_codes',
+    'member.auth.server_error.wait',
+    'member.auth.server_error.weak_pin',
+    'member.auth.server_error.wrong',
     'member.auth.show_pin',
     'member.auth.signing_in_as',
     'member.auth.signing_up_as',

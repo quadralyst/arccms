@@ -35,7 +35,7 @@ const pins = createPinStore('kiosk', { maxAttempts: 5 });</code></pre>
     <div class="note"><p>There is no timed unlock and no reset by code: unlocking is your app's decision, with <code>clearLock()</code> or a new <code>set()</code>. Arc CMS's reset by SMS code is for phone sign-in's PINs only.</p></div>
 
     <h2 id="rate-limits">Rate limits</h2>
-    <p>Lockout protects one person's PIN. A rate limit protects your function from someone trying many people. Count each attempt against a key with <code>consumeRateLimit(key, max, windowMs, message)</code>; it refuses with <code>resource-exhausted</code> and your message once <code>max</code> is reached in the window.</p>
+    <p>Lockout protects one person's PIN. A rate limit protects your function from someone trying many people. Count each attempt against a key with <code>consumeRateLimit(key, max, windowMs, message)</code>; it refuses with <code>resource-exhausted</code> and your message once <code>max</code> is reached in the window. The window starts with the first use of the key. The refusal's <code>details</code> say why and when it reopens: <code>{ reason, retryAfter }</code>, with <code>reason</code> from an optional fifth argument (default <code>too-many-attempts</code>) and <code>retryAfter</code> in seconds, so your page can say "Try again after 5:42 PM" in the member's language.</p>
     <table>
       <thead><tr><th>Key</th><th>For</th></tr></thead>
       <tbody>

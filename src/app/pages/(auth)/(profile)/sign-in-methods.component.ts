@@ -7,7 +7,7 @@
  * email or number is on another account, one line says so and the same
  * button moves it here once the code is verified.
  */
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, OnInit, signal, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -18,6 +18,7 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthState } from '../auth.store';
 import { readSignInError, SignInService, type LinkCheck } from '../sign-in.service';
+import { RESEND_SECONDS, SentCodes } from '../sent-codes';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
@@ -147,6 +148,9 @@ interface Flow {
                         <div class="small text-muted mb-2">{{ sent[0] }}<strong>{{ shownValue() }}</strong>{{ sent[1] }}</div>
                         <arc-code-input #codeBoxes [label]="'member.auth.code_label' | transloco" [disabled]="busy()" [invalid]="!!error()"
                             (completed)="verifyCode($event)" />
+                        @if (notice()) {
+                            <div class="small text-muted mt-2 code-notice">{{ notice() }}</div>
+                        }
                         @if (testCodeInLogs()) {
                             <div class="small text-muted mt-2">{{ (f.kind === 'email' ? 'member.auth.test_code_in_email_logs' : 'member.auth.test_code_in_logs') | transloco }}</div>
                         }
@@ -175,7 +179,9 @@ interface Flow {
                             <button class="btn btn-sm btn-primary" (click)="verifyCode()" [disabled]="busy()">
                                 {{ 'member.auth.verify' | transloco }} @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
                             </button>
-                            <button class="btn btn-sm btn-link" (click)="resend()" [disabled]="busy()">{{ 'member.auth.resend' | transloco }}</button>
+                            <button class="btn btn-sm btn-link resend" (click)="resend()" [disabled]="busy() || resendIn() > 0">
+                                {{ resendIn() > 0 ? ('member.auth.resend_in' | transloco: { value: resendIn() }) : ('member.auth.resend' | transloco) }}
+                            </button>
                         }
                         @case ('secret') {
                             <button class="btn btn-sm btn-primary" (click)="finish()" [disabled]="busy()">
@@ -205,7 +211,7 @@ interface Flow {
         @media (max-width: 576px) { .form-control { font-size: 16px; } }
     `],
 })
-export class SignInMethodsComponent implements OnInit {
+export class SignInMethodsComponent implements OnInit, OnDestroy {
     private readonly signIn = inject(SignInService);
     private readonly authStore = inject(AuthState);
     private readonly toast = inject(ToastService);
@@ -240,6 +246,13 @@ export class SignInMethodsComponent implements OnInit {
      * code is only in SMS Logs or Email Logs, for admins (review F).
      */
     readonly testCodeInLogs = signal(false);
+    /** A quiet line under the code boxes: a code was sent a moment ago (specs/sign-in-codes-spec.md, SC-D2). */
+    readonly notice = signal('');
+    /** Seconds until Resend comes back. */
+    readonly resendIn = signal(0);
+    /** The codes asked for, so going back and forth never asks again too soon (SC-D1). */
+    private readonly sentCodes = new SentCodes();
+    private countdown?: ReturnType<typeof setInterval>;
 
     private readonly codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
 
@@ -289,6 +302,10 @@ export class SignInMethodsComponent implements OnInit {
         this.secret.set('');
         this.testCodeInLogs.set(false);
         this.busy.set(false);
+        // The codes asked for stay remembered: starting again with the same value carries on.
+        this.notice.set('');
+        clearInterval(this.countdown);
+        this.resendIn.set(0);
     }
 
     setTyped(typed: string): void {
@@ -377,22 +394,61 @@ export class SignInMethodsComponent implements OnInit {
         });
     }
 
+    ngOnDestroy(): void {
+        clearInterval(this.countdown);
+    }
+
+    private startCountdown(seconds: number): void {
+        clearInterval(this.countdown);
+        this.resendIn.set(Math.max(0, seconds));
+        this.countdown = setInterval(() => {
+            if (this.resendIn() > 0) this.resendIn.update((n) => n - 1);
+            else clearInterval(this.countdown);
+        }, 1000);
+    }
+
     async resend(): Promise<void> {
         const check = this.flow()?.check;
-        if (!check) return;
+        if (!check || this.resendIn() > 0) return;
         await this.run(async () => {
-            await this.requestCode(check);
+            await this.requestCode(check, true);
             this.codeBoxes()?.reset();
             this.toast.success(this.t('member.methods.new_code'));
         });
     }
 
-    private async requestCode(check: LinkCheck): Promise<void> {
+    /**
+     * Send a code, unless one for this value still works (`resend` sends anyway).
+     * The server's "please wait" starts the countdown with a quiet line instead
+     * of an error (specs/sign-in-codes-spec.md, SC-D1, SC-D2).
+     */
+    private async requestCode(check: LinkCheck, resend = false): Promise<void> {
+        const key = `${check.kind}:${check.value}`;
+        this.notice.set('');
+        const known = this.sentCodes.fresh(key);
+        if (!resend && known) {
+            this.testCodeInLogs.set(known.testCodeInLogs);
+            this.startCountdown(this.sentCodes.secondsLeft(key));
+            return;
+        }
         this.testCodeInLogs.set(false);
-        const reply = check.kind === 'email'
-            ? await this.signIn.requestEmailLinkCode(check.value)
-            : await this.signIn.requestPhoneCode(check.value, 'link');
-        this.testCodeInLogs.set(!!reply.testMode);
+        try {
+            const reply = check.kind === 'email'
+                ? await this.signIn.requestEmailLinkCode(check.value)
+                : await this.signIn.requestPhoneCode(check.value, 'link');
+            this.testCodeInLogs.set(!!reply.testMode);
+            if (reply.sameCode) this.notice.set(this.t('member.auth.code_sent_again'));
+            this.sentCodes.remember(key, { testCode: '', testCodeInLogs: !!reply.testMode });
+            this.startCountdown(RESEND_SECONDS);
+        } catch (err) {
+            const failed = readSignInError(err);
+            const wait = Number(failed.details?.['wait']);
+            if (failed.reason !== 'wait' || !(wait > 0)) throw err;
+            this.sentCodes.remember(key, { testCode: '', testCodeInLogs: known?.testCodeInLogs ?? false }, wait);
+            this.testCodeInLogs.set(known?.testCodeInLogs ?? false);
+            this.notice.set(this.t('member.auth.code_already_sent'));
+            this.startCountdown(wait);
+        }
     }
 
     /** The code boxes: verify on the last digit, or on the Verify button. */
@@ -405,10 +461,19 @@ export class SignInMethodsComponent implements OnInit {
             return;
         }
         const check = f.check;
+        const key = `${check.kind}:${check.value}`;
         const ok = await this.run(async () => {
-            if (check.kind === 'email') await this.signIn.verifyEmailLinkCode(check.value, value);
-            else await this.signIn.verifyPhoneCode(check.value, value, 'link');
+            try {
+                if (check.kind === 'email') await this.signIn.verifyEmailLinkCode(check.value, value);
+                else await this.signIn.verifyPhoneCode(check.value, value, 'link');
+            } catch (err) {
+                // A spent code (expired, too many tries): the next try sends a new one.
+                const reason = readSignInError(err).reason;
+                if (reason === 'code-expired' || reason === 'code-tries') this.sentCodes.forget(key);
+                throw err;
+            }
         });
+        if (ok) this.sentCodes.forget(key);
         if (!ok) {
             this.codeBoxes()?.reset();
             return;
