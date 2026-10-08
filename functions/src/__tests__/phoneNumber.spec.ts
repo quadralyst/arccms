@@ -12,6 +12,14 @@ describe('normalizePhone', () => {
         expect(normalizePhone('07700 900123', '44')).toBe('+447700900123');
         expect(normalizePhone('447700900123', '44')).toBe('+447700900123');
     });
+
+    it('under +1 and +7 takes the code as given only with all eleven digits (Kazakh numbers start with 7)', () => {
+        expect(normalizePhone('701 123 45 67', '7')).toBe('+77011234567');
+        expect(normalizePhone('7 701 123 45 67', '7')).toBe('+77011234567');
+        expect(normalizePhone('912 345 67 89', '7')).toBe('+79123456789');
+        expect(normalizePhone('415 555 2671', '1')).toBe('+14155552671');
+        expect(normalizePhone('1 415 555 2671', '1')).toBe('+14155552671');
+    });
 });
 
 describe('cleanEmail', () => {

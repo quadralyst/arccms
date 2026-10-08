@@ -1,6 +1,6 @@
 # Phone Country Picker: Build Spec (PC)
 
-**Status:** spec, not built. Agreed with Gunjan 2026-10-08.
+**Status:** building. Agreed with Gunjan 2026-10-08. PC1 built 2026-10-08.
 **Branch:** `feat/phone-country`, cut from `dev` (e945b17), worktree `../arccms-phone-country`.
 **Scope:** wherever a member types a mobile number, the country is shown and chosen
 separately from the number: a flag and calling code (`🇮🇳 +91`) beside the digits. The
@@ -55,6 +55,8 @@ number on an Indian site is told it is not a valid Indian mobile, with no hint w
 | PC-D9 | **Number rules stay as today.** India: 10 digits starting 6 to 9, with `0` and repeated `91` removed. Others: 8 to 15 digits in total, leading `0` removed. The error names the chosen country ("Enter a 10-digit Indian mobile number"). | libphonenumber-js is not worth its size yet. |
 | PC-D10 | **Pasting or autofilling `+44 7700 900123`** sets the chip to the matching allowed country (longest code first, then that code's main country) and leaves the national digits in the box. A country that is not allowed shows "This site accepts numbers from India only" (names from the allowed list) at once, before any code is sent. | Autofill and paste are the common way numbers arrive. |
 | PC-D11 | **Country names** come from `Intl.DisplayNames` in the member's language. Only calling codes, ISO ids and the `primary` flag are stored in the table. | No translation work; the multilingual admin and member UI get local names for free. |
+| PC-D13 | **Domestic prefixes other than `0`** (`8` in Russia, Kazakhstan, Belarus) are a `trunk` field in the country table and are taken off in the browser (`withoutTrunk`) before `normalizePhone`. Added in PC1. | A Russian types `8 912 345-67-89`; read as is beside `+7` it is a wrong number. The server never sees it: the browser sends E.164. |
+| PC-D14 | **`+1` and `+7` take a number as already carrying the code only with all eleven digits** (`startsWithCode`, browser and server twins). Added in PC1. | Every Kazakh mobile starts with 7, so `701 123 45 67` was read as `+7011234567`. Under both codes every number is ten digits after the code. The same bug hit a site whose default code is `+7` or `+1` before this work. |
 | PC-D12 | **One component, `arc-phone-country`** (the chip and its menu), used by the sign-in box, the profile number box and the test send box. Apps can use it too (documented as part of the app kit). | One behaviour everywhere; a plug point for apps that collect numbers. |
 
 ## 3. Design
@@ -148,5 +150,11 @@ Each phase: build, its tests, `npm run test` alone with a full log (it includes
 
 ## 5. Deploy
 
-Frontend only: no functions, rules or index changes. Hosting is deployed by Gunjan. Old
-installs keep working before and after (PC-D7).
+No rules or index changes. Hosting is deployed by Gunjan. Old installs keep working
+before and after (PC-D7).
+
+One functions change (PC-D14) in `functions/src/auth/phoneNumber.ts`. It only changes
+anything for an install whose default country code is `+1` or `+7`, so the deploy is
+optional for India-default installs; the functions that read numbers with the default code
+are the phone sign-in callables (`functions/src/auth/phoneAuth.ts`), `linkIdentifiers` and
+`sendTestSms`.
