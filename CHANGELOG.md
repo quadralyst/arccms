@@ -47,14 +47,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - The default footer lists the published standard pages and a copyright line instead of the Documentation, GitHub and Community links. Its `main.css` rules apply only to the site footer, so a `<footer>` inside a card or dialog keeps its own look.
 - The About setting **Profiles elsewhere (sameAs)** is now **Social and profile links**.
 
+- **`npm run test` type-checks the app and the functions**, and **`npm run typecheck`** runs that check alone (`scripts/typecheck.mjs`). Vitest does not check types, so a type error used to pass the suite and fail only at `npm run build` or a deploy. The admin SMS settings page had one such error, which stopped the production build; it is fixed.
+
 ### For apps upgrading
 
 1. Merge the new version. If your copy edited files in `public/`, run `npm run arc:own-site`, then `npm run arc:own-site -- --write` (docs/website/move-your-site.html).
 2. Check your own templates and pages for the old marketing classes (`.hero`, `.feature-card`, `.cta-primary`, `.section-headline` and the like) and for sections that relied on the `main.css` padding. `arc:own-site` brings the old styles back for a migrated home page only; elsewhere, copy the rules you use from `docs/examples/arc-cms-home.css` into `src/custom/site/site.css`.
 3. Run `npm run arc:configure` once, so `arc-install.ts` names your hosting site.
    - The merge conflicts in `src/environments/environment.ts`, `environment.prod.ts` and `arc-install.ts` if your copy filled them in: Arc CMS emptied them. Keep your own version of all three (`git checkout --ours <file>`).
-4. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`).
-5. On an install set up before the standard pages, or before page layouts, open **Content types** and choose **Add standard pages** (it adds the pages and the Info boxes field that are missing). Then pick **Layout: Contact** on your Contact page if you want the new layout. If your own footer listed the old Documentation, GitHub or Community links from Arc CMS's footer, they are gone from the default one; keep your own footer as it is.
+4. Run `npm run typecheck` and fix any type error it reports in your own pages or functions: `npm run test` now fails on them. They would already have failed your production build.
+5. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`).
+6. On an install set up before the standard pages, or before page layouts, open **Content types** and choose **Add standard pages** (it adds the pages and the Info boxes field that are missing). Then pick **Layout: Contact** on your Contact page if you want the new layout. If your own footer listed the old Documentation, GitHub or Community links from Arc CMS's footer, they are gone from the default one; keep your own footer as it is.
 
 ---
 

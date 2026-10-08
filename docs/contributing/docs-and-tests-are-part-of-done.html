@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Docs and tests are part of done | Arc CMS docs</title>
   <meta name="description" content="What every change to Arc CMS does about the docs, the screenshots, the tests and the full suite before it counts as finished.">
-  <meta name="docs:sources" content="CLAUDE.md, scripts/docs-affected.mjs, package.json">
+  <meta name="docs:sources" content="CLAUDE.md, scripts/docs-affected.mjs, package.json, scripts/typecheck.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="contributing/docs-and-tests-are-part-of-done.html">
@@ -32,6 +32,7 @@
       <li>
         <p><strong>Run the whole suite:</strong></p>
         <pre><code>npm run test</code></pre>
+        <p>It type-checks the app and the functions too, which the specs alone do not: a change that passes its specs can still fail the production build. <code>npm run typecheck</code> runs only that check (see <a href="../operations/testing.html#type-check">Type check</a>).</p>
         <p>When security rules changed, run the rules tests as well:</p>
         <pre><code>npm run test:rules</code></pre>
         <p>If anything fails, the change is not done. Fix it, or report it as unfinished with the failing output.</p>

@@ -102,11 +102,11 @@ export class SmsSettingsService {
 
     /** Both documents in one write, so the sign-in page never disagrees with the server. */
     async save(form: SmsSettingsForm): Promise<void> {
-        const data = { ...smsSettingsData(form), updatedAt: serverTimestamp() };
+        const fields = smsSettingsData(form);
         await this.inCtx(() => {
             const batch = writeBatch(this.firestore);
-            batch.set(doc(this.firestore, 'Settings', 'sms'), data, { merge: true });
-            batch.set(doc(this.firestore, 'Settings', 'users'), { phoneCountryCode: data['defaultCountryCode'] }, { merge: true });
+            batch.set(doc(this.firestore, 'Settings', 'sms'), { ...fields, updatedAt: serverTimestamp() }, { merge: true });
+            batch.set(doc(this.firestore, 'Settings', 'users'), { phoneCountryCode: fields['defaultCountryCode'] }, { merge: true });
             return batch.commit();
         });
     }

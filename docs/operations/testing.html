@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Testing | Arc CMS docs</title>
   <meta name="description" content="Run the Arc CMS test suite, run one file, and write component, Cloud Function, security rules and feature-aware specs the way the existing ones do.">
-  <meta name="docs:sources" content="vitest.config.ts, custom, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, scripts/custom-starters.mjs, functions/src/users/claimLock.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json">
+  <meta name="docs:sources" content="vitest.config.ts, custom, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, scripts/custom-starters.mjs, functions/src/users/claimLock.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json, scripts/typecheck.mjs, tsconfig.app.json, functions/tsconfig.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/testing.html">
@@ -37,6 +37,18 @@
       </tbody>
     </table>
     <p>The rules tests in <code>tests/rules/</code> are left out of this run (see <a href="#rules-tests">Rules tests</a>).</p>
+
+    <h2 id="type-check">Type check</h2>
+    <p>Vitest strips the types from each file without checking them, so code with a type error passes its specs and only fails when <code>npm run build</code> or a deploy compiles it. The suite closes that gap: <code>scripts/__tests__/typecheck.spec.ts</code> fails on any type error in the app or the functions. On its own, in about 15 seconds:</p>
+    <pre><code>npm run typecheck</code></pre>
+    <table>
+      <thead><tr><th>Checks</th><th>With</th><th>Like</th></tr></thead>
+      <tbody>
+        <tr><td>The app: <code>src/main.ts</code>, every <code>*.page.ts</code> in <code>src/app/pages</code> and <code>src/custom/pages</code>, and everything they import, templates included</td><td><code>ngc -p tsconfig.app.json --noEmit</code></td><td><code>npm run build</code></td></tr>
+        <tr><td>The functions: all of <code>functions/src</code>, their specs and <code>functions/src/custom</code> included</td><td><code>tsc -p functions/tsconfig.json --noEmit</code></td><td><code>npm run build --prefix functions</code></td></tr>
+      </tbody>
+    </table>
+    <p>The frontend specs (<code>src/**/*.spec.ts</code>) are not type-checked. A file that nothing imports and that is not a page is not either; the build leaves it out too.</p>
 
     <h2>Write a component spec</h2>
     <p>Component specs use Angular's <code>TestBed</code> with Vitest (<code>vi.fn()</code>, <code>vi.mock()</code>). <code>src/test/setup.ts</code> already starts the Angular test environment and gives every spec Transloco with the real English strings, so a rendered template shows the text a person sees. Code that builds a message with a key, outside a template, can be checked against the same English with <code>english(key, params)</code> from <code>src/test/english.ts</code>, which also stands in for a component's translate function on a mock. To prove a screen has no English left, render it with <code>pseudoTestingModule()</code> from <code>src/test/pseudo-language.ts</code>, a pseudo language of the member keys, and expect <code>textNotInPseudo(fixture.nativeElement)</code> to be empty (see <a href="../app/member-languages.html">Member languages</a>).</p>
