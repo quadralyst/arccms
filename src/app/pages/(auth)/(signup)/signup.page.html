@@ -39,17 +39,25 @@
                                     <label for="identifier" class="form-label">
                                         {{ (phoneEnabled() ? 'member.auth.identifier_label_phone' : 'member.auth.identifier_label_email') | transloco }}
                                     </label>
-                                    <input type="text" formControlName="identifier" class="form-control" id="identifier"
-                                        autocomplete="username" autocapitalize="off" spellcheck="false"
-                                        [placeholder]="(!phoneEnabled() ? 'member.auth.identifier_placeholder_email' : countryCode() === '91' ? 'member.auth.identifier_placeholder_phone' : 'member.auth.identifier_placeholder_phone_any') | transloco"
-                                        [readonly]="isLoading()" (paste)="cleanIdentifier()" (blur)="cleanIdentifier()"
-                                        [class.is-invalid]="isFieldInvalid('identifier')" />
+                                    <!-- A number gets its country beside it, so it is never a guess (specs/phone-country-spec.md). -->
+                                    <div class="input-group has-validation identifier-group">
+                                        @if (chipShown()) {
+                                        <arc-phone-country [countries]="phoneCountries()" [(value)]="phoneCountry"
+                                            [disabled]="isLoading()" (chosen)="countryChosen()" />
+                                        }
+                                        <input type="text" formControlName="identifier" class="form-control" id="identifier"
+                                            autocomplete="username" autocapitalize="off" spellcheck="false"
+                                            [placeholder]="(!phoneEnabled() ? 'member.auth.identifier_placeholder_email' : countryCode() === '91' ? 'member.auth.identifier_placeholder_phone' : 'member.auth.identifier_placeholder_phone_any') | transloco"
+                                            [readonly]="isLoading()" (paste)="cleanIdentifier()" (blur)="identifierBlur($event)"
+                                            (input)="identifierInput($event)"
+                                            [class.is-invalid]="isFieldInvalid('identifier')" />
 
-                                    @if(isFieldInvalid('identifier')){
-                                    <div class="invalid-feedback">
-                                        {{ identifierErrorKey() | transloco }}
+                                        @if(isFieldInvalid('identifier')){
+                                        <div class="invalid-feedback">
+                                            {{ identifierErrorKey() | transloco: identifierErrorParams() }}
+                                        </div>
+                                        }
                                     </div>
-                                    }
                                 </div>
 
                                 @if (errorMessage()) {

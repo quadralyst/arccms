@@ -144,6 +144,11 @@
     "version": {
       "not_loaded": "This page could not load. A newer version of the site is out.",
       "reload": "Reload"
+    },
+    "country_picker": {
+      "search": "Add a country: type its name or code",
+      "remove": "Remove {{ country }}",
+      "none": "No country matches"
     }
   },
   "admin": {
@@ -851,10 +856,10 @@
         "msg91_auth_key_hint": "A key is saved. Leave this empty to keep it.",
         "msg91_template": "OTP template ID",
         "msg91_template_hint": "Your DLT-approved MSG91 OTP template. It must contain ##OTP##.",
-        "default_country": "Default country code",
-        "default_country_hint": "Added to numbers typed without one. 91 is India.",
-        "allowed_countries": "Allowed country codes",
-        "allowed_countries_hint": "Only these numbers can sign in by phone. Separate them with commas. Left empty, only the default country.",
+        "countries": "Countries",
+        "countries_hint": "Only numbers from these countries can sign in by phone. The sign-in page shows the country next to the number.",
+        "default_country": "Default country",
+        "default_country_hint": "Shown first on the sign-in page. Numbers typed without a country code belong to it.",
         "save": "Save SMS settings",
         "saved": "SMS settings saved",
         "test_title": "Send a test SMS",
@@ -1805,8 +1810,10 @@
         "phone_off": "Signing in with a mobile number is not available here. Enter your email address instead.",
         "phone_short": "This number is too short. Check that you have typed every digit.",
         "phone_long": "This number has too many digits. Check it for an extra digit.",
-        "phone_start": "Indian mobile numbers start with 6, 7, 8 or 9. For a number from another country, type + and the country code first.",
-        "phone_country": "Check the country code. A number from another country starts with + and its code, such as +44."
+        "phone_start": "Indian mobile numbers start with 6, 7, 8 or 9.",
+        "phone_start_choose": "Indian mobile numbers start with 6, 7, 8 or 9. For a number from another country, choose the country next to it.",
+        "phone_country": "Check the country code. A number from another country starts with + and its code, such as +44.",
+        "phone_not_allowed": "This site takes mobile numbers from {{ countries }} only."
       },
       "continue": "Continue",
       "or": "or",
@@ -2031,6 +2038,11 @@
     },
     "language": {
       "choose": "Choose a language"
+    },
+    "phone_country": {
+      "change": "Country: {{ country }}, +{{ code }}. Change the country",
+      "label": "Country: {{ country }}, +{{ code }}",
+      "search": "Search countries"
     }
   }
 }

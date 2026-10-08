@@ -1268,12 +1268,12 @@ export type TranslationKey =
     | 'admin.settings.site_usage.reject_text_required'
     | 'admin.settings.site_usage.subtitle'
     | 'admin.settings.site_usage.title'
-    | 'admin.settings.sms.allowed_countries'
-    | 'admin.settings.sms.allowed_countries_hint'
     | 'admin.settings.sms.col_message'
     | 'admin.settings.sms.col_status'
     | 'admin.settings.sms.col_time'
     | 'admin.settings.sms.col_to'
+    | 'admin.settings.sms.countries'
+    | 'admin.settings.sms.countries_hint'
     | 'admin.settings.sms.default_country'
     | 'admin.settings.sms.default_country_hint'
     | 'admin.settings.sms.intro'
@@ -1407,6 +1407,9 @@ export type TranslationKey =
     | 'common.actions.search'
     | 'common.actions.show'
     | 'common.actions.view'
+    | 'common.country_picker.none'
+    | 'common.country_picker.remove'
+    | 'common.country_picker.search'
     | 'common.dialog.confirm'
     | 'common.dialog.delete'
     | 'common.dialog.logout'
@@ -1526,9 +1529,11 @@ export type TranslationKey =
     | 'member.auth.identifier_error.not_phone_or_email'
     | 'member.auth.identifier_error.phone_country'
     | 'member.auth.identifier_error.phone_long'
+    | 'member.auth.identifier_error.phone_not_allowed'
     | 'member.auth.identifier_error.phone_off'
     | 'member.auth.identifier_error.phone_short'
     | 'member.auth.identifier_error.phone_start'
+    | 'member.auth.identifier_error.phone_start_choose'
     | 'member.auth.identifier_label_email'
     | 'member.auth.identifier_label_phone'
     | 'member.auth.identifier_placeholder_email'
@@ -1663,6 +1668,9 @@ export type TranslationKey =
     | 'member.not_found.heading'
     | 'member.not_found.home'
     | 'member.not_found.oops'
+    | 'member.phone_country.change'
+    | 'member.phone_country.label'
+    | 'member.phone_country.search'
     | 'member.profile.account_deleted'
     | 'member.profile.app_managed'
     | 'member.profile.back'
@@ -3087,12 +3095,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.site_usage.reject_text_required',
     'admin.settings.site_usage.subtitle',
     'admin.settings.site_usage.title',
-    'admin.settings.sms.allowed_countries',
-    'admin.settings.sms.allowed_countries_hint',
     'admin.settings.sms.col_message',
     'admin.settings.sms.col_status',
     'admin.settings.sms.col_time',
     'admin.settings.sms.col_to',
+    'admin.settings.sms.countries',
+    'admin.settings.sms.countries_hint',
     'admin.settings.sms.default_country',
     'admin.settings.sms.default_country_hint',
     'admin.settings.sms.intro',
@@ -3226,6 +3234,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.actions.search',
     'common.actions.show',
     'common.actions.view',
+    'common.country_picker.none',
+    'common.country_picker.remove',
+    'common.country_picker.search',
     'common.dialog.confirm',
     'common.dialog.delete',
     'common.dialog.logout',
@@ -3345,9 +3356,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.identifier_error.not_phone_or_email',
     'member.auth.identifier_error.phone_country',
     'member.auth.identifier_error.phone_long',
+    'member.auth.identifier_error.phone_not_allowed',
     'member.auth.identifier_error.phone_off',
     'member.auth.identifier_error.phone_short',
     'member.auth.identifier_error.phone_start',
+    'member.auth.identifier_error.phone_start_choose',
     'member.auth.identifier_label_email',
     'member.auth.identifier_label_phone',
     'member.auth.identifier_placeholder_email',
@@ -3482,6 +3495,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.not_found.heading',
     'member.not_found.home',
     'member.not_found.oops',
+    'member.phone_country.change',
+    'member.phone_country.label',
+    'member.phone_country.search',
     'member.profile.account_deleted',
     'member.profile.app_managed',
     'member.profile.back',

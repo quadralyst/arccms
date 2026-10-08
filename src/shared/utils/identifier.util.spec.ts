@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { classifyIdentifier, cleanEmail, extractCode, formatPhone, identifierProblem, normalizePhone } from './identifier.util';
+import {
+    classifyIdentifier, cleanEmail, extractCode, formatPhone, hasCountryCode, identifierProblem, looksLikePhone,
+    nationalNumber, normalizePhone, withoutTrunk,
+} from './identifier.util';
+import { countryByIso } from '../data/countries';
 import { EMAIL_CASES, PHONE_CASES } from '../../../functions/src/__tests__/helpers/phoneCases';
 import { normalizePhone as serverNormalizePhone } from '../../../functions/src/auth/phoneNumber';
 import { cleanEmail as serverCleanEmail } from '../../../functions/src/auth/pastedText';
@@ -13,6 +17,9 @@ describe('normalizePhone (browser twin of the server)', () => {
         for (const [raw] of PHONE_CASES) expect(normalizePhone(raw)).toBe(serverNormalizePhone(raw));
         for (const raw of ['07700 900123', '447700900123', '+91 98765 43210']) {
             expect(normalizePhone(raw, '44')).toBe(serverNormalizePhone(raw, '44'));
+        }
+        for (const [raw, cc] of [['701 123 45 67', '7'], ['77011234567', '7'], ['415 555 2671', '1'], ['14155552671', '1']]) {
+            expect(normalizePhone(raw, cc), raw).toBe(serverNormalizePhone(raw, cc));
         }
     });
 });
@@ -125,6 +132,63 @@ describe('a site whose default country code is not 91 (Settings, SMS)', () => {
     it('re-reads its own cleaned display the same way', () => {
         const id = classifyIdentifier('07700 900123', '44');
         expect(classifyIdentifier(id.display, '44').value).toBe(id.value);
+    });
+});
+
+/** A number typed beside the country chip, the chip's country, and what is sent. */
+const CHIP_CASES: Array<[string, string, string | null]> = [
+    ['98765 43210', 'IN', '+919876543210'],
+    ['098765 43210', 'IN', '+919876543210'],
+    ['91 98765 43210', 'IN', '+919876543210'],
+    ['7700 900123', 'GB', '+447700900123'],
+    ['07700 900123', 'GB', '+447700900123'],
+    ['(415) 555-2671', 'US', '+14155552671'],
+    ['1 415 555 2671', 'US', '+14155552671'],
+    ['(416) 555-0123', 'CA', '+14165550123'],
+    ['8 912 345-67-89', 'RU', '+79123456789'],
+    ['912 345 67 89', 'RU', '+79123456789'],
+    ['8 701 123 45 67', 'KZ', '+77011234567'],
+    ['8 029 123 45 67', 'BY', '+375291234567'],
+    ['050 123 4567', 'AE', '+971501234567'],
+    ['0412 345 678', 'AU', '+61412345678'],
+    ['5876543210', 'IN', null],
+    ['12', 'GB', null],
+];
+
+describe('a number typed beside the country chip (specs/phone-country-spec.md)', () => {
+    it.each(CHIP_CASES)('%s in %s → %s', (typed, iso, expected) => {
+        const country = countryByIso(iso)!;
+        expect(normalizePhone(withoutTrunk(typed, country.trunk), country.code)).toBe(expected);
+    });
+
+    it('shows the chip from the first digit, +, or bracket, never for an email', () => {
+        for (const text of ['9', '+', ' +44', '(0', '\u202A98']) expect(looksLikePhone(text), text).toBe(true);
+        for (const text of ['', 'a', 'asha@example.com', '@', '-']) expect(looksLikePhone(text), text).toBe(false);
+    });
+
+    it('knows when a number brings its own country code', () => {
+        expect(hasCountryCode('+44 7700 900123')).toBe(true);
+        expect(hasCountryCode('0044 7700 900123')).toBe(true);
+        expect(hasCountryCode('07700 900123')).toBe(false);
+    });
+
+    it('leaves a number with its own code, and a short one, alone', () => {
+        expect(withoutTrunk('+7 912 345 67 89', '8')).toBe('+7 912 345 67 89');
+        expect(withoutTrunk('8912345678', '8')).toBe('8912345678');
+        expect(withoutTrunk('07700 900123')).toBe('07700 900123');
+    });
+
+    it('shows the number without its code', () => {
+        expect(nationalNumber('+919876543210', '91')).toBe('98765 43210');
+        expect(nationalNumber('+447700900123', '44')).toBe('7700900123');
+        expect(nationalNumber('+447700900123', '91')).toBe('+447700900123');
+    });
+
+    it('turns down a number from a country the site does not take', () => {
+        expect(identifierProblem('+44 7700 900123', true, '91', ['91'])).toBe('phone_not_allowed');
+        expect(identifierProblem('+44 7700 900123', true, '91', ['91', '44'])).toBeNull();
+        expect(identifierProblem('98765 43210', true, '91', ['91'])).toBeNull();
+        expect(identifierProblem('+44 7700 900123', true, '91')).toBeNull();
     });
 });
 

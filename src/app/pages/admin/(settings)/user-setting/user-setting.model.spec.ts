@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DEFAULT_USER_SETTINGS, AVAILABLE_ROLES, IUserSettings, phoneCountryCode } from './user-setting.model';
+import { DEFAULT_USER_SETTINGS, AVAILABLE_ROLES, IUserSettings, phoneCountryCode, phoneCountrySettings } from './user-setting.model';
 
 describe('UserSettingModel', () => {
     describe('DEFAULT_USER_SETTINGS', () => {
@@ -56,6 +56,18 @@ describe('UserSettingModel', () => {
             expect(phoneCountryCode({ phoneCountryCode: '+1' })).toBe('1');
             expect(phoneCountryCode({})).toBe('91');
             expect(phoneCountryCode(null)).toBe('91');
+        });
+    });
+
+    describe('phoneCountrySettings', () => {
+        it('is the copied countries, the default among them', () => {
+            expect(phoneCountrySettings({ phoneCountry: 'GB', phoneCountryCode: '44', phoneCountries: ['IN', 'GB', 'US'] }))
+                .toEqual({ country: 'GB', countries: ['GB', 'IN', 'US'], listed: true });
+        });
+
+        it('makes do with a copy from before countries were stored, and says the list is not known', () => {
+            expect(phoneCountrySettings({ phoneCountryCode: '44' })).toEqual({ country: 'GB', countries: ['GB'], listed: false });
+            expect(phoneCountrySettings(null)).toEqual({ country: 'IN', countries: ['IN'], listed: false });
         });
     });
 });

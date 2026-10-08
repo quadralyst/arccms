@@ -20,6 +20,17 @@ function isValidInternational(digits: string): boolean {
 }
 
 /**
+ * Whether a number typed without `+` already starts with the country code
+ * (`447700900123` on a UK site). Under `+1` and `+7` every number is ten digits
+ * after the code, and many Kazakh numbers start with 7 themselves, so only the
+ * full eleven digits count as carrying the code there.
+ */
+function startsWithCode(national: string, cc: string): boolean {
+    if (!national.startsWith(cc)) return false;
+    return cc.length === 1 ? national.length === 11 : national.length > cc.length + 6;
+}
+
+/**
  * The digits of a cleaned number, and whether it carries its own country code:
  * a `+` before the first digit (`(+44) 7700`, too) or a leading `00`.
  */
@@ -59,7 +70,7 @@ export function normalizePhone(raw: unknown, defaultCountryCode: string = DEFAUL
     }
 
     const national = digits.replace(/^0+/, '');
-    const full = national.startsWith(cc) && national.length > cc.length + 6 ? national : cc + national;
+    const full = startsWithCode(national, cc) ? national : cc + national;
     return isValidInternational(full) ? `+${full}` : null;
 }
 

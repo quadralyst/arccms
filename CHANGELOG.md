@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
+- **The country beside a mobile number.** On the sign-in page the "Phone number or email" field shows the number's country (flag and calling code) as soon as it holds a number, and a list to change it when the site takes several countries; the profile's number box and the SMS test send have it too. A pasted or autofilled `+44 ...` number moves its code to the country, a number from a country the site does not take is refused at once naming the ones it takes, and the server gets the number with its code. The chip starts on the country this device used last, else the default. See docs/features/sign-in.html.
+- **Settings, SMS picks countries, not codes.** **Countries** lists the countries people can sign in from, with flags and a search by name, ISO id or code; **Default country** shows when there are several. `Settings/sms` stores `defaultCountry` and `allowedCountries` beside the calling codes the server reads, and `Settings/users` gets `phoneCountry` and `phoneCountries` for the sign-in page. A site saved before reads each saved code as its main country until it is saved again. See docs/features/sms.html.
+- `arc-phone-country`, `arc-country-picker`, the country table (`src/shared/data/countries.ts`, flags in `public/flags` from flag-icons, MIT) and `src/shared/utils/phone-country.ts`, for an app's own number boxes. See docs/app/custom-space.html.
+
 - **The app owns its website.** Home page, header, footer, sign-in panel, content templates, static pages, strings, site styles, favicon and error pages live in `src/custom/site/`, laid over Arc CMS's defaults in `public/_site/`. See docs/website/overview.html.
 - **The home page is published as a static page** in every language, from `src/custom/site/home.html` (or `home.{lang}.html`), with SEO tags and live parts run by `/assets/js/arc-site.js`. **Republish website** on the Content types page publishes everything again.
 - **`npm run arc:own-site`** moves a site an app edited in `public/` into `src/custom/site/`.
@@ -49,6 +53,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 - **`npm run test` type-checks the app and the functions**, and **`npm run typecheck`** runs that check alone (`scripts/typecheck.mjs`). Vitest does not check types, so a type error used to pass the suite and fail only at `npm run build` or a deploy. The admin SMS settings page had one such error, which stopped the production build; it is fixed.
 
+- On a site whose default country code is `+1` or `+7`, a number typed without `+` that starts with that digit (every Kazakh mobile starts with 7) was read as already carrying the code: `701 123 45 67` became `+7011234567`. Both twins of `normalizePhone` now need all eleven digits for those codes. In Russia, Kazakhstan and Belarus, a number typed with the domestic `8` in front of it beside the country chip is read correctly.
+- New member translation keys: `member.phone_country.*`, `member.auth.identifier_error.phone_start_choose` and `phone_not_allowed`; `phone_start` is shorter.
+
 ### For apps upgrading
 
 1. Merge the new version. If your copy edited files in `public/`, run `npm run arc:own-site`, then `npm run arc:own-site -- --write` (docs/website/move-your-site.html).
@@ -56,8 +63,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 3. Run `npm run arc:configure` once, so `arc-install.ts` names your hosting site.
    - The merge conflicts in `src/environments/environment.ts`, `environment.prod.ts` and `arc-install.ts` if your copy filled them in: Arc CMS emptied them. Keep your own version of all three (`git checkout --ours <file>`).
 4. Run `npm run typecheck` and fix any type error it reports in your own pages or functions: `npm run test` now fails on them. They would already have failed your production build.
-5. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`).
-6. On an install set up before the standard pages, or before page layouts, open **Content types** and choose **Add standard pages** (it adds the pages and the Info boxes field that are missing). Then pick **Layout: Contact** on your Contact page if you want the new layout. If your own footer listed the old Documentation, GitHub or Community links from Arc CMS's footer, they are gone from the default one; keep your own footer as it is.
+5. If your app has its own member languages, add the new member keys (`member.phone_country.*`, `member.auth.identifier_error.phone_start_choose`, `phone_not_allowed`) to `src/custom/i18n/{lang}.json`; the member language check names any that are missing.
+6. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`). Then open Settings, SMS once as an admin: that copies the list of countries for the sign-in page.
+7. On an install set up before the standard pages, or before page layouts, open **Content types** and choose **Add standard pages** (it adds the pages and the Info boxes field that are missing). Then pick **Layout: Contact** on your Contact page if you want the new layout. If your own footer listed the old Documentation, GitHub or Community links from Arc CMS's footer, they are gone from the default one; keep your own footer as it is.
 
 ---
 

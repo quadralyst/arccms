@@ -58,4 +58,56 @@ describe('SmsSettingsPage', () => {
         const page = await render(true, { provider: 'msg91' });
         expect(page.querySelector('#smsShowResetCodes')).toBeNull();
     });
+
+    it('lists the allowed countries, with no default to choose when there is one', async () => {
+        const page = await render(true);
+        expect([...page.querySelectorAll('.countries .picked-country')].map((li) => li.getAttribute('data-iso'))).toEqual(['IN']);
+        expect(page.querySelector('.countries .picked-country button')).toBeNull();
+        expect(page.querySelector('#smsDefaultCountry')).toBeNull();
+    });
+
+    it('offers the allowed countries as the default when there are several', async () => {
+        const page = await render(true, { allowedCountries: ['IN', 'GB'], defaultCountry: 'GB' });
+        const options = [...page.querySelectorAll<HTMLOptionElement>('#smsDefaultCountry option')].map((o) => o.textContent?.trim());
+        expect(options).toEqual(['India (+91)', 'United Kingdom (+44)']);
+    });
+
+    it('moves the default to the first country left when the admin removes it', async () => {
+        TestBed.resetTestingModule();
+        const service = { load: vi.fn(async () => ({ form: { ...DEFAULT_SMS_FORM, allowedCountries: ['IN', 'GB'], defaultCountry: 'GB' }, hasAuthKey: false, phoneSignIn: true })), save: vi.fn(), sendTest: vi.fn() };
+        await TestBed.configureTestingModule({
+            imports: [SmsSettingsPage, translocoTestingModule()],
+            providers: [provideRouter([]), { provide: SmsSettingsService, useValue: service }],
+        }).compileComponents();
+        const fixture = TestBed.createComponent(SmsSettingsPage);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        const page = fixture.nativeElement as HTMLElement;
+        page.querySelector<HTMLButtonElement>('.picked-country[data-iso="GB"] button')!.click();
+        fixture.detectChanges();
+        expect(fixture.componentInstance.form()).toMatchObject({ allowedCountries: ['IN'], defaultCountry: 'IN' });
+        expect(page.querySelector('#smsDefaultCountry')).toBeNull();
+        page.querySelector<HTMLButtonElement>('.btn-primary')!.click();
+        expect(service.save).toHaveBeenCalledWith(expect.objectContaining({ allowedCountries: ['IN'], defaultCountry: 'IN' }));
+    });
+
+    it('sends the test number with the country chosen beside it', async () => {
+        TestBed.resetTestingModule();
+        const service = { load: vi.fn(async () => ({ form: { ...DEFAULT_SMS_FORM, allowedCountries: ['IN', 'GB'], defaultCountry: 'IN' }, hasAuthKey: false, phoneSignIn: true })), save: vi.fn(), sendTest: vi.fn(async () => ({ status: 'logged' })) };
+        await TestBed.configureTestingModule({
+            imports: [SmsSettingsPage, translocoTestingModule()],
+            providers: [provideRouter([]), { provide: SmsSettingsService, useValue: service }],
+        }).compileComponents();
+        const fixture = TestBed.createComponent(SmsSettingsPage);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        const page = fixture.nativeElement as HTMLElement;
+        expect(page.querySelector('.test-row arc-phone-country button')?.textContent).toContain('+91');
+        fixture.componentInstance.testCountry.set('GB');
+        fixture.componentInstance.testPhone.set('07700 900123');
+        await fixture.componentInstance.sendTest();
+        expect(service.sendTest).toHaveBeenCalledWith('+447700900123');
+    });
 });

@@ -79,6 +79,17 @@ function isValidInternational(digits: string): boolean {
     return digits.length >= 8 && digits.length <= 15 && !digits.startsWith('0');
 }
 
+/**
+ * Whether a number typed without `+` already starts with the country code
+ * (`447700900123` on a UK site). Under `+1` and `+7` every number is ten digits
+ * after the code, and many Kazakh numbers start with 7 themselves, so only the
+ * full eleven digits count as carrying the code there.
+ */
+function startsWithCode(national: string, cc: string): boolean {
+    if (!national.startsWith(cc)) return false;
+    return cc.length === 1 ? national.length === 11 : national.length > cc.length + 6;
+}
+
 /** The E.164 form (`+919876543210`), or null when it is not a phone number. */
 export function normalizePhone(raw: unknown, defaultCountryCode: string = DEFAULT_COUNTRY_CODE): string | null {
     const text = cleanPasted(raw);
@@ -100,7 +111,7 @@ export function normalizePhone(raw: unknown, defaultCountryCode: string = DEFAUL
     }
 
     const national = digits.replace(/^0+/, '');
-    const full = national.startsWith(cc) && national.length > cc.length + 6 ? national : cc + national;
+    const full = startsWithCode(national, cc) ? national : cc + national;
     return isValidInternational(full) ? `+${full}` : null;
 }
 
@@ -151,12 +162,19 @@ export type IdentifierProblem =
     | 'phone_short'
     | 'phone_long'
     | 'phone_start'
-    | 'phone_country';
+    | 'phone_country'
+    | 'phone_not_allowed';
 
+/**
+ * `allowedCodes`, when given, also turns down a number from a country the site
+ * does not take (`phone_not_allowed`), before any code is sent; the server has
+ * the final say (functions/src/auth/phoneAuth.ts).
+ */
 export function identifierProblem(
     raw: unknown,
     phoneOn: boolean,
     defaultCountryCode: string = DEFAULT_COUNTRY_CODE,
+    allowedCodes?: readonly string[],
 ): IdentifierProblem | null {
     const text = cleanPasted(raw);
     if (!text) return 'empty';
@@ -167,7 +185,9 @@ export function identifierProblem(
     const { digits, international } = readDigits(text);
     if (/[a-z]/i.test(text) || !digits) return phoneOn ? 'not_phone_or_email' : 'not_email';
     if (!phoneOn) return 'phone_off';
-    if (id.kind === 'phone') return null;
+    if (id.kind === 'phone') {
+        return allowedCodes?.length && !allowedCodes.some((code) => id.value.startsWith(`+${code}`)) ? 'phone_not_allowed' : null;
+    }
     return phoneProblem(digits, international, String(defaultCountryCode || DEFAULT_COUNTRY_CODE).replace(/\D/g, ''));
 }
 
@@ -187,8 +207,43 @@ function phoneProblem(digits: string, international: boolean, cc: string): Ident
         return length(national.length, 10, 10) ?? 'phone_start';
     }
     const national = digits.replace(/^0+/, '');
-    const full = national.startsWith(cc) && national.length > cc.length + 6 ? national : cc + national;
+    const full = startsWithCode(national, cc) ? national : cc + national;
     return length(full.length, 8, 15) ?? 'phone_country';
+}
+
+/**
+ * Whether the sign-in box holds the start of a phone number, so the country chip
+ * shows (specs/phone-country-spec.md, PC-D1): its first character is a digit or `+`.
+ */
+export function looksLikePhone(raw: unknown): boolean {
+    return /^[+\d(]/.test(cleanPasted(raw));
+}
+
+/** Whether a typed or pasted number carries its own country code (`+44`, `0044`). */
+export function hasCountryCode(raw: unknown): boolean {
+    return readDigits(cleanPasted(raw)).international;
+}
+
+/**
+ * A number typed beside the country chip, ready for `normalizePhone(text, code)`:
+ * the country's own domestic prefix taken off when it is not `0`, which
+ * `normalizePhone` already drops (`8 912 345-67-89` in Russia is `912 345-67-89`).
+ */
+export function withoutTrunk(raw: unknown, trunk?: string): string {
+    const text = cleanPasted(raw);
+    if (!trunk || /[a-z@]/i.test(text) || hasCountryCode(text)) return text;
+    const digits = text.replace(/\D/g, '');
+    return digits.startsWith(trunk) && digits.length > 10 ? digits.slice(trunk.length) : text;
+}
+
+/**
+ * The number without its country code, for the box beside the chip: an Indian
+ * number in two groups (`98765 43210`), any other as its digits.
+ */
+export function nationalNumber(e164: string, code: string): string {
+    if (!e164.startsWith(`+${code}`)) return e164;
+    const national = e164.slice(code.length + 1);
+    return code === '91' && national.length === 10 ? `${national.slice(0, 5)} ${national.slice(5)}` : national;
 }
 
 /**

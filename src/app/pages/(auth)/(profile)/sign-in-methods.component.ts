@@ -10,7 +10,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { injectT } from '../../../core/i18n/inject-t';
 import { sentenceParts } from '../../../core/i18n/sentence-parts';
 import type { TranslationKey } from '../../../core/i18n/translation-keys';
@@ -21,8 +21,11 @@ import { readSignInError, SignInService, type LinkCheck } from '../sign-in.servi
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
-import { phoneCountryCode, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
-import { classifyIdentifier, DEFAULT_COUNTRY_CODE, formatPhone, identifierProblem } from '../../../../shared/utils/identifier.util';
+import { phoneCountrySettings, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
+import { classifyIdentifier, DEFAULT_COUNTRY_CODE, formatPhone, hasCountryCode, identifierProblem, withoutTrunk } from '../../../../shared/utils/identifier.util';
+import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../../../shared/data/countries';
+import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
+import { PhoneCountryComponent } from '../../../../shared/components/phone-country/phone-country.component';
 
 type Kind = 'email' | 'phone';
 type Step = 'enter' | 'code' | 'secret';
@@ -39,7 +42,7 @@ interface Flow {
 @Component({
     selector: 'arc-sign-in-methods',
     standalone: true,
-    imports: [FormsModule, NgTemplateOutlet, TranslocoPipe, CodeInputComponent],
+    imports: [FormsModule, NgTemplateOutlet, TranslocoPipe, CodeInputComponent, PhoneCountryComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="card-title-row">
@@ -121,11 +124,17 @@ interface Flow {
             <div class="edit-form">
                 @switch (f.step) {
                     @case ('enter') {
-                        <input class="form-control" [type]="f.kind === 'email' ? 'email' : 'tel'"
-                            [placeholder]="(f.kind === 'email' ? 'member.methods.email_placeholder' : countryCode() === '91' ? 'member.methods.phone_placeholder' : 'member.methods.phone_placeholder_any') | transloco"
-                            [autocomplete]="f.kind === 'email' ? 'email' : 'tel'"
-                            [ngModel]="f.typed" (ngModelChange)="setTyped($event)"
-                            (paste)="cleanTyped()" (blur)="cleanTyped()" (keydown.enter)="sendCode()" />
+                        <!-- A number shows its country beside it (specs/phone-country-spec.md). -->
+                        <div class="input-group flex-nowrap">
+                            @if (f.kind === 'phone' && !hasOwnCode(f.typed)) {
+                                <arc-phone-country [countries]="phoneCountries()" [(value)]="phoneCountry" (chosen)="countryChosen(numberBox)" />
+                            }
+                            <input #numberBox class="form-control" [type]="f.kind === 'email' ? 'email' : 'tel'"
+                                [placeholder]="(f.kind === 'email' ? 'member.methods.email_placeholder' : phoneCountry() === 'IN' ? 'member.methods.phone_placeholder' : 'member.methods.phone_placeholder_any') | transloco"
+                                [autocomplete]="f.kind === 'email' ? 'email' : hasOwnCode(f.typed) ? 'tel' : 'tel-national'"
+                                [ngModel]="f.typed" (ngModelChange)="setTyped($event)"
+                                (paste)="cleanTyped()" (blur)="typedBlur($event)" (keydown.enter)="sendCode()" />
+                        </div>
                         @if (f.check?.status === 'other') {
                             <div class="small mt-2 move-note">
                                 {{ (f.kind === 'email' ? 'member.methods.move_email' : 'member.methods.move_number') | transloco }}
@@ -203,10 +212,16 @@ export class SignInMethodsComponent implements OnInit {
     private readonly settings = inject(UserSettingService);
     private readonly router = inject(Router);
     private readonly t = injectT();
+    private readonly transloco = inject(TranslocoService);
+    private readonly lang = () => this.transloco.getActiveLang();
 
     readonly user = this.authStore.currentUser;
-    /** Settings, SMS's default country code: how a number typed without one is read. */
+    /** Settings, SMS's default country code: how the saved number is shown. */
     readonly countryCode = signal(DEFAULT_COUNTRY_CODE);
+    /** The countries a new number can be from, and the one beside the box (specs/phone-country-spec.md). */
+    readonly phoneCountries = signal<string[]>([DEFAULT_COUNTRY]);
+    readonly countriesListed = signal(false);
+    readonly phoneCountry = signal(DEFAULT_COUNTRY);
     readonly phoneShown = computed(() => formatPhone(this.user()?.phone ?? '', this.countryCode()));
 
     readonly phoneEnabled = signal(false);
@@ -243,7 +258,11 @@ export class SignInMethodsComponent implements OnInit {
         this.googleConnected.set(this.signIn.hasGoogle());
         firstValueFrom(this.settings.getSettings()).then((s) => {
             this.phoneEnabled.set(phoneSignInOn(s));
-            this.countryCode.set(phoneCountryCode(s));
+            const countries = phoneCountrySettings(s);
+            this.countryCode.set(countryByIso(countries.country)!.code);
+            this.phoneCountries.set(countries.countries);
+            this.countriesListed.set(countries.listed);
+            this.phoneCountry.set(startingCountry(countries.countries, countries.country, rememberedCountry()));
             this.googleEnabled.set(s.googleSignIn === true);
         }).catch(() => undefined);
     }
@@ -282,9 +301,47 @@ export class SignInMethodsComponent implements OnInit {
         setTimeout(() => {
             const f = this.flow();
             if (!f) return;
+            if (f.kind === 'phone') {
+                const tidy = tidyChipNumber(f.typed, countryByIso(this.phoneCountry()), this.countriesListed() ? this.phoneCountries() : null);
+                if (tidy?.country) this.phoneCountry.set(tidy.country.iso);
+                if (tidy && tidy.shown !== f.typed) this.setTyped(tidy.shown);
+                return;
+            }
             const id = classifyIdentifier(f.typed, this.countryCode());
             if (id.kind === f.kind && id.display !== f.typed) this.setTyped(id.display);
         });
+    }
+
+    hasOwnCode(typed: string): boolean {
+        return hasCountryCode(typed);
+    }
+
+    /** Leaving the box tidies it, but not on the way to the country chip. */
+    typedBlur(event: FocusEvent): void {
+        if ((event.relatedTarget as Element | null)?.closest?.('arc-phone-country')) return;
+        this.cleanTyped();
+    }
+
+    countryChosen(box: HTMLInputElement): void {
+        this.cleanTyped();
+        box.focus();
+    }
+
+    /** The number in the box with its country code, or null when it is not one. */
+    private typedPhone(typed: string): string | null {
+        return chipPhone(typed, countryByIso(this.phoneCountry()));
+    }
+
+    /** What is wrong with the number typed, said as on the sign-in page. */
+    private phoneError(typed: string): string {
+        const country = countryByIso(this.phoneCountry());
+        const allowed = this.countriesListed() ? codesOf(this.phoneCountries()) : undefined;
+        const problem = identifierProblem(withoutTrunk(typed, country?.trunk), true, country?.code, allowed);
+        if (problem === 'phone_not_allowed') {
+            return this.t('member.auth.identifier_error.phone_not_allowed', { countries: countryListText(this.phoneCountries(), this.lang()) });
+        }
+        if (problem === 'phone_start' && this.phoneCountries().length > 1) return this.t('member.auth.identifier_error.phone_start_choose');
+        return this.t(problem?.startsWith('phone_') ? `member.auth.identifier_error.${problem}` as TranslationKey : 'member.methods.invalid_phone');
     }
 
     /**
@@ -294,19 +351,22 @@ export class SignInMethodsComponent implements OnInit {
     async sendCode(): Promise<void> {
         const f = this.flow();
         if (!f || this.busy()) return;
-        const id = classifyIdentifier(f.typed, this.countryCode());
-        if (id.kind !== f.kind) {
+        const phone = f.kind === 'phone' ? this.typedPhone(f.typed) : null;
+        const allowed = this.countriesListed() ? codesOf(this.phoneCountries()) : null;
+        if (f.kind === 'phone' && (!phone || (allowed && !allowed.some((code) => phone.startsWith(`+${code}`))))) {
             // A number says what is wrong with it, as on the sign-in page.
-            const problem = f.kind === 'phone' ? identifierProblem(f.typed, true, this.countryCode()) : null;
-            this.error.set(this.t(problem?.startsWith('phone_')
-                ? `member.auth.identifier_error.${problem}` as TranslationKey
-                : f.kind === 'email' ? 'member.methods.invalid_email' : 'member.methods.invalid_phone'));
+            this.error.set(this.phoneError(f.typed));
             return;
         }
+        if (f.kind === 'email' && classifyIdentifier(f.typed).kind !== 'email') {
+            this.error.set(this.t('member.methods.invalid_email'));
+            return;
+        }
+        if (phone && !hasCountryCode(f.typed)) rememberCountry(this.phoneCountry());
         await this.run(async () => {
             let check = f.check;
             if (!check) {
-                check = await this.signIn.checkForLink(f.typed);
+                check = await this.signIn.checkForLink(phone ?? f.typed);
                 this.flow.set({ ...f, check });
                 if (check.status === 'yours') throw { code: 'local', message: this.t(f.kind === 'email' ? 'member.methods.already_yours_email' : 'member.methods.already_yours_number') };
                 if (check.status === 'blocked') throw { code: 'local', message: this.t('member.methods.blocked_email') };

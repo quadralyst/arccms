@@ -408,8 +408,24 @@ describe('SignupComponent', () => {
         }
 
         it('says why 1234567890 is not a mobile number, not just "invalid"', () => {
-            expect(message('1234567890')).toBe(
-                'Indian mobile numbers start with 6, 7, 8 or 9. For a number from another country, type + and the country code first.');
+            expect(message('1234567890')).toBe('Indian mobile numbers start with 6, 7, 8 or 9.');
+        });
+
+        it('points to the country beside the number when the site takes several', () => {
+            const control = new FormControl('1234567890', (c) => {
+                const problem = identifierProblem(c.value, true, '91');
+                return problem ? { identifier: problem } : null;
+            });
+            const c = { phoneEnabled: () => true, phoneCountries: () => ['IN', 'GB'], registrationForm: new FormGroup({ identifier: control }) };
+            expect(english(errorKey.call(c as never))).toMatch(/choose the country next to it/);
+        });
+
+        it('names the countries the site takes', () => {
+            const params = SignupComponent.prototype.identifierErrorParams.call({
+                transloco: { getActiveLang: () => 'en' }, phoneCountries: () => ['IN', 'GB'],
+            } as never);
+            expect(english('member.auth.identifier_error.phone_not_allowed', params))
+                .toBe('This site takes mobile numbers from India or United Kingdom only.');
         });
 
         it('says what to fix for each kind of mistake', () => {
@@ -431,10 +447,82 @@ describe('SignupComponent', () => {
         it('has an English and a Hindi message for every problem', async () => {
             const hi = (await import('../../../../assets/i18n/hi.json')).default as Record<string, any>;
             for (const key of ['empty_phone', 'empty_email', 'email', 'not_email', 'not_phone_or_email', 'phone_off',
-                'phone_short', 'phone_long', 'phone_start', 'phone_country']) {
+                'phone_short', 'phone_long', 'phone_start', 'phone_start_choose', 'phone_country', 'phone_not_allowed']) {
                 expect(english(`member.auth.identifier_error.${key}`), key).not.toMatch(/^member\./);
                 expect(hi['member']['auth']['identifier_error'][key], key).toBeTruthy();
             }
+        });
+    });
+
+    describe('the country beside the number (specs/phone-country-spec.md)', () => {
+        const proto = SignupComponent.prototype as unknown as Record<string, (this: unknown, ...args: unknown[]) => unknown>;
+
+        function ctx(countries: string[], country: string, listed = true, typed = '') {
+            const control = new FormControl(typed);
+            const c: Record<string, any> = {
+                phoneEnabled: () => true,
+                phoneCountries: () => countries,
+                countriesListed: () => listed,
+                phoneCountry: Object.assign(() => c['current'], { set: (iso: string) => { c['current'] = iso; } }),
+                current: country,
+                registrationForm: new FormGroup({ identifier: control }),
+            };
+            c['countryCode'] = () => ({ IN: '91', GB: '44', US: '1', RU: '7' } as Record<string, string>)[c['current']];
+            c['beside'] = (v: unknown) => proto['beside'].call(c, v);
+            c['phoneNumber'] = (v: unknown) => proto['phoneNumber'].call(c, v);
+            return { c, control };
+        }
+
+        it('reads a number beside the chip in the chip\'s country, and one with its own code as given', () => {
+            expect(ctx(['IN'], 'IN').c['phoneNumber']('98765 43210')).toBe('+919876543210');
+            expect(ctx(['GB'], 'GB').c['phoneNumber']('07700 900123')).toBe('+447700900123');
+            expect(ctx(['RU'], 'RU').c['phoneNumber']('8 912 345-67-89')).toBe('+79123456789');
+            expect(ctx(['IN'], 'IN').c['phoneNumber']('+44 7700 900123')).toBe('+447700900123');
+            expect(ctx(['IN'], 'IN').c['phoneNumber']('asha@example.com')).toBeNull();
+        });
+
+        it('moves a pasted number\'s code to the chip when the site takes that country', async () => {
+            const { c, control } = ctx(['IN', 'GB'], 'IN', true, '+44 7700 900123');
+            proto['cleanIdentifier'].call(c);
+            await new Promise((r) => setTimeout(r));
+            expect(c['current']).toBe('GB');
+            expect(control.value).toBe('7700900123');
+        });
+
+        it('leaves a number from a country the site does not take as it is, to be turned down', async () => {
+            const { c, control } = ctx(['IN'], 'IN', true, '+44 7700 900123');
+            proto['cleanIdentifier'].call(c);
+            await new Promise((r) => setTimeout(r));
+            expect(c['current']).toBe('IN');
+            expect(control.value).toBe('+447700900123');
+        });
+
+        it('shows a number typed beside the chip without its code', async () => {
+            const { c, control } = ctx(['IN'], 'IN', true, '098765 43210');
+            proto['cleanIdentifier'].call(c);
+            await new Promise((r) => setTimeout(r));
+            expect(control.value).toBe('98765 43210');
+        });
+
+        it('does not tidy the number on the way to the chip', () => {
+            const c = { cleanIdentifier: vi.fn() };
+            const chip = document.createElement('arc-phone-country');
+            const button = chip.appendChild(document.createElement('button'));
+            proto['identifierBlur'].call(c, { relatedTarget: button });
+            expect(c.cleanIdentifier).not.toHaveBeenCalled();
+            proto['identifierBlur'].call(c, { relatedTarget: null });
+            expect(c.cleanIdentifier).toHaveBeenCalledTimes(1);
+        });
+
+        it('sends the server the number with its code, and remembers the chip\'s country', async () => {
+            localStorage.removeItem('arc.phoneCountry');
+            const { c } = ctx(['IN', 'GB'], 'GB', true, '07700 900123');
+            c['checkPhone'] = vi.fn();
+            c['checkEmail'] = vi.fn();
+            c['channel'] = { set: vi.fn() };
+            await proto['checkIdentifier'].call(c);
+            expect(c['checkPhone']).toHaveBeenCalledWith('+447700900123');
+            expect(localStorage.getItem('arc.phoneCountry')).toBe('GB');
         });
     });
 

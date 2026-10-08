@@ -34,12 +34,17 @@ import type { TranslationKey } from '../../../core/i18n/translation-keys';
 import { AuthService } from '../auth.service';
 import { ConstantVariables } from '../../../../shared/constants/common-constants';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
-import { phoneCountryCode, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
+import { phoneCountrySettings, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
 import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { LegalNoticeComponent } from '../../../../shared/components/legal-notice/legal-notice.component';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
-import { classifyIdentifier, DEFAULT_COUNTRY_CODE, formatPhone, identifierProblem, type IdentifierProblem } from '../../../../shared/utils/identifier.util';
+import {
+  classifyIdentifier, formatPhone, hasCountryCode, identifierProblem, looksLikePhone, withoutTrunk, type IdentifierProblem,
+} from '../../../../shared/utils/identifier.util';
+import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../../../shared/data/countries';
+import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
+import { PhoneCountryComponent } from '../../../../shared/components/phone-country/phone-country.component';
 import { readSignInError, SignInService } from '../sign-in.service';
 import { environment } from '../../../../environments/environment';
 import { arcConfig } from '../../../core/config/arc-config';
@@ -60,7 +65,7 @@ type Channel = 'email' | 'phone';
 @Component({
   selector: 'arc-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, LegalNoticeComponent, CodeInputComponent, SignInPanelComponent, MemberLanguagePickerComponent],
+  imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, LegalNoticeComponent, CodeInputComponent, SignInPanelComponent, MemberLanguagePickerComponent, PhoneCountryComponent],
   templateUrl: './signup.page.html',
   styleUrls: ['./signup.page.scss'],
 })
@@ -108,8 +113,21 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   channel = signal<Channel>('email');
   /** The number in E.164, as the server read it. */
   phone = signal('');
-  /** Settings, SMS's default country code: how a number typed without one is read. */
-  countryCode = signal(DEFAULT_COUNTRY_CODE);
+  /**
+   * The countries a number can be from (Settings, SMS, copied to Settings/users) and
+   * the one the chip beside the number shows (specs/phone-country-spec.md).
+   * `countriesListed` is false for a copy from before countries were stored: a
+   * number with its own `+code` is then left to the server.
+   */
+  phoneCountries = signal<string[]>([DEFAULT_COUNTRY]);
+  countriesListed = signal(false);
+  phoneCountry = signal(DEFAULT_COUNTRY);
+  /** The chip's calling code: how a number typed without one is read. */
+  countryCode = computed(() => countryByIso(this.phoneCountry())?.code ?? '91');
+  /** What is in the sign-in box, for showing the chip as it changes. */
+  identifierValue = signal('');
+  /** The chip shows beside a number typed without its own code (PC-D1). */
+  chipShown = computed(() => this.phoneEnabled() && looksLikePhone(this.identifierValue()) && !hasCountryCode(this.identifierValue()));
   phoneDisplay = computed(() => formatPhone(this.phone(), this.countryCode()));
   /** What the SMS code is for: a new account, or a new PIN. */
   phonePurpose = signal<'signup' | 'reset'>('signup');
@@ -220,7 +238,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.userSettingService.getSettings().subscribe(settings => {
         this.signupSettings = settings;
         this.phoneEnabled.set(phoneSignInOn(settings));
-        this.countryCode.set(phoneCountryCode(settings));
+        const countries = phoneCountrySettings(settings);
+        this.phoneCountries.set(countries.countries);
+        this.countriesListed.set(countries.listed);
+        this.phoneCountry.set(startingCountry(countries.countries, countries.country, rememberedCountry()));
         this.googleEnabled.set(settings.googleSignIn === true);
         this.updateValidators(this.currentStep());
         // Start the sign-in functions while the person types (each takes seconds to start).
@@ -247,6 +268,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       },
       { validators: this.passwordMatchValidator }
     );
+    this.registrationForm.get('identifier')!.valueChanges.subscribe((value) => this.identifierValue.set(String(value ?? '')));
   }
 
   passwordMatchValidator(g: FormGroup) {
@@ -260,9 +282,27 @@ export default class SignupComponent extends BaseComponent implements OnInit {
    * The error names what is wrong ("too short", "starts with 6 to 9"), not just "invalid".
    */
   private identifierValidator = (control: AbstractControl): ValidationErrors | null => {
-    const problem = identifierProblem(control.value, this.phoneEnabled(), this.countryCode());
+    const allowed = this.countriesListed() ? codesOf(this.phoneCountries()) : undefined;
+    const problem = identifierProblem(this.beside(control.value), this.phoneEnabled(), this.countryCode(), allowed);
     return problem ? { identifier: problem } : null;
   };
+
+  /** The box's text read beside the chip: the chip country's own domestic prefix taken off. */
+  private beside(value: unknown): string {
+    return withoutTrunk(value, countryByIso(this.phoneCountry())?.trunk);
+  }
+
+  /** The number in the box with its country code (E.164), or null when it is not one. */
+  phoneNumber(value: unknown): string | null {
+    return chipPhone(value, countryByIso(this.phoneCountry()));
+  }
+
+  /** A country chosen from the chip: read the number again and go back to typing it. */
+  countryChosen(): void {
+    this.registrationForm.get('identifier')?.updateValueAndValidity();
+    this.cleanIdentifier();
+    if (isPlatformBrowser(this.platformId)) document.getElementById('identifier')?.focus();
+  }
 
   /** The message under the request field, for what is wrong with it. */
   identifierErrorKey(): string {
@@ -270,7 +310,14 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     if (problem === 'empty') {
       return this.phoneEnabled() ? 'member.auth.identifier_error.empty_phone' : 'member.auth.identifier_error.empty_email';
     }
+    // With several countries, an Indian-looking mistake may be a number from another one.
+    if (problem === 'phone_start' && (this.phoneCountries?.() ?? []).length > 1) return 'member.auth.identifier_error.phone_start_choose';
     return `member.auth.identifier_error.${problem}`;
+  }
+
+  /** The countries the site takes, by name, for "This site takes numbers from India only." */
+  identifierErrorParams(): Record<string, string> {
+    return { countries: countryListText(this.phoneCountries(), this.transloco.getActiveLang()) };
   }
 
   /** The email the email steps work with. */
@@ -381,11 +428,36 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     // A paste lands in the field after the event, so read it on the next tick.
     setTimeout(() => {
       const control = this.registrationForm.get('identifier');
-      const id = classifyIdentifier(control?.value, this.countryCode());
-      if (id.kind !== 'unknown' && control?.value !== id.display) {
-        control?.setValue(id.display);
+      const value = control?.value;
+      // A number with its own code from a country the site takes moves that code
+      // to the chip (PC-D10); one from elsewhere stays in full, to be turned down.
+      const tidy = this.phoneEnabled()
+        ? tidyChipNumber(value, countryByIso(this.phoneCountry()), this.countriesListed() ? this.phoneCountries() : null)
+        : null;
+      if (tidy) {
+        if (tidy.country) this.phoneCountry.set(tidy.country.iso);
+        if (value !== tidy.shown) control?.setValue(tidy.shown);
+        control?.updateValueAndValidity();
+        return;
       }
+      const id = classifyIdentifier(value, this.countryCode());
+      if (id.kind === 'email' && value !== id.display) control?.setValue(id.display);
     });
+  }
+
+  /**
+   * Leaving the box tidies it, but not on the way to the country chip: the number
+   * is then read in the country about to be chosen, not the one being changed.
+   */
+  identifierBlur(event: FocusEvent): void {
+    if ((event.relatedTarget as Element | null)?.closest?.('arc-phone-country')) return;
+    this.cleanIdentifier();
+  }
+
+  /** Autofill, like a paste, can bring a whole number with its code: tidy it at once. */
+  identifierInput(event: Event): void {
+    const kind = (event as InputEvent).inputType;
+    if (!kind || kind === 'insertReplacementText' || kind === 'insertFromPaste') this.cleanIdentifier();
   }
 
   /** Step 1: decide between email and phone, and between signing in and signing up. */
@@ -395,9 +467,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       control.markAsTouched();
       return;
     }
-    const id = classifyIdentifier(control?.value, this.countryCode());
-    if (id.kind === 'phone') {
-      await this.checkPhone(control?.value);
+    const phone = this.phoneNumber(control?.value);
+    if (phone) {
+      if (!hasCountryCode(control?.value)) rememberCountry(this.phoneCountry());
+      await this.checkPhone(phone);
     } else {
       this.channel.set('email');
       await this.checkEmail();
