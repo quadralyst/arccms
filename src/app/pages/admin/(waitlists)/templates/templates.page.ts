@@ -31,7 +31,7 @@ import { getEmailTags } from '../../../../../shared/constants/email-tags';
 import { arcCallable } from '../../../../core/config/arc-functions';
 
 export const routeMeta: RouteMeta = {
-    title: 'Email Templates | Arc CMS',
+    title: 'Email Templates',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

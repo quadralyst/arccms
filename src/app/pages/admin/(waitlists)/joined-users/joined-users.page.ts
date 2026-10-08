@@ -23,7 +23,7 @@ import { PageHeaderComponent } from '../../../../../shared/components/page-heade
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Waitlist Users | Arc CMS',
+    title: 'Waitlist Users',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

@@ -19,7 +19,7 @@ import { IList, contactLists } from '../(audience)/audience.model';
 import { arcCallable } from '../../../core/config/arc-functions';
 
 export const routeMeta: RouteMeta = {
-    title: 'Announcements & Notifications | Arc CMS',
+    title: 'Announcements & Notifications',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

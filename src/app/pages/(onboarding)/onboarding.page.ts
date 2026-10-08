@@ -38,7 +38,7 @@ import { environment } from '../../../environments/environment';
 import { LegalNoticeComponent } from '../../../shared/components/legal-notice/legal-notice.component';
 
 export const routeMeta: RouteMeta = {
-    title: 'Onboarding | Arc CMS',
+    title: 'Setup',
 };
 
 @Component({

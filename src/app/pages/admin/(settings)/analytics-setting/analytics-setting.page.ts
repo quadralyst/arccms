@@ -20,7 +20,7 @@ import { AnalyticsTrackingStatusComponent } from '../../../../core/analytics/ana
 import { DEFAULT_ANALYTICS_SETTINGS, IAnalyticsSettings } from './analytics-setting.model';
 
 export const routeMeta: RouteMeta = {
-    title: 'Analytics Settings | Arc CMS',
+    title: 'Analytics Settings',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

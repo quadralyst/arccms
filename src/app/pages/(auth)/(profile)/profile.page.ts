@@ -24,7 +24,8 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { isLockedAppAccount } from '../../../core/app-accounts/app-account-lock';
 
 export const routeMeta: RouteMeta = {
-  title: 'Profile | Arc CMS',
+  title: 'Profile',
+  data: { titleKey: 'member.titles.profile' },
 };
 
 @Component({

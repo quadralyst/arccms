@@ -24,7 +24,7 @@ import {
 import { ImportDataService } from './import-data.service';
 
 export const routeMeta: RouteMeta = {
-    title: 'Import Data | Arc CMS',
+    title: 'Import Data',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

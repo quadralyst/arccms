@@ -12,7 +12,7 @@ import { FileExportProgress, MediaDocInfo } from '../data-constants';
 import { ExportFilesService } from './export-files.service';
 
 export const routeMeta: RouteMeta = {
-    title: 'Export Files | Arc CMS',
+    title: 'Export Files',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

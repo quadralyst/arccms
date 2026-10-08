@@ -1796,7 +1796,6 @@
   },
   "member": {
     "auth": {
-      "title_tab": "Sign in | {{ brand }}",
       "identifier_label_phone": "Phone number or email",
       "identifier_label_email": "Email",
       "identifier_placeholder_phone": "98765 43210 or name@example.com",
@@ -2083,6 +2082,18 @@
       "change": "Country: {{ country }}, +{{ code }}. Change the country",
       "label": "Country: {{ country }}, +{{ code }}",
       "search": "Search countries"
+    },
+    "titles": {
+      "sign_in": "Sign in",
+      "signing_in": "Signing in",
+      "profile": "Profile",
+      "account": "Account",
+      "notifications": "Notifications",
+      "dashboard": "Dashboard",
+      "payments": "Payments",
+      "premium": "Premium",
+      "unauthorized": "No access",
+      "not_found": "Page not found"
     }
   }
 }

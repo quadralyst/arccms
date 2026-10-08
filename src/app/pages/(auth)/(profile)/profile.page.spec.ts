@@ -446,7 +446,8 @@ describe('ProfileComponent', () => {
         it('should have title set to Profile', async () => {
             const { routeMeta } = await import('./profile.page');
             expect(routeMeta).toBeDefined();
-            expect(routeMeta.title).toBe('Profile | Arc CMS');
+            expect(routeMeta.title).toBe('Profile');
+            expect(routeMeta.data).toEqual({ titleKey: 'member.titles.profile' });
         });
     });
 

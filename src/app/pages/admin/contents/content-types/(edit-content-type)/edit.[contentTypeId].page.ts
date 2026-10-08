@@ -31,7 +31,7 @@ import { roleGuard } from '../../../../../guards/role.guard';
 import { TemplateFolderService, TemplateFolder } from '../../../../../core/services/template-folder.service';
 
 export const routeMeta: RouteMeta = {
-    title: 'Edit Content Type | Arc CMS',
+    title: 'Edit Content Type',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
     providers: [],

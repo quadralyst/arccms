@@ -23,7 +23,7 @@ import { MASKED_VALUE } from './payment-settings.model';
 import { IEmailTemplate, PaymentEmailType } from '../../(waitlists)/email-template.model';
 
 export const routeMeta: RouteMeta = {
-    title: 'Payments Settings | Arc CMS',
+    title: 'Payments Settings',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

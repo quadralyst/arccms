@@ -8,7 +8,7 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Email Settings | Arc CMS',
+    title: 'Email Settings',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

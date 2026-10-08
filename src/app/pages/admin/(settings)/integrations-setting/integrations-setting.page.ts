@@ -19,7 +19,7 @@ import { DEFAULT_INTEGRATIONS_SETTINGS } from './integrations-setting.model';
 import { isOn } from '../../../../core/features/features';
 
 export const routeMeta: RouteMeta = {
-    title: 'Integrations Settings | Arc CMS',
+    title: 'Integrations Settings',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

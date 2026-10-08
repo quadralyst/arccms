@@ -21,7 +21,7 @@ import { ITag } from '../(audience)/audience.model';
 import { TagDrawerComponent, TagDrawerMode } from './(tag-drawer)/tag-drawer.component';
 
 export const routeMeta: RouteMeta = {
-    title: 'Tags | Arc CMS',
+    title: 'Tags',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

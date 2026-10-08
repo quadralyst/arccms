@@ -18,7 +18,7 @@ import { DripDrawerComponent, DripDrawerMode } from './(drip-drawer)/drip-drawer
 import { APP_USERS_LIMIT_NOTE } from '../(app-users)/app-users-limit';
 
 export const routeMeta: RouteMeta = {
-    title: 'Drip Campaigns | Arc CMS',
+    title: 'Drip Campaigns',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

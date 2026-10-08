@@ -19,7 +19,7 @@ import { SearchResult } from '../../../../shared/models/search.model';
 import { roleGuard } from '../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Search | Arc CMS',
+    title: 'Search',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

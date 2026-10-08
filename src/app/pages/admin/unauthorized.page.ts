@@ -7,7 +7,8 @@ import { TranslocoService } from '@jsverse/transloco';
 import { catchError, map, of } from 'rxjs';
 
 export const routeMeta: RouteMeta = {
-    title: 'Unauthorized | Arc CMS',
+    title: 'Unauthorized',
+    data: { titleKey: 'member.titles.unauthorized' },
 };
 
 /** What shows when /403.html cannot be read: the same message, in the person's language. */

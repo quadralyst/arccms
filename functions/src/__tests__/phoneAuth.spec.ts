@@ -331,7 +331,9 @@ describe('one code at a time (specs/sign-in-codes-spec.md, SC4)', () => {
     const stored = () => mem.read('phone_otps', phoneHash(E164))!;
     const change = (fields: Record<string, unknown>) => mem.seed('phone_otps', phoneHash(E164), { ...stored(), ...fields });
     const wrongFor = (code: string) => (code === '111111' ? '222222' : '111111');
-    const minutesAgo = (m: number) => ({ toMillis: () => Date.now() - m * 60_000 });
+    // Fixed when made, not when read: a time read later would be younger than asked, and
+    // "30 minutes ago" would fall a few milliseconds inside the 30-minute limit.
+    const minutesAgo = (m: number) => { const at = Date.now() - m * 60_000; return { toMillis: () => at }; };
 
     it('sends the same code again while it still works, and says so (SC-D9, SC-D12)', async () => {
         const first = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });

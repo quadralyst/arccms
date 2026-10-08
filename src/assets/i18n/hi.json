@@ -1788,7 +1788,6 @@
   },
   "member": {
     "auth": {
-      "title_tab": "साइन इन | {{ brand }}",
       "identifier_label_phone": "फ़ोन नंबर या ईमेल",
       "identifier_label_email": "ईमेल",
       "identifier_placeholder_phone": "98765 43210 या name@example.com",
@@ -2075,6 +2074,18 @@
       "change": "देश: {{ country }}, +{{ code }}। देश बदलें",
       "label": "देश: {{ country }}, +{{ code }}",
       "search": "देश खोजें"
+    },
+    "titles": {
+      "sign_in": "साइन इन",
+      "signing_in": "साइन इन हो रहा है",
+      "profile": "प्रोफ़ाइल",
+      "account": "खाता",
+      "notifications": "सूचनाएँ",
+      "dashboard": "डैशबोर्ड",
+      "payments": "भुगतान",
+      "premium": "प्रीमियम",
+      "unauthorized": "पहुँच नहीं",
+      "not_found": "पेज नहीं मिला"
     }
   }
 }

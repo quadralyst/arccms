@@ -10,7 +10,8 @@ import { RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 
 export const routeMeta: RouteMeta = {
-    title: 'Page Not Found | Arc CMS',
+    title: 'Page Not Found',
+    data: { titleKey: 'member.titles.not_found' },
 };
 
 @Component({

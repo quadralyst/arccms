@@ -14,7 +14,7 @@ import { IUser } from '../user.model';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'View User | Arc CMS',
+    title: 'View User',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

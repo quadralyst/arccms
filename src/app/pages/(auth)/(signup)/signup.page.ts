@@ -55,10 +55,10 @@ import { SignInPanelComponent } from '../../page.parts/sign-in-panel.component';
 import { SiteBrandService } from '../../../core/brand/site-brand';
 import { SIGN_IN_IMAGE } from '../../../core/brand/app-brand-files';
 import { MemberLanguagePickerComponent } from '../../../../shared/components/member-language-picker/member-language-picker.component';
-import { Title } from '@angular/platform-browser';
 
 export const routeMeta: RouteMeta = {
-  title: 'Signup | Arc CMS',
+  title: 'Sign in',
+  data: { titleKey: 'member.titles.sign_in' },
 };
 
 type SignupStep = 'request' | 'login' | 'pin' | 'verify' | 'signup' | 'newPin' | 'disabled';
@@ -85,7 +85,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   readonly brandLogo = computed(() => this.siteBrand.brand()?.logo ?? '');
   /** The app's image for the brand panel (src/custom/sign-in-image.*), in place of the panel's text; '' for none. */
   readonly signInImage = SIGN_IN_IMAGE;
-  private titleService = inject(Title);
   authStore = inject(AuthState);
   private authService = inject(AuthService);
   private setupService = inject(OnboardingSetupService);
@@ -164,11 +163,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   constructor() {
     super();
-    // The site's styles (src/custom/site/site.css) and its name in the tab.
+    // The site's styles (src/custom/site/site.css). The tab is the title strategy's
+    // (core/brand/brand-title.strategy.ts): "Sign in", then the site's name once it is in.
     useSiteStyles(['site']);
     // In the browser only: a server render may read another database than the browser's.
     if (isPlatformBrowser(this.platformId)) {
-      this.siteBrand.load().then(() => this.titleService.setTitle(this.t('member.auth.title_tab', { brand: this.brandName() }))).catch(() => undefined);
+      this.siteBrand.load().catch(() => undefined);
     }
     this.initForm();
 

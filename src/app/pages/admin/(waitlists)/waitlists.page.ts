@@ -21,7 +21,7 @@ import { WaitlistEditDrawerComponent, WaitlistFormData } from './edit-drawer/wai
 import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
-    title: 'Waitlists | Arc CMS',
+    title: 'Waitlists',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

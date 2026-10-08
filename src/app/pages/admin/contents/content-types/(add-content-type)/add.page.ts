@@ -27,7 +27,7 @@ import { ToastService } from '../../../../../../shared/services/toast.service';
 import { bareFieldKey, duplicateFieldKeyValidator, fieldKeyFromLabel, fullFieldKey, hasSlugPrefix } from '../collection-ref-helpers';
 
 export const routeMeta: RouteMeta = {
-    title: 'Add Content Type | Arc CMS',
+    title: 'Add Content Type',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
     providers: [],

@@ -228,7 +228,9 @@ describe('requestSignupOtp', () => {
   });
 
   describe('one code at a time (specs/sign-in-codes-spec.md, SC4)', () => {
-    const minutesAgo = (m: number) => ({ toMillis: () => Date.now() - m * 60_000 });
+    // Fixed when made, not when read: a time read later would be younger than asked, and
+    // "30 minutes ago" would fall a few milliseconds inside the 30-minute limit.
+    const minutesAgo = (m: number) => { const at = Date.now() - m * 60_000; return { toMillis: () => at }; };
     /** Send once, then let the next read see what was stored, a minute later. */
     async function sendFirst(fields: Record<string, unknown> = {}): Promise<string> {
       await reqHandler({ data: { email: EMAIL } });

@@ -13,7 +13,8 @@ import { ToastService } from '../../../shared/services/toast.service';
 import { UserShellComponent } from '../user/user-shell.component';
 
 export const routeMeta: RouteMeta = {
-    title: 'Notifications | Arc CMS',
+    title: 'Notifications',
+    data: { titleKey: 'member.titles.notifications' },
 };
 
 interface PrefRow { key: string; label: string; description: string; email: boolean; }

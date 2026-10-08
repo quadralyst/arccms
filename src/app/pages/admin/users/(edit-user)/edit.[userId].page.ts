@@ -14,7 +14,7 @@ import { UserStore } from '../user.store';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Edit User | Arc CMS',
+    title: 'Edit User',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

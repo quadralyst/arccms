@@ -13,7 +13,7 @@ import { isOn } from '../../../core/features/features';
 import type { FeatureId } from '../../../core/features/feature-registry';
 
 export const routeMeta: RouteMeta = {
-    title: 'Settings | Arc CMS',
+    title: 'Settings',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

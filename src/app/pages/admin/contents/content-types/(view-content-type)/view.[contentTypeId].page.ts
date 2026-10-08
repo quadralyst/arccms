@@ -9,7 +9,7 @@ import { roleGuard } from '../../../../../guards/role.guard';
 import { templateReference, type TemplateRefSection } from '../../../../../../shared/utils/template-reference';
 
 export const routeMeta: RouteMeta = {
-    title: 'View Content Type | Arc CMS',
+    title: 'View Content Type',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
     providers: [],

@@ -20,7 +20,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
 
 export const routeMeta: RouteMeta = {
-    title: 'User Settings | Arc CMS',
+    title: 'User Settings',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

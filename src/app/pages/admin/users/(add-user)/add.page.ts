@@ -18,7 +18,7 @@ import { arcCallable } from '../../../../core/config/arc-functions';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Add User | Arc CMS',
+    title: 'Add User',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

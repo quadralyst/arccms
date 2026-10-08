@@ -10,6 +10,8 @@ import { resolvePwaConfig, resolvePwaIcon } from './src/app/core/pwa/pwa-config'
 import { CUSTOM_PWA } from './src/custom/pwa';
 import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
+import { CUSTOM_BRAND } from './src/custom/brand';
+import { appTitle } from './scripts/vite-app-title';
 import { oneBuildAtATime } from './scripts/vite-build-order';
 import { arcSite } from './scripts/vite-arc-site';
 import { ENVIRONMENT_FILE, defaultEnvironment, environmentFor, environmentSwap, projectLine } from './scripts/arc-environment.mjs';
@@ -164,6 +166,8 @@ export default defineConfig(({ mode }) => {
       // Browser build only: Analog also builds the server bundle with these plugins,
       // and the PWA plugin skips the service worker when it last saw a server build.
       appleLinks(),
+      // The tab's text before the app starts: the app's name, never Arc CMS's (withAppTitle).
+      appTitle(CUSTOM_BRAND.name),
       ...(pwa.enabled ? [storedCode.recorder] : []),
       ...clientOnly(VitePWA({
         disable: !pwa.enabled,

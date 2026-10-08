@@ -14,7 +14,7 @@ import { FileImportProgress, UploadResult } from '../data-constants';
 import { FileWithPath, ImportFilesService } from './import-files.service';
 
 export const routeMeta: RouteMeta = {
-    title: 'Import Files | Arc CMS',
+    title: 'Import Files',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
