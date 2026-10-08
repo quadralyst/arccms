@@ -46,6 +46,7 @@ import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../.
 import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
 import { PhoneCountryComponent } from '../../../../shared/components/phone-country/phone-country.component';
 import { readSignInError, SignInService } from '../sign-in.service';
+import { RESEND_SECONDS, SentCodes } from '../sent-codes';
 import { environment } from '../../../../environments/environment';
 import { arcConfig } from '../../../core/config/arc-config';
 import { homeFor, safeRedirect } from '../../../core/home/home';
@@ -98,6 +99,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   errorMessage = signal('');
   successMessage = signal('');
   otpError = signal('');
+  /** A quiet line under the code boxes: a code was sent a moment ago (SC-D2). */
+  otpNotice = signal('');
   resendCountdown = signal(0);
   showLoginPassword = signal(false);
   showPassword = signal(false);
@@ -574,8 +577,35 @@ export default class SignupComponent extends BaseComponent implements OnInit {
    * Request a verification code from the server (E3). The code is generated,
    * hashed and delivered server-side (email pipeline or SMS), never in the client.
    */
-  async sendOtp(): Promise<void> {
+  /**
+   * The codes this page asked for, by channel, purpose and number or address
+   * (specs/sign-in-codes-spec.md, SC-D1). Coming back to one while its code still
+   * works goes to the code boxes without sending again, and the countdown carries on.
+   */
+  private readonly sentCodes = new SentCodes();
+
+  private codeKey(): string {
+    return this.channel() === 'phone'
+      ? `phone:${this.phonePurpose()}:${this.phone()}`
+      : `email:signup:${this.email}`;
+  }
+
+  /**
+   * Ask for a code, unless one for this number or address still works (`resend`
+   * asks anyway). A "please wait" from the server starts the countdown from the
+   * seconds it gives, with a quiet line instead of an error (SC-D2).
+   */
+  async sendOtp(resend = false): Promise<void> {
     this.otpError.set('');
+    this.otpNotice.set('');
+    const key = this.codeKey();
+    const known = this.sentCodes.fresh(key);
+    if (!resend && known) {
+      this.testCode.set(known.testCode);
+      this.testCodeInLogs.set(known.testCodeInLogs);
+      this.startCountdown(this.sentCodes.secondsLeft(key));
+      return;
+    }
 
     try {
       if (this.channel() === 'phone') {
@@ -591,16 +621,25 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.testCode.set(reply.testCode ?? '');
         if (!reply.testMode) this.toastService.success(this.t('member.auth.code_sent_email'));
       }
+      this.sentCodes.remember(key, { testCode: this.testCode(), testCodeInLogs: this.testCodeInLogs() });
       this.startCountdown();
     } catch (error: any) {
-      const message = readSignInError(error, this.t('member.auth.send_code_failed')).message;
-      this.otpError.set(message);
+      const failed = readSignInError(error, this.t('member.auth.send_code_failed'));
+      const wait = Number(failed.details?.['wait']);
+      if (failed.reason === 'wait' && wait > 0) {
+        // A code went out under a minute ago (this tab before a reload, or another one).
+        this.sentCodes.remember(key, { testCode: known?.testCode ?? '', testCodeInLogs: known?.testCodeInLogs ?? false }, wait);
+        this.otpNotice.set(this.t('member.auth.code_already_sent'));
+        this.startCountdown(wait);
+        return;
+      }
+      this.otpError.set(failed.message);
     }
   }
 
-  startCountdown() {
+  startCountdown(seconds = RESEND_SECONDS) {
     clearInterval(this.countdownInterval);
-    this.resendCountdown.set(60);
+    this.resendCountdown.set(Math.max(0, seconds));
 
     this.countdownInterval = setInterval(() => {
       const current = this.resendCountdown();
@@ -616,7 +655,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     if (this.resendCountdown() > 0) return;
     this.otpError.set('');
     this.codeBoxes()?.reset();
-    void this.sendOtp();
+    void this.sendOtp(true);
   }
 
   /** Test mode: put the shown code in the boxes, which verifies it. */
@@ -640,6 +679,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     try {
       if (this.channel() === 'phone') {
         await this.signIn.verifyPhoneCode(this.phone(), otp, this.phonePurpose());
+        this.sentCodes.forget(this.codeKey());
         this.goToStep(this.phonePurpose() === 'reset' ? 'newPin' : 'signup');
         return;
       }
@@ -647,6 +687,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       // code, expiry and attempt cap. Only a successful call marks the email verified.
       const result = await this.signIn.verifySignupCode(this.email, otp);
       if (result.verified) {
+        this.sentCodes.forget(this.codeKey());
         this.otpVerified = true;
         this.toastService.success(this.t('member.auth.email_verified'));
         this.goToStep('signup');
@@ -655,7 +696,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.codeBoxes()?.reset();
       }
     } catch (error: any) {
-      this.otpError.set(readSignInError(error, this.t('member.auth.code_wrong_short')).message);
+      const failed = readSignInError(error, this.t('member.auth.code_wrong_short'));
+      // A spent code (expired, or too many tries): coming back sends a new one.
+      if (failed.reason === 'code-expired' || failed.reason === 'code-tries') this.sentCodes.forget(this.codeKey());
+      this.otpError.set(failed.message);
       this.codeBoxes()?.reset();
     } finally {
       this.isLoading.set(false);
@@ -830,8 +874,11 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   /** Back to the first step, keeping what was typed. */
   changeIdentifier(): void {
+    // The codes asked for stay remembered (sentCodes): coming back to the same
+    // number or address carries on where it was (SC-D1).
     this.testCode.set('');
     this.testCodeInLogs.set(false);
+    this.otpNotice.set('');
     clearInterval(this.countdownInterval);
     this.resendCountdown.set(0);
     this.goToStep('request');

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { signal } from '@angular/core';
 import { SignInMethodsComponent } from './sign-in-methods.component';
 import { english } from '../../../../test/english';
+import { SentCodes } from '../sent-codes';
 
 const proto = SignInMethodsComponent.prototype as unknown as Record<string, (this: unknown, ...args: unknown[]) => Promise<void>>;
 
@@ -21,6 +22,10 @@ function ctx(check: Record<string, unknown> = { status: 'available' }, countryCo
         message: signal(''),
         secret: signal(''),
         testCodeInLogs: signal(false),
+        notice: signal(''),
+        resendIn: signal(0),
+        sentCodes: new SentCodes(),
+        startCountdown: vi.fn(),
         changingPin: signal(false),
         codeBoxes: () => ({ reset: vi.fn(), value: () => '' }),
         toast: { success: vi.fn() },
@@ -165,5 +170,40 @@ describe('SignInMethodsComponent', () => {
         await proto['verifyCode'].call(c, '000000');
         expect(c['error']()).toBe("That code didn't work.");
         expect(c['flow']().step).toBe('code');
+    });
+
+    describe('a code already asked for (specs/sign-in-codes-spec.md)', () => {
+        it('starting again with the same number goes to the code boxes without sending, and keeps the countdown', async () => {
+            const c = ctx();
+            c['flow'].set({ kind: 'phone', step: 'enter', typed: '98765 43210', check: null });
+            await proto['sendCode'].call(c);
+            expect(c['signIn'].requestPhoneCode).toHaveBeenCalledTimes(1);
+            expect(c['startCountdown']).toHaveBeenLastCalledWith(60);
+
+            c['flow'].set({ kind: 'phone', step: 'enter', typed: '98765 43210', check: null });
+            await proto['sendCode'].call(c);
+            expect(c['signIn'].requestPhoneCode).toHaveBeenCalledTimes(1);
+            expect(c['flow']().step).toBe('code');
+            expect(c['startCountdown'].mock.calls.at(-1)[0]).toBeGreaterThan(55);
+        });
+
+        it('turns "please wait" into the countdown with a quiet line, and goes to the code boxes', async () => {
+            const c = ctx();
+            c['signIn'].requestPhoneCode.mockRejectedValue({ code: 'functions/resource-exhausted', message: 'Please wait 39s', details: { reason: 'wait', wait: 39 } });
+            c['flow'].set({ kind: 'phone', step: 'enter', typed: '98765 43210', check: null });
+            await proto['sendCode'].call(c);
+            expect(c['startCountdown']).toHaveBeenLastCalledWith(39);
+            expect(c['notice']()).toMatch(/sent a code a moment ago/);
+            expect(c['error']()).toBe('');
+            expect(c['flow']().step).toBe('code');
+        });
+
+        it('waits for the countdown before Resend', async () => {
+            const c = ctx();
+            c['resendIn'].set(20);
+            c['flow'].set({ kind: 'phone', step: 'code', typed: '', check: { kind: 'phone', value: '+919876543210', status: 'available' } });
+            await proto['resend'].call(c);
+            expect(c['signIn'].requestPhoneCode).not.toHaveBeenCalled();
+        });
     });
 });

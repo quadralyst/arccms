@@ -20,6 +20,8 @@ vi.mock('@angular/fire/functions', () => ({
 }));
 
 import SignupComponent from './signup.page';
+import { signal } from '@angular/core';
+import { SentCodes } from '../sent-codes';
 import { homeFor } from '../../../core/home/home';
 import { english } from '../../../../test/english';
 import { FormControl, FormGroup } from '@angular/forms';
@@ -351,6 +353,8 @@ describe('SignupComponent', () => {
                 functions: {},
                 otpVerified: false,
                 otpError: { set: vi.fn() },
+                sentCodes: new SentCodes(),
+                codeKey: () => 'key',
                 isLoading: Object.assign(() => false, { set: vi.fn() }),
                 toastService: { success: vi.fn() },
                 goToStep: vi.fn(),
@@ -588,18 +592,22 @@ describe('SignupComponent', () => {
         function ctx(testCode?: string, reply: Record<string, unknown> = testCode ? { testMode: true } : {}, purpose = 'signup') {
             let shown = '';
             let inLogs = false;
-            return {
+            const c: Record<string, any> = {
                 t: english,
                 channel: () => 'phone',
                 phone: () => '+919876543210',
                 phonePurpose: () => purpose,
                 otpError: { set: vi.fn() },
+                otpNotice: signal(''),
+                sentCodes: new SentCodes(),
                 testCode: Object.assign(() => shown, { set: (v: string) => (shown = v) }),
                 testCodeInLogs: Object.assign(() => inLogs, { set: (v: boolean) => (inLogs = v) }),
                 toastService: { success: vi.fn() },
                 startCountdown: vi.fn(),
                 signIn: { requestPhoneCode: vi.fn().mockResolvedValue({ sent: true, ...reply, ...(testCode ? { testCode } : {}) }) },
             };
+            c['codeKey'] = () => (SignupComponent.prototype as any).codeKey.call(c);
+            return c;
         }
 
         it('says a reset code is in SMS Logs, and shows no code (review F)', async () => {
@@ -657,6 +665,78 @@ describe('SignupComponent', () => {
         });
     });
 
+
+    describe('a code already asked for (specs/sign-in-codes-spec.md)', () => {
+        const proto = SignupComponent.prototype as unknown as Record<string, (this: unknown, ...a: unknown[]) => Promise<void>>;
+
+        function ctx(phone = '+919876543210') {
+            let shown = '';
+            let inLogs = false;
+            const c: Record<string, any> = {
+                t: english,
+                channel: () => 'phone',
+                phone: () => phone,
+                phonePurpose: () => 'signup',
+                otpError: signal(''),
+                otpNotice: signal(''),
+                sentCodes: new SentCodes(),
+                testCode: Object.assign(() => shown, { set: (v: string) => (shown = v) }),
+                testCodeInLogs: Object.assign(() => inLogs, { set: (v: boolean) => (inLogs = v) }),
+                toastService: { success: vi.fn() },
+                startCountdown: vi.fn(),
+                signIn: { requestPhoneCode: vi.fn().mockResolvedValue({ sent: true, testMode: true, testCode: '482913' }) },
+            };
+            c['codeKey'] = () => (SignupComponent.prototype as any).codeKey.call(c);
+            return c;
+        }
+
+        it('coming back to the same number goes to the code boxes without sending again, and keeps the countdown', async () => {
+            const c = ctx();
+            await proto['sendOtp'].call(c);
+            expect(c['signIn'].requestPhoneCode).toHaveBeenCalledTimes(1);
+            expect(c['startCountdown']).toHaveBeenLastCalledWith();
+
+            c['testCode'].set('');
+            await proto['sendOtp'].call(c);
+            expect(c['signIn'].requestPhoneCode).toHaveBeenCalledTimes(1);
+            expect(c['testCode']()).toBe('482913');
+            const left = c['startCountdown'].mock.calls.at(-1)[0];
+            expect(left).toBeGreaterThan(55);
+            expect(left).toBeLessThanOrEqual(60);
+        });
+
+        it('Resend always asks again', async () => {
+            const c = ctx();
+            await proto['sendOtp'].call(c);
+            await proto['sendOtp'].call(c, true);
+            expect(c['signIn'].requestPhoneCode).toHaveBeenCalledTimes(2);
+        });
+
+        it('a different number sends its own code', async () => {
+            const c = ctx();
+            await proto['sendOtp'].call(c);
+            c['phone'] = () => '+919876500000';
+            await proto['sendOtp'].call(c);
+            expect(c['signIn'].requestPhoneCode).toHaveBeenCalledTimes(2);
+        });
+
+        it('turns the server\'s "please wait" into the countdown, with a quiet line and no error', async () => {
+            const c = ctx();
+            c['signIn'].requestPhoneCode.mockRejectedValue({ code: 'functions/resource-exhausted', message: 'Please wait 39s', details: { reason: 'wait', wait: 39 } });
+            await proto['sendOtp'].call(c);
+            expect(c['startCountdown']).toHaveBeenLastCalledWith(39);
+            expect(c['otpError']()).toBe('');
+            expect(c['otpNotice']()).toMatch(/sent a code a moment ago/);
+        });
+
+        it('shows any other refusal as an error', async () => {
+            const c = ctx();
+            c['signIn'].requestPhoneCode.mockRejectedValue({ code: 'functions/resource-exhausted', message: 'Too many codes.', details: { reason: 'too-many-codes', retryAfter: 600 } });
+            await proto['sendOtp'].call(c);
+            expect(c['otpError']()).toBe('Too many codes.');
+            expect(c['startCountdown']).not.toHaveBeenCalled();
+        });
+    });
     describe('signInWithPin', () => {
         const signInWithPin = (SignupComponent.prototype as unknown as Record<string, (this: unknown, pin?: string) => Promise<void>>)['signInWithPin'];
 

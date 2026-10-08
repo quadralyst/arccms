@@ -56,14 +56,39 @@ export interface SignInError {
     code: string;
     message: string;
     reason?: string;
+    /** The refusal's numbers, such as `wait` or `retryAfter` (specs/sign-in-codes-spec.md). */
+    details?: Record<string, unknown>;
 }
 
 /** Read a Firebase or callable error into something a page can show. */
 export function readSignInError(err: unknown, fallback = genericErrorText()): SignInError {
-    const e = err as { code?: string; message?: string; details?: { reason?: string } };
+    const e = err as { code?: string; message?: string; details?: Record<string, unknown> & { reason?: string } };
     const code = String(e?.code ?? '').replace(/^functions\//, '');
     const message = code && code !== 'internal' && e?.message ? e.message : fallback;
-    return { code, message, reason: e?.details?.reason };
+    return { code, message, reason: e?.details?.reason, details: e?.details };
+}
+
+/**
+ * A sign-in refusal in the member's language (SC-D7): the server puts a reason and
+ * its numbers in `details`, and `member.auth.server_error.<reason>` says it. Null
+ * when there is no reason or no string for it, so the server's English stays.
+ */
+export function translateRefusal(
+    details: { reason?: unknown; [key: string]: unknown } | undefined,
+    translate: (key: string, params: Record<string, unknown>) => string,
+    lang: string,
+    now = Date.now(),
+): string | null {
+    const reason = typeof details?.reason === 'string' ? details.reason : '';
+    if (!/^[a-z-]+$/.test(reason)) return null;
+    const key = `member.auth.server_error.${reason.replace(/-/g, '_')}`;
+    const params: Record<string, unknown> = { ...details };
+    const retryAfter = Number(details?.['retryAfter']);
+    if (retryAfter > 0) {
+        params['time'] = new Intl.DateTimeFormat(lang, { hour: 'numeric', minute: '2-digit' }).format(new Date(now + retryAfter * 1000));
+    }
+    const text = translate(key, params);
+    return text && text !== key ? text : null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -71,6 +96,7 @@ export class SignInService {
     private readonly auth = inject(Auth);
     private readonly functions = inject(Functions);
     private readonly injector = inject(Injector);
+    private readonly transloco = inject(TranslocoService);
 
     /**
      * Tickets from verified codes, by purpose and number or address. The step
@@ -106,8 +132,20 @@ export class SignInService {
     }
 
     private async call<T>(name: string, data: Record<string, unknown>): Promise<T> {
-        const result = await runInInjectionContext(this.injector, () => arcCallable(this.functions, name)(data));
-        return result.data as T;
+        try {
+            const result = await runInInjectionContext(this.injector, () => arcCallable(this.functions, name)(data));
+            return result.data as T;
+        } catch (err) {
+            // Every page shows `message` (readSignInError): say it in the member's language.
+            const e = err as { message?: string; details?: Record<string, unknown> };
+            const text = translateRefusal(e?.details, (key, params) => this.transloco.translate(key, params), this.transloco.getActiveLang());
+            if (text && e && typeof e === 'object') {
+                try {
+                    e.message = text;
+                } catch { /* a frozen error keeps the server's text */ }
+            }
+            throw err;
+        }
     }
 
     // --- Email ---------------------------------------------------------------
