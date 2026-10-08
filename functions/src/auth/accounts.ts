@@ -23,6 +23,7 @@ import { setRecordClaims } from '../users/claims.js';
 import { SIGN_IN_NOT_READY, alertSigningProblem, signingProblem } from './signInSetup.js';
 import { isBlank } from '../shared/blank.js';
 import { refuseLockedAppAccount } from '../users/lockedAppAccount.js';
+import { refuse } from './refusal.js';
 
 const scryptAsync = promisify(scrypt) as (pin: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -67,7 +68,7 @@ export async function readSignInSettings(): Promise<SignInSettings> {
 export async function requirePhoneSignIn(): Promise<SignInSettings> {
     const settings = await readSignInSettings();
     if (!settings.phoneSignIn) {
-        throw new HttpsError('failed-precondition', 'Phone sign-in is not turned on for this site.');
+        throw refuse('failed-precondition', 'phone-off', 'Phone sign-in is not turned on for this site.');
     }
     return settings;
 }
@@ -149,7 +150,7 @@ export function canSignIn(data: Record<string, unknown>): boolean {
 }
 
 export function requireSignedIn(request: CallableRequest): string {
-    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Please sign in again.');
+    if (!request.auth?.uid) throw refuse('unauthenticated', 'sign-in-again', 'Please sign in again.');
     return request.auth.uid;
 }
 
@@ -167,7 +168,7 @@ export async function requireOwnRecord(
 ): Promise<UserRecord> {
     const uid = requireSignedIn(request);
     const record = await findUserByUid(uid);
-    if (!record) throw new HttpsError('failed-precondition', "This account doesn't have access to this site.");
+    if (!record) throw refuse('failed-precondition', 'no-access', "This account doesn't have access to this site.");
     if (!options.allowLockedAppAccount) refuseLockedAppAccount(record.data);
     return record;
 }
@@ -364,25 +365,47 @@ export async function checkPin(uid: string, pin: string, at: PinLocation = phone
 
 /**
  * Count one use of `key` in a fixed window; refuse once `max` is reached.
- * Keys are hashes, never raw numbers or addresses.
+ * Keys are hashes, never raw numbers or addresses. The refusal carries
+ * `details.reason` (`too-many-attempts` unless given) and `details.retryAfter`,
+ * the seconds until the window reopens, so a page can say when to try again
+ * (specs/sign-in-codes-spec.md, SC-D5).
  */
-export async function consumeRateLimit(key: string, max: number, windowMs: number, message: string): Promise<void> {
+export async function consumeRateLimit(
+    key: string,
+    max: number,
+    windowMs: number,
+    message: string,
+    reason = 'too-many-attempts',
+): Promise<void> {
     const ref = db.collection(RATE_LIMITS).doc(key);
     const now = Date.now();
-    const allowed = await db.runTransaction(async (tx) => {
+    const reopensAt = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
         const data = snap.data() ?? {};
         const windowStart = Number(data['windowStart'] ?? 0);
         if (!snap.exists || now - windowStart >= windowMs) {
             tx.set(ref, { windowStart: now, count: 1, expiresAt: Timestamp.fromMillis(now + windowMs) });
-            return true;
+            return 0;
         }
         const count = Number(data['count'] ?? 0);
-        if (count >= max) return false;
+        if (count >= max) return windowStart + windowMs;
         tx.update(ref, { count: count + 1 });
-        return true;
+        return 0;
     });
-    if (!allowed) throw new HttpsError('resource-exhausted', message);
+    if (reopensAt) throw new HttpsError('resource-exhausted', message, { reason, retryAfter: Math.max(1, Math.ceil((reopensAt - now) / 1000)) });
+}
+
+/**
+ * Give back one use of `key`, for something counted that did not happen (an
+ * SMS the provider refused): only what was really sent counts (SC-D4).
+ */
+export async function releaseRateLimit(key: string): Promise<void> {
+    const ref = db.collection(RATE_LIMITS).doc(key);
+    await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const count = Number(snap.data()?.['count'] ?? 0);
+        if (snap.exists && count > 0) tx.update(ref, { count: count - 1 });
+    });
 }
 
 /**

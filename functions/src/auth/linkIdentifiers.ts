@@ -29,12 +29,13 @@ import { maskPhone, phoneHash } from './phoneNumber.js';
 import { readPhone } from './phoneAuth.js';
 import { cleanEmail, cleanPasted } from './pastedText.js';
 import { consumeVerifiedPhoneOtp } from './phoneOtp.js';
-import { consumeVerifiedEmailLinkOtp, issueEmailOtp } from './signupOtp.js';
+import { assertEmailResendReady, consumeVerifiedEmailLinkOtp, issueEmailOtp } from './signupOtp.js';
 import {
     ACCOUNT_TRANSFERS,
     AUTH_PINS,
     PHONE_INDEX,
     consumeRateLimit,
+    releaseRateLimit,
     findUserByEmail,
     findUserByPhone,
     hasPin,
@@ -45,6 +46,7 @@ import {
     setPin,
     type UserRecord,
 } from './accounts.js';
+import { refuse } from './refusal.js';
 
 const HOUR = 60 * 60 * 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -55,7 +57,7 @@ export type LinkStatus = 'available' | 'yours' | 'other' | 'blocked';
 
 export function normalizeEmailAddress(raw: unknown): string {
     const email = cleanEmail(raw);
-    if (!EMAIL_PATTERN.test(email)) throw new HttpsError('invalid-argument', 'Enter a valid email address.');
+    if (!EMAIL_PATTERN.test(email)) throw refuse('invalid-argument', 'invalid-email', 'Enter a valid email address.');
     return email;
 }
 
@@ -150,10 +152,21 @@ export const requestEmailLinkOtp = onCall(async (request) => {
     const me = await requireOwnRecord(request);
     const uid = String(me.data['uid']);
     const email = normalizeEmailAddress(request.data?.email);
-    await consumeRateLimit(`email-link-${uid}`, 10, HOUR, 'Too many codes. Please try again in an hour.');
-    const result = await issueEmailOtp(email, 'link', { uid, name: String(me.data['name'] ?? '') || undefined });
+    // The wait first, and a code that was not sent is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
+    await assertEmailResendReady(email);
+    const limit = `email-link-${uid}`;
+    await consumeRateLimit(limit, 10, HOUR, 'Too many codes. Please try again later.', 'too-many-codes');
+    let result: Awaited<ReturnType<typeof issueEmailOtp>>;
+    try {
+        result = await issueEmailOtp(email, 'link', { uid, name: String(me.data['name'] ?? '') || undefined });
+    } catch (err) {
+        // Counted but not sent (a refusal from the provider, or a second request at once).
+        await releaseRateLimit(limit);
+        throw err;
+    }
     if (!result.sent) {
-        throw new HttpsError('unavailable', "We couldn't send the email. Please try again in a moment.");
+        await releaseRateLimit(limit);
+        throw refuse('unavailable', 'email-failed', "We couldn't send the email. Please try again in a moment.");
     }
     // Simulated provider: nothing was sent, and the code is in Email Logs, for admins.
     return result.testMode ? { sent: true, testMode: true } : { sent: true };
@@ -175,7 +188,7 @@ export const linkPhone = onCall(async (request) => {
         throw new HttpsError('invalid-argument', 'That PIN is too easy to guess. Avoid repeated digits and runs like 123456.', { reason: 'weak-pin' });
     }
     if (!(await consumeVerifiedPhoneOtp(phone, 'link', { uid }))) {
-        throw new HttpsError('failed-precondition', 'Please verify the number again.');
+        throw refuse('failed-precondition', 'code-expired', 'Please verify the number again.');
     }
 
     const now = Timestamp.now();
@@ -218,7 +231,7 @@ export const linkEmail = onCall(async (request) => {
     if (me.data['email'] === email) return { linked: true, moved: false };
 
     if (!arccmsOwnsAuthAccount(me.data)) {
-        throw new HttpsError('failed-precondition', "Your sign-in is managed by another app, so its email can't be changed here.");
+        throw refuse('failed-precondition', 'sign-in-managed', "Your sign-in is managed by another app, so its email can't be changed here.");
     }
     const needsPassword = !(await passwordIsSet(uid));
     if (needsPassword && password.length < MIN_PASSWORD_LENGTH) {
@@ -229,15 +242,15 @@ export const linkEmail = onCall(async (request) => {
     // with no ArcCMS record, such as another app's user (cannot move).
     const from = await findUserByEmail(email);
     if (from && !arccmsOwnsAuthAccount(from.data)) {
-        throw new HttpsError('failed-precondition', 'This email belongs to an account managed by another app.');
+        throw refuse('failed-precondition', 'email-managed', 'This email belongs to an account managed by another app.');
     }
     const holder = await owner.getUserByEmail(email).catch(() => null);
     if (holder && holder.uid !== uid && holder.uid !== from?.data['uid']) {
-        throw new HttpsError('failed-precondition', "This email is used by a sign-in that can't be moved here.");
+        throw refuse('failed-precondition', 'email-not-movable', "This email is used by a sign-in that can't be moved here.");
     }
 
     if (!(await consumeVerifiedEmailLinkOtp(email, uid))) {
-        throw new HttpsError('failed-precondition', 'Please verify the email again.');
+        throw refuse('failed-precondition', 'code-expired', 'Please verify the email again.');
     }
 
     if (holder && holder.uid !== uid) {

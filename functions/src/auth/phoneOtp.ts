@@ -13,7 +13,6 @@
  * Tries are counted in a transaction, so guesses sent in parallel cannot all
  * read the same count (review F).
  */
-import { HttpsError } from 'firebase-functions/v2/https';
 import { Timestamp } from 'firebase-admin/firestore';
 import { createHash, randomInt } from 'node:crypto';
 import { db } from '../init.js';
@@ -21,6 +20,7 @@ import { phoneHash } from './phoneNumber.js';
 import { sendSms } from '../sms/sendSms.js';
 import { newOtpTicket, ticketMatches } from './otpTicket.js';
 import type { SmsSettings } from '../sms/smsSettings.js';
+import { refuse } from './refusal.js';
 
 export const PHONE_OTPS = 'phone_otps';
 export const PHONE_OTP_PURPOSES = ['signup', 'reset', 'link'] as const;
@@ -45,6 +45,20 @@ export function otpSmsText(code: string): string {
 }
 
 /**
+ * Refuse with `wait` (and the seconds left) while the last code for this number
+ * is under a minute old. Callers check it before counting the hourly limits, so
+ * a refused send never uses one up (specs/sign-in-codes-spec.md, SC-D3).
+ */
+export async function assertPhoneResendReady(e164: string, now = Date.now()): Promise<void> {
+    const existing = await db.collection(PHONE_OTPS).doc(phoneHash(e164)).get();
+    const lastSent = (existing.data()?.['lastSentAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
+    if (now - lastSent < RESEND_THROTTLE_MS) {
+        const wait = Math.ceil((RESEND_THROTTLE_MS - (now - lastSent)) / 1000);
+        throw refuse('resource-exhausted', 'wait', `Please wait ${wait}s before asking for another code.`, { wait });
+    }
+}
+
+/**
  * Create a code for this number and send it. Throws when throttled or when the
  * SMS fails. Returns the code only with the Test (log) provider, where nothing
  * is sent and the sign-in page shows it instead.
@@ -59,12 +73,8 @@ export async function issuePhoneOtp(
     const ref = db.collection(PHONE_OTPS).doc(key);
     const now = Date.now();
 
-    const existing = await ref.get();
-    const lastSent = (existing.data()?.['lastSentAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
-    if (now - lastSent < RESEND_THROTTLE_MS) {
-        const wait = Math.ceil((RESEND_THROTTLE_MS - (now - lastSent)) / 1000);
-        throw new HttpsError('resource-exhausted', `Please wait ${wait}s before asking for another code.`);
-    }
+    // Checked again here, for two requests at once.
+    await assertPhoneResendReady(e164, now);
 
     const code = String(randomInt(100000, 1000000));
     await ref.set({
@@ -81,7 +91,7 @@ export async function issuePhoneOtp(
     if (result.status === 'failed') {
         // Let them try again straight away rather than wait out the resend gap.
         await ref.delete();
-        throw new HttpsError('unavailable', "We couldn't send the SMS. Please try again in a moment.");
+        throw refuse('unavailable', 'sms-failed', "We couldn't send the SMS. Please try again in a moment.");
     }
     return result.status === 'logged' ? { testCode: code } : {};
 }
@@ -107,10 +117,10 @@ export async function verifyPhoneOtp(e164: string, code: string, purpose: PhoneO
         return 'ok';
     });
     if (outcome === 'ok') return ticket;
-    if (outcome === 'missing') throw new HttpsError('not-found', 'That code has expired. Please ask for a new one.');
-    if (outcome === 'expired') throw new HttpsError('deadline-exceeded', 'That code has expired. Please ask for a new one.');
-    if (outcome === 'locked') throw new HttpsError('resource-exhausted', 'Too many tries. Please ask for a new code.');
-    throw new HttpsError('invalid-argument', "That code didn't work.");
+    if (outcome === 'missing') throw refuse('not-found', 'code-expired', 'That code has expired. Please ask for a new one.');
+    if (outcome === 'expired') throw refuse('deadline-exceeded', 'code-expired', 'That code has expired. Please ask for a new one.');
+    if (outcome === 'locked') throw refuse('resource-exhausted', 'code-tries', 'Too many tries. Please ask for a new code.');
+    throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
 }
 
 /**

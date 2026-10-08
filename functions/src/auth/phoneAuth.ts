@@ -29,6 +29,7 @@ import {
     checkPin,
     consumeRateLimit,
     findUserByPhone,
+    releaseRateLimit,
     hasPin,
     issueSignInToken,
     isValidPin,
@@ -38,8 +39,9 @@ import {
     requirePhoneSignIn,
     setPin as storePin,
 } from './accounts.js';
-import { consumeVerifiedPhoneOtp, isPhoneOtpPurpose, issuePhoneOtp, verifyPhoneOtp as checkPhoneOtp } from './phoneOtp.js';
+import { assertPhoneResendReady, consumeVerifiedPhoneOtp, isPhoneOtpPurpose, issuePhoneOtp, verifyPhoneOtp as checkPhoneOtp } from './phoneOtp.js';
 import { isWarmUp, WARM } from './warmUp.js';
+import { refuse } from './refusal.js';
 
 const HOUR = 60 * 60 * 1000;
 const TOO_MANY = 'Too many attempts. Please try again later.';
@@ -47,22 +49,22 @@ const TOO_MANY = 'Too many attempts. Please try again later.';
 /** The number in E.164, or the error the sign-in page shows under the field. */
 export function readPhone(raw: unknown, sms: SmsSettings): string {
     const e164 = normalizePhone(raw, sms.defaultCountryCode);
-    if (!e164) throw new HttpsError('invalid-argument', 'Enter a valid mobile number.');
+    if (!e164) throw refuse('invalid-argument', 'invalid-number', 'Enter a valid mobile number.');
     if (!isAllowedCountry(e164, sms.allowedCountryCodes)) {
         const codes = sms.allowedCountryCodes.map((c) => `+${c}`).join(', ');
-        throw new HttpsError('invalid-argument', `Only numbers starting ${codes} can be used here.`);
+        throw refuse('invalid-argument', 'country-not-allowed', `Only numbers starting ${codes} can be used here.`, { codes });
     }
     return e164;
 }
 
 export function readName(raw: unknown): string {
     const name = typeof raw === 'string' ? raw.trim().replace(/\s+/g, ' ') : '';
-    if (name.length < 2 || name.length > 60) throw new HttpsError('invalid-argument', 'Please enter your name.');
+    if (name.length < 2 || name.length > 60) throw refuse('invalid-argument', 'name-required', 'Please enter your name.');
     return name;
 }
 
 function readPin(raw: unknown): string {
-    if (!isValidPin(raw)) throw new HttpsError('invalid-argument', 'Your PIN is 6 digits.');
+    if (!isValidPin(raw)) throw refuse('invalid-argument', 'pin-format', 'Your PIN is 6 digits.');
     return raw;
 }
 
@@ -106,14 +108,26 @@ export const requestPhoneOtp = onCall(async (request) => {
         uid = String((await requireOwnRecord(request)).data['uid']);
     } else {
         const account = await findUserByPhone(phone);
-        if (purpose === 'signup' && account) throw new HttpsError('already-exists', 'This number already has an account.');
-        if (purpose === 'signup' && !signIn.signupOpen) throw new HttpsError('failed-precondition', "New accounts can't be created on this site right now.");
-        if (purpose === 'reset' && !account) throw new HttpsError('not-found', 'No account uses this number.');
+        if (purpose === 'signup' && account) throw refuse('already-exists', 'number-taken', 'This number already has an account.');
+        if (purpose === 'signup' && !signIn.signupOpen) throw refuse('failed-precondition', 'signup-closed', "New accounts can't be created on this site right now.");
+        if (purpose === 'reset' && !account) throw refuse('not-found', 'no-account', 'No account uses this number.');
     }
 
-    await consumeRateLimit(`otp-ip-${callerKey(request)}`, 20, HOUR, TOO_MANY);
-    await consumeRateLimit(`otp-phone-${phoneHash(phone)}`, 5, HOUR, 'Too many codes for this number. Please try again in an hour.');
-    const { testCode } = await issuePhoneOtp(phone, purpose, sms, uid);
+    // The wait first: only codes really sent count towards the hourly limits, and
+    // one the provider refuses is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
+    await assertPhoneResendReady(phone);
+    const callerLimit = `otp-ip-${callerKey(request)}`;
+    const numberLimit = `otp-phone-${phoneHash(phone)}`;
+    await consumeRateLimit(callerLimit, 20, HOUR, TOO_MANY);
+    await consumeRateLimit(numberLimit, 5, HOUR, 'Too many codes for this number. Please try again later.', 'too-many-codes');
+    let testCode: string | undefined;
+    try {
+        ({ testCode } = await issuePhoneOtp(phone, purpose, sms, uid));
+    } catch (err) {
+        // Counted but not sent (a refusal from the provider, or a second request at once).
+        await Promise.all([releaseRateLimit(callerLimit), releaseRateLimit(numberLimit)]);
+        throw err;
+    }
     logger.info(`requestPhoneOtp: ${purpose} code sent to ${maskPhone(phone)}.`);
     // Test provider: no SMS goes out (Settings, SMS warns admins). The page may
     // show a sign-up code, which only makes a new account. A reset code would let
@@ -132,7 +146,7 @@ export const verifyPhoneOtp = onCall(async (request) => {
     if (!isPhoneOtpPurpose(purpose)) throw new HttpsError('invalid-argument', 'Unknown request.');
     const { phone } = await phoneContext(request);
     const code = String(request.data?.code ?? '');
-    if (!/^\d{6}$/.test(code)) throw new HttpsError('invalid-argument', "That code didn't work.");
+    if (!/^\d{6}$/.test(code)) throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
     // A link code is for the signed-in account's own record (never a locked app account).
     const uid = purpose === 'link' ? String((await requireOwnRecord(request)).data['uid']) : undefined;
     const ticket = await checkPhoneOtp(phone, code, purpose, uid);
@@ -144,10 +158,10 @@ export const completePhoneSignup = onCall(async (request) => {
     const { signIn, phone } = await phoneContext(request);
     const name = readName(request.data?.name);
     const pin = readNewPin(request.data?.pin);
-    if (!signIn.signupOpen) throw new HttpsError('failed-precondition', "New accounts can't be created on this site right now.");
-    if (await findUserByPhone(phone)) throw new HttpsError('already-exists', 'This number already has an account.');
+    if (!signIn.signupOpen) throw refuse('failed-precondition', 'signup-closed', "New accounts can't be created on this site right now.");
+    if (await findUserByPhone(phone)) throw refuse('already-exists', 'number-taken', 'This number already has an account.');
     if (!(await consumeVerifiedPhoneOtp(phone, 'signup', { ticket: request.data?.ticket }))) {
-        throw new HttpsError('failed-precondition', 'Your code has expired. Please ask for a new one.');
+        throw refuse('failed-precondition', 'code-expired', 'Your code has expired. Please ask for a new one.');
     }
 
     const account = await owner.createUser({ displayName: name });
@@ -157,7 +171,7 @@ export const completePhoneSignup = onCall(async (request) => {
     const now = Timestamp.now();
     try {
         await db.runTransaction(async (tx) => {
-            if ((await tx.get(indexRef)).exists) throw new HttpsError('already-exists', 'This number already has an account.');
+            if ((await tx.get(indexRef)).exists) throw refuse('already-exists', 'number-taken', 'This number already has an account.');
             tx.create(indexRef, { userDocId: ref.id, uid, createdAt: now });
             tx.set(ref, newUserRecord({ id: ref.id, uid, name, role: signIn.defaultRole, by: 'phone', now, phone, phoneVerified: true }));
         });
@@ -178,8 +192,8 @@ export const signInWithPin = onCall(async (request) => {
     const { phone } = await phoneContext(request);
     const pin = readPin(request.data?.pin);
     const account = await findUserByPhone(phone);
-    if (!account) throw new HttpsError('not-found', 'No account uses this number.');
-    if (!canSignIn(account.data)) throw new HttpsError('permission-denied', 'This account is blocked. Please contact the site administrator.');
+    if (!account) throw refuse('not-found', 'no-account', 'No account uses this number.');
+    if (!canSignIn(account.data)) throw refuse('permission-denied', 'account-blocked', 'This account is blocked. Please contact the site administrator.');
 
     const uid = String(account.data['uid']);
     const result = await checkPin(uid, pin);
@@ -198,10 +212,10 @@ export const resetPin = onCall(async (request) => {
     const { phone } = await phoneContext(request);
     const pin = readNewPin(request.data?.pin);
     const account = await findUserByPhone(phone);
-    if (!account) throw new HttpsError('not-found', 'No account uses this number.');
-    if (!canSignIn(account.data)) throw new HttpsError('permission-denied', 'This account is blocked. Please contact the site administrator.');
+    if (!account) throw refuse('not-found', 'no-account', 'No account uses this number.');
+    if (!canSignIn(account.data)) throw refuse('permission-denied', 'account-blocked', 'This account is blocked. Please contact the site administrator.');
     if (!(await consumeVerifiedPhoneOtp(phone, 'reset', { ticket: request.data?.ticket }))) {
-        throw new HttpsError('failed-precondition', 'Your code has expired. Please ask for a new one.');
+        throw refuse('failed-precondition', 'code-expired', 'Your code has expired. Please ask for a new one.');
     }
     const uid = String(account.data['uid']);
     await storePin(uid, pin);
@@ -213,7 +227,7 @@ export const resetPin = onCall(async (request) => {
 
 export const setPin = onCall(async (request) => {
     const record = await requireOwnRecord(request);
-    if (!record.data['phone']) throw new HttpsError('failed-precondition', 'Add a phone number first.');
+    if (!record.data['phone']) throw refuse('failed-precondition', 'add-phone-first', 'Add a phone number first.');
     await storePin(String(record.data['uid']), readNewPin(request.data?.pin));
     return { saved: true };
 });

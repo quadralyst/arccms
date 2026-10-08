@@ -48,8 +48,11 @@ vi.mock('../init', () => ({
   },
 }));
 
-const { mockRateLimit } = vi.hoisted(() => ({ mockRateLimit: vi.fn().mockResolvedValue(undefined) }));
-vi.mock('../auth/accounts', () => ({ callerKey: () => 'caller', consumeRateLimit: mockRateLimit }));
+const { mockRateLimit, mockRelease } = vi.hoisted(() => ({
+  mockRateLimit: vi.fn().mockResolvedValue(undefined),
+  mockRelease: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../auth/accounts', () => ({ callerKey: () => 'caller', consumeRateLimit: mockRateLimit, releaseRateLimit: mockRelease }));
 
 vi.mock('../email-core/queueEmail', () => ({ queueEmail: mockQueueEmail }));
 vi.mock('../email-core/defaultTemplates', () => ({ ensureDefaultTemplates: mockEnsureDefaults }));
@@ -64,9 +67,11 @@ vi.mock('firebase-functions/v2/https', () => ({
   onCall: vi.fn((handler: any) => handler),
   HttpsError: class extends Error {
     code: string;
-    constructor(code: string, message: string) {
+    details: unknown;
+    constructor(code: string, message: string, details?: unknown) {
       super(message);
       this.code = code;
+      this.details = details;
     }
   },
 }));
@@ -105,7 +110,23 @@ describe('requestSignupOtp', () => {
   it('limits codes per caller and per address (review F)', async () => {
     await reqHandler({ data: { email: EMAIL } });
     expect(mockRateLimit).toHaveBeenCalledWith('email-otp-ip-caller', 20, 3_600_000, expect.any(String));
-    expect(mockRateLimit).toHaveBeenCalledWith(`email-otp-${HASH}`, 5, 3_600_000, expect.any(String));
+    expect(mockRateLimit).toHaveBeenCalledWith(`email-otp-${HASH}`, 5, 3_600_000, expect.any(String), 'too-many-codes');
+  });
+
+  it('checks the one-minute wait before counting, so a refused send uses up nothing (SC-D3)', async () => {
+    mockOtpGet.mockResolvedValue({ exists: true, data: () => ({ lastSentAt: { toMillis: () => Date.now() - 21_000 } }) });
+    const refused = await reqHandler({ data: { email: EMAIL } }).catch((e: any) => e);
+    expect(refused).toMatchObject({ code: 'resource-exhausted', details: { reason: 'wait' } });
+    expect(refused.details.wait).toBeGreaterThanOrEqual(38);
+    expect(refused.details.wait).toBeLessThanOrEqual(40);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+  });
+
+  it('gives the counts back when the code could not be sent (SC-D4)', async () => {
+    mockTemplateGet.mockResolvedValue({ empty: true, docs: [] });
+    await expect(reqHandler({ data: { email: EMAIL } })).rejects.toMatchObject({ details: { reason: 'email-failed' } });
+    expect(mockRelease).toHaveBeenCalledWith('email-otp-ip-caller');
+    expect(mockRelease).toHaveBeenCalledWith(`email-otp-${HASH}`);
   });
 
   it('rejects an invalid email', async () => {

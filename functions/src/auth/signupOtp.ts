@@ -1,4 +1,4 @@
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { createHash, randomInt } from 'node:crypto';
@@ -7,9 +7,10 @@ import { queueEmail } from '../email-core/queueEmail.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { ensureDefaultTemplates } from '../email-core/defaultTemplates.js';
 import type { EmailTemplateData } from '../types.js';
-import { callerKey, consumeRateLimit, requireOwnRecord } from './accounts.js';
+import { callerKey, consumeRateLimit, releaseRateLimit, requireOwnRecord } from './accounts.js';
 import { newOtpTicket, ticketMatches } from './otpTicket.js';
 import { isWarmUp, WARM } from './warmUp.js';
+import { refuse } from './refusal.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -70,13 +71,39 @@ export const requestSignupOtp = onCall(async (request) => {
   if (isWarmUp(request)) return WARM;
   const email = normalizeEmail(request.data?.email);
   if (!email || !email.includes('@')) {
-    throw new HttpsError('invalid-argument', 'Enter a valid email address.');
+    throw refuse('invalid-argument', 'invalid-email', 'Enter a valid email address.');
   }
   const name = typeof request.data?.name === 'string' && request.data.name ? request.data.name : undefined;
-  await consumeRateLimit(`email-otp-ip-${callerKey(request)}`, 20, HOUR, 'Too many attempts. Please try again later.');
-  await consumeRateLimit(`email-otp-${computeEmailHash(email)}`, 5, HOUR, 'Too many codes for this address. Please try again in an hour.');
-  return issueEmailOtp(email, 'signup', { name });
+  // The wait first: only codes really sent count towards the hourly limits, and
+  // one that could not be queued is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
+  await assertEmailResendReady(email);
+  const callerLimit = `email-otp-ip-${callerKey(request)}`;
+  const addressLimit = `email-otp-${computeEmailHash(email)}`;
+  await consumeRateLimit(callerLimit, 20, HOUR, 'Too many attempts. Please try again later.');
+  await consumeRateLimit(addressLimit, 5, HOUR, 'Too many codes for this address. Please try again later.', 'too-many-codes');
+  try {
+    return await issueEmailOtp(email, 'signup', { name });
+  } catch (err) {
+    // Counted but not sent (a refusal from the provider, or a second request at once).
+    await Promise.all([releaseRateLimit(callerLimit), releaseRateLimit(addressLimit)]);
+    throw err;
+  }
 });
+
+/**
+ * Refuse with `wait` (and the seconds left) while the last code for this address
+ * is under a minute old. Callers check it before counting the hourly limits, so
+ * a refused send never uses one up (specs/sign-in-codes-spec.md, SC-D3).
+ */
+export async function assertEmailResendReady(email: string, now = Date.now()): Promise<void> {
+  const existing = await db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(email)).get();
+  if (!existing.exists) return;
+  const lastSent = (existing.data()?.['lastSentAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
+  if (now - lastSent < RESEND_THROTTLE_MS) {
+    const wait = Math.ceil((RESEND_THROTTLE_MS - (now - lastSent)) / 1000);
+    throw refuse('resource-exhausted', 'wait', `Please wait ${wait}s before asking for another code.`, { wait });
+  }
+}
 
 /**
  * Create a code for this address and email it. Shared by the sign-up page and
@@ -92,18 +119,12 @@ export async function issueEmailOtp(
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
   const now = Date.now();
 
-  const existing = await ref.get();
-  if (existing.exists) {
-    const lastSent = (existing.data()?.['lastSentAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
-    if (now - lastSent < RESEND_THROTTLE_MS) {
-      const wait = Math.ceil((RESEND_THROTTLE_MS - (now - lastSent)) / 1000);
-      throw new HttpsError('resource-exhausted', `Please wait ${wait}s before asking for another code.`);
-    }
-  }
+  // Checked again here, for two requests at once.
+  await assertEmailResendReady(email, now);
 
   const template = await loadSignupOtpTemplate();
   if (!template) {
-    throw new HttpsError('failed-precondition', "We couldn't send the email. Please try again later.");
+    throw refuse('failed-precondition', 'email-failed', "We couldn't send the email. Please try again later.");
   }
 
   const code = generateCode();
@@ -171,7 +192,7 @@ export const verifySignupOtp = onCall(async (request) => {
   const email = normalizeEmail(request.data?.email);
   const code = String(request.data?.code || '');
   if (!email || !code) {
-    throw new HttpsError('invalid-argument', "That code didn't work.");
+    throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
   }
   const purpose: EmailOtpPurpose = request.data?.purpose === 'link' ? 'link' : 'signup';
   // A link code is for the signed-in account's own record (never a locked app account).
@@ -196,10 +217,10 @@ export const verifySignupOtp = onCall(async (request) => {
     return 'ok';
   });
 
-  if (outcome === 'missing') throw new HttpsError('not-found', 'That code has expired. Please ask for a new one.');
-  if (outcome === 'expired') throw new HttpsError('deadline-exceeded', 'That code has expired. Please ask for a new one.');
-  if (outcome === 'locked') throw new HttpsError('resource-exhausted', 'Too many tries. Please ask for a new code.');
-  if (outcome === 'wrong') throw new HttpsError('invalid-argument', "That code didn't work.");
+  if (outcome === 'missing') throw refuse('not-found', 'code-expired', 'That code has expired. Please ask for a new one.');
+  if (outcome === 'expired') throw refuse('deadline-exceeded', 'code-expired', 'That code has expired. Please ask for a new one.');
+  if (outcome === 'locked') throw refuse('resource-exhausted', 'code-tries', 'Too many tries. Please ask for a new code.');
+  if (outcome === 'wrong') throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
   logger.info(`verifySignupOtp: verified ${email}.`);
   return { verified: true, ticket };
 });

@@ -280,6 +280,53 @@ describe('signing in with the PIN', () => {
     });
 });
 
+describe('the one-minute wait and the hourly limit (specs/sign-in-codes-spec.md)', () => {
+    const numberCount = () => Number(mem.read('_rate_limits', `otp-phone-${phoneHash(E164)}`)?.['count'] ?? 0);
+
+    it('refuses inside the minute with the seconds left, and the refusal uses up nothing (SC-D3)', async () => {
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        for (let i = 0; i < 6; i++) {
+            const refused = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' }).catch((e) => e);
+            expect(refused).toMatchObject({ code: 'resource-exhausted', details: { reason: 'wait' } });
+            expect(refused.details.wait).toBeGreaterThan(55);
+        }
+        expect(numberCount()).toBe(1);
+        ageLastCode();
+        await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' })).resolves.toMatchObject({ sent: true });
+        expect(numberCount()).toBe(2);
+    });
+
+    it('says when the hourly limit reopens (SC-D5)', async () => {
+        for (let i = 0; i < 5; i++) {
+            await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+            ageLastCode();
+        }
+        const refused = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' }).catch((e) => e);
+        expect(refused).toMatchObject({ code: 'resource-exhausted', details: { reason: 'too-many-codes' } });
+        expect(refused.details.retryAfter).toBeGreaterThan(3500);
+        expect(refused.details.retryAfter).toBeLessThanOrEqual(3600);
+    });
+
+    it('gives the counts back when the SMS provider refuses the send (SC-D4)', async () => {
+        mem.seed('Settings', 'sms', { provider: 'msg91', msg91AuthKey: 'k', msg91OtpTemplateId: 't' });
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ type: 'error', message: 'down' }) }));
+        try {
+            await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' })).rejects.toMatchObject({ details: { reason: 'sms-failed' } });
+            expect(numberCount()).toBe(0);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('gives every refusal a member sees a reason', async () => {
+        await expect(call(phone.checkPhoneAccount, { phone: '123' })).rejects.toMatchObject({ details: { reason: 'invalid-number' } });
+        await expect(call(phone.checkPhoneAccount, { phone: '+44 7700 900123' })).rejects.toMatchObject({
+            details: { reason: 'country-not-allowed', codes: '+91' },
+        });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810' })).rejects.toMatchObject({ details: { reason: 'no-account' } });
+    });
+});
+
 describe('attempt counters and the caller\'s address (review F)', () => {
     it('count tries inside a transaction, so parallel guesses cannot share one count', async () => {
         const { readFileSync } = await import('node:fs');

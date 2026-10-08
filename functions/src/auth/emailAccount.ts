@@ -27,6 +27,7 @@ import { authOwnerFor } from './googleAccount.js';
 import { consumeVerifiedSignupCode } from './signupOtp.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuseOtherSignIn } from './appAccountLock.js';
+import { refuse } from './refusal.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -90,14 +91,14 @@ export const createAccountRecord = onCall(async (request) => {
     const token = request.auth!.token as { email?: string; firebase?: { sign_in_provider?: string } };
     const email = String(token.email ?? '').trim().toLowerCase();
     if (token.firebase?.sign_in_provider !== 'password' || !email) {
-        throw new HttpsError('failed-precondition', 'Please sign in again.');
+        throw refuse('failed-precondition', 'sign-in-again', 'Please sign in again.');
     }
     const settings = await readSignInSettings();
     if (!settings.signupOpen) {
         throw new HttpsError('failed-precondition', "New accounts can't be created on this site right now.", { reason: 'signup-closed' });
     }
     if (await findUserByEmail(email)) {
-        throw new HttpsError('already-exists', 'You already have an account with this email. Enter your password to sign in.');
+        throw refuse('already-exists', 'email-has-account', 'You already have an account with this email. Enter your password to sign in.');
     }
 
     const name = readName(request.data?.name);
