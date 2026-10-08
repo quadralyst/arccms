@@ -41,13 +41,13 @@
                                     </label>
                                     <input type="text" formControlName="identifier" class="form-control" id="identifier"
                                         autocomplete="username" autocapitalize="off" spellcheck="false"
-                                        [placeholder]="(phoneEnabled() ? 'member.auth.identifier_placeholder_phone' : 'member.auth.identifier_placeholder_email') | transloco"
+                                        [placeholder]="(!phoneEnabled() ? 'member.auth.identifier_placeholder_email' : countryCode() === '91' ? 'member.auth.identifier_placeholder_phone' : 'member.auth.identifier_placeholder_phone_any') | transloco"
                                         [readonly]="isLoading()" (paste)="cleanIdentifier()" (blur)="cleanIdentifier()"
                                         [class.is-invalid]="isFieldInvalid('identifier')" />
 
                                     @if(isFieldInvalid('identifier')){
                                     <div class="invalid-feedback">
-                                        {{ (phoneEnabled() ? 'member.auth.identifier_invalid_phone' : 'member.auth.identifier_invalid_email') | transloco }}
+                                        {{ identifierErrorKey() | transloco }}
                                     </div>
                                     }
                                 </div>

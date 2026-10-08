@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DEFAULT_USER_SETTINGS, AVAILABLE_ROLES, IUserSettings } from './user-setting.model';
+import { DEFAULT_USER_SETTINGS, AVAILABLE_ROLES, IUserSettings, phoneCountryCode } from './user-setting.model';
 
 describe('UserSettingModel', () => {
     describe('DEFAULT_USER_SETTINGS', () => {
@@ -47,6 +47,15 @@ describe('UserSettingModel', () => {
                 defaultRole: 'user',
             };
             expect(settings.id).toBe('test-id');
+        });
+    });
+
+    describe('phoneCountryCode', () => {
+        it('is the copied SMS default, digits only, and 91 without one', () => {
+            expect(phoneCountryCode({ phoneCountryCode: '44' })).toBe('44');
+            expect(phoneCountryCode({ phoneCountryCode: '+1' })).toBe('1');
+            expect(phoneCountryCode({})).toBe('91');
+            expect(phoneCountryCode(null)).toBe('91');
         });
     });
 });

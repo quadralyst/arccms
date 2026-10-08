@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sign-in methods | Arc CMS docs</title>
   <meta name="description" content="Let people sign in with an email and password, a phone number and PIN, or Google, and move an email or number between accounts.">
-  <meta name="docs:sources" content="functions/src/auth, functions/src/features/sms.ts, functions/src/users/onUserCreate.ts, functions/src/users/accountCallables.ts, src/app/pages/(auth), src/app/pages/admin/(settings)/user-setting, src/shared/services/global-auth.service.ts, src/custom/home.ts, firestore.rules">
+  <meta name="docs:sources" content="functions/src/auth, functions/src/features/sms.ts, functions/src/users/onUserCreate.ts, functions/src/users/accountCallables.ts, src/app/pages/(auth), src/app/pages/admin/(settings)/user-setting, src/shared/services/global-auth.service.ts, src/shared/utils/identifier.util.ts, src/custom/home.ts, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/sign-in.html">
@@ -70,6 +70,9 @@ gcloud iam service-accounts add-iam-policy-binding &lt;service-account&gt; --mem
     <p>Granting a role needs the Owner or Security Admin role on the project. In the console, the role is added under IAM and admin, IAM.</p>
 
     <h2>Use it</h2>
+    <h3>The "Phone number or email" field</h3>
+    <p>What a person pastes is cleaned up as it lands, and again on the server: hidden direction marks and zero-width spaces (WhatsApp and contact cards add them), non-breaking spaces, full-width and Devanagari or other Indian digits, a <code>tel:</code> or <code>mailto:</code> link, a name around an address (<code>Asha Rao &lt;asha@example.com&gt;</code>) and the full stop of a sentence. An email is shown in lower case without spaces. A number is read against the default country code under Settings, SMS, the same way the server reads it; on a site whose default is <code>91</code> an Indian number is shown as <code>98765 43210</code>, and every other number is shown in full, such as <code>+447700900123</code>. The cleaning is <code>cleanPasted</code> and <code>cleanEmail</code> in <code>src/shared/utils/identifier.util.ts</code>, mirrored on the server in <code>functions/src/auth/pastedText.ts</code>; both are tested against the same cases.</p>
+    <p>When the field cannot be used, the message under it says what to fix rather than "invalid": a number that is too short or has too many digits, an Indian mobile number that does not start with 6, 7, 8 or 9 (such as <code>1234567890</code> on a site whose default country code is <code>91</code>), a country code that does not look right, an email without a full domain, a word with no <code>@</code>, or a number typed where only email sign-in is on (<code>identifierProblem</code>, messages under <code>member.auth.identifier_error</code>).</p>
     <h3>Email</h3>
     <p>A new address gets a 6-digit code by email (template <code>signup_otp_email</code>), valid for 10 minutes, with 5 tries and at least 60 seconds between codes; an address gets at most 5 codes an hour. The new account is marked email-verified only when it is created from the browser that entered the code. Passwords need at least 8 characters.</p>
 
@@ -78,7 +81,7 @@ gcloud iam service-accounts add-iam-policy-binding &lt;service-account&gt; --mem
 
     <h3>Phone number</h3>
     <ul>
-      <li>Numbers can be typed or pasted in any common format; a number without a country code gets the default one. Numbers outside the allowed country codes are refused (by default only <code>91</code>).</li>
+      <li>Numbers can be typed or pasted in any common format, such as <code>+91 98765-43210</code>, <code>(+44) 7700 900123</code> or a <code>tel:</code> link; a number without a country code gets the default one. Numbers outside the allowed country codes are refused (by default only <code>91</code>).</li>
       <li>SMS codes are 6 digits, valid for 10 minutes, with 5 tries, 60 seconds between codes and at most 5 codes an hour per number.</li>
       <li>PINs are 6 digits. One digit repeated, a straight run (123456, 987654) or a common pattern (121212) is refused. The 5th wrong PIN in a row locks it.</li>
       <li><strong>Forgot PIN</strong>, a locked PIN, or a number that never had one: an SMS code, then a new PIN. A reset signs out every other session.</li>
@@ -121,7 +124,7 @@ gcloud iam service-accounts add-iam-policy-binding &lt;service-account&gt; --mem
         <tr><td><code>auth_pins/{uid}</code></td><td>PIN hashes (scrypt with a salt and a server secret kept in <code>_system/pin_pepper</code>), and the lock.</td></tr>
         <tr><td><code>_rate_limits</code></td><td>Counters for the limits above, per caller, address and number.</td></tr>
         <tr><td><code>account_transfers</code></td><td>Every email or number moved between accounts.</td></tr>
-        <tr><td><code>Settings/users</code></td><td><code>isSignupEnabled</code>, <code>defaultRole</code>, <code>phoneSignIn</code>, <code>googleSignIn</code>.</td></tr>
+        <tr><td><code>Settings/users</code></td><td><code>isSignupEnabled</code>, <code>defaultRole</code>, <code>phoneSignIn</code>, <code>googleSignIn</code>, and <code>phoneCountryCode</code>, a copy of the SMS default country code that Settings, SMS writes.</td></tr>
       </tbody>
     </table>
     <p>Cloud Functions (callables, deployed as <code>arccms-&lt;name&gt;</code>):</p>

@@ -1,9 +1,11 @@
 /**
  * Settings, SMS: `Settings/sms` (admin only) and the test send.
  * The MSG91 auth key is never read back into the page, only whether one is set.
+ * The default country code is copied to `Settings/users.phoneCountryCode`, which
+ * the sign-in page can read, so it reads numbers the way the server does.
  */
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
-import { Firestore, doc, getDoc, serverTimestamp, setDoc } from '@angular/fire/firestore';
+import { Firestore, doc, getDoc, serverTimestamp, setDoc, writeBatch } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
 import { arcCallable } from '../../../../core/config/arc-functions';
 
@@ -35,9 +37,14 @@ export function parseCountryCodes(text: string): string[] {
     return text.split(',').map((code) => code.replace(/\D/g, '')).filter(Boolean);
 }
 
+/** A country code as stored: digits only, the default when there are none. */
+export function resolveCountryCode(raw: unknown): string {
+    return String(raw ?? '').replace(/\D/g, '') || DEFAULT_SMS_FORM.defaultCountryCode;
+}
+
 /** What `save` writes to `Settings/sms`, before the timestamp. */
 export function smsSettingsData(form: SmsSettingsForm): Record<string, unknown> {
-    const defaultCountryCode = form.defaultCountryCode.replace(/\D/g, '') || DEFAULT_SMS_FORM.defaultCountryCode;
+    const defaultCountryCode = resolveCountryCode(form.defaultCountryCode);
     const allowed = parseCountryCodes(form.allowedCountryCodes);
     const data: Record<string, unknown> = {
         provider: form.provider,
@@ -73,6 +80,12 @@ export class SmsSettingsService {
         ]);
         const data = snap.data() ?? {};
         const allowed = Array.isArray(data['allowedCountryCodes']) ? (data['allowedCountryCodes'] as string[]).join(', ') : DEFAULT_SMS_FORM.allowedCountryCodes;
+        // Keep the sign-in page's copy in step: saved before the copy existed, or
+        // changed outside this page (a script, the console).
+        const savedCode = resolveCountryCode(data['defaultCountryCode']);
+        if (snap.exists() && users && users.data()?.['phoneCountryCode'] !== savedCode) {
+            await this.inCtx(() => setDoc(doc(this.firestore, 'Settings', 'users'), { phoneCountryCode: savedCode }, { merge: true })).catch(() => undefined);
+        }
         return {
             form: {
                 provider: data['provider'] === 'msg91' ? 'msg91' : 'log',
@@ -87,9 +100,15 @@ export class SmsSettingsService {
         };
     }
 
+    /** Both documents in one write, so the sign-in page never disagrees with the server. */
     async save(form: SmsSettingsForm): Promise<void> {
         const data = { ...smsSettingsData(form), updatedAt: serverTimestamp() };
-        await this.inCtx(() => setDoc(doc(this.firestore, 'Settings', 'sms'), data, { merge: true }));
+        await this.inCtx(() => {
+            const batch = writeBatch(this.firestore);
+            batch.set(doc(this.firestore, 'Settings', 'sms'), data, { merge: true });
+            batch.set(doc(this.firestore, 'Settings', 'users'), { phoneCountryCode: data['defaultCountryCode'] }, { merge: true });
+            return batch.commit();
+        });
     }
 
     async sendTest(phone: string): Promise<{ status: string; error?: string }> {

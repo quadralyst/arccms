@@ -21,8 +21,8 @@ import { readSignInError, SignInService, type LinkCheck } from '../sign-in.servi
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
-import { phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
-import { classifyIdentifier, formatPhone } from '../../../../shared/utils/identifier.util';
+import { phoneCountryCode, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
+import { classifyIdentifier, DEFAULT_COUNTRY_CODE, formatPhone, identifierProblem } from '../../../../shared/utils/identifier.util';
 
 type Kind = 'email' | 'phone';
 type Step = 'enter' | 'code' | 'secret';
@@ -122,7 +122,7 @@ interface Flow {
                 @switch (f.step) {
                     @case ('enter') {
                         <input class="form-control" [type]="f.kind === 'email' ? 'email' : 'tel'"
-                            [placeholder]="(f.kind === 'email' ? 'member.methods.email_placeholder' : 'member.methods.phone_placeholder') | transloco"
+                            [placeholder]="(f.kind === 'email' ? 'member.methods.email_placeholder' : countryCode() === '91' ? 'member.methods.phone_placeholder' : 'member.methods.phone_placeholder_any') | transloco"
                             [autocomplete]="f.kind === 'email' ? 'email' : 'tel'"
                             [ngModel]="f.typed" (ngModelChange)="setTyped($event)"
                             (paste)="cleanTyped()" (blur)="cleanTyped()" (keydown.enter)="sendCode()" />
@@ -205,7 +205,9 @@ export class SignInMethodsComponent implements OnInit {
     private readonly t = injectT();
 
     readonly user = this.authStore.currentUser;
-    readonly phoneShown = computed(() => formatPhone(this.user()?.phone ?? ''));
+    /** Settings, SMS's default country code: how a number typed without one is read. */
+    readonly countryCode = signal(DEFAULT_COUNTRY_CODE);
+    readonly phoneShown = computed(() => formatPhone(this.user()?.phone ?? '', this.countryCode()));
 
     readonly phoneEnabled = signal(false);
     readonly googleEnabled = signal(false);
@@ -234,13 +236,14 @@ export class SignInMethodsComponent implements OnInit {
     readonly shownValue = computed(() => {
         const f = this.flow();
         const value = f?.check?.value ?? '';
-        return f?.kind === 'phone' ? formatPhone(value) : value;
+        return f?.kind === 'phone' ? formatPhone(value, this.countryCode()) : value;
     });
 
     ngOnInit(): void {
         this.googleConnected.set(this.signIn.hasGoogle());
         firstValueFrom(this.settings.getSettings()).then((s) => {
             this.phoneEnabled.set(phoneSignInOn(s));
+            this.countryCode.set(phoneCountryCode(s));
             this.googleEnabled.set(s.googleSignIn === true);
         }).catch(() => undefined);
     }
@@ -279,7 +282,7 @@ export class SignInMethodsComponent implements OnInit {
         setTimeout(() => {
             const f = this.flow();
             if (!f) return;
-            const id = classifyIdentifier(f.typed);
+            const id = classifyIdentifier(f.typed, this.countryCode());
             if (id.kind === f.kind && id.display !== f.typed) this.setTyped(id.display);
         });
     }
@@ -291,9 +294,13 @@ export class SignInMethodsComponent implements OnInit {
     async sendCode(): Promise<void> {
         const f = this.flow();
         if (!f || this.busy()) return;
-        const id = classifyIdentifier(f.typed);
+        const id = classifyIdentifier(f.typed, this.countryCode());
         if (id.kind !== f.kind) {
-            this.error.set(this.t(f.kind === 'email' ? 'member.methods.invalid_email' : 'member.methods.invalid_phone'));
+            // A number says what is wrong with it, as on the sign-in page.
+            const problem = f.kind === 'phone' ? identifierProblem(f.typed, true, this.countryCode()) : null;
+            this.error.set(this.t(problem?.startsWith('phone_')
+                ? `member.auth.identifier_error.${problem}` as TranslationKey
+                : f.kind === 'email' ? 'member.methods.invalid_email' : 'member.methods.invalid_phone'));
             return;
         }
         await this.run(async () => {

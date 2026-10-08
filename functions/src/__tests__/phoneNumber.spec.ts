@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isAllowedCountry, maskPhone, normalizePhone, phoneHash } from '../auth/phoneNumber.js';
-import { PHONE_CASES } from './helpers/phoneCases.js';
+import { cleanEmail } from '../auth/pastedText.js';
+import { EMAIL_CASES, PHONE_CASES } from './helpers/phoneCases.js';
 
 describe('normalizePhone', () => {
     it.each(PHONE_CASES)('%s → %s', (raw, expected) => {
@@ -10,6 +11,12 @@ describe('normalizePhone', () => {
     it('reads national numbers against another default country', () => {
         expect(normalizePhone('07700 900123', '44')).toBe('+447700900123');
         expect(normalizePhone('447700900123', '44')).toBe('+447700900123');
+    });
+});
+
+describe('cleanEmail', () => {
+    it.each(EMAIL_CASES)('%s → %s', (raw, expected) => {
+        expect(cleanEmail(raw)).toBe(expected);
     });
 });
 

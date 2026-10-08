@@ -6,9 +6,10 @@ import { english } from '../../../../test/english';
 const proto = SignInMethodsComponent.prototype as unknown as Record<string, (this: unknown, ...args: unknown[]) => Promise<void>>;
 
 /** A stand-in for the component: its signals plus mocked services. */
-function ctx(check: Record<string, unknown> = { status: 'available' }) {
+function ctx(check: Record<string, unknown> = { status: 'available' }, countryCode = '91') {
     const c: Record<string, any> = {
         t: english,
+        countryCode: signal(countryCode),
         flow: signal<any>(null),
         busy: signal(false),
         error: signal(''),
@@ -40,6 +41,22 @@ describe('SignInMethodsComponent', () => {
         await proto['sendCode'].call(c);
         expect(c['signIn'].requestPhoneCode).toHaveBeenCalledWith('+919876543210', 'link');
         expect(c['flow']().step).toBe('code');
+    });
+
+    it('reads a number against the site\'s default country code (Settings, SMS)', async () => {
+        const c = ctx({ value: '+447700900123' }, '44');
+        c['flow'].set({ kind: 'phone', step: 'enter', typed: '07700 900123', check: null });
+        await proto['sendCode'].call(c);
+        expect(c['error']()).toBe('');
+        expect(c['signIn'].requestPhoneCode).toHaveBeenCalledWith('+447700900123', 'link');
+    });
+
+    it('says what is wrong with a number, as the sign-in page does', async () => {
+        const c = ctx();
+        c['flow'].set({ kind: 'phone', step: 'enter', typed: '1234567890', check: null });
+        await proto['sendCode'].call(c);
+        expect(c['error']()).toMatch(/start with 6, 7, 8 or 9/);
+        expect(c['signIn'].checkForLink).not.toHaveBeenCalled();
     });
 
     it('says a number is on another account first, and sends the code on the next press', async () => {

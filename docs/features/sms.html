@@ -48,7 +48,7 @@
     <h2>Set it up</h2>
     <ol class="steps">
       <li><p>Open Admin, Settings, SMS.</p></li>
-      <li><p>Set the <strong>default country code</strong> (digits only; <code>91</code> is India). It is added to numbers typed without one.</p></li>
+      <li><p>Set the <strong>default country code</strong> (digits only; <code>91</code> is India). It is added to numbers typed without one, on the sign-in page and on the server alike. Saving also copies it to <code>Settings/users</code> (<code>phoneCountryCode</code>), which the sign-in page can read before anyone signs in, while <code>Settings/sms</code> stays admin only. Opening this page puts the copy right if it is missing or out of step.</p></li>
       <li><p>Set the <strong>allowed country codes</strong>, separated by commas. Only numbers starting with one of them can sign in by phone. Left empty, only the default country is allowed, never every country.</p></li>
       <li><p>To send real messages, choose <strong>MSG91</strong> and enter the auth key and the OTP template id. The key is never shown again: leave the field empty to keep the saved one.</p></li>
       <li><p>Click <strong>Save SMS settings</strong>. Then, under <strong>Send a test SMS</strong>, enter your own number and click <strong>Send test</strong>. With MSG91 the test is your OTP template with a made-up code; with the test provider it is only recorded in SMS Logs.</p></li>

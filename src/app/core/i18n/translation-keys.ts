@@ -1519,12 +1519,21 @@ export type TranslationKey =
     | 'member.auth.forgot_pin'
     | 'member.auth.google_failed'
     | 'member.auth.hide_pin'
-    | 'member.auth.identifier_invalid_email'
-    | 'member.auth.identifier_invalid_phone'
+    | 'member.auth.identifier_error.email'
+    | 'member.auth.identifier_error.empty_email'
+    | 'member.auth.identifier_error.empty_phone'
+    | 'member.auth.identifier_error.not_email'
+    | 'member.auth.identifier_error.not_phone_or_email'
+    | 'member.auth.identifier_error.phone_country'
+    | 'member.auth.identifier_error.phone_long'
+    | 'member.auth.identifier_error.phone_off'
+    | 'member.auth.identifier_error.phone_short'
+    | 'member.auth.identifier_error.phone_start'
     | 'member.auth.identifier_label_email'
     | 'member.auth.identifier_label_phone'
     | 'member.auth.identifier_placeholder_email'
     | 'member.auth.identifier_placeholder_phone'
+    | 'member.auth.identifier_placeholder_phone_any'
     | 'member.auth.instance_label_title'
     | 'member.auth.logged_in'
     | 'member.auth.logging_in_as'
@@ -1642,6 +1651,7 @@ export type TranslationKey =
     | 'member.methods.phone'
     | 'member.methods.phone_moved'
     | 'member.methods.phone_placeholder'
+    | 'member.methods.phone_placeholder_any'
     | 'member.methods.phone_saved'
     | 'member.methods.pin_changed'
     | 'member.methods.save_pin'
@@ -3328,12 +3338,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.forgot_pin',
     'member.auth.google_failed',
     'member.auth.hide_pin',
-    'member.auth.identifier_invalid_email',
-    'member.auth.identifier_invalid_phone',
+    'member.auth.identifier_error.email',
+    'member.auth.identifier_error.empty_email',
+    'member.auth.identifier_error.empty_phone',
+    'member.auth.identifier_error.not_email',
+    'member.auth.identifier_error.not_phone_or_email',
+    'member.auth.identifier_error.phone_country',
+    'member.auth.identifier_error.phone_long',
+    'member.auth.identifier_error.phone_off',
+    'member.auth.identifier_error.phone_short',
+    'member.auth.identifier_error.phone_start',
     'member.auth.identifier_label_email',
     'member.auth.identifier_label_phone',
     'member.auth.identifier_placeholder_email',
     'member.auth.identifier_placeholder_phone',
+    'member.auth.identifier_placeholder_phone_any',
     'member.auth.instance_label_title',
     'member.auth.logged_in',
     'member.auth.logging_in_as',
@@ -3451,6 +3470,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.methods.phone',
     'member.methods.phone_moved',
     'member.methods.phone_placeholder',
+    'member.methods.phone_placeholder_any',
     'member.methods.phone_saved',
     'member.methods.pin_changed',
     'member.methods.save_pin',

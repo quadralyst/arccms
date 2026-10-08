@@ -22,6 +22,8 @@ vi.mock('@angular/fire/functions', () => ({
 import SignupComponent from './signup.page';
 import { homeFor } from '../../../core/home/home';
 import { english } from '../../../../test/english';
+import { FormControl, FormGroup } from '@angular/forms';
+import { identifierProblem } from '../../../../shared/utils/identifier.util';
 
 describe('SignupComponent', () => {
     describe('Component Definition', () => {
@@ -298,6 +300,7 @@ describe('SignupComponent', () => {
                 'forgotPassword',
                 // 'googleSignIn' removed
                 'isFieldInvalid',
+                'identifierErrorKey',
                 'hasPasswordMismatch',
                 'passwordMatchValidator',
                 'ngOnInit',
@@ -388,6 +391,50 @@ describe('SignupComponent', () => {
             const c = ctx('phone', 'reset');
             await verifyOtp.call(c, '654321');
             expect(c.goToStep).toHaveBeenCalledWith('newPin');
+        });
+    });
+
+    describe('the message under "Phone number or email"', () => {
+        const errorKey = SignupComponent.prototype.identifierErrorKey;
+
+        /** What a person reads after typing `typed` and leaving the field. */
+        function message(typed: string, phoneOn = true, countryCode = '91'): string {
+            const control = new FormControl(typed, (c) => {
+                const problem = identifierProblem(c.value, phoneOn, countryCode);
+                return problem ? { identifier: problem } : null;
+            });
+            const c = { phoneEnabled: () => phoneOn, registrationForm: new FormGroup({ identifier: control }) };
+            return english(errorKey.call(c as never));
+        }
+
+        it('says why 1234567890 is not a mobile number, not just "invalid"', () => {
+            expect(message('1234567890')).toBe(
+                'Indian mobile numbers start with 6, 7, 8 or 9. For a number from another country, type + and the country code first.');
+        });
+
+        it('says what to fix for each kind of mistake', () => {
+            expect(message('')).toBe('Enter your mobile number or email address.');
+            expect(message('', false)).toBe('Enter your email address.');
+            expect(message('98765')).toMatch(/too short/);
+            expect(message('98765432101')).toMatch(/too many digits/);
+            expect(message('+0 7700 900123')).toMatch(/country code/);
+            expect(message('asha@example')).toMatch(/name@example\.com/);
+            expect(message('asha')).toMatch(/with @/);
+            expect(message('9876543210', false)).toMatch(/not available here/);
+        });
+
+        it('on a site whose default country is 44, talks about the number, not about India', () => {
+            expect(message('07700 9', true, '44')).toMatch(/too short/);
+            expect(message('07700 9', true, '44')).not.toMatch(/Indian/);
+        });
+
+        it('has an English and a Hindi message for every problem', async () => {
+            const hi = (await import('../../../../assets/i18n/hi.json')).default as Record<string, any>;
+            for (const key of ['empty_phone', 'empty_email', 'email', 'not_email', 'not_phone_or_email', 'phone_off',
+                'phone_short', 'phone_long', 'phone_start', 'phone_country']) {
+                expect(english(`member.auth.identifier_error.${key}`), key).not.toMatch(/^member\./);
+                expect(hi['member']['auth']['identifier_error'][key], key).toBeTruthy();
+            }
         });
     });
 

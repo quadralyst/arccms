@@ -34,12 +34,12 @@ import type { TranslationKey } from '../../../core/i18n/translation-keys';
 import { AuthService } from '../auth.service';
 import { ConstantVariables } from '../../../../shared/constants/common-constants';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
-import { phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
+import { phoneCountryCode, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
 import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { LegalNoticeComponent } from '../../../../shared/components/legal-notice/legal-notice.component';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
-import { classifyIdentifier, formatPhone } from '../../../../shared/utils/identifier.util';
+import { classifyIdentifier, DEFAULT_COUNTRY_CODE, formatPhone, identifierProblem, type IdentifierProblem } from '../../../../shared/utils/identifier.util';
 import { readSignInError, SignInService } from '../sign-in.service';
 import { environment } from '../../../../environments/environment';
 import { arcConfig } from '../../../core/config/arc-config';
@@ -108,7 +108,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   channel = signal<Channel>('email');
   /** The number in E.164, as the server read it. */
   phone = signal('');
-  phoneDisplay = computed(() => formatPhone(this.phone()));
+  /** Settings, SMS's default country code: how a number typed without one is read. */
+  countryCode = signal(DEFAULT_COUNTRY_CODE);
+  phoneDisplay = computed(() => formatPhone(this.phone(), this.countryCode()));
   /** What the SMS code is for: a new account, or a new PIN. */
   phonePurpose = signal<'signup' | 'reset'>('signup');
   /** The PIN typed on the sign-up and new-PIN steps. */
@@ -218,6 +220,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.userSettingService.getSettings().subscribe(settings => {
         this.signupSettings = settings;
         this.phoneEnabled.set(phoneSignInOn(settings));
+        this.countryCode.set(phoneCountryCode(settings));
         this.googleEnabled.set(settings.googleSignIn === true);
         this.updateValidators(this.currentStep());
         // Start the sign-in functions while the person types (each takes seconds to start).
@@ -252,16 +255,27 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       : { mismatch: true };
   }
 
-  /** The request field accepts an email, and a phone number when phone sign-in is on. */
+  /**
+   * The request field accepts an email, and a phone number when phone sign-in is on.
+   * The error names what is wrong ("too short", "starts with 6 to 9"), not just "invalid".
+   */
   private identifierValidator = (control: AbstractControl): ValidationErrors | null => {
-    const kind = classifyIdentifier(control.value).kind;
-    if (kind === 'email' || (kind === 'phone' && this.phoneEnabled())) return null;
-    return { identifier: true };
+    const problem = identifierProblem(control.value, this.phoneEnabled(), this.countryCode());
+    return problem ? { identifier: problem } : null;
   };
+
+  /** The message under the request field, for what is wrong with it. */
+  identifierErrorKey(): string {
+    const problem: IdentifierProblem = this.registrationForm.get('identifier')?.errors?.['identifier'] ?? 'empty';
+    if (problem === 'empty') {
+      return this.phoneEnabled() ? 'member.auth.identifier_error.empty_phone' : 'member.auth.identifier_error.empty_email';
+    }
+    return `member.auth.identifier_error.${problem}`;
+  }
 
   /** The email the email steps work with. */
   get email(): string {
-    return classifyIdentifier(this.registrationForm.get('identifier')?.value).value;
+    return classifyIdentifier(this.registrationForm.get('identifier')?.value, this.countryCode()).value;
   }
 
   /** Where the code went, as the person reads it. */
@@ -367,7 +381,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     // A paste lands in the field after the event, so read it on the next tick.
     setTimeout(() => {
       const control = this.registrationForm.get('identifier');
-      const id = classifyIdentifier(control?.value);
+      const id = classifyIdentifier(control?.value, this.countryCode());
       if (id.kind !== 'unknown' && control?.value !== id.display) {
         control?.setValue(id.display);
       }
@@ -381,7 +395,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       control.markAsTouched();
       return;
     }
-    const id = classifyIdentifier(control?.value);
+    const id = classifyIdentifier(control?.value, this.countryCode());
     if (id.kind === 'phone') {
       await this.checkPhone(control?.value);
     } else {

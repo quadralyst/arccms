@@ -7,6 +7,7 @@
  * `src/shared/utils/identifier.util.ts`; both specs run the same table.
  */
 import { createHash } from 'node:crypto';
+import { cleanPasted } from './pastedText.js';
 
 export const DEFAULT_COUNTRY_CODE = '91';
 
@@ -19,20 +20,30 @@ function isValidInternational(digits: string): boolean {
 }
 
 /**
+ * The digits of a cleaned number, and whether it carries its own country code:
+ * a `+` before the first digit (`(+44) 7700`, too) or a leading `00`.
+ */
+export function readDigits(text: string): { digits: string; international: boolean } {
+    let digits = text.replace(/\D/g, '');
+    const firstDigit = text.search(/\d/);
+    let international = text.slice(0, firstDigit < 0 ? text.length : firstDigit).includes('+');
+    if (!international && digits.startsWith('00')) {
+        digits = digits.slice(2);
+        international = true;
+    }
+    return { digits, international };
+}
+
+/**
  * The E.164 form of a typed or pasted number, or null when it is not one.
  * A leading `+` or `00` means the number carries its own country code;
  * otherwise `defaultCountryCode` applies.
  */
 export function normalizePhone(raw: unknown, defaultCountryCode: string = DEFAULT_COUNTRY_CODE): string | null {
-    const text = String(raw ?? '').trim();
+    const text = cleanPasted(raw);
     if (!text || text.includes('@') || /[a-z]/i.test(text)) return null;
 
-    let digits = text.replace(/\D/g, '');
-    let international = text.startsWith('+');
-    if (!international && digits.startsWith('00')) {
-        digits = digits.slice(2);
-        international = true;
-    }
+    const { digits, international } = readDigits(text);
     if (!digits) return null;
 
     if (international) {

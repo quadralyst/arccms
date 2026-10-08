@@ -27,6 +27,7 @@ import { arccmsOwnsAuthAccount } from '../users/authOwner.js';
 import { readSmsSettings } from '../sms/smsSettings.js';
 import { maskPhone, phoneHash } from './phoneNumber.js';
 import { readPhone } from './phoneAuth.js';
+import { cleanEmail, cleanPasted } from './pastedText.js';
 import { consumeVerifiedPhoneOtp } from './phoneOtp.js';
 import { consumeVerifiedEmailLinkOtp, issueEmailOtp } from './signupOtp.js';
 import {
@@ -53,7 +54,7 @@ export type LinkKind = 'email' | 'phone';
 export type LinkStatus = 'available' | 'yours' | 'other' | 'blocked';
 
 export function normalizeEmailAddress(raw: unknown): string {
-    const email = String(raw ?? '').trim().toLowerCase();
+    const email = cleanEmail(raw);
     if (!EMAIL_PATTERN.test(email)) throw new HttpsError('invalid-argument', 'Enter a valid email address.');
     return email;
 }
@@ -122,7 +123,7 @@ export const checkIdentifierForLink = onCall(async (request) => {
     const uid = String(me.data['uid']);
     const raw = String(request.data?.identifier ?? '');
 
-    if (raw.includes('@')) {
+    if (cleanPasted(raw).includes('@')) {
         const email = normalizeEmailAddress(raw);
         const needsPassword = !(await passwordIsSet(uid));
         if (me.data['email'] === email) return { kind: 'email', value: email, status: 'yours', needsPassword };
