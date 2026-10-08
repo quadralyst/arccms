@@ -56,6 +56,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - On a site whose default country code is `+1` or `+7`, a number typed without `+` that starts with that digit (every Kazakh mobile starts with 7) was read as already carrying the code: `701 123 45 67` became `+7011234567`. Both twins of `normalizePhone` now need all eleven digits for those codes. In Russia, Kazakhstan and Belarus, a number typed with the domestic `8` in front of it beside the country chip is read correctly.
 - New member translation keys: `member.phone_country.*`, `member.auth.identifier_error.phone_start_choose` and `phone_not_allowed`; `phone_start` is shorter.
 
+- **Sign-in codes: waits and limits.** Choosing Change number and coming back to the same number (or address) within the code's 10 minutes goes straight to the code boxes, with the Resend countdown carrying on, instead of "Please wait 39s" and a live Resend button. A "please wait" from the server starts the countdown. The server checks the one-minute wait before the hourly limits, and a send the provider refuses gives its count back, so only codes actually sent count. At the limit the page says when to try again ("Try again after 5:42 PM"). The profile's add-a-number and add-an-email steps behave the same. See docs/features/sign-in.html.
+- **Sign-in messages from the server are in the member's language.** Every refusal the sign-in functions send a member carries `details.reason` and its numbers, and the page shows `member.auth.server_error.<reason>`; the server's English is only a fallback.
+- `consumeRateLimit` (app kit) takes an optional fifth argument, `reason`, and its refusal carries `details.reason` and `details.retryAfter` (seconds). Existing calls work unchanged.
+- New member translation keys: `member.auth.server_error.*` and `member.auth.code_already_sent`.
+
 ### For apps upgrading
 
 1. Merge the new version. If your copy edited files in `public/`, run `npm run arc:own-site`, then `npm run arc:own-site -- --write` (docs/website/move-your-site.html).
@@ -63,7 +68,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 3. Run `npm run arc:configure` once, so `arc-install.ts` names your hosting site.
    - The merge conflicts in `src/environments/environment.ts`, `environment.prod.ts` and `arc-install.ts` if your copy filled them in: Arc CMS emptied them. Keep your own version of all three (`git checkout --ours <file>`).
 4. Run `npm run typecheck` and fix any type error it reports in your own pages or functions: `npm run test` now fails on them. They would already have failed your production build.
-5. If your app has its own member languages, add the new member keys (`member.phone_country.*`, `member.auth.identifier_error.phone_start_choose`, `phone_not_allowed`) to `src/custom/i18n/{lang}.json`; the member language check names any that are missing.
+5. If your app has its own member languages, add the new member keys (`member.phone_country.*`, `member.auth.identifier_error.phone_start_choose`, `phone_not_allowed`, `member.auth.server_error.*`, `member.auth.code_already_sent`) to `src/custom/i18n/{lang}.json`; the member language check names any that are missing.
 6. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`). Then open Settings, SMS once as an admin: that copies the list of countries for the sign-in page.
 7. On an install set up before the standard pages, or before page layouts, open **Content types** and choose **Add standard pages** (it adds the pages and the Info boxes field that are missing). Then pick **Layout: Contact** on your Contact page if you want the new layout. If your own footer listed the old Documentation, GitHub or Community links from Arc CMS's footer, they are gone from the default one; keep your own footer as it is.
 
