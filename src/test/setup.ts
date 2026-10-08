@@ -26,6 +26,7 @@ async function starter(file: string, actual: () => Promise<unknown>) {
     return starterFor(file, expect.getState().testPath, actual);
 }
 vi.mock('../custom/app-accounts', (actual) => starter('src/custom/app-accounts.ts', actual));
+vi.mock('../custom/brand', (actual) => starter('src/custom/brand.ts', actual));
 vi.mock('../custom/features', (actual) => starter('src/custom/features.ts', actual));
 vi.mock('../custom/home', (actual) => starter('src/custom/home.ts', actual));
 vi.mock('../custom/languages', (actual) => starter('src/custom/languages.ts', actual));
@@ -33,6 +34,12 @@ vi.mock('../custom/nav', (actual) => starter('src/custom/nav.ts', actual));
 vi.mock('../custom/pwa', (actual) => starter('src/custom/pwa.ts', actual));
 vi.mock('../custom/routes', (actual) => starter('src/custom/routes.ts', actual));
 vi.mock('../custom/user-dashboard', (actual) => starter('src/custom/user-dashboard.ts', actual));
+// The app's brand files (src/custom/logo.*, sign-in-image.*): none in a core spec, like a fresh install.
+vi.mock('../app/core/brand/app-brand-files', async (actual) => {
+    // @ts-expect-error: plain ESM script without type declarations
+    const { isAppSpec } = await import('../../scripts/custom-starters.mjs');
+    return isAppSpec(expect.getState().testPath) ? actual() : { APP_LOGO: '', SIGN_IN_IMAGE: '' };
+});
 import { getTestBed, TestBed } from '@angular/core/testing';
 import {
     BrowserTestingModule,

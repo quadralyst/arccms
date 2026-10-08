@@ -2,6 +2,8 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { ReadableStream } from 'stream/web';
 (global as any).ReadableStream = ReadableStream;
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { DEFAULT_ABOUT_SETTINGS } from '../admin/(settings)/about/about-settings.model';
 import { ContentListComponent } from './content-list.component';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -171,12 +173,18 @@ describe('ContentListComponent', () => {
             );
         });
 
-        it('should set og:site_name to "Arc CMS"', () => {
+        it('should set og:site_name to the site\'s own name (Settings, About), not Arc CMS', async () => {
+            TestBed.inject(SiteIdentityService).set({ ...DEFAULT_ABOUT_SETTINGS, name: 'Deepakam' });
             const contentType = { slug: 'articles', name: 'Articles', description: 'Articles desc' };
             mockContentTypesStore.items.set([contentType]);
             fixture.detectChanges();
+            await Promise.resolve();
+            await Promise.resolve();
 
             expect(mockMetaService.updateTag).toHaveBeenCalledWith(
+                expect.objectContaining({ property: 'og:site_name', content: 'Deepakam' })
+            );
+            expect(mockMetaService.updateTag).not.toHaveBeenCalledWith(
                 expect.objectContaining({ property: 'og:site_name', content: 'Arc CMS' })
             );
         });

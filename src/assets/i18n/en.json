@@ -293,7 +293,7 @@
       },
       "about": {
         "site_name": "Site Name",
-        "site_name_hint": "Displayed in browser tabs, social media shares, and email templates.",
+        "site_name_hint": "Shown in browser tabs, at the top of the admin panel, on the sign-in page, in social media shares and in email templates.",
         "site_name_placeholder": "e.g. My Awesome Site",
         "production_url": "Production URL",
         "production_url_hint": "The public base URL of your site. Used for canonical links, sitemaps, and SEO.",
@@ -306,7 +306,8 @@
         "organization_type_org": "Organisation or company",
         "organization_type_person": "A person (personal site or blog)",
         "logo_url": "Logo URL",
-        "logo_url_hint": "Absolute URL of a square or near-square logo, at least 112 x 112 pixels.",
+        "logo_choose": "Choose from media",
+        "logo_url_hint": "Shown at the top of the admin panel and on the sign-in page. A square logo or a wide wordmark both work; search engines prefer a square one of at least 112 by 112 pixels.",
         "logo_url_placeholder": "e.g. https://www.example.com/logo.png",
         "description": "Description",
         "description_hint": "One or two sentences on what this site or organisation is.",

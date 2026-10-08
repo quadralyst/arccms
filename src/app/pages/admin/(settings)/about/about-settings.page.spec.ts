@@ -6,11 +6,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import AboutSettingsPage from './about-settings.page';
 import { AboutSettingsService } from './about-settings.service';
 import { IAboutSettings, parseSameAs, formatSameAs, DEFAULT_ABOUT_SETTINGS } from './about-settings.model';
+import { MatDialog } from '@angular/material/dialog';
+import { of } from 'rxjs';
+import { SiteIdentityService } from '../../../../core/services/site-identity.service';
 
 describe('AboutSettingsPage', () => {
     let component: AboutSettingsPage;
     let fixture: ComponentFixture<AboutSettingsPage>;
     let mockService: any;
+    let dialogResult: unknown;
+    const mockDialog = { open: vi.fn(() => ({ afterClosed: () => of(dialogResult) })) };
 
     const mockSettings: IAboutSettings = {
         ...DEFAULT_ABOUT_SETTINGS,
@@ -29,6 +34,7 @@ describe('AboutSettingsPage', () => {
             imports: [AboutSettingsPage],
             providers: [
                 { provide: AboutSettingsService, useValue: mockService },
+                { provide: MatDialog, useValue: mockDialog },
             ],
         }).compileComponents();
 
@@ -66,6 +72,31 @@ describe('AboutSettingsPage', () => {
     it('should update address field', () => {
         component.updateField('address', '456 New St');
         expect(component.settings().address).toBe('456 New St');
+    });
+
+    describe('the logo (specs/admin-brand-spec.md AB-D11)', () => {
+        it('takes the logo picked in the media library', () => {
+            dialogResult = { type: 'submit', mediaUrl: 'https://x.test/logo.png' };
+            component.chooseLogo();
+            expect(component.settings().logoUrl).toBe('https://x.test/logo.png');
+        });
+
+        it('keeps the logo when the media library is closed without a pick', () => {
+            component.updateField('logoUrl', 'https://x.test/old.png');
+            dialogResult = { type: 'close' };
+            component.chooseLogo();
+            expect(component.settings().logoUrl).toBe('https://x.test/old.png');
+        });
+
+        it('shows the saved name and logo everywhere at once, with no reload', async () => {
+            component.updateField('name', 'Tapout POS');
+            component.updateField('logoUrl', 'https://x.test/logo.png');
+            await component.saveSettings();
+            const identity = TestBed.inject(SiteIdentityService);
+            expect(identity.loaded()).toBe(true);
+            expect(identity.identity().name).toBe('Tapout POS');
+            expect(identity.identity().logoUrl).toBe('https://x.test/logo.png');
+        });
     });
 
     describe('saveSettings', () => {

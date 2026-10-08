@@ -737,6 +737,7 @@ export type TranslationKey =
     | 'admin.settings.about.identity_heading'
     | 'admin.settings.about.identity_intro'
     | 'admin.settings.about.intro'
+    | 'admin.settings.about.logo_choose'
     | 'admin.settings.about.logo_url'
     | 'admin.settings.about.logo_url_hint'
     | 'admin.settings.about.logo_url_placeholder'
@@ -2601,6 +2602,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.about.identity_heading',
     'admin.settings.about.identity_intro',
     'admin.settings.about.intro',
+    'admin.settings.about.logo_choose',
     'admin.settings.about.logo_url',
     'admin.settings.about.logo_url_hint',
     'admin.settings.about.logo_url_placeholder',

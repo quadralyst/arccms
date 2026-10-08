@@ -6,7 +6,8 @@ import { Router, ActivatedRoute, type Routes } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 
-import NavbarComponent, { type MenuItem } from './side-navbar.component';
+import NavbarComponent, { isWideLogo, type MenuItem } from './side-navbar.component';
+import { SiteIdentityService } from '../../../app/core/services/site-identity.service';
 import { featureOfPath, isCorePath } from '../../../app/core/features/feature-routes';
 import type { FeatureId } from '../../../app/core/features/feature-registry';
 import { CUSTOM_NAV } from '../../../custom/nav';
@@ -16,6 +17,11 @@ import { AuthState } from '../../../app/pages/(auth)/auth.store';
 import { ContentTypesStore } from '../../../app/pages/admin/contents/content-types/content-types.store';
 import { ContentType } from '../../../app/pages/admin/contents/content-types/content-types.model';
 import { WaitlistAdminStore } from '../../../app/pages/admin/(waitlists)/waitlist.store';
+
+/** Settings, About as the panel reads it: loaded, with what a test gives. */
+function identityStub(identity: { name?: string; logoUrl?: string } = {}, loaded = true) {
+    return { identity: signal(identity), loaded: signal(loaded), load: () => Promise.resolve(identity) };
+}
 
 /**
  * Tests for side-navbar slug validation logic
@@ -165,6 +171,7 @@ describe('NavbarComponent', () => {
                 { provide: MatDialog, useValue: dialogMock },
                 { provide: Router, useValue: routerMock },
                 { provide: ActivatedRoute, useValue: {} },
+                { provide: SiteIdentityService, useValue: identityStub() },
             ]
         }).compileComponents();
 
@@ -333,6 +340,7 @@ describe('NavbarComponent: translations that load after the first render', () =>
                     },
                 },
                 { provide: ActivatedRoute, useValue: {} },
+                { provide: SiteIdentityService, useValue: identityStub() },
             ],
         }).compileComponents();
 
@@ -349,5 +357,94 @@ describe('NavbarComponent: translations that load after the first render', () =>
         await firstValueFrom(TestBed.inject(TranslocoService).load('en'));
 
         expect(label()).toBe('Dashboard');
+    });
+});
+
+describe('NavbarComponent: the site\'s name and logo at the top (specs/admin-brand-spec.md AB-D10)', () => {
+    async function render(identity: { name?: string; logoUrl?: string }, expanded: boolean, loaded = true) {
+        await TestBed.configureTestingModule({
+            imports: [NavbarComponent, NoopAnimationsModule],
+            providers: [
+                { provide: AuthState, useValue: { currentUser: signal(null), logout: vi.fn() } },
+                { provide: ContentTypesStore, useValue: { items: signal([]), getAll: vi.fn() } },
+                { provide: WaitlistAdminStore, useValue: { items: signal([]), subscribe: vi.fn() } },
+                { provide: MatDialog, useValue: { open: vi.fn() } },
+                {
+                    provide: Router,
+                    useValue: {
+                        events: of(), navigate: vi.fn(), isActive: vi.fn(),
+                        createUrlTree: vi.fn().mockReturnValue({}), serializeUrl: vi.fn().mockReturnValue(''), url: '/',
+                    },
+                },
+                { provide: ActivatedRoute, useValue: {} },
+                { provide: SiteIdentityService, useValue: identityStub(identity, loaded) },
+            ],
+        }).compileComponents();
+        const fixture = TestBed.createComponent(NavbarComponent);
+        fixture.componentInstance.isExpanded = expanded;
+        fixture.detectChanges();
+        return fixture;
+    }
+
+    /** As if the logo had loaded at this size. */
+    function loadLogo(fixture: any, width: number, height: number) {
+        const img = fixture.nativeElement.querySelector('.logo-container img.logo') as HTMLImageElement;
+        Object.defineProperty(img, 'naturalWidth', { value: width });
+        Object.defineProperty(img, 'naturalHeight', { value: height });
+        img.dispatchEvent(new Event('load'));
+        fixture.detectChanges();
+    }
+
+    const text = (fixture: any) => (fixture.nativeElement.querySelector('.logo-text')?.textContent ?? '').trim();
+
+    it('calls a logo at least twice as wide as tall a wordmark', () => {
+        expect(isWideLogo(300, 60)).toBe(true);
+        expect(isWideLogo(120, 60)).toBe(true);
+        expect(isWideLogo(100, 60)).toBe(false);
+        expect(isWideLogo(64, 64)).toBe(false);
+        expect(isWideLogo(10, 0)).toBe(false);
+    });
+
+    it('shows nothing until Settings, About is in, so Arc CMS\'s name never flashes', async () => {
+        const fixture = await render({ name: 'Tapout POS' }, true, false);
+        expect(fixture.nativeElement.querySelector('.logo-container img')).toBeNull();
+        expect(text(fixture)).toBe('');
+    });
+
+    it('shows Arc CMS\'s name and logo on a site that has set neither', async () => {
+        const fixture = await render({}, true);
+        expect(text(fixture)).toBe('Arc CMS');
+        expect(fixture.nativeElement.querySelector('.logo-container img.logo-arc')).not.toBeNull();
+    });
+
+    it('shows the site\'s name alone when it has no logo', async () => {
+        const fixture = await render({ name: 'Tapout POS' }, true);
+        expect(text(fixture)).toBe('Tapout POS');
+        expect(fixture.nativeElement.querySelector('.logo-container img')).toBeNull();
+    });
+
+    it('shows a square logo with the name', async () => {
+        const fixture = await render({ name: 'Tapout POS', logoUrl: 'https://x.test/mark.png' }, true);
+        loadLogo(fixture, 64, 64);
+        expect(text(fixture)).toBe('Tapout POS');
+    });
+
+    it('shows a wordmark alone: it already carries the name', async () => {
+        const fixture = await render({ name: 'Tapout POS', logoUrl: 'https://x.test/wordmark.png' }, true);
+        loadLogo(fixture, 300, 60);
+        expect(text(fixture)).toBe('');
+        expect(fixture.nativeElement.querySelector('.logo-container img.logo-wide')).not.toBeNull();
+    });
+
+    it('shows a square logo in the collapsed panel', async () => {
+        const fixture = await render({ name: 'Tapout POS', logoUrl: 'https://x.test/mark.png' }, false);
+        loadLogo(fixture, 64, 64);
+        expect(fixture.nativeElement.querySelector('.logo-container-close img')).not.toBeNull();
+    });
+
+    it('shows no wordmark in the collapsed panel, too narrow to read it', async () => {
+        const fixture = await render({ name: 'Tapout POS', logoUrl: 'https://x.test/wordmark.png' }, false);
+        loadLogo(fixture, 300, 60);
+        expect(fixture.nativeElement.querySelector('.logo-container-close img')).toBeNull();
     });
 });

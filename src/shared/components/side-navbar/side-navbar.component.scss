@@ -52,9 +52,28 @@
     opacity: 0.95;
 }
 
+.brand-link {
+    color: inherit;
+    flex: 1;
+    min-width: 0;
+}
+
+// A square mark is 40px; a wordmark keeps its shape, up to the panel's width
 .logo {
     width: 40px;
     height: 40px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+// Arc CMS's own small logo, drawn as it always was
+.logo.logo-arc {
+    object-fit: fill;
+}
+
+.logo.logo-wide {
+    width: auto;
+    max-width: 150px;
 }
 
 .logo-container {
@@ -77,6 +96,9 @@
     font-weight: 600;
     margin-left: 10px;
     font-size: 1.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sidebar-menu {

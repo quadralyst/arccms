@@ -14,6 +14,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IAboutSettings, DEFAULT_ABOUT_SETTINGS, OrganizationType, parseSameAs, formatSameAs } from './about-settings.model';
 import { AboutSettingsService } from './about-settings.service';
+import { MatDialog } from '@angular/material/dialog';
+import MediaManagerComponent from '../../(media)/media.page';
+import { SiteIdentityService } from '../../../../core/services/site-identity.service';
 
 @Component({
     selector: 'arc-about-settings',
@@ -89,14 +92,22 @@ import { AboutSettingsService } from './about-settings.service';
 
             <div class="form-group mb-3">
                 <label class="form-label" for="logoUrl">{{ 'admin.settings.about.logo_url' | transloco }}</label>
-                <input
-                    type="url"
-                    class="form-control"
-                    id="logoUrl"
-                    [placeholder]="'admin.settings.about.logo_url_placeholder' | transloco"
-                    [value]="settings().logoUrl"
-                    (input)="updateField('logoUrl', $any($event.target).value)"
-                />
+                <div class="logo-row">
+                    @if (settings().logoUrl) {
+                    <img class="logo-preview" [src]="settings().logoUrl" alt="">
+                    }
+                    <input
+                        type="url"
+                        class="form-control"
+                        id="logoUrl"
+                        [placeholder]="'admin.settings.about.logo_url_placeholder' | transloco"
+                        [value]="settings().logoUrl"
+                        (input)="updateField('logoUrl', $any($event.target).value)"
+                    />
+                    <button type="button" class="btn btn-outline-primary text-nowrap" (click)="chooseLogo()">
+                        <i class="fa-solid fa-images me-1"></i> {{ 'admin.settings.about.logo_choose' | transloco }}
+                    </button>
+                </div>
                 <small class="text-muted">{{ 'admin.settings.about.logo_url_hint' | transloco }}</small>
             </div>
 
@@ -182,6 +193,20 @@ import { AboutSettingsService } from './about-settings.service';
             font-weight: 600;
             color: #212529;
         }
+        .logo-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .logo-preview {
+            height: 38px;
+            max-width: 120px;
+            object-fit: contain;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 2px;
+            background: #fff;
+        }
         .identity-heading {
             font-size: 1.05rem;
             font-weight: 600;
@@ -194,6 +219,8 @@ import { AboutSettingsService } from './about-settings.service';
 export default class AboutSettingsPage implements OnInit {
     private t = injectT();
     private aboutService = inject(AboutSettingsService);
+    private dialog = inject(MatDialog);
+    private siteIdentity = inject(SiteIdentityService);
 
     settings = signal<IAboutSettings>(DEFAULT_ABOUT_SETTINGS);
     /** The sameAs textarea's raw text; parsed into the URL list on every edit. */
@@ -227,6 +254,21 @@ export default class AboutSettingsPage implements OnInit {
         this.updateField('sameAs', parseSameAs(text));
     }
 
+    /** Pick the logo from the media library, as the content editor does. */
+    chooseLogo(): void {
+        this.dialog.open(MediaManagerComponent, {
+            enterAnimationDuration: '450ms',
+            exitAnimationDuration: '300ms',
+            minWidth: '134vh',
+            maxHeight: '90vh',
+            panelClass: 'common-dialog-box',
+            disableClose: true,
+            data: { isDialogOpen: true },
+        }).afterClosed().subscribe((result: { mediaUrl: string; type: string } | null) => {
+            if (result?.type === 'submit' && result.mediaUrl) this.updateField('logoUrl', result.mediaUrl);
+        });
+    }
+
     /** Narrow the select's string to the union the model expects. */
     protected asOrganizationType(value: string): OrganizationType {
         return value === 'Person' ? 'Person' : 'Organization';
@@ -237,6 +279,8 @@ export default class AboutSettingsPage implements OnInit {
         this.saveError.set(false);
         try {
             await this.aboutService.save(this.settings());
+            // The side panel, tabs and sign-in page show the new name and logo at once.
+            this.siteIdentity.set(this.settings());
             this.saveMessage.set(this.t('common.messages.saved'));
             setTimeout(() => this.saveMessage.set(''), 3000);
         } catch (error) {

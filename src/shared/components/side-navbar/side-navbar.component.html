@@ -8,22 +8,26 @@
   </div> -->
 
     @if(!isExpanded) {
+    <!-- Collapsed: a square logo only; a wordmark is too wide to read here -->
+    @if (panelLogo() && logoWide() === false) {
+    <a routerLink="/" class="logo-container-close mt-2">
+        <img [src]="panelLogo()" [alt]="brand()?.name" class="logo" [class.logo-arc]="brand()?.arc">
+    </a>
+    }
     <mat-icon (click)="toggleMenu.emit(null)" slot="end" class="close-pen blink mt-2 mb-2">
         {{ isExpanded ? "navigate_before" : "navigate_next" }}
     </mat-icon>
-    <!-- <div class="logo-container-close mt-2 " >
-      <img
-        src="https://firebasestorage.googleapis.com/v0/b/iiq-staging.firebasestorage.app/o/favicon.ico?alt=media&token=f72ec001-795f-4aa4-bb2d-a4b04b369b05"
-        alt="CMS Logo" class="logo">
-    </div>  -->
-
     }
 
+    <!-- The site's name and logo (Settings, About, else the app's, else Arc CMS's): a wordmark
+         shows alone, a square logo with the name. Kept in the page when collapsed, to measure the logo. -->
     <div class="logo-container mt-2" [hidden]="!isExpanded">
-        <a routerLink="/" class="d-flex align-items-center text-decoration-none cursor-pointer" style="color: inherit;">
-            <img [src]="logoSmall" width="92" height="46" alt="CMS Logo" class="logo">
-            @if(isExpanded){
-            <span class="logo-text">{{ constantVariables.APPLICATION_NAME }}</span>
+        <a routerLink="/" class="brand-link d-flex align-items-center text-decoration-none cursor-pointer">
+            @if (panelLogo()) {
+            <img [src]="panelLogo()" [alt]="brand()?.name" class="logo" [class.logo-arc]="brand()?.arc" [class.logo-wide]="logoWide()" (load)="measureLogo($event)">
+            }
+            @if (isExpanded && brand()?.name && !logoWide()) {
+            <span class="logo-text">{{ brand()?.name }}</span>
             }
         </a>
 

@@ -32,6 +32,13 @@ export class SiteIdentityService {
     /** Whether the first load has finished, found or not: until then `identity` is only the defaults. */
     readonly loaded = this.loadedSignal.asReadonly();
 
+    /** What an admin just saved in Settings, About, so every page shows it at once. */
+    set(identity: IAboutSettings): void {
+        this.loadPromise = Promise.resolve(identity);
+        this.identitySignal.set(identity);
+        this.loadedSignal.set(true);
+    }
+
     /** Loads once; concurrent callers share the read. */
     load(): Promise<IAboutSettings> {
         if (!this.loadPromise) {

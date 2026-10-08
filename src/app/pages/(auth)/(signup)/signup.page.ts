@@ -50,9 +50,10 @@ import { RESEND_SECONDS, SentCodes } from '../sent-codes';
 import { environment } from '../../../../environments/environment';
 import { arcConfig } from '../../../core/config/arc-config';
 import { homeFor, safeRedirect } from '../../../core/home/home';
-import { SiteIdentityService } from '../../../core/services/site-identity.service';
 import { useSiteStyles } from '../../../core/site/site-styles';
-import { SignInPanelComponent, signInBrand } from '../../page.parts/sign-in-panel.component';
+import { SignInPanelComponent } from '../../page.parts/sign-in-panel.component';
+import { SiteBrandService } from '../../../core/brand/site-brand';
+import { SIGN_IN_IMAGE } from '../../../core/brand/app-brand-files';
 import { MemberLanguagePickerComponent } from '../../../../shared/components/member-language-picker/member-language-picker.component';
 import { Title } from '@angular/platform-browser';
 
@@ -76,16 +77,14 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   currentYear = new Date().getFullYear();
 
   /**
-   * The site's own name and logo (Settings, About), so the page is the site's and
-   * not Arc CMS's (signInBrand).
+   * The site's own name and logo (core/brand/site-brand.ts), so the page is the site's
+   * and not Arc CMS's. Nothing until they are in, so Arc CMS's logo never flashes.
    */
-  private siteIdentity = inject(SiteIdentityService);
-  // Nothing until the identity is in, so Arc CMS's logo never flashes before the site's.
-  private readonly brand = computed(() => this.siteIdentity.loaded()
-    ? signInBrand(this.siteIdentity.identity(), this.constantVariables.APPLICATION_NAME)
-    : { name: '', logo: '' });
-  readonly brandName = computed(() => this.brand().name);
-  readonly brandLogo = computed(() => this.brand().logo);
+  private siteBrand = inject(SiteBrandService);
+  readonly brandName = computed(() => this.siteBrand.brand()?.name ?? '');
+  readonly brandLogo = computed(() => this.siteBrand.brand()?.logo ?? '');
+  /** The app's image for the brand panel (src/custom/sign-in-image.*), in place of the panel's text; '' for none. */
+  readonly signInImage = SIGN_IN_IMAGE;
   private titleService = inject(Title);
   authStore = inject(AuthState);
   private authService = inject(AuthService);
@@ -169,7 +168,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     useSiteStyles(['site']);
     // In the browser only: a server render may read another database than the browser's.
     if (isPlatformBrowser(this.platformId)) {
-      this.siteIdentity.load().then(() => this.titleService.setTitle(this.t('member.auth.title_tab', { brand: this.brandName() }))).catch(() => undefined);
+      this.siteBrand.load().then(() => this.titleService.setTitle(this.t('member.auth.title_tab', { brand: this.brandName() }))).catch(() => undefined);
     }
     this.initForm();
 

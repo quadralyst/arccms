@@ -6,27 +6,12 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ARC_CMS_LOGO, panelLanguage, signInBrand } from './sign-in-panel.component';
+import { panelLanguage } from './sign-in-panel.component';
 
 // Arc CMS's own panel, not the app's (src/custom/site/sign-in.html may replace it).
 const signIn = readFileSync(resolve(__dirname, '../../../../public/_site/sign-in.html'), 'utf8');
 
 const page = (file: string) => readFileSync(resolve(__dirname, '../(auth)/(signup)', file), 'utf8');
-
-describe('signInBrand', () => {
-    it('uses the site\'s name and logo', () => {
-        expect(signInBrand({ name: 'Deepakam', logoUrl: 'https://x.test/logo.svg' }, 'Arc CMS'))
-            .toEqual({ name: 'Deepakam', logo: 'https://x.test/logo.svg' });
-    });
-
-    it('shows the site\'s name, not Arc CMS\'s logo, when the site has no logo', () => {
-        expect(signInBrand({ name: 'Deepakam', logoUrl: '' }, 'Arc CMS')).toEqual({ name: 'Deepakam', logo: '' });
-    });
-
-    it('falls back to Arc CMS\'s name and logo on a site that has not named itself', () => {
-        expect(signInBrand({ name: '  ', logoUrl: '' }, 'Arc CMS')).toEqual({ name: 'Arc CMS', logo: ARC_CMS_LOGO });
-    });
-});
 
 describe('panelLanguage', () => {
     it('shows the panel as written for English, and through the site strings for another member language', () => {
@@ -61,6 +46,13 @@ describe('the sign-in page', () => {
         expect(html).toContain('class="col-lg-6 auth-form-column"');
         expect(html).not.toMatch(/col-md-6/);
         expect(page('signup.page.scss')).toMatch(/@media \(min-width: 992px\) \{[^}]*?\.auth-left \{\s*display: block;/);
+    });
+
+    it('fills the whole brand panel with the app\'s image when it has one, in place of the panel\'s text', () => {
+        const html = page('signup.page.html');
+        expect(html).toMatch(/@if \(signInImage\) \{\s*<!--[^>]*-->\s*<img class="auth-left-image" \[src\]="signInImage" alt="">\s*\} @else \{[\s\S]{0,120}<arc-sign-in-panel>/);
+        expect(page('signup.page.scss')).toMatch(/\.auth-left-image \{[^}]*inset: 0;[^}]*object-fit: cover;/);
+        expect(page('signup.page.ts')).toContain('readonly signInImage = SIGN_IN_IMAGE;');
     });
 
     it('switches the site\'s stylesheet on', () => {

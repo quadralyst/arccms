@@ -33,6 +33,7 @@ import { MediaSettingsService } from '../../core/services/media-settings.service
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import { DraftContentsService } from '../admin/contents/draft-content-store/draft-contents.service';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
+import { SiteBrandService } from '../../core/brand/site-brand';
 import { AuthorProfileService } from '../../core/services/author-profile.service';
 import { IAuthor } from '../../../shared/models/author.model';
 import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../../../shared/utils/content-blocks';
@@ -139,6 +140,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private titleService = inject(Title);
     private metaService = inject(Meta);
     private siteIdentity = inject(SiteIdentityService);
+    private siteBrand = inject(SiteBrandService);
     private sitePages = inject(SitePagesService);
     private authorProfiles = inject(AuthorProfileService);
 
@@ -621,7 +623,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             this.metaService.updateTag({ property: 'og:image', content: content.coverImage });
         }
         this.metaService.updateTag({ property: 'og:type', content: 'article' });
-        this.metaService.updateTag({ property: 'og:site_name', content: 'Arc CMS' });
+        // The site's own name (core/brand/site-brand.ts), once Settings, About is in.
+        void this.siteBrand.load().then(() => this.metaService.updateTag({ property: 'og:site_name', content: this.siteBrand.name() }));
         // Reflects the language prefix in the URL; the default language
         // keeps en_US, matching what the publish pipeline emits.
         this.metaService.updateTag({ property: 'og:locale', content: this.ogLocale() });

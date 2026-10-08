@@ -4,26 +4,6 @@ import { renderSiteFragment } from './site-fragment';
 import { DEFAULT_MEMBER_LANGUAGE } from '../../core/i18n/member-languages';
 import { MEMBER_LANGUAGES_DECLARED, MemberLanguageService } from '../../core/i18n/member-language.service';
 
-/** The sign-in page's name and logo, from the site's identity (Settings, About). */
-export interface SignInBrand {
-    name: string;
-    /** Empty when the page shows the name instead. */
-    logo: string;
-}
-
-/** Arc CMS's own logo, for a site that has not named itself yet. */
-export const ARC_CMS_LOGO = '/assets/images/logo.png';
-
-/**
- * The site's own name and logo. A site with a name but no logo shows its name;
- * a site with neither shows Arc CMS's name and logo.
- */
-export function signInBrand(identity: { name?: string; logoUrl?: string }, fallbackName: string): SignInBrand {
-    const name = identity.name?.trim() || '';
-    const logo = identity.logoUrl?.trim() || '';
-    return { name: name || fallbackName, logo: logo || (name ? '' : ARC_CMS_LOGO) };
-}
-
 /**
  * The sign-in page's brand panel, beside the form on wide screens: the site's own
  * /_site/sign-in.html (src/custom/site/sign-in.html, else Arc CMS's neutral one),
