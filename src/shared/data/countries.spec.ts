@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
     cleanCountryList, codesOf, COUNTRIES, countriesForCode, countriesFromCodes, countryByIso,
-    countryForE164, countryName, DEFAULT_COUNTRY, flagUrl, resolveCountrySettings,
+    countryForE164, countryName, DEFAULT_COUNTRY, flagUrl, resolveCountrySettings, startingCountry,
 } from './countries';
 
 const FLAGS = resolve(__dirname, '../../../public/flags/4x3');
@@ -68,6 +68,20 @@ describe('resolveCountrySettings', () => {
 
     it('never widens the list for a default outside it', () => {
         expect(resolveCountrySettings({ countries: ['IN', 'AE'], country: 'GB' })).toEqual({ country: 'IN', countries: ['IN', 'AE'] });
+    });
+});
+
+describe('startingCountry', () => {
+    it('is the country last used on this device, when still allowed', () => {
+        expect(startingCountry(['IN', 'GB'], 'IN', 'GB')).toBe('GB');
+        expect(startingCountry(['IN', 'GB'], 'IN', 'gb')).toBe('GB');
+        expect(startingCountry(['IN', 'GB'], 'IN', 'US')).toBe('IN');
+    });
+
+    it('else the admin\'s default', () => {
+        expect(startingCountry(['AE', 'IN'], 'AE')).toBe('AE');
+        expect(startingCountry(['AE', 'IN'], 'AE', null)).toBe('AE');
+        expect(startingCountry(['AE'], 'GB')).toBe('AE');
     });
 });
 

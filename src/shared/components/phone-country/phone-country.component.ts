@@ -5,7 +5,9 @@
  * With one country it is a plain label. With several it is a button that opens
  * the list (flag, name in the page language, code); more than eight adds a
  * search box. Choosing one emits `chosen`, so the page can put the caret back
- * in the number. Used by the sign-in box, the profile's number box and the
+ * in the number. Pressing the chip leaves focus in the number box until the list
+ * takes it (Safari never focuses a clicked button), so the box can tell a move to
+ * the chip from leaving. Used by the sign-in box, the profile's number box and the
  * SMS test send; an app can put it beside any number box.
  */
 import {
@@ -34,7 +36,7 @@ let nextId = 0;
             <button #trigger type="button" class="chip" aria-haspopup="listbox" [attr.aria-expanded]="open()"
                 [attr.aria-controls]="listId" [disabled]="disabled()"
                 [attr.aria-label]="'member.phone_country.change' | transloco: { country: name(country.iso), code: country.code }"
-                (click)="toggle()" (keydown)="triggerKey($event)">
+                (mousedown)="$event.preventDefault()" (click)="toggle()" (keydown)="triggerKey($event)">
                 <img [src]="flag(country.iso)" alt="" width="20" height="15" (error)="noFlag($event)" />
                 <span class="iso" aria-hidden="true">{{ country.iso }}</span>
                 <span class="code">+{{ country.code }}</span>

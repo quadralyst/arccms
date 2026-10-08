@@ -1810,8 +1810,10 @@
         "phone_off": "Signing in with a mobile number is not available here. Enter your email address instead.",
         "phone_short": "This number is too short. Check that you have typed every digit.",
         "phone_long": "This number has too many digits. Check it for an extra digit.",
-        "phone_start": "Indian mobile numbers start with 6, 7, 8 or 9. For a number from another country, type + and the country code first.",
-        "phone_country": "Check the country code. A number from another country starts with + and its code, such as +44."
+        "phone_start": "Indian mobile numbers start with 6, 7, 8 or 9.",
+        "phone_start_choose": "Indian mobile numbers start with 6, 7, 8 or 9. For a number from another country, choose the country next to it.",
+        "phone_country": "Check the country code. A number from another country starts with + and its code, such as +44.",
+        "phone_not_allowed": "This site takes mobile numbers from {{ countries }} only."
       },
       "continue": "Continue",
       "or": "or",

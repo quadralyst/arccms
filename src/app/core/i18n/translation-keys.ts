@@ -1529,9 +1529,11 @@ export type TranslationKey =
     | 'member.auth.identifier_error.not_phone_or_email'
     | 'member.auth.identifier_error.phone_country'
     | 'member.auth.identifier_error.phone_long'
+    | 'member.auth.identifier_error.phone_not_allowed'
     | 'member.auth.identifier_error.phone_off'
     | 'member.auth.identifier_error.phone_short'
     | 'member.auth.identifier_error.phone_start'
+    | 'member.auth.identifier_error.phone_start_choose'
     | 'member.auth.identifier_label_email'
     | 'member.auth.identifier_label_phone'
     | 'member.auth.identifier_placeholder_email'
@@ -3354,9 +3356,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.identifier_error.not_phone_or_email',
     'member.auth.identifier_error.phone_country',
     'member.auth.identifier_error.phone_long',
+    'member.auth.identifier_error.phone_not_allowed',
     'member.auth.identifier_error.phone_off',
     'member.auth.identifier_error.phone_short',
     'member.auth.identifier_error.phone_start',
+    'member.auth.identifier_error.phone_start_choose',
     'member.auth.identifier_label_email',
     'member.auth.identifier_label_phone',
     'member.auth.identifier_placeholder_email',

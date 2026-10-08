@@ -231,7 +231,7 @@ export function hasCountryCode(raw: unknown): boolean {
  */
 export function withoutTrunk(raw: unknown, trunk?: string): string {
     const text = cleanPasted(raw);
-    if (!trunk || hasCountryCode(text)) return text;
+    if (!trunk || /[a-z@]/i.test(text) || hasCountryCode(text)) return text;
     const digits = text.replace(/\D/g, '');
     return digits.startsWith(trunk) && digits.length > 10 ? digits.slice(trunk.length) : text;
 }

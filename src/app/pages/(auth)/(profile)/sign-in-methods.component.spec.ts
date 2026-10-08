@@ -6,10 +6,15 @@ import { english } from '../../../../test/english';
 const proto = SignInMethodsComponent.prototype as unknown as Record<string, (this: unknown, ...args: unknown[]) => Promise<void>>;
 
 /** A stand-in for the component: its signals plus mocked services. */
-function ctx(check: Record<string, unknown> = { status: 'available' }, countryCode = '91') {
+function ctx(check: Record<string, unknown> = { status: 'available' }, countryCode = '91', countries: string[] = [], listed = true) {
+    const country = ({ '91': 'IN', '44': 'GB', '1': 'US' } as Record<string, string>)[countryCode];
     const c: Record<string, any> = {
         t: english,
+        lang: () => 'en',
         countryCode: signal(countryCode),
+        phoneCountries: signal(countries.length ? countries : [country]),
+        countriesListed: signal(listed),
+        phoneCountry: signal(country),
         flow: signal<any>(null),
         busy: signal(false),
         error: signal(''),
@@ -30,7 +35,7 @@ function ctx(check: Record<string, unknown> = { status: 'available' }, countryCo
             linkEmail: vi.fn().mockResolvedValue({ moved: false }),
         },
     };
-    for (const name of ['run', 'requestCode', 'finish', 'reset']) c[name] = (proto as any)[name].bind(c);
+    for (const name of ['run', 'requestCode', 'finish', 'reset', 'typedPhone', 'phoneError']) c[name] = (proto as any)[name].bind(c);
     return c;
 }
 
@@ -49,6 +54,39 @@ describe('SignInMethodsComponent', () => {
         await proto['sendCode'].call(c);
         expect(c['error']()).toBe('');
         expect(c['signIn'].requestPhoneCode).toHaveBeenCalledWith('+447700900123', 'link');
+    });
+
+    it('checks the number with its country code, from the country beside the box', async () => {
+        const c = ctx({ value: '+447700900123' }, '91', ['IN', 'GB']);
+        c['phoneCountry'].set('GB');
+        c['flow'].set({ kind: 'phone', step: 'enter', typed: '07700 900123', check: null });
+        await proto['sendCode'].call(c);
+        expect(c['signIn'].checkForLink).toHaveBeenCalledWith('+447700900123');
+    });
+
+    it('turns down a number from a country the site does not take, naming the ones it does', async () => {
+        const c = ctx();
+        c['flow'].set({ kind: 'phone', step: 'enter', typed: '+44 7700 900123', check: null });
+        await proto['sendCode'].call(c);
+        expect(c['error']()).toBe('This site takes mobile numbers from India only.');
+        expect(c['signIn'].checkForLink).not.toHaveBeenCalled();
+    });
+
+    it('leaves a number with its own code to the server when the list is not known', async () => {
+        const c = ctx({ value: '+447700900123' }, '91', [], false);
+        c['flow'].set({ kind: 'phone', step: 'enter', typed: '+44 7700 900123', check: null });
+        await proto['sendCode'].call(c);
+        expect(c['signIn'].checkForLink).toHaveBeenCalledWith('+447700900123');
+    });
+
+    it('moves a pasted number\'s code to the chip', async () => {
+        const c = ctx({}, '91', ['IN', 'GB']);
+        c['setTyped'] = (proto as any)['setTyped'].bind(c);
+        c['flow'].set({ kind: 'phone', step: 'enter', typed: '+44 7700 900123', check: null });
+        (proto as any)['cleanTyped'].call(c);
+        await new Promise((r) => setTimeout(r));
+        expect(c['phoneCountry']()).toBe('GB');
+        expect(c['flow']().typed).toBe('7700900123');
     });
 
     it('says what is wrong with a number, as the sign-in page does', async () => {

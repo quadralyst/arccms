@@ -135,6 +135,17 @@ export function resolveCountrySettings(stored: { countries?: unknown; codes?: un
 }
 
 /**
+ * The country the sign-in page's chip starts on (PC-D8): the one last used on this
+ * device when it is still allowed, else the admin's default. The browser's language
+ * is no guide: `en-US` is the default nearly everywhere, India included.
+ */
+export function startingCountry(countries: readonly string[], fallback: string, remembered?: string | null): string {
+    const iso = remembered?.toUpperCase();
+    if (iso && countries.includes(iso)) return iso;
+    return countries.includes(fallback) ? fallback : (countries[0] ?? DEFAULT_COUNTRY);
+}
+
+/**
  * The allowed country an E.164 number belongs to: the longest matching code;
  * among countries that share it, `current` when it is one, else the main one.
  */
