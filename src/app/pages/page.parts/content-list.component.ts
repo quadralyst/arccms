@@ -535,7 +535,11 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         this.metaService.updateTag({ property: 'og:description', content: description });
         this.metaService.updateTag({ property: 'og:type', content: 'website' });
         // The site's own name (core/brand/site-brand.ts), once Settings, About is in.
-        void this.siteBrand.load().then(() => this.metaService.updateTag({ property: 'og:site_name', content: this.siteBrand.name() }));
+        void this.siteBrand.load().then(() => {
+            const name = this.siteBrand.name();
+            if (name) this.metaService.updateTag({ property: 'og:site_name', content: name });
+            else this.metaService.removeTag("property='og:site_name'");
+        });
         // Reflects the language prefix in the URL; the default language
         // keeps en_US, matching what the publish pipeline emits.
         this.metaService.updateTag({ property: 'og:locale', content: this.ogLocale() });

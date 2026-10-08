@@ -58,6 +58,8 @@ export class BrandTitleStrategy extends TitleStrategy {
     private readonly strings = signal(0);
     /** What this strategy last wrote, so a page's own title is never overwritten. */
     private written: string | null = null;
+    /** index.html's own title (the app's name, or a neutral word), for a page with no name yet. */
+    private readonly initial = this.document.title;
 
     constructor() {
         super();
@@ -95,6 +97,8 @@ export class BrandTitleStrategy extends TitleStrategy {
     }
 
     private write(title: string): void {
+        // Nothing to say yet: index.html's title, never the last page's.
+        title ||= this.initial;
         if (!title) return;
         this.written = title;
         this.document.title = title;

@@ -1,4 +1,5 @@
 import { RouteMeta } from '@analogjs/router';
+import { SiteBrandService } from '../../../../../core/brand/site-brand';
 import type { EntryOrder } from '../../../../../core/utils/display-order';
 import {
     ChangeDetectionStrategy,
@@ -41,6 +42,9 @@ export const routeMeta: RouteMeta = {
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class AddContentTypeComponent extends BaseComponent {
+    /** The site's name for the footer (core/brand/site-brand.ts). */
+    readonly siteName = inject(SiteBrandService).name;
+    readonly currentYear = new Date().getFullYear();
     @Output() close = new EventEmitter();
     contentTypesStore = inject(ContentTypesStore);
     templateFolderService = inject(TemplateFolderService);

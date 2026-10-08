@@ -19,7 +19,9 @@
         </div>
     </div>
     } @else {
-    <arc-page-header [title]="'admin.settings.user.title' | transloco" [subtitle]="'admin.settings.user.subtitle' | transloco"></arc-page-header>
+    <!-- A pane of Settings, whose own header has the search, language and bell: a plain heading, like the other panes -->
+    <h3 class="mb-2">{{ 'admin.settings.user.title' | transloco }}</h3>
+    <p class="text-muted mb-4">{{ 'admin.settings.user.subtitle' | transloco }}</p>
 
     @if (isLoading()) {
     <div class="loading-container">

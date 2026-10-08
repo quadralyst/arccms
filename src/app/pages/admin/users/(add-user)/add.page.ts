@@ -9,6 +9,7 @@
  */
 
 import { RouteMeta } from '@analogjs/router';
+import { SiteBrandService } from '../../../../core/brand/site-brand';
 import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, input, Output, signal } from '@angular/core';
 import { Functions } from '@angular/fire/functions';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -32,6 +33,8 @@ export const routeMeta: RouteMeta = {
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class AddUserComponent extends BaseComponent {
+    /** The site's name for the footer (core/brand/site-brand.ts). */
+    readonly siteName = inject(SiteBrandService).name;
     @Output() close = new EventEmitter<void>();
     @Input() role: string | null | undefined;
     action = input('add');

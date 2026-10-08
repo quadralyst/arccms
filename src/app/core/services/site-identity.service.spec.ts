@@ -71,4 +71,15 @@ describe('SiteIdentityService', () => {
         vi.mocked(getDoc).mockResolvedValue(snapshot(null) as any);
         expect(await service.load()).toEqual(DEFAULT_ABOUT_SETTINGS);
     });
+
+    it('keeps what an admin just saved when an older read lands after it (admin brand AB-D9)', async () => {
+        let resolveRead!: (snap: unknown) => void;
+        vi.mocked(getDoc).mockReturnValue(new Promise((r) => { resolveRead = r; }) as never);
+        const first = service.load();
+        service.set({ ...DEFAULT_ABOUT_SETTINGS, name: 'Saved now' });
+        resolveRead(snapshot({ name: 'Read before the save' }));
+        await first;
+        expect(service.identity().name).toBe('Saved now');
+        expect(await service.load()).toMatchObject({ name: 'Saved now' });
+    });
 });

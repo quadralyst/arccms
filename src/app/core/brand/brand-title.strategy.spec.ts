@@ -63,9 +63,9 @@ describe('BrandTitleStrategy', () => {
         TestBed.configureTestingModule({
             providers: [{ provide: SiteBrandService, useValue: { name: site, load: () => Promise.resolve() } }],
         });
-        strategy = TestBed.inject(BrandTitleStrategy);
         doc = TestBed.inject(DOCUMENT);
         doc.title = 'Loading';
+        strategy = TestBed.inject(BrandTitleStrategy);
     });
 
     it('shows the page\'s name alone until the site\'s name is in, then both', () => {
@@ -86,6 +86,12 @@ describe('BrandTitleStrategy', () => {
         strategy.updateTitle(state('/admin/users', chain({ title: 'Users' })));
         strategy.updateTitle(state('/waitlist', chain({})));
         expect(doc.title).toBe('Tapout POS');
+    });
+
+    it('shows index.html\'s title on a page with no name yet, never the last page\'s', () => {
+        strategy.updateTitle(state('/admin/users', chain({ title: 'Users' })));
+        strategy.updateTitle(state('/waitlist', chain({})));
+        expect(doc.title).toBe('Loading');
     });
 
     it('translates the titles members see into the reader\'s language', () => {

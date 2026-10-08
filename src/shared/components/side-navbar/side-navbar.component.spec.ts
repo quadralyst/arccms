@@ -6,7 +6,7 @@ import { Router, ActivatedRoute, type Routes } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 
-import NavbarComponent, { isWideLogo, type MenuItem } from './side-navbar.component';
+import NavbarComponent, { isWideLogo, svgSize, type MenuItem } from './side-navbar.component';
 import { SiteIdentityService } from '../../../app/core/services/site-identity.service';
 import { featureOfPath, isCorePath } from '../../../app/core/features/feature-routes';
 import type { FeatureId } from '../../../app/core/features/feature-registry';
@@ -403,6 +403,14 @@ describe('NavbarComponent: the site\'s name and logo at the top (specs/admin-bra
         expect(isWideLogo(100, 60)).toBe(false);
         expect(isWideLogo(64, 64)).toBe(false);
         expect(isWideLogo(10, 0)).toBe(false);
+    });
+
+    it('reads an SVG\'s shape from its viewBox, which the browser cannot size on its own', () => {
+        expect(svgSize('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 60"><text/></svg>')).toEqual({ width: 300, height: 60 });
+        expect(svgSize('<?xml version="1.0"?><svg viewBox="0,0,64,64">')).toEqual({ width: 64, height: 64 });
+        expect(svgSize('<svg width="120px" height="40">')).toEqual({ width: 120, height: 40 });
+        expect(svgSize('<svg>')).toBeNull();
+        expect(svgSize('not an svg')).toBeNull();
     });
 
     it('shows nothing until Settings, About is in, so Arc CMS\'s name never flashes', async () => {

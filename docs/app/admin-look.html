@@ -35,7 +35,7 @@
         <tr><td><code>--arc-admin-menu-hover-background</code></td><td>The side panel's item under the pointer</td><td>The same as the current item</td></tr>
       </tbody>
     </table>
-    <p>Lighter tints and shadows are mixed from the two accents, so two colours and a panel are usually all you set. They reach every admin page, the setup wizard and the dialogs they open, including the Bootstrap and Material parts (links, toggles, checkboxes, tabs, spinners). Colours that mean something stay as they are: red for danger, green for success, the teal-blue of an information note, and a picture's own colours.</p>
+    <p>Lighter tints and shadows are mixed from the two accents, so two colours and a panel are usually all you set. They reach every admin page, the setup wizard and the dialogs, menus and toasts opened while they are on screen, including the Bootstrap and Material parts (links, toggles, checkboxes, tabs, spinners). Colours that mean something stay as they are: red for danger, green for success, the teal-blue of an information note, and a picture's own colours.</p>
     <div class="note"><p>Set the variables on <code>:root</code>, not on a class: the gradient and the button follow the accents only where the accents are set. The admin's colours never reach the website or the sign-in page, which have their own (see <a href="../website/sign-in-page.html">Brand the sign-in page</a>).</p></div>
 
     <h2 id="name-and-logo">Name and logo</h2>
@@ -53,13 +53,13 @@ export const CUSTOM_BRAND: CustomBrand = {
     <p>Nothing shows until Settings, About has loaded, so Arc CMS's name never flashes before yours.</p>
 
     <h3 id="logo-shapes">Logo shapes</h3>
-    <p>The panel looks at the logo's shape when it loads. A wordmark, at least twice as wide as it is tall, shows alone in the open panel (up to 150 pixels wide and 40 high), since it already carries the name. A square mark shows at 40 by 40 pixels beside the name. In the collapsed panel, 65 pixels wide, a square mark shows and a wordmark does not. Search engines also read this logo (see <a href="../website/seo.html">Get found by search engines and AI</a>) and prefer a square one of at least 112 by 112 pixels.</p>
+    <p>The panel looks at the logo's shape when it loads; an SVG's shape is read from its <code>viewBox</code>, else its <code>width</code> and <code>height</code>. A wordmark, at least twice as wide as it is tall, shows alone in the open panel (up to 150 pixels wide and 40 high), since it already carries the name. A square mark shows at 40 by 40 pixels beside the name. In the collapsed panel, 65 pixels wide, a square mark shows and a wordmark does not. Search engines also read this logo (see <a href="../website/seo.html">Get found by search engines and AI</a>) and prefer a square one of at least 112 by 112 pixels.</p>
 
     <h2 id="browser-tab">The browser tab</h2>
     <p>Every tab reads "<em>Page</em> | <em>Site name</em>", such as "Users | Tapout POS". Until the site name is in, the page's name stands alone; a page with no title shows the site name alone. Before the app starts, the tab shows the app's name from <code>brand.ts</code>, or "Loading" when it has none.</p>
     <ul>
-      <li><strong>Pages members see</strong> (sign in, profile, account, dashboard, payments, premium, notifications, no access, page not found) take their name from the member strings, <code>member.titles.*</code>, in the member's language. Translate them in <code class="new">src/custom/i18n/{lang}.json</code> like any member string (see <a href="member-languages.html">Member languages</a>).</li>
-      <li><strong>Admin pages</strong> stay in English.</li>
+      <li><strong>Pages members see</strong> (sign in, profile, account, dashboard, payments, premium, notifications, no access, page not found) take their name from the member strings, <code>member.titles.*</code>, in the reader's language. An app with its own member language translates them in <code class="new">src/custom/i18n/{lang}.json</code> like any member string; <code>npm run i18n:member</code> lists the ones missing, and the suite fails until they are there (see <a href="member-languages.html">Member languages</a>).</li>
+      <li><strong>Admin pages</strong> stay in English, except Profile and Notifications, which members see too.</li>
       <li><strong>A core page's own name</strong>: give it in <code>titles</code> in <code>brand.ts</code>, by path. The site name is still added after it.</li>
       <li><strong>Your own pages</strong>: give the route a <code>title</code>, and a <code>data: { titleKey }</code> for a translated one (see <a href="pages-and-routes.html">Add pages and routes</a>).</li>
     </ul>

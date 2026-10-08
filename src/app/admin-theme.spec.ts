@@ -109,21 +109,57 @@ describe('the admin\'s colours', () => {
         expect(styles).toMatch(/\.arc-onboarding \.btn-primary:hover \{[^}]*background: var\(--arc-admin-button-hover-background\) !important;/);
     });
 
-    it('turns every Material token the theme colours indigo or pink (any shade it uses) to the accent, and leaves warn alone', () => {
-        const theme = readFileSync(join(ROOT, 'node_modules/@angular/material/prebuilt-themes/indigo-pink.css'), 'utf8');
-        const coloured = new Set<string>();
-        for (const [, body] of theme.matchAll(/\{([^{}]*)\}/g)) {
-            for (const decl of body.split(';')) {
-                const [name, value] = decl.split(/:(.*)/s).map((p) => p?.trim());
-                if (name?.startsWith('--mat-') && /#3f51b5|#ff4081|#7986cb|#f06292|rgba\((63, 81, 181|255, 64, 129)/i.test(value ?? '')) coloured.add(name);
+    it('turns each Material token the theme colours indigo or pink to the accent, on the same elements only', () => {
+        const COLOURED = /#3f51b5|#ff4081|#7986cb|#f06292|rgba\((63, 81, 181|255, 64, 129)/i;
+        const SCOPE = ':is(.arc-admin, .arc-onboarding, .arc-admin-overlay)';
+        /** Each selector of a stylesheet, with the custom properties it sets. */
+        const rulesOf = (css: string) => {
+            const rules = new Map<string, Map<string, string>>();
+            for (const [, selectors, body] of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+                if (selectors.trim().startsWith('@')) continue;
+                for (const selector of selectors.split(/,(?![^(]*\))/).map((x) => x.trim().replace(/\s+/g, ' '))) {
+                    const tokens = rules.get(selector) ?? new Map<string, string>();
+                    for (const decl of body.split(';')) {
+                        const [name, value] = decl.split(/:(.*)/s).map((p) => p?.trim());
+                        if (name?.startsWith('--mat-')) tokens.set(name, value ?? '');
+                    }
+                    rules.set(selector, tokens);
+                }
+            }
+            return rules;
+        };
+        const theme = rulesOf(readFileSync(join(ROOT, 'node_modules/@angular/material/prebuilt-themes/indigo-pink.css'), 'utf8'));
+        const ours = rulesOf(read('src/admin-theme.css'));
+
+        const missing: string[] = [];
+        let coloured = 0;
+        for (const [selector, tokens] of theme) {
+            for (const [name, value] of tokens) {
+                if (!COLOURED.test(value)) continue;
+                coloured++;
+                const scoped = selector === 'html' ? SCOPE : `${SCOPE} ${selector}`;
+                if (!/var\(--arc-admin-accent\)/.test(ours.get(scoped)?.get(name) ?? '')) missing.push(`${scoped} ${name}`);
             }
         }
-        expect(coloured.size).toBeGreaterThan(50);
-
-        const ours = read('src/admin-theme.css');
-        const missing = [...coloured].filter((name) => !new RegExp(`${name}: [^;]*var\\(--arc-admin-accent\\)`).test(ours));
+        expect(coloured).toBeGreaterThan(200);
         expect(missing).toEqual([]);
-        expect(ours).toContain(':not(.mat-warn)');
+
+        // And nothing more: every token we set, the theme sets on that element in indigo or pink.
+        const extra: string[] = [];
+        for (const [selector, tokens] of ours) {
+            if (!selector.startsWith(SCOPE)) continue;
+            const original = selector === SCOPE ? 'html' : selector.slice(SCOPE.length + 1);
+            for (const name of tokens.keys()) {
+                if (!COLOURED.test(theme.get(original)?.get(name) ?? '')) extra.push(`${selector} ${name}`);
+            }
+        }
+        expect(extra).toEqual([]);
+    });
+
+    it('colours the dialog layer only while the admin or the setup wizard is open', () => {
+        expect(read('src/admin-theme.css')).not.toContain('.cdk-overlay-container');
+        expect(read('src/app/pages/admin.page.ts')).toContain('useAdminOverlay();');
+        expect(read('src/app/pages/(onboarding)/onboarding.page.ts')).toContain('useAdminOverlay();');
     });
 });
 

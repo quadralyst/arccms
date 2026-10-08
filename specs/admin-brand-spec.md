@@ -1,6 +1,6 @@
 # Admin Brand: Colours, Name, Logo and Tab Titles Set by the App: Build Spec (AB)
 
-**Status:** agreed with Gunjan 2026-10-08 (the Arc POS team's request F17, plus two additions).
+**Status:** BUILT 2026-10-08 (AB1 to AB4, reviewed), agreed with Gunjan 2026-10-08 (the Arc POS team's request F17, plus two additions, F14, and the User Settings pane's doubled header).
 **Branch:** `feat/admin-brand`, cut from `dev` (8801884), worktree `../arccms-admin-brand`,
 dev server on port 5183.
 
@@ -65,7 +65,7 @@ deploy also waits for AB4; none is expected (no functions, no rules).
 | AB-D1 | **Colours reach the admin and the setup wizard only.** Public pages, the sign-in page and stored colour defaults keep their own. | The website and the sign-in page already have their own styling; admin colours must not leak into them. |
 | AB-D2 | **Variables, with defaults that reproduce today's look exactly:** `--arc-admin-accent` (`#3c76f5`), `--arc-admin-accent-dark` (`#1d47a3`), `--arc-admin-button-background` and `--arc-admin-button-hover-background` (today's gradient), `--arc-admin-panel-background` (today's six gradients), `--arc-admin-panel-color` (`#fff`), `--arc-admin-menu-active-background` and `--arc-admin-menu-hover-background` (`rgba(255, 255, 255, 0.15)`). | Arc does not change by a pixel. A solid accent is needed beside the button background because most places use the blue as a text or border colour, where a gradient cannot go. |
 | AB-D3 | **Lighter and darker shades come from the accent** with `color-mix()`: shadows, tints and the pressed button. The palette's other fixed blues (`#2654bd`, `#24c6dc`, `#1b429a`, `#2a5fd8`, `#163a8a`) map to the accent or the dark accent, or a mix of them. **The other brand blues the admin's styles wrote** (Bootstrap's `#0d6efd` and its tints in about 40 files, a few Tailwind and Material blues) map the same way: strong blues to the accent, dark ones to the dark accent, light tints to `color-mix(accent N%, #fff)` of the same lightness. Left alone: info alerts' teal-blues, colour palettes an admin picks from, email designs, chart and category colours other than blue, and shared parts of the public site and the sign-in page (search box and results, phone and country pickers, code boxes). | An app sets two colours, not ten; a teal admin with stray blue highlights would look broken. |
-| AB-D4 | **Inside `.arc-admin`, `.arc-onboarding` and the dialog layer (`.cdk-overlay-container`), Bootstrap's primary and Material's primary and accent follow `--arc-admin-accent`.** Bootstrap: links, `text-primary`, `bg-primary`, `border-primary`, `btn-outline-primary`, checked boxes, focus rings, pills, pagination, dropdown, list group and progress. Material: every token the indigo-pink theme sets to `#3f51b5` or `#ff4081` (or a `color-mix` of them), on the elements it sets them on; `warn` stays red. The rules live in src/admin-theme.css. With Arc's defaults this is the one visible change: Material's indigo and pink, and Bootstrap's `#0d6efd`, become Arc's blue in the admin. | Otherwise a teal admin has indigo toggles, pink checkboxes and blue outline buttons. Dialogs render outside `.arc-admin`, so the dialog layer is included. |
+| AB-D4 | **Inside `.arc-admin`, `.arc-onboarding` and the dialog layer while one of them is open (`.arc-admin-overlay`, set by `useAdminOverlay()`), Bootstrap's primary and Material's primary and accent follow `--arc-admin-accent`.** Bootstrap: links, `text-primary`, `bg-primary`, `border-primary`, `btn-outline-primary`, checked boxes, focus rings, pills, pagination, dropdown, list group and progress. Material: each rule of the indigo-pink theme that sets its indigo or pink (500, or 300 for tracks, or an rgba of them), repeated inside the admin on the same selector with the accent; nothing else, so `warn` stays red and uncoloured elements stay so. The rules live in src/admin-theme.css. With Arc's defaults this is the one visible change: Material's indigo and pink, and Bootstrap's `#0d6efd`, become Arc's blue in the admin. | Otherwise a teal admin has indigo toggles, pink checkboxes and blue outline buttons. Dialogs render outside `.arc-admin`, so the dialog layer is included, but only while the admin or wizard is open: there is one layer for the whole app, and the sign-in page's toasts must keep their own colours. |
 | AB-D5 | **A test fails when a stylesheet in the admin or the wizard writes one of Arc's blues outside the variables' definitions**, and when a Material token the prebuilt theme colours is not followed. | Keeps "every place reads the variable" true after the next change and the next Material update. |
 | AB-D6 | **The setup wizard's left column shows from 992px**, like the sign-in page; narrower, the form is alone and centred. A test keeps the column and the panel in step. | Same cause and fix as abdaac7. |
 | AB-D7 | **One lookup for the site's name and logo, field by field:** Settings, About; then the app's default (`src/custom/brand.ts` for the name, `src/custom/logo.svg`, `.png` or `.webp` for the logo); then Arc CMS's name and logo, only when no layer has a name or a logo. A name with no logo shows no logo (never Arc's beside another name); a logo with no name has no name. | The admin changes them with no code and no deploy; an app ships a sensible default; Arc's brand never appears beside someone else's. |
@@ -130,3 +130,21 @@ deploy also waits for AB4; none is expected (no functions, no rules).
    from this spec. Fix every critical and high item, re-run the checks.
 6. The whole suite alone (`npm run test`), merge into dev, push, and a note for the Arc POS
    team with what to put in their custom space.
+
+## 4. Review (2026-10-08, after AB4)
+
+Fixed: the Material overrides were one rule for every element, which turned icons in primary
+buttons, chips and tab content the accent (now one rule per theme rule, and the test compares
+selector and token pairs); the admin's mobile bar, the user and content-type form footers, the
+wizard's welcome and the broadcast sender fallback said "Arc CMS"; the dialog layer's colours
+reached the sign-in page; an SVG logo with only a viewBox could not be measured; a page with no
+name kept the last page's tab title; a slow first read could undo an About save; an empty
+`og:site_name` was written; logo files were picked alphabetically, not svg first; the pressed
+button lost its darker shade (now `filter: brightness(0.9)` over any background); links with
+Bootstrap or Material classes took the accent. Also: the User Settings pane repeated the page
+header (search, language, bell) inside Settings; it now has a plain heading, and a test keeps
+the panes free of `arc-page-header`.
+
+Left: `Settings/email` still defaults `senderName` to 'Arc CMS' in its model (a stored default,
+set from the site name by the setup wizard); apps with their own member language must translate
+the ten `member.titles.*` keys (their suite says so).

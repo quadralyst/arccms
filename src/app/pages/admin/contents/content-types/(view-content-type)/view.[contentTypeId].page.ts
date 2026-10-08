@@ -1,4 +1,5 @@
 import { RouteMeta } from '@analogjs/router';
+import { SiteBrandService } from '../../../../../core/brand/site-brand';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, inject, Input, input, Output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
@@ -25,6 +26,8 @@ import { layoutLabel, siteLayouts, siteManifest } from '../../../../../core/site
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ViewContentTypeComponent extends BaseComponent {
+    /** The site's name for the footer (core/brand/site-brand.ts). */
+    readonly siteName = inject(SiteBrandService).name;
     @Output() close = new EventEmitter();
     contentTypesStore = inject(ContentTypesStore);
     action = input('action');
