@@ -144,6 +144,12 @@ describe('DashboardComponent', () => {
         expect(mockContentTypesStore.getAll).toHaveBeenCalledWith();
     });
 
+    it('shows the recent waitlist signups table while signup forms are on', () => {
+        // dashboard-forms-off.spec.ts checks the table goes when forms is off.
+        expect(mockAudienceService.getRecentContacts).toHaveBeenCalled();
+        expect(fixture.nativeElement.querySelector('.activity-table')).not.toBeNull();
+    });
+
     it('should create', () => {
         expect(component).toBeTruthy();
     });

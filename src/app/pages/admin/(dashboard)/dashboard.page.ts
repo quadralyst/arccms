@@ -187,7 +187,7 @@ export default class DashboardComponent extends BaseComponent {
     if (this.formsOn) this.waitlistAdminStore.subscribe();
     this.loadMediaCount();
     this.loadGrowthAndLeadsCounts();
-    if (this.audienceOn) this.loadRecentWaitlistSignups();
+    if (this.formsOn) this.loadRecentWaitlistSignups();
     if (this.pwaEnabled) void this.pwaStats.load();
     // Auto-refresh is handled reactively by the effect in the constructor
   }

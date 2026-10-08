@@ -346,14 +346,14 @@
     </div>
     }
 
-    <!-- Recent signups (audience) & recent activity (content): each takes the full width alone -->
-    @if (audienceOn || contentOn) {
+    <!-- Recent waitlist signups (forms) & recent activity (content): each takes the full width alone -->
+    @if (formsOn || contentOn) {
     <div class="row g-3 mb-4">
-        @if (audienceOn) {
+        @if (formsOn) {
         <div class="d-flex flex-column" [ngClass]="contentOn ? 'col-md-8' : 'col-12'">
             <div class="section-header mt-0">
                 <h2>{{ 'admin.dashboard.recent_signups' | transloco }}</h2>
-                <a [routerLink]="formsOn ? '/admin/waitlists' : '/admin/contacts'">{{ 'admin.dashboard.view_all' | transloco }}</a>
+                <a routerLink="/admin/waitlists">{{ 'admin.dashboard.view_all' | transloco }}</a>
             </div>
             <div class="activity-table flex-grow-1">
                 <table class="table">
@@ -384,7 +384,7 @@
         </div>
         }
         @if (contentOn) {
-        <div class="d-flex flex-column" [ngClass]="audienceOn ? 'col-md-4' : 'col-12'">
+        <div class="d-flex flex-column" [ngClass]="formsOn ? 'col-md-4' : 'col-12'">
             <div class="section-header mt-0">
                 <h2>{{ 'admin.dashboard.recent_activity' | transloco }}</h2>
             </div>

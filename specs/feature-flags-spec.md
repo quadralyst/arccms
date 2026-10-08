@@ -117,7 +117,7 @@ leave a feature on). The
 | Public search | Header search and `/search` | With `search`: without it the site's `<arc-search>` tag shows nothing and `/search` is not found. Related items on content pages hide too. |
 | Search settings tab | Lists the hard-coded sources with a Rebuild button | With `search`. Rebuilt around collections: see section 6.4. |
 | Content editor, content pages | Link suggestions and related items call search | Hidden without `search`. |
-| Admin dashboard | Every widget | Content cards and recent activity with `content`, per-form cards and signup counts with `forms`, contact counts and recent signups with `audience`, app installs with `pwa`. |
+| Admin dashboard | Every widget | Content cards and recent activity with `content`, per-form cards and recent waitlist signups with `forms`, contact counts with `audience`, app installs with `pwa`. |
 | Member area | `/user/dashboard` is the credits, plans and activity page; the shell shows credits, Pro badge, billing links | `/user/dashboard` is a blank core page (a greeting, the install prompt when the PWA is on), or the app's own page through `src/custom/user-dashboard.ts`. The old page moves to `/user/payments` (payments). The shell's Payments, Account & Billing, Premium and Plans links, Pro badge and credits render only with `payments`, which is also the only time it loads the entitlement. |
 | Signup forms on pages | The form service reads, counts and submits any `data-waitlist-form` | The site's markup stays as written; without `forms` the service does nothing, and F4 removes the form functions. |
 | Sign-up and profile | Offer phone sign-in when the setting is on | Only when the setting is on **and** `sms` is on (`phoneSignInOn`). |
