@@ -134,6 +134,11 @@ export function resolveCountrySettings(stored: { countries?: unknown; codes?: un
     return { country: countries.includes(named) ? named : countries[0], countries };
 }
 
+/** The countries with the default first, the rest in the admin's order: the chip's list. */
+export function defaultFirst(countries: readonly string[], fallback: string): string[] {
+    return countries.includes(fallback) ? [fallback, ...countries.filter((iso) => iso !== fallback)] : [...countries];
+}
+
 /**
  * The country the sign-in page's chip starts on (PC-D8): the one last used on this
  * device when it is still allowed, else the admin's default. The browser's language

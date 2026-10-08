@@ -13,7 +13,7 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { injectT } from '../../../../core/i18n/inject-t';
 import { CountryPickerComponent } from '../../../../../shared/components/country-picker/country-picker.component';
 import { PhoneCountryComponent } from '../../../../../shared/components/phone-country/phone-country.component';
-import { countryByIso, countryName, flagUrl } from '../../../../../shared/data/countries';
+import { countryByIso, countryName, defaultFirst, flagUrl } from '../../../../../shared/data/countries';
 import { normalizePhone, withoutTrunk } from '../../../../../shared/utils/identifier.util';
 import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-settings.service';
 
@@ -109,7 +109,7 @@ import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-set
             <h4>{{ 'admin.settings.sms.test_title' | transloco }}</h4>
             <div class="d-flex gap-2 align-items-start test-row">
                 <div class="input-group flex-nowrap">
-                    <arc-phone-country [countries]="form().allowedCountries" [value]="testCountryShown()"
+                    <arc-phone-country [countries]="testCountries()" [value]="testCountryShown()"
                         (valueChange)="testCountry.set($event)" (chosen)="testBox.focus()" />
                     <input #testBox type="tel" class="form-control" autocomplete="off"
                         [placeholder]="testCountryShown() === 'IN' ? '98765 43210' : ''"
@@ -155,6 +155,7 @@ export class SmsSettingsPage implements OnInit {
     readonly testPhone = signal('');
     /** The test number's country: the one chosen beside it, else the default. */
     readonly testCountry = signal('');
+    readonly testCountries = computed(() => defaultFirst(this.form().allowedCountries, this.form().defaultCountry));
     readonly testCountryShown = computed(() =>
         this.form().allowedCountries.includes(this.testCountry()) ? this.testCountry() : this.form().defaultCountry);
     readonly testing = signal(false);

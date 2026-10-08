@@ -61,8 +61,8 @@ describe('UserSettingModel', () => {
 
     describe('phoneCountrySettings', () => {
         it('is the copied countries, the default among them', () => {
-            expect(phoneCountrySettings({ phoneCountry: 'GB', phoneCountryCode: '44', phoneCountries: ['IN', 'GB'] }))
-                .toEqual({ country: 'GB', countries: ['IN', 'GB'], listed: true });
+            expect(phoneCountrySettings({ phoneCountry: 'GB', phoneCountryCode: '44', phoneCountries: ['IN', 'GB', 'US'] }))
+                .toEqual({ country: 'GB', countries: ['GB', 'IN', 'US'], listed: true });
         });
 
         it('makes do with a copy from before countries were stored, and says the list is not known', () => {

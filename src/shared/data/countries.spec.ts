@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
     cleanCountryList, codesOf, COUNTRIES, countriesForCode, countriesFromCodes, countryByIso,
-    countryForE164, countryName, DEFAULT_COUNTRY, flagUrl, resolveCountrySettings, startingCountry,
+    countryForE164, countryName, DEFAULT_COUNTRY, defaultFirst, flagUrl, resolveCountrySettings, startingCountry,
 } from './countries';
 
 const FLAGS = resolve(__dirname, '../../../public/flags/4x3');
@@ -68,6 +68,13 @@ describe('resolveCountrySettings', () => {
 
     it('never widens the list for a default outside it', () => {
         expect(resolveCountrySettings({ countries: ['IN', 'AE'], country: 'GB' })).toEqual({ country: 'IN', countries: ['IN', 'AE'] });
+    });
+});
+
+describe('defaultFirst', () => {
+    it('puts the default at the top, the rest in the admin\'s order', () => {
+        expect(defaultFirst(['IN', 'GB', 'US'], 'US')).toEqual(['US', 'IN', 'GB']);
+        expect(defaultFirst(['IN', 'GB'], 'AE')).toEqual(['IN', 'GB']);
     });
 });
 

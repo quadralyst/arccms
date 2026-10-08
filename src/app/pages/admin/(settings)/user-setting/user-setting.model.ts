@@ -6,7 +6,7 @@
 
 import { isOn } from '../../../../core/features/features';
 import { DEFAULT_COUNTRY_CODE } from '../../../../../shared/utils/identifier.util';
-import { cleanCountryList, resolveCountrySettings } from '../../../../../shared/data/countries';
+import { cleanCountryList, defaultFirst, resolveCountrySettings } from '../../../../../shared/data/countries';
 
 export interface IUserSettings {
     id?: string;
@@ -44,7 +44,8 @@ export function phoneCountryCode(settings: Pick<IUserSettings, 'phoneCountryCode
 }
 
 /**
- * The countries the sign-in page's country chip offers (specs/phone-country-spec.md).
+ * The countries the sign-in page's country chip offers (specs/phone-country-spec.md),
+ * the default first.
  * `listed` is false for a copy written before countries were stored: the page then
  * leaves a number with its own `+code` to the server rather than refuse it.
  */
@@ -57,7 +58,7 @@ export function phoneCountrySettings(
         country: settings?.phoneCountry,
         code: settings?.phoneCountryCode,
     });
-    return { ...resolved, listed };
+    return { country: resolved.country, countries: defaultFirst(resolved.countries, resolved.country), listed };
 }
 
 export const DEFAULT_USER_SETTINGS: IUserSettings = {
