@@ -264,13 +264,13 @@
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #3c76f5, #1d47a3);
+    background: var(--arc-admin-button-background);
     border: none;
     color: white;
 
     &:hover:not(:disabled) {
         transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(29, 71, 163, 0.3);
+        box-shadow: 0 2px 8px color-mix(in srgb, var(--arc-admin-accent-dark) 30%, transparent);
     }
 
     &:disabled {

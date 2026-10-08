@@ -409,8 +409,8 @@ describe('ProfileComponent', () => {
             scss = '';
         }
 
-        it('should use the app primary gradient', () => {
-            expect(scss).toContain('linear-gradient(135deg, #3c76f5, #1d47a3)');
+        it('should use the admin\'s gradient, which an app sets (src/admin-theme.css)', () => {
+            expect(scss).toContain('var(--arc-admin-gradient)');
         });
 
         it('should have card styles with correct border-radius', () => {
@@ -433,8 +433,8 @@ describe('ProfileComponent', () => {
             expect(scss).toContain('font-size: 16px');
         });
 
-        it('should style form controls with blue focus', () => {
-            expect(scss).toContain('border-color: #3c76f5');
+        it('should style form controls with the admin\'s accent on focus', () => {
+            expect(scss).toContain('border-color: var(--arc-admin-accent)');
         });
 
         it('should have button hover lift effect', () => {

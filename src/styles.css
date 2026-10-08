@@ -1,5 +1,7 @@
 /* You can add global styles to this file, and also import other style files */
 @import "@angular/material/prebuilt-themes/indigo-pink.css";
+/* The admin's colours, which an app sets (docs/app/admin-look.html) */
+@import "./admin-theme.css";
 
 /* ============================================================
    THE ROUTED PAGE
@@ -68,7 +70,7 @@ html.arc-full-screen .arc-route-host > :not(router-outlet) {
   width: 48px;
   height: 48px;
   border: 4px solid #e9ecef;
-  border-top-color: #1d47a3;
+  border-top-color: var(--arc-admin-accent-dark);
   border-radius: 50%;
   animation: app-spin 1s linear infinite;
 }
@@ -155,9 +157,9 @@ arc-content-partials {
 /* Consistent Primary Button Styling for Admin Area & Onboarding */
 .arc-admin .btn-primary,
 .arc-onboarding .btn-primary {
-  background: linear-gradient(135deg, #3c76f5, #1d47a3) !important;
+  background: var(--arc-admin-button-background) !important;
   color: white !important;
-  box-shadow: 0 2px 5px rgba(29, 71, 163, 0.3);
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--arc-admin-accent-dark) 30%, transparent);
   border: none;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -166,8 +168,8 @@ arc-content-partials {
 .arc-admin .btn-primary:hover,
 .arc-onboarding .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
-  background: linear-gradient(135deg, #3c76f5, #1d47a3);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--arc-admin-accent-dark) 40%, transparent);
+  background: var(--arc-admin-button-hover-background) !important;
   color: white;
 }
 
@@ -175,8 +177,8 @@ arc-content-partials {
 .arc-admin .btn-primary:active,
 .arc-onboarding .btn-primary:focus,
 .arc-onboarding .btn-primary:active {
-  background: linear-gradient(135deg, #2a5fd8, #163a8a);
-  box-shadow: 0 2px 8px rgba(29, 71, 163, 0.5);
+  background: var(--arc-admin-button-hover-background) !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--arc-admin-accent-dark) 50%, transparent);
   color: white;
 }
 
@@ -225,7 +227,7 @@ arc-content-partials {
 .arc-onboarding .mat-mdc-raised-button.mat-primary,
 .arc-onboarding .mat-mdc-flat-button.mat-primary,
 .arc-onboarding .mat-mdc-unelevated-button.mat-primary {
-  background: linear-gradient(135deg, #3c76f5, #1d47a3) !important;
+  background: var(--arc-admin-button-background) !important;
   color: white !important;
 }
 
@@ -235,7 +237,8 @@ arc-content-partials {
 .arc-onboarding .mat-mdc-raised-button.mat-primary:hover,
 .arc-onboarding .mat-mdc-flat-button.mat-primary:hover,
 .arc-onboarding .mat-mdc-unelevated-button.mat-primary:hover {
-  box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--arc-admin-accent-dark) 40%, transparent);
+  background: var(--arc-admin-button-hover-background) !important;
 }
 
 /* Pagination Footer */
@@ -914,8 +917,8 @@ arc-content-partials {
   width: 36px;
   height: 36px;
   border-radius: 9px;
-  background: #eef2ff;
-  color: #4f46e5;
+  background: color-mix(in srgb, var(--arc-admin-accent) 8%, #fff);
+  color: var(--arc-admin-accent);
   flex-shrink: 0;
 }
 
@@ -1104,8 +1107,8 @@ arc-content-partials {
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  background: #eef2ff;
-  color: #4f46e5;
+  background: color-mix(in srgb, var(--arc-admin-accent) 8%, #fff);
+  color: var(--arc-admin-accent);
   font-size: 11px;
   font-weight: 700;
 }

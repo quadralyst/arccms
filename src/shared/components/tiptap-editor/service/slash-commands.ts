@@ -338,7 +338,7 @@ export const SlashCommands = Extension.create({
             justify-content: center;
             width: 28px;
             height: 28px;
-            background: linear-gradient(135deg, #3c76f5 0%, #1d47a3 100%);
+            background: var(--arc-admin-gradient);
             border-radius: 6px;
             margin-right: 12px;
             color: white;

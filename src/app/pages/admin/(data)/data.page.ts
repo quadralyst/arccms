@@ -118,12 +118,12 @@ interface DataCategory {
         }
 
         .data-item.active {
-            background-color: #e7f3ff !important;
-            color: #0d6efd;
+            background-color: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff) !important;
+            color: var(--arc-admin-accent);
         }
 
         .data-item.active i {
-            color: #0d6efd;
+            color: var(--arc-admin-accent);
         }
 
         .data-item i {
@@ -205,7 +205,7 @@ interface DataCategory {
             }
 
             .data-item.active {
-                background-color: #0d6efd36 !important;
+                background-color: color-mix(in srgb, var(--arc-admin-accent) 21%, transparent) !important;
                 color: #fff !important;
 
                 .data-label {
@@ -214,7 +214,7 @@ interface DataCategory {
             }
 
             .data-item.active i {
-                color: #0d6efd !important;
+                color: var(--arc-admin-accent) !important;
             }
 
             .data-label {

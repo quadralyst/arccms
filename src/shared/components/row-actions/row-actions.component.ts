@@ -105,8 +105,8 @@ export const ROW_ACTIONS_COMPACT_QUERY = '(max-width: 767.98px)';
             color: gray;
             transition: background-color 0.15s, color 0.15s;
         }
-        .action-btn:hover { background: rgba(0, 0, 0, 0.05); color: #3b82f6; }
-        .action-btn:focus-visible { outline: 2px solid #3b82f6; outline-offset: 1px; }
+        .action-btn:hover { background: rgba(0, 0, 0, 0.05); color: var(--arc-admin-accent); }
+        .action-btn:focus-visible { outline: 2px solid var(--arc-admin-accent); outline-offset: 1px; }
         .action-btn .text-danger:hover, .action-btn.text-danger:hover { color: #ef4444 !important; }
         .danger-gap { width: 8px; flex: 0 0 8px; }
         .menu-icon {

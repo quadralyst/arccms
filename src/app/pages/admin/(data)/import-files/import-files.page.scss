@@ -58,8 +58,8 @@
 
     &:focus {
         outline: none;
-        border-color: #0d6efd;
-        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+        border-color: var(--arc-admin-accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--arc-admin-accent) 10%, transparent);
     }
 }
 
@@ -73,7 +73,7 @@
     cursor: pointer;
 
     &:hover {
-        border-color: #0d6efd;
+        border-color: var(--arc-admin-accent);
         background-color: #f8f9ff;
     }
 }
@@ -91,14 +91,14 @@
 .browse-btn {
     display: inline-block;
     padding: 8px 24px;
-    background: #0d6efd;
+    background: var(--arc-admin-accent);
     color: #fff;
     border-radius: 6px;
     font-weight: 500;
     cursor: pointer;
 
     &:hover {
-        background: #0b5ed7;
+        background: var(--arc-admin-accent-dark);
     }
 }
 

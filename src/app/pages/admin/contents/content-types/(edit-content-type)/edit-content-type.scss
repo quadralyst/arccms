@@ -74,9 +74,9 @@
 .form-control:focus {
   color: #495057;
   background-color: #fff;
-  border-color: #3c76f5;
+  border-color: var(--arc-admin-accent);
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(60, 118, 245, 0.25);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--arc-admin-accent) 25%, transparent);
 }
 
 .form-control.is-invalid {
@@ -103,13 +103,13 @@
 }
 
 .form-select:focus {
-  border-color: #3c76f5;
+  border-color: var(--arc-admin-accent);
   outline: 0;
-  box-shadow: 0 0 0 0.25rem rgba(60, 118, 245, 0.25);
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--arc-admin-accent) 25%, transparent);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #3c76f5, #1d47a3);
+  background: var(--arc-admin-button-background);
   border: none;
   padding: 8px 14px;
   border-radius: 8px;
@@ -117,12 +117,12 @@
   font-weight: 500;
   font-size: 0.85rem;
   transition: all 0.2s;
-  box-shadow: 0 2px 5px rgba(29, 71, 163, 0.3);
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--arc-admin-accent-dark) 30%, transparent);
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--arc-admin-accent-dark) 40%, transparent);
 }
 
 .btn-secondary {
@@ -142,17 +142,17 @@
 
 .btn-outline-primary {
   background-color: transparent;
-  border: 1px solid #3c76f5;
+  border: 1px solid var(--arc-admin-accent);
   padding: 6px 12px;
   border-radius: 6px;
-  color: #3c76f5;
+  color: var(--arc-admin-accent);
   font-weight: 500;
   font-size: 0.85rem;
   transition: all 0.2s;
 }
 
 .btn-outline-primary:hover {
-  background-color: #3c76f5;
+  background-color: var(--arc-admin-accent);
   color: white;
 }
 
@@ -233,8 +233,8 @@ hr {
 }
 
 .form-check-input:checked {
-  background-color: #3c76f5;
-  border-color: #3c76f5;
+  background-color: var(--arc-admin-accent);
+  border-color: var(--arc-admin-accent);
 }
 
 /* ── Content-type translation tabs (M5.2) ──────────────────────────────── */
@@ -267,9 +267,9 @@ hr {
     }
 
     &.active {
-        background-color: #e7f3ff;
-        border-color: #b6d9ff;
-        color: #0d6efd;
+        background-color: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff);
+        border-color: color-mix(in srgb, var(--arc-admin-accent) 36%, #fff);
+        color: var(--arc-admin-accent);
     }
 }
 

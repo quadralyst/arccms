@@ -18,7 +18,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 16px 24px;
-    background: linear-gradient(135deg, #3c76f5 0%, #1d47a3 100%);
+    background: var(--arc-admin-gradient);
     color: #fff;
 
     h2 {
@@ -92,8 +92,8 @@
 
         &:focus {
             outline: none;
-            border-color: #3c76f5;
-            box-shadow: 0 0 0 3px rgba(60, 118, 245, 0.15);
+            border-color: var(--arc-admin-accent);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--arc-admin-accent) 15%, transparent);
         }
 
         &.is-invalid {
@@ -136,7 +136,7 @@
 
     .selected-count {
         text-align: right;
-        color: #3c76f5;
+        color: var(--arc-admin-accent);
         font-size: 0.875rem;
         margin-top: 8px;
 
@@ -164,13 +164,13 @@
         }
 
         &.btn-primary {
-            background: linear-gradient(135deg, #3c76f5 0%, #1d47a3 100%);
+            background: var(--arc-admin-button-background);
             border: none;
             color: #fff;
 
             &:hover:not(:disabled) {
                 transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(60, 118, 245, 0.35);
+                box-shadow: 0 4px 12px color-mix(in srgb, var(--arc-admin-accent) 35%, transparent);
             }
 
             &:disabled {
@@ -281,7 +281,7 @@
 
         &.active {
             background: #fff;
-            color: #3c76f5;
+            color: var(--arc-admin-accent);
             border-color: #e0e0e0;
             margin-bottom: -1px;
         }
@@ -312,7 +312,7 @@
         transition: all 0.2s;
 
         &:hover {
-            background: #3c76f5;
+            background: var(--arc-admin-accent);
             color: #fff;
         }
     }

@@ -36,13 +36,13 @@
     cursor: pointer;
     font-family: 'Courier New', monospace;
     font-size: 0.8rem;
-    background: #e7f1ff !important;
-    color: #0056b3 !important;
+    background: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff) !important;
+    color: var(--arc-admin-accent-dark) !important;
     border: 1px solid #b8daff !important;
     transition: all 0.2s ease;
 
     &:hover {
-        background: #0056b3 !important;
+        background: var(--arc-admin-accent-dark) !important;
         color: #fff !important;
         transform: translateY(-1px);
     }
@@ -78,8 +78,8 @@
         }
 
         &.active {
-            color: #3c76f5;
-            border-bottom-color: #3c76f5;
+            color: var(--arc-admin-accent);
+            border-bottom-color: var(--arc-admin-accent);
         }
     }
 }

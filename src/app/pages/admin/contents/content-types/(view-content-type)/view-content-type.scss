@@ -100,8 +100,8 @@
 }
 
 .badge-type {
-  background-color: #e7f3ff;
-  color: #0066cc;
+  background-color: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff);
+  color: var(--arc-admin-accent);
 }
 
 .badge-required {
@@ -249,9 +249,9 @@ hr {
   }
 
   &.copied {
-    background: #dbeafe;
-    color: #1e40af;
-    border-color: #93c5fd;
+    background: color-mix(in srgb, var(--arc-admin-accent) 18%, #fff);
+    color: var(--arc-admin-accent-dark);
+    border-color: color-mix(in srgb, var(--arc-admin-accent) 54%, #fff);
   }
 }
 
@@ -264,8 +264,8 @@ hr {
 .attr-custom-divider {
   font-size: 0.72rem;
   font-weight: 600;
-  color: #3c76f5;
+  color: var(--arc-admin-accent);
   margin: 10px 0 4px;
   padding: 4px 0;
-  border-top: 1px dashed #bfdbfe;
+  border-top: 1px dashed color-mix(in srgb, var(--arc-admin-accent) 32%, #fff);
 }

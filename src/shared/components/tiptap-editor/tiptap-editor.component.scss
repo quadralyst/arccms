@@ -291,7 +291,7 @@
 
   th { background: #f1f5f9; font-weight: 600; }
 
-  .selectedCell { background: #e0f2fe; }
+  .selectedCell { background: color-mix(in srgb, var(--arc-admin-accent) 16%, #fff); }
 }
 
 .blocks-list button i:first-child { width: 1.2em; }

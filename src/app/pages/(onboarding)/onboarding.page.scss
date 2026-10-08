@@ -14,7 +14,7 @@
 
 .onboarding-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #3c76f5, #24c6dc);
+  background: linear-gradient(90deg, var(--arc-admin-accent), color-mix(in srgb, var(--arc-admin-accent) 60%, #fff));
   transition: width 0.4s ease;
   border-radius: 0 2px 2px 0;
 }
@@ -25,7 +25,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #3c76f5;
+  color: var(--arc-admin-accent);
   margin-bottom: 0.5rem;
   text-align: center;
 }
@@ -104,13 +104,9 @@
 @media (min-width: 992px) {
   .auth-left {
     display: block;
-    background:
-      radial-gradient(circle at 10% 10%, #2654bd 0%, transparent 50%),
-      radial-gradient(circle at 90% 20%, #24c6dc 0%, transparent 60%),
-      radial-gradient(circle at 50% 50%, #3c76f5 0%, transparent 70%),
-      radial-gradient(circle at 80% 80%, #1d47a3 0%, transparent 50%),
-      radial-gradient(circle at 20% 90%, #1b429a 0%, transparent 60%),
-      linear-gradient(135deg, #1d47a3 0%, #24c6dc 100%);
+    // The admin's panel (src/admin-theme.css, docs/app/admin-look.html)
+    background: var(--arc-admin-panel-background);
+    color: var(--arc-admin-panel-color);
     position: relative;
   }
 
@@ -119,7 +115,6 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: white;
     text-align: center;
     width: 80%;
     max-width: 500px;
@@ -195,7 +190,7 @@
 
 // ─── Skip link ───
 .skip-link {
-  color: #3c76f5;
+  color: var(--arc-admin-accent);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -204,7 +199,7 @@
   white-space: nowrap;
 
   &:hover {
-    color: #2654bd;
+    color: var(--arc-admin-accent-dark);
     text-decoration: underline;
   }
 
@@ -278,7 +273,7 @@
     }
 
     i {
-      color: #3c76f5;
+      color: var(--arc-admin-accent);
       margin-top: 0.15rem;
       flex-shrink: 0;
       width: 1rem;

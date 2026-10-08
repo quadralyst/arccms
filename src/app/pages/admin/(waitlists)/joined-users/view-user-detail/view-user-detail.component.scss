@@ -112,8 +112,8 @@ code {
     }
 
     &.confirmed {
-        background: #cce5ff;
-        color: #004085;
+        background: color-mix(in srgb, var(--arc-admin-accent) 25%, #fff);
+        color: var(--arc-admin-accent-dark);
     }
 
     &.pending {
@@ -124,7 +124,7 @@ code {
 
 .position {
     font-weight: 600;
-    color: #3c76f5;
+    color: var(--arc-admin-accent);
 }
 
 .copyable-value {
@@ -160,7 +160,7 @@ code {
 
     &:hover {
         background: #e9ecef;
-        color: #3c76f5;
+        color: var(--arc-admin-accent);
     }
 }
 
@@ -172,8 +172,8 @@ code {
     font-weight: 500;
 
     &.has-referrals {
-        background: #cce5ff;
-        color: #004085;
+        background: color-mix(in srgb, var(--arc-admin-accent) 25%, #fff);
+        color: var(--arc-admin-accent-dark);
     }
 }
 
@@ -215,7 +215,7 @@ code {
     background: #f8f9fa;
     border-radius: 8px;
     padding: 10px 12px;
-    border-left: 3px solid #3c76f5;
+    border-left: 3px solid var(--arc-admin-accent);
 }
 
 .referral-item-header {
@@ -289,7 +289,7 @@ code {
 
         &:focus {
             outline: none;
-            border-color: #3c76f5;
+            border-color: var(--arc-admin-accent);
         }
     }
 }
@@ -322,7 +322,7 @@ code {
     }
 
     &.create-new {
-        color: #3c76f5;
+        color: var(--arc-admin-accent);
         font-weight: 500;
     }
 
@@ -358,7 +358,7 @@ code {
 
         &:focus {
             outline: none;
-            border-color: #3c76f5;
+            border-color: var(--arc-admin-accent);
         }
     }
 }
@@ -377,12 +377,12 @@ code {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #3c76f5, #1d47a3);
+    background: var(--arc-admin-button-background);
     color: white;
 
     &:hover:not(:disabled) {
         transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(29, 71, 163, 0.3);
+        box-shadow: 0 2px 8px color-mix(in srgb, var(--arc-admin-accent-dark) 30%, transparent);
     }
 
     &:disabled {
@@ -407,7 +407,7 @@ code {
     background: #f8f9fa;
     border-radius: 8px;
     padding: 12px;
-    border-left: 3px solid #3c76f5;
+    border-left: 3px solid var(--arc-admin-accent);
 }
 
 .note-header {
@@ -477,8 +477,8 @@ code {
     cursor: pointer;
 
     &:hover {
-        background: #e3f2fd;
-        color: #1976d2;
+        background: color-mix(in srgb, var(--arc-admin-accent) 15%, #fff);
+        color: var(--arc-admin-accent);
     }
 }
 
@@ -487,7 +487,7 @@ code {
     textarea {
         width: 100%;
         padding: 10px 12px;
-        border: 1px solid #3c76f5;
+        border: 1px solid var(--arc-admin-accent);
         border-radius: 6px;
         font-size: 13px;
         resize: vertical;

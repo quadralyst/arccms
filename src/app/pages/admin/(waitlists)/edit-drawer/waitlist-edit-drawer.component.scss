@@ -92,7 +92,7 @@
 
         &:focus {
             outline: none;
-            border-color: #3c76f5;
+            border-color: var(--arc-admin-accent);
         }
     }
 
@@ -141,7 +141,7 @@
         align-items: center;
 
         &:hover {
-            border-color: #3b82f6;
+            border-color: var(--arc-admin-accent);
             background: #f8fafc;
         }
     }
@@ -182,7 +182,7 @@
         }
 
         &:checked {
-            background: #3b82f6;
+            background: var(--arc-admin-accent);
 
             &::before {
                 transform: translateX(18px);

@@ -91,7 +91,7 @@
     outline: none;
 
     &:focus {
-        border-bottom: 2px solid #4a6cf7;
+        border-bottom: 2px solid var(--arc-admin-accent);
     }
 
     &::placeholder {
@@ -223,7 +223,7 @@
     outline: none;
 
     &:focus {
-        border-bottom: 2px solid #4a6cf7;
+        border-bottom: 2px solid var(--arc-admin-accent);
     }
 
     &::placeholder {
@@ -481,9 +481,9 @@
     }
 
     &.deploying {
-        background-color: #e8eaf6;
-        color: #283593;
-        border: 1px solid #5c6bc0;
+        background-color: color-mix(in srgb, var(--arc-admin-accent) 16%, #fff);
+        color: var(--arc-admin-accent-dark);
+        border: 1px solid var(--arc-admin-accent);
     }
 
     &.deploy-success {
@@ -601,7 +601,7 @@
     &:focus-visible::after,
     &.arc-resizing::after {
         background-color: #dfe5fe;
-        background-image: radial-gradient(circle, #4a6cf7 1.1px, transparent 1.3px);
+        background-image: radial-gradient(circle, var(--arc-admin-accent) 1.1px, transparent 1.3px);
     }
 
     &:focus-visible {
@@ -640,12 +640,12 @@
     border-bottom: 2px solid transparent;
 
     &:hover {
-        color: #4a6cf7;
+        color: var(--arc-admin-accent);
     }
 
     &.active {
-        color: #4a6cf7;
-        border-bottom-color: #4a6cf7;
+        color: var(--arc-admin-accent);
+        border-bottom-color: var(--arc-admin-accent);
         background-color: #fff;
     }
 }
@@ -703,7 +703,7 @@
         transition: all 0.2s ease;
 
         &:hover {
-            border-color: #4a6cf7;
+            border-color: var(--arc-admin-accent);
             background-color: #f8f9ff;
         }
 
@@ -779,7 +779,7 @@
     }
 
     &.create-new {
-        color: #0d6efd;
+        color: var(--arc-admin-accent);
         border-top: 1px solid #e9ecef;
         font-weight: 500;
 
@@ -995,14 +995,14 @@
     word-break: break-all;
 
     .url-link {
-        color: #0d6efd;
+        color: var(--arc-admin-accent);
         text-decoration: none;
         flex: 1;
         min-width: 0;
 
         &:hover {
             text-decoration: underline;
-            color: #0a58ca;
+            color: var(--arc-admin-accent-dark);
         }
     }
 
@@ -1011,7 +1011,7 @@
         flex-shrink: 0;
 
         &:hover {
-            color: #0d6efd;
+            color: var(--arc-admin-accent);
         }
 
         i {
@@ -1242,7 +1242,7 @@
         transition: all 0.2s ease;
 
         &:hover {
-            border-color: #4a6cf7;
+            border-color: var(--arc-admin-accent);
             background-color: #f8f9ff;
         }
 
@@ -1312,9 +1312,9 @@
         }
 
         &.active {
-            background-color: #e7f3ff;
-            border-color: #b6d9ff;
-            color: #0d6efd;
+            background-color: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff);
+            border-color: color-mix(in srgb, var(--arc-admin-accent) 36%, #fff);
+            color: var(--arc-admin-accent);
         }
     }
 
@@ -1393,7 +1393,7 @@
         transition: all 0.2s ease;
 
         &:hover {
-            border-color: #4a6cf7;
+            border-color: var(--arc-admin-accent);
             background-color: #f8f9ff;
         }
     }

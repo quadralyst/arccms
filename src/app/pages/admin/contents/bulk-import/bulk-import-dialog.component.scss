@@ -24,8 +24,8 @@
 
   &:hover,
   &.drag-over {
-    border-color: #2196f3; // Primary color
-    background-color: #e3f2fd;
+    border-color: var(--arc-admin-accent); // Primary color
+    background-color: color-mix(in srgb, var(--arc-admin-accent) 15%, #fff);
   }
 
   mat-icon {

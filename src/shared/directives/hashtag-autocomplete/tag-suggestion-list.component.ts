@@ -59,7 +59,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
         }
         .arc-tag-suggestions__item.is-active,
         .arc-tag-suggestions__item:hover {
-            background: var(--arc-accent-soft, #eef2ff);
+            background: var(--arc-accent-soft, color-mix(in srgb, var(--arc-admin-accent) 8%, #fff));
         }
         .arc-tag-suggestions__empty {
             padding: 10px 12px;

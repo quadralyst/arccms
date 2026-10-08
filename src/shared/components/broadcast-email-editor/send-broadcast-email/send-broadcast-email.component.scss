@@ -11,7 +11,7 @@
 // Header
 .dialog-header {
     padding: 20px 24px;
-    background: linear-gradient(135deg, #3c76f5 0%, #1d47a3 100%);
+    background: var(--arc-admin-gradient);
     color: #fff;
 
     h2 {
@@ -60,7 +60,7 @@
 
             &.highlight {
                 font-weight: 600;
-                color: #3c76f5;
+                color: var(--arc-admin-accent);
             }
         }
     }
@@ -161,13 +161,13 @@
         }
 
         &.btn-primary {
-            background: linear-gradient(135deg, #3c76f5 0%, #1d47a3 100%);
+            background: var(--arc-admin-button-background);
             border: none;
             color: #fff;
 
             &:hover:not(:disabled) {
                 transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(60, 118, 245, 0.35);
+                box-shadow: 0 4px 12px color-mix(in srgb, var(--arc-admin-accent) 35%, transparent);
             }
         }
 
