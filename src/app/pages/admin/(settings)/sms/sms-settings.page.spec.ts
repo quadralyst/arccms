@@ -91,4 +91,23 @@ describe('SmsSettingsPage', () => {
         page.querySelector<HTMLButtonElement>('.btn-primary')!.click();
         expect(service.save).toHaveBeenCalledWith(expect.objectContaining({ allowedCountries: ['IN'], defaultCountry: 'IN' }));
     });
+
+    it('sends the test number with the country chosen beside it', async () => {
+        TestBed.resetTestingModule();
+        const service = { load: vi.fn(async () => ({ form: { ...DEFAULT_SMS_FORM, allowedCountries: ['IN', 'GB'], defaultCountry: 'IN' }, hasAuthKey: false, phoneSignIn: true })), save: vi.fn(), sendTest: vi.fn(async () => ({ status: 'logged' })) };
+        await TestBed.configureTestingModule({
+            imports: [SmsSettingsPage, translocoTestingModule()],
+            providers: [provideRouter([]), { provide: SmsSettingsService, useValue: service }],
+        }).compileComponents();
+        const fixture = TestBed.createComponent(SmsSettingsPage);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        const page = fixture.nativeElement as HTMLElement;
+        expect(page.querySelector('.test-row arc-phone-country button')?.textContent).toContain('+91');
+        fixture.componentInstance.testCountry.set('GB');
+        fixture.componentInstance.testPhone.set('07700 900123');
+        await fixture.componentInstance.sendTest();
+        expect(service.sendTest).toHaveBeenCalledWith('+447700900123');
+    });
 });

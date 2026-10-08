@@ -2028,6 +2028,11 @@
     },
     "language": {
       "choose": "भाषा चुनें"
+    },
+    "phone_country": {
+      "change": "देश: {{ country }}, +{{ code }}। देश बदलें",
+      "label": "देश: {{ country }}, +{{ code }}",
+      "search": "देश खोजें"
     }
   }
 }

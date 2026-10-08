@@ -2036,6 +2036,11 @@
     },
     "language": {
       "choose": "Choose a language"
+    },
+    "phone_country": {
+      "change": "Country: {{ country }}, +{{ code }}. Change the country",
+      "label": "Country: {{ country }}, +{{ code }}",
+      "search": "Search countries"
     }
   }
 }

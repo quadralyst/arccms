@@ -5,20 +5,22 @@
  * are shown only when the admin turns that on here, since anyone could then reset
  * any PIN; link codes never are (they would let anyone move a number).
  */
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { injectT } from '../../../../core/i18n/inject-t';
 import { CountryPickerComponent } from '../../../../../shared/components/country-picker/country-picker.component';
+import { PhoneCountryComponent } from '../../../../../shared/components/phone-country/phone-country.component';
 import { countryByIso, countryName, flagUrl } from '../../../../../shared/data/countries';
+import { normalizePhone, withoutTrunk } from '../../../../../shared/utils/identifier.util';
 import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-settings.service';
 
 @Component({
     selector: 'arc-sms-settings',
     standalone: true,
-    imports: [FormsModule, TranslocoPipe, RouterLink, CountryPickerComponent],
+    imports: [FormsModule, TranslocoPipe, RouterLink, CountryPickerComponent, PhoneCountryComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="settings-section">
@@ -106,9 +108,14 @@ import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-set
 
             <h4>{{ 'admin.settings.sms.test_title' | transloco }}</h4>
             <div class="d-flex gap-2 align-items-start test-row">
-                <input type="tel" class="form-control" [placeholder]="'98765 43210'" autocomplete="off"
-                    [attr.aria-label]="'admin.settings.sms.test_phone' | transloco"
-                    [ngModel]="testPhone()" (ngModelChange)="testPhone.set($event)" (keydown.enter)="sendTest()" />
+                <div class="input-group flex-nowrap">
+                    <arc-phone-country [countries]="form().allowedCountries" [value]="testCountryShown()"
+                        (valueChange)="testCountry.set($event)" (chosen)="testBox.focus()" />
+                    <input #testBox type="tel" class="form-control" autocomplete="off"
+                        [placeholder]="testCountryShown() === 'IN' ? '98765 43210' : ''"
+                        [attr.aria-label]="'admin.settings.sms.test_phone' | transloco"
+                        [ngModel]="testPhone()" (ngModelChange)="testPhone.set($event)" (keydown.enter)="sendTest()" />
+                </div>
                 <button class="btn btn-outline-primary text-nowrap" (click)="sendTest()" [disabled]="testing() || !testPhone()">
                     @if (testing()) { <i class="fas fa-spinner fa-spin me-1"></i> }
                     {{ 'admin.settings.sms.test_send' | transloco }}
@@ -146,6 +153,10 @@ export class SmsSettingsPage implements OnInit {
     readonly saveMessage = signal('');
 
     readonly testPhone = signal('');
+    /** The test number's country: the one chosen beside it, else the default. */
+    readonly testCountry = signal('');
+    readonly testCountryShown = computed(() =>
+        this.form().allowedCountries.includes(this.testCountry()) ? this.testCountry() : this.form().defaultCountry);
     readonly testing = signal(false);
     readonly testMessage = signal('');
     readonly testFailed = signal(false);
@@ -196,12 +207,19 @@ export class SmsSettingsPage implements OnInit {
         }
     }
 
+    /** The test number with its country code, as the sign-in page sends one; as typed when it is not a number. */
+    testNumber(): string {
+        const country = countryByIso(this.testCountryShown());
+        if (!country) return this.testPhone();
+        return normalizePhone(withoutTrunk(this.testPhone(), country.trunk), country.code) ?? this.testPhone();
+    }
+
     async sendTest(): Promise<void> {
         if (!this.testPhone() || this.testing()) return;
         this.testing.set(true);
         this.testMessage.set('');
         try {
-            const result = await this.service.sendTest(this.testPhone());
+            const result = await this.service.sendTest(this.testNumber());
             this.testFailed.set(result.status === 'failed');
             this.testMessage.set(
                 result.status === 'failed' ? this.t('admin.settings.sms.test_failed', { error: result.error ?? '' })

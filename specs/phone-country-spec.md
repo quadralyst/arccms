@@ -1,6 +1,6 @@
 # Phone Country Picker: Build Spec (PC)
 
-**Status:** building. Agreed with Gunjan 2026-10-08. PC1 and PC2 built 2026-10-08.
+**Status:** building. Agreed with Gunjan 2026-10-08. PC1 to PC3 built 2026-10-08.
 **Branch:** `feat/phone-country`, cut from `dev` (e945b17), worktree `../arccms-phone-country`.
 **Scope:** wherever a member types a mobile number, the country is shown and chosen
 separately from the number: a flag and calling code (`🇮🇳 +91`) beside the digits. The
@@ -135,11 +135,12 @@ Each phase: build, its tests, `npm run test` alone with a full log (it includes
 ### PC3: The component
 1. `arc-phone-country` (3.3) with flag fallback to ISO letters.
 2. Specs: one country renders a label, several render a menu, keyboard, search over eight.
-3. Critical review of PC3.
+3. The SMS test send box (3.5), moved here from PC4 so the component has a screen to be checked on.
+4. Critical review of PC3.
 
 ### PC4: Sign-in, profile, test send
 1. Sign-in box (3.4), starting country (PC-D8), paste and autofill (PC-D10), errors naming the country (PC-D9).
-2. Profile number box and the test send box (3.5).
+2. Profile number box (3.5); the test send box was done in PC3.
 3. Member translation keys in every member language file.
 4. Specs: chip appears and goes with the first character; paste `+44` with GB allowed and not allowed; submitted value is E.164; last-used country remembered.
 5. Browser: India only, and India plus UK plus US, on desktop and phone width; autofill a saved `+91` number.

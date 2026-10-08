@@ -1666,6 +1666,9 @@ export type TranslationKey =
     | 'member.not_found.heading'
     | 'member.not_found.home'
     | 'member.not_found.oops'
+    | 'member.phone_country.change'
+    | 'member.phone_country.label'
+    | 'member.phone_country.search'
     | 'member.profile.account_deleted'
     | 'member.profile.app_managed'
     | 'member.profile.back'
@@ -3488,6 +3491,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.not_found.heading',
     'member.not_found.home',
     'member.not_found.oops',
+    'member.phone_country.change',
+    'member.phone_country.label',
+    'member.phone_country.search',
     'member.profile.account_deleted',
     'member.profile.app_managed',
     'member.profile.back',
