@@ -1,0 +1,446 @@
+/* ============================================================
+   THE ADMIN'S COLOURS (docs/app/admin-look.html)
+   An app sets these on :root in src/custom/styles.css, which loads
+   after this file. The defaults are Arc CMS's blues. Every admin and
+   setup wizard stylesheet reads them: a test fails on one of Arc's
+   blues written anywhere else (src/app/admin-theme.spec.ts).
+   ============================================================ */
+
+:root {
+  /* A solid colour: text, links, borders, focus rings, toggles, outline buttons */
+  --arc-admin-accent: #3c76f5;
+  /* The darker end of gradients, hovers and shadows */
+  --arc-admin-accent-dark: #1d47a3;
+  --arc-admin-gradient: linear-gradient(135deg, var(--arc-admin-accent), var(--arc-admin-accent-dark));
+  /* The main button, and the main button under the pointer: any CSS background */
+  --arc-admin-button-background: var(--arc-admin-gradient);
+  --arc-admin-button-hover-background: var(--arc-admin-button-background);
+  /* The side panel (and the setup wizard's panel): any CSS background, and its text */
+  --arc-admin-panel-background:
+    radial-gradient(circle at 10% 10%, #2654bd 0%, transparent 50%),
+    radial-gradient(circle at 90% 20%, #24c6dc 0%, transparent 60%),
+    radial-gradient(circle at 50% 50%, #3c76f5 0%, transparent 70%),
+    radial-gradient(circle at 80% 80%, #1d47a3 0%, transparent 50%),
+    radial-gradient(circle at 20% 90%, #1b429a 0%, transparent 60%),
+    linear-gradient(135deg, #1d47a3 0%, #24c6dc 100%);
+  --arc-admin-panel-color: #fff;
+  /* The side panel's current item, and the item under the pointer */
+  --arc-admin-menu-active-background: rgba(255, 255, 255, 0.15);
+  --arc-admin-menu-hover-background: var(--arc-admin-menu-active-background);
+}
+
+/* ============================================================
+   BOOTSTRAP'S PRIMARY, in the admin, the setup wizard and their dialogs
+   (.arc-admin-overlay: the dialog layer, while the admin or the wizard is open;
+   see src/app/core/brand/admin-overlay.ts)
+   ============================================================ */
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) {
+  --bs-primary: var(--arc-admin-accent);
+  --bs-link-color: var(--arc-admin-accent);
+  --bs-link-hover-color: var(--arc-admin-accent-dark);
+  --bs-focus-ring-color: color-mix(in srgb, var(--arc-admin-accent) 25%, transparent);
+}
+
+/* Links, as Bootstrap colours them; one step above Bootstrap's own `a` rule, which loads
+   after this file, and below a page's own link styles. Bootstrap's classed links keep theirs. */
+:where(.arc-admin, .arc-onboarding, .arc-admin-overlay) a:not(.btn, .nav-link, .navbar-brand, .badge, .dropdown-item, .list-group-item, .alert-link, .mat-mdc-button-base) {
+  color: var(--arc-admin-accent);
+}
+
+:where(.arc-admin, .arc-onboarding, .arc-admin-overlay) a:not(.btn, .nav-link, .navbar-brand, .badge, .dropdown-item, .list-group-item, .alert-link, .mat-mdc-button-base):hover {
+  color: var(--arc-admin-accent-dark);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) :is(.text-primary, .link-primary) {
+  color: var(--arc-admin-accent) !important;
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .bg-primary {
+  background-color: var(--arc-admin-accent) !important;
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .border-primary {
+  border-color: var(--arc-admin-accent) !important;
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .btn-outline-primary {
+  --bs-btn-color: var(--arc-admin-accent);
+  --bs-btn-border-color: var(--arc-admin-accent);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--arc-admin-accent);
+  --bs-btn-hover-border-color: var(--arc-admin-accent);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--arc-admin-accent-dark);
+  --bs-btn-active-border-color: var(--arc-admin-accent-dark);
+  --bs-btn-disabled-color: var(--arc-admin-accent);
+  --bs-btn-disabled-border-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .form-check-input:checked {
+  background-color: var(--arc-admin-accent);
+  border-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) :is(.form-control, .form-select, .form-check-input):focus {
+  border-color: color-mix(in srgb, var(--arc-admin-accent) 50%, #fff);
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--arc-admin-accent) 25%, transparent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .nav-pills {
+  --bs-nav-pills-link-active-bg: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .pagination {
+  --bs-pagination-color: var(--arc-admin-accent);
+  --bs-pagination-hover-color: var(--arc-admin-accent-dark);
+  --bs-pagination-focus-color: var(--arc-admin-accent-dark);
+  --bs-pagination-active-bg: var(--arc-admin-accent);
+  --bs-pagination-active-border-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .dropdown-menu {
+  --bs-dropdown-link-active-bg: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .list-group {
+  --bs-list-group-active-bg: var(--arc-admin-accent);
+  --bs-list-group-active-border-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) :is(.progress, .progress-stacked) {
+  --bs-progress-bar-bg: var(--arc-admin-accent);
+}
+
+/* ============================================================
+   MATERIAL'S PRIMARY AND ACCENT, in the admin, the setup wizard and their dialogs
+   Each rule of the indigo-pink theme that sets its indigo or pink (500, or 300 for
+   tracks), again inside the admin, on the same elements with the same tokens, the
+   colour swapped for the accent. Nothing else is touched: warn stays red, and an
+   element the theme leaves uncoloured stays so. A test fails when a Material update
+   colours a token on an element these rules do not follow.
+   ============================================================ */
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) {
+  --mat-option-selected-state-label-text-color: var(--arc-admin-accent);
+  --mat-pseudo-checkbox-full-selected-icon-color: var(--arc-admin-accent);
+  --mat-pseudo-checkbox-minimal-selected-checkmark-color: var(--arc-admin-accent);
+  --mat-form-field-focus-select-arrow-color: color-mix(in srgb, var(--arc-admin-accent) 87%, transparent);
+  --mat-form-field-filled-caret-color: var(--arc-admin-accent);
+  --mat-form-field-filled-focus-active-indicator-color: var(--arc-admin-accent);
+  --mat-form-field-filled-focus-label-text-color: color-mix(in srgb, var(--arc-admin-accent) 87%, transparent);
+  --mat-form-field-outlined-caret-color: var(--arc-admin-accent);
+  --mat-form-field-outlined-focus-outline-color: var(--arc-admin-accent);
+  --mat-form-field-outlined-focus-label-text-color: color-mix(in srgb, var(--arc-admin-accent) 87%, transparent);
+  --mat-select-focused-arrow-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-focus-state-layer-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-handle-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-hover-state-layer-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-pressed-state-layer-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-focus-handle-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-hover-handle-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-pressed-handle-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-focus-track-color: color-mix(in srgb, var(--arc-admin-accent) 60%, #fff);
+  --mat-slide-toggle-selected-hover-track-color: color-mix(in srgb, var(--arc-admin-accent) 60%, #fff);
+  --mat-slide-toggle-selected-pressed-track-color: color-mix(in srgb, var(--arc-admin-accent) 60%, #fff);
+  --mat-slide-toggle-selected-track-color: color-mix(in srgb, var(--arc-admin-accent) 60%, #fff);
+  --mat-slider-active-track-color: var(--arc-admin-accent);
+  --mat-slider-focus-handle-color: var(--arc-admin-accent);
+  --mat-slider-handle-color: var(--arc-admin-accent);
+  --mat-slider-hover-handle-color: var(--arc-admin-accent);
+  --mat-slider-focus-state-layer-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+  --mat-slider-hover-state-layer-color: color-mix(in srgb, var(--arc-admin-accent) 4%, transparent);
+  --mat-slider-inactive-track-color: var(--arc-admin-accent);
+  --mat-slider-ripple-color: var(--arc-admin-accent);
+  --mat-slider-with-tick-marks-inactive-container-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-focus-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-hover-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-pressed-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-focus-state-layer-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-hover-state-layer-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-pressed-state-layer-color: var(--arc-admin-accent);
+  --mat-snack-bar-button-color: color-mix(in srgb, var(--arc-admin-accent) 60%, #fff);
+  --mat-progress-spinner-active-indicator-color: var(--arc-admin-accent);
+  --mat-badge-background-color: var(--arc-admin-accent);
+  --mat-datepicker-calendar-date-in-range-state-background-color: color-mix(in srgb, var(--arc-admin-accent) 20%, transparent);
+  --mat-datepicker-calendar-date-in-comparison-range-state-background-color: color-mix(in srgb, var(--arc-admin-accent) 20%, transparent);
+  --mat-datepicker-calendar-date-selected-state-background-color: var(--arc-admin-accent);
+  --mat-datepicker-calendar-date-selected-disabled-state-background-color: color-mix(in srgb, var(--arc-admin-accent) 38%, transparent);
+  --mat-datepicker-calendar-date-focus-state-background-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+  --mat-datepicker-calendar-date-hover-state-background-color: color-mix(in srgb, var(--arc-admin-accent) 4%, transparent);
+  --mat-datepicker-toggle-active-state-icon-color: var(--arc-admin-accent);
+  --mat-stepper-header-selected-state-icon-background-color: var(--arc-admin-accent);
+  --mat-stepper-header-done-state-icon-background-color: var(--arc-admin-accent);
+  --mat-stepper-header-edit-state-icon-background-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-accent {
+  --mat-option-selected-state-label-text-color: var(--arc-admin-accent);
+  --mat-pseudo-checkbox-full-selected-icon-color: var(--arc-admin-accent);
+  --mat-pseudo-checkbox-minimal-selected-checkmark-color: var(--arc-admin-accent);
+  --mat-slider-active-track-color: var(--arc-admin-accent);
+  --mat-slider-focus-handle-color: var(--arc-admin-accent);
+  --mat-slider-handle-color: var(--arc-admin-accent);
+  --mat-slider-hover-handle-color: var(--arc-admin-accent);
+  --mat-slider-focus-state-layer-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+  --mat-slider-hover-state-layer-color: color-mix(in srgb, var(--arc-admin-accent) 4%, transparent);
+  --mat-slider-inactive-track-color: var(--arc-admin-accent);
+  --mat-slider-ripple-color: var(--arc-admin-accent);
+  --mat-slider-with-tick-marks-inactive-container-color: var(--arc-admin-accent);
+  --mat-progress-spinner-active-indicator-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-primary {
+  --mat-pseudo-checkbox-full-selected-icon-color: var(--arc-admin-accent);
+  --mat-pseudo-checkbox-minimal-selected-checkmark-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-progress-bar {
+  --mat-progress-bar-active-indicator-color: var(--arc-admin-accent);
+  --mat-progress-bar-track-color: color-mix(in srgb, var(--arc-admin-accent) 25%, transparent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-progress-bar.mat-accent {
+  --mat-progress-bar-active-indicator-color: var(--arc-admin-accent);
+  --mat-progress-bar-track-color: color-mix(in srgb, var(--arc-admin-accent) 25%, transparent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-form-field.mat-accent {
+  --mat-form-field-focus-select-arrow-color: color-mix(in srgb, var(--arc-admin-accent) 87%, transparent);
+  --mat-form-field-filled-caret-color: var(--arc-admin-accent);
+  --mat-form-field-filled-focus-active-indicator-color: var(--arc-admin-accent);
+  --mat-form-field-filled-focus-label-text-color: color-mix(in srgb, var(--arc-admin-accent) 87%, transparent);
+  --mat-form-field-outlined-caret-color: var(--arc-admin-accent);
+  --mat-form-field-outlined-focus-outline-color: var(--arc-admin-accent);
+  --mat-form-field-outlined-focus-label-text-color: color-mix(in srgb, var(--arc-admin-accent) 87%, transparent);
+  --mat-select-focused-arrow-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-standard-chip.mat-mdc-chip-selected.mat-primary,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-standard-chip.mat-mdc-chip-highlighted.mat-primary {
+  --mat-chip-elevated-container-color: var(--arc-admin-accent);
+  --mat-chip-elevated-disabled-container-color: var(--arc-admin-accent);
+  --mat-chip-elevated-selected-container-color: var(--arc-admin-accent);
+  --mat-chip-flat-disabled-selected-container-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-standard-chip.mat-mdc-chip-selected.mat-accent,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-standard-chip.mat-mdc-chip-highlighted.mat-accent {
+  --mat-chip-elevated-container-color: var(--arc-admin-accent);
+  --mat-chip-elevated-disabled-container-color: var(--arc-admin-accent);
+  --mat-chip-elevated-selected-container-color: var(--arc-admin-accent);
+  --mat-chip-flat-disabled-selected-container-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-slide-toggle.mat-accent {
+  --mat-slide-toggle-selected-focus-state-layer-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-handle-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-hover-state-layer-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-pressed-state-layer-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-focus-handle-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-hover-handle-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-pressed-handle-color: var(--arc-admin-accent);
+  --mat-slide-toggle-selected-focus-track-color: color-mix(in srgb, var(--arc-admin-accent) 60%, #fff);
+  --mat-slide-toggle-selected-hover-track-color: color-mix(in srgb, var(--arc-admin-accent) 60%, #fff);
+  --mat-slide-toggle-selected-pressed-track-color: color-mix(in srgb, var(--arc-admin-accent) 60%, #fff);
+  --mat-slide-toggle-selected-track-color: color-mix(in srgb, var(--arc-admin-accent) 60%, #fff);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-radio-button.mat-primary {
+  --mat-radio-checked-ripple-color: var(--arc-admin-accent);
+  --mat-radio-selected-focus-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-hover-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-pressed-icon-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-radio-button.mat-accent {
+  --mat-radio-checked-ripple-color: var(--arc-admin-accent);
+  --mat-radio-selected-focus-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-hover-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-pressed-icon-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mdc-list-item__start,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mdc-list-item__end {
+  --mat-radio-checked-ripple-color: var(--arc-admin-accent);
+  --mat-radio-selected-focus-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-hover-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-pressed-icon-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-accent .mdc-list-item__start,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-accent .mdc-list-item__end {
+  --mat-radio-checked-ripple-color: var(--arc-admin-accent);
+  --mat-radio-selected-focus-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-hover-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-icon-color: var(--arc-admin-accent);
+  --mat-radio-selected-pressed-icon-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-list-option {
+  --mat-checkbox-selected-focus-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-hover-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-pressed-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-focus-state-layer-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-hover-state-layer-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-pressed-state-layer-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-list-option.mat-accent {
+  --mat-checkbox-selected-focus-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-hover-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-pressed-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-focus-state-layer-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-hover-state-layer-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-pressed-state-layer-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-tab-group,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-tab-nav-bar {
+  --mat-tab-active-label-text-color: var(--arc-admin-accent);
+  --mat-tab-active-ripple-color: var(--arc-admin-accent);
+  --mat-tab-inactive-ripple-color: var(--arc-admin-accent);
+  --mat-tab-active-focus-label-text-color: var(--arc-admin-accent);
+  --mat-tab-active-hover-label-text-color: var(--arc-admin-accent);
+  --mat-tab-active-focus-indicator-color: var(--arc-admin-accent);
+  --mat-tab-active-hover-indicator-color: var(--arc-admin-accent);
+  --mat-tab-active-indicator-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-tab-group.mat-accent,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-tab-nav-bar.mat-accent {
+  --mat-tab-active-label-text-color: var(--arc-admin-accent);
+  --mat-tab-active-ripple-color: var(--arc-admin-accent);
+  --mat-tab-inactive-ripple-color: var(--arc-admin-accent);
+  --mat-tab-active-focus-label-text-color: var(--arc-admin-accent);
+  --mat-tab-active-hover-label-text-color: var(--arc-admin-accent);
+  --mat-tab-active-focus-indicator-color: var(--arc-admin-accent);
+  --mat-tab-active-hover-indicator-color: var(--arc-admin-accent);
+  --mat-tab-active-indicator-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-tab-group.mat-background-primary,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-tab-nav-bar.mat-background-primary {
+  --mat-tab-background-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-tab-group.mat-background-accent,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-tab-nav-bar.mat-background-accent {
+  --mat-tab-background-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-checkbox.mat-primary {
+  --mat-checkbox-selected-focus-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-hover-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-pressed-icon-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-focus-state-layer-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-hover-state-layer-color: var(--arc-admin-accent);
+  --mat-checkbox-selected-pressed-state-layer-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-button.mat-primary,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-unelevated-button.mat-primary,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-raised-button.mat-primary,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-outlined-button.mat-primary,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-tonal-button.mat-primary {
+  --mat-button-filled-container-color: var(--arc-admin-accent);
+  --mat-button-outlined-label-text-color: var(--arc-admin-accent);
+  --mat-button-outlined-ripple-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+  --mat-button-outlined-state-layer-color: var(--arc-admin-accent);
+  --mat-button-protected-container-color: var(--arc-admin-accent);
+  --mat-button-text-label-text-color: var(--arc-admin-accent);
+  --mat-button-text-ripple-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+  --mat-button-text-state-layer-color: var(--arc-admin-accent);
+  --mat-button-tonal-container-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-button.mat-accent,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-unelevated-button.mat-accent,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-raised-button.mat-accent,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-outlined-button.mat-accent,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-tonal-button.mat-accent {
+  --mat-button-filled-container-color: var(--arc-admin-accent);
+  --mat-button-outlined-label-text-color: var(--arc-admin-accent);
+  --mat-button-outlined-ripple-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+  --mat-button-outlined-state-layer-color: var(--arc-admin-accent);
+  --mat-button-protected-container-color: var(--arc-admin-accent);
+  --mat-button-text-label-text-color: var(--arc-admin-accent);
+  --mat-button-text-ripple-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+  --mat-button-text-state-layer-color: var(--arc-admin-accent);
+  --mat-button-tonal-container-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-icon-button.mat-primary {
+  --mat-icon-button-icon-color: var(--arc-admin-accent);
+  --mat-icon-button-state-layer-color: var(--arc-admin-accent);
+  --mat-icon-button-ripple-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-icon-button.mat-accent {
+  --mat-icon-button-icon-color: var(--arc-admin-accent);
+  --mat-icon-button-state-layer-color: var(--arc-admin-accent);
+  --mat-icon-button-ripple-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-fab.mat-primary,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-mini-fab.mat-primary {
+  --mat-fab-container-color: var(--arc-admin-accent);
+  --mat-fab-ripple-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+  --mat-fab-small-container-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-fab.mat-accent,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-mini-fab.mat-accent {
+  --mat-fab-container-color: var(--arc-admin-accent);
+  --mat-fab-ripple-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+  --mat-fab-small-container-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-badge-accent {
+  --mat-badge-background-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-datepicker-content.mat-accent,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-datepicker-toggle-active.mat-accent {
+  --mat-datepicker-calendar-date-in-range-state-background-color: color-mix(in srgb, var(--arc-admin-accent) 20%, transparent);
+  --mat-datepicker-calendar-date-in-comparison-range-state-background-color: color-mix(in srgb, var(--arc-admin-accent) 20%, transparent);
+  --mat-datepicker-calendar-date-selected-state-background-color: var(--arc-admin-accent);
+  --mat-datepicker-calendar-date-selected-disabled-state-background-color: color-mix(in srgb, var(--arc-admin-accent) 38%, transparent);
+  --mat-datepicker-calendar-date-focus-state-background-color: color-mix(in srgb, var(--arc-admin-accent) 12%, transparent);
+  --mat-datepicker-calendar-date-hover-state-background-color: color-mix(in srgb, var(--arc-admin-accent) 4%, transparent);
+  --mat-datepicker-toggle-active-state-icon-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-datepicker-content.mat-warn,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-datepicker-toggle-active.mat-warn {
+  --mat-datepicker-calendar-date-in-comparison-range-state-background-color: color-mix(in srgb, var(--arc-admin-accent) 20%, transparent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-icon.mat-primary {
+  --mat-icon-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-icon.mat-accent {
+  --mat-icon-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-step-header.mat-accent {
+  --mat-stepper-header-selected-state-icon-background-color: var(--arc-admin-accent);
+  --mat-stepper-header-done-state-icon-background-color: var(--arc-admin-accent);
+  --mat-stepper-header-edit-state-icon-background-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-toolbar.mat-primary {
+  --mat-toolbar-container-background-color: var(--arc-admin-accent);
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-toolbar.mat-accent {
+  --mat-toolbar-container-background-color: var(--arc-admin-accent);
+}

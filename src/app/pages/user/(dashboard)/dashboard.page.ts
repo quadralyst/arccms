@@ -9,7 +9,8 @@ import { InstallPromptComponent } from '../../../../shared/components/install-pr
 import { userGuard } from '../user.guards';
 
 export const routeMeta: RouteMeta = {
-    title: 'Dashboard | Arc CMS',
+    title: 'Dashboard',
+    data: { titleKey: 'member.titles.dashboard' },
     canActivate: [userGuard],
 };
 

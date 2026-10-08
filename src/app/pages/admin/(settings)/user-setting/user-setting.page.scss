@@ -115,9 +115,9 @@
 .info-banner {
     margin-top: 20px;
     padding: 16px;
-    background: #e7f3ff;
+    background: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff);
     border-radius: 8px;
-    color: #0d6efd;
+    color: var(--arc-admin-accent);
     display: flex;
     align-items: center;
     font-size: 0.9rem;

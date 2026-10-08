@@ -28,7 +28,7 @@ import { SiteDriftNoticeComponent } from '../site-drift-notice/site-drift-notice
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 
 export const routeMeta: RouteMeta = {
-  title: 'Content Types | Arc CMS',
+  title: 'Content Types',
   canActivate: [roleGuard],
   data: { allowedRoles: ['admin'] },
 };

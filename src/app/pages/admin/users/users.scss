@@ -103,7 +103,7 @@
 }
 
 .edit:hover {
-    color: #3b82f6;
+    color: var(--arc-admin-accent);
 }
 
 .delete:hover {
@@ -133,11 +133,11 @@
 }
 
 .action-btn.verify {
-    color: #0d6efd !important;
+    color: var(--arc-admin-accent) !important;
 }
 
 .action-btn.verify:hover {
-    background-color: #e7f1ff !important;
+    background-color: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff) !important;
     border-radius: 4px;
 }
 
@@ -154,7 +154,7 @@
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #3c76f5, #1d47a3);
+    background: var(--arc-admin-button-background);
     border: none;
     padding: 8px 14px;
     border-radius: 8px;
@@ -162,12 +162,12 @@
     font-weight: 500;
     font-size: 0.85rem;
     transition: all 0.2s;
-    box-shadow: 0 2px 5px rgba(29, 71, 163, 0.3);
+    box-shadow: 0 2px 5px color-mix(in srgb, var(--arc-admin-accent-dark) 30%, transparent);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--arc-admin-accent-dark) 40%, transparent);
 }
 
 .record-count {

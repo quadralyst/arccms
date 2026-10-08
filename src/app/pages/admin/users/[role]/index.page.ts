@@ -8,7 +8,7 @@ import UsersListComponent from '../index.page';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Users by Role | Arc CMS',
+    title: 'Users by Role',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

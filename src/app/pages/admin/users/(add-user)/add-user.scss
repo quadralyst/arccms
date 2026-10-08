@@ -63,9 +63,9 @@
 .form-control:focus {
     color: #495057;
     background-color: #fff;
-    border-color: #3c76f5;
+    border-color: var(--arc-admin-accent);
     outline: 0;
-    box-shadow: 0 0 0 3px rgba(60, 118, 245, 0.25);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--arc-admin-accent) 25%, transparent);
 }
 
 .form-control.is-invalid {
@@ -73,7 +73,7 @@
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #3c76f5, #1d47a3);
+    background: var(--arc-admin-button-background);
     border: none;
     padding: 8px 14px;
     border-radius: 8px;
@@ -81,12 +81,12 @@
     font-weight: 500;
     font-size: 0.85rem;
     transition: all 0.2s;
-    box-shadow: 0 2px 5px rgba(29, 71, 163, 0.3);
+    box-shadow: 0 2px 5px color-mix(in srgb, var(--arc-admin-accent-dark) 30%, transparent);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--arc-admin-accent-dark) 40%, transparent);
 }
 
 .btn-light {

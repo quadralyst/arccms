@@ -21,6 +21,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** Each starter file, from the repo root, and its exports as Arc CMS ships them. */
 export const CUSTOM_STARTERS = [
     { file: 'src/custom/app-accounts.ts', exports: { CUSTOM_APP_ACCOUNTS: {} } },
+    { file: 'src/custom/brand.ts', exports: { CUSTOM_BRAND: {} } },
     { file: 'src/custom/features.ts', exports: { CUSTOM_FEATURES: {} } },
     { file: 'src/custom/home.ts', exports: { CUSTOM_HOME: {} } },
     { file: 'src/custom/languages.ts', exports: { MEMBER_LANGUAGES: [] } },

@@ -58,7 +58,7 @@
         font-size: 0.85rem;
         text-decoration: none;
         cursor: pointer;
-        color: #2196F3;
+        color: var(--arc-admin-accent);
 
         &:hover {
             text-decoration: underline;
@@ -98,9 +98,9 @@
     font-size: 1.1rem;
     flex-shrink: 0;
 
-    &.blue { background: #e3f2fd; color: #2196F3; }
+    &.blue { background: color-mix(in srgb, var(--arc-admin-accent) 15%, #fff); color: var(--arc-admin-accent); }
     &.green { background: #e8f5e9; color: #4CAF50; }
-    &.navy { background: #e8eaf6; color: #1d47a3; }
+    &.navy { background: color-mix(in srgb, var(--arc-admin-accent-dark) 10%, #fff); color: var(--arc-admin-accent-dark); }
     &.orange { background: #fff3e0; color: #FF9800; }
     &.red { background: #ffebee; color: #f44336; }
     &.teal { background: #e0f2f1; color: #009688; }
@@ -294,7 +294,7 @@
 
         &:focus {
             outline: none;
-            border-color: #3c76f5;
+            border-color: var(--arc-admin-accent);
         }
     }
 
@@ -326,7 +326,7 @@
         align-items: center;
 
         &:hover {
-            border-color: #3b82f6;
+            border-color: var(--arc-admin-accent);
             background: #f8fafc;
         }
     }
@@ -363,7 +363,7 @@
         }
 
         &:checked {
-            background: #3b82f6;
+            background: var(--arc-admin-accent);
 
             &::before {
                 transform: translateX(18px);

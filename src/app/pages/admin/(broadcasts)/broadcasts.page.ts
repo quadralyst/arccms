@@ -34,7 +34,7 @@ import { APP_USERS_LIMIT_NOTE } from '../(app-users)/app-users-limit';
 import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
-    title: 'Broadcasts | Arc CMS',
+    title: 'Broadcasts',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

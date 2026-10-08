@@ -5,6 +5,7 @@
  */
 
 import { RouteMeta } from '@analogjs/router';
+import { SiteBrandService } from '../../../../core/brand/site-brand';
 import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, input, Output } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
@@ -14,7 +15,7 @@ import { IUser } from '../user.model';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'View User | Arc CMS',
+    title: 'View User',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -29,6 +30,8 @@ export const routeMeta: RouteMeta = {
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class ViewUserComponent extends BaseComponent {
+    /** The site's name for the footer (core/brand/site-brand.ts). */
+    readonly siteName = inject(SiteBrandService).name;
     @Output() close = new EventEmitter<void>();
     action = input('view');
 

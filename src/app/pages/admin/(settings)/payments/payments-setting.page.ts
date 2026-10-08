@@ -23,7 +23,7 @@ import { MASKED_VALUE } from './payment-settings.model';
 import { IEmailTemplate, PaymentEmailType } from '../../(waitlists)/email-template.model';
 
 export const routeMeta: RouteMeta = {
-    title: 'Payments Settings | Arc CMS',
+    title: 'Payments Settings',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -227,7 +227,7 @@ export const routeMeta: RouteMeta = {
         .settings-title { font-size: 1.25rem; font-weight: 600; color: #212529; margin-bottom: 4px; }
         .integration-card { border: 1px solid #dee2e6; box-shadow: none !important; }
         mat-card-title { font-size: 1rem !important; font-weight: 600; }
-        .webhook-hint { font-size: 0.8rem; color: #495057; background: #f8f9fa; border-left: 3px solid #0d6efd; border-radius: 6px; padding: 10px 14px; margin-top: 8px; }
+        .webhook-hint { font-size: 0.8rem; color: #495057; background: #f8f9fa; border-left: 3px solid var(--arc-admin-accent); border-radius: 6px; padding: 10px 14px; margin-top: 8px; }
         .webhook-hint code { background: #e9ecef; padding: 1px 5px; border-radius: 3px; }
         .editor-label { display: block; font-size: 0.8rem; color: #6c757d; margin: 4px 0 6px; }
         .template-footer { margin-top: 12px; }

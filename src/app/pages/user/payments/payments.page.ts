@@ -24,7 +24,8 @@ import { injectT } from '../../../core/i18n/inject-t';
 import { memberLocaleNow } from '../../../core/i18n/member-language-now';
 
 export const routeMeta: RouteMeta = {
-    title: 'Payments | Arc CMS',
+    title: 'Payments',
+    data: { titleKey: 'member.titles.payments' },
     canActivate: [userGuard],
 };
 

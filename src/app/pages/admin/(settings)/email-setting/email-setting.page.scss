@@ -66,13 +66,13 @@
 
 .provider-icon-sm {
     font-size: 1.5rem;
-    color: #0d6efd;
+    color: var(--arc-admin-accent);
     width: 40px;
     height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #e7f3ff;
+    background: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff);
     border-radius: 8px;
 }
 
@@ -115,8 +115,8 @@
 }
 
 .provider-option.selected {
-    border-color: #0d6efd;
-    background-color: #e7f3ff;
+    border-color: var(--arc-admin-accent);
+    background-color: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff);
 }
 
 .provider-info {
@@ -133,7 +133,7 @@
 }
 
 .provider-option.selected .provider-icon {
-    color: #0d6efd;
+    color: var(--arc-admin-accent);
 }
 
 .provider-text {
@@ -211,7 +211,7 @@ mat-spinner {
 }
 
 a {
-    color: #0d6efd;
+    color: var(--arc-admin-accent);
 }
 
 /* Mobile Responsive Styles */

@@ -11,7 +11,8 @@ import {
 } from '@angular/core';
 import { provideClientHydration, withEventReplay, withIncrementalHydration } from '@angular/platform-browser';
 import { provideAnimations } from '@angular/platform-browser/animations';
-import { withComponentInputBinding } from '@angular/router';
+import { TitleStrategy, withComponentInputBinding } from '@angular/router';
+import { BrandTitleStrategy } from './core/brand/brand-title.strategy';
 import { provideFileRouter, requestContextInterceptor, withExtraRoutes } from '@analogjs/router';
 import { siteFilesInterceptor } from './core/site/site-files.interceptor';
 
@@ -42,6 +43,8 @@ export const appConfig: ApplicationConfig = {
     provideAnimations(),
     provideBrowserGlobalErrorListeners(),
     provideFileRouter(withExtraRoutes(routes), withComponentInputBinding()),
+    // Every tab: the page's name, then the site's (core/brand/brand-title.strategy.ts)
+    { provide: TitleStrategy, useExisting: BrandTitleStrategy },
     provideHttpClient(
       withFetch(),
       withInterceptors([requestContextInterceptor, siteFilesInterceptor])

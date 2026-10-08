@@ -103,7 +103,8 @@ export class BroadcastEmailEditorComponent {
     private initForm(): void {
         this.broadcastForm = this.fb.group({
             sendTo: ['', Validators.required],
-            senderName: ['Arc CMS', Validators.required],
+            // Filled from Settings, Email (loadEmailSettings).
+            senderName: ['', Validators.required],
             senderEmail: ['noreply@arccms.com', [Validators.required, this.globalService.emailValidator()]],
             subject: ['', Validators.required],
             previewText: [''],

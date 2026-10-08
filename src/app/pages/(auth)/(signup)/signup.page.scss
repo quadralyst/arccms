@@ -548,6 +548,16 @@ input:focus {
     .customPadding {
         padding: 40px !important;
     }
+
+    // The app's image (src/custom/sign-in-image.*): the whole panel, cropped to fill it
+    .auth-left-image {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+    }
 }
 /* ===================Phone and Google sign-in============================ */
 

@@ -6,7 +6,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Site Usage | Arc CMS',
+    title: 'Site Usage',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

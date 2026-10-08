@@ -75,8 +75,8 @@
 }
 
 .metric-icon.blue {
-    background: #e3f2fd;
-    color: #2196F3;
+    background: color-mix(in srgb, var(--arc-admin-accent) 15%, #fff);
+    color: var(--arc-admin-accent);
 }
 
 .metric-icon.green {
@@ -85,8 +85,8 @@
 }
 
 .metric-icon.navy {
-    background: #e8eaf6;
-    color: #1d47a3;
+    background: color-mix(in srgb, var(--arc-admin-accent) 16%, #fff);
+    color: var(--arc-admin-accent-dark);
 }
 
 .metric-icon.orange {
@@ -222,7 +222,7 @@
     padding: 0.5rem 0;
 
     &:hover .activity-title {
-        color: #2196F3;
+        color: var(--arc-admin-accent);
     }
 }
 
@@ -423,7 +423,7 @@
 
 .list-item-bar {
     height: 100%;
-    background: #2196F3;
+    background: var(--arc-admin-accent);
     border-radius: 2px;
     transition: width 0.3s ease;
 }
@@ -437,8 +437,8 @@
 }
 
 .date-range-badge {
-    background: #e3f2fd;
-    color: #2196F3;
+    background: color-mix(in srgb, var(--arc-admin-accent) 15%, #fff);
+    color: var(--arc-admin-accent);
     padding: 0.35rem 0.75rem;
     border-radius: 6px;
     font-size: 0.875rem;

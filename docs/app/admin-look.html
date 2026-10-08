@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brand the admin | Arc CMS docs</title>
+  <meta name="description" content="Give the admin your app's colours, name and logo, and every browser tab your site's name, from the custom space and Settings, About.">
+  <meta name="docs:sources" content="src/admin-theme.css, src/styles.css, src/shared/components/side-navbar/side-navbar.component.html, src/shared/components/side-navbar/side-navbar.component.scss, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/brand/site-brand.ts, src/app/core/brand/app-brand-files.ts, src/app/core/brand/brand-title.strategy.ts, src/custom/brand.ts, scripts/vite-app-title.ts, index.html, src/app/pages/admin/(settings)/about/about-settings.page.ts, src/app/pages/(onboarding)/onboarding.page.scss">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/admin-look.html">
+  <main>
+    <h1>Brand the admin</h1>
+    <p class="lead">The admin at <code>/admin</code> is Arc CMS's blue, with Arc CMS's name and logo at the top of its side panel, until you change them. Colours come from your stylesheet in the custom space, the name and logo from Settings, About or the custom space, and none of it is a core file.</p>
+
+    <h2 id="colours">Colours</h2>
+    <p>Set these on <code>:root</code> in <code class="new">src/custom/styles.css</code>, which loads after Arc CMS's styles. For a teal app:</p>
+    <pre><code>:root {
+    --arc-admin-accent: #0d8478;
+    --arc-admin-accent-dark: #0a675e;
+    --arc-admin-button-background: #0d8478;
+    --arc-admin-button-hover-background: #0a675e;
+    --arc-admin-panel-background: linear-gradient(180deg, #0d8478, #063f39);
+}</code></pre>
+    <table>
+      <thead><tr><th>Variable</th><th>Sets</th><th>Arc CMS's</th></tr></thead>
+      <tbody>
+        <tr><td><code>--arc-admin-accent</code></td><td>One solid colour for links, highlights, borders, focus rings, outline buttons, toggles, checkboxes and tabs</td><td><code>#3c76f5</code></td></tr>
+        <tr><td><code>--arc-admin-accent-dark</code></td><td>The darker end of gradients, and shadows</td><td><code>#1d47a3</code></td></tr>
+        <tr><td><code>--arc-admin-button-background</code></td><td>The main button, any CSS background</td><td>A gradient of the two above</td></tr>
+        <tr><td><code>--arc-admin-button-hover-background</code></td><td>The main button under the pointer</td><td>The same as the button</td></tr>
+        <tr><td><code>--arc-admin-panel-background</code></td><td>The side panel, and the setup wizard's panel, any CSS background</td><td>Arc CMS's blue gradients</td></tr>
+        <tr><td><code>--arc-admin-panel-color</code></td><td>The side panel's text; its lines and the menu's dimmer text follow it</td><td><code>#fff</code></td></tr>
+        <tr><td><code>--arc-admin-menu-active-background</code></td><td>The side panel's current item</td><td>A light veil of white</td></tr>
+        <tr><td><code>--arc-admin-menu-hover-background</code></td><td>The side panel's item under the pointer</td><td>The same as the current item</td></tr>
+      </tbody>
+    </table>
+    <p>Lighter tints and shadows are mixed from the two accents, so two colours and a panel are usually all you set. They reach every admin page, the setup wizard and the dialogs, menus and toasts opened while they are on screen, including the Bootstrap and Material parts (links, toggles, checkboxes, tabs, spinners). Colours that mean something stay as they are: red for danger, green for success, the teal-blue of an information note, and a picture's own colours.</p>
+    <div class="note"><p>Set the variables on <code>:root</code>, not on a class: the gradient and the button follow the accents only where the accents are set. The admin's colours never reach the website or the sign-in page, which have their own (see <a href="../website/sign-in-page.html">Brand the sign-in page</a>).</p></div>
+
+    <h2 id="name-and-logo">Name and logo</h2>
+    <p>The top of the side panel, the sign-in page, the member area, every browser tab and the <code>og:site_name</code> of content pages show the same name and logo. Each is taken from the first of these that has one:</p>
+    <ol>
+      <li><strong>Settings, About</strong>: the site name, and the logo URL (with <strong>Choose from media</strong> to pick it from the media library). An admin changes them there, with no code and no deploy; after saving, the panel shows them at once.</li>
+      <li><strong>The app's default</strong>: <code>name</code> in <code>src/custom/brand.ts</code>, and the logo file <code class="new">src/custom/logo.svg</code>, <code class="new">logo.png</code> or <code class="new">logo.webp</code>.</li>
+      <li><strong>Arc CMS's</strong> name and logo, only when nothing above gives a name or a logo. A name with no logo shows the name alone, never beside Arc CMS's logo.</li>
+    </ol>
+    <pre><code>import type { CustomBrand } from '../app/core/brand/site-brand';
+
+export const CUSTOM_BRAND: CustomBrand = {
+    name: 'Tapout POS',
+};</code></pre>
+    <p>Nothing shows until Settings, About has loaded, so Arc CMS's name never flashes before yours.</p>
+
+    <h3 id="logo-shapes">Logo shapes</h3>
+    <p>The panel looks at the logo's shape when it loads; an SVG's shape is read from its <code>viewBox</code>, else its <code>width</code> and <code>height</code>. A wordmark, at least twice as wide as it is tall, shows alone in the open panel (up to 150 pixels wide and 40 high), since it already carries the name. A square mark shows at 40 by 40 pixels beside the name. In the collapsed panel, 65 pixels wide, a square mark shows and a wordmark does not. Search engines also read this logo (see <a href="../website/seo.html">Get found by search engines and AI</a>) and prefer a square one of at least 112 by 112 pixels.</p>
+
+    <h2 id="browser-tab">The browser tab</h2>
+    <p>Every tab reads "<em>Page</em> | <em>Site name</em>", such as "Users | Tapout POS". Until the site name is in, the page's name stands alone; a page with no title shows the site name alone. Before the app starts, the tab shows the app's name from <code>brand.ts</code>, or "Loading" when it has none.</p>
+    <ul>
+      <li><strong>Pages members see</strong> (sign in, profile, account, dashboard, payments, premium, notifications, no access, page not found) take their name from the member strings, <code>member.titles.*</code>, in the reader's language. An app with its own member language translates them in <code class="new">src/custom/i18n/{lang}.json</code> like any member string; <code>npm run i18n:member</code> lists the ones missing, and the suite fails until they are there (see <a href="member-languages.html">Member languages</a>).</li>
+      <li><strong>Admin pages</strong> stay in English, except Profile and Notifications, which members see too.</li>
+      <li><strong>A core page's own name</strong>: give it in <code>titles</code> in <code>brand.ts</code>, by path. The site name is still added after it.</li>
+      <li><strong>Your own pages</strong>: give the route a <code>title</code>, and a <code>data: { titleKey }</code> for a translated one (see <a href="pages-and-routes.html">Add pages and routes</a>).</li>
+    </ul>
+    <pre><code>export const CUSTOM_BRAND: CustomBrand = {
+    name: 'Tapout POS',
+    titles: { '/admin/users': 'Staff' },
+};</code></pre>
+    <p>A page that sets its own title once it has loaded, such as a content page, keeps it.</p>
+
+    <h2>Next</h2>
+    <p>Give your members their own area: <a href="member-area.html">Build the member area</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

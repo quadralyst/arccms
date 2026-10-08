@@ -24,6 +24,34 @@ import { WaitlistAdminStore } from '../../../app/pages/admin/(waitlists)/waitlis
 import { CUSTOM_NAV } from '../../../custom/nav';
 import { isOn } from '../../../app/core/features/features';
 import type { FeatureId } from '../../../app/core/features/feature-registry';
+import { SiteBrandService } from '../../../app/core/brand/site-brand';
+
+/**
+ * Whether a logo is a wordmark rather than a mark: at least twice as wide as it is tall.
+ * A wordmark shows alone in the open panel (it already carries the name) and not at all
+ * in the collapsed one, which is too narrow to read it.
+ */
+export function isWideLogo(width: number, height: number): boolean {
+    return height > 0 && width / height >= 2;
+}
+
+/**
+ * An SVG's shape from its own markup: the viewBox, else its width and height. An SVG
+ * with only a viewBox has no natural size in the browser, so its loaded size cannot say.
+ */
+export function svgSize(markup: string): { width: number; height: number } | null {
+    const root = /<svg\b[^>]*>/i.exec(markup)?.[0];
+    if (!root) return null;
+    const box = /\bviewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)\s*["']/i.exec(root);
+    if (box) return { width: Number(box[1]), height: Number(box[2]) };
+    const width = /\bwidth\s*=\s*["']\s*([\d.]+)(px)?\s*["']/i.exec(root);
+    const height = /\bheight\s*=\s*["']\s*([\d.]+)(px)?\s*["']/i.exec(root);
+    return width && height ? { width: Number(width[1]), height: Number(height[1]) } : null;
+}
+
+function isSvg(src: string): boolean {
+    return /^data:image\/svg\+xml/i.test(src) || /\.svg(\?|#|$)/i.test(src);
+}
 
 export type MenuItem = {
     icon?: string;
@@ -118,8 +146,37 @@ export default class NavbarComponent extends BaseComponent {
     @Input() drawerMode: string | undefined;
     readonly dialog = inject(MatDialog);
     readonly authStore = inject(AuthState);
-    readonly logoSmall = logoSmall;
     readonly adminAvatar = adminAvatar;
+
+    /** The site's name and logo (core/brand/site-brand.ts); nothing until they are in, so Arc CMS's never flashes. */
+    private readonly siteBrand = inject(SiteBrandService);
+    readonly brand = this.siteBrand.brand;
+    /** The logo to show: the site's, or Arc CMS's small one when the site has set neither. */
+    readonly panelLogo = computed(() => {
+        const brand = this.brand();
+        return brand ? (brand.arc ? logoSmall : brand.logo) : '';
+    });
+    /** The last logo measured, and whether it is a wordmark. */
+    private readonly measuredLogo = signal<{ src: string; wide: boolean } | null>(null);
+    /** Whether the logo shown is a wordmark: null until it has loaded. Arc CMS's own shows as a square mark, as always. */
+    readonly logoWide = computed(() => {
+        if (this.brand()?.arc) return false;
+        const measured = this.measuredLogo();
+        return measured && measured.src === this.panelLogo() ? measured.wide : null;
+    });
+
+    async measureLogo(event: Event): Promise<void> {
+        const img = event.target as HTMLImageElement;
+        const src = this.panelLogo();
+        let width = img.naturalWidth;
+        let height = img.naturalHeight;
+        if (isSvg(src)) {
+            // Read from the file; a logo on another host that refuses the read keeps its loaded size.
+            const size = await fetch(src).then((r) => (r.ok ? r.text() : '')).then(svgSize).catch(() => null);
+            if (size) ({ width, height } = size);
+        }
+        if (this.panelLogo() === src) this.measuredLogo.set({ src, wide: isWideLogo(width, height) });
+    }
     @Output() selectedMenu = new EventEmitter();
     @Output() toggleMenu = new EventEmitter();
     activaUrl: string = '';
@@ -382,6 +439,7 @@ export default class NavbarComponent extends BaseComponent {
     }
 
     ngOnInit() {
+        void this.siteBrand.load();
         this.transloco.langChanges$
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe(lang => this.activeLang.set(lang));

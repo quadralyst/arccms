@@ -23,7 +23,7 @@ import { roleGuard } from '../../../../../guards/role.guard';
 import { escapeHtml } from '../../../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
-    title: 'Tags Management | Arc CMS',
+    title: 'Tags Management',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

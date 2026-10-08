@@ -8,7 +8,7 @@ import { DraftContentsTableComponent } from '../draft-contents-table/draft-conte
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-  title: 'Contents List | Arc CMS',
+  title: 'Contents List',
   canActivate: [roleGuard],
   data: { allowedRoles: ['admin'] },
 };

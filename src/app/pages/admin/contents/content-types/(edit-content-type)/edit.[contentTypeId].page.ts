@@ -1,4 +1,5 @@
 import { RouteMeta } from '@analogjs/router';
+import { SiteBrandService } from '../../../../../core/brand/site-brand';
 import { entryOrderOf, type EntryOrder } from '../../../../../core/utils/display-order';
 import { EntryOrderService } from '../../entry-order/entry-order.service';
 import {
@@ -31,7 +32,7 @@ import { roleGuard } from '../../../../../guards/role.guard';
 import { TemplateFolderService, TemplateFolder } from '../../../../../core/services/template-folder.service';
 
 export const routeMeta: RouteMeta = {
-    title: 'Edit Content Type | Arc CMS',
+    title: 'Edit Content Type',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
     providers: [],
@@ -45,6 +46,8 @@ export const routeMeta: RouteMeta = {
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class EditContentTypeComponent extends BaseComponent implements OnInit {
+    /** The site's name for the footer (core/brand/site-brand.ts). */
+    readonly siteName = inject(SiteBrandService).name;
     @Output() close = new EventEmitter();
     contentTypesStore = inject(ContentTypesStore);
     templateFolderService = inject(TemplateFolderService);

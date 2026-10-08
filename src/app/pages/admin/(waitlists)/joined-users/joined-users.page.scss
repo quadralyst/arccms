@@ -89,8 +89,8 @@
         }
 
         &.referrals {
-            background: #cce5ff;
-            color: #004085;
+            background: color-mix(in srgb, var(--arc-admin-accent) 25%, #fff);
+            color: var(--arc-admin-accent-dark);
         }
     }
 
@@ -185,7 +185,7 @@
 
 .position {
     font-weight: 600;
-    color: #3c76f5;
+    color: var(--arc-admin-accent);
 }
 
 .muted {
@@ -203,8 +203,8 @@
     font-size: 13px;
 
     &.has-referrals {
-        background: #cce5ff;
-        color: #004085;
+        background: color-mix(in srgb, var(--arc-admin-accent) 25%, #fff);
+        color: var(--arc-admin-accent-dark);
     }
 }
 
@@ -243,13 +243,13 @@
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #3c76f5, #1d47a3);
+    background: var(--arc-admin-button-background);
     color: white;
-    box-shadow: 0 2px 5px rgba(29, 71, 163, 0.3);
+    box-shadow: 0 2px 5px color-mix(in srgb, var(--arc-admin-accent-dark) 30%, transparent);
 
     &:hover:not(:disabled) {
         transform: translateY(-2px);
-        box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
+        box-shadow: 0 4px 10px color-mix(in srgb, var(--arc-admin-accent-dark) 40%, transparent);
     }
 
     &:disabled {

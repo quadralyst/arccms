@@ -44,7 +44,7 @@ export function templateFeature(type: string): FeatureId | undefined {
 }
 
 export const routeMeta: RouteMeta = {
-    title: 'Email Composer | Arc CMS',
+    title: 'Email Composer',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

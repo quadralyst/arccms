@@ -23,7 +23,7 @@ import { statusBadgeClass } from '../../../../shared/utils/status-badge';
 import { ContactDrawerComponent, ContactDrawerMode } from './(contact-drawer)/contact-drawer.component';
 
 export const routeMeta: RouteMeta = {
-    title: 'Contacts | Arc CMS',
+    title: 'Contacts',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

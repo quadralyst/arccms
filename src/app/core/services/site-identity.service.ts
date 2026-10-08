@@ -28,9 +28,20 @@ export class SiteIdentityService {
     /** Defaults (all empty) until the first load resolves. */
     readonly identity = this.identitySignal.asReadonly();
 
+    /** Whether an admin's save has set the identity: a first read still in flight must not undo it. */
+    private setByAdmin = false;
+
     private readonly loadedSignal = signal(false);
     /** Whether the first load has finished, found or not: until then `identity` is only the defaults. */
     readonly loaded = this.loadedSignal.asReadonly();
+
+    /** What an admin just saved in Settings, About, so every page shows it at once. */
+    set(identity: IAboutSettings): void {
+        this.setByAdmin = true;
+        this.loadPromise = Promise.resolve(identity);
+        this.identitySignal.set(identity);
+        this.loadedSignal.set(true);
+    }
 
     /** Loads once; concurrent callers share the read. */
     load(): Promise<IAboutSettings> {
@@ -52,6 +63,7 @@ export class SiteIdentityService {
                 sameAs: Array.isArray(data.sameAs) ? data.sameAs : [],
                 organizationType: data.organizationType === 'Person' ? 'Person' : 'Organization',
             };
+            if (this.setByAdmin) return this.identitySignal();
             this.identitySignal.set(identity);
             this.loadedSignal.set(true);
             return identity;

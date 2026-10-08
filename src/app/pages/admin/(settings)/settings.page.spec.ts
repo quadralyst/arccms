@@ -128,3 +128,23 @@ describe('SettingsPageComponent', () => {
         expect(rule('.setting-item')).toMatch(/flex: 1 0 auto/);
     });
 });
+
+describe('the settings panes', () => {
+    it('never repeat the page header: Settings already has the search, language and bell', async () => {
+        const { readdirSync, readFileSync, statSync } = await import('node:fs');
+        const { join } = await import('node:path');
+        const offenders: string[] = [];
+        const walk = (dir: string) => {
+            for (const name of readdirSync(dir)) {
+                const path = join(dir, name);
+                if (statSync(path).isDirectory()) walk(path);
+                else if (/\.(ts|html)$/.test(name) && !name.endsWith('.spec.ts') && readFileSync(path, 'utf8').includes('<arc-page-header')) offenders.push(path);
+            }
+        };
+        // Every pane is in a folder of its own; the hub itself (settings.page.ts) has the one header.
+        for (const name of readdirSync(__dirname)) {
+            if (statSync(join(__dirname, name)).isDirectory()) walk(join(__dirname, name));
+        }
+        expect(offenders).toEqual([]);
+    });
+});

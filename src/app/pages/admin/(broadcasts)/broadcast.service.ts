@@ -1,4 +1,5 @@
 import { inject, Injectable, PLATFORM_ID } from '@angular/core';
+import { SiteBrandService } from '../../../core/brand/site-brand';
 import { isPlatformBrowser } from '@angular/common';
 import {
     Firestore, collection, collectionData, addDoc, doc, updateDoc, getDoc, serverTimestamp, query, orderBy, limit, Timestamp,
@@ -50,6 +51,7 @@ export interface BroadcastRow {
 @Injectable({ providedIn: 'root' })
 export class BroadcastService {
     private firestore = inject(Firestore);
+    private siteBrand = inject(SiteBrandService);
     private functions = inject(Functions);
     private platformId = inject(PLATFORM_ID);
 
@@ -77,7 +79,9 @@ export class BroadcastService {
     private async senderIdentity(): Promise<{ senderName: string; senderEmail: string }> {
         const snap = await getDoc(doc(this.firestore, 'Settings', 'email'));
         const s = snap.data() || {};
-        return { senderName: s['senderName'] || 'Arc CMS', senderEmail: s['senderEmail'] || '' };
+        // No sender name saved: the site's own (core/brand/site-brand.ts), not Arc CMS's.
+        if (!s['senderName']) await this.siteBrand.load();
+        return { senderName: s['senderName'] || this.siteBrand.name(), senderEmail: s['senderEmail'] || '' };
     }
 
     /** Create a broadcast (queued now, or scheduled for later). */

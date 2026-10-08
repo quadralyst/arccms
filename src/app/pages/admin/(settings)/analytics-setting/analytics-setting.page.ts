@@ -20,7 +20,7 @@ import { AnalyticsTrackingStatusComponent } from '../../../../core/analytics/ana
 import { DEFAULT_ANALYTICS_SETTINGS, IAnalyticsSettings } from './analytics-setting.model';
 
 export const routeMeta: RouteMeta = {
-    title: 'Analytics Settings | Arc CMS',
+    title: 'Analytics Settings',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -413,7 +413,7 @@ export const routeMeta: RouteMeta = {
         }
 
         .hint-text a {
-            color: #0d6efd;
+            color: var(--arc-admin-accent);
         }
 
         .configured-badge {
@@ -459,9 +459,9 @@ export const routeMeta: RouteMeta = {
             color: #495057;
             margin-bottom: 20px;
             padding: 10px 14px;
-            background: #e7f1ff;
+            background: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff);
             border-radius: 6px;
-            border-left: 3px solid #0d6efd;
+            border-left: 3px solid var(--arc-admin-accent);
         }
 
         .setup-step {
@@ -492,7 +492,7 @@ export const routeMeta: RouteMeta = {
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            background: #0d6efd;
+            background: var(--arc-admin-accent);
             color: #fff;
             display: flex;
             align-items: center;
@@ -537,7 +537,7 @@ export const routeMeta: RouteMeta = {
         }
 
         .step-instructions a {
-            color: #0d6efd;
+            color: var(--arc-admin-accent);
         }
 
         .step-instructions code {
@@ -571,8 +571,8 @@ export const routeMeta: RouteMeta = {
         }
 
         .copy-btn:hover {
-            color: #0d6efd;
-            background: #e7f1ff;
+            color: var(--arc-admin-accent);
+            background: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff);
         }
 
         .gmail-hint {

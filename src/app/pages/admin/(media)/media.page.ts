@@ -41,7 +41,7 @@ import { ArcIcon } from '../../../../shared/models/icon.model';
 import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
-    title: 'Media Manager | Arc CMS',
+    title: 'Media Manager',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

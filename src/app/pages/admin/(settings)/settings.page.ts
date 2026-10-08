@@ -13,7 +13,7 @@ import { isOn } from '../../../core/features/features';
 import type { FeatureId } from '../../../core/features/feature-registry';
 
 export const routeMeta: RouteMeta = {
-    title: 'Settings | Arc CMS',
+    title: 'Settings',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -137,12 +137,12 @@ interface SettingCategory {
         }
 
         .setting-item.active {
-            background-color: #e7f3ff !important;
-            color: #0d6efd;
+            background-color: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff) !important;
+            color: var(--arc-admin-accent);
         }
 
         .setting-item.active i {
-            color: #0d6efd;
+            color: var(--arc-admin-accent);
         }
 
         .setting-item i {
@@ -231,9 +231,9 @@ interface SettingCategory {
             }
 
             .setting-item.active {
-                background-color: #0d6efd36 !important;
+                background-color: color-mix(in srgb, var(--arc-admin-accent) 21%, transparent) !important;
                 color: #fff !important;
-                // border-color: #0d6efd !important;
+                // border-color: var(--arc-admin-accent) !important;
 
                 .setting-label {
                     color: #000 !important;
@@ -241,7 +241,7 @@ interface SettingCategory {
             }
 
             .setting-item.active i {
-                color: #0d6efd !important;
+                color: var(--arc-admin-accent) !important;
             }
 
             .setting-label {

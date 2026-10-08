@@ -9,9 +9,12 @@ import { AuthState } from './(auth)/auth.store';
 import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service';
 import { homeFor } from '../core/home/home';
 
+const signedInOnly = canActivate(() => redirectUnauthorizedTo(['/']));
+
 export const routeMeta: RouteMeta = {
-    title: 'Authenticating... | Arc CMS',
-    ...canActivate(() => redirectUnauthorizedTo(['/'])),
+    title: 'Signing in',
+    ...signedInOnly,
+    data: { ...signedInOnly.data, titleKey: 'member.titles.signing_in' },
 };
 
 @Component({

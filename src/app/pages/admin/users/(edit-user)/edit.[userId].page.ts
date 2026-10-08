@@ -5,6 +5,7 @@
  */
 
 import { RouteMeta } from '@analogjs/router';
+import { SiteBrandService } from '../../../../core/brand/site-brand';
 import { ChangeDetectionStrategy, Component, computed, EventEmitter, inject, Input, input, Output } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -14,7 +15,7 @@ import { UserStore } from '../user.store';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Edit User | Arc CMS',
+    title: 'Edit User',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -28,6 +29,8 @@ export const routeMeta: RouteMeta = {
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class EditUserComponent extends BaseComponent {
+    /** The site's name for the footer (core/brand/site-brand.ts). */
+    readonly siteName = inject(SiteBrandService).name;
     @Output() close = new EventEmitter<void>();
     @Input() role: string | null | undefined;
     action = input('edit');

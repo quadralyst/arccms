@@ -13,7 +13,8 @@ import { ToastService } from '../../../shared/services/toast.service';
 import { UserShellComponent } from '../user/user-shell.component';
 
 export const routeMeta: RouteMeta = {
-    title: 'Notifications | Arc CMS',
+    title: 'Notifications',
+    data: { titleKey: 'member.titles.notifications' },
 };
 
 interface PrefRow { key: string; label: string; description: string; email: boolean; }
@@ -44,7 +45,7 @@ interface PrefRow { key: string; label: string; description: string; email: bool
             border-bottom: 1px solid #f1f3f5;
         }
         .notif-row:last-child { border-bottom: none; }
-        .notif-row.unread { background: #f0f7ff; }
+        .notif-row.unread { background: color-mix(in srgb, var(--arc-admin-accent) 7%, #fff); }
         .notif-main { min-width: 0; }
         .notif-title { font-weight: 500; color: #1a1a1a; margin-bottom: 2px; }
         .notif-row.unread .notif-title { font-weight: 600; }

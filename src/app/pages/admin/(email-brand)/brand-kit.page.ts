@@ -19,7 +19,7 @@ import { HashtagAutocompleteDirective } from '../../../../shared/directives/hash
 import { getEmailTags } from '../../../../shared/constants/email-tags';
 
 export const routeMeta: RouteMeta = {
-    title: 'Email Brand Kit | Arc CMS',
+    title: 'Email Brand Kit',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

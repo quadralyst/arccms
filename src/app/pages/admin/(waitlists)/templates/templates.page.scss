@@ -85,7 +85,7 @@
     }
 
     &.active {
-        background: linear-gradient(135deg, #1d47a3, #3c76f5);
+        background: linear-gradient(135deg, var(--arc-admin-accent-dark), var(--arc-admin-accent));
         color: white;
     }
 
@@ -152,7 +152,7 @@
 
         &:focus {
             outline: none;
-            border-color: #3c76f5;
+            border-color: var(--arc-admin-accent);
         }
     }
 
@@ -199,8 +199,8 @@
 
     &:focus {
         outline: none;
-        border-color: #3c76f5 !important;
-        box-shadow: 0 0 0 2px rgba(60, 118, 245, 0.1);
+        border-color: var(--arc-admin-accent) !important;
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--arc-admin-accent) 10%, transparent);
     }
 }
 
@@ -303,7 +303,7 @@
     }
 
     &:hover {
-        background-color: #3c76f5 !important;
+        background-color: var(--arc-admin-accent) !important;
         color: white !important;
     }
 }
@@ -331,14 +331,14 @@
     transition: all 0.2s;
 
     &.btn-primary {
-        background: linear-gradient(135deg, #1d47a3, #3c76f5);
+        background: linear-gradient(135deg, var(--arc-admin-accent-dark), var(--arc-admin-accent));
         color: white;
-        box-shadow: 0 2px 5px rgba(29, 71, 163, 0.3);
+        box-shadow: 0 2px 5px color-mix(in srgb, var(--arc-admin-accent-dark) 30%, transparent);
 
         &:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
-            background: linear-gradient(135deg, #1d47a3, #3c76f5);
+            box-shadow: 0 4px 10px color-mix(in srgb, var(--arc-admin-accent-dark) 40%, transparent);
+            background: linear-gradient(135deg, var(--arc-admin-accent-dark), var(--arc-admin-accent));
         }
 
         &:disabled {
@@ -368,7 +368,7 @@
         width: 40px;
         height: 40px;
         border: 3px solid #f1f3f5;
-        border-top-color: #3c76f5;
+        border-top-color: var(--arc-admin-accent);
         border-radius: 50%;
         margin: 0 auto 16px;
         animation: spin 0.8s linear infinite;

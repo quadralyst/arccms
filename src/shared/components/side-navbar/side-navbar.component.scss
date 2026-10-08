@@ -27,7 +27,7 @@
 .sidebar {
     position: relative;
     overflow: hidden;
-    color: white;
+    color: var(--arc-admin-panel-color);
     min-height: 100vh;
     // padding-top: 15px;
     width: 230px;
@@ -46,19 +46,34 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background:
-        radial-gradient(circle at 10% 10%, #2654bd 0%, transparent 50%),
-        radial-gradient(circle at 90% 20%, #24c6dc 0%, transparent 60%),
-        radial-gradient(circle at 50% 50%, #3c76f5 0%, transparent 70%),
-        radial-gradient(circle at 80% 80%, #1d47a3 0%, transparent 50%),
-        radial-gradient(circle at 20% 90%, #1b429a 0%, transparent 60%), linear-gradient(135deg, #1d47a3 0%, #24c6dc 100%);
+    // The app's panel, or Arc CMS's blues (src/admin-theme.css, docs/app/admin-look.html)
+    background: var(--arc-admin-panel-background);
     z-index: -1;
     opacity: 0.95;
 }
 
+.brand-link {
+    color: inherit;
+    flex: 1;
+    min-width: 0;
+}
+
+// A square mark is 40px; a wordmark keeps its shape, up to the panel's width
 .logo {
     width: 40px;
     height: 40px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+// Arc CMS's own small logo, drawn as it always was
+.logo.logo-arc {
+    object-fit: fill;
+}
+
+.logo.logo-wide {
+    width: auto;
+    max-width: 150px;
 }
 
 .logo-container {
@@ -77,10 +92,13 @@
 }
 
 .logo-text {
-    color: white;
+    color: var(--arc-admin-panel-color);
     font-weight: 600;
     margin-left: 10px;
     font-size: 1.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sidebar-menu {
@@ -89,7 +107,7 @@
 }
 
 .nav-link {
-    color: rgba(255, 255, 255, 0.8);
+    color: color-mix(in srgb, var(--arc-admin-panel-color) 80%, transparent);
     padding: 9px 16px;
     margin: 2px 0;
     border-radius: 6px;
@@ -100,10 +118,15 @@
     cursor: pointer;
 }
 
-.nav-link:hover,
+.nav-link:hover {
+    background: var(--arc-admin-menu-hover-background);
+    color: var(--arc-admin-panel-color);
+    transform: translateX(3px);
+}
+
 .nav-link.active {
-    background-color: rgba(255, 255, 255, 0.15);
-    color: white;
+    background: var(--arc-admin-menu-active-background);
+    color: var(--arc-admin-panel-color);
     transform: translateX(3px);
 }
 
@@ -148,8 +171,8 @@
         width: 34px;
         height: 34px;
         border-radius: 8px;
-        background-color: rgba(255, 255, 255, 0.2);
-        color: white;
+        background-color: color-mix(in srgb, var(--arc-admin-panel-color) 20%, transparent);
+        color: var(--arc-admin-panel-color);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -163,7 +186,7 @@
     display: flex;
     align-items: center;
     padding: 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid color-mix(in srgb, var(--arc-admin-panel-color) 10%, transparent);
     margin-bottom: 10px;
 }
 
@@ -171,7 +194,7 @@
     display: flex;
     justify-content: center;
     padding: 0 10px 15px 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid color-mix(in srgb, var(--arc-admin-panel-color) 10%, transparent);
     margin-bottom: 10px;
 }
 
@@ -182,8 +205,8 @@
 }
 
 .active-menu {
-    background-color: rgba(255, 255, 255, 0.15);
-    color: white;
+    background: var(--arc-admin-menu-active-background);
+    color: var(--arc-admin-panel-color);
 }
 
 .menu-arrow-icon {
@@ -191,7 +214,7 @@
 }
 
 .menu-separator {
-    border-color: rgba(255, 255, 255, 0.15);
+    border-color: color-mix(in srgb, var(--arc-admin-panel-color) 15%, transparent);
     margin: 6px 16px;
     opacity: 1;
 }

@@ -14,6 +14,8 @@ import { RouterOutlet } from '@angular/router';
 import { BaseComponent } from '../../shared/components/base/base.component';
 import SideNavbarComponent from '../../shared/components/side-navbar/side-navbar.component';
 import { CommonModule } from '@angular/common';
+import { useAdminOverlay } from '../core/brand/admin-overlay';
+import { SiteBrandService } from '../core/brand/site-brand';
 
 @Component({
     standalone: true,
@@ -70,9 +72,13 @@ export default class AdminComponent extends BaseComponent {
     drawerMode: MatDrawerMode = 'side';
     @ViewChild('drawer') drawer!: MatDrawer;
     breakpointObserver = inject(BreakpointObserver);
+    /** The site's name for the mobile bar (core/brand/site-brand.ts). */
+    readonly brandName = inject(SiteBrandService).name;
 
     constructor() {
         super();
+        // The dialog layer takes the admin's colours while the admin is open.
+        useAdminOverlay();
         this.breakpointObserver.observe('(max-width: 768px)').subscribe((state: any) => {
             if (state.matches) {
                 this.drawerMode = 'over';

@@ -737,6 +737,7 @@ export type TranslationKey =
     | 'admin.settings.about.identity_heading'
     | 'admin.settings.about.identity_intro'
     | 'admin.settings.about.intro'
+    | 'admin.settings.about.logo_choose'
     | 'admin.settings.about.logo_url'
     | 'admin.settings.about.logo_url_hint'
     | 'admin.settings.about.logo_url_placeholder'
@@ -1625,7 +1626,6 @@ export type TranslationKey =
     | 'member.auth.test_code_in_logs'
     | 'member.auth.test_code_label'
     | 'member.auth.test_code_label_email'
-    | 'member.auth.title_tab'
     | 'member.auth.unfinished_signup'
     | 'member.auth.verify'
     | 'member.auth.welcome_back_greeting'
@@ -1757,6 +1757,16 @@ export type TranslationKey =
     | 'member.profile.subtitle'
     | 'member.profile.title'
     | 'member.profile.update_password'
+    | 'member.titles.account'
+    | 'member.titles.dashboard'
+    | 'member.titles.not_found'
+    | 'member.titles.notifications'
+    | 'member.titles.payments'
+    | 'member.titles.premium'
+    | 'member.titles.profile'
+    | 'member.titles.sign_in'
+    | 'member.titles.signing_in'
+    | 'member.titles.unauthorized'
     | 'member.unauthorized.description'
     | 'member.unauthorized.heading'
     | 'member.unauthorized.sign_up'
@@ -2601,6 +2611,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.about.identity_heading',
     'admin.settings.about.identity_intro',
     'admin.settings.about.intro',
+    'admin.settings.about.logo_choose',
     'admin.settings.about.logo_url',
     'admin.settings.about.logo_url_hint',
     'admin.settings.about.logo_url_placeholder',
@@ -3489,7 +3500,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.test_code_in_logs',
     'member.auth.test_code_label',
     'member.auth.test_code_label_email',
-    'member.auth.title_tab',
     'member.auth.unfinished_signup',
     'member.auth.verify',
     'member.auth.welcome_back_greeting',
@@ -3621,6 +3631,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.profile.subtitle',
     'member.profile.title',
     'member.profile.update_password',
+    'member.titles.account',
+    'member.titles.dashboard',
+    'member.titles.not_found',
+    'member.titles.notifications',
+    'member.titles.payments',
+    'member.titles.premium',
+    'member.titles.profile',
+    'member.titles.sign_in',
+    'member.titles.signing_in',
+    'member.titles.unauthorized',
     'member.unauthorized.description',
     'member.unauthorized.heading',
     'member.unauthorized.sign_up',

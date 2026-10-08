@@ -12,8 +12,8 @@
         transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
         &:focus {
-            border-color: #3c76f5;
-            box-shadow: 0 0 0 3px rgba(60, 118, 245, 0.1);
+            border-color: var(--arc-admin-accent);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--arc-admin-accent) 10%, transparent);
         }
     }
 }

@@ -35,10 +35,12 @@ import {
     PROVIDER_DEFAULT_LIMITS,
 } from '../admin/(settings)/email-setting/email-setting.model';
 import { environment } from '../../../environments/environment';
+import { useAdminOverlay } from '../../core/brand/admin-overlay';
+import { APP_BRAND, ARC_CMS_NAME } from '../../core/brand/site-brand';
 import { LegalNoticeComponent } from '../../../shared/components/legal-notice/legal-notice.component';
 
 export const routeMeta: RouteMeta = {
-    title: 'Onboarding | Arc CMS',
+    title: 'Setup',
 };
 
 @Component({
@@ -49,6 +51,8 @@ export const routeMeta: RouteMeta = {
     styleUrls: ['./onboarding.page.scss'],
 })
 export default class OnboardingComponent implements OnInit {
+    /** What is being set up: the app's name (src/custom/brand.ts), else Arc CMS. */
+    readonly productName = APP_BRAND.name || ARC_CMS_NAME;
     private auth = inject(Auth);
     authStore = inject(AuthState);
     private router = inject(Router);
@@ -109,6 +113,8 @@ export default class OnboardingComponent implements OnInit {
     private signupTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     constructor() {
+        // The dialog layer takes the admin's colours while the wizard is open.
+        useAdminOverlay();
         this.initForm();
         this.initSiteInfoForm();
         this.initEmailForm();

@@ -19,7 +19,7 @@ import { ExportDataService } from './export-data.service';
 import { isOn } from '../../../../core/features/features';
 
 export const routeMeta: RouteMeta = {
-    title: 'Export Data | Arc CMS',
+    title: 'Export Data',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

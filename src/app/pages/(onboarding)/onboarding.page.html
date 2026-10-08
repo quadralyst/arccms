@@ -1,13 +1,13 @@
 <div class="arc-onboarding">
   <div class="container-fluid p-0">
     <div class="row g-0">
-      <!-- Left Panel — Informative gradient panel -->
-      <div class="col-md-6 d-none d-md-block m-0 p-0">
+      <!-- Left Panel: shown from the width the panel is drawn at (992px, onboarding.page.scss), so it is never an empty half -->
+      <div class="col-lg-6 d-none d-lg-block m-0 p-0">
         <div class="auth-container">
           <div class="auth-left">
             <div class="auth-left-content">
               @if (currentStep() <= 2) {
-              <h1 class="auth-left-title">Welcome to Arc CMS</h1>
+              <h1 class="auth-left-title">Welcome to {{ productName }}</h1>
               <p class="auth-left-description">
                 Let's get your platform set up. You're creating the first admin
                 account — the person who will have full control of the CMS.
@@ -58,7 +58,7 @@
       </div>
 
       <!-- Right Panel — Wizard forms -->
-      <div class="col-md-6 wizard-right-panel">
+      <div class="col-lg-6 wizard-right-panel">
         <!-- Progress bar -->
         <div class="onboarding-progress">
           <div

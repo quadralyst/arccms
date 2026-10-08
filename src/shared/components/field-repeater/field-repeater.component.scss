@@ -6,7 +6,7 @@
     --rep-border: #dee2e6;
     --rep-muted: #6c757d;
     --rep-dark: #1f2937;
-    --rep-primary: #4a6cf7;
+    --rep-primary: var(--arc-admin-accent);
 
     display: flex;
     flex-direction: column;

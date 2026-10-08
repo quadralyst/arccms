@@ -1,4 +1,5 @@
 import { RouteMeta } from '@analogjs/router';
+import { SiteBrandService } from '../../../../../core/brand/site-brand';
 import type { EntryOrder } from '../../../../../core/utils/display-order';
 import {
     ChangeDetectionStrategy,
@@ -27,7 +28,7 @@ import { ToastService } from '../../../../../../shared/services/toast.service';
 import { bareFieldKey, duplicateFieldKeyValidator, fieldKeyFromLabel, fullFieldKey, hasSlugPrefix } from '../collection-ref-helpers';
 
 export const routeMeta: RouteMeta = {
-    title: 'Add Content Type | Arc CMS',
+    title: 'Add Content Type',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
     providers: [],
@@ -41,6 +42,9 @@ export const routeMeta: RouteMeta = {
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export default class AddContentTypeComponent extends BaseComponent {
+    /** The site's name for the footer (core/brand/site-brand.ts). */
+    readonly siteName = inject(SiteBrandService).name;
+    readonly currentYear = new Date().getFullYear();
     @Output() close = new EventEmitter();
     contentTypesStore = inject(ContentTypesStore);
     templateFolderService = inject(TemplateFolderService);

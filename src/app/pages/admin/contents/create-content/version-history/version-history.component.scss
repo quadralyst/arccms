@@ -73,7 +73,7 @@
 
     &.selected {
         background-color: #e8f4fd;
-        border-left: 3px solid #0d6efd;
+        border-left: 3px solid var(--arc-admin-accent);
         padding-left: calc(1rem - 3px);
     }
 }
@@ -89,7 +89,7 @@
     margin-top: 0.1rem;
 
     .selected & {
-        background-color: #0d6efd;
+        background-color: var(--arc-admin-accent);
     }
 }
 

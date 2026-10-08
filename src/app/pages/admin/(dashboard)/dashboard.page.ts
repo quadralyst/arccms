@@ -25,7 +25,7 @@ import { AnalyticsTrackingStatusComponent } from '../../../core/analytics/analyt
 import { PwaStatsService } from '../../../core/pwa/pwa-stats.service';
 
 export const routeMeta: RouteMeta = {
-  title: 'Dashboard | Arc CMS',
+  title: 'Dashboard',
   canActivate: [roleGuard],
   data: { allowedRoles: ['admin'] },
 };

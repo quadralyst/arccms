@@ -226,7 +226,8 @@ describe('SignupComponent', () => {
             // Dynamically import to check routeMeta export
             const module = await import('./signup.page');
             expect(module.routeMeta).toBeDefined();
-            expect(module.routeMeta.title).toBe('Signup | Arc CMS');
+            expect(module.routeMeta.title).toBe('Sign in');
+            expect(module.routeMeta.data).toEqual({ titleKey: 'member.titles.sign_in' });
         });
     });
 

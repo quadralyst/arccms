@@ -8,8 +8,13 @@
                 <div class="auth-container">
                     <!-- Left Panel - Gradient Background -->
                     <div class="auth-left">
+                        @if (signInImage) {
+                        <!-- The app's image (src/custom/sign-in-image.*), filling the whole panel in place of its text -->
+                        <img class="auth-left-image" [src]="signInImage" alt="">
+                        } @else {
                         <!-- The site's own brand panel (src/custom/site/sign-in.html) -->
                         <arc-sign-in-panel></arc-sign-in-panel>
+                        }
                     </div>
                 </div>
             </div>

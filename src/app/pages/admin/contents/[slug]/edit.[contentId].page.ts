@@ -8,7 +8,7 @@ import { CreateContentComponent } from '../create-content/create-content.compone
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Edit Content | Arc CMS',
+    title: 'Edit Content',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

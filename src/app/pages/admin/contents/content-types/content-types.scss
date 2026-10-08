@@ -41,7 +41,7 @@
 // }
 
 .btn-primary {
-  background: linear-gradient(135deg, #3c76f5, #1d47a3);
+  background: var(--arc-admin-button-background);
   border: none;
   padding: 8px 14px;
   border-radius: 8px;
@@ -49,12 +49,12 @@
   font-weight: 500;
   font-size: 0.85rem;
   transition: all 0.2s;
-  box-shadow: 0 2px 5px rgba(29, 71, 163, 0.3);
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--arc-admin-accent-dark) 30%, transparent);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(29, 71, 163, 0.4);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--arc-admin-accent-dark) 40%, transparent);
 }
 
 .nav-link {
@@ -118,7 +118,7 @@
 
 .search-box:focus-within {
   background-color: white;
-  box-shadow: 0 0 0 3px rgba(60, 118, 245, 0.2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--arc-admin-accent) 20%, transparent);
 }
 
 .search-box input {
@@ -169,7 +169,7 @@
 }
 
 .notification-bell:hover {
-  color: #3c76f5;
+  color: var(--arc-admin-accent);
 }
 
 .notification-badge {
@@ -211,7 +211,7 @@
 }
 
 .edit:hover {
-  color: #3b82f6;
+  color: var(--arc-admin-accent);
 }
 
 .delete:hover {
@@ -230,7 +230,7 @@
   transition: background-color 0.2s ease;
 
   &:hover {
-    background-color: rgba(60, 118, 245, 0.05);
+    background-color: color-mix(in srgb, var(--arc-admin-accent) 5%, transparent);
   }
 
   .d-flex {

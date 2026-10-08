@@ -4,7 +4,7 @@
  * outside that dialog.
  */
 .icon-browser {
-    --icon-primary: #3c76f5;
+    --icon-primary: var(--arc-admin-accent);
     --icon-border: #dee2e6;
     --icon-muted: #6c757d;
     --icon-dark: #1f2937;

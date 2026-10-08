@@ -13,7 +13,7 @@ import { roleGuard } from '../../../guards/role.guard';
 import { TransactionsStore } from './transactions.store';
 
 export const routeMeta: RouteMeta = {
-    title: 'Transactions | Arc CMS',
+    title: 'Transactions',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

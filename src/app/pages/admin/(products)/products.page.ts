@@ -25,7 +25,7 @@ import { IProduct } from './product.model';
 import { arcCallable } from '../../../core/config/arc-functions';
 
 export const routeMeta: RouteMeta = {
-    title: 'Products | Arc CMS',
+    title: 'Products',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

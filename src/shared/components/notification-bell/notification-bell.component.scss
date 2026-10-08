@@ -88,8 +88,8 @@
     cursor: pointer;
 }
 .notif-item:hover { background: #f8f9fa; }
-.notif-item.unread { background: #f0f7ff; }
-.notif-item.unread:hover { background: #e7f1ff; }
+.notif-item.unread { background: color-mix(in srgb, var(--arc-admin-accent) 7%, #fff); }
+.notif-item.unread:hover { background: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff); }
 
 .notif-title {
     font-weight: 500;
@@ -121,7 +121,7 @@
     width: 100%;
     border: 1px solid #ced4da;
     background: #fff;
-    color: #1b98e0;
+    color: var(--arc-admin-accent);
     font-weight: 600;
     font-size: 14px;
     border-radius: 6px;
@@ -129,4 +129,4 @@
     cursor: pointer;
     transition: all 0.15s;
 }
-.btn-view-all:hover { background: #f0f7ff; border-color: #1b98e0; }
+.btn-view-all:hover { background: color-mix(in srgb, var(--arc-admin-accent) 7%, #fff); border-color: var(--arc-admin-accent); }

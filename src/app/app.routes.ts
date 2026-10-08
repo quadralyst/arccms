@@ -23,6 +23,7 @@ export const routes: Routes = [
   // Onboarding Wizard (first-run setup)
   {
     path: 'onboarding',
+    title: 'Setup',
     loadComponent: () =>
       import('./pages/(onboarding)/onboarding.page').then((m) => m.default),
   },
@@ -72,10 +73,11 @@ export const routes: Routes = [
   // Admin Profile Route
   {
     path: 'admin/profile',
+    title: 'Profile',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
-    data: { allowedRoles: ['admin'] },
+    data: { titleKey: 'member.titles.profile', allowedRoles: ['admin'] },
     children: [
       {
         path: '',
@@ -87,6 +89,7 @@ export const routes: Routes = [
   // Admin Settings Routes
   {
     path: 'admin/settings',
+    title: 'Settings',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -180,6 +183,7 @@ export const routes: Routes = [
   // Admin Data Routes
   {
     path: 'admin/data',
+    title: 'Data',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -219,7 +223,8 @@ export const routes: Routes = [
   // The member's home: a blank core page, or the app's own (src/custom/user-dashboard.ts).
   {
     path: 'user/dashboard',
-    title: 'Dashboard | Arc CMS',
+    title: 'Dashboard',
+    data: { titleKey: 'member.titles.dashboard' },
     canActivate: [memberPagesGuard],
     loadComponent: CUSTOM_USER_DASHBOARD
       ?? (() => import('./pages/user/(dashboard)/dashboard.page').then((m) => m.default)),
@@ -228,6 +233,8 @@ export const routes: Routes = [
   // Member profile (rendered in the user shell, not the admin shell)
   {
     path: 'user/profile',
+    title: 'Profile',
+    data: { titleKey: 'member.titles.profile' },
     canActivate: [memberPagesGuard],
     loadComponent: () =>
       import('./pages/user/profile/user-profile.page').then((m) => m.default),
@@ -235,6 +242,7 @@ export const routes: Routes = [
   // Admin Waitlist Routes (Angular router-based for admin area)
   {
     path: 'admin/waitlists',
+    title: 'Signup Forms',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -272,6 +280,7 @@ export const routes: Routes = [
   // file-based; this adds the detail route only.
   {
     path: 'admin/lists/:listId',
+    title: 'List',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -288,6 +297,7 @@ export const routes: Routes = [
   // every other admin feature route.
   {
     path: 'admin/authors',
+    title: 'Authors',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -303,6 +313,7 @@ export const routes: Routes = [
   // Admin Audience Route (custom Fields, U4.5).
   {
     path: 'admin/contact-fields',
+    title: 'Contact Fields',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -318,6 +329,7 @@ export const routes: Routes = [
   // Admin Audience Route (App users, CO6.3): the host app's users, read live.
   {
     path: 'admin/app-users',
+    title: 'App Users',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -337,6 +349,7 @@ export const routes: Routes = [
   // renders "Content Not Found" in the public shell.
   {
     path: 'admin/contact-tags',
+    title: 'Contact Tags',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -353,6 +366,7 @@ export const routes: Routes = [
   // other admin route.
   {
     path: 'admin/search',
+    title: 'Search',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -368,6 +382,7 @@ export const routes: Routes = [
   // Admin Email Logs Route
   {
     path: 'admin/email-logs',
+    title: 'Email Logs',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -383,6 +398,7 @@ export const routes: Routes = [
   // Admin Feedback: what people sent with the feedback button (docs/features/feedback.html).
   {
     path: 'admin/feedback',
+    title: 'Feedback',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -398,6 +414,7 @@ export const routes: Routes = [
   // Admin Messages: what people sent with the site's contact form (specs/site-sections-spec.md, SS5).
   {
     path: 'admin/messages',
+    title: 'Messages',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -413,6 +430,7 @@ export const routes: Routes = [
   // Admin SMS Logs Route (Email + SMS menu): every text message, like Email Logs.
   {
     path: 'admin/sms-logs',
+    title: 'SMS Logs',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -430,6 +448,7 @@ export const routes: Routes = [
   // maps to real, matching routes instead of scattered top-level paths.
   {
     path: 'admin/email',
+    title: 'Email',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -438,26 +457,31 @@ export const routes: Routes = [
       { path: '', redirectTo: 'brand-kit', pathMatch: 'full' },
       {
         path: 'brand-kit',
+        title: 'Brand Kit',
         loadComponent: () =>
           import('./pages/admin/(email-brand)/brand-kit.page').then((m) => m.default),
       },
       {
         path: 'composer',
+        title: 'Composer',
         loadComponent: () =>
           import('./pages/admin/(email-composer)/email-composer.page').then((m) => m.default),
       },
       {
         path: 'broadcasts',
+        title: 'Broadcasts',
         loadComponent: () =>
           import('./pages/admin/(broadcasts)/broadcasts.page').then((m) => m.default),
       },
       {
         path: 'drip-campaigns',
+        title: 'Drip Campaigns',
         loadComponent: () =>
           import('./pages/admin/(drips)/drips.page').then((m) => m.default),
       },
       {
         path: 'announcements',
+        title: 'Announcements',
         loadComponent: () =>
           import('./pages/admin/(announcements)/announcements.page').then((m) => m.default),
       },
@@ -466,6 +490,7 @@ export const routes: Routes = [
   // Admin Users Routes (router-based for admin area)
   {
     path: 'admin/users',
+    title: 'Users',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -478,16 +503,19 @@ export const routes: Routes = [
       },
       {
         path: 'add',
+        title: 'Add User',
         loadComponent: () =>
           import('./pages/admin/users/(add-user)/add.page').then((m) => m.default),
       },
       {
         path: 'edit/:userId',
+        title: 'Edit User',
         loadComponent: () =>
           import('./pages/admin/users/(edit-user)/edit.[userId].page').then((m) => m.default),
       },
       {
         path: 'view/:userId',
+        title: 'View User',
         loadComponent: () =>
           import('./pages/admin/users/(view-user)/view.[userId].page').then((m) => m.default),
       },
@@ -501,6 +529,7 @@ export const routes: Routes = [
   // Admin Products Routes
   {
     path: 'admin/products',
+    title: 'Products',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -516,6 +545,7 @@ export const routes: Routes = [
   // Admin Transactions Routes
   {
     path: 'admin/transactions',
+    title: 'Transactions',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
@@ -533,10 +563,11 @@ export const routes: Routes = [
   // signed-in members, self-wrapping in the user shell there).
   {
     path: 'admin/notifications',
+    title: 'Notifications',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
     canActivate: [roleGuard],
-    data: { allowedRoles: ['admin'] },
+    data: { titleKey: 'member.titles.notifications', allowedRoles: ['admin'] },
     children: [
       {
         path: '',
@@ -549,6 +580,7 @@ export const routes: Routes = [
   // Public Pricing Page (logged-in users purchase from here)
   {
     path: 'pricing',
+    title: 'Pricing',
     loadComponent: () =>
       import('./pages/pricing/pricing.page').then((m) => m.default),
   },
@@ -556,6 +588,8 @@ export const routes: Routes = [
   // Member account / billing (sign-in required)
   {
     path: 'account',
+    title: 'Account',
+    data: { titleKey: 'member.titles.account' },
     canActivate: [memberPagesGuard],
     loadComponent: () =>
       import('./pages/account/account.page').then((m) => m.default),
@@ -563,7 +597,8 @@ export const routes: Routes = [
   // The member's plan, credits and recent activity (the payments feature).
   ...whenOn('payments', [{
     path: 'user/payments',
-    title: 'Payments | Arc CMS',
+    title: 'Payments',
+    data: { titleKey: 'member.titles.payments' },
     canActivate: [memberPagesGuard],
     loadComponent: () =>
       import('./pages/user/payments/payments.page').then((m) => m.default),
@@ -571,6 +606,8 @@ export const routes: Routes = [
   // Members-only premium area (paid entitlement required)
   {
     path: 'user/premium',
+    title: 'Premium',
+    data: { titleKey: 'member.titles.premium' },
     canActivate: [memberPagesGuard, entitledGuard],
     loadComponent: () =>
       import('./pages/user/premium/premium.page').then((m) => m.default),

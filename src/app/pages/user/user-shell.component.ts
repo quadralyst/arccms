@@ -8,9 +8,7 @@ import { EntitlementService } from './entitlement.service';
 import { isOn } from '../../core/features/features';
 import { homeFor, USER_DASHBOARD } from '../../core/home/home';
 import { memberPagesOpen } from '../../core/app-accounts/app-account-lock';
-import { SiteIdentityService } from '../../core/services/site-identity.service';
-import { signInBrand } from '../page.parts/sign-in-panel.component';
-import { ConstantVariables } from '../../../shared/constants/common-constants';
+import { SiteBrandService } from '../../core/brand/site-brand';
 
 /**
  * Sidebar layout for the signed-in member area (dashboard, profile, and with the
@@ -105,11 +103,9 @@ export class UserShellComponent implements OnInit {
     entitlements = inject(EntitlementService);
     private router = inject(Router);
     private transloco = inject(TranslocoService);
-    private siteIdentity = inject(SiteIdentityService);
-    /** The site's own name (Settings, About), as on the sign-in page; nothing until it is in, so Arc CMS's never flashes. */
-    readonly brandName = computed(() => this.siteIdentity.loaded()
-        ? signInBrand(this.siteIdentity.identity(), new ConstantVariables().APPLICATION_NAME).name
-        : '');
+    private siteBrand = inject(SiteBrandService);
+    /** The site's own name (core/brand/site-brand.ts), as on the sign-in page; nothing until it is in, so Arc CMS's never flashes. */
+    readonly brandName = this.siteBrand.name;
     readonly paymentsOn = isOn('payments');
 
     /** The app's own home page for this person (src/custom/home.ts), when it is not this area's dashboard. */
@@ -131,7 +127,7 @@ export class UserShellComponent implements OnInit {
     }
 
     ngOnInit(): void {
-        void this.siteIdentity.load();
+        void this.siteBrand.load();
         if (this.paymentsOn) this.entitlements.load().subscribe();
     }
 

@@ -38,7 +38,7 @@ import { AuthState } from '../../(auth)/auth.store';
 import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
-    title: 'Users Management | Arc CMS',
+    title: 'Users Management',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

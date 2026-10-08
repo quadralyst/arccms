@@ -19,7 +19,7 @@ import { DEFAULT_INTEGRATIONS_SETTINGS } from './integrations-setting.model';
 import { isOn } from '../../../../core/features/features';
 
 export const routeMeta: RouteMeta = {
-    title: 'Integrations Settings | Arc CMS',
+    title: 'Integrations Settings',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -432,7 +432,7 @@ export const routeMeta: RouteMeta = {
         }
 
         .hint-text a {
-            color: #0d6efd;
+            color: var(--arc-admin-accent);
         }
 
         /* Setup Guide (shared) */
@@ -565,7 +565,7 @@ export const routeMeta: RouteMeta = {
         }
 
         .step-instructions a {
-            color: #0d6efd;
+            color: var(--arc-admin-accent);
         }
 
         .step-instructions code {

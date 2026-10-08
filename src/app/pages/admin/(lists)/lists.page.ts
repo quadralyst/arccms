@@ -22,7 +22,7 @@ import { ListDrawerComponent, ListDrawerMode } from './(list-drawer)/list-drawer
 import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
-    title: 'Lists | Arc CMS',
+    title: 'Lists',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

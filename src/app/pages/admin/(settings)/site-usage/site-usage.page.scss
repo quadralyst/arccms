@@ -125,8 +125,8 @@
 }
 
 .gradient-option.selected {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+    border-color: var(--arc-admin-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--arc-admin-accent) 25%, transparent);
 }
 
 .gradient-name {
