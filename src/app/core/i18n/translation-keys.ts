@@ -1604,6 +1604,7 @@ export type TranslationKey =
     | 'member.auth.server_error.wait'
     | 'member.auth.server_error.weak_pin'
     | 'member.auth.server_error.wrong'
+    | 'member.auth.settings_failed'
     | 'member.auth.show_pin'
     | 'member.auth.signing_in_as'
     | 'member.auth.signing_up_as'
@@ -3479,6 +3480,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.wait',
     'member.auth.server_error.weak_pin',
     'member.auth.server_error.wrong',
+    'member.auth.settings_failed',
     'member.auth.show_pin',
     'member.auth.signing_in_as',
     'member.auth.signing_up_as',
