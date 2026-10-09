@@ -29,7 +29,7 @@ function ctx(check: Record<string, unknown> = { status: 'available' }, countryCo
         changingPin: signal(false),
         codeBoxes: () => ({ reset: vi.fn(), value: () => '' }),
         toast: { success: vi.fn() },
-        authStore: { refreshCurrentUser: vi.fn().mockResolvedValue(null) },
+        authStore: { refreshCurrentUser: vi.fn().mockResolvedValue(null), currentUser: () => ({ name: 'Asha Rao' }) },
         signIn: {
             checkForLink: vi.fn().mockResolvedValue({ kind: 'phone', value: '+919876543210', needsPin: false, ...check }),
             requestPhoneCode: vi.fn().mockResolvedValue({ sent: true }),
@@ -172,6 +172,17 @@ describe('SignInMethodsComponent', () => {
         expect(c['flow']().step).toBe('code');
     });
 
+    it('refuses a first password that is too easy to guess, saying why, before asking the server (F22)', async () => {
+        const c = ctx({ kind: 'email', value: 'asha.rao@example.com', status: 'available', needsPassword: true });
+        c['flow'].set({ kind: 'email', step: 'secret', typed: '', check: { kind: 'email', value: 'asha.rao@example.com', status: 'available', needsPassword: true } });
+        for (const [password, problem] of [['short', 'short'], ['Password123!', 'common'], ['Asha@2024', 'personal']]) {
+            c['secret'].set(password);
+            await proto['finish'].call(c);
+            expect(c['error']()).toBe(english(`member.auth.password_error.${problem}`));
+        }
+        expect(c['signIn'].linkEmail).not.toHaveBeenCalled();
+    });
+
     describe('a code already asked for (specs/sign-in-codes-spec.md)', () => {
         it('starting again with the same number goes to the code boxes without sending, and keeps the countdown', async () => {
             const c = ctx();
@@ -195,6 +206,16 @@ describe('SignInMethodsComponent', () => {
             expect(c['startCountdown']).toHaveBeenLastCalledWith(39);
             expect(c['notice']()).toMatch(/sent a code a moment ago/);
             expect(c['error']()).toBe('');
+            expect(c['flow']().step).toBe('code');
+        });
+
+        it('a code asked for again inside the minute: the countdown and the quiet line, nothing new sent (F22)', async () => {
+            const c = ctx();
+            c['signIn'].requestPhoneCode.mockResolvedValue({ sent: true, alreadySent: true, wait: 33 });
+            c['flow'].set({ kind: 'phone', step: 'enter', typed: '98765 43210', check: null });
+            await proto['sendCode'].call(c);
+            expect(c['startCountdown']).toHaveBeenLastCalledWith(33);
+            expect(c['notice']()).toMatch(/sent a code a moment ago/);
             expect(c['flow']().step).toBe('code');
         });
 

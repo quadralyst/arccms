@@ -4,7 +4,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const owner = vi.hoisted(() => ({ getUserByEmail: vi.fn() }));
+const owner = vi.hoisted(() => ({ getUserByEmail: vi.fn(), generatePasswordResetLink: vi.fn(async (email: string) => `https://example.firebaseapp.com/__/auth/action?mode=resetPassword&for=${email}`) }));
 
 vi.mock('../init', async () => {
     const { MemoryFirestore } = await import('./helpers/memoryFirestore.js');
@@ -25,7 +25,7 @@ vi.mock('firebase-functions/v2/https', () => ({
 }));
 
 import { db } from '../init.js';
-import { checkEmailAccount } from '../auth/emailAccount.js';
+import { checkEmailAccount, requestPasswordResetLink } from '../auth/emailAccount.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import type { MemoryFirestore } from './helpers/memoryFirestore.js';
 
@@ -72,5 +72,51 @@ describe('checkEmailAccount', () => {
 
     it('refuses something that is not an email', async () => {
         await expect(call('not-an-email')).rejects.toMatchObject({ code: 'invalid-argument' });
+    });
+});
+
+describe('requestPasswordResetLink (F22)', () => {
+    const ask = (email: string) =>
+        (requestPasswordResetLink as unknown as (r: unknown) => Promise<any>)({ data: { email }, rawRequest: { ip: '10.0.0.1', headers: {} } });
+    const simulated = (fields: Record<string, unknown> = {}) =>
+        mem.seed('Settings', 'email', { isEnabled: true, activeProvider: 'debug_log', showResetLinks: true, ...fields });
+
+    beforeEach(() => {
+        owner.generatePasswordResetLink.mockClear();
+        mem.seed('users', 'u1', { uid: 'u1', email: 'asha@example.com', authOwner: 'arccms' });
+    });
+
+    it('hands the link back with the Simulated provider and the switch on', async () => {
+        simulated();
+        const reply = await ask(' Asha@Example.com ');
+        expect(reply).toEqual({ shown: true, link: expect.stringContaining('mode=resetPassword') });
+        expect(owner.generatePasswordResetLink).toHaveBeenCalledWith('asha@example.com');
+    });
+
+    it.each([
+        ['the switch off', { showResetLinks: false }],
+        ['a real provider', { activeProvider: 'resend' }],
+        ['email switched off', { isEnabled: false }],
+    ])('says not shown with %s, so Firebase emails it as always', async (_, fields) => {
+        simulated(fields);
+        await expect(ask('asha@example.com')).resolves.toEqual({ shown: false });
+        expect(owner.generatePasswordResetLink).not.toHaveBeenCalled();
+    });
+
+    it('says not shown when there are no email settings at all', async () => {
+        await expect(ask('asha@example.com')).resolves.toEqual({ shown: false });
+    });
+
+    it('refuses an address with no account here, and a host app\'s user in a shared sign-in pool', async () => {
+        simulated();
+        await expect(ask('nobody@example.com')).rejects.toMatchObject({ details: { reason: 'no-email-account' } });
+        mem.seed('users', 'u2', { uid: 'u2', email: 'host@example.com', authOwner: 'shared' });
+        await expect(ask('host@example.com')).rejects.toMatchObject({ details: { reason: 'no-email-account' } });
+        expect(owner.generatePasswordResetLink).not.toHaveBeenCalled();
+    });
+
+    it('refuses something that is not an email', async () => {
+        simulated();
+        await expect(ask('not-an-email')).rejects.toMatchObject({ code: 'invalid-argument' });
     });
 });

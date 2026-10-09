@@ -43,7 +43,7 @@ vi.mock('../users/claims', () => ({ setRecordClaims: m.setRecordClaims }));
 vi.mock('firebase-admin/firestore', () => ({ Timestamp: { now: vi.fn(() => 'now') } }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: (...args: any[]) => args[args.length - 1],
-    HttpsError: class HttpsError extends Error { constructor(public code: string, msg: string) { super(msg); } },
+    HttpsError: class HttpsError extends Error { constructor(public code: string, msg: string, public details?: unknown) { super(msg); } },
 }));
 
 import { adminCreateUser, validateAdminCreateUser } from '../users/adminCreateUser.js';
@@ -98,6 +98,13 @@ describe('adminCreateUser', () => {
         await expect(call({ ...valid, password: '123' })).rejects.toMatchObject({ code: 'invalid-argument' });
         m.accounts.set('asha@x.com', { uid: 'host-uid', emailVerified: false });
         await expect(call({ ...valid, password: '' })).resolves.toMatchObject({ reusedAccount: true });
+    });
+
+    it('refuses a temporary password that is too easy to guess, saying why (F22)', async () => {
+        for (const [password, problem] of [['temp1', 'short'], ['12345678', 'sequence'], ['password1', 'common'], ['Asha2024!', 'personal']]) {
+            await expect(call({ ...valid, password })).rejects.toMatchObject({ code: 'invalid-argument', details: { reason: 'weak-password', problem } });
+        }
+        expect(m.owner.createUser).not.toHaveBeenCalled();
     });
 
     it('refuses an address that already has an ArcCMS user', async () => {

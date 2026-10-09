@@ -19,9 +19,10 @@ import { AUTH_OWNER } from './authOwner.js';
 import { KNOWN_ROLES } from './syncUserRole.js';
 import { setRecordClaims } from './claims.js';
 import { isBlank } from '../shared/blank.js';
+import { MIN_PASSWORD_LENGTH, PASSWORD_PROBLEM_TEXT, passwordProblem } from '../shared/password-rule.js';
 
-/** Firebase Auth's own minimum. */
-export const MIN_PASSWORD_LENGTH = 6;
+/** The same rule as every new password a member chooses (shared/password-rule.ts, F22). */
+export { MIN_PASSWORD_LENGTH };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -65,8 +66,9 @@ export const adminCreateUser = onCall(async (request) => {
         reusedAccount = true;
     } catch (err) {
         if (!isUserNotFound(err)) throw err;
-        if (input.password.length < MIN_PASSWORD_LENGTH) {
-            throw new HttpsError('invalid-argument', `The temporary password needs at least ${MIN_PASSWORD_LENGTH} characters.`);
+        const problem = passwordProblem(input.password, { email: input.email, name: input.name });
+        if (problem) {
+            throw new HttpsError('invalid-argument', `The temporary password is too easy to guess. ${PASSWORD_PROBLEM_TEXT[problem]}`, { reason: 'weak-password', problem });
         }
         const account = await owner.createUser({ email: input.email, password: input.password, displayName: input.name });
         uid = account.uid;

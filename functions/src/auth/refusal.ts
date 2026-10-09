@@ -6,8 +6,18 @@
  * as an unknown request, stays a plain HttpsError.
  */
 import { HttpsError, type FunctionsErrorCode } from 'firebase-functions/v2/https';
+import { PASSWORD_PROBLEM_TEXT, passwordProblem, type PasswordOwner } from '../shared/password-rule.js';
 
 export function refuse(code: FunctionsErrorCode, reason: string, message: string, extra: Record<string, unknown> = {}): HttpsError {
     return new HttpsError(code, message, { reason, ...extra });
 }
 
+/**
+ * Refuse a new password that is too easy to guess (shared/password-rule.ts, F22),
+ * with the reason `weak-password` and the `problem`, which the page says in the
+ * member's language.
+ */
+export function refuseWeakPassword(password: string, owner: PasswordOwner): void {
+    const problem = passwordProblem(password, owner);
+    if (problem) throw refuse('invalid-argument', 'weak-password', PASSWORD_PROBLEM_TEXT[problem], { problem });
+}

@@ -22,6 +22,8 @@ import { firstValueFrom } from 'rxjs';
 import { SignInMethodsComponent } from './sign-in-methods.component';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { isLockedAppAccount } from '../../../core/app-accounts/app-account-lock';
+import { newPasswordValidator, passwordProblemOf } from '../../../../shared/utils/password-validator';
+import type { TranslationKey } from '../../../core/i18n/translation-keys';
 
 export const routeMeta: RouteMeta = {
   title: 'Profile',
@@ -64,11 +66,17 @@ export default class ProfileComponent extends BaseComponent {
 
   passwordForm = new FormGroup({
     currentPassword: new FormControl('', [Validators.required]),
-    newPassword: new FormControl('', [Validators.required, Validators.minLength(8)]),
+    // Not too easy to guess, nor the person's own name or email (F22).
+    newPassword: new FormControl('', [Validators.required, newPasswordValidator(() => ({ email: this.currentUser()?.email, name: this.currentUser()?.name }))]),
     confirmPassword: new FormControl('', [Validators.required]),
   });
 
   currentUser = computed(() => this.authStore.currentUser());
+
+  /** Why the new password was refused, for its message. */
+  newPasswordErrorKey(): TranslationKey {
+    return `member.auth.password_error.${passwordProblemOf(this.passwordForm.get('newPassword')) ?? 'short'}` as TranslationKey;
+  }
 
   /** An app account its app manages: everything here is read-only (the server refuses changes too). */
   locked = computed(() => isLockedAppAccount(this.currentUser()));

@@ -69,6 +69,13 @@ describe('translateRefusal (specs/sign-in-codes-spec.md, SC-D7)', () => {
         expect(translateRefusal({ reason: 'too-many-codes', retryAfter: 42 * 60 }, en, 'en', now)).toBe('Too many codes. Try again after 5:42 PM.');
     });
 
+    it('says why a new password was refused, in the page\'s own words (F22)', () => {
+        expect(translateRefusal({ reason: 'weak-password', problem: 'common' }, en, 'en')).toBe(english('member.auth.password_error.common'));
+        expect(translateRefusal({ reason: 'weak-password', problem: 'personal' }, en, 'en')).toBe(english('member.auth.password_error.personal'));
+        // No usable problem: the general words.
+        expect(translateRefusal({ reason: 'weak-password', problem: '../x' }, en, 'en')).toBe(english('member.auth.server_error.weak_password'));
+    });
+
     it('keeps the server\'s text for no reason, or a reason with no string', () => {
         expect(translateRefusal(undefined, en, 'en')).toBeNull();
         expect(translateRefusal({ reason: 'something-new' }, en, 'en')).toBeNull();

@@ -257,6 +257,11 @@ input:focus {
     text-align: center;
 }
 
+/* Until the settings say email or phone: the room stays, the words do not show (F22). */
+.methods-pending {
+    visibility: hidden;
+}
+
 .form-label {
     font-size: 0.9rem;
     font-weight: 500;
@@ -615,6 +620,16 @@ input:focus {
     }
 
     .test-code-hint {
+        text-decoration: underline;
+    }
+}
+
+/* The reset link, while testing: the same box as a test code, as a link (F22) */
+.reset-link {
+    text-decoration: none;
+
+    strong {
+        letter-spacing: normal;
         text-decoration: underline;
     }
 }

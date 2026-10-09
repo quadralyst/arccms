@@ -1000,6 +1000,8 @@ export type TranslationKey =
     | 'admin.settings.email.sender_name'
     | 'admin.settings.email.sender_name_hint'
     | 'admin.settings.email.sender_name_placeholder'
+    | 'admin.settings.email.show_reset_links'
+    | 'admin.settings.email.show_reset_links_hint'
     | 'admin.settings.email.subtitle'
     | 'admin.settings.email.test_before_save'
     | 'admin.settings.email.test_passed'
@@ -1555,8 +1557,12 @@ export type TranslationKey =
     | 'member.auth.no_access'
     | 'member.auth.opening'
     | 'member.auth.or'
+    | 'member.auth.password_error.common'
+    | 'member.auth.password_error.personal'
+    | 'member.auth.password_error.repeated'
+    | 'member.auth.password_error.sequence'
+    | 'member.auth.password_error.short'
     | 'member.auth.password_label'
-    | 'member.auth.password_min'
     | 'member.auth.password_required'
     | 'member.auth.password_update_failed'
     | 'member.auth.passwords_mismatch'
@@ -1567,6 +1573,8 @@ export type TranslationKey =
     | 'member.auth.resend'
     | 'member.auth.resend_in'
     | 'member.auth.reset_failed'
+    | 'member.auth.reset_link_label'
+    | 'member.auth.reset_link_open'
     | 'member.auth.reset_link_sent'
     | 'member.auth.reset_pin_with_code'
     | 'member.auth.save_pin'
@@ -1590,6 +1598,7 @@ export type TranslationKey =
     | 'member.auth.server_error.name_required'
     | 'member.auth.server_error.no_access'
     | 'member.auth.server_error.no_account'
+    | 'member.auth.server_error.no_email_account'
     | 'member.auth.server_error.no_pin'
     | 'member.auth.server_error.number_taken'
     | 'member.auth.server_error.password_required'
@@ -1604,6 +1613,7 @@ export type TranslationKey =
     | 'member.auth.server_error.too_many_attempts'
     | 'member.auth.server_error.too_many_codes'
     | 'member.auth.server_error.wait'
+    | 'member.auth.server_error.weak_password'
     | 'member.auth.server_error.weak_pin'
     | 'member.auth.server_error.wrong'
     | 'member.auth.settings_failed'
@@ -1692,7 +1702,6 @@ export type TranslationKey =
     | 'member.methods.new_pin_heading'
     | 'member.methods.not_added'
     | 'member.methods.not_connected'
-    | 'member.methods.password_min'
     | 'member.methods.password_placeholder'
     | 'member.methods.phone'
     | 'member.methods.phone_moved'
@@ -1741,7 +1750,6 @@ export type TranslationKey =
     | 'member.profile.password_change_error'
     | 'member.profile.password_change_failed'
     | 'member.profile.password_changed'
-    | 'member.profile.password_min'
     | 'member.profile.passwords_mismatch'
     | 'member.profile.personal_info'
     | 'member.profile.photo_alt'
@@ -2878,6 +2886,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.email.sender_name',
     'admin.settings.email.sender_name_hint',
     'admin.settings.email.sender_name_placeholder',
+    'admin.settings.email.show_reset_links',
+    'admin.settings.email.show_reset_links_hint',
     'admin.settings.email.subtitle',
     'admin.settings.email.test_before_save',
     'admin.settings.email.test_passed',
@@ -3433,8 +3443,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.no_access',
     'member.auth.opening',
     'member.auth.or',
+    'member.auth.password_error.common',
+    'member.auth.password_error.personal',
+    'member.auth.password_error.repeated',
+    'member.auth.password_error.sequence',
+    'member.auth.password_error.short',
     'member.auth.password_label',
-    'member.auth.password_min',
     'member.auth.password_required',
     'member.auth.password_update_failed',
     'member.auth.passwords_mismatch',
@@ -3445,6 +3459,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.resend',
     'member.auth.resend_in',
     'member.auth.reset_failed',
+    'member.auth.reset_link_label',
+    'member.auth.reset_link_open',
     'member.auth.reset_link_sent',
     'member.auth.reset_pin_with_code',
     'member.auth.save_pin',
@@ -3468,6 +3484,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.name_required',
     'member.auth.server_error.no_access',
     'member.auth.server_error.no_account',
+    'member.auth.server_error.no_email_account',
     'member.auth.server_error.no_pin',
     'member.auth.server_error.number_taken',
     'member.auth.server_error.password_required',
@@ -3482,6 +3499,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.too_many_attempts',
     'member.auth.server_error.too_many_codes',
     'member.auth.server_error.wait',
+    'member.auth.server_error.weak_password',
     'member.auth.server_error.weak_pin',
     'member.auth.server_error.wrong',
     'member.auth.settings_failed',
@@ -3570,7 +3588,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.methods.new_pin_heading',
     'member.methods.not_added',
     'member.methods.not_connected',
-    'member.methods.password_min',
     'member.methods.password_placeholder',
     'member.methods.phone',
     'member.methods.phone_moved',
@@ -3619,7 +3636,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.profile.password_change_error',
     'member.profile.password_change_failed',
     'member.profile.password_changed',
-    'member.profile.password_min',
     'member.profile.passwords_mismatch',
     'member.profile.personal_info',
     'member.profile.photo_alt',

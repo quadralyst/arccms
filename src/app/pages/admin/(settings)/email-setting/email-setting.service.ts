@@ -44,8 +44,12 @@ export class EmailSettingService {
      */
     async saveEmailSettings(settings: IEmailSettings): Promise<void> {
         const docRef = doc(this.firestore, SETTINGS_COLLECTION, EMAIL_SETTINGS_DOC);
+        // Reset links on screen only with the Simulated provider: leaving it turns them
+        // off, so coming back to it asks again (F22).
+        const showResetLinks = settings.activeProvider === 'debug_log' && settings.showResetLinks === true;
         const dataToSave = {
             ...settings,
+            showResetLinks,
             updatedAt: serverTimestamp(),
         };
 
@@ -70,6 +74,9 @@ export class EmailSettingService {
                 requireSignupVerification: settings.requireSignupVerification ?? false,
                 // Public flag so the dashboard can warn when the simulated provider is active.
                 debugMode: settings.activeProvider === 'debug_log',
+                // The sign-in page asks the server for the reset link (requestPasswordResetLink),
+                // which checks Settings/email itself: this only says whether to ask.
+                showResetLinks: settings.isEnabled && showResetLinks,
             },
             { merge: true },
         );

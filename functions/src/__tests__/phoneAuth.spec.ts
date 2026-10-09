@@ -203,10 +203,11 @@ describe('sign-up with a new number', () => {
             .rejects.toMatchObject({ code: 'not-found' });
     });
 
-    it('holds a resend for 60 seconds', async () => {
+    it('sends nothing new for 60 seconds', async () => {
         await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
         await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' }))
-            .rejects.toMatchObject({ code: 'resource-exhausted' });
+            .resolves.toMatchObject({ alreadySent: true });
+        expect(mem.all('SmsLogs')).toHaveLength(1);
     });
 
     it('refuses a signup code for a number that has an account', async () => {
@@ -283,17 +284,63 @@ describe('signing in with the PIN', () => {
 describe('the one-minute wait and the hourly limit (specs/sign-in-codes-spec.md)', () => {
     const numberCount = () => Number(mem.read('_rate_limits', `otp-phone-${phoneHash(E164)}`)?.['count'] ?? 0);
 
-    it('refuses inside the minute with the seconds left, and the refusal uses up nothing (SC-D3)', async () => {
-        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+    it('answers a request inside the minute with the code already sent and the seconds left, sending and using up nothing (SC-D3, F22)', async () => {
+        const first = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
         for (let i = 0; i < 6; i++) {
-            const refused = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' }).catch((e) => e);
-            expect(refused).toMatchObject({ code: 'resource-exhausted', details: { reason: 'wait' } });
-            expect(refused.details.wait).toBeGreaterThan(55);
+            const again = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+            expect(again).toMatchObject({ sent: true, alreadySent: true, testMode: true, testCode: first.testCode });
+            expect(again.wait).toBeGreaterThan(55);
+            expect(again.wait).toBeLessThanOrEqual(60);
         }
+        expect(mem.all('SmsLogs')).toHaveLength(1);
         expect(numberCount()).toBe(1);
         ageLastCode();
-        await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' })).resolves.toMatchObject({ sent: true });
+        await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' })).resolves.toMatchObject({ sent: true, sameCode: true });
         expect(numberCount()).toBe(2);
+    });
+
+    it('a code for another purpose never holds back a reset code (F22)', async () => {
+        await signUp();
+        mem.seed('Settings', 'sms', { provider: 'log', showResetCodes: true });
+        // A sign-up code for this number went out a moment ago (another tab, before the account existed).
+        mem.seed('phone_otps', phoneHash(E164), {
+            purpose: 'signup', uid: null, codeHash: 'x', attempts: 0, verified: false,
+            issuedAt: { toMillis: () => Date.now() - 10_000 },
+            lastSentAt: { toMillis: () => Date.now() - 10_000 },
+            expiresAt: { toMillis: () => Date.now() + 590_000 },
+        });
+        const reply = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'reset' });
+        expect(reply).toEqual({ sent: true, phone: E164, testMode: true, testCode: lastCode() });
+        expect(mem.read('phone_otps', phoneHash(E164))?.['purpose']).toBe('reset');
+        const { ticket } = await call(phone.verifyPhoneOtp, { phone: NUMBER, code: reply.testCode, purpose: 'reset' });
+        await expect(call(phone.resetPin, { phone: NUMBER, pin: '135792', ticket })).resolves.toMatchObject({ token: 'token-uid-asha' });
+    });
+
+    it('a reset code asked for again inside the minute is the same one, shown only where reset codes may be', async () => {
+        await signUp();
+        const hidden = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'reset' });
+        const again = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'reset' });
+        expect(hidden).toEqual({ sent: true, phone: E164, testMode: true });
+        expect(again).toEqual({ sent: true, phone: E164, testMode: true, alreadySent: true, wait: expect.any(Number) });
+        mem.seed('Settings', 'sms', { provider: 'log', showResetCodes: true });
+        await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'reset' })).resolves.toMatchObject({ alreadySent: true, testCode: lastCode() });
+    });
+
+    it('refuses with the seconds left inside the minute when the code sent can no longer be used', async () => {
+        const { testCode } = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        await call(phone.verifyPhoneOtp, { phone: NUMBER, code: testCode, purpose: 'signup' });
+        const refused = await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' }).catch((e) => e);
+        expect(refused).toMatchObject({ code: 'resource-exhausted', details: { reason: 'wait' } });
+        expect(numberCount()).toBe(1);
+    });
+
+    it('a second request at once for the same code is still held by the minute (SC-D11)', async () => {
+        const { issuePhoneOtp } = await import('../auth/phoneOtp.js');
+        const { DEFAULT_SMS_SETTINGS } = await import('../sms/smsSettings.js');
+        const sms = DEFAULT_SMS_SETTINGS;
+        await issuePhoneOtp(E164, 'signup', sms);
+        await expect(issuePhoneOtp(E164, 'signup', sms)).rejects.toMatchObject({ details: { reason: 'wait' } });
+        await expect(issuePhoneOtp(E164, 'link', sms, 'uid-other')).resolves.toMatchObject({ testCode: expect.any(String) });
     });
 
     it('says when the hourly limit reopens (SC-D5)', async () => {

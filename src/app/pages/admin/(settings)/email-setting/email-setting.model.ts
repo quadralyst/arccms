@@ -143,6 +143,12 @@ export interface IEmailSettings {
     features?: IEmailFeatureToggles;
     /** E4 — require email verification on signup (default false) */
     requireSignupVerification?: boolean;
+    /**
+     * Simulated provider only: Forgot password on the sign-in page shows the reset
+     * link instead of emailing it (F22). Off by default: anyone who knows an email
+     * could then reset its password.
+     */
+    showResetLinks?: boolean;
     /** Open-tracking pixel base URL (moved out of source). */
     trackingPixelUrl?: string;
     /** Public base URL for unsubscribe/preferences links. */
@@ -244,6 +250,7 @@ export const DEFAULT_EMAIL_SETTINGS: IEmailSettings = {
     },
     features: { ...DEFAULT_EMAIL_FEATURES },
     requireSignupVerification: false,
+    showResetLinks: false,
 };
 
 /**
