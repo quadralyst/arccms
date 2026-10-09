@@ -31,7 +31,7 @@
     <h2>What stays shared</h2>
     <ul>
       <li><strong>Sign-in.</strong> A project has one Firebase Auth pool and one set of sign-in providers. The other app's users can reach Arc CMS's sign-in page; with no Arc CMS record they are told they have no access. Sign-ups turn off when the first-run setup finishes (admin-only sign-in, the default for a shared project), so admins add people under Users.</li>
-      <li><strong>Accounts in both apps.</strong> When an admin adds someone who already has an account from the other app, Arc CMS reuses the account and never changes it. Deleting that Arc CMS user removes only Arc CMS's record and claims, never the account.</li>
+      <li><strong>Accounts in both apps.</strong> When an admin adds someone who already has an account from the other app, Arc CMS reuses the account and never changes it. Deleting that Arc CMS user removes only Arc CMS's record and claims, never the account. The person can still use Forgot password on Arc CMS's sign-in page: it is their one login, so the new password works in both apps. A login the other app owns outright, or one with no Arc CMS record, is told to reset its password in that app (see <a href="../features/sign-in.html#forgot-password">Forgot password</a>).</li>
       <li><strong>Custom claims on an account.</strong> Arc CMS merges its claims into the existing ones. Firebase has no atomic merge, so if both apps write claims on the same account at the same moment, one write can be lost. Arc CMS writes claims rarely (sign-up, a role change, blocking, deletion).</li>
       <li><strong>The project itself:</strong> billing, quotas, and Google's per-minute limit on changes to functions.</li>
     </ul>

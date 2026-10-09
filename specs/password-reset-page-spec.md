@@ -1,6 +1,6 @@
 # Password reset in Arc CMS (spec, not built)
 
-Status: agreed with the user 2026-10-09, not built. Option A (emailed code) chosen; see
+Status: agreed with the user 2026-10-09; built on feat/password-reset-code. Option A (emailed code) chosen; see
 section 11. Follows F22 (fix/sign-in-f22, in ../arccms-f22), which made one password rule
 (`passwordProblem()` in `src/shared/utils/password-rule.ts`) apply everywhere except
 Firebase's hosted reset page. Build on top of F22 once it is merged into dev.
@@ -61,31 +61,32 @@ shows in Email Logs with the site's sender and template.
 
 ### Flow on the sign-in page
 
+Built like Forgot PIN (two screens, a ticket between them), rather than one screen with the
+code and the password together as first drafted: it reuses the code boxes, resend, test code
+and countdown as they are.
+
 1. Password step, **Forgot password**. The page calls `requestPasswordReset({ email })`.
-2. The step changes to: "We emailed a code to {{ email }}." with a **Code** field, a
-   **New password** field (show/hide, `newPasswordValidator` with the email as owner) and a
-   **Set password** button. "Send the code again" under it, with the same wait between
-   sends (`resendWait` in codeSeal.ts) and wording as the sign-up code.
-3. **Set password** calls `resetPasswordWithCode({ email, code, password })`. On success the
-   page signs in through the normal path (`authStore.login`), so a blocked or no-access
-   account is handled as at sign-in, and the person lands where sign-in takes them.
-4. **Back** returns to the password step.
+2. The code step, titled "Reset your password", with the code boxes, resend and the test code,
+   as for a sign-up code. The code is checked by `verifySignupOtp` with `purpose: 'reset'`,
+   which hands back a ticket.
+3. "Choose a new password": one **New password** field (show/hide, `newPasswordValidator`)
+   and **Save password and sign in**. It calls `resetPassword({ email, password, ticket })`,
+   then signs in through the normal path (`authStore.login`), so a blocked or no-access
+   account is handled as at sign-in. A code that ran out meanwhile goes back to the code step.
+4. A refusal at step 1 (a host login, too many codes) shows on the password step.
 
-### Server (functions/src/auth/, beside signupOtp.ts)
+### Server (functions/src/auth/passwordReset.ts, beside signupOtp.ts)
 
-- `EmailOtpPurpose` gains `reset`. A reset code never verifies a sign-up and the reverse
-  (`matchesPurpose`).
-- `requestPasswordReset({ email })`: rate limited per IP and per address like
-  `requestSignupOtp`. Looks up the record; refuses `no-email-account` when there is no account
-  Arc may reset (section 5). Calls `issueEmailOtp(email, 'reset')` with a new
-  "Password reset code" template, seeded lazily as the sign-up template is. Returns
-  `{ sent, again?, testCode? }`; `testCode` only with the Debug Provider and the reset switch
-  on.
-- `resetPasswordWithCode({ email, code, password })`: checks the code (wrong, expired, too
-  many tries: the same reasons and words as the sign-up code), then `passwordProblem(password,
-  { email, name })` from the record, refusing `weak-password` with the `problem` as
-  `linkEmail` does. Then `updateUser(uid, { password })`, `revokeRefreshTokens(uid)` so every
-  other session is signed out (as a PIN reset does), and the code is marked used.
+- `EmailOtpPurpose` gains `reset`, with its own template (`EMAIL_OTP_TEMPLATE`). A reset code
+  never verifies as a sign-up code and the reverse (`matchesPurpose`).
+- `requestPasswordReset({ email })`: who may reset (`resetTarget`, section 5), then the code
+  already sent inside the minute, then the limits (20 an hour per caller, 5 per address), then
+  `issueEmailOtp(email, 'reset')` with the "Password reset code" template, seeded lazily.
+  A reply that sent nothing gives the limits back.
+- `resetPassword({ email, password, ticket })`: who may reset, then `refuseWeakPassword` with
+  the record's name and email (before the ticket, so a refused password leaves the code
+  usable), then `consumeVerifiedResetCode`, `updateUser(uid, { password })` and
+  `revokeRefreshTokens(uid)`.
 - `requestPasswordResetLink` (F22) is removed.
 
 ### When the email engine cannot send
@@ -98,11 +99,11 @@ that only has Google or phone sign-in plus old password accounts.)
 
 ### Test mode
 
-The F22 switch keeps its stored field (`Settings/email.showResetLinks`, mirrored to
-`Settings/email_status.showResetLinks`) and is relabelled **Show password reset codes on
-screen**, matching SMS. With it on, the code shows in the test box on the page, as the
-sign-up code does. Off by default, off when the Debug Provider is left, hint unchanged in
-meaning.
+The F22 switch keeps its stored field (`Settings/email.showResetLinks`) and is relabelled
+**Show password reset codes on screen**, matching SMS. With it on, the code shows in the test
+box on the page, as the sign-up code does; with it off, the page says the code is in Email
+Logs. Off by default, off when the Debug Provider is left. Only the server reads it now
+(`resetCodesShown`), so the copy in `Settings/email_status` is no longer written.
 
 ### Email language
 
@@ -127,24 +128,22 @@ The refusal reason is `host-account`; the words are the member key below.
 
 ## 6. Member strings (English, Hindi)
 
-Under `member.auth.reset.*`. Existing `reset_link_sent`, `reset_link_label` and
-`reset_link_open` go; `reset_failed` stays for the fallback.
+Flat keys under `member.auth`, like the other step keys. `reset_link_label` and
+`reset_link_open` (F22) went; `reset_link_sent` and `reset_failed` stay for the fallback.
 
 | Key | English | Hindi |
 |---|---|---|
-| `title` | Choose a new password | नया पासवर्ड चुनें |
-| `code_sent` | We emailed a code to {{ email }}. | हमने {{ email }} पर एक कोड ईमेल किया है। |
-| `code_label` | Code | कोड |
+| `step_title_reset_password` | Reset your password | अपना पासवर्ड रीसेट करें |
+| `step_title_new_password` | Choose a new password | नया पासवर्ड चुनें |
+| `step_desc_new_password` | You will use it to sign in | साइन इन करने के लिए आप इसका उपयोग करेंगे |
 | `new_password_label` | New password | नया पासवर्ड |
-| `submit` | Set password | पासवर्ड सेट करें |
-| `resend` | Send the code again | कोड फिर से भेजें |
-| `done` | Password changed. You're signed in. | पासवर्ड बदल गया। आप साइन इन हैं। |
-| `host_account` | Reset your password in the app you signed up with. | जिस ऐप से आपने साइन अप किया था, उसी में पासवर्ड रीसेट करें। |
-| `test_label` | Test mode, no email sent. Your code: | टेस्ट मोड, कोई ईमेल नहीं भेजा गया। आपका कोड: |
+| `save_password` | Save password and sign in | पासवर्ड सहेजें और साइन इन करें |
+| `password_changed` | Password changed. | पासवर्ड बदल गया। |
+| `server_error.host_account` | Reset your password in the app you signed up with. | जिस ऐप से आपने साइन अप किया था, उसी में अपना पासवर्ड रीसेट करें। |
 
-Code errors and "We sent the same code again." reuse the sign-up code keys. Password errors
-reuse `member.auth.password_error.<problem>`. Admin: `show_reset_links` becomes "Show password
-reset codes on screen" / "पासवर्ड रीसेट कोड स्क्रीन पर दिखाएँ".
+Reused: the code step's strings, `test_code_label_email`, `test_code_in_email_logs`, the code
+errors, and `member.auth.password_error.<problem>`. Admin: `show_reset_links` becomes "Show
+password reset codes on screen" / "पासवर्ड रीसेट कोड स्क्रीन पर दिखाएँ".
 
 ## 7. Option B in short (not chosen, kept for the record)
 
@@ -199,8 +198,9 @@ reset codes on screen" / "पासवर्ड रीसेट कोड स्
 4. Docs and screenshots, `npm run docs:affected`, `npm run check:docs`, the full suite.
 5. Critical review of the whole change; fix critical and high items, report the rest.
 
-Deploy: functions only (`requestPasswordReset`, `resetPasswordWithCode`, and deleting
-`requestPasswordResetLink`). No rules or indexes.
+Deploy: functions only (`requestPasswordReset`, `resetPassword`, `verifySignupOtp`; deleting
+`requestPasswordResetLink` takes a deploy of every function or `firebase functions:delete`). No
+rules or indexes.
 
 ## 11. Decisions (agreed 2026-10-09)
 

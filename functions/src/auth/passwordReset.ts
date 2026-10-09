@@ -16,7 +16,7 @@ import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { callerKey, canSignIn, consumeRateLimit, findUserByEmail, readSignInSettings, releaseRateLimit } from './accounts.js';
 import { normalizeEmailAddress } from './linkIdentifiers.js';
 import { isUnfinishedSignup } from './emailAccount.js';
-import { consumeVerifiedResetCode, emailCodeAskedAgain, issueEmailOtp, resetCodesShown } from './signupOtp.js';
+import { emailCodeAskedAgain, issueEmailOtp, resetCodesShown, verifiedResetCode } from './signupOtp.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuse, refuseWeakPassword } from './refusal.js';
 import { AUTH_OWNER } from '../users/authOwner.js';
@@ -66,6 +66,8 @@ export async function resetTarget(email: string): Promise<ResetTarget> {
 /**
  * Forgot password, first step: email this address a reset code. Limits as for a
  * sign-up code: one a minute and 5 an hour per address, 20 an hour per caller.
+ * The caller's count comes before the account check and a refusal keeps it, so
+ * nobody can ask unlimited addresses whose login they are.
  * `sent: false` when the email engine sent nothing (email off, no provider, the
  * address suppressed): the page then asks Firebase to email its reset link.
  * While testing with the Simulated provider the reply carries the code
@@ -75,7 +77,7 @@ export async function resetTarget(email: string): Promise<ResetTarget> {
 export const requestPasswordReset = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
     const email = normalizeEmailAddress(request.data?.email);
-    const target = await resetTarget(email);
+    // A reset code is only ever sent to an address that passed resetTarget below.
     const asked = await emailCodeAskedAgain(email, 'reset');
     if (asked) {
         const test = (await resetCodesShown()) ? { testMode: true, testCode: asked.code } : {};
@@ -84,6 +86,7 @@ export const requestPasswordReset = onCall(async (request) => {
     const callerLimit = `reset-otp-ip-${callerKey(request)}`;
     const addressLimit = `reset-otp-${computeEmailHash(email)}`;
     await consumeRateLimit(callerLimit, 20, HOUR, 'Too many attempts. Please try again later.');
+    const target = await resetTarget(email);
     await consumeRateLimit(addressLimit, 5, HOUR, 'Too many codes for this address. Please try again later.', 'too-many-codes');
     try {
         const reply = await issueEmailOtp(email, 'reset', { name: target.name });
@@ -98,20 +101,21 @@ export const requestPasswordReset = onCall(async (request) => {
 /**
  * Forgot password, last step: the new password, with the ticket from checking
  * the code (verifySignupOtp, purpose `reset`), so only the browser that entered
- * the code can use it. The password rule is checked first, so a refused password
- * leaves the code usable. Every other session is signed out, as after a PIN
- * reset; the page then signs in with the new password.
+ * the code can use it. Without that ticket nothing else is checked or said. The
+ * password rule comes before the code is used up, so a refused password leaves
+ * it usable. Every other session is signed out, as after a PIN reset; the page
+ * then signs in with the new password.
  */
 export const resetPassword = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
     const email = normalizeEmailAddress(request.data?.email);
     const password = typeof request.data?.password === 'string' ? request.data.password : '';
     if (!password) throw refuse('invalid-argument', 'password-required', 'Please enter your password.');
+    const expired = () => refuse('failed-precondition', 'code-expired', 'That code has expired. Please ask for a new one.');
+    if (!(await verifiedResetCode(email, request.data?.ticket, false))) throw expired();
     const target = await resetTarget(email);
     refuseWeakPassword(password, { email, name: target.name });
-    if (!(await consumeVerifiedResetCode(email, request.data?.ticket))) {
-        throw refuse('failed-precondition', 'code-expired', 'That code has expired. Please ask for a new one.');
-    }
+    if (!(await verifiedResetCode(email, request.data?.ticket, true))) throw expired();
     await owner.updateUser(target.uid, { password });
     await owner.revokeRefreshTokens(target.uid);
     logger.info(`resetPassword: a new password was set for ${email} with a reset code.`);

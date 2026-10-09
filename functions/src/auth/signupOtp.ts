@@ -322,11 +322,11 @@ export async function consumeVerifiedSignupCode(email: string, ticket: unknown):
 }
 
 /**
- * Use up a verified reset code for this address, when `ticket` is the one its
+ * Whether this address has a verified reset code and `ticket` is the one its
  * verification handed out, as for a sign-up code: only the browser that entered
- * the code can set the new password.
+ * the code can set the new password. `consume` uses it up.
  */
-export async function consumeVerifiedResetCode(email: string, ticket: unknown): Promise<boolean> {
+export async function verifiedResetCode(email: string, ticket: unknown, consume: boolean): Promise<boolean> {
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(normalizeEmail(email)));
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
@@ -335,7 +335,7 @@ export async function consumeVerifiedResetCode(email: string, ticket: unknown): 
     if (!ticketMatches(ticket, data['ticketHash'])) return false;
     const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
     if (Date.now() - verifiedAt > EMAIL_VERIFIED_WINDOW_MS) return false;
-    tx.delete(ref);
+    if (consume) tx.delete(ref);
     return true;
   });
 }

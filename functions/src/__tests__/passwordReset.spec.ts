@@ -137,6 +137,12 @@ describe('requestPasswordReset', () => {
         expect(mocks.queueEmail).not.toHaveBeenCalled();
     });
 
+    it('counts a refused address against the caller, so addresses cannot be tried without end', async () => {
+        await expect(call(requestPasswordReset, { email: 'nobody@example.com' })).rejects.toMatchObject({ details: { reason: 'no-email-account' } });
+        const counter = mem.all('_rate_limits').find((d) => d.id.startsWith('reset-otp-ip-'));
+        expect(counter, 'the caller count was kept').toBeTruthy();
+    });
+
     it("sends a host app's user with no record here to the host app", async () => {
         owner.getUserByEmail.mockResolvedValue({ uid: 'h1', providerData: [{ providerId: 'password' }], metadata: { creationTime: new Date(Date.now() - 48 * 3_600_000).toUTCString() } });
         await expect(call(requestPasswordReset, { email: 'host@example.com' })).rejects.toMatchObject({ details: { reason: 'host-account' } });
@@ -197,6 +203,12 @@ describe('resetPassword', () => {
         mem.seed('users', 'a-doc', { uid: 'uid-a', name: 'Asha Rao', email: EMAIL, isActive: true, status: 'Active', authOwner: 'host' });
         await expect(call(resetPassword, { email: EMAIL, password: GOOD, ticket })).rejects.toMatchObject({ details: { reason: 'host-account' } });
         expect(owner.updateUser).not.toHaveBeenCalled();
+    });
+
+    it('says nothing about the account without a ticket', async () => {
+        mem.seed('users', 'a-doc', { uid: 'uid-a', name: 'Asha Rao', email: EMAIL, isActive: true, status: 'Active', authOwner: 'host' });
+        await expect(call(resetPassword, { email: EMAIL, password: GOOD, ticket: 'guess' })).rejects.toMatchObject({ details: { reason: 'code-expired' } });
+        await expect(call(resetPassword, { email: 'nobody@example.com', password: GOOD, ticket: 'guess' })).rejects.toMatchObject({ details: { reason: 'code-expired' } });
     });
 
     it('asks for a password when there is none', async () => {

@@ -80,7 +80,7 @@
     </ol>
     <p>Templates need no setup step. The default templates are created the first time something needs one (the first sign-up, the first notification email, the first digest), and opening Email, Announcements creates any that are missing. Creating them never overwrites a template that exists.</p>
     <div class="note"><p>Provider secrets (the SMTP or Gmail password, the Resend API key) are stored in the <code>Settings/email</code> document, which only admins can read. The secret that signs unsubscribe links is created on first use in <code>_system/unsubscribe_secret</code>, which no browser can read.</p></div>
-    <div class="note"><p>Use the Debug Provider (Log Only) while you build and test: every email is composed in full and recorded in the email log, and nothing is sent. The sign-up page shows the sign-up code on screen, so you (or a test script) can sign up without an inbox, and so can anyone with any address. Codes for adding an email to an account stay in the email log. Password reset emails come from Firebase, not from the engine, so they never reach the log: to test a reset, turn on <strong>Show password reset links on screen</strong>, which appears beside the Debug Provider, and Forgot password shows the link on the sign-in page instead (off by default; anyone who knows an email could then reset its password; see <a href="sign-in.html#forgot-password">Forgot password</a>). The admin dashboard shows a banner while it is active. Switch to a real provider, and test the connection, before real people sign up.</p></div>
+    <div class="note"><p>Use the Debug Provider (Log Only) while you build and test: every email is composed in full and recorded in the email log, and nothing is sent. The sign-up page shows the sign-up code on screen, so you (or a test script) can sign up without an inbox, and so can anyone with any address. Codes for adding an email to an account stay in the email log, and so do password reset codes, unless you turn on <strong>Show password reset codes on screen</strong>, which appears beside the Debug Provider: Forgot password then shows the code on the sign-in page (off by default; anyone who knows an email could then reset its password; see <a href="sign-in.html#forgot-password">Forgot password</a>). The admin dashboard shows a banner while it is active. Switch to a real provider, and test the connection, before real people sign up.</p></div>
 
     <h2>Use it</h2>
     <h3>Edit templates in the composer</h3>
@@ -102,6 +102,7 @@
       <thead><tr><th>Template type</th><th>Sent when</th><th>Category</th></tr></thead>
       <tbody>
         <tr><td><code>signup_otp_email</code></td><td>Someone asks for a sign-up or email change code</td><td>transactional</td></tr>
+        <tr><td><code>password_reset_otp_email</code></td><td>Someone taps Forgot password (see <a href="sign-in.html#forgot-password">Forgot password</a>)</td><td>transactional</td></tr>
         <tr><td><code>signup_welcome_email</code></td><td>A user record is created</td><td>marketing</td></tr>
         <tr><td><code>notification_generic_email</code></td><td>An in-app notification is also sent by email (see <a href="notifications.html">Notifications</a>)</td><td>the notification type's</td></tr>
         <tr><td><code>admin_digest_email</code></td><td>The daily admin digest, when turned on</td><td>transactional</td></tr>
@@ -180,7 +181,7 @@ export async function sendShippedEmail(toEmail: string, tracking: string) {
       <thead><tr><th>Where</th><th>Holds</th></tr></thead>
       <tbody>
         <tr><td><code>Settings/email</code></td><td>Provider and its secrets, sender, limits, retention, feature switches, <code>liveUrl</code>, <code>adminDigest</code></td></tr>
-        <tr><td><code>Settings/email_status</code></td><td>A public copy of the master switch, the sign-up verification switch, whether the Debug Provider is active, and whether the sign-in page shows reset links (<code>showResetLinks</code>; no secrets)</td></tr>
+        <tr><td><code>Settings/email_status</code></td><td>A public copy of the master switch, the sign-up verification switch, and whether the Debug Provider is active (no secrets)</td></tr>
         <tr><td><code>Settings/email_brand</code></td><td>The brand kit</td></tr>
         <tr><td><code>EmailTemplate</code></td><td>Templates: type, category, subject, HTML, block design, <code>isActive</code></td></tr>
         <tr><td><code>EmailLogs</code></td><td>One record per email, sent or blocked</td></tr>
