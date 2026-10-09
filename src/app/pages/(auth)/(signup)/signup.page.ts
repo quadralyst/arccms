@@ -46,7 +46,7 @@ import {
 import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../../../shared/data/countries';
 import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
 import { PhoneCountryComponent } from '../../../../shared/components/phone-country/phone-country.component';
-import { readSignInError, SignInService } from '../sign-in.service';
+import { readSignInError, SignInService, type CodeReply } from '../sign-in.service';
 import { RESEND_SECONDS, SentCodes } from '../sent-codes';
 import { environment } from '../../../../environments/environment';
 import { arcConfig } from '../../../core/config/arc-config';
@@ -63,7 +63,7 @@ export const routeMeta: RouteMeta = {
   data: { titleKey: 'member.titles.sign_in' },
 };
 
-type SignupStep = 'request' | 'login' | 'pin' | 'verify' | 'signup' | 'newPin' | 'disabled';
+type SignupStep = 'request' | 'login' | 'pin' | 'verify' | 'signup' | 'newPin' | 'newPassword' | 'disabled';
 type Channel = 'email' | 'phone';
 
 /**
@@ -194,16 +194,16 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   phoneDisplay = computed(() => formatPhone(this.phone(), this.countryCode()));
   /** What the SMS code is for: a new account, or a new PIN. */
   phonePurpose = signal<'signup' | 'reset'>('signup');
+  /** What the email code is for: a new account, or a new password (Forgot password). */
+  emailPurpose = signal<'signup' | 'reset'>('signup');
   /** The PIN typed on the sign-up and new-PIN steps. */
   newPin = signal('');
   /** The PIN locked after too many wrong tries. */
   pinLocked = signal(false);
   /** Test SMS provider or Simulated email provider: the code that was not sent, shown under the boxes. */
   testCode = signal('');
-  /** Test SMS provider, reset code: no SMS went out and the code is only in SMS Logs. */
+  /** A reset code while testing, not shown: nothing was sent and the code is only in SMS Logs or Email Logs. */
   testCodeInLogs = signal(false);
-  /** Simulated email provider, reset links on screen: the link that was not emailed (F22). */
-  resetLink = signal('');
   /**
    * Development builds only: which Firebase project and database this page signs
    * in to, so nobody signs in to the wrong install by mistake. Empty in production.
@@ -513,9 +513,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       pin: 'member.auth.step_title_welcome_back',
       verify: phone
         ? (this.phonePurpose() === 'reset' ? 'member.auth.step_title_set_pin' : 'member.auth.step_title_verify_number')
-        : 'member.auth.step_title_verify_email',
+        : (this.emailPurpose() === 'reset' ? 'member.auth.step_title_reset_password' : 'member.auth.step_title_verify_email'),
       signup: 'member.auth.create_account',
       newPin: 'member.auth.step_title_new_pin',
+      newPassword: 'member.auth.step_title_new_password',
       disabled: 'member.auth.step_title_closed',
     };
     return this.t(titles[this.currentStep()]);
@@ -529,6 +530,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       verify: this.channel() === 'phone' ? 'member.auth.step_desc_code_phone' : 'member.auth.step_desc_code_email',
       signup: 'member.auth.step_desc_complete',
       newPin: 'member.auth.step_desc_new_pin',
+      newPassword: 'member.auth.step_desc_new_password',
       disabled: 'member.auth.step_desc_closed',
     };
     return this.t(titles[this.currentStep()]);
@@ -545,7 +547,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.successMessage.set('');
     this.otpError.set('');
     this.newPin.set('');
-    this.resetLink.set('');
     this.updateValidators(step);
   }
 
@@ -574,6 +575,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
           controls['confirmPassword'].setValidators([Validators.required]);
         }
         break;
+      case 'newPassword':
+        controls['password'].setValidators([Validators.required, this.passwordValidator]);
+        break;
     }
 
     Object.keys(controls).forEach((key) => controls[key].updateValueAndValidity({ emitEvent: false }));
@@ -593,6 +597,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         break;
       case 'newPin':
         this.saveNewPin();
+        break;
+      case 'newPassword':
+        void this.saveNewPassword();
         break;
     }
   }
@@ -662,6 +669,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.isLoading.set(true);
     this.errorMessage.set('');
     this.otpVerified = false; // reset for a fresh flow
+    this.emailPurpose.set('signup');
 
     const email = this.email;
 
@@ -771,15 +779,17 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private codeKey(): string {
     return this.channel() === 'phone'
       ? `phone:${this.phonePurpose()}:${this.phone()}`
-      : `email:signup:${this.email}`;
+      : `email:${this.emailPurpose()}:${this.email}`;
   }
 
   /**
    * Ask for a code, unless one for this number or address still works (`resend`
    * asks anyway). A "please wait" from the server starts the countdown from the
-   * seconds it gives, with a quiet line instead of an error (SC-D2).
+   * seconds it gives, with a quiet line instead of an error (SC-D2). Says whether
+   * a code is on its way, the email engine sent nothing (`not-sent`, a reset code
+   * on a site without email), or the request failed (the error is in otpError).
    */
-  async sendOtp(resend = false): Promise<void> {
+  async sendOtp(resend = false): Promise<'sent' | 'not-sent' | 'failed'> {
     this.otpError.set('');
     this.otpNotice.set('');
     const key = this.codeKey();
@@ -788,29 +798,33 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.testCode.set(known.testCode);
       this.testCodeInLogs.set(known.testCodeInLogs);
       this.startCountdown(this.sentCodes.secondsLeft(key));
-      return;
+      return 'sent';
     }
 
     try {
       this.testCode.set('');
       const phone = this.channel() === 'phone';
-      const reply = phone
+      const reply: CodeReply & { testCode?: string; testCodeInLogs?: boolean } = phone
         ? await this.signIn.requestPhoneCode(this.phone(), this.phonePurpose())
-        : await this.signIn.requestSignupCode(this.email, this.registrationForm.get('name')?.value || undefined);
+        : this.emailPurpose() === 'reset'
+          ? await this.signIn.requestPasswordReset(this.email)
+          : await this.signIn.requestSignupCode(this.email, this.registrationForm.get('name')?.value || undefined);
+      if (!phone && this.emailPurpose() === 'reset' && reply.sent === false) return 'not-sent';
       this.testCode.set(reply.testCode ?? '');
-      this.testCodeInLogs.set(phone && !!reply.testMode && !reply.testCode);
+      this.testCodeInLogs.set((phone && !!reply.testMode && !reply.testCode) || !!reply.testCodeInLogs);
       const wait = Number(reply.wait);
       if (reply.alreadySent && wait > 0) {
         // Asked again under a minute after it went (a reload, another tab): nothing new was sent (F22).
         this.otpNotice.set(this.t('member.auth.code_already_sent'));
         this.sentCodes.remember(key, { testCode: this.testCode(), testCodeInLogs: this.testCodeInLogs() }, wait);
         this.startCountdown(wait);
-        return;
+        return 'sent';
       }
       if (reply.sameCode) this.otpNotice.set(this.t('member.auth.code_sent_again'));
       else if (!reply.testMode) this.toastService.success(this.t(phone ? 'member.auth.code_sent_sms' : 'member.auth.code_sent_email'));
       this.sentCodes.remember(key, { testCode: this.testCode(), testCodeInLogs: this.testCodeInLogs() });
       this.startCountdown();
+      return 'sent';
     } catch (error: any) {
       const failed = readSignInError(error, this.t('member.auth.send_code_failed'));
       const wait = Number(failed.details?.['wait']);
@@ -819,9 +833,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         this.sentCodes.remember(key, { testCode: known?.testCode ?? '', testCodeInLogs: known?.testCodeInLogs ?? false }, wait);
         this.otpNotice.set(this.t('member.auth.code_already_sent'));
         this.startCountdown(wait);
-        return;
+        return 'sent';
       }
       this.otpError.set(failed.message);
+      return 'failed';
     }
   }
 
@@ -869,6 +884,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         await this.signIn.verifyPhoneCode(this.phone(), otp, this.phonePurpose());
         this.sentCodes.forget(this.codeKey());
         this.goToStep(this.phonePurpose() === 'reset' ? 'newPin' : 'signup');
+        return;
+      }
+      if (this.emailPurpose() === 'reset') {
+        await this.signIn.verifyResetCode(this.email, otp);
+        this.sentCodes.forget(this.codeKey());
+        this.goToStep('newPassword');
         return;
       }
       // Server-authoritative verification (E3): the server checks the hashed
@@ -1009,35 +1030,74 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.authStore.login({ email: this.email, password });
   }
 
+  /**
+   * Forgot password: a code by email, then a new password, on this page
+   * (functions/src/auth/passwordReset.ts), as Forgot PIN is by SMS. A site whose
+   * email engine sends nothing falls back to Firebase's own reset email.
+   */
   async forgotPassword(): Promise<void> {
     const email = this.email;
     if (!email || this.working()) return;
     this.errorMessage.set('');
     this.successMessage.set('');
-    this.resetLink.set('');
-    // Testing with the Simulated email provider: the link on the page, as a sign-up
-    // code is, when an admin turned that on (Settings, Email; F22).
-    if (this.emailConfigStatus.showResetLinks()) {
-      this.isLoading.set(true);
-      try {
-        const reply = await this.signIn.requestPasswordResetLink(email);
-        if (reply.shown && reply.link) {
-          this.resetLink.set(reply.link);
-          return;
-        }
-      } catch (err) {
-        this.errorMessage.set(readSignInError(err, this.t('member.auth.reset_failed')).message);
-        return;
-      } finally {
-        this.isLoading.set(false);
+    this.emailPurpose.set('reset');
+    this.isLoading.set(true);
+    try {
+      const outcome = await this.sendOtp();
+      if (outcome === 'sent') {
+        this.goToStep('verify');
+      } else if (outcome === 'not-sent') {
+        await this.firebaseResetEmail(email);
+      } else {
+        // Refused (another app's login, too many codes): said here, on the password step.
+        this.errorMessage.set(this.otpError());
+        this.otpError.set('');
       }
+    } finally {
+      this.isLoading.set(false);
     }
+  }
+
+  /** Firebase's reset email and page: only for a site whose email engine sends nothing. */
+  private async firebaseResetEmail(email: string): Promise<void> {
     const res: any = await this.authStore.forgotPassword(email);
     if (res?.status === 200) {
       this.successMessage.set(this.t('member.auth.reset_link_sent', { email }));
     } else {
       this.errorMessage.set(this.t('member.auth.reset_failed'));
     }
+  }
+
+  /** After the reset code: the new password, then signed in with it. */
+  async saveNewPassword(): Promise<void> {
+    if (this.working()) return;
+    const control = this.registrationForm.get('password');
+    control?.updateValueAndValidity();
+    if (control?.invalid) {
+      control.markAsTouched();
+      return;
+    }
+    const password = String(control?.value ?? '');
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+    try {
+      await this.signIn.resetPassword(this.email, password);
+    } catch (err) {
+      const failed = readSignInError(err);
+      this.isLoading.set(false);
+      if (failed.reason === 'code-expired') {
+        // The code ran out before the password was saved: back to the code, to ask for another.
+        this.goToStep('verify');
+        this.otpError.set(failed.message);
+        return;
+      }
+      this.errorMessage.set(failed.message);
+      return;
+    }
+    this.toastService.success(this.t('member.auth.password_changed'));
+    this.authStore.clearList();
+    this.authActionPending = true;
+    this.authStore.login({ email: this.email, password });
   }
 
   /** One tap. A first-timer gets an account from the Google profile. */

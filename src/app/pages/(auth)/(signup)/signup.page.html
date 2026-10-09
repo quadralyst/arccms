@@ -188,13 +188,6 @@
                                     <a (click)="forgotPassword()" class="forgot-password cursor"
                                         style="cursor: pointer;">{{ 'member.auth.forgot_password' | transloco }}</a>
                                 </div>
-                                <!-- Test mode: the reset link that was not emailed (F22) -->
-                                @if (resetLink()) {
-                                <a class="test-code reset-link" [href]="resetLink()">
-                                    <span class="test-code-label">{{ 'member.auth.reset_link_label' | transloco }}</span>
-                                    <strong>{{ 'member.auth.reset_link_open' | transloco }}</strong>
-                                </a>
-                                }
                             </div>
                         </div>
                     </div>
@@ -297,7 +290,7 @@
                                 </button>
                                 }
                                 @if (testCodeInLogs()) {
-                                <p class="small text-muted text-center mt-2">{{ 'member.auth.test_code_in_logs' | transloco }}</p>
+                                <p class="small text-muted text-center mt-2">{{ (channel() === 'email' ? 'member.auth.test_code_in_email_logs' : 'member.auth.test_code_in_logs') | transloco }}</p>
                                 }
 
                                 @if (otpNotice()) {
@@ -490,6 +483,58 @@
 
                                 <button type="submit" class="btn btn-primary w-100 mt-4" [disabled]="working()">
                                     {{ 'member.auth.save_pin' | transloco }}
+                                    <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
+                                        role="status"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="copyright">
+                        &copy; {{ currentYear }} {{ brandName() }}
+                        @if (instanceLabel) {
+                        <div class="instance-label" [title]="'member.auth.instance_label_title' | transloco">{{ instanceLabel }}</div>
+                        }
+                    </div>
+                    }
+
+                    <!-- New Password Slide: after a reset code (Forgot password) -->
+                    @if (currentStep() === 'newPassword') {
+                    <div class="auth-form-container">
+                        <div class="auth-logo">
+                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                        </div>
+                    </div>
+                    <div class="request-container request-height">
+                        <div class="card request-card border-0">
+                            <div class="card-body customPadding">
+                                <h5 class="card-title login-title text-primary mb-3">{{ getStepTitle() }}</h5>
+                                <p class="login-subtitle">{{ getStepDescription() }}</p>
+
+                                <div class="mb-3 mt-4">
+                                    <label for="newPassword" class="form-label visually-hidden">{{ 'member.auth.new_password_label' | transloco }}</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                        <input [type]="showPassword() ? 'text' : 'password'" formControlName="password"
+                                            class="form-control p-2" id="newPassword"
+                                            [placeholder]="'member.auth.new_password_label' | transloco"
+                                            autocomplete="new-password"
+                                            [class.is-invalid]="isFieldInvalid('password')" [readOnly]="working()" />
+                                        <button type="button" class="btn btn-outline-secondary"
+                                            (click)="showPassword.set(!showPassword())">
+                                            <i class="fas" [ngClass]="showPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
+                                        </button>
+                                    </div>
+                                    @if (isFieldInvalid('password')) {
+                                    <div class="text-danger mt-2">{{ passwordErrorKey() | transloco }}</div>
+                                    }
+                                </div>
+
+                                @if (errorMessage()) {
+                                <div class="alert alert-danger mt-2">{{ errorMessage() }}</div>
+                                }
+
+                                <button type="submit" class="btn btn-primary w-100 mt-4" [disabled]="working()">
+                                    {{ 'member.auth.save_password' | transloco }}
                                     <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>

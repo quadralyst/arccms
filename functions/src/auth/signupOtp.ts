@@ -33,11 +33,19 @@ function generateCode(): string {
 }
 
 /**
- * What a code is for: `signup` (the sign-up page) or `link` (adding or changing
- * the email of the signed-in account, which records whose request it was).
- * Records written before this existed have no purpose and are sign-up codes.
+ * What a code is for: `signup` (the sign-up page), `link` (adding or changing
+ * the email of the signed-in account, which records whose request it was) or
+ * `reset` (Forgot password, passwordReset.ts). Records written before this
+ * existed have no purpose and are sign-up codes.
  */
-export type EmailOtpPurpose = 'signup' | 'link';
+export type EmailOtpPurpose = 'signup' | 'link' | 'reset';
+
+/** The template each purpose's email uses: a reset code has its own words. */
+export const EMAIL_OTP_TEMPLATE: Record<EmailOtpPurpose, string> = {
+  signup: 'signup_otp_email',
+  link: 'signup_otp_email',
+  reset: 'password_reset_otp_email',
+};
 
 /** How long a verified code stays usable for the step that follows it. */
 export const EMAIL_VERIFIED_WINDOW_MS = 30 * 60 * 1000;
@@ -47,13 +55,14 @@ function hashCode(code: string, emailHash: string): string {
   return createHash('sha256').update(`${emailHash}:${code}`).digest('hex');
 }
 
-async function loadSignupOtpTemplate(): Promise<(EmailTemplateData & { isActive?: boolean }) | null> {
+async function loadOtpTemplate(type: string): Promise<(EmailTemplateData & { isActive?: boolean }) | null> {
   const read = async () =>
-    db.collection('EmailTemplate').where('type', '==', 'signup_otp_email').limit(1).get();
+    db.collection('EmailTemplate').where('type', '==', type).limit(1).get();
 
   let snap = await read();
   if (snap.empty) {
-    // Lazily seed defaults so a first-ever signup isn't blocked by an unseeded template.
+    // Lazily seed defaults so a first-ever code isn't blocked by an unseeded template
+    // (ensureDefaultTemplates adds only the ones missing, so an older install gets the reset one here).
     await ensureDefaultTemplates();
     snap = await read();
   }
@@ -130,12 +139,13 @@ export async function issueEmailOtp(
   email: string,
   purpose: EmailOtpPurpose,
   options: { name?: string; uid?: string } = {},
-): Promise<{ sent: boolean; status: string; testMode?: boolean; testCode?: string; sameCode?: boolean }> {
+): Promise<{ sent: boolean; status: string; testMode?: boolean; testCode?: string; testCodeInLogs?: boolean; sameCode?: boolean }> {
   const emailHash = computeEmailHash(email);
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
   const now = Date.now();
 
-  const template = await loadSignupOtpTemplate();
+  const type = EMAIL_OTP_TEMPLATE[purpose];
+  const template = await loadOtpTemplate(type);
   if (!template) {
     throw refuse('failed-precondition', 'email-failed', "We couldn't send the email. Please try again later.");
   }
@@ -188,7 +198,7 @@ export async function issueEmailOtp(
     subject: template.subject,
     template: template.template,
     text: template.previewText || '',
-    type: 'signup_otp_email',
+    type,
     templateIsActive: template.isActive !== false,
     data: { otp: code },
     // The person is waiting for this code: send it now, not from the trigger.
@@ -209,8 +219,28 @@ export async function issueEmailOtp(
   // Simulated provider: no email goes out, the code is only in Email Logs. The
   // page shows a sign-up code, which only makes a new account, like the Test SMS
   // provider. A link code would let anyone add an address to their account:
-  // Email Logs only.
-  return { sent, status: result.status, testMode: true, ...(purpose === 'signup' ? { testCode: code } : {}), ...again };
+  // Email Logs only. A reset code would let anyone take over an account: on the
+  // page only when an admin turned that on (resetCodesShown), else Email Logs.
+  return { sent, status: result.status, testMode: true, ...(await testCodeFor(purpose, code)), ...again };
+}
+
+/** The code for the page to show while testing, or that it is only in Email Logs. */
+async function testCodeFor(purpose: EmailOtpPurpose, code: string): Promise<{ testCode?: string; testCodeInLogs?: boolean }> {
+  if (purpose === 'signup') return { testCode: code };
+  if (purpose === 'reset') return (await resetCodesShown()) ? { testCode: code } : { testCodeInLogs: true };
+  return {};
+}
+
+/**
+ * Whether the sign-in page may show a password reset code instead of emailing it:
+ * only while email goes to the Simulated provider, which sends nothing, and only
+ * when an admin turned on "Show password reset codes on screen" (Settings, Email,
+ * stored as `showResetLinks` since F22), which warns that anyone could then reset
+ * any account's password.
+ */
+export async function resetCodesShown(): Promise<boolean> {
+  const settings = (await db.collection('Settings').doc('email').get()).data();
+  return settings?.['isEnabled'] === true && settings?.['activeProvider'] === 'debug_log' && settings?.['showResetLinks'] === true;
 }
 
 /** Whether email goes to the Simulated provider, which records it in Email Logs and sends nothing. */
@@ -234,7 +264,8 @@ export const verifySignupOtp = onCall(async (request) => {
   if (!email || !code) {
     throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
   }
-  const purpose: EmailOtpPurpose = request.data?.purpose === 'link' ? 'link' : 'signup';
+  const asked = request.data?.purpose;
+  const purpose: EmailOtpPurpose = asked === 'link' || asked === 'reset' ? asked : 'signup';
   // A link code is for the signed-in account's own record (never a locked app account).
   if (purpose === 'link') await requireOwnRecord(request);
 
@@ -286,6 +317,25 @@ export async function consumeVerifiedSignupCode(email: string, ticket: unknown):
     const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
     if (Date.now() - verifiedAt > EMAIL_VERIFIED_WINDOW_MS) return false;
     tx.delete(ref);
+    return true;
+  });
+}
+
+/**
+ * Whether this address has a verified reset code and `ticket` is the one its
+ * verification handed out, as for a sign-up code: only the browser that entered
+ * the code can set the new password. `consume` uses it up.
+ */
+export async function verifiedResetCode(email: string, ticket: unknown, consume: boolean): Promise<boolean> {
+  const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(normalizeEmail(email)));
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data();
+    if (!snap.exists || !data || data['verified'] !== true || !matchesPurpose(data, 'reset', undefined)) return false;
+    if (!ticketMatches(ticket, data['ticketHash'])) return false;
+    const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
+    if (Date.now() - verifiedAt > EMAIL_VERIFIED_WINDOW_MS) return false;
+    if (consume) tx.delete(ref);
     return true;
   });
 }

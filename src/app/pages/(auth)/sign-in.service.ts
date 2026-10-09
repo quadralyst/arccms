@@ -203,12 +203,28 @@ export class SignInService {
     }
 
     /**
-     * Forgot password while testing (F22): the reset link to show, when an admin
-     * turned that on with the Simulated email provider. `shown: false` means
-     * Firebase should email it, as always.
+     * Forgot password: email this address a reset code (functions/src/auth/passwordReset.ts).
+     * `sent: false`: the email engine sent nothing (email off, no provider), and
+     * Firebase's own reset email is the way left. While testing with the Simulated
+     * provider the code comes back as `testCode` when an admin turned that on, and
+     * `testCodeInLogs` says it is only in Email Logs.
      */
-    requestPasswordResetLink(email: string): Promise<{ shown: boolean; link?: string }> {
-        return this.call('requestPasswordResetLink', { email });
+    requestPasswordReset(email: string): Promise<CodeReply & { testCode?: string; testCodeInLogs?: boolean }> {
+        return this.call('requestPasswordReset', { email });
+    }
+
+    /** Check the reset code sent to this address. */
+    async verifyResetCode(email: string, code: string): Promise<{ verified: boolean }> {
+        const reply = await this.call<{ verified: boolean; ticket?: string }>('verifySignupOtp', { email, code, purpose: 'reset' });
+        this.rememberTicket(`email:reset:${email.trim().toLowerCase()}`, reply);
+        return { verified: reply.verified };
+    }
+
+    /** The new password, with the ticket from checking the code. Signing in is the caller's next step. */
+    async resetPassword(email: string, password: string): Promise<void> {
+        const key = `email:reset:${email.trim().toLowerCase()}`;
+        await this.call('resetPassword', { email, password, ticket: this.tickets.get(key) });
+        this.tickets.delete(key);
     }
 
     /** Check the sign-up code sent to this address. */

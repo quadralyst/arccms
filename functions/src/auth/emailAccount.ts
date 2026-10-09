@@ -9,7 +9,6 @@
  * user in a shared sign-in pool), which gets "no access" at once.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db, owner } from '../init.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
@@ -29,7 +28,6 @@ import { consumeVerifiedSignupCode } from './signupOtp.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuseOtherSignIn } from './appAccountLock.js';
 import { refuse } from './refusal.js';
-import { arccmsOwnsAuthAccount } from '../users/authOwner.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -129,37 +127,4 @@ export const createAccountRecord = onCall(async (request) => {
     });
     await applyNewAccountClaims(uid, ref.id, settings.defaultRole);
     return { id: ref.id, created: true };
-});
-
-/**
- * Whether the sign-in page may show a password reset link instead of emailing it
- * (F22): only while email goes to the Simulated provider, which sends nothing, and
- * only when an admin turned on "Show password reset links on screen" (Settings,
- * Email), which warns that anyone could then reset any account's password.
- */
-export async function resetLinksShown(): Promise<boolean> {
-    const settings = (await db.collection('Settings').doc('email').get()).data();
-    return settings?.['isEnabled'] === true && settings?.['activeProvider'] === 'debug_log' && settings?.['showResetLinks'] === true;
-}
-
-/**
- * Forgot password, while testing (F22): the reset link, made here, for the page to
- * show, since Firebase's own reset email reaches neither the Simulated provider nor
- * Email Logs. `{ shown: false }` whenever the links are not shown (the switch is
- * off, or real email is on): the page then asks Firebase to email it, as always.
- * Only for an account this site owns: a host app's user in a shared sign-in pool
- * keeps their password.
- */
-export const requestPasswordResetLink = onCall(async (request) => {
-    if (isWarmUp(request)) return WARM;
-    await consumeRateLimit(`reset-link-ip-${callerKey(request)}`, 20, HOUR, 'Too many attempts. Please try again later.');
-    const email = normalizeEmailAddress(request.data?.email);
-    if (!(await resetLinksShown())) return { shown: false };
-    const record = await findUserByEmail(email);
-    if (!record || !arccmsOwnsAuthAccount(record.data)) {
-        throw refuse('not-found', 'no-email-account', 'No account uses this email.');
-    }
-    const link = await owner.generatePasswordResetLink(email);
-    logger.info('requestPasswordResetLink: a reset link was shown on the sign-in page (test mode).');
-    return { shown: true, link };
 });

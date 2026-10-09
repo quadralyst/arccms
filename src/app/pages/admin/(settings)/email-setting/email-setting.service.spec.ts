@@ -57,7 +57,7 @@ describe('EmailSettingService', () => {
         await expect(firstValueFrom(service.getEmailSettings())).resolves.toMatchObject({ activeProvider: 'smtp' });
     });
 
-    describe('reset links on screen (F22)', () => {
+    describe('reset codes on screen (F22)', () => {
         async function save(fields: Record<string, unknown>) {
             const fire = await import('@angular/fire/firestore');
             vi.mocked(fire.doc).mockImplementation(((_db: unknown, _c: string, id: string) => ({ id })) as never);
@@ -68,16 +68,15 @@ describe('EmailSettingService', () => {
             return { settings: written('email'), status: written('email_status') };
         }
 
-        it('are kept, and the sign-in page told, with the Simulated provider', async () => {
+        it('are kept with the Simulated provider, and never copied to the public status', async () => {
             const { settings, status } = await save({ activeProvider: 'debug_log', showResetLinks: true });
             expect(settings['showResetLinks']).toBe(true);
-            expect(status['showResetLinks']).toBe(true);
+            // The server reads Settings/email itself (resetCodesShown).
+            expect(status).not.toHaveProperty('showResetLinks');
         });
 
-        it('are turned off by leaving the Simulated provider, and with email off', async () => {
+        it('are turned off by leaving the Simulated provider', async () => {
             expect((await save({ activeProvider: 'resend', showResetLinks: true })).settings['showResetLinks']).toBe(false);
-            expect((await save({ activeProvider: 'resend', showResetLinks: true })).status['showResetLinks']).toBe(false);
-            expect((await save({ activeProvider: 'debug_log', showResetLinks: true, isEnabled: false })).status['showResetLinks']).toBe(false);
         });
 
         it('are off by default', () => {
