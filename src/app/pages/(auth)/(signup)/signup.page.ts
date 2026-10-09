@@ -33,8 +33,8 @@ import { sentenceParts } from '../../../core/i18n/sentence-parts';
 import type { TranslationKey } from '../../../core/i18n/translation-keys';
 import { AuthService } from '../auth.service';
 import { ConstantVariables } from '../../../../shared/constants/common-constants';
-import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
-import { phoneCountrySettings, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
+import { readStoredSignInSettings, UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
+import { IUserSettings, phoneCountrySettings, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
 import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { LegalNoticeComponent } from '../../../../shared/components/legal-notice/legal-notice.component';
@@ -63,6 +63,12 @@ export const routeMeta: RouteMeta = {
 
 type SignupStep = 'request' | 'login' | 'pin' | 'verify' | 'signup' | 'newPin' | 'disabled';
 type Channel = 'email' | 'phone';
+
+/**
+ * How long a held Continue waits for the sign-in settings before it says they
+ * could not be loaded. Firestore gives up sooner when it knows it is offline.
+ */
+export const SETTINGS_WAIT_MS = 20_000;
 
 @Component({
   selector: 'arc-signup',
@@ -104,7 +110,21 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   showPassword = signal(false);
   showConfirmPassword = signal(false);
   showPin = signal(false);
-  signupSettings: any;
+
+  /**
+   * The site's sign-in settings (Settings/users): null until they are in, from
+   * this browser's copy of the last ones read or from the server. Continue never
+   * acts before they are in (checkIdentifier).
+   */
+  readonly settings = signal<IUserSettings | null>(null);
+  /** The settings could not be read and this browser has no copy of them. */
+  readonly settingsFailed = signal(false);
+  /** Continue was tapped before the settings were in: it runs once they are. */
+  readonly continueHeld = signal(false);
+  /** Continue and the box are busy: a step is running, or a tap waits for the settings. */
+  readonly busy = computed(() => this.isLoading() || this.continueHeld());
+  /** The read under way; true once the settings are in, false when they could not be read. */
+  private settingsLoad: Promise<boolean> | null = null;
 
   /** Which sign-in methods the site offers besides email (Settings, Users). */
   phoneEnabled = signal(false);
@@ -123,6 +143,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   phoneCountries = signal<string[]>([DEFAULT_COUNTRY]);
   countriesListed = signal(false);
   phoneCountry = signal(DEFAULT_COUNTRY);
+  /** A country chosen on the chip by the person, which fresh settings must not undo. */
+  private chipPicked = false;
   /** The chip's calling code: how a number typed without one is read. */
   countryCode = computed(() => countryByIso(this.phoneCountry())?.code ?? '91');
   /** What is in the sign-in box, for showing the chip as it changes. */
@@ -223,6 +245,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       return;
     }
 
+    // The sign-in settings, from this browser's copy at once when it has one, and
+    // from the server alongside the onboarding check rather than after it.
+    const kept = readStoredSignInSettings();
+    if (kept) this.applySettings(kept);
+    void this.loadSettings();
+
     // Debug mode: bypass onboarding redirect for deployment verification
     if (new URLSearchParams(window.location.search).has('debug')) {
       return;
@@ -236,20 +264,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         return;
       }
 
-      // Check if signups are enabled, and which sign-in methods are on
-      this.userSettingService.getSettings().subscribe(settings => {
-        this.signupSettings = settings;
-        this.phoneEnabled.set(phoneSignInOn(settings));
-        const countries = phoneCountrySettings(settings);
-        this.phoneCountries.set(countries.countries);
-        this.countriesListed.set(countries.listed);
-        this.phoneCountry.set(startingCountry(countries.countries, countries.country, rememberedCountry()));
-        this.googleEnabled.set(settings.googleSignIn === true);
-        this.updateValidators(this.currentStep());
-        // Start the sign-in functions while the person types (each takes seconds to start).
-        this.signIn.warmUp({ phone: this.phoneEnabled(), google: this.googleEnabled() });
-      });
-
       // Listen for auth state changes on initial load
       this.authStore.initAuthStateListener().subscribe((user: any) => {
         if (user && user.isActive) {
@@ -257,6 +271,78 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         }
       });
     });
+  }
+
+  /**
+   * Read the settings from the server. Resolves true once they are in (or this
+   * browser's copy already is), false when they could not be read and there is no
+   * copy, or the read took longer than SETTINGS_WAIT_MS.
+   */
+  private loadSettings(): Promise<boolean> {
+    if (this.settingsLoad) return this.settingsLoad;
+    this.settingsFailed.set(false);
+    const read = this.userSettingService.readSettings().then((settings) => {
+      this.applySettings(settings);
+      return true;
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('The sign-in settings took too long')), SETTINGS_WAIT_MS);
+    });
+    const load = Promise.race([read, late])
+      .catch((error) => {
+        console.error('Could not load the sign-in settings:', error);
+        if (this.settings()) return true;
+        this.settingsFailed.set(true);
+        return false;
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        // A failed read is tried again on the next Continue.
+        if (this.settingsLoad === load && !this.settings()) this.settingsLoad = null;
+      });
+    // A read that answers after the wait gave up still puts the settings in.
+    read.catch(() => undefined);
+    this.settingsLoad = load;
+    return load;
+  }
+
+  /** Put the settings in: which sign-in methods are on, and the countries a number can be from. */
+  private applySettings(settings: IUserSettings): void {
+    this.settings.set(settings);
+    this.settingsFailed.set(false);
+    this.phoneEnabled.set(phoneSignInOn(settings));
+    const countries = phoneCountrySettings(settings);
+    this.phoneCountries.set(countries.countries);
+    this.countriesListed.set(countries.listed);
+    // The chip keeps a country the person already picked, if the site still takes it.
+    const picked = this.phoneCountry();
+    this.phoneCountry.set(
+      this.chipPicked && countries.countries.includes(picked)
+        ? picked
+        : startingCountry(countries.countries, countries.country, rememberedCountry()),
+    );
+    this.googleEnabled.set(settings.googleSignIn === true);
+    this.updateValidators(this.currentStep());
+    // Start the sign-in functions while the person types (each takes seconds to start).
+    this.signIn.warmUp({ phone: this.phoneEnabled(), google: this.googleEnabled() });
+  }
+
+  /**
+   * Wait for the settings before acting on Continue. While they load, Continue is
+   * busy and the tap is held; when they cannot be loaded, the page says so.
+   */
+  private async settingsIn(): Promise<boolean> {
+    if (this.settings()) return true;
+    this.errorMessage.set('');
+    this.continueHeld.set(true);
+    try {
+      const ready = await this.loadSettings();
+      if (!ready) this.errorMessage.set(this.t('member.auth.settings_failed'));
+      return ready;
+    } finally {
+      this.continueHeld.set(false);
+    }
   }
 
   private initForm(): void {
@@ -284,6 +370,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
    * The error names what is wrong ("too short", "starts with 6 to 9"), not just "invalid".
    */
   private identifierValidator = (control: AbstractControl): ValidationErrors | null => {
+    // Before the settings are in, whether a number is allowed is not known yet:
+    // Continue waits for them and checks the box then (checkIdentifier).
+    if (!this.settings()) return Validators.required(control) ? { identifier: 'empty' } : null;
     const allowed = this.countriesListed() ? codesOf(this.phoneCountries()) : undefined;
     const problem = identifierProblem(this.beside(control.value), this.phoneEnabled(), this.countryCode(), allowed);
     return problem ? { identifier: problem } : null;
@@ -301,6 +390,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   /** A country chosen from the chip: read the number again and go back to typing it. */
   countryChosen(): void {
+    this.chipPicked = true;
     this.registrationForm.get('identifier')?.updateValueAndValidity();
     this.cleanIdentifier();
     if (isPlatformBrowser(this.platformId)) document.getElementById('identifier')?.focus();
@@ -464,7 +554,11 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   /** Step 1: decide between email and phone, and between signing in and signing up. */
   async checkIdentifier(): Promise<void> {
+    if (this.busy()) return;
+    // Whether a number is allowed, and from where, is in the settings.
+    if (!(await this.settingsIn())) return;
     const control = this.registrationForm.get('identifier');
+    control?.updateValueAndValidity();
     if (control?.invalid) {
       control.markAsTouched();
       return;
@@ -496,7 +590,13 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       } else if (status === 'no-access') {
         this.errorMessage.set(this.t(NO_ACCESS_KEY));
       } else {
-        if (!this.signupSettings.isSignupEnabled) {
+        const settings = this.settings();
+        if (!settings) {
+          // Not reached through Continue, which waits for them (settingsIn).
+          this.errorMessage.set(this.t('member.auth.settings_failed'));
+          return;
+        }
+        if (!settings.isSignupEnabled) {
           this.goToStep('disabled');
           return;
         }

@@ -53,7 +53,7 @@
                                         <input type="text" formControlName="identifier" class="form-control" id="identifier"
                                             autocomplete="username" autocapitalize="off" spellcheck="false"
                                             [placeholder]="(!phoneEnabled() ? 'member.auth.identifier_placeholder_email' : countryCode() === '91' ? 'member.auth.identifier_placeholder_phone' : 'member.auth.identifier_placeholder_phone_any') | transloco"
-                                            [readonly]="isLoading()" (paste)="cleanIdentifier()" (blur)="identifierBlur($event)"
+                                            [readonly]="busy()" (paste)="cleanIdentifier()" (blur)="identifierBlur($event)"
                                             (input)="identifierInput($event)"
                                             [class.is-invalid]="isFieldInvalid('identifier')" />
 
@@ -70,9 +70,10 @@
                                 }
 
                                 <div class="mb-3">
-                                    <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
+                                    <!-- Busy while a tap waits for the sign-in settings, then it goes on by itself -->
+                                    <button type="submit" class="btn btn-primary w-100" [disabled]="busy()" [attr.aria-busy]="busy()">
                                         {{ 'member.auth.continue' | transloco }}
-                                        <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                        <span [hidden]="!busy()" class="spinner-border spinner-border-sm ms-2"
                                             role="status"></span>
                                     </button>
                                 </div>

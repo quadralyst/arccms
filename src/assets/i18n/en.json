@@ -1879,6 +1879,7 @@
       "existing_account_password": "You already have an account with this email. Enter your password to sign in.",
       "existing_account_google": "You already have an account with this email. Enter your password once to connect Google.",
       "check_email_failed": "We couldn't check that email. Please try again.",
+      "settings_failed": "We couldn't load the sign-in options. Check your connection and try again.",
       "code_sent_sms": "Code sent by SMS",
       "code_sent_email": "Verification code sent to your email",
       "send_code_failed": "Could not send verification code. Please try again.",

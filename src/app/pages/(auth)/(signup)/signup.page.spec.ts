@@ -524,6 +524,8 @@ describe('SignupComponent', () => {
             const { c } = ctx(['IN', 'GB'], 'GB', true, '07700 900123');
             c['checkPhone'] = vi.fn();
             c['checkEmail'] = vi.fn();
+            c['busy'] = () => false;
+            c['settingsIn'] = () => Promise.resolve(true);
             c['channel'] = { set: vi.fn() };
             await proto['checkIdentifier'].call(c);
             expect(c['checkPhone']).toHaveBeenCalledWith('+447700900123');
@@ -798,7 +800,7 @@ describe('SignupComponent', () => {
                 errorMessage: { set: vi.fn() },
                 otpVerified: true, // should be reset to false by checkEmail
                 emailStatus: vi.fn().mockResolvedValue(status ?? (emailExists ? 'registered' : 'new')),
-                signupSettings: { isSignupEnabled: true },
+                settings: () => ({ isSignupEnabled: true, defaultRole: 'user' }),
                 shouldVerifySignup: vi.fn().mockResolvedValue(mustVerify),
                 sendOtp: vi.fn().mockResolvedValue(undefined),
                 goToStep: vi.fn(),

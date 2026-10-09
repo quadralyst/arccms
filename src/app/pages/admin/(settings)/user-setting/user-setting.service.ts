@@ -7,6 +7,36 @@ import { DEFAULT_USER_SETTINGS, IUserSettings } from './user-setting.model';
 const SETTINGS_COLLECTION = 'Settings';
 const USER_SETTINGS_DOC = 'users';
 
+/**
+ * This browser's copy of the sign-in settings last read, so the sign-in page can
+ * start from them on a later visit instead of waiting for the server.
+ */
+export const SIGN_IN_SETTINGS_CACHE_KEY = 'arc-sign-in-settings';
+
+/** The settings this browser last read, or null when it has none (or storage is off). */
+export function readStoredSignInSettings(): IUserSettings | null {
+    try {
+        const stored = typeof localStorage === 'undefined' ? null : localStorage.getItem(SIGN_IN_SETTINGS_CACHE_KEY);
+        const data = stored ? JSON.parse(stored) : null;
+        if (!data || typeof data !== 'object' || typeof data.isSignupEnabled !== 'boolean') return null;
+        return { ...DEFAULT_USER_SETTINGS, ...data };
+    } catch {
+        return null;
+    }
+}
+
+/** Keep what the sign-in page reads; the dates stay behind. */
+function storeSignInSettings(settings: IUserSettings): void {
+    try {
+        const { createdAt, updatedAt, ...kept } = settings;
+        void createdAt;
+        void updatedAt;
+        localStorage.setItem(SIGN_IN_SETTINGS_CACHE_KEY, JSON.stringify(kept));
+    } catch {
+        // Storage off: the next visit reads the server again.
+    }
+}
+
 @Injectable({
     providedIn: 'root',
 })
@@ -66,6 +96,21 @@ export class UserSettingService implements OnDestroy {
     }
 
     /**
+     * Read the settings once, for the sign-in page. Unlike getSettings() a failed
+     * read is an error, not the defaults, so the page can say it could not load
+     * them rather than act on settings the site may not have. A missing document
+     * is the defaults. Keeps a copy in this browser (readStoredSignInSettings).
+     */
+    async readSettings(): Promise<IUserSettings> {
+        const snapshot = await getDoc(doc(this.firestore, SETTINGS_COLLECTION, USER_SETTINGS_DOC));
+        const settings: IUserSettings = snapshot.exists()
+            ? { ...DEFAULT_USER_SETTINGS, ...(snapshot.data() as IUserSettings), id: snapshot.id }
+            : { ...DEFAULT_USER_SETTINGS };
+        storeSignInSettings(settings);
+        return settings;
+    }
+
+    /**
      * Fetch user settings from Firestore (one-time fetch)
      */
     getSettings(): Observable<IUserSettings> {
@@ -105,6 +150,7 @@ export class UserSettingService implements OnDestroy {
         }
 
         await setDoc(docRef, dataToSave, { merge: true });
+        storeSignInSettings(settings);
     }
 
     /**
