@@ -30,6 +30,31 @@ import {
 export const SETTINGS_COLLECTION = 'Settings';
 export const LOCALIZATION_DOC = 'localization';
 
+/**
+ * This browser's copy of the list last read, so the language routes can answer
+ * at once on a later visit instead of waiting for the server
+ * (src/app/guards/language.guard.ts).
+ */
+export const LOCALIZATION_CACHE_KEY = 'arc-site-languages';
+
+/** The list this browser last read, or null when it has none (or storage is off). */
+export function readStoredLocalization(): ILocalizationSettings | null {
+    try {
+        const stored = typeof localStorage === 'undefined' ? null : localStorage.getItem(LOCALIZATION_CACHE_KEY);
+        return stored ? normalizeLocalizationSettings(JSON.parse(stored)) : null;
+    } catch {
+        return null;
+    }
+}
+
+function storeLocalization(settings: ILocalizationSettings): void {
+    try {
+        localStorage.setItem(LOCALIZATION_CACHE_KEY, JSON.stringify(settings));
+    } catch {
+        // Storage off: the next visit reads the server again.
+    }
+}
+
 @Injectable({ providedIn: 'root' })
 export class LocalizationService {
     private injector = inject(Injector);
@@ -83,6 +108,14 @@ export class LocalizationService {
     readonly isMultilingual = computed(() => this.settingsSignal().enabledLanguages.length > 1);
 
     /**
+     * The list as far as this browser knows it without waiting: the one read on
+     * this visit, else the copy kept from the last one, else null.
+     */
+    known(): ILocalizationSettings | null {
+        return this.loadedSignal() ? this.settingsSignal() : readStoredLocalization();
+    }
+
+    /**
      * Loads the settings once and caches them. Subsequent calls return the
      * cached value; pass `force: true` after a save to refresh.
      */
@@ -105,13 +138,15 @@ export class LocalizationService {
             );
             const settings = normalizeLocalizationSettings(snap.exists() ? snap.data() : null);
             this.settingsSignal.set(settings);
+            storeLocalization(settings);
             return settings;
         } catch (error) {
-            // A missing doc or a denied read must never break page rendering —
-            // a single-language site is the correct fallback.
+            // A missing doc or a denied read must never break page rendering:
+            // the list this browser last saw, else a single-language site.
             console.error('Error loading localization settings:', error);
-            this.settingsSignal.set(DEFAULT_LOCALIZATION_SETTINGS);
-            return DEFAULT_LOCALIZATION_SETTINGS;
+            const fallback = readStoredLocalization() ?? DEFAULT_LOCALIZATION_SETTINGS;
+            this.settingsSignal.set(fallback);
+            return fallback;
         } finally {
             this.loadedSignal.set(true);
         }
@@ -125,6 +160,7 @@ export class LocalizationService {
         );
         await setDoc(docRef, normalized, { merge: true });
         this.settingsSignal.set(normalized);
+        storeLocalization(normalized);
         this.loadedSignal.set(true);
     }
 

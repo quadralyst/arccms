@@ -14,8 +14,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { LocalizationService } from '../../../../core/services/localization.service';
+import { claimedFirstSegments } from '../../../../guards/language.guard';
 import {
     ILanguage,
     ILocalizationSettings,
@@ -236,6 +238,8 @@ import {
 export class LocalizationSettingsPage implements OnInit {
     private localization = inject(LocalizationService);
     private transloco = inject(TranslocoService);
+    /** Addresses a page already uses, such as /pos: they cannot also be a language's prefix. */
+    private claimed = claimedFirstSegments(inject(Router).config);
 
     /** Working copy — only written to Firestore on Save. */
     settings = signal<ILocalizationSettings>(DEFAULT_LOCALIZATION_SETTINGS);
@@ -252,10 +256,10 @@ export class LocalizationSettingsPage implements OnInit {
     defaultLanguage = computed(() => this.settings().defaultLanguage);
     enabledLanguages = computed(() => this.settings().enabledLanguages);
 
-    /** Catalogue entries not already enabled. */
+    /** Catalogue entries not already enabled, and not an address a page already uses. */
     availableToAdd = computed(() => {
         const enabled = new Set(this.enabledLanguages().map((l) => l.code));
-        return SUPPORTED_LANGUAGES.filter((l) => !enabled.has(l.code));
+        return SUPPORTED_LANGUAGES.filter((l) => !enabled.has(l.code) && !this.claimed.has(l.code));
     });
 
     canAdd = computed(() => {
@@ -303,6 +307,11 @@ export class LocalizationSettingsPage implements OnInit {
 
         if (!language) {
             this.addError.set(this.transloco.translate('admin.settings.localization.unresolved_language'));
+            return;
+        }
+        // /{code} would be the language's home page, but a page already has that address.
+        if (this.claimed.has(language.code)) {
+            this.addError.set(this.transloco.translate('admin.settings.localization.code_taken', { code: language.code }));
             return;
         }
         if (this.enabledLanguages().some((l) => l.code === language!.code)) {

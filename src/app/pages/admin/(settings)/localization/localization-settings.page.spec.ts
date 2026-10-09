@@ -2,6 +2,7 @@
  * Tests for LocalizationSettingsPage
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LocalizationSettingsPage } from './localization-settings.page';
 import { LocalizationService } from '../../../../core/services/localization.service';
@@ -37,7 +38,11 @@ describe('LocalizationSettingsPage', () => {
 
         await TestBed.configureTestingModule({
             imports: [LocalizationSettingsPage],
-            providers: [{ provide: LocalizationService, useValue: localizationMock }],
+            providers: [
+                { provide: LocalizationService, useValue: localizationMock },
+                // Addresses pages already use: an app's /pos, and /de/... for a page in German.
+                provideRouter([{ path: 'pos', children: [] }, { path: 'de/impressum', children: [] }]),
+            ],
         }).compileComponents();
 
         fixture = TestBed.createComponent(LocalizationSettingsPage);
@@ -75,6 +80,20 @@ describe('LocalizationSettingsPage', () => {
 
         expect(component.enabledLanguages()).toHaveLength(2);
         expect(component.addError()).toContain('already enabled');
+    });
+
+    it('does not offer a language whose code is an address a page uses', () => {
+        expect(component.availableToAdd().map((l) => l.code)).not.toContain('de');
+    });
+
+    it('refuses a custom code that is an address a page uses', () => {
+        component.languageToAdd.set('__custom__');
+        component.customCode.set('pos');
+        component.customLabel.set('Point of sale');
+        component.addLanguage();
+
+        expect(component.enabledLanguages()).toHaveLength(2);
+        expect(component.addError()).toContain('/pos is already a page');
     });
 
     it('adds a custom language code', () => {

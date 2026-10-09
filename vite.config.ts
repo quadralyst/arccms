@@ -12,6 +12,7 @@ import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
 import { CUSTOM_BRAND } from './src/custom/brand';
 import { appTitle } from './scripts/vite-app-title';
+import { languageRouteCheck } from './scripts/vite-language-routes';
 import { oneBuildAtATime } from './scripts/vite-build-order';
 import { arcSite } from './scripts/vite-arc-site';
 import { ENVIRONMENT_FILE, defaultEnvironment, environmentFor, environmentSwap, projectLine } from './scripts/arc-environment.mjs';
@@ -168,6 +169,8 @@ export default defineConfig(({ mode }) => {
       appleLinks(),
       // The tab's text before the app starts: the app's name, never Arc CMS's (withAppTitle).
       appTitle(CUSTOM_BRAND.name),
+      // Warns when an app page's address is also a language code, such as /de (docs/features/languages.html).
+      languageRouteCheck(),
       ...(pwa.enabled ? [storedCode.recorder] : []),
       ...clientOnly(VitePWA({
         disable: !pwa.enabled,
