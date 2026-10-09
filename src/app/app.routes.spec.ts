@@ -6,6 +6,8 @@ import { describe, it, expect } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { routes } from './app.routes';
+import { claimedFirstSegments } from './guards/language.guard';
+import { SUPPORTED_LANGUAGES } from '../shared/constants/languages';
 
 describe('App Routes', () => {
     describe('Routes Array', () => {
@@ -51,6 +53,14 @@ describe('App Routes', () => {
                 const hasChildren = route.children !== undefined;
                 expect(hasComponent || hasLoadComponent || hasRedirect || hasChildren).toBe(true);
             });
+        });
+    });
+
+    describe('Languages', () => {
+        it("uses no language code as a core page's first segment, so every catalogue language can have /{code}/", () => {
+            // An address a route claims is never a language prefix (languageRouteGuard, F18).
+            const claimed = claimedFirstSegments(routes);
+            expect(SUPPORTED_LANGUAGES.filter((language) => claimed.has(language.code))).toEqual([]);
         });
     });
 

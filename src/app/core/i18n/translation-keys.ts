@@ -1107,6 +1107,7 @@ export type TranslationKey =
     | 'admin.settings.localization.add_a_language'
     | 'admin.settings.localization.already_enabled'
     | 'admin.settings.localization.cannot_remove_default'
+    | 'admin.settings.localization.code_taken'
     | 'admin.settings.localization.col_code'
     | 'admin.settings.localization.col_default'
     | 'admin.settings.localization.col_language'
@@ -2981,6 +2982,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.localization.add_a_language',
     'admin.settings.localization.already_enabled',
     'admin.settings.localization.cannot_remove_default',
+    'admin.settings.localization.code_taken',
     'admin.settings.localization.col_code',
     'admin.settings.localization.col_default',
     'admin.settings.localization.col_language',

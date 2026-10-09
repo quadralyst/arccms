@@ -223,6 +223,7 @@
         "invalid_code": "Enter a valid language code, e.g. \"sw\" or \"pt-br\".",
         "unresolved_language": "Could not resolve that language.",
         "already_enabled": "{{ language }} is already enabled.",
+        "code_taken": "/{{ code }} is already a page on this site, so it cannot be a language code.",
         "saved": "Languages saved successfully",
         "save_failed": "Could not save languages. Please try again.",
         "rtl_badge": "RTL"
