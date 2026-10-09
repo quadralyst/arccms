@@ -10,7 +10,7 @@ import { Auth, onAuthStateChanged, User } from '@angular/fire/auth';
 import { rememberSignedIn } from '../../core/site/signed-in-hint';
 import { Router } from '@angular/router';
 import { patchState, signalStore, withHooks, withMethods, withState } from '@ngrx/signals';
-import { catchError, finalize, firstValueFrom, from, map, Observable, of, Subscription, switchMap, tap, throwError } from 'rxjs';
+import { BehaviorSubject, catchError, distinctUntilChanged, filter, finalize, firstValueFrom, from, map, Observable, of, Subscription, switchMap, tap, throwError } from 'rxjs';
 import { ConstantVariables } from '../../../shared/constants';
 import { OmitCommonFields } from '../../../shared/models/base-model';
 import { QueryParams, WhereCondition } from '../../../shared/models';
@@ -60,6 +60,14 @@ export async function createRecordWithRetry(
     }
     return { outcome: 'unknown', error: last };
 }
+
+/** How long a cached "no record" or "inactive" waits for the server before it counts (offline). */
+export const CACHED_VERDICT_WAIT_MS = 10_000;
+
+/** The shared record: `seq` counts sign-in changes, `settled` once the current one's record is known. */
+type SharedRecord = { seq: number; settled: boolean; record: IAuth | null };
+/** One answer of the live read: the record, and whether it is the device's copy. */
+type RecordAnswer = { data: (IAuth & { isOnBoardingComplete?: boolean }) | null; fromCache: boolean };
 
 type AuthState = {
     currentUser: IAuth | null;
@@ -125,7 +133,7 @@ export const AuthState = signalStore(
             // Looked up when first needed, so everything that only reads the auth
             // state does not also need Firebase Functions.
             const signIn = () => injector.get(SignInService);
-            return {
+            const methods = {
                 clearCurrent() {
                     patchState(store, { currentUser: null, isLoading: false, isSuccess: true, error: '' });
                 },
@@ -421,100 +429,196 @@ export const AuthState = signalStore(
                         isAdmin,
                         isOnBoardingComplete: userData?.isOnBoardingComplete || false,
                     });
+                    // Whoever waits on recordReady (a sign-up whose record the live read has
+                    // not seen yet) has it now.
+                    if (auth.currentUser?.uid === user.uid) settle(shared.value.seq, currentUser);
                     return currentUser;
                 },
 
-                initAuthStateListener(): Observable<User | null> {
-                    return new Observable<User | null>((observer) => {
-                        const unsubscribe = runInInjectionContext(injector, () => onAuthStateChanged(
-                            auth,
-                            (user) => {
-                                // For the published pages' signed-in hint (arc-site.js).
-                                rememberSignedIn(!!user);
-                                if (user) {
-                                    if (user && user.uid) {
-                                        authService.getCurrentUserByUid(user.uid).subscribe(async (userData: any) => {
-                                            if (userData) {
-                                                const currentUser = {
-                                                    ...userData,
-                                                    isAdmin: userData.role === constant.fixedRoles[0].userType || false,
-                                                };
-                                                if (!userData.isActive) {
-                                                    this.logout().subscribe(() => {
-                                                        router.navigate(['/signup']);
-                                                    });
-                                                    return;
-                                                }
-
-                                                // The `arccms_uid` claim (the record id) must be in the token
-                                                // before sign-in completes: apps and rules rely on it
-                                                // (docs/app/account-contract.html). Accounts made before it existed
-                                                // get it here, once. Non-fatal: rules simply deny without it.
-                                                try {
-                                                    await signIn().ensureRecordClaim(userData.id, userData.role);
-                                                } catch (err) {
-                                                    console.warn('Could not refresh account claims (non-fatal):', err);
-                                                }
-
-                                                // Force-refresh the ID token so Firestore security rules
-                                                // see the latest custom claims (e.g. role: 'admin').
-                                                // Without this, the token issued at login may not yet
-                                                // contain claims set by the onUserRoleChange Cloud Function.
-                                                if (currentUser.isAdmin) {
-                                                    try {
-                                                        await user.getIdToken(true);
-                                                    } catch (err) {
-                                                        console.warn('Token refresh failed (non-fatal):', err);
-                                                    }
-                                                }
-
-                                                patchState(store, {
-                                                    currentUser,
-                                                    isLoading: false,
-                                                    error: '',
-                                                    isSuccess: userData.role !== constant.USER ? true : false,
-                                                    isAuthenticated: userData.role !== constant.USER ? true : false,
-                                                    isAdmin: currentUser.isAdmin,
-                                                    isOnBoardingComplete: userData?.isOnBoardingComplete || false,
-                                                });
-                                                observer.next(currentUser);
-                                            } else {
-                                                // Firebase has an authenticated user but no matching Firestore doc —
-                                                // treat as unauthenticated so guards don't hang waiting for a value.
-                                                patchState(store, { currentUser: null, isAuthenticated: false });
-                                                observer.next(null);
-                                            }
-                                        });
-                                    }
-                                } else {
-                                    patchState(store, { currentUser: null, isAuthenticated: false });
-                                    observer.next(null);
-                                }
-                            },
-                            (error) => {
-                                console.error('Auth state change error:', error);
-                                patchState(store, { error: error.message });
-                                observer.error(error);
-                            },
-                        ));
-
-                        return unsubscribe;
-                    });
+                /**
+                 * The signed-in person's record, once known: null for nobody signed in, and for
+                 * a Firebase sign-in with no matching record (it counts as signed out). One
+                 * live read per sign-in, shared by every guard and page that asks, and the
+                 * device's copy is used when it has one, so a later visit opens without
+                 * waiting for the server (docs/app/pages-and-routes.html).
+                 */
+                recordReady(): Promise<IAuth | null> {
+                    startRecord();
+                    return firstValueFrom(shared.pipe(filter((state) => state.settled), map((state) => state.record)));
                 },
+
+                /**
+                 * The record as each sign-in or sign-out settles (recordReady), for callers that
+                 * follow the person over time. Backed by the one shared read: subscribing
+                 * starts no listener or query of its own.
+                 */
+                initAuthStateListener(): Observable<IAuth | null> {
+                    startRecord();
+                    return shared.pipe(
+                        filter((state) => state.settled),
+                        distinctUntilChanged((a, b) => a.seq === b.seq),
+                        map((state) => state.record),
+                    );
+                },
+
+                _startRecord: () => startRecord(),
+                _stopRecord: () => stopRecord(),
             };
+
+            // --- The shared record (recordReady) ---------------------------------------
+            //
+            // One auth listener; on each sign-in, one live read of the person's record. The
+            // device's copy settles the record at once when it shows an active account; a
+            // cached "no record" or "inactive" waits for the server's word (or, with no
+            // server, CACHED_VERDICT_WAIT_MS), since signing someone out on an old copy
+            // would be wrong. The server's copy follows and keeps the store up to date.
+
+            const shared = new BehaviorSubject<SharedRecord>({ seq: 0, settled: false, record: null });
+            let stopAuth: (() => void) | undefined;
+            let recordRead: Subscription | undefined;
+            let verdictTimer: ReturnType<typeof setTimeout> | undefined;
+            let claims: { key: string; done: Promise<void> } | undefined;
+            let signingOut = false;
+
+            const settle = (seq: number, record: IAuth | null) => {
+                if (shared.value.seq === seq) shared.next({ seq, settled: true, record });
+            };
+            const noRecord = (seq: number) => {
+                if (shared.value.seq !== seq) return;
+                patchState(store, { currentUser: null, isAuthenticated: false });
+                settle(seq, null);
+            };
+
+            /**
+             * Once per sign-in (and again only if the record or its role changes). The
+             * `arccms_uid` claim (the record id) must be in the token before sign-in
+             * completes: apps and rules rely on it (docs/app/account-contract.html).
+             * Accounts made before it existed get it here. Non-fatal: rules simply deny
+             * without it. An admin's token is also refreshed, in the background: the
+             * claim check above already refreshed it when its claims were out of date.
+             */
+            const claimsOnce = (user: User, recordId: string, role: string | undefined, isAdmin: boolean) => {
+                const key = `${user.uid}|${recordId}|${role ?? ''}`;
+                if (claims?.key !== key) {
+                    claims = {
+                        key,
+                        done: (async () => {
+                            let refreshed = false;
+                            try {
+                                refreshed = await signIn().ensureRecordClaim(recordId, role);
+                            } catch (err) {
+                                console.warn('Could not refresh account claims (non-fatal):', err);
+                            }
+                            if (isAdmin && !refreshed) {
+                                user.getIdToken(true).catch((err) => console.warn('Token refresh failed (non-fatal):', err));
+                            }
+                        })(),
+                    };
+                }
+                return claims.done;
+            };
+
+            const readRecord = (seq: number, user: User) => {
+                let timedOut = false;
+                let last: RecordAnswer | undefined;
+                let answers = 0;
+                let applied = 0;
+                const onAnswer = async (answer: RecordAnswer) => {
+                    if (shared.value.seq !== seq) return;
+                    last = answer;
+                    const n = ++answers;
+                    const { data, fromCache } = answer;
+                    const trusted = !fromCache || timedOut;
+                    if (!data) {
+                        // Firebase has a sign-in but no matching record: signed out, as before.
+                        if (trusted) {
+                            applied = n;
+                            noRecord(seq);
+                        }
+                        return;
+                    }
+                    if (!data.isActive) {
+                        if (trusted && !signingOut) {
+                            signingOut = true;
+                            methods.logout().subscribe({ next: () => void router.navigate(['/signup']), error: () => undefined });
+                        }
+                        return;
+                    }
+                    const isAdmin = data.role === constant.fixedRoles[0].userType || false;
+                    const currentUser = { ...data, isAdmin } as IAuth;
+                    await claimsOnce(user, data.id, data.role, isAdmin);
+                    // A later answer may have landed while the claims were checked.
+                    if (shared.value.seq !== seq || n < applied) return;
+                    applied = n;
+                    const fields = {
+                        currentUser,
+                        isAuthenticated: data.role !== constant.USER,
+                        isAdmin,
+                        isOnBoardingComplete: data.isOnBoardingComplete || false,
+                    };
+                    if (!shared.value.settled) {
+                        patchState(store, { ...fields, isLoading: false, error: '', isSuccess: data.role !== constant.USER });
+                    } else if (JSON.stringify(currentUser) !== JSON.stringify(store.currentUser())) {
+                        // A later copy (the server's, or a change since): the record only, so a
+                        // page's own isLoading, error or isSuccess is left alone, and an
+                        // unchanged copy changes nothing.
+                        patchState(store, fields);
+                    }
+                    settle(seq, currentUser);
+                };
+                verdictTimer = setTimeout(() => {
+                    timedOut = true;
+                    if (last && !shared.value.settled) void onAnswer(last);
+                }, CACHED_VERDICT_WAIT_MS);
+                recordRead = authService.watchCurrentUserByUid(user.uid).subscribe({
+                    next: (answer) => void onAnswer(answer as RecordAnswer),
+                    error: (err) => {
+                        // As a failed read always did: no record, so signed out.
+                        console.error('Could not read the account record:', err);
+                        noRecord(seq);
+                    },
+                });
+            };
+
+            const onAuthChange = (user: User | null) => {
+                // For the published pages' signed-in hint (arc-site.js).
+                rememberSignedIn(!!user);
+                recordRead?.unsubscribe();
+                recordRead = undefined;
+                clearTimeout(verdictTimer);
+                claims = undefined;
+                signingOut = false;
+                const seq = shared.value.seq + 1;
+                shared.next({ seq, settled: false, record: null });
+                if (user?.uid) readRecord(seq, user);
+                else noRecord(seq);
+            };
+
+            function startRecord() {
+                if (stopAuth) return;
+                stopAuth = runInInjectionContext(injector, () => onAuthStateChanged(auth, onAuthChange, (error) => {
+                    console.error('Auth state change error:', error);
+                    patchState(store, { error: error.message });
+                    noRecord(shared.value.seq);
+                }));
+            }
+
+            function stopRecord() {
+                stopAuth?.();
+                stopAuth = undefined;
+                recordRead?.unsubscribe();
+                recordRead = undefined;
+                clearTimeout(verdictTimer);
+            }
+
+            return methods;
         },
     ),
 
-    withHooks((store) => {
-        // Ended in onDestroy: what onInit returns is ignored. On the server each
-        // render has its own store but shares one Auth, so a listener left behind
-        // kept every rendered page (and, in dev, every old dev server) in memory.
-        let listener: Subscription | undefined;
-        return {
-            onInit: () => {
-                listener = store.initAuthStateListener().subscribe();
-            },
-            onDestroy: () => listener?.unsubscribe(),
-        };
-    }),
+    withHooks((store) => ({
+        onInit: () => store._startRecord(),
+        // On the server each render has its own store but shares one Auth, so a listener
+        // left behind kept every rendered page (and, in dev, every old dev server) in memory.
+        onDestroy: () => store._stopRecord(),
+    })),
 );

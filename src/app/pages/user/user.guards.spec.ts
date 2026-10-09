@@ -12,7 +12,7 @@ const appAccounts = vi.hoisted(() => ({ choice: {} as { memberPages?: boolean } 
 vi.mock('../../../custom/app-accounts', () => ({ CUSTOM_APP_ACCOUNTS: appAccounts.choice }));
 
 describe('user route guards', () => {
-    const mockAuth = { initAuthStateListener: vi.fn(), currentUser: vi.fn() };
+    const mockAuth = { recordReady: vi.fn() };
     const mockEntitlements = { load: vi.fn() };
     const mockRouter = {
         createUrlTree: vi.fn((commands: unknown[], extras?: unknown) => ({ urlTree: commands, extras })),
@@ -40,13 +40,13 @@ describe('user route guards', () => {
 
     describe('userGuard', () => {
         it('allows a signed-in user', async () => {
-            mockAuth.initAuthStateListener.mockReturnValue(of({ uid: 'u1' }));
+            mockAuth.recordReady.mockResolvedValue({ uid: 'u1' });
             const result = await firstValue(run(userGuard));
             expect(result).toBe(true);
         });
 
         it('redirects an anonymous visitor to /signup', async () => {
-            mockAuth.initAuthStateListener.mockReturnValue(of(null));
+            mockAuth.recordReady.mockResolvedValue(null);
             const result = await firstValue(run(userGuard));
             expect(mockRouter.createUrlTree).toHaveBeenCalledWith(['/signup'], { queryParams: { redirect: '/user/dashboard' } });
             expect(result).toMatchObject({ urlTree: ['/signup'] });
@@ -55,8 +55,7 @@ describe('user route guards', () => {
 
     describe('memberPagesGuard (docs/app/app-accounts.html)', () => {
         const signedIn = (record: Record<string, unknown>) => {
-            mockAuth.initAuthStateListener.mockReturnValue(of({ uid: 'u1' }));
-            mockAuth.currentUser.mockReturnValue({ uid: 'u1', role: 'user', ...record });
+            mockAuth.recordReady.mockResolvedValue({ uid: 'u1', role: 'user', ...record });
         };
 
         it('lets every account in when the app chose nothing, a locked app account too', async () => {
@@ -81,7 +80,7 @@ describe('user route guards', () => {
         });
 
         it('redirects an anonymous visitor to /signup, as userGuard does', async () => {
-            mockAuth.initAuthStateListener.mockReturnValue(of(null));
+            mockAuth.recordReady.mockResolvedValue(null);
             const result = await firstValue(run(memberPagesGuard, '/user/profile'));
             expect(mockRouter.createUrlTree).toHaveBeenCalledWith(['/signup'], { queryParams: { redirect: '/user/profile' } });
             expect(result).toMatchObject({ urlTree: ['/signup'] });
@@ -114,14 +113,14 @@ describe('user route guards', () => {
 
     describe('entitledGuard', () => {
         it('allows a Pro member', async () => {
-            mockAuth.initAuthStateListener.mockReturnValue(of({ uid: 'u1' }));
+            mockAuth.recordReady.mockResolvedValue({ uid: 'u1' });
             mockEntitlements.load.mockReturnValue(of({ isPro: true }));
             const result = await firstValue(run(entitledGuard, '/user/premium'));
             expect(result).toBe(true);
         });
 
         it('redirects a signed-in non-member to /pricing', async () => {
-            mockAuth.initAuthStateListener.mockReturnValue(of({ uid: 'u1' }));
+            mockAuth.recordReady.mockResolvedValue({ uid: 'u1' });
             mockEntitlements.load.mockReturnValue(of({ isPro: false }));
             const result = await firstValue(run(entitledGuard, '/user/premium'));
             expect(mockRouter.createUrlTree).toHaveBeenCalledWith(['/pricing']);
@@ -129,7 +128,7 @@ describe('user route guards', () => {
         });
 
         it('redirects an anonymous visitor to /signup', async () => {
-            mockAuth.initAuthStateListener.mockReturnValue(of(null));
+            mockAuth.recordReady.mockResolvedValue(null);
             const result = await firstValue(run(entitledGuard, '/user/premium'));
             expect(mockRouter.createUrlTree).toHaveBeenCalledWith(['/signup'], { queryParams: { redirect: '/user/premium' } });
             expect(result).toMatchObject({ urlTree: ['/signup'] });

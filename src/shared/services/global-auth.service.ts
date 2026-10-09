@@ -132,6 +132,11 @@ export class GlobalAuthService<T extends IAuth> extends DbService<IAuth> {
         return super.getByCustomField('uid', '==', id);
     }
 
+    /** The signed-in person's record, kept up to date: the device's copy first (watchByCustomField). */
+    watchCurrentUserByUid(id: string) {
+        return super.watchByCustomField('uid', '==', id);
+    }
+
     async forgotPassword(email: string): Promise<any> {
         try {
             // Firebase's own reset email, in the member's language where Firebase has a

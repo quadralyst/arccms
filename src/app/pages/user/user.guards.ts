@@ -1,16 +1,18 @@
 import { isPlatformBrowser } from '@angular/common';
 import { inject, PLATFORM_ID } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
-import { map, switchMap, take } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { map, switchMap } from 'rxjs/operators';
+import { from, of } from 'rxjs';
 import { AuthState } from '../(auth)/auth.store';
 import { EntitlementService } from './entitlement.service';
 import { lockedAccountLanding, memberPagesOpen } from '../../core/app-accounts/app-account-lock';
 
 /**
  * Requires any signed-in user (regardless of role). Redirects anonymous visitors
- * to /signup. Gates on the resolved `currentUser` from the auth listener — NOT
- * the store's `isAuthenticated` signal, which is false for plain `user` accounts.
+ * to /signup. Gates on the person's record (AuthState.recordReady: the device's copy
+ * when it has one, so no wait for the server), NOT the store's `isAuthenticated`
+ * signal, which is false for plain `user` accounts. A Firebase sign-in with no
+ * record counts as signed out.
  */
 export const userGuard: CanActivateFn = (_route, state) => {
     const platformId = inject(PLATFORM_ID);
@@ -20,8 +22,7 @@ export const userGuard: CanActivateFn = (_route, state) => {
     const authState = inject(AuthState);
     const router = inject(Router);
 
-    return authState.initAuthStateListener().pipe(
-        take(1),
+    return from(authState.recordReady()).pipe(
         map((user) => (user ? true : router.createUrlTree(['/signup'], { queryParams: { redirect: state.url } }))),
     );
 };
@@ -39,13 +40,10 @@ export const memberPagesGuard: CanActivateFn = (_route, state) => {
     const authState = inject(AuthState);
     const router = inject(Router);
 
-    return authState.initAuthStateListener().pipe(
-        take(1),
-        map((user) => {
-            if (!user) return router.createUrlTree(['/signup'], { queryParams: { redirect: state.url } });
-            // The listener has put the person's record in the store by now.
-            const record = authState.currentUser();
-            return memberPagesOpen(record) ? true : router.parseUrl(lockedAccountLanding(record?.role));
+    return from(authState.recordReady()).pipe(
+        map((record) => {
+            if (!record) return router.createUrlTree(['/signup'], { queryParams: { redirect: state.url } });
+            return memberPagesOpen(record) ? true : router.parseUrl(lockedAccountLanding(record.role));
         }),
     );
 };
@@ -63,8 +61,7 @@ export const entitledGuard: CanActivateFn = (_route, state) => {
     const entitlements = inject(EntitlementService);
     const router = inject(Router);
 
-    return authState.initAuthStateListener().pipe(
-        take(1),
+    return from(authState.recordReady()).pipe(
         switchMap((user) => {
             if (!user) {
                 return of(router.createUrlTree(['/signup'], { queryParams: { redirect: state.url } }));
