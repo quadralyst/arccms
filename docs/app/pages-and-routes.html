@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Add pages and routes | Arc CMS docs</title>
   <meta name="description" content="Add your app's public, member and admin pages with CUSTOM_ROUTES and page files, protect them with guards, and avoid the admin page trap.">
-  <meta name="docs:sources" content="src/custom/routes.ts, src/custom/pages, src/app/app.routes.ts, src/app/guards/role.guard.ts, src/app/guards/language.guard.ts, scripts/vite-language-routes.ts, src/app/pages/user/user.guards.ts, src/app/pages/admin.page.ts, src/app/core/features/feature-routes.ts, src/app/core/layout/full-screen.service.ts, src/app/core/pwa/pwa-update-route.ts, src/app/core/analytics/analytics-route.ts, src/app/core/version/stale-code.service.ts, src/app/app.ts, src/styles.css, vite.config.ts, firebase.json">
+  <meta name="docs:sources" content="src/custom/routes.ts, src/custom/pages, src/app/app.routes.ts, src/app/guards/role.guard.ts, src/app/guards/language.guard.ts, scripts/vite-language-routes.ts, src/app/pages/user/user.guards.ts, src/app/pages/(auth)/auth.store.ts, src/app/pages/admin.page.ts, src/app/core/features/feature-routes.ts, src/app/core/layout/full-screen.service.ts, src/app/core/pwa/pwa-update-route.ts, src/app/core/analytics/analytics-route.ts, src/app/core/version/stale-code.service.ts, src/app/app.ts, src/styles.css, vite.config.ts, firebase.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/pages-and-routes.html">
@@ -79,6 +79,20 @@ export const CUSTOM_ROUTES: Routes = [
 ];</code></pre>
     <p>To keep the member menu around a member page, see <a href="member-area.html">Build the member area</a>. Arc CMS's own member pages use <code>memberPagesGuard</code> instead, so an app can keep the accounts it manages out of them (<a href="app-accounts.html#member-pages">App accounts</a>); your pages with <code>userGuard</code> are not affected.</p>
     <div class="note"><p>A guard only decides what the browser shows. The data a page reads is protected by security rules (<a href="rules-and-indexes.html">Set security rules and indexes</a>).</p></div>
+
+    <h3 id="what-the-guards-wait-for">What the guards wait for</h3>
+    <p>Every guard above waits for the signed-in person's <code>users</code> record, and nothing else. Arc CMS reads it once per sign-in and every guard and page shares that one read (<code>AuthState.recordReady()</code> in <code>src/app/pages/(auth)/auth.store.ts</code>), so three guards on a page still make one read.</p>
+    <ul>
+      <li><strong>With the <a href="offline.html#signed-in-pages-open-from-the-cache">offline cache</a> on</strong>, a later visit opens on the copy of the record kept on the device, without waiting for the server. The server's copy follows in the background and keeps it up to date.</li>
+      <li><strong>A first sign-in on a device</strong>, or a visit with the offline cache off, waits for the server's copy once.</li>
+      <li><strong>A Firebase sign-in with no record</strong> counts as signed out, and an account the server shows as inactive is signed out and sent to <code>/signup</code>. Neither is decided on the device's copy alone: both wait for the server's word.</li>
+    </ul>
+    <p>Your own code can wait for the same record instead of reading it again. It is <code>null</code> when nobody is signed in:</p>
+    <pre><code>import { inject } from '@angular/core';
+import { AuthState } from '../app/pages/(auth)/auth.store';
+
+const record = await inject(AuthState).recordReady();</code></pre>
+    <p><code>initAuthStateListener()</code> still works and uses the same read: it gives the record each time someone signs in or out, and starts no listener or query of its own.</p>
 
     <h2>Add an admin page</h2>
     <p>An admin page needs the admin shell (the side menu and layout) and the admin guard. Give it the same route shape core uses for its own admin pages:</p>

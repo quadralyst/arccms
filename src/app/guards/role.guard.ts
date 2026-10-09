@@ -2,7 +2,8 @@
 import { isPlatformBrowser } from '@angular/common';
 import { inject, PLATFORM_ID } from '@angular/core';
 import { CanActivateFn, CanMatchFn, Router } from '@angular/router';
-import { map, take } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
+import { from } from 'rxjs';
 import { ToastService } from '../../shared/services/toast.service';
 import { ConstantVariables } from '../../shared/constants';
 import { AuthState } from '../pages/(auth)/auth.store';
@@ -49,8 +50,8 @@ export const roleGuard: CanActivateFn | CanMatchFn = (
         return true;
     }
 
-    return authStore.initAuthStateListener().pipe(
-        take(1),
+    // The person's record, shared with every other guard (AuthState.recordReady).
+    return from(authStore.recordReady()).pipe(
         map((user: any | null) => {
             if (user && user.role) {
                 const userRole: string = user.role;

@@ -27,13 +27,13 @@ import { translocoTestingModule } from '../../../test/transloco-test-providers';
 
 describe('AuthState with a locked app account', () => {
     const authService = {
-        getCurrentUserByUid: vi.fn(),
+        watchCurrentUserByUid: vi.fn(),
         updateUser: vi.fn(async () => 'Profile updated'),
         updatePassword: vi.fn(async () => 'Password updated'),
     };
 
     async function signedInAs(record: Record<string, unknown>) {
-        authService.getCurrentUserByUid.mockReturnValue(of({ id: 'doc-1', uid: 'uid-1', name: 'Anna', role: 'user', isActive: true, ...record }));
+        authService.watchCurrentUserByUid.mockReturnValue(of({ data: { id: 'doc-1', uid: 'uid-1', name: 'Anna', role: 'user', isActive: true, ...record }, fromCache: false }));
         TestBed.resetTestingModule();
         TestBed.configureTestingModule({
             imports: [translocoTestingModule()],
