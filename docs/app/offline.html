@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Keep working offline | Arc CMS docs</title>
   <meta name="description" content="Turn on Firestore's offline cache so a signed-in app keeps showing its data and saves changes through short connection drops, and wipe it when a device changes hands.">
-  <meta name="docs:sources" content="src/app/core/config/arc-firebase.ts, src/app/core/config/arc-config.ts, scripts/arc-configure.mjs, arccms.config.example.json">
+  <meta name="docs:sources" content="src/app/core/config/arc-firebase.ts, src/app/pages/(auth)/auth.store.ts, src/app/core/config/arc-config.ts, scripts/arc-configure.mjs, arccms.config.example.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/offline.html">
@@ -52,6 +52,10 @@
       </tbody>
     </table>
     <div class="trap"><p>The cache holds data, not the app's code. A screen whose code was never loaded on the device cannot open offline. With the <a href="pwa.html">installable app</a> on, the code of every screen opened before is kept; to have every screen outside the admin area stored when the app installs, set <code>routeCode: 'app'</code> (see <a href="pwa.html#open-screens-offline-and-after-a-deploy">Open screens offline and after a deploy</a>).</p></div>
+
+    <h2 id="signed-in-pages-open-from-the-cache">Signed-in pages open from the cache</h2>
+    <p>Before a signed-in page opens, its guard needs the person's <code>users</code> record. With the cache on, a later visit takes it from the device, so the page opens without waiting for the server, online or not. The server's copy follows in the background and keeps the record up to date. Only a first sign-in on the device, or one after the cache was wiped, waits for the server once. With the cache off, every visit waits for the server, as before.</p>
+    <p>The device's copy only lets a page open. Two answers wait for the server's word instead: no record (the person counts as signed out) and an inactive account (signed out and sent to <code>/signup</code>). Offline, the device's answer counts after 10 seconds. An account blocked since the last visit can therefore open a page from the cache until the server's copy arrives; the security rules refuse its reads and writes all the same. See <a href="pages-and-routes.html#what-the-guards-wait-for">What the guards wait for</a>.</p>
 
     <h2>Shared devices</h2>
     <div class="trap"><p><strong>Reads from the cache are not checked by your security rules.</strong> The rules run on the server, and offline there is no server. Whatever one person loaded on a device can come back to the next person's queries on that device while offline. On a device several people use, either accept that (staff who share the same data anyway), or wipe the cache when the person changes.</p></div>

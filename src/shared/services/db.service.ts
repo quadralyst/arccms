@@ -14,6 +14,8 @@ import {
     DocumentSnapshot,
     Firestore,
     Query,
+    QueryDocumentSnapshot,
+    QuerySnapshot,
     WhereFilterOp,
     WithFieldValue,
     addDoc,
@@ -41,6 +43,7 @@ import {
     Observable,
     catchError,
     combineLatest,
+    concatMap,
     forkJoin,
     from,
     map,
@@ -301,35 +304,45 @@ export class DbService<T extends IBaseModel> extends GlobalService {
         });
 
         return from(docsPromise).pipe(
-            switchMap(async (querySnapshot) => {
-                const data = querySnapshot.docs.map((doc) => {
-                    const docData = doc.data();
-                    const { id, ...restData } = docData;
-                    return { id: doc.id, ...restData };
-                }) as T[];
-
-                if (data.length > 0) {
-                    const docData = data[0];
-                    const { id, ...restData } = docData;
-                    const result: Record<string, any> = { id: docData.id, ...(restData as Record<string, any>) };
-
-                    for (const key in restData) {
-                        if (Object.prototype.hasOwnProperty.call(restData, key)) {
-                            const resolvedData = await this.resolveReferences((restData as Record<string, any>)[key]);
-                            result[key] = resolvedData;
-                        }
-                    }
-
-                    return result as T;
-                } else {
-                    return null;
-                }
-            }),
+            switchMap((querySnapshot) => this.firstMatch(querySnapshot.docs)),
             catchError((error) => {
                 console.error('Error fetching document:', error);
                 return of(null);
             }),
         );
+    }
+
+    /**
+     * getByCustomField kept up to date. With the offline cache on, the device's copy comes
+     * at once (`fromCache: true`) when it has one, and the server's after it; with nothing
+     * on the device, the first answer is the server's. getDocs, by contrast, always waits
+     * for the server while online. Metadata changes are included, so a caller also hears
+     * when the server confirms a cached answer that did not change. Errors are passed on.
+     */
+    watchByCustomField(field: string, operator: WhereFilterOp, value: any, collectionSuffix?: string): Observable<{ data: T | null; fromCache: boolean }> {
+        const targetCollection = this.getCollectionRef(collectionSuffix);
+        return new Observable<QuerySnapshot<DocumentData>>((observer) => runInInjectionContext(this.injector, () => onSnapshot(
+            query(targetCollection, where(field, operator, value)),
+            { includeMetadataChanges: true },
+            (snapshot) => observer.next(snapshot),
+            (error) => observer.error(error),
+        ))).pipe(
+            // In order: resolving references must not let an older answer land last.
+            concatMap(async (snapshot) => ({ data: await this.firstMatch(snapshot.docs), fromCache: snapshot.metadata.fromCache })),
+        );
+    }
+
+    /** The first of `docs` as a record, its references resolved; null when there is none. */
+    private async firstMatch(docs: QueryDocumentSnapshot<DocumentData>[]): Promise<T | null> {
+        if (!docs.length) return null;
+        const { id, ...restData } = docs[0].data();
+        const result: Record<string, any> = { id: docs[0].id, ...restData };
+        for (const key in restData) {
+            if (Object.prototype.hasOwnProperty.call(restData, key)) {
+                result[key] = await this.resolveReferences(restData[key]);
+            }
+        }
+        return result as T;
     }
 
     add(newData: OmitCommonFields<T>, collectionSuffix?: string): Observable<string> {

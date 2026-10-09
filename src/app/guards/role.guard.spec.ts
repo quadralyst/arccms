@@ -7,7 +7,6 @@
 import { TestBed } from '@angular/core/testing';
 import { PLATFORM_ID } from '@angular/core';
 import { Router } from '@angular/router';
-import { of, Subject } from 'rxjs';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { roleGuard } from './role.guard';
 import { ToastService } from '../../shared/services/toast.service';
@@ -17,13 +16,13 @@ import { AuthState } from '../pages/(auth)/auth.store';
 describe('roleGuard', () => {
     let mockRouter: { navigate: ReturnType<typeof vi.fn> };
     let mockToastService: { openCustomSnackbar: ReturnType<typeof vi.fn> };
-    let mockAuthState: { initAuthStateListener: ReturnType<typeof vi.fn> };
+    let mockAuthState: { recordReady: ReturnType<typeof vi.fn> };
     let mockConstantVariables: Partial<ConstantVariables>;
 
     beforeEach(() => {
         mockRouter = { navigate: vi.fn() };
         mockToastService = { openCustomSnackbar: vi.fn() };
-        mockAuthState = { initAuthStateListener: vi.fn() };
+        mockAuthState = { recordReady: vi.fn() };
         mockConstantVariables = {};
 
         TestBed.configureTestingModule({
@@ -39,7 +38,7 @@ describe('roleGuard', () => {
     describe('when user has admin role', () => {
         it('should allow access when user role is in allowedRoles', async () => {
             const mockUser = { role: 'admin', email: 'test@example.com' };
-            mockAuthState.initAuthStateListener.mockReturnValue(of(mockUser));
+            mockAuthState.recordReady.mockResolvedValue(mockUser);
 
             const route = {
                 data: { allowedRoles: ['admin'] },
@@ -63,7 +62,7 @@ describe('roleGuard', () => {
     describe('when user does not have required role', () => {
         it('should deny access and redirect to unauthorized page', async () => {
             const mockUser = { role: 'editor', email: 'test@example.com' };
-            mockAuthState.initAuthStateListener.mockReturnValue(of(mockUser));
+            mockAuthState.recordReady.mockResolvedValue(mockUser);
 
             const route = {
                 data: { allowedRoles: ['admin'] },
@@ -86,7 +85,7 @@ describe('roleGuard', () => {
 
     describe('when user is not authenticated', () => {
         it('should deny access and redirect to unauthorized page', async () => {
-            mockAuthState.initAuthStateListener.mockReturnValue(of(null));
+            mockAuthState.recordReady.mockResolvedValue(null);
 
             const route = {
                 data: { allowedRoles: ['admin'] },
@@ -110,7 +109,7 @@ describe('roleGuard', () => {
     describe('when no allowedRoles defined', () => {
         it('should allow access and show warning', () => {
             const mockUser = { role: 'admin', email: 'test@example.com' };
-            mockAuthState.initAuthStateListener.mockReturnValue(of(mockUser));
+            mockAuthState.recordReady.mockResolvedValue(mockUser);
 
             const route = {
                 data: {},
@@ -131,82 +130,12 @@ describe('roleGuard', () => {
         });
     });
 
-    describe('when auth state observable emits multiple times (long-lived listener)', () => {
-        it('should only use the first emission (null) and not be overridden by a later admin emission', async () => {
-            // Regression for missing take(1): the real onAuthStateChanged Observable never
-            // completes. Without take(1), a null→admin sequence would redirect to /unauthorized
-            // then immediately allow access when the second value arrives.
-            const authSubject = new Subject<any>();
-            mockAuthState.initAuthStateListener.mockReturnValue(authSubject.asObservable());
-
-            const route = {
-                data: { allowedRoles: ['admin'] },
-                path: 'admin/dashboard',
-            };
-
-            let emittedResult: boolean | undefined;
-
-            await TestBed.runInInjectionContext(async () => {
-                const result$ = roleGuard(route as any, {} as any);
-                if (result$ && typeof result$ === 'object' && 'subscribe' in result$) {
-                    result$.subscribe((r) => {
-                        emittedResult = r as boolean;
-                    });
-
-                    // First emission: null (logged-out) — should deny and redirect
-                    authSubject.next(null);
-                    expect(emittedResult).toBe(false);
-                    expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/unauthorized']);
-
-                    const navigateCalls = mockRouter.navigate.mock.calls.length;
-
-                    // Second emission: admin user — guard is closed (take(1)), so no change
-                    authSubject.next({ role: 'admin', email: 'admin@example.com' });
-                    expect(mockRouter.navigate.mock.calls.length).toBe(navigateCalls);
-                    expect(emittedResult).toBe(false); // still false, not overwritten
-                }
-            });
-        });
-
-        it('should only use the first emission (admin) and not be revoked by a later null emission', async () => {
-            // Symmetric regression: if an admin logs in and their token briefly lapses,
-            // a null re-emission must not trigger a second redirect after the guard already
-            // resolved to true.
-            const authSubject = new Subject<any>();
-            mockAuthState.initAuthStateListener.mockReturnValue(authSubject.asObservable());
-
-            const route = {
-                data: { allowedRoles: ['admin'] },
-                path: 'admin/dashboard',
-            };
-
-            let emittedResult: boolean | undefined;
-
-            await TestBed.runInInjectionContext(async () => {
-                const result$ = roleGuard(route as any, {} as any);
-                if (result$ && typeof result$ === 'object' && 'subscribe' in result$) {
-                    result$.subscribe((r) => {
-                        emittedResult = r as boolean;
-                    });
-
-                    // First emission: admin — should allow access
-                    authSubject.next({ role: 'admin', email: 'admin@example.com' });
-                    expect(emittedResult).toBe(true);
-                    expect(mockRouter.navigate).not.toHaveBeenCalled();
-
-                    // Second emission: null — guard is already closed (take(1)), no redirect
-                    authSubject.next(null);
-                    expect(mockRouter.navigate).not.toHaveBeenCalled();
-                    expect(emittedResult).toBe(true); // still true, not overwritten
-                }
-            });
-        });
-
-        it('should complete the Observable after the first emission so no subscription leak occurs', async () => {
-            // Without take(1) the guard Observable stays open forever, preventing the
-            // router from completing navigation and leaking a Firebase listener.
-            const authSubject = new Subject<any>();
-            mockAuthState.initAuthStateListener.mockReturnValue(authSubject.asObservable());
+    describe('the shared record (AuthState.recordReady)', () => {
+        it('waits for the record, decides once and completes', async () => {
+            // Every guard waits on the one record AuthState loads per sign-in, not a
+            // listener of its own, so a guard ends with its first answer.
+            let settle!: (record: unknown) => void;
+            mockAuthState.recordReady.mockReturnValue(new Promise((resolve) => { settle = resolve; }));
 
             const route = {
                 data: { allowedRoles: ['admin'] },
@@ -216,11 +145,15 @@ describe('roleGuard', () => {
             await TestBed.runInInjectionContext(async () => {
                 const result$ = roleGuard(route as any, {} as any);
                 if (result$ && typeof result$ === 'object' && 'subscribe' in result$) {
+                    const results: unknown[] = [];
                     let completed = false;
-                    result$.subscribe({ complete: () => { completed = true; } });
+                    result$.subscribe({ next: (r) => results.push(r), complete: () => { completed = true; } });
+                    expect(results).toEqual([]);
 
-                    authSubject.next(null);
-                    expect(completed).toBe(true);
+                    settle({ role: 'admin', email: 'admin@example.com' });
+                    await vi.waitFor(() => expect(completed).toBe(true));
+                    expect(results).toEqual([true]);
+                    expect(mockRouter.navigate).not.toHaveBeenCalled();
                 }
             });
         });
@@ -250,15 +183,15 @@ describe('roleGuard', () => {
                 expect(result).toBe(false);
             });
 
-            // Should NOT call initAuthStateListener during SSR
-            expect(mockAuthState.initAuthStateListener).not.toHaveBeenCalled();
+            // Should NOT ask for the record during SSR
+            expect(mockAuthState.recordReady).not.toHaveBeenCalled();
             // Should NOT redirect during SSR
             expect(mockRouter.navigate).not.toHaveBeenCalled();
         });
 
         it('should enforce guard on browser platform', async () => {
             const mockUser = { role: 'admin', email: 'test@example.com' };
-            mockAuthState.initAuthStateListener.mockReturnValue(of(mockUser));
+            mockAuthState.recordReady.mockResolvedValue(mockUser);
 
             const route = {
                 data: { allowedRoles: ['admin'] },
@@ -286,15 +219,15 @@ describe('roleGuard', () => {
                 }
             });
 
-            // SHOULD call initAuthStateListener on browser
-            expect(mockAuthState.initAuthStateListener).toHaveBeenCalled();
+            // SHOULD ask for the record on browser
+            expect(mockAuthState.recordReady).toHaveBeenCalled();
         });
     });
 
     describe('role validation', () => {
         it('should allow access when user has one of multiple allowed roles', async () => {
             const mockUser = { role: 'editor', email: 'test@example.com' };
-            mockAuthState.initAuthStateListener.mockReturnValue(of(mockUser));
+            mockAuthState.recordReady.mockResolvedValue(mockUser);
 
             const route = {
                 data: { allowedRoles: ['admin', 'editor', 'moderator'] },
