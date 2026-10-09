@@ -7,8 +7,9 @@
  * person out of their other sessions when the password changes.
  *
  * Refused for an account Arc CMS does not own (a sign-in shared with another
- * app: that app changes it), a locked app account (its app manages it), and an
- * account with no email, which a password could not sign in to.
+ * app: that app changes it), a locked app account (its app manages it), an
+ * account with no email, which a password could not sign in to, and a record
+ * whose sign-in account is gone.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { db, owner } from '../init.js';
@@ -19,6 +20,7 @@ import { refuse } from '../auth/refusal.js';
 import { PASSWORD_PROBLEM_TEXT, passwordProblem } from '../shared/password-rule.js';
 
 export const SHARED_ACCOUNT = "This person's sign-in is shared with another app, so their password is changed there.";
+export const NO_ACCOUNT = 'This person has no sign-in account, so there is no password to set.';
 export const NO_EMAIL = 'This person has no email to sign in with, so a password would not work.';
 
 export const adminSetPassword = onCall(async (request) => {
@@ -33,9 +35,12 @@ export const adminSetPassword = onCall(async (request) => {
     if (!arccmsOwnsAuthAccount(record)) throw refuse('failed-precondition', 'shared-account', SHARED_ACCOUNT);
     if (isLockedAppAccount(record)) throw refuse('permission-denied', 'app-managed', APP_MANAGED);
     const uid = typeof record['uid'] === 'string' ? record['uid'] : '';
-    if (!uid) throw refuse('failed-precondition', 'no-account', 'This person has no sign-in account yet.');
+    if (!uid) throw refuse('failed-precondition', 'no-account', NO_ACCOUNT);
 
-    const account = await owner.getUser(uid);
+    const account = await owner.getUser(uid).catch((err: unknown) => {
+        if ((err as { code?: string })?.code === 'auth/user-not-found') throw refuse('failed-precondition', 'no-account', NO_ACCOUNT);
+        throw err;
+    });
     if (!account.email) throw refuse('failed-precondition', 'no-email', NO_EMAIL);
 
     const problem = passwordProblem(password, { email: account.email, name: typeof record['name'] === 'string' ? record['name'] : '' });

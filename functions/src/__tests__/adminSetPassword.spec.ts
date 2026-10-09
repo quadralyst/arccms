@@ -7,7 +7,11 @@ const m = vi.hoisted(() => {
     return {
         records, accounts,
         owner: {
-            getUser: vi.fn(async (uid: string) => accounts.get(uid) ?? { uid }),
+            getUser: vi.fn(async (uid: string) => {
+                const account = accounts.get(uid);
+                if (!account) throw Object.assign(new Error('no user'), { code: 'auth/user-not-found' });
+                return account;
+            }),
             updateUser: vi.fn(async () => undefined),
         },
         db: {
@@ -32,7 +36,7 @@ vi.mock('firebase-functions/v2/https', () => ({
     },
 }));
 
-import { adminSetPassword, SHARED_ACCOUNT, NO_EMAIL } from '../users/adminSetPassword.js';
+import { adminSetPassword, SHARED_ACCOUNT, NO_EMAIL, NO_ACCOUNT } from '../users/adminSetPassword.js';
 import { PASSWORD_PROBLEM_TEXT } from '../shared/password-rule.js';
 import { APP_MANAGED } from '../users/lockedAppAccount.js';
 
@@ -94,9 +98,13 @@ describe('adminSetPassword', () => {
         await expect(call({ id: 'doc-1', password: GOOD })).resolves.toEqual({ updated: true });
     });
 
-    it('refuses an account with no email, no sign-in, or no record', async () => {
+    it('refuses an account with no email, a sign-in that is gone, no sign-in, or no record', async () => {
         m.accounts.set('uid-1', { uid: 'uid-1' });
         await expect(call({ id: 'doc-1', password: GOOD })).rejects.toMatchObject({ message: NO_EMAIL, details: { reason: 'no-email' } });
+        m.accounts.delete('uid-1');
+        await expect(call({ id: 'doc-1', password: GOOD })).rejects.toMatchObject({
+            code: 'failed-precondition', message: NO_ACCOUNT, details: { reason: 'no-account' },
+        });
         m.records.set('doc-1', { name: 'Asha Rao' });
         await expect(call({ id: 'doc-1', password: GOOD })).rejects.toMatchObject({ details: { reason: 'no-account' } });
         await expect(call({ id: 'gone', password: GOOD })).rejects.toMatchObject({ code: 'not-found' });
