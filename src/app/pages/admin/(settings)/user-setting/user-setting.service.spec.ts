@@ -2,9 +2,9 @@ import { TestBed } from '@angular/core/testing';
 import { PLATFORM_ID } from '@angular/core';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { firstValueFrom } from 'rxjs';
-import { UserSettingService } from './user-setting.service';
+import { readStoredSignInSettings, SIGN_IN_SETTINGS_CACHE_KEY, UserSettingService } from './user-setting.service';
 import { DEFAULT_USER_SETTINGS } from './user-setting.model';
-import { Firestore, onSnapshot } from '@angular/fire/firestore';
+import { Firestore, getDoc, onSnapshot } from '@angular/fire/firestore';
 
 // Mock Firestore functions
 vi.mock('@angular/fire/firestore', async () => {
@@ -65,6 +65,34 @@ describe('UserSettingService', () => {
             expect(settings).toBeTruthy();
             expect(settings.isSignupEnabled).toBeDefined();
             expect(settings.defaultRole).toBeDefined();
+        });
+    });
+
+    describe('readSettings (the sign-in page)', () => {
+        beforeEach(() => localStorage.removeItem(SIGN_IN_SETTINGS_CACHE_KEY));
+
+        it('answers the settings and keeps a copy in this browser, without the dates', async () => {
+            vi.mocked(getDoc).mockResolvedValueOnce({
+                exists: () => true,
+                data: () => ({ isSignupEnabled: false, defaultRole: 'user', phoneSignIn: true, updatedAt: { seconds: 1 } }),
+                id: 'users',
+            } as never);
+            const settings = await service.readSettings();
+            expect(settings).toMatchObject({ isSignupEnabled: false, phoneSignIn: true });
+            const kept = JSON.parse(localStorage.getItem(SIGN_IN_SETTINGS_CACHE_KEY)!);
+            expect(kept.updatedAt).toBeUndefined();
+            expect(readStoredSignInSettings()).toMatchObject({ isSignupEnabled: false, phoneSignIn: true });
+        });
+
+        it('fails when the read fails, rather than answering the defaults', async () => {
+            vi.mocked(getDoc).mockRejectedValueOnce(new Error('Failed to get document because the client is offline.'));
+            await expect(service.readSettings()).rejects.toThrow(/offline/);
+            expect(localStorage.getItem(SIGN_IN_SETTINGS_CACHE_KEY)).toBeNull();
+        });
+
+        it('answers the defaults when there is no document', async () => {
+            vi.mocked(getDoc).mockResolvedValueOnce({ exists: () => false, data: () => undefined, id: 'users' } as never);
+            await expect(service.readSettings()).resolves.toEqual(DEFAULT_USER_SETTINGS);
         });
     });
 
