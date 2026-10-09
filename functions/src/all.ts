@@ -28,6 +28,7 @@ export * from './auth/signupOtp.js';
 // Sign-in with an email, Google, and moving an email or number between
 // accounts. Phone sign-in is the sms feature's.
 export * from './auth/emailAccount.js';
+export * from './auth/passwordReset.js';
 export * from './auth/linkIdentifiers.js';
 export * from './auth/googleAccount.js';
 export * from './users/onUserWelcomeEmail.js';

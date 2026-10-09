@@ -56,6 +56,7 @@ describe('ensureDefaultTemplates', () => {
     expect(types).toEqual([
       'admin_digest_email',
       'notification_generic_email',
+      'password_reset_otp_email',
       'payment_failed_email',
       'payment_succeeded_email',
       'signup_otp_email',

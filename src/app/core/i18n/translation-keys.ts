@@ -1553,10 +1553,12 @@ export type TranslationKey =
     | 'member.auth.logout_failed'
     | 'member.auth.name_placeholder'
     | 'member.auth.name_required'
+    | 'member.auth.new_password_label'
     | 'member.auth.new_pin_label'
     | 'member.auth.no_access'
     | 'member.auth.opening'
     | 'member.auth.or'
+    | 'member.auth.password_changed'
     | 'member.auth.password_error.common'
     | 'member.auth.password_error.personal'
     | 'member.auth.password_error.repeated'
@@ -1573,10 +1575,9 @@ export type TranslationKey =
     | 'member.auth.resend'
     | 'member.auth.resend_in'
     | 'member.auth.reset_failed'
-    | 'member.auth.reset_link_label'
-    | 'member.auth.reset_link_open'
     | 'member.auth.reset_link_sent'
     | 'member.auth.reset_pin_with_code'
+    | 'member.auth.save_password'
     | 'member.auth.save_pin'
     | 'member.auth.send_code_failed'
     | 'member.auth.server_error.account_blocked'
@@ -1592,6 +1593,7 @@ export type TranslationKey =
     | 'member.auth.server_error.email_not_movable'
     | 'member.auth.server_error.google_email_taken'
     | 'member.auth.server_error.google_off'
+    | 'member.auth.server_error.host_account'
     | 'member.auth.server_error.invalid_email'
     | 'member.auth.server_error.invalid_number'
     | 'member.auth.server_error.locked'
@@ -1624,12 +1626,15 @@ export type TranslationKey =
     | 'member.auth.step_desc_code_email'
     | 'member.auth.step_desc_code_phone'
     | 'member.auth.step_desc_complete'
+    | 'member.auth.step_desc_new_password'
     | 'member.auth.step_desc_new_pin'
     | 'member.auth.step_desc_sign_in'
     | 'member.auth.step_desc_start_email'
     | 'member.auth.step_desc_start_phone'
     | 'member.auth.step_title_closed'
+    | 'member.auth.step_title_new_password'
     | 'member.auth.step_title_new_pin'
+    | 'member.auth.step_title_reset_password'
     | 'member.auth.step_title_set_pin'
     | 'member.auth.step_title_verify_email'
     | 'member.auth.step_title_verify_number'
@@ -3439,10 +3444,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.logout_failed',
     'member.auth.name_placeholder',
     'member.auth.name_required',
+    'member.auth.new_password_label',
     'member.auth.new_pin_label',
     'member.auth.no_access',
     'member.auth.opening',
     'member.auth.or',
+    'member.auth.password_changed',
     'member.auth.password_error.common',
     'member.auth.password_error.personal',
     'member.auth.password_error.repeated',
@@ -3459,10 +3466,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.resend',
     'member.auth.resend_in',
     'member.auth.reset_failed',
-    'member.auth.reset_link_label',
-    'member.auth.reset_link_open',
     'member.auth.reset_link_sent',
     'member.auth.reset_pin_with_code',
+    'member.auth.save_password',
     'member.auth.save_pin',
     'member.auth.send_code_failed',
     'member.auth.server_error.account_blocked',
@@ -3478,6 +3484,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.email_not_movable',
     'member.auth.server_error.google_email_taken',
     'member.auth.server_error.google_off',
+    'member.auth.server_error.host_account',
     'member.auth.server_error.invalid_email',
     'member.auth.server_error.invalid_number',
     'member.auth.server_error.locked',
@@ -3510,12 +3517,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.step_desc_code_email',
     'member.auth.step_desc_code_phone',
     'member.auth.step_desc_complete',
+    'member.auth.step_desc_new_password',
     'member.auth.step_desc_new_pin',
     'member.auth.step_desc_sign_in',
     'member.auth.step_desc_start_email',
     'member.auth.step_desc_start_phone',
     'member.auth.step_title_closed',
+    'member.auth.step_title_new_password',
     'member.auth.step_title_new_pin',
+    'member.auth.step_title_reset_password',
     'member.auth.step_title_set_pin',
     'member.auth.step_title_verify_email',
     'member.auth.step_title_verify_number',

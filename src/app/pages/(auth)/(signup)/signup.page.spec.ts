@@ -362,6 +362,7 @@ describe('SignupComponent', () => {
                 channel: () => channel,
                 phone: () => '+919876543210',
                 phonePurpose: () => purpose,
+                emailPurpose: () => 'signup',
                 functions: {},
                 otpVerified: false,
                 otpError: { set: vi.fn() },
@@ -611,6 +612,7 @@ describe('SignupComponent', () => {
                 channel: () => 'phone',
                 phone: () => '+919876543210',
                 phonePurpose: () => purpose,
+                emailPurpose: () => 'signup',
                 otpError: { set: vi.fn() },
                 otpNotice: signal(''),
                 sentCodes: new SentCodes(),
@@ -686,6 +688,41 @@ describe('SignupComponent', () => {
             await sendOtp.call(c);
             expect(c.testCode()).toBe('');
             expect(c.toastService.success).toHaveBeenCalledWith(english('member.auth.code_sent_email'));
+        });
+
+        function resetCtx(reply: Record<string, unknown>) {
+            const c: Record<string, any> = {
+                ...emailCtx({}),
+                emailPurpose: () => 'reset',
+                signIn: { requestPasswordReset: vi.fn().mockResolvedValue({ sent: true, status: 'pending', ...reply }) },
+            };
+            c['codeKey'] = () => (SignupComponent.prototype as any).codeKey.call(c);
+            return c;
+        }
+
+        it('asks for a reset code for Forgot password, keyed apart from a sign-up code', async () => {
+            const c = resetCtx({});
+            await expect(sendOtp.call(c)).resolves.toBe('sent');
+            expect(c.signIn.requestPasswordReset).toHaveBeenCalledWith('new@example.com');
+            expect(c['codeKey']()).toBe('email:reset:new@example.com');
+        });
+
+        it('says a reset code is in Email Logs while testing, unless the admin allowed it on screen', async () => {
+            const hidden = resetCtx({ testMode: true, testCodeInLogs: true });
+            await sendOtp.call(hidden);
+            expect(hidden.testCode()).toBe('');
+            expect(hidden.testCodeInLogs()).toBe(true);
+            const shown = resetCtx({ testMode: true, testCode: '246810' });
+            await sendOtp.call(shown);
+            expect(shown.testCode()).toBe('246810');
+            expect(shown.testCodeInLogs()).toBe(false);
+        });
+
+        it('says not-sent when the email engine sent no reset code, and shows nothing', async () => {
+            const c = resetCtx({ sent: false, status: 'skipped' });
+            await expect(sendOtp.call(c)).resolves.toBe('not-sent');
+            expect(c.toastService.success).not.toHaveBeenCalled();
+            expect(c.startCountdown).not.toHaveBeenCalled();
         });
     });
 
@@ -848,6 +885,7 @@ describe('SignupComponent', () => {
                 isLoading: { set: vi.fn() },
                 errorMessage: { set: vi.fn() },
                 otpVerified: true, // should be reset to false by checkEmail
+                emailPurpose: { set: vi.fn() },
                 emailStatus: vi.fn().mockResolvedValue(status ?? (emailExists ? 'registered' : 'new')),
                 settings: () => ({ isSignupEnabled: true, defaultRole: 'user' }),
                 shouldVerifySignup: vi.fn().mockResolvedValue(mustVerify),

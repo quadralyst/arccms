@@ -624,16 +624,6 @@ input:focus {
     }
 }
 
-/* The reset link, while testing: the same box as a test code, as a link (F22) */
-.reset-link {
-    text-decoration: none;
-
-    strong {
-        letter-spacing: normal;
-        text-decoration: underline;
-    }
-}
-
 /* Development builds: which project and database this page signs in to */
 .instance-label {
     margin-top: 4px;

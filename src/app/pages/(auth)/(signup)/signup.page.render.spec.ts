@@ -108,7 +108,7 @@ beforeEach(async () => {
             { provide: SignInService, useValue: signIn },
             { provide: OnboardingSetupService, useValue: { shouldShowOnboarding: () => of(false) } },
             { provide: UserSettingService, useValue: { readSettings: () => settingsRead.promise } },
-            { provide: EmailConfigStatusService, useValue: { isLoading$: of(false), shouldVerifySignup: () => true, showResetLinks: signal(false) } },
+            { provide: EmailConfigStatusService, useValue: { isLoading$: of(false), shouldVerifySignup: () => true } },
             { provide: GlobalService, useValue: { debugMode: signal(false) } },
             { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn() } },
             { provide: NotifyService, useValue: {} },
@@ -452,55 +452,104 @@ describe('SignupComponent: new passwords (F22)', () => {
     });
 });
 
-describe('SignupComponent: Forgot password while testing (F22)', () => {
+describe('SignupComponent: Forgot password by an emailed code', () => {
+    let firebaseReset: ReturnType<typeof vi.fn>;
+    let login: ReturnType<typeof vi.fn>;
+
     async function atLogin(): Promise<void> {
         settingsRead.resolve(OPEN);
         render();
         await flush();
         typed('asha@example.com');
         page.goToStep('login');
+        firebaseReset = vi.fn().mockResolvedValue({ status: 200 });
+        login = vi.fn();
+        Object.assign(TestBed.inject(AuthState), { forgotPassword: firebaseReset, login, clearList: vi.fn() });
+        signIn['requestPasswordReset'] = vi.fn().mockResolvedValue({ sent: true, status: 'pending' });
+        signIn['verifyResetCode'] = vi.fn().mockResolvedValue({ verified: true });
+        signIn['resetPassword'] = vi.fn().mockResolvedValue(undefined);
         fixture.detectChanges();
     }
-    const forgot = () => (fixture.nativeElement.querySelector('.forgot-password') as HTMLElement).click();
-    const link = () => fixture.nativeElement.querySelector('a.reset-link') as HTMLAnchorElement | null;
-
-    it('shows the reset link on the page when an admin turned that on, and emails nothing', async () => {
-        await atLogin();
-        (TestBed.inject(EmailConfigStatusService) as unknown as { showResetLinks: ReturnType<typeof signal<boolean>> }).showResetLinks.set(true);
-        const firebaseReset = vi.fn();
-        Object.assign(TestBed.inject(AuthState), { forgotPassword: firebaseReset });
-        signIn['requestPasswordResetLink'] = vi.fn().mockResolvedValue({ shown: true, link: 'https://example.firebaseapp.com/__/auth/action?mode=resetPassword&oobCode=x' });
-        forgot();
+    async function forgot(): Promise<void> {
+        (fixture.nativeElement.querySelector('.forgot-password') as HTMLElement).click();
         await flush();
         fixture.detectChanges();
-        expect(signIn['requestPasswordResetLink']).toHaveBeenCalledWith('asha@example.com');
-        expect(link()?.href).toContain('mode=resetPassword');
-        expect(link()?.textContent).toContain(english('member.auth.reset_link_open'));
+    }
+    const refusal = (reason: string, message: string) => Object.assign(new Error(message), { code: 'functions/failed-precondition', details: { reason } });
+
+    it('emails a reset code and asks for it, with no Firebase email', async () => {
+        await atLogin();
+        await forgot();
+        expect(signIn['requestPasswordReset']).toHaveBeenCalledWith('asha@example.com');
+        expect(page.currentStep()).toBe('verify');
+        expect(shown()).toContain(english('member.auth.step_title_reset_password'));
         expect(firebaseReset).not.toHaveBeenCalled();
     });
 
-    it('has Firebase email it when the server says the links are not shown', async () => {
+    it('shows the code while testing when an admin turned that on, else says it is in Email Logs', async () => {
         await atLogin();
-        (TestBed.inject(EmailConfigStatusService) as unknown as { showResetLinks: ReturnType<typeof signal<boolean>> }).showResetLinks.set(true);
-        const firebaseReset = vi.fn().mockResolvedValue({ status: 200 });
-        Object.assign(TestBed.inject(AuthState), { forgotPassword: firebaseReset });
-        signIn['requestPasswordResetLink'] = vi.fn().mockResolvedValue({ shown: false });
-        forgot();
-        await flush();
+        signIn['requestPasswordReset'].mockResolvedValue({ sent: true, status: 'pending', testMode: true, testCode: '482913' });
+        await forgot();
+        expect(shown()).toContain('482913');
+
+        page.changeIdentifier();
+        typed('ravi@example.com');
+        page.goToStep('login');
         fixture.detectChanges();
+        signIn['requestPasswordReset'].mockResolvedValue({ sent: true, status: 'pending', testMode: true, testCodeInLogs: true });
+        await forgot();
+        expect(shown()).toContain(english('member.auth.test_code_in_email_logs'));
+    });
+
+    it("falls back to Firebase's reset email when the email engine sent nothing", async () => {
+        await atLogin();
+        signIn['requestPasswordReset'].mockResolvedValue({ sent: false, status: 'skipped' });
+        await forgot();
         expect(firebaseReset).toHaveBeenCalledWith('asha@example.com');
-        expect(link()).toBeNull();
+        expect(page.currentStep()).toBe('login');
         expect(shown()).toContain(english('member.auth.reset_link_sent', { email: 'asha@example.com' }));
     });
 
-    it('never asks the server when the links are off', async () => {
+    it("says a host app's login is reset there, on the password step", async () => {
         await atLogin();
-        const firebaseReset = vi.fn().mockResolvedValue({ status: 200 });
-        Object.assign(TestBed.inject(AuthState), { forgotPassword: firebaseReset });
-        signIn['requestPasswordResetLink'] = vi.fn();
-        forgot();
-        await flush();
-        expect(signIn['requestPasswordResetLink']).not.toHaveBeenCalled();
-        expect(firebaseReset).toHaveBeenCalled();
+        signIn['requestPasswordReset'].mockRejectedValue(refusal('host-account', 'Reset your password in the app you signed up with.'));
+        await forgot();
+        expect(page.currentStep()).toBe('login');
+        expect(shown()).toContain('Reset your password in the app you signed up with.');
+        expect(firebaseReset).not.toHaveBeenCalled();
+    });
+
+    it('takes a new password after the code, checks it, saves it and signs in with it', async () => {
+        await atLogin();
+        await forgot();
+        await page.verifyOtp('482913');
+        fixture.detectChanges();
+        expect(signIn['verifyResetCode']).toHaveBeenCalledWith('asha@example.com', '482913');
+        expect(page.currentStep()).toBe('newPassword');
+        expect(shown()).toContain(english('member.auth.step_title_new_password'));
+
+        page.registrationForm.get('password')!.setValue('12345678');
+        await page.saveNewPassword();
+        fixture.detectChanges();
+        expect(shown()).toContain(english('member.auth.password_error.sequence'));
+        expect(signIn['resetPassword']).not.toHaveBeenCalled();
+
+        page.registrationForm.get('password')!.setValue('river-lamp-2024');
+        await page.saveNewPassword();
+        expect(signIn['resetPassword']).toHaveBeenCalledWith('asha@example.com', 'river-lamp-2024');
+        expect(login).toHaveBeenCalledWith({ email: 'asha@example.com', password: 'river-lamp-2024' });
+    });
+
+    it('goes back to the code when it ran out before the password was saved', async () => {
+        await atLogin();
+        await forgot();
+        await page.verifyOtp('482913');
+        signIn['resetPassword'].mockRejectedValue(refusal('code-expired', 'That code has expired. Please ask for a new one.'));
+        page.registrationForm.get('password')!.setValue('river-lamp-2024');
+        await page.saveNewPassword();
+        fixture.detectChanges();
+        expect(page.currentStep()).toBe('verify');
+        expect(shown()).toContain('That code has expired. Please ask for a new one.');
+        expect(login).not.toHaveBeenCalled();
     });
 });

@@ -454,7 +454,7 @@
         "require_verification": "Require email verification on signup",
         "debug_provider": "Debug Provider (Log Only)",
         "debug_hint": "needs no connection test — emails are recorded in Email Logs, not sent. Just Save.",
-        "show_reset_links": "Show password reset links on screen",
+        "show_reset_links": "Show password reset codes on screen",
         "show_reset_links_hint": "Only while you test: anyone who knows an email could then reset its password and take over the account. Turn it off before real people use the site.",
         "test_before_save": "Please test connection before saving",
         "turned_off_note": "Email functionality is currently turned off. Configure a provider and test the connection, then enable it to start sending emails.",
@@ -1847,8 +1847,6 @@
       "test_code_hint": "Tap to use",
       "test_code_in_logs": "Test mode, no SMS sent. An admin can read the code in SMS Logs.",
       "test_code_in_email_logs": "Test mode, no email sent. An admin can read the code in Email Logs.",
-      "reset_link_label": "Test mode, no email sent.",
-      "reset_link_open": "Choose a new password",
       "resend": "Resend",
       "resend_in": "Resend in {{ value }} sec",
       "complete_profile": "Complete Your Profile",
@@ -1949,8 +1947,15 @@
         "add_phone_first": "Add a phone number first.",
         "email_managed": "This email belongs to an account managed by another app.",
         "email_not_movable": "This email is used by a sign-in that can't be moved here.",
-        "sign_in_managed": "Your sign-in is managed by another app, so its email can't be changed here."
-      }
+        "sign_in_managed": "Your sign-in is managed by another app, so its email can't be changed here.",
+        "host_account": "Reset your password in the app you signed up with."
+      },
+      "step_title_reset_password": "Reset your password",
+      "step_title_new_password": "Choose a new password",
+      "step_desc_new_password": "You will use it to sign in",
+      "new_password_label": "New password",
+      "save_password": "Save password and sign in",
+      "password_changed": "Password changed."
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",

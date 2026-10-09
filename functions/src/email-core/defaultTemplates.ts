@@ -60,6 +60,22 @@ export const DEFAULT_TEMPLATES: DefaultTemplateDef[] = [
       <p style="margin:0;font-size:14px;color:#6b7280;">If you didn't request this, you can safely ignore this email.</p>`),
   },
   {
+    // Forgot password (auth/passwordReset.ts): the code the sign-in page asks for.
+    type: 'password_reset_otp_email',
+    category: 'transactional',
+    subject: 'Your password reset code',
+    title: 'Password Reset Code Email',
+    previewText: 'Your code to choose a new password',
+    body: shell(`
+      <h1 style="font-size:22px;color:#111827;margin:0 0 20px;">Reset your password</h1>
+      <p style="margin:0 0 20px;">Hello ##NAME##,</p>
+      <p style="margin:0 0 20px;">Use this code on the sign-in page to choose a new password. It is valid for 10 minutes.</p>
+      <div style="text-align:center;margin:0 0 20px;">
+        <span style="display:inline-block;background:#e0f2fe;color:#0369a1;font-size:32px;font-weight:700;letter-spacing:6px;padding:14px 28px;border-radius:8px;border:2px dashed #93c5fd;">##OTP##</span>
+      </div>
+      <p style="margin:0;font-size:14px;color:#6b7280;">If you didn't ask for this, you can ignore this email: your password stays as it is.</p>`),
+  },
+  {
     type: 'signup_welcome_email',
     category: 'marketing',
     subject: 'Welcome aboard!',
