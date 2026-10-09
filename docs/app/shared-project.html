@@ -59,7 +59,7 @@ gcloud storage buckets create gs://YOUR_BUCKET --location=YOUR_LOCATION</code></
         <p><strong>Create the first admin</strong> in the onboarding wizard (<a href="../getting-started/first-admin.html">Create the first admin</a>). When it finishes, sign-ups turn off: Settings, User Settings, "Enable User Signups" is off, and every sign-up path refuses new accounts.</p>
       </li>
       <li>
-        <p><strong>Add more admins</strong> under Users, Add User. If the address already has a login in the other app, that login is reused and keeps its own password; the record is marked as shared, so deleting the person from Arc CMS never deletes their login to the other app.</p>
+        <p><strong>Add more admins</strong> under Users, Add User. If the address already has a login in the other app, that login is reused and keeps its own password; the record is marked as shared, so deleting the person from Arc CMS never deletes their login to the other app, and Edit does not offer to change its password.</p>
       </li>
     </ol>
     <div class="trap"><p>Do not run <code>firebase deploy --dry-run</code> to "check" the configuration. With a named database in the config, even a dry run creates the missing database, in the project's default location, which cannot be changed afterwards. Create the database yourself first, with the location you chose.</p></div>
