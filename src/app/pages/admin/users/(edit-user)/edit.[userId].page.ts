@@ -6,13 +6,18 @@
 
 import { RouteMeta } from '@analogjs/router';
 import { SiteBrandService } from '../../../../core/brand/site-brand';
-import { ChangeDetectionStrategy, Component, computed, EventEmitter, inject, Input, input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, EventEmitter, inject, Input, input, Output, signal, untracked } from '@angular/core';
+import { Functions } from '@angular/fire/functions';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { UserFormData } from '../user.model';
 import { UserStore } from '../user.store';
 import { roleGuard } from '../../../../guards/role.guard';
+import { arcCallable } from '../../../../core/config/arc-functions';
+import { isLockedAppAccount } from '../../../../core/app-accounts/app-account-lock';
+import { newPasswordValidator, passwordProblemOf } from '../../../../../shared/utils/password-validator';
+import { PASSWORD_PROBLEM_TEXT } from '../../../../../shared/utils/password-rule';
 
 export const routeMeta: RouteMeta = {
     title: 'Edit User',
@@ -36,8 +41,17 @@ export default class EditUserComponent extends BaseComponent {
     action = input('edit');
 
     userStore = inject(UserStore);
+    private functions = inject(Functions);
+    saving = signal(false);
     errorMessages: string[] = [];
     isPasswordUpdateEnabled: boolean = false;
+    /**
+     * Whether an admin can set this person's password here: they have an email, and
+     * their sign-in is Arc CMS's own (adminSetPassword refuses the rest).
+     */
+    canSetPassword = signal(false);
+    /** Why their password is changed elsewhere, or empty. */
+    passwordElsewhere = signal('');
     alreadyExist: any;
 
     // Edit form
@@ -57,14 +71,15 @@ export default class EditUserComponent extends BaseComponent {
     get password() {
         return this.editForm.get('password');
     }
+    /** Why the new password was refused. */
+    passwordError(): string {
+        return PASSWORD_PROBLEM_TEXT[passwordProblemOf(this.password) ?? 'short'];
+    }
 
-    // Current user data
-    currentUser = computed(() => {
+    // Fill the form when this user's record arrives (an effect: nothing reads a computed here).
+    private readonly fillForm = effect(() => {
         const item = this.userStore.currentItem();
-        if (item) {
-            this.updateFormData(item);
-        }
-        return item;
+        if (item && item.id === this.id) untracked(() => this.updateFormData(item));
     });
 
     // private variable for id
@@ -85,12 +100,17 @@ export default class EditUserComponent extends BaseComponent {
      * phone sign-up, docs/app/app-accounts.html) can be saved without one; an email
      * typed in is still checked.
      */
-    emailRequired = true;
+    emailRequired = signal(true);
 
     private updateFormData(currentItem: any): void {
-        this.emailRequired = !!currentItem.email;
+        this.emailRequired.set(!!currentItem.email);
+        const shared = currentItem.authOwner === 'shared' || currentItem.authOwner === 'host';
+        this.passwordElsewhere.set(isLockedAppAccount(currentItem)
+            ? 'This account is managed by the app that made it, so its password is changed there.'
+            : shared ? "This person's sign-in is shared with another app, so their password is changed there." : '');
+        this.canSetPassword.set(!!currentItem.email && !this.passwordElsewhere());
         const check = this.globalService.emailValidator();
-        this.editForm.controls['email'].setValidators(this.emailRequired
+        this.editForm.controls['email'].setValidators(this.emailRequired()
             ? [Validators.required, check]
             : [(control) => (control.value ? check(control) : null)]);
         this.editForm.patchValue({
@@ -133,21 +153,37 @@ export default class EditUserComponent extends BaseComponent {
             name: this.editForm.value.name,
             email: this.editForm.value.email,
         };
+        const password = this.isPasswordUpdateEnabled ? String(this.editForm.value.password ?? '') : '';
+        void this.save(updatedUser, password);
+    }
 
-        // Only include password if update is enabled and password is provided
-        if (this.isPasswordUpdateEnabled && this.editForm.value.password) {
-            updatedUser.password = this.editForm.value.password;
+    /**
+     * The password first, on the sign-in account only (adminSetPassword): never in
+     * the record, which the rules refuse. A refused password saves nothing.
+     */
+    private async save(updatedUser: Partial<UserFormData>, password: string): Promise<void> {
+        this.saving.set(true);
+        if (password) {
+            try {
+                await arcCallable<{ id: string; password: string }, { updated: boolean }>(this.functions, 'adminSetPassword')({ id: this.id, password });
+            } catch (error: any) {
+                console.error('Error setting password:', error);
+                this.toastService.error(error?.message || 'Failed to set the password.');
+                this.saving.set(false);
+                return;
+            }
         }
-
         this.userStore.update(this.id, updatedUser).subscribe({
             next: () => {
-                this.toastService.success('User updated successfully.');
+                this.saving.set(false);
+                this.toastService.success(password ? 'User updated. Share the new password with them.' : 'User updated successfully.');
                 this.editForm.reset();
                 this.close.emit();
             },
             error: (error) => {
                 console.error('Error updating user:', error);
-                this.toastService.error('Failed to update user.');
+                this.saving.set(false);
+                this.toastService.error(password ? 'The password is set, but the other changes were not saved.' : 'Failed to update user.');
             },
         });
     }
@@ -156,7 +192,7 @@ export default class EditUserComponent extends BaseComponent {
         const eventValue = event && event.checked;
         this.isPasswordUpdateEnabled = eventValue;
         const validators: ValidatorFn[] = this.isPasswordUpdateEnabled
-            ? [Validators.required, Validators.minLength(8)]
+            ? [Validators.required, newPasswordValidator(() => ({ email: this.editForm.value.email, name: this.editForm.value.name }))]
             : [];
         this.updateValidators(['password'], validators);
     }

@@ -7,10 +7,24 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, Component, Input } from '@angular/core';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
+import { Functions } from '@angular/fire/functions';
 
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
+
+const m = vi.hoisted(() => ({
+    calls: [] as Array<{ name: string; data: any }>,
+    result: { value: { updated: true } as any },
+}));
+vi.mock('@angular/fire/functions', () => ({
+    Functions: class {},
+    httpsCallable: vi.fn((_f: unknown, name: string) => async (data: any) => {
+        m.calls.push({ name, data });
+        if (m.result.value instanceof Error) throw m.result.value;
+        return { data: m.result.value };
+    }),
+}));
 
 import EditUserComponent from './edit.[userId].page';
 import { UserStore } from '../user.store';
@@ -77,6 +91,7 @@ describe('EditUserComponent', () => {
                 { provide: GlobalService, useValue: mockGlobalService },
                 { provide: Router, useValue: mockRouter },
                 { provide: ActivatedRoute, useValue: mockActivatedRoute },
+                { provide: Functions, useValue: {} },
             ],
         })
             .overrideComponent(EditUserComponent, {
@@ -150,6 +165,18 @@ describe('EditUserComponent', () => {
             expect(component.editForm.get('password')?.errors?.['required']).toBeTruthy();
         });
 
+        it('holds a new password to the password rule, with the person\'s name and email', () => {
+            component.editForm.patchValue({ name: 'Asha Rao', email: 'asha@example.com' });
+            component.showPasswordInput({ checked: true });
+            for (const [password, problem] of [['short', 'short'], ['12345678', 'sequence'], ['password123', 'common'], ['Asha@2024', 'personal']]) {
+                component.editForm.get('password')?.setValue(password);
+                expect(component.editForm.get('password')?.errors?.['password']).toBe(problem);
+            }
+            expect(component.passwordError()).toBe('Your password should not contain your name or email. Choose another.');
+            component.editForm.get('password')?.setValue('Monsoon-Train-42');
+            expect(component.editForm.get('password')?.errors).toBeNull();
+        });
+
         it('should disable password validation when toggle is off', () => {
             component.showPasswordInput({ checked: true });
             component.showPasswordInput({ checked: false });
@@ -160,6 +187,7 @@ describe('EditUserComponent', () => {
     });
 
     describe('Form Submission', () => {
+        const flush = () => new Promise((r) => setTimeout(r));
         beforeEach(() => {
             component.id = 'user-1';
             component.editForm.setValue({
@@ -184,17 +212,57 @@ describe('EditUserComponent', () => {
             });
         });
 
-        it('should include password when enabled', () => {
+        it('sets a new password through adminSetPassword, never in the record', async () => {
+            m.calls.length = 0;
+            m.result.value = { updated: true };
+            mockToastService.success.mockClear();
             component.showPasswordInput({ checked: true });
-            component.editForm.get('password')?.setValue('newpassword123');
+            component.editForm.get('password')?.setValue('Monsoon-Train-42');
 
             component.onSubmit();
+            await flush();
 
-            expect(mockUserStore.update).toHaveBeenCalledWith('user-1', {
-                name: 'Updated Name',
-                email: 'updated@example.com',
-                password: 'newpassword123',
-            });
+            expect(m.calls).toEqual([{ name: 'arccms-adminSetPassword', data: { id: 'user-1', password: 'Monsoon-Train-42' } }]);
+            expect(mockUserStore.update).toHaveBeenCalledWith('user-1', { name: 'Updated Name', email: 'updated@example.com' });
+            expect(JSON.stringify(mockUserStore.update.mock.calls)).not.toContain('password');
+            expect(mockToastService.success).toHaveBeenCalledWith('User updated. Share the new password with them.');
+        });
+
+        it('saves nothing when the server refuses the password, and says why', async () => {
+            m.calls.length = 0;
+            m.result.value = Object.assign(new Error('That password is one of the most used, so it is easy to guess. Choose another.'), { code: 'functions/invalid-argument' });
+            mockToastService.error.mockClear();
+            component.showPasswordInput({ checked: true });
+            component.editForm.get('password')?.setValue('Monsoon-Train-42');
+
+            component.onSubmit();
+            await flush();
+
+            expect(m.calls).toHaveLength(1);
+            expect(mockUserStore.update).not.toHaveBeenCalled();
+            expect(mockToastService.error).toHaveBeenCalledWith('That password is one of the most used, so it is easy to guess. Choose another.');
+            expect(component.saving()).toBe(false);
+            m.result.value = { updated: true };
+        });
+
+        it('says the password is set when only the other changes fail', async () => {
+            m.calls.length = 0;
+            mockToastService.error.mockClear();
+            mockUserStore.update.mockReturnValueOnce(throwError(() => new Error('denied')));
+            component.showPasswordInput({ checked: true });
+            component.editForm.get('password')?.setValue('Monsoon-Train-42');
+
+            component.onSubmit();
+            await flush();
+
+            expect(mockToastService.error).toHaveBeenCalledWith('The password is set, but the other changes were not saved.');
+        });
+
+        it('does not call adminSetPassword without the toggle', async () => {
+            m.calls.length = 0;
+            component.onSubmit();
+            await flush();
+            expect(m.calls).toEqual([]);
         });
 
         it('should show success toast on successful update', () => {
@@ -217,6 +285,49 @@ describe('EditUserComponent', () => {
             component.closeEdit();
 
             expect(closeSpy).toHaveBeenCalled();
+        });
+    });
+
+    describe('Filling the form', () => {
+        it('fills the form when this user\'s record arrives', () => {
+            component.id = 'user-1';
+            mockUserStore.currentItem.set({ ...mockUser, name: 'Fresh Name' });
+            fixture.detectChanges();
+            expect(component.editForm.value.name).toBe('Fresh Name');
+            expect(component.editForm.value.email).toBe('test@example.com');
+        });
+
+        it('ignores another user\'s record still in the store', () => {
+            component.id = 'user-9';
+            mockUserStore.currentItem.set({ ...mockUser, name: 'Someone Else' });
+            fixture.detectChanges();
+            expect(component.editForm.value.name).not.toBe('Someone Else');
+        });
+    });
+
+    describe('Who can be given a password here', () => {
+        const fill = (record: Record<string, unknown>) =>
+            (component as unknown as { updateFormData: (u: unknown) => void }).updateFormData({ ...mockUser, ...record });
+
+        it('offers it for a person with an email whose sign-in is Arc CMS\'s own', () => {
+            fill({});
+            expect(component.canSetPassword()).toBe(true);
+            fill({ authOwner: 'arccms' });
+            expect(component.canSetPassword()).toBe(true);
+            fill({ by: 'app', selfService: true });
+            expect(component.canSetPassword()).toBe(true);
+        });
+
+        it('says why not for a shared sign-in or a locked app account, and hides it with no email', () => {
+            fill({ authOwner: 'shared' });
+            expect(component.canSetPassword()).toBe(false);
+            expect(component.passwordElsewhere()).toContain('shared with another app');
+            fill({ by: 'app' });
+            expect(component.canSetPassword()).toBe(false);
+            expect(component.passwordElsewhere()).toContain('managed by the app');
+            fill({ email: '' });
+            expect(component.canSetPassword()).toBe(false);
+            expect(component.passwordElsewhere()).toBe('');
         });
     });
 
@@ -245,7 +356,7 @@ describe('EditUserComponent', () => {
         it('saves without an email, and never calls an empty email a duplicate', () => {
             mockUserStore.items.set([mockUser, appAccount, { ...appAccount, id: 'user-3', name: 'Ben' }] as never);
             (component as unknown as { updateFormData: (u: unknown) => void }).updateFormData(appAccount);
-            expect(component.emailRequired).toBe(false);
+            expect(component.emailRequired()).toBe(false);
             component.editForm.patchValue({ name: 'Anna K', email: '' });
             expect(component.editForm.valid).toBe(true);
             expect(component.alreadyExist).toBeUndefined();
@@ -253,7 +364,7 @@ describe('EditUserComponent', () => {
 
         it('still needs an email for a person who has one', () => {
             (component as unknown as { updateFormData: (u: unknown) => void }).updateFormData(mockUser);
-            expect(component.emailRequired).toBe(true);
+            expect(component.emailRequired()).toBe(true);
             component.editForm.patchValue({ email: '' });
             expect(component.editForm.get('email')?.errors?.['required']).toBe(true);
         });

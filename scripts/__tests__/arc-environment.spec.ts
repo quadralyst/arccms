@@ -89,8 +89,22 @@ describe('npm run dev and npm run build without ARC_PROJECT (defaultEnvironment)
     });
 
     it('stops with what to run when no project is set up, as in a fresh copy of Arc CMS', () => {
+        // The files as Arc CMS ships them, written here because an app's own copies hold its project.
+        const shipped = `export const environment = {
+    production: false,
+
+    firebaseConfig: {
+        apiKey: '',
+        authDomain: '',
+        projectId: '',
+        storageBucket: '',
+        messagingSenderId: '',
+        appId: '',
+    },
+};
+`;
         for (const name of ['environment.ts', 'environment.prod.ts']) {
-            writeFileSync(join(root, 'src/environments', name), readFileSync(join(REPO, 'src/environments', name), 'utf8'));
+            writeFileSync(join(root, 'src/environments', name), shipped);
         }
         expect(() => defaultEnvironment({ root, aliases: {} })).toThrow(NO_PROJECT_MESSAGE);
         expect(() => defaultEnvironment({ production: true, root, aliases: { default: 'acme-dev' } })).toThrow(NO_PROJECT_MESSAGE);

@@ -31,7 +31,7 @@
 
         <div class="row mb-4">
             <div class="col-12">
-                <label for="email" class="form-label">Email @if (emailRequired) {<span class="required">*</span>}</label>
+                <label for="email" class="form-label">Email @if (emailRequired()) {<span class="required">*</span>}</label>
                 <input type="email" placeholder="Enter valid email" formControlName="email" class="form-control"
                     (blur)="trimUnwantedSpace(editForm.controls['email'])" id="email" [class]="{
                         'is-invalid': email?.invalid && (email?.dirty || email?.touched),
@@ -50,18 +50,22 @@
             </div>
         </div>
 
+        @if (canSetPassword()) {
         <div class="row mb-4">
             <div class="col-12">
                 <mat-slide-toggle (change)="showPasswordInput($event)">Update Password</mat-slide-toggle>
             </div>
         </div>
+        } @else if (passwordElsewhere()) {
+        <p class="form-text mb-4">{{ passwordElsewhere() }}</p>
+        }
 
-        @if(isPasswordUpdateEnabled) {
+        @if(canSetPassword() && isPasswordUpdateEnabled) {
         <div class="row mb-4">
             <div class="col-12">
                 <label for="password" class="form-label">New Password <span class="required">*</span></label>
                 <input type="password" formControlName="password" class="form-control" id="password"
-                    placeholder="New password (min 8 characters)" [class]="{
+                    placeholder="At least 8 characters, hard to guess" [class]="{
                         'is-invalid': password?.invalid && (password?.dirty || password?.touched),
                         'is-valid': password?.valid && (password?.dirty || password?.touched)
                     }" />
@@ -69,8 +73,11 @@
                 @if(editForm.get('password')?.errors?.['required']) {
                 <div class="invalid-feedback">Password is required.</div>
                 } @else {
-                <div class="invalid-feedback">Password must be at least 8 characters.</div>
+                <div class="invalid-feedback">{{ passwordError() }}</div>
                 }
+                <div class="form-text">
+                    It goes to their sign-in only, never the user record. Share it with them.
+                </div>
             </div>
         </div>
         }
@@ -88,7 +95,7 @@
 
         <div class="d-grid gap-2 d-flex justify-content-end mt-4">
             <button type="button" class="btn btn-light btn-sm" (click)="closeEdit()">Cancel</button>
-            <button type="submit" class="btn btn-primary btn-sm ms-2">Update User</button>
+            <button type="submit" class="btn btn-primary btn-sm ms-2" [disabled]="saving()">Update User</button>
         </div>
     </form>
 

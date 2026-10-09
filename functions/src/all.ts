@@ -48,6 +48,8 @@ export * from './email-core/notificationPrefs.js';
 // User role sync to Firebase Auth custom claims
 export * from './users/syncUserRole.js';
 export * from './users/adminCreateUser.js';
+// Edit user: an admin sets a person's password, never stored in Firestore.
+export * from './users/adminSetPassword.js';
 // The account's own: claim refresh and deleting it (docs/app/account-contract.html).
 export * from './users/accountCallables.js';
 // Gives older records a `by`, so the users list can show only people.

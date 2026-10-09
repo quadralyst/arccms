@@ -12,7 +12,6 @@ export interface IUser extends IBaseModel {
     name: string;
     firstName?: string;
     lastName?: string;
-    password?: string;
     emailVerified: boolean;
     photo?: string;
     status: UserStatus;
@@ -24,6 +23,13 @@ export interface IUser extends IBaseModel {
     /** How the account was made: `phone`, `admin`, `app` (an app account, no email or phone) and so on. */
     by?: string;
     phone?: string;
+    /**
+     * Who owns the sign-in account (functions/src/users/authOwner.ts): none or
+     * `arccms` is Arc CMS; `shared` or `host` is another app in the same project.
+     */
+    authOwner?: string;
+    /** An app account its app opened to self-service (docs/app/app-accounts.html). */
+    selfService?: boolean;
     /**
      * The admin UI language this person reads (M-D11). Independent of the
      * languages the site publishes in — see core/i18n/admin-language.service.ts.
