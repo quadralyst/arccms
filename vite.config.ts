@@ -6,7 +6,7 @@ import { dirname, resolve } from 'path';
 import { existsSync } from 'node:fs';
 import { VitePWA } from 'vite-plugin-pwa';
 import { minimal2023Preset } from '@vite-pwa/assets-generator/config';
-import { resolvePwaConfig, resolvePwaIcon } from './src/app/core/pwa/pwa-config';
+import { appleIconAsset, resolvePwaConfig, resolvePwaIcon } from './src/app/core/pwa/pwa-config';
 import { CUSTOM_PWA } from './src/custom/pwa';
 import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
@@ -193,7 +193,12 @@ export default defineConfig(({ mode }) => {
           disabled: !pwa.enabled,
           image: pwaIcon,
           // The home screen icons only: the install keeps its own favicon.
-          preset: { ...minimal2023Preset, transparent: { ...minimal2023Preset.transparent, favicons: [] } },
+          // appleIcon: 'fill' in src/custom/pwa.ts makes the iPhone icon fill its square (no white tile).
+          preset: {
+            ...minimal2023Preset,
+            transparent: { ...minimal2023Preset.transparent, favicons: [] },
+            apple: { ...minimal2023Preset.apple, ...appleIconAsset(pwa) },
+          },
           overrideManifestIcons: true,
           // Its head links name the source image, which is not published; appleLinks() adds the one needed.
           includeHtmlHeadLinks: false,

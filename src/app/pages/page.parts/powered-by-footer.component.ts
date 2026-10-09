@@ -1,4 +1,4 @@
-import { Component, inject, Injector, OnInit, runInInjectionContext, signal, ChangeDetectionStrategy, PLATFORM_ID } from '@angular/core';
+import { afterRenderEffect, Component, DestroyRef, ElementRef, inject, Injector, OnInit, runInInjectionContext, signal, viewChild, ChangeDetectionStrategy, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Router, NavigationEnd } from '@angular/router';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
@@ -12,6 +12,10 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from '../admin/(settings)/misc/m
  * The text is always rendered in static HTML (for SSR/crawlers).
  * When the admin disables it in Settings → Misc, hydration hides it client-side.
  * Hidden on admin routes.
+ *
+ * While it shows, its height is on the page as `--arc-powered-by-height`, so a page
+ * that fills the screen (the sign-in page) leaves room for it: `calc(100dvh -
+ * var(--arc-powered-by-height, 0px))`.
  */
 @Component({
     selector: 'arc-powered-by-footer',
@@ -19,7 +23,7 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from '../admin/(settings)/misc/m
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         @if (showBadge()) {
-        <div class="arc-powered-by">
+        <div class="arc-powered-by" #badge>
             <a href="https://arccms.com" target="_blank" rel="dofollow noopener" title="Arc CMS: an open source CMS for landing pages">⚡️ Powered by Arc CMS: an open source CMS for landing pages</a>
         </div>
         }
@@ -54,12 +58,15 @@ export class PoweredByFooterComponent implements OnInit {
     private isAdminRoute = signal(false);
     private settingsLoaded = signal(false);
     private poweredByEnabled = signal(true);
+    private badge = viewChild<ElementRef<HTMLElement>>('badge');
+    private destroyRef = inject(DestroyRef);
 
     ngOnInit(): void {
         // Only run in browser for hydration logic
         if (!isPlatformBrowser(this.platformId)) {
             return;
         }
+
 
         // Check current route
         this.checkRoute(this.router.url);
@@ -73,6 +80,32 @@ export class PoweredByFooterComponent implements OnInit {
 
         // Load settings once
         this.loadSettings();
+    }
+
+    constructor() {
+        if (isPlatformBrowser(this.platformId)) this.publishHeight();
+    }
+
+    /**
+     * Keep `--arc-powered-by-height` on the page equal to the badge's height: 0 while
+     * it is not drawn, or hidden by a full-screen route (the observer then sees no box).
+     */
+    private publishHeight(): void {
+        const root = document.documentElement;
+        const observer = typeof ResizeObserver === 'undefined'
+            ? null
+            : new ResizeObserver(([entry]) => root.style.setProperty('--arc-powered-by-height', `${entry.target.getBoundingClientRect().height}px`));
+        // After each render that changes the badge, so the height is there as soon as it is drawn.
+        afterRenderEffect(() => {
+            const element = this.badge()?.nativeElement;
+            observer?.disconnect();
+            if (element && observer) observer.observe(element);
+            else root.style.setProperty('--arc-powered-by-height', '0px');
+        });
+        this.destroyRef.onDestroy(() => {
+            observer?.disconnect();
+            root.style.removeProperty('--arc-powered-by-height');
+        });
     }
 
     private checkRoute(url: string): void {

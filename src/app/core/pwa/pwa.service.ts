@@ -15,8 +15,16 @@ export const PWA = resolvePwaConfig(CUSTOM_PWA, isOn('pwa'));
 
 export type PwaEvent = 'prompt_shown' | 'installed' | 'dismissed' | 'opened_installed';
 
-/** How this browser installs the app, if it can. */
-export type InstallMode = 'prompt' | 'ios-safari' | 'ios-other';
+/**
+ * How this browser installs the app, if it can (docs/app/pwa.html):
+ * - `prompt`: Android, desktop Chrome and Edge; `install()` shows the browser's own dialog.
+ * - `ios-safari`: Safari on iPhone or iPad; Share, then Add to Home Screen.
+ * - `ios-browser`: Chrome, Edge, Firefox and others on iPhone or iPad (iOS 16.4 and
+ *   later); the same two steps from that browser's Share button, often in its address bar.
+ * - `ios-other`: a web view inside another app (Instagram, the Google app), or an older
+ *   iOS; the page has to be opened in Safari.
+ */
+export type InstallMode = 'prompt' | 'ios-safari' | 'ios-browser' | 'ios-other';
 
 /** Chrome's install prompt event (not in the DOM typings). */
 interface BeforeInstallPromptEvent extends Event {
@@ -54,6 +62,7 @@ export class PwaService {
     readonly enabled = PWA.enabled && this.browser;
     readonly platform: PwaPlatform;
     private readonly iosSafari: boolean;
+    private readonly iosShare: boolean;
 
     /** Running from the home screen (or as an installed desktop app). */
     readonly installed = signal(false);
@@ -79,7 +88,7 @@ export class PwaService {
     readonly installMode = computed<InstallMode | null>(() => {
         if (!this.enabled || this.installed()) return null;
         if (this.deferredPrompt()) return 'prompt';
-        if (this.platform === 'ios') return this.iosSafari ? 'ios-safari' : 'ios-other';
+        if (this.platform === 'ios') return this.iosSafari ? 'ios-safari' : this.iosShare ? 'ios-browser' : 'ios-other';
         return null;
     });
 
@@ -89,9 +98,10 @@ export class PwaService {
     constructor() {
         const info = this.browser
             ? detectPlatform(navigator.userAgent, navigator.maxTouchPoints)
-            : { platform: 'desktop' as const, iosSafari: false };
+            : { platform: 'desktop' as const, iosSafari: false, iosShare: false };
         this.platform = info.platform;
         this.iosSafari = info.iosSafari;
+        this.iosShare = info.iosShare;
     }
 
     /** Called once when the app starts (app.config.ts). */

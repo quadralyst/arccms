@@ -9,17 +9,6 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    // height: 94vh;
-    min-height: 65vh;
-}
-
-@media (min-height: 800px) {
-
-    .verification-container,
-    .signup-container,
-    .request-container {
-        min-height: 67vh;
-    }
 }
 
 .verification-card,
@@ -185,7 +174,10 @@ input:focus {
 
 .auth-container {
     display: flex;
-    min-height: 100vh;
+    // The visible screen: 100vh on iPhone includes the room behind the browser's bars.
+    min-height: calc(100vh - var(--arc-powered-by-height, 0px));
+    min-height: calc(100svh - var(--arc-powered-by-height, 0px));
+    min-height: calc(100dvh - var(--arc-powered-by-height, 0px));
 }
 
 .auth-left {
@@ -635,10 +627,65 @@ input:focus {
     color: #6c757d;
 }
 
-// The member language picker, top right of the form column
+// The form column is the visible screen (100dvh, 100svh where dvh is missing), with
+// the logo and the card centred together as one block and the footer at its foot.
+// Nothing scrolls unless a step is taller than the screen (a long sign-up form).
 .auth-form-column {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    // Less the "Powered by" badge under the page, when the site shows it (PoweredByFooterComponent).
+    min-height: calc(100vh - var(--arc-powered-by-height, 0px));
+    min-height: calc(100svh - var(--arc-powered-by-height, 0px));
+    min-height: calc(100dvh - var(--arc-powered-by-height, 0px));
+
+    > form,
+    > .auth-opening {
+        flex: 1 0 auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    // Every step is the logo, its card, then the footer: the free room goes above
+    // the logo and above the footer, so the logo and card sit in the middle.
+    .auth-form-container {
+        margin-top: auto;
+    }
+
+    .copyright {
+        margin-top: auto;
+    }
 }
+
+// Signed in already: the logo and a spinner while the account opens, no form.
+.auth-opening {
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 24px 16px;
+
+    .auth-form-container {
+        margin-top: 0;
+        padding: 0;
+    }
+    .auth-opening-text {
+        margin: 0;
+        color: #6b7280;
+    }
+}
+
+@media (max-width: 767.98px) {
+    // Tighter on a phone, so the logo, the card and the footer fit one screen.
+    .auth-form-container {
+        padding: 16px 20px;
+    }
+
+    .copyright {
+        padding: 12px 0 16px;
+    }
+}
+
+// The member language picker, top right of the form column
 
 .auth-language {
     position: absolute;

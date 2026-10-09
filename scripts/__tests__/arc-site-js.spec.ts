@@ -318,6 +318,18 @@ describe('signed-in hint', () => {
         expect((document.querySelector('[data-arc-signed-in]') as HTMLElement).hidden).toBe(true);
         expect((document.querySelector('[data-arc-signed-out]') as HTMLElement).hidden).toBe(false);
     });
+
+    it('keeps the documented key a page\'s own script reads: arc:signed-in, "1" while signed in (docs/website/home-page.html)', async () => {
+        const { SIGNED_IN_KEY, rememberSignedIn } = await import('../../src/app/core/site/signed-in-hint');
+        expect(SIGNED_IN_KEY).toBe('arc:signed-in');
+        expect(SOURCE).toContain("var SIGNED_IN_KEY = 'arc:signed-in';");
+        rememberSignedIn(true);
+        expect(localStorage.getItem('arc:signed-in')).toBe('1');
+        rememberSignedIn(false);
+        expect(localStorage.getItem('arc:signed-in')).toBeNull();
+        const docs = readFileSync(join(__dirname, '../../docs/website/home-page.html'), 'utf8');
+        expect(docs).toContain("localStorage.getItem('arc:signed-in') === '1'");
+    });
 });
 
 describe('setup', () => {

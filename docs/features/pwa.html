@@ -54,6 +54,7 @@
             <tr><td><code>startUrl</code></td><td><code>/</code></td><td>The page the home-screen icon opens.</td></tr>
             <tr><td><code>navigationTimeoutSeconds</code></td><td><code>4</code></td><td>How long a page waits for the network before the stored copy opens, from 1 to 30 seconds. Lower it for an app often on a network without internet, such as a kiosk on a closed Wi-Fi: each start then waits less. Too low, and a slow connection gets the stored copy instead of fresh content.</td></tr>
             <tr><td><code>icon</code></td><td><code class="new">src/custom/pwa-icon.svg</code> or <code>.png</code>, else Arc CMS's</td><td>The image every icon size is made from, an <code>.svg</code> or <code>.png</code> named by its path from the project folder, such as <code class="new">src/custom/brands/acme/icon.svg</code>. For an app with a different icon per brand. A file that is not there stops the build.</td></tr>
+            <tr><td><code>appleIcon</code></td><td><code>padded</code></td><td>The iPhone and iPad home-screen icon. <code>padded</code> puts your image on a white tile with a margin, which suits a logo on a transparent background. <code>fill</code> makes it fill its square with no margin, for an icon that is already a full coloured square (otherwise it shows as a smaller square on white). Transparent corners then show <code>backgroundColor</code>.</td></tr>
             <tr><td><code>routeCode</code></td><td><code>visited</code></td><td>Which screens' code is stored when the app installs or updates: <code>visited</code> (only what every page needs, the rest as it is first opened), <code>app</code> (every screen outside the admin area) or <code>all</code>. See <a href="../app/pwa.html#open-screens-offline-and-after-a-deploy">Make it installable</a>.</td></tr>
           </tbody>
         </table>
@@ -72,12 +73,14 @@
       <tbody>
         <tr><td>Chrome and Edge on Android and computers</td><td>An <strong>Install</strong> button, which opens the browser's own dialog.</td></tr>
         <tr><td>Safari on iPhone and iPad</td><td>Two steps: tap Share, then "Add to Home Screen".</td></tr>
-        <tr><td>Other browsers on iPhone and iPad</td><td>"To install, open this page in Safari." with <strong>Copy link</strong>.</td></tr>
+        <tr><td>Chrome, Edge, Firefox and other browsers on iPhone and iPad (iOS 16.4 and later)</td><td>The same two steps, from that browser's own Share button: "Tap the Share button in your browser." (Chrome and Edge have it in the address bar.)</td></tr>
+        <tr><td>A web view inside another app (Instagram, Facebook, the Google app), or an older iOS</td><td>"To install, open this page in Safari." with <strong>Copy link</strong>.</td></tr>
         <tr><td>Already installed, or a browser that cannot install</td><td>Nothing.</td></tr>
       </tbody>
     </table>
     <p><strong>Not now</strong> hides it on that device for 30 days. Arc CMS's own member dashboard (<code>/user/dashboard</code>) shows it at the top; an app that replaces that page places it itself.</p>
-    <p>iPhone and iPad read the home-screen icon and name from the page itself, not the manifest, so the build also adds an <code>apple-touch-icon</code> link and the <code>apple-mobile-web-app-title</code> (the short name) to every page.</p>
+    <p>The card carries its own styles and icons (inline SVG, no Bootstrap or Font Awesome classes), so it looks the same inside a Shadow DOM host. Its accent is <code>themeColor</code>.</p>
+    <p>iPhone and iPad read the home-screen icon and name from the page itself, not the manifest, so the build also adds an <code>apple-touch-icon</code> link and the <code>apple-mobile-web-app-title</code> (the short name) to every page. By default that icon is your image shrunk onto a white tile; with <code>appleIcon: 'fill'</code> it fills its square instead (see the table above).</p>
 
     <h3>Install numbers</h3>
     <p>With the PWA on, the admin dashboard shows <strong>App installs</strong>: installs in the last 30 days by platform (Android, iPhone and iPad, computer), the install rate (people whose record says they installed, out of everyone with a record), and openings from the home screen in the last 30 days (each device once a day).</p>
@@ -93,6 +96,7 @@
     <ul>
       <li><strong>Show the install card on your own page:</strong> import <code>InstallPromptComponent</code> from <code>src/shared/components/install-prompt/install-prompt.component.ts</code> and put <code>&lt;arc-install-prompt /&gt;</code> in the template.</li>
       <li><strong>Know whether the app runs installed:</strong> <code>PwaService</code> (<code>src/app/core/pwa/pwa.service.ts</code>) has <code>installed()</code>, <code>showInstall()</code>, <code>installMode()</code> and <code>updateReady()</code>.</li>
+      <li><strong>Draw your own install card or sheet:</strong> <code>PwaService</code>'s install side is the supported way. See <a href="../app/pwa.html#build-your-own-install-card">Make it installable</a>.</li>
       <li><strong>Show the update yourself:</strong> an app that lives on full-screen pages can show "a new version is ready" where it suits, with <code>updateReady()</code>, <code>checkForUpdate()</code> and <code>applyUpdate()</code>, and a route flag that keeps Arc CMS's bar away. See <a href="../app/pwa.html#show-the-update-yourself">Make it installable</a>.</li>
     </ul>
 
@@ -119,7 +123,8 @@
       <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
       <tbody>
         <tr><td>No install option on <code>npm run dev</code></td><td>The dev server has no service worker. Test a production build, as above.</td></tr>
-        <tr><td>No install card on iPhone in Chrome</td><td>Only Safari can install on iPhone and iPad. The card tells people to open the page in Safari.</td></tr>
+        <tr><td>The card asks someone on iPhone to open the page in Safari</td><td>They opened it inside another app (Instagram, Facebook, the Google app) or on iOS older than 16.4, where only Safari adds to the home screen. Safari, Chrome, Edge and Firefox on a current iPhone get the Share steps.</td></tr>
+        <tr><td>The iPhone icon is a small square on a white tile</td><td>The default <code>appleIcon: 'padded'</code>. For an icon that is already a full square, set <code>appleIcon: 'fill'</code> in <code class="new">src/custom/pwa.ts</code>, then build and deploy. A home screen already holding the old icon keeps it until the app is added again.</td></tr>
         <tr><td>The install card never shows again</td><td>Someone pressed Not now on that device less than 30 days ago.</td></tr>
         <tr><td>A change to the name, colors or icon does not show</td><td>They are read at build time. Build and deploy again; an installed app picks them up after its update.</td></tr>
         <tr><td>Users were not asked to update after a deploy</td><td>Nothing in the app's files changed, so there is no new version. Content published in the CMS needs no update.</td></tr>

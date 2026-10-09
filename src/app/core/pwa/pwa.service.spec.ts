@@ -72,6 +72,16 @@ describe('PwaService', () => {
         expect(setup({ userAgent: IPHONE_SAFARI }).installMode()).toBe('ios-safari');
     });
 
+    it('shows the two-step guide in Chrome on iPhone too', () => {
+        const chrome = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/126.0.6478.54 Mobile/15E148 Safari/604.1';
+        expect(setup({ userAgent: chrome }).installMode()).toBe('ios-browser');
+    });
+
+    it('sends only a web view inside another app to Safari', () => {
+        const instagram = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 330.0.0.0';
+        expect(setup({ userAgent: instagram }).installMode()).toBe('ios-other');
+    });
+
     it('hides the card for a while after "Not now", and counts it', async () => {
         const service = setup({ userAgent: IPHONE_SAFARI });
         service.dismiss();

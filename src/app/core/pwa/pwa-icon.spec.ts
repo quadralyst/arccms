@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { DEFAULT_PWA_ICON, resolvePwaIcon } from './pwa-config';
+import { appleIconAsset, DEFAULT_PWA_ICON, resolvePwaConfig, resolvePwaIcon } from './pwa-config';
 
 const files = (...paths: string[]) => (path: string) => paths.includes(path);
 
@@ -32,5 +32,26 @@ describe('the PWA icon', () => {
         const vite = readFileSync(resolve(__dirname, '../../../../vite.config.ts'), 'utf8');
         expect(vite).toContain('const pwaIcon = resolvePwaIcon(CUSTOM_PWA, (path) => existsSync(resolve(path)));');
         expect(vite).toContain('image: pwaIcon,');
+    });
+});
+
+describe('the iPhone icon (appleIcon in src/custom/pwa.ts)', () => {
+    it('keeps the generator\'s padded white tile by default', () => {
+        expect(resolvePwaConfig({}, true).appleIcon).toBe('padded');
+        expect(appleIconAsset(resolvePwaConfig({}, true))).toBeUndefined();
+    });
+
+    it('fills its square with no padding when set to fill, on the app\'s background colour', () => {
+        const config = resolvePwaConfig({ appleIcon: 'fill', backgroundColor: '#0b1f3a' }, true);
+        expect(appleIconAsset(config)).toEqual({ padding: 0, resizeOptions: { fit: 'cover', background: '#0b1f3a' } });
+    });
+
+    it('stops the build on any other value', () => {
+        expect(() => resolvePwaConfig({ appleIcon: 'full' as never }, true)).toThrow('appleIcon must be one of padded, fill');
+    });
+
+    it('is what the build hands the icon generator', () => {
+        const vite = readFileSync(resolve(__dirname, '../../../../vite.config.ts'), 'utf8');
+        expect(vite).toContain('apple: { ...minimal2023Preset.apple, ...appleIconAsset(pwa) }');
     });
 });

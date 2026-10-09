@@ -42,7 +42,17 @@ export interface PwaConfig {
      * each brand's here.
      */
     icon?: string;
+    /**
+     * The iPhone and iPad home-screen icon: `padded` (the default) shrinks the icon
+     * onto a white tile, which suits a logo on a transparent background; `fill` makes
+     * it fill its square with no padding, for an icon that is already a full coloured
+     * square. Any transparent corner then shows `backgroundColor`.
+     */
+    appleIcon: AppleIconMode;
 }
+
+export const APPLE_ICON_MODES = ['padded', 'fill'] as const;
+export type AppleIconMode = (typeof APPLE_ICON_MODES)[number];
 
 export const ROUTE_CODE_MODES = ['visited', 'app', 'all'] as const;
 export type RouteCodeMode = (typeof ROUTE_CODE_MODES)[number];
@@ -57,6 +67,7 @@ export const DEFAULT_PWA_CONFIG: PwaConfig = {
     startUrl: '/',
     routeCode: 'visited',
     navigationTimeoutSeconds: 4,
+    appleIcon: 'padded',
 };
 
 /** The range `navigationTimeoutSeconds` must be in. */
@@ -106,6 +117,19 @@ export function resolvePwaConfig(custom: Partial<PwaConfig> | undefined, enabled
     if (timeout !== undefined && !(typeof timeout === 'number' && Number.isFinite(timeout) && timeout >= min && timeout <= max)) {
         throw new Error(`src/custom/pwa.ts: navigationTimeoutSeconds must be a number of seconds from ${min} to ${max}, not ${JSON.stringify(timeout)}.`);
     }
+    if (custom?.appleIcon !== undefined && !APPLE_ICON_MODES.includes(custom.appleIcon)) {
+        throw new Error(`src/custom/pwa.ts: appleIcon must be one of ${APPLE_ICON_MODES.join(', ')}, not ${JSON.stringify(custom.appleIcon)}.`);
+    }
     const merged = { ...DEFAULT_PWA_CONFIG, ...(custom ?? {}), enabled };
     return { ...merged, shortName: merged.shortName || merged.name };
+}
+
+/**
+ * How the build makes the iPhone icon (apple-touch-icon-180x180.png) from the image,
+ * as options for the PWA assets generator. Unset is its default: 30% padding on white.
+ */
+export function appleIconAsset(config: Pick<PwaConfig, 'appleIcon' | 'backgroundColor'>):
+    { padding: number; resizeOptions: { fit: 'cover'; background: string } } | undefined {
+    if (config.appleIcon !== 'fill') return undefined;
+    return { padding: 0, resizeOptions: { fit: 'cover', background: config.backgroundColor } };
 }

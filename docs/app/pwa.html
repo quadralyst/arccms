@@ -61,6 +61,25 @@
     <p>Arc CMS shows the install card at the top of the member dashboard. To show it on a page of your own, such as your app's start page, add <code>&lt;arc-install-prompt /&gt;</code> (see <a href="../features/pwa.html#extend-it">Installable app (PWA)</a>). It shows what fits the browser, and nothing once the app is installed.</p>
     <p>On your published home page, give any button <code>data-arc-install hidden</code>: it appears when the browser offers installing and asks on a click (see <a href="../website/home-page.html">Build your home page</a>).</p>
 
+    <h3 id="build-your-own-install-card">Build your own install card</h3>
+    <p><code>&lt;arc-install-prompt /&gt;</code> carries its own styles and icons, so it also works inside Shadow DOM. To draw your own sheet instead, in your app's look, use <code>PwaService</code> (<code>src/app/core/pwa/pwa.service.ts</code>). Its install side is supported and stable:</p>
+    <table>
+      <thead><tr><th>Member</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>showInstall()</code></td><td>A signal: true when the card should show (the browser can install, the app is not installed, the PWA is on, and the person has not chosen Not now in the last 30 days).</td></tr>
+        <tr><td><code>installMode()</code></td><td>A signal: how this browser installs, or <code>null</code>. <code>'prompt'</code> (Android, desktop Chrome and Edge: call <code>install()</code>), <code>'ios-safari'</code> (Safari on iPhone and iPad: Share, then Add to Home Screen), <code>'ios-browser'</code> (Chrome, Edge, Firefox and others on iPhone and iPad, iOS 16.4 and later: the same steps from that browser's Share button, often in its address bar), <code>'ios-other'</code> (a web view inside another app, or an older iOS: the page must be opened in Safari).</td></tr>
+        <tr><td><code>install()</code></td><td>Opens the browser's own install dialog, for <code>'prompt'</code>. Does nothing otherwise.</td></tr>
+        <tr><td><code>dismiss()</code></td><td>Not now: <code>showInstall()</code> turns false on this device for 30 days, and the decline is counted.</td></tr>
+        <tr><td><code>shown()</code></td><td>Call it when your card comes into view, so the install numbers count it (once per device).</td></tr>
+        <tr><td><code>installed()</code></td><td>A signal: the app runs from the home screen or as an installed desktop app.</td></tr>
+      </tbody>
+    </table>
+    <pre><code>readonly pwa = inject(PwaService);
+constructor() {
+    effect(() =&gt; { if (this.pwa.showInstall()) this.pwa.shown(); });
+}
+// template: @if (pwa.showInstall()) { ... @switch (pwa.installMode()) { ... } }</code></pre>
+
     <h2>Test that it installs</h2>
     <ol class="steps">
       <li><p><strong>On your computer:</strong> build, serve the build, and check Chrome's DevTools, Application, as described in <a href="../features/pwa.html#test-it">Installable app (PWA)</a>. <code>npm run dev</code> has no service worker, so it cannot be used for this.</p></li>
@@ -136,9 +155,9 @@ export default class LockComponent {
 
     <h2>iPhone and iPad</h2>
     <ul>
-      <li>Only Safari can install. The install card shows the two steps (tap Share, then "Add to Home Screen"); in another browser it asks the person to open the page in Safari, with a Copy link button.</li>
+      <li>Safari, and since iOS 16.4 Chrome, Edge and Firefox too, add the app to the home screen from their Share menu. The install card shows the two steps (tap Share, then "Add to Home Screen") in each of them. Only a web view inside another app (Instagram, Facebook, the Google app), or an older iOS, gets "open this page in Safari", with a Copy link button.</li>
       <li>iPhone reports no install event, so the install numbers count the first opening from the home screen as the install.</li>
-      <li>The home screen uses the iPhone icon and the short name, both made from your settings.</li>
+      <li>The home screen uses the iPhone icon and the short name, both made from your settings. The icon is padded onto a white tile unless <code>appleIcon: 'fill'</code> in <code class="new">src/custom/pwa.ts</code> makes a full-square icon fill it (see <a href="../features/pwa.html">Installable app (PWA)</a>).</li>
     </ul>
 
     <h2>Wrap it for the app stores</h2>

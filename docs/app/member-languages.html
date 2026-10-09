@@ -54,6 +54,19 @@ german(): void {
     </ul>
     <p>The language picker in the page header is the admin's: once you declare member languages it shows only in the admin area, since the admin's choice does not change member pages. Members choose on the sign-in page, or through the member picker on your own pages.</p>
 
+    <h3 id="build-your-own-picker">Build your own picker</h3>
+    <p><code>&lt;arc-member-language-picker&gt;</code> carries its own button styles and icon (inline SVG), so it works inside a Shadow DOM host; its menu opens in the page's overlay, outside the host, with the app's Material styles. To draw your own menu in your app's look, use <code>MemberLanguageService</code> (<code>src/app/core/i18n/member-language.service.ts</code>). These members are supported and stable:</p>
+    <table>
+      <thead><tr><th>Member</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>languages</code></td><td>English and your declared languages, in order: each has <code>code</code> (<code>'de'</code>), <code>label</code> (its own name, "Deutsch") and <code>locale</code> (<code>'de-CH'</code>). Show a picker only when there is more than one.</td></tr>
+        <tr><td><code>activeLang()</code></td><td>A signal: the code member screens show now.</td></tr>
+        <tr><td><code>activeLocale()</code></td><td>A signal: its locale, for dates and numbers.</td></tr>
+        <tr><td><code>use(code, { reload })</code></td><td>Switch member screens to that language at once and keep it on this device. A code you did not declare is ignored. <code>reload: true</code> reloads the page after.</td></tr>
+      </tbody>
+    </table>
+    <p>Outside Angular code, <code>setMemberLanguage(code)</code> from the same file does what <code>use()</code> does.</p>
+
     <h2 id="sign-in-page">The sign-in page</h2>
     <p>With member languages declared, the sign-in page shows the member picker, and both halves of the page follow it: the form through your translation files, and the brand panel beside it through the site's strings file for that language. For German, give your panel's <code>data-arc-t</code> keys in <code class="new">src/custom/site/strings/de.json</code>; Arc CMS's own panel uses <code>sign_in_title</code> and <code>sign_in_body</code>:</p>
     <pre><code>{
