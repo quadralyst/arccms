@@ -14,7 +14,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router, RouterModule } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { of, Subject } from 'rxjs';
+import { of } from 'rxjs';
 import { Auth } from '@angular/fire/auth';
 
 const { mockCallableFn } = vi.hoisted(() => ({ mockCallableFn: vi.fn() }));
@@ -61,8 +61,8 @@ let signIn: Record<string, ReturnType<typeof vi.fn>>;
 /** Firebase Auth on this device: who it says is signed in, once it has looked. */
 let auth: { currentUser: { uid: string } | null; authStateReady: () => Promise<void> };
 let authReady: ReturnType<typeof later<void>>;
-/** The auth listener's record: a user, or null for nobody (or no record). */
-let record: Subject<unknown>;
+/** AuthState.recordReady(): the record, or null for nobody (or no record). */
+let record: ReturnType<typeof later<unknown>>;
 let currentUser: ReturnType<typeof signal<unknown>>;
 let navigateByUrl: ReturnType<typeof vi.fn>;
 
@@ -84,7 +84,7 @@ beforeEach(async () => {
     settingsRead = later<IUserSettings>();
     authReady = later<void>();
     auth = { currentUser: null, authStateReady: () => authReady.promise };
-    record = new Subject<unknown>();
+    record = later<unknown>();
     currentUser = signal<unknown>(null);
     signIn = {
         warmUp: vi.fn(),
@@ -100,7 +100,7 @@ beforeEach(async () => {
             { provide: AuthState, useValue: {
                 isLoading: signal(false), isSuccess: signal(false), isAuthenticated: signal(false),
                 error: signal(''), errorCode: signal(''), currentUser, isAdmin: signal(false),
-                initAuthStateListener: () => record,
+                recordReady: () => record.promise,
             } },
             { provide: Auth, useValue: auth },
             { provide: AuthService, useValue: {} },
@@ -249,7 +249,7 @@ describe('SignupComponent: someone already signed in (F19)', () => {
         expect(form()).toBeNull();
 
         currentUser.set(signedInMember);
-        record.next(signedInMember);
+        record.resolve(signedInMember);
         await flush();
         fixture.detectChanges();
         expect(navigateByUrl).toHaveBeenCalled();
@@ -270,7 +270,7 @@ describe('SignupComponent: someone already signed in (F19)', () => {
         render();
         expect(form()).not.toBeNull();
         authReady.resolve();
-        record.next(null);
+        record.resolve(null);
         await flush();
         fixture.detectChanges();
         expect(form()).not.toBeNull();
@@ -293,7 +293,7 @@ describe('SignupComponent: someone already signed in (F19)', () => {
         render();
         authReady.resolve();
         await flush();
-        record.next(null);
+        record.resolve(null);
         await flush();
         fixture.detectChanges();
         expect(form()).not.toBeNull();

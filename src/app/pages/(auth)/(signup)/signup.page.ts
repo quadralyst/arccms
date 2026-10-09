@@ -283,15 +283,16 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         return;
       }
 
-      // Listen for auth state changes on initial load
-      this.authStore.initAuthStateListener().subscribe((user: any) => {
-        if (user && user.isActive) {
-          this.handleLoginSuccess();
-        } else {
+      // Someone already signed in goes on to their page once their record is in
+      // (AuthState's one shared read, from the device's copy when it has one).
+      this.authStore.recordReady().then(
+        (user) => {
+          if (user) this.handleLoginSuccess();
           // Nobody signed in, or no record for them (a deleted account): the form.
-          this.stopOpening();
-        }
-      });
+          else this.stopOpening();
+        },
+        () => this.stopOpening(),
+      );
     });
   }
 
@@ -299,7 +300,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
    * "Opening…" or the form, from what Firebase Auth knows on this device. The
    * signed-in hint (core/site/signed-in-hint.ts) picks the first frame, so neither
    * a signed-in nor a signed-out visit flashes the other; Auth's own answer then
-   * settles it, and the record (the listener in ngOnInit) forwards the person.
+   * settles it, and the record (AuthState.recordReady() in ngOnInit) forwards the person.
    */
   private watchSignedIn(): void {
     this.opening.set(readSignedIn());
