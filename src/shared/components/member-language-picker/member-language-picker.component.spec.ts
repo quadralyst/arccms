@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { signal } from '@angular/core';
+import { Component, signal, ViewEncapsulation } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MemberLanguagePickerComponent } from './member-language-picker.component';
 import { MemberLanguageService } from '../../../app/core/i18n/member-language.service';
@@ -40,5 +40,30 @@ describe('MemberLanguagePickerComponent', () => {
         fixture.detectChanges();
         expect(use).toHaveBeenCalledWith('de');
         expect(el.querySelector('button')!.textContent).toContain('Deutsch');
+    });
+
+    it('works inside a Shadow DOM host: its own icon and styles, no Font Awesome', () => {
+        @Component({
+            selector: 'arc-shadow-host',
+            standalone: true,
+            imports: [MemberLanguagePickerComponent],
+            encapsulation: ViewEncapsulation.ShadowDom,
+            template: '<arc-member-language-picker />',
+        })
+        class ShadowHostComponent {}
+
+        const activeLang = signal('en');
+        TestBed.configureTestingModule({
+            imports: [ShadowHostComponent],
+            providers: [{ provide: MemberLanguageService, useValue: { languages: [ENGLISH, GERMAN], activeLang, use: vi.fn() } }],
+        });
+        const fixture = TestBed.createComponent(ShadowHostComponent);
+        fixture.detectChanges();
+        const root = (fixture.nativeElement as HTMLElement).shadowRoot!;
+        const button = root.querySelector('button.member-lang-btn')!;
+        expect(button.querySelector('svg')).not.toBeNull();
+        expect(root.querySelectorAll('[class*="fa-"], i')).toHaveLength(0);
+        const styles = [...root.querySelectorAll('style')].map((s) => s.textContent).join('\n');
+        expect(styles).toContain('.member-lang-btn');
     });
 });

@@ -1455,6 +1455,7 @@ export type TranslationKey =
     | 'common.pwa.ios_other'
     | 'common.pwa.ios_step_add'
     | 'common.pwa.ios_step_share'
+    | 'common.pwa.ios_step_share_browser'
     | 'common.pwa.link_copied'
     | 'common.pwa.not_now'
     | 'common.pwa.update'
@@ -1552,6 +1553,7 @@ export type TranslationKey =
     | 'member.auth.name_required'
     | 'member.auth.new_pin_label'
     | 'member.auth.no_access'
+    | 'member.auth.opening'
     | 'member.auth.or'
     | 'member.auth.password_label'
     | 'member.auth.password_min'
@@ -3331,6 +3333,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.pwa.ios_other',
     'common.pwa.ios_step_add',
     'common.pwa.ios_step_share',
+    'common.pwa.ios_step_share_browser',
     'common.pwa.link_copied',
     'common.pwa.not_now',
     'common.pwa.update',
@@ -3428,6 +3431,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.name_required',
     'member.auth.new_pin_label',
     'member.auth.no_access',
+    'member.auth.opening',
     'member.auth.or',
     'member.auth.password_label',
     'member.auth.password_min',

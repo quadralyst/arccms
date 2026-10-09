@@ -85,4 +85,34 @@ describe('PoweredByFooterComponent', () => {
             expect(typeof component.ngOnInit).toBe('function');
         });
     });
+
+    describe('its height on the page (--arc-powered-by-height)', () => {
+        it('keeps the variable equal to its height, and takes it away when it goes', () => {
+            vi.stubGlobal('ResizeObserver', class {
+                constructor(private callback: (entries: Array<{ target: Element }>) => void) {}
+                observe(target: Element): void { this.callback([{ target }]); }
+                disconnect(): void { /* nothing to stop */ }
+            });
+            vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ height: 53 } as DOMRect);
+            try {
+                TestBed.resetTestingModule();
+                TestBed.configureTestingModule({
+                    imports: [PoweredByFooterComponent],
+                    providers: [provideRouter([]), { provide: Firestore, useValue: {} }],
+                });
+                const shown = TestBed.createComponent(PoweredByFooterComponent);
+                vi.spyOn(shown.componentInstance, 'loadSettings' as any).mockImplementation(async () => undefined);
+                shown.detectChanges();
+                expect(document.documentElement.style.getPropertyValue('--arc-powered-by-height')).toBe('53px');
+                shown.componentInstance.showBadge.set(false);
+                shown.detectChanges();
+                expect(document.documentElement.style.getPropertyValue('--arc-powered-by-height')).toBe('0px');
+                shown.destroy();
+                expect(document.documentElement.style.getPropertyValue('--arc-powered-by-height')).toBe('');
+            } finally {
+                vi.unstubAllGlobals();
+                vi.restoreAllMocks();
+            }
+        });
+    });
 });

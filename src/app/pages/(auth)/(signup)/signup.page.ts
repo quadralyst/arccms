@@ -24,7 +24,7 @@ import {
 } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import type { AuthCredential } from '@angular/fire/auth';
+import { Auth, type AuthCredential } from '@angular/fire/auth';
 import { filter, firstValueFrom, take } from 'rxjs';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { AuthState, NO_ACCESS_KEY } from '../auth.store';
@@ -55,6 +55,7 @@ import { SignInPanelComponent } from '../../page.parts/sign-in-panel.component';
 import { SiteBrandService } from '../../../core/brand/site-brand';
 import { SIGN_IN_IMAGE } from '../../../core/brand/app-brand-files';
 import { MemberLanguagePickerComponent } from '../../../../shared/components/member-language-picker/member-language-picker.component';
+import { readSignedIn } from '../../../core/site/signed-in-hint';
 
 export const routeMeta: RouteMeta = {
   title: 'Sign in',
@@ -69,6 +70,12 @@ type Channel = 'email' | 'phone';
  * could not be loaded. Firestore gives up sooner when it knows it is offline.
  */
 export const SETTINGS_WAIT_MS = 20_000;
+
+/**
+ * How long "Opening…" waits for a signed-in person's record before it shows the
+ * form after all (a record that never answers).
+ */
+export const SIGNED_IN_WAIT_MS = 20_000;
 
 @Component({
   selector: 'arc-signup',
@@ -97,7 +104,17 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private userSettingService = inject(UserSettingService);
   private emailConfigStatus = inject(EmailConfigStatusService);
   private signIn = inject(SignInService);
+  private auth = inject(Auth);
   currentStep = signal<SignupStep>('request');
+
+  /**
+   * Someone is signed in on this device and their record is on its way: the page
+   * shows the logo and a spinner ("Opening…") instead of the form, then forwards
+   * them. Firebase Auth answers from the device well before the record arrives.
+   */
+  readonly opening = signal(false);
+  private openingTimer: ReturnType<typeof setTimeout> | undefined;
+  private openingSettled = false;
 
   isLoading = signal(false);
   errorMessage = signal('');
@@ -256,6 +273,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       return;
     }
 
+    this.watchSignedIn();
+
     // Redirect to the onboarding wizard on first run, or when it was started
     // but never finished.
     this.setupService.shouldShowOnboarding().pipe(take(1)).subscribe((showOnboarding) => {
@@ -268,9 +287,38 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.authStore.initAuthStateListener().subscribe((user: any) => {
         if (user && user.isActive) {
           this.handleLoginSuccess();
+        } else {
+          // Nobody signed in, or no record for them (a deleted account): the form.
+          this.stopOpening();
         }
       });
     });
+  }
+
+  /**
+   * "Opening…" or the form, from what Firebase Auth knows on this device. The
+   * signed-in hint (core/site/signed-in-hint.ts) picks the first frame, so neither
+   * a signed-in nor a signed-out visit flashes the other; Auth's own answer then
+   * settles it, and the record (the listener in ngOnInit) forwards the person.
+   */
+  private watchSignedIn(): void {
+    this.opening.set(readSignedIn());
+    this.auth.authStateReady().then(
+      () => {
+        // Unless the record already answered (a deleted account): then the form stays.
+        if (this.auth.currentUser && !this.openingSettled) this.opening.set(true);
+        else this.stopOpening();
+      },
+      () => this.stopOpening(),
+    );
+    this.openingTimer = setTimeout(() => this.stopOpening(), SIGNED_IN_WAIT_MS);
+  }
+
+  /** Show the form. Not once the person is being forwarded. */
+  private stopOpening(): void {
+    this.openingSettled = true;
+    clearTimeout(this.openingTimer);
+    if (!this.navigationInProgress) this.opening.set(false);
   }
 
   /**
@@ -1024,6 +1072,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   ngOnDestroy() {
     clearInterval(this.countdownInterval);
+    clearTimeout(this.openingTimer);
   }
 
   resetAll() {

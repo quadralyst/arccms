@@ -60,10 +60,19 @@
         <tr><td><code>data-arc-site="phone"</code>, <code>data-arc-site-loop="social"</code></td><td>The site's name, email, phone, address, logo, social links and the year, from Settings, <strong>About</strong> (see <a href="../features/templates.html#site-info">Site info</a>). Works here, in the header and footer, templates and static pages.</td></tr>
         <tr><td><code>&lt;span data-waitlist-count="…"&gt;&lt;/span&gt;</code></td><td>The number of confirmed sign-ups on that form</td></tr>
         <tr><td><code>&lt;button data-arc-install hidden&gt;</code></td><td>Shown when the browser offers installing your app; a click asks. Needs the installable app on (see <a href="../app/pwa.html">Make it installable</a>). In your script, <code>window.arcSite.install()</code> and <code>window.arcSite.canInstall</code> do the same.</td></tr>
-        <tr><td><code>data-arc-signed-in</code>, <code>data-arc-signed-out</code></td><td>Elements shown to people signed in to the app on this browser, or to everyone else. Give the signed-in one <code>hidden</code> so it starts hidden.</td></tr>
+        <tr><td><code>data-arc-signed-in</code>, <code>data-arc-signed-out</code></td><td>Elements shown to people signed in to the app on this browser, or to everyone else. Give the signed-in one <code>hidden</code> so it starts hidden. In your script, <code>window.arcSite.signedIn</code> says the same, and <code>&lt;html&gt;</code> has the class <code>arc-signed-in</code> (see <a href="#signed-in-in-your-own-script">Signed in, in your own script</a>).</td></tr>
         <tr><td><code>data-arc-t="key"</code></td><td>Text in the page's language (below)</td></tr>
       </tbody>
     </table>
+
+    <h2 id="signed-in-in-your-own-script">Signed in, in your own script</h2>
+    <p>The app keeps a hint on this browser of whether someone is signed in: the local storage key <code>arc:signed-in</code> is <code>'1'</code> while someone is, and absent otherwise. The key and its value are stable, so a page's own script can read them, including an inline script at the top of the page that runs before <code>arc-site.js</code>. For example, a home page that sends someone signed in straight to the app's main screen:</p>
+    <pre><code>&lt;script&gt;
+    try {
+        if (localStorage.getItem('arc:signed-in') === '1') location.replace('/learn');
+    } catch (e) { /* storage off: stay on the page */ }
+&lt;/script&gt;</code></pre>
+    <p>It is a hint, not a sign-in: it holds no identity and grants nothing, and it can be out of date (someone signed out in another tab, or their account was deleted). The app's own pages still check the real sign-in, so the worst a stale hint does is open the app's sign-in page, which forwards a signed-in person on. After <code>arc-site.js</code> has run, <code>window.arcSite.signedIn</code> has the same answer.</p>
 
     <h2>Styles, scripts and animation</h2>
     <p>Your stylesheets and scripts are yours. Arc CMS's stylesheets (Bootstrap, <code>main.css</code> and your <code class="new">src/custom/site/site.css</code>) are linked before them, so your rules win. <code>main.css</code> styles only the page body and the site header and footer, so your class names are free. Scripts are plain files: load a library such as GSAP or ScrollTrigger from a CDN, or keep its file in <code class="new">src/custom/site/assets/</code>, and write your own in <code>/site/home.js</code>. A script cannot <code>import</code> an npm package, because the page is served as it is, without a build step.</p>

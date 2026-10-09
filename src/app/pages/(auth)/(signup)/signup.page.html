@@ -21,6 +21,22 @@
             <div class="col-lg-6 auth-form-column">
                 <!-- English and the app's member languages; nothing when it declares none -->
                 <arc-member-language-picker class="auth-language"></arc-member-language-picker>
+                @if (opening()) {
+                <!-- Signed in already: the logo and a spinner while the account opens, no form -->
+                <div class="auth-opening" role="status" aria-live="polite">
+                    <div class="auth-form-container">
+                        <div class="auth-logo">
+                            @if (brandLogo()) {
+                            <img class="auth-logo-image d-inline-block" [src]="brandLogo()" [alt]="brandName()">
+                            } @else if (brandName()) {
+                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            }
+                        </div>
+                    </div>
+                    <span class="spinner-border text-primary" aria-hidden="true"></span>
+                    <p class="auth-opening-text">{{ 'member.auth.opening' | transloco }}</p>
+                </div>
+                } @else {
                 <form [formGroup]="registrationForm" (ngSubmit)="handleSubmit()">
 
                     <!-- Request Slide: phone number or email -->
@@ -515,6 +531,7 @@
                     }
 
                 </form>
+                }
             </div>
         </div>
     </div>

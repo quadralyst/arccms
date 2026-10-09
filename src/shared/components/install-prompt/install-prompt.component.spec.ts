@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { computed, signal } from '@angular/core';
+import { Component, computed, signal, ViewEncapsulation } from '@angular/core';
 import { translocoTestingModule } from '../../../test/transloco-test-providers';
 import { PwaService, type InstallMode } from '../../../app/core/pwa/pwa.service';
 import { InstallPromptComponent } from './install-prompt.component';
@@ -52,9 +52,56 @@ describe('InstallPromptComponent', () => {
         expect(steps[1].textContent).toContain('Add to Home Screen');
     });
 
-    it('sends other iPhone browsers to Safari', () => {
+    it('walks Chrome on iPhone through its own Share button, not off to Safari', () => {
+        mode.set('ios-browser');
+        const el = render();
+        const steps = el.querySelectorAll('.install-steps li');
+        expect(steps).toHaveLength(2);
+        expect(steps[0].textContent).toContain('Tap the Share button in your browser.');
+        expect(steps[1].textContent).toContain('Add to Home Screen');
+        expect(el.textContent).not.toContain('Safari');
+    });
+
+    it('sends only a web view inside another app to Safari', () => {
         mode.set('ios-other');
         expect(render().textContent).toContain('open this page in Safari');
+    });
+
+    it('needs no Bootstrap or Font Awesome: its buttons and icons are its own', () => {
+        for (const value of ['prompt', 'ios-safari', 'ios-browser', 'ios-other'] as const) {
+            TestBed.resetTestingModule();
+            mode.set(value);
+            const el = render();
+            expect(el.querySelectorAll('[class*="btn"], [class*="fa-"], i')).toHaveLength(0);
+            expect(el.querySelector('.install-icon svg')).not.toBeNull();
+        }
+    });
+
+    it('renders its buttons, icons and styles inside a Shadow DOM host', () => {
+        @Component({
+            selector: 'arc-shadow-host',
+            standalone: true,
+            imports: [InstallPromptComponent],
+            encapsulation: ViewEncapsulation.ShadowDom,
+            template: '<arc-install-prompt />',
+        })
+        class ShadowHostComponent {}
+
+        mode.set('ios-safari');
+        TestBed.configureTestingModule({
+            imports: [ShadowHostComponent, translocoTestingModule()],
+            providers: [{ provide: PwaService, useValue: pwa }],
+        });
+        const fixture = TestBed.createComponent(ShadowHostComponent);
+        fixture.detectChanges();
+        const root = (fixture.nativeElement as HTMLElement).shadowRoot!;
+        expect(root).not.toBeNull();
+        expect(root.querySelectorAll('.install-steps svg.step-icon')).toHaveLength(2);
+        expect(root.querySelector('button.install-button')).not.toBeNull();
+        // The card's own styles are inside the shadow root, where they apply.
+        const styles = [...root.querySelectorAll('style')].map((s) => s.textContent).join('\n');
+        expect(styles).toContain('.install-button-quiet');
+        expect(styles).toContain('.step-icon');
     });
 
     it('hides on "Not now"', () => {
