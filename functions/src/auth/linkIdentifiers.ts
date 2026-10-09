@@ -29,7 +29,7 @@ import { maskPhone, phoneHash } from './phoneNumber.js';
 import { readPhone } from './phoneAuth.js';
 import { cleanEmail, cleanPasted } from './pastedText.js';
 import { consumeVerifiedPhoneOtp } from './phoneOtp.js';
-import { assertEmailResendReady, consumeVerifiedEmailLinkOtp, issueEmailOtp } from './signupOtp.js';
+import { consumeVerifiedEmailLinkOtp, emailCodeAskedAgain, isSimulatedEmail, issueEmailOtp } from './signupOtp.js';
 import {
     ACCOUNT_TRANSFERS,
     AUTH_PINS,
@@ -46,11 +46,11 @@ import {
     setPin,
     type UserRecord,
 } from './accounts.js';
-import { refuse } from './refusal.js';
+import { refuse, refuseWeakPassword } from './refusal.js';
+import { MIN_PASSWORD_LENGTH } from '../shared/password-rule.js';
 
 const HOUR = 60 * 60 * 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD_LENGTH = 8;
 
 export type LinkKind = 'email' | 'phone';
 export type LinkStatus = 'available' | 'yours' | 'other' | 'blocked';
@@ -152,8 +152,10 @@ export const requestEmailLinkOtp = onCall(async (request) => {
     const me = await requireOwnRecord(request);
     const uid = String(me.data['uid']);
     const email = normalizeEmailAddress(request.data?.email);
-    // The wait first, and a code that was not sent is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
-    await assertEmailResendReady(email);
+    // Asked again within the minute: the code already sent, nothing new (F22). Checked
+    // first, and a code that was not sent is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
+    const asked = await emailCodeAskedAgain(email, 'link', uid);
+    if (asked) return { sent: true, ...((await isSimulatedEmail()) ? { testMode: true } : {}), alreadySent: true, wait: asked.wait };
     const limit = `email-link-${uid}`;
     await consumeRateLimit(limit, 10, HOUR, 'Too many codes. Please try again later.', 'too-many-codes');
     let result: Awaited<ReturnType<typeof issueEmailOtp>>;
@@ -238,6 +240,8 @@ export const linkEmail = onCall(async (request) => {
     if (needsPassword && password.length < MIN_PASSWORD_LENGTH) {
         throw new HttpsError('failed-precondition', 'Choose a password of at least 8 characters.', { reason: 'password-required' });
     }
+    // A new password, not one set before: too easy to guess is refused (F22).
+    if (needsPassword) refuseWeakPassword(password, { email, name: String(me.data['name'] ?? '') });
 
     // Who holds the address now: an ArcCMS account (moves here) or a sign-in
     // with no ArcCMS record, such as another app's user (cannot move).

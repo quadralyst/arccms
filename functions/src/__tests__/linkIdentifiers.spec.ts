@@ -211,6 +211,17 @@ describe('linkEmail', () => {
         expect(owner.updateUser).toHaveBeenCalledWith('uid-a', { email: 'new@example.com', emailVerified: true, password: 'longenough' });
     });
 
+    it('refuses a first password that is too easy to guess, saying why, and keeps the verified code (F22)', async () => {
+        providers['uid-a'] = [];
+        await verifyEmailForA('new@example.com');
+        await expect(call(link.linkEmail, { email: 'new@example.com', password: 'Password123!' }, 'uid-a'))
+            .rejects.toMatchObject({ code: 'invalid-argument', details: { reason: 'weak-password', problem: 'common' } });
+        await expect(call(link.linkEmail, { email: 'new@example.com', password: 'Asha@2024' }, 'uid-a'))
+            .rejects.toMatchObject({ details: { reason: 'weak-password', problem: 'personal' } });
+        expect(owner.updateUser).not.toHaveBeenCalled();
+        await expect(call(link.linkEmail, { email: 'new@example.com', password: 'Monsoon-Train-42' }, 'uid-a')).resolves.toMatchObject({ linked: true });
+    });
+
     it('never touches a sign-in that belongs to another app', async () => {
         owner.getUserByEmail.mockResolvedValue({ uid: 'host-uid', providerData: [] });
         await verifyEmailForA('host@example.com');

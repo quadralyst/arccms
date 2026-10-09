@@ -39,6 +39,7 @@ import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.serv
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { LegalNoticeComponent } from '../../../../shared/components/legal-notice/legal-notice.component';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
+import { newPasswordValidator, passwordProblemOf } from '../../../../shared/utils/password-validator';
 import {
   classifyIdentifier, formatPhone, hasCountryCode, identifierProblem, looksLikePhone, withoutTrunk, type IdentifierProblem,
 } from '../../../../shared/utils/identifier.util';
@@ -76,6 +77,12 @@ export const SETTINGS_WAIT_MS = 20_000;
  * form after all (a record that never answers).
  */
 export const SIGNED_IN_WAIT_MS = 20_000;
+
+/**
+ * How long the buttons stay busy after a sign-in went through, waiting for the
+ * page to move on, before they work again (a record that never answers).
+ */
+export const LEAVING_LIMIT_MS = 20_000;
 
 @Component({
   selector: 'arc-signup',
@@ -117,6 +124,15 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private openingSettled = false;
 
   isLoading = signal(false);
+  /**
+   * A sign-in or sign-up went through and the page is on its way to the next one:
+   * every button stays busy until it has moved, so nothing can be tapped twice in
+   * between (F22). Cleared when the attempt fails or the move is refused.
+   */
+  readonly leaving = signal(false);
+  private leavingTimer: ReturnType<typeof setTimeout> | undefined;
+  /** A step is running or the page is moving on: the buttons are busy. */
+  readonly working = computed(() => this.isLoading() || this.leaving());
   errorMessage = signal('');
   successMessage = signal('');
   otpError = signal('');
@@ -136,10 +152,17 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   readonly settings = signal<IUserSettings | null>(null);
   /** The settings could not be read and this browser has no copy of them. */
   readonly settingsFailed = signal(false);
+  /**
+   * Whether the box asks for an email or a phone number is known: the settings are
+   * in, or could not be read (then it asks for an email, as before). Until then the
+   * label, the line above and the placeholder keep their room but say nothing, so a
+   * first visit never shows "Email" on a site with phone sign-in on (F22).
+   */
+  readonly methodsKnown = computed(() => this.settings() !== null || this.settingsFailed());
   /** Continue was tapped before the settings were in: it runs once they are. */
   readonly continueHeld = signal(false);
   /** Continue and the box are busy: a step is running, or a tap waits for the settings. */
-  readonly busy = computed(() => this.isLoading() || this.continueHeld());
+  readonly busy = computed(() => this.working() || this.continueHeld());
   /** The read under way; true once the settings are in, false when they could not be read. */
   private settingsLoad: Promise<boolean> | null = null;
 
@@ -179,6 +202,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   testCode = signal('');
   /** Test SMS provider, reset code: no SMS went out and the code is only in SMS Logs. */
   testCodeInLogs = signal(false);
+  /** Simulated email provider, reset links on screen: the link that was not emailed (F22). */
+  resetLink = signal('');
   /**
    * Development builds only: which Firebase project and database this page signs
    * in to, so nobody signs in to the wrong install by mistake. Empty in production.
@@ -249,6 +274,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
    */
   handleAuthError(error: string, code: string): void {
     this.authActionPending = false; // a failed attempt must not redirect later
+    this.stopLeaving();
     if (code === 'auth/email-already-in-use' && this.currentStep() === 'signup') {
       this.goToStep('login');
       this.successMessage.set(this.t('member.auth.existing_account_password'));
@@ -418,6 +444,14 @@ export default class SignupComponent extends BaseComponent implements OnInit {
    * The request field accepts an email, and a phone number when phone sign-in is on.
    * The error names what is wrong ("too short", "starts with 6 to 9"), not just "invalid".
    */
+  /** A new password: not too easy to guess, nor the person's own name or email (F22). */
+  private passwordValidator = newPasswordValidator(() => ({ email: this.email, name: this.registrationForm?.get('name')?.value }));
+
+  /** Why the new password was refused, for its message. */
+  passwordErrorKey(): TranslationKey {
+    return `member.auth.password_error.${passwordProblemOf(this.registrationForm.get('password')) ?? 'short'}` as TranslationKey;
+  }
+
   private identifierValidator = (control: AbstractControl): ValidationErrors | null => {
     // Before the settings are in, whether a number is allowed is not known yet:
     // Continue waits for them and checks the box then (checkIdentifier).
@@ -511,6 +545,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.successMessage.set('');
     this.otpError.set('');
     this.newPin.set('');
+    this.resetLink.set('');
     this.updateValidators(step);
   }
 
@@ -529,12 +564,13 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         controls['identifier'].setValidators([Validators.required, this.identifierValidator]);
         break;
       case 'login':
-        controls['loginPassword'].setValidators([Validators.required, Validators.minLength(8)]);
+        // Any password set before signs in, whatever its length (F22).
+        controls['loginPassword'].setValidators([Validators.required]);
         break;
       case 'signup':
         controls['name'].setValidators([Validators.required, Validators.minLength(2)]);
         if (this.channel() === 'email') {
-          controls['password'].setValidators([Validators.required, Validators.minLength(8)]);
+          controls['password'].setValidators([Validators.required, this.passwordValidator]);
           controls['confirmPassword'].setValidators([Validators.required]);
         }
         break;
@@ -756,21 +792,23 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     }
 
     try {
-      if (this.channel() === 'phone') {
-        this.testCode.set('');
-        const reply = await this.signIn.requestPhoneCode(this.phone(), this.phonePurpose());
-        this.testCode.set(reply.testCode ?? '');
-        this.testCodeInLogs.set(!!reply.testMode && !reply.testCode);
-        if (reply.sameCode) this.otpNotice.set(this.t('member.auth.code_sent_again'));
-        else if (!reply.testMode) this.toastService.success(this.t('member.auth.code_sent_sms'));
-      } else {
-        this.testCode.set('');
-        const name = this.registrationForm.get('name')?.value || undefined;
-        const reply = await this.signIn.requestSignupCode(this.email, name);
-        this.testCode.set(reply.testCode ?? '');
-        if (reply.sameCode) this.otpNotice.set(this.t('member.auth.code_sent_again'));
-        else if (!reply.testMode) this.toastService.success(this.t('member.auth.code_sent_email'));
+      this.testCode.set('');
+      const phone = this.channel() === 'phone';
+      const reply = phone
+        ? await this.signIn.requestPhoneCode(this.phone(), this.phonePurpose())
+        : await this.signIn.requestSignupCode(this.email, this.registrationForm.get('name')?.value || undefined);
+      this.testCode.set(reply.testCode ?? '');
+      this.testCodeInLogs.set(phone && !!reply.testMode && !reply.testCode);
+      const wait = Number(reply.wait);
+      if (reply.alreadySent && wait > 0) {
+        // Asked again under a minute after it went (a reload, another tab): nothing new was sent (F22).
+        this.otpNotice.set(this.t('member.auth.code_already_sent'));
+        this.sentCodes.remember(key, { testCode: this.testCode(), testCodeInLogs: this.testCodeInLogs() }, wait);
+        this.startCountdown(wait);
+        return;
       }
+      if (reply.sameCode) this.otpNotice.set(this.t('member.auth.code_sent_again'));
+      else if (!reply.testMode) this.toastService.success(this.t(phone ? 'member.auth.code_sent_sms' : 'member.auth.code_sent_email'));
       this.sentCodes.remember(key, { testCode: this.testCode(), testCodeInLogs: this.testCodeInLogs() });
       this.startCountdown();
     } catch (error: any) {
@@ -861,6 +899,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       void this.registerPhone();
       return;
     }
+    // The name may have changed since the password was typed: check it against the name now.
+    this.registrationForm.get('password')?.updateValueAndValidity();
     if (this.registrationForm.invalid || this.hasPasswordMismatch()) {
       Object.keys(this.registrationForm.controls).forEach((key) => {
         this.registrationForm.get(key)?.markAsTouched();
@@ -916,7 +956,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   /** The PIN boxes: sign in on the last digit, or on the Verify button. */
   async signInWithPin(pin?: string): Promise<void> {
     const value = pin ?? this.pinBoxes()?.value() ?? '';
-    if (this.isLoading()) return;
+    if (this.working()) return;
     if (value.length !== 6) {
       this.errorMessage.set(this.t('member.auth.enter_pin'));
       return;
@@ -934,6 +974,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.authActionPending = true;
     try {
       await action();
+      // Signed in: the auth effect moves the page on once the record is in.
+      this.startLeaving();
       return null;
     } catch (err) {
       this.authActionPending = false;
@@ -967,22 +1009,40 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.authStore.login({ email: this.email, password });
   }
 
-  forgotPassword() {
+  async forgotPassword(): Promise<void> {
     const email = this.email;
-    if (email) {
-      this.authStore.forgotPassword(email).then((res: any) => {
-        if (res?.status === 200) {
-          this.successMessage.set(this.t('member.auth.reset_link_sent', { email }));
-        } else {
-          this.errorMessage.set(this.t('member.auth.reset_failed'));
+    if (!email || this.working()) return;
+    this.errorMessage.set('');
+    this.successMessage.set('');
+    this.resetLink.set('');
+    // Testing with the Simulated email provider: the link on the page, as a sign-up
+    // code is, when an admin turned that on (Settings, Email; F22).
+    if (this.emailConfigStatus.showResetLinks()) {
+      this.isLoading.set(true);
+      try {
+        const reply = await this.signIn.requestPasswordResetLink(email);
+        if (reply.shown && reply.link) {
+          this.resetLink.set(reply.link);
+          return;
         }
-      });
+      } catch (err) {
+        this.errorMessage.set(readSignInError(err, this.t('member.auth.reset_failed')).message);
+        return;
+      } finally {
+        this.isLoading.set(false);
+      }
+    }
+    const res: any = await this.authStore.forgotPassword(email);
+    if (res?.status === 200) {
+      this.successMessage.set(this.t('member.auth.reset_link_sent', { email }));
+    } else {
+      this.errorMessage.set(this.t('member.auth.reset_failed'));
     }
   }
 
   /** One tap. A first-timer gets an account from the Google profile. */
   async continueWithGoogle(): Promise<void> {
-    if (this.isLoading()) return;
+    if (this.working()) return;
     this.isLoading.set(true);
     this.errorMessage.set('');
     try {
@@ -990,6 +1050,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.authActionPending = true;
       const user = await this.authStore.refreshCurrentUser();
       if (!user) throw { code: 'no-record', message: this.t(NO_ACCESS_KEY) };
+      this.startLeaving();
     } catch (err) {
       this.authActionPending = false;
       await this.handleGoogleError(err);
@@ -1058,8 +1119,36 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       const route = asked ?? homeFor(role);
 
       this.toastService.success(this.t('member.auth.redirecting'));
-      this.router.navigateByUrl(route, { replaceUrl: true });
+      this.startLeaving();
+      // A move a guard refuses leaves the page here: its buttons work again.
+      this.router.navigateByUrl(route, { replaceUrl: true }).then(
+        (moved) => {
+          if (!moved) this.navigationFailed();
+        },
+        () => this.navigationFailed(),
+      );
     }
+  }
+
+  private navigationFailed(): void {
+    this.navigationInProgress = false;
+    this.stopLeaving();
+  }
+
+  /**
+   * Busy from a sign-in that went through until the page has moved on. Should the
+   * record never come (a sign-in with no account here), the buttons work again
+   * after LEAVING_LIMIT_MS rather than stay busy for good.
+   */
+  private startLeaving(): void {
+    this.leaving.set(true);
+    clearTimeout(this.leavingTimer);
+    this.leavingTimer = setTimeout(() => this.leaving.set(false), LEAVING_LIMIT_MS);
+  }
+
+  private stopLeaving(): void {
+    clearTimeout(this.leavingTimer);
+    this.leaving.set(false);
   }
 
   isFieldInvalid(fieldName: string): boolean {
@@ -1074,6 +1163,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   ngOnDestroy() {
     clearInterval(this.countdownInterval);
     clearTimeout(this.openingTimer);
+    clearTimeout(this.leavingTimer);
   }
 
   resetAll() {

@@ -16,8 +16,7 @@ import { db, owner } from '../init.js';
 import { requireAdmin } from '../search/auth.js';
 import { arccmsOwnsAuthAccount } from './authOwner.js';
 import { APP_MANAGED, isLockedAppAccount } from './lockedAppAccount.js';
-import { refuse } from '../auth/refusal.js';
-import { PASSWORD_PROBLEM_TEXT, passwordProblem } from '../shared/password-rule.js';
+import { refuse, refuseWeakPassword } from '../auth/refusal.js';
 
 export const SHARED_ACCOUNT = "This person's sign-in is shared with another app, so their password is changed there.";
 export const NO_ACCOUNT = 'This person has no sign-in account, so there is no password to set.';
@@ -43,8 +42,7 @@ export const adminSetPassword = onCall(async (request) => {
     });
     if (!account.email) throw refuse('failed-precondition', 'no-email', NO_EMAIL);
 
-    const problem = passwordProblem(password, { email: account.email, name: typeof record['name'] === 'string' ? record['name'] : '' });
-    if (problem) throw refuse('invalid-argument', 'weak-password', PASSWORD_PROBLEM_TEXT[problem], { problem });
+    refuseWeakPassword(password, { email: account.email, name: typeof record['name'] === 'string' ? record['name'] : '' });
 
     await owner.updateUser(uid, { password });
     return { updated: true };

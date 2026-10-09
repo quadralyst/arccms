@@ -22,7 +22,7 @@ import { sendSms } from '../sms/sendSms.js';
 import { newOtpTicket, ticketMatches } from './otpTicket.js';
 import type { SmsSettings } from '../sms/smsSettings.js';
 import { refuse } from './refusal.js';
-import { codeSealKey, resendWait, reusableCode, sealCode } from './codeSeal.js';
+import { codeAskedAgain, codeSealKey, refuseWithinWait, reusableCode, sealCode } from './codeSeal.js';
 
 export const PHONE_OTPS = 'phone_otps';
 export const PHONE_OTP_PURPOSES = ['signup', 'reset', 'link'] as const;
@@ -46,19 +46,30 @@ export function otpSmsText(code: string): string {
     return `${code} is your verification code. It expires in 10 minutes. Do not share it with anyone.`;
 }
 
-/**
- * Refuse with `wait` (and the seconds left) while the last code for this number
- * is under a minute old. Callers check it before counting the hourly limits, so
- * a refused send never uses one up (specs/sign-in-codes-spec.md, SC-D3).
- */
-export async function assertPhoneResendReady(e164: string, now = Date.now()): Promise<void> {
-    const existing = await db.collection(PHONE_OTPS).doc(phoneHash(e164)).get();
-    refuseWithinWait(existing.data(), now);
+/** The stored code is for this same request: the purpose, and for `link` the same account. */
+function sameRequest(data: Record<string, unknown> | undefined, purpose: PhoneOtpPurpose, uid?: string): boolean {
+    return !!data && data['purpose'] === purpose && (purpose !== 'link' || data['uid'] === (uid ?? null));
 }
 
-function refuseWithinWait(data: Record<string, unknown> | undefined, now: number): void {
-    const wait = resendWait(data, now, RESEND_THROTTLE_MS);
-    if (wait) throw refuse('resource-exhausted', 'wait', `Please wait ${wait}s before asking for another code.`, { wait });
+/**
+ * This number's code for this purpose, asked for again under a minute after it
+ * went: the code and the seconds left, and nothing is sent (codeAskedAgain).
+ * Null when a code may go. Callers check it before counting the hourly limits,
+ * so an answer that sends nothing never uses one up (specs/sign-in-codes-spec.md, SC-D3).
+ */
+export async function phoneCodeAskedAgain(
+    e164: string,
+    purpose: PhoneOtpPurpose,
+    uid?: string,
+    now = Date.now(),
+): Promise<{ wait: number; code: string } | null> {
+    const key = phoneHash(e164);
+    const data = (await db.collection(PHONE_OTPS).doc(key).get()).data();
+    if (!sameRequest(data, purpose, uid)) return null;
+    return codeAskedAgain(data, {
+        samePurpose: true, docId: key, key: await codeSealKey(), now, maxAttempts: MAX_OTP_ATTEMPTS,
+        hash: (code) => hashCode(code, key), gapMs: RESEND_THROTTLE_MS,
+    });
 }
 
 /**
@@ -81,8 +92,9 @@ export async function issuePhoneOtp(
     // The wait, the choice of code and the write in one go, for two requests at once (SC-D11).
     const issued = await db.runTransaction(async (tx) => {
         const data = (await tx.get(ref)).data();
-        refuseWithinWait(data, now);
-        const samePurpose = !!data && data['purpose'] === purpose && (purpose !== 'link' || data['uid'] === (uid ?? null));
+        const samePurpose = sameRequest(data, purpose, uid);
+        // A code for another purpose never holds this one back: the new one replaces it (F22).
+        if (samePurpose) refuseWithinWait(data, now, RESEND_THROTTLE_MS);
         const again = reusableCode(data, {
             samePurpose, docId: key, key: sealKey, now, maxAttempts: MAX_OTP_ATTEMPTS, hash: (code) => hashCode(code, key),
         });

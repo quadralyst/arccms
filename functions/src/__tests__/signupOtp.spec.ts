@@ -9,6 +9,7 @@ const {
   mockOtpGet,
   mockOtpSet,
   mockOtpUpdate,
+  mockOtpDelete,
   mockTemplateGet,
   mockQueueEmail,
   mockEnsureDefaults,
@@ -17,6 +18,7 @@ const {
   mockOtpGet: vi.fn(),
   mockOtpSet: vi.fn().mockResolvedValue(undefined),
   mockOtpUpdate: vi.fn().mockResolvedValue(undefined),
+  mockOtpDelete: vi.fn().mockResolvedValue(undefined),
   mockTemplateGet: vi.fn(),
   mockQueueEmail: vi.fn().mockResolvedValue({ id: 'log-1', status: 'pending' }),
   mockEnsureDefaults: vi.fn().mockResolvedValue({ created: [], skipped: [] }),
@@ -28,7 +30,7 @@ vi.mock('../init', () => ({
     collection: vi.fn((name: string) => {
       if (name === 'signup_otps') {
         return {
-          doc: vi.fn().mockReturnValue({ get: mockOtpGet, set: mockOtpSet, update: mockOtpUpdate }),
+          doc: vi.fn().mockReturnValue({ get: mockOtpGet, set: mockOtpSet, update: mockOtpUpdate, delete: mockOtpDelete }),
         };
       }
       if (name === 'EmailTemplate') {
@@ -209,10 +211,11 @@ describe('requestSignupOtp', () => {
       expect(res).toEqual({ sent: true, status: 'pending', testMode: true });
     });
 
-    it('hands back nothing when the email was not queued', async () => {
+    it('hands back nothing when the email was not queued, and leaves no code that was never sent (F22)', async () => {
       simulated();
       mockQueueEmail.mockResolvedValue({ id: 'log-1', status: 'skipped' });
       expect(await reqHandler({ data: { email: EMAIL } })).toEqual({ sent: false, status: 'skipped' });
+      expect(mockOtpDelete).toHaveBeenCalledTimes(1);
     });
 
     it('hands back nothing while email is switched off', async () => {
@@ -269,6 +272,37 @@ describe('requestSignupOtp', () => {
       expect(res.sameCode).toBeUndefined();
       expect(mockOtpSet).toHaveBeenCalledTimes(2);
       expect(mockOtpSet.mock.calls[1][0].attempts).toBe(0);
+    });
+
+    it('answers a request inside the minute with the code already sent, emailing and counting nothing (F22)', async () => {
+      mockEmailSettingsGet.mockResolvedValue({ data: () => ({ isEnabled: true, activeProvider: 'debug_log' }) });
+      const code = await sendFirst({ lastSentAt: minutesAgo(1 / 3) });
+      mockRateLimit.mockClear();
+      const res = await reqHandler({ data: { email: EMAIL } });
+      expect(res).toEqual({ sent: true, status: 'pending', testMode: true, testCode: code, alreadySent: true, wait: expect.any(Number) });
+      expect(res.wait).toBeGreaterThanOrEqual(39);
+      expect(res.wait).toBeLessThanOrEqual(40);
+      expect(mockQueueEmail).toHaveBeenCalledTimes(1);
+      expect(mockRateLimit).not.toHaveBeenCalled();
+    });
+
+    it('a same code that could not be sent keeps its old times, so nobody is told it went (F22)', async () => {
+      await sendFirst();
+      mockQueueEmail.mockResolvedValueOnce({ id: 'log-2', status: 'skipped' });
+      const res = await reqHandler({ data: { email: EMAIL } });
+      expect(res).toEqual({ sent: false, status: 'skipped', sameCode: true });
+      const restored = mockOtpUpdate.mock.calls.at(-1)![0];
+      expect(Object.keys(restored).sort()).toEqual(['expiresAt', 'lastSentAt']);
+      expect(Date.now() - restored.lastSentAt.toMillis()).toBeGreaterThanOrEqual(2 * 60_000 - 1000);
+      expect(mockOtpDelete).not.toHaveBeenCalled();
+    });
+
+    it('a link code sent inside the minute never holds back a sign-up code (F22)', async () => {
+      await sendFirst({ purpose: 'link', uid: 'uid-a', lastSentAt: minutesAgo(1 / 6) });
+      const res = await reqHandler({ data: { email: EMAIL } });
+      expect(res).toEqual({ sent: true, status: 'pending' });
+      expect(mockOtpSet).toHaveBeenCalledTimes(2);
+      expect(mockOtpSet.mock.calls[1][0].purpose).toBe('signup');
     });
 
     it('keeps a link code for the account that asked for it', async () => {

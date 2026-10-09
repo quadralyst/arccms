@@ -173,7 +173,7 @@
                 </button>
               </div>
               @if (passwordForm.get('newPassword')?.invalid && passwordForm.get('newPassword')?.touched) {
-                <div class="text-danger mt-1 small">{{ 'member.profile.password_min' | transloco }}</div>
+                <div class="text-danger mt-1 small">{{ newPasswordErrorKey() | transloco }}</div>
               }
             </div>
             <!-- Confirm Password -->

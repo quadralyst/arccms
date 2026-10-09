@@ -11,6 +11,7 @@
  */
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
 import { pinPepper } from './accounts.js';
+import { refuse } from './refusal.js';
 
 /** How long one code can be sent again from when it was made; then a new one. */
 export const CODE_REUSE_MS = 30 * 60 * 1000;
@@ -57,10 +58,16 @@ function millis(value: unknown): number {
  * made under 30 minutes ago, and opening to a code that matches its hash.
  * Null means a new code.
  */
-export function reusableCode(
-    data: Record<string, unknown> | undefined,
-    check: { samePurpose: boolean; docId: string; key: Buffer; now: number; maxAttempts: number; hash: (code: string) => string },
-): string | null {
+export interface ReuseCheck {
+    samePurpose: boolean;
+    docId: string;
+    key: Buffer;
+    now: number;
+    maxAttempts: number;
+    hash: (code: string) => string;
+}
+
+export function reusableCode(data: Record<string, unknown> | undefined, check: ReuseCheck): string | null {
     if (!data || !check.samePurpose || data['verified'] === true) return null;
     if (millis(data['expiresAt']) <= check.now) return null;
     if (Number(data['attempts'] ?? 0) >= check.maxAttempts) return null;
@@ -73,4 +80,30 @@ export function reusableCode(
 export function resendWait(data: Record<string, unknown> | undefined, now: number, gapMs: number): number {
     const lastSent = millis(data?.['lastSentAt']);
     return now - lastSent < gapMs ? Math.ceil((gapMs - (now - lastSent)) / 1000) : 0;
+}
+
+/** Refuse with `wait` (and the seconds left) while the code in `data` is under `gapMs` old. */
+export function refuseWithinWait(data: Record<string, unknown> | undefined, now: number, gapMs: number): void {
+    const wait = resendWait(data, now, gapMs);
+    if (wait) throw refuse('resource-exhausted', 'wait', `Please wait ${wait}s before asking for another code.`, { wait });
+}
+
+/**
+ * The same code asked for again under `gapMs` after it went (a reload, another
+ * tab): nothing new is sent, and the reply says it went already, with the
+ * seconds left and the code, for a page that may show it (F22). Null when
+ * another code may go: none was sent, it is older, or it was for another
+ * purpose, which never holds this one back (the new code replaces it). A code
+ * that can no longer be used (verified, out of tries) is refused with `wait`.
+ */
+export function codeAskedAgain(
+    data: Record<string, unknown> | undefined,
+    check: ReuseCheck & { gapMs: number },
+): { wait: number; code: string } | null {
+    if (!data || !check.samePurpose) return null;
+    const wait = resendWait(data, check.now, check.gapMs);
+    if (!wait) return null;
+    const code = reusableCode(data, check);
+    if (!code) refuseWithinWait(data, check.now, check.gapMs);
+    return { wait, code: code! };
 }

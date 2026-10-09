@@ -54,21 +54,22 @@
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
                                 <h2 class="auth-title">{{ getStepTitle() }}</h2>
-                                <p class="auth-subtitle">{{ getStepDescription() }}</p>
+                                <p class="auth-subtitle" [class.methods-pending]="!methodsKnown()">{{ getStepDescription() }}</p>
 
                                 <div class="mb-4 mt-4 text-start">
-                                    <label for="identifier" class="form-label">
+                                    <!-- Room kept, nothing said, until the settings say email or phone (F22) -->
+                                    <label for="identifier" class="form-label" [class.methods-pending]="!methodsKnown()">
                                         {{ (phoneEnabled() ? 'member.auth.identifier_label_phone' : 'member.auth.identifier_label_email') | transloco }}
                                     </label>
                                     <!-- A number gets its country beside it, so it is never a guess (specs/phone-country-spec.md). -->
                                     <div class="input-group has-validation identifier-group">
                                         @if (chipShown()) {
                                         <arc-phone-country [countries]="phoneCountries()" [(value)]="phoneCountry"
-                                            [disabled]="isLoading()" (chosen)="countryChosen()" />
+                                            [disabled]="working()" (chosen)="countryChosen()" />
                                         }
                                         <input type="text" formControlName="identifier" class="form-control" id="identifier"
                                             autocomplete="username" autocapitalize="off" spellcheck="false"
-                                            [placeholder]="(!phoneEnabled() ? 'member.auth.identifier_placeholder_email' : countryCode() === '91' ? 'member.auth.identifier_placeholder_phone' : 'member.auth.identifier_placeholder_phone_any') | transloco"
+                                            [placeholder]="methodsKnown() ? ((!phoneEnabled() ? 'member.auth.identifier_placeholder_email' : countryCode() === '91' ? 'member.auth.identifier_placeholder_phone' : 'member.auth.identifier_placeholder_phone_any') | transloco) : ''"
                                             [readonly]="busy()" (paste)="cleanIdentifier()" (blur)="identifierBlur($event)"
                                             (input)="identifierInput($event)"
                                             [class.is-invalid]="isFieldInvalid('identifier')" />
@@ -97,7 +98,7 @@
                                 @if (googleEnabled()) {
                                 <div class="or-divider"><span>{{ 'member.auth.or' | transloco }}</span></div>
                                 <button type="button" class="btn google-button w-100" (click)="continueWithGoogle()"
-                                    [disabled]="isLoading()">
+                                    [disabled]="working()">
                                     <svg class="google-logo" viewBox="0 0 48 48" aria-hidden="true">
                                         <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
                                         <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -177,9 +178,9 @@
                                 </div>
 
                                 <button type="submit" class="btn btn-primary login-button w-100 mt-3"
-                                    [disabled]="isLoading()">
+                                    [disabled]="working()">
                                     {{ 'member.auth.login' | transloco }}
-                                    <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                    <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
 
@@ -187,6 +188,13 @@
                                     <a (click)="forgotPassword()" class="forgot-password cursor"
                                         style="cursor: pointer;">{{ 'member.auth.forgot_password' | transloco }}</a>
                                 </div>
+                                <!-- Test mode: the reset link that was not emailed (F22) -->
+                                @if (resetLink()) {
+                                <a class="test-code reset-link" [href]="resetLink()">
+                                    <span class="test-code-label">{{ 'member.auth.reset_link_label' | transloco }}</span>
+                                    <strong>{{ 'member.auth.reset_link_open' | transloco }}</strong>
+                                </a>
+                                }
                             </div>
                         </div>
                     </div>
@@ -217,7 +225,7 @@
 
                                 <div class="mt-4">
                                     <arc-code-input #pinBoxes [label]="'member.auth.pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
-                                        [disabled]="isLoading() || pinLocked()" [invalid]="!!errorMessage()"
+                                        [disabled]="working() || pinLocked()" [invalid]="!!errorMessage()"
                                         (completed)="signInWithPin($event)"></arc-code-input>
                                     <button type="button" class="btn btn-link btn-sm pin-toggle"
                                         (click)="showPin.set(!showPin())">
@@ -239,14 +247,14 @@
 
                                 @if (pinLocked()) {
                                 <button type="button" class="btn btn-primary w-100 mt-4" (click)="forgotPin()"
-                                    [disabled]="isLoading()">
+                                    [disabled]="working()">
                                     {{ 'member.auth.reset_pin_with_code' | transloco }}
                                 </button>
                                 } @else {
                                 <button type="button" class="btn btn-primary w-100 mt-4" (click)="signInWithPin()"
-                                    [disabled]="isLoading()">
+                                    [disabled]="working()">
                                     {{ 'member.auth.verify' | transloco }}
-                                    <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                    <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
                                 }
@@ -278,11 +286,11 @@
                                     <span class="email-highlight">{{ sentTo() }}</span>{{ codeSent[1] }}
                                 </p>
 
-                                <arc-code-input #codeBoxes [label]="'member.auth.code_label' | transloco" [disabled]="isLoading()"
+                                <arc-code-input #codeBoxes [label]="'member.auth.code_label' | transloco" [disabled]="working()"
                                     [invalid]="!!otpError()" (completed)="verifyOtp($event)"></arc-code-input>
 
                                 @if (testCode()) {
-                                <button type="button" class="test-code" (click)="useTestCode()" [disabled]="isLoading()">
+                                <button type="button" class="test-code" (click)="useTestCode()" [disabled]="working()">
                                     <span class="test-code-label">{{ (channel() === 'email' ? 'member.auth.test_code_label_email' : 'member.auth.test_code_label') | transloco }}</span>
                                     <strong>{{ testCode() }}</strong>
                                     <span class="test-code-hint">{{ 'member.auth.test_code_hint' | transloco }}</span>
@@ -321,9 +329,9 @@
                                 </div>
 
                                 <button type="button" (click)="verifyOtp()"
-                                    class="btn btn-primary verify-button w-100 mt-4" [disabled]="isLoading()">
+                                    class="btn btn-primary verify-button w-100 mt-4" [disabled]="working()">
                                     {{ 'member.auth.verify' | transloco }}
-                                    <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                    <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
                             </div>
@@ -362,7 +370,7 @@
                                         <span class="input-group-text"><i class="fas fa-user"></i></span>
                                         <input type="text" formControlName="name" class="form-control p-2"
                                             [placeholder]="'member.auth.name_placeholder' | transloco" autocomplete="name"
-                                            [class.is-invalid]="isFieldInvalid('name')" [readOnly]="isLoading()">
+                                            [class.is-invalid]="isFieldInvalid('name')" [readOnly]="working()">
                                     </div>
                                     @if(isFieldInvalid('name')){
                                     <div class="text-danger mt-2">
@@ -375,7 +383,7 @@
                                 <div class="mb-2 text-start">
                                     <label class="form-label">{{ 'member.auth.choose_pin' | transloco }}</label>
                                     <arc-code-input [label]="'member.auth.new_pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
-                                        [autofocus]="false" [disabled]="isLoading()"
+                                        [autofocus]="false" [disabled]="working()"
                                         (changed)="newPin.set($event)"></arc-code-input>
                                     <button type="button" class="btn btn-link btn-sm pin-toggle"
                                         (click)="showPin.set(!showPin())">
@@ -391,7 +399,7 @@
                                         <input [type]="showPassword() ? 'text' : 'password'" formControlName="password"
                                             class="form-control p-2" id="password" placeholder="********"
                                             autocomplete="new-password"
-                                            [class.is-invalid]="isFieldInvalid('password')" [readOnly]="isLoading()" />
+                                            [class.is-invalid]="isFieldInvalid('password')" [readOnly]="working()" />
                                         <span class="input-group-text password-toggle eye_btn"
                                             (click)="showPassword.set(!showPassword())" style="cursor: pointer;">
                                             <i class="fas" [ngClass]="showPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
@@ -400,7 +408,7 @@
 
                                     @if(isFieldInvalid('password')){
                                     <div class="text-danger mt-2">
-                                        {{ 'member.auth.password_min' | transloco }}
+                                        {{ passwordErrorKey() | transloco }}
                                     </div>
                                     }
                                 </div>
@@ -412,7 +420,7 @@
                                             formControlName="confirmPassword" class="form-control p-2"
                                             placeholder="********" autocomplete="new-password"
                                             [class.is-invalid]="isFieldInvalid('confirmPassword') || hasPasswordMismatch()"
-                                            [readOnly]="isLoading()" />
+                                            [readOnly]="working()" />
 
                                         <span class="input-group-text password-toggle eye_btn"
                                             (click)="showConfirmPassword.set(!showConfirmPassword())"
@@ -437,9 +445,9 @@
                                 }
 
                                 <button type="submit" class="btn btn-primary signup-button w-100 mt-4"
-                                    [disabled]="isLoading()">
+                                    [disabled]="working()">
                                     {{ 'member.auth.create_account' | transloco }}
-                                    <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                    <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
                                 <arc-legal-notice></arc-legal-notice>
@@ -469,7 +477,7 @@
 
                                 <div class="mt-4">
                                     <arc-code-input [label]="'member.auth.new_pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
-                                        [disabled]="isLoading()" (changed)="newPin.set($event)"></arc-code-input>
+                                        [disabled]="working()" (changed)="newPin.set($event)"></arc-code-input>
                                     <button type="button" class="btn btn-link btn-sm pin-toggle"
                                         (click)="showPin.set(!showPin())">
                                         {{ (showPin() ? 'member.auth.hide_pin' : 'member.auth.show_pin') | transloco }}
@@ -480,9 +488,9 @@
                                 <div class="alert alert-danger mt-2">{{ errorMessage() }}</div>
                                 }
 
-                                <button type="submit" class="btn btn-primary w-100 mt-4" [disabled]="isLoading()">
+                                <button type="submit" class="btn btn-primary w-100 mt-4" [disabled]="working()">
                                     {{ 'member.auth.save_pin' | transloco }}
-                                    <span [hidden]="!isLoading()" class="spinner-border spinner-border-sm ms-2"
+                                    <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
                             </div>

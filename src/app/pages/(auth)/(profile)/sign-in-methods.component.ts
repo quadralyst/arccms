@@ -27,6 +27,7 @@ import { classifyIdentifier, DEFAULT_COUNTRY_CODE, formatPhone, hasCountryCode, 
 import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../../../shared/data/countries';
 import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
 import { PhoneCountryComponent } from '../../../../shared/components/phone-country/phone-country.component';
+import { passwordProblem } from '../../../../shared/utils/password-rule';
 
 type Kind = 'email' | 'phone';
 type Step = 'enter' | 'code' | 'secret';
@@ -437,6 +438,14 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
                 ? await this.signIn.requestEmailLinkCode(check.value)
                 : await this.signIn.requestPhoneCode(check.value, 'link');
             this.testCodeInLogs.set(!!reply.testMode);
+            const wait = Number(reply.wait);
+            if (reply.alreadySent && wait > 0) {
+                // Asked again under a minute after it went: nothing new was sent (F22).
+                this.notice.set(this.t('member.auth.code_already_sent'));
+                this.sentCodes.remember(key, { testCode: '', testCodeInLogs: !!reply.testMode }, wait);
+                this.startCountdown(wait);
+                return;
+            }
             if (reply.sameCode) this.notice.set(this.t('member.auth.code_sent_again'));
             this.sentCodes.remember(key, { testCode: '', testCodeInLogs: !!reply.testMode });
             this.startCountdown(RESEND_SECONDS);
@@ -494,8 +503,12 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
                 this.error.set(this.t('member.methods.choose_pin'));
                 return;
             }
-            if (check.kind === 'email' && secret.length < 8) {
-                this.error.set(this.t('member.methods.password_min'));
+            // A new password: not too easy to guess, nor their own name or email (F22).
+            const problem = check.kind === 'email'
+                ? passwordProblem(secret, { email: check.value, name: this.authStore.currentUser()?.name })
+                : null;
+            if (problem) {
+                this.error.set(this.t(`member.auth.password_error.${problem}` as TranslationKey));
                 return;
             }
         }

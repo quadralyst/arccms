@@ -322,6 +322,16 @@
                 <i class="fa-solid fa-bug me-1"></i>
                 <strong>{{ 'admin.settings.email.debug_provider' | transloco }}</strong> {{ 'admin.settings.email.debug_hint' | transloco }}
             </div>
+            <!-- Test mode only: Forgot password shows the link instead of emailing it (F22) -->
+            <div class="feature-toggle-row reset-links d-flex align-items-start justify-content-between gap-3 py-2 mb-3">
+                <div class="feature-toggle-label">
+                    <div class="fw-medium">{{ 'admin.settings.email.show_reset_links' | transloco }}</div>
+                    <div class="small" [class.text-danger]="emailForm.get('showResetLinks')?.value" [class.text-muted]="!emailForm.get('showResetLinks')?.value">
+                        {{ 'admin.settings.email.show_reset_links_hint' | transloco }}
+                    </div>
+                </div>
+                <mat-slide-toggle formControlName="showResetLinks" color="primary" (change)="onFeatureToggleChange()"></mat-slide-toggle>
+            </div>
             }
             <div class="d-flex justify-content-between align-items-center">
                 @if (emailForm.get('activeProvider')?.value !== 'debug_log') {

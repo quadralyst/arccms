@@ -116,7 +116,16 @@ describe('AddUserComponent', () => {
         it('should require password minimum length of 8', () => {
             component.addForm.get('password')?.setValue('short');
             component.addForm.get('password')?.markAsTouched();
-            expect(component.addForm.get('password')?.errors?.['minlength']).toBeTruthy();
+            expect(component.addForm.get('password')?.errors?.['password']).toBe('short');
+            expect(component.passwordError()).toBe('Use at least 8 characters.');
+        });
+
+        it('refuses a temporary password that is too easy to guess, saying why (F22)', () => {
+            component.addForm.patchValue({ name: 'Asha Rao', email: 'asha@example.com' });
+            for (const [password, problem] of [['12345678', 'sequence'], ['password123', 'common'], ['Asha@2024', 'personal']]) {
+                component.addForm.get('password')?.setValue(password);
+                expect(component.addForm.get('password')?.errors?.['password']).toBe(problem);
+            }
         });
 
         it('should accept valid password', () => {
@@ -132,7 +141,7 @@ describe('AddUserComponent', () => {
             mockToastService.success.mockClear();
             mockToastService.error.mockClear();
         });
-        const fill = (email = 'newuser@example.com') => component.addForm.setValue({ name: 'New User', email, password: 'password123' });
+        const fill = (email = 'newuser@example.com') => component.addForm.setValue({ name: 'New User', email, password: 'Monsoon-Train-42' });
         const flush = () => new Promise((r) => setTimeout(r));
 
         it('should not submit invalid form', () => {
@@ -146,7 +155,7 @@ describe('AddUserComponent', () => {
             fill();
             component.onSubmit();
             await flush();
-            expect(m.calls).toEqual([{ name: 'arccms-adminCreateUser', data: { name: 'New User', email: 'newuser@example.com', password: 'password123', role: 'user' } }]);
+            expect(m.calls).toEqual([{ name: 'arccms-adminCreateUser', data: { name: 'New User', email: 'newuser@example.com', password: 'Monsoon-Train-42', role: 'user' } }]);
             expect(mockUserStore.add).not.toHaveBeenCalled();
             expect(mockToastService.success).toHaveBeenCalledWith('User created. Share the temporary password with them.');
             expect(closeSpy).toHaveBeenCalled();
@@ -194,7 +203,7 @@ describe('AddUserComponent', () => {
             component.addForm.setValue({
                 name: 'Test',
                 email: 'test@test.com',
-                password: 'password123',
+                password: 'Monsoon-Train-42',
             });
 
             component.closeAdd();

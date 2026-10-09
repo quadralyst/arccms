@@ -246,7 +246,7 @@
                   </div>
                   @if (isFieldInvalid('password')) {
                   <div class="text-danger mt-1 small">
-                    Password must be at least 8 characters
+                    {{ passwordError() }}
                   </div>
                   }
                 </div>

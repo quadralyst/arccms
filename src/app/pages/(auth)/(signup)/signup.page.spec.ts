@@ -27,6 +27,17 @@ import { english } from '../../../../test/english';
 import { FormControl, FormGroup } from '@angular/forms';
 import { identifierProblem } from '../../../../shared/utils/identifier.util';
 
+/** The page's "moving on" state (F22) on a test context: the signal and the methods that set it. */
+function withLeaving<T extends Record<string, any>>(c: T): T & { leaving: ReturnType<typeof signal<boolean>> } {
+    const proto = SignupComponent.prototype as any;
+    const out = c as any;
+    out.leaving = signal(false);
+    out.isLoading ??= signal(false);
+    out.working = () => out.isLoading() || out.leaving();
+    for (const name of ['startLeaving', 'stopLeaving', 'navigationFailed']) out[name] = proto[name].bind(out);
+    return out;
+}
+
 describe('SignupComponent', () => {
     describe('Component Definition', () => {
         it('should be defined', () => {
@@ -742,6 +753,24 @@ describe('SignupComponent', () => {
             expect(c['otpNotice']()).toMatch(/sent a code a moment ago/);
         });
 
+        it('a code asked for again inside the minute (a reload): the countdown, the quiet line, and the code where it may be shown (F22)', async () => {
+            const c = ctx();
+            c['phonePurpose'] = () => 'reset';
+            c['signIn'].requestPhoneCode.mockResolvedValue({ sent: true, testMode: true, testCode: '482913', alreadySent: true, wait: 41 });
+            await proto['sendOtp'].call(c);
+            expect(c['startCountdown']).toHaveBeenLastCalledWith(41);
+            expect(c['otpNotice']()).toMatch(/sent a code a moment ago/);
+            expect(c['otpError']()).toBe('');
+            expect(c['testCode']()).toBe('482913');
+            expect(c['toastService'].success).not.toHaveBeenCalled();
+            // Coming back to it keeps the code and the seconds left.
+            c['testCode'].set('');
+            await proto['sendOtp'].call(c);
+            expect(c['signIn'].requestPhoneCode).toHaveBeenCalledTimes(1);
+            expect(c['testCode']()).toBe('482913');
+            expect(c['startCountdown'].mock.calls.at(-1)[0]).toBeLessThanOrEqual(41);
+        });
+
         it('shows any other refusal as an error', async () => {
             const c = ctx();
             c['signIn'].requestPhoneCode.mockRejectedValue({ code: 'functions/resource-exhausted', message: 'Too many codes.', details: { reason: 'too-many-codes', retryAfter: 600 } });
@@ -764,9 +793,29 @@ describe('SignupComponent', () => {
                 forgotPin: vi.fn(),
                 signIn: { signInWithPin: error ? vi.fn().mockRejectedValue(error) : vi.fn().mockResolvedValue(undefined) },
             };
+            withLeaving(c);
+            c['isLoading'] = signal(false);
             c['finishPhoneSignIn'] = (SignupComponent.prototype as any).finishPhoneSignIn.bind(c);
             return c;
         }
+
+        it('stays busy after the PIN went through, until the page has moved on (F22)', async () => {
+            const c = ctx();
+            await signInWithPin.call(c, '246810');
+            expect(c['isLoading']()).toBe(false);
+            expect(c['leaving']()).toBe(true);
+            expect(c['working']()).toBe(true);
+            // A second tap meanwhile does nothing.
+            await signInWithPin.call(c, '246810');
+            expect(c['signIn'].signInWithPin).toHaveBeenCalledTimes(1);
+            c['stopLeaving']();
+        });
+
+        it('a refused PIN leaves the buttons working', async () => {
+            const c = ctx({ code: 'functions/permission-denied', message: 'Wrong PIN.', details: { reason: 'wrong' } });
+            await signInWithPin.call(c, '000000');
+            expect(c['working']()).toBe(false);
+        });
 
         it('signs in and leaves the redirect to the auth effect', async () => {
             const c = ctx();
@@ -853,9 +902,9 @@ describe('SignupComponent', () => {
         // (they are 'user' role → isAuthenticated()/isSuccess() are false).
         const handleLoginSuccess = (SignupComponent.prototype as unknown as Record<string, (this: unknown) => void>)['handleLoginSuccess'];
 
-        function ctx(isAdmin: boolean, inProgress = false, url = '/signup', role = 'user') {
-            const navigate = vi.fn();
-            return {
+        function ctx(isAdmin: boolean, inProgress = false, url = '/signup', role = 'user', moved: Promise<boolean> = Promise.resolve(true)) {
+            const navigate = vi.fn(() => moved);
+            return withLeaving({
                 t: english,
                 navigationInProgress: inProgress,
                 authStore: { currentUser: () => ({ uid: 'u1', role }), isAdmin: () => isAdmin },
@@ -866,8 +915,36 @@ describe('SignupComponent', () => {
                     navigateByUrl: navigate,
                 },
                 _navigate: navigate,
-            };
+            });
         }
+
+        it('keeps the buttons busy while the page moves on (F22)', () => {
+            const c = ctx(false);
+            handleLoginSuccess.call(c);
+            expect(c.leaving()).toBe(true);
+            c.stopLeaving();
+        });
+
+        it('a move a guard refuses gives the buttons back, and the next success moves again', async () => {
+            const c = ctx(false, false, '/signup', 'user', Promise.resolve(false));
+            handleLoginSuccess.call(c);
+            await Promise.resolve();
+            await Promise.resolve();
+            expect(c.leaving()).toBe(false);
+            expect(c.navigationInProgress).toBe(false);
+        });
+
+        it('a record that never comes gives the buttons back after a while', () => {
+            vi.useFakeTimers();
+            try {
+                const c = ctx(false, false, '/signup', 'user', new Promise(() => undefined));
+                handleLoginSuccess.call(c);
+                vi.advanceTimersByTime(20_000);
+                expect(c.leaving()).toBe(false);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
 
         it('routes a regular user to their home page', () => {
             const c = ctx(false);
@@ -918,12 +995,19 @@ describe('SignupComponent', () => {
     });
 
     describe('handleAuthError', () => {
-        const ctx = (step: string) => ({
+        const ctx = (step: string) => withLeaving({
             t: english,
             currentStep: vi.fn(() => step),
             goToStep: vi.fn(),
             errorMessage: { set: vi.fn() },
             authActionPending: true,
+        });
+
+        it('gives the buttons back (F22)', () => {
+            const c = ctx('signup');
+            c.leaving.set(true);
+            SignupComponent.prototype.handleAuthError.call(c, 'Something went wrong!', 'auth/network-request-failed');
+            expect(c.leaving()).toBe(false);
         });
 
         it('sends an already-registered email to sign-in instead of failing silently', () => {

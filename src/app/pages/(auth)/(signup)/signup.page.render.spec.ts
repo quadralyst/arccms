@@ -39,6 +39,7 @@ import { SiteBrandService } from '../../../core/brand/site-brand';
 import { SiteStylesService } from '../../../core/site/site-styles';
 import { translocoTestingModule } from '../../../../test/transloco-test-providers';
 import { english } from '../../../../test/english';
+import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
 
 const OPEN: IUserSettings = { isSignupEnabled: true, defaultRole: 'user', phoneSignIn: true, phoneCountries: ['IN'], phoneCountry: 'IN' };
 
@@ -107,7 +108,7 @@ beforeEach(async () => {
             { provide: SignInService, useValue: signIn },
             { provide: OnboardingSetupService, useValue: { shouldShowOnboarding: () => of(false) } },
             { provide: UserSettingService, useValue: { readSettings: () => settingsRead.promise } },
-            { provide: EmailConfigStatusService, useValue: { isLoading$: of(false), shouldVerifySignup: () => true } },
+            { provide: EmailConfigStatusService, useValue: { isLoading$: of(false), shouldVerifySignup: () => true, showResetLinks: signal(false) } },
             { provide: GlobalService, useValue: { debugMode: signal(false) } },
             { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn() } },
             { provide: NotifyService, useValue: {} },
@@ -115,10 +116,10 @@ beforeEach(async () => {
             { provide: SiteStylesService, useValue: { use: () => () => undefined } },
         ],
     });
-    // The page's own children (language picker, brand panel, country chip, code boxes)
-    // are not under test here.
+    // The page's own children (language picker, brand panel, country chip) are not
+    // under test here; the code boxes are real, since a later step needs their bindings.
     TestBed.overrideComponent(SignupComponent, {
-        set: { imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe], schemas: [CUSTOM_ELEMENTS_SCHEMA] },
+        set: { imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, CodeInputComponent], schemas: [CUSTOM_ELEMENTS_SCHEMA] },
     });
     await TestBed.compileComponents();
     navigateByUrl = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true) as never;
@@ -322,5 +323,184 @@ describe('UserSettingService: the copy this browser keeps', () => {
         localStorage.setItem(SIGN_IN_SETTINGS_CACHE_KEY, JSON.stringify({ isSignupEnabled: false }));
         expect(readStoredSignInSettings()).toMatchObject({ isSignupEnabled: false, defaultRole: 'user' });
         localStorage.removeItem(SIGN_IN_SETTINGS_CACHE_KEY);
+    });
+});
+
+describe('SignupComponent: the first frame and the way out (F22)', () => {
+    const label = () => fixture.nativeElement.querySelector('label[for=identifier]') as HTMLLabelElement;
+    const input = () => fixture.nativeElement.querySelector('#identifier') as HTMLInputElement;
+
+    it('never says "Email" on a first visit to a site with phone sign-in, and asks for the right thing once the settings are in', async () => {
+        render();
+        expect(label().classList).toContain('methods-pending');
+        expect(fixture.nativeElement.querySelector('.auth-subtitle').classList).toContain('methods-pending');
+        expect(input().placeholder).toBe('');
+
+        settingsRead.resolve(OPEN);
+        await flush();
+        fixture.detectChanges();
+        expect(label().classList).not.toContain('methods-pending');
+        expect(label().textContent!.trim()).toBe(english('member.auth.identifier_label_phone'));
+        expect(input().placeholder).toBe(english('member.auth.identifier_placeholder_phone'));
+    });
+
+    it('asks for an email, as before, when the settings cannot be read', async () => {
+        render();
+        settingsRead.reject(new Error('offline'));
+        await flush();
+        fixture.detectChanges();
+        expect(label().classList).not.toContain('methods-pending');
+        expect(label().textContent!.trim()).toBe(english('member.auth.identifier_label_email'));
+    });
+
+    it('keeps Create Account busy from the tap until the page has moved on', async () => {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        const created = later<void>();
+        signIn['completePhoneSignup'] = vi.fn(() => created.promise);
+        page.channel.set('phone');
+        page.phone.set('+919876543210');
+        page.goToStep('signup');
+        page.registrationForm.get('name')!.setValue('Asha Rao');
+        page.newPin.set('135792');
+        fixture.detectChanges();
+        expect(button().disabled).toBe(false);
+
+        page.register();
+        fixture.detectChanges();
+        expect(button().disabled).toBe(true);
+
+        // The account is made; the record is still on its way.
+        created.resolve();
+        await flush();
+        fixture.detectChanges();
+        expect(page.isLoading()).toBe(false);
+        expect(button().disabled).toBe(true);
+
+        currentUser.set({ uid: 'u1', id: 'r1', role: 'user', isActive: true });
+        await flush();
+        fixture.detectChanges();
+        expect(navigateByUrl).toHaveBeenCalled();
+        expect(button().disabled).toBe(true);
+        expect(signIn['completePhoneSignup']).toHaveBeenCalledTimes(1);
+    });
+
+    it('gives Create Account back when the sign-up fails', async () => {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        signIn['completePhoneSignup'] = vi.fn().mockRejectedValue({ code: 'functions/already-exists', message: 'This number already has an account.' });
+        page.channel.set('phone');
+        page.phone.set('+919876543210');
+        page.goToStep('signup');
+        page.registrationForm.get('name')!.setValue('Asha Rao');
+        page.newPin.set('135792');
+        page.register();
+        await flush();
+        fixture.detectChanges();
+        expect(button().disabled).toBe(false);
+        expect(page.errorMessage()).toBe('This number already has an account.');
+    });
+});
+
+describe('SignupComponent: new passwords (F22)', () => {
+    async function atEmailSignup(): Promise<void> {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        typed('asha.rao@example.com');
+        page.channel.set('email');
+        page.goToStep('signup');
+        page.registrationForm.get('name')!.setValue('Asha Rao');
+        fixture.detectChanges();
+    }
+
+    it('refuses a password too easy to guess, saying why, and never creates the account', async () => {
+        await atEmailSignup();
+        const signup = vi.fn();
+        Object.assign(TestBed.inject(AuthState), { signup, clearList: vi.fn() });
+        for (const [password, problem] of [['12345678', 'sequence'], ['Password123!', 'common'], ['Asha@2024', 'personal']]) {
+            page.registrationForm.patchValue({ password, confirmPassword: password });
+            form()!.dispatchEvent(new Event('submit'));
+            fixture.detectChanges();
+            expect(shown()).toContain(english(`member.auth.password_error.${problem}`));
+        }
+        expect(signup).not.toHaveBeenCalled();
+
+        page.registrationForm.patchValue({ password: 'Monsoon-Train-42', confirmPassword: 'Monsoon-Train-42' });
+        page.register();
+        expect(signup).toHaveBeenCalledWith(expect.objectContaining({ email: 'asha.rao@example.com', password: 'Monsoon-Train-42' }));
+    });
+
+    it('checks the password against a name changed after it was typed', async () => {
+        await atEmailSignup();
+        page.registrationForm.patchValue({ name: 'Someone', password: 'Kavya2024!', confirmPassword: 'Kavya2024!' });
+        expect(page.registrationForm.get('password')!.valid).toBe(true);
+        page.registrationForm.get('name')!.setValue('Kavya Rao');
+        page.register();
+        expect(page.registrationForm.get('password')!.errors?.['password']).toBe('personal');
+    });
+
+    it('signs in with a password set before, whatever its length', async () => {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        page.goToStep('login');
+        page.registrationForm.get('loginPassword')!.setValue('abc123');
+        expect(page.registrationForm.get('loginPassword')!.valid).toBe(true);
+    });
+});
+
+describe('SignupComponent: Forgot password while testing (F22)', () => {
+    async function atLogin(): Promise<void> {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        typed('asha@example.com');
+        page.goToStep('login');
+        fixture.detectChanges();
+    }
+    const forgot = () => (fixture.nativeElement.querySelector('.forgot-password') as HTMLElement).click();
+    const link = () => fixture.nativeElement.querySelector('a.reset-link') as HTMLAnchorElement | null;
+
+    it('shows the reset link on the page when an admin turned that on, and emails nothing', async () => {
+        await atLogin();
+        (TestBed.inject(EmailConfigStatusService) as unknown as { showResetLinks: ReturnType<typeof signal<boolean>> }).showResetLinks.set(true);
+        const firebaseReset = vi.fn();
+        Object.assign(TestBed.inject(AuthState), { forgotPassword: firebaseReset });
+        signIn['requestPasswordResetLink'] = vi.fn().mockResolvedValue({ shown: true, link: 'https://example.firebaseapp.com/__/auth/action?mode=resetPassword&oobCode=x' });
+        forgot();
+        await flush();
+        fixture.detectChanges();
+        expect(signIn['requestPasswordResetLink']).toHaveBeenCalledWith('asha@example.com');
+        expect(link()?.href).toContain('mode=resetPassword');
+        expect(link()?.textContent).toContain(english('member.auth.reset_link_open'));
+        expect(firebaseReset).not.toHaveBeenCalled();
+    });
+
+    it('has Firebase email it when the server says the links are not shown', async () => {
+        await atLogin();
+        (TestBed.inject(EmailConfigStatusService) as unknown as { showResetLinks: ReturnType<typeof signal<boolean>> }).showResetLinks.set(true);
+        const firebaseReset = vi.fn().mockResolvedValue({ status: 200 });
+        Object.assign(TestBed.inject(AuthState), { forgotPassword: firebaseReset });
+        signIn['requestPasswordResetLink'] = vi.fn().mockResolvedValue({ shown: false });
+        forgot();
+        await flush();
+        fixture.detectChanges();
+        expect(firebaseReset).toHaveBeenCalledWith('asha@example.com');
+        expect(link()).toBeNull();
+        expect(shown()).toContain(english('member.auth.reset_link_sent', { email: 'asha@example.com' }));
+    });
+
+    it('never asks the server when the links are off', async () => {
+        await atLogin();
+        const firebaseReset = vi.fn().mockResolvedValue({ status: 200 });
+        Object.assign(TestBed.inject(AuthState), { forgotPassword: firebaseReset });
+        signIn['requestPasswordResetLink'] = vi.fn();
+        forgot();
+        await flush();
+        expect(signIn['requestPasswordResetLink']).not.toHaveBeenCalled();
+        expect(firebaseReset).toHaveBeenCalled();
     });
 });

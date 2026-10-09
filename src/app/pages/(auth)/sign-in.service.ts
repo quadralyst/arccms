@@ -81,7 +81,11 @@ export function translateRefusal(
 ): string | null {
     const reason = typeof details?.reason === 'string' ? details.reason : '';
     if (!/^[a-z-]+$/.test(reason)) return null;
-    const key = `member.auth.server_error.${reason.replace(/-/g, '_')}`;
+    // A new password refused (F22): the page's own words for why (password-rule.ts).
+    const problem = reason === 'weak-password' && typeof details?.['problem'] === 'string' ? details['problem'] : '';
+    const key = /^[a-z]+$/.test(problem)
+        ? `member.auth.password_error.${problem}`
+        : `member.auth.server_error.${reason.replace(/-/g, '_')}`;
     const params: Record<string, unknown> = { ...details };
     const retryAfter = Number(details?.['retryAfter']);
     if (retryAfter > 0) {
@@ -93,12 +97,16 @@ export function translateRefusal(
 
 /**
  * A code request's reply. `sameCode`: the code sent before still worked, so the
- * same one went again (specs/sign-in-codes-spec.md, SC-D9).
+ * same one went again (specs/sign-in-codes-spec.md, SC-D9). `alreadySent`: the
+ * same code was asked for under a minute after it went, so nothing new was sent,
+ * and `wait` is the seconds before another may go (F22).
  */
 export interface CodeReply {
     sent: boolean;
     testMode?: boolean;
     sameCode?: boolean;
+    alreadySent?: boolean;
+    wait?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -192,6 +200,15 @@ export class SignInService {
      */
     requestSignupCode(email: string, name?: string): Promise<CodeReply & { testCode?: string }> {
         return this.call('requestSignupOtp', { email, ...(name ? { name } : {}) });
+    }
+
+    /**
+     * Forgot password while testing (F22): the reset link to show, when an admin
+     * turned that on with the Simulated email provider. `shown: false` means
+     * Firebase should email it, as always.
+     */
+    requestPasswordResetLink(email: string): Promise<{ shown: boolean; link?: string }> {
+        return this.call('requestPasswordResetLink', { email });
     }
 
     /** Check the sign-up code sent to this address. */
