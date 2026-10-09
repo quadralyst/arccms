@@ -57,6 +57,34 @@ describe('EmailSettingService', () => {
         await expect(firstValueFrom(service.getEmailSettings())).resolves.toMatchObject({ activeProvider: 'smtp' });
     });
 
+    describe('reset links on screen (F22)', () => {
+        async function save(fields: Record<string, unknown>) {
+            const fire = await import('@angular/fire/firestore');
+            vi.mocked(fire.doc).mockImplementation(((_db: unknown, _c: string, id: string) => ({ id })) as never);
+            vi.mocked(fire.getDoc).mockResolvedValue({ exists: () => true } as never);
+            vi.mocked(fire.setDoc).mockResolvedValue(undefined as never);
+            await service.saveEmailSettings({ ...DEFAULT_EMAIL_SETTINGS, isEnabled: true, ...fields } as never);
+            const written = (id: string) => vi.mocked(fire.setDoc).mock.calls.find(([ref]) => (ref as { id: string }).id === id)?.[1] as Record<string, unknown>;
+            return { settings: written('email'), status: written('email_status') };
+        }
+
+        it('are kept, and the sign-in page told, with the Simulated provider', async () => {
+            const { settings, status } = await save({ activeProvider: 'debug_log', showResetLinks: true });
+            expect(settings['showResetLinks']).toBe(true);
+            expect(status['showResetLinks']).toBe(true);
+        });
+
+        it('are turned off by leaving the Simulated provider, and with email off', async () => {
+            expect((await save({ activeProvider: 'resend', showResetLinks: true })).settings['showResetLinks']).toBe(false);
+            expect((await save({ activeProvider: 'resend', showResetLinks: true })).status['showResetLinks']).toBe(false);
+            expect((await save({ activeProvider: 'debug_log', showResetLinks: true, isEnabled: false })).status['showResetLinks']).toBe(false);
+        });
+
+        it('are off by default', () => {
+            expect(DEFAULT_EMAIL_SETTINGS.showResetLinks).toBe(false);
+        });
+    });
+
     describe('DEFAULT_EMAIL_SETTINGS', () => {
         it('should have email disabled by default', () => {
             expect(DEFAULT_EMAIL_SETTINGS.isEnabled).toBe(false);

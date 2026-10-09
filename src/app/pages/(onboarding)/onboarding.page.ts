@@ -38,6 +38,8 @@ import { environment } from '../../../environments/environment';
 import { useAdminOverlay } from '../../core/brand/admin-overlay';
 import { APP_BRAND, ARC_CMS_NAME } from '../../core/brand/site-brand';
 import { LegalNoticeComponent } from '../../../shared/components/legal-notice/legal-notice.component';
+import { newPasswordValidator, passwordProblemOf } from '../../../shared/utils/password-validator';
+import { PASSWORD_PROBLEM_TEXT } from '../../../shared/utils/password-rule';
 
 export const routeMeta: RouteMeta = {
     title: 'Setup',
@@ -279,11 +281,17 @@ export default class OnboardingComponent implements OnInit {
                 name: ['', [Validators.required, Validators.minLength(2)]],
                 email: ['', [Validators.required, Validators.email]],
                 confirmEmail: ['', [Validators.required, Validators.email]],
-                password: ['', [Validators.required, Validators.minLength(8)]],
+                // The rule every new password meets (F22).
+                password: ['', [Validators.required, newPasswordValidator(() => ({ email: this.onboardingForm?.value.email, name: this.onboardingForm?.value.name }))]],
                 confirmPassword: ['', [Validators.required]],
             },
             { validators: [this.passwordMatchValidator, this.emailMatchValidator] }
         );
+    }
+
+    /** Why the password was refused. */
+    passwordError(): string {
+        return PASSWORD_PROBLEM_TEXT[passwordProblemOf(this.onboardingForm.get('password')) ?? 'short'];
     }
 
     private passwordMatchValidator(g: AbstractControl): ValidationErrors | null {

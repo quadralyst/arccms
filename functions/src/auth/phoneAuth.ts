@@ -39,7 +39,7 @@ import {
     requirePhoneSignIn,
     setPin as storePin,
 } from './accounts.js';
-import { assertPhoneResendReady, consumeVerifiedPhoneOtp, isPhoneOtpPurpose, issuePhoneOtp, verifyPhoneOtp as checkPhoneOtp } from './phoneOtp.js';
+import { consumeVerifiedPhoneOtp, phoneCodeAskedAgain, isPhoneOtpPurpose, issuePhoneOtp, verifyPhoneOtp as checkPhoneOtp } from './phoneOtp.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuse } from './refusal.js';
 
@@ -113,9 +113,11 @@ export const requestPhoneOtp = onCall(async (request) => {
         if (purpose === 'reset' && !account) throw refuse('not-found', 'no-account', 'No account uses this number.');
     }
 
-    // The wait first: only codes really sent count towards the hourly limits, and
-    // one the provider refuses is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
-    await assertPhoneResendReady(phone);
+    // Asked again within the minute (a reload, another tab): the code already sent,
+    // nothing new (F22). Checked first: only codes really sent count towards the
+    // hourly limits, and one the provider refuses is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
+    const asked = await phoneCodeAskedAgain(phone, purpose, uid);
+    if (asked) return codeReply(phone, purpose, sms, sms.provider === 'log', asked.code, { alreadySent: true, wait: asked.wait });
     const callerLimit = `otp-ip-${callerKey(request)}`;
     const numberLimit = `otp-phone-${phoneHash(phone)}`;
     await consumeRateLimit(callerLimit, 20, HOUR, TOO_MANY);
@@ -130,17 +132,29 @@ export const requestPhoneOtp = onCall(async (request) => {
         throw err;
     }
     logger.info(`requestPhoneOtp: ${purpose} code sent to ${maskPhone(phone)}.`);
-    // Test provider: no SMS goes out (Settings, SMS warns admins). The page may
-    // show a sign-up code, which only makes a new account. A reset code would let
-    // anyone take over any number, so it is shown only when an admin turned on
-    // "Show PIN reset codes on screen"; otherwise it is in SMS Logs, for admins.
-    // A link code would let anyone move a number to their account: SMS Logs only
-    // (review F).
-    const again = sameCode ? { sameCode: true } : {};
-    if (!testCode) return { sent: true, phone, ...again };
-    const shown = purpose === 'signup' || (purpose === 'reset' && sms.showResetCodes);
-    return { sent: true, phone, testMode: true, ...(shown ? { testCode } : {}), ...again };
+    return codeReply(phone, purpose, sms, !!testCode, testCode, sameCode ? { sameCode: true } : {});
 });
+
+/**
+ * A code request's reply. Test provider: no SMS goes out (Settings, SMS warns
+ * admins). The page may show a sign-up code, which only makes a new account. A
+ * reset code would let anyone take over any number, so it is shown only when an
+ * admin turned on "Show PIN reset codes on screen"; otherwise it is in SMS Logs,
+ * for admins. A link code would let anyone move a number to their account: SMS
+ * Logs only (review F).
+ */
+function codeReply(
+    phone: string,
+    purpose: string,
+    sms: SmsSettings,
+    testMode: boolean,
+    code: string | undefined,
+    extra: Record<string, unknown>,
+) {
+    if (!testMode) return { sent: true, phone, ...extra };
+    const shown = purpose === 'signup' || (purpose === 'reset' && sms.showResetCodes);
+    return { sent: true, phone, testMode: true, ...(shown && code ? { testCode: code } : {}), ...extra };
+}
 
 export const verifyPhoneOtp = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;

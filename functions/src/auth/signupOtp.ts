@@ -11,7 +11,7 @@ import { callerKey, consumeRateLimit, releaseRateLimit, requireOwnRecord } from 
 import { newOtpTicket, ticketMatches } from './otpTicket.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuse } from './refusal.js';
-import { codeSealKey, resendWait, reusableCode, sealCode } from './codeSeal.js';
+import { codeAskedAgain, codeSealKey, refuseWithinWait, reusableCode, sealCode } from './codeSeal.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -75,9 +75,14 @@ export const requestSignupOtp = onCall(async (request) => {
     throw refuse('invalid-argument', 'invalid-email', 'Enter a valid email address.');
   }
   const name = typeof request.data?.name === 'string' && request.data.name ? request.data.name : undefined;
-  // The wait first: only codes really sent count towards the hourly limits, and
-  // one that could not be queued is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
-  await assertEmailResendReady(email);
+  // Asked again within the minute (a reload, another tab): the code already sent,
+  // nothing new (F22). Checked first: only codes really sent count towards the
+  // hourly limits, and one that could not be queued is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
+  const asked = await emailCodeAskedAgain(email, 'signup');
+  if (asked) {
+    const test = (await isSimulatedEmail()) ? { testMode: true, testCode: asked.code } : {};
+    return { sent: true, status: 'pending', ...test, alreadySent: true, wait: asked.wait };
+  }
   const callerLimit = `email-otp-ip-${callerKey(request)}`;
   const addressLimit = `email-otp-${computeEmailHash(email)}`;
   await consumeRateLimit(callerLimit, 20, HOUR, 'Too many attempts. Please try again later.');
@@ -92,18 +97,26 @@ export const requestSignupOtp = onCall(async (request) => {
 });
 
 /**
- * Refuse with `wait` (and the seconds left) while the last code for this address
- * is under a minute old. Callers check it before counting the hourly limits, so
- * a refused send never uses one up (specs/sign-in-codes-spec.md, SC-D3).
+ * This address's code for this purpose (and for `link` this account), asked for
+ * again under a minute after it went: the code and the seconds left, and nothing
+ * is sent (codeAskedAgain). Null when a code may go. Callers check it before
+ * counting the hourly limits, so an answer that sends nothing never uses one up
+ * (specs/sign-in-codes-spec.md, SC-D3).
  */
-export async function assertEmailResendReady(email: string, now = Date.now()): Promise<void> {
-  const existing = await db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(email)).get();
-  if (existing.exists) refuseWithinWait(existing.data(), now);
-}
-
-function refuseWithinWait(data: Record<string, unknown> | undefined, now: number): void {
-  const wait = resendWait(data, now, RESEND_THROTTLE_MS);
-  if (wait) throw refuse('resource-exhausted', 'wait', `Please wait ${wait}s before asking for another code.`, { wait });
+export async function emailCodeAskedAgain(
+  email: string,
+  purpose: EmailOtpPurpose,
+  uid?: string,
+  now = Date.now(),
+): Promise<{ wait: number; code: string } | null> {
+  const emailHash = computeEmailHash(email);
+  const existing = await db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash).get();
+  const data = existing.exists ? existing.data() : undefined;
+  if (!data || !matchesPurpose(data, purpose, uid)) return null;
+  return codeAskedAgain(data, {
+    samePurpose: true, docId: emailHash, key: await codeSealKey(), now, maxAttempts: MAX_ATTEMPTS,
+    hash: (c) => hashCode(c, emailHash), gapMs: RESEND_THROTTLE_MS,
+  });
 }
 
 /**
@@ -122,9 +135,6 @@ export async function issueEmailOtp(
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
   const now = Date.now();
 
-  // Checked here too, before the transaction below settles it for two requests at once.
-  await assertEmailResendReady(email, now);
-
   const template = await loadSignupOtpTemplate();
   if (!template) {
     throw refuse('failed-precondition', 'email-failed', "We couldn't send the email. Please try again later.");
@@ -132,19 +142,21 @@ export async function issueEmailOtp(
   const sealKey = await codeSealKey(); // read before the transaction, not inside it
 
   // The wait, the choice of code and the write in one go (SC-D11).
-  const { code, sameCode } = await db.runTransaction(async (tx) => {
+  const { code, sameCode, before } = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const data = snap.exists ? snap.data() : undefined;
-    refuseWithinWait(data, now);
+    const samePurpose = !!data && matchesPurpose(data, purpose, options.uid);
+    // A code for another purpose never holds this one back: the new one replaces it (F22).
+    if (samePurpose) refuseWithinWait(data, now, RESEND_THROTTLE_MS);
     const again = reusableCode(data, {
-      samePurpose: !!data && matchesPurpose(data, purpose, options.uid),
+      samePurpose,
       docId: emailHash, key: sealKey, now, maxAttempts: MAX_ATTEMPTS, hash: (c) => hashCode(c, emailHash),
     });
     const times = { expiresAt: Timestamp.fromMillis(now + OTP_TTL_MS), lastSentAt: Timestamp.fromMillis(now) };
     if (again) {
       // The same code, its wrong tries kept, for another 10 minutes.
       tx.update(ref, times);
-      return { code: again, sameCode: true };
+      return { code: again, sameCode: true, before: { expiresAt: data!['expiresAt'], lastSentAt: data!['lastSentAt'] } };
     }
     const fresh = generateCode();
     tx.set(ref, {
@@ -160,7 +172,7 @@ export async function issueEmailOtp(
       createdAt: Timestamp.fromMillis(now),
       ...times,
     });
-    return { code: fresh, sameCode: false };
+    return { code: fresh, sameCode: false, before: null };
   });
   const again = sameCode ? { sameCode: true } : {};
 
@@ -185,7 +197,15 @@ export async function issueEmailOtp(
 
   logger.info(`issueEmailOtp: queued ${purpose} OTP for ${email} (status=${result.status}).`);
   const sent = result.status === 'pending';
-  if (!sent || !(await isSimulatedEmail())) return { sent, status: result.status, ...again };
+  if (!sent) {
+    // Not sent (email off, the address suppressed): the code never went, so asking
+    // again must not be told it did (F22). A code sent before keeps its old times,
+    // a new one goes, as for SMS (phoneOtp.ts).
+    if (before) await ref.update(before);
+    else await ref.delete();
+    return { sent, status: result.status, ...again };
+  }
+  if (!(await isSimulatedEmail())) return { sent, status: result.status, ...again };
   // Simulated provider: no email goes out, the code is only in Email Logs. The
   // page shows a sign-up code, which only makes a new account, like the Test SMS
   // provider. A link code would let anyone add an address to their account:
@@ -194,7 +214,7 @@ export async function issueEmailOtp(
 }
 
 /** Whether email goes to the Simulated provider, which records it in Email Logs and sends nothing. */
-async function isSimulatedEmail(): Promise<boolean> {
+export async function isSimulatedEmail(): Promise<boolean> {
   const settings = (await db.collection('Settings').doc('email').get()).data();
   return settings?.['isEnabled'] === true && settings?.['activeProvider'] === 'debug_log';
 }

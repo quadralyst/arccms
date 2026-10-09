@@ -17,6 +17,8 @@ import { BaseComponent } from '../../../../../shared/components/base/base.compon
 import { UserStore } from '../user.store';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { roleGuard } from '../../../../guards/role.guard';
+import { newPasswordValidator, passwordProblemOf } from '../../../../../shared/utils/password-validator';
+import { PASSWORD_PROBLEM_TEXT } from '../../../../../shared/utils/password-rule';
 
 export const routeMeta: RouteMeta = {
     title: 'Add User',
@@ -49,7 +51,8 @@ export default class AddUserComponent extends BaseComponent {
     addForm: FormGroup = new FormGroup({
         name: new FormControl('', [Validators.required]),
         email: new FormControl('', [Validators.required, this.globalService.emailValidator()]),
-        password: new FormControl('', [Validators.required, Validators.minLength(8)]),
+        // The rule every new password meets (F22); the server checks it too.
+        password: new FormControl('', [Validators.required, newPasswordValidator(() => ({ email: this.addForm?.value.email, name: this.addForm?.value.name }))]),
     });
 
     // Getter methods for form controls
@@ -59,6 +62,11 @@ export default class AddUserComponent extends BaseComponent {
     get email() {
         return this.addForm.get('email');
     }
+    /** Why the temporary password was refused. */
+    passwordError(): string {
+        return PASSWORD_PROBLEM_TEXT[passwordProblemOf(this.password) ?? 'short'];
+    }
+
     get password() {
         return this.addForm.get('password');
     }

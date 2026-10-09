@@ -54,7 +54,7 @@
             <div class="col-12">
                 <label for="password" class="form-label">Temporary password <span class="required">*</span></label>
                 <input type="password" formControlName="password" class="form-control" id="password"
-                    placeholder="Password (min 8 characters)" [class]="{
+                    placeholder="At least 8 characters, hard to guess" [class]="{
                         'is-invalid': password?.invalid && (password?.dirty || password?.touched),
                         'is-valid': password?.valid && (password?.dirty || password?.touched)
                     }" />
@@ -62,7 +62,7 @@
                 @if(addForm.get('password')?.errors?.['required']) {
                 <div class="invalid-feedback">Password is required.</div>
                 } @else {
-                <div class="invalid-feedback">Password must be at least 8 characters.</div>
+                <div class="invalid-feedback">{{ passwordError() }}</div>
                 }
                 <div class="form-text">
                     Share it with them; it is never stored with the user record. If this address already has a
