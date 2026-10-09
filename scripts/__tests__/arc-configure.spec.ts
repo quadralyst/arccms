@@ -647,11 +647,11 @@ describe('arc-deploy', () => {
 
         it('retries a full deploy with a command the Firebase CLI accepts: --only and never --except', () => {
             // npm run deploy -- --project dev --probe --force, as a full deploy builds it (found 2026-10-07).
-            const full = deployArgs(withoutHosting(['--project', 'dev', '--probe', '--force']), true, 'arc-pos-dev', ROOT);
+            const full = deployArgs(withoutHosting(['--project', 'dev', '--probe', '--force']), true, 'my-app-dev', ROOT);
             expect(full).toContain('--except');
             const targets = ['functions:arccms:arccms.onAppEventCreate', 'functions:arccms:arccms.onSignInDeleted'];
             const again = retryArgs(full, targets);
-            expect(again).toEqual(['deploy', '--config', 'firebase.arc-pos-dev.json', '--project', 'dev', '--force', '--only', targets.join(',')]);
+            expect(again).toEqual(['deploy', '--config', 'firebase.my-app-dev.json', '--project', 'dev', '--force', '--only', targets.join(',')]);
             // What the CLI checks first: one target list, no --except beside it, every option with its value.
             expect(again.filter((a: string) => a === '--only' || a.startsWith('--only='))).toHaveLength(1);
             expect(again.some((a: string) => a === '--except' || a.startsWith('--except='))).toBe(false);
@@ -674,10 +674,10 @@ describe('arc-deploy', () => {
         });
 
         it('says how to deploy the website alone when an earlier step failed', () => {
-            const message = websiteSkippedMessage('arc-pos-dev');
+            const message = websiteSkippedMessage('my-app-dev');
             expect(message).toContain('The website was not deployed');
-            expect(message).toContain('npm run deploy -- --only hosting --project arc-pos-dev');
-            expect(message).toContain('npm run seed -- arc-pos-dev');
+            expect(message).toContain('npm run deploy -- --only hosting --project my-app-dev');
+            expect(message).toContain('npm run seed -- my-app-dev');
         });
 
         it('lets a clean retry clear the failure only for a functions-only deploy', () => {

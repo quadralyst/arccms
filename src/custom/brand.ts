@@ -4,7 +4,7 @@
  * deploy. Arc CMS ships this empty and never edits it again.
  *
  *   export const CUSTOM_BRAND: CustomBrand = {
- *       name: 'Tapout POS',
+ *       name: 'Acme Studio',
  *       titles: { '/admin/users': 'Staff' },
  *   };
  *

@@ -48,7 +48,7 @@
     <pre><code>import type { CustomBrand } from '../app/core/brand/site-brand';
 
 export const CUSTOM_BRAND: CustomBrand = {
-    name: 'Tapout POS',
+    name: 'Acme Studio',
 };</code></pre>
     <p>Nothing shows until Settings, About has loaded, so Arc CMS's name never flashes before yours.</p>
 
@@ -56,7 +56,7 @@ export const CUSTOM_BRAND: CustomBrand = {
     <p>The panel looks at the logo's shape when it loads; an SVG's shape is read from its <code>viewBox</code>, else its <code>width</code> and <code>height</code>. A wordmark, at least twice as wide as it is tall, shows alone in the open panel (up to 150 pixels wide and 40 high), since it already carries the name. A square mark shows at 40 by 40 pixels beside the name. In the collapsed panel, 65 pixels wide, a square mark shows and a wordmark does not. Search engines also read this logo (see <a href="../website/seo.html">Get found by search engines and AI</a>) and prefer a square one of at least 112 by 112 pixels.</p>
 
     <h2 id="browser-tab">The browser tab</h2>
-    <p>Every tab reads "<em>Page</em> | <em>Site name</em>", such as "Users | Tapout POS". Until the site name is in, the page's name stands alone; a page with no title shows the site name alone. Before the app starts, the tab shows the app's name from <code>brand.ts</code>, or "Loading" when it has none.</p>
+    <p>Every tab reads "<em>Page</em> | <em>Site name</em>", such as "Users | Acme Studio". Until the site name is in, the page's name stands alone; a page with no title shows the site name alone. Before the app starts, the tab shows the app's name from <code>brand.ts</code>, or "Loading" when it has none.</p>
     <ul>
       <li><strong>Pages members see</strong> (sign in, profile, account, dashboard, payments, premium, notifications, no access, page not found) take their name from the member strings, <code>member.titles.*</code>, in the reader's language. An app with its own member language translates them in <code class="new">src/custom/i18n/{lang}.json</code> like any member string; <code>npm run i18n:member</code> lists the ones missing, and the suite fails until they are there (see <a href="member-languages.html">Member languages</a>).</li>
       <li><strong>Admin pages</strong> stay in English, except Profile and Notifications, which members see too.</li>
@@ -64,7 +64,7 @@ export const CUSTOM_BRAND: CustomBrand = {
       <li><strong>Your own pages</strong>: give the route a <code>title</code>, and a <code>data: { titleKey }</code> for a translated one (see <a href="pages-and-routes.html">Add pages and routes</a>).</li>
     </ul>
     <pre><code>export const CUSTOM_BRAND: CustomBrand = {
-    name: 'Tapout POS',
+    name: 'Acme Studio',
     titles: { '/admin/users': 'Staff' },
 };</code></pre>
     <p>A page that sets its own title once it has loaded, such as a content page, keeps it.</p>

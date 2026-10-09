@@ -33,7 +33,7 @@ const claimedCache = new WeakMap<Route[], ReadonlySet<string>>();
 
 /**
  * The first segments that a route with a literal path already uses, Arc's own or
- * the app's (`pos`, `pricing`, `learn`), looking inside routes with an empty
+ * the app's (`pay`, `pricing`, `learn`), looking inside routes with an empty
  * path such as the (group) folders of the file-based pages. Such a segment is
  * never a language prefix, and the Localization settings page refuses it as a code.
  */
@@ -100,7 +100,7 @@ function refreshInBackground(router: Router, localization: LocalizationService, 
  * request.
  *
  * - A first segment that cannot be a language (`signup`, `admin`), or that a
- *   route with a literal path claims (`pos`), is refused at once.
+ *   route with a literal path claims (`pay`), is refused at once.
  * - Any other is checked against the list this browser last saw, and the list
  *   is read again in the background.
  * - Only a first visit with no list kept waits for the server, and only for a

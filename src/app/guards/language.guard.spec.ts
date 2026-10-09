@@ -38,9 +38,9 @@ const ROUTES: Routes = [
     { path: ':lang', pathMatch: 'full', canMatch: [languageRouteGuard], component: Page, data: { at: 'language home' } },
     { path: ':lang/:contentTypeSlug', canMatch: [languageRouteGuard], component: Page, data: { at: 'language content' } },
     languageRedirect,
-    // The app's routes: `pos` fits the language code pattern.
-    { path: 'pos', component: Page, data: { at: 'pos' } },
-    { path: 'pos/start', component: Page, data: { at: 'pos start' } },
+    // The app's routes: `pay` fits the language code pattern.
+    { path: 'pay', component: Page, data: { at: 'pay' } },
+    { path: 'pay/start', component: Page, data: { at: 'pay start' } },
     // A (group) folder of file-based pages.
     { path: '', children: [{ path: 'faq', component: Page, data: { at: 'faq' } }] },
     { path: '**', component: Page, data: { at: 'not found' } },
@@ -115,7 +115,7 @@ describe('languageRouteGuard', () => {
         });
 
         it('does not swallow other top-level routes', () => {
-            for (const path of ['pricing', 'checkout', 'user', 'p', 'waitlist', 'pos', 'faq']) {
+            for (const path of ['pricing', 'checkout', 'user', 'p', 'waitlist', 'pay', 'faq']) {
                 expect(runGuard(path, 'anything', 'else')).toBe(false);
             }
         });
@@ -139,8 +139,8 @@ describe('languageRouteGuard', () => {
         });
 
         it("answers at once, with no read, for an app route's first segment", () => {
-            expect(runGuard('pos')).toBe(false);
-            expect(runGuard('pos', 'start')).toBe(false);
+            expect(runGuard('pay')).toBe(false);
+            expect(runGuard('pay', 'start')).toBe(false);
             // Inside a (group) folder of file-based pages.
             expect(runGuard('faq')).toBe(false);
             expect(load).not.toHaveBeenCalled();
@@ -172,8 +172,8 @@ describe('languageRouteGuard', () => {
 
     describe('with the router', () => {
         it('opens app pages and sign-up while Firestore never answers, on a first visit', async () => {
-            expect(await open('/pos')).toBe('pos');
-            expect(await open('/pos/start')).toBe('pos start');
+            expect(await open('/pay')).toBe('pay');
+            expect(await open('/pay/start')).toBe('pay start');
             expect(await open('/signup')).toBe('/signup');
             expect(await open('/faq')).toBe('faq');
             expect(load).not.toHaveBeenCalled();
@@ -183,7 +183,7 @@ describe('languageRouteGuard', () => {
             known.mockReturnValue(EN_HI);
             expect(await open('/hi')).toBe('language home');
             expect(await open('/hi/articles')).toBe('language content');
-            expect(await open('/hi/pos/start')).toBe('pos start');
+            expect(await open('/hi/pay/start')).toBe('pay start');
             expect(await open('/fr')).toBe('not found');
         });
 
@@ -220,7 +220,7 @@ describe('languageRouteGuard', () => {
 
 describe('claimedFirstSegments', () => {
     it('lists the literal first segments, inside empty-path groups too', () => {
-        expect([...claimedFirstSegments(ROUTES)].sort()).toEqual(['faq', 'pos', 'pricing', 'signup']);
+        expect([...claimedFirstSegments(ROUTES)].sort()).toEqual(['faq', 'pay', 'pricing', 'signup']);
     });
 
     it('leaves out parameters, the wildcard and routes that match by function', () => {

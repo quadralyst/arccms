@@ -12,7 +12,7 @@ import { SiteIdentityService } from '../services/site-identity.service';
 import { SIGN_IN_IMAGE } from './app-brand-files';
 
 const NO_APP = { name: '', logo: '' };
-const APP = { name: 'Tapout POS', logo: '/src/custom/logo.svg' };
+const APP = { name: 'Acme Studio', logo: '/src/custom/logo.svg' };
 
 describe('siteBrand', () => {
     it('uses the site\'s name and logo from Settings, About', () => {
@@ -25,9 +25,9 @@ describe('siteBrand', () => {
     });
 
     it('takes the app\'s name and logo, field by field, where About has none', () => {
-        expect(siteBrand({ name: '', logoUrl: '' }, APP)).toEqual({ name: 'Tapout POS', logo: '/src/custom/logo.svg', arc: false });
+        expect(siteBrand({ name: '', logoUrl: '' }, APP)).toEqual({ name: 'Acme Studio', logo: '/src/custom/logo.svg', arc: false });
         expect(siteBrand({ name: 'Deepakam', logoUrl: '' }, APP)).toEqual({ name: 'Deepakam', logo: '/src/custom/logo.svg', arc: false });
-        expect(siteBrand({ name: '', logoUrl: 'https://x.test/l.png' }, APP)).toEqual({ name: 'Tapout POS', logo: 'https://x.test/l.png', arc: false });
+        expect(siteBrand({ name: '', logoUrl: 'https://x.test/l.png' }, APP)).toEqual({ name: 'Acme Studio', logo: 'https://x.test/l.png', arc: false });
     });
 
     it('shows a logo with no name when only a logo is set, never Arc CMS\'s name beside it', () => {

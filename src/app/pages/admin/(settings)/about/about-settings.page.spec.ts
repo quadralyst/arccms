@@ -89,12 +89,12 @@ describe('AboutSettingsPage', () => {
         });
 
         it('shows the saved name and logo everywhere at once, with no reload', async () => {
-            component.updateField('name', 'Tapout POS');
+            component.updateField('name', 'Acme Studio');
             component.updateField('logoUrl', 'https://x.test/logo.png');
             await component.saveSettings();
             const identity = TestBed.inject(SiteIdentityService);
             expect(identity.loaded()).toBe(true);
-            expect(identity.identity().name).toBe('Tapout POS');
+            expect(identity.identity().name).toBe('Acme Studio');
             expect(identity.identity().logoUrl).toBe('https://x.test/logo.png');
         });
     });

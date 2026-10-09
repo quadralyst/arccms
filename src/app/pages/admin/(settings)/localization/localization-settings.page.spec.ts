@@ -41,7 +41,7 @@ describe('LocalizationSettingsPage', () => {
             providers: [
                 { provide: LocalizationService, useValue: localizationMock },
                 // Addresses pages already use: an app's /pos, and /de/... for a page in German.
-                provideRouter([{ path: 'pos', children: [] }, { path: 'de/impressum', children: [] }]),
+                provideRouter([{ path: 'pay', children: [] }, { path: 'de/impressum', children: [] }]),
             ],
         }).compileComponents();
 
@@ -88,12 +88,12 @@ describe('LocalizationSettingsPage', () => {
 
     it('refuses a custom code that is an address a page uses', () => {
         component.languageToAdd.set('__custom__');
-        component.customCode.set('pos');
+        component.customCode.set('pay');
         component.customLabel.set('Point of sale');
         component.addLanguage();
 
         expect(component.enabledLanguages()).toHaveLength(2);
-        expect(component.addError()).toContain('/pos is already a page');
+        expect(component.addError()).toContain('/pay is already a page');
     });
 
     it('adds a custom language code', () => {

@@ -414,7 +414,7 @@ describe('NavbarComponent: the site\'s name and logo at the top (specs/admin-bra
     });
 
     it('shows nothing until Settings, About is in, so Arc CMS\'s name never flashes', async () => {
-        const fixture = await render({ name: 'Tapout POS' }, true, false);
+        const fixture = await render({ name: 'Acme Studio' }, true, false);
         expect(fixture.nativeElement.querySelector('.logo-container img')).toBeNull();
         expect(text(fixture)).toBe('');
     });
@@ -426,32 +426,32 @@ describe('NavbarComponent: the site\'s name and logo at the top (specs/admin-bra
     });
 
     it('shows the site\'s name alone when it has no logo', async () => {
-        const fixture = await render({ name: 'Tapout POS' }, true);
-        expect(text(fixture)).toBe('Tapout POS');
+        const fixture = await render({ name: 'Acme Studio' }, true);
+        expect(text(fixture)).toBe('Acme Studio');
         expect(fixture.nativeElement.querySelector('.logo-container img')).toBeNull();
     });
 
     it('shows a square logo with the name', async () => {
-        const fixture = await render({ name: 'Tapout POS', logoUrl: 'https://x.test/mark.png' }, true);
+        const fixture = await render({ name: 'Acme Studio', logoUrl: 'https://x.test/mark.png' }, true);
         loadLogo(fixture, 64, 64);
-        expect(text(fixture)).toBe('Tapout POS');
+        expect(text(fixture)).toBe('Acme Studio');
     });
 
     it('shows a wordmark alone: it already carries the name', async () => {
-        const fixture = await render({ name: 'Tapout POS', logoUrl: 'https://x.test/wordmark.png' }, true);
+        const fixture = await render({ name: 'Acme Studio', logoUrl: 'https://x.test/wordmark.png' }, true);
         loadLogo(fixture, 300, 60);
         expect(text(fixture)).toBe('');
         expect(fixture.nativeElement.querySelector('.logo-container img.logo-wide')).not.toBeNull();
     });
 
     it('shows a square logo in the collapsed panel', async () => {
-        const fixture = await render({ name: 'Tapout POS', logoUrl: 'https://x.test/mark.png' }, false);
+        const fixture = await render({ name: 'Acme Studio', logoUrl: 'https://x.test/mark.png' }, false);
         loadLogo(fixture, 64, 64);
         expect(fixture.nativeElement.querySelector('.logo-container-close img')).not.toBeNull();
     });
 
     it('shows no wordmark in the collapsed panel, too narrow to read it', async () => {
-        const fixture = await render({ name: 'Tapout POS', logoUrl: 'https://x.test/wordmark.png' }, false);
+        const fixture = await render({ name: 'Acme Studio', logoUrl: 'https://x.test/wordmark.png' }, false);
         loadLogo(fixture, 300, 60);
         expect(fixture.nativeElement.querySelector('.logo-container-close img')).toBeNull();
     });

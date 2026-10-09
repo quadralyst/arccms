@@ -1,6 +1,6 @@
 # Admin Brand: Colours, Name, Logo and Tab Titles Set by the App: Build Spec (AB)
 
-**Status:** BUILT 2026-10-08 (AB1 to AB4, reviewed), agreed with Gunjan 2026-10-08 (the Arc POS team's request F17, plus two additions, F14, and the User Settings pane's doubled header).
+**Status:** BUILT 2026-10-08 (AB1 to AB4, reviewed), agreed with Gunjan 2026-10-08 (an app team's request F17, plus two additions, F14, and the User Settings pane's doubled header).
 **Branch:** `feat/admin-brand`, cut from `dev` (8801884), worktree `../arccms-admin-brand`,
 dev server on port 5183.
 
@@ -18,7 +18,7 @@ dev server on port 5183.
 5. **Added:** an app can ship an image that fills the whole brand panel of the sign-in page.
 6. **Added:** the setup wizard never shows an empty half between 768 and 992 pixels wide
    (the fix the sign-in page had in abdaac7).
-7. **Added: F14, page titles that name Arc CMS** (Arc POS brief, folded into AB3): every
+7. **Added: F14, page titles that name Arc CMS** (an app team's brief, folded into AB3): every
    page's tab ends with the site's name; the titles members see are translated through the
    member strings (admin titles stay English); index.html's title is neutral, or the app's
    name when the build knows it, never Arc's marketing line; the sign-in page never shows
@@ -31,7 +31,7 @@ not styling; the sign-in page's own variables (`--arc-sign-in-*`), already in pl
 
 **Phases:** AB1 colours and the wizard; AB2 name, logo and sign-in image; AB3 tab titles;
 AB4 docs and screenshots, then one critical review of AB1 to AB4 (agreed: once, after AB4),
-fixes, the whole suite, merge into dev, push, and a note for the Arc POS team. Any server
+fixes, the whole suite, merge into dev, push, and a note for the app team. Any server
 deploy also waits for AB4; none is expected (no functions, no rules).
 
 ---
@@ -77,7 +77,7 @@ deploy also waits for AB4; none is expected (no functions, no rules).
 | AB-D13 | **The app's files are found at build time with `import.meta.glob`**, so a missing file is simply no file, with no build error and nothing to declare. | Same ease as `pwa-icon`: drop a file in. |
 | AB-D14 | **`brand.ts` is a new custom starter file** (`CUSTOM_BRAND = {}`), listed in scripts/custom-starters.mjs; core specs see the shipped value. | The custom-space contract for starter files. |
 | AB-D15 | **Tab titles:** `routeMeta.title` holds only the page's name ('Users'); one title strategy adds ` | <site name>`, and adds it again with the right name once About has loaded. A route without a title, or a page that sets its own title, is left alone. Until the name is known the tab shows the page's name alone. | 57 files stop naming Arc; the name has one source. |
-| AB-D16 | **Member-facing titles are translated** (F14.1): the pages a member can see (profile, notifications, the user dashboard, "Authenticating", "Unauthorized", "Page Not Found") carry a `titleKey` in their route data, in the member strings, shown in the member's language and updated when it changes. Admin titles stay English. | An owner reading German sees "Profil \| Tapout POS". |
+| AB-D16 | **Member-facing titles are translated** (F14.1): the pages a member can see (profile, notifications, the user dashboard, "Authenticating", "Unauthorized", "Page Not Found") carry a `titleKey` in their route data, in the member strings, shown in the member's language and updated when it changes. Admin titles stay English. | An owner reading German sees "Profil \| Acme Studio". |
 | AB-D17 | **index.html's title is the app's name from `brand.ts` when it has one, else the neutral "Loading"** (F14.2), written in at build time; the description meta loses Arc's marketing line the same way. | Never Arc's line on an app's tab. |
 | AB-D18 | **`CUSTOM_BRAND.titles`** (F14.3): a map from a route path ('/admin/users', '/user/profile') to the title an app wants there; the site name is still added. | The rare page where the generic name does not fit, with no core edit. |
 
@@ -90,7 +90,7 @@ deploy also waits for AB4; none is expected (no functions, no rules).
 4. Bootstrap and Material primaries follow the accent inside the admin and the wizard (AB-D4).
 5. The setup wizard's column fix (AB-D6).
 6. Tests: AB-D5's guard, AB-D6's column test.
-7. Browser check: Arc's look unchanged; Tapout teal set in a scratch `src/custom/styles.css`
+7. Browser check: Arc's look unchanged; an app's teal set in a scratch `src/custom/styles.css`
    (not committed) reaches the panel, buttons, toggles, checkboxes and tabs; the wizard
    centred at 800px.
 
@@ -123,12 +123,12 @@ deploy also waits for AB4; none is expected (no functions, no rules).
    `logo.*`, `sign-in-image.*`. reference/config-keys.html: `CUSTOM_BRAND`. The About settings
    page's docs: the media button and where the name and logo show.
 3. Screenshots: the docs have none yet (their screenshot phase is not built), so none to retake;
-   screenshots of the admin in Arc blue and Tapout teal and of the sign-in image go to Gunjan
+   screenshots of the admin in Arc blue and an app's teal and of the sign-in image go to Gunjan
    with the report instead.
 4. `npm run docs:affected`, `npm run check:docs`.
 5. Critical review of AB1 to AB4: correctness, security, data integrity, tests, docs, drift
    from this spec. Fix every critical and high item, re-run the checks.
-6. The whole suite alone (`npm run test`), merge into dev, push, and a note for the Arc POS
+6. The whole suite alone (`npm run test`), merge into dev, push, and a note for the app
    team with what to put in their custom space.
 
 ## 4. Review (2026-10-08, after AB4)

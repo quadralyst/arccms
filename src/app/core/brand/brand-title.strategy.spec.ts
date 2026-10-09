@@ -1,6 +1,6 @@
 /**
  * Every page's browser tab: the page's name, then the site's, never Arc CMS's
- * (specs/admin-brand-spec.md AB-D15 to AB-D18, the Arc POS brief F14).
+ * (specs/admin-brand-spec.md AB-D15 to AB-D18, brief F14).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -40,10 +40,10 @@ describe('the tab\'s parts', () => {
     });
 
     it('puts the site\'s name after the page\'s, either alone when the other is missing', () => {
-        expect(tabTitle('Users', 'Tapout POS')).toBe('Users | Tapout POS');
+        expect(tabTitle('Users', 'Acme Studio')).toBe('Users | Acme Studio');
         expect(tabTitle('Users', '')).toBe('Users');
-        expect(tabTitle('', 'Tapout POS')).toBe('Tapout POS');
-        expect(tabTitle('Tapout POS', 'Tapout POS')).toBe('Tapout POS');
+        expect(tabTitle('', 'Acme Studio')).toBe('Acme Studio');
+        expect(tabTitle('Acme Studio', 'Acme Studio')).toBe('Acme Studio');
     });
 
     it('keys an app\'s titles by the path alone', () => {
@@ -71,9 +71,9 @@ describe('BrandTitleStrategy', () => {
     it('shows the page\'s name alone until the site\'s name is in, then both', () => {
         strategy.updateTitle(state('/admin/settings/about', chain({ title: 'Settings' }, {})));
         expect(doc.title).toBe('Settings');
-        site.set('Tapout POS');
+        site.set('Acme Studio');
         TestBed.tick();
-        expect(doc.title).toBe('Settings | Tapout POS');
+        expect(doc.title).toBe('Settings | Acme Studio');
     });
 
     it('never shows Arc CMS while the site\'s name loads', () => {
@@ -82,10 +82,10 @@ describe('BrandTitleStrategy', () => {
     });
 
     it('shows the site\'s name alone on a page with no title, never the last page\'s', () => {
-        site.set('Tapout POS');
+        site.set('Acme Studio');
         strategy.updateTitle(state('/admin/users', chain({ title: 'Users' })));
         strategy.updateTitle(state('/waitlist', chain({})));
-        expect(doc.title).toBe('Tapout POS');
+        expect(doc.title).toBe('Acme Studio');
     });
 
     it('shows index.html\'s title on a page with no name yet, never the last page\'s', () => {
@@ -95,22 +95,22 @@ describe('BrandTitleStrategy', () => {
     });
 
     it('translates the titles members see into the reader\'s language', () => {
-        site.set('Tapout POS');
+        site.set('Acme Studio');
         TestBed.inject(TranslocoService).setActiveLang('hi');
         strategy.updateTitle(state('/user/profile', chain({ title: 'Profile', data: { titleKey: 'member.titles.profile' } })));
-        expect(doc.title).toBe('प्रोफ़ाइल | Tapout POS');
+        expect(doc.title).toBe('प्रोफ़ाइल | Acme Studio');
     });
 
     it('uses the app\'s own title for a page (CUSTOM_BRAND.titles)', () => {
-        site.set('Tapout POS');
+        site.set('Acme Studio');
         strategy.updateTitle(state('/admin/users', chain({ title: 'Users' })));
-        expect(doc.title).toBe('Staff | Tapout POS');
+        expect(doc.title).toBe('Staff | Acme Studio');
     });
 
     it('leaves a title the page set itself when the site\'s name arrives', () => {
         strategy.updateTitle(state('/articles/hello', chain({ title: 'Content Detail' })));
         doc.title = 'Hello, world';
-        site.set('Tapout POS');
+        site.set('Acme Studio');
         TestBed.tick();
         expect(doc.title).toBe('Hello, world');
     });
@@ -141,7 +141,7 @@ describe('no tab names Arc CMS', () => {
         const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
         expect(html).toMatch(/<title>Loading<\/title>/);
         expect(html).not.toMatch(/<title>[^<]*Arc CMS/);
-        expect(withAppTitle(html, 'Tapout <POS>')).toContain('<title>Tapout &lt;POS&gt;</title>');
+        expect(withAppTitle(html, 'Acme <Studio>')).toContain('<title>Acme &lt;Studio&gt;</title>');
         expect(withAppTitle(html, '  ')).toBe(html);
         expect(withAppTitle(html, undefined)).toBe(html);
     });

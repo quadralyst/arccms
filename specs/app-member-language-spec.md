@@ -141,7 +141,7 @@ is relied on; the parity test only proves it is complete, not good.
 Pages of optional features keep English for now: pricing, checkout and checkout result
 pages (payments), signup forms, leaderboard and unsubscribe pages (forms), the content list
 and detail pages (content, which has its own translations by language), notifications, the
-public header and footer. Arc POS turns most of these off. Each is a mechanical follow-up
+public header and footer. An app may turn most of these off. Each is a mechanical follow-up
 once this mechanism exists: add keys under `member.*` and the file to `MEMBER_SCREEN_FILES`.
 The page titles shown in the browser tab (`routeMeta.title`) are static strings and stay
 English; the app can set its own.

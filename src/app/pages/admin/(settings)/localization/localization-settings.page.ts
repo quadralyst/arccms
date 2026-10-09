@@ -238,7 +238,7 @@ import {
 export class LocalizationSettingsPage implements OnInit {
     private localization = inject(LocalizationService);
     private transloco = inject(TranslocoService);
-    /** Addresses a page already uses, such as /pos: they cannot also be a language's prefix. */
+    /** Addresses a page already uses, such as /pay: they cannot also be a language's prefix. */
     private claimed = claimedFirstSegments(inject(Router).config);
 
     /** Working copy — only written to Firestore on Save. */

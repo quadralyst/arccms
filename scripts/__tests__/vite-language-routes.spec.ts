@@ -19,11 +19,11 @@ afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: tru
 describe('routeFileSegments', () => {
     it('reads the first segment of each literal path', () => {
         const source = `export const CUSTOM_ROUTES: Routes = [
-  { path: 'pos', loadComponent: () => import('./pos') },
+  { path: 'pay', loadComponent: () => import('./pay') },
   { path: "de/impressum", children: [{ path: '', component: X }] },
   { path: ':lang/x' }, { path: '**' },
 ];`;
-        expect(routeFileSegments(source)).toEqual(['pos', 'de']);
+        expect(routeFileSegments(source)).toEqual(['pay', 'de']);
     });
 });
 
@@ -48,14 +48,14 @@ describe('pageFileSegments', () => {
 
 describe('languageRouteClashes', () => {
     it('warns once for each address that is a language code in the catalogue', () => {
-        const warnings = languageRouteClashes(['pos', 'de', 'DE', 'learn']);
+        const warnings = languageRouteClashes(['pay', 'de', 'DE', 'learn']);
         expect(warnings).toHaveLength(1);
         expect(warnings[0]).toContain('/de');
         expect(warnings[0]).toContain('German');
     });
 
     it('says nothing for addresses that are not', () => {
-        expect(languageRouteClashes(['pos', 'learn', 'signup'])).toEqual([]);
+        expect(languageRouteClashes(['pay', 'learn', 'signup'])).toEqual([]);
     });
 });
 
