@@ -68,6 +68,7 @@ await mergeAppClaims(uid, { site: null }); // removes your "site" claim</code></
       <li>No new name or photo, and no new email, phone, Google sign-in, password or PIN.</li>
       <li>No deleting it. <code>deleteMyAccount</code> refuses it even right after a sign-in; your app deletes it with <code>deleteAppAccount()</code>. The browser can still delete the sign-in itself, which Arc CMS notices (<a href="#client-links">below</a>).</li>
       <li>It never becomes the site's first admin.</li>
+      <li>An admin cannot set its password under Users either: your app manages it.</li>
       <li>No account, locked or not, can change its own <code>by</code> or <code>selfService</code>.</li>
     </ul>
     <p>It still signs in with your token, reads its own record, gets its claims refreshed and keeps settings that are not its identity, such as a language. Your own functions are not affected: they use the Admin SDK, which the lock does not apply to. A manager renaming someone:</p>
