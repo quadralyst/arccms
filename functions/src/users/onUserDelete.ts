@@ -8,7 +8,8 @@
  * 1. Delete the corresponding Firebase Auth account (so the user can't sign in again).
  *    An account another app owns or shares is kept, without ArcCMS claims.
  * 2. Remove the hashed email from the `email_lookup` collection (first-run / signup check)
- * 3. Phone sign-in: the number's index entry and the PIN
+ * 3. Phone sign-in: the number's index entry and the PIN; an app's PINs (`app_pins`) and its
+ *    gates' counts of wrong phone PINs (`app_phone_pin_tries`), in every namespace
  * 4. Everything stored under the record: every subcollection of users/{docId}, at any
  *    depth (Firestore keeps subcollections when a document is deleted), and the
  *    per-user Storage folder `{prefix}users/{docId}/` plus the profile photos in

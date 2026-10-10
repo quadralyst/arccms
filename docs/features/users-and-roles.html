@@ -58,7 +58,7 @@
       <li><p><strong>Access:</strong> removes the Arc CMS claims and ends every session, before anything else, so a failure later never leaves a removed admin an admin.</p></li>
       <li><p><strong>Firestore:</strong> every subcollection under <code>users/{docId}</code> at any depth, the person's <code>Feedback</code>, and their in-app <code>Notifications</code>.</p></li>
       <li><p><strong>Storage:</strong> the per-user folder <code>users/{docId}/</code> (under the install's upload folder, if it has one) and the profile photos in <code>avatars/{uid}/</code>.</p></li>
-      <li><p><strong>Sign-in:</strong> the Firebase Auth account, unless another app owns or shares it (<code>authOwner</code> is <code>host</code> or <code>shared</code>), plus the <code>email_lookup</code> entry, the phone number index and the PIN.</p></li>
+      <li><p><strong>Sign-in:</strong> the Firebase Auth account, unless another app owns or shares it (<code>authOwner</code> is <code>host</code> or <code>shared</code>), plus the <code>email_lookup</code> entry, the phone number index and the PIN, and an app's own PINs and its gates' counts of wrong phone PINs (see <a href="../app/pin.html">PINs for your app</a>).</p></li>
       <li><p><strong>Event:</strong> <code>user.deleted</code> on the event bus, with <code>userId</code> (the Auth uid) and <code>data.userDocId</code>, once every step above has worked.</p></li>
     </ol>
     <p>A step that fails makes the whole cleanup run again (each step is safe to repeat) for up to an hour after the delete.</p>

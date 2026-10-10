@@ -118,3 +118,21 @@ default-deny already protects it before then.)
 docs' `signInWithAppPin` and `setStaffPin` as custom functions, set a PIN for an A5 app
 account, sign in with it, watch it lock at the limit and unlock with `clearLock`, and see the
 rate limit refuse after too many tries from one device id.
+
+## Addendum: the phone sign-in PIN at an app's gate (2026-10-10)
+
+Built on `feat/phone-pin-check`, merged into `dev` a20fe12. An app asked to let a signed-in
+person open a gate inside it (a parent area) with the PIN they sign in with by phone. Using
+`signInWithPin` there would let a child at the gate lock the parent's sign-in.
+
+| # | Decision | Rule |
+|---|---|---|
+| N-D13 | API | `createPhonePinCheck(namespace, { maxAttempts })` gives `has`, `check` and `clearLock`; namespace and limit checked as for `createPinStore` (`checkPinOptions`). |
+| N-D14 | The PIN | Read from `auth_pins/{uid}` and compared with `pinMatches()`, the code `checkPin` uses. Never written (a pre-pepper hash is left for sign-in to upgrade), never returned. Setting it stays with sign-in. |
+| N-D15 | Wrong tries | Counted in `app_phone_pin_tries/<namespace>__<uid>` (`uid`, `namespace`, `pinId`, `failedAttempts`), closed by the rules. Never in `auth_pins`; a correct PIN deletes the count, and does not reset sign-in's. |
+| N-D16 | Unlocking | `clearLock(uid)`, or a new phone PIN: `pinId` is a fingerprint of the PIN's salt, so a count for an older PIN is ignored. |
+| N-D17 | Locks apart | The gate opens with the right PIN even while phone sign-in is locked: the caller is already signed in to that account. |
+| N-D18 | Deletion | `onUserDeleted` removes the counts by `uid`, as for `app_pins`. |
+
+Docs: docs/app/pin.html#phone-pin. Tests: `phonePinCheck.spec.ts`, `onUserDelete.spec.ts`, the rules test for closed collections.
+
