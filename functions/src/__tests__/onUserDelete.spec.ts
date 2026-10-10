@@ -326,18 +326,27 @@ describe('onUserDelete Cloud Function', () => {
             expect(payload).not.toContain('contactEmail');
         });
 
-        it('deletes the person\'s app PINs in every namespace, and only theirs (docs/app/pin.html)', async () => {
+        it('deletes the person\'s app PINs and phone PIN gate counts in every namespace, and only theirs (docs/app/pin.html)', async () => {
             const handler = await getHandler();
-            const pinDelete = vi.fn(async () => undefined);
-            mockWhere.mockImplementation(((field: string, _op: string, value: string) => ({
-                get: vi.fn().mockResolvedValue(field === 'uid' && value === 'u-9'
-                    ? { size: 2, docs: [{ ref: { delete: pinDelete } }, { ref: { delete: pinDelete } }] }
-                    : { size: 0, docs: [] }),
+            const deleted: string[] = [];
+            const held: Record<string, string[]> = { app_pins: ['kiosk__u-9', 'staff__u-9'], app_phone_pin_tries: ['parent__u-9'] };
+            mockCollection.mockImplementation(((name: string) => ({
+                doc: mockDoc,
+                where: (field: string, _op: string, value: string) => ({
+                    get: vi.fn().mockResolvedValue(field === 'uid' && value === 'u-9'
+                        ? { size: (held[name] ?? []).length, docs: (held[name] ?? []).map((id) => ({ ref: { delete: async () => { deleted.push(`${name}/${id}`); } } })) }
+                        : { size: 0, docs: [] }),
+                }),
             })) as never);
-            await handler(makeEvent({ uid: 'u-9' }, 'rec-9'));
-            expect(mockCollection).toHaveBeenCalledWith('app_pins');
-            expect(mockWhere).toHaveBeenCalledWith('uid', '==', 'u-9');
-            expect(pinDelete).toHaveBeenCalledTimes(2);
+            try {
+                await handler(makeEvent({ uid: 'u-9' }, 'rec-9'));
+            } finally {
+                mockCollection.mockImplementation(() => ({ doc: mockDoc, where: mockWhere }));
+            }
+            expect(deleted.sort()).toEqual(['app_phone_pin_tries/parent__u-9', 'app_pins/kiosk__u-9', 'app_pins/staff__u-9']);
+            // The phone sign-in PIN goes too, by its own id.
+            expect(mockCollection).toHaveBeenCalledWith('auth_pins');
+            expect(mockDoc).toHaveBeenCalledWith('u-9');
         });
 
         it('announces user.deleted for data an app keeps elsewhere', async () => {

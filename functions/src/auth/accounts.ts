@@ -328,6 +328,18 @@ export type PinCheck =
     | { ok: false; reason: 'wrong'; remaining: number };
 
 /**
+ * Whether `pin` is the one a stored PIN record holds: the record's salt, with the
+ * pepper for a version 2 hash. Compares in constant time; reads the pepper, so call
+ * pinPepper() before a transaction that uses it.
+ */
+export async function pinMatches(record: Record<string, unknown>, pin: string): Promise<boolean> {
+    const salt = Buffer.from(String(record['salt'] ?? ''), 'hex');
+    const expected = Buffer.from(String(record['hash'] ?? ''), 'hex');
+    const actual = Buffer.from(record['version'] === PIN_HASH_VERSION ? await hashPinV2(pin, salt) : await hashPin(pin, salt), 'hex');
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+/**
  * Check a PIN, counting wrong ones; the fifth wrong one in a row locks it. The
  * check and the count are one transaction, so guesses sent in parallel cannot
  * all read the same count (review F).
@@ -343,13 +355,9 @@ export async function checkPin(uid: string, pin: string, at: PinLocation = phone
         const failed = Number(data['failedAttempts'] ?? 0);
         if (failed >= max) return { ok: false, reason: 'locked' };
 
-        const salt = Buffer.from(String(data['salt'] ?? ''), 'hex');
-        const peppered = data['version'] === PIN_HASH_VERSION;
-        const expected = Buffer.from(String(data['hash'] ?? ''), 'hex');
-        const actual = Buffer.from(peppered ? await hashPinV2(pin, salt) : await hashPin(pin, salt), 'hex');
-        if (expected.length === actual.length && timingSafeEqual(expected, actual)) {
+        if (await pinMatches(data, pin)) {
             // A PIN set before the pepper is stored again with it, now that we know it.
-            if (!peppered) tx.set(ref, await pinRecord(pin, at.extra));
+            if (data['version'] !== PIN_HASH_VERSION) tx.set(ref, await pinRecord(pin, at.extra));
             else if (failed) tx.update(ref, { failedAttempts: 0 });
             return { ok: true };
         }

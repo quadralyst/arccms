@@ -263,7 +263,7 @@ describe('phone and email sign-in fields (item 1: Google and phone sign-in)', ()
     });
 
     it('keeps codes, PINs, the number index and rate limits closed to everyone', async () => {
-        for (const name of ['phone_otps', 'phone_index', 'auth_pins', 'app_pins', '_rate_limits']) {
+        for (const name of ['phone_otps', 'phone_index', 'auth_pins', 'app_pins', 'app_phone_pin_tries', '_rate_limits']) {
             await assertFails(getDoc(doc(anon(), name, 'x')));
             await assertFails(getDoc(doc(alice(), name, 'x')));
             await assertFails(getDoc(doc(admin(), name, 'x')));

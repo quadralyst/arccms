@@ -17,8 +17,10 @@ export { isArcAdmin, mergeAppClaims, revokeSessions } from '../users/claims.js';
 export { issueSignInToken } from '../auth/accounts.js';
 export { signedInByApp } from '../auth/appAccountLock.js';
 
-// PINs an app checks itself, and rate limits (specs/app-pin-spec.md)
+// PINs an app checks itself, a check of the phone sign-in PIN for a gate, and rate limits (specs/app-pin-spec.md)
 export { APP_PINS, createPinStore, hashedKey } from './pins.js';
 export type { PinStore } from './pins.js';
+export { createPhonePinCheck } from './phonePinCheck.js';
+export type { PhonePinCheck } from './phonePinCheck.js';
 export { callerKey, consumeRateLimit, isValidPin, isWeakPin } from '../auth/accounts.js';
 export type { PinCheck } from '../auth/accounts.js';
