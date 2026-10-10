@@ -427,6 +427,10 @@ service cloud.firestore {
     match /app_pins/{id} {
       allow read, write: if false;
     }
+    // An app's count of wrong phone PINs at a gate of its own (docs/app/pin.html#phone-pin).
+    match /app_phone_pin_tries/{id} {
+      allow read, write: if false;
+    }
     match /_rate_limits/{key} {
       allow read, write: if false;
     }

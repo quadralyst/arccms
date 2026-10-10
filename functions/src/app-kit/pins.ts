@@ -14,6 +14,27 @@ export const APP_PINS = 'app_pins';
 const NAMESPACE = /^[a-z][a-z0-9_-]{1,30}$/;
 const DEFAULT_MAX_ATTEMPTS = 5;
 
+/**
+ * Refuses a bad namespace or limit, as the app kit's PIN helpers all do, and returns
+ * the limit: `maxAttempts` 1 to 20, default 5.
+ */
+export function checkPinOptions(namespace: string, options: { maxAttempts?: number }): number {
+    if (typeof namespace !== 'string' || !NAMESPACE.test(namespace) || namespace.includes('__')) {
+        throw new Error(`PIN namespace "${namespace}": lower case letters, digits, - and _, starting with a letter, 2 to 31 characters, no "__".`);
+    }
+    const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+    if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20) {
+        throw new Error(`PIN maxAttempts ${maxAttempts}: a whole number from 1 to 20.`);
+    }
+    return maxAttempts;
+}
+
+/** `<namespace>__<uid>`, refusing a uid that is blank or would make a path. */
+export function pinDocId(namespace: string, uid: string): string {
+    if (isBlank(uid) || uid.includes('/')) throw new HttpsError('invalid-argument', 'No such person.');
+    return `${namespace}__${uid}`;
+}
+
 export interface PinStore {
     /** Sets or replaces the person's PIN, which also clears a lock. Refuses one that is not 6 digits, or too easy. */
     set(uid: string, pin: string): Promise<void>;
@@ -33,17 +54,8 @@ export interface PinStore {
  * in a row lock a PIN until set() or clearLock().
  */
 export function createPinStore(namespace: string, options: { maxAttempts?: number } = {}): PinStore {
-    if (typeof namespace !== 'string' || !NAMESPACE.test(namespace) || namespace.includes('__')) {
-        throw new Error(`PIN namespace "${namespace}": lower case letters, digits, - and _, starting with a letter, 2 to 31 characters, no "__".`);
-    }
-    const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
-    if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20) {
-        throw new Error(`PIN maxAttempts ${maxAttempts}: a whole number from 1 to 20.`);
-    }
-    const at = (uid: string): PinLocation => {
-        if (isBlank(uid) || uid.includes('/')) throw new HttpsError('invalid-argument', 'No such person.');
-        return { collection: APP_PINS, docId: `${namespace}__${uid}`, maxAttempts, extra: { uid, namespace } };
-    };
+    const maxAttempts = checkPinOptions(namespace, options);
+    const at = (uid: string): PinLocation => ({ collection: APP_PINS, docId: pinDocId(namespace, uid), maxAttempts, extra: { uid, namespace } });
     return {
         async set(uid, pin) {
             if (!isValidPin(pin)) throw new HttpsError('invalid-argument', 'A PIN is 6 digits.');

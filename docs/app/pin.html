@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PINs for your app | Arc CMS docs</title>
-  <meta name="description" content="Let people sign in with a 6-digit PIN checked by your own function, with Arc CMS's hashing, lockout and rate limits, kept apart from phone sign-in's PINs.">
-  <meta name="docs:sources" content="functions/src/app-kit/pins.ts, functions/src/auth/accounts.ts, functions/src/users/onUserDelete.ts, firestore.rules">
+  <meta name="description" content="Let people sign in with a 6-digit PIN checked by your own function, with Arc CMS's hashing, lockout and rate limits, kept apart from phone sign-in's PINs, or check a person's phone sign-in PIN at a gate inside your app.">
+  <meta name="docs:sources" content="functions/src/app-kit/pins.ts, functions/src/app-kit/phonePinCheck.ts, functions/src/auth/accounts.ts, functions/src/users/onUserDelete.ts, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/pin.html">
   <main>
     <h1>PINs for your app</h1>
-    <p class="lead">A 6-digit PIN lets people sign in on a shared device without an email or a phone: staff at a front desk, a family tablet. Your own function checks it with Arc CMS's PIN code, the same hashing, rules and lockout phone sign-in uses, and hands back a sign-in token.</p>
+    <p class="lead">A 6-digit PIN lets people sign in on a shared device without an email or a phone: staff at a front desk, a family tablet. Your own function checks it with Arc CMS's PIN code, the same hashing, rules and lockout phone sign-in uses, and hands back a sign-in token. To ask a signed-in person for the PIN they already sign in with by phone, at a gate such as a parent area, see <a href="#phone-pin">Check the phone sign-in PIN at a gate</a>.</p>
 
     <h2>A PIN store</h2>
     <pre><code>import { createPinStore } from '../app-kit/index.js';
@@ -81,6 +81,57 @@ const { token } = (await arcCallable&lt;{ uid: string; pin: string; deviceId: st
   this.functions, 'custom-signInWithAppPin')({ uid, pin, deviceId })).data;
 await signInWithCustomToken(this.auth, token);</code></pre>
     <div class="trap"><p>Say the same thing for a wrong uid as for a wrong PIN if your screen lets people type their own id: otherwise the answer tells a stranger which ids exist. On a kiosk where staff pick their name from a list, that is already known and the plain messages above are fine.</p></div>
+
+    <h2 id="phone-pin">Check the phone sign-in PIN at a gate</h2>
+    <p>A gate inside your app, such as a parent area on a family tablet, can ask the signed-in person for the 6-digit PIN they sign in with by phone, so they have one PIN to remember instead of two. Your function checks it with <code>createPhonePinCheck()</code>:</p>
+    <pre><code>import { createPhonePinCheck } from '../app-kit/index.js';
+
+const parentGate = createPhonePinCheck('parent', { maxAttempts: 5 });</code></pre>
+    <table>
+      <thead><tr><th>Call</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>parentGate.has(uid)</code></td><td>Whether the person has a phone sign-in PIN, so your page knows whether to offer it.</td></tr>
+        <tr><td><code>parentGate.check(uid, pin)</code></td><td><code>{ ok: true }</code>, or <code>{ ok: false, reason }</code> with <code>none</code> (no phone PIN), <code>locked</code>, or <code>wrong</code> and <code>remaining</code> tries. A wrong PIN counts against this gate only; the last allowed one locks it. A correct PIN resets the count. Anything that is not 6 digits is a wrong PIN.</td></tr>
+        <tr><td><code>parentGate.clearLock(uid)</code></td><td>Unlocks this gate for the person.</td></tr>
+      </tbody>
+    </table>
+    <p>The namespace and <code>maxAttempts</code> follow the same rules as a PIN store's. The <code>uid</code> is the person's Firebase Auth uid.</p>
+    <p>The check reads the phone PIN's hash and never writes it, and never returns it. Wrong tries are counted in <code>app_phone_pin_tries/&lt;namespace&gt;__&lt;uid&gt;</code>, which Arc CMS's rules close to every browser, never in phone sign-in's own count. So a child guessing at the gate can lock the gate, but never the parent's sign-in, and a correct PIN at the gate does not reset sign-in's count either. Each gate has its own count, apart from a PIN store of the same name. The gate unlocks with <code>clearLock()</code>, or when the person sets a new phone PIN with Forgot PIN on the sign-in page. Setting or changing the phone PIN stays with sign-in. When an account is deleted, its counts in every namespace go with it.</p>
+    <p>Only people who sign in by phone have a phone PIN. Accounts that sign in by email or Google, and app accounts made with <code>createAppAccount()</code>, have none: <code>has()</code> is <code>false</code> and <code>check()</code> says <code>none</code>. A person who signed in by email and later added a number has one, from the PIN they chose then. Offer such people your own way through the gate, for example a PIN store of your own.</p>
+    <div class="trap"><p>Never use this to sign anyone in. Phone sign-in has its own lockout, reset by SMS code and rate limits, and a gate's count is not one of them: a sign-in built on this check would let anyone who knows a person's uid try their PIN without ever locking their sign-in. Take the uid from <code>request.auth.uid</code>, never from what the browser sends, so a person can only check their own PIN.</p></div>
+    <pre><code>// functions/src/custom/parentGate.ts
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { callerKey, consumeRateLimit, createPhonePinCheck, hashedKey } from '../app-kit/index.js';
+
+const parentGate = createPhonePinCheck('parent', { maxAttempts: 5 });
+const MINUTE = 60 * 1000;
+
+/** Whether to offer "Use your 6-digit sign-in PIN" at the parent gate. */
+export const parentGateOptions = onCall(async (request) =&gt; {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  return { phonePin: await parentGate.has(uid) };
+});
+
+/** Opens the parent area: { pin } in, { ok: true } out, for the signed-in person only. */
+export const openParentGate = onCall(async (request) =&gt; {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const tooMany = 'Too many tries. Wait a few minutes.';
+  await consumeRateLimit(hashedKey('parent-gate-ip', callerKey(request)), 30, 10 * MINUTE, tooMany);
+  await consumeRateLimit(hashedKey('parent-gate', uid), 10, 10 * MINUTE, tooMany);
+
+  const result = await parentGate.check(uid, request.data?.pin);
+  if (result.ok) return { ok: true };
+  if (result.reason === 'wrong') {
+    throw new HttpsError('permission-denied', `Wrong PIN. ${result.remaining} left.`, { reason: 'wrong', remaining: result.remaining });
+  }
+  if (result.reason === 'locked') {
+    throw new HttpsError('permission-denied', 'Too many wrong PINs. Set a new PIN with Forgot PIN on the sign-in page.', { reason: 'locked' });
+  }
+  throw new HttpsError('failed-precondition', 'You do not sign in with a PIN.', { reason: 'none' });
+});</code></pre>
+    <p>Add <code>parentGateOptions</code> and <code>openParentGate</code> to <code>functions/src/custom/public-callables.txt</code> and deploy them (see <a href="functions.html">Write your own Cloud Functions</a>). The <code>details</code> carry <code>reason</code> and <code>remaining</code>, so your page can say it in the member's language. The answer opens the gate on the device; data only a parent may change still needs its own rule or function check.</p>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

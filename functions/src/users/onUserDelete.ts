@@ -38,6 +38,8 @@ const PHONE_INDEX = 'phone_index';
 const AUTH_PINS = 'auth_pins';
 /** An app's PINs (functions/src/app-kit/pins.ts), named here so deletion needs no app-kit import. */
 const APP_PINS = 'app_pins';
+/** Wrong tries at an app's phone PIN gates (functions/src/app-kit/phonePinCheck.ts). */
+const PHONE_PIN_TRIES = 'app_phone_pin_tries';
 
 const EMAIL_LOOKUP_COLLECTION = 'email_lookup';
 
@@ -133,11 +135,14 @@ export const onUserDeleted = onDocumentDeleted(
         }
         if (uid) {
             tasks.push(step('the PIN', () => db.collection(AUTH_PINS).doc(uid).delete()));
-            // An app's own PINs for this person, in every namespace (docs/app/pin.html).
-            tasks.push(step('app PINs', async () => {
-                const snap = await db.collection(APP_PINS).where('uid', '==', uid).get();
-                await Promise.all(snap.docs.map((d) => d.ref.delete()));
-            }));
+            // An app's own PINs for this person, and its gates' counts of wrong phone PINs,
+            // in every namespace (docs/app/pin.html).
+            for (const [name, collection] of [['app PINs', APP_PINS], ['phone PIN tries', PHONE_PIN_TRIES]] as const) {
+                tasks.push(step(name, async () => {
+                    const snap = await db.collection(collection).where('uid', '==', uid).get();
+                    await Promise.all(snap.docs.map((d) => d.ref.delete()));
+                }));
+            }
         }
 
         // 4. Everything stored under the record: subcollections, and the Storage folders.

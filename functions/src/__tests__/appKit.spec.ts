@@ -244,7 +244,7 @@ describe('the app kit\'s exports', () => {
     const DOCUMENTED = [
         'APP_ACCOUNT', 'createAppAccount', 'deleteAppAccount', 'isArcAdmin', 'issueSignInToken', 'mergeAppClaims', 'restoreAppSignIn',
         'revokeSessions', 'signedInByApp',
-        'APP_PINS', 'callerKey', 'consumeRateLimit', 'createPinStore', 'hashedKey', 'isValidPin', 'isWeakPin',
+        'APP_PINS', 'callerKey', 'consumeRateLimit', 'createPhonePinCheck', 'createPinStore', 'hashedKey', 'isValidPin', 'isWeakPin',
     ];
 
     it('are exactly the documented ones', () => {
