@@ -75,6 +75,8 @@ export * from './mail-config/testProviderConnection.js';
 
 // Unsplash proxy — keeps API key server-side
 export * from './integrations/searchUnsplash.js';
+// Media image bytes for cropping in the browser, whatever the bucket's CORS setup
+export * from './integrations/readMediaImage.js';
 
 // The features this app has (generated from src/custom/features.ts).
 export * from './feature-exports.gen.js';

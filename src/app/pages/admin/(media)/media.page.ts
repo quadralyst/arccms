@@ -24,7 +24,7 @@ import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatProgressSpinnerModule, ProgressSpinnerMode } from '@angular/material/progress-spinner';
 import { SafeHtml } from '@angular/platform-browser';
 import { doc, DocumentSnapshot, Firestore, getDoc } from '@angular/fire/firestore';
-import { Subscription } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { DEFAULT_MISC_SETTINGS, IMiscSettings } from '../(settings)/misc/misc-settings.model';
 import { DEFAULT_UPLOAD_SETTINGS, MediaUploadSettings, UploadedMedia } from '../../../../shared/services/file-upload.service';
 import { ImageVariant } from '../../../../shared/services/file-upload.service';
@@ -39,6 +39,9 @@ import { roleGuard } from '../../../guards/role.guard';
 import { IconBrowserComponent } from '../../../../shared/components/icon-browser/icon-browser.component';
 import { ArcIcon } from '../../../../shared/models/icon.model';
 import { escapeHtml } from '../../../../shared/utils/escape-html';
+import { ImageCropperComponent, CropImageSize } from '../../../../shared/components/image-cropper/image-cropper.component';
+import { CROP_RATIOS, CropRatio, CropRect, cropRatioValue, isWholeImage, scaleCropRect, unsplashCropUrl } from '../../../../shared/utils/image-crop';
+import { mimeTypeOfName } from '../../../../shared/services/file-upload.service';
 
 export const routeMeta: RouteMeta = {
     title: 'Media Manager',
@@ -55,6 +58,9 @@ interface SelectableMedia {
     urls?: { regular: string; full?: string; raw?: string; small?: string };
     /** The stored sizes of an upload. Absent on Unsplash results and on uploads older than sizes. */
     variants?: Record<ImageSize, ImageVariant>;
+    /** An Unsplash photo's original size, which its crop is measured in. */
+    width?: number;
+    height?: number;
 }
 
 /** Shape of a menu item in the media manager tab bar */
@@ -95,6 +101,12 @@ export interface MediaDialogData {
      * omitted. The admin can still pick another.
      */
     size?: ImageSize;
+    /**
+     * The ratio the crop frame opens with when the admin crops: what the
+     * caller's slot wants (`1:1` for a square card). Free when omitted. The
+     * admin can still pick another.
+     */
+    cropRatio?: CropRatio;
 }
 
 /** What the dialog hands back when the admin confirms a selection. */
@@ -136,7 +148,7 @@ export interface MediaSelection {
         MatListModule,
         MatCardModule,
         MatDialogClose,
-        MatProgressSpinnerModule, TranslocoPipe, IconBrowserComponent],
+        MatProgressSpinnerModule, TranslocoPipe, IconBrowserComponent, ImageCropperComponent],
     templateUrl: './media-manager.html',
     styleUrls: ['./media-manager.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -180,6 +192,21 @@ export default class MediaManagerComponent extends BaseComponent {
      * and an admin clicking photos in sequence expects that sequence.
      */
     selectedMediaList: SelectableMedia[] = [];
+
+    // Cropping. The frame sits over the image shown in the crop step: an
+    // upload's XL file, or an Unsplash photo's 1080 px copy.
+    readonly cropRatios = CROP_RATIOS;
+    isCropping = false;
+    cropRatio: CropRatio = this._DIALOG_DATA.cropRatio ?? 'free';
+    /** The frame, in the pixels of the image shown in the crop step. */
+    cropRect: CropRect | null = null;
+    cropImageSize: CropImageSize | null = null;
+    isSavingCrop = false;
+    cropProgress = 0;
+    /** Each Unsplash photo's crop, in its original pixels, by photo id. */
+    private unsplashCrops = new Map<string, CropRect>();
+    /** Set once the view is gone, so a save finishing after the dialog closed leaves the view alone. */
+    private destroyed = false;
 
     // Multi-file upload tracking
     uploadCurrent = 0;
@@ -241,6 +268,7 @@ export default class MediaManagerComponent extends BaseComponent {
     }
 
     ngOnDestroy(): void {
+        this.destroyed = true;
         this.subscriptions.forEach(sub => sub.unsubscribe());
         this.subscriptions = [];
     }
@@ -277,11 +305,15 @@ export default class MediaManagerComponent extends BaseComponent {
     }
 
     public selectedMenu(event: MediaMenuItem): void {
+        // A cropped copy being saved will select itself in My Uploads when it
+        // lands; switching tabs under it would mix its list into another tab.
+        if (this.isSavingCrop) return;
         this.searchResults = [];
         this.pagination = null;
         this.selectedMediaUrl = null;
         this.selectedIcon = null;
         this.selectedMediaList = [];
+        this.closeCrop();
         this.selectedItem = event;
         // Reset page tracking when switching menus
         this.pageDocumentStack = [];
@@ -356,6 +388,13 @@ export default class MediaManagerComponent extends BaseComponent {
         this.selectedImageDimensions = null;
         this.ref.detectChanges();
 
+        const crop = this.unsplashCrops.get(selectedMediaUrl.id);
+        if (crop) {
+            this.selectedImageDimensions = `${crop.width} × ${crop.height}`;
+            this.ref.detectChanges();
+            return;
+        }
+
         const imageUrl = selectedMediaUrl.urls?.regular || selectedMediaUrl.url;
         if (imageUrl) {
             const img = new Image();
@@ -418,7 +457,9 @@ export default class MediaManagerComponent extends BaseComponent {
      */
     urlAtSize(media: SelectableMedia, size: ImageSize): string {
         if (media.variants?.[size]?.url) return media.variants[size].url;
-        const source = media.urls?.raw || media.urls?.regular || media.url || '';
+        const crop = this.unsplashCrops.get(media.id);
+        const uncropped = media.urls?.raw || media.urls?.regular || media.url || '';
+        const source = crop && media.urls ? unsplashCropUrl(uncropped, crop) : uncropped;
         return imageSizeUrls(source, this.mediaSettings.maxSize)?.[size] ?? source;
     }
 
@@ -444,6 +485,208 @@ export default class MediaManagerComponent extends BaseComponent {
     /** The small size for a grid tile, so the gallery does not download every image at full width. */
     thumbnailUrl(media: SelectableMedia): string {
         return media.variants?.s?.url || media.url || '';
+    }
+
+    /** The preview panel's image: an Unsplash photo shows its crop. */
+    previewUrl(media: SelectableMedia | null): string {
+        if (!media) return '';
+        const shown = media.urls?.regular || media.url || '';
+        const crop = this.unsplashCrops.get(media.id);
+        return crop && media.urls ? unsplashCropUrl(shown, crop) : shown;
+    }
+
+    /** True when the Unsplash photo has a crop the insert will carry. */
+    isCropped(media: SelectableMedia | null): boolean {
+        return !!media && this.unsplashCrops.has(media.id);
+    }
+
+    /**
+     * Whether `media` can be cropped here. Not in multi-select (one frame
+     * cannot serve twelve photos), and not a GIF (cropping would drop the
+     * animation). An Unsplash photo needs its original size to place `rect`,
+     * and is only worth cropping when it is about to be inserted.
+     */
+    canCrop(media: SelectableMedia | null): boolean {
+        if (!media || this.isMultiSelect || this.isIconsTab) return false;
+        if (media.urls) {
+            return this._DIALOG_DATA.isDialogOpen && !!media.urls.raw && !!media.width && !!media.height;
+        }
+        const name = media.name || media.url || '';
+        return !!media.url && mimeTypeOfName(name.split('?')[0]) !== 'image/gif';
+    }
+
+    /** The image the crop step shows, and crops: an upload's largest size, or Unsplash's 1080 px copy. */
+    get cropSourceUrl(): string {
+        const media = this.selectedMediaUrl;
+        if (!media) return '';
+        return media.urls?.regular || media.variants?.xl?.url || media.url || '';
+    }
+
+    /** True when the crop step works on an upload (and saves a copy), not an Unsplash photo. */
+    get isCroppingUpload(): boolean {
+        return !this.selectedMediaUrl?.urls;
+    }
+
+    /** The frame's ratio as a number, or null when free. */
+    get cropRatioNumber(): number | null {
+        const size = this.cropImageSize;
+        if (this.cropRatio === 'original') return size ? size.width / size.height : null;
+        return cropRatioValue(this.cropRatio, 1, 1);
+    }
+
+    /** The cropped image's size in its own pixels: what the result will measure. */
+    get cropResultSize(): { width: number; height: number } | null {
+        const rect = this.cropRect;
+        const size = this.cropImageSize;
+        const media = this.selectedMediaUrl;
+        if (!rect || !size || !media) return null;
+        if (media.urls && media.width && media.height) {
+            const raw = scaleCropRect(rect, size.width, size.height, media.width, media.height);
+            return { width: raw.width, height: raw.height };
+        }
+        return { width: rect.width, height: rect.height };
+    }
+
+    /**
+     * True when the crop is smaller than the size picked, so that size will
+     * be the crop as it is (never enlarged) and may look soft where the slot
+     * is large. Only in the picker: the Media Manager page picks no size.
+     */
+    get cropTooSmall(): boolean {
+        const result = this.cropResultSize;
+        if (!result || !this._DIALOG_DATA.isDialogOpen) return false;
+        return Math.max(result.width, result.height) < imageSizeLimits(this.mediaSettings.maxSize)[this.selectedSize];
+    }
+
+    get selectedSizeLimit(): number {
+        return imageSizeLimits(this.mediaSettings.maxSize)[this.selectedSize];
+    }
+
+    /** Drops an Unsplash photo's crop: the insert is the whole photo again. */
+    removeCrop(): void {
+        const media = this.selectedMediaUrl;
+        if (!media) return;
+        this.unsplashCrops.delete(media.id);
+        this.selectMedia(media);
+    }
+
+    startCrop(): void {
+        if (!this.canCrop(this.selectedMediaUrl)) return;
+        this.isCropping = true;
+        this.cropRatio = this._DIALOG_DATA.cropRatio ?? 'free';
+        this.cropRect = null;
+        this.cropImageSize = null;
+        this.ref.detectChanges();
+    }
+
+    /** Leaves the crop step without changing anything. */
+    cancelCrop(): void {
+        if (this.isSavingCrop) return;
+        this.closeCrop();
+        this.ref.detectChanges();
+    }
+
+    private closeCrop(): void {
+        this.isCropping = false;
+        this.cropRect = null;
+        this.cropImageSize = null;
+        this.cropProgress = 0;
+    }
+
+    selectCropRatio(ratio: CropRatio): void {
+        this.cropRatio = ratio;
+        this.ref.detectChanges();
+    }
+
+    onCropLoaded(size: CropImageSize): void {
+        this.cropImageSize = size;
+        this.ref.detectChanges();
+    }
+
+    onCropRect(rect: CropRect): void {
+        this.cropRect = rect;
+        this.ref.detectChanges();
+    }
+
+    onCropFailed(): void {
+        this.notify.error('admin.media.crop.load_failed');
+        this.closeCrop();
+        this.ref.detectChanges();
+    }
+
+    /**
+     * Applies the frame. An Unsplash photo keeps the crop as a URL setting
+     * for the insert (a frame over the whole photo clears it). An upload is
+     * saved as a new cropped image, selected once it is in the library; the
+     * original stays as it was.
+     */
+    async applyCrop(): Promise<void> {
+        const media = this.selectedMediaUrl;
+        const rect = this.cropRect;
+        const size = this.cropImageSize;
+        if (!media || !rect || !size || this.isSavingCrop) return;
+
+        const whole = isWholeImage(rect, size.width, size.height);
+
+        if (media.urls) {
+            if (whole) {
+                this.unsplashCrops.delete(media.id);
+            } else {
+                this.unsplashCrops.set(media.id, scaleCropRect(rect, size.width, size.height, media.width!, media.height!));
+            }
+            this.closeCrop();
+            this.selectMedia(media);
+            return;
+        }
+
+        if (whole) {
+            this.closeCrop();
+            this.ref.detectChanges();
+            return;
+        }
+
+        this.isSavingCrop = true;
+        this.cropProgress = 0;
+        this.ref.detectChanges();
+        await this.mediaSettingsLoaded;
+
+        try {
+            // The frame was placed on the XL file; the bytes are that same file.
+            const source = await this.mediaManagerService.readMediaImage(media.id);
+            const saved = await this.fileUploadService.uploadCroppedCopy(
+                source,
+                media.name || media.url || 'image',
+                rect,
+                this.mediaSettings,
+                (progress) => {
+                    this.cropProgress = progress;
+                    this.ref.detectChanges();
+                },
+            );
+            const ids = await firstValueFrom(this.mediaStore.addBatch([saved]));
+            this.isSavingCrop = false;
+            if (this.destroyed) return;
+            this.closeCrop();
+            // The copy is the newest upload, so it heads the first page.
+            this.pagination = null;
+            this.pageDocumentStack = [];
+            this.currentPageIndex = 0;
+            this.loadMediaItems();
+            this.selectMedia({
+                id: ids[0],
+                url: saved.downloadURL,
+                name: saved.name,
+                uploadTime: saved.uploadTime,
+                variants: saved.variants,
+            });
+            this.notify.success('admin.media.crop.saved');
+        } catch (error) {
+            console.error('Failed to save the cropped image:', error);
+            this.isSavingCrop = false;
+            if (this.destroyed) return;
+            this.notify.error('admin.media.crop.save_failed', { reason: error instanceof Error ? error.message : '' });
+        }
+        this.ref.detectChanges();
     }
 
     /** True while the Icons tab is the active one. */

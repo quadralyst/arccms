@@ -1425,7 +1425,28 @@
       },
       "size": "Size",
       "size_original": "Original",
-      "size_original_hint": "Uploaded before sizes existed — one file only."
+      "size_original_hint": "Uploaded before sizes existed — one file only.",
+      "crop": {
+        "start": "Crop",
+        "recrop": "Crop again",
+        "remove": "Remove crop",
+        "cropped": "Cropped",
+        "ratio": "Ratio",
+        "ratio_free": "Free",
+        "ratio_original": "Original",
+        "result": "{{ width }} × {{ height }} px",
+        "small": "Smaller than size {{ size }} ({{ limit }} px): it is never enlarged, so it may look soft in a large space.",
+        "note_upload": "Saves a new image in My Uploads. The original stays as it is.",
+        "note_unsplash": "The photo is still used from Unsplash, with this crop.",
+        "apply": "Apply crop",
+        "save_copy": "Save cropped copy",
+        "saving": "Saving {{ percent }}%",
+        "saved": "Saved the cropped copy. The original is unchanged.",
+        "save_failed": "Could not save the cropped image. {{ reason }}",
+        "load_failed": "Could not load the image to crop. Try again.",
+        "image_alt": "Image to crop",
+        "frame_label": "Crop frame. Drag to move it, drag a corner or edge to resize it, or use the arrow keys to move it."
+      }
     },
     "transactions": {
       "title": "Transactions",

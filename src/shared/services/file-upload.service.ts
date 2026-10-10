@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { deleteObject, getDownloadURL, ref, Storage, uploadBytesResumable } from '@angular/fire/storage';
 import { deleteDoc, doc, Firestore, getDoc } from '@angular/fire/firestore';
 import { fitLongestSide, IMAGE_SIZES, ImageSize, imageSizeLimits } from '../utils/image-sizes';
+import { CropRect, roundCropRect } from '../utils/image-crop';
 import { withStoragePrefix } from '../../app/core/config/arc-config';
 
 /** Allowed MIME types for media upload */
@@ -14,6 +15,14 @@ const MIME_TO_EXTENSION: Record<string, string> = {
     'image/webp': '.webp',
     'image/gif': '.gif',
 };
+
+/** The image type a stored file name implies, by its extension. JPEG when it has none this knows. */
+export function mimeTypeOfName(name: string): string {
+    const ext = name.slice(name.lastIndexOf('.')).toLowerCase();
+    if (ext === '.jpeg') return 'image/jpeg';
+    const match = Object.entries(MIME_TO_EXTENSION).find(([, e]) => e === ext);
+    return match ? match[0] : 'image/jpeg';
+}
 
 export interface MediaUploadSettings {
     maxFileSize: number;   // in MB
@@ -125,7 +134,7 @@ export class FileUploadService {
     /**
      * Load a File into an HTMLImageElement.
      */
-    private loadImageFromFile(file: File): Promise<HTMLImageElement> {
+    private loadImageFromFile(file: Blob): Promise<HTMLImageElement> {
         return new Promise((resolve, reject) => {
             const url = URL.createObjectURL(file);
             const img = new Image();
@@ -175,15 +184,20 @@ export class FileUploadService {
     }
 
     /**
-     * Draws `img` at `width × height` and encodes it — WebP when asked, else
-     * the source type. Lossy types get a fixed quality.
+     * Draws `img` (or the `source` part of it) at `width × height` and
+     * encodes it — WebP when asked, else the source type. Lossy types get a
+     * fixed quality.
      */
-    private encodeImage(img: HTMLImageElement, width: number, height: number, outputType: string): Promise<Blob> {
+    private encodeImage(img: HTMLImageElement, width: number, height: number, outputType: string, source?: CropRect): Promise<Blob> {
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, width, height);
+        if (source) {
+            ctx.drawImage(img, source.x, source.y, source.width, source.height, 0, 0, width, height);
+        } else {
+            ctx.drawImage(img, 0, 0, width, height);
+        }
 
         const quality = (outputType === 'image/jpeg' || outputType === 'image/webp') ? 0.9 : undefined;
 
@@ -267,12 +281,58 @@ export class FileUploadService {
 
         const outputMimeType = settings.convertToWebp ? 'image/webp' : file.type;
         const img = await this.loadImageFromFile(file);
+        return this.storeSizes(img, undefined, file.name, outputMimeType, settings, progressCallback);
+    }
+
+    /**
+     * Saves the `crop` part of an existing upload as a new media file set, in
+     * every size, and leaves the original alone: content may already use it.
+     *
+     * `source` is the upload's largest stored size, the best copy there is,
+     * since the file first chosen is not kept. It comes as bytes
+     * (MediaManagerService.readMediaImage), not a URL, so the canvas may
+     * export it whatever the bucket's CORS setup. The copy is named after the
+     * original with `-crop`, and gets the original's type unless WebP
+     * conversion is on.
+     */
+    async uploadCroppedCopy(
+        source: Blob,
+        sourceName: string,
+        crop: CropRect,
+        settings: MediaUploadSettings = DEFAULT_UPLOAD_SETTINGS,
+        progressCallback: (progress: number) => void,
+    ): Promise<UploadedMedia> {
+        const sourceType = mimeTypeOfName(sourceName);
+        if (sourceType === 'image/gif') {
+            throw new Error('GIFs cannot be cropped: cropping would drop the animation.');
+        }
+        const img = await this.loadImageFromFile(source);
+        const rect = roundCropRect(crop, img.naturalWidth, img.naturalHeight);
+        const outputMimeType = settings.convertToWebp ? 'image/webp' : sourceType;
+        const baseName = sourceName.replace(/\.[^/.]+$/, '').replace(/-(s|m|l|xl)$/i, '').replace(/-[a-z0-9]{6}$/i, '').replace(/(-crop)+$/i, '');
+        return this.storeSizes(img, rect, `${baseName}-crop`, outputMimeType, settings, progressCallback);
+    }
+
+    /**
+     * Stores `img` (or its `crop` part) at every size and returns the record
+     * for the media document. See uploadFile for the rules on sizes.
+     */
+    private async storeSizes(
+        img: HTMLImageElement,
+        crop: CropRect | undefined,
+        originalName: string,
+        outputMimeType: string,
+        settings: MediaUploadSettings,
+        progressCallback: (progress: number) => void,
+    ): Promise<UploadedMedia> {
+        const sourceWidth = crop?.width ?? img.naturalWidth;
+        const sourceHeight = crop?.height ?? img.naturalHeight;
 
         // Decide the pixel size of every variant before encoding anything.
         const limits = imageSizeLimits(settings.maxSize);
         const dimensions = {} as Record<ImageSize, { width: number; height: number }>;
         for (const size of IMAGE_SIZES) {
-            dimensions[size] = fitLongestSide(img.naturalWidth, img.naturalHeight, limits[size]);
+            dimensions[size] = fitLongestSide(sourceWidth, sourceHeight, limits[size]);
         }
         const xl = dimensions.xl;
 
@@ -282,7 +342,7 @@ export class FileUploadService {
             const { width, height } = dimensions[size];
             const dimKey = `${width}x${height}`;
             if (!encoded.has(dimKey)) {
-                encoded.set(dimKey, { blob: await this.encodeImage(img, width, height, outputMimeType), width, height });
+                encoded.set(dimKey, { blob: await this.encodeImage(img, width, height, outputMimeType, crop), width, height });
             }
         }
 
@@ -290,14 +350,14 @@ export class FileUploadService {
         // the only file.
         const xlBlob = encoded.get(`${xl.width}x${xl.height}`)!.blob;
         const sizeError = this.validateFileSize(
-            new File([xlBlob], file.name, { type: outputMimeType }),
+            new File([xlBlob], originalName, { type: outputMimeType }),
             settings.maxFileSize,
         );
         if (sizeError) {
             throw new Error(sizeError);
         }
 
-        const filename = this.generateSeoFilename(file.name, outputMimeType);
+        const filename = this.generateSeoFilename(originalName, outputMimeType);
         const extension = filename.slice(filename.lastIndexOf('.'));
         const baseName = filename.slice(0, -extension.length);
 

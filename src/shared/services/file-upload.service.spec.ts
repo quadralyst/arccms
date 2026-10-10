@@ -84,6 +84,73 @@ describe('FileUploadService', () => {
         });
     });
 
+    describe('uploadCroppedCopy', () => {
+        function spyPipeline() {
+            const load = vi.spyOn(service as any, 'loadImageFromFile').mockResolvedValue({ naturalWidth: 1200, naturalHeight: 800 });
+            const encode = vi.spyOn(service as any, 'encodeImage').mockImplementation(async (_img: any, w: number) => new Blob([`img-${w}`]));
+            const paths: string[] = [];
+            vi.spyOn(service as any, 'uploadBlob').mockImplementation(async (path: string) => { paths.push(path); return `url:${path}`; });
+            return { load, encode, paths };
+        }
+
+        it('crops the largest stored size and stores the crop at every size', async () => {
+            const { load, encode, paths } = spyPipeline();
+            const crop = { x: 100, y: 50, width: 800, height: 600 };
+            const source = new Blob(['xl'], { type: 'image/webp' });
+
+            const result = await service.uploadCroppedCopy(
+                source, 'team-photo-a1b2c3-xl.webp', crop,
+                { maxFileSize: 5, maxSize: 1200, convertToWebp: true }, () => {},
+            );
+
+            expect(load).toHaveBeenCalledWith(source);
+            // Every encode draws the crop, never the whole image.
+            for (const call of encode.mock.calls) expect(call[4]).toEqual(crop);
+            // Sizes come from the crop: 800 px is the XL and L size here, never enlarged.
+            expect(result.width).toBe(800);
+            expect(result.height).toBe(600);
+            expect(result.variants!.m.width).toBe(600);
+            expect(result.variants!.s.width).toBe(300);
+            // A new file set named after the original, so the original is untouched.
+            expect(paths).toHaveLength(4);
+            for (const path of paths) expect(path).toMatch(/mediaImages\/team-photo-crop-[a-z0-9]{6}-(s|m|l|xl)\.webp$/);
+        });
+
+        it('keeps the original type when WebP conversion is off, and does not stack -crop', async () => {
+            const { paths } = spyPipeline();
+            await service.uploadCroppedCopy(
+                new Blob(['x']), 'logo-crop-zz9zz9-xl.png', { x: 0, y: 0, width: 10, height: 10 },
+                { maxFileSize: 5, maxSize: 1200, convertToWebp: false }, () => {},
+            );
+            for (const path of paths) expect(path).toMatch(/mediaImages\/logo-crop-[a-z0-9]{6}-(s|m|l|xl)\.png$/);
+        });
+
+        it('refuses a GIF, whose animation a crop would drop', async () => {
+            const { load } = spyPipeline();
+            await expect(service.uploadCroppedCopy(new Blob(['g']), 'party-a1b2c3.gif', { x: 0, y: 0, width: 5, height: 5 }, undefined, () => {}))
+                .rejects.toThrow(/GIF/);
+            expect(load).not.toHaveBeenCalled();
+        });
+
+        it('stops when the cropped XL file is over the size limit', async () => {
+            spyPipeline();
+            vi.spyOn(service as any, 'encodeImage').mockImplementation(async () => new Blob([new Uint8Array(2 * 1024 * 1024)]));
+            await expect(service.uploadCroppedCopy(new Blob(['x']), 'big-a1b2c3-xl.webp', { x: 0, y: 0, width: 1000, height: 800 },
+                { maxFileSize: 1, maxSize: 1200, convertToWebp: true }, () => {})).rejects.toThrow(/exceeds/);
+        });
+    });
+
+    describe('mimeTypeOfName', () => {
+        it('reads the type from the extension', async () => {
+            const { mimeTypeOfName } = await import('./file-upload.service');
+            expect(mimeTypeOfName('a-xl.webp')).toBe('image/webp');
+            expect(mimeTypeOfName('a.PNG')).toBe('image/png');
+            expect(mimeTypeOfName('a.jpeg')).toBe('image/jpeg');
+            expect(mimeTypeOfName('a.gif')).toBe('image/gif');
+            expect(mimeTypeOfName('image_1700000000000')).toBe('image/jpeg');
+        });
+    });
+
     describe('generateUniqueImageName', () => {
         it('should generate a unique name with timestamp', () => {
             const name = service.generateUniqueImageName();
