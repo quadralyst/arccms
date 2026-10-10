@@ -76,6 +76,14 @@ describe('translateRefusal (specs/sign-in-codes-spec.md, SC-D7)', () => {
         expect(translateRefusal({ reason: 'weak-password', problem: '../x' }, en, 'en')).toBe(english('member.auth.server_error.weak_password'));
     });
 
+    it('says the shortest password the server names, else this app\'s own (sign-in strength)', () => {
+        expect(translateRefusal({ reason: 'weak-password', problem: 'short', min: 6 }, en, 'en')).toBe('Use at least 6 characters.');
+        expect(translateRefusal({ reason: 'password-required', min: 6 }, en, 'en')).toBe('Choose a password of at least 6 characters.');
+        // A server deployed before it sent `min`: the app is strict in core specs.
+        expect(translateRefusal({ reason: 'weak-password', problem: 'short' }, en, 'en')).toBe('Use at least 8 characters.');
+        expect(translateRefusal({ reason: 'password-required' }, en, 'en')).toBe('Choose a password of at least 8 characters.');
+    });
+
     it('keeps the server\'s text for no reason, or a reason with no string', () => {
         expect(translateRefusal(undefined, en, 'en')).toBeNull();
         expect(translateRefusal({ reason: 'something-new' }, en, 'en')).toBeNull();

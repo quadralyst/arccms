@@ -33,7 +33,7 @@ import {
     hasPin,
     issueSignInToken,
     isValidPin,
-    isWeakPin,
+    pinTooEasy,
     newUserRecord,
     requireOwnRecord,
     requirePhoneSignIn,
@@ -68,10 +68,10 @@ function readPin(raw: unknown): string {
     return raw;
 }
 
-/** A PIN being chosen: 6 digits, and not one of the first ones an attacker tries. */
+/** A PIN being chosen: 6 digits, and under the strict rule not one of the first ones an attacker tries. */
 export function readNewPin(raw: unknown): string {
     const pin = readPin(raw);
-    if (isWeakPin(pin)) {
+    if (pinTooEasy(pin)) {
         throw new HttpsError('invalid-argument', 'That PIN is too easy to guess. Avoid repeated digits and runs like 123456.', { reason: 'weak-pin' });
     }
     return pin;

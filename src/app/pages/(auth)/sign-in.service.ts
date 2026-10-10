@@ -18,6 +18,8 @@ import { Functions } from '@angular/fire/functions';
 import { arcCallable } from '../../core/config/arc-functions';
 import { TranslocoService } from '@jsverse/transloco';
 import { genericErrorText } from './auth-messages';
+import { minPasswordLength } from '../../../shared/utils/password-rule';
+import { SIGN_IN_STRENGTH } from '../../core/sign-in/sign-in-strength';
 
 export type PhoneOtpPurpose = 'signup' | 'reset' | 'link';
 
@@ -86,7 +88,9 @@ export function translateRefusal(
     const key = /^[a-z]+$/.test(problem)
         ? `member.auth.password_error.${problem}`
         : `member.auth.server_error.${reason.replace(/-/g, '_')}`;
-    const params: Record<string, unknown> = { ...details };
+    // The shortest password: the server says it; one that does not (deployed before
+    // it did) means this app's own (src/custom/sign-in.ts).
+    const params: Record<string, unknown> = { min: minPasswordLength(SIGN_IN_STRENGTH), ...details };
     const retryAfter = Number(details?.['retryAfter']);
     if (retryAfter > 0) {
         params['time'] = new Intl.DateTimeFormat(lang, { hour: 'numeric', minute: '2-digit' }).format(new Date(now + retryAfter * 1000));

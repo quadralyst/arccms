@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { passwordProblem } from './password-rule';
+import { minPasswordLength, passwordProblem, passwordProblemText, PASSWORD_PROBLEM_TEXT } from './password-rule';
 import * as server from '../../../functions/src/shared/password-rule';
 
 const ASHA = { email: 'asha.rao@example.com', name: 'Asha Rao' };
@@ -60,6 +60,26 @@ describe('passwordProblem', () => {
             expect(server.passwordProblem(password, owner)).toBe(passwordProblem(password, owner));
         }
         expect(server.MIN_PASSWORD_LENGTH).toBe(8);
+    });
+
+    it('leaving the strength out means strict (sign-in strength, SS3)', () => {
+        for (const [password, problem, owner] of CASES) expect(passwordProblem(password, owner, 'strict')).toBe(problem);
+    });
+
+    it('the simple rule asks only for 6 characters, the server the same', () => {
+        for (const [password, problem] of [['abc12', 'short'], ['', 'short'], ['abc123', null], ['111111', null], ['123456', null], ['password', null]] as const) {
+            expect(passwordProblem(password, ASHA, 'simple')).toBe(problem);
+            expect(server.passwordProblem(password, ASHA, 'simple')).toBe(problem);
+        }
+        expect(passwordProblem('Asha@2024', ASHA, 'simple')).toBeNull();
+        expect([minPasswordLength(), minPasswordLength('strict'), minPasswordLength('simple')]).toEqual([8, 8, 6]);
+    });
+
+    it('says the length for the strength, and the strict words for everything else', () => {
+        expect(passwordProblemText('short')).toBe('Use at least 8 characters.');
+        expect(passwordProblemText('short', 'simple')).toBe('Use at least 6 characters.');
+        expect(passwordProblemText('short', 'strict')).toBe(PASSWORD_PROBLEM_TEXT.short);
+        expect(passwordProblemText('common', 'simple')).toBe(PASSWORD_PROBLEM_TEXT.common);
     });
 
     it('the server copy is this file, line for line after its opening comment', () => {

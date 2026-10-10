@@ -13,6 +13,9 @@ vi.mock('firebase-admin/firestore', async () => {
     return { Timestamp: FakeTimestamp, FieldValue: { delete: () => ({ _delete: true }) } };
 });
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+// The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
+const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value }));
 vi.mock('firebase-functions/v2/https', () => ({
     HttpsError: class HttpsError extends Error {
         constructor(public code: string, message: string, public details?: unknown) { super(message); }
@@ -28,7 +31,10 @@ const mem = db as unknown as { store: Map<string, Map<string, Record<string, unk
 const GOOD = '604175';
 const OTHER = '246810';
 
-beforeEach(() => mem.store.clear());
+beforeEach(() => {
+    mem.store.clear();
+    strength.value = 'strict';
+});
 
 describe('createPinStore', () => {
     const kiosk = () => createPinStore('kiosk');
@@ -75,6 +81,22 @@ describe('createPinStore', () => {
         await expect(kiosk().set('u1', '123456')).rejects.toThrow('too easy');
         await expect(kiosk().set('u1', '111111')).rejects.toThrow('too easy');
         expect(mem.all(APP_PINS)).toEqual([]);
+    });
+
+    it('follows the app\'s simple PINs, unless the store asks for strict', async () => {
+        strength.value = 'simple';
+        await expect(kiosk().set('u1', '123456')).resolves.toBeUndefined();
+        await expect(kiosk().check('u1', '123456')).resolves.toEqual({ ok: true });
+        await expect(kiosk().set('u1', '12345')).rejects.toMatchObject({ code: 'invalid-argument' });
+        const staff = createPinStore('staff', { strength: 'strict' });
+        await expect(staff.set('u1', '123456')).rejects.toMatchObject({ details: { reason: 'weak-pin' } });
+        // And the other way: a strict app can keep a simple store.
+        strength.value = 'strict';
+        await expect(createPinStore('kiosk', { strength: 'simple' }).set('u2', '111111')).resolves.toBeUndefined();
+    });
+
+    it('refuses a strength that is not strict or simple', () => {
+        expect(() => createPinStore('kiosk', { strength: 'easy' as never })).toThrow(/'strict' or 'simple'/);
     });
 
     it('treats a malformed PIN at check() as a wrong one', async () => {

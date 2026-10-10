@@ -245,6 +245,7 @@ describe('the app kit\'s exports', () => {
         'APP_ACCOUNT', 'createAppAccount', 'deleteAppAccount', 'isArcAdmin', 'issueSignInToken', 'mergeAppClaims', 'restoreAppSignIn',
         'revokeSessions', 'signedInByApp',
         'APP_PINS', 'callerKey', 'consumeRateLimit', 'createPhonePinCheck', 'createPinStore', 'hashedKey', 'isValidPin', 'isWeakPin',
+        'pinTooEasy', 'signInStrength',
     ];
 
     it('are exactly the documented ones', () => {

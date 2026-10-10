@@ -6,6 +6,9 @@
  *                                           whose features are all on, which all.ts
  *                                           re-exports: `forms.ts` needs forms,
  *                                           `search+content.ts` needs both
+ *   functions/src/sign-in.gen.ts            the password and PIN strength the app chose
+ *                                           in src/custom/sign-in.ts
+ *                                           (specs/sign-in-strength-spec.md)
  *
  * The functions cannot import src/custom/features.ts (they compile only
  * functions/src), so this runs before every functions build (the `prebuild`
@@ -24,6 +27,9 @@ const REGISTRY = resolve(ROOT, 'src/app/core/features/feature-registry.ts');
 const FUNCTIONS_SRC = resolve(ROOT, 'functions/src');
 const ENABLED_OUT = resolve(FUNCTIONS_SRC, 'enabled-features.gen.ts');
 const EXPORTS_OUT = resolve(FUNCTIONS_SRC, 'feature-exports.gen.ts');
+const SIGN_IN = resolve(ROOT, 'src/custom/sign-in.ts');
+const STRENGTH = resolve(ROOT, 'src/shared/utils/sign-in-strength.ts');
+const SIGN_IN_OUT = resolve(FUNCTIONS_SRC, 'sign-in.gen.ts');
 
 const HEADER = '// Generated from src/custom/features.ts by scripts/arc-features.mjs. Do not edit.\n';
 
@@ -41,6 +47,26 @@ export function renderFeatureFiles(enabled, files = featureFiles()) {
         .map((name) => `export * from './features/${name}.js';`);
     const exportsFile = `${HEADER}${exportLines.length ? exportLines.join('\n') : 'export {};'}\n`;
     return { enabledFile, exportsFile };
+}
+
+/** The strength file's content. */
+export function renderSignInFile(strength) {
+    return '// Generated from src/custom/sign-in.ts by scripts/arc-features.mjs. Do not edit.\n'
+        + "import type { SignInStrength } from './shared/sign-in-strength.js';\n\n"
+        + `export const SIGN_IN_STRENGTH: SignInStrength = ${JSON.stringify(strength)};\n`;
+}
+
+/** The strength this app chose; a copy without the file (an older app) is strict. A wrong value throws. */
+export async function signInStrength({ strengthPath = STRENGTH, customPath = SIGN_IN } = {}) {
+    if (!existsSync(customPath)) return 'strict';
+    let rule, custom;
+    try {
+        rule = await import(pathToFileURL(strengthPath).href);
+        custom = await import(pathToFileURL(customPath).href);
+    } catch (error) {
+        throw new Error(`arc-features: could not load src/custom/sign-in.ts (Node 22.18 or later is needed): ${error.message}`);
+    }
+    return rule.resolveSignInStrength(custom.CUSTOM_SIGN_IN);
 }
 
 function writeIfChanged(path, content) {
@@ -65,7 +91,7 @@ async function main() {
     // Only the functions folder is uploaded on deploy; if a build ever runs there,
     // keep the files generated locally.
     if (!existsSync(CUSTOM) || !existsSync(REGISTRY)) {
-        if (existsSync(ENABLED_OUT) && existsSync(EXPORTS_OUT)) return;
+        if (existsSync(ENABLED_OUT) && existsSync(EXPORTS_OUT) && existsSync(SIGN_IN_OUT)) return;
         throw new Error(`arc-features: ${CUSTOM} not found, and no generated files to keep.`);
     }
 
@@ -73,6 +99,8 @@ async function main() {
     const { enabledFile, exportsFile } = renderFeatureFiles(enabled);
     const changed = [writeIfChanged(ENABLED_OUT, enabledFile), writeIfChanged(EXPORTS_OUT, exportsFile)].some(Boolean);
     if (changed) console.log(`arc-features: functions build with ${[...enabled].join(', ') || 'no optional features'}`);
+    const strength = await signInStrength();
+    if (writeIfChanged(SIGN_IN_OUT, renderSignInFile(strength))) console.log(`arc-features: ${strength} passwords and PINs`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

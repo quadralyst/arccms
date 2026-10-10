@@ -27,6 +27,9 @@ vi.mock('firebase-admin/firestore', async () => {
     return { Timestamp: FakeTimestamp, FieldValue: { delete: () => ({ _delete: true }) } };
 });
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+// The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
+const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: vi.fn((handler: unknown) => handler),
     HttpsError: class extends Error {
@@ -77,6 +80,7 @@ let providers: Record<string, string[]>;
 beforeEach(() => {
     mem.store.clear();
     vi.clearAllMocks();
+    strength.value = 'strict';
     providers = { 'uid-a': ['password'], 'uid-b': [] };
     owner.getUser.mockImplementation(async (uid: string) => ({ uid, providerData: (providers[uid] ?? []).map((providerId) => ({ providerId })) }));
     owner.getUserByEmail.mockRejectedValue(Object.assign(new Error('not found'), { code: 'auth/user-not-found' }));
@@ -145,6 +149,14 @@ describe('linkPhone', () => {
         await verifyPhoneForA();
         await expect(call(link.linkPhone, { phone: '9876543210' }, 'uid-a'))
             .rejects.toMatchObject({ details: { reason: 'pin-required' } });
+    });
+
+    it('refuses a first PIN that is easy to guess, and takes it when the app chose simple PINs', async () => {
+        await verifyPhoneForA();
+        await expect(call(link.linkPhone, { phone: '9876543210', pin: '123456' }, 'uid-a'))
+            .rejects.toMatchObject({ code: 'invalid-argument', details: { reason: 'weak-pin' } });
+        strength.value = 'simple';
+        await expect(call(link.linkPhone, { phone: '9876543210', pin: '123456' }, 'uid-a')).resolves.toMatchObject({ linked: true });
     });
 
     it("cannot use a code someone else verified", async () => {
@@ -220,6 +232,19 @@ describe('linkEmail', () => {
             .rejects.toMatchObject({ details: { reason: 'weak-password', problem: 'personal' } });
         expect(owner.updateUser).not.toHaveBeenCalled();
         await expect(call(link.linkEmail, { email: 'new@example.com', password: 'Monsoon-Train-42' }, 'uid-a')).resolves.toMatchObject({ linked: true });
+    });
+
+    it('says the shortest length with a missing password: 8, or 6 when the app chose simple passwords', async () => {
+        providers['uid-a'] = [];
+        await verifyEmailForA('new@example.com');
+        await expect(call(link.linkEmail, { email: 'new@example.com', password: 'abc1234' }, 'uid-a'))
+            .rejects.toMatchObject({ details: { reason: 'password-required', min: 8 } });
+        strength.value = 'simple';
+        await expect(call(link.linkEmail, { email: 'new@example.com', password: 'abc12' }, 'uid-a'))
+            .rejects.toMatchObject({ message: 'Choose a password of at least 6 characters.', details: { reason: 'password-required', min: 6 } });
+        // Short, common and personal are all fine once it has 6 characters.
+        await expect(call(link.linkEmail, { email: 'new@example.com', password: 'asha12' }, 'uid-a')).resolves.toMatchObject({ linked: true });
+        expect(owner.updateUser).toHaveBeenCalledWith('uid-a', { email: 'new@example.com', emailVerified: true, password: 'asha12' });
     });
 
     it('never touches a sign-in that belongs to another app', async () => {

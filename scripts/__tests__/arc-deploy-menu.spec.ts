@@ -159,6 +159,19 @@ describe('only the functions changed since the last deploy', () => {
         expect(affectedFunctions({ graph: withV1, changed: ['functions/src/search/search.ts'], deployable: all, previous: all }).names).toEqual(['search']);
     });
 
+    it('a custom file the functions read through a generated file reaches the functions that import it (SS2)', () => {
+        const withGen = functionsGraph([
+            ['sign-in-choice.ts', "import { SIGN_IN_STRENGTH } from './sign-in.gen.js';\nexport function signInStrength() {}"],
+            ['auth/phoneAuth.ts', "import { signInStrength } from '../sign-in-choice.js';\nexport const setPin = onCall(async () => {});"],
+            ['feature-flags.ts', "import { ENABLED_FEATURES } from './enabled-features.gen.js';"],
+            ['search/search.ts', "import { isFeatureOn } from '../feature-flags.js';\nexport const search = onCall(async () => {});"],
+        ]);
+        const all = ['setPin', 'search'];
+        expect(affectedFunctions({ graph: withGen, changed: ['src/custom/sign-in.ts'], deployable: all, previous: all }).names).toEqual(['setPin']);
+        expect(affectedFunctions({ graph: withGen, changed: ['src/custom/features.ts'], deployable: all, previous: all }).names).toEqual(['search']);
+        expect(affectedFunctions({ graph: withGen, changed: ['src/custom/home.ts'], deployable: all, previous: all }).names).toEqual([]);
+    });
+
     it('says "all" when dependencies or settings change', () => {
         expect(affectedFunctions({ graph, changed: ['functions/package.json'], deployable, previous: deployable }).all).toBe(true);
         expect(affectedFunctions({ graph, changed: ['functions/.env.acme-dev'], deployable, previous: deployable }).all).toBe(true);

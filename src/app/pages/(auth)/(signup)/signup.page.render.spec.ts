@@ -553,3 +553,48 @@ describe('SignupComponent: Forgot password by an emailed code', () => {
         expect(login).not.toHaveBeenCalled();
     });
 });
+
+describe('SignupComponent: the cursor on each step (SS1)', () => {
+    const codeBoxes = () => Array.from(fixture.nativeElement.querySelectorAll('.code-box')) as HTMLInputElement[];
+    const nameBox = () => fixture.nativeElement.querySelector('input[formControlName=name]') as HTMLInputElement;
+
+    /** The page in the document, so its fields can take focus. */
+    async function inPage(): Promise<void> {
+        settingsRead.resolve(OPEN);
+        render();
+        document.body.append(fixture.nativeElement);
+        await flush();
+        fixture.detectChanges();
+    }
+
+    afterEach(() => document.body.replaceChildren());
+
+    it('puts the cursor in the first code box once the code is sent, though the boxes opened busy', async () => {
+        await inPage();
+        const sent = later<object>();
+        signIn['requestSignupCode'] = vi.fn(() => sent.promise);
+        typed('new@person.com');
+        (fixture.nativeElement.querySelector('#identifier') as HTMLInputElement).focus();
+        page.handleSubmit();
+        await flush();
+        fixture.detectChanges();
+        expect(page.currentStep()).toBe('verify');
+        expect(codeBoxes()[0].disabled).toBe(true);
+
+        sent.resolve({});
+        await flush();
+        fixture.detectChanges();
+        expect(codeBoxes()[0].disabled).toBe(false);
+        expect(document.activeElement).toBe(codeBoxes()[0]);
+    });
+
+    it('opens the details step on the name, not on the PIN boxes below it', async () => {
+        await inPage();
+        page.channel.set('phone');
+        page.phone.set('+919876543210');
+        page.goToStep('signup');
+        fixture.detectChanges();
+        expect(codeBoxes()).toHaveLength(6);
+        expect(document.activeElement).toBe(nameBox());
+    });
+});

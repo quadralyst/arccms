@@ -28,6 +28,7 @@ export const CUSTOM_STARTERS = [
     { file: 'src/custom/nav.ts', exports: { CUSTOM_NAV: [] } },
     { file: 'src/custom/pwa.ts', exports: { CUSTOM_PWA: {} } },
     { file: 'src/custom/routes.ts', exports: { CUSTOM_ROUTES: [] } },
+    { file: 'src/custom/sign-in.ts', exports: { CUSTOM_SIGN_IN: {} } },
     { file: 'src/custom/user-dashboard.ts', exports: { CUSTOM_USER_DASHBOARD: null } },
     { file: 'functions/src/custom/index.ts', exports: {} },
     { file: 'functions/src/custom/search-sources.ts', exports: { SEARCH_COLLECTIONS: [], CUSTOM_SEARCH_SOURCES: [] } },

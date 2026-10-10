@@ -225,6 +225,16 @@ function closure(graph, file, seen = new Set()) {
     return seen;
 }
 
+/**
+ * Custom files the functions read through a generated file (scripts/arc-features.mjs).
+ * Git does not track the generated files, so a change to the custom file stands for
+ * a change to them.
+ */
+export const GENERATED_FROM = {
+    'src/custom/features.ts': ['enabled-features.gen.ts', 'feature-exports.gen.ts'],
+    'src/custom/sign-in.ts': ['sign-in.gen.ts'],
+};
+
 /** Changes outside the source that affect every function. */
 const ALL_FUNCTIONS = [/^functions\/package(-lock)?\.json$/, /^functions\/tsconfig.*\.json$/, /^functions\/\.env/];
 
@@ -237,6 +247,7 @@ const ALL_FUNCTIONS = [/^functions\/package(-lock)?\.json$/, /^functions\/tsconf
 export function affectedFunctions({ graph, changed, deployable, previous }) {
     if (changed.some((path) => ALL_FUNCTIONS.some((re) => re.test(path)))) return { all: true, names: [...deployable] };
     const changedSrc = new Set(changed.filter((p) => p.startsWith('functions/src/')).map((p) => p.slice('functions/src/'.length)));
+    for (const path of changed) for (const generated of GENERATED_FROM[path] ?? []) changedSrc.add(generated);
     const names = new Set();
     for (const [file, defined] of graph.defines) {
         if (file.startsWith('custom/')) continue;

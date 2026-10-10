@@ -19,7 +19,8 @@ import { AUTH_OWNER } from './authOwner.js';
 import { KNOWN_ROLES } from './syncUserRole.js';
 import { setRecordClaims } from './claims.js';
 import { isBlank } from '../shared/blank.js';
-import { MIN_PASSWORD_LENGTH, PASSWORD_PROBLEM_TEXT, passwordProblem } from '../shared/password-rule.js';
+import { MIN_PASSWORD_LENGTH, minPasswordLength, passwordProblem, passwordProblemText } from '../shared/password-rule.js';
+import { signInStrength } from '../sign-in-choice.js';
 
 /** The same rule as every new password a member chooses (shared/password-rule.ts, F22). */
 export { MIN_PASSWORD_LENGTH };
@@ -66,9 +67,12 @@ export const adminCreateUser = onCall(async (request) => {
         reusedAccount = true;
     } catch (err) {
         if (!isUserNotFound(err)) throw err;
-        const problem = passwordProblem(input.password, { email: input.email, name: input.name });
+        const strength = signInStrength();
+        const problem = passwordProblem(input.password, { email: input.email, name: input.name }, strength);
         if (problem) {
-            throw new HttpsError('invalid-argument', `The temporary password is too easy to guess. ${PASSWORD_PROBLEM_TEXT[problem]}`, { reason: 'weak-password', problem });
+            throw new HttpsError('invalid-argument', `The temporary password is too easy to guess. ${passwordProblemText(problem, strength)}`, {
+                reason: 'weak-password', problem, min: minPasswordLength(strength),
+            });
         }
         const account = await owner.createUser({ email: input.email, password: input.password, displayName: input.name });
         uid = account.uid;

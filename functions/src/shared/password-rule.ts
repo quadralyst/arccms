@@ -12,18 +12,33 @@
  *
  * Only new passwords are checked: signing in with one set before still works.
  *
+ * That is the strict rule. An app that chose `simple` (src/custom/sign-in.ts,
+ * sign-in-strength.ts) asks only for 6 characters or more; the caller passes the
+ * strength, and leaving it out means strict.
+ *
  * Mirror of src/shared/utils/password-rule.ts (the source of truth) for the
  * Cloud Functions build, which cannot import from src/. Keep in sync by hand;
  * src/shared/utils/password-rule.spec.ts checks the two agree.
  */
 
+import type { SignInStrength } from './sign-in-strength.js';
+
+/** The shortest new password under the strict rule. */
 export const MIN_PASSWORD_LENGTH = 8;
+/** The shortest new password under the simple rule: Firebase Auth's own minimum. */
+export const SIMPLE_MIN_PASSWORD_LENGTH = 6;
+
+/** The shortest new password for a strength. */
+export function minPasswordLength(strength: SignInStrength = 'strict'): number {
+    return strength === 'simple' ? SIMPLE_MIN_PASSWORD_LENGTH : MIN_PASSWORD_LENGTH;
+}
 
 export type PasswordProblem = 'short' | 'repeated' | 'sequence' | 'common' | 'personal';
 
 /**
- * Each problem in English: the server's fallback and the admin's words. Members
- * read it in their language, from `member.auth.password_error.<problem>`.
+ * Each problem in English under the strict rule: the server's fallback and the
+ * admin's words (passwordProblemText says the simple rule's length). Members read it
+ * in their language, from `member.auth.password_error.<problem>`.
  */
 export const PASSWORD_PROBLEM_TEXT: Record<PasswordProblem, string> = {
     short: 'Use at least 8 characters.',
@@ -32,6 +47,11 @@ export const PASSWORD_PROBLEM_TEXT: Record<PasswordProblem, string> = {
     common: 'That password is one of the most used, so it is easy to guess. Choose another.',
     personal: 'Your password should not contain your name or email. Choose another.',
 };
+
+/** A problem in English, with the shortest length for the strength. */
+export function passwordProblemText(problem: PasswordProblem, strength: SignInStrength = 'strict'): string {
+    return problem === 'short' ? `Use at least ${minPasswordLength(strength)} characters.` : PASSWORD_PROBLEM_TEXT[problem];
+}
 
 /** Who the password is for: their own details make a weak password. */
 export interface PasswordOwner {
@@ -99,9 +119,10 @@ function isPersonal(lower: string, owner: PasswordOwner): boolean {
 }
 
 /** Why this new password is too easy to guess, or null when it is fine. */
-export function passwordProblem(password: string, owner: PasswordOwner = {}): PasswordProblem | null {
+export function passwordProblem(password: string, owner: PasswordOwner = {}, strength: SignInStrength = 'strict'): PasswordProblem | null {
     const value = String(password ?? '');
-    if (value.length < MIN_PASSWORD_LENGTH) return 'short';
+    if (value.length < minPasswordLength(strength)) return 'short';
+    if (strength === 'simple') return null;
     if (/^(.)\1+$/su.test(value.toLowerCase())) return 'repeated';
     if (isRun(value)) return 'sequence';
     const lower = value.toLowerCase();

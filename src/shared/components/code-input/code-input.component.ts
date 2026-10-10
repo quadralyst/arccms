@@ -2,11 +2,13 @@ import {
     ChangeDetectionStrategy,
     Component,
     ElementRef,
-    afterNextRender,
+    afterRenderEffect,
     computed,
+    inject,
     input,
     output,
     signal,
+    untracked,
     viewChildren,
 } from '@angular/core';
 import { extractCode } from '../../utils/identifier.util';
@@ -18,6 +20,11 @@ import { extractCode } from '../../utils/identifier.util';
  * phone offering the code from an SMS) fills every box, even from a whole
  * message like "Your code is 482913". `completed` fires as soon as the last
  * digit is in, so the page can verify without a button press.
+ *
+ * The first box takes the cursor as soon as it can (specs/sign-in-strength-spec.md,
+ * SS-D12): on open, and again when the boxes turn usable while still empty, since a
+ * page often shows them while its request is still running and a disabled box
+ * cannot take focus. It never takes the cursor from a field someone is typing in.
  */
 @Component({
     selector: 'arc-code-input',
@@ -68,6 +75,7 @@ export class CodeInputComponent {
     /** Let the phone offer a code from an SMS (off for PINs). */
     readonly oneTimeCode = input(true);
     readonly label = input('Code');
+    /** Put the cursor in the first box when it can take it. */
     readonly autofocus = input(true);
 
     /** Every box filled: the full code. */
@@ -75,6 +83,7 @@ export class CodeInputComponent {
     /** Any change: the digits so far. */
     readonly changed = output<string>();
 
+    private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
     private readonly boxes = viewChildren<ElementRef<HTMLInputElement>>('box');
     private readonly entered = signal<string[]>([]);
 
@@ -85,8 +94,13 @@ export class CodeInputComponent {
     readonly value = computed(() => this.digits().join(''));
 
     constructor() {
-        afterNextRender(() => {
-            if (this.autofocus()) this.focus(0);
+        // Runs after each render that changed `disabled` or `autofocus`, so the boxes
+        // in the page already carry the new `disabled`.
+        afterRenderEffect(() => {
+            if (this.disabled() || !this.autofocus()) return;
+            untracked(() => {
+                if (!this.value() && !this.typingElsewhere()) this.focus(0);
+            });
         });
     }
 
@@ -104,6 +118,13 @@ export class CodeInputComponent {
 
     focus(index = 0): void {
         this.boxes()[index]?.nativeElement.focus();
+    }
+
+    /** Someone has the cursor in another field on the page. */
+    private typingElsewhere(): boolean {
+        const active = this.host.nativeElement.ownerDocument.activeElement as HTMLElement | null;
+        if (!active || this.host.nativeElement.contains(active)) return false;
+        return active.isContentEditable || active.matches('input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]), textarea, select');
     }
 
     select(event: Event): void {

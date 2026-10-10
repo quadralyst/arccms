@@ -21,6 +21,9 @@ vi.mock('firebase-admin/firestore', async () => {
     return { Timestamp: FakeTimestamp, FieldValue: { delete: () => ({ _delete: true }) } };
 });
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+// The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
+const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: vi.fn((handler: unknown) => handler),
     HttpsError: class extends Error {
@@ -61,6 +64,7 @@ async function verifiedTicket(email = EMAIL): Promise<string> {
 beforeEach(() => {
     mem.store.clear();
     vi.clearAllMocks();
+    strength.value = 'strict';
     owner.getUserByEmail.mockRejectedValue(Object.assign(new Error('not found'), { code: 'auth/user-not-found' }));
     mocks.queueEmail.mockResolvedValue({ id: 'log', status: 'pending' });
     mem.seed('EmailTemplate', 'reset', { type: 'password_reset_otp_email', senderEmail: 's@x.com', senderName: 'S', subject: 'Reset', template: '##OTP##' });
@@ -178,6 +182,17 @@ describe('resetPassword', () => {
         await expect(call(resetPassword, { email: EMAIL, password, ticket })).rejects.toMatchObject({ details: { reason: 'weak-password', problem } });
         expect(owner.updateUser).not.toHaveBeenCalled();
         await expect(call(resetPassword, { email: EMAIL, password: GOOD, ticket })).resolves.toEqual({ reset: true });
+    });
+
+    it('takes any password of 6 characters or more when the app chose simple passwords, and says 6 when shorter', async () => {
+        strength.value = 'simple';
+        const ticket = await verifiedTicket();
+        await expect(call(resetPassword, { email: EMAIL, password: 'abc12', ticket })).rejects.toMatchObject({
+            message: 'Use at least 6 characters.',
+            details: { reason: 'weak-password', problem: 'short', min: 6 },
+        });
+        await expect(call(resetPassword, { email: EMAIL, password: '123456', ticket })).resolves.toEqual({ reset: true });
+        expect(owner.updateUser).toHaveBeenCalledWith('uid-a', { password: '123456' });
     });
 
     it('needs the ticket from this browser\'s own code check', async () => {

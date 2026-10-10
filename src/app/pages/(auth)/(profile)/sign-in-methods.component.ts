@@ -27,7 +27,8 @@ import { classifyIdentifier, DEFAULT_COUNTRY_CODE, formatPhone, hasCountryCode, 
 import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../../../shared/data/countries';
 import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
 import { PhoneCountryComponent } from '../../../../shared/components/phone-country/phone-country.component';
-import { passwordProblem } from '../../../../shared/utils/password-rule';
+import { minPasswordLength, passwordProblem } from '../../../../shared/utils/password-rule';
+import { SIGN_IN_STRENGTH } from '../../../core/sign-in/sign-in-strength';
 
 type Kind = 'email' | 'phone';
 type Step = 'enter' | 'code' | 'secret';
@@ -163,7 +164,7 @@ interface Flow {
                                 (changed)="secret.set($event)" />
                         } @else {
                             <div class="form-label small">{{ 'member.methods.choose_password_email' | transloco }}</div>
-                            <input class="form-control" type="password" autocomplete="new-password" [placeholder]="'member.methods.password_placeholder' | transloco"
+                            <input class="form-control" type="password" autocomplete="new-password" [placeholder]="'member.methods.password_placeholder' | transloco: passwordMin"
                                 [ngModel]="secret()" (ngModelChange)="secret.set($event)" (keydown.enter)="finish()" />
                         }
                     }
@@ -219,6 +220,8 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
     private readonly settings = inject(UserSettingService);
     private readonly router = inject(Router);
     private readonly t = injectT();
+    /** The shortest new password, for the messages that say it (src/custom/sign-in.ts). */
+    readonly passwordMin = { min: minPasswordLength(SIGN_IN_STRENGTH) };
     private readonly transloco = inject(TranslocoService);
     private readonly lang = () => this.transloco.getActiveLang();
 
@@ -503,12 +506,13 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
                 this.error.set(this.t('member.methods.choose_pin'));
                 return;
             }
-            // A new password: not too easy to guess, nor their own name or email (F22).
+            // A new password: not too easy to guess, nor their own name or email (F22),
+            // under the app's strength (src/custom/sign-in.ts).
             const problem = check.kind === 'email'
-                ? passwordProblem(secret, { email: check.value, name: this.authStore.currentUser()?.name })
+                ? passwordProblem(secret, { email: check.value, name: this.authStore.currentUser()?.name }, SIGN_IN_STRENGTH)
                 : null;
             if (problem) {
-                this.error.set(this.t(`member.auth.password_error.${problem}` as TranslationKey));
+                this.error.set(this.t(`member.auth.password_error.${problem}` as TranslationKey, this.passwordMin));
                 return;
             }
         }
