@@ -40,14 +40,15 @@ import {
     findUserByPhone,
     hasPin,
     isValidPin,
-    isWeakPin,
+    pinTooEasy,
     requireOwnRecord,
     requirePhoneSignIn,
     setPin,
     type UserRecord,
 } from './accounts.js';
 import { refuse, refuseWeakPassword } from './refusal.js';
-import { MIN_PASSWORD_LENGTH } from '../shared/password-rule.js';
+import { minPasswordLength } from '../shared/password-rule.js';
+import { signInStrength } from '../sign-in-choice.js';
 
 const HOUR = 60 * 60 * 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -187,7 +188,7 @@ export const linkPhone = onCall(async (request) => {
     if (needsPin && !isValidPin(pin)) {
         throw new HttpsError('failed-precondition', 'Choose a 6-digit PIN.', { reason: 'pin-required' });
     }
-    if (isValidPin(pin) && isWeakPin(pin)) {
+    if (isValidPin(pin) && pinTooEasy(pin)) {
         throw new HttpsError('invalid-argument', 'That PIN is too easy to guess. Avoid repeated digits and runs like 123456.', { reason: 'weak-pin' });
     }
     if (!(await consumeVerifiedPhoneOtp(phone, 'link', { uid }))) {
@@ -237,8 +238,9 @@ export const linkEmail = onCall(async (request) => {
         throw refuse('failed-precondition', 'sign-in-managed', "Your sign-in is managed by another app, so its email can't be changed here.");
     }
     const needsPassword = !(await passwordIsSet(uid));
-    if (needsPassword && password.length < MIN_PASSWORD_LENGTH) {
-        throw new HttpsError('failed-precondition', 'Choose a password of at least 8 characters.', { reason: 'password-required' });
+    const min = minPasswordLength(signInStrength());
+    if (needsPassword && password.length < min) {
+        throw new HttpsError('failed-precondition', `Choose a password of at least ${min} characters.`, { reason: 'password-required', min });
     }
     // A new password, not one set before: too easy to guess is refused (F22).
     if (needsPassword) refuseWeakPassword(password, { email, name: String(me.data['name'] ?? '') });

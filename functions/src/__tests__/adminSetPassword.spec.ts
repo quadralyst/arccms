@@ -29,6 +29,9 @@ const m = vi.hoisted(() => {
 
 vi.mock('../init', () => ({ db: m.db, owner: m.owner }));
 vi.mock('../search/auth', () => ({ requireAdmin: m.requireAdmin }));
+// The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
+const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: (...args: any[]) => args[args.length - 1],
     HttpsError: class HttpsError extends Error {
@@ -51,6 +54,16 @@ describe('adminSetPassword', () => {
         m.accounts.clear();
         m.records.set('doc-1', { uid: 'uid-1', name: 'Asha Rao', email: 'asha@example.com' });
         m.accounts.set('uid-1', { uid: 'uid-1', email: 'asha@example.com' });
+        strength.value = 'strict';
+    });
+
+    it('follows the app\'s simple passwords: 6 characters or more, nothing else', async () => {
+        strength.value = 'simple';
+        await expect(call({ id: 'doc-1', password: 'asha1' })).rejects.toMatchObject({
+            message: 'Use at least 6 characters.', details: { reason: 'weak-password', problem: 'short', min: 6 },
+        });
+        expect(await call({ id: 'doc-1', password: 'asha12' })).toEqual({ updated: true });
+        expect(m.owner.updateUser).toHaveBeenCalledWith('uid-1', { password: 'asha12' });
     });
 
     it('sets the password on the sign-in account, and writes nothing to Firestore', async () => {

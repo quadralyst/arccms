@@ -361,7 +361,7 @@
                                 <div class="mb-3 mt-4">
                                     <div class="input-group">
                                         <span class="input-group-text"><i class="fas fa-user"></i></span>
-                                        <input type="text" formControlName="name" class="form-control p-2"
+                                        <input #nameBox type="text" formControlName="name" class="form-control p-2"
                                             [placeholder]="'member.auth.name_placeholder' | transloco" autocomplete="name"
                                             [class.is-invalid]="isFieldInvalid('name')" [readOnly]="working()">
                                     </div>
@@ -401,7 +401,7 @@
 
                                     @if(isFieldInvalid('password')){
                                     <div class="text-danger mt-2">
-                                        {{ passwordErrorKey() | transloco }}
+                                        {{ passwordErrorKey() | transloco: passwordMin }}
                                     </div>
                                     }
                                 </div>
@@ -525,7 +525,7 @@
                                         </button>
                                     </div>
                                     @if (isFieldInvalid('password')) {
-                                    <div class="text-danger mt-2">{{ passwordErrorKey() | transloco }}</div>
+                                    <div class="text-danger mt-2">{{ passwordErrorKey() | transloco: passwordMin }}</div>
                                     }
                                 </div>
 

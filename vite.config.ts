@@ -10,6 +10,8 @@ import { appleIconAsset, resolvePwaConfig, resolvePwaIcon } from './src/app/core
 import { CUSTOM_PWA } from './src/custom/pwa';
 import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
+import { resolveSignInStrength } from './src/shared/utils/sign-in-strength';
+import { CUSTOM_SIGN_IN } from './src/custom/sign-in';
 import { CUSTOM_BRAND } from './src/custom/brand';
 import { appTitle } from './scripts/vite-app-title';
 import { languageRouteCheck } from './scripts/vite-language-routes';
@@ -22,6 +24,8 @@ import { pwaWorkbox } from './scripts/pwa-workbox';
 // The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
 const features = resolveFeatures(CUSTOM_FEATURES);
+// The same for the password and PIN strength (src/custom/sign-in.ts): a wrong value stops here.
+resolveSignInStrength(CUSTOM_SIGN_IN);
 
 // The install's PWA settings (src/custom/pwa.ts over the core defaults, docs/features/pwa.html),
 // on when the features ask for it.

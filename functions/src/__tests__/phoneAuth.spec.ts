@@ -26,6 +26,9 @@ vi.mock('firebase-admin/firestore', async () => {
     return { Timestamp: FakeTimestamp, FieldValue: { delete: () => ({ _delete: true }) } };
 });
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+// The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
+const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: vi.fn((handler: unknown) => handler),
     HttpsError: class extends Error {
@@ -70,6 +73,7 @@ async function signUp(pin = '246810'): Promise<string> {
 beforeEach(() => {
     mem.store.clear();
     vi.clearAllMocks();
+    strength.value = 'strict';
     for (const uid of Object.keys(claims)) delete claims[uid];
     owner.createUser.mockResolvedValue({ uid: 'uid-asha' });
     mem.seed('Settings', 'users', { isSignupEnabled: true, phoneSignIn: true });
@@ -516,5 +520,39 @@ describe('attempt counters and the caller\'s address (review F)', () => {
         await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810' })).resolves.toEqual({ token: 'token-uid-asha' });
         expect(mem.read('auth_pins', 'uid-asha')).toMatchObject({ version: PIN_HASH_VERSION, failedAttempts: 0 });
         await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810' })).resolves.toEqual({ token: 'token-uid-asha' });
+    });
+});
+
+describe('an app that chose simple PINs (specs/sign-in-strength-spec.md)', () => {
+    beforeEach(() => {
+        strength.value = 'simple';
+    });
+
+    it('takes any 6 digits at sign-up, still not fewer', async () => {
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        const { ticket } = await call(phone.verifyPhoneOtp, { phone: NUMBER, code: lastCode(), purpose: 'signup' });
+        await expect(call(phone.completePhoneSignup, { phone: NUMBER, name: 'Asha Rao', pin: '12345', ticket }))
+            .rejects.toMatchObject({ details: { reason: 'pin-format' } });
+        await expect(call(phone.completePhoneSignup, { phone: NUMBER, name: 'Asha Rao', pin: '123456', ticket }))
+            .resolves.toEqual({ token: 'token-uid-asha' });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '123456' })).resolves.toEqual({ token: 'token-uid-asha' });
+    });
+
+    it('takes an easy PIN when changing it, and still locks on the fifth wrong one', async () => {
+        await signUp('246810');
+        await expect(call(phone.setPin, { pin: '111111' }, 'uid-asha')).resolves.toEqual({ saved: true });
+        for (let i = 0; i < 4; i++) await call(phone.signInWithPin, { phone: NUMBER, pin: '000000' }).catch(() => undefined);
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '000000' }))
+            .rejects.toMatchObject({ code: 'resource-exhausted', details: { reason: 'locked' } });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '111111' })).rejects.toMatchObject({ details: { reason: 'locked' } });
+    });
+
+    it('pinTooEasy: the strict rule refuses what isWeakPin finds, the simple rule nothing', async () => {
+        const { pinTooEasy } = await import('../auth/accounts.js');
+        expect(pinTooEasy('123456')).toBe(false);
+        expect(pinTooEasy('123456', 'strict')).toBe(true);
+        expect(pinTooEasy('246810', 'strict')).toBe(false);
+        strength.value = 'strict';
+        expect(pinTooEasy('123456')).toBe(true);
     });
 });

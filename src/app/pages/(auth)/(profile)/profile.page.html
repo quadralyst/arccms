@@ -165,7 +165,7 @@
               <div class="input-group">
                 <input [type]="showNewPassword() ? 'text' : 'password'"
                        class="form-control" formControlName="newPassword"
-                       [placeholder]="'member.profile.new_password_placeholder' | transloco" />
+                       [placeholder]="'member.profile.new_password_placeholder' | transloco: passwordMin" />
                 <button type="button" class="btn btn-outline-secondary"
                         (click)="showNewPassword.set(!showNewPassword())">
                   <i class="fas" [class.fa-eye]="showNewPassword()"
@@ -173,7 +173,7 @@
                 </button>
               </div>
               @if (passwordForm.get('newPassword')?.invalid && passwordForm.get('newPassword')?.touched) {
-                <div class="text-danger mt-1 small">{{ newPasswordErrorKey() | transloco }}</div>
+                <div class="text-danger mt-1 small">{{ newPasswordErrorKey() | transloco: passwordMin }}</div>
               }
             </div>
             <!-- Confirm Password -->

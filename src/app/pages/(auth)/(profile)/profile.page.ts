@@ -23,6 +23,8 @@ import { SignInMethodsComponent } from './sign-in-methods.component';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { isLockedAppAccount } from '../../../core/app-accounts/app-account-lock';
 import { newPasswordValidator, passwordProblemOf } from '../../../../shared/utils/password-validator';
+import { minPasswordLength } from '../../../../shared/utils/password-rule';
+import { SIGN_IN_STRENGTH } from '../../../core/sign-in/sign-in-strength';
 import type { TranslationKey } from '../../../core/i18n/translation-keys';
 
 export const routeMeta: RouteMeta = {
@@ -72,6 +74,9 @@ export default class ProfileComponent extends BaseComponent {
   });
 
   currentUser = computed(() => this.authStore.currentUser());
+
+  /** The shortest new password, for the messages that say it (src/custom/sign-in.ts). */
+  readonly passwordMin = { min: minPasswordLength(SIGN_IN_STRENGTH) };
 
   /** Why the new password was refused, for its message. */
   newPasswordErrorKey(): TranslationKey {

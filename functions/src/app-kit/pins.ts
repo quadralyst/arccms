@@ -1,11 +1,14 @@
 /**
  * PINs an app checks itself, apart from Arc CMS's phone PINs (specs/app-pin-spec.md,
- * docs/app/pin.html). Same rules (6 digits, no easy ones), same hashing and lockout,
- * kept in one fixed collection, `app_pins`, that no client can read or write.
+ * docs/app/pin.html). Same rules (6 digits, no easy ones under the strict rule),
+ * same hashing and lockout, kept in one fixed collection, `app_pins`, that no client
+ * can read or write. The app's password and PIN strength (src/custom/sign-in.ts)
+ * applies here too.
  */
 import { createHash } from 'node:crypto';
 import { HttpsError } from 'firebase-functions/v2/https';
-import { checkPin, clearPinLock, hasPin, isValidPin, isWeakPin, removePin, setPin, type PinCheck, type PinLocation } from '../auth/accounts.js';
+import { checkPin, clearPinLock, hasPin, isValidPin, pinTooEasy, removePin, setPin, type PinCheck, type PinLocation } from '../auth/accounts.js';
+import { SIGN_IN_STRENGTHS, type SignInStrength } from '../shared/sign-in-strength.js';
 import { isBlank } from '../shared/blank.js';
 
 /** Where every app PIN is kept: `app_pins/<namespace>__<uid>`. Never an `arc_` name, which would be public. */
@@ -36,7 +39,7 @@ export function pinDocId(namespace: string, uid: string): string {
 }
 
 export interface PinStore {
-    /** Sets or replaces the person's PIN, which also clears a lock. Refuses one that is not 6 digits, or too easy. */
+    /** Sets or replaces the person's PIN, which also clears a lock. Refuses one that is not 6 digits, or too easy under the strict rule. */
     set(uid: string, pin: string): Promise<void>;
     /** Checks a PIN, counting wrong tries: `{ ok }`, or `none`, `locked`, or `wrong` with `remaining`. */
     check(uid: string, pin: unknown): Promise<PinCheck>;
@@ -51,15 +54,21 @@ export interface PinStore {
 /**
  * A place for an app's PINs (docs/app/pin.html). The namespace keeps different kinds
  * apart (`kiosk`, `staff`); `maxAttempts` (1 to 20, default 5) is how many wrong tries
- * in a row lock a PIN until set() or clearLock().
+ * in a row lock a PIN until set() or clearLock(). `strength` is how hard a new PIN
+ * must be: the app's choice in src/custom/sign-in.ts unless the store names one, so a
+ * casual app can keep a strict staff PIN (`strength: 'strict'`).
  */
-export function createPinStore(namespace: string, options: { maxAttempts?: number } = {}): PinStore {
+export function createPinStore(namespace: string, options: { maxAttempts?: number; strength?: SignInStrength } = {}): PinStore {
     const maxAttempts = checkPinOptions(namespace, options);
+    const strength = options.strength;
+    if (strength !== undefined && !(SIGN_IN_STRENGTHS as readonly unknown[]).includes(strength)) {
+        throw new Error(`PIN strength ${JSON.stringify(strength)}: 'strict' or 'simple', or leave it out for the app's choice.`);
+    }
     const at = (uid: string): PinLocation => ({ collection: APP_PINS, docId: pinDocId(namespace, uid), maxAttempts, extra: { uid, namespace } });
     return {
         async set(uid, pin) {
             if (!isValidPin(pin)) throw new HttpsError('invalid-argument', 'A PIN is 6 digits.');
-            if (isWeakPin(pin)) throw new HttpsError('invalid-argument', 'That PIN is too easy to guess. Choose another.', { reason: 'weak-pin' });
+            if (pinTooEasy(pin, strength)) throw new HttpsError('invalid-argument', 'That PIN is too easy to guess. Choose another.', { reason: 'weak-pin' });
             await setPin(uid, pin, at(uid));
         },
         async check(uid, pin) {

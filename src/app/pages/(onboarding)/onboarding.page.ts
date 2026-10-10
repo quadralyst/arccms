@@ -39,7 +39,7 @@ import { useAdminOverlay } from '../../core/brand/admin-overlay';
 import { APP_BRAND, ARC_CMS_NAME } from '../../core/brand/site-brand';
 import { LegalNoticeComponent } from '../../../shared/components/legal-notice/legal-notice.component';
 import { newPasswordValidator, passwordProblemOf } from '../../../shared/utils/password-validator';
-import { PASSWORD_PROBLEM_TEXT } from '../../../shared/utils/password-rule';
+import { passwordProblemText } from '../../../shared/utils/password-rule';
 
 export const routeMeta: RouteMeta = {
     title: 'Setup',
@@ -281,8 +281,9 @@ export default class OnboardingComponent implements OnInit {
                 name: ['', [Validators.required, Validators.minLength(2)]],
                 email: ['', [Validators.required, Validators.email]],
                 confirmEmail: ['', [Validators.required, Validators.email]],
-                // The rule every new password meets (F22).
-                password: ['', [Validators.required, newPasswordValidator(() => ({ email: this.onboardingForm?.value.email, name: this.onboardingForm?.value.name }))]],
+                // The first admin always gets the strict rule (F22), whatever the app's
+                // strength (src/custom/sign-in.ts, specs/sign-in-strength-spec.md SS-D7).
+                password: ['', [Validators.required, newPasswordValidator(() => ({ email: this.onboardingForm?.value.email, name: this.onboardingForm?.value.name }), 'strict')]],
                 confirmPassword: ['', [Validators.required]],
             },
             { validators: [this.passwordMatchValidator, this.emailMatchValidator] }
@@ -291,7 +292,7 @@ export default class OnboardingComponent implements OnInit {
 
     /** Why the password was refused. */
     passwordError(): string {
-        return PASSWORD_PROBLEM_TEXT[passwordProblemOf(this.onboardingForm.get('password')) ?? 'short'];
+        return passwordProblemText(passwordProblemOf(this.onboardingForm.get('password')) ?? 'short', 'strict');
     }
 
     private passwordMatchValidator(g: AbstractControl): ValidationErrors | null {

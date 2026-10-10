@@ -18,7 +18,8 @@ import { UserStore } from '../user.store';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { roleGuard } from '../../../../guards/role.guard';
 import { newPasswordValidator, passwordProblemOf } from '../../../../../shared/utils/password-validator';
-import { PASSWORD_PROBLEM_TEXT } from '../../../../../shared/utils/password-rule';
+import { passwordProblemText } from '../../../../../shared/utils/password-rule';
+import { SIGN_IN_STRENGTH } from '../../../../core/sign-in/sign-in-strength';
 
 export const routeMeta: RouteMeta = {
     title: 'Add User',
@@ -64,7 +65,7 @@ export default class AddUserComponent extends BaseComponent {
     }
     /** Why the temporary password was refused. */
     passwordError(): string {
-        return PASSWORD_PROBLEM_TEXT[passwordProblemOf(this.password) ?? 'short'];
+        return passwordProblemText(passwordProblemOf(this.password) ?? 'short', SIGN_IN_STRENGTH);
     }
 
     get password() {

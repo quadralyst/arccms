@@ -17,7 +17,8 @@ import { roleGuard } from '../../../../guards/role.guard';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { isLockedAppAccount } from '../../../../core/app-accounts/app-account-lock';
 import { newPasswordValidator, passwordProblemOf } from '../../../../../shared/utils/password-validator';
-import { PASSWORD_PROBLEM_TEXT } from '../../../../../shared/utils/password-rule';
+import { passwordProblemText } from '../../../../../shared/utils/password-rule';
+import { SIGN_IN_STRENGTH } from '../../../../core/sign-in/sign-in-strength';
 
 export const routeMeta: RouteMeta = {
     title: 'Edit User',
@@ -73,7 +74,7 @@ export default class EditUserComponent extends BaseComponent {
     }
     /** Why the new password was refused. */
     passwordError(): string {
-        return PASSWORD_PROBLEM_TEXT[passwordProblemOf(this.password) ?? 'short'];
+        return passwordProblemText(passwordProblemOf(this.password) ?? 'short', SIGN_IN_STRENGTH);
     }
 
     // Fill the form when this user's record arrives (an effect: nothing reads a computed here).

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Set up sign-in | Arc CMS docs</title>
   <meta name="description" content="Choose your app's sign-in methods, send people back to the page that asked them to sign in, set each role's home page, and sign in from another app.">
-  <meta name="docs:sources" content="src/custom/home.ts, src/app/core/home/home.ts, src/app/pages/user/user.guards.ts, src/app/pages/(auth)/sign-in.service.ts, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/admin/(settings)/user-setting, src/app/core/config/arc-functions.ts, functions/src/auth, functions/src/users/accountCallables.ts">
+  <meta name="docs:sources" content="src/custom/home.ts, src/app/core/home/home.ts, src/app/pages/user/user.guards.ts, src/app/pages/(auth)/sign-in.service.ts, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/admin/(settings)/user-setting, src/app/core/config/arc-functions.ts, functions/src/auth, functions/src/users/accountCallables.ts, src/custom/sign-in.ts, src/app/core/sign-in, src/shared/utils/sign-in-strength.ts, functions/src/shared/sign-in-strength.ts, functions/src/sign-in-choice.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/sign-in.html">
@@ -33,6 +33,26 @@
       <li><p><strong>Decide on sign-ups:</strong> "Enable User Signups" on the same page lets people create their own accounts. Turn it off for an invite-only app: admins then add people under Users, Add User.</p></li>
     </ol>
     <div class="trap"><p>Phone sign-in needs one Google Cloud permission on the functions' service account, or every phone sign-in fails after the code is accepted. See the trap in <a href="../features/sign-in.html#set-it-up">Sign-in methods</a>.</p></div>
+
+    <h2 id="strength">Choose how strong passwords and PINs must be</h2>
+    <p>By default new passwords and PINs must be hard to guess (the strict rule, see <a href="../features/sign-in.html#passwords">Passwords</a>). A casual app, where a fancy password or PIN only gets in the way, can ask for less in <code>src/custom/sign-in.ts</code>:</p>
+    <pre><code>import type { SignInChoice } from '../shared/utils/sign-in-strength';
+
+export const CUSTOM_SIGN_IN: SignInChoice = {
+    strength: 'simple',
+};</code></pre>
+    <table>
+      <thead><tr><th></th><th>Strict (empty, or <code>'strict'</code>)</th><th>Simple (<code>'simple'</code>)</th></tr></thead>
+      <tbody>
+        <tr><td>New password</td><td>8 characters or more; not one character repeated, a run, a common password, or the person's name or email</td><td>6 characters or more</td></tr>
+        <tr><td>New PIN</td><td>6 digits; not one digit repeated, a run like <code>123456</code>, or a common pattern</td><td>Any 6 digits</td></tr>
+        <tr><td>The first admin (first-run wizard)</td><td>Strict</td><td>Strict</td></tr>
+        <tr><td>Your own PIN stores</td><td>Strict, unless a store names a strength</td><td>Simple, unless a store names a strength (<a href="pin.html#strength">PINs for your app</a>)</td></tr>
+        <tr><td>Wrong-try lockouts, rate limits, how PINs are kept</td><td colspan="2">The same in both</td></tr>
+      </tbody>
+    </table>
+    <p>It is a build-time choice: <code>npm run dev</code> and <code>npm run build</code> read it, and so does every functions build, through a copy <code>scripts/arc-features.mjs</code> writes to <code>functions/src/sign-in.gen.ts</code>. After changing it, deploy the website and the functions that set passwords and PINs; the deploy menu's "only the functions changed" choice finds them. A value other than <code>'strict'</code> or <code>'simple'</code> stops the build with what to write.</p>
+    <p>Only new passwords and PINs are checked, so changing the strength locks nobody out: a password or PIN set before still signs in, and the next new one meets the rule in force. The strength applies to admins too, since a password is chosen before anyone is made an admin; in a simple app, ask admins to sign in with Google.</p>
 
     <h2>In your members' language</h2>
     <p>The sign-in page, with its codes, PINs and error messages, follows the member language: the one chosen on this device, else the browser's when the app declares it. When the app declares member languages, a picker at the top right lets people choose, and the brand panel follows it too (see <a href="member-languages.html#sign-in-page">The sign-in page</a>). The emails themselves are in English (see <a href="member-languages.html#what-stays-in-english">What stays in English</a>). See <a href="member-languages.html">Member languages</a> for adding one, and for what stays in English.</p>

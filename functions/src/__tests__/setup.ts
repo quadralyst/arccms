@@ -23,6 +23,13 @@ vi.mock('../custom/search-sources.js', (actual) => starter('functions/src/custom
  * whatever an app built on Arc CMS turns off in src/custom/features.ts. A spec
  * about a particular choice mocks '../feature-flags.js' itself.
  */
+/**
+ * Core function specs run with the strict password and PIN rule, whatever an app
+ * chooses in src/custom/sign-in.ts. A spec about the simple rule mocks
+ * '../sign-in-choice.js' itself.
+ */
+vi.mock('../sign-in.gen.js', () => ({ SIGN_IN_STRENGTH: 'strict' }));
+
 vi.mock('../enabled-features.gen.js', () => ({
   ENABLED_FEATURES: ['content', 'search', 'seo', 'forms', 'audience', 'email-marketing', 'sms', 'payments', 'data', 'pwa'],
 }));

@@ -11,11 +11,14 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
+  afterNextRender,
   ChangeDetectorRef,
   Component,
   computed,
   effect,
+  ElementRef,
   inject,
+  Injector,
   OnInit,
   PLATFORM_ID,
   signal,
@@ -40,6 +43,8 @@ import { EmailConfigStatusService } from '../../../../shared/services/email-conf
 import { LegalNoticeComponent } from '../../../../shared/components/legal-notice/legal-notice.component';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
 import { newPasswordValidator, passwordProblemOf } from '../../../../shared/utils/password-validator';
+import { minPasswordLength } from '../../../../shared/utils/password-rule';
+import { SIGN_IN_STRENGTH } from '../../../core/sign-in/sign-in-strength';
 import {
   classifyIdentifier, formatPhone, hasCountryCode, identifierProblem, looksLikePhone, withoutTrunk, type IdentifierProblem,
 } from '../../../../shared/utils/identifier.util';
@@ -214,6 +219,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   private codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
   private pinBoxes = viewChild<CodeInputComponent>('pinBoxes');
+  private nameBox = viewChild<ElementRef<HTMLInputElement>>('nameBox');
+  private injector = inject(Injector);
 
   private countdownInterval: any;
   /** True only when the user actually completed the OTP step (email verification). */
@@ -448,6 +455,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private passwordValidator = newPasswordValidator(() => ({ email: this.email, name: this.registrationForm?.get('name')?.value }));
 
   /** Why the new password was refused, for its message. */
+  /** The shortest new password, for the messages that say it (src/custom/sign-in.ts). */
+  readonly passwordMin = { min: minPasswordLength(SIGN_IN_STRENGTH) };
+
   passwordErrorKey(): TranslationKey {
     return `member.auth.password_error.${passwordProblemOf(this.registrationForm.get('password')) ?? 'short'}` as TranslationKey;
   }
@@ -548,6 +558,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.otpError.set('');
     this.newPin.set('');
     this.updateValidators(step);
+    // The details step opens on its first field, the name; code and PIN boxes take
+    // the cursor themselves (specs/sign-in-strength-spec.md, SS-D12).
+    if (step === 'signup') afterNextRender(() => this.nameBox()?.nativeElement.focus(), { injector: this.injector });
   }
 
   updateValidators(step: SignupStep) {

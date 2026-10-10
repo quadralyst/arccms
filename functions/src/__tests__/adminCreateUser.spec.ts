@@ -41,6 +41,9 @@ vi.mock('../search/auth', () => ({ requireAdmin: m.requireAdmin }));
 vi.mock('../users/syncUserRole', () => ({ KNOWN_ROLES: ['admin', 'user', 'propertyOwner', 'facilityManager'] }));
 vi.mock('../users/claims', () => ({ setRecordClaims: m.setRecordClaims }));
 vi.mock('firebase-admin/firestore', () => ({ Timestamp: { now: vi.fn(() => 'now') } }));
+// The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
+const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: (...args: any[]) => args[args.length - 1],
     HttpsError: class HttpsError extends Error { constructor(public code: string, msg: string, public details?: unknown) { super(msg); } },
@@ -59,6 +62,14 @@ describe('adminCreateUser', () => {
         m.written.length = 0;
         m.accounts.clear();
         m.failWrite.value = false;
+        strength.value = 'strict';
+    });
+
+    it('follows the app\'s simple passwords for the temporary password', async () => {
+        strength.value = 'simple';
+        await expect(call({ ...valid, password: 'temp1' })).rejects.toMatchObject({ details: { reason: 'weak-password', problem: 'short', min: 6 } });
+        await expect(call({ ...valid, password: '123456' })).resolves.toMatchObject({ reusedAccount: false });
+        expect(m.owner.createUser).toHaveBeenCalledWith(expect.objectContaining({ password: '123456' }));
     });
 
     it('validates the input and normalises the email', () => {

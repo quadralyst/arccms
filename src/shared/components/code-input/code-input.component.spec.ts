@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { CodeInputComponent } from './code-input.component';
 
@@ -87,5 +87,69 @@ describe('CodeInputComponent', () => {
         fixture.detectChanges();
         expect(component.value()).toBe('');
         expect(boxes().every((b) => b.value === '')).toBe(true);
+    });
+
+    describe('the cursor (SS1)', () => {
+        afterEach(() => document.body.replaceChildren());
+
+        /** Boxes in the page, so they can take focus; `before` is put in the page first. */
+        function inPage(inputs: Record<string, unknown> = {}, before?: HTMLElement) {
+            if (before) document.body.append(before);
+            const fixture = TestBed.createComponent(CodeInputComponent);
+            document.body.append(fixture.nativeElement);
+            for (const [key, value] of Object.entries(inputs)) fixture.componentRef.setInput(key, value);
+            fixture.detectChanges();
+            const boxes = () => Array.from(fixture.nativeElement.querySelectorAll('input')) as HTMLInputElement[];
+            return { fixture, boxes };
+        }
+
+        it('goes to the first box when the boxes open', () => {
+            const { boxes } = inPage();
+            expect(document.activeElement).toBe(boxes()[0]);
+        });
+
+        it('goes to the first box when boxes that opened disabled turn usable', () => {
+            const { fixture, boxes } = inPage({ disabled: true });
+            expect(document.activeElement).not.toBe(boxes()[0]);
+            fixture.componentRef.setInput('disabled', false);
+            fixture.detectChanges();
+            expect(document.activeElement).toBe(boxes()[0]);
+        });
+
+        it('stays out when the page turns autofocus off', () => {
+            const { boxes } = inPage({ autofocus: false });
+            expect(boxes()).not.toContain(document.activeElement);
+        });
+
+        it('never takes the cursor from a field someone is typing in', () => {
+            const name = document.createElement('input');
+            const { fixture, boxes } = inPage({ disabled: true }, name);
+            name.focus();
+            fixture.componentRef.setInput('disabled', false);
+            fixture.detectChanges();
+            expect(document.activeElement).toBe(name);
+            expect(boxes()).not.toContain(document.activeElement);
+        });
+
+        it('takes it from a button, such as the Continue that was just tapped', () => {
+            const button = document.createElement('button');
+            const { fixture, boxes } = inPage({ disabled: true }, button);
+            button.focus();
+            fixture.componentRef.setInput('disabled', false);
+            fixture.detectChanges();
+            expect(document.activeElement).toBe(boxes()[0]);
+        });
+
+        it('leaves boxes that already hold digits alone when they turn usable again', () => {
+            const { fixture, boxes } = inPage();
+            type(boxes()[0], '4');
+            type(boxes()[1], '8');
+            (document.activeElement as HTMLElement).blur();
+            fixture.componentRef.setInput('disabled', true);
+            fixture.detectChanges();
+            fixture.componentRef.setInput('disabled', false);
+            fixture.detectChanges();
+            expect(boxes()).not.toContain(document.activeElement);
+        });
     });
 });

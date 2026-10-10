@@ -18,10 +18,11 @@
 
 const pins = createPinStore('kiosk', { maxAttempts: 5 });</code></pre>
     <p>The namespace keeps kinds of PIN apart: a person can have a <code>kiosk</code> PIN and a <code>staff</code> PIN, each with its own lock. It is lower case letters, digits, <code>-</code> and <code>_</code>, 2 to 31 characters, starting with a letter. <code>maxAttempts</code> is 1 to 20, default 5.</p>
+    <p id="strength"><code>strength</code> is how hard a new PIN must be: leave it out for the app's choice in <code>src/custom/sign-in.ts</code> (see <a href="sign-in.html#strength">Set up sign-in</a>), or name one for this store. A casual app can keep a strict staff PIN with <code>createPinStore('staff', { strength: 'strict' })</code>. Under <code>'simple'</code> any 6 digits are taken; the lockout is the same in both. Your own code can ask the same question with <code>pinTooEasy(pin, strength?)</code>.</p>
     <table>
       <thead><tr><th>Call</th><th>Does</th></tr></thead>
       <tbody>
-        <tr><td><code>pins.set(uid, pin)</code></td><td>Sets or replaces the PIN, which also unlocks it. Refuses one that is not exactly 6 digits, or too easy to guess (<code>111111</code>, <code>123456</code>, common patterns), with a message the person can act on.</td></tr>
+        <tr><td><code>pins.set(uid, pin)</code></td><td>Sets or replaces the PIN, which also unlocks it. Refuses one that is not exactly 6 digits, or, under the strict rule, too easy to guess (<code>111111</code>, <code>123456</code>, common patterns), with a message the person can act on.</td></tr>
         <tr><td><code>pins.check(uid, pin)</code></td><td><code>{ ok: true }</code>, or <code>{ ok: false, reason }</code> with <code>none</code> (no PIN), <code>locked</code>, or <code>wrong</code> and <code>remaining</code> tries. A wrong PIN counts; the last allowed one locks it. A correct PIN resets the count.</td></tr>
         <tr><td><code>pins.has(uid)</code></td><td>Whether the person has a PIN here.</td></tr>
         <tr><td><code>pins.clearLock(uid)</code></td><td>Unlocks without changing the PIN, for example when a manager vouches for the person.</td></tr>
