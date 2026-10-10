@@ -818,11 +818,16 @@ figcaption {
     column-gap: 24px;
 }
 
+// The "upload new" card sits in the first column of the photo grid, so it
+// takes a photo tile's size: the column's width, a 3:2 (camera photo) shape,
+// and the tiles' 100px minimum (.search_img).
 .upload_container {
-    height: 152px;
     border: 1px solid;
     border-radius: 5px;
-    width: 17%;
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    min-height: 100px;
+    padding: 0.5rem;
 }
 
 .upload_figure {
