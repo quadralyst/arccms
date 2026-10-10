@@ -17,6 +17,7 @@ export class MediaManagerService extends DbService<IMediaManager> {
     private platform = inject(PLATFORM_ID);
 
     private searchUnsplashFn = arcCallable(this.functions, 'searchUnsplash');
+    private readMediaImageFn = arcCallable<{ mediaId: string }, { data: string; contentType: string }>(this.functions, 'readMediaImage');
 
     constructor() {
         super('media');
@@ -33,6 +34,20 @@ export class MediaManagerService extends DbService<IMediaManager> {
                 console.error('Error while retrieving images from Unsplash', err);
                 throw err;
             });
+    }
+
+    /**
+     * The bytes of a media library image, for cropping it in the browser.
+     *
+     * Read through a Cloud Function rather than from the download URL: a
+     * canvas may only export an image its page is allowed to read, and a
+     * Storage bucket sends no cross-origin header without a CORS setup.
+     */
+    async readMediaImage(mediaId: string): Promise<Blob> {
+        const result = await this.readMediaImageFn({ mediaId });
+        const { data, contentType } = result.data;
+        const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+        return new Blob([bytes], { type: contentType });
     }
 
     /**

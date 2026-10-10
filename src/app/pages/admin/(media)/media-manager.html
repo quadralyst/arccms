@@ -23,7 +23,7 @@
                         </div>
                         }
                         <div class="action-elements">
-                            @if(selectedItem?.value === 'search' && searchResults && searchResults.length){
+                            @if(!isCropping && selectedItem?.value === 'search' && searchResults && searchResults.length){
                             <div class="header-search-container">
                                 <div class="search-box">
                                     <i class="fas fa-search me-2 text-muted"></i>
@@ -40,7 +40,7 @@
                                 </div>
                             </div>
                             }
-                            @if(selectedItem?.value === 'upload'){
+                            @if(!isCropping && selectedItem?.value === 'upload'){
                             <button (click)="openFilePicker()" class=" btn btn-primary btn-sm" id="uploadNewBtnMain">
                                 <i class="fas fa-plus me-1 fs-6"></i>
                                 {{ 'admin.media.upload_new' | transloco }}
@@ -56,6 +56,67 @@
 
                     <input type="file" #fileInput (change)="onFileChange($event)" multiple accept="image/jpeg,image/png,image/webp,image/gif" style="display: none;">
 
+                    @if(isCropping && selectedMediaUrl){
+                    <!-- The crop step takes the grid's place: the side panel is too
+                         narrow to place a frame with any precision. -->
+                    <div class="media-content-area crop-stage">
+                        <div class="crop-toolbar">
+                            <span class="crop-toolbar-label">{{ 'admin.media.crop.ratio' | transloco }}</span>
+                            <div class="size-chips crop-ratios" role="radiogroup" [attr.aria-label]="'admin.media.crop.ratio' | transloco">
+                                @for(ratio of cropRatios; track ratio) {
+                                <button type="button" class="size-chip" role="radio"
+                                    [class.active]="cropRatio === ratio"
+                                    [attr.aria-checked]="cropRatio === ratio"
+                                    [disabled]="isSavingCrop"
+                                    (click)="selectCropRatio(ratio)">
+                                    @switch (ratio) {
+                                    @case ('free') { {{ 'admin.media.crop.ratio_free' | transloco }} }
+                                    @case ('original') { {{ 'admin.media.crop.ratio_original' | transloco }} }
+                                    @default { {{ ratio }} }
+                                    }
+                                </button>
+                                }
+                            </div>
+                        </div>
+                        <div class="crop-canvas">
+                            <arc-image-cropper [src]="cropSourceUrl" [ratio]="cropRatioNumber"
+                                (loaded)="onCropLoaded($event)" (rectChange)="onCropRect($event)"
+                                (failed)="onCropFailed()"></arc-image-cropper>
+                        </div>
+                        <div class="crop-footer">
+                            <div class="crop-info">
+                                @if(cropResultSize; as result) {
+                                <div class="crop-result">{{ 'admin.media.crop.result' | transloco:{ width: result.width, height: result.height } }}</div>
+                                }
+                                @if(cropTooSmall) {
+                                <div class="crop-warning">
+                                    <i class="fas fa-triangle-exclamation me-1" aria-hidden="true"></i>
+                                    {{ 'admin.media.crop.small' | transloco:{ size: imageSizeLabels[selectedSize], limit: selectedSizeLimit } }}
+                                </div>
+                                }
+                                <div class="crop-note">
+                                    {{ (isCroppingUpload ? 'admin.media.crop.note_upload' : 'admin.media.crop.note_unsplash') | transloco }}
+                                </div>
+                            </div>
+                            <div class="crop-actions">
+                                <button type="button" class="btn btn-secondary" id="cropCancelBtn"
+                                    [disabled]="isSavingCrop" (click)="cancelCrop()">
+                                    {{ 'common.actions.cancel' | transloco }}
+                                </button>
+                                <button type="button" class="btn btn-primary" id="cropApplyBtn"
+                                    [disabled]="!cropRect || isSavingCrop" (click)="applyCrop()">
+                                    @if(isSavingCrop) {
+                                    <i class="fas fa-spinner fa-spin me-1 fs-6" aria-hidden="true"></i>
+                                    {{ 'admin.media.crop.saving' | transloco:{ percent: cropProgress.toFixed(0) } }}
+                                    } @else {
+                                    <i class="fas fa-crop-simple me-1 fs-6" aria-hidden="true"></i>
+                                    {{ (isCroppingUpload ? 'admin.media.crop.save_copy' : 'admin.media.crop.apply') | transloco }}
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    } @else {
                     <div class="media-content-area">
                         <div class="main_second_div">
                             <div class="row mt-2">
@@ -260,6 +321,7 @@
                         </mat-paginator>
                     </footer>
                     }
+                    }
                 </div>
                 <div class="side-preview">
                     <div class="preview-header">
@@ -289,7 +351,7 @@
                     <div class="preview-container" [class.clickable]="selectedMediaUrl"
                         (click)="selectedMediaUrl && openFullImage()"
                         [title]="selectedMediaUrl ? 'Click to open full-size image in new tab' : ''">
-                        <img [src]=" selectedMediaUrl?.urls?.regular || selectedMediaUrl?.url || 'https://placehold.co/800x450/e9f7fe/555555?text=Selected+photo+will+come+here'"
+                        <img [src]="previewUrl(selectedMediaUrl) || 'https://placehold.co/800x450/e9f7fe/555555?text=Selected+photo+will+come+here'"
                             [alt]="'admin.media.logo_alt' | transloco"
                             (error)="handleImageError($event)">
                         @if(selectedMediaUrl) {
@@ -328,7 +390,12 @@
                         @if(selectedImageDimensions) {
                         <div class="metadata-row">
                             <span class="metadata-label">{{ 'admin.media.dimensions' | transloco }}</span>
-                            <span class="metadata-value">{{ selectedImageDimensions }}</span>
+                            <span class="metadata-value">
+                                {{ selectedImageDimensions }}
+                                @if(isCropped(selectedMediaUrl)) {
+                                <span class="cropped-tag">{{ 'admin.media.crop.cropped' | transloco }}</span>
+                                }
+                            </span>
                         </div>
                         }
                         @if(selectedMediaUrl.uploadTime) {
@@ -361,13 +428,26 @@
                         }
                         }
                     </div>
+                    @if(canCrop(selectedMediaUrl) && !isCropping) {
+                    <div class="crop-buttons">
+                        <button type="button" class="btn btn-secondary btn-crop" id="cropStartBtn" (click)="startCrop()">
+                            <i class="fas fa-crop-simple me-1 fs-6" aria-hidden="true"></i>
+                            {{ (isCropped(selectedMediaUrl) ? 'admin.media.crop.recrop' : 'admin.media.crop.start') | transloco }}
+                        </button>
+                        @if(isCropped(selectedMediaUrl)) {
+                        <button type="button" class="btn btn-link btn-crop-remove" id="cropRemoveBtn" (click)="removeCrop()">
+                            {{ 'admin.media.crop.remove' | transloco }}
+                        </button>
+                        }
+                    </div>
+                    }
                     }
                     @if(_DIALOG_DATA.isDialogOpen){
                     <!-- Only the Icons tab gates the button. On the image tabs an empty
                          insert has always closed with an empty url, and every caller
                          already guards for that — changing it is not this feature's job. -->
                     <button id="insertMediaBtn" (click)="insertMedia()" class=" btn btn-primary btn-insert"
-                        [disabled]="(isIconsTab && !selectedIcon) || (isMultiSelect && !selectedMediaList.length)">
+                        [disabled]="isCropping || (isIconsTab && !selectedIcon) || (isMultiSelect && !selectedMediaList.length)">
                         <i class="fas fa-check me-1 fs-6"></i>
                         @if(isMultiSelect){
                         {{ 'admin.media.insert_count' | transloco:{ count: selectedMediaList.length } }}

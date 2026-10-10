@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Media | Arc CMS docs</title>
-  <meta name="description" content="Upload and pick images in the media manager: the four stored sizes, WebP conversion, Unsplash, Storage paths, limits and rules.">
-  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/services/file-upload.service.ts, src/shared/utils/image-sizes.ts, functions/src/shared/image-sizes.ts, functions/src/integrations/searchUnsplash.ts, src/app/pages/admin/(settings)/misc/misc-settings.model.ts, src/app/core/config/arc-config.ts, storage.rules, firestore.rules">
+  <meta name="description" content="Upload, crop and pick images in the media manager: the four stored sizes, WebP conversion, cropping, Unsplash, Storage paths, limits and rules.">
+  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/services/file-upload.service.ts, src/shared/utils/image-sizes.ts, src/shared/utils/image-crop.ts, src/shared/components/image-cropper, functions/src/shared/image-sizes.ts, functions/src/integrations/searchUnsplash.ts, functions/src/integrations/readMediaImage.ts, src/app/pages/admin/(settings)/misc/misc-settings.model.ts, src/app/core/config/arc-config.ts, storage.rules, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/media.html">
   <main>
     <h1>Media</h1>
-    <p class="lead">Upload images once and use them everywhere: the media manager stores each upload at four sizes, converts it to WebP, and lets editors pick an image and a size wherever a field wants one.</p>
+    <p class="lead">Upload images once and use them everywhere: the media manager stores each upload at four sizes, converts it to WebP, crops to a ratio or a free shape, and lets editors pick an image and a size wherever a field wants one.</p>
 
     <h2>What it is</h2>
     <p>The media manager is at <strong>Media Manager</strong> in the admin menu (<code>/admin/media</code>) and opens as a picker from every image field. It has these tabs:</p>
@@ -69,6 +69,23 @@
     <h3>Pick an image</h3>
     <p>In the picker, choose an image and a size (S, M, L or XL), then confirm. The field stores that size's URL. Templates can still use any other size of the same image through <code>{{ key_s }}</code> to <code>{{ key_xl }}</code>; see <a href="templates.html#image-sizes">Templates</a>.</p>
 
+    <h3 id="crop">Crop</h3>
+    <p>Select one image and press <strong>Crop</strong> under its preview. The crop step takes the place of the grid:</p>
+    <ul>
+      <li>Pick a ratio: <strong>Free</strong>, <strong>Original</strong> (the image's own shape), 1:1, 4:3, 3:4, 3:2 or 16:9. The frame starts as the largest centred one of that shape (Free starts as the whole image).</li>
+      <li>Drag inside the frame to move it, and drag a corner or an edge to resize it. With a ratio, every handle keeps it. The arrow keys move the focused frame, with Shift for bigger steps.</li>
+      <li>Below the image is the size the crop will be. When it is smaller than the size picked in the side panel, a note says so: the image is never enlarged, so it may look soft in a large space.</li>
+    </ul>
+    <p>What applying a crop does depends on where the image comes from:</p>
+    <table>
+      <thead><tr><th>Image</th><th>Applying the crop</th></tr></thead>
+      <tbody>
+        <tr><td>An upload (<strong>My Uploads</strong>)</td><td><strong>Save cropped copy</strong> saves the crop as a new image, at all four sizes, and selects it. The original is not changed, because content may already use it. The copy is cut from the original's XL file, the largest one kept, and goes through the same size, WebP and file size rules as an upload.</td></tr>
+        <tr><td>An Unsplash photo (<strong>Free Images</strong>, in the picker only)</td><td><strong>Apply crop</strong> keeps the crop for this pick. Nothing is copied: the inserted URL asks Unsplash for the cropped photo (its <code>rect</code> setting, in the photo's original pixels), so the photo is still used from Unsplash. Every size a template derives keeps the crop. <strong>Remove crop</strong> goes back to the whole photo.</td></tr>
+      </tbody>
+    </table>
+    <p>Crop is not offered for GIFs (it would drop the animation), or when the picker is choosing several images at once.</p>
+
     <h3>Delete</h3>
     <p>Deleting an item in the media manager removes every stored size from Storage and the <code>media</code> document.</p>
     <div class="warn"><p>Delete does not check whether content uses the image. Pages that show it break, including published pages. Search your content before deleting an image.</p></div>
@@ -78,7 +95,7 @@
 
     <h2>Extend it</h2>
     <ul>
-      <li>Open the picker from your own admin page by opening <code>MediaManagerComponent</code> (in <code>src/app/pages/admin/(media)/media.page.ts</code>) as a dialog with <code>{ isDialogOpen: true }</code>. Options: <code>multiple</code> (several images), <code>size</code> (the preselected size), <code>allowIcons</code> and <code>allowImages</code> (which tabs show). It returns <code>mediaUrl</code>, <code>mediaUrls</code> and <code>size</code>.</li>
+      <li>Open the picker from your own admin page by opening <code>MediaManagerComponent</code> (in <code>src/app/pages/admin/(media)/media.page.ts</code>) as a dialog with <code>{ isDialogOpen: true }</code>. Options: <code>multiple</code> (several images), <code>size</code> (the preselected size), <code>cropRatio</code> (the ratio the crop frame opens with, such as <code>'1:1'</code> for a square slot; Free when omitted), <code>allowIcons</code> and <code>allowImages</code> (which tabs show). It returns <code>mediaUrl</code>, <code>mediaUrls</code> and <code>size</code>.</li>
       <li>Files your app lets members upload belong in their own folders under rules you write in <code class="new">storage.app.rules</code>. See <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>.</li>
     </ul>
 
@@ -86,8 +103,8 @@
     <table>
       <thead><tr><th>Where</th><th>What</th></tr></thead>
       <tbody>
-        <tr><td>Storage <code>mediaImages/{name}-{random}-{size}.webp</code></td><td>The sized files (<code>-s</code>, <code>-m</code>, <code>-l</code>, <code>-xl</code>); the original extension instead of <code>.webp</code> when conversion is off. GIFs: <code>mediaImages/{name}-{random}.gif</code>. The name comes from the file name, lowercased and hyphenated. With an upload folder configured for the install, every path starts with it (see <a href="../getting-started/configure.html">Configure a project</a>).</td></tr>
-        <tr><td><code>media/{id}</code></td><td><code>downloadURL</code> (the XL file), <code>name</code>, <code>uploadTime</code>, <code>width</code>, <code>height</code>, and <code>variants</code>: for each size its <code>url</code>, Storage <code>path</code>, <code>width</code> and <code>height</code>. GIFs have no <code>variants</code>.</td></tr>
+        <tr><td>Storage <code>mediaImages/{name}-{random}-{size}.webp</code></td><td>The sized files (<code>-s</code>, <code>-m</code>, <code>-l</code>, <code>-xl</code>); the original extension instead of <code>.webp</code> when conversion is off. GIFs: <code>mediaImages/{name}-{random}.gif</code>. The name comes from the file name, lowercased and hyphenated. A cropped copy is named after its original with <code>-crop</code>. With an upload folder configured for the install, every path starts with it (see <a href="../getting-started/configure.html">Configure a project</a>).</td></tr>
+        <tr><td><code>media/{id}</code></td><td><code>downloadURL</code> (the XL file), <code>name</code>, <code>uploadTime</code>, <code>width</code>, <code>height</code>, and <code>variants</code>: for each size its <code>url</code>, Storage <code>path</code>, <code>width</code> and <code>height</code>. GIFs have no <code>variants</code>. A cropped copy is a document like any other upload.</td></tr>
         <tr><td><code>Settings/misc</code></td><td>The upload settings above</td></tr>
         <tr><td><code>Settings/integrations</code></td><td>The Unsplash keys (admin only)</td></tr>
       </tbody>
@@ -96,9 +113,10 @@
       <thead><tr><th>Cloud Function</th><th>Kind</th><th>Does</th></tr></thead>
       <tbody>
         <tr><td><code>searchUnsplash</code></td><td>Callable</td><td>Searches Unsplash with the key kept server-side, 20 results per page</td></tr>
+        <tr><td><code>readMediaImage</code></td><td>Callable</td><td>Admins only: returns the bytes of an upload's XL file (from its <code>media</code> document, never a path the caller names) so the browser can crop it. GIFs and files over 7 MB are refused.</td></tr>
       </tbody>
     </table>
-    <p>Resizing happens in the browser; no function processes uploads.</p>
+    <p>Resizing and cropping happen in the browser; no function processes uploads. To crop an upload, the browser gets its XL file's bytes through <code>readMediaImage</code>, because a canvas may only export an image its page is allowed to read, and a Storage bucket sends no cross-origin header unless it was given a CORS setup. The crop frame itself shows the image by its normal URL, so it appears at once; the bytes are fetched on <strong>Save cropped copy</strong>.</p>
 
     <h2>Who can do what</h2>
     <table>
@@ -122,6 +140,10 @@
         <tr><td>A size binding such as <code>{{ coverImage_l }}</code> shows a broken image</td><td>The upload was smaller than that size's limit, so that size shares a larger size's file and the derived address has no file. Upload images at least as large as <strong>Max image size</strong>.</td></tr>
         <tr><td>Size bindings are empty</td><td>They are derived only for Media Manager uploads (under <code>mediaImages/</code>, in the install's upload folder if it has one) and for Unsplash photos. An image pasted from elsewhere gets none: bind the stored URL.</td></tr>
         <tr><td>Changing Max image size did nothing to old images</td><td>Settings apply to new uploads only.</td></tr>
+        <tr><td>No <strong>Crop</strong> button</td><td>The image is a GIF, the picker is choosing several images, or it is an Unsplash photo on the Media Manager page itself (crop it in the picker, where it is inserted).</td></tr>
+        <tr><td>"Could not load the image to crop"</td><td>The image's file is gone from Storage or Unsplash, or the network dropped. Reload and try again.</td></tr>
+        <tr><td>"Could not save the cropped image" with a permission or not-found error</td><td>The functions are not deployed since cropping was added (<code>readMediaImage</code> is missing), or the account is not an admin. Deploy the functions.</td></tr>
+        <tr><td>A cropped copy looks soft</td><td>The crop is smaller than the size used where it shows. Crop a larger area, or upload a larger original.</td></tr>
       </tbody>
     </table>
   </main>

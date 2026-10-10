@@ -557,6 +557,25 @@ export type TranslationKey =
     | 'admin.media.api_hint'
     | 'admin.media.api_not_configured'
     | 'admin.media.configure_api'
+    | 'admin.media.crop.apply'
+    | 'admin.media.crop.cropped'
+    | 'admin.media.crop.frame_label'
+    | 'admin.media.crop.image_alt'
+    | 'admin.media.crop.load_failed'
+    | 'admin.media.crop.note_unsplash'
+    | 'admin.media.crop.note_upload'
+    | 'admin.media.crop.ratio'
+    | 'admin.media.crop.ratio_free'
+    | 'admin.media.crop.ratio_original'
+    | 'admin.media.crop.recrop'
+    | 'admin.media.crop.remove'
+    | 'admin.media.crop.result'
+    | 'admin.media.crop.save_copy'
+    | 'admin.media.crop.save_failed'
+    | 'admin.media.crop.saved'
+    | 'admin.media.crop.saving'
+    | 'admin.media.crop.small'
+    | 'admin.media.crop.start'
     | 'admin.media.delete_failed'
     | 'admin.media.dimensions'
     | 'admin.media.drop_hint'
@@ -2448,6 +2467,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.api_hint',
     'admin.media.api_not_configured',
     'admin.media.configure_api',
+    'admin.media.crop.apply',
+    'admin.media.crop.cropped',
+    'admin.media.crop.frame_label',
+    'admin.media.crop.image_alt',
+    'admin.media.crop.load_failed',
+    'admin.media.crop.note_unsplash',
+    'admin.media.crop.note_upload',
+    'admin.media.crop.ratio',
+    'admin.media.crop.ratio_free',
+    'admin.media.crop.ratio_original',
+    'admin.media.crop.recrop',
+    'admin.media.crop.remove',
+    'admin.media.crop.result',
+    'admin.media.crop.save_copy',
+    'admin.media.crop.save_failed',
+    'admin.media.crop.saved',
+    'admin.media.crop.saving',
+    'admin.media.crop.small',
+    'admin.media.crop.start',
     'admin.media.delete_failed',
     'admin.media.dimensions',
     'admin.media.drop_hint',
