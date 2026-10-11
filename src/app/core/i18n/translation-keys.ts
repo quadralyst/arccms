@@ -579,6 +579,10 @@ export type TranslationKey =
     | 'admin.media.delete_failed'
     | 'admin.media.dimensions'
     | 'admin.media.drop_hint'
+    | 'admin.media.editor_library_failed'
+    | 'admin.media.editor_upload_failed'
+    | 'admin.media.editor_upload_failed_reason'
+    | 'admin.media.editor_uploading'
     | 'admin.media.empty'
     | 'admin.media.icons.insert'
     | 'admin.media.icons.load_failed'
@@ -2489,6 +2493,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.delete_failed',
     'admin.media.dimensions',
     'admin.media.drop_hint',
+    'admin.media.editor_library_failed',
+    'admin.media.editor_upload_failed',
+    'admin.media.editor_upload_failed_reason',
+    'admin.media.editor_uploading',
     'admin.media.empty',
     'admin.media.icons.insert',
     'admin.media.icons.load_failed',

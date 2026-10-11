@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Media | Arc CMS docs</title>
   <meta name="description" content="Upload, crop and pick images in the media manager: the four stored sizes, WebP conversion, cropping, Unsplash, Storage paths, limits and rules.">
-  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/services/file-upload.service.ts, src/shared/utils/image-sizes.ts, src/shared/utils/image-crop.ts, src/shared/components/image-cropper, functions/src/shared/image-sizes.ts, functions/src/integrations/searchUnsplash.ts, functions/src/integrations/readMediaImage.ts, src/app/pages/admin/(settings)/misc/misc-settings.model.ts, src/app/core/config/arc-config.ts, storage.rules, firestore.rules">
+  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/services/file-upload.service.ts, src/shared/components/tiptap-editor/service/editor-image-upload.service.ts, src/shared/components/tiptap-editor/service/file-handler-extension.ts, src/shared/utils/image-sizes.ts, src/shared/utils/image-crop.ts, src/shared/components/image-cropper, functions/src/shared/image-sizes.ts, functions/src/integrations/searchUnsplash.ts, functions/src/integrations/readMediaImage.ts, src/app/pages/admin/(settings)/misc/misc-settings.model.ts, src/app/core/config/arc-config.ts, storage.rules, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/media.html">
@@ -25,7 +25,7 @@
     </table>
     <p>Where the picker opens:</p>
     <ul>
-      <li>The content editor: cover image, <code>image</code> fields, images in the body, and rows of gallery and info card fields (a gallery can take several images in one pick).</li>
+      <li>The content editor: cover image, <code>image</code> fields, images in the body, and rows of gallery and info card fields (a gallery can take several images in one pick). An image dropped or pasted into the body goes to the library without the picker; see <a href="#drop-or-paste">Drop or paste into the editor</a>.</li>
       <li>The signup form editor.</li>
       <li>An admin's profile photo. Members upload their photo to their own folder instead (<code>avatars/{uid}/</code>); they never see the library.</li>
     </ul>
@@ -66,6 +66,16 @@
     </table>
     <p>GIFs are stored once, as they are, so animation survives: they have no sizes.</p>
 
+    <h3 id="drop-or-paste">Drop or paste into the editor</h3>
+    <p>Drop an image onto the rich text editor, or paste one (a screenshot, or an image copied in a browser), and it is uploaded exactly as above: the same settings, sizes, WebP conversion and <code>media</code> document, so it shows in <strong>My Uploads</strong>. While it uploads, a box where it was dropped shows the file name and how far the upload has got. The image then goes in at M, the size <strong>Insert image</strong> gives unless you choose. Several images dropped together upload one after another and keep their order.</p>
+    <ul>
+      <li>A file of the wrong type or too large is not added, and a message says why.</li>
+      <li>If the upload worked but its <code>media</code> document could not be saved, the image still goes in, and a message says it is not in My Uploads.</li>
+      <li>A paste that carries text as well, such as cells copied from a spreadsheet or a passage from a word processor, pastes the text, not the picture of it those programs also put on the clipboard.</li>
+      <li>Any other file dropped (such as a PDF) is not uploaded: the editor writes <code>[File: name]</code> where it was dropped.</li>
+    </ul>
+    <p>The editor never puts an image's bytes into the content (as a <code>data:</code> URL): that would make the entry document large, towards Firestore's 1 MiB limit, and skip the sizes.</p>
+
     <h3>Pick an image</h3>
     <p>In the picker, choose an image and a size (S, M, L or XL), then confirm. The field stores that size's URL. Templates can still use any other size of the same image through <code>{{ key_s }}</code> to <code>{{ key_xl }}</code>; see <a href="templates.html#image-sizes">Templates</a>.</p>
 
@@ -96,6 +106,7 @@
     <h2>Extend it</h2>
     <ul>
       <li>Open the picker from your own admin page by opening <code>MediaManagerComponent</code> (in <code>src/app/pages/admin/(media)/media.page.ts</code>) as a dialog with <code>{ isDialogOpen: true }</code>. Options: <code>multiple</code> (several images), <code>size</code> (the preselected size), <code>cropRatio</code> (the ratio the crop frame opens with, such as <code>'1:1'</code> for a square slot; Free when omitted), <code>allowIcons</code> and <code>allowImages</code> (which tabs show). It returns <code>mediaUrl</code>, <code>mediaUrls</code> and <code>size</code>.</li>
+      <li>Upload an image from your own admin code the way a drop into the editor does with <code>EditorImageUploadService.upload(file, onProgress)</code> (in <code>src/shared/components/tiptap-editor/service/editor-image-upload.service.ts</code>). It reads the settings, uploads every size, writes the <code>media</code> document and resolves to the M size's URL; it rejects with a message fit to show for a wrong type or a file too large.</li>
       <li>Files your app lets members upload belong in their own folders under rules you write in <code class="new">storage.app.rules</code>. See <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>.</li>
     </ul>
 
@@ -135,6 +146,8 @@
       <tbody>
         <tr><td>"... exceeds the maximum allowed size"</td><td>The XL file is over the limit. Raise <strong>Max File Size</strong>, or lower <strong>Max image size</strong>.</td></tr>
         <tr><td>"Invalid file type"</td><td>Only JPEG, PNG, WebP and GIF are accepted. Convert SVG, HEIC or other files first.</td></tr>
+        <tr><td>"Could not add photo.jpg: the upload did not finish"</td><td>An image dropped or pasted into the editor could not reach Storage: the network dropped, or the account may not write to Storage. Try again; if it keeps failing, upload it from <strong>Media Manager</strong> to see the full error.</td></tr>
+        <tr><td>"The image is in place, but it could not be added to My Uploads"</td><td>A dropped or pasted image was stored and inserted, but its <code>media</code> document was refused (often the Firestore rules are not deployed). The page shows the image; only the library does not list it.</td></tr>
         <tr><td>Free Images asks for setup</td><td>No Unsplash access key in <strong>Settings &gt; Integrations</strong>.</td></tr>
         <tr><td>Upload fails with a permission error</td><td>The account is not an admin, or the Storage rules are not deployed.</td></tr>
         <tr><td>A size binding such as <code>{{ coverImage_l }}</code> shows a broken image</td><td>The upload was smaller than that size's limit, so that size shares a larger size's file and the derived address has no file. Upload images at least as large as <strong>Max image size</strong>.</td></tr>
