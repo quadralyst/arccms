@@ -133,6 +133,14 @@ describe('EditorImageUploadService', () => {
             });
         });
 
+        it('keeps a file name that looks like HTML as text, since the toast renders HTML', () => {
+            service.showError(new File(['x'], '<img src=x onerror=alert(1)>.png', { type: 'image/png' }), new Error('Failed to load image.'));
+            expect(notify.error).toHaveBeenCalledWith('admin.media.editor_upload_failed', {
+                name: '&#60;img src=x onerror=alert(1)&#62;.png',
+                reason: 'Failed to load image.',
+            });
+        });
+
         it('shows a plain sentence, not a Firebase code, when Storage fails', () => {
             const storageError = Object.assign(new Error('Firebase Storage: An unknown error occurred (storage/unknown)'), { code: 'storage/unknown' });
             service.showError(file, storageError);

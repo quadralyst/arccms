@@ -61,7 +61,9 @@ export class EditorImageUploadService {
         const reason = error instanceof Error && error.message && !firebaseError
             ? error.message
             : this.transloco.translate('admin.media.editor_upload_failed_reason');
-        this.notify.error('admin.media.editor_upload_failed', { name: file.name, reason });
+        // ToastService renders its message as HTML, and a file name is the
+        // admin's to choose: `<img onerror=...>.png` must stay text.
+        this.notify.error('admin.media.editor_upload_failed', { name: escapeHtml(file.name), reason });
     }
 
     /** Read on every upload, so a change in Settings → Misc applies at once. */
@@ -74,4 +76,8 @@ export class EditorImageUploadService {
             return uploadSettingsFromMisc(undefined);
         }
     }
+}
+
+function escapeHtml(text: string): string {
+    return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }

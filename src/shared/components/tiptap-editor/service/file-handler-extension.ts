@@ -73,7 +73,7 @@ export const FileHandlerExtension = Extension.create<FileHandlerOptions>({
           handleDOMEvents: {
             drop: (view: EditorView, event: DragEvent) => {
               const files = Array.from(event.dataTransfer?.files ?? []);
-              if (!files.length) return false;
+              if (!files.length || !view.editable) return false;
 
               event.preventDefault();
               const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? view.state.selection.from;
@@ -84,7 +84,7 @@ export const FileHandlerExtension = Extension.create<FileHandlerOptions>({
               const files = Array.from(event.clipboardData?.files ?? []);
               // Word, Excel and the like put a picture of the copied text on
               // the clipboard beside the text itself: the text is what was meant.
-              if (!files.length || htmlHasText(event.clipboardData?.getData('text/html'))) return false;
+              if (!files.length || !view.editable || htmlHasText(event.clipboardData?.getData('text/html'))) return false;
 
               event.preventDefault();
               handleFiles(view, files, view.state.selection.from, options);

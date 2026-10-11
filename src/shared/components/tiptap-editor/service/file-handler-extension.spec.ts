@@ -218,6 +218,15 @@ describe('FileHandlerExtension', () => {
         expect(editor.getText()).toContain('[File: brochure.pdf]');
     });
 
+    it('uploads nothing into a read-only editor', () => {
+        makeEditor({ uploadImage, onUploadError });
+        editor.setEditable(false);
+
+        expect(drop([imageFile()]).handled).toBe(false);
+        expect(paste([imageFile()])).toBe(false);
+        expect(uploadImage).not.toHaveBeenCalled();
+    });
+
     it('lets a drop with no files through (text, or an image moved inside the editor)', () => {
         makeEditor({ uploadImage, onUploadError });
         expect(drop([]).handled).toBe(false);
