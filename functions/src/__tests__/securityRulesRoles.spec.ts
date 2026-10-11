@@ -87,10 +87,16 @@ describe('firestore.rules: users', () => {
 describe('firestore.rules: content writes are staff only', () => {
     const rules = effective('firestore.rules');
 
-    it.each(['/ContentTypes/{docId}', '/media/{docId}', '/_publish_queue/{docId}'])('%s', (p) => {
+    it.each(['/ContentTypes/{docId}', '/media/{docId}', '/mediaFiles/{docId}', '/_publish_queue/{docId}'])('%s', (p) => {
         const block = matchBlock(rules, p);
-        expect(block).toMatch(/allow write:\s*if isEditor\(\);/);
-        expect(block).not.toMatch(/allow write:\s*if isAuthenticated\(\);/);
+        expect(block).toMatch(/allow (read, )?write:\s*if isEditor\(\);/);
+        expect(block).not.toMatch(/allow (read, )?write:\s*if isAuthenticated\(\);/);
+    });
+
+    // Staff notes live in media details (MF-D24): nobody else reads them.
+    it.each(['/media/{docId}', '/mediaFiles/{docId}'])('%s is read by staff only', (p) => {
+        expect(matchBlock(rules, p)).toMatch(/allow read, write:\s*if isEditor\(\);/);
+        expect(matchBlock(rules, p)).not.toMatch(/allow read: if true/);
     });
 
     it('arc_* and Tags_* writes need isEditor()', () => {

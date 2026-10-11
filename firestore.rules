@@ -130,13 +130,17 @@ service cloud.firestore {
       }
     }
 
-    // Media metadata - images displayed on public pages. Staff write: the
-    // media library is an admin tool. Members set a profile photo through
-    // their own storage folder (storage.rules, avatars/{uid}) and never
-    // create media documents.
+    // Media library details: images (media) and documents (mediaFiles).
+    // Staff only, read and write: the library is an admin tool, and staff
+    // notes live here. Pages never read these documents; they use the
+    // files' own URLs, which Storage serves to anyone (storage.rules).
+    // Members set a profile photo through their own storage folder
+    // (storage.rules, avatars/{uid}) and never create media documents.
     match /media/{docId} {
-      allow read: if true;
-      allow write: if isEditor();
+      allow read, write: if isEditor();
+    }
+    match /mediaFiles/{docId} {
+      allow read, write: if isEditor();
     }
 
     // Email lookup - SHA-256 hashed emails for signup flow

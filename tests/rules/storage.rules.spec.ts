@@ -11,7 +11,8 @@ import {
     initializeTestEnvironment,
     RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { deleteObject, getBytes, ref, uploadBytes } from 'firebase/storage';
+import { deleteObject, getBytes, ref, updateMetadata, uploadBytes } from 'firebase/storage';
+import { ALLOWED_FILES, MAX_FILE_BYTES } from '../../src/shared/utils/media-files';
 
 let env: RulesTestEnvironment;
 
@@ -125,5 +126,49 @@ describe('per-user folders (docs/app/account-contract.html)', () => {
     it('leave everything else public, under the upload folder and at the root', async () => {
         await assertSucceeds(getBytes(ref(anon(), 'arccms/mediaImages/site.png')));
         await assertSucceeds(getBytes(ref(anon(), 'root.png')));
+    });
+});
+
+describe('library files (docs/features/media.html, Files)', () => {
+    const editor = () => env.authenticatedContext('editor-uid', { arccms_role: 'editor' }).storage();
+    const pdf = { contentType: 'application/pdf' };
+
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await uploadBytes(ref(ctx.storage(), 'mediaFiles/report-abc123.pdf'), png, pdf);
+        });
+    });
+
+    it('take every allowed extension with its own content type, at the root and under the upload folder', async () => {
+        for (const file of ALLOWED_FILES) {
+            await assertSucceeds(uploadBytes(ref(admin(), `mediaFiles/a-x1y2z3.${file.extension}`), png, { contentType: file.contentType }));
+            await assertSucceeds(uploadBytes(ref(editor(), `arccms/mediaFiles/a-x1y2z3.${file.extension}`), png, { contentType: file.contentType }));
+        }
+        await assertSucceeds(uploadBytes(ref(admin(), 'mediaFiles/a-x1y2z3-thumb.jpg'), png, { contentType: 'image/jpeg' }));
+    });
+
+    it('refuse a type the extension does not match, and anything not on the list', async () => {
+        await assertFails(uploadBytes(ref(admin(), 'mediaFiles/page.pdf'), png, { contentType: 'text/html' }));
+        await assertFails(uploadBytes(ref(admin(), 'mediaFiles/page.html'), png, { contentType: 'text/html' }));
+        await assertFails(uploadBytes(ref(admin(), 'mediaFiles/logo.svg'), png, { contentType: 'image/svg+xml' }));
+        await assertFails(uploadBytes(ref(admin(), 'mediaFiles/all.zip'), png, { contentType: 'application/zip' }));
+        await assertFails(uploadBytes(ref(admin(), 'mediaFiles/macro.docm'), png, { contentType: 'application/vnd.ms-word.document.macroEnabled.12' }));
+        await assertFails(uploadBytes(ref(admin(), 'mediaFiles/photo.jpg'), png, { contentType: 'image/jpeg' }));
+        await assertFails(uploadBytes(ref(admin(), 'arccms/mediaFiles/page.html'), png, { contentType: 'text/html' }));
+        await assertFails(uploadBytes(ref(admin(), 'mediaFiles/nested/a.pdf'), png, pdf));
+    });
+
+    it('refuse a file over 20 MB', async () => {
+        const big = new Uint8Array(MAX_FILE_BYTES + 1);
+        await assertFails(uploadBytes(ref(admin(), 'mediaFiles/big.pdf'), big, pdf));
+    }, 60_000);
+
+    it('are written and deleted by staff only, and read by anyone', async () => {
+        await assertFails(uploadBytes(ref(alice(), 'mediaFiles/a.pdf'), png, pdf));
+        await assertFails(uploadBytes(ref(hostAdmin(), 'mediaFiles/a.pdf'), png, pdf));
+        await assertFails(deleteObject(ref(alice(), 'mediaFiles/report-abc123.pdf')));
+        await assertSucceeds(getBytes(ref(anon(), 'mediaFiles/report-abc123.pdf')));
+        await assertSucceeds(updateMetadata(ref(editor(), 'mediaFiles/report-abc123.pdf'), { contentDisposition: 'inline; filename="Report.pdf"' }));
+        await assertSucceeds(deleteObject(ref(editor(), 'mediaFiles/report-abc123.pdf')));
     });
 });

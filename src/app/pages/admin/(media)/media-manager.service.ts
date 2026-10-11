@@ -3,7 +3,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { Functions } from '@angular/fire/functions';
 import { DbService } from '../../../../shared/services/db.service';
 import { IMediaManager } from './media-manager.model';
-import { collection, doc, Firestore, getCountFromServer, getDoc, limit, onSnapshot, orderBy, query, startAfter } from '@angular/fire/firestore';
+import { collection, doc, Firestore, getCountFromServer, getDoc, getDocs, limit, onSnapshot, orderBy, query, startAfter, updateDoc } from '@angular/fire/firestore';
 import { DocumentSnapshot } from '@angular/fire/firestore';
 import { from, map, Observable, of, switchMap, take } from 'rxjs';
 import { arcCallable } from '../../../core/config/arc-functions';
@@ -79,6 +79,23 @@ export class MediaManagerService extends DbService<IMediaManager> {
     }
 
     /**
+     * Every upload's details, newest first, for the library search box
+     * (MF-D23). Firestore has no word search, so the browser filters these.
+     */
+    async getAllMediaForSearch(): Promise<LibraryImage[]> {
+        if (!isPlatformBrowser(this.platform)) return [];
+        return runInInjectionContext(this.injector, async () => {
+            const snapshot = await getDocs(query(collection(this.db, 'media'), orderBy('uploadTime', 'desc')));
+            return snapshot.docs.map((d) => toLibraryImage(d.id, d.data()));
+        });
+    }
+
+    /** Saves an upload's title, alt text or notes from the side panel (MF-D21). */
+    async saveMediaDetails(id: string, change: { title?: string; alt?: string; notes?: string }): Promise<void> {
+        await runInInjectionContext(this.injector, () => updateDoc(doc(this.db, 'media', id), { ...change, modifiedAt: new Date() }));
+    }
+
+    /**
      * Live media list, page by page.
      *
      * Skips Firestore entirely during SSR — no auth context available, and the
@@ -105,14 +122,7 @@ export class MediaManagerService extends DbService<IMediaManager> {
 
         const changesObservable = new Observable<{ mediaList: any[], lastDoc: DocumentSnapshot | undefined }>(observer => {
             const unsubscribe = runInInjectionContext(this.injector, () => onSnapshot(q, snapshot => {
-                const mediaList = snapshot.docs.map((doc: any) => ({
-                    id: doc.id,
-                    url: doc.data().downloadURL,
-                    name: doc.data().name,
-                    uploadTime: doc.data().uploadTime?.toDate?.() ?? doc.data().uploadTime,
-                    // Absent on uploads from before sizes existed.
-                    variants: doc.data().variants,
-                }));
+                const mediaList = snapshot.docs.map((d: any) => toLibraryImage(d.id, d.data()));
                 const lastDoc = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : undefined;
                 observer.next({ mediaList, lastDoc });
             }, error => observer.error(error)));
@@ -140,4 +150,31 @@ export class MediaManagerService extends DbService<IMediaManager> {
             )
         );
     }
+}
+
+/** An upload as the library shows it. */
+export interface LibraryImage {
+    id: string;
+    url: string;
+    name?: string;
+    title?: string;
+    alt?: string;
+    notes?: string;
+    uploadTime?: Date;
+    variants?: IMediaManager['variants'];
+}
+
+/** A `media` document as the library shows it. */
+export function toLibraryImage(id: string, data: Record<string, any>): LibraryImage {
+    return {
+        id,
+        url: data['downloadURL'],
+        name: data['name'],
+        title: data['title'],
+        alt: data['alt'],
+        notes: data['notes'],
+        uploadTime: data['uploadTime']?.toDate?.() ?? data['uploadTime'],
+        // Absent on uploads from before sizes existed.
+        variants: data['variants'],
+    };
 }

@@ -345,6 +345,7 @@
       <tbody>
         <tr><td><code>searchUnsplash</code></td><td>Callable</td><td>The media manager, signed in</td><td>Searches Unsplash images with the key kept on the server.</td></tr>
         <tr><td><code>readMediaImage</code></td><td>Callable</td><td>The media manager's <strong>Save cropped copy</strong>, admins only</td><td>Returns an upload's XL file as bytes, so the browser can crop it whatever the bucket's CORS setup.</td></tr>
+        <tr><td><code>readMediaFile</code></td><td>Callable</td><td>The media manager's <strong>Take an image</strong> on a library PDF, admins only</td><td>Returns the PDF in 6 MB parts (base64, with the offset and total), so the browser can draw its pages whatever the bucket's CORS setup. PDFs up to 20 MB, from the <code>mediaFiles</code> document only.</td></tr>
       </tbody>
     </table>
 

@@ -20,8 +20,8 @@
       <tbody>
         <tr><td>Export Data</td><td><code>/admin/data/export-data</code></td><td>Downloads chosen Firestore collections as one JSON file</td></tr>
         <tr><td>Import Data</td><td><code>/admin/data/import-data</code></td><td>Writes the collections of such a file back into Firestore</td></tr>
-        <tr><td>Export Files</td><td><code>/admin/data/export-files</code></td><td>Downloads media library files as a ZIP with a manifest</td></tr>
-        <tr><td>Import Files</td><td><code>/admin/data/import-files</code></td><td>Uploads files to Storage and adds them to the media library</td></tr>
+        <tr><td>Export Files</td><td><code>/admin/data/export-files</code></td><td>Downloads media library images and files as a ZIP with a manifest</td></tr>
+        <tr><td>Import Files</td><td><code>/admin/data/import-files</code></td><td>Uploads files to Storage and adds them to the media library; documents go to its Files</td></tr>
       </tbody>
     </table>
     <p>Everything runs in the admin's browser, with the admin's own permissions. There are no Cloud Functions involved.</p>
@@ -90,18 +90,18 @@
     <div class="trap"><p>Importing <code>users</code> into another Firebase project creates the records but not the sign-in accounts, so those people cannot sign in until their accounts exist again. See <a href="users-and-roles.html">Users and roles</a>.</p></div>
 
     <h3>Export files</h3>
-    <p><strong>Data &gt; Export Files</strong> lists the media library. Select items and download <code>arccms-media-{date}.zip</code>: one file per item (the largest stored size) and <code>media-manifest.json</code> with each item's name, URL, Storage path and upload time.</p>
+    <p><strong>Data &gt; Export Files</strong> lists the media library: its images, then its files (PDFs and other documents, shown with their first page or an icon). Select items and download <code>arccms-media-{date}.zip</code>: one file per item (the largest stored size of an image) and <code>media-manifest.json</code> with each item's name, URL, Storage path and upload time, its title, alt text and notes when it has them, and <code>"collection": "mediaFiles"</code> for a file.</p>
 
     <h3>Import files</h3>
     <p><strong>Data &gt; Import Files</strong> has two modes:</p>
     <table>
       <thead><tr><th>Mode</th><th>Does</th></tr></thead>
       <tbody>
-        <tr><td>Upload new files (recommended)</td><td>Choose files and a <strong>Storage path prefix</strong> (default <code>mediaImages/</code>). Each file is uploaded under it.</td></tr>
-        <tr><td>Restore from manifest</td><td>Choose a <code>media-manifest.json</code> and the files. Files are matched by the <code>name</code> in the manifest and uploaded to the path it records.</td></tr>
+        <tr><td>Upload new files (recommended)</td><td>Choose files and a <strong>Storage path prefix</strong> (default <code>mediaImages/</code>). Each file is uploaded under it. A document the library takes (PDF, Word, Excel, PowerPoint, CSV, text) goes to the library's Files instead, whatever the prefix, stored the way the Files tab stores it, with a fresh first-page picture for a PDF.</td></tr>
+        <tr><td>Restore from manifest</td><td>Choose a <code>media-manifest.json</code> and the files. Files are matched by the <code>name</code> in the manifest and uploaded to the path it records, with the title, alt text and notes it carries. A library file goes back to Files with its title and notes.</td></tr>
       </tbody>
     </table>
-    <p>With <strong>Update media collection metadata</strong> ticked (the default), each uploaded file also gets a new media record, with a new id. Unzip the export first: the screen takes files, not the ZIP. Imported files are stored as they are, at one size.</p>
+    <p>With <strong>Update media collection metadata</strong> ticked (the default), each uploaded file also gets a new media record (a <code>mediaFiles</code> record for a document), with a new id. Unzip the export first: the screen takes files, not the ZIP. Imported files are stored as they are, at one size.</p>
     <div class="trap"><p>Content stores full image URLs. After moving to another project, entries still point at the old project's Storage, so images keep working only while the old files exist. Re-pick the images in the editor if the old project goes away.</p></div>
 
     <h2>Extend it</h2>

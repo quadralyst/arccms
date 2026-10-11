@@ -18,6 +18,8 @@ import TiptapEditorComponent from '../../../../../shared/components/tiptap-edito
 import { TagsStore } from '../content-types/tags/tags.store';
 import { ITag } from '../content-types/tags/tags.model';
 import MediaManagerComponent, { MediaSelection } from '../../(media)/media.page';
+import { fileMeta, MEDIA_FILE_TYPE_ICONS, MediaFileRef, toFileRows } from '../../../../../shared/utils/media-files';
+import { summaryPlainText } from '../../../../../shared/utils/summary-text';
 import { ArcIcon, isArcIcon } from '../../../../../shared/models/icon.model';
 import { FieldRepeaterComponent } from '../../../../../shared/components/field-repeater/field-repeater.component';
 import { ResizableDirective } from '../../../../../shared/directives/resizable/resizable.directive';
@@ -402,6 +404,70 @@ export class CreateContentComponent extends BaseComponent {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  /** The files of a `file` field: always a list (MF-D18), whatever was stored. */
+  fieldFiles(fieldKey: string): MediaFileRef[] {
+    return toFileRows(this.customFieldValues[fieldKey]);
+  }
+
+  readonly fileIcons = MEDIA_FILE_TYPE_ICONS;
+
+  fileRowMeta(file: MediaFileRef): string {
+    return fileMeta(file);
+  }
+
+  /**
+   * Opens the Media Manager on its Files tab for a `file` field
+   * (docs/features/content.html, File). `replace` swaps one file for
+   * another; otherwise the picked files are added, or replace the one file
+   * of a single-file field.
+   */
+  openFilePickerForField(field: { key: string; multiple?: boolean }, replace?: number): void {
+    const several = field.multiple === true && replace === undefined;
+    const dialogRef = this.dialog.open(MediaManagerComponent, {
+      enterAnimationDuration: '450ms',
+      exitAnimationDuration: '300ms',
+      minWidth: '134vh',
+      maxHeight: '90vh',
+      panelClass: 'common-dialog-box',
+      disableClose: true,
+      data: { isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files', multiple: several },
+    });
+
+    dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
+      if (result?.type !== 'submit' || result.kind !== 'file') return;
+      const picked = toFileRows(result.files ?? (result.file ? [result.file] : []));
+      if (!picked.length) return;
+      let rows = this.fieldFiles(field.key);
+      if (replace !== undefined) {
+        rows[replace] = picked[0];
+      } else if (field.multiple) {
+        const have = new Set(rows.map((r) => r.url));
+        rows = [...rows, ...picked.filter((p) => !have.has(p.url))];
+      } else {
+        rows = [picked[0]];
+      }
+      this.customFieldValues[field.key] = rows;
+      this.cdr.detectChanges();
+    });
+  }
+
+  removeFieldFile(fieldKey: string, index: number): void {
+    const rows = this.fieldFiles(fieldKey);
+    rows.splice(index, 1);
+    this.customFieldValues[fieldKey] = rows;
+    this.cdr.detectChanges();
+  }
+
+  /** Moves a file up (-1) or down (1) in a several-files field. */
+  moveFieldFile(fieldKey: string, index: number, step: -1 | 1): void {
+    const rows = this.fieldFiles(fieldKey);
+    const to = index + step;
+    if (to < 0 || to >= rows.length) return;
+    [rows[index], rows[to]] = [rows[to], rows[index]];
+    this.customFieldValues[fieldKey] = rows;
+    this.cdr.detectChanges();
   }
 
   /**
@@ -1697,9 +1763,7 @@ export class CreateContentComponent extends BaseComponent {
   public passEditorContentToParent(event: any): void {
     this.publishForm.get('content')?.setValue(event);
 
-    const plainText = (event || '')
-      .replace(/<[^>]*>/g, '')
-      .replace(/&nbsp;/g, ' ');
+    const plainText = summaryPlainText(event || '');
     const words = plainText.trim().split(/\s+/);
     // Use characters for summary instead of words, as requested (first 100 chars)
     const summaryText = plainText.trim().substring(0, 100).trim();

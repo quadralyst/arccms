@@ -4,6 +4,7 @@ import { TemplateContext } from '../models/cms.types';
 import { youTubeVideo } from '../../../shared/utils/youtube';
 import { parseHexColor } from '../../../shared/utils/color';
 import { DEFAULT_MAX_IMAGE_SIZE, imageSizeUrls, IMAGE_SIZES } from '../../../shared/utils/image-sizes';
+import { fileLoopRow, fileSiblings, isFileList, isFileRow } from '../../../shared/utils/file-rows';
 import { renderLocation } from '../../../shared/utils/geo';
 import { plainTextHtml } from '../../../shared/utils/plain-text';
 import { addressHtml, hasSiteInfo, mailHref, siteInfoValue, SiteInfoSource, siteLoopRows, telHref } from '../../../shared/utils/site-info';
@@ -186,6 +187,29 @@ export class TemplateHydrationService {
   }
 
   /**
+   * Adds the first file of a `file` field beside the field, so a template
+   * can link one file without a loop (docs/features/templates.html, File
+   * fields):
+   *
+   *   <a href="{{ brochure_url }}">{{ brochure_title }}</a> ({{ brochure_type }}, {{ brochure_size }})
+   *
+   * Keyed on the value's shape (a list whose every row has a `url` and a
+   * number `bytes`, file-rows.ts), like flattenImageSizes. Every file is in
+   * the loop of the same name (arrayLoopData). The stored value is left as is.
+   */
+  private static flattenFiles(data: TemplateContext): TemplateContext {
+    if (!data) return data;
+
+    let result = data;
+    for (const [key, value] of Object.entries(data)) {
+      if (!isFileList(value)) continue;
+      if (result === data) result = { ...data };
+      Object.assign(result, fileSiblings(key, value));
+    }
+    return result;
+  }
+
+  /**
    * Expands a stored colour into the forms a stylesheet wants.
    *
    * A `color` field stores a hex string, so `{{ brand }}` already works as a
@@ -305,6 +329,8 @@ export class TemplateHydrationService {
     data = this.flattenColors(data);
     // Image URLs gain their other sizes. See flattenImageSizes.
     data = this.flattenImageSizes(data);
+    // A file field's first file gains its own bindings. See flattenFiles.
+    data = this.flattenFiles(data);
     // Coordinates gain their map embed and directions link. See flattenLocations.
     data = this.flattenLocations(data);
     // An FAQ answer gains its HTML. See flattenAnswers.
@@ -628,9 +654,11 @@ export class TemplateHydrationService {
       const rows = value.filter((row) => !!row && typeof row === 'object');
       if (rows.length !== value.length) continue;
 
-      const ordered = rows.every((row) => typeof row['position'] === 'number')
+      const sorted = rows.every((row) => typeof row['position'] === 'number')
         ? [...rows].sort((a, b) => a['position'] - b['position'])
         : rows;
+      // A file field's rows read as {{ title }}, {{ type }} ("PDF"), {{ size }} ("2.3 MB").
+      const ordered = sorted.every(isFileRow) ? sorted.map(fileLoopRow) : sorted;
 
       loops[key] = ordered;
 

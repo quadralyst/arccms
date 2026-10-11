@@ -9,6 +9,7 @@ import { NEVER, of } from 'rxjs';
 import MediaManagerComponent, { MediaDialogData } from './media.page';
 import { MediaManagerService } from './media-manager.service';
 import { MediaManagerStore } from './media-manager.store';
+import { MediaFilesService } from './media-files.service';
 import { FileUploadService } from '../../../../shared/services/file-upload.service';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { GlobalService } from '../../../../shared/services/global.service';
@@ -105,6 +106,7 @@ describe('MediaManagerComponent cropping', () => {
                 { provide: Router, useValue: { navigate: vi.fn() } },
                 { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => null }), snapshot: { paramMap: { get: () => null } } } },
                 { provide: Firestore, useValue: {} },
+                { provide: MediaFilesService, useValue: { listPage: vi.fn().mockResolvedValue({ items: [], totalItems: 0 }), listAll: vi.fn().mockResolvedValue([]), pdfBytes: vi.fn(), addBatch: vi.fn(() => of([])), saveDetails: vi.fn(), deleteFile: vi.fn(), rememberBytes: vi.fn() } },
                 ConstantVariables,
             ],
         }).compileComponents();

@@ -1,0 +1,59 @@
+@let f = file();
+<div class="preview-container file-preview-container">
+    @if (f.thumbnail?.url) {
+    <img [src]="f.thumbnail!.url" alt="">
+    } @else {
+    <i [class]="(icons[f.type] || 'fa-solid fa-file') + ' file-preview-icon'" aria-hidden="true"></i>
+    }
+</div>
+
+<div class="preview-metadata">
+    <div class="metadata-row">
+        <span class="metadata-label">{{ 'admin.media.files.type' | transloco }}</span>
+        <span class="metadata-value">{{ typeLabels[f.type] }}</span>
+    </div>
+    <div class="metadata-row">
+        <span class="metadata-label">{{ 'admin.media.files.size' | transloco }}</span>
+        <span class="metadata-value">{{ size(f) }}</span>
+    </div>
+    @if (f.pages) {
+    <div class="metadata-row">
+        <span class="metadata-label">{{ 'admin.media.files.pages' | transloco }}</span>
+        <span class="metadata-value">{{ f.pages }}</span>
+    </div>
+    }
+    @if (f.uploadTime) {
+    <div class="metadata-row">
+        <span class="metadata-label">{{ 'admin.media.uploaded' | transloco }}</span>
+        <span class="metadata-value">{{ f.uploadTime | date:'medium' }}</span>
+    </div>
+    }
+    <div class="metadata-row">
+        <span class="metadata-label">{{ 'common.table.name' | transloco }}</span>
+        <span class="metadata-value" [title]="f.name">{{ f.name }}</span>
+    </div>
+</div>
+
+<arc-media-details [item]="f" [fallbackTitle]="f.name" (changed)="save($event)"></arc-media-details>
+
+<div class="file-panel-actions">
+    <button type="button" class="btn btn-outline-secondary btn-sm" id="fileCopyLinkBtn" (click)="copyLink()">
+        <i class="fas fa-link me-1" aria-hidden="true"></i>{{ 'admin.media.files.copy_link' | transloco }}
+    </button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" id="fileOpenBtn" (click)="open()">
+        <i class="fas fa-external-link-alt me-1" aria-hidden="true"></i>{{ 'admin.media.files.open' | transloco }}
+    </button>
+    <button type="button" class="btn btn-outline-danger btn-sm" id="fileDeleteBtn" [disabled]="deleting() || busy()" (click)="confirmDelete()">
+        <i class="fas fa-trash me-1" aria-hidden="true"></i>{{ 'common.actions.delete' | transloco }}
+    </button>
+</div>
+
+@if (f.type === 'pdf') {
+@if (canTakeImage()) {
+<button type="button" class="btn btn-secondary btn-crop file-take-image" id="fileTakeImageBtn" [disabled]="busy()" (click)="takeImage.emit(f)">
+    <i class="fas fa-crop-simple me-1 fs-6" aria-hidden="true"></i>{{ 'admin.media.files.take_image' | transloco }}
+</button>
+}
+} @else if (f.type === 'word' || f.type === 'powerpoint') {
+<p class="file-panel-hint">{{ 'admin.media.files.take_image_save_as_pdf' | transloco }}</p>
+}

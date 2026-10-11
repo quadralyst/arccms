@@ -200,6 +200,14 @@
                 </div>
             </div>
 
+            @if(field.get('type')?.value === 'file') {
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" formControlName="multiple" [id]="'field-multiple-' + fieldIndex" />
+                <label class="form-check-label" [for]="'field-multiple-' + fieldIndex">{{ 'admin.contents.types.form.several_files' | transloco }}</label>
+                <small class="text-muted d-block">{{ 'admin.contents.types.form.several_files_hint' | transloco }}</small>
+            </div>
+            }
+
             @if(['dropdown', 'multiselect', 'checkbox', 'radio'].includes(field.get('type')?.value)) {
 
             <!-- Toggle: Manual Options vs Collection Reference -->

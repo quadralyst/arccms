@@ -77,6 +77,7 @@ export function mapFieldWithCollectionRef(
         options: field.options || '',
         useCollectionRef: field.useCollectionRef || false,
     };
+    if (field.type === 'file' && field.multiple) fieldData.multiple = true;
 
     if (field.useCollectionRef && field.collectionRefSlug) {
         const refCt = contentTypesStore.items().find((c) => c.slug === field.collectionRefSlug);

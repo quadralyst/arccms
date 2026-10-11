@@ -74,19 +74,19 @@
 
                         <!-- Thumbnail -->
                         <div class="card-thumbnail">
-                            @if (item.downloadURL) {
-                                <img [src]="item.downloadURL" [alt]="item.name"
+                            @if (item.collection === 'mediaFiles' ? item.previewURL : item.downloadURL) {
+                                <img [src]="item.collection === 'mediaFiles' ? item.previewURL : item.downloadURL" [alt]="item.name"
                                      loading="lazy"
                                      (error)="$any($event.target).style.display='none'">
                             }
                             <div class="thumbnail-fallback">
-                                <i class="fa-solid fa-image"></i>
+                                <i [class]="item.collection === 'mediaFiles' ? 'fa-solid fa-file' : 'fa-solid fa-image'"></i>
                             </div>
                         </div>
 
                         <!-- Info -->
                         <div class="card-info">
-                            <span class="media-name" [title]="item.name">{{ item.name }}</span>
+                            <span class="media-name" [title]="item.title || item.name">{{ item.title || item.name }}</span>
                             <span class="media-path">{{ item.storagePath }}</span>
                             @if (item.uploadTime) {
                                 <span class="media-date">{{ formatUploadDate(item.uploadTime) }}</span>

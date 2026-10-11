@@ -793,6 +793,41 @@
                             </div>
                             }
 
+                            <!-- File (media modal, Files tab): always a list of files (MF-D18) -->
+                            @else if (field.type === 'file') {
+                            <div class="custom-file-field">
+                                @for (file of fieldFiles(field.key); track file.url; let i = $index; let first = $first; let last = $last) {
+                                <div class="custom-file-row">
+                                    <i [class]="fileIcons[file.type] || 'fa-solid fa-file'" aria-hidden="true"></i>
+                                    <div class="custom-file-text">
+                                        <a [href]="file.url" target="_blank" rel="noopener" class="custom-file-title">{{ file.title }}</a>
+                                        <span class="custom-file-meta">{{ fileRowMeta(file) }}</span>
+                                    </div>
+                                    <div class="custom-file-actions">
+                                        @if (field.multiple) {
+                                        <button type="button" class="btn btn-link btn-sm" [disabled]="first" (click)="moveFieldFile(field.key, i, -1)"
+                                            [attr.aria-label]="'admin.contents.editor.move_up' | transloco"><i class="fa-solid fa-arrow-up"></i></button>
+                                        <button type="button" class="btn btn-link btn-sm" [disabled]="last" (click)="moveFieldFile(field.key, i, 1)"
+                                            [attr.aria-label]="'admin.contents.editor.move_down' | transloco"><i class="fa-solid fa-arrow-down"></i></button>
+                                        }
+                                        <button type="button" class="btn btn-outline-primary btn-sm" (click)="openFilePickerForField(field, i)">
+                                            {{ 'admin.contents.editor.change' | transloco }}
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeFieldFile(field.key, i)">
+                                            {{ 'common.actions.remove' | transloco }}
+                                        </button>
+                                    </div>
+                                </div>
+                                }
+                                @if (!fieldFiles(field.key).length || field.multiple) {
+                                <button type="button" class="btn btn-outline-primary btn-sm" (click)="openFilePickerForField(field)">
+                                    <i class="fa-solid fa-paperclip me-1" aria-hidden="true"></i>
+                                    {{ (fieldFiles(field.key).length ? 'admin.contents.editor.add_file' : 'admin.contents.editor.choose_file') | transloco }}
+                                </button>
+                                }
+                            </div>
+                            }
+
                             <!-- Icon (media modal, Icons tab) -->
                             @else if (field.type === 'icon') {
                             <div class="custom-icon-field">

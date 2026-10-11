@@ -178,6 +178,7 @@ export type TranslationKey =
     | 'admin.contents.checklist.title'
     | 'admin.contents.checklist.title_length'
     | 'admin.contents.checklist.title_length_fix'
+    | 'admin.contents.editor.add_file'
     | 'admin.contents.editor.add_reference'
     | 'admin.contents.editor.author'
     | 'admin.contents.editor.author_hint'
@@ -185,6 +186,7 @@ export type TranslationKey =
     | 'admin.contents.editor.auto_saved'
     | 'admin.contents.editor.back_to_editor'
     | 'admin.contents.editor.change'
+    | 'admin.contents.editor.choose_file'
     | 'admin.contents.editor.clear_translation'
     | 'admin.contents.editor.clear_updated'
     | 'admin.contents.editor.click_to_select_icon'
@@ -216,6 +218,8 @@ export type TranslationKey =
     | 'admin.contents.editor.map.search_placeholder'
     | 'admin.contents.editor.mark_updated_today'
     | 'admin.contents.editor.meta_description'
+    | 'admin.contents.editor.move_down'
+    | 'admin.contents.editor.move_up'
     | 'admin.contents.editor.next_content_hint'
     | 'admin.contents.editor.no_content_found'
     | 'admin.contents.editor.no_cover_image'
@@ -363,6 +367,8 @@ export type TranslationKey =
     | 'admin.contents.types.form.search_fields_none'
     | 'admin.contents.types.form.select_collection'
     | 'admin.contents.types.form.select_display_field'
+    | 'admin.contents.types.form.several_files'
+    | 'admin.contents.types.form.several_files_hint'
     | 'admin.contents.types.form.singular_hint'
     | 'admin.contents.types.form.singular_name'
     | 'admin.contents.types.form.singular_placeholder'
@@ -577,13 +583,47 @@ export type TranslationKey =
     | 'admin.media.crop.small'
     | 'admin.media.crop.start'
     | 'admin.media.delete_failed'
+    | 'admin.media.details.alt'
+    | 'admin.media.details.alt_hint'
+    | 'admin.media.details.notes'
+    | 'admin.media.details.notes_hint'
+    | 'admin.media.details.save_failed'
+    | 'admin.media.details.title'
     | 'admin.media.dimensions'
     | 'admin.media.drop_hint'
+    | 'admin.media.editor_file_library_failed'
     | 'admin.media.editor_library_failed'
     | 'admin.media.editor_upload_failed'
     | 'admin.media.editor_upload_failed_reason'
     | 'admin.media.editor_uploading'
     | 'admin.media.empty'
+    | 'admin.media.files.copy_link'
+    | 'admin.media.files.delete_confirm'
+    | 'admin.media.files.delete_failed'
+    | 'admin.media.files.empty'
+    | 'admin.media.files.error_size'
+    | 'admin.media.files.error_type'
+    | 'admin.media.files.insert'
+    | 'admin.media.files.insert_count'
+    | 'admin.media.files.link_copied'
+    | 'admin.media.files.link_copy_failed'
+    | 'admin.media.files.load_failed'
+    | 'admin.media.files.metadata_failed'
+    | 'admin.media.files.moved_to_files'
+    | 'admin.media.files.none_selected'
+    | 'admin.media.files.not_here'
+    | 'admin.media.files.open'
+    | 'admin.media.files.pages'
+    | 'admin.media.files.public_note'
+    | 'admin.media.files.selected'
+    | 'admin.media.files.size'
+    | 'admin.media.files.supports'
+    | 'admin.media.files.take_image'
+    | 'admin.media.files.take_image_save_as_pdf'
+    | 'admin.media.files.type'
+    | 'admin.media.files.upload'
+    | 'admin.media.files.upload_failed'
+    | 'admin.media.files.uploading'
     | 'admin.media.icons.insert'
     | 'admin.media.icons.load_failed'
     | 'admin.media.icons.loading'
@@ -603,10 +643,32 @@ export type TranslationKey =
     | 'admin.media.icons.tab'
     | 'admin.media.insert'
     | 'admin.media.insert_count'
+    | 'admin.media.library_search'
+    | 'admin.media.library_search_clear'
+    | 'admin.media.library_search_none'
     | 'admin.media.load_failed'
     | 'admin.media.logo_alt'
     | 'admin.media.metadata_failed'
     | 'admin.media.open_full'
+    | 'admin.media.pdf.all_pages'
+    | 'admin.media.pdf.done'
+    | 'admin.media.pdf.drawing_page'
+    | 'admin.media.pdf.image_title'
+    | 'admin.media.pdf.keep_in_files'
+    | 'admin.media.pdf.locked'
+    | 'admin.media.pdf.note_library'
+    | 'admin.media.pdf.note_local'
+    | 'admin.media.pdf.opening'
+    | 'admin.media.pdf.page_failed'
+    | 'admin.media.pdf.page_label'
+    | 'admin.media.pdf.pages_hint'
+    | 'admin.media.pdf.read_failed'
+    | 'admin.media.pdf.reading'
+    | 'admin.media.pdf.save'
+    | 'admin.media.pdf.save_failed'
+    | 'admin.media.pdf.saved'
+    | 'admin.media.pdf.saved_count'
+    | 'admin.media.pdf.unreadable'
     | 'admin.media.search_failed'
     | 'admin.media.search_placeholder'
     | 'admin.media.searching'
@@ -2092,6 +2154,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.checklist.title',
     'admin.contents.checklist.title_length',
     'admin.contents.checklist.title_length_fix',
+    'admin.contents.editor.add_file',
     'admin.contents.editor.add_reference',
     'admin.contents.editor.author',
     'admin.contents.editor.author_hint',
@@ -2099,6 +2162,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.auto_saved',
     'admin.contents.editor.back_to_editor',
     'admin.contents.editor.change',
+    'admin.contents.editor.choose_file',
     'admin.contents.editor.clear_translation',
     'admin.contents.editor.clear_updated',
     'admin.contents.editor.click_to_select_icon',
@@ -2130,6 +2194,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.map.search_placeholder',
     'admin.contents.editor.mark_updated_today',
     'admin.contents.editor.meta_description',
+    'admin.contents.editor.move_down',
+    'admin.contents.editor.move_up',
     'admin.contents.editor.next_content_hint',
     'admin.contents.editor.no_content_found',
     'admin.contents.editor.no_cover_image',
@@ -2277,6 +2343,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.form.search_fields_none',
     'admin.contents.types.form.select_collection',
     'admin.contents.types.form.select_display_field',
+    'admin.contents.types.form.several_files',
+    'admin.contents.types.form.several_files_hint',
     'admin.contents.types.form.singular_hint',
     'admin.contents.types.form.singular_name',
     'admin.contents.types.form.singular_placeholder',
@@ -2491,13 +2559,47 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.crop.small',
     'admin.media.crop.start',
     'admin.media.delete_failed',
+    'admin.media.details.alt',
+    'admin.media.details.alt_hint',
+    'admin.media.details.notes',
+    'admin.media.details.notes_hint',
+    'admin.media.details.save_failed',
+    'admin.media.details.title',
     'admin.media.dimensions',
     'admin.media.drop_hint',
+    'admin.media.editor_file_library_failed',
     'admin.media.editor_library_failed',
     'admin.media.editor_upload_failed',
     'admin.media.editor_upload_failed_reason',
     'admin.media.editor_uploading',
     'admin.media.empty',
+    'admin.media.files.copy_link',
+    'admin.media.files.delete_confirm',
+    'admin.media.files.delete_failed',
+    'admin.media.files.empty',
+    'admin.media.files.error_size',
+    'admin.media.files.error_type',
+    'admin.media.files.insert',
+    'admin.media.files.insert_count',
+    'admin.media.files.link_copied',
+    'admin.media.files.link_copy_failed',
+    'admin.media.files.load_failed',
+    'admin.media.files.metadata_failed',
+    'admin.media.files.moved_to_files',
+    'admin.media.files.none_selected',
+    'admin.media.files.not_here',
+    'admin.media.files.open',
+    'admin.media.files.pages',
+    'admin.media.files.public_note',
+    'admin.media.files.selected',
+    'admin.media.files.size',
+    'admin.media.files.supports',
+    'admin.media.files.take_image',
+    'admin.media.files.take_image_save_as_pdf',
+    'admin.media.files.type',
+    'admin.media.files.upload',
+    'admin.media.files.upload_failed',
+    'admin.media.files.uploading',
     'admin.media.icons.insert',
     'admin.media.icons.load_failed',
     'admin.media.icons.loading',
@@ -2517,10 +2619,32 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.icons.tab',
     'admin.media.insert',
     'admin.media.insert_count',
+    'admin.media.library_search',
+    'admin.media.library_search_clear',
+    'admin.media.library_search_none',
     'admin.media.load_failed',
     'admin.media.logo_alt',
     'admin.media.metadata_failed',
     'admin.media.open_full',
+    'admin.media.pdf.all_pages',
+    'admin.media.pdf.done',
+    'admin.media.pdf.drawing_page',
+    'admin.media.pdf.image_title',
+    'admin.media.pdf.keep_in_files',
+    'admin.media.pdf.locked',
+    'admin.media.pdf.note_library',
+    'admin.media.pdf.note_local',
+    'admin.media.pdf.opening',
+    'admin.media.pdf.page_failed',
+    'admin.media.pdf.page_label',
+    'admin.media.pdf.pages_hint',
+    'admin.media.pdf.read_failed',
+    'admin.media.pdf.reading',
+    'admin.media.pdf.save',
+    'admin.media.pdf.save_failed',
+    'admin.media.pdf.saved',
+    'admin.media.pdf.saved_count',
+    'admin.media.pdf.unreadable',
     'admin.media.search_failed',
     'admin.media.search_placeholder',
     'admin.media.searching',

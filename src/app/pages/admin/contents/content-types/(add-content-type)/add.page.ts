@@ -75,6 +75,7 @@ export default class AddContentTypeComponent extends BaseComponent {
         'date',
         'datetime',
         'image',
+        'file',
         'icon',
         'boolean',
         'dropdown',
@@ -146,6 +147,8 @@ export default class AddContentTypeComponent extends BaseComponent {
             type: new FormControl('text', Validators.required),
             required: new FormControl(false),
             options: new FormControl(''),
+            // A File field that takes several files.
+            multiple: new FormControl(false),
             // Collection Reference Fields
             useCollectionRef: new FormControl(false),
             collectionRefSlug: new FormControl(''),
@@ -497,6 +500,7 @@ export default class AddContentTypeComponent extends BaseComponent {
             options: field.options || '',
             useCollectionRef: field.useCollectionRef || false,
         };
+        if (field.type === 'file' && field.multiple) fieldData.multiple = true;
     
         if (field.useCollectionRef && field.collectionRefSlug) {
             const refCt = this.contentTypesStore.items().find((c) => c.slug === field.collectionRefSlug);

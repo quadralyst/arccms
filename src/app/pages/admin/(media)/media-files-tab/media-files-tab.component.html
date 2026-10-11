@@ -1,0 +1,70 @@
+<input type="file" #fileInput multiple [accept]="accept" (change)="onInput($event)" hidden>
+
+<div class="files-toolbar">
+    <div class="library-search">
+        <i class="fas fa-search" aria-hidden="true"></i>
+        <input type="search" [value]="query()" (input)="onSearch($any($event.target).value)"
+            [placeholder]="'admin.media.library_search' | transloco"
+            [attr.aria-label]="'admin.media.library_search' | transloco">
+        @if (searching()) {
+        <button type="button" class="library-search-clear" (click)="clearSearch()"
+            [attr.aria-label]="'admin.media.library_search_clear' | transloco">
+            <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+        }
+    </div>
+    <div class="files-public-note">
+        <i class="fas fa-globe me-1" aria-hidden="true"></i>{{ 'admin.media.files.public_note' | transloco }}
+    </div>
+</div>
+
+<div class="files-grid" role="list">
+    @if (!searching()) {
+    <button type="button" class="file-card file-upload-card" role="listitem" id="filesUploadCard"
+        [class.dragover]="dragOver()" [disabled]="disabled()"
+        (click)="openPicker()" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+        @if (uploading()) {
+        <mat-progress-spinner mode="determinate" [value]="uploadPercent()" diameter="40"></mat-progress-spinner>
+        <span class="file-upload-label">
+            {{ 'admin.media.files.uploading' | transloco:{ current: uploadCurrent(), total: uploadTotal() } }}
+        </span>
+        } @else {
+        <span class="material-icons file-upload-icon" aria-hidden="true">upload_file</span>
+        <span class="file-upload-label">{{ 'admin.media.files.upload' | transloco }}</span>
+        <span class="file-upload-hint">{{ 'admin.media.files.supports' | transloco }}</span>
+        }
+    </button>
+    }
+
+    @for (file of shown(); track file.id) {
+    <button type="button" class="file-card" role="listitem"
+        [class.selected]="multiple() ? isPicked(file) : file.id === selectedId()"
+        [attr.aria-pressed]="multiple() ? isPicked(file) : file.id === selectedId()"
+        (click)="choose(file)">
+        <span class="file-card-preview">
+            @if (file.thumbnail?.url) {
+            <img [src]="file.thumbnail!.url" alt="" loading="lazy" draggable="false">
+            } @else {
+            <i [class]="icons[file.type] || 'fa-solid fa-file'" aria-hidden="true"></i>
+            }
+        </span>
+        <span class="file-card-title" [title]="file.title">{{ file.title }}</span>
+        <span class="file-card-meta">{{ meta(file) }}</span>
+        @if (multiple() && isPicked(file)) {
+        <span class="pick-badge">{{ pickIndex(file) }}</span>
+        }
+    </button>
+    }
+</div>
+
+@if (searching() && allItems() && !shown().length) {
+<p class="files-empty">{{ 'admin.media.library_search_none' | transloco }}</p>
+}
+@if (!searching() && !loading() && !items().length && !uploading()) {
+<p class="files-empty">{{ 'admin.media.files.empty' | transloco }}</p>
+}
+
+@if (!searching() && totalItems() > items().length) {
+<mat-paginator [length]="totalItems()" [pageSize]="20" [pageIndex]="pageIndex()" [hidePageSize]="true"
+    (page)="onPage($event)" [attr.aria-label]="'admin.media.select_page' | transloco"></mat-paginator>
+}

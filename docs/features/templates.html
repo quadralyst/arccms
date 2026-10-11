@@ -213,6 +213,7 @@
         <tr><td><code>icon</code></td><td><code>x</code> (class list, such as <code>fa-solid fa-star</code>), <code>x_svg</code> (inline SVG), <code>x_label</code>, <code>x_name</code></td></tr>
         <tr><td><code>color</code></td><td><code>x</code> (hex), <code>x_rgb</code> (<code>rgb(26, 115, 232)</code>), <code>x_rgb_values</code> (<code>26, 115, 232</code>, for <code>rgba()</code>)</td></tr>
         <tr><td><code>image</code> and the cover image</td><td><code>x</code> plus <code>x_s</code>, <code>x_m</code>, <code>x_l</code>, <code>x_xl</code></td></tr>
+        <tr id="file-fields"><td><code>file</code></td><td>The first file, anywhere (lists too): <code>x_url</code>, <code>x_title</code>, <code>x_type</code> ("PDF"), <code>x_size</code> ("2.3 MB"), <code>x_pages</code>. Every file, as a loop on detail pages: rows <code>url</code>, <code>title</code>, <code>type</code>, <code>kind</code> (<code>pdf</code>, <code>word</code>, <code>excel</code>, <code>powerpoint</code>, <code>csv</code> or <code>text</code>, for a class name), <code>size</code>, <code>bytes</code>, <code>pages</code>.</td></tr>
         <tr><td>Any YouTube URL value</td><td><code>x_id</code>, <code>x_embed</code> (youtube-nocookie.com), <code>x_thumb</code> (poster image)</td></tr>
         <tr><td><code>infocard</code> (loop)</td><td>Rows: <code>headline</code>, <code>info</code>, <code>icon</code> or <code>image</code>, <code>icon_svg</code>, <code>position</code></td></tr>
         <tr><td><code>gallery</code> (loop)</td><td>Rows: <code>image</code> or <code>video</code> (with <code>video_id</code>, <code>video_embed</code>, <code>video_thumb</code>), <code>caption</code></td></tr>
@@ -230,6 +231,14 @@
         &lt;p data-arc-bind="info"&gt;Text&lt;/p&gt;
     &lt;/article&gt;
 &lt;/section&gt;</code></pre>
+
+    <p>A <code>file</code> field keyed <code>brochure</code>, as one download button, or a list of every file:</p>
+    <pre><code>&lt;a data-arc-if="brochure_url" href="{{ brochure_url }}" class="btn"&gt;Download {{ brochure_title }} ({{ brochure_type }}, {{ brochure_size }})&lt;/a&gt;
+
+&lt;ul data-arc-loop="brochure"&gt;
+    &lt;li class="file-{{ kind }}"&gt;&lt;a href="{{ url }}"&gt;{{ title }}&lt;/a&gt; {{ type }}, {{ size }}&lt;/li&gt;
+&lt;/ul&gt;</code></pre>
+    <p>Files linked in rich text are cards already: one link, <code>&lt;a class="arc-file" data-arc-file="pdf"&gt;</code> holding <code>.arc-file-title</code> and <code>.arc-file-meta</code>. <code>main.css</code> draws them with the type's colour on the left edge; restyle <code>.arc-file</code> in <code>site.css</code> to change them.</p>
 
     <h3 id="layouts">Layouts</h3>
     <p>Every entry of a type uses the folder's <code>detail.html</code>. For a page that needs its own look, such as a Contact page laid out differently from About, add a <strong>layout</strong>: another detail file in the same folder, named <code>detail-{name}.html</code>.</p>

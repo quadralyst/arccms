@@ -14,26 +14,41 @@ export class ExportFilesService {
     private db = inject(Firestore);
 
     /**
-     * Load all media items from the Firestore `media` collection.
-     * Each document contains: downloadURL, name, storagePath, uploadTime, type.
+     * Load every library item: images from `media`, then documents from
+     * `mediaFiles` (docs/features/media.html, Files), newest first in each.
      */
     async getMediaItems(): Promise<MediaDocInfo[]> {
-        const colRef = collection(this.db, 'media');
-        const q = query(colRef, orderBy('uploadTime', 'desc'));
-        const snapshot = await getDocs(q);
         const items: MediaDocInfo[] = [];
+        const uploadTime = (value: any) => value?.toDate?.() ? value.toDate().toISOString() : value || '';
 
-        for (const docSnap of snapshot.docs) {
+        const images = await getDocs(query(collection(this.db, 'media'), orderBy('uploadTime', 'desc')));
+        for (const docSnap of images.docs) {
             const data = docSnap.data();
             items.push({
                 id: docSnap.id,
                 name: data['name'] || docSnap.id,
                 downloadURL: data['downloadURL'] || '',
                 storagePath: data['storagePath'] || '',
-                uploadTime: data['uploadTime']?.toDate?.()
-                    ? data['uploadTime'].toDate().toISOString()
-                    : data['uploadTime'] || '',
+                uploadTime: uploadTime(data['uploadTime']),
                 type: data['type'] || '',
+                collection: 'media',
+                ...details(data),
+            });
+        }
+
+        const files = await getDocs(query(collection(this.db, 'mediaFiles'), orderBy('uploadTime', 'desc')));
+        for (const docSnap of files.docs) {
+            const data = docSnap.data();
+            items.push({
+                id: docSnap.id,
+                name: data['name'] || docSnap.id,
+                downloadURL: data['downloadURL'] || '',
+                storagePath: data['path'] || '',
+                uploadTime: uploadTime(data['uploadTime']),
+                type: data['type'] || '',
+                collection: 'mediaFiles',
+                previewURL: data['thumbnail']?.url,
+                ...details(data),
             });
         }
 
@@ -114,6 +129,8 @@ export class ExportFilesService {
                 storagePath: item.storagePath,
                 uploadTime: item.uploadTime,
                 type: item.type,
+                ...(item.collection === 'mediaFiles' ? { collection: 'mediaFiles' } : {}),
+                ...details(item as Record<string, any>),
             };
         }
         zip.file('media-manifest.json', JSON.stringify(manifest, null, 2));
@@ -150,4 +167,13 @@ export class ExportFilesService {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
+}
+
+/** The library details worth carrying to another project; only those that are set. */
+function details(data: Record<string, any>): Pick<MediaDocInfo, 'title' | 'alt' | 'notes'> {
+    const out: Pick<MediaDocInfo, 'title' | 'alt' | 'notes'> = {};
+    for (const key of ['title', 'alt', 'notes'] as const) {
+        if (typeof data[key] === 'string' && data[key]) out[key] = data[key];
+    }
+    return out;
 }

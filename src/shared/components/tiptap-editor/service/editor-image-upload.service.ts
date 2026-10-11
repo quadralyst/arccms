@@ -4,8 +4,10 @@ import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { MediaManagerStore } from '../../../../app/pages/admin/(media)/media-manager.store';
 import { DEFAULT_IMAGE_SIZE } from '../../../utils/image-sizes';
-import { FileUploadService, MediaUploadSettings, uploadSettingsFromMisc } from '../../../services/file-upload.service';
+import { FileUploadService, MediaFileUploadError, MediaUploadSettings, uploadSettingsFromMisc } from '../../../services/file-upload.service';
 import { NotifyService } from '../../../services/notify.service';
+import { MediaFilesService } from '../../../../app/pages/admin/(media)/media-files.service';
+import { formatBytes, MediaFileRef } from '../../../utils/media-files';
 
 /**
  * Uploads an image dropped or pasted into the rich text editor the way the
@@ -22,6 +24,7 @@ export class EditorImageUploadService {
     private injector = inject(Injector);
     private transloco = inject(TranslocoService);
     private notify = inject(NotifyService);
+    private mediaFiles = inject(MediaFilesService);
 
     /**
      * Uploads `file` and resolves to the URL to put in the editor. Rejects,
@@ -46,6 +49,32 @@ export class EditorImageUploadService {
         return uploaded.variants?.[DEFAULT_IMAGE_SIZE]?.url ?? uploaded.downloadURL;
     }
 
+    /**
+     * Uploads a document dropped or pasted into the editor to the library's
+     * Files (docs/features/media.html, Files) and resolves to the file the
+     * card links to. Rejects, with a message fit to show, for a type or size
+     * the library does not take.
+     */
+    async uploadDocument(file: File, onProgress: (percent: number) => void): Promise<MediaFileRef> {
+        const uploaded = await this.fileUpload.uploadDocument(file, onProgress);
+        try {
+            const [id] = await firstValueFrom(this.mediaFiles.addBatch([uploaded]));
+            if (uploaded.type === 'pdf' && id) this.mediaFiles.rememberBytes(id, file);
+        } catch (error) {
+            // The file is stored, so the card still works; only its library entry is missing.
+            console.error('Failed to save file details:', error);
+            this.notify.warning('admin.media.editor_file_library_failed');
+        }
+        const ref: MediaFileRef = { url: uploaded.downloadURL, title: uploaded.title, type: uploaded.type, bytes: uploaded.bytes };
+        if (uploaded.pages) ref.pages = uploaded.pages;
+        return ref;
+    }
+
+    /** A dropped file that is neither an image nor a document the library takes. */
+    showUnsupported(file: File): void {
+        this.notify.error('admin.media.files.error_type', { name: escapeHtml(file.name) });
+    }
+
     /** What the placeholder says while `file` uploads. */
     uploadingLabel(file: File, percent: number): string {
         return this.transloco.translate('admin.media.editor_uploading', { name: file.name, percent: Math.round(percent) });
@@ -57,6 +86,12 @@ export class EditorImageUploadService {
      * failure gets a plain sentence rather than a Firebase code.
      */
     showError(file: File, error: unknown): void {
+        if (error instanceof MediaFileUploadError) {
+            const name = escapeHtml(file.name);
+            if (error.problem === 'type') this.notify.error('admin.media.files.error_type', { name });
+            else this.notify.error('admin.media.files.error_size', { name, size: formatBytes(error.bytes) });
+            return;
+        }
         const firebaseError = typeof (error as { code?: unknown })?.code === 'string';
         const reason = error instanceof Error && error.message && !firebaseError
             ? error.message

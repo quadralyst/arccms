@@ -7,6 +7,12 @@ export interface IMediaManager extends IBaseModel {
     type?: string;
     downloadURL?: string;
     name?: string;
+    /** What the library shows; written at upload. Older uploads show their file name until edited. */
+    title?: string;
+    /** Put in an image's `alt` when it is inserted in rich text (MF-D22). */
+    alt?: string;
+    /** Staff only (MF-D21, MF-D24). */
+    notes?: string;
     uploadTime?: Date;
     width?: number;
     height?: number;

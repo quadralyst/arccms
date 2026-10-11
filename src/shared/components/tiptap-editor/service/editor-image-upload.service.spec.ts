@@ -13,11 +13,17 @@ vi.mock('../../../../app/pages/admin/(media)/media-manager.store', () => ({
     MediaManagerStore: class {},
 }));
 
+vi.mock('../../../../app/pages/admin/(media)/media-files.service', () => ({
+    MediaFilesService: class {},
+}));
+
 import { getDoc } from '@angular/fire/firestore';
 import { EditorImageUploadService } from './editor-image-upload.service';
 import { FileUploadService, UploadedMedia } from '../../../services/file-upload.service';
 import { MediaManagerStore } from '../../../../app/pages/admin/(media)/media-manager.store';
 import { NotifyService } from '../../../services/notify.service';
+import { MediaFilesService } from '../../../../app/pages/admin/(media)/media-files.service';
+import { MediaFileUploadError } from '../../../services/file-upload.service';
 
 /**
  * The editor's dropped or pasted image goes through the media library: the
@@ -37,7 +43,8 @@ const sized: UploadedMedia = {
 
 describe('EditorImageUploadService', () => {
     let service: EditorImageUploadService;
-    let fileUpload: { validateFileType: ReturnType<typeof vi.fn>; uploadFile: ReturnType<typeof vi.fn> };
+    let fileUpload: { validateFileType: ReturnType<typeof vi.fn>; uploadFile: ReturnType<typeof vi.fn>; uploadDocument: ReturnType<typeof vi.fn> };
+    let mediaFiles: { addBatch: ReturnType<typeof vi.fn>; rememberBytes: ReturnType<typeof vi.fn> };
     let mediaStore: { addBatch: ReturnType<typeof vi.fn> };
     let notify: { warning: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
 
@@ -52,7 +59,9 @@ describe('EditorImageUploadService', () => {
             // The real check: it reads nothing from the service.
             validateFileType: vi.fn((f: File) => FileUploadService.prototype.validateFileType.call(null, f)),
             uploadFile: vi.fn().mockResolvedValue(sized),
+            uploadDocument: vi.fn(),
         };
+        mediaFiles = { addBatch: vi.fn().mockReturnValue(of(['file-1'])), rememberBytes: vi.fn() };
         mediaStore = { addBatch: vi.fn().mockReturnValue(of(['media-1'])) };
         notify = { warning: vi.fn(), error: vi.fn() };
         settingsDoc(null);
@@ -64,6 +73,7 @@ describe('EditorImageUploadService', () => {
                 { provide: MediaManagerStore, useValue: mediaStore },
                 { provide: Firestore, useValue: {} },
                 { provide: NotifyService, useValue: notify },
+                { provide: MediaFilesService, useValue: mediaFiles },
             ],
         });
         service = TestBed.inject(EditorImageUploadService);
@@ -153,5 +163,39 @@ describe('EditorImageUploadService', () => {
 
     it('labels the placeholder with the file name and a whole percent', () => {
         expect(service.uploadingLabel(file, 42.6)).toBe('Uploading Team Photo.jpg... 43%');
+    });
+
+    describe('documents (MF-D20)', () => {
+        const pdf = new File(['%PDF'], 'Brochure.pdf', { type: 'application/pdf' });
+        const uploaded = {
+            title: 'Brochure', name: 'brochure-abc123.pdf', downloadURL: 'https://storage.example/brochure.pdf', path: 'mediaFiles/brochure-abc123.pdf',
+            type: 'pdf', contentType: 'application/pdf', bytes: 4, pages: 3, uploadTime: new Date(),
+        };
+
+        it('uploads to Files, adds it to the library, and returns the file the card links to', async () => {
+            fileUpload.uploadDocument.mockResolvedValue(uploaded);
+            const onProgress = vi.fn();
+            const ref = await service.uploadDocument(pdf, onProgress);
+            expect(fileUpload.uploadDocument).toHaveBeenCalledWith(pdf, onProgress);
+            expect(mediaFiles.addBatch).toHaveBeenCalledWith([uploaded]);
+            expect(mediaFiles.rememberBytes).toHaveBeenCalledWith('file-1', pdf);
+            expect(ref).toEqual({ url: uploaded.downloadURL, title: 'Brochure', type: 'pdf', bytes: 4, pages: 3 });
+        });
+
+        it('still returns the file when only its library entry fails, and says so', async () => {
+            fileUpload.uploadDocument.mockResolvedValue(uploaded);
+            mediaFiles.addBatch.mockReturnValue(throwError(() => new Error('denied')));
+            vi.spyOn(console, 'error').mockImplementation(() => {});
+            const ref = await service.uploadDocument(pdf, vi.fn());
+            expect(ref.url).toBe(uploaded.downloadURL);
+            expect(notify.warning).toHaveBeenCalledWith('admin.media.editor_file_library_failed');
+        });
+
+        it('words a type or size refusal from the library', () => {
+            service.showError(pdf, new MediaFileUploadError('size', 31 * 1024 * 1024));
+            expect(notify.error).toHaveBeenCalledWith('admin.media.files.error_size', { name: 'Brochure.pdf', size: '31.0 MB' });
+            service.showUnsupported(new File(['x'], '<b>.html', { type: 'text/html' }));
+            expect(notify.error).toHaveBeenCalledWith('admin.media.files.error_type', { name: '&#60;b&#62;.html' });
+        });
     });
 });

@@ -1,0 +1,148 @@
+:host {
+    display: block;
+}
+
+.files-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin: 0.5rem 0 0.75rem;
+}
+
+.files-public-note {
+    font-size: 0.8rem;
+    color: #6c757d;
+
+    // The media page sizes every icon at 24px (media-manager.scss).
+    i {
+        font-size: 0.8rem;
+        margin-right: 0.3rem;
+    }
+}
+
+.files-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.75rem;
+}
+
+.file-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+
+    &:hover {
+        border-color: var(--arc-admin-accent, #2563eb);
+    }
+
+    &:focus-visible {
+        outline: 3px solid var(--arc-admin-accent, #2563eb);
+        outline-offset: 2px;
+    }
+
+    &.selected {
+        border: 2px solid var(--arc-admin-accent, #2563eb);
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.6;
+    }
+}
+
+.file-card-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 3 / 2;
+    background: #f8f9fa;
+    border-radius: 4px;
+    overflow: hidden;
+
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: top;
+    }
+
+    i {
+        font-size: 2.25rem;
+        margin: 0;
+        color: #6c757d;
+    }
+
+    .fa-file-pdf { color: #c0392b; }
+    .fa-file-word { color: #2b579a; }
+    .fa-file-excel { color: #217346; }
+    .fa-file-powerpoint { color: #b7472a; }
+}
+
+.file-card-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-card-meta {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.file-upload-card {
+    align-items: center;
+    justify-content: center;
+    border-style: dashed;
+    border-width: 2px;
+    background: #fafbfc;
+    min-height: 150px;
+    text-align: center;
+
+    &.dragover {
+        border-color: var(--arc-admin-accent, #2563eb);
+        background: rgba(37, 99, 235, 0.06);
+    }
+}
+
+.file-upload-icon {
+    font-size: 2rem;
+    color: var(--arc-admin-accent, #2563eb);
+}
+
+.file-upload-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.file-upload-hint {
+    font-size: 0.72rem;
+    color: #6c757d;
+}
+
+.files-empty {
+    margin: 1rem 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.pick-badge {
+    position: absolute;
+    top: 0.9rem;
+    left: 0.9rem;
+    right: auto;
+    width: auto;
+}

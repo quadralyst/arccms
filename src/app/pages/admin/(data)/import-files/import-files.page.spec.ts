@@ -19,6 +19,9 @@ describe('ImportFilesPageComponent', () => {
                 { fileName: 'img1.jpg', storagePath: 'mediaImages/img1.jpg', downloadURL: 'https://example.com/img1.jpg', success: true },
             ]),
             updateMediaMetadata: vi.fn().mockResolvedValue(undefined),
+            uploadDocuments: vi.fn().mockResolvedValue([
+                { fileName: 'menu.pdf', storagePath: 'mediaFiles/menu.pdf', downloadURL: 'https://example.com/menu.pdf', success: true, collection: 'mediaFiles' },
+            ]),
             importFromManifest: vi.fn().mockResolvedValue([
                 { fileName: 'img1.jpg', storagePath: 'mediaImages/img1.jpg', downloadURL: 'https://example.com/img1.jpg', success: true },
             ]),
@@ -151,6 +154,20 @@ describe('ImportFilesPageComponent', () => {
         expect(mockImportFilesService.updateMediaMetadata).toHaveBeenCalled();
     });
 
+    it('sends documents to the library\'s Files, whatever folder is typed, and images to the folder', async () => {
+        component.targetPrefix.set('somewhere/');
+        component.selectedFiles.set([new File(['1'], 'img1.jpg'), new File(['%PDF'], 'menu.pdf')]);
+
+        await component.startUpload();
+
+        const [images] = mockImportFilesService.uploadFiles.mock.calls[0];
+        expect(images.map((f: any) => f.storagePath)).toEqual(['somewhere/img1.jpg']);
+        const [documents, saveRecords] = mockImportFilesService.uploadDocuments.mock.calls[0];
+        expect(documents.map((d: any) => d.file.name)).toEqual(['menu.pdf']);
+        expect(saveRecords).toBe(true);
+        expect(component.uploadResults()!.length).toBe(2);
+    });
+
     it('should use manifest mode when selected', async () => {
         component.mode.set('manifest');
         component.manifestData.set({ media1: { name: 'img1.jpg', storagePath: 'mediaImages/img1.jpg' } });
@@ -162,6 +179,7 @@ describe('ImportFilesPageComponent', () => {
             component.manifestData(),
             component.selectedFiles(),
             expect.any(Function),
+            true,
         );
     });
 

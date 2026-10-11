@@ -4,21 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Media | Arc CMS docs</title>
-  <meta name="description" content="Upload, crop and pick images in the media manager: the four stored sizes, WebP conversion, cropping, Unsplash, Storage paths, limits and rules.">
-  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/services/file-upload.service.ts, src/shared/components/tiptap-editor/service/editor-image-upload.service.ts, src/shared/components/tiptap-editor/service/file-handler-extension.ts, src/shared/utils/image-sizes.ts, src/shared/utils/image-crop.ts, src/shared/components/image-cropper, functions/src/shared/image-sizes.ts, functions/src/integrations/searchUnsplash.ts, functions/src/integrations/readMediaImage.ts, src/app/pages/admin/(settings)/misc/misc-settings.model.ts, src/app/core/config/arc-config.ts, storage.rules, firestore.rules">
+  <meta name="description" content="Images and documents in the media manager: four sizes, WebP, cropping, PDFs and other files, images taken from a PDF, titles, alt text, notes and search, Unsplash, limits and rules.">
+  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/services/file-upload.service.ts, src/shared/components/tiptap-editor/service/editor-image-upload.service.ts, src/shared/components/tiptap-editor/service/file-handler-extension.ts, src/shared/utils/image-sizes.ts, src/shared/utils/image-crop.ts, src/shared/components/image-cropper, src/shared/utils/media-files.ts, src/shared/utils/file-rows.ts, src/shared/utils/media-search.ts, src/shared/utils/pdf-pages.ts, src/shared/components/tiptap-editor/service/file-card-node.ts, functions/src/shared/image-sizes.ts, functions/src/integrations/searchUnsplash.ts, functions/src/integrations/readMediaImage.ts, functions/src/integrations/readMediaFile.ts, src/app/pages/admin/(settings)/misc/misc-settings.model.ts, src/app/core/config/arc-config.ts, storage.rules, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/media.html">
   <main>
     <h1>Media</h1>
-    <p class="lead">Upload images once and use them everywhere: the media manager stores each upload at four sizes, converts it to WebP, crops to a ratio or a free shape, and lets editors pick an image and a size wherever a field wants one.</p>
+    <p class="lead">Upload images and documents once and use them everywhere: the media manager stores each image at four sizes, converts it to WebP, crops to a ratio or a free shape, keeps PDFs, Word, Excel, PowerPoint, CSV and text files for pages to link to, takes images from the pages of a PDF, and finds anything by its title, notes or alt text.</p>
 
     <h2>What it is</h2>
     <p>The media manager is at <strong>Media Manager</strong> in the admin menu (<code>/admin/media</code>) and opens as a picker from every image field. It has these tabs:</p>
     <table>
       <thead><tr><th>Tab</th><th>Gives</th></tr></thead>
       <tbody>
-        <tr><td>My Uploads</td><td>Every upload in the library, newest first, 20 per page. Drop or choose several files at once.</td></tr>
+        <tr><td>My Uploads</td><td>Every image in the library, newest first, 20 per page. Drop or choose several files at once. A PDF dropped here opens <a href="#take-image">Take an image</a>; any other document goes to Files.</td></tr>
+        <tr><td>Files</td><td>Documents: PDF, Word, Excel, PowerPoint, CSV and text files, newest first. See <a href="#files">Files</a>. Always shown on the Media Manager page; in a picker only when the caller asks for files.</td></tr>
         <tr><td>Free Images</td><td>Search Unsplash photos, once an Unsplash key is set in <strong>Settings &gt; Integrations</strong>. A chosen photo is used from Unsplash by its URL; it is not copied into your storage.</td></tr>
         <tr><td>Icons</td><td>The Font Awesome icon picker. Shown only when an <code>icon</code> field opens the picker.</td></tr>
       </tbody>
@@ -26,6 +27,7 @@
     <p>Where the picker opens:</p>
     <ul>
       <li>The content editor: cover image, <code>image</code> fields, images in the body, and rows of gallery and info card fields (a gallery can take several images in one pick). An image dropped or pasted into the body goes to the library without the picker; see <a href="#drop-or-paste">Drop or paste into the editor</a>.</li>
+      <li>The content editor's <code>file</code> fields and the body's <strong>Attach files</strong> command (type <code>/</code> in the body), which open it on Files. See <a href="content.html#file-fields">File fields</a>.</li>
       <li>The signup form editor.</li>
       <li>An admin's profile photo. Members upload their photo to their own folder instead (<code>avatars/{uid}/</code>); they never see the library.</li>
     </ul>
@@ -66,13 +68,62 @@
     </table>
     <p>GIFs are stored once, as they are, so animation survives: they have no sizes.</p>
 
+    <h3 id="files">Files</h3>
+    <p>The <strong>Files</strong> tab keeps documents for pages to link to. Drop files on the <strong>Upload file</strong> card, or choose them (several at once). The type is decided by the file's extension, not by what the browser reports, and only these are taken:</p>
+    <table>
+      <thead><tr><th>File</th><th>Extensions</th><th>A visitor's browser</th></tr></thead>
+      <tbody>
+        <tr><td>PDF</td><td><code>.pdf</code></td><td>Opens it in a tab</td></tr>
+        <tr><td>Word</td><td><code>.docx</code>, <code>.doc</code></td><td>Downloads it</td></tr>
+        <tr><td>Excel</td><td><code>.xlsx</code>, <code>.xls</code></td><td>Downloads it</td></tr>
+        <tr><td>PowerPoint</td><td><code>.pptx</code>, <code>.ppt</code></td><td>Downloads it</td></tr>
+        <tr><td>CSV</td><td><code>.csv</code></td><td>Downloads it</td></tr>
+        <tr><td>Text</td><td><code>.txt</code></td><td>Opens it in a tab</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>Files can be up to 20 MB each. There is no setting for it: documents are stored as they are, not resized like images.</li>
+      <li>Pages, SVG, scripts, ZIP archives and macro files (<code>.docm</code>, <code>.xlsm</code>) are refused, with a message naming the file. The storage rules refuse them too.</li>
+      <li>Each file gets a <strong>title</strong> from its name ("Annual-Report_2025.pdf" becomes "Annual Report 2025"). The title is what the library shows, the link text on pages, and the name a download is saved under.</li>
+      <li>A PDF shows its first page on its card and its page count in the panel. A PDF locked with a password, or one that cannot be read, still uploads; it shows a PDF icon instead.</li>
+    </ul>
+    <div class="note"><p>Anyone with a file's link can open it, as with images: published pages link to them. Keep private documents out of the library.</p></div>
+    <p>Select a file to see its panel: type, size, pages, upload date and stored name, its <a href="#details">details</a>, and <strong>Copy link</strong>, <strong>Open</strong> and <strong>Delete</strong>. A PDF also has <strong>Take an image</strong>. Word and PowerPoint files say to save them as a PDF to take images from them.</p>
+
+    <h3 id="take-image">Take an image from a PDF</h3>
+    <p>Pull a photo or a chart out of a brochure without another program:</p>
+    <ul>
+      <li>From a PDF on your computer: drop or choose it on <strong>My Uploads</strong>. The PDF itself is not stored; only the images you take are. <strong>Keep the whole PDF in Files instead</strong> uploads it to Files.</li>
+      <li>From a PDF in the library: select it in <strong>Files</strong> and press <strong>Take an image</strong>.</li>
+    </ul>
+    <ol class="steps">
+      <li><p>The pages show as a grid, drawn as they come into view, so a long PDF opens quickly.</p></li>
+      <li><p>Click a page. It opens in the same crop step as <a href="#crop">Crop</a>: pick a ratio, then move and resize the frame.</p></li>
+      <li><p><strong>Save as image</strong> draws only the framed part again, at the XL size, and uploads it like any image: every size, WebP when that is on, named after the PDF and the page ("Brochure, page 3"). Text and drawings come out sharp; a photo inside the PDF is only as sharp as the photo the PDF holds, and the usual note says when the result is smaller than the size picked.</p></li>
+      <li><p>The pages come back so you can take another. <strong>Done</strong> opens My Uploads with the newest image selected.</p></li>
+    </ol>
+    <p>The PDF is never changed. A PDF locked with a password says so and asks you to remove the password first; there is no password box.</p>
+
+    <h3 id="details">Details and search</h3>
+    <p>Every image and file has details, edited in its panel and saved when you leave the field:</p>
+    <table>
+      <thead><tr><th>Detail</th><th>For</th><th>Used</th></tr></thead>
+      <tbody>
+        <tr><td>Title</td><td>Images and files</td><td>What the library shows; for a file, its link text and download name. Starts as the file name. Cleared, it goes back to the file name.</td></tr>
+        <tr><td>Alt text</td><td>Images</td><td>Describes the image for screen readers and search engines. Put in the image's <code>alt</code> when it is inserted in the body. A content <code>image</code> field stores only the URL, so templates keep their own <code>alt</code>.</td></tr>
+        <tr><td>Notes</td><td>Images and files</td><td>Only staff see them. Words here help you find the item later.</td></tr>
+      </tbody>
+    </table>
+    <p>The search box on <strong>My Uploads</strong> and <strong>Files</strong> finds items whose title, notes, alt text or file name hold every word typed, in any order, ignoring case and accents ("pune brochure" finds "Spring brochure" with the note "For the Pune store"). The first search loads the tab's details once; clear the box to page through the library again. Images uploaded before details existed show their file name until given a title.</p>
+
     <h3 id="drop-or-paste">Drop or paste into the editor</h3>
     <p>Drop an image onto the rich text editor, or paste one (a screenshot, or an image copied in a browser), and it is uploaded exactly as above: the same settings, sizes, WebP conversion and <code>media</code> document, so it shows in <strong>My Uploads</strong>. While it uploads, a box where it was dropped shows the file name and how far the upload has got. The image then goes in at M, the size <strong>Insert image</strong> gives unless you choose. Several images dropped together upload one after another and keep their order.</p>
     <ul>
       <li>A file of the wrong type or too large is not added, and a message says why.</li>
       <li>If the upload worked but its <code>media</code> document could not be saved, the image still goes in, and a message says it is not in My Uploads.</li>
       <li>A paste that carries text as well, such as cells copied from a spreadsheet or a passage from a word processor, pastes the text, not the picture of it those programs also put on the clipboard.</li>
-      <li>Any other file dropped (such as a PDF) is not uploaded: the editor writes <code>[File: name]</code> where it was dropped.</li>
+      <li>A document the library takes (PDF, Word, Excel, PowerPoint, CSV or text) is uploaded to <a href="#files">Files</a> the same way and goes in as a file card: a link with the file's title, type and size.</li>
+      <li>Any other file is not added, and a message says it cannot be uploaded.</li>
     </ul>
     <p>The editor never puts an image's bytes into the content (as a <code>data:</code> URL): that would make the entry document large, towards Firestore's 1 MiB limit, and skip the sizes.</p>
 
@@ -97,16 +148,18 @@
     <p>Crop is not offered for GIFs (it would drop the animation), or when the picker is choosing several images at once.</p>
 
     <h3>Delete</h3>
-    <p>Deleting an item in the media manager removes every stored size from Storage and the <code>media</code> document.</p>
-    <div class="warn"><p>Delete does not check whether content uses the image. Pages that show it break, including published pages. Search your content before deleting an image.</p></div>
+    <p>Deleting an image removes every stored size from Storage and the <code>media</code> document. Deleting a file removes it, its first-page picture and its <code>mediaFiles</code> document; images taken from it stay.</p>
+    <div class="warn"><p>Delete does not check whether content uses the image or file. Pages that show or link to it break, including published pages. Search your content before deleting.</p></div>
 
     <h3>Move media to another project</h3>
-    <p><strong>Data &gt; Export Files</strong> and <strong>Import Files</strong> copy media files; see <a href="data.html">Data import and export</a>.</p>
+    <p><strong>Data &gt; Export Files</strong> and <strong>Import Files</strong> copy images and files, with their titles, alt text and notes; see <a href="data.html">Data import and export</a>.</p>
 
     <h2>Extend it</h2>
     <ul>
-      <li>Open the picker from your own admin page by opening <code>MediaManagerComponent</code> (in <code>src/app/pages/admin/(media)/media.page.ts</code>) as a dialog with <code>{ isDialogOpen: true }</code>. Options: <code>multiple</code> (several images), <code>size</code> (the preselected size), <code>cropRatio</code> (the ratio the crop frame opens with, such as <code>'1:1'</code> for a square slot; Free when omitted), <code>allowIcons</code> and <code>allowImages</code> (which tabs show). It returns <code>mediaUrl</code>, <code>mediaUrls</code> and <code>size</code>.</li>
+      <li>Open the picker from your own admin page by opening <code>MediaManagerComponent</code> (in <code>src/app/pages/admin/(media)/media.page.ts</code>) as a dialog with <code>{ isDialogOpen: true }</code>. Options: <code>multiple</code> (several images or files), <code>size</code> (the preselected size), <code>cropRatio</code> (the ratio the crop frame opens with, such as <code>'1:1'</code> for a square slot; Free when omitted), <code>allowIcons</code>, <code>allowImages</code> and <code>allowFiles</code> (which tabs show; files are off unless asked for, so a caller that only knows images never gets a document), and <code>initialTab</code>. It returns <code>mediaUrl</code>, <code>mediaUrls</code>, <code>size</code> and <code>kind</code>; for an image with alt text, <code>alt</code>; for files, <code>file</code> (or <code>files</code> with <code>multiple</code>), each <code>{ id, url, title, type, bytes, pages }</code>, with <code>mediaUrl</code> the first file's URL. For a files-only picker pass <code>{ isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files' }</code>.</li>
       <li>Upload an image from your own admin code the way a drop into the editor does with <code>EditorImageUploadService.upload(file, onProgress)</code> (in <code>src/shared/components/tiptap-editor/service/editor-image-upload.service.ts</code>). It reads the settings, uploads every size, writes the <code>media</code> document and resolves to the M size's URL; it rejects with a message fit to show for a wrong type or a file too large.</li>
+      <li>Upload a document the same way with <code>EditorImageUploadService.uploadDocument(file, onProgress)</code>: it goes to Files with its <code>mediaFiles</code> document and resolves to <code>{ url, title, type, bytes, pages }</code>.</li>
+      <li>The allowed types, the 20 MB limit and the helpers (<code>allowedFileOf</code>, <code>defaultTitle</code>, <code>formatBytes</code>) are in <code>src/shared/utils/media-files.ts</code>; <code>openPdf</code> in <code>src/shared/utils/pdf-pages.ts</code> draws PDF pages in the browser (pdf.js, loaded only when used).</li>
       <li>Files your app lets members upload belong in their own folders under rules you write in <code class="new">storage.app.rules</code>. See <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>.</li>
     </ul>
 
@@ -115,7 +168,9 @@
       <thead><tr><th>Where</th><th>What</th></tr></thead>
       <tbody>
         <tr><td>Storage <code>mediaImages/{name}-{random}-{size}.webp</code></td><td>The sized files (<code>-s</code>, <code>-m</code>, <code>-l</code>, <code>-xl</code>); the original extension instead of <code>.webp</code> when conversion is off. GIFs: <code>mediaImages/{name}-{random}.gif</code>. The name comes from the file name, lowercased and hyphenated. A cropped copy is named after its original with <code>-crop</code>. With an upload folder configured for the install, every path starts with it (see <a href="../getting-started/configure.html">Configure a project</a>).</td></tr>
-        <tr><td><code>media/{id}</code></td><td><code>downloadURL</code> (the XL file), <code>name</code>, <code>uploadTime</code>, <code>width</code>, <code>height</code>, and <code>variants</code>: for each size its <code>url</code>, Storage <code>path</code>, <code>width</code> and <code>height</code>. GIFs have no <code>variants</code>. A cropped copy is a document like any other upload.</td></tr>
+        <tr><td><code>media/{id}</code></td><td><code>downloadURL</code> (the XL file), <code>name</code>, <code>title</code>, <code>uploadTime</code>, <code>width</code>, <code>height</code>, and <code>variants</code>: for each size its <code>url</code>, Storage <code>path</code>, <code>width</code> and <code>height</code>. GIFs have no <code>variants</code>. A cropped copy is a document like any other upload. Optional: <code>alt</code>, <code>notes</code>, and for an image taken from a library PDF <code>source: { fileId, page }</code>.</td></tr>
+        <tr><td>Storage <code>mediaFiles/{name}-{random}.{ext}</code></td><td>A file, stored as it was uploaded, with its content type and whether it opens or downloads (under its title). A PDF's first page: <code>mediaFiles/{name}-{random}-thumb.jpg</code>.</td></tr>
+        <tr><td><code>mediaFiles/{id}</code></td><td><code>title</code>, <code>name</code>, <code>downloadURL</code>, <code>path</code>, <code>type</code> (<code>pdf</code>, <code>word</code>, <code>excel</code>, <code>powerpoint</code>, <code>csv</code> or <code>text</code>), <code>contentType</code>, <code>bytes</code>, <code>uploadTime</code>; for a PDF <code>pages</code> and <code>thumbnail</code> (<code>url</code>, <code>path</code>, <code>width</code>, <code>height</code>); optional <code>notes</code>.</td></tr>
         <tr><td><code>Settings/misc</code></td><td>The upload settings above</td></tr>
         <tr><td><code>Settings/integrations</code></td><td>The Unsplash keys (admin only)</td></tr>
       </tbody>
@@ -125,20 +180,22 @@
       <tbody>
         <tr><td><code>searchUnsplash</code></td><td>Callable</td><td>Searches Unsplash with the key kept server-side, 20 results per page</td></tr>
         <tr><td><code>readMediaImage</code></td><td>Callable</td><td>Admins only: returns the bytes of an upload's XL file (from its <code>media</code> document, never a path the caller names) so the browser can crop it. GIFs and files over 7 MB are refused.</td></tr>
+        <tr><td><code>readMediaFile</code></td><td>Callable</td><td>Admins only: returns a library PDF (from its <code>mediaFiles</code> document) in parts of 6 MB, so the browser can draw its pages for <strong>Take an image</strong>. One reply holds about 10 MB, so a 20 MB PDF takes four calls. Other types and files over 20 MB are refused.</td></tr>
       </tbody>
     </table>
-    <p>Resizing and cropping happen in the browser; no function processes uploads. To crop an upload, the browser gets its XL file's bytes through <code>readMediaImage</code>, because a canvas may only export an image its page is allowed to read, and a Storage bucket sends no cross-origin header unless it was given a CORS setup. The crop frame itself shows the image by its normal URL, so it appears at once; the bytes are fetched on <strong>Save cropped copy</strong>.</p>
+    <p>Resizing and cropping happen in the browser; no function processes uploads. To crop an upload, the browser gets its XL file's bytes through <code>readMediaImage</code>, because a canvas may only export an image its page is allowed to read, and a Storage bucket sends no cross-origin header unless it was given a CORS setup. The crop frame itself shows the image by its normal URL, so it appears at once; the bytes are fetched on <strong>Save cropped copy</strong>. A PDF's pages are drawn with pdf.js the same way: from the file on your computer, from this visit's upload, or through <code>readMediaFile</code>.</p>
 
     <h2>Who can do what</h2>
     <table>
       <thead><tr><th>Resource</th><th>Read</th><th>Write</th></tr></thead>
       <tbody>
         <tr><td>Storage files (outside <code>users</code> folders)</td><td>Anyone</td><td>Admins (and the reserved <code>editor</code> role)</td></tr>
-        <tr><td><code>media</code> documents</td><td>Anyone</td><td>Admins and editors</td></tr>
+        <tr><td><code>media</code> and <code>mediaFiles</code> documents (titles, alt text, notes)</td><td>Admins and editors</td><td>Admins and editors</td></tr>
+        <tr><td>Storage <code>mediaFiles/</code></td><td>Anyone</td><td>Admins and editors, only the allowed types, each extension with its own content type, up to 20 MB</td></tr>
         <tr><td><code>avatars/{uid}/</code></td><td>Anyone</td><td>That signed-in user, images under 5 MB</td></tr>
           </tbody>
     </table>
-    <p>Storage is public to read because published pages show the images. See <a href="../operations/security-rules.html">Security rules</a>.</p>
+    <p>Storage is public to read because published pages show the images and link to the files. The details are staff only so notes stay private; pages never read them. See <a href="../operations/security-rules.html">Security rules</a>.</p>
 
     <h2>Troubleshooting</h2>
     <table>
@@ -148,6 +205,12 @@
         <tr><td>"Invalid file type"</td><td>Only JPEG, PNG, WebP and GIF are accepted. Convert SVG, HEIC or other files first.</td></tr>
         <tr><td>"Could not add photo.jpg: the upload did not finish"</td><td>An image dropped or pasted into the editor could not reach Storage: the network dropped, or the account may not write to Storage. Try again; if it keeps failing, upload it from <strong>Media Manager</strong> to see the full error.</td></tr>
         <tr><td>"The image is in place, but it could not be added to My Uploads"</td><td>A dropped or pasted image was stored and inserted, but its <code>media</code> document was refused (often the Firestore rules are not deployed). The page shows the image; only the library does not list it.</td></tr>
+        <tr><td>"this type of file can't be uploaded"</td><td>Files takes PDF, Word, Excel, PowerPoint, CSV and text files. Save other documents in one of those formats; put images in <strong>My Uploads</strong>.</td></tr>
+        <tr><td>"... is 24.9 MB. Files can be up to 20 MB."</td><td>Make the file smaller (in a PDF program, save a reduced-size copy) or split it.</td></tr>
+        <tr><td>A PDF shows an icon, not its first page</td><td>It is locked with a password or could not be read. It still works as a link; <strong>Take an image</strong> needs an unlocked copy.</td></tr>
+        <tr><td>"This PDF is locked with a password"</td><td>Remove the password (print or export an unlocked copy), then upload or drop that.</td></tr>
+        <tr><td>"Could not read the PDF" on Take an image</td><td>The network dropped, the functions are not deployed since files were added (<code>readMediaFile</code> is missing), or the account is not an admin.</td></tr>
+        <tr><td>A search finds nothing you expected</td><td>Every word must match. Older images have no title or notes until you add them; their file name still matches.</td></tr>
         <tr><td>Free Images asks for setup</td><td>No Unsplash access key in <strong>Settings &gt; Integrations</strong>.</td></tr>
         <tr><td>Upload fails with a permission error</td><td>The account is not an admin, or the Storage rules are not deployed.</td></tr>
         <tr><td>A size binding such as <code>{{ coverImage_l }}</code> shows a broken image</td><td>The upload was smaller than that size's limit, so that size shares a larger size's file and the derived address has no file. Upload images at least as large as <strong>Max image size</strong>.</td></tr>

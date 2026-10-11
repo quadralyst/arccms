@@ -23,7 +23,7 @@
                         </div>
                         }
                         <div class="action-elements">
-                            @if(!isCropping && selectedItem?.value === 'search' && searchResults && searchResults.length){
+                            @if(!isCropping && !pdfSource && selectedItem?.value === 'search' && searchResults && searchResults.length){
                             <div class="header-search-container">
                                 <div class="search-box">
                                     <i class="fas fa-search me-2 text-muted"></i>
@@ -40,8 +40,8 @@
                                 </div>
                             </div>
                             }
-                            @if(!isCropping && selectedItem?.value === 'upload'){
-                            <button (click)="openFilePicker()" class=" btn btn-primary btn-sm" id="uploadNewBtnMain">
+                            @if(!isCropping && !pdfSource && (selectedItem?.value === 'upload' || isFilesTab)){
+                            <button (click)="openUploadPicker()" class=" btn btn-primary btn-sm" id="uploadNewBtnMain">
                                 <i class="fas fa-plus me-1 fs-6"></i>
                                 {{ 'admin.media.upload_new' | transloco }}
                             </button>
@@ -54,9 +54,17 @@
                         </div>
                     </div>
 
-                    <input type="file" #fileInput (change)="onFileChange($event)" multiple accept="image/jpeg,image/png,image/webp,image/gif" style="display: none;">
+                    <input type="file" #fileInput (change)="onFileChange($event)" multiple [accept]="uploadAccept" style="display: none;">
 
-                    @if(isCropping && selectedMediaUrl){
+                    @if(pdfSource){
+                    <!-- Take an image from a PDF (MF3, MF4): takes the grid's place, like the crop step. -->
+                    <div class="media-content-area crop-stage pdf-stage">
+                        <arc-pdf-image-taker [source]="pdfSource" [uploadSettings]="uploadSettings"
+                            [initialRatio]="_DIALOG_DATA.cropRatio ?? 'free'" [sizeLimit]="pdfSizeLimit"
+                            [offerKeepInFiles]="!!pendingPdfOffered"
+                            (saved)="onPdfImageSaved($event)" (done)="closePdf()" (keepInFiles)="keepPdfInFiles()"></arc-pdf-image-taker>
+                    </div>
+                    } @else if(isCropping && selectedMediaUrl){
                     <!-- The crop step takes the grid's place: the side panel is too
                          narrow to place a frame with any precision. -->
                     <div class="media-content-area crop-stage">
@@ -128,8 +136,20 @@
                                     }
                                 </div>
 
-                                @if(searchResults && searchResults.length){
-                                <div class="col-12 col-md-8">
+                                @if(selectedItem?.value === 'upload' && (searchResults.length || librarySearch)){
+                                <div class="col-12 col-md-8 d-flex justify-content-md-end">
+                                    <div class="library-search">
+                                        <i class="fas fa-search" aria-hidden="true"></i>
+                                        <input type="search" id="librarySearchInput" [value]="librarySearch" (input)="onLibrarySearch($any($event.target).value)"
+                                            [placeholder]="'admin.media.library_search' | transloco"
+                                            [attr.aria-label]="'admin.media.library_search' | transloco">
+                                        @if(librarySearch) {
+                                        <button type="button" class="library-search-clear" (click)="clearLibrarySearch()"
+                                            [attr.aria-label]="'admin.media.library_search_clear' | transloco">
+                                            <i class="fas fa-times" aria-hidden="true"></i>
+                                        </button>
+                                        }
+                                    </div>
                                 </div>
                                 }
 
@@ -147,7 +167,12 @@
                             </div>
                             }
 
-                            @if(!isIconsTab && searchResults && !searchResults.length){
+                            @if(isFilesTab){
+                            <arc-media-files-tab [selectedId]="selectedFile?.id ?? null" [pickedIds]="pickedFileIds"
+                                [multiple]="isMultiSelect" (selected)="selectFile($event)"></arc-media-files-tab>
+                            }
+
+                            @if(!isIconsTab && !isFilesTab && searchResults && !searchResults.length){
                             <div class="row">
                                 <div class="col-12 mt-2 empty_col" [ngClass]="{'asModal': _DIALOG_DATA.isDialogOpen}">
                                     @if(selectedItem?.value === 'upload'){
@@ -239,11 +264,15 @@
                             </div>
                             }
 
-                            @if(!isIconsTab && searchResults && searchResults.length){
-                            <div class="second_div" [ngClass]="{'asModal': _DIALOG_DATA.isDialogOpen}">
+                            @if(!isIconsTab && !isFilesTab && searchResults && searchResults.length){
+                                <div class="second_div" [ngClass]="{'asModal': _DIALOG_DATA.isDialogOpen}">
 
                                 @if(selectedItem?.value === 'upload'){
+                                @if(isLibrarySearching && !uploadItems.length){
+                                <p class="library-search-none">{{ 'admin.media.library_search_none' | transloco }}</p>
+                                }
                                 <div class="img_container mt-2">
+                                    @if(!isLibrarySearching){
                                     <figure class="upload_container upload_figure dropzone"
                                             [class.dragover]="isDragOver"
                                             [class.has-file]="uploadImage"
@@ -271,10 +300,12 @@
                                             }
                                         </figcaption>
                                     </figure>
+                                    }
 
-                                    @for(element of searchResults; track element.id; let i = $index){
-                                    <figure [ngClass]="{'selected_item': isMultiSelect ? isPicked(element) : element.id === selectedMediaUrl?.id}">
-                                        <img (click)="selectMedia(element)" [src]="thumbnailUrl(element)" alt="..."
+                                    @for(element of uploadItems; track element.id; let i = $index){
+                                    <figure [ngClass]="{'selected_item': isMultiSelect ? isPicked(element) : element.id === selectedMediaUrl?.id}"
+                                        [title]="imageTitle(element)">
+                                        <img (click)="selectMedia(element)" [src]="thumbnailUrl(element)" [alt]="element.alt || imageTitle(element)"
                                             class="search_img" />
                                         <figcaption><a href="#">{{ i + 1 }}</a></figcaption>
                                         @if(isMultiSelect && isPicked(element)){
@@ -313,7 +344,7 @@
                         </div>
 
                     </div>
-                    @if(searchResults && searchResults.length){
+                    @if(searchResults && searchResults.length && !isFilesTab && !isLibrarySearching){
                     <footer>
                         <mat-paginator [length]="pagination?.totalItems" [pageSize]="pagination?.pageSize || 20"
                             [pageIndex]="currentPageIndex" (page)="getPaginatorData($event)"
@@ -326,9 +357,12 @@
                 <div class="side-preview">
                     <div class="preview-header">
                         <div class="preview-title">
-                            {{ (isIconsTab ? 'admin.media.icons.selected' : 'admin.media.selected') | transloco }}
-                            @if(isMultiSelect && selectedMediaList.length){
+                            {{ (isIconsTab ? 'admin.media.icons.selected' : isFilesTab ? 'admin.media.files.selected' : 'admin.media.selected') | transloco }}
+                            @if(isMultiSelect && !isFilesTab && selectedMediaList.length){
                             <span class="pick-count">{{ selectedMediaList.length }}</span>
+                            }
+                            @if(isMultiSelect && isFilesTab && selectedFiles.length){
+                            <span class="pick-count">{{ selectedFiles.length }}</span>
                             }
                         </div>
                         @if(_DIALOG_DATA.isDialogOpen){
@@ -337,7 +371,17 @@
                         </button>
                         }
                     </div>
-                    @if(isIconsTab) {
+                    @if(isFilesTab) {
+                    @if(selectedFile) {
+                    <arc-media-file-panel [file]="selectedFile" [canTakeImage]="!pdfSource" [busy]="isSavingCrop"
+                        (changed)="onFileChanged($event)" (deleted)="onFileDeleted($event)"
+                        (takeImage)="takeImageFromFile($event)"></arc-media-file-panel>
+                    } @else {
+                    <div class="preview-container icon-preview-container">
+                        <span class="icon-preview-empty">{{ 'admin.media.files.none_selected' | transloco }}</span>
+                    </div>
+                    }
+                    } @else if(isIconsTab) {
                     <!-- The glyph is previewed at the size a template would actually
                          use it, on the plain background it will sit on. -->
                     <div class="preview-container icon-preview-container">
@@ -379,7 +423,7 @@
                     </div>
                     }
 
-                    @if(!isIconsTab && selectedMediaUrl) {
+                    @if(!isIconsTab && !isFilesTab && selectedMediaUrl) {
                     <div class="preview-metadata">
                         @if(selectedMediaUrl.name) {
                         <div class="metadata-row">
@@ -428,7 +472,11 @@
                         }
                         }
                     </div>
-                    @if(canCrop(selectedMediaUrl) && !isCropping) {
+                    @if(!selectedMediaUrl.urls) {
+                    <arc-media-details [item]="selectedMediaUrl" [showAlt]="true" [fallbackTitle]="selectedMediaUrl.name || ''"
+                        (changed)="onImageDetailsChanged($event)"></arc-media-details>
+                    }
+                    @if(canCrop(selectedMediaUrl) && !isCropping && !pdfSource) {
                     <div class="crop-buttons">
                         <button type="button" class="btn btn-secondary btn-crop" id="cropStartBtn" (click)="startCrop()">
                             <i class="fas fa-crop-simple me-1 fs-6" aria-hidden="true"></i>
@@ -447,9 +495,15 @@
                          insert has always closed with an empty url, and every caller
                          already guards for that — changing it is not this feature's job. -->
                     <button id="insertMediaBtn" (click)="insertMedia()" class=" btn btn-primary btn-insert"
-                        [disabled]="isCropping || (isIconsTab && !selectedIcon) || (isMultiSelect && !selectedMediaList.length)">
+                        [disabled]="isCropping || !!pdfSource || (isIconsTab && !selectedIcon) || (isFilesTab && (isMultiSelect ? !selectedFiles.length : !selectedFile)) || (isMultiSelect && !isFilesTab && !selectedMediaList.length)">
                         <i class="fas fa-check me-1 fs-6"></i>
+                        @if(isFilesTab){
                         @if(isMultiSelect){
+                        {{ 'admin.media.files.insert_count' | transloco:{ count: selectedFiles.length } }}
+                        } @else {
+                        {{ 'admin.media.files.insert' | transloco }}
+                        }
+                        } @else if(isMultiSelect){
                         {{ 'admin.media.insert_count' | transloco:{ count: selectedMediaList.length } }}
                         } @else {
                         {{ (isIconsTab ? 'admin.media.icons.insert' : 'admin.media.insert') | transloco }}

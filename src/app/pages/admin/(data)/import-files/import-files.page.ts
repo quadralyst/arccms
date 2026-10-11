@@ -12,6 +12,7 @@ import { BaseComponent } from '../../../../../shared/components/base/base.compon
 import { roleGuard } from '../../../../guards/role.guard';
 import { FileImportProgress, UploadResult } from '../data-constants';
 import { FileWithPath, ImportFilesService } from './import-files.service';
+import { isLibraryDocument } from '../../../../../shared/utils/media-files';
 
 export const routeMeta: RouteMeta = {
     title: 'Import Files',
@@ -127,7 +128,10 @@ export default class ImportFilesPageComponent extends BaseComponent {
         if (files.length === 0) return;
 
         const prefix = this.targetPrefix();
-        const filesToUpload: FileWithPath[] = files.map((f) => ({
+        // Documents (PDF, Word, Excel...) go to the library's Files, whatever
+        // folder is typed, so they show in the Files tab (docs/features/media.html).
+        const documents = files.filter((f) => isLibraryDocument(f.name));
+        const filesToUpload: FileWithPath[] = files.filter((f) => !isLibraryDocument(f.name)).map((f) => ({
             file: f,
             storagePath: `${prefix}${f.name}`,
         }));
@@ -136,9 +140,13 @@ export default class ImportFilesPageComponent extends BaseComponent {
         this.uploadResults.set(null);
 
         try {
-            const results = await this.importFilesService.uploadFiles(filesToUpload, (progress) => {
-                this.uploadProgress.set(progress);
-            });
+            const onProgress = (progress: FileImportProgress) => this.uploadProgress.set(progress);
+            const results = [
+                ...await this.importFilesService.uploadFiles(filesToUpload, onProgress),
+                ...(documents.length
+                    ? await this.importFilesService.uploadDocuments(documents.map((file) => ({ file })), this.updateMediaCollection(), onProgress)
+                    : []),
+            ];
 
             this.uploadResults.set(results);
 
@@ -176,6 +184,7 @@ export default class ImportFilesPageComponent extends BaseComponent {
                 (progress) => {
                     this.uploadProgress.set(progress);
                 },
+                this.updateMediaCollection(),
             );
 
             this.uploadResults.set(results);

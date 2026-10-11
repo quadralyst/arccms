@@ -23,6 +23,12 @@ vi.mock('@angular/fire/firestore', () => ({
     deleteDoc: vi.fn()
 }));
 
+const openPdf = vi.fn();
+vi.mock('../utils/pdf-pages', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../utils/pdf-pages')>()),
+    openPdf: (...args: unknown[]) => openPdf(...args),
+}));
+
 // Import functions after mocking for usage in tests
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from '@angular/fire/storage';
 import { doc, getDoc, deleteDoc } from '@angular/fire/firestore';
@@ -326,5 +332,78 @@ describe('FileUploadService', () => {
             await expect(service.deleteMediaItem('media-id-123')).rejects.toThrow('Failed to delete media item: Media item not found in Firestore');
         });
     });
-});
 
+    describe('uploadDocument (docs/features/media.html, Files)', () => {
+        const task = { on: vi.fn((_e: string, progress: Function, _err: Function, complete: Function) => { progress({ bytesTransferred: 1, totalBytes: 1 }); complete(); }) };
+
+        beforeEach(() => {
+            (ref as any).mockImplementation((_s: unknown, path: string) => ({ fullPath: path }));
+            (uploadBytesResumable as any).mockReturnValue(task);
+            (getDownloadURL as any).mockImplementation(async (r: { fullPath: string }) => `https://storage/${r.fullPath}`);
+            openPdf.mockReset();
+        });
+
+        it('refuses a type the library does not take, before sending anything', async () => {
+            const { MediaFileUploadError } = await import('./file-upload.service');
+            const error = await service.uploadDocument(new File(['<html>'], 'page.html', { type: 'text/html' }), vi.fn()).catch((e) => e);
+            expect(error).toBeInstanceOf(MediaFileUploadError);
+            expect(error.problem).toBe('type');
+            expect(uploadBytesResumable).not.toHaveBeenCalled();
+        });
+
+        it('refuses a file over 20 MB', async () => {
+            const big = new File(['x'], 'big.pdf', { type: 'application/pdf' });
+            Object.defineProperty(big, 'size', { value: 20 * 1024 * 1024 + 1 });
+            await expect(service.uploadDocument(big, vi.fn())).rejects.toMatchObject({ problem: 'size' });
+            expect(uploadBytesResumable).not.toHaveBeenCalled();
+        });
+
+        it('stores the type from the extension, with open-or-download and the title as the name (MF-D6, MF-D7)', async () => {
+            // Windows calls a CSV an Excel file; the extension decides.
+            const csv = new File(['a,b'], 'Price_List.csv', { type: 'application/vnd.ms-excel' });
+            const result = await service.uploadDocument(csv, vi.fn());
+            const [, , metadata] = (uploadBytesResumable as any).mock.calls[0];
+            expect(metadata.contentType).toBe('text/csv');
+            expect(metadata.contentDisposition).toMatch(/^attachment; filename="Price List\.csv"/);
+            expect(result).toMatchObject({ title: 'Price List', type: 'csv', contentType: 'text/csv', bytes: 3 });
+            expect(result.path).toMatch(new RegExp(`^${arcConfig.storagePrefix}mediaFiles/price-list-[a-z0-9]+\\.csv$`));
+            expect(result.downloadURL).toBe(`https://storage/${result.path}`);
+            expect(result.pages).toBeUndefined();
+            expect(openPdf).not.toHaveBeenCalled();
+        });
+
+        it('gives a PDF its page count and a first-page thumbnail (MF-D9)', async () => {
+            const thumb = new Blob(['jpg'], { type: 'image/jpeg' });
+            const destroy = vi.fn();
+            openPdf.mockResolvedValue({ pageCount: 24, renderPage: vi.fn().mockResolvedValue({ blob: thumb, width: 283, height: 400, scale: 0.5 }), destroy });
+            const pdf = new File(['%PDF'], 'Annual Report.pdf', { type: 'application/pdf' });
+            const result = await service.uploadDocument(pdf, vi.fn());
+            expect(result.pages).toBe(24);
+            expect(result.thumbnail).toMatchObject({ width: 283, height: 400 });
+            expect(result.thumbnail!.path).toBe(result.path.replace(/\.pdf$/, '-thumb.jpg'));
+            const thumbCall = (uploadBytesResumable as any).mock.calls[1];
+            expect(thumbCall[2].contentType).toBe('image/jpeg');
+            expect(destroy).toHaveBeenCalled();
+            const [, , metadata] = (uploadBytesResumable as any).mock.calls[0];
+            expect(metadata.contentDisposition).toMatch(/^inline; /);
+        });
+
+        it('still uploads a locked PDF, without pages or a thumbnail (MF-D17)', async () => {
+            const { PdfOpenError } = await import('../utils/pdf-pages');
+            openPdf.mockRejectedValue(new PdfOpenError('locked'));
+            const result = await service.uploadDocument(new File(['%PDF'], 'secret.pdf', { type: 'application/pdf' }), vi.fn());
+            expect(result.pages).toBeUndefined();
+            expect(result.thumbnail).toBeUndefined();
+            expect(uploadBytesResumable).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    it('gives an uploaded image a title from its file name', async () => {
+        const gif = new File(['GIF89a'], 'Party_Time.gif', { type: 'image/gif' });
+        (ref as any).mockReturnValue({});
+        (uploadBytesResumable as any).mockReturnValue({ on: vi.fn((_e: string, _p: Function, _err: Function, complete: Function) => complete()) });
+        (getDownloadURL as any).mockResolvedValue('https://storage/x.gif');
+        const result = await service.uploadFile(gif, undefined, vi.fn());
+        expect(result.title).toBe('Party Time');
+    });
+});
