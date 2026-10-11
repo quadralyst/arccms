@@ -119,6 +119,7 @@ describe('Template Reference', () => {
             [{ key: 'events-details', label: 'Details', type: 'labelvalue' }, [{ label: 'Entry', value: 'Free' }], 'Entry'],
             [{ key: 'events-cards', label: 'Cards', type: 'infocard' }, [{ headline: 'Stalls', info: '' }], 'Stalls'],
             [{ key: 'events-photos', label: 'Photos', type: 'gallery' }, [{ image: 'https://x/g.jpg', caption: 'Crowd' }], 'Crowd'],
+            [{ key: 'events-brochure', label: 'Brochure', type: 'file' }, [{ url: 'https://x/b.pdf', title: 'Brochure', type: 'pdf', bytes: 2048 }], 'href="https://x/b.pdf"'],
         ];
 
         it.each(cases)('the %s snippet renders the field', (field, value, expected) => {

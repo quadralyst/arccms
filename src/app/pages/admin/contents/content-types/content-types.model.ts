@@ -2,7 +2,7 @@ import { IBaseModel } from '../../../../../shared/models/base-model';
 import type { ContentTypeSchema } from '../../../../../shared/constants/schema-types';
 import type { EntryOrder } from '../../../../core/utils/display-order';
 
-export type ContentTypeFieldType = 'text' | 'number' | 'richtext' | 'date' | 'datetime' | 'image' | 'icon' | 'boolean' | 'dropdown' | 'checkbox' | 'radio' | 'infocard' | 'gallery' | 'labelvalue' | 'maplocation' | 'faq' | 'color';
+export type ContentTypeFieldType = 'text' | 'number' | 'richtext' | 'date' | 'datetime' | 'image' | 'file' | 'icon' | 'boolean' | 'dropdown' | 'checkbox' | 'radio' | 'infocard' | 'gallery' | 'labelvalue' | 'maplocation' | 'faq' | 'color';
 
 export interface CollectionReferenceConfig {
     collectionSlug: string;         // slug of the referenced content type (e.g., "authors")
@@ -30,6 +30,12 @@ export interface ContentTypeField {
     options?: string;                           // Comma-separated options for dropdown, checkbox, radio (manual mode)
     useCollectionRef?: boolean;                  // NEW: true = options come from another collection
     collectionRef?: CollectionReferenceConfig;   // NEW: configuration for collection reference
+    /**
+     * A `file` field that takes several files (docs/features/content.html, File).
+     * Its value is a list of files either way (MF-D18); this only changes how
+     * many the editor lets you add.
+     */
+    multiple?: boolean;
 }
 
 export interface ContentType extends IBaseModel {

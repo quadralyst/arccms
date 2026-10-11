@@ -1,0 +1,122 @@
+// The crop toolbar, canvas, footer and chips come from the media manager's
+// stylesheet (media-manager.scss, not encapsulated); this adds the page grid.
+:host {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+.pdf-taker-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    color: #6c757d;
+    font-size: 0.95rem;
+    text-align: center;
+    padding: 1rem;
+}
+
+.pdf-taker-error {
+    color: #b02a37;
+}
+
+.pdf-taker-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+}
+
+.pdf-taker-title {
+    font-weight: 600;
+    font-size: 1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pdf-taker-hint {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.pdf-pages {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+    overflow-y: auto;
+    max-height: 60vh;
+    padding: 2px;
+}
+
+.pdf-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    border-radius: 6px;
+
+    &:focus-visible {
+        outline: 3px solid var(--arc-admin-accent, #2563eb);
+        outline-offset: 2px;
+    }
+
+    &:hover .pdf-page-sheet {
+        border-color: var(--arc-admin-accent, #2563eb);
+    }
+}
+
+.pdf-page-sheet {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+
+    img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+
+    i {
+        font-size: 2rem;
+        margin: 0;
+        color: #ced4da;
+    }
+}
+
+.pdf-page-number {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.pdf-taker-status i,
+.pdf-taker-back i {
+    font-size: 0.9rem;
+}
+
+.pdf-taker-back {
+    padding-left: 0;
+    margin-right: 0.5rem;
+    text-decoration: none;
+}
+
+.pdf-taker-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}

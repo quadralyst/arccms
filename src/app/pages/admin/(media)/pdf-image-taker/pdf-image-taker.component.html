@@ -1,0 +1,133 @@
+@switch (step()) {
+@case ('loading') {
+<div class="pdf-taker-status" role="status">
+    <i class="fas fa-spinner fa-spin me-2" aria-hidden="true"></i>
+    @if (loadPercent() !== null) {
+    {{ 'admin.media.pdf.reading' | transloco:{ percent: loadPercent() } }}
+    } @else {
+    {{ 'admin.media.pdf.opening' | transloco }}
+    }
+</div>
+}
+
+@case ('error') {
+<div class="pdf-taker-status pdf-taker-error" role="alert">
+    <i class="fas fa-circle-exclamation me-2" aria-hidden="true"></i>
+    @switch (problem()) {
+    @case ('locked') { {{ 'admin.media.pdf.locked' | transloco }} }
+    @case ('read_failed') { {{ 'admin.media.pdf.read_failed' | transloco }} }
+    @default { {{ 'admin.media.pdf.unreadable' | transloco }} }
+    }
+</div>
+<div class="pdf-taker-footer">
+    <span></span>
+    <div class="crop-actions">
+        @if (offerKeepInFiles()) {
+        <button type="button" class="btn btn-link" (click)="keep()">{{ 'admin.media.pdf.keep_in_files' | transloco }}</button>
+        }
+        <button type="button" class="btn btn-secondary" id="pdfTakerBackBtn" (click)="finish()">{{ 'common.actions.close' | transloco }}</button>
+    </div>
+</div>
+}
+
+@case ('pages') {
+<div class="pdf-taker-head">
+    <div>
+        <div class="pdf-taker-title" [title]="source().title">{{ source().title }}</div>
+        <div class="pdf-taker-hint">{{ 'admin.media.pdf.pages_hint' | transloco }}</div>
+    </div>
+</div>
+<div class="pdf-pages" role="list">
+    @for (page of pageNumbers(); track page) {
+    <button type="button" class="pdf-page" role="listitem" #tile [attr.data-page]="page"
+        [attr.aria-label]="'admin.media.pdf.page_label' | transloco:{ page: page }"
+        (click)="openPage(page)">
+        <span class="pdf-page-sheet">
+            @if (thumbs()[page]; as url) {
+            <img [src]="url" alt="" draggable="false">
+            } @else {
+            <i class="fas fa-file-pdf" aria-hidden="true"></i>
+            }
+        </span>
+        <span class="pdf-page-number">{{ page }}</span>
+    </button>
+    }
+</div>
+<div class="pdf-taker-footer">
+    <div class="crop-note">
+        {{ (source().fileId ? 'admin.media.pdf.note_library' : 'admin.media.pdf.note_local') | transloco }}
+        @if (savedCount()) {
+        <strong class="ms-1">{{ 'admin.media.pdf.saved_count' | transloco:{ count: savedCount() } }}</strong>
+        }
+    </div>
+    <div class="crop-actions">
+        @if (offerKeepInFiles()) {
+        <button type="button" class="btn btn-link" id="pdfKeepInFilesBtn" (click)="keep()">{{ 'admin.media.pdf.keep_in_files' | transloco }}</button>
+        }
+        <button type="button" class="btn btn-primary" id="pdfTakerDoneBtn" (click)="finish()">
+            <i class="fas fa-check me-1 fs-6" aria-hidden="true"></i>{{ 'admin.media.pdf.done' | transloco }}
+        </button>
+    </div>
+</div>
+}
+
+@case ('crop') {
+<div class="crop-toolbar">
+    <button type="button" class="btn btn-link pdf-taker-back" (click)="backToPages()" [disabled]="saving()">
+        <i class="fas fa-arrow-left me-1" aria-hidden="true"></i>{{ 'admin.media.pdf.all_pages' | transloco }}
+    </button>
+    <span class="crop-toolbar-label">{{ 'admin.media.crop.ratio' | transloco }}</span>
+    <div class="size-chips crop-ratios" role="radiogroup" [attr.aria-label]="'admin.media.crop.ratio' | transloco">
+        @for (r of cropRatios; track r) {
+        <button type="button" class="size-chip" role="radio" [class.active]="ratio() === r"
+            [attr.aria-checked]="ratio() === r" [disabled]="saving()" (click)="selectRatio(r)">
+            @switch (r) {
+            @case ('free') { {{ 'admin.media.crop.ratio_free' | transloco }} }
+            @case ('original') { {{ 'admin.media.crop.ratio_original' | transloco }} }
+            @default { {{ r }} }
+            }
+        </button>
+        }
+    </div>
+</div>
+<div class="crop-canvas">
+    @if (cropUrl(); as url) {
+    <arc-image-cropper [src]="url" [ratio]="ratioNumber()" (loaded)="onCropLoaded($event)"
+        (rectChange)="onCropRect($event)" (failed)="onCropFailed()"></arc-image-cropper>
+    } @else {
+    <div class="pdf-taker-status" role="status">
+        <i class="fas fa-spinner fa-spin me-2" aria-hidden="true"></i>
+        {{ 'admin.media.pdf.drawing_page' | transloco:{ page: cropPage() } }}
+    </div>
+    }
+</div>
+<div class="crop-footer">
+    <div class="crop-info">
+        @if (resultSize(); as result) {
+        <div class="crop-result">{{ 'admin.media.crop.result' | transloco:{ width: result.width, height: result.height } }}</div>
+        }
+        @if (tooSmall()) {
+        <div class="crop-warning">
+            <i class="fas fa-triangle-exclamation me-1" aria-hidden="true"></i>
+            {{ 'admin.media.crop.small' | transloco:{ size: sizeLimit()?.label, limit: sizeLimit()?.limit } }}
+        </div>
+        }
+        <div class="crop-note">{{ (source().fileId ? 'admin.media.pdf.note_library' : 'admin.media.pdf.note_local') | transloco }}</div>
+    </div>
+    <div class="crop-actions">
+        <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="backToPages()">
+            {{ 'common.actions.cancel' | transloco }}
+        </button>
+        <button type="button" class="btn btn-primary" id="pdfSaveImageBtn" [disabled]="!cropRect() || saving()" (click)="save()">
+            @if (saving()) {
+            <i class="fas fa-spinner fa-spin me-1 fs-6" aria-hidden="true"></i>
+            {{ 'admin.media.crop.saving' | transloco:{ percent: saveProgress() } }}
+            } @else {
+            <i class="fas fa-crop-simple me-1 fs-6" aria-hidden="true"></i>
+            {{ 'admin.media.pdf.save' | transloco }}
+            }
+        </button>
+    </div>
+</div>
+}
+}

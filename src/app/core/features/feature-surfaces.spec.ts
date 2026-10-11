@@ -57,7 +57,7 @@ describe('data export without features that are off', () => {
 
     it('leaves out the collections of features that are off, and keeps unsubscribes', () => {
         const names = exportableKnownCollections(offOnly('forms', 'audience', 'email-marketing', 'content')).map((c) => c.name);
-        expect(names).toEqual(['users', 'Settings', 'media', 'EmailTemplate', 'EmailLogs', 'Suppression']);
+        expect(names).toEqual(['users', 'Settings', 'media', 'mediaFiles', 'EmailTemplate', 'EmailLogs', 'Suppression']);
     });
 });
 

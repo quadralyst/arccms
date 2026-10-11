@@ -177,7 +177,9 @@ export const SlashCommands = Extension.create({
           type: 'files',
           icon: 'bi bi-paperclip',
           shortcut: '',
-          command: () => { },
+          command: () => {
+            (window as any).attachFile();
+          },
         },
         {
           title: 'YouTube url',

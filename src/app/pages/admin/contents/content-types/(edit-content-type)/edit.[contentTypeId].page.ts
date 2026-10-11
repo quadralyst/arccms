@@ -68,7 +68,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     // Store pending templateFolder value to apply after templates load
     private pendingTemplateFolder = 'default';
 
-    fieldTypes: ContentTypeFieldType[] = ['text', 'number', 'richtext', 'date', 'datetime', 'image', 'icon', 'boolean', 'dropdown', 'checkbox', 'radio', 'infocard', 'gallery', 'labelvalue', 'maplocation', 'faq', 'color'];
+    fieldTypes: ContentTypeFieldType[] = ['text', 'number', 'richtext', 'date', 'datetime', 'image', 'file', 'icon', 'boolean', 'dropdown', 'checkbox', 'radio', 'infocard', 'gallery', 'labelvalue', 'maplocation', 'faq', 'color'];
 
     public isEditingSlug = signal(false);
     private originalSlug = '';
@@ -102,6 +102,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
                     type: new FormControl<ContentTypeFieldType>(field.type, [Validators.required]),
                     required: new FormControl(field.required),
                     options: new FormControl(field.options || ''),
+                    multiple: new FormControl(field.multiple === true),
                     useCollectionRef: new FormControl(field.useCollectionRef || false),
                     collectionRefSlug: new FormControl(field.collectionRef?.collectionSlug || ''),
                     collectionRefDisplayField: new FormControl(field.collectionRef?.displayField || ''),
@@ -574,6 +575,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             type: new FormControl<ContentTypeFieldType>('text', [Validators.required]),
             required: new FormControl(false),
             options: new FormControl(''),
+            multiple: new FormControl(false),
             useCollectionRef: new FormControl(false),
             collectionRefSlug: new FormControl(''),
             collectionRefDisplayField: new FormControl(''),

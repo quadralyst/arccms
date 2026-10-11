@@ -4,6 +4,16 @@ import { deleteDoc, doc, Firestore, getDoc } from '@angular/fire/firestore';
 import { fitLongestSide, IMAGE_SIZES, ImageSize, imageSizeLimits } from '../utils/image-sizes';
 import { CropRect, roundCropRect } from '../utils/image-crop';
 import { withStoragePrefix } from '../../app/core/config/arc-config';
+import {
+    allowedFileOf,
+    contentDispositionFor,
+    defaultTitle,
+    MAX_FILE_BYTES,
+    MEDIA_FILES_FOLDER,
+    MediaFileType,
+    storedFileName,
+} from '../utils/media-files';
+import { openPdf, PdfOpenError } from '../utils/pdf-pages';
 
 /** Allowed MIME types for media upload */
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -80,11 +90,40 @@ export interface ImageVariant {
 export interface UploadedMedia {
     downloadURL: string;
     name: string;
+    /** What the library shows; starts as the file's own name (defaultTitle). */
+    title?: string;
     uploadTime: Date;
     width?: number;
     height?: number;
     variants?: Record<ImageSize, ImageVariant>;
 }
+
+/** A document uploaded to the Files tab: the `mediaFiles` record before Firestore adds its common fields. */
+export interface UploadedDocument {
+    title: string;
+    name: string;
+    downloadURL: string;
+    path: string;
+    type: MediaFileType;
+    contentType: string;
+    bytes: number;
+    pages?: number;
+    thumbnail?: { url: string; path: string; width: number; height: number };
+    uploadTime: Date;
+}
+
+/** Why a document was not uploaded; the screen words it (admin.media.files.error_*). */
+export class MediaFileUploadError extends Error {
+    constructor(readonly problem: 'type' | 'size', readonly bytes: number) {
+        super(problem === 'type'
+            ? 'This file type cannot be uploaded. Use PDF, Word, Excel, PowerPoint, CSV or text.'
+            : `This file is ${(bytes / (1024 * 1024)).toFixed(1)} MB. Files can be up to 20 MB.`);
+        this.name = 'MediaFileUploadError';
+    }
+}
+
+/** The longest side of a PDF's first-page thumbnail (MF-D9). */
+export const FILE_THUMBNAIL_SIZE = 400;
 
 @Injectable({
     providedIn: 'root'
@@ -232,9 +271,9 @@ export class FileUploadService {
     }
 
     /** Uploads one blob and resolves to its download URL, reporting progress as 0–100. */
-    private uploadBlob(path: string, blob: Blob, contentType: string, onProgress: (pct: number) => void): Promise<string> {
+    private uploadBlob(path: string, blob: Blob, contentType: string, onProgress: (pct: number) => void, extra: { contentDisposition?: string } = {}): Promise<string> {
         const storageRef = ref(this.storage, path);
-        const uploadTask = uploadBytesResumable(storageRef, blob, { contentType });
+        const uploadTask = uploadBytesResumable(storageRef, blob, { contentType, ...extra });
 
         return new Promise((resolve, reject) => {
             uploadTask.on(
@@ -297,12 +336,13 @@ export class FileUploadService {
             if (sizeError) throw new Error(sizeError);
             const filename = this.generateSeoFilename(file.name, file.type);
             const downloadURL = await this.uploadBlob(withStoragePrefix(`mediaImages/${filename}`), file, file.type, progressCallback);
-            return { downloadURL, name: filename, uploadTime: new Date() };
+            return { downloadURL, name: filename, title: defaultTitle(file.name), uploadTime: new Date() };
         }
 
         const outputMimeType = settings.convertToWebp ? 'image/webp' : file.type;
         const img = await this.loadImageFromFile(file);
-        return this.storeSizes(img, undefined, file.name, outputMimeType, settings, progressCallback);
+        const uploaded = await this.storeSizes(img, undefined, file.name, outputMimeType, settings, progressCallback);
+        return { ...uploaded, title: defaultTitle(file.name) };
     }
 
     /**
@@ -332,6 +372,101 @@ export class FileUploadService {
         const outputMimeType = settings.convertToWebp ? 'image/webp' : sourceType;
         const baseName = sourceName.replace(/\.[^/.]+$/, '').replace(/-(s|m|l|xl)$/i, '').replace(/-[a-z0-9]{6}$/i, '').replace(/(-crop)+$/i, '');
         return this.storeSizes(img, rect, `${baseName}-crop`, outputMimeType, settings, progressCallback);
+    }
+
+    /**
+     * Removes stored files whose library record could not be written, so no
+     * file is left that no tab lists and nobody can delete. Best effort: a
+     * file already gone is fine, and a failure here is only logged.
+     */
+    async removeStored(paths: (string | undefined)[]): Promise<void> {
+        for (const path of new Set(paths.filter((p): p is string => !!p))) {
+            try {
+                await deleteObject(ref(this.storage, path));
+            } catch (error: any) {
+                if (error?.code !== 'storage/object-not-found') console.warn(`Could not remove ${path}:`, error);
+            }
+        }
+    }
+
+    /** The Storage paths of an upload: every size, or the one file of a GIF. */
+    static storedPaths(media: UploadedMedia | UploadedDocument): string[] {
+        if ('path' in media) return [media.path, media.thumbnail?.path].filter((p): p is string => !!p);
+        if (media.variants) return Object.values(media.variants).map((v) => v.path);
+        const match = /\/o\/([^?#]+)/.exec(media.downloadURL);
+        return match ? [decodeURIComponent(match[1])] : [];
+    }
+
+    /**
+     * Uploads a document to the Files tab (docs/features/media.html, Files):
+     * the type from its extension (MF-D6), at most 20 MB, stored as it is
+     * under `mediaFiles/` with the content type and the open-or-download
+     * setting from the allowed-files table. A PDF also gets its page count
+     * and a first-page thumbnail, drawn here in the browser; a locked or
+     * unreadable PDF still uploads, without them (MF-D17).
+     *
+     * Rejects with a MediaFileUploadError for a type or size the library
+     * does not take, before anything is sent.
+     */
+    async uploadDocument(file: File, progressCallback: (progress: number) => void): Promise<UploadedDocument> {
+        const allowed = allowedFileOf(file.name);
+        if (!allowed) throw new MediaFileUploadError('type', file.size);
+        if (file.size > MAX_FILE_BYTES) throw new MediaFileUploadError('size', file.size);
+
+        const title = defaultTitle(file.name);
+        const name = storedFileName(file.name, allowed.extension);
+        const path = withStoragePrefix(`${MEDIA_FILES_FOLDER}/${name}`);
+
+        let pages: number | undefined;
+        let thumbnailDrawing: { blob: Blob; width: number; height: number } | undefined;
+        if (allowed.type === 'pdf') {
+            try {
+                const pdf = await openPdf(file);
+                try {
+                    pages = pdf.pageCount;
+                    thumbnailDrawing = await pdf.renderPage(1, FILE_THUMBNAIL_SIZE, 'image/jpeg');
+                } finally {
+                    await pdf.destroy();
+                }
+            } catch (error) {
+                if (!(error instanceof PdfOpenError)) console.warn('Could not draw the PDF thumbnail:', error);
+            }
+        }
+
+        const thumbBytes = thumbnailDrawing?.blob.size ?? 0;
+        const total = file.size + thumbBytes;
+        const downloadURL = await this.uploadBlob(path, file, allowed.contentType, (pct) => {
+            progressCallback(total ? ((file.size * pct) / 100 / total) * 100 : pct);
+        }, { contentDisposition: contentDispositionFor(allowed, title) });
+
+        let thumbnail: UploadedDocument['thumbnail'];
+        if (thumbnailDrawing) {
+            const thumbPath = withStoragePrefix(`${MEDIA_FILES_FOLDER}/${name.replace(/\.[^.]+$/, '')}-thumb.jpg`);
+            try {
+                const url = await this.uploadBlob(thumbPath, thumbnailDrawing.blob, 'image/jpeg', (pct) => {
+                    progressCallback(((file.size + (thumbBytes * pct) / 100) / total) * 100);
+                });
+                thumbnail = { url, path: thumbPath, width: thumbnailDrawing.width, height: thumbnailDrawing.height };
+            } catch (error) {
+                // The document is what was asked for; a card can show its icon.
+                console.warn('Could not store the PDF thumbnail:', error);
+            }
+        }
+        progressCallback(100);
+
+        const record: UploadedDocument = {
+            title,
+            name,
+            downloadURL,
+            path,
+            type: allowed.type,
+            contentType: allowed.contentType,
+            bytes: file.size,
+            uploadTime: new Date(),
+        };
+        if (pages) record.pages = pages;
+        if (thumbnail) record.thumbnail = thumbnail;
+        return record;
     }
 
     /**

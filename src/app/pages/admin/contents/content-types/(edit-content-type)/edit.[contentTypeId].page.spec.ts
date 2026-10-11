@@ -513,8 +513,12 @@ describe('EditContentTypeComponent', () => {
             expect(component.fieldTypes).toContain('radio');
         });
 
-        it('should have 17 field types total', () => {
-            expect(component.fieldTypes.length).toBe(17);
+        it('should have 18 field types total', () => {
+            expect(component.fieldTypes.length).toBe(18);
+        });
+
+        it('offers the File field (docs/features/content.html, File)', () => {
+            expect(component.fieldTypes).toContain('file');
         });
 
         it('should include the faq type (SS4)', () => {

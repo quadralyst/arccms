@@ -42,6 +42,15 @@ import { escapeHtml } from '../../../../shared/utils/escape-html';
 import { ImageCropperComponent, CropImageSize } from '../../../../shared/components/image-cropper/image-cropper.component';
 import { CROP_RATIOS, CropRatio, CropRect, cropRatioValue, isWholeImage, scaleCropRect, unsplashCropUrl } from '../../../../shared/utils/image-crop';
 import { mimeTypeOfName } from '../../../../shared/services/file-upload.service';
+import { ALLOWED_FILE_ACCEPT, defaultTitle, isLibraryDocument, isPdfFile, MediaFileRef } from '../../../../shared/utils/media-files';
+import { filterBySearch } from '../../../../shared/utils/media-search';
+import { LibraryImage } from './media-manager.service';
+import { IMediaFile } from './media-files.model';
+import { MediaFilesService } from './media-files.service';
+import { MediaFilesTabComponent } from './media-files-tab/media-files-tab.component';
+import { MediaFilePanelComponent } from './media-file-panel/media-file-panel.component';
+import { MediaDetailsChange, MediaDetailsComponent } from './media-details/media-details.component';
+import { PdfImageSaved, PdfImageSource, PdfImageTakerComponent } from './pdf-image-taker/pdf-image-taker.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Media Manager',
@@ -54,6 +63,10 @@ interface SelectableMedia {
     id: string;
     url?: string;
     name?: string;
+    /** An upload's details (MF-D21). */
+    title?: string;
+    alt?: string;
+    notes?: string;
     uploadTime?: Date;
     urls?: { regular: string; full?: string; raw?: string; small?: string };
     /** The stored sizes of an upload. Absent on Unsplash results and on uploads older than sizes. */
@@ -69,7 +82,7 @@ interface MediaMenuItem {
     value: string;
     icon?: string;
     /** What this tab produces. Tabs whose kind the caller cannot use are hidden. */
-    kind?: 'image' | 'icon';
+    kind?: 'image' | 'icon' | 'file';
 }
 
 /**
@@ -85,6 +98,12 @@ export interface MediaDialogData {
     allowImages?: boolean;
     /** Show the Icons tab. Defaults to false. */
     allowIcons?: boolean;
+    /**
+     * Show the Files tab: documents such as PDFs (docs/features/media.html,
+     * Files). Defaults to false in a dialog, so a caller that only knows
+     * images never gets a document back. The Media page always shows it.
+     */
+    allowFiles?: boolean;
     /**
      * Let the admin pick several images in one visit.
      *
@@ -119,7 +138,7 @@ export interface MediaSelection {
      */
     mediaUrl: string;
     /** Which kind of thing was picked. Absent on older callers' expectations. */
-    kind?: 'image' | 'icon';
+    kind?: 'image' | 'icon' | 'file';
     /** Present only when `kind` is `icon`. */
     icon?: ArcIcon;
     /**
@@ -131,6 +150,19 @@ export interface MediaSelection {
     mediaUrls?: string[];
     /** The size the admin picked; `mediaUrl` (and `mediaUrls`) already point at it. */
     size?: ImageSize;
+    /** The picked image's alt text from the library, when it has one (MF-D22). */
+    alt?: string;
+    /** Present only when `kind` is `file`; `mediaUrl` is its URL. */
+    file?: MediaFileRef;
+    /** Every file picked, when the caller asked for `multiple`. */
+    files?: MediaFileRef[];
+}
+
+/** A library file as the picker hands it back. */
+export function mediaFileRef(file: IMediaFile): MediaFileRef {
+    const ref: MediaFileRef = { id: file.id, url: file.downloadURL, title: file.title, type: file.type, bytes: file.bytes };
+    if (file.pages) ref.pages = file.pages;
+    return ref;
 }
 
 @Component({
@@ -148,7 +180,8 @@ export interface MediaSelection {
         MatListModule,
         MatCardModule,
         MatDialogClose,
-        MatProgressSpinnerModule, TranslocoPipe, IconBrowserComponent, ImageCropperComponent],
+        MatProgressSpinnerModule, TranslocoPipe, IconBrowserComponent, ImageCropperComponent,
+        MediaFilesTabComponent, MediaFilePanelComponent, MediaDetailsComponent, PdfImageTakerComponent],
     templateUrl: './media-manager.html',
     styleUrls: ['./media-manager.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -157,6 +190,7 @@ export interface MediaSelection {
 export default class MediaManagerComponent extends BaseComponent {
     @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
     @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
+    @ViewChild(MediaFilesTabComponent) filesTab?: MediaFilesTabComponent;
     mediaManagerService = inject(MediaManagerService);
     ref = inject(ChangeDetectorRef);
     mediaStore = inject(MediaManagerStore);
@@ -165,6 +199,7 @@ export default class MediaManagerComponent extends BaseComponent {
     readonly _DIALOG_DATA = inject<MediaDialogData>(MAT_DIALOG_DATA, { optional: true }) ?? { isDialogOpen: false };
     readonly dialogRef = inject(MatDialogRef<MediaManagerComponent>, { optional: true });
     fileUploadService = inject(FileUploadService);
+    private mediaFilesService = inject(MediaFilesService);
     private firestore = inject(Firestore);
     private injector = inject(Injector);
 
@@ -208,6 +243,23 @@ export default class MediaManagerComponent extends BaseComponent {
     /** Set once the view is gone, so a save finishing after the dialog closed leaves the view alone. */
     private destroyed = false;
 
+    // Files tab (docs/features/media.html, Files).
+    selectedFile: IMediaFile | null = null;
+    /** Every file picked in multi-select mode, in order. */
+    selectedFiles: IMediaFile[] = [];
+    readonly uploadAccept = `image/jpeg,image/png,image/webp,image/gif,${ALLOWED_FILE_ACCEPT}`;
+
+    // Take an image from a PDF (MF3, MF4). Set while that screen is open.
+    pdfSource: PdfImageSource | null = null;
+    /** A PDF dropped on My Uploads: "Keep the whole PDF in Files instead" uploads it. */
+    private pendingPdf: File | null = null;
+    /** The newest image taken from the PDF, selected when the screen closes. */
+    private lastPdfImage: PdfImageSaved | null = null;
+
+    // My Uploads search (MF-D23): every upload's details, loaded on the first search.
+    librarySearch = '';
+    private allImages: LibraryImage[] | null = null;
+
     // Multi-file upload tracking
     uploadCurrent = 0;
     uploadTotal = 0;
@@ -238,11 +290,14 @@ export default class MediaManagerComponent extends BaseComponent {
     get menuItems(): MediaMenuItem[] {
         const data = this._DIALOG_DATA;
         const allowIcons = data.allowIcons === true;
-        const allowImages = data.allowImages !== false || !allowIcons;
+        const allowFiles = data.allowFiles === true || !data.isDialogOpen;
+        // Asking for nothing at all is a mistake, so images win (see above);
+        // asking for files or icons alone is a real request.
+        const allowImages = data.allowImages !== false || (!allowIcons && data.allowFiles !== true);
 
         const menu = this.constantVariables.mediaManagerMenu as MediaMenuItem[];
         return menu.filter(item =>
-            item.kind === 'icon' ? allowIcons : allowImages,
+            item.kind === 'icon' ? allowIcons : item.kind === 'file' ? allowFiles : allowImages,
         );
     }
 
@@ -260,7 +315,7 @@ export default class MediaManagerComponent extends BaseComponent {
 
         // Upload limits are only read to validate an upload; an icons-only
         // dialog cannot upload anything, so skip the Firestore round-trip.
-        if (this.menuItems.some(item => item.kind === 'image')) {
+        if (this.menuItems.some(item => item.kind === 'image' || item.kind === 'file')) {
             this.mediaSettingsLoaded = this.loadMediaUploadSettings();
         }
 
@@ -313,6 +368,12 @@ export default class MediaManagerComponent extends BaseComponent {
         this.selectedMediaUrl = null;
         this.selectedIcon = null;
         this.selectedMediaList = [];
+        this.selectedFile = null;
+        this.selectedFiles = [];
+        this.librarySearch = '';
+        this.allImages = null;
+        this.pdfSource = null;
+        this.pendingPdf = null;
         this.closeCrop();
         this.selectedItem = event;
         // Reset page tracking when switching menus
@@ -428,6 +489,16 @@ export default class MediaManagerComponent extends BaseComponent {
             return;
         }
 
+        if (this.isFilesTab) {
+            const picked = this.isMultiSelect ? this.selectedFiles : (this.selectedFile ? [this.selectedFile] : []);
+            const files = picked.map(mediaFileRef);
+            const selection: MediaSelection = { type: 'submit', kind: 'file', mediaUrl: files[0]?.url ?? '' };
+            if (files[0]) selection.file = files[0];
+            if (this.isMultiSelect) selection.files = files;
+            this.dialogRef.close(selection);
+            return;
+        }
+
         if (this.isMultiSelect) {
             const urls = this.selectedMediaList
                 .map((picked) => this.urlAtSize(picked, this.selectedSize))
@@ -445,6 +516,7 @@ export default class MediaManagerComponent extends BaseComponent {
 
         const selectedMedia = this.selectedMediaUrl ? this.urlAtSize(this.selectedMediaUrl, this.selectedSize) : '';
         const selection: MediaSelection = { type: 'submit', mediaUrl: selectedMedia, kind: 'image', size: this.selectedSize };
+        if (this.selectedMediaUrl?.alt) selection.alt = this.selectedMediaUrl.alt;
         this.dialogRef.close(selection);
     }
 
@@ -694,6 +766,213 @@ export default class MediaManagerComponent extends BaseComponent {
         return this.selectedItem?.value === 'icons';
     }
 
+    /** True while the Files tab is the active one. */
+    get isFilesTab(): boolean {
+        return this.selectedItem?.value === 'files';
+    }
+
+    /** The upload grid: the page shown, or every upload matching the search box. */
+    get uploadItems(): SelectableMedia[] {
+        if (!this.librarySearch.trim()) return this.searchResults as SelectableMedia[];
+        return filterBySearch(this.allImages ?? [], this.librarySearch);
+    }
+
+    /** True while the My Uploads search box has words in it. */
+    get isLibrarySearching(): boolean {
+        return this.selectedItem?.value === 'upload' && !!this.librarySearch.trim();
+    }
+
+    /** The search box on My Uploads. The first search loads every upload's details once. */
+    async onLibrarySearch(value: string): Promise<void> {
+        this.librarySearch = value;
+        this.ref.detectChanges();
+        if (!value.trim() || this.allImages) return;
+        try {
+            this.allImages = await this.mediaManagerService.getAllMediaForSearch();
+        } catch (error) {
+            console.error('Failed to load uploads for search:', error);
+            this.notify.error('admin.media.load_failed');
+            this.allImages = [];
+        }
+        this.ref.detectChanges();
+    }
+
+    clearLibrarySearch(): void {
+        this.librarySearch = '';
+        this.ref.detectChanges();
+    }
+
+    /** An upload's title, alt text or notes changed in the side panel. */
+    /**
+     * An upload's title, alt text or notes changed in the side panel. The
+     * change shows at once, before the save finishes: a field saves when it
+     * loses focus, which is also when Insert is clicked, and the insert must
+     * carry the alt text just typed. A failed save puts the old values back.
+     */
+    async onImageDetailsChanged(change: MediaDetailsChange): Promise<void> {
+        const media = this.selectedMediaUrl;
+        if (!media || media.urls) return;
+        const before: MediaDetailsChange = {};
+        for (const key of Object.keys(change) as (keyof MediaDetailsChange)[]) before[key] = media[key] ?? '';
+        this.applyImageDetails(media.id, change);
+        try {
+            await this.mediaManagerService.saveMediaDetails(media.id, change);
+        } catch (error) {
+            console.error('Failed to save image details:', error);
+            this.notify.error('admin.media.details.save_failed');
+            this.applyImageDetails(media.id, before);
+        }
+        this.ref.detectChanges();
+    }
+
+    /** Puts details on an upload wherever the page holds it; the selection only if it is still selected. */
+    private applyImageDetails(id: string, change: MediaDetailsChange): void {
+        const apply = <T extends SelectableMedia>(item: T): T => (item.id === id ? { ...item, ...change } : item);
+        if (this.selectedMediaUrl?.id === id) this.selectedMediaUrl = apply(this.selectedMediaUrl);
+        this.searchResults = (this.searchResults as SelectableMedia[]).map(apply) as MediaItem[];
+        this.allImages = this.allImages?.map(apply) ?? null;
+        this.selectedMediaList = this.selectedMediaList.map(apply);
+        this.ref.detectChanges();
+    }
+
+    /** The title an upload shows: its own, else its file name. */
+    imageTitle(media: SelectableMedia): string {
+        return media.title || media.name || '';
+    }
+
+    // ── Files tab ──────────────────────────────────────────────
+
+    selectFile(file: IMediaFile): void {
+        if (this.isMultiSelect) {
+            this.selectedFiles = this.selectedFiles.some((f) => f.id === file.id)
+                ? this.selectedFiles.filter((f) => f.id !== file.id)
+                : [...this.selectedFiles, file];
+        }
+        this.selectedFile = file;
+        this.ref.detectChanges();
+    }
+
+    get pickedFileIds(): string[] {
+        return this.selectedFiles.map((f) => f.id);
+    }
+
+    /** A file's details changed in its panel; another file may be selected by now. */
+    onFileChanged(file: IMediaFile): void {
+        if (this.selectedFile?.id === file.id) this.selectedFile = file;
+        this.selectedFiles = this.selectedFiles.map((f) => (f.id === file.id ? file : f));
+        this.filesTab?.replace(file);
+        this.ref.detectChanges();
+    }
+
+    onFileDeleted(id: string): void {
+        if (this.selectedFile?.id === id) this.selectedFile = null;
+        this.selectedFiles = this.selectedFiles.filter((f) => f.id !== id);
+        void this.filesTab?.refresh();
+        this.ref.detectChanges();
+    }
+
+    openUploadPicker(): void {
+        if (this.isFilesTab) {
+            this.filesTab?.openPicker();
+            return;
+        }
+        this.openFilePicker();
+    }
+
+    // ── Take an image from a PDF (MF3, MF4) ──────────────────
+
+    /** A PDF from the admin's computer: its pages, with the PDF never stored. */
+    takeImageFromLocalPdf(file: File): void {
+        this.pendingPdf = file;
+        this.lastPdfImage = null;
+        this.selectedMediaUrl = null;
+        this.pdfSource = {
+            title: defaultTitle(file.name),
+            load: async () => file,
+        };
+        this.ref.detectChanges();
+    }
+
+    /** A PDF in the library: its bytes from this visit's upload, or read in parts. */
+    takeImageFromFile(file: IMediaFile): void {
+        this.pendingPdf = null;
+        this.lastPdfImage = null;
+        this.pdfSource = {
+            title: file.title,
+            fileId: file.id,
+            load: (onProgress) => this.mediaFilesService.pdfBytes(file.id, onProgress),
+        };
+        this.ref.detectChanges();
+    }
+
+    onPdfImageSaved(saved: PdfImageSaved): void {
+        this.lastPdfImage = saved;
+        this.allImages = null;
+    }
+
+    /**
+     * Leaves the PDF screen. When an image was taken, My Uploads opens with the
+     * newest one selected, ready to insert, as a cropped copy does.
+     */
+    closePdf(): void {
+        const last = this.lastPdfImage;
+        this.pdfSource = null;
+        this.pendingPdf = null;
+        this.lastPdfImage = null;
+        if (!last) {
+            this.ref.detectChanges();
+            return;
+        }
+        const uploads = this.menuItems.find((item) => item.value === 'upload');
+        if (uploads && this.selectedItem?.value !== 'upload') this.selectedMenu(uploads);
+        else {
+            this.pagination = null;
+            this.pageDocumentStack = [];
+            this.currentPageIndex = 0;
+            this.loadMediaItems();
+        }
+        this.selectMedia({
+            id: last.id,
+            url: last.media.downloadURL,
+            name: last.media.name,
+            title: last.media.title,
+            uploadTime: last.media.uploadTime,
+            variants: last.media.variants,
+        });
+    }
+
+    /** "Keep the whole PDF in Files instead": stores the dropped PDF in Files. */
+    keepPdfInFiles(): void {
+        const file = this.pendingPdf;
+        this.pdfSource = null;
+        this.pendingPdf = null;
+        this.lastPdfImage = null;
+        const files = this.menuItems.find((item) => item.value === 'files');
+        if (!file || !files) {
+            this.ref.detectChanges();
+            return;
+        }
+        this.selectedMenu(files);
+        this.ref.detectChanges();
+        // The tab exists once the view has caught up.
+        setTimeout(() => void this.filesTab?.upload([file]));
+    }
+
+    /** "Keep the whole PDF in Files instead" needs a dropped PDF and a Files tab to keep it in. */
+    get pendingPdfOffered(): boolean {
+        return !!this.pendingPdf && this.menuItems.some((item) => item.value === 'files');
+    }
+
+    /** The size the caller picked, for the PDF screen's "too small" note; none on the Media page. */
+    get pdfSizeLimit(): { label: string; limit: number } | null {
+        if (!this._DIALOG_DATA.isDialogOpen) return null;
+        return { label: this.imageSizeLabels[this.selectedSize], limit: this.selectedSizeLimit };
+    }
+
+    get uploadSettings(): MediaUploadSettings {
+        return this.mediaSettings;
+    }
+
     /**
      * Handle file selection from either the file input or drag-and-drop.
      * Supports multiple files. Validates types upfront, then uploads sequentially.
@@ -718,8 +997,13 @@ export default class MediaManagerComponent extends BaseComponent {
 
         // Snapshot the files before clearing the input (clearing empties the FileList)
         const validFiles: File[] = [];
+        const documents: File[] = [];
         for (let i = 0; i < fileList.length; i++) {
             const file = fileList[i];
+            if (isLibraryDocument(file.name)) {
+                documents.push(file);
+                continue;
+            }
             const typeError = this.fileUploadService.validateFileType(file);
             if (typeError) {
                 this.toastService.error(`${file.name}: ${typeError}`);
@@ -733,6 +1017,17 @@ export default class MediaManagerComponent extends BaseComponent {
             (event.target as HTMLInputElement).value = '';
         }
 
+        // Documents dropped on My Uploads (MF-D11). One PDF on its own opens
+        // "Take an image": this is the images tab, so an image is what is
+        // wanted. Anything else goes to Files, where documents live.
+        if (documents.length && !validFiles.length && documents.length === 1 && isPdfFile(documents[0])) {
+            this.takeImageFromLocalPdf(documents[0]);
+            return;
+        }
+        if (documents.length) {
+            this.sendToFiles(documents);
+        }
+
         if (validFiles.length === 0) {
             return;
         }
@@ -742,6 +1037,19 @@ export default class MediaManagerComponent extends BaseComponent {
         this.ref.detectChanges();
 
         this.uploadFilesSequentially(validFiles);
+    }
+
+    /** Documents dropped on My Uploads go to the Files tab, which uploads them. */
+    private sendToFiles(documents: File[]): void {
+        const files = this.menuItems.find((item) => item.value === 'files');
+        if (!files) {
+            this.notify.error('admin.media.files.not_here');
+            return;
+        }
+        this.notify.info('admin.media.files.moved_to_files', { count: documents.length });
+        this.selectedMenu(files);
+        this.ref.detectChanges();
+        setTimeout(() => void this.filesTab?.upload(documents));
     }
 
     /**
@@ -812,6 +1120,11 @@ export default class MediaManagerComponent extends BaseComponent {
     }
 
     private loadMediaItems(pageSize: number = 20, lastVisible?: DocumentSnapshot) {
+        // The list changed (an upload, a crop, a delete): the search must see it too.
+        if (this.allImages) {
+            this.allImages = null;
+            if (this.librarySearch.trim()) void this.onLibrarySearch(this.librarySearch);
+        }
         const sub = this.mediaManagerService.getMediaListFromFirestore(pageSize, lastVisible).subscribe({
             next: (response) => {
                 // Always replace items (we handle stack-based navigation)
@@ -870,8 +1183,8 @@ export default class MediaManagerComponent extends BaseComponent {
         this.loadMediaItems(pageSize, startAfterDoc);
     }
 
-    public confirmationToDeleteItem(media: MediaItem) {
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(`Are you sure you want to delete ${escapeHtml(media.name)}?`);
+    public confirmationToDeleteItem(media: SelectableMedia) {
+        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(`Are you sure you want to delete ${escapeHtml(this.imageTitle(media))}?`);
         const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
             width: '350px',
             data: {

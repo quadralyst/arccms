@@ -49,12 +49,13 @@ import { SlashCommands } from './service/slash-commands';
 import { UrlAddDialog } from './service/url-add-dialog/add-url.component';
 import { YouTubeExt } from './service/youtube-extension';
 import { ARC_BLOCKS, ArcBlock, ArcBlockKind, ArcBlockMeta } from './service/arc-block-extension';
-import MediaManagerComponent from '../../../app/pages/admin/(media)/media.page';
+import MediaManagerComponent, { MediaSelection } from '../../../app/pages/admin/(media)/media.page';
 import { filterEmailTags, insertTagMention } from '../../constants/email-tags';
 
 declare global {
   interface Window {
     uploadImage: () => void;
+    attachFile: () => void;
   }
   interface Window {
     setUrl: (type: string) => void;
@@ -194,6 +195,9 @@ export default class TiptapEditorComponent {
     this.initializeEditor();
     window.uploadImage = () => {
       this.openMediaManagerModal();
+    };
+    window.attachFile = () => {
+      this.openFilePickerModal();
     };
 
     window.setUrl = (type) => {
@@ -492,6 +496,9 @@ export default class TiptapEditorComponent {
         // Insert image size; the service is fetched only when one arrives.
         FileHandlerExtension.configure({
           uploadImage: (file, onProgress) => this.injector.get(EditorImageUploadService).upload(file, onProgress),
+          // A document goes to the library's Files and in as a file card (MF-D20).
+          uploadDocument: (file, onProgress) => this.injector.get(EditorImageUploadService).uploadDocument(file, onProgress),
+          onUnsupported: (file) => this.injector.get(EditorImageUploadService).showUnsupported(file),
           onUploadError: (file, error) => this.injector.get(EditorImageUploadService).showError(file, error),
           uploadingLabel: (file, percent) => this.injector.get(EditorImageUploadService).uploadingLabel(file, percent),
         }),
@@ -572,11 +579,35 @@ export default class TiptapEditorComponent {
       },
     });
 
-    dialogRef.afterClosed().subscribe((result: { mediaUrl: string; type: string } | null) => {
+    dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result && result.type === 'submit' && result.mediaUrl) {
-        // Insert the selected image into the editor
-        this.editor.chain().focus().setImage({ src: result.mediaUrl }).run();
+        // Insert the selected image into the editor, with its library alt text (MF-D22).
+        this.editor.chain().focus().setImage({ src: result.mediaUrl, ...(result.alt ? { alt: result.alt } : {}) }).run();
       }
+    });
+  }
+
+  /**
+   * "Attach files": the Media Manager on its Files tab, several at once; each
+   * file goes in as a card linking to it (docs/features/media.html, Files).
+   */
+  openFilePickerModal(): void {
+    const dialogRef = this.dialog.open(MediaManagerComponent, {
+      enterAnimationDuration: '450ms',
+      exitAnimationDuration: '300ms',
+      minWidth: '134vh',
+      maxHeight: '90vh',
+      panelClass: 'common-dialog-box',
+      disableClose: true,
+      data: { isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files', multiple: true },
+    });
+
+    dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
+      if (result?.type !== 'submit' || result.kind !== 'file') return;
+      const files = result.files ?? (result.file ? [result.file] : []);
+      let chain = this.editor.chain().focus();
+      for (const file of files) chain = chain.insertFileCard(file);
+      chain.run();
     });
   }
 

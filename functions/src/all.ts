@@ -77,6 +77,8 @@ export * from './mail-config/testProviderConnection.js';
 export * from './integrations/searchUnsplash.js';
 // Media image bytes for cropping in the browser, whatever the bucket's CORS setup
 export * from './integrations/readMediaImage.js';
+// Library PDFs, in parts, for taking an image from a page in the browser
+export * from './integrations/readMediaFile.js';
 
 // The features this app has (generated from src/custom/features.ts).
 export * from './feature-exports.gen.js';

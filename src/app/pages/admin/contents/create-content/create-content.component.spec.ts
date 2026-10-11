@@ -1315,8 +1315,8 @@ describe('CreateContentComponent', () => {
             const metaDescription = component.seoForm.get('metaDescription')?.value;
             expect(metaDescription).not.toContain('<h1>');
             expect(metaDescription).not.toContain('<strong>');
-            // Note: consecutive tags without whitespace will result in joined words
-            expect(metaDescription).toContain('TitleDescription text');
+            // A heading and a paragraph stay separate words (summary-text.ts).
+            expect(metaDescription).toContain('Title Description text');
         });
 
         it('should handle empty content from TipTap', () => {

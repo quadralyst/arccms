@@ -2,6 +2,8 @@ import { Extension } from '@tiptap/core';
 import { EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { Image } from './custom-tiptap-image-node';
+import { FileCard } from './file-card-node';
+import { isLibraryDocument, MediaFileRef } from '../../../utils/media-files';
 
 /**
  * Files dropped or pasted into the editor.
@@ -11,12 +13,20 @@ import { Image } from './custom-tiptap-image-node';
  * and the image goes in with the URL it resolves to. Its bytes are never put
  * in the content as a data URL: that bloats the document towards Firestore's
  * 1 MiB limit and skips the library's sizes. Without an uploader an image is
- * not added at all. A drop with no image in it keeps the old `[File: name]`
- * marker.
+ * not added at all.
+ *
+ * A document the library takes (PDF, Word, Excel, PowerPoint, CSV, text) is
+ * uploaded to Files through `uploadDocument` and goes in as a file card
+ * (file-card-node.ts; MF-D20). Any other file is refused through
+ * `onUploadError`, never put in the text.
  */
 export interface FileHandlerOptions {
   /** Uploads one image and resolves to the URL to insert. */
   uploadImage: ((file: File, onProgress: (percent: number) => void) => Promise<string>) | null;
+  /** Uploads one document to the library's Files and resolves to the file to link. */
+  uploadDocument: ((file: File, onProgress: (percent: number) => void) => Promise<MediaFileRef>) | null;
+  /** Called for a file that is neither an image nor a document the library takes. */
+  onUnsupported: (file: File) => void;
   /** Called when an image could not be uploaded. */
   onUploadError: (file: File, error: unknown) => void;
   /** The placeholder's text while `file` uploads. */
@@ -39,6 +49,8 @@ export const FileHandlerExtension = Extension.create<FileHandlerOptions>({
   addOptions() {
     return {
       uploadImage: null,
+      uploadDocument: null,
+      onUnsupported: (file) => console.warn(`${file.name} cannot be added here.`),
       onUploadError: (file, error) => console.error(`Could not upload ${file.name}:`, error),
       uploadingLabel: (file) => `Uploading ${file.name}...`,
     };
@@ -47,6 +59,7 @@ export const FileHandlerExtension = Extension.create<FileHandlerOptions>({
   addExtensions() {
     return [
       Image,
+      FileCard,
     ]
   },
 
@@ -108,28 +121,31 @@ export function htmlHasText(html: string | undefined): boolean {
   return !!body.textContent?.trim();
 }
 
+function isDocument(file: File): boolean {
+  return !isImage(file) && isLibraryDocument(file.name);
+}
+
 function handleFiles(view: EditorView, files: File[], pos: number, options: FileHandlerOptions): void {
-  const images = files.filter(isImage);
-  if (!images.length) {
-    view.dispatch(view.state.tr.insertText(`[File: ${files[0].name}]`, pos));
-    return;
+  const wanted = files.filter((file) =>
+    (isImage(file) && options.uploadImage) || (isDocument(file) && options.uploadDocument));
+  for (const file of files) {
+    if (!isImage(file) && !isDocument(file)) options.onUnsupported(file);
   }
-  if (!options.uploadImage) return;
-  void uploadImages(view, images, pos, options, options.uploadImage);
+  if (!wanted.length) return;
+  void uploadFiles(view, wanted, pos, options);
 }
 
 /**
- * One placeholder per image, all at `pos`, then one upload at a time so the
- * images land in the order they were dropped.
+ * One placeholder per file, all at `pos`, then one upload at a time so the
+ * images and file cards land in the order they were dropped.
  */
-async function uploadImages(
+async function uploadFiles(
   view: EditorView,
-  images: File[],
+  files: File[],
   pos: number,
   options: FileHandlerOptions,
-  uploadImage: NonNullable<FileHandlerOptions['uploadImage']>,
 ): Promise<void> {
-  const placeholders = images.map((file) => ({
+  const placeholders = files.map((file) => ({
     file,
     id: {},
     dom: placeholderDom(view.dom.ownerDocument, options.uploadingLabel(file, 0)),
@@ -139,15 +155,25 @@ async function uploadImages(
   for (const placeholder of placeholders) {
     const { file, id, dom } = placeholder;
     try {
-      const src = await uploadImage(file, (percent) => {
+      const onProgress = (percent: number) => {
         dom.textContent = options.uploadingLabel(file, percent);
-      });
-      if (view.isDestroyed) return;
+      };
+      let node;
+      if (isImage(file)) {
+        const src = await options.uploadImage!(file, onProgress);
+        if (view.isDestroyed) return;
+        node = view.state.schema.nodes['image'].create({ src });
+      } else {
+        const uploaded = await options.uploadDocument!(file, onProgress);
+        if (view.isDestroyed) return;
+        node = view.state.schema.nodes['fileCard'].create({
+          href: uploaded.url, title: uploaded.title, type: uploaded.type, bytes: uploaded.bytes, pages: uploaded.pages ?? null,
+        });
+      }
       const at = findPlaceholder(view.state, id);
       // Gone with the text around it: the admin deleted it while it uploaded.
       if (at === null) continue;
-      const image = view.state.schema.nodes['image'].create({ src });
-      view.dispatch(view.state.tr.replaceWith(at, at, image).setMeta(FileHandlerKey, { remove: [id] }));
+      view.dispatch(view.state.tr.replaceWith(at, at, node).setMeta(FileHandlerKey, { remove: [id] }));
     } catch (error) {
       if (!view.isDestroyed) {
         view.dispatch(view.state.tr.setMeta(FileHandlerKey, { remove: [id] }));

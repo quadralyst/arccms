@@ -824,3 +824,33 @@ describe('TemplateHydrationService', () => {
         });
     });
 });
+
+describe('File fields (docs/features/templates.html, MF-D18)', () => {
+    const brochure = [
+        { url: 'https://x/o/mediaFiles%2Fbrochure.pdf?alt=media', title: 'Brochure', type: 'pdf', bytes: 2411724, pages: 12 },
+        { url: 'https://x/o/mediaFiles%2Fprices.xlsx?alt=media', title: 'Prices', type: 'excel', bytes: 20480 },
+    ];
+
+    it('binds the first file beside the field, outside any loop', () => {
+        const html = '<a href="{{ events_brochure_url }}">{{ events_brochure_title }}</a> <small>{{ events_brochure_type }}, {{ events_brochure_size }}, {{ events_brochure_pages }}</small>';
+        const result = TemplateHydrationService.hydrateTemplate(html, { events_brochure: brochure });
+        expect(result).toContain('href="https://x/o/mediaFiles%2Fbrochure.pdf?alt=media"');
+        expect(result).toContain('>Brochure</a>');
+        expect(result).toContain('PDF, 2.3 MB, 12');
+    });
+
+    it('lists every file in the loop of the same name, as type, size and pages', () => {
+        const html = '<ul data-arc-loop="events_brochure"><li class="file-{{ kind }}"><a href="{{ url }}">{{ title }}</a> {{ type }} {{ size }}</li></ul>';
+        const result = TemplateHydrationService.processLoops(html, TemplateHydrationService.arrayLoopData({ events_brochure: brochure }));
+        expect(result).toContain('class="file-pdf"');
+        expect(result).toContain('Brochure</a> PDF 2.3 MB');
+        expect(result).toContain('Prices</a> Excel 20 KB');
+    });
+
+    it('leaves other lists alone', () => {
+        const rows = [{ image: 'https://x/a.jpg', caption: 'Crowd' }];
+        expect(TemplateHydrationService.arrayLoopData({ gallery: rows })['gallery']).toEqual(rows);
+        const result = TemplateHydrationService.hydrateTemplate('<i>{{ gallery_url }}</i>', { gallery: rows });
+        expect(result).not.toContain('https://x/a.jpg');
+    });
+});

@@ -63,7 +63,41 @@ service firebase.storage {
     }
     match /{first}/{second}/{rest=**} {
       allow read: if first != 'users' && second != 'users';
-      allow write: if isEditor();
+      // Library files have their own rules below. Without this exclusion a
+      // staff write there would pass here whatever its type, since a request
+      // is allowed when any rule allows it.
+      allow write: if isEditor() && first != 'mediaFiles' && second != 'mediaFiles';
+    }
+
+    // Library files (docs/features/media.html, Files): documents only, each
+    // extension with its one content type (src/shared/utils/media-files.ts,
+    // ALLOWED_FILES; a spec checks the two agree), up to 20 MB, plus each
+    // PDF's first-page thumbnail. Never HTML, SVG, scripts or archives: the
+    // bucket is public, so anything here could be linked as a page.
+    function isLibraryFile(fileName) {
+      let type = request.resource.contentType;
+      return request.resource.size <= 20 * 1024 * 1024 && (
+        (fileName.matches('.*[.]pdf') && type == 'application/pdf')
+        || (fileName.matches('.*[.]docx') && type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        || (fileName.matches('.*[.]doc') && type == 'application/msword')
+        || (fileName.matches('.*[.]xlsx') && type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        || (fileName.matches('.*[.]xls') && type == 'application/vnd.ms-excel')
+        || (fileName.matches('.*[.]pptx') && type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+        || (fileName.matches('.*[.]ppt') && type == 'application/vnd.ms-powerpoint')
+        || (fileName.matches('.*[.]csv') && type == 'text/csv')
+        || (fileName.matches('.*[.]txt') && type == 'text/plain')
+        || (fileName.matches('.*-thumb[.]jpg') && type == 'image/jpeg' && request.resource.size < 1024 * 1024)
+      );
+    }
+    match /mediaFiles/{fileName} {
+      allow read: if true;
+      allow create, update: if isEditor() && isLibraryFile(fileName);
+      allow delete: if isEditor();
+    }
+    match /{prefix}/mediaFiles/{fileName} {
+      allow read: if prefix != 'users';
+      allow create, update: if isEditor() && isLibraryFile(fileName);
+      allow delete: if isEditor();
     }
 
     // Per-user folders (docs/app/account-contract.html): the owner and admins may

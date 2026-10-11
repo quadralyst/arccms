@@ -93,6 +93,14 @@ export interface MediaDocInfo {
     storagePath: string;
     uploadTime: string;     // ISO string or Firestore Timestamp serialised
     type?: string;
+    /** Which library collection the item is from: images (`media`) or documents (`mediaFiles`). */
+    collection?: 'media' | 'mediaFiles';
+    /** A picture of the item for the export list: a PDF's first page. */
+    previewURL?: string;
+    /** The details the library keeps (title, alt text, notes), carried in the manifest. */
+    title?: string;
+    alt?: string;
+    notes?: string;
 }
 
 export interface FileExportProgress {
@@ -115,6 +123,10 @@ export interface UploadResult {
     downloadURL: string;
     success: boolean;
     error?: string;
+    /** `mediaFiles` when it went to the library's Files (its record is already written). */
+    collection?: 'mediaFiles';
+    /** Library details from a manifest, written with the `media` record. */
+    details?: { title?: string; alt?: string; notes?: string };
 }
 
 /**
@@ -153,6 +165,7 @@ export const KNOWN_COLLECTIONS: CollectionConfig[] = [
     { name: 'users', displayName: 'Users' },
     { name: 'Settings', displayName: 'Settings' },
     { name: 'media', displayName: 'Media Metadata' },
+    { name: 'mediaFiles', displayName: 'Media Files Metadata' },
     { name: 'EmailTemplate', displayName: 'Email Templates' },
     { name: 'BroadcastEmails', displayName: 'Broadcast Emails', feature: 'email-marketing' },
     { name: 'EmailLogs', displayName: 'Email Logs' },
@@ -194,6 +207,7 @@ export const COLLECTION_GROUP_MAP: Record<string, CollectionGroupId> = {
     Suppression:     'audience',
     Settings:        'settings-media',
     media:           'settings-media',
+    mediaFiles:      'settings-media',
     EmailTemplate:   'email',
     BroadcastEmails: 'email',
     EmailLogs:       'email',
@@ -287,6 +301,7 @@ export const IMPORT_ORDER: string[] = [
     'Settings',
     'users',
     'media',
+    'mediaFiles',
     'EmailTemplate',
     // Tags_ and arc_* dynamic collections are matched by prefix in getImportPriority
     'Waitlists',

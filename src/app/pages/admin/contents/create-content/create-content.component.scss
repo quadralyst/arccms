@@ -1516,3 +1516,68 @@
   .link-suggestion-title { font-weight: 500; }
   .link-suggestion-meta { font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+
+// A File field (docs/features/content.html, File): one row per file.
+.custom-file-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.custom-file-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: #fff;
+
+  > i {
+    font-size: 1.4rem;
+    margin: 0;
+    color: #6c757d;
+    flex-shrink: 0;
+  }
+
+  .fa-file-pdf { color: #c0392b; }
+  .fa-file-word { color: #2b579a; }
+  .fa-file-excel { color: #217346; }
+  .fa-file-powerpoint { color: #b7472a; }
+}
+
+.custom-file-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 8rem;
+}
+
+.custom-file-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-file-meta {
+  font-size: 0.78rem;
+  color: #6c757d;
+}
+
+.custom-file-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  // Below the title in a narrow column, beside it in a wide one.
+  flex: 1 0 auto;
+
+  i {
+    font-size: 0.8rem;
+    margin: 0;
+  }
+}

@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Firestore } from '@angular/fire/firestore';
 import { Storage } from '@angular/fire/storage';
 import { ImportFilesService, FileWithPath } from './import-files.service';
+import { FileUploadService } from '../../../../../shared/services/file-upload.service';
 // Paths go through the install's upload folder (arc-install.ts), whatever it is.
 import { withStoragePrefix } from '../../../../core/config/arc-config';
 
@@ -23,16 +24,17 @@ vi.mock('@angular/fire/firestore', async () => {
     const actual = await vi.importActual('@angular/fire/firestore');
     return {
         ...actual,
-        doc: vi.fn((_db: any, ...segments: string[]) => ({
-            path: segments.join('/'),
-            id: segments[segments.length - 1],
-        })),
+        doc: vi.fn((parent: any, ...segments: string[]) => segments.length
+            ? { path: segments.join('/'), id: segments[segments.length - 1] }
+            : { path: `${parent.path}/auto-id`, id: 'auto-id' }),
+        collection: vi.fn((_db: any, name: string) => ({ path: name })),
         setDoc: (...args: any[]) => mockSetDoc(...args),
     };
 });
 
 describe('ImportFilesService', () => {
     let service: ImportFilesService;
+    const uploadDocument = vi.fn();
 
     beforeEach(async () => {
         vi.clearAllMocks();
@@ -42,6 +44,7 @@ describe('ImportFilesService', () => {
                 ImportFilesService,
                 { provide: Firestore, useValue: {} },
                 { provide: Storage, useValue: {} },
+                { provide: FileUploadService, useValue: { uploadDocument } },
             ],
         }).compileComponents();
 
@@ -184,6 +187,57 @@ describe('ImportFilesService', () => {
             await service.importFromManifest(manifest, files, vi.fn());
 
             expect(mockRef).toHaveBeenCalledWith(expect.anything(), withStoragePrefix('custom/path/img1.jpg'));
+        });
+    });
+
+    describe('documents go to the library\'s Files (docs/features/media.html)', () => {
+        const uploaded = (name: string) => ({
+            title: name.replace(/\.[^.]+$/, ''), name: `${name}-abc123`, downloadURL: `https://storage.example/${name}`, path: `mediaFiles/${name}`,
+            type: 'pdf', contentType: 'application/pdf', bytes: 1, uploadTime: new Date(),
+        });
+
+        beforeEach(() => {
+            uploadDocument.mockImplementation(async (file: File) => uploaded(file.name));
+        });
+
+        it('stores each through the Files upload and writes its mediaFiles record', async () => {
+            const results = await service.uploadDocuments([{ file: new File(['%PDF'], 'menu.pdf') }], true, vi.fn());
+            expect(uploadDocument).toHaveBeenCalledTimes(1);
+            expect(mockSetDoc).toHaveBeenCalledWith(
+                expect.objectContaining({ path: 'mediaFiles/auto-id' }),
+                expect.objectContaining({ title: 'menu', path: 'mediaFiles/menu.pdf', id: 'auto-id' }),
+            );
+            expect(results[0]).toMatchObject({ success: true, collection: 'mediaFiles' });
+        });
+
+        it('writes no record when the media collection is not to be updated', async () => {
+            await service.uploadDocuments([{ file: new File(['%PDF'], 'menu.pdf') }], false, vi.fn());
+            expect(mockSetDoc).not.toHaveBeenCalled();
+        });
+
+        it('reports a refused document as failed and carries on', async () => {
+            uploadDocument.mockRejectedValueOnce(new Error('This file type cannot be uploaded.'));
+            const results = await service.uploadDocuments([{ file: new File(['x'], 'a.pdf') }, { file: new File(['%PDF'], 'b.pdf') }], true, vi.fn());
+            expect(results.map((r) => r.success)).toEqual([false, true]);
+        });
+
+        it('restores a manifest\'s documents to Files with their title and notes, and its images as before', async () => {
+            const manifest = {
+                f1: { name: 'brochure-abc123.pdf', collection: 'mediaFiles', title: 'Spring brochure', notes: 'For the shop' },
+                m1: { name: 'img1.jpg', storagePath: 'mediaImages/img1.jpg', title: 'Shop front', alt: 'The shop' },
+            };
+            const results = await service.importFromManifest(manifest, [new File(['%PDF'], 'brochure-abc123.pdf'), new File(['1'], 'img1.jpg')], vi.fn());
+            expect(mockSetDoc).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ title: 'Spring brochure', notes: 'For the shop' }));
+            expect(results.find((r) => r.fileName === 'img1.jpg')).toMatchObject({ details: { title: 'Shop front', alt: 'The shop' } });
+        });
+
+        it('keeps documents out of the media collection, and gives images their details', async () => {
+            await service.updateMediaMetadata([
+                { fileName: 'a.pdf', storagePath: 'mediaFiles/a.pdf', downloadURL: 'u', success: true, collection: 'mediaFiles' },
+                { fileName: 'b.jpg', storagePath: 'mediaImages/b.jpg', downloadURL: 'v', success: true, details: { alt: 'B' } },
+            ]);
+            expect(mockSetDoc).toHaveBeenCalledTimes(1);
+            expect(mockSetDoc).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ name: 'b.jpg', alt: 'B' }));
         });
     });
 });

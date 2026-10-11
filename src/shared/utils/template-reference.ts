@@ -141,6 +141,7 @@ export function templateKey(fieldKey: string, typeSlug: string): string {
 const LOOP_ROWS: Record<string, string> = {
     infocard: 'Rows: {{ headline }}, {{ info }}, {{ icon }} or {{ image }}',
     gallery: 'Rows: {{ image }} or {{ video_embed }}, {{ caption }}',
+    file: 'Rows: {{ url }}, {{ title }}, {{ type }}, {{ size }}, {{ pages }}',
     labelvalue: 'Rows: {{ label }}, {{ value }}',
     maplocation: 'Rows: {{ label }}, {{ address }}, map_embed for an iframe',
     faq: 'Rows: {{ question }}, {{ answer }}; data-arc-bind="answer_html" for paragraphs and links',
@@ -165,6 +166,8 @@ export function customFieldReference(field: TemplateRefField, typeSlug: string):
             return row(`<img data-arc-bind="${k}" alt="">`, `Sizes: ${k}_s, ${k}_m, ${k}_l, ${k}_xl`);
         case 'icon':
             return row(`<i class="{{ ${k} }}"></i>`, `Also ${k}_svg, ${k}_label`);
+        case 'file':
+            return row(`<a href="{{ ${k}_url }}">{{ ${k}_title }}</a>`, `The first file: also ${k}_type, ${k}_size, ${k}_pages. Every file: data-arc-loop="${k}" (detail pages). ${LOOP_ROWS['file']}`);
         case 'color':
             return row(`style="color: {{ ${k} }}"`, `Also ${k}_rgb, ${k}_rgb_values`);
         case 'boolean':

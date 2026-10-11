@@ -401,6 +401,9 @@ export class DraftContentsTableComponent
     // "[object Object]".
     if (isRepeaterType(field.type)) return false;
 
+    // A file field is a list of files too (docs/features/content.html, File).
+    if (field.type === 'file') return false;
+
     const fixedKeys = [
       ...this.baseColumns.map((col) => col.key),
       ...this.endColumns.map((col) => col.key),

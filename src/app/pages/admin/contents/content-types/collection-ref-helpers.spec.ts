@@ -410,6 +410,12 @@ describe('collection-ref-helpers', () => {
             store = createMockStore([AUTHORS_COLLECTION, CATEGORIES_COLLECTION]);
         });
 
+        it('keeps "Several files" on a File field only (docs/features/content.html, File)', () => {
+            expect(mapFieldWithCollectionRef({ key: 'brochure', label: 'Brochure', type: 'file', multiple: true }, 0, store).multiple).toBe(true);
+            expect(mapFieldWithCollectionRef({ key: 'brochure', label: 'Brochure', type: 'file', multiple: false }, 0, store).multiple).toBeUndefined();
+            expect(mapFieldWithCollectionRef({ key: 'title', label: 'Title', type: 'text', multiple: true }, 0, store).multiple).toBeUndefined();
+        });
+
         // ---------------------------------------------------------------
         // Basic mapping without collection ref
         // ---------------------------------------------------------------

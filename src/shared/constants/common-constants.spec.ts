@@ -77,8 +77,8 @@ describe('ConstantVariables', () => {
     });
 
     describe('Media Manager Menu', () => {
-        it('should have three menu items', () => {
-            expect(constants.mediaManagerMenu).toHaveLength(3);
+        it('should have four menu items', () => {
+            expect(constants.mediaManagerMenu).toHaveLength(4);
         });
 
         it('should have an icons menu item', () => {
@@ -92,6 +92,7 @@ describe('ConstantVariables', () => {
             // untagged tab would show up in a picker that has no use for it.
             expect(constants.mediaManagerMenu.map((m: any) => [m.value, m.kind])).toEqual([
                 ['upload', 'image'],
+                ['files', 'file'],
                 ['search', 'image'],
                 ['icons', 'icon'],
             ]);

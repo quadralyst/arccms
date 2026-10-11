@@ -209,13 +209,38 @@ describe('FileHandlerExtension', () => {
         expect(onUploadError).not.toHaveBeenCalled();
     });
 
-    it('leaves a non-image drop as it was: a [File: name] marker, no upload', () => {
-        makeEditor({ uploadImage, onUploadError });
+    it('uploads a dropped document to Files and puts in a file card (MF-D20)', async () => {
+        const upload = deferred<{ url: string; title: string; type: 'pdf'; bytes: number; pages: number }>();
+        const uploadDocument = vi.fn(() => upload.promise);
+        makeEditor({ uploadImage, uploadDocument, onUploadError });
 
         drop([new File(['%PDF'], 'brochure.pdf', { type: 'application/pdf' })]);
-
         expect(uploadImage).not.toHaveBeenCalled();
-        expect(editor.getText()).toContain('[File: brochure.pdf]');
+        expect(uploadDocument).toHaveBeenCalledTimes(1);
+        expect(placeholders()).toHaveLength(1);
+
+        upload.resolve({ url: 'https://storage.example/brochure.pdf', title: 'Brochure', type: 'pdf', bytes: 2048, pages: 3 });
+        await flush();
+
+        expect(placeholders()).toHaveLength(0);
+        const html = editor.getHTML();
+        expect(html).toContain('class="arc-file" data-arc-file="pdf"');
+        expect(html).toContain('href="https://storage.example/brochure.pdf"');
+        expect(html).toContain('<span class="arc-file-title">Brochure</span>');
+        expect(editor.getText()).not.toContain('[File:');
+    });
+
+    it('refuses a file that is neither an image nor a document, and never puts its name in the text', () => {
+        const onUnsupported = vi.fn();
+        const uploadDocument = vi.fn();
+        makeEditor({ uploadImage, uploadDocument, onUploadError, onUnsupported });
+
+        drop([new File(['<html>'], 'page.html', { type: 'text/html' })]);
+
+        expect(onUnsupported).toHaveBeenCalledWith(expect.objectContaining({ name: 'page.html' }));
+        expect(uploadImage).not.toHaveBeenCalled();
+        expect(uploadDocument).not.toHaveBeenCalled();
+        expect(editor.getText()).not.toContain('page.html');
     });
 
     it('uploads nothing into a read-only editor', () => {

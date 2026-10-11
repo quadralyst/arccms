@@ -14,8 +14,9 @@ vi.mock('@angular/fire/firestore', async () => {
     const actual = await vi.importActual('@angular/fire/firestore');
     return {
         ...actual,
-        collection: vi.fn(),
-        getDocs: vi.fn().mockResolvedValue({
+        collection: vi.fn((_db: unknown, name: string) => ({ name })),
+        // The images; `mediaFiles` (the library's documents) is empty unless a test says otherwise.
+        getDocs: vi.fn(async (q: { name?: string }) => q?.name === 'mediaFiles' ? { docs: [] } : {
             docs: [
                 {
                     id: 'media1',
@@ -108,6 +109,27 @@ describe('ExportFilesService', () => {
 
             const items = await service.getMediaItems();
             expect(items[0].uploadTime).toBe(mockDate.toISOString());
+        });
+
+        it('lists library documents after the images, with their title, notes and first page', async () => {
+            const { getDocs } = await import('@angular/fire/firestore');
+            const fileDoc = {
+                id: 'file1',
+                data: () => ({
+                    name: 'brochure-abc123.pdf', title: 'Brochure', notes: 'Spring range', type: 'pdf',
+                    downloadURL: 'https://example.com/brochure.pdf', path: 'mediaFiles/brochure-abc123.pdf',
+                    thumbnail: { url: 'https://example.com/brochure-thumb.jpg' }, uploadTime: '2024-02-01T00:00:00Z',
+                }),
+            };
+            const images = await (getDocs as any)({ name: 'media' });
+            (getDocs as any).mockResolvedValueOnce(images).mockResolvedValueOnce({ docs: [fileDoc] });
+
+            const items = await service.getMediaItems();
+            expect(items.map((i) => i.collection)).toEqual(['media', 'media', 'mediaFiles']);
+            expect(items[2]).toMatchObject({
+                id: 'file1', storagePath: 'mediaFiles/brochure-abc123.pdf', title: 'Brochure', notes: 'Spring range',
+                previewURL: 'https://example.com/brochure-thumb.jpg',
+            });
         });
 
         it('should return empty array when no media documents exist', async () => {

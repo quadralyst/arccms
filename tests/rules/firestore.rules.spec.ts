@@ -200,6 +200,7 @@ describe('content writes are staff only', () => {
         () => setDoc(doc(db, 'arc_articles_drafts', 'd1', 'translations', 'fr'), { title: 'x' }),
         () => setDoc(doc(db, 'Tags_articles', 't1'), { name: 'x' }),
         () => setDoc(doc(db, 'media', 'm1'), { downloadURL: 'x' }),
+        () => setDoc(doc(db, 'mediaFiles', 'f1'), { downloadURL: 'x', title: 'Price list' }),
         () => addDoc(collection(db, '_publish_queue'), { action: 'publish' }),
         () => setDoc(doc(db, '_search_queue', 'arc_articles_drafts~d1'), { collection: 'arc_articles_drafts', docId: 'd1', at: new Date() }),
     ];
@@ -486,5 +487,26 @@ describe('app accounts are locked (docs/app/app-accounts.html)', () => {
 
     it('lets an admin change a locked account', async () => {
         await assertSucceeds(updateDoc(doc(admin(), 'users', 'locked-doc'), { name: 'Anna B', selfService: true }));
+    });
+});
+
+describe('media library details are staff only (MF-D24)', () => {
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await setDoc(doc(ctx.firestore(), 'media', 'm1'), { downloadURL: 'x', notes: 'staff note' });
+            await setDoc(doc(ctx.firestore(), 'mediaFiles', 'f1'), { downloadURL: 'x', notes: 'staff note' });
+        });
+    });
+
+    it('refuses a visitor and a member', async () => {
+        await assertFails(getDoc(doc(anon(), 'media', 'm1')));
+        await assertFails(getDoc(doc(anon(), 'mediaFiles', 'f1')));
+        await assertFails(getDoc(doc(alice(), 'media', 'm1')));
+        await assertFails(getDoc(doc(alice(), 'mediaFiles', 'f1')));
+    });
+
+    it('lets staff read', async () => {
+        await assertSucceeds(getDoc(doc(admin(), 'media', 'm1')));
+        await assertSucceeds(getDoc(doc(admin(), 'mediaFiles', 'f1')));
     });
 });

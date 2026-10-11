@@ -32,6 +32,12 @@ export class ConstantVariables {
             kind: 'image',
         },
         {
+            name: 'Files',
+            value: 'files',
+            icon: 'file-lines',
+            kind: 'file',
+        },
+        {
             name: 'Free Images',
             value: 'search',
             icon: 'image',
