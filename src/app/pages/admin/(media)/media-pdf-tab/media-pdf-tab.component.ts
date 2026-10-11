@@ -55,6 +55,10 @@ export class MediaPdfTabComponent {
     readonly startZoom = signal(1);
     /** The PDF last used in this tab, pinned first (PI-D2). */
     readonly lastUsedId = signal<string | null>(null);
+    /** Every image taken in this picker visit, from any PDF, oldest first: a gallery inserts them all (PI-D18). */
+    readonly taken = signal<PdfImageSaved[]>([]);
+    /** Images taken before the open PDF was opened, for Insert's count. */
+    readonly takenBefore = signal(0);
 
     private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
     /** Tells a PDF from the computer whether the taker opened it. */
@@ -186,7 +190,17 @@ export class MediaPdfTabComponent {
         this.openLocal(picked[0]);
     }
 
+    onSaved(saved: PdfImageSaved): void {
+        this.taken.update((list) => [...list, saved]);
+    }
+
+    /** Insert: the image, or in a gallery every image taken in this visit, from whichever PDF. */
+    onInserted(images: PdfImageSaved[]): void {
+        this.inserted.emit(this.multiple() ? this.taken() : images);
+    }
+
     private openSource(source: PdfImageSource, page: number | null = null, zoom = 1): void {
+        this.takenBefore.set(this.taken().length);
         if (source.fileId) {
             this.settleLocal = null;
             this.lastUsedId.set(source.fileId);
@@ -210,11 +224,13 @@ export class MediaPdfTabComponent {
         this.settleLocal = null;
         const source = this.source();
         if (!source?.fileId) return;
-        this.memory.forget(source.fileId);
-        if (this.lastUsedId() === source.fileId) this.lastUsedId.set(null);
         await this.loaded;
         if (this.source() !== source) return;
+        // Only a PDF gone from Files is forgotten; one that could not be read
+        // just now (offline) keeps its ticks and its place.
         if (!this.pdfs().some((f) => f.id === source.fileId)) {
+            this.memory.forget(source.fileId);
+            if (this.lastUsedId() === source.fileId) this.lastUsedId.set(null);
             this.notify.error('admin.media.pdf_tab.gone');
             this.toList();
         }

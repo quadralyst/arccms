@@ -218,3 +218,19 @@
         flex-basis: 100%;
     }
 }
+
+// The crop step has more rows than the plain crop step (pages and zoom, and
+// in a picker alt text and size), so the page takes the height left for it,
+// measured on the canvas itself: all of it stays in view at Fit, handles
+// included, at any window height.
+.pdf-crop-canvas {
+    min-height: 220px;
+    --arc-cropper-max-height: max(200px, calc(100vh - 440px));
+}
+
+@supports (container-type: size) {
+    .pdf-crop-canvas {
+        container-type: size;
+        --arc-cropper-max-height: calc(100cqh - 1rem);
+    }
+}

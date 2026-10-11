@@ -1,10 +1,13 @@
+<!-- Drops are handled in every state, so a PDF dropped on an open one never
+     makes the browser leave the page for the file. -->
+<div class="pdf-tab-root" [class.drag-over]="dragOver()" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
 @if (source(); as src) {
 <arc-pdf-image-taker [source]="src" [uploadSettings]="uploadSettings()" [initialRatio]="initialRatio()"
     [size]="size()" (sizeChange)="size.set($event ?? 'm')" [insertable]="true" [multiple]="multiple()"
-    [startPage]="startPage()" [startZoom]="startZoom()" [inList]="true"
-    (opened)="onOpened()" (failed)="onFailed()" (back)="toList()" (inserted)="inserted.emit($event)"></arc-pdf-image-taker>
+    [startPage]="startPage()" [startZoom]="startZoom()" [inList]="true" [takenBefore]="takenBefore()"
+    (opened)="onOpened()" (failed)="onFailed()" (back)="toList()" (saved)="onSaved($event)" (inserted)="onInserted($event)"></arc-pdf-image-taker>
 } @else {
-<div class="pdf-tab" [class.drag-over]="dragOver()" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+<div class="pdf-tab">
     @if (pdfs().length > 6 || query()) {
     <div class="library-search pdf-tab-search">
         <i class="fas fa-search" aria-hidden="true"></i>
@@ -16,8 +19,8 @@
         }
     </div>
     }
-    <div class="pdf-tab-grid" role="list">
-        <button type="button" class="pdf-card pdf-choose" role="listitem" id="pdfChooseBtn" (click)="choose()">
+    <div class="pdf-tab-grid">
+        <button type="button" class="pdf-card pdf-choose" id="pdfChooseBtn" (click)="choose()">
             <span class="pdf-card-sheet">
                 <i class="fas fa-upload" aria-hidden="true"></i>
             </span>
@@ -25,7 +28,7 @@
             <span class="pdf-card-meta">{{ 'admin.media.pdf_tab.choose_hint' | transloco }}</span>
         </button>
         @for (f of shown(); track f.id) {
-        <button type="button" class="pdf-card" role="listitem" [attr.data-file]="f.id"
+        <button type="button" class="pdf-card" [attr.data-file]="f.id"
             [attr.aria-label]="'admin.media.pdf_tab.open_label' | transloco:{ title: f.title }" (click)="openFile(f)">
             <span class="pdf-card-sheet">
                 @if (f.thumbnail?.url) {
@@ -59,3 +62,4 @@
     <input type="file" #fileInput accept="application/pdf,.pdf" hidden (change)="onInput($event)">
 </div>
 }
+</div>

@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CropRect } from '../../utils/image-crop';
 import { CropImageSize, CropMark, ImageCropperComponent } from './image-cropper.component';
 
@@ -9,7 +9,7 @@ import { CropImageSize, CropMark, ImageCropperComponent } from './image-cropper.
     standalone: true,
     imports: [ImageCropperComponent],
     template: `<arc-image-cropper [src]="src()" [ratio]="ratio()" [crossOrigin]="cors()"
-        [frame]="frame()" [zoom]="zoom()" [marks]="marks()"
+        [frame]="frame()" [zoom]="zoom()" [zoomable]="zoomable()" [marks]="marks()"
         (rectChange)="rects.push($event)" (loaded)="sizes.push($event)" (failed)="failures = failures + 1"
         (zoomChange)="zooms.push($event)" (markPicked)="picked.push($event)" />`,
 })
@@ -22,6 +22,7 @@ class HostComponent {
     failures = 0;
     frame = signal<CropRect | null>(null);
     zoom = signal(1);
+    zoomable = signal(false);
     marks = signal<CropMark[]>([]);
     zooms: number[] = [];
     picked: number[] = [];
@@ -161,7 +162,19 @@ describe('ImageCropperComponent', () => {
             expect(host.picked).toEqual([0]);
         });
 
+        it('leaves the wheel and the + and - keys alone unless zoom is asked for', () => {
+            load(fixture);
+            const frame: HTMLElement = fixture.nativeElement.querySelector('.arc-cropper-frame');
+            frame.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }));
+            const wheel = new WheelEvent('wheel', { deltaY: -100, ctrlKey: true, bubbles: true, cancelable: true });
+            fixture.nativeElement.querySelector('.arc-cropper-viewport').dispatchEvent(wheel);
+            expect(host.zooms).toEqual([]);
+            expect(wheel.defaultPrevented).toBe(false);
+        });
+
         it('asks for more or less zoom with the keys and with Ctrl and the wheel', () => {
+            host.zoomable.set(true);
+            fixture.detectChanges();
             load(fixture);
             const frame: HTMLElement = fixture.nativeElement.querySelector('.arc-cropper-frame');
             frame.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }));
@@ -202,6 +215,43 @@ describe('ImageCropperComponent', () => {
             pointer('pointermove', window, 250, 300);
             expect(viewport.scrollLeft).toBe(50);
             pointer('pointerup', window, 250, 300);
+        });
+
+        it('moves the frame when it is pressed over an outline, and picks only on a click outside it or on the number', () => {
+            host.marks.set([{ rect: { x: 0, y: 0, width: 1200, height: 800 }, label: 'Picture 1 of 1' }]);
+            host.frame.set({ x: 100, y: 100, width: 200, height: 200 });
+            fixture.detectChanges();
+            const img = load(fixture);
+            Object.defineProperty(img, 'clientWidth', { value: 1200, configurable: true });
+            vi.spyOn(img, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 1200, height: 800, right: 1200, bottom: 800, x: 0, y: 0, toJSON: () => ({}) });
+            const mark: HTMLButtonElement = fixture.nativeElement.querySelector('.arc-cropper-mark');
+            // Inside the frame: a drag, not a pick.
+            pointer('pointerdown', mark, 150, 150);
+            pointer('pointermove', window, 170, 160);
+            pointer('pointerup', window, 170, 160);
+            mark.click();
+            expect(host.rects.at(-1)).toEqual({ x: 120, y: 110, width: 200, height: 200 });
+            expect(host.picked).toEqual([]);
+            // Outside the frame: a pick.
+            pointer('pointerdown', mark, 900, 600);
+            mark.click();
+            expect(host.picked).toEqual([0]);
+            // The number always picks.
+            const badge: HTMLElement = mark.querySelector('.arc-cropper-mark-badge')!;
+            pointer('pointerdown', badge, 150, 150);
+            badge.click();
+            expect(host.picked).toEqual([0, 0]);
+        });
+
+        it('places a frame only once the image it was meant for has loaded', () => {
+            load(fixture);
+            const before = host.rects.length;
+            host.src.set('https://example.com/sharper.webp');
+            host.frame.set({ x: 400, y: 300, width: 900, height: 600 });
+            fixture.detectChanges();
+            expect(host.rects.length).toBe(before);
+            load(fixture, 2400, 1600);
+            expect(host.rects.at(-1)).toEqual({ x: 400, y: 300, width: 900, height: 600 });
         });
     });
 });

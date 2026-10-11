@@ -677,6 +677,7 @@ export type TranslationKey =
     | 'admin.media.pdf.page_nav'
     | 'admin.media.pdf.pages_hint'
     | 'admin.media.pdf.picture_label'
+    | 'admin.media.pdf.picture_label_taken'
     | 'admin.media.pdf.pictures_found'
     | 'admin.media.pdf.previous_page'
     | 'admin.media.pdf.read_failed'
@@ -2689,6 +2690,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.pdf.page_nav',
     'admin.media.pdf.pages_hint',
     'admin.media.pdf.picture_label',
+    'admin.media.pdf.picture_label_taken',
     'admin.media.pdf.pictures_found',
     'admin.media.pdf.previous_page',
     'admin.media.pdf.read_failed',

@@ -43,9 +43,9 @@
         <div class="pdf-taker-hint">{{ 'admin.media.pdf.pages_hint' | transloco }}</div>
     </div>
 </div>
-<div class="pdf-pages" role="list">
+<div class="pdf-pages">
     @for (page of pageNumbers(); track page) {
-    <button type="button" class="pdf-page" role="listitem" #tile [attr.data-page]="page"
+    <button type="button" class="pdf-page" #tile [attr.data-page]="page"
         [attr.aria-label]="'admin.media.pdf.page_label' | transloco:{ page: page }"
         (click)="openPage(page)">
         <span class="pdf-page-sheet">
@@ -79,8 +79,13 @@
 @case ('crop') {
 <div class="pdf-crop" (keydown)="onCropKey($event)">
 <div class="crop-toolbar">
+    @if (inList()) {
+    <button type="button" class="btn btn-link pdf-taker-back" id="pdfCropAllPdfsBtn" (click)="toList()" [disabled]="saving()">
+        <i class="fas fa-arrow-left me-1" aria-hidden="true"></i>{{ 'admin.media.pdf.all_pdfs' | transloco }}
+    </button>
+    }
     <button type="button" class="btn btn-link pdf-taker-back" id="pdfAllPagesBtn" (click)="backToPages()" [disabled]="saving()">
-        <i class="fas fa-arrow-left me-1" aria-hidden="true"></i>{{ 'admin.media.pdf.all_pages' | transloco }}
+        @if (!inList()) {<i class="fas fa-arrow-left me-1" aria-hidden="true"></i>}{{ 'admin.media.pdf.all_pages' | transloco }}
     </button>
     <span class="crop-toolbar-label">{{ 'admin.media.crop.ratio' | transloco }}</span>
     <div class="size-chips crop-ratios" role="radiogroup" [attr.aria-label]="'admin.media.crop.ratio' | transloco">
@@ -98,7 +103,7 @@
 </div>
 <div class="crop-canvas pdf-crop-canvas">
     @if (cropUrl(); as url) {
-    <arc-image-cropper [src]="url" [ratio]="ratioNumber()" [frame]="placedFrame()" [zoom]="zoom()" [marks]="marks()"
+    <arc-image-cropper [src]="url" [ratio]="ratioNumber()" [frame]="placedFrame()" [zoom]="zoom()" [zoomable]="true" [marks]="marks()"
         (loaded)="onCropLoaded($event)" (rectChange)="onCropRect($event)" (failed)="onCropFailed()"
         (zoomChange)="setZoom($event)" (markPicked)="pickPicture($event)"></arc-image-cropper>
     } @else {
@@ -137,15 +142,15 @@
         }
     </div>
     <div class="pdf-zoom" role="group" [attr.aria-label]="'admin.media.pdf.zoom' | transloco">
-        <button type="button" class="btn btn-outline-secondary btn-sm" id="pdfZoomOutBtn" [disabled]="zoom() <= 1"
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="pdfZoomOutBtn" [disabled]="saving() || zoom() <= 1"
             (click)="zoomOut()" [attr.aria-label]="'admin.media.pdf.zoom_out' | transloco">
             <i class="fas fa-minus" aria-hidden="true"></i>
         </button>
-        <button type="button" class="btn btn-outline-secondary btn-sm pdf-zoom-level" id="pdfZoomFitBtn" [disabled]="zoom() <= 1"
-            (click)="setZoom(1)" [attr.aria-label]="'admin.media.pdf.zoom_fit' | transloco">
+        <button type="button" class="btn btn-outline-secondary btn-sm pdf-zoom-level" id="pdfZoomFitBtn" [disabled]="saving() || zoom() <= 1"
+            (click)="setZoom(1)" [title]="'admin.media.pdf.zoom_fit' | transloco">
             {{ zoom() <= 1 ? ('admin.media.pdf.fit' | transloco) : (zoom() * 100 | number:'1.0-0') + '%' }}
         </button>
-        <button type="button" class="btn btn-outline-secondary btn-sm" id="pdfZoomInBtn" [disabled]="zoom() >= 4"
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="pdfZoomInBtn" [disabled]="saving() || zoom() >= 4"
             (click)="zoomIn()" [attr.aria-label]="'admin.media.pdf.zoom_in' | transloco">
             <i class="fas fa-plus" aria-hidden="true"></i>
         </button>
@@ -184,10 +189,10 @@
     </div>
     <div class="crop-actions">
         @if (insertable()) {
-        <button type="button" class="btn btn-secondary" id="pdfSaveAnotherBtn" [disabled]="!cropRect() || saving()" (click)="save()">
+        <button type="button" class="btn btn-secondary" id="pdfSaveAnotherBtn" [disabled]="!cropRect() || saving() || viewPending()" (click)="save()">
             {{ 'admin.media.pdf.save_another' | transloco }}
         </button>
-        <button type="button" class="btn btn-primary" id="pdfInsertBtn" [disabled]="!cropRect() || saving()" (click)="insert()">
+        <button type="button" class="btn btn-primary" id="pdfInsertBtn" [disabled]="!cropRect() || saving() || viewPending()" (click)="insert()">
             @if (saving()) {
             <i class="fas fa-spinner fa-spin me-1 fs-6" aria-hidden="true"></i>{{ savingLabel() }}
             } @else if (insertCount() > 1) {
@@ -200,7 +205,7 @@
         <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="backToPages()">
             {{ 'common.actions.cancel' | transloco }}
         </button>
-        <button type="button" class="btn btn-primary" id="pdfSaveImageBtn" [disabled]="!cropRect() || saving()" (click)="save()">
+        <button type="button" class="btn btn-primary" id="pdfSaveImageBtn" [disabled]="!cropRect() || saving() || viewPending()" (click)="save()">
             @if (saving()) {
             <i class="fas fa-spinner fa-spin me-1 fs-6" aria-hidden="true"></i>{{ savingLabel() }}
             } @else {

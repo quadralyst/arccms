@@ -189,6 +189,16 @@ describe('MediaFilesService', () => {
             expect(await service.pdfBytes('new1')).toBe(pdf);
         });
 
+        it('uploads a PDF opened twice at once only once', async () => {
+            vi.spyOn(service, 'listAll').mockResolvedValue([]);
+            fileUpload.uploadDocument.mockResolvedValue({ ...file, name: 'report-q9q9q9.pdf' });
+            vi.spyOn(service, 'addBatch').mockReturnValue(of(['new2']));
+            const [a, b] = await Promise.all([service.keepPdf(pdf), service.keepPdf(pdf)]);
+            expect(a.id).toBe('new2');
+            expect(b.id).toBe('new2');
+            expect(fileUpload.uploadDocument).toHaveBeenCalledTimes(1);
+        });
+
         it('takes the stored file back out when its record cannot be written', async () => {
             vi.spyOn(service, 'listAll').mockResolvedValue([]);
             fileUpload.uploadDocument.mockResolvedValue({ ...file, path: 'mediaFiles/a.pdf', thumbnail: undefined });

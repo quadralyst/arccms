@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const getDocument = vi.fn();
 // pdf.js 6.3's operator codes, the ones the picture walk follows.
 const OPS = { save: 10, restore: 11, transform: 12, paintFormXObjectBegin: 74, paintFormXObjectEnd: 75, paintImageMaskXObject: 83, paintImageXObject: 85, paintInlineImageXObject: 86 };
-vi.mock('pdfjs-dist', () => ({ getDocument, GlobalWorkerOptions: {}, OPS }));
+vi.mock('pdfjs-dist', () => ({ getDocument, GlobalWorkerOptions: {}, OPS, AnnotationMode: { DISABLE: 0, ENABLE: 1 } }));
 vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: '/worker.mjs' }));
 
 import { cappedScale, frameToPdfRect, MAX_CANVAS_PIXELS, openPdf, PdfOpenError, picturesFromOperators, readingOrder, saveScale, snapFrame } from './pdf-pages';
@@ -157,14 +157,14 @@ describe('snapping the frame to a picture (PI-D12)', () => {
 });
 
 describe('PdfDocument.findPictures', () => {
-    it('reads the page as it is displayed, and gives nothing when that fails', async () => {
+    it('reads the page as it is displayed, without annotations, and gives nothing when that fails', async () => {
         const getOperatorList = vi.fn().mockResolvedValue({ fnArray: [OPS.save, OPS.transform, OPS.paintImageXObject, OPS.restore], argsArray: [null, [200, 0, 0, 90, 50, 20], ['i'], null] });
         const page = { getViewport: () => ({ width: 595, height: 842, transform: [1, 0, 0, -1, 0, 842] }), getOperatorList };
         const getPage = vi.fn().mockResolvedValueOnce(page).mockRejectedValueOnce(new Error('gone'));
         getDocument.mockReturnValue({ promise: Promise.resolve({ numPages: 2, getPage }), destroy: vi.fn() });
         const pdf = await openPdf(new Uint8Array([1]));
         expect(await pdf.findPictures(1)).toEqual([{ x: 50, y: 732, width: 200, height: 90 }]);
-        expect(getOperatorList).toHaveBeenCalledWith({ intent: 'display' });
+        expect(getOperatorList).toHaveBeenCalledWith({ intent: 'display', annotationMode: 0 });
         vi.spyOn(console, 'warn').mockImplementation(() => {});
         expect(await pdf.findPictures(2)).toEqual([]);
     });

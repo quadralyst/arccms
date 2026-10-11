@@ -140,6 +140,19 @@ export class MediaFilesService extends DbService<IMediaFile> {
      * throws (MediaFileUploadError for a file over 20 MB).
      */
     async keepPdf(file: File, onProgress: (percent: number) => void = () => {}): Promise<IMediaFile> {
+        // The same PDF opened again while it is still being kept: one upload.
+        const key = `${file.name}:${file.size}`;
+        const running = this.keeping.get(key);
+        if (running) return running;
+        const keeping = this.storePdf(file, onProgress).finally(() => this.keeping.delete(key));
+        this.keeping.set(key, keeping);
+        return keeping;
+    }
+
+    /** PDFs being kept right now, by name and size. */
+    private keeping = new Map<string, Promise<IMediaFile>>();
+
+    private async storePdf(file: File, onProgress: (percent: number) => void): Promise<IMediaFile> {
         const same = (await this.listAll()).find((f) => f.type === 'pdf' && isSameUpload(f, file));
         if (same) {
             onProgress(100);

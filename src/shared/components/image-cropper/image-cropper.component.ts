@@ -81,8 +81,8 @@ const ON_MARK = 0.01;
                 [attr.aria-label]="mark.label" [attr.aria-pressed]="isCurrent(mark)"
                 [style.left.%]="pct(mark.rect.x, 'w')" [style.top.%]="pct(mark.rect.y, 'h')"
                 [style.width.%]="pct(mark.rect.width, 'w')" [style.height.%]="pct(mark.rect.height, 'h')"
-                (pointerdown)="$event.stopPropagation()" (click)="markPicked.emit($index)">
-                <span class="arc-cropper-mark-badge" aria-hidden="true">
+                (pointerdown)="onMarkPointer($event)" (click)="pickMark($index)">
+                <span class="arc-cropper-mark-badge" aria-hidden="true" (pointerdown)="$event.stopPropagation()">
                     @if (mark.taken) { &#10003; } @else { {{ $index + 1 }} }
                 </span>
             </button>
@@ -244,6 +244,8 @@ export class ImageCropperComponent {
     readonly frame = input<CropRect | null>(null);
     /** 1 shows the whole image; 2 shows it twice as large, scrolling. */
     readonly zoom = input(1);
+    /** Let the wheel, a pinch and the + and - keys ask for zoom. Off, they keep their usual meaning. */
+    readonly zoomable = input(false);
     /** The zoom the admin asked for with the wheel, a pinch or a key. */
     readonly zoomChange = output<number>();
     /** Suggested frames, as clickable outlines. */
@@ -252,6 +254,10 @@ export class ImageCropperComponent {
     readonly markPicked = output<number>();
 
     readonly size = signal<CropImageSize | null>(null);
+    /** The `src` whose image has loaded: a frame is placed only on the image it was meant for. */
+    private readonly loadedSrc = signal<string | null>(null);
+    /** A press inside the frame on an outline moved the frame: its click is not a pick. */
+    private suppressPick = false;
     readonly rect = signal<CropRect | null>(null);
 
     /** Every handle. Edges stay with a ratio too: they resize about the opposite edge's middle. */
@@ -293,7 +299,10 @@ export class ImageCropperComponent {
             const ratio = this.ratio();
             const size = this.size();
             const placed = this.frame();
-            if (!size) return;
+            // A new image and its frame can arrive together, before the
+            // old image has gone: wait for the new one, or the frame would be
+            // measured against the old image and reported wrongly.
+            if (!size || this.loadedSrc() !== this.src()) return;
             if (!placed) {
                 this.setRect(initialCropRect(ratio, size.width, size.height));
                 return;
@@ -337,6 +346,7 @@ export class ImageCropperComponent {
         const img = this.image().nativeElement;
         const size = { width: img.naturalWidth, height: img.naturalHeight };
         this.size.set(size);
+        this.loadedSrc.set(this.src());
         this.loaded.emit(size);
     }
 
@@ -399,12 +409,12 @@ export class ImageCropperComponent {
             ArrowUp: [0, -step],
             ArrowDown: [0, step],
         };
-        if (event.key === '+' || event.key === '=') {
+        if (this.zoomable() && (event.key === '+' || event.key === '=')) {
             event.preventDefault();
             this.zoomChange.emit(this.zoom() * 1.25);
             return;
         }
-        if (event.key === '-' || event.key === '_') {
+        if (this.zoomable() && (event.key === '-' || event.key === '_')) {
             event.preventDefault();
             this.zoomChange.emit(this.zoom() / 1.25);
             return;
@@ -413,6 +423,36 @@ export class ImageCropperComponent {
         if (!delta) return;
         event.preventDefault();
         this.setRect(dragCropRect(rect, 'move', delta[0], delta[1], this.ratio(), size.width, size.height));
+    }
+
+    /**
+     * A press on an outline: inside the frame it moves the frame (the frame
+     * wins wherever it is, so a frame trimmed inside a picture, or a fixed
+     * ratio frame snapped onto one, still drags); outside it, the click picks
+     * the outline. The number badge always picks.
+     */
+    onMarkPointer(event: PointerEvent): void {
+        event.stopPropagation();
+        this.suppressPick = false;
+        const rect = this.rect();
+        const size = this.size();
+        if (!rect || !size) return;
+        const box = this.image().nativeElement.getBoundingClientRect();
+        if (!(box.width > 0) || !(box.height > 0)) return;
+        const x = ((event.clientX - box.left) / box.width) * size.width;
+        const y = ((event.clientY - box.top) / box.height) * size.height;
+        if (x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height) {
+            this.suppressPick = true;
+            this.startDrag(event, 'move');
+        }
+    }
+
+    pickMark(index: number): void {
+        if (this.suppressPick) {
+            this.suppressPick = false;
+            return;
+        }
+        this.markPicked.emit(index);
     }
 
     /** Whether the frame sits on `mark`: that outline is then not in the way of dragging. */
@@ -430,7 +470,7 @@ export class ImageCropperComponent {
 
     /** Ctrl or Cmd with the wheel zooms about the pointer; a trackpad pinch arrives this way too. */
     onWheel(event: WheelEvent): void {
-        if (!(event.ctrlKey || event.metaKey) || !this.size()) return;
+        if (!this.zoomable() || !(event.ctrlKey || event.metaKey) || !this.size()) return;
         event.preventDefault();
         // About 1.3 times a mouse wheel notch (deltaY 100); a trackpad pinch sends small steps.
         this.requestZoom(this.zoom() * Math.exp(-event.deltaY * 0.0025), event.clientX, event.clientY);
@@ -443,7 +483,7 @@ export class ImageCropperComponent {
     startGesture(event: PointerEvent): void {
         if (!this.size() || (event.pointerType === 'mouse' && event.button !== 0)) return;
         this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-        if (this.pointers.size === 2) {
+        if (this.pointers.size === 2 && this.zoomable()) {
             this.gesture = { kind: 'pinch', distance: this.pointerDistance(), zoom: this.zoom() };
         } else if (this.pointers.size === 1 && this.zoomed()) {
             const view = this.viewport().nativeElement;

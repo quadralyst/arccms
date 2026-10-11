@@ -152,9 +152,11 @@ export async function openPdf(data: Blob | ArrayBuffer | Uint8Array): Promise<Pd
             try {
                 const page = await doc.getPage(pageNumber);
                 const viewport = page.getViewport({ scale: 1 });
-                // The `display` intent is the one rendering uses, so pdf.js
-                // hands back what it already parsed to draw the page.
-                const list = await page.getOperatorList({ intent: 'display' });
+                // Parsed again (pdf.js keeps the drawing's parse apart), which
+                // costs milliseconds; pictures are not decoded for it. Stamps
+                // and other annotations are left out: their position comes
+                // from the annotation, which the walk does not follow.
+                const list = await page.getOperatorList({ intent: 'display', annotationMode: pdfjs.AnnotationMode.DISABLE });
                 return picturesFromOperators(list, pdfjs.OPS, viewport.transform, { width: viewport.width, height: viewport.height });
             } catch (error) {
                 console.warn(`Could not find the pictures on page ${pageNumber}:`, error);

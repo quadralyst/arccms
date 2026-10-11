@@ -15,6 +15,8 @@ vi.mock('../pdf-image-taker/pdf-image-taker.component', async () => {
         startPage = input<unknown>();
         startZoom = input<unknown>();
         inList = input<unknown>();
+        takenBefore = input<unknown>();
+        saved = output<unknown>();
         sizeChange = output<unknown>();
         opened = output<void>();
         failed = output<void>();
@@ -144,4 +146,45 @@ describe('MediaPdfTabComponent (PI3)', () => {
         expect(tab.source()).toBeNull();
         expect(memory.place()).toBeNull();
     });
+
+    it('inserts every image taken in a gallery visit, from every PDF used (PI-D18)', async () => {
+        const fixture = create({ multiple: true });
+        const tab = fixture.componentInstance;
+        const inserted = vi.fn();
+        tab.inserted.subscribe(inserted);
+        await flush();
+        const image = (id: string) => ({ id, media: { downloadURL: id, name: id, uploadTime: new Date() } });
+        tab.openFile(tab.pdfs()[0]);
+        tab.onSaved(image('a1') as any);
+        tab.toList();
+        tab.openFile(tab.pdfs()[1]);
+        expect(tab.takenBefore()).toBe(1);
+        tab.onSaved(image('b1') as any);
+        tab.onInserted([image('b1') as any]);
+        expect(inserted.mock.calls[0][0].map((i: any) => i.id)).toEqual(['a1', 'b1']);
+    });
+
+    it('opens a PDF dropped while another is open, instead of letting the browser leave for it', async () => {
+        const fixture = create();
+        const tab = fixture.componentInstance;
+        await flush();
+        tab.openFile(tab.pdfs()[0]);
+        fixture.detectChanges();
+        const file = new File(['%PDF'], 'Second.pdf', { type: 'application/pdf' });
+        const drop = new Event('drop', { bubbles: true, cancelable: true }) as any;
+        drop.dataTransfer = { files: [file] };
+        fixture.nativeElement.querySelector('.pdf-tab-root').dispatchEvent(drop);
+        expect(drop.defaultPrevented).toBe(true);
+        expect(tab.source()?.title).toBe('Second');
+    });
+
+    it('keeps a PDF that could not be read just now but is still in Files', async () => {
+        memory.remember({ key: 'a', fileId: 'a', title: 'Garden Catalogue', page: 2, zoom: 1 });
+        const fixture = create({ resume: memory.place() });
+        const tab = fixture.componentInstance;
+        await tab.onFailed();
+        expect(memory.place()?.fileId).toBe('a');
+        expect(notify.error).not.toHaveBeenCalled();
+    });
 });
+

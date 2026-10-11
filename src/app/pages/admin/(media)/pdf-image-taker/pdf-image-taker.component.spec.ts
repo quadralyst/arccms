@@ -297,6 +297,74 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
         expect(pdf.renderPage).toHaveBeenCalledWith(3, 3200, 'image/jpeg');
     });
 
+    it('saves nothing while a sharper drawing loads, and takes no frame reported for the old one', async () => {
+        const fixture = create();
+        const taker = fixture.componentInstance;
+        await flush();
+        await openOn(taker, 2);
+        taker.setZoom(2);
+        await flush();
+        expect(taker.viewPending()).toBe(true);
+        // The cropper reporting a frame for the old drawing is ignored.
+        taker.onCropRect({ x: 10, y: 10, width: 50, height: 50 });
+        expect(taker.cropRect()).toBeNull();
+        await taker.save();
+        expect(upload.uploadFile).not.toHaveBeenCalled();
+        taker.onCropLoaded({ width: 2262, height: 3200 });
+        taker.onCropRect(taker.placedFrame()!);
+        await taker.save();
+        // The first picture, at 4 px per point: the same 200 x 100 points.
+        expect(pdf.renderRegion).toHaveBeenCalledWith(2, { x: 50, y: 100, width: 200, height: 100 }, 6, 'image/png');
+    });
+
+    it('keeps a fixed-ratio frame on its picture when the ratio changes again (PI-D12)', async () => {
+        const fixture = create();
+        const taker = fixture.componentInstance;
+        await flush();
+        await openOn(taker, 2);
+        taker.selectRatio('1:1');
+        taker.onCropRect(taker.placedFrame()!);
+        taker.selectRatio('16:9');
+        // Still on the first picture (400 x 200 px), now 16:9 inside it.
+        const frame = taker.placedFrame()!;
+        expect(frame.x).toBeGreaterThanOrEqual(100);
+        expect(frame.x + frame.width).toBeLessThanOrEqual(500.01);
+        expect(frame.width / frame.height).toBeCloseTo(16 / 9);
+    });
+
+    it('leaves a frame the admin already moved when the pictures arrive', async () => {
+        let resolve: (p: unknown) => void = () => {};
+        pdf.findPictures.mockReturnValue(new Promise((r) => (resolve = r)));
+        const fixture = create();
+        const taker = fixture.componentInstance;
+        await flush();
+        const opening = taker.openPage(2);
+        await flush();
+        taker.onCropLoaded({ width: 1131, height: 1600 });
+        taker.onCropRect({ x: 10, y: 10, width: 300, height: 300 });
+        resolve(PICTURES);
+        await opening;
+        expect(taker.placedFrame()).toBeNull();
+        expect(taker.marks()).toHaveLength(2);
+    });
+
+    it('counts images taken from earlier PDFs in a gallery\'s Insert (PI-D18)', async () => {
+        const fixture = create({ fileId: 'f1' }, { insertable: true, multiple: true, takenBefore: 2 });
+        const taker = fixture.componentInstance;
+        await flush();
+        await openOn(taker, 2);
+        expect(taker.insertCount()).toBe(3);
+    });
+
+    it('says which outlines are taken, for screen readers', async () => {
+        memory.markTaken('f1', 2, PICTURES[0]);
+        const fixture = create({ fileId: 'f1' });
+        const taker = fixture.componentInstance;
+        await flush();
+        await openOn(taker, 2);
+        expect(taker.marks().map((m) => m.label)).toEqual(['admin.media.pdf.picture_label_taken', 'admin.media.pdf.picture_label']);
+    });
+
     it('takes the stored image back out when its library record cannot be written', async () => {
         const fixture = create();
         const taker = fixture.componentInstance;
