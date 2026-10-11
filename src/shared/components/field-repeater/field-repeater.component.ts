@@ -16,6 +16,7 @@ import { FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { TranslocoPipe } from '@jsverse/transloco';
 import MediaManagerComponent, { MediaSelection } from '../../../app/pages/admin/(media)/media.page';
+import { mediaPickerDialogConfig } from '../../../app/pages/admin/(media)/media-picker-dialog';
 import { ArcIcon, isArcIcon } from '../../models/icon.model';
 import { isYouTubeUrl, youTubeVideo } from '../../utils/youtube';
 import { MapPickerComponent, PickedLocation } from '../map-picker/map-picker.component';
@@ -245,22 +246,14 @@ export class FieldRepeaterComponent {
         const allowImages = sub.allowImages !== false;
         const allowIcons = sub.allowIcons === true;
 
-        return this.dialog.open(MediaManagerComponent, {
-            enterAnimationDuration: '450ms',
-            exitAnimationDuration: '300ms',
-            minWidth: '134vh',
-            maxHeight: '90vh',
-            panelClass: 'common-dialog-box',
-            disableClose: true,
-            data: {
-                isDialogOpen: true,
-                allowImages,
-                allowIcons: multiple ? false : allowIcons,
-                multiple,
-                // Only meaningful when both are on; ignored otherwise.
-                initialTab: allowImages ? undefined : 'icons',
-            },
-        }).afterClosed();
+        return this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({
+            isDialogOpen: true,
+            allowImages,
+            allowIcons: multiple ? false : allowIcons,
+            multiple,
+            // Only meaningful when both are on; ignored otherwise.
+            initialTab: allowImages ? undefined : 'icons',
+        })).afterClosed();
     }
 
     // ── Template helpers ────────────────────────────────────────────────────

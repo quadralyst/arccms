@@ -16,6 +16,7 @@ import { IAboutSettings, DEFAULT_ABOUT_SETTINGS, OrganizationType, parseSameAs, 
 import { AboutSettingsService } from './about-settings.service';
 import { MatDialog } from '@angular/material/dialog';
 import MediaManagerComponent from '../../(media)/media.page';
+import { mediaPickerDialogConfig } from '../../(media)/media-picker-dialog';
 import { SiteIdentityService } from '../../../../core/services/site-identity.service';
 
 @Component({
@@ -256,15 +257,8 @@ export default class AboutSettingsPage implements OnInit {
 
     /** Pick the logo from the media library, as the content editor does. */
     chooseLogo(): void {
-        this.dialog.open(MediaManagerComponent, {
-            enterAnimationDuration: '450ms',
-            exitAnimationDuration: '300ms',
-            minWidth: '134vh',
-            maxHeight: '90vh',
-            panelClass: 'common-dialog-box',
-            disableClose: true,
-            data: { isDialogOpen: true },
-        }).afterClosed().subscribe((result: { mediaUrl: string; type: string } | null) => {
+        this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true })).afterClosed()
+            .subscribe((result: { mediaUrl: string; type: string } | null) => {
             if (result?.type === 'submit' && result.mediaUrl) this.updateField('logoUrl', result.mediaUrl);
         });
     }

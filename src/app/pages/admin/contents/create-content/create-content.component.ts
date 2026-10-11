@@ -18,6 +18,7 @@ import TiptapEditorComponent from '../../../../../shared/components/tiptap-edito
 import { TagsStore } from '../content-types/tags/tags.store';
 import { ITag } from '../content-types/tags/tags.model';
 import MediaManagerComponent, { MediaSelection } from '../../(media)/media.page';
+import { mediaPickerDialogConfig } from '../../(media)/media-picker-dialog';
 import { fileMeta, MEDIA_FILE_TYPE_ICONS, MediaFileRef, toFileRows } from '../../../../../shared/utils/media-files';
 import { summaryPlainText } from '../../../../../shared/utils/summary-text';
 import { ArcIcon, isArcIcon } from '../../../../../shared/models/icon.model';
@@ -388,15 +389,7 @@ export class CreateContentComponent extends BaseComponent {
 
   // Open media manager for a custom image field
   openMediaManagerForField(fieldKey: string): void {
-    const dialogRef = this.dialog.open(MediaManagerComponent, {
-      enterAnimationDuration: '450ms',
-      exitAnimationDuration: '300ms',
-      minWidth: '134vh',
-      maxHeight: '90vh',
-      panelClass: 'common-dialog-box',
-      disableClose: true,
-      data: { isDialogOpen: true },
-    });
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true }));
 
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result && result.type === 'submit' && result.mediaUrl) {
@@ -425,15 +418,7 @@ export class CreateContentComponent extends BaseComponent {
    */
   openFilePickerForField(field: { key: string; multiple?: boolean }, replace?: number): void {
     const several = field.multiple === true && replace === undefined;
-    const dialogRef = this.dialog.open(MediaManagerComponent, {
-      enterAnimationDuration: '450ms',
-      exitAnimationDuration: '300ms',
-      minWidth: '134vh',
-      maxHeight: '90vh',
-      panelClass: 'common-dialog-box',
-      disableClose: true,
-      data: { isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files', multiple: several },
-    });
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files', multiple: several }));
 
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result?.type !== 'submit' || result.kind !== 'file') return;
@@ -478,18 +463,10 @@ export class CreateContentComponent extends BaseComponent {
    * differ only in what they come back with.
    */
   openIconPickerForField(fieldKey: string): void {
-    const dialogRef = this.dialog.open(MediaManagerComponent, {
-      enterAnimationDuration: '450ms',
-      exitAnimationDuration: '300ms',
-      minWidth: '134vh',
-      maxHeight: '90vh',
-      panelClass: 'common-dialog-box',
-      disableClose: true,
-      // Icons only. With the image tabs shown, picking a photo here would
-      // return a URL this field discards — the dialog would close having
-      // silently done nothing.
-      data: { isDialogOpen: true, allowIcons: true, allowImages: false, initialTab: 'icons' },
-    });
+    // Icons only. With the image tabs shown, picking a photo here would
+    // return a URL this field discards — the dialog would close having
+    // silently done nothing.
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, allowIcons: true, allowImages: false, initialTab: 'icons' }));
 
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result?.type === 'submit' && result.kind === 'icon' && result.icon) {
@@ -2686,20 +2663,12 @@ export class CreateContentComponent extends BaseComponent {
  * Opens the Media Manager modal for selecting cover image
  */
   openMediaManager(): void {
-    const dialogRef = this.dialog.open(MediaManagerComponent, {
-      enterAnimationDuration: '450ms',
-      exitAnimationDuration: '300ms',
-      minWidth: '134vh',
-      maxHeight: '90vh',
-      panelClass: 'common-dialog-box',
-      disableClose: true,
-      // The cover doubles as the social-share image, which wants the whole
-      // 1200px; the picker opens on XL so that is what an admin gets by default.
-      data: {
-        isDialogOpen: true,
-        size: COVER_IMAGE_SIZE,
-      },
-    });
+    // The cover doubles as the social-share image, which wants the whole
+    // 1200px; the picker opens on XL so that is what an admin gets by default.
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({
+      isDialogOpen: true,
+      size: COVER_IMAGE_SIZE,
+    }));
 
     dialogRef.afterClosed().subscribe((result: { mediaUrl: string; type: string } | null) => {
       if (result && result.type === 'submit' && result.mediaUrl) {

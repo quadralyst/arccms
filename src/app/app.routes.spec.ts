@@ -88,6 +88,21 @@ describe('App Routes', () => {
             }
         });
 
+        it('sends the bare /admin/contents to Content Types, since that folder has no page of its own', async () => {
+            const route = routes.find(r => r.path === 'admin/contents');
+            expect(route?.redirectTo).toBe('/admin/contents/content-types');
+            expect(route?.pathMatch).toBe('full');
+
+            // Only the bare URL: the pages below it keep their own addresses.
+            const contentTypes = { path: 'admin/contents/content-types', children: [] };
+            TestBed.configureTestingModule({ providers: [provideRouter([route!, contentTypes, { path: '**', children: [] }])] });
+            const router = TestBed.inject(Router);
+            await router.navigateByUrl('/admin/contents');
+            expect(router.url).toBe('/admin/contents/content-types');
+            await router.navigateByUrl('/admin/contents/blog');
+            expect(router.url).toBe('/admin/contents/blog');
+        });
+
         it('should have waitlists list as default child route', () => {
             const adminRoute = routes.find(r => r.path === 'admin/waitlists');
             const defaultChild = adminRoute?.children?.find(r => r.path === '');

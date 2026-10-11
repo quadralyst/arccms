@@ -415,6 +415,36 @@ describe('MediaManagerComponent', () => {
 
     // --- Regression tests for corrective fixes ---
 
+    describe('the tabs on a phone', () => {
+        const tabSelect = () => fixture.nativeElement.querySelector('#mediaTabSelect') as HTMLSelectElement;
+
+        it('offers every tab in a dropdown, on the open one', () => {
+            fixture.detectChanges();
+            const select = tabSelect();
+            expect([...select.options].map((option) => option.value)).toEqual(component.menuItems.map((item) => item.value));
+            expect(select.value).toBe('upload');
+            expect(select.getAttribute('aria-label')).toBeTruthy();
+        });
+
+        it('opens the tab picked in the dropdown', () => {
+            fixture.detectChanges();
+            const select = tabSelect();
+            select.value = 'search';
+            select.dispatchEvent(new Event('change'));
+            expect(component.selectedItem?.value).toBe('search');
+        });
+
+        it('stays on the open tab when it cannot change (a crop still saving)', () => {
+            fixture.detectChanges();
+            component.isSavingCrop = true;
+            const select = tabSelect();
+            select.value = 'search';
+            component.onTabSelect(select);
+            expect(component.selectedItem?.value).toBe('upload');
+            expect(select.value).toBe('upload');
+        });
+    });
+
     describe('selectedMenu - unknown value', () => {
         it('should handle unknown menu value without throwing', () => {
             expect(() => component.selectedMenu({ name: 'Unknown', value: 'unknown' })).not.toThrow();

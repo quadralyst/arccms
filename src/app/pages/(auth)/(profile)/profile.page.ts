@@ -15,6 +15,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { AuthState } from '../auth.store';
 import MediaManagerComponent from '../../admin/(media)/media.page';
+import { mediaPickerDialogConfig } from '../../admin/(media)/media-picker-dialog';
 import { FileUploadService } from '../../../../shared/services/file-upload.service';
 import { readSignInError, SignInService } from '../sign-in.service';
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
@@ -154,15 +155,7 @@ export default class ProfileComponent extends BaseComponent {
       fileInput?.click();
       return;
     }
-    const dialogRef = this.dialog.open(MediaManagerComponent, {
-      enterAnimationDuration: '450ms',
-      exitAnimationDuration: '300ms',
-      minWidth: '134vh',
-      maxHeight: '90vh',
-      panelClass: 'common-dialog-box',
-      disableClose: true,
-      data: { isDialogOpen: true },
-    });
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true }));
 
     dialogRef.afterClosed().subscribe(async (result: { mediaUrl: string; type: string } | null) => {
       if (result?.type === 'submit' && result.mediaUrl) {

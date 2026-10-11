@@ -1,5 +1,5 @@
 import { RouteMeta } from '@analogjs/router';
-import { DatePipe, NgClass } from '@angular/common';
+import { DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import {
     ChangeDetectionStrategy,
@@ -186,6 +186,7 @@ export function mediaFileRef(file: IMediaFile): MediaFileRef {
     imports: [
         MatPaginatorModule,
         NgClass,
+        NgTemplateOutlet,
         DatePipe,
         MatFormFieldModule,
         MatInputModule,
@@ -219,6 +220,7 @@ export default class MediaManagerComponent extends BaseComponent {
     private pdfMemory = inject(PdfPickerMemory);
     private firestore = inject(Firestore);
     private injector = inject(Injector);
+    private host = inject<ElementRef<HTMLElement>>(ElementRef);
 
     selectedItem: MediaMenuItem | null = null;
     selectedMediaUrl: SelectableMedia | null = null;
@@ -249,6 +251,12 @@ export default class MediaManagerComponent extends BaseComponent {
     // upload's XL file, or an Unsplash photo's 1080 px copy.
     readonly cropRatios = CROP_RATIOS;
     isCropping = false;
+    /**
+     * On a phone the details panel is a sheet over the images
+     * (media-manager.scss): choosing one item opens it, Back closes it. A wider
+     * screen shows the panel beside the images and ignores this.
+     */
+    detailsOpen = false;
     cropRatio: CropRatio = this._DIALOG_DATA.cropRatio ?? 'free';
     /** The frame, in the pixels of the image shown in the crop step. */
     cropRect: CropRect | null = null;
@@ -386,6 +394,14 @@ export default class MediaManagerComponent extends BaseComponent {
         }
     }
 
+    /** The dropdown that stands in for the tabs on a phone (media-manager.scss). */
+    onTabSelect(select: HTMLSelectElement): void {
+        const item = this.menuItems.find((menu) => menu.value === select.value);
+        if (item) this.selectedMenu(item);
+        // A tab change can be refused (a crop still saving): show the tab that is open.
+        select.value = this.selectedItem?.value ?? '';
+    }
+
     public selectedMenu(event: MediaMenuItem): void {
         // A cropped copy being saved will select itself in My Uploads when it
         // lands; switching tabs under it would mix its list into another tab.
@@ -403,6 +419,7 @@ export default class MediaManagerComponent extends BaseComponent {
         this.pdfOpened = null;
         this.pdfResume = null;
         this.closeCrop();
+        this.detailsOpen = false;
         this.selectedItem = event;
         // Reset page tracking when switching menus
         this.pageDocumentStack = [];
@@ -446,7 +463,35 @@ export default class MediaManagerComponent extends BaseComponent {
     /** An icon was highlighted in the Icons tab. */
     public onIconSelected(icon: ArcIcon | null): void {
         this.selectedIcon = icon;
+        if (icon) this.openDetails();
         this.ref.detectChanges();
+    }
+
+    /** One item chosen: its details, with Insert, cover the images on a phone. Picking several keeps the images in view. */
+    private openDetails(): void {
+        if (!this.isMultiSelect) this.detailsOpen = true;
+    }
+
+    /** The sheet is open and has something to show: a deleted or cleared selection closes it. */
+    get showDetails(): boolean {
+        if (!this.detailsOpen) return false;
+        if (this.isIconsTab) return !!this.selectedIcon;
+        if (this.isFilesTab) return !!this.selectedFile;
+        return !!this.selectedMediaUrl;
+    }
+
+    /** Back from the details to the images (a phone). */
+    closeDetails(): void {
+        this.detailsOpen = false;
+        this.ref.detectChanges();
+    }
+
+    /** Insert has nothing to insert yet, or a step (crop, a PDF) is open. */
+    get insertDisabled(): boolean {
+        return this.isCropping || !!this.pdfSource
+            || (this.isIconsTab && !this.selectedIcon)
+            || (this.isFilesTab && (this.isMultiSelect ? !this.selectedFiles.length : !this.selectedFile))
+            || (this.isMultiSelect && !this.isFilesTab && !this.selectedMediaList.length);
     }
 
     /** True when the caller asked to pick more than one image. */
@@ -475,6 +520,7 @@ export default class MediaManagerComponent extends BaseComponent {
 
         this.selectedMediaUrl = selectedMediaUrl;
         this.selectedImageDimensions = null;
+        this.openDetails();
         this.ref.detectChanges();
 
         const crop = this.unsplashCrops.get(selectedMediaUrl.id);
@@ -675,16 +721,29 @@ export default class MediaManagerComponent extends BaseComponent {
     startCrop(): void {
         if (!this.canCrop(this.selectedMediaUrl)) return;
         this.isCropping = true;
+        this.detailsOpen = false;
         this.cropRatio = this._DIALOG_DATA.cropRatio ?? 'free';
         this.cropRect = null;
         this.cropImageSize = null;
         this.ref.detectChanges();
+        this.showStepFromTop();
+    }
+
+    /**
+     * On a phone the details panel sits below the images and the dialog
+     * scrolls, so a step started from it (Crop, Take an image) would open out
+     * of sight at the top. Elsewhere nothing scrolls and this does nothing.
+     */
+    private showStepFromTop(): void {
+        this.host.nativeElement.querySelector('.modal-body')?.scrollTo?.({ top: 0 });
     }
 
     /** Leaves the crop step without changing anything. */
     cancelCrop(): void {
         if (this.isSavingCrop) return;
         this.closeCrop();
+        // Back to the details Crop was pressed in (on a phone, a sheet).
+        this.openDetails();
         this.ref.detectChanges();
     }
 
@@ -884,6 +943,7 @@ export default class MediaManagerComponent extends BaseComponent {
                 : [...this.selectedFiles, file];
         }
         this.selectedFile = file;
+        this.openDetails();
         this.ref.detectChanges();
     }
 
@@ -933,6 +993,8 @@ export default class MediaManagerComponent extends BaseComponent {
 
     /** A PDF in the library: its bytes from this visit's upload, or read in parts. */
     takeImageFromFile(file: IMediaFile): void {
+        this.detailsOpen = false;
+        this.showStepFromTop();
         if (this.openInPdfTab((tab) => tab.openFile(file))) return;
         this.pdfOpened = null;
         this.lastPdfImage = null;

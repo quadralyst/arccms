@@ -127,6 +127,39 @@ body {
     margin-right: 0.35rem;
 }
 
+// Shown instead of .media-tabs on a phone (below).
+.media-tab-select {
+    display: none;
+    font-weight: 500;
+}
+
+// A phone only (below): Back from the details sheet, and Insert while picking several.
+.details-back {
+    display: none;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.5rem 0.25rem 0;
+    border: 0;
+    background: none;
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.phone-insert-bar {
+    display: none;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 0.75rem;
+    background: white;
+    border-top: 1px solid var(--border-color);
+
+    .btn-insert {
+        margin-top: 0;
+        box-shadow: none;
+    }
+}
+
 /* Action elements container */
 .action-elements {
     display: flex;
@@ -670,6 +703,9 @@ body {
     .modal-body {
         flex-direction: column;
         overflow-y: auto;
+        // Bootstrap makes it relative; the details sheet must anchor to the
+        // container instead, which does not scroll (.side-preview.details-open).
+        position: static;
     }
 
     .main-content {
@@ -684,6 +720,9 @@ body {
         flex-direction: column;
         align-items: stretch;
         padding-bottom: 0.75rem;
+        // A wrapping column sizes its line to the widest child, so the tab bar
+        // would push Cancel off a phone's screen instead of scrolling.
+        flex-wrap: nowrap;
     }
 
     .action-elements {
@@ -697,15 +736,34 @@ body {
         overflow: visible;
     }
 
+    // The details are a sheet over the images, open while one item is chosen
+    // (detailsOpen), so they never sit far below the images. The container
+    // does not scroll, so the sheet covers the dialog wherever the images are.
+    .modal-container {
+        position: relative;
+    }
+
     .side-preview {
-        order: 2;
+        display: none;
+    }
+
+    .side-preview.details-open {
+        display: flex;
+        position: absolute;
+        inset: 0;
+        z-index: 5;
         width: 100%;
         border-left: none;
-        border-top: 1px solid var(--border-color);
-        max-height: none;
-        flex-shrink: 0;
-        height: auto;
-        display: flex;
+    }
+
+    .details-back {
+        display: inline-flex;
+    }
+
+    .phone-insert-bar {
+        display: block;
+        // After the images (.main-content is order 1).
+        order: 2;
     }
 
     .media-grid {
@@ -733,8 +791,16 @@ body {
     }
 
     .media-tabs {
-        flex-wrap: nowrap;
-        overflow-x: auto;
+        display: none;
+    }
+
+    .media-tab-select {
+        display: block;
+    }
+
+    // The dropdown above already names the tab.
+    .media-tab-heading {
+        display: none;
     }
 
     .media-tab {
@@ -1210,8 +1276,15 @@ footer {
         padding: 0 15px !important;
     }
 
+    // Stacked one under the other. Without nowrap and an auto basis, each
+    // col-12 takes the row's whole height and the search wraps off the right.
     .main_second_div .row.mt-2 {
         flex-direction: column;
+        flex-wrap: nowrap;
+
+        > * {
+            flex: 0 0 auto;
+        }
     }
 
     .main_second_div .col-4,

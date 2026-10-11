@@ -19,6 +19,13 @@ export const routes: Routes = [
     redirectTo: '/admin/dashboard',
     pathMatch: 'full'
   },
+  // The contents folder holds only pages below it (content types, a type's
+  // entries), so the bare /admin/contents would open an empty page.
+  {
+    path: 'admin/contents',
+    redirectTo: '/admin/contents/content-types',
+    pathMatch: 'full'
+  },
 
   // Onboarding Wizard (first-run setup)
   {

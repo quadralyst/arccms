@@ -289,8 +289,91 @@ describe('MediaManagerComponent cropping', () => {
         });
     });
 
+    describe('on a phone, the details sheet', () => {
+        const render = () => {
+            component.ref.markForCheck();
+            fixture.detectChanges();
+        };
+
+        it('opens when one image is chosen, and Back goes back to the images', async () => {
+            await create({ isDialogOpen: true });
+            render();
+            const el: HTMLElement = fixture.nativeElement;
+            expect(el.querySelector('.side-preview')!.classList).not.toContain('details-open');
+
+            component.selectMedia(upload);
+            render();
+            expect(el.querySelector('.side-preview')!.classList).toContain('details-open');
+
+            el.querySelector<HTMLButtonElement>('#detailsBackBtn')!.click();
+            render();
+            expect(component.detailsOpen).toBe(false);
+            expect(el.querySelector('.side-preview')!.classList).not.toContain('details-open');
+        });
+
+        it('makes way for the crop step, and Cancel there comes back to it', async () => {
+            await create({ isDialogOpen: true });
+            component.selectMedia(upload);
+            component.startCrop();
+            expect(component.detailsOpen).toBe(false);
+            component.cancelCrop();
+            expect(component.detailsOpen).toBe(true);
+        });
+
+        it('closes when the image it shows is deleted', async () => {
+            await create({ isDialogOpen: true });
+            component.selectMedia(upload);
+            expect(component.showDetails).toBe(true);
+            await component.deleteUploadedMedia(upload.id);
+            expect(component.showDetails).toBe(false);
+        });
+
+        it('closes on another tab', async () => {
+            await create({ isDialogOpen: true });
+            component.selectMedia(upload);
+            component.selectedMenu({ name: 'Free Images', value: 'search' });
+            expect(component.detailsOpen).toBe(false);
+        });
+
+        it('stays shut while picking several, with Insert in a bar under the images', async () => {
+            await create({ isDialogOpen: true, multiple: true });
+            render();
+            const el: HTMLElement = fixture.nativeElement;
+            const bar = el.querySelector<HTMLButtonElement>('.phone-insert-bar #phoneInsertBtn')!;
+            expect(bar.disabled).toBe(true);
+
+            component.selectMedia(upload);
+            render();
+            expect(component.detailsOpen).toBe(false);
+            expect(bar.disabled).toBe(false);
+            expect(bar.textContent).toContain('1');
+        });
+
+        it('has no Insert bar when picking one: the sheet has Insert', async () => {
+            await create({ isDialogOpen: true });
+            render();
+            expect((fixture.nativeElement as HTMLElement).querySelector('.phone-insert-bar')).toBeNull();
+        });
+
+        it('has no Insert bar outside a picker', async () => {
+            await create({ isDialogOpen: false, multiple: true });
+            render();
+            expect((fixture.nativeElement as HTMLElement).querySelector('.phone-insert-bar')).toBeNull();
+        });
+    });
+
     describe('the screen', () => {
         beforeEach(() => create({ isDialogOpen: true }));
+
+        it('brings the crop step into view on a phone, where Crop sits below the images', () => {
+            component.ref.markForCheck();
+            fixture.detectChanges();
+            const body = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.modal-body')!;
+            body.scrollTo = vi.fn();
+            component.selectMedia(upload);
+            component.startCrop();
+            expect(body.scrollTo).toHaveBeenCalledWith({ top: 0 });
+        });
 
         it('shows Crop for the selection, and swaps the grid for the crop step', () => {
             // OnPush: mark the view dirty, as the component's own detectChanges would.

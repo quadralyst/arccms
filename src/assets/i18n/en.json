@@ -1395,6 +1395,7 @@
       "searching": "Searching...",
       "search_placeholder": "Search for free images...",
       "upload_new": "Upload New",
+      "pick_from": "Pick from",
       "empty": "You do not have any photo in your gallery. Please upload a photo to get started",
       "drop_hint": "Drop an image or a PDF here, or click to browse",
       "supports": "JPEG, PNG, WebP or GIF. A PDF opens its pages so you can take an image.",

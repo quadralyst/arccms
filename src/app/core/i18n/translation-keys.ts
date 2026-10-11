@@ -706,6 +706,7 @@ export type TranslationKey =
     | 'admin.media.pdf_tab.search_clear'
     | 'admin.media.pdf_tab.search_placeholder'
     | 'admin.media.pdf_tab.show_more'
+    | 'admin.media.pick_from'
     | 'admin.media.search_failed'
     | 'admin.media.search_placeholder'
     | 'admin.media.searching'
@@ -2727,6 +2728,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.pdf_tab.search_clear',
     'admin.media.pdf_tab.search_placeholder',
     'admin.media.pdf_tab.show_more',
+    'admin.media.pick_from',
     'admin.media.search_failed',
     'admin.media.search_placeholder',
     'admin.media.searching',
