@@ -128,7 +128,7 @@ export const CUSTOM_ROUTES: Routes = [
 ];</code></pre>
       </li>
       <li>
-        <p>Add the title to <code>src/custom/i18n/en.json</code> (<code>"custom": { "lessons": { "title": "Lessons" } }</code>) and link the page from the admin menu (<a href="admin-menu.html">Add admin menu items</a>).</p>
+        <p>Add the title to <code>src/custom/i18n/en.json</code> (<code>"custom": { "lessons": { "title": "Lessons" } }</code>) and link the page from the admin menu (<a href="admin-menu.html">Change the admin menu</a>).</p>
       </li>
     </ol>
     <div class="trap"><p>An admin page that has only a page file and no explicit route does not reliably reach the browser's route table. The address then falls through to the public content route and shows "Content Not Found" in the public layout. Firebase Hosting answers every address with the app shell and HTTP 200, so a status check does not catch it: open the page in a browser. Give every admin page an explicit route as above.</p></div>

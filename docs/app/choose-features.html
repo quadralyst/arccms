@@ -99,7 +99,7 @@ export const CUSTOM_FEATURES: FeatureChoice = {
     <table>
       <thead><tr><th>Your code</th><th>How it checks a feature</th></tr></thead>
       <tbody>
-        <tr><td>An admin menu item in <code>src/custom/nav.ts</code></td><td>Set <code>feature: 'payments'</code> on the item (<a href="admin-menu.html">Add admin menu items</a>)</td></tr>
+        <tr><td>An admin menu item in <code>src/custom/nav.ts</code></td><td>Set <code>feature: 'payments'</code> on the item (<a href="admin-menu.html">Change the admin menu</a>)</td></tr>
         <tr><td>Routes in <code>src/custom/routes.ts</code></td><td>Wrap them: <code>...whenOn('payments', [ ... ])</code>, from <code>src/app/core/features/feature-routes.ts</code> (<a href="pages-and-routes.html">Add pages and routes</a>)</td></tr>
         <tr><td>A component or service</td><td><code>isOn('payments')</code>, from <code>src/app/core/features/features.ts</code></td></tr>
         <tr><td>A Cloud Function in <code>functions/src/custom/</code></td><td><code>isFeatureOn('payments')</code>, from <code>functions/src/feature-flags.ts</code></td></tr>

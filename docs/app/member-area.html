@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Build the member area | Arc CMS docs</title>
-  <meta name="description" content="Choose where each role lands after sign-in, put your own page at /user/dashboard, keep the member menu, and gate content for paying members.">
-  <meta name="docs:sources" content="src/custom/user-dashboard.ts, src/custom/home.ts, src/app/core/home/home.ts, src/app/pages/user, src/app/app.routes.ts">
+  <meta name="description" content="Choose where each role lands after sign-in, put your own page at /user/dashboard, change the member menu per role, and gate content for paying members.">
+  <meta name="docs:sources" content="src/custom/user-dashboard.ts, src/custom/home.ts, src/custom/nav.ts, src/app/core/home/home.ts, src/app/core/nav, src/app/pages/user, src/app/app.routes.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/member-area.html">
@@ -16,15 +16,16 @@
     <h2>What is there</h2>
     <p>The member area is in <code>src/app/pages/user/</code>. Its layout, <code>app-user-shell</code>, shows the site's name at the top (from Admin, Settings, About, else the app's <code>src/custom/brand.ts</code>, as on the sign-in page), the person's name, and the member menu:</p>
     <table>
-      <thead><tr><th>Item</th><th>Address</th><th>Shown</th></tr></thead>
+      <thead><tr><th>Id</th><th>Item</th><th>Address</th><th>Shown</th></tr></thead>
       <tbody>
-        <tr><td>Home</td><td>The role's home page from <code>src/custom/home.ts</code></td><td>When that home is not <code>/user/dashboard</code> and not an admin page</td></tr>
-        <tr><td>Dashboard</td><td><code>/user/dashboard</code></td><td>Always</td></tr>
-        <tr><td>Payments, Account, Premium</td><td><code>/user/payments</code>, <code>/account</code>, <code>/user/premium</code></td><td>With the <code>payments</code> feature</td></tr>
-        <tr><td>Profile</td><td><code>/user/profile</code></td><td>Always</td></tr>
-        <tr><td>Plans</td><td><code>/pricing</code></td><td>With the <code>payments</code> feature</td></tr>
+        <tr><td><code>home</code></td><td>Home</td><td>The role's home page from <code>src/custom/home.ts</code></td><td>When that home is not <code>/user/dashboard</code> and not an admin page</td></tr>
+        <tr><td><code>dashboard</code></td><td>Dashboard</td><td><code>/user/dashboard</code></td><td>When the person may open the member pages (below)</td></tr>
+        <tr><td><code>payments</code>, <code>account</code>, <code>premium</code></td><td>Payments, Account &amp; Billing, Premium</td><td><code>/user/payments</code>, <code>/account</code>, <code>/user/premium</code></td><td>With the <code>payments</code> feature, when the person may open the member pages</td></tr>
+        <tr><td><code>profile</code></td><td>Profile</td><td><code>/user/profile</code></td><td>When the person may open the member pages</td></tr>
+        <tr><td><code>plans</code></td><td>Plans</td><td><code>/pricing</code></td><td>With the <code>payments</code> feature</td></tr>
       </tbody>
     </table>
+    <p>Below the menu, the Sign out button is always there. The ids are what <code>CUSTOM_NAV_CHANGES</code> names to change the menu (<a href="#change-the-member-menu">Change the member menu</a>); the list is in <code>src/app/core/nav/member-menu.ts</code>.</p>
     <p>What members see on these pages is described in <a href="../members/overview.html">What members see</a>. These pages are guarded by <code>memberPagesGuard</code>, which is <code>userGuard</code> plus one rule: an account your app manages (<a href="app-accounts.html#locked">App accounts</a>) sees a read-only profile, and is kept out of these pages altogether when <code>src/custom/app-accounts.ts</code> says so (<a href="app-accounts.html#member-pages">The member pages</a>).</p>
 
     <h2>Show your own dashboard</h2>
@@ -62,7 +63,33 @@ export const CUSTOM_USER_DASHBOARD: UserDashboardLoader | null = () =&gt;
     <div class="note"><p>The file name <code class="new">my-dashboard.ts</code> has no <code>.page</code> in it, so the page has no second address of its own (<a href="pages-and-routes.html#pages-found-by-file-name">Pages found by file name</a>).</p></div>
 
     <h2>Add more member pages</h2>
-    <p>Give each page a route with <code>userGuard</code> (<a href="pages-and-routes.html#who-may-open-a-page">Who may open a page</a>) and wrap its template in <code>&lt;app-user-shell&gt;</code>. To link it from the member menu, make it the role's home page (below): the menu has no other plug point for app links.</p>
+    <p>Give each page a route with <code>userGuard</code> (<a href="pages-and-routes.html#who-may-open-a-page">Who may open a page</a>) and wrap its template in <code>&lt;app-user-shell&gt;</code>. To link it from the member menu, add it with <code>CUSTOM_NAV_CHANGES</code> (<a href="#change-the-member-menu">below</a>), or make it the role's home page, which brings a Home item.</p>
+
+    <h2>Change the member menu</h2>
+    <p>The <code>member</code> list of <code>CUSTOM_NAV_CHANGES</code>, in <code>src/custom/nav.ts</code>, changes the member menu the way its <code>admin</code> list changes the admin menu: change, hide, add and move items by their <code>id</code> (the table above), for every role or only the roles a change names. The full rules are in <a href="admin-menu.html#change-arc-cms-s-items">Change Arc CMS's items</a>.</p>
+    <pre><code>import type { NavChanges } from '../app/core/nav/nav-changes';
+
+export const CUSTOM_NAV_CHANGES: NavChanges = {
+  member: [
+    // No Premium for the user role
+    { id: 'premium', hide: true, roles: ['user'] },
+    // The app's lessons, just before Profile
+    { add: { id: 'lessons', label: 'Lessons', labelKey: 'custom.nav.lessons', route: '/learn',
+             icon: 'fa-solid fa-book-open' }, before: 'profile' },
+    // A page only teachers see
+    { add: { id: 'classes', label: 'Classes', labelKey: 'custom.nav.classes', route: '/classes',
+             icon: 'fa-solid fa-school', allowRoles: ['teacher'] } },
+  ],
+};</code></pre>
+    <p>What is different in the member menu:</p>
+    <ul>
+      <li>An item without <code>allowRoles</code> is shown to everyone who sees the menu; with it, only to those roles. (In the admin menu an item needs <code>allowRoles</code> to be shown at all.)</li>
+      <li>Sign out is a button below the menu, not an item, so no change can remove it.</li>
+      <li>A change to an item the person does not get (Home when their home is the dashboard, the member pages for a locked app account, the payment pages with payments off) is ignored for them. Items you add are shown whatever the member pages rule says: they are your pages.</li>
+      <li>An item with <code>subItems</code> shows its sub-items indented below it, always open.</li>
+      <li>Words only members see need a Hindi or other translation only when you offer that language to members (<a href="member-languages.html">Member languages</a>). Every <code>labelKey</code> must be in <code>src/custom/i18n/en.json</code> or core's English file: the test suite fails otherwise.</li>
+    </ul>
+    <div class="trap"><p>The menu only shows links. A page you add needs its own route guard: hiding Premium does not stop anyone opening <code>/user/premium</code>, and adding a link does not let anyone in.</p></div>
 
     <h2>Choose where people land after signing in</h2>
     <p>By default, admins land on <code>/admin/dashboard</code> and everyone else on <code>/user/dashboard</code>. To send members to one of your pages instead, set their home in <code>src/custom/home.ts</code>:</p>

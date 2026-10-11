@@ -18,6 +18,7 @@ export const MEMBER_KEYS = ['common.actions.cancel', 'common.actions.close'] as 
 /** The files that make up member screens (and the templates they name). */
 export const MEMBER_SCREEN_FILES = [
     'src/app/pages/user/user-shell.component.ts',
+    'src/app/core/nav/member-menu.ts',
     'src/app/pages/user/(dashboard)/dashboard.page.ts',
     'src/app/pages/user/profile/user-profile.page.ts',
     'src/app/pages/user/premium/premium.page.ts',

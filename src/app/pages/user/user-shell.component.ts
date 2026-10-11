@@ -7,12 +7,15 @@ import { AuthState } from '../(auth)/auth.store';
 import { EntitlementService } from './entitlement.service';
 import { isOn } from '../../core/features/features';
 import { homeFor, USER_DASHBOARD } from '../../core/home/home';
+import { memberMenu } from '../../core/nav/member-menu';
+import { CUSTOM_NAV_CHANGES } from '../../../custom/nav';
 import { memberPagesOpen } from '../../core/app-accounts/app-account-lock';
 import { SiteBrandService } from '../../core/brand/site-brand';
 
 /**
  * Sidebar layout for the signed-in member area (dashboard, profile, and with the
- * payments feature payments, account, premium and plans). Projects page content via
+ * payments feature payments, account, premium and plans). The menu is data
+ * (src/app/core/nav/member-menu.ts) with the app's changes. Projects page content via
  * <ng-content>. With payments, loads the shared entitlement once so every page, the
  * Pro badge, and the *appIfEntitled directive react to it.
  *
@@ -41,24 +44,30 @@ import { SiteBrandService } from '../../core/brand/site-brand';
                     </div>
                 </div>
 
+                <!-- The member menu (src/app/core/nav/member-menu.ts), with the app's changes. -->
                 <nav class="menu">
-                    @if (appHome(); as home) {
-                        <a [routerLink]="home"><i class="fa-solid fa-house"></i> {{ 'user.nav.home' | transloco }}</a>
-                    }
-                    <!-- A locked app account its app keeps out of these pages sees none of them. -->
-                    @if (memberPages()) {
-                    <a routerLink="/user/dashboard" routerLinkActive="active"><i class="fa-solid fa-gauge"></i> {{ 'user.nav.dashboard' | transloco }}</a>
-                    @if (paymentsOn) {
-                    <a routerLink="/user/payments" routerLinkActive="active"><i class="fa-solid fa-coins"></i> {{ 'user.nav.payments' | transloco }}</a>
-                    <a routerLink="/account" routerLinkActive="active"><i class="fa-solid fa-receipt"></i> {{ 'user.nav.account' | transloco }}</a>
-                    <a routerLink="/user/premium" routerLinkActive="active"><i class="fa-solid fa-star"></i> {{ 'user.nav.premium' | transloco }}</a>
-                    }
-                    <a routerLink="/user/profile" routerLinkActive="active"><i class="fa-solid fa-user"></i> {{ 'user.nav.profile' | transloco }}</a>
-                    }
-                    @if (paymentsOn) {
-                    <a routerLink="/pricing" routerLinkActive="active"><i class="fa-solid fa-tag"></i> {{ 'user.nav.plans' | transloco }}</a>
+                    @for (item of menu(); track item.id ?? $index) {
+                        @if (item.separator) {
+                            <hr>
+                        } @else {
+                            <ng-container *ngTemplateOutlet="entry; context: { $implicit: item }"></ng-container>
+                            @for (sub of item.subItems ?? []; track sub.id ?? $index) {
+                                <ng-container *ngTemplateOutlet="entry; context: { $implicit: sub, sub: true }"></ng-container>
+                            }
+                        }
                     }
                 </nav>
+
+                <ng-template #entry let-item let-sub="sub">
+                    @if (item.externalUrl) {
+                        <a [href]="item.externalUrl" target="_blank" rel="noopener noreferrer" [class.sub]="sub"><i class="{{ item.icon }}"></i> {{ item.labelKey ? (item.labelKey | transloco) : item.label }}</a>
+                    } @else if (item.route) {
+                        <!-- Home is never marked as the current page. -->
+                        <a [routerLink]="item.route" [queryParams]="item.queryParams || null" [routerLinkActive]="item.id === 'home' ? [] : 'active'" [class.sub]="sub"><i class="{{ item.icon }}"></i> {{ item.labelKey ? (item.labelKey | transloco) : item.label }}</a>
+                    } @else {
+                        <span class="group" [class.sub]="sub"><i class="{{ item.icon }}"></i> {{ item.labelKey ? (item.labelKey | transloco) : item.label }}</span>
+                    }
+                </ng-template>
 
                 <div class="foot">
                     @if (paymentsOn) {
@@ -88,6 +97,9 @@ import { SiteBrandService } from '../../core/brand/site-brand';
         .menu a { color: #cdd6e0; text-decoration: none; padding: 10px 12px; border-radius: 8px; font-size: 0.92rem; display: flex; align-items: center; gap: 10px; }
         .menu a i { width: 18px; text-align: center; opacity: 0.85; }
         .menu a:hover { background: #ffffff12; }
+        .menu .group { color: #8a99a8; padding: 10px 12px 4px; font-size: 0.8rem; display: flex; align-items: center; gap: 10px; }
+        .menu .sub { padding-left: 28px; }
+        .menu hr { border-color: #ffffff22; margin: 6px 0; }
         .menu a.active { background: #1b98e0; color: #fff; }
         .foot { margin-top: auto; display: flex; flex-direction: column; gap: 12px; padding-top: 16px; }
         .foot .credits { font-size: 0.85rem; color: #adb5bd; }
@@ -116,6 +128,12 @@ export class UserShellComponent implements OnInit {
 
     /** Whether this person may open Arc CMS's member pages (src/custom/app-accounts.ts). */
     readonly memberPages = computed(() => memberPagesOpen(this.authState.currentUser()));
+
+    /** The member menu for this person, with the app's changes for their role (src/custom/nav.ts). */
+    readonly menu = computed(() => memberMenu(
+        { home: this.appHome(), memberPages: this.memberPages(), role: this.authState.currentUser()?.role },
+        CUSTOM_NAV_CHANGES.member,
+    ));
 
     displayName(): string {
         const u = this.authState.currentUser();

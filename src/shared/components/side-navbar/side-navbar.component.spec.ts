@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { computed, signal } from '@angular/core';
+import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { Router, ActivatedRoute, type Routes } from '@angular/router';
+import { Router, ActivatedRoute, provideRouter, type Routes } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
 
@@ -10,7 +10,7 @@ import NavbarComponent, { isWideLogo, svgSize, type MenuItem } from './side-navb
 import { SiteIdentityService } from '../../../app/core/services/site-identity.service';
 import { featureOfPath, isCorePath } from '../../../app/core/features/feature-routes';
 import type { FeatureId } from '../../../app/core/features/feature-registry';
-import { CUSTOM_NAV } from '../../../custom/nav';
+import { CUSTOM_NAV, CUSTOM_NAV_CHANGES } from '../../../custom/nav';
 import { CUSTOM_ROUTES } from '../../../custom/routes';
 import { explicitRouteUrls, isServedBy } from '../../../test/route-urls';
 import { AuthState } from '../../../app/pages/(auth)/auth.store';
@@ -454,5 +454,125 @@ describe('NavbarComponent: the site\'s name and logo at the top (specs/admin-bra
         const fixture = await render({ name: 'Acme Studio', logoUrl: 'https://x.test/wordmark.png' }, false);
         loadLogo(fixture, 300, 60);
         expect(fixture.nativeElement.querySelector('.logo-container-close img')).toBeNull();
+    });
+});
+
+/**
+ * The app's changes to the admin menu (CUSTOM_NAV_CHANGES in src/custom/nav.ts), read
+ * back from the rendered menu with a real router, so each link's address is the one a
+ * person follows.
+ */
+describe("NavbarComponent: the app's menu changes (src/custom/nav.ts)", () => {
+    let component: NavbarComponent;
+    let fixture: ComponentFixture<NavbarComponent>;
+    const role = signal('admin');
+    const contentTypes = signal<Partial<ContentType>[]>([]);
+
+    beforeEach(async () => {
+        role.set('admin');
+        await TestBed.configureTestingModule({
+            imports: [NavbarComponent, NoopAnimationsModule],
+            providers: [
+                provideRouter([]),
+                { provide: AuthState, useValue: { currentUser: computed(() => ({ name: 'Test User', role: role(), photo: '' })), logout: vi.fn() } },
+                { provide: ContentTypesStore, useValue: { items: contentTypes, getAll: vi.fn() } },
+                { provide: WaitlistAdminStore, useValue: { items: signal([]), subscribe: vi.fn() } },
+                { provide: MatDialog, useValue: { open: vi.fn() } },
+                { provide: SiteIdentityService, useValue: identityStub() },
+            ],
+        }).compileComponents();
+        fixture = TestBed.createComponent(NavbarComponent);
+        component = fixture.componentInstance;
+        component.isExpanded = true;
+    });
+
+    afterEach(() => {
+        delete CUSTOM_NAV_CHANGES.admin;
+    });
+
+    /** Each top-level row: its label, address and icon, or --- for a separator. */
+    const renderedMenu = () => {
+        fixture.detectChanges();
+        const rows = fixture.nativeElement.querySelectorAll('.sidebar-menu > a, .sidebar-menu > hr') as NodeListOf<HTMLElement>;
+        return [...rows].map((row) => {
+            if (row.tagName === 'HR') return '---';
+            const icon = [...row.querySelector('i')!.classList].filter((c) => c.startsWith('fa-')).join(' ');
+            return `${row.textContent!.trim()} ${row.getAttribute('href') ?? '-'} ${icon}`;
+        });
+    };
+
+    it('shows the menu as Arc CMS ships it when the app changes nothing', () => {
+        expect(renderedMenu()).toEqual([
+            'Dashboard /admin/dashboard fa-solid fa-gauge-high',
+            'Signup Forms /admin/waitlists fa-solid fa-list-alt',
+            'Media Manager /admin/media fa-solid fa-images',
+            '---',
+            'Content - fa-solid fa-layer-group',
+            '---',
+            'Users /admin/users fa-solid fa-users',
+            'Audience - fa-solid fa-address-book',
+            'Email + SMS - fa-solid fa-palette',
+            'Feedback /admin/feedback fa-solid fa-comment-dots',
+            'Messages /admin/messages fa-solid fa-envelope',
+            'Products /admin/products fa-solid fa-box-open',
+            'Transactions /admin/transactions fa-solid fa-receipt',
+            'Data - fa-solid fa-database',
+            '---',
+            'Profile /admin/profile fa-solid fa-user',
+            'Settings /admin/settings fa-solid fa-gear',
+            'About https://arccms.com/about fa-solid fa-circle-info',
+            'Logout - fa-solid fa-right-from-bracket',
+        ]);
+    });
+
+    it("opens the app's own page from Dashboard when the app changes its route", () => {
+        CUSTOM_NAV_CHANGES.admin = [{ id: 'dashboard', route: '/admin/extension-dashboard' }];
+        expect(renderedMenu()[0]).toBe('Dashboard /admin/extension-dashboard fa-solid fa-gauge-high');
+    });
+
+    it('hides, adds and moves items for the roles a change names, and keeps Profile and Logout', () => {
+        CUSTOM_NAV_CHANGES.admin = [
+            { id: 'media', hide: true },
+            { id: 'content', hide: true },
+            { add: { id: 'reports', label: 'Reports', route: '/admin/reports', icon: 'fa-solid fa-chart-line', allowRoles: ['admin', 'editor'] }, after: 'dashboard' },
+            { id: 'settings', before: 'dashboard', roles: ['admin'] },
+            { id: 'profile', hide: true },
+            { id: 'logout', hide: true },
+        ];
+        const rows = renderedMenu();
+        expect(rows.slice(0, 5)).toEqual([
+            'Settings /admin/settings fa-solid fa-gear',
+            'Dashboard /admin/dashboard fa-solid fa-gauge-high',
+            'Reports /admin/reports fa-solid fa-chart-line',
+            'Signup Forms /admin/waitlists fa-solid fa-list-alt',
+            '---',
+        ]);
+        expect(rows.filter((r) => r === '---')).toHaveLength(2);
+        expect(rows.slice(-4)).toEqual(['---', 'Profile /admin/profile fa-solid fa-user', 'About https://arccms.com/about fa-solid fa-circle-info', 'Logout - fa-solid fa-right-from-bracket']);
+    });
+
+    it("shows an editor the items the app's changes give that role, with Profile and Logout", () => {
+        CUSTOM_NAV_CHANGES.admin = [
+            { add: { id: 'reports', label: 'Reports', route: '/admin/reports', icon: 'fa-solid fa-chart-line', allowRoles: ['admin', 'editor'] }, after: 'dashboard' },
+            { id: 'media', allowRoles: ['admin', 'editor'], roles: ['editor'] },
+            { id: 'profile', allowRoles: ['editor'] },
+            { id: 'logout', allowRoles: ['editor'] },
+        ];
+        role.set('editor');
+        expect(renderedMenu()).toEqual([
+            'Reports /admin/reports fa-solid fa-chart-line',
+            'Media Manager /admin/media fa-solid fa-images',
+            // Separators are for admins and users, as before.
+            'Profile /admin/profile fa-solid fa-user',
+            'Logout - fa-solid fa-right-from-bracket',
+        ]);
+    });
+
+    it('opens the sign-out dialog from Logout, found by its id whatever its label', () => {
+        CUSTOM_NAV_CHANGES.admin = [{ id: 'logout', label: 'Sign out' }];
+        expect(renderedMenu().at(-1)).toBe('Sign out - fa-solid fa-right-from-bracket');
+        const confirm = vi.spyOn(component, 'confirmLogout').mockImplementation(() => {});
+        ([...fixture.nativeElement.querySelectorAll('.sidebar-menu > a')].at(-1) as HTMLElement).click();
+        expect(confirm).toHaveBeenCalled();
     });
 });

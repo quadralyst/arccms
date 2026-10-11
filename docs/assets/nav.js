@@ -59,7 +59,7 @@ window.ARC_DOCS_NAV = [
       { path: "app/custom-space.html", title: "Use the custom space" },
       { path: "app/choose-features.html", title: "Choose your app's features" },
       { path: "app/pages-and-routes.html", title: "Add pages and routes" },
-      { path: "app/admin-menu.html", title: "Add admin menu items" },
+      { path: "app/admin-menu.html", title: "Change the admin menu" },
       { path: "app/admin-look.html", title: "Brand the admin" },
       { path: "app/member-area.html", title: "Build the member area" },
       { path: "app/functions.html", title: "Write your own Cloud Functions" },
