@@ -371,9 +371,22 @@
                     }
                     }
                 </div>
+                @if(_DIALOG_DATA.isDialogOpen && isMultiSelect && !isPdfTab){
+                <!-- A phone, picking several: the details are below the images, so
+                     Insert stays at hand in a bar at the bottom (media-manager.scss). -->
+                <div class="phone-insert-bar">
+                    <button type="button" class="btn btn-primary btn-insert" id="phoneInsertBtn" (click)="insertMedia()" [disabled]="insertDisabled">
+                        <ng-container *ngTemplateOutlet="insertLabel"></ng-container>
+                    </button>
+                </div>
+                }
                 @if(!isPdfTab){
-                <div class="side-preview">
+                <div class="side-preview" [class.details-open]="showDetails">
                     <div class="preview-header">
+                        <!-- A phone: the details cover the images, and this goes back to them. -->
+                        <button type="button" class="details-back" id="detailsBackBtn" (click)="closeDetails()">
+                            <i class="fas fa-arrow-left" aria-hidden="true"></i> {{ 'common.actions.back' | transloco }}
+                        </button>
                         <div class="preview-title">
                             {{ (isIconsTab ? 'admin.media.icons.selected' : isFilesTab ? 'admin.media.files.selected' : 'admin.media.selected') | transloco }}
                             @if(isMultiSelect && !isFilesTab && selectedMediaList.length){
@@ -513,7 +526,13 @@
                          insert has always closed with an empty url, and every caller
                          already guards for that — changing it is not this feature's job. -->
                     <button id="insertMediaBtn" (click)="insertMedia()" class=" btn btn-primary btn-insert"
-                        [disabled]="isCropping || !!pdfSource || (isIconsTab && !selectedIcon) || (isFilesTab && (isMultiSelect ? !selectedFiles.length : !selectedFile)) || (isMultiSelect && !isFilesTab && !selectedMediaList.length)">
+                        [disabled]="insertDisabled">
+                        <ng-container *ngTemplateOutlet="insertLabel"></ng-container>
+                    </button>
+                    }
+                </div>
+                }
+                <ng-template #insertLabel>
                         <i class="fas fa-check me-1 fs-6"></i>
                         @if(isFilesTab){
                         @if(isMultiSelect){
@@ -526,10 +545,7 @@
                         } @else {
                         {{ (isIconsTab ? 'admin.media.icons.insert' : 'admin.media.insert') | transloco }}
                         }
-                    </button>
-                    }
-                </div>
-                }
+                </ng-template>
             </div>
         </div>
     </div>

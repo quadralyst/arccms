@@ -133,6 +133,33 @@ body {
     font-weight: 500;
 }
 
+// A phone only (below): Back from the details sheet, and Insert while picking several.
+.details-back {
+    display: none;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.5rem 0.25rem 0;
+    border: 0;
+    background: none;
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.phone-insert-bar {
+    display: none;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 0.75rem;
+    background: white;
+    border-top: 1px solid var(--border-color);
+
+    .btn-insert {
+        margin-top: 0;
+        box-shadow: none;
+    }
+}
+
 /* Action elements container */
 .action-elements {
     display: flex;
@@ -676,6 +703,9 @@ body {
     .modal-body {
         flex-direction: column;
         overflow-y: auto;
+        // Bootstrap makes it relative; the details sheet must anchor to the
+        // container instead, which does not scroll (.side-preview.details-open).
+        position: static;
     }
 
     .main-content {
@@ -706,15 +736,34 @@ body {
         overflow: visible;
     }
 
+    // The details are a sheet over the images, open while one item is chosen
+    // (detailsOpen), so they never sit far below the images. The container
+    // does not scroll, so the sheet covers the dialog wherever the images are.
+    .modal-container {
+        position: relative;
+    }
+
     .side-preview {
-        order: 2;
+        display: none;
+    }
+
+    .side-preview.details-open {
+        display: flex;
+        position: absolute;
+        inset: 0;
+        z-index: 5;
         width: 100%;
         border-left: none;
-        border-top: 1px solid var(--border-color);
-        max-height: none;
-        flex-shrink: 0;
-        height: auto;
-        display: flex;
+    }
+
+    .details-back {
+        display: inline-flex;
+    }
+
+    .phone-insert-bar {
+        display: block;
+        // After the images (.main-content is order 1).
+        order: 2;
     }
 
     .media-grid {
