@@ -262,9 +262,18 @@ export default class NavbarComponent extends BaseComponent {
 
     ngOnInit() {
         void this.siteBrand.load();
+        // The labels come from a synchronous translate(), so the menu asks for
+        // the file itself: a page with no translated text of its own (a parent
+        // route such as /admin/contents) would otherwise never load it, and the
+        // menu would show bare keys. Transloco loads each language once.
         this.transloco.langChanges$
             .pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe(lang => this.activeLang.set(lang));
+            .subscribe(lang => {
+                this.activeLang.set(lang);
+                this.transloco.load(lang).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                    error: (error) => console.error(`Could not load the ${lang} translations:`, error),
+                });
+            });
         this.transloco.events$
             .pipe(
                 filter((event) => event.type === 'translationLoadSuccess'),

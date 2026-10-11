@@ -17,9 +17,11 @@ import {
 } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
 import { deleteObject, ref, Storage, updateMetadata } from '@angular/fire/storage';
+import { firstValueFrom } from 'rxjs';
 import { arcCallable } from '../../../core/config/arc-functions';
 import { DbService } from '../../../../shared/services/db.service';
-import { allowedFileOf, contentDispositionFor } from '../../../../shared/utils/media-files';
+import { FileUploadService } from '../../../../shared/services/file-upload.service';
+import { allowedFileOf, contentDispositionFor, isSameUpload } from '../../../../shared/utils/media-files';
 import { IMediaFile } from './media-files.model';
 
 /** One page of the Files tab. */
@@ -46,6 +48,7 @@ export class MediaFilesService extends DbService<IMediaFile> {
     private bucket = inject(Storage);
     private platform = inject(PLATFORM_ID);
     private functions = inject(Functions);
+    private fileUpload = inject(FileUploadService);
     private readMediaFileFn = arcCallable<{ fileId: string; offset: number }, { data: string; offset: number; total: number }>(this.functions, 'readMediaFile');
 
     constructor() {
@@ -79,9 +82,9 @@ export class MediaFilesService extends DbService<IMediaFile> {
     }
 
     /**
-     * PDFs uploaded in this visit, by id: Take an image right after an upload
-     * uses these instead of reading the file back (MF-D16). Kept for the
-     * last few only, since a PDF can be 20 MB.
+     * PDFs uploaded or read in this visit, by id, most recently used last:
+     * Take an image uses these instead of reading the file back (MF-D16,
+     * PI-D7). Kept for the last few only, since a PDF can be 20 MB.
      */
     private recent = new Map<string, Blob>();
 
@@ -91,11 +94,20 @@ export class MediaFilesService extends DbService<IMediaFile> {
         while (this.recent.size > 3) this.recent.delete(this.recent.keys().next().value!);
     }
 
-    /** The bytes of a library PDF: from this visit's uploads when there, else read in parts. */
+    /**
+     * The bytes of a library PDF: from this visit's uploads or reads when
+     * there, else read in parts and kept, so a PDF is read once per visit
+     * (PI-D7), not once per image picker opened.
+     */
     async pdfBytes(fileId: string, onProgress: (percent: number) => void = () => {}): Promise<Blob> {
         const local = this.recent.get(fileId);
-        if (local) return local;
-        return this.readFile(fileId, onProgress);
+        if (local) {
+            this.rememberBytes(fileId, local);
+            return local;
+        }
+        const bytes = await this.readFile(fileId, onProgress);
+        this.rememberBytes(fileId, bytes);
+        return bytes;
     }
 
     /**
@@ -118,6 +130,46 @@ export class MediaFilesService extends DbService<IMediaFile> {
             onProgress(total ? Math.min(100, (offset / total) * 100) : 100);
         }
         return new Blob(parts as BlobPart[], { type: 'application/pdf' });
+    }
+
+    /**
+     * Keeps a PDF from the computer in Files (PI-D3) and gives its record.
+     * The same PDF already there (same name and size, PI-D4) is used as it
+     * is, with nothing uploaded. Either way its bytes are remembered, so its
+     * pages never need reading back in this visit. Throws what the upload
+     * throws (MediaFileUploadError for a file over 20 MB).
+     */
+    async keepPdf(file: File, onProgress: (percent: number) => void = () => {}): Promise<IMediaFile> {
+        // The same PDF opened again while it is still being kept: one upload.
+        const key = `${file.name}:${file.size}`;
+        const running = this.keeping.get(key);
+        if (running) return running;
+        const keeping = this.storePdf(file, onProgress).finally(() => this.keeping.delete(key));
+        this.keeping.set(key, keeping);
+        return keeping;
+    }
+
+    /** PDFs being kept right now, by name and size. */
+    private keeping = new Map<string, Promise<IMediaFile>>();
+
+    private async storePdf(file: File, onProgress: (percent: number) => void): Promise<IMediaFile> {
+        const same = (await this.listAll()).find((f) => f.type === 'pdf' && isSameUpload(f, file));
+        if (same) {
+            onProgress(100);
+            this.rememberBytes(same.id, file);
+            return same;
+        }
+        const uploaded = await this.fileUpload.uploadDocument(file, onProgress);
+        let id: string;
+        try {
+            [id] = await firstValueFrom(this.addBatch([uploaded]));
+        } catch (error) {
+            // A file no tab lists could never be found or deleted: take it back out.
+            await this.fileUpload.removeStored(FileUploadService.storedPaths(uploaded));
+            throw error;
+        }
+        this.rememberBytes(id, file);
+        return { ...uploaded, id } as IMediaFile;
     }
 
     /**

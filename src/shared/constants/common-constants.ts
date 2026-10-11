@@ -32,6 +32,13 @@ export class ConstantVariables {
             kind: 'image',
         },
         {
+            // Image pickers only (PI-D1); the Media page has Files > Take an image.
+            name: 'From a PDF',
+            value: 'pdf',
+            icon: 'file-pdf',
+            kind: 'image',
+        },
+        {
             name: 'Files',
             value: 'files',
             icon: 'file-lines',

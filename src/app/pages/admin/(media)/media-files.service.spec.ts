@@ -39,7 +39,9 @@ vi.mock('../../../core/config/arc-functions', () => ({
     arcCallable: () => (data: unknown) => callable(data),
 }));
 
+import { of, throwError } from 'rxjs';
 import { MediaFilesService } from './media-files.service';
+import { FileUploadService } from '../../../../shared/services/file-upload.service';
 import { IMediaFile } from './media-files.model';
 
 const file: IMediaFile = {
@@ -63,6 +65,7 @@ function readBlob(blob: Blob): Promise<ArrayBuffer> {
 
 describe('MediaFilesService', () => {
     let service: MediaFilesService;
+    const fileUpload = { uploadDocument: vi.fn(), removeStored: vi.fn() };
 
     beforeEach(() => {
         TestBed.configureTestingModule({
@@ -72,6 +75,7 @@ describe('MediaFilesService', () => {
                 { provide: Storage, useValue: {} },
                 { provide: Functions, useValue: {} },
                 { provide: PLATFORM_ID, useValue: 'browser' },
+                { provide: FileUploadService, useValue: fileUpload },
             ],
         });
         service = TestBed.inject(MediaFilesService);
@@ -107,6 +111,14 @@ describe('MediaFilesService', () => {
         callable.mockResolvedValue({ data: { data: b64([9]), offset: 0, total: 1 } });
         await service.pdfBytes('id0');
         expect(callable).toHaveBeenCalledWith({ fileId: 'id0', offset: 0 });
+    });
+
+    it('reads a PDF from Storage once per visit, not once per picker (PI-D7)', async () => {
+        callable.mockResolvedValue({ data: { data: b64([9]), offset: 0, total: 1 } });
+        const first = await service.pdfBytes('f7');
+        const again = await service.pdfBytes('f7');
+        expect(again).toBe(first);
+        expect(callable).toHaveBeenCalledTimes(1);
     });
 
     describe('saveDetails', () => {
@@ -151,6 +163,48 @@ describe('MediaFilesService', () => {
             deleteObject.mockRejectedValueOnce({ code: 'storage/unauthorized' });
             await expect(service.deleteFile('f1')).rejects.toBeTruthy();
             expect(deleteDoc).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('keepPdf (PI-D3, PI-D4)', () => {
+        const pdf = new File(['%PDF'], 'Report.pdf', { type: 'application/pdf' });
+
+        it('uses the same PDF already in Files, uploading nothing', async () => {
+            vi.spyOn(service, 'listAll').mockResolvedValue([{ ...file, name: 'report-x1y2z3.pdf', bytes: pdf.size }]);
+            const progress = vi.fn();
+            const kept = await service.keepPdf(pdf, progress);
+            expect(kept.id).toBe('f1');
+            expect(fileUpload.uploadDocument).not.toHaveBeenCalled();
+            expect(progress).toHaveBeenCalledWith(100);
+            expect(await service.pdfBytes('f1')).toBe(pdf);
+        });
+
+        it('stores a new one, and remembers its bytes under its new id', async () => {
+            vi.spyOn(service, 'listAll').mockResolvedValue([{ ...file, bytes: 999 }]);
+            fileUpload.uploadDocument.mockResolvedValue({ ...file, id: undefined, name: 'report-q9q9q9.pdf' });
+            vi.spyOn(service, 'addBatch').mockReturnValue(of(['new1']));
+            const kept = await service.keepPdf(pdf);
+            expect(kept.id).toBe('new1');
+            expect(fileUpload.uploadDocument).toHaveBeenCalledWith(pdf, expect.any(Function));
+            expect(await service.pdfBytes('new1')).toBe(pdf);
+        });
+
+        it('uploads a PDF opened twice at once only once', async () => {
+            vi.spyOn(service, 'listAll').mockResolvedValue([]);
+            fileUpload.uploadDocument.mockResolvedValue({ ...file, name: 'report-q9q9q9.pdf' });
+            vi.spyOn(service, 'addBatch').mockReturnValue(of(['new2']));
+            const [a, b] = await Promise.all([service.keepPdf(pdf), service.keepPdf(pdf)]);
+            expect(a.id).toBe('new2');
+            expect(b.id).toBe('new2');
+            expect(fileUpload.uploadDocument).toHaveBeenCalledTimes(1);
+        });
+
+        it('takes the stored file back out when its record cannot be written', async () => {
+            vi.spyOn(service, 'listAll').mockResolvedValue([]);
+            fileUpload.uploadDocument.mockResolvedValue({ ...file, path: 'mediaFiles/a.pdf', thumbnail: undefined });
+            vi.spyOn(service, 'addBatch').mockReturnValue(throwError(() => new Error('denied')));
+            await expect(service.keepPdf(pdf)).rejects.toThrow('denied');
+            expect(fileUpload.removeStored).toHaveBeenCalled();
         });
     });
 });

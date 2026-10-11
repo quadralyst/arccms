@@ -346,6 +346,14 @@ describe('NavbarComponent: translations that load after the first render', () =>
             ],
         }).compileComponents();
 
+        const transloco = TestBed.inject(TranslocoService);
+        // The nav asks for the file itself; hold it back to see the bare keys first.
+        const realLoad = transloco.load.bind(transloco);
+        let release: () => void = () => {};
+        const held = new Promise<void>((resolve) => (release = resolve));
+        const { from, switchMap } = await import('rxjs');
+        const loadSpy = vi.spyOn(transloco, 'load').mockImplementation((lang: string) => from(held).pipe(switchMap(() => realLoad(lang))));
+
         const fixture = TestBed.createComponent(NavbarComponent);
         fixture.detectChanges();
         const nav = fixture.componentInstance;
@@ -356,9 +364,14 @@ describe('NavbarComponent: translations that load after the first render', () =>
         const label = computed(() => nav.menuLabel({ label: 'Dashboard', labelKey: 'admin.nav.dashboard' }));
         expect(label()).toBe('admin.nav.dashboard');
 
-        await firstValueFrom(TestBed.inject(TranslocoService).load('en'));
+        release();
+        await firstValueFrom(realLoad('en'));
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(label()).toBe('Dashboard');
+        // Asked by the nav itself, so a page with no translated text of its
+        // own (a parent route like /admin/contents) still gets labels.
+        expect(loadSpy).toHaveBeenCalledWith('en');
     });
 });
 

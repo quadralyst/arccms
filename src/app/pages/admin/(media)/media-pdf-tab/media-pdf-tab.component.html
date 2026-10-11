@@ -1,0 +1,65 @@
+<!-- Drops are handled in every state, so a PDF dropped on an open one never
+     makes the browser leave the page for the file. -->
+<div class="pdf-tab-root" [class.drag-over]="dragOver()" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+@if (source(); as src) {
+<arc-pdf-image-taker [source]="src" [uploadSettings]="uploadSettings()" [initialRatio]="initialRatio()"
+    [size]="size()" (sizeChange)="size.set($event ?? 'm')" [insertable]="true" [multiple]="multiple()"
+    [startPage]="startPage()" [startZoom]="startZoom()" [inList]="true" [takenBefore]="takenBefore()"
+    (opened)="onOpened()" (failed)="onFailed()" (back)="toList()" (saved)="onSaved($event)" (inserted)="onInserted($event)"></arc-pdf-image-taker>
+} @else {
+<div class="pdf-tab">
+    @if (pdfs().length > 6 || query()) {
+    <div class="library-search pdf-tab-search">
+        <i class="fas fa-search" aria-hidden="true"></i>
+        <input type="search" class="form-control form-control-sm" id="pdfTabSearch" [value]="query()"
+            [placeholder]="'admin.media.pdf_tab.search_placeholder' | transloco"
+            [attr.aria-label]="'admin.media.pdf_tab.search_placeholder' | transloco" (input)="onSearch($event)">
+        @if (query()) {
+        <button type="button" class="btn btn-link btn-sm" (click)="clearSearch()">{{ 'admin.media.pdf_tab.search_clear' | transloco }}</button>
+        }
+    </div>
+    }
+    <div class="pdf-tab-grid">
+        <button type="button" class="pdf-card pdf-choose" id="pdfChooseBtn" (click)="choose()">
+            <span class="pdf-card-sheet">
+                <i class="fas fa-upload" aria-hidden="true"></i>
+            </span>
+            <span class="pdf-card-title">{{ 'admin.media.pdf_tab.choose' | transloco }}</span>
+            <span class="pdf-card-meta">{{ 'admin.media.pdf_tab.choose_hint' | transloco }}</span>
+        </button>
+        @for (f of shown(); track f.id) {
+        <button type="button" class="pdf-card" [attr.data-file]="f.id"
+            [attr.aria-label]="'admin.media.pdf_tab.open_label' | transloco:{ title: f.title }" (click)="openFile(f)">
+            <span class="pdf-card-sheet">
+                @if (f.thumbnail?.url) {
+                <img [src]="f.thumbnail!.url" alt="" loading="lazy" draggable="false">
+                } @else {
+                <i class="fas fa-file-pdf" aria-hidden="true"></i>
+                }
+                @if (f.id === lastUsedId() && !query()) {
+                <span class="pdf-card-badge">{{ 'admin.media.pdf_tab.last_used' | transloco }}</span>
+                }
+            </span>
+            <span class="pdf-card-title" [title]="f.title">{{ f.title }}</span>
+            @if (pages(f)) {
+            <span class="pdf-card-meta">{{ 'admin.media.pdf_tab.pages' | transloco:{ count: pages(f) } }}</span>
+            }
+        </button>
+        }
+    </div>
+    @if (loading()) {
+    <div class="pdf-tab-status" role="status"><i class="fas fa-spinner fa-spin me-2" aria-hidden="true"></i></div>
+    } @else if (query() && !matching().length) {
+    <div class="pdf-tab-status">{{ 'admin.media.pdf_tab.none_found' | transloco }}</div>
+    } @else if (!pdfs().length) {
+    <div class="pdf-tab-status">{{ 'admin.media.pdf_tab.empty' | transloco }}</div>
+    }
+    @if (hasMore()) {
+    <div class="pdf-tab-more">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="pdfShowMoreBtn" (click)="showMore()">{{ 'admin.media.pdf_tab.show_more' | transloco }}</button>
+    </div>
+    }
+    <input type="file" #fileInput accept="application/pdf,.pdf" hidden (change)="onInput($event)">
+</div>
+}
+</div>

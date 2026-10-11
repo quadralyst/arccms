@@ -651,24 +651,61 @@ export type TranslationKey =
     | 'admin.media.metadata_failed'
     | 'admin.media.open_full'
     | 'admin.media.pdf.all_pages'
+    | 'admin.media.pdf.all_pdfs'
+    | 'admin.media.pdf.alt_label'
+    | 'admin.media.pdf.alt_placeholder'
     | 'admin.media.pdf.done'
     | 'admin.media.pdf.drawing_page'
+    | 'admin.media.pdf.fit'
+    | 'admin.media.pdf.go_to_page'
     | 'admin.media.pdf.image_title'
-    | 'admin.media.pdf.keep_in_files'
+    | 'admin.media.pdf.insert'
+    | 'admin.media.pdf.insert_count'
+    | 'admin.media.pdf.keeping'
     | 'admin.media.pdf.locked'
+    | 'admin.media.pdf.next_page'
+    | 'admin.media.pdf.no_pictures'
+    | 'admin.media.pdf.note_keeping'
+    | 'admin.media.pdf.note_kept'
     | 'admin.media.pdf.note_library'
     | 'admin.media.pdf.note_local'
+    | 'admin.media.pdf.note_not_kept'
+    | 'admin.media.pdf.of_pages'
     | 'admin.media.pdf.opening'
     | 'admin.media.pdf.page_failed'
     | 'admin.media.pdf.page_label'
+    | 'admin.media.pdf.page_nav'
     | 'admin.media.pdf.pages_hint'
+    | 'admin.media.pdf.picture_label'
+    | 'admin.media.pdf.picture_label_taken'
+    | 'admin.media.pdf.pictures_found'
+    | 'admin.media.pdf.previous_page'
     | 'admin.media.pdf.read_failed'
     | 'admin.media.pdf.reading'
     | 'admin.media.pdf.save'
+    | 'admin.media.pdf.save_another'
     | 'admin.media.pdf.save_failed'
     | 'admin.media.pdf.saved'
     | 'admin.media.pdf.saved_count'
     | 'admin.media.pdf.unreadable'
+    | 'admin.media.pdf.zoom'
+    | 'admin.media.pdf.zoom_fit'
+    | 'admin.media.pdf.zoom_in'
+    | 'admin.media.pdf.zoom_out'
+    | 'admin.media.pdf_tab.choose'
+    | 'admin.media.pdf_tab.choose_hint'
+    | 'admin.media.pdf_tab.empty'
+    | 'admin.media.pdf_tab.gone'
+    | 'admin.media.pdf_tab.last_used'
+    | 'admin.media.pdf_tab.load_failed'
+    | 'admin.media.pdf_tab.none_found'
+    | 'admin.media.pdf_tab.not_pdf'
+    | 'admin.media.pdf_tab.one_at_a_time'
+    | 'admin.media.pdf_tab.open_label'
+    | 'admin.media.pdf_tab.pages'
+    | 'admin.media.pdf_tab.search_clear'
+    | 'admin.media.pdf_tab.search_placeholder'
+    | 'admin.media.pdf_tab.show_more'
     | 'admin.media.search_failed'
     | 'admin.media.search_placeholder'
     | 'admin.media.searching'
@@ -2635,24 +2672,61 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.metadata_failed',
     'admin.media.open_full',
     'admin.media.pdf.all_pages',
+    'admin.media.pdf.all_pdfs',
+    'admin.media.pdf.alt_label',
+    'admin.media.pdf.alt_placeholder',
     'admin.media.pdf.done',
     'admin.media.pdf.drawing_page',
+    'admin.media.pdf.fit',
+    'admin.media.pdf.go_to_page',
     'admin.media.pdf.image_title',
-    'admin.media.pdf.keep_in_files',
+    'admin.media.pdf.insert',
+    'admin.media.pdf.insert_count',
+    'admin.media.pdf.keeping',
     'admin.media.pdf.locked',
+    'admin.media.pdf.next_page',
+    'admin.media.pdf.no_pictures',
+    'admin.media.pdf.note_keeping',
+    'admin.media.pdf.note_kept',
     'admin.media.pdf.note_library',
     'admin.media.pdf.note_local',
+    'admin.media.pdf.note_not_kept',
+    'admin.media.pdf.of_pages',
     'admin.media.pdf.opening',
     'admin.media.pdf.page_failed',
     'admin.media.pdf.page_label',
+    'admin.media.pdf.page_nav',
     'admin.media.pdf.pages_hint',
+    'admin.media.pdf.picture_label',
+    'admin.media.pdf.picture_label_taken',
+    'admin.media.pdf.pictures_found',
+    'admin.media.pdf.previous_page',
     'admin.media.pdf.read_failed',
     'admin.media.pdf.reading',
     'admin.media.pdf.save',
+    'admin.media.pdf.save_another',
     'admin.media.pdf.save_failed',
     'admin.media.pdf.saved',
     'admin.media.pdf.saved_count',
     'admin.media.pdf.unreadable',
+    'admin.media.pdf.zoom',
+    'admin.media.pdf.zoom_fit',
+    'admin.media.pdf.zoom_in',
+    'admin.media.pdf.zoom_out',
+    'admin.media.pdf_tab.choose',
+    'admin.media.pdf_tab.choose_hint',
+    'admin.media.pdf_tab.empty',
+    'admin.media.pdf_tab.gone',
+    'admin.media.pdf_tab.last_used',
+    'admin.media.pdf_tab.load_failed',
+    'admin.media.pdf_tab.none_found',
+    'admin.media.pdf_tab.not_pdf',
+    'admin.media.pdf_tab.one_at_a_time',
+    'admin.media.pdf_tab.open_label',
+    'admin.media.pdf_tab.pages',
+    'admin.media.pdf_tab.search_clear',
+    'admin.media.pdf_tab.search_placeholder',
+    'admin.media.pdf_tab.show_more',
     'admin.media.search_failed',
     'admin.media.search_placeholder',
     'admin.media.searching',
