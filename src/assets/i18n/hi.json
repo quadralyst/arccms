@@ -184,7 +184,11 @@
       "authors": "लेखक",
       "sms_logs": "SMS लॉग",
       "feedback": "फ़ीडबैक",
-      "messages": "संदेश"
+      "messages": "संदेश",
+      "open_menu": "मेनू खोलें",
+      "close_menu": "मेनू बंद करें",
+      "collapse_menu": "मेनू छोटा करें",
+      "expand_menu": "मेनू बड़ा करें"
     },
     "settings": {
       "localization": {
@@ -1805,7 +1809,11 @@
       "premium": "प्रीमियम",
       "profile": "प्रोफ़ाइल",
       "plans": "योजनाएँ",
-      "sign_out": "साइन आउट"
+      "sign_out": "साइन आउट",
+      "open_menu": "मेनू खोलें",
+      "close_menu": "मेनू बंद करें",
+      "collapse_menu": "मेनू छोटा करें",
+      "expand_menu": "मेनू बड़ा करें"
     },
     "free": "मुफ़्त",
     "credits": "क्रेडिट",

@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
+import { BreakpointObserver, type BreakpointState } from '@angular/cdk/layout';
 import { UserShellComponent } from './user-shell.component';
 import { AuthState } from '../(auth)/auth.store';
 import { EntitlementService } from './entitlement.service';
@@ -138,5 +139,88 @@ describe("UserShellComponent: the app's member menu changes (src/custom/nav.ts)"
         ];
         const { links } = await memberMenu({ role: 'user' });
         expect(links.map((l) => l.text)).toEqual(['Dashboard', 'Profile']);
+    });
+});
+
+/**
+ * The button at the top of the member menu: always in reach. On a wider screen it
+ * collapses the menu to its icons (remembered in this browser); on a phone, where the menu
+ * folds into a bar at the top, it opens and closes it, and a page change closes it.
+ */
+describe('UserShellComponent: the button at the top of the menu', () => {
+    afterEach(() => localStorage.clear());
+
+    async function render(phone = false) {
+        TestBed.configureTestingModule({
+            imports: [UserShellComponent],
+            providers: [
+                provideRouter([{ path: '**', component: Blank }]),
+                { provide: BreakpointObserver, useValue: { observe: () => new BehaviorSubject<BreakpointState>({ matches: phone, breakpoints: {} }) } },
+                { provide: AuthState, useValue: { currentUser: signal({ name: 'Asha', role: 'user' }), logout: vi.fn(() => of(null)) } },
+                { provide: EntitlementService, useValue: { isPro: signal(false), premiumType: signal(null), creditBalance: signal(0), load: () => of(null) } },
+                { provide: SiteBrandService, useValue: { name: signal('Site'), load: () => Promise.resolve() } },
+            ],
+        });
+        await TestBed.inject(Router).navigateByUrl('/user/dashboard');
+        const fixture = TestBed.createComponent(UserShellComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        const root = fixture.nativeElement as HTMLElement;
+        const button = root.querySelector('button.menu-toggle') as HTMLButtonElement;
+        const shell = root.querySelector('.shell') as HTMLElement;
+        const press = () => { button.click(); fixture.detectChanges(); };
+        return { fixture, root, button, shell, press };
+    }
+
+    it('sits in the top row, outside the part that scrolls', async () => {
+        const { root, button } = await render();
+        expect(button.closest('.top')).not.toBeNull();
+        expect(button.closest('.body')).toBeNull();
+        expect(root.querySelector('.body nav.menu')).not.toBeNull();
+        expect(button.getAttribute('aria-label')).toBe('Collapse menu');
+        expect(button.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('collapses the menu to its icons, each naming itself, and opens it again; this browser remembers', async () => {
+        const { root, button, shell, press } = await render();
+        press();
+        expect(shell.classList).toContain('collapsed');
+        expect(button.getAttribute('aria-label')).toBe('Expand menu');
+        expect(button.getAttribute('aria-expanded')).toBe('false');
+        expect(root.querySelector('nav.menu a')?.getAttribute('title')).toBe('Dashboard');
+        expect(localStorage.getItem('memberMenuCollapsed')).toBe('true');
+
+        press();
+        expect(shell.classList).not.toContain('collapsed');
+        expect(root.querySelector('nav.menu a')?.getAttribute('title')).toBeNull();
+        expect(localStorage.getItem('memberMenuCollapsed')).toBe('false');
+    });
+
+    it('opens collapsed when this browser last left it so', async () => {
+        localStorage.setItem('memberMenuCollapsed', 'true');
+        const { shell, button } = await render();
+        expect(shell.classList).toContain('collapsed');
+        expect(button.getAttribute('aria-label')).toBe('Expand menu');
+    });
+
+    it('on a phone, opens and closes the menu, and a page change closes it', async () => {
+        localStorage.setItem('memberMenuCollapsed', 'true');
+        const { fixture, shell, button, press } = await render(true);
+        expect(shell.classList).toContain('phone');
+        expect(shell.classList).not.toContain('collapsed');
+        expect(shell.classList).not.toContain('phone-open');
+        expect(button.getAttribute('aria-label')).toBe('Open menu');
+        expect(button.getAttribute('aria-expanded')).toBe('false');
+
+        press();
+        expect(shell.classList).toContain('phone-open');
+        expect(button.getAttribute('aria-label')).toBe('Close menu');
+
+        await TestBed.inject(Router).navigateByUrl('/user/profile');
+        fixture.detectChanges();
+        expect(shell.classList).not.toContain('phone-open');
+        // The wider screen's choice is left as it was.
+        expect(localStorage.getItem('memberMenuCollapsed')).toBe('true');
     });
 });

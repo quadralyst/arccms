@@ -743,6 +743,8 @@ export type TranslationKey =
     | 'admin.nav.authors'
     | 'admin.nav.brand_kit'
     | 'admin.nav.broadcasts'
+    | 'admin.nav.close_menu'
+    | 'admin.nav.collapse_menu'
     | 'admin.nav.composer'
     | 'admin.nav.contacts'
     | 'admin.nav.content'
@@ -754,6 +756,7 @@ export type TranslationKey =
     | 'admin.nav.email_logs'
     | 'admin.nav.email_only'
     | 'admin.nav.email_templates'
+    | 'admin.nav.expand_menu'
     | 'admin.nav.export_data'
     | 'admin.nav.export_files'
     | 'admin.nav.feedback'
@@ -766,6 +769,7 @@ export type TranslationKey =
     | 'admin.nav.logout_success'
     | 'admin.nav.media_manager'
     | 'admin.nav.messages'
+    | 'admin.nav.open_menu'
     | 'admin.nav.products'
     | 'admin.nav.profile'
     | 'admin.nav.settings'
@@ -1985,8 +1989,12 @@ export type TranslationKey =
     | 'user.free'
     | 'user.member'
     | 'user.nav.account'
+    | 'user.nav.close_menu'
+    | 'user.nav.collapse_menu'
     | 'user.nav.dashboard'
+    | 'user.nav.expand_menu'
     | 'user.nav.home'
+    | 'user.nav.open_menu'
     | 'user.nav.payments'
     | 'user.nav.plans'
     | 'user.nav.premium'
@@ -2756,6 +2764,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.authors',
     'admin.nav.brand_kit',
     'admin.nav.broadcasts',
+    'admin.nav.close_menu',
+    'admin.nav.collapse_menu',
     'admin.nav.composer',
     'admin.nav.contacts',
     'admin.nav.content',
@@ -2767,6 +2777,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.email_logs',
     'admin.nav.email_only',
     'admin.nav.email_templates',
+    'admin.nav.expand_menu',
     'admin.nav.export_data',
     'admin.nav.export_files',
     'admin.nav.feedback',
@@ -2779,6 +2790,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.logout_success',
     'admin.nav.media_manager',
     'admin.nav.messages',
+    'admin.nav.open_menu',
     'admin.nav.products',
     'admin.nav.profile',
     'admin.nav.settings',
@@ -3998,8 +4010,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'user.free',
     'user.member',
     'user.nav.account',
+    'user.nav.close_menu',
+    'user.nav.collapse_menu',
     'user.nav.dashboard',
+    'user.nav.expand_menu',
     'user.nav.home',
+    'user.nav.open_menu',
     'user.nav.payments',
     'user.nav.plans',
     'user.nav.premium',

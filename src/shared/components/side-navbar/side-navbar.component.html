@@ -1,117 +1,111 @@
 <div class="sidebar" [ngClass]="{'collapsed': !isExpanded}">
-
-
-    <!-- <div class="toggle pt-2" [ngClass]="{'justify-content-end': isExpanded}">
-    <mat-icon (click)="toggleMenu.emit(null)">
-      {{ isExpanded ? "close" : "dehaze" }}
-    </mat-icon>
-  </div> -->
-
-    @if(!isExpanded) {
-    <!-- Collapsed: a square logo only; a wordmark is too wide to read here -->
-    @if (panelLogo() && logoWide() === false) {
-    <a routerLink="/" class="logo-container-close mt-2">
-        <img [src]="panelLogo()" [alt]="brand()?.name" class="logo" [class.logo-arc]="brand()?.arc">
-    </a>
-    }
-    <mat-icon (click)="toggleMenu.emit(null)" slot="end" class="close-pen blink mt-2 mb-2">
-        {{ isExpanded ? "navigate_before" : "navigate_next" }}
-    </mat-icon>
-    }
-
-    <!-- The site's name and logo (Settings, About, else the app's, else Arc CMS's): a wordmark
-         shows alone, a square logo with the name. Kept in the page when collapsed, to measure the logo. -->
-    <div class="logo-container mt-2" [hidden]="!isExpanded">
-        <a routerLink="/" class="brand-link d-flex align-items-center text-decoration-none cursor-pointer">
-            @if (panelLogo()) {
-            <img [src]="panelLogo()" [alt]="brand()?.name" class="logo" [class.logo-arc]="brand()?.arc" [class.logo-wide]="logoWide()" (load)="measureLogo($event)">
-            }
-            @if (isExpanded && brand()?.name && !logoWide()) {
-            <span class="logo-text">{{ brand()?.name }}</span>
-            }
-        </a>
-
-        @if(isExpanded) {
-        <mat-icon (click)="toggleMenu.emit(null)" slot="end" class="open-pen blink">
-            {{ isExpanded ? "navigate_before" : "navigate_next" }}
-        </mat-icon>
-        }
-    </div>
-
-    @if (authStore.currentUser()) {
-    <div class="user-info cursor" [ngClass]="{'justify-content-center': !isExpanded}" routerLink="/admin/profile">
-        <div class="avatar">
-            @if (authStore.currentUser()?.photo) {
-            <img [src]="authStore.currentUser()?.photo" alt="">
-            } @else {
-            <img [src]="adminAvatar" width="200" height="200" alt="">
-            }
+    <!-- The top row stays put while the menu scrolls under it, so the button that opens and
+         closes the panel is always in reach. -->
+    <div class="panel-top">
+        <!-- The site's name and logo (Settings, About, else the app's, else Arc CMS's): a wordmark
+             shows alone, a square logo with the name. Kept in the page when collapsed, to measure the logo. -->
+        <div class="logo-container" [hidden]="!isExpanded">
+            <a routerLink="/" class="brand-link d-flex align-items-center text-decoration-none cursor-pointer">
+                @if (panelLogo()) {
+                <img [src]="panelLogo()" [alt]="brand()?.name" class="logo" [class.logo-arc]="brand()?.arc" [class.logo-wide]="logoWide()" (load)="measureLogo($event)">
+                }
+                @if (isExpanded && brand()?.name && !logoWide()) {
+                <span class="logo-text">{{ brand()?.name }}</span>
+                }
+            </a>
         </div>
 
-        @if(isExpanded){
-        <div class="user-info-text">
-            <div class="fw-bold">{{authStore.currentUser()?.name}}</div>
+        <button type="button" class="panel-toggle" (click)="toggleMenu.emit(null)" [attr.aria-label]="toggleLabel()"
+            [attr.aria-expanded]="!!isExpanded" [matTooltip]="toggleLabel()" matTooltipPosition="right">
+            <mat-icon>{{ isExpanded ? "navigate_before" : "navigate_next" }}</mat-icon>
+        </button>
+    </div>
+
+    <div class="panel-scroll" cdkScrollable>
+        @if(!isExpanded) {
+        <!-- Collapsed: a square logo only; a wordmark is too wide to read here -->
+        @if (panelLogo() && logoWide() === false) {
+        <a routerLink="/" class="logo-container-close">
+            <img [src]="panelLogo()" [alt]="brand()?.name" class="logo" [class.logo-arc]="brand()?.arc">
+        </a>
+        }
+        }
+
+        @if (authStore.currentUser()) {
+        <div class="user-info cursor" [ngClass]="{'justify-content-center': !isExpanded}" routerLink="/admin/profile">
+            <div class="avatar">
+                @if (authStore.currentUser()?.photo) {
+                <img [src]="authStore.currentUser()?.photo" alt="">
+                } @else {
+                <img [src]="adminAvatar" width="200" height="200" alt="">
+                }
+            </div>
+
+            @if(isExpanded){
+            <div class="user-info-text">
+                <div class="fw-bold">{{authStore.currentUser()?.name}}</div>
+            </div>
+            }
         </div>
         }
-    </div>
-    }
 
-    <div class="sidebar-menu">
-        @for (item of menuItems(); track $index) {
-        @if(item.allowRoles?.includes(authStore.currentUser()?.role ?? '') || item.allowRoles?.includes('showAll')) {
-        @if (item.separator) {
-        <hr class="menu-separator">
-        } @else if (item.externalUrl) {
-        <a [href]="item.externalUrl" target="_blank" rel="noopener noreferrer" class="nav-link">
-            <i [matTooltip]="!isExpanded ? menuLabel(item) : null" matTooltipPosition="right"
-                [ngClass]="{'icon-size': isExpanded, 'icon-size-large': !isExpanded}" class="{{item.icon}}"></i>
-            @if(isExpanded){
-            <span>{{ menuLabel(item) }}</span>
-            <i class="fa-solid fa-arrow-up-right-from-square ms-auto" style="font-size: 0.7rem; opacity: 0.6;"></i>
-            }
-        </a>
-        } @else {
-        <a [routerLink]="item.id === 'logout' ? null : item.route" [queryParams]="item.queryParams || null"
-            class="nav-link" routerLinkActive="active-menu" [routerLinkActiveOptions]="{exact: !item.subItems}"
-            (click)="item.id === 'logout' ? confirmLogout() : toggleDropdown(item)">
-            <i [matTooltip]="!isExpanded ? menuLabel(item) : null" matTooltipPosition="right"
-                [ngClass]="{'icon-size': isExpanded, 'icon-size-large': !isExpanded}" class="{{item.icon}}"></i>
-            @if(isExpanded){
-            <span>{{ menuLabel(item) }}</span>
-            }
-            @if (item.subItems && isExpanded) {
-            <i class="{{item.isOpen ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'}} menu-arrow-icon fs-6"></i>
-            }
-        </a>
-        }
-
-        @if (item.subItems && item.isOpen) {
-        <div @expandContractMenu class="menu-sub-item" [ngClass]="{ 'ms-3' : isExpanded}">
-            @for (subItem of item.subItems; track subItem.label) {
-            <a class="nav-link my-0" (click)="subItemClick()" [routerLink]="subItem.route"
-                [queryParams]="subItem.queryParams || null"
-                [class.active-menu]="isRouteActive(subItem.route || '')">
-                <i class="{{subItem.icon}}" [ngClass]="{'fa-icon-size': isExpanded, 'fa-icon-size-large': !isExpanded}"
-                    [matTooltip]="!isExpanded ? menuLabel(subItem) : null"></i>
+        <div class="sidebar-menu">
+            @for (item of menuItems(); track $index) {
+            @if(item.allowRoles?.includes(authStore.currentUser()?.role ?? '') || item.allowRoles?.includes('showAll')) {
+            @if (item.separator) {
+            <hr class="menu-separator">
+            } @else if (item.externalUrl) {
+            <a [href]="item.externalUrl" target="_blank" rel="noopener noreferrer" class="nav-link">
+                <i [matTooltip]="!isExpanded ? menuLabel(item) : null" matTooltipPosition="right"
+                    [ngClass]="{'icon-size': isExpanded, 'icon-size-large': !isExpanded}" class="{{item.icon}}"></i>
                 @if(isExpanded){
-                <span class="m-0 p-0"> {{ menuLabel(subItem) }}</span>
+                <span>{{ menuLabel(item) }}</span>
+                <i class="fa-solid fa-arrow-up-right-from-square ms-auto" style="font-size: 0.7rem; opacity: 0.6;"></i>
+                }
+            </a>
+            } @else {
+            <a [routerLink]="item.id === 'logout' ? null : item.route" [queryParams]="item.queryParams || null"
+                class="nav-link" routerLinkActive="active-menu" [routerLinkActiveOptions]="{exact: !item.subItems}"
+                (click)="item.id === 'logout' ? confirmLogout() : toggleDropdown(item)">
+                <i [matTooltip]="!isExpanded ? menuLabel(item) : null" matTooltipPosition="right"
+                    [ngClass]="{'icon-size': isExpanded, 'icon-size-large': !isExpanded}" class="{{item.icon}}"></i>
+                @if(isExpanded){
+                <span>{{ menuLabel(item) }}</span>
+                }
+                @if (item.subItems && isExpanded) {
+                <i class="{{item.isOpen ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'}} menu-arrow-icon fs-6"></i>
                 }
             </a>
             }
+
+            @if (item.subItems && item.isOpen) {
+            <div @expandContractMenu class="menu-sub-item" [ngClass]="{ 'ms-3' : isExpanded}">
+                @for (subItem of item.subItems; track subItem.label) {
+                <a class="nav-link my-0" (click)="subItemClick()" [routerLink]="subItem.route"
+                    [queryParams]="subItem.queryParams || null"
+                    [class.active-menu]="isRouteActive(subItem.route || '')">
+                    <i class="{{subItem.icon}}" [ngClass]="{'fa-icon-size': isExpanded, 'fa-icon-size-large': !isExpanded}"
+                        [matTooltip]="!isExpanded ? menuLabel(subItem) : null"></i>
+                    @if(isExpanded){
+                    <span class="m-0 p-0"> {{ menuLabel(subItem) }}</span>
+                    }
+                </a>
+                }
+            </div>
+            }
+            }
+            }
+
+            <!-- <div class="collapsed-bottom-icons">
+          <a class="nav-link" routerLinkActive="active-menu" (click)="confirmLogout()">
+            <i class="fa-solid fa-right-from-bracket"
+              [ngClass]="{'fa-icon-size': isExpanded, 'fa-icon-size-large': !isExpanded}" [matTooltip]="'Logout'"></i>
+            @if(isExpanded){
+            <span class="m-0 p-0"> Logout</span>
+            }
+          </a>
+        </div> -->
+
         </div>
-        }
-        }
-        }
-
-        <!-- <div class="collapsed-bottom-icons">
-      <a class="nav-link" routerLinkActive="active-menu" (click)="confirmLogout()">
-        <i class="fa-solid fa-right-from-bracket"
-          [ngClass]="{'fa-icon-size': isExpanded, 'fa-icon-size-large': !isExpanded}" [matTooltip]="'Logout'"></i>
-        @if(isExpanded){
-        <span class="m-0 p-0"> Logout</span>
-        }
-      </a>
-    </div> -->
-
     </div>
 </div>

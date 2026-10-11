@@ -1,4 +1,5 @@
 import { animate, style, transition, trigger } from '@angular/animations';
+import { CdkScrollable } from '@angular/cdk/scrolling';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, EventEmitter, inject, Input, Output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -88,6 +89,7 @@ export { insertCustomNav, withoutFeaturesOff, type MenuItem };
         MatSidenavModule,
         MatButtonModule,
         MatTooltip,
+        CdkScrollable,
     ],
     templateUrl: './side-navbar.component.html',
     styleUrls: ['./side-navbar.component.scss'],
@@ -247,6 +249,15 @@ export default class NavbarComponent extends BaseComponent {
         this.activeLang();
         this.translationsLoaded();
         return item.labelKey ? this.transloco.translate(item.labelKey) : item.label;
+    }
+
+    /** What the button at the top does: close the panel on a phone, else collapse or expand it. */
+    toggleLabel(): string {
+        this.activeLang();
+        this.translationsLoaded();
+        const key = this.drawerMode === 'over' ? 'admin.nav.close_menu'
+            : this.isExpanded ? 'admin.nav.collapse_menu' : 'admin.nav.expand_menu';
+        return this.transloco.translate(key);
     }
 
     ngOnInit() {

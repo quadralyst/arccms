@@ -822,7 +822,8 @@ arc-content-partials {
 /* Sticky action bar */
 .arc-admin .composer-topbar {
   position: sticky;
-  top: 0;
+  /* Below the admin's phone menu bar, when it shows (src/app/pages/admin.page.ts) */
+  top: var(--arc-admin-sticky-top, 0px);
   z-index: 20;
   display: flex;
   align-items: center;
@@ -1205,7 +1206,7 @@ arc-content-partials {
 
 .arc-admin .email-block-editor .preview-sticky {
   position: sticky;
-  top: 84px;
+  top: calc(84px + var(--arc-admin-sticky-top, 0px));
 }
 
 /* Responsive: stack the split below tablet */
