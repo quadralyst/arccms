@@ -26,7 +26,7 @@ import { SafeHtml } from '@angular/platform-browser';
 import { doc, DocumentSnapshot, Firestore, getDoc } from '@angular/fire/firestore';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { DEFAULT_MISC_SETTINGS, IMiscSettings } from '../(settings)/misc/misc-settings.model';
-import { DEFAULT_UPLOAD_SETTINGS, MediaUploadSettings, UploadedMedia } from '../../../../shared/services/file-upload.service';
+import { DEFAULT_UPLOAD_SETTINGS, MediaUploadSettings, UploadedMedia, uploadSettingsFromMisc } from '../../../../shared/services/file-upload.service';
 import { ImageVariant } from '../../../../shared/services/file-upload.service';
 import { DEFAULT_IMAGE_SIZE, IMAGE_SIZE_LABELS, IMAGE_SIZES, ImageSize, imageSizeUrls, imageSizeLimits } from '../../../../shared/utils/image-sizes';
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
@@ -962,14 +962,7 @@ export default class MediaManagerComponent extends BaseComponent {
             });
             if (docSnap.exists()) {
                 const data = { ...DEFAULT_MISC_SETTINGS, ...docSnap.data() } as IMiscSettings;
-                // Older Settings docs carry mediaMaxWidth/Height; those are
-                // deliberately not read — the longest-side limit is its own
-                // setting, and a stale 1920 must not leak into new uploads.
-                this.mediaSettings = {
-                    maxFileSize: data.mediaMaxFileSize ?? DEFAULT_UPLOAD_SETTINGS.maxFileSize,
-                    maxSize: data.mediaMaxSize ?? DEFAULT_UPLOAD_SETTINGS.maxSize,
-                    convertToWebp: data.mediaConvertToWebp ?? DEFAULT_UPLOAD_SETTINGS.convertToWebp,
-                };
+                this.mediaSettings = uploadSettingsFromMisc(data);
             }
         } catch (error) {
             console.error('Error loading media upload settings:', error);

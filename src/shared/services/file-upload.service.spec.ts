@@ -64,6 +64,21 @@ describe('FileUploadService', () => {
         });
     });
 
+    describe('uploadSettingsFromMisc', () => {
+        it('reads the media fields of Settings/misc and fills gaps with the defaults', async () => {
+            const { uploadSettingsFromMisc, DEFAULT_UPLOAD_SETTINGS } = await import('./file-upload.service');
+            expect(uploadSettingsFromMisc(undefined)).toEqual(DEFAULT_UPLOAD_SETTINGS);
+            expect(uploadSettingsFromMisc({ mediaMaxFileSize: 2, mediaMaxSize: 1600, mediaConvertToWebp: false }))
+                .toEqual({ maxFileSize: 2, maxSize: 1600, convertToWebp: false });
+            expect(uploadSettingsFromMisc({ mediaMaxSize: 800 })).toEqual({ ...DEFAULT_UPLOAD_SETTINGS, maxSize: 800 });
+        });
+
+        it('ignores the retired width and height limits', async () => {
+            const { uploadSettingsFromMisc, DEFAULT_UPLOAD_SETTINGS } = await import('./file-upload.service');
+            expect(uploadSettingsFromMisc({ mediaMaxWidth: 1920, mediaMaxHeight: 1080 } as any)).toEqual(DEFAULT_UPLOAD_SETTINGS);
+        });
+    });
+
     describe('uploadFile', () => {
         it('stores a file under every size name, so each size a template derives exists', async () => {
             // A 500px photo with a 1200 maximum: M, L and XL are all 500px, S is 300px.

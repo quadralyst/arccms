@@ -1418,6 +1418,10 @@
       "size": "आकार",
       "size_original": "मूल",
       "size_original_hint": "आकार सुविधा से पहले अपलोड किया गया — केवल एक फ़ाइल।",
+      "editor_uploading": "{{ name }} अपलोड हो रहा है... {{ percent }}%",
+      "editor_upload_failed": "{{ name }} नहीं जोड़ा जा सका: {{ reason }}",
+      "editor_upload_failed_reason": "अपलोड पूरा नहीं हुआ। अपना कनेक्शन जाँचें और दोबारा प्रयास करें।",
+      "editor_library_failed": "छवि जोड़ दी गई है, लेकिन उसे My Uploads में नहीं जोड़ा जा सका।",
       "crop": {
         "start": "क्रॉप करें",
         "recrop": "फिर से क्रॉप करें",
