@@ -10,6 +10,7 @@ import {
     extensionOf,
     isLibraryDocument,
     isPdfFile,
+    isSameUpload,
     MAX_FILE_BYTES,
     storedFileName,
 } from './media-files';
@@ -110,5 +111,19 @@ describe('contentDispositionFor', () => {
 
     it('never names an empty file', () => {
         expect(contentDispositionFor(pdf, '  ')).toContain('filename="file.pdf"');
+    });
+});
+
+describe('isSameUpload (PI-D4)', () => {
+    it('matches a stored PDF by its name and size', () => {
+        const stored = { name: `${storedFileName('Spring Brochure 2026.pdf', 'pdf')}`, bytes: 120 };
+        expect(isSameUpload(stored, { name: 'Spring Brochure 2026.pdf', size: 120 })).toBe(true);
+        expect(isSameUpload(stored, { name: 'Spring Brochure 2026.pdf', size: 121 })).toBe(false);
+        expect(isSameUpload(stored, { name: 'Spring Brochure.pdf', size: 120 })).toBe(false);
+        expect(isSameUpload(stored, { name: 'Spring Brochure 2026.docx', size: 120 })).toBe(false);
+    });
+
+    it('keeps a name that itself ends in a number', () => {
+        expect(isSameUpload({ name: 'report-2024-x7f2k1.pdf', bytes: 5 }, { name: 'Report 2024.pdf', size: 5 })).toBe(true);
     });
 });

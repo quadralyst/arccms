@@ -51,6 +51,9 @@ import { MediaFilesTabComponent } from './media-files-tab/media-files-tab.compon
 import { MediaFilePanelComponent } from './media-file-panel/media-file-panel.component';
 import { MediaDetailsChange, MediaDetailsComponent } from './media-details/media-details.component';
 import { PdfImageSaved, PdfImageSource, PdfImageTakerComponent } from './pdf-image-taker/pdf-image-taker.component';
+import { MediaPdfTabComponent } from './media-pdf-tab/media-pdf-tab.component';
+import { PdfPickerMemory, PdfPlace } from './pdf-picker-memory.service';
+import { localPdfSource } from './local-pdf-source';
 
 export const routeMeta: RouteMeta = {
     title: 'Media Manager',
@@ -59,7 +62,7 @@ export const routeMeta: RouteMeta = {
 };
 
 /** Union type for any selectable media (uploaded or Unsplash) */
-interface SelectableMedia {
+export interface SelectableMedia {
     id: string;
     url?: string;
     name?: string;
@@ -158,6 +161,18 @@ export interface MediaSelection {
     files?: MediaFileRef[];
 }
 
+/** An image just taken from a PDF, as the picker's grid and Insert see it. */
+export function pdfImageToSelectable(saved: PdfImageSaved): SelectableMedia {
+    return {
+        id: saved.id,
+        url: saved.media.downloadURL,
+        name: saved.media.name,
+        title: saved.media.title,
+        uploadTime: saved.media.uploadTime,
+        variants: saved.media.variants,
+    };
+}
+
 /** A library file as the picker hands it back. */
 export function mediaFileRef(file: IMediaFile): MediaFileRef {
     const ref: MediaFileRef = { id: file.id, url: file.downloadURL, title: file.title, type: file.type, bytes: file.bytes };
@@ -181,7 +196,7 @@ export function mediaFileRef(file: IMediaFile): MediaFileRef {
         MatCardModule,
         MatDialogClose,
         MatProgressSpinnerModule, TranslocoPipe, IconBrowserComponent, ImageCropperComponent,
-        MediaFilesTabComponent, MediaFilePanelComponent, MediaDetailsComponent, PdfImageTakerComponent],
+        MediaFilesTabComponent, MediaFilePanelComponent, MediaDetailsComponent, PdfImageTakerComponent, MediaPdfTabComponent],
     templateUrl: './media-manager.html',
     styleUrls: ['./media-manager.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -191,6 +206,7 @@ export default class MediaManagerComponent extends BaseComponent {
     @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
     @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
     @ViewChild(MediaFilesTabComponent) filesTab?: MediaFilesTabComponent;
+    @ViewChild(MediaPdfTabComponent) pdfTab?: MediaPdfTabComponent;
     mediaManagerService = inject(MediaManagerService);
     ref = inject(ChangeDetectorRef);
     mediaStore = inject(MediaManagerStore);
@@ -200,6 +216,7 @@ export default class MediaManagerComponent extends BaseComponent {
     readonly dialogRef = inject(MatDialogRef<MediaManagerComponent>, { optional: true });
     fileUploadService = inject(FileUploadService);
     private mediaFilesService = inject(MediaFilesService);
+    private pdfMemory = inject(PdfPickerMemory);
     private firestore = inject(Firestore);
     private injector = inject(Injector);
 
@@ -249,12 +266,14 @@ export default class MediaManagerComponent extends BaseComponent {
     selectedFiles: IMediaFile[] = [];
     readonly uploadAccept = `image/jpeg,image/png,image/webp,image/gif,${ALLOWED_FILE_ACCEPT}`;
 
-    // Take an image from a PDF (MF3, MF4). Set while that screen is open.
+    // Take an image from a PDF (MF3, MF4) on the Media page. Set while that screen is open.
     pdfSource: PdfImageSource | null = null;
-    /** A PDF dropped on My Uploads: "Keep the whole PDF in Files instead" uploads it. */
-    private pendingPdf: File | null = null;
+    /** Tells a PDF from the computer whether it opened, so it is kept in Files only then (PI-D3). */
+    private pdfOpened: ((ok: boolean) => void) | null = null;
     /** The newest image taken from the PDF, selected when the screen closes. */
     private lastPdfImage: PdfImageSaved | null = null;
+    /** The PDF and page From a PDF opens on: the remembered one (PI-D8), else none. */
+    pdfResume: PdfPlace | null = null;
 
     // My Uploads search (MF-D23): every upload's details, loaded on the first search.
     librarySearch = '';
@@ -296,9 +315,11 @@ export default class MediaManagerComponent extends BaseComponent {
         const allowImages = data.allowImages !== false || (!allowIcons && data.allowFiles !== true);
 
         const menu = this.constantVariables.mediaManagerMenu as MediaMenuItem[];
-        return menu.filter(item =>
-            item.kind === 'icon' ? allowIcons : item.kind === 'file' ? allowFiles : allowImages,
-        );
+        return menu.filter(item => {
+            // From a PDF is for pickers; the Media page has Files > Take an image (PI-D1).
+            if (item.value === 'pdf') return allowImages && data.isDialogOpen;
+            return item.kind === 'icon' ? allowIcons : item.kind === 'file' ? allowFiles : allowImages;
+        });
     }
 
     /**
@@ -310,7 +331,12 @@ export default class MediaManagerComponent extends BaseComponent {
     }
 
     ngOnInit(): void {
+        // Where the last image came from (PI-D8): a picker after an image from
+        // a PDF opens on that PDF and page. A caller's initialTab wins.
+        const pdfItem = this.menuItems.find(item => item.value === 'pdf');
+        const resume = !this._DIALOG_DATA.initialTab && pdfItem && this.pdfMemory.lastChoiceFromPdf() ? this.pdfMemory.place() : null;
         const initial = this.menuItems.find(item => item.value === this._DIALOG_DATA.initialTab)
+            ?? (resume ? pdfItem : undefined)
             ?? this.menuItems[0];
 
         // Upload limits are only read to validate an upload; an icons-only
@@ -320,6 +346,7 @@ export default class MediaManagerComponent extends BaseComponent {
         }
 
         this.selectedMenu(initial);
+        this.pdfResume = resume;
     }
 
     ngOnDestroy(): void {
@@ -373,7 +400,8 @@ export default class MediaManagerComponent extends BaseComponent {
         this.librarySearch = '';
         this.allImages = null;
         this.pdfSource = null;
-        this.pendingPdf = null;
+        this.pdfOpened = null;
+        this.pdfResume = null;
         this.closeCrop();
         this.selectedItem = event;
         // Reset page tracking when switching menus
@@ -477,6 +505,8 @@ export default class MediaManagerComponent extends BaseComponent {
      */
     public insertMedia() {
         if (!this.dialogRef) return;
+        // Chosen from another tab: the next picker opens as usual (PI-D8).
+        this.pdfMemory.chose(false);
 
         if (this.isIconsTab && this.selectedIcon) {
             const selection: MediaSelection = {
@@ -766,6 +796,11 @@ export default class MediaManagerComponent extends BaseComponent {
         return this.selectedItem?.value === 'icons';
     }
 
+    /** True while From a PDF is the active tab. */
+    get isPdfTab(): boolean {
+        return this.selectedItem?.value === 'pdf';
+    }
+
     /** True while the Files tab is the active one. */
     get isFilesTab(): boolean {
         return this.selectedItem?.value === 'files';
@@ -881,28 +916,52 @@ export default class MediaManagerComponent extends BaseComponent {
 
     // ── Take an image from a PDF (MF3, MF4) ──────────────────
 
-    /** A PDF from the admin's computer: its pages, with the PDF never stored. */
+    /**
+     * A PDF from the admin's computer (a PDF dropped on My Uploads, PI-D5).
+     * In a picker it opens in From a PDF, ready to insert; on the Media page
+     * its pages open here. Either way it is kept in Files once it opens (PI-D3).
+     */
     takeImageFromLocalPdf(file: File): void {
-        this.pendingPdf = file;
+        if (this.openInPdfTab((tab) => tab.openLocal(file))) return;
+        const local = localPdfSource(file, (f, onProgress) => this.mediaFilesService.keepPdf(f, onProgress), this.notify);
+        this.pdfOpened = local.opened;
         this.lastPdfImage = null;
         this.selectedMediaUrl = null;
-        this.pdfSource = {
-            title: defaultTitle(file.name),
-            load: async () => file,
-        };
+        this.pdfSource = local.source;
         this.ref.detectChanges();
     }
 
     /** A PDF in the library: its bytes from this visit's upload, or read in parts. */
     takeImageFromFile(file: IMediaFile): void {
-        this.pendingPdf = null;
+        if (this.openInPdfTab((tab) => tab.openFile(file))) return;
+        this.pdfOpened = null;
         this.lastPdfImage = null;
         this.pdfSource = {
             title: file.title,
             fileId: file.id,
+            key: file.id,
             load: (onProgress) => this.mediaFilesService.pdfBytes(file.id, onProgress),
         };
         this.ref.detectChanges();
+    }
+
+    /** In a picker, From a PDF takes the PDF, so Insert is at hand. False where there is no such tab. */
+    private openInPdfTab(open: (tab: MediaPdfTabComponent) => void): boolean {
+        const pdfItem = this.menuItems.find((item) => item.value === 'pdf');
+        if (!pdfItem) return false;
+        if (!this.isPdfTab) this.selectedMenu(pdfItem);
+        this.ref.detectChanges();
+        // The tab exists once the view has caught up.
+        setTimeout(() => {
+            if (this.pdfTab) open(this.pdfTab);
+        });
+        return true;
+    }
+
+    /** The taker opened the PDF, or could not: a PDF from the computer is kept only once it opened. */
+    onPdfOpened(ok: boolean): void {
+        this.pdfOpened?.(ok);
+        this.pdfOpened = null;
     }
 
     onPdfImageSaved(saved: PdfImageSaved): void {
@@ -917,7 +976,7 @@ export default class MediaManagerComponent extends BaseComponent {
     closePdf(): void {
         const last = this.lastPdfImage;
         this.pdfSource = null;
-        this.pendingPdf = null;
+        this.pdfOpened = null;
         this.lastPdfImage = null;
         if (!last) {
             this.ref.detectChanges();
@@ -931,42 +990,30 @@ export default class MediaManagerComponent extends BaseComponent {
             this.currentPageIndex = 0;
             this.loadMediaItems();
         }
-        this.selectMedia({
-            id: last.id,
-            url: last.media.downloadURL,
-            name: last.media.name,
-            title: last.media.title,
-            uploadTime: last.media.uploadTime,
-            variants: last.media.variants,
-        });
+        this.selectMedia(pdfImageToSelectable(last));
     }
 
-    /** "Keep the whole PDF in Files instead": stores the dropped PDF in Files. */
-    keepPdfInFiles(): void {
-        const file = this.pendingPdf;
-        this.pdfSource = null;
-        this.pendingPdf = null;
-        this.lastPdfImage = null;
-        const files = this.menuItems.find((item) => item.value === 'files');
-        if (!file || !files) {
-            this.ref.detectChanges();
+    /**
+     * Insert from From a PDF's crop step (PI-D16, PI-D18): closes with the
+     * images as picking them in My Uploads would, at the size chosen there.
+     */
+    insertFromPdf(saved: PdfImageSaved[]): void {
+        if (!this.dialogRef || !saved.length) return;
+        this.pdfMemory.chose(true);
+        this.allImages = null;
+        const urls = saved.map((image) => this.urlAtSize(pdfImageToSelectable(image), this.selectedSize)).filter(Boolean);
+        if (this.isMultiSelect) {
+            this.dialogRef.close({ type: 'submit', kind: 'image', mediaUrl: urls[0] ?? '', mediaUrls: urls, size: this.selectedSize } satisfies MediaSelection);
             return;
         }
-        this.selectedMenu(files);
-        this.ref.detectChanges();
-        // The tab exists once the view has caught up.
-        setTimeout(() => void this.filesTab?.upload([file]));
+        const selection: MediaSelection = { type: 'submit', kind: 'image', mediaUrl: urls[0] ?? '', size: this.selectedSize };
+        const alt = (saved[0].media as { alt?: string }).alt;
+        if (alt) selection.alt = alt;
+        this.dialogRef.close(selection);
     }
 
-    /** "Keep the whole PDF in Files instead" needs a dropped PDF and a Files tab to keep it in. */
-    get pendingPdfOffered(): boolean {
-        return !!this.pendingPdf && this.menuItems.some((item) => item.value === 'files');
-    }
-
-    /** The size the caller picked, for the PDF screen's "too small" note; none on the Media page. */
-    get pdfSizeLimit(): { label: string; limit: number } | null {
-        if (!this._DIALOG_DATA.isDialogOpen) return null;
-        return { label: this.imageSizeLabels[this.selectedSize], limit: this.selectedSizeLimit };
+    onPdfSizeChange(size: ImageSize): void {
+        this.selectedSize = size;
     }
 
     get uploadSettings(): MediaUploadSettings {

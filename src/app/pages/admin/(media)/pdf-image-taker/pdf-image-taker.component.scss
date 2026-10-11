@@ -120,3 +120,101 @@
     gap: 1rem;
     flex-wrap: wrap;
 }
+
+.pdf-taker-head-text {
+    min-width: 0;
+}
+
+// The crop step: the toolbar, the page, the page and zoom row, the insert row, the footer.
+.pdf-crop {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+.pdf-crop-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    flex-wrap: wrap;
+}
+
+.pdf-page-nav,
+.pdf-zoom {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+
+    .btn {
+        min-width: 2rem;
+    }
+
+    i {
+        font-size: 0.8rem;
+        margin: 0;
+    }
+}
+
+.pdf-page-of {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    font-size: 0.85rem;
+    color: #495057;
+    white-space: nowrap;
+}
+
+.pdf-page-input {
+    width: 4.25rem;
+    text-align: center;
+}
+
+.pdf-zoom-level {
+    min-width: 3.5rem !important;
+    font-variant-numeric: tabular-nums;
+}
+
+.pdf-crop-hint {
+    flex: 1 1 12rem;
+    font-size: 0.85rem;
+    color: #6c757d;
+    text-align: center;
+}
+
+.pdf-insert-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.75rem 1rem;
+    flex-wrap: wrap;
+}
+
+.pdf-alt {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1 1 16rem;
+    margin: 0;
+    min-width: 0;
+}
+
+.pdf-alt-label {
+    font-size: 0.8rem;
+    color: #495057;
+}
+
+.pdf-insert-size {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+@media (max-width: 600px) {
+    .pdf-crop-hint {
+        order: 3;
+        flex-basis: 100%;
+    }
+}

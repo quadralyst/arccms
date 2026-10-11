@@ -22,17 +22,23 @@
 <div class="pdf-taker-footer">
     <span></span>
     <div class="crop-actions">
-        @if (offerKeepInFiles()) {
-        <button type="button" class="btn btn-link" (click)="keep()">{{ 'admin.media.pdf.keep_in_files' | transloco }}</button>
-        }
+        @if (inList()) {
+        <button type="button" class="btn btn-secondary" id="pdfTakerBackBtn" (click)="toList()">{{ 'admin.media.pdf.all_pdfs' | transloco }}</button>
+        } @else {
         <button type="button" class="btn btn-secondary" id="pdfTakerBackBtn" (click)="finish()">{{ 'common.actions.close' | transloco }}</button>
+        }
     </div>
 </div>
 }
 
 @case ('pages') {
 <div class="pdf-taker-head">
-    <div>
+    <div class="pdf-taker-head-text">
+        @if (inList()) {
+        <button type="button" class="btn btn-link pdf-taker-back" id="pdfAllPdfsBtn" (click)="toList()">
+            <i class="fas fa-arrow-left me-1" aria-hidden="true"></i>{{ 'admin.media.pdf.all_pdfs' | transloco }}
+        </button>
+        }
         <div class="pdf-taker-title" [title]="source().title">{{ source().title }}</div>
         <div class="pdf-taker-hint">{{ 'admin.media.pdf.pages_hint' | transloco }}</div>
     </div>
@@ -55,25 +61,25 @@
 </div>
 <div class="pdf-taker-footer">
     <div class="crop-note">
-        {{ (source().fileId ? 'admin.media.pdf.note_library' : 'admin.media.pdf.note_local') | transloco }}
+        {{ storeNote() | transloco }}
         @if (savedCount()) {
         <strong class="ms-1">{{ 'admin.media.pdf.saved_count' | transloco:{ count: savedCount() } }}</strong>
         }
     </div>
+    @if (!inList()) {
     <div class="crop-actions">
-        @if (offerKeepInFiles()) {
-        <button type="button" class="btn btn-link" id="pdfKeepInFilesBtn" (click)="keep()">{{ 'admin.media.pdf.keep_in_files' | transloco }}</button>
-        }
         <button type="button" class="btn btn-primary" id="pdfTakerDoneBtn" (click)="finish()">
             <i class="fas fa-check me-1 fs-6" aria-hidden="true"></i>{{ 'admin.media.pdf.done' | transloco }}
         </button>
     </div>
+    }
 </div>
 }
 
 @case ('crop') {
+<div class="pdf-crop" (keydown)="onCropKey($event)">
 <div class="crop-toolbar">
-    <button type="button" class="btn btn-link pdf-taker-back" (click)="backToPages()" [disabled]="saving()">
+    <button type="button" class="btn btn-link pdf-taker-back" id="pdfAllPagesBtn" (click)="backToPages()" [disabled]="saving()">
         <i class="fas fa-arrow-left me-1" aria-hidden="true"></i>{{ 'admin.media.pdf.all_pages' | transloco }}
     </button>
     <span class="crop-toolbar-label">{{ 'admin.media.crop.ratio' | transloco }}</span>
@@ -90,10 +96,11 @@
         }
     </div>
 </div>
-<div class="crop-canvas">
+<div class="crop-canvas pdf-crop-canvas">
     @if (cropUrl(); as url) {
-    <arc-image-cropper [src]="url" [ratio]="ratioNumber()" (loaded)="onCropLoaded($event)"
-        (rectChange)="onCropRect($event)" (failed)="onCropFailed()"></arc-image-cropper>
+    <arc-image-cropper [src]="url" [ratio]="ratioNumber()" [frame]="placedFrame()" [zoom]="zoom()" [marks]="marks()"
+        (loaded)="onCropLoaded($event)" (rectChange)="onCropRect($event)" (failed)="onCropFailed()"
+        (zoomChange)="setZoom($event)" (markPicked)="pickPicture($event)"></arc-image-cropper>
     } @else {
     <div class="pdf-taker-status" role="status">
         <i class="fas fa-spinner fa-spin me-2" aria-hidden="true"></i>
@@ -101,6 +108,67 @@
     </div>
     }
 </div>
+<div class="pdf-crop-nav">
+    <div class="pdf-page-nav" role="group" [attr.aria-label]="'admin.media.pdf.page_nav' | transloco">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="pdfPrevPageBtn"
+            [disabled]="saving() || (cropPage() ?? 1) <= 1" (click)="goToPage((cropPage() ?? 1) - 1)"
+            [attr.aria-label]="'admin.media.pdf.previous_page' | transloco">
+            <i class="fas fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <label class="pdf-page-of">
+            <span class="visually-hidden">{{ 'admin.media.pdf.go_to_page' | transloco }}</span>
+            <input type="number" class="form-control form-control-sm pdf-page-input" id="pdfPageInput" min="1" [max]="pageCount()"
+                [value]="cropPage()" [disabled]="saving()" (change)="onPageInput($event)" (keydown.enter)="onPageInput($event)">
+            <span>{{ 'admin.media.pdf.of_pages' | transloco:{ count: pageCount() } }}</span>
+        </label>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="pdfNextPageBtn"
+            [disabled]="saving() || (cropPage() ?? 1) >= pageCount()" (click)="goToPage((cropPage() ?? 1) + 1)"
+            [attr.aria-label]="'admin.media.pdf.next_page' | transloco">
+            <i class="fas fa-chevron-right" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div class="pdf-crop-hint" aria-live="polite">
+        @if (cropUrl()) {
+        @if (pictures().length) {
+        {{ 'admin.media.pdf.pictures_found' | transloco:{ count: pictures().length } }}
+        } @else {
+        {{ 'admin.media.pdf.no_pictures' | transloco }}
+        }
+        }
+    </div>
+    <div class="pdf-zoom" role="group" [attr.aria-label]="'admin.media.pdf.zoom' | transloco">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="pdfZoomOutBtn" [disabled]="zoom() <= 1"
+            (click)="zoomOut()" [attr.aria-label]="'admin.media.pdf.zoom_out' | transloco">
+            <i class="fas fa-minus" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm pdf-zoom-level" id="pdfZoomFitBtn" [disabled]="zoom() <= 1"
+            (click)="setZoom(1)" [attr.aria-label]="'admin.media.pdf.zoom_fit' | transloco">
+            {{ zoom() <= 1 ? ('admin.media.pdf.fit' | transloco) : (zoom() * 100 | number:'1.0-0') + '%' }}
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="pdfZoomInBtn" [disabled]="zoom() >= 4"
+            (click)="zoomIn()" [attr.aria-label]="'admin.media.pdf.zoom_in' | transloco">
+            <i class="fas fa-plus" aria-hidden="true"></i>
+        </button>
+    </div>
+</div>
+@if (insertable()) {
+<div class="pdf-insert-row">
+    <label class="pdf-alt">
+        <span class="pdf-alt-label">{{ 'admin.media.pdf.alt_label' | transloco }}</span>
+        <input type="text" class="form-control form-control-sm" id="pdfAltInput" maxlength="300" [value]="alt()"
+            [placeholder]="'admin.media.pdf.alt_placeholder' | transloco" [disabled]="saving()" (input)="onAlt($event)">
+    </label>
+    <div class="pdf-insert-size">
+        <span class="crop-toolbar-label">{{ 'admin.media.size' | transloco }}</span>
+        <div class="size-chips" role="radiogroup" [attr.aria-label]="'admin.media.size' | transloco">
+            @for (s of imageSizes; track s) {
+            <button type="button" class="size-chip" role="radio" [class.active]="size() === s"
+                [attr.aria-checked]="size() === s" [disabled]="saving()" (click)="selectSize(s)">{{ imageSizeLabels[s] }}</button>
+            }
+        </div>
+    </div>
+</div>
+}
 <div class="crop-footer">
     <div class="crop-info">
         @if (resultSize(); as result) {
@@ -112,22 +180,36 @@
             {{ 'admin.media.crop.small' | transloco:{ size: sizeLimit()?.label, limit: sizeLimit()?.limit } }}
         </div>
         }
-        <div class="crop-note">{{ (source().fileId ? 'admin.media.pdf.note_library' : 'admin.media.pdf.note_local') | transloco }}</div>
+        <div class="crop-note">{{ storeNote() | transloco }}</div>
     </div>
     <div class="crop-actions">
+        @if (insertable()) {
+        <button type="button" class="btn btn-secondary" id="pdfSaveAnotherBtn" [disabled]="!cropRect() || saving()" (click)="save()">
+            {{ 'admin.media.pdf.save_another' | transloco }}
+        </button>
+        <button type="button" class="btn btn-primary" id="pdfInsertBtn" [disabled]="!cropRect() || saving()" (click)="insert()">
+            @if (saving()) {
+            <i class="fas fa-spinner fa-spin me-1 fs-6" aria-hidden="true"></i>{{ savingLabel() }}
+            } @else if (insertCount() > 1) {
+            <i class="fas fa-check me-1 fs-6" aria-hidden="true"></i>{{ 'admin.media.pdf.insert_count' | transloco:{ count: insertCount() } }}
+            } @else {
+            <i class="fas fa-check me-1 fs-6" aria-hidden="true"></i>{{ 'admin.media.pdf.insert' | transloco }}
+            }
+        </button>
+        } @else {
         <button type="button" class="btn btn-secondary" [disabled]="saving()" (click)="backToPages()">
             {{ 'common.actions.cancel' | transloco }}
         </button>
         <button type="button" class="btn btn-primary" id="pdfSaveImageBtn" [disabled]="!cropRect() || saving()" (click)="save()">
             @if (saving()) {
-            <i class="fas fa-spinner fa-spin me-1 fs-6" aria-hidden="true"></i>
-            {{ 'admin.media.crop.saving' | transloco:{ percent: saveProgress() } }}
+            <i class="fas fa-spinner fa-spin me-1 fs-6" aria-hidden="true"></i>{{ savingLabel() }}
             } @else {
-            <i class="fas fa-crop-simple me-1 fs-6" aria-hidden="true"></i>
-            {{ 'admin.media.pdf.save' | transloco }}
+            <i class="fas fa-crop-simple me-1 fs-6" aria-hidden="true"></i>{{ 'admin.media.pdf.save' | transloco }}
             }
         </button>
+        }
     </div>
+</div>
 </div>
 }
 }

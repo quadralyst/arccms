@@ -95,8 +95,8 @@ export function contentDispositionFor(file: AllowedFile, title: string): string 
     return `${file.disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
 }
 
-/** A file's stored name: the title as a slug, a random part, and the extension. */
-export function storedFileName(originalName: string, extension: string, random: string = Math.random().toString(36).substring(2, 8)): string {
+/** A file name as the slug its stored name starts with. */
+export function fileSlug(originalName: string): string {
     let slug = originalName
         .replace(/\.[^/.]+$/, '')
         .toLowerCase()
@@ -105,5 +105,24 @@ export function storedFileName(originalName: string, extension: string, random: 
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '');
     if (slug.length > 50) slug = slug.substring(0, 50).replace(/-$/, '');
-    return `${slug || 'file'}-${random}.${extension}`;
+    return slug || 'file';
+}
+
+/** A file's stored name: the title as a slug, a random part, and the extension. */
+export function storedFileName(originalName: string, extension: string, random: string = Math.random().toString(36).substring(2, 8)): string {
+    return `${fileSlug(originalName)}-${random}.${extension}`;
+}
+
+/**
+ * Whether a file in the library is `file` uploaded before (PI-D4): the same
+ * name, as its stored name keeps it, and the same size in bytes. Good enough
+ * to stop the same brochure being stored twice; two different files with the
+ * same name and the exact same size are not a real case.
+ */
+export function isSameUpload(stored: { name: string; bytes: number }, file: { name: string; size: number }): boolean {
+    if (stored.bytes !== file.size) return false;
+    const extension = extensionOf(file.name);
+    if (!extension || extensionOf(stored.name) !== extension) return false;
+    const stem = stored.name.replace(/-[a-z0-9]{1,8}\.[^.]+$/, '');
+    return stem === fileSlug(file.name);
 }

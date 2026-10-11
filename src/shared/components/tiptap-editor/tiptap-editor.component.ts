@@ -44,6 +44,7 @@ import { EmojiExtension } from './service/emoji-extension';
 import { EditorImageUploadService } from './service/editor-image-upload.service';
 import { FileHandlerExtension } from './service/file-handler-extension';
 import { ImageMoveExtension } from './service/image-move-extension';
+import { insertImageAndMoveOn } from './service/insert-image';
 import { MenitonsList } from './service/mentions/mentions.component';
 import { SlashCommands } from './service/slash-commands';
 import { UrlAddDialog } from './service/url-add-dialog/add-url.component';
@@ -582,7 +583,7 @@ export default class TiptapEditorComponent {
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result && result.type === 'submit' && result.mediaUrl) {
         // Insert the selected image into the editor, with its library alt text (MF-D22).
-        this.editor.chain().focus().setImage({ src: result.mediaUrl, ...(result.alt ? { alt: result.alt } : {}) }).run();
+        insertImageAndMoveOn(this.editor, result.mediaUrl, result.alt);
       }
     });
   }

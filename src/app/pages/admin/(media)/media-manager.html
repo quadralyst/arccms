@@ -60,9 +60,17 @@
                     <!-- Take an image from a PDF (MF3, MF4): takes the grid's place, like the crop step. -->
                     <div class="media-content-area crop-stage pdf-stage">
                         <arc-pdf-image-taker [source]="pdfSource" [uploadSettings]="uploadSettings"
-                            [initialRatio]="_DIALOG_DATA.cropRatio ?? 'free'" [sizeLimit]="pdfSizeLimit"
-                            [offerKeepInFiles]="!!pendingPdfOffered"
-                            (saved)="onPdfImageSaved($event)" (done)="closePdf()" (keepInFiles)="keepPdfInFiles()"></arc-pdf-image-taker>
+                            [initialRatio]="_DIALOG_DATA.cropRatio ?? 'free'"
+                            (opened)="onPdfOpened(true)" (failed)="onPdfOpened(false)"
+                            (saved)="onPdfImageSaved($event)" (done)="closePdf()"></arc-pdf-image-taker>
+                    </div>
+                    } @else if(isPdfTab){
+                    <!-- From a PDF (PI3): the PDFs in Files, then the page grid and crop
+                         step with Insert. It has its own Insert, so no side panel. -->
+                    <div class="media-content-area crop-stage pdf-stage">
+                        <arc-media-pdf-tab [uploadSettings]="uploadSettings" [initialRatio]="_DIALOG_DATA.cropRatio ?? 'free'"
+                            [size]="selectedSize" (sizeChange)="onPdfSizeChange($event)" [multiple]="isMultiSelect"
+                            [resume]="pdfResume" (inserted)="insertFromPdf($event)"></arc-media-pdf-tab>
                     </div>
                     } @else if(isCropping && selectedMediaUrl){
                     <!-- The crop step takes the grid's place: the side panel is too
@@ -354,6 +362,7 @@
                     }
                     }
                 </div>
+                @if(!isPdfTab){
                 <div class="side-preview">
                     <div class="preview-header">
                         <div class="preview-title">
@@ -511,6 +520,7 @@
                     </button>
                     }
                 </div>
+                }
             </div>
         </div>
     </div>
