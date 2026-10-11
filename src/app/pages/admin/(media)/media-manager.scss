@@ -1227,8 +1227,15 @@ footer {
         padding: 0 15px !important;
     }
 
+    // Stacked one under the other. Without nowrap and an auto basis, each
+    // col-12 takes the row's whole height and the search wraps off the right.
     .main_second_div .row.mt-2 {
         flex-direction: column;
+        flex-wrap: nowrap;
+
+        > * {
+            flex: 0 0 auto;
+        }
     }
 
     .main_second_div .col-4,

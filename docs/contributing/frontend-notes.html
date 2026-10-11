@@ -66,6 +66,7 @@
   ],
 },</code></pre>
     <div class="trap"><p>An admin page that relies on its file alone may render on the server but not reach the browser's route table. The URL then falls through to the public content route and shows "Content Not Found" in the public layout, with HTTP 200, so a status check misses it. Give every admin page an explicit route.</p></div>
+    <p>A folder of admin pages with no page of its own, such as <code>src/app/pages/admin/contents/</code>, still gets an address, and it shows an empty admin page. Redirect it to the folder's main page with an explicit route, as <code>admin</code> (to the dashboard) and <code>admin/contents</code> (to Content types) do.</p>
     <p>Every page URL also belongs to exactly one feature or to core, so a feature that is off can hide it. Add a new URL to the right list in <code>src/app/core/features/feature-routes.ts</code>; a test fails on one in no list (see <a href="keep-core-generic.html#add-a-feature">Keep core generic</a>).</p>
 
     <h2 id="change-detection">Change detection without zone.js</h2>
@@ -96,6 +97,7 @@
       <li><strong>Component styles first.</strong> Put a component's styles in the component. Global styles are in <code>src/styles.css</code>, and everything admin-only there is scoped under <code>.arc-admin</code> so it never reaches public pages. The rules for full-screen pages are scoped under <code>html.arc-full-screen</code> (<a href="../app/pages-and-routes.html#full-screen-pages">Add pages and routes</a>).</li>
       <li><strong>The root component cannot style the page.</strong> The routed page is not in the template of <code>src/app/app.ts</code>, so the root component's own styles do not reach it. The rule that sizes it is in <code>src/styles.css</code>: the page takes the room between the message banner and the powered-by footer.</li>
       <li><strong>Sticky bars in an admin page.</strong> Give a bar that sticks to the top of an admin page <code>top: var(--arc-admin-sticky-top, 0px)</code>, so on a phone it sits below the menu bar (<code>src/app/pages/admin.page.ts</code>) instead of covering it.</li>
+      <li><strong>Dialogs on a phone.</strong> Never give a dialog a <code>minWidth</code> larger than a phone: a min width beats the max width, so the dialog runs off the screen. Give it <code>maxWidth: '100vw'</code>. The media picker's size is <code>mediaPickerDialogConfig()</code> in <code>src/app/pages/admin/(media)/media-picker-dialog.ts</code>.</li>
       <li><strong>Shared admin pieces.</strong> <code>src/styles.css</code> has one set of admin page classes (<code>.page-container</code>, the status badges, side panels). Show a status with <code>.status-badge</code> and the class <code>statusBadgeClass()</code> returns (<code>src/shared/utils/status-badge.ts</code>), not with hand-picked Bootstrap colors.</li>
       <li><strong>The app's styles win.</strong> <code>src/custom/styles.css</code> is loaded last, so an app can restyle anything without editing core.</li>
     </ul>
