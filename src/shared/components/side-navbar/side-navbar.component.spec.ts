@@ -5,6 +5,8 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { Router, ActivatedRoute, provideRouter, type Routes } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { of } from 'rxjs';
+import * as fs from 'fs';
+import * as path from 'path';
 
 import NavbarComponent, { isWideLogo, svgSize, type MenuItem } from './side-navbar.component';
 import { SiteIdentityService } from '../../../app/core/services/site-identity.service';
@@ -454,6 +456,83 @@ describe('NavbarComponent: the site\'s name and logo at the top (specs/admin-bra
         const fixture = await render({ name: 'Acme Studio', logoUrl: 'https://x.test/wordmark.png' }, false);
         loadLogo(fixture, 300, 60);
         expect(fixture.nativeElement.querySelector('.logo-container-close img')).toBeNull();
+    });
+});
+
+/**
+ * The button that opens and closes the panel: in a top row that never scrolls, beside
+ * the site's name and logo, which give way to it however long or wide they are.
+ */
+describe('NavbarComponent: the button at the top of the panel', () => {
+    async function render(expanded: boolean, drawerMode = 'side') {
+        await TestBed.configureTestingModule({
+            imports: [NavbarComponent, NoopAnimationsModule],
+            providers: [
+                { provide: AuthState, useValue: { currentUser: signal({ name: 'Asha', role: 'admin', photo: '' }), logout: vi.fn() } },
+                { provide: ContentTypesStore, useValue: { items: signal([]), getAll: vi.fn() } },
+                { provide: WaitlistAdminStore, useValue: { items: signal([]), subscribe: vi.fn() } },
+                { provide: MatDialog, useValue: { open: vi.fn() } },
+                {
+                    provide: Router,
+                    useValue: {
+                        events: of(), navigate: vi.fn(), isActive: vi.fn(),
+                        createUrlTree: vi.fn().mockReturnValue({}), serializeUrl: vi.fn().mockReturnValue(''), url: '/',
+                    },
+                },
+                { provide: ActivatedRoute, useValue: {} },
+                { provide: SiteIdentityService, useValue: identityStub({ name: 'A Very Long Site Name That Goes On And On' }) },
+            ],
+        }).compileComponents();
+        const fixture = TestBed.createComponent(NavbarComponent);
+        fixture.componentInstance.isExpanded = expanded;
+        fixture.componentInstance.drawerMode = drawerMode;
+        fixture.detectChanges();
+        return fixture;
+    }
+
+    const button = (fixture: any) => fixture.nativeElement.querySelector('button.panel-toggle') as HTMLButtonElement;
+
+    it('sits in the top row, outside the part that scrolls, when the panel is open', async () => {
+        const fixture = await render(true);
+        expect(button(fixture).closest('.panel-top')).not.toBeNull();
+        expect(button(fixture).closest('.panel-scroll')).toBeNull();
+        expect(fixture.nativeElement.querySelector('.panel-scroll .sidebar-menu')).not.toBeNull();
+        expect(button(fixture).getAttribute('aria-label')).toBe('Collapse menu');
+        expect(button(fixture).getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('sits in the top row when the panel is collapsed', async () => {
+        const fixture = await render(false);
+        expect(button(fixture).closest('.panel-top')).not.toBeNull();
+        expect(button(fixture).getAttribute('aria-label')).toBe('Expand menu');
+        expect(button(fixture).getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('closes the panel on a phone', async () => {
+        const fixture = await render(true, 'over');
+        expect(button(fixture).getAttribute('aria-label')).toBe('Close menu');
+    });
+
+    it('tells the layout when it is pressed', async () => {
+        const fixture = await render(true);
+        const toggled = vi.fn();
+        fixture.componentInstance.toggleMenu.subscribe(toggled);
+        button(fixture).click();
+        expect(toggled).toHaveBeenCalledTimes(1);
+    });
+
+    it('is never pushed off the panel: the top row keeps its place, the name gives way and only the menu scrolls', () => {
+        const scss = fs.readFileSync(path.resolve(__dirname, 'side-navbar.component.scss'), 'utf8');
+        const rule = (selector: string) => {
+            const start = scss.indexOf(`${selector} {`);
+            return start < 0 ? '' : scss.slice(start, scss.indexOf('}', start));
+        };
+        expect(rule('.panel-top')).toContain('flex-shrink: 0');
+        expect(rule('.panel-toggle')).toContain('flex-shrink: 0');
+        expect(rule('.logo-container')).toContain('min-width: 0');
+        expect(rule('.panel-scroll')).toContain('overflow-y: auto');
+        // The old nudges (left: 22% and 30%) pushed it past the panel's edge.
+        expect(scss).not.toMatch(/left:\s*\d+%/);
     });
 });
 

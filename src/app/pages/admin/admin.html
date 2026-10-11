@@ -1,12 +1,12 @@
-<div class="arc-admin">
+<div class="arc-admin" [class.is-phone]="drawerMode() === 'over'">
     <mat-drawer-container class="arc-main-page" autosize hasBackdrop="false">
-        <mat-drawer class="arc-side-panel user_panel" [style.width.px]="!isExpanded && drawerMode !== 'over' ? 65 : 230"
-            #drawer position="start" [mode]="drawerMode" [opened]="drawerMode === 'over' ? false : true" cdkScrollable>
-            <arc-side-navbar (toggleMenu)="toggleMenu()" [isExpanded]="drawerMode === 'over' ? true : isExpanded"
-                [drawerMode]="drawerMode"></arc-side-navbar>
+        <mat-drawer class="arc-side-panel user_panel" [style.width.px]="!isExpanded && drawerMode() !== 'over' ? 65 : 230"
+            #drawer position="start" [mode]="drawerMode()" [opened]="drawerMode() === 'over' ? false : true">
+            <arc-side-navbar (toggleMenu)="toggleMenu()" [isExpanded]="drawerMode() === 'over' ? true : isExpanded"
+                [drawerMode]="drawerMode()"></arc-side-navbar>
         </mat-drawer>
         <mat-drawer-content autosize>
-            <!-- <div [hidden]="drawerMode === 'side'" class="btn arrow">
+            <!-- <div [hidden]="drawerMode() === 'side'" class="btn arrow">
           <button class="btn btn-link text-decoration-none mob_menu" (click)="drawer.toggle()">Menu</button>
         </div> -->
 
@@ -14,9 +14,9 @@
                  page's <arc-page-header> carries the notification bell, so no top
                  bar is needed. On mobile (over mode) we keep a slim bar with the
                  hamburger + app name so the sidebar stays reachable. -->
-            @if (drawerMode === 'over') {
+            @if (drawerMode() === 'over') {
             <div class="arc-mobile-bar d-flex align-items-center">
-                <button class="btn d-flex border-0" (click)="drawer.toggle()" aria-label="Menu">
+                <button type="button" class="btn d-flex border-0" (click)="drawer.toggle()" [attr.aria-label]="'admin.nav.open_menu' | transloco">
                     <mat-icon>menu</mat-icon>
                 </button>
                 <span class="ms-1">{{ brandName() }}</span>

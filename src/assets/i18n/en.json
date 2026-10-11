@@ -192,7 +192,11 @@
       "authors": "Authors",
       "sms_logs": "SMS Logs",
       "feedback": "Feedback",
-      "messages": "Messages"
+      "messages": "Messages",
+      "open_menu": "Open menu",
+      "close_menu": "Close menu",
+      "collapse_menu": "Collapse menu",
+      "expand_menu": "Expand menu"
     },
     "settings": {
       "localization": {
@@ -1774,7 +1778,11 @@
       "premium": "Premium",
       "profile": "Profile",
       "plans": "Plans",
-      "sign_out": "Sign out"
+      "sign_out": "Sign out",
+      "open_menu": "Open menu",
+      "close_menu": "Close menu",
+      "collapse_menu": "Collapse menu",
+      "expand_menu": "Expand menu"
     },
     "free": "Free",
     "credits": "credits",

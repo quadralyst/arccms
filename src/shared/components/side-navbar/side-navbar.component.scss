@@ -1,5 +1,10 @@
 @use '../../../styles/variables' as *;
 
+// A block, so no line gap below the panel gives the drawer a scroll of its own
+:host {
+    display: block;
+}
+
 //=====================================================
 .collapsed-bottom-icons {
     position: absolute;
@@ -24,15 +29,17 @@
     }
 }
 
+// The panel is the screen's height: its top row stays put and the rest scrolls under it
 .sidebar {
     position: relative;
     overflow: hidden;
     color: var(--arc-admin-panel-color);
-    min-height: 100vh;
-    // padding-top: 15px;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
     width: 230px;
     z-index: 1;
-    transition: width 0.3s ease;
 
     &.collapsed {
         width: 65px;
@@ -76,16 +83,67 @@
     max-width: 150px;
 }
 
+.panel-top {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 8px 10px;
+}
+
+.collapsed .panel-top {
+    justify-content: center;
+}
+
 .logo-container {
-    padding: 8px 8px;
-    margin-bottom: 10px;
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
 }
 
+// Never pushed out: the name and logo give way to it
+.panel-toggle {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+
+    mat-icon {
+        font-size: 28px;
+        width: 28px;
+        height: 28px;
+    }
+
+    &:hover {
+        background: var(--arc-admin-menu-hover-background);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--arc-admin-panel-color);
+        outline-offset: 1px;
+    }
+}
+
+.panel-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--arc-admin-panel-color) 30%, transparent) transparent;
+}
+
 .logo-container-close {
-    padding: 8px 8px;
-    margin-bottom: 10px;
+    padding: 0 8px 8px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -225,19 +283,6 @@
     padding-right: 4px;
 }
 
-.open-pen {
-    position: relative;
-    left: 22%;
-    font-size: 26px;
-    cursor: pointer !important;
-}
-
-.close-pen {
-    position: relative;
-    left: 30%;
-    top: 5px;
-    font-size: 30px;
-}
 
 // @-webkit-keyframes blinker {
 //   from {
