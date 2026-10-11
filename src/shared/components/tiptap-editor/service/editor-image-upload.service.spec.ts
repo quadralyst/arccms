@@ -143,10 +143,10 @@ describe('EditorImageUploadService', () => {
             });
         });
 
-        it('keeps a file name that looks like HTML as text, since the toast renders HTML', () => {
+        it('passes a file name that looks like HTML through unchanged, since the toast shows it as text', () => {
             service.showError(new File(['x'], '<img src=x onerror=alert(1)>.png', { type: 'image/png' }), new Error('Failed to load image.'));
             expect(notify.error).toHaveBeenCalledWith('admin.media.editor_upload_failed', {
-                name: '&#60;img src=x onerror=alert(1)&#62;.png',
+                name: '<img src=x onerror=alert(1)>.png',
                 reason: 'Failed to load image.',
             });
         });

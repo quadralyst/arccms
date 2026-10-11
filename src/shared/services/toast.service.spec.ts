@@ -173,6 +173,51 @@ describe('ToastService', () => {
             expect(closeButton).toBeTruthy();
             expect(closeButton?.textContent).toBe('×');
         });
+
+        it('removes the toast on click, without an inline onclick', () => {
+            service.info('Test');
+            const toast = document.querySelector('.toast')!;
+            const closeButton = toast.querySelector('button')!;
+            expect(closeButton.hasAttribute('onclick')).toBe(false);
+
+            closeButton.click();
+
+            expect(document.querySelector('.toast')).toBeNull();
+        });
+    });
+
+    describe('Message is shown as text', () => {
+        const hostile = '<img src=x onerror="window.__toastXss = true">.png: Unsupported file type';
+
+        afterEach(() => {
+            delete (window as unknown as Record<string, unknown>)['__toastXss'];
+        });
+
+        it('shows HTML in a message as text and creates no element from it', () => {
+            service.error(hostile);
+
+            const toast = document.querySelector('.toast-error')!;
+            expect(toast.querySelector('img')).toBeNull();
+            expect(toast.querySelectorAll('*')).toHaveLength(3); // icon, message, close button
+            expect(toast.textContent).toContain(hostile);
+            expect((window as unknown as Record<string, unknown>)['__toastXss']).toBeUndefined();
+        });
+
+        it('keeps entities literal instead of decoding them', () => {
+            service.info('Tom &amp; Jerry');
+            const message = document.querySelector('.toast-info span:nth-child(2)');
+            expect(message?.textContent).toBe('Tom &amp; Jerry');
+        });
+
+        it('treats every entry point the same way', () => {
+            service.showToastMsg(hostile, 'OK', 'warning');
+            service.openCustomSnackbar(hostile, 'success', 'check_circle');
+            service.openSequenceCustomSnackbar(hostile, 'info');
+
+            const container = document.getElementById('toast-container')!;
+            expect(container.querySelectorAll('.toast')).toHaveLength(3);
+            expect(container.querySelector('img')).toBeNull();
+        });
     });
 
     describe('removeSequenceToast', () => {

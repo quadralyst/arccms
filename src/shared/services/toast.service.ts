@@ -103,11 +103,23 @@ export class ToastService {
       font-family: system-ui, -apple-system, sans-serif;
     `;
 
-        toast.innerHTML = `
-      <span style="font-size: 1.2em;">${style.icon}</span>
-      <span style="flex: 1;">${message}</span>
-      <button style="background: none; border: none; cursor: pointer; font-size: 1.2em; opacity: 0.7;" onclick="this.parentElement.remove()">×</button>
-    `;
+        // Built with DOM calls and textContent, never innerHTML: a message can carry
+        // a file name, a content title or a server's words, and must show as text.
+        const icon = document.createElement('span');
+        icon.style.fontSize = '1.2em';
+        icon.textContent = style.icon;
+
+        const text = document.createElement('span');
+        text.style.flex = '1';
+        text.textContent = message;
+
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.style.cssText = 'background: none; border: none; cursor: pointer; font-size: 1.2em; opacity: 0.7;';
+        close.textContent = '×';
+        close.addEventListener('click', () => toast.remove());
+
+        toast.append(icon, text, close);
 
         this.toastContainer.appendChild(toast);
 

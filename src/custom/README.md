@@ -1,15 +1,16 @@
 # Custom space
 
 This folder belongs to the app built on this copy of Arc CMS. Arc CMS ships these
-files once, empty, and never changes them again, so pulling Arc CMS updates never
-conflicts with what the app puts here. Never edit Arc CMS's own (core) files in an
+files once, empty, and never changes what the app writes in them, so pulling Arc CMS
+updates never conflicts with it. When a plug point grows, its file may gain a new
+export, shipped empty, after the file's imports and away from the app's code. Never edit Arc CMS's own (core) files in an
 app: see docs/app/custom-space.html, and run `npm run check:core`.
 
 | File | For |
 |------|-----|
 | `routes.ts` | the app's pages, as Angular routes |
 | `pages/` | the app's pages, found by file name like `src/app/pages` (`learn.page.ts` is `/learn`) |
-| `nav.ts` | the app's items in the admin menu |
+| `nav.ts` | the app's items in the admin menu (`CUSTOM_NAV`), and its changes to Arc CMS's admin and member menu items, by id and role (`CUSTOM_NAV_CHANGES`, docs/app/admin-menu.html) |
 | `user-dashboard.ts` | the app's own page where members land, `/user/dashboard` |
 | `home.ts` | where each role lands after signing in |
 | `app-accounts.ts` | whether locked app accounts may open the member pages (docs/app/app-accounts.html) |
