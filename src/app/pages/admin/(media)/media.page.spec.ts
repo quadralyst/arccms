@@ -288,6 +288,27 @@ describe('MediaManagerComponent', () => {
             component.onFileChange(event);
             expect(mockFileUploadService.uploadFile).not.toHaveBeenCalled();
         });
+
+        it('shows a rejected file name as text in the error toast, never as HTML', async () => {
+            const { ToastService: RealToastService } = await vi.importActual<
+                typeof import('../../../../shared/services/toast.service')
+            >('../../../../shared/services/toast.service');
+            component.toastService = new RealToastService();
+            mockFileUploadService.validateFileType.mockReturnValue('Unsupported file type.');
+
+            const name = '<img src=x onerror="window.__mediaToastXss = true">.png';
+            const file = new File(['x'], name, { type: 'text/html' });
+            const event = { target: { files: { length: 1, 0: file }, value: '' } } as any;
+            component.onFileChange(event);
+
+            const toast = document.querySelector('#toast-container .toast-error');
+            expect(toast?.textContent).toContain(`${name}: Unsupported file type.`);
+            expect(toast?.querySelector('img')).toBeNull();
+            expect((window as any).__mediaToastXss).toBeUndefined();
+            expect(mockFileUploadService.uploadFile).not.toHaveBeenCalled();
+
+            document.getElementById('toast-container')?.remove();
+        });
     });
 
     describe('getUrl', () => {

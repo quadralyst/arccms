@@ -104,7 +104,7 @@ arc_articles/{id}/translations/hi     Hindi: only what is translated</code></pre
       <tbody>
         <tr><td>Template</td><td><code>{{ 'admin.users.page_title' | transloco }}</code>, with <code>TranslocoPipe</code> in the component's <code>imports</code></td></tr>
         <tr><td>TypeScript</td><td><code>this.t('key', params)</code> in a <code>BaseComponent</code>, or <code>private t = injectT()</code> from <code>src/app/core/i18n/inject-t.ts</code>. Both check the key at compile time.</td></tr>
-        <tr><td>Toast</td><td><code>this.notify.success('key')</code> from <code>src/shared/services/notify.service.ts</code></td></tr>
+        <tr><td>Toast</td><td><code>this.notify.success('key')</code> from <code>src/shared/services/notify.service.ts</code>. A toast shows its message as plain text, so a file name or a server's words cannot inject HTML; keep markup out of toast keys.</td></tr>
         <tr><td>Table column or action</td><td>Pass the key as <code>header</code> or <code>label</code>; the table translates it</td></tr>
         <tr><td>A field that holds a key or plain text</td><td>The <code>translatable</code> pipe, <code>src/app/core/i18n/translatable.pipe.ts</code></td></tr>
       </tbody>
