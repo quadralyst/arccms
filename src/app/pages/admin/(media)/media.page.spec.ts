@@ -668,14 +668,14 @@ describe('MediaManagerComponent tab visibility', () => {
     it('shows only the image tabs by default', async () => {
         const { component } = await openWith({ isDialogOpen: true });
 
-        expect(component.menuItems.map(i => i.value)).toEqual(['upload', 'search']);
+        expect(component.menuItems.map(i => i.value)).toEqual(['upload', 'pdf', 'search']);
         expect(component.showTabBar).toBe(true);
     });
 
     it('adds the Icons tab when the caller asks for icons too', async () => {
         const { component } = await openWith({ isDialogOpen: true, allowIcons: true });
 
-        expect(component.menuItems.map(i => i.value)).toEqual(['upload', 'search', 'icons']);
+        expect(component.menuItems.map(i => i.value)).toEqual(['upload', 'pdf', 'search', 'icons']);
     });
 
     it('shows only the Icons tab for an icons-only caller', async () => {
@@ -698,7 +698,7 @@ describe('MediaManagerComponent tab visibility', () => {
         const { component } = await openWith({ isDialogOpen: true, allowImages: false });
 
         // A misconfiguration, not a request for an empty dialog.
-        expect(component.menuItems.map(i => i.value)).toEqual(['upload', 'search']);
+        expect(component.menuItems.map(i => i.value)).toEqual(['upload', 'pdf', 'search']);
     });
 
     it('opens on the requested tab', async () => {

@@ -58,6 +58,11 @@ export interface PdfDocument {
     renderPage(pageNumber: number, longestSide: number, type?: string): Promise<PdfDrawing>;
     /** `rect` of the page drawn at `scale` (pixels per point), as an image. */
     renderRegion(pageNumber: number, rect: PdfRect, scale: number, type?: string): Promise<PdfDrawing>;
+    /**
+     * The pictures embedded in a page, in reading order, in page points
+     * (PI-D10, PI-D11). Empty when there are none or the page cannot be read.
+     */
+    findPictures(pageNumber: number): Promise<PdfRect[]>;
     destroy(): Promise<void>;
 }
 
@@ -143,9 +148,226 @@ export async function openPdf(data: Blob | ArrayBuffer | Uint8Array): Promise<Pd
             return draw(pageNumber, safe, rect.width * safe, rect.height * safe, { x: rect.x * safe, y: rect.y * safe }, type);
         },
 
+        async findPictures(pageNumber) {
+            try {
+                const page = await doc.getPage(pageNumber);
+                const viewport = page.getViewport({ scale: 1 });
+                // Parsed again (pdf.js keeps the drawing's parse apart), which
+                // costs milliseconds; pictures are not decoded for it. Stamps
+                // and other annotations are left out: their position comes
+                // from the annotation, which the walk does not follow.
+                const list = await page.getOperatorList({ intent: 'display', annotationMode: pdfjs.AnnotationMode.DISABLE });
+                return picturesFromOperators(list, pdfjs.OPS, viewport.transform, { width: viewport.width, height: viewport.height });
+            } catch (error) {
+                console.warn(`Could not find the pictures on page ${pageNumber}:`, error);
+                return [];
+            }
+        },
+
         async destroy() {
             await task.destroy();
         },
+    };
+}
+
+/** The pdf.js operator codes the picture walk follows (`pdfjs.OPS`). */
+export interface PictureOps {
+    save: number;
+    restore: number;
+    transform: number;
+    paintFormXObjectBegin: number;
+    paintFormXObjectEnd: number;
+    paintImageXObject: number;
+    paintInlineImageXObject: number;
+}
+
+/** A page's drawing instructions, as `page.getOperatorList()` gives them. */
+export interface PdfOperatorList {
+    fnArray: ArrayLike<number>;
+    argsArray: ArrayLike<unknown>;
+}
+
+/** Pictures smaller than this on either side are left out: bullets, icons, small logos (PI-D11). */
+export const MIN_PICTURE_POINTS = 48;
+/** A picture covering this share of the page is a scan or a background, not a photo (PI-D11). */
+export const MAX_PICTURE_PAGE_SHARE = 0.9;
+/** At most this many pictures are offered on one page (PI-D11). */
+export const MAX_PICTURES_PER_PAGE = 40;
+/** Edges this close (in points) touch or line up, for joining a photo cut into strips. */
+const EDGE_SLACK = 2;
+/**
+ * Pictures looked at on one page. Joining compares every pair, so a page
+ * of thousands of tiny images (a mosaic, a map) would stall the tab.
+ */
+const MAX_RAW_PICTURES = 400;
+
+type Matrix = [number, number, number, number, number, number];
+
+/** `a` then `b`, as pdf.js's `Util.transform(a, b)`: points go through `b` first. */
+function multiply(a: Matrix, b: ArrayLike<number>): Matrix {
+    return [
+        a[0] * b[0] + a[2] * b[1],
+        a[1] * b[0] + a[3] * b[1],
+        a[0] * b[2] + a[2] * b[3],
+        a[1] * b[2] + a[3] * b[3],
+        a[0] * b[4] + a[2] * b[5] + a[4],
+        a[1] * b[4] + a[3] * b[5] + a[5],
+    ];
+}
+
+function isMatrix(value: unknown): value is ArrayLike<number> {
+    const list = value as ArrayLike<number> | null;
+    return !!list && typeof list === 'object' && list.length === 6 && Array.from(list).every((n) => Number.isFinite(n));
+}
+
+/**
+ * Where the pictures on a page are, from its drawing instructions (PI-D10).
+ *
+ * Follows the drawing position through `save`, `restore`, `transform` and
+ * form objects (whose matrix pdf.js applies once, in
+ * `paintFormXObjectBegin`; a transparency group's copy of it is not applied
+ * again), and boxes every picture painted: a picture fills the unit square
+ * of the position it is painted at. `viewportTransform` turns page space
+ * into points from the top left, rotation included, as the drawn page shows
+ * it. Then PI-D11: pieces that touch and line up are joined, near copies
+ * merged, small pictures and whole-page ones left out, and the rest sorted
+ * into reading order. Masks, repeated tiles and groups of tiny inline
+ * images are not followed, so they are never offered.
+ */
+export function picturesFromOperators(
+    list: PdfOperatorList,
+    ops: PictureOps,
+    viewportTransform: ArrayLike<number>,
+    page: PdfPageSize,
+): PdfRect[] {
+    const base: Matrix = isMatrix(viewportTransform) ? (Array.from(viewportTransform) as Matrix) : [1, 0, 0, 1, 0, 0];
+    let position: Matrix = [1, 0, 0, 1, 0, 0];
+    const stack: Matrix[] = [];
+    const boxes: PdfRect[] = [];
+
+    for (let i = 0; i < list.fnArray.length; i++) {
+        const fn = list.fnArray[i];
+        const args = list.argsArray[i] as unknown[] | null;
+        if (fn === ops.save) {
+            stack.push(position);
+        } else if (fn === ops.restore) {
+            position = stack.pop() ?? position;
+        } else if (fn === ops.transform) {
+            if (args && isMatrix(args)) position = multiply(position, args);
+        } else if (fn === ops.paintFormXObjectBegin) {
+            stack.push(position);
+            if (args && isMatrix(args[0])) position = multiply(position, args[0] as ArrayLike<number>);
+        } else if (fn === ops.paintFormXObjectEnd) {
+            position = stack.pop() ?? position;
+        } else if (fn === ops.paintImageXObject || fn === ops.paintInlineImageXObject) {
+            if (boxes.length >= MAX_RAW_PICTURES) break;
+            const box = unitSquareBox(multiply(base, position), page);
+            if (box) boxes.push(box);
+        }
+    }
+
+    return tidyPictures(boxes, page);
+}
+
+/** The unit square through `m`, as an upright box kept inside the page; null when nothing is left. */
+function unitSquareBox(m: Matrix, page: PdfPageSize): PdfRect | null {
+    const xs = [m[4], m[0] + m[4], m[2] + m[4], m[0] + m[2] + m[4]];
+    const ys = [m[5], m[1] + m[5], m[3] + m[5], m[1] + m[3] + m[5]];
+    const left = Math.max(0, Math.min(...xs));
+    const top = Math.max(0, Math.min(...ys));
+    const right = Math.min(page.width, Math.max(...xs));
+    const bottom = Math.min(page.height, Math.max(...ys));
+    if (!(right - left > 0.5) || !(bottom - top > 0.5)) return null;
+    return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+function union(a: PdfRect, b: PdfRect): PdfRect {
+    const x = Math.min(a.x, b.x);
+    const y = Math.min(a.y, b.y);
+    return { x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y };
+}
+
+function overlapArea(a: PdfRect, b: PdfRect): number {
+    const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+    const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+    return w > 0 && h > 0 ? w * h : 0;
+}
+
+const near = (a: number, b: number) => Math.abs(a - b) <= EDGE_SLACK;
+
+/** One picture or two pieces of one: near copies, or strips that touch and line up. */
+function belongTogether(a: PdfRect, b: PdfRect): boolean {
+    const smaller = Math.min(a.width * a.height, b.width * b.height);
+    if (smaller > 0 && overlapArea(a, b) >= 0.8 * smaller) return true;
+    const sameColumn = near(a.x, b.x) && near(a.x + a.width, b.x + b.width);
+    const stacked = near(a.y + a.height, b.y) || near(b.y + b.height, a.y);
+    if (sameColumn && stacked) return true;
+    const sameRow = near(a.y, b.y) && near(a.y + a.height, b.y + b.height);
+    const sideBySide = near(a.x + a.width, b.x) || near(b.x + b.width, a.x);
+    return sameRow && sideBySide;
+}
+
+/** PI-D11's rules over the raw boxes, then reading order. */
+function tidyPictures(boxes: PdfRect[], page: PdfPageSize): PdfRect[] {
+    const pageArea = page.width * page.height;
+    const wholePage = (box: PdfRect) => pageArea > 0 && (box.width * box.height) / pageArea >= MAX_PICTURE_PAGE_SHARE;
+    // A scan or background goes first: merged with the photos printed on it,
+    // it would swallow them.
+    const joined = boxes.filter((box) => !wholePage(box));
+    let changed = true;
+    while (changed) {
+        changed = false;
+        outer: for (let i = 0; i < joined.length; i++) {
+            for (let j = i + 1; j < joined.length; j++) {
+                if (belongTogether(joined[i], joined[j])) {
+                    joined[i] = union(joined[i], joined[j]);
+                    joined.splice(j, 1);
+                    changed = true;
+                    break outer;
+                }
+            }
+        }
+    }
+    // Small ones only now: a photo cut into thin strips is small piece by piece.
+    const kept = joined.filter((box) => box.width >= MIN_PICTURE_POINTS && box.height >= MIN_PICTURE_POINTS && !wholePage(box));
+    return readingOrder(kept).slice(0, MAX_PICTURES_PER_PAGE);
+}
+
+/**
+ * Top to bottom, then left to right. Boxes sharing at least half the height
+ * of the smaller one are on the same row, so a row of photos whose tops
+ * differ a little still reads left to right.
+ */
+export function readingOrder(boxes: PdfRect[]): PdfRect[] {
+    const byTop = [...boxes].sort((a, b) => a.y - b.y || a.x - b.x);
+    const rows: PdfRect[][] = [];
+    for (const box of byTop) {
+        const row = rows[rows.length - 1];
+        const first = row?.[0];
+        const shared = first ? Math.min(first.y + first.height, box.y + box.height) - Math.max(first.y, box.y) : 0;
+        if (first && shared >= 0.5 * Math.min(first.height, box.height)) row.push(box);
+        else rows.push([box]);
+    }
+    return rows.flatMap((row) => row.sort((a, b) => a.x - b.x));
+}
+
+/**
+ * The frame for a clicked picture (PI-D12): its exact edges with no ratio,
+ * else the largest frame of `ratio` (width / height) centred on it.
+ */
+export function snapFrame(picture: PdfRect, ratio: number | null): PdfRect {
+    if (!ratio || !(ratio > 0)) return { ...picture };
+    let width = picture.width;
+    let height = width / ratio;
+    if (height > picture.height) {
+        height = picture.height;
+        width = height * ratio;
+    }
+    return {
+        x: picture.x + (picture.width - width) / 2,
+        y: picture.y + (picture.height - height) / 2,
+        width,
+        height,
     };
 }
 

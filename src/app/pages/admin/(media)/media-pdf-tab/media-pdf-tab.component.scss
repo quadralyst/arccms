@@ -1,0 +1,155 @@
+// From a PDF (PI3). The taker's own styles come with it; this is the list.
+:host {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+.pdf-tab-root {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+    flex: 1 1 auto;
+    border-radius: 8px;
+    outline: 2px dashed transparent;
+    outline-offset: 4px;
+
+    &.drag-over {
+        outline-color: var(--arc-admin-accent, #2563eb);
+    }
+}
+
+.pdf-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+.pdf-tab-search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    i {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin: 0;
+    }
+
+    input {
+        max-width: 22rem;
+    }
+}
+
+.pdf-tab-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.9rem;
+    overflow-y: auto;
+    max-height: 62vh;
+    padding: 2px;
+}
+
+.pdf-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 6px;
+    min-width: 0;
+
+    &:focus-visible {
+        outline: 3px solid var(--arc-admin-accent, #2563eb);
+        outline-offset: 2px;
+    }
+
+    &:hover .pdf-card-sheet {
+        border-color: var(--arc-admin-accent, #2563eb);
+    }
+}
+
+.pdf-card-sheet {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+
+    img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+
+    i {
+        font-size: 2rem;
+        margin: 0;
+        color: #ced4da;
+    }
+}
+
+.pdf-choose .pdf-card-sheet {
+    border-style: dashed;
+    background: #f8f9fa;
+
+    i {
+        color: var(--arc-admin-accent, #2563eb);
+        font-size: 1.6rem;
+    }
+}
+
+.pdf-card-badge {
+    position: absolute;
+    left: 6px;
+    top: 6px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: var(--arc-admin-accent, #2563eb);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.pdf-card-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pdf-choose .pdf-card-title {
+    white-space: normal;
+}
+
+.pdf-card-meta {
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.pdf-tab-status {
+    display: flex;
+    justify-content: center;
+    padding: 1rem;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.pdf-tab-more {
+    display: flex;
+    justify-content: center;
+}
