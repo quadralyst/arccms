@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Firestore, collection, doc, getDoc, getDocs } from '@angular/fire/firestore';
 import { MatDialog } from '@angular/material/dialog';
 import MediaManagerComponent from '../../(media)/media.page';
+import { mediaPickerDialogConfig } from '../../(media)/media-picker-dialog';
 import { getWaitlistUserTagsCollectionName, IWaitlistUserTag } from '../joined-users/waitlist-user-tags.model';
 
 export interface WaitlistFormData {
@@ -235,15 +236,7 @@ export class WaitlistEditDrawerComponent implements OnChanges {
     }
 
     openMediaManager(): void {
-        const dialogRef = this.dialog.open(MediaManagerComponent, {
-            enterAnimationDuration: '450ms',
-            exitAnimationDuration: '300ms',
-            minWidth: '134vh',
-            maxHeight: '90vh',
-            panelClass: 'common-dialog-box',
-            disableClose: true,
-            data: { isDialogOpen: true },
-        });
+        const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true }));
         dialogRef.afterClosed().subscribe((result: { mediaUrl: string; type: string } | null) => {
             if (result?.type === 'submit' && result?.mediaUrl) {
                 this.coverImage.set(result.mediaUrl);

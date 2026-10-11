@@ -51,6 +51,7 @@ import { UrlAddDialog } from './service/url-add-dialog/add-url.component';
 import { YouTubeExt } from './service/youtube-extension';
 import { ARC_BLOCKS, ArcBlock, ArcBlockKind, ArcBlockMeta } from './service/arc-block-extension';
 import MediaManagerComponent, { MediaSelection } from '../../../app/pages/admin/(media)/media.page';
+import { mediaPickerDialogConfig } from '../../../app/pages/admin/(media)/media-picker-dialog';
 import { filterEmailTags, insertTagMention } from '../../constants/email-tags';
 
 declare global {
@@ -568,17 +569,7 @@ export default class TiptapEditorComponent {
    * Opens the Media Manager modal for inserting media into the editor
    */
   openMediaManagerModal(): void {
-    const dialogRef = this.dialog.open(MediaManagerComponent, {
-      enterAnimationDuration: '450ms',
-      exitAnimationDuration: '300ms',
-      minWidth: '134vh',
-      maxHeight: '90vh',
-      panelClass: 'common-dialog-box',
-      disableClose: true,
-      data: {
-        isDialogOpen: true,
-      },
-    });
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true }));
 
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result && result.type === 'submit' && result.mediaUrl) {
@@ -593,15 +584,7 @@ export default class TiptapEditorComponent {
    * file goes in as a card linking to it (docs/features/media.html, Files).
    */
   openFilePickerModal(): void {
-    const dialogRef = this.dialog.open(MediaManagerComponent, {
-      enterAnimationDuration: '450ms',
-      exitAnimationDuration: '300ms',
-      minWidth: '134vh',
-      maxHeight: '90vh',
-      panelClass: 'common-dialog-box',
-      disableClose: true,
-      data: { isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files', multiple: true },
-    });
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files', multiple: true }));
 
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result?.type !== 'submit' || result.kind !== 'file') return;

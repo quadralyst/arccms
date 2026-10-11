@@ -13,6 +13,15 @@
                             </div>
                             }
                         </div>
+                        <!-- On a phone the tabs would not fit in a row, so a dropdown
+                             takes their place (media-manager.scss). -->
+                        <select #tabSelect class="form-select media-tab-select" id="mediaTabSelect"
+                            [attr.aria-label]="'admin.media.pick_from' | transloco" [disabled]="isSavingCrop"
+                            (change)="onTabSelect(tabSelect)">
+                            @for(item of menuItems; track item.value){
+                            <option [value]="item.value" [selected]="selectedItem?.value === item.value">{{item.name}}</option>
+                            }
+                        </select>
                         } @else {
                         <!-- Single-purpose dialog: a lone tab would imply others to
                              switch to, so it becomes a plain heading. Something has
@@ -140,7 +149,7 @@
                                     <!-- Suppressed without the tab bar: the header already
                                          carries this exact name as the dialog's title. -->
                                     @if(showTabBar){
-                                    <label class="fs-5">{{ selectedItem?.name}}</label>
+                                    <label class="fs-5 media-tab-heading">{{ selectedItem?.name}}</label>
                                     }
                                 </div>
 

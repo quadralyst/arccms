@@ -292,6 +292,16 @@ describe('MediaManagerComponent cropping', () => {
     describe('the screen', () => {
         beforeEach(() => create({ isDialogOpen: true }));
 
+        it('brings the crop step into view on a phone, where Crop sits below the images', () => {
+            component.ref.markForCheck();
+            fixture.detectChanges();
+            const body = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.modal-body')!;
+            body.scrollTo = vi.fn();
+            component.selectMedia(upload);
+            component.startCrop();
+            expect(body.scrollTo).toHaveBeenCalledWith({ top: 0 });
+        });
+
         it('shows Crop for the selection, and swaps the grid for the crop step', () => {
             // OnPush: mark the view dirty, as the component's own detectChanges would.
             const render = () => {

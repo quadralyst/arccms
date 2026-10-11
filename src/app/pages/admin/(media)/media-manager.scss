@@ -127,6 +127,12 @@ body {
     margin-right: 0.35rem;
 }
 
+// Shown instead of .media-tabs on a phone (below).
+.media-tab-select {
+    display: none;
+    font-weight: 500;
+}
+
 /* Action elements container */
 .action-elements {
     display: flex;
@@ -684,6 +690,9 @@ body {
         flex-direction: column;
         align-items: stretch;
         padding-bottom: 0.75rem;
+        // A wrapping column sizes its line to the widest child, so the tab bar
+        // would push Cancel off a phone's screen instead of scrolling.
+        flex-wrap: nowrap;
     }
 
     .action-elements {
@@ -733,8 +742,16 @@ body {
     }
 
     .media-tabs {
-        flex-wrap: nowrap;
-        overflow-x: auto;
+        display: none;
+    }
+
+    .media-tab-select {
+        display: block;
+    }
+
+    // The dropdown above already names the tab.
+    .media-tab-heading {
+        display: none;
     }
 
     .media-tab {

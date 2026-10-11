@@ -219,6 +219,7 @@ export default class MediaManagerComponent extends BaseComponent {
     private pdfMemory = inject(PdfPickerMemory);
     private firestore = inject(Firestore);
     private injector = inject(Injector);
+    private host = inject<ElementRef<HTMLElement>>(ElementRef);
 
     selectedItem: MediaMenuItem | null = null;
     selectedMediaUrl: SelectableMedia | null = null;
@@ -384,6 +385,14 @@ export default class MediaManagerComponent extends BaseComponent {
             this.selectedItem = null;
             this.selectedMediaUrl = null;
         }
+    }
+
+    /** The dropdown that stands in for the tabs on a phone (media-manager.scss). */
+    onTabSelect(select: HTMLSelectElement): void {
+        const item = this.menuItems.find((menu) => menu.value === select.value);
+        if (item) this.selectedMenu(item);
+        // A tab change can be refused (a crop still saving): show the tab that is open.
+        select.value = this.selectedItem?.value ?? '';
     }
 
     public selectedMenu(event: MediaMenuItem): void {
@@ -679,6 +688,16 @@ export default class MediaManagerComponent extends BaseComponent {
         this.cropRect = null;
         this.cropImageSize = null;
         this.ref.detectChanges();
+        this.showStepFromTop();
+    }
+
+    /**
+     * On a phone the details panel sits below the images and the dialog
+     * scrolls, so a step started from it (Crop, Take an image) would open out
+     * of sight at the top. Elsewhere nothing scrolls and this does nothing.
+     */
+    private showStepFromTop(): void {
+        this.host.nativeElement.querySelector('.modal-body')?.scrollTo?.({ top: 0 });
     }
 
     /** Leaves the crop step without changing anything. */
@@ -933,6 +952,7 @@ export default class MediaManagerComponent extends BaseComponent {
 
     /** A PDF in the library: its bytes from this visit's upload, or read in parts. */
     takeImageFromFile(file: IMediaFile): void {
+        this.showStepFromTop();
         if (this.openInPdfTab((tab) => tab.openFile(file))) return;
         this.pdfOpened = null;
         this.lastPdfImage = null;
