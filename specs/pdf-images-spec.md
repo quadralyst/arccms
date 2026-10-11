@@ -1,6 +1,6 @@
 # Images from a PDF, Straight into the Editor: Build Spec (PI)
 
-**Status:** SPEC, not built. Agreed 2026-10-11.
+**Status:** BUILT 2026-10-11 (PI1 to PI4), browser-tested on the xlm dev project, reviewed. Agreed 2026-10-11, with the six assumptions in section 7 confirmed. Changes made while building are in section 8.
 **Branch:** `feat/pdf-images`, cut from `dev` (0e05ae4), worktree `../arccms-pdf-images`.
 **Builds on:** specs/media-files-spec.md (MF3 and MF4: the page grid and crop step,
 `pdf-pages.ts`, the `mediaFiles` collection, `readMediaFile`).
@@ -57,12 +57,12 @@ once.
 | PI-D11 | Which pictures count | Pictures **under 48 points (two thirds of an inch) on either side** are left out (bullets, icons, small logos). A picture covering **90% or more of the page** is left out (a scan or a page background: suggesting the whole page helps no one). Stencil masks and repeated tiles are left out. Pictures overlapping by 80% or more of the smaller one count once; pieces whose edges touch and line up are joined into one (some PDF makers cut a photo into strips). Boxes are kept inside the page. At most 40 per page. |
 | PI-D12 | Clicking a picture | **The frame takes its edges.** With the ratio on Free or Original, exactly; with a fixed ratio (the caller's `cropRatio`, or one the admin picked), the largest frame of that ratio centred on the picture. The frame can then be dragged as usual. |
 | PI-D13 | What is saved | **Unchanged from MF-D14:** the framed part of the page drawn again at the XL size, then stored as a normal upload with every size. A picture partly hidden by a clipping shape or with something drawn over it comes out as it looks on the page. |
-| PI-D14 | Zoom | **Fit, 150%, 200%, 300%, 400%**, with minus, plus and Fit buttons, Ctrl or Cmd with the wheel (a trackpad pinch arrives this way), a two-finger pinch on touch screens, and the `+` and `-` keys. A zoomed page scrolls; the frame keeps its place in the page. Past 100% the page is drawn again with more detail, up to the 16 million pixel cap (about 300% for an A4 page); beyond that the browser enlarges it, which is still fine for placing a frame. The zoom stays when moving between pages. |
+| PI-D14 | Zoom | **Fit, 150%, 200%, 300%, 400%**, with minus, plus and Fit buttons, Ctrl or Cmd with the wheel (a trackpad pinch arrives this way), a two-finger pinch on touch screens, and the `+` and `-` keys. A zoomed page scrolls; the frame keeps its place in the page. Past 100% the page is drawn again with more detail: 2400 px on the longest side at 150%, 3200 px (twice the fit view) from 200%; beyond that the browser enlarges it, which is still fine for placing a frame, and keeps a phone's memory safe (decided while building; the first draft said up to the 16 million pixel cap). The zoom stays when moving between pages. |
 | PI-D15 | Moving between pages | **Previous and next buttons, "Page 3 of 40" with a box to type a page number, and the Page Up and Page Down keys** in the crop step. "All pages" goes back to the grid, "All PDFs" back to the list (dialog only). |
-| PI-D16 | The crop step's buttons in a dialog | **Insert** (primary): saves the image, then closes the picker with it selected at the chosen size and with its alt text, exactly as picking it in My Uploads would. **Save, take another**: saves and stays on the page, the frame moving to the next picture not yet taken. On the Media page there is only **Save as image**, as today. |
+| PI-D16 | The crop step's buttons in a dialog | **Insert** (primary): saves the image, then closes the picker with it selected at the chosen size and with its alt text, exactly as picking it in My Uploads would. **Save, take another**: saves and stays on the page, the frame moving to the next picture not yet taken. On the Media page there is only **Save as image**, and after it the page stays open with the frame on the next picture too (the first draft kept MF-D15's return to the grid; staying is faster for several pictures on one page). |
 | PI-D17 | Size and alt text in the crop step | **In a dialog, the crop step shows the S, M, L, XL size chips** (the picker's own `selectedSize`, so the "too small" note keeps working) **and an optional alt text box**, emptied after each save. The title is still filled in by itself (`admin.media.pdf.image_title`); a second image from the same page in a visit becomes "Brochure, page 3 (2)". |
 | PI-D18 | Pickers that take several images | When the caller asked for `multiple` (gallery fields), **Insert returns every image taken in this visit plus the current frame**, and its label says how many ("Insert 3 images"). Single pickers insert only the current frame; images taken earlier with "Save, take another" are in My Uploads for the next spot. |
-| PI-D19 | Shared crop component | `ImageCropperComponent` stays generic. It gains three optional inputs: **`rect`** (a frame to start with, instead of the centred one), **`zoom`** (1 is fit), and **`marks`** (suggested frames, each drawn as an outline button with a label and a taken flag; clicking one emits `markPicked`). Existing callers pass none of them and see no change. |
+| PI-D19 | Shared crop component | `ImageCropperComponent` stays generic. It gains three optional inputs: **`frame`** (a frame to place, instead of the centred one; named `frame` because the cropper already has a `rect` signal), **`zoom`** (1 is fit), and **`marks`** (suggested frames, each drawn as an outline button with a label and a taken flag; clicking one emits `markPicked`). Existing callers pass none of them and see no change. |
 | PI-D20 | Rules, functions, indexes | **None change.** Storing a PDF uses the MF upload path and rules; reading one uses `readMediaFile`; the list reuses `listAll`. Nothing to deploy beyond the hosted admin. |
 
 ---
@@ -253,3 +253,14 @@ What it gives: the two-click loop.
    suggested.
 6. Single pickers insert only the current frame; gallery pickers insert everything taken
    in the visit.
+
+## 8. Changes made while building (2026-10-11)
+
+- **The cursor moves past an inserted image** (`insertImageAndMoveOn`, tiptap-editor/service/insert-image.ts). Left selected, the image was replaced by the next Insert image, which the two-click loop made easy to do; when the image ends the text an empty paragraph follows it.
+- **A library PDF read from Storage is kept for the visit** (`MediaFilesService.pdfBytes`), as PI-D7 says; before, only uploads were kept and each picker read the PDF again.
+- **Thumbnails pause while a page is open to crop**, so the page opens first.
+- **Two quick zooms keep the frame**, and an older, less detailed drawing finishing late is dropped.
+- **Wheel zoom** is about 1.3 times a mouse wheel notch; the first build jumped nearly twice per notch.
+- **The admin menu loads its own translations** (side-navbar.component.ts). Found while testing: on a URL with no page of its own, such as `/admin/contents`, nothing asked for the language file and the menu showed bare keys (`admin.nav.dashboard`). Not part of PI, but small and in the same build.
+- MF-D11's "Keep the whole PDF in Files instead" link is gone (PI-D5): every PDF opened is kept.
+
