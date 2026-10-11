@@ -41,6 +41,27 @@ export const DEFAULT_UPLOAD_SETTINGS: MediaUploadSettings = {
     convertToWebp: true,
 };
 
+/** The media fields of the Settings/misc document. */
+export interface MiscMediaFields {
+    mediaMaxFileSize?: number;
+    mediaMaxSize?: number;
+    mediaConvertToWebp?: boolean;
+}
+
+/**
+ * The upload settings a Settings/misc document holds, the defaults filling
+ * any gap. Older Settings docs carry mediaMaxWidth/Height; those are
+ * deliberately not read: the longest-side limit is its own setting, and a
+ * stale 1920 must not leak into new uploads.
+ */
+export function uploadSettingsFromMisc(misc: MiscMediaFields | undefined): MediaUploadSettings {
+    return {
+        maxFileSize: misc?.mediaMaxFileSize ?? DEFAULT_UPLOAD_SETTINGS.maxFileSize,
+        maxSize: misc?.mediaMaxSize ?? DEFAULT_UPLOAD_SETTINGS.maxSize,
+        convertToWebp: misc?.mediaConvertToWebp ?? DEFAULT_UPLOAD_SETTINGS.convertToWebp,
+    };
+}
+
 /** One stored size of an upload. */
 export interface ImageVariant {
     url: string;

@@ -8,6 +8,8 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import TiptapEditorComponent from './tiptap-editor.component';
 import { TiptapEditorDirective, TiptapBubbleMenuDirective } from 'ngx-tiptap';
+import { Editor } from '@tiptap/core';
+import { EditorImageUploadService } from './service/editor-image-upload.service';
 
 // Mock TipTap Editor synchronously to avoid hoisting issues
 vi.mock('@tiptap/core', () => {
@@ -79,7 +81,8 @@ vi.mock('@tiptap/core', () => {
             };
         }),
         Extension: {
-            create: vi.fn().mockReturnValue({})
+            // configure() hands back what it was given, so a spec can read the options.
+            create: vi.fn().mockReturnValue({ configure: (options: unknown) => ({ configuredWith: options }) })
         },
         Node: {
             create: vi.fn().mockReturnValue({})
@@ -90,9 +93,15 @@ vi.mock('@tiptap/core', () => {
 describe('TiptapEditorComponent', () => {
     let component: TiptapEditorComponent;
     let fixture: ComponentFixture<TiptapEditorComponent>;
+    const imageUpload = {
+        upload: vi.fn(),
+        showError: vi.fn(),
+        uploadingLabel: vi.fn(),
+    };
 
     beforeEach(async () => {
         await TestBed.configureTestingModule({
+            providers: [{ provide: EditorImageUploadService, useValue: imageUpload }],
             imports: [
                 CommonModule,
                 FormsModule,
@@ -215,6 +224,42 @@ describe('TiptapEditorComponent', () => {
             (component.editor.isActive as any).mockReturnValue(true);
             expect(component.isActionActive('alignCenter')).toBe(true);
             // Note: isActionActive calls isActive with specific args, we assert the return value here
+        });
+    });
+
+    describe('Dropped and pasted images', () => {
+        /** The options the editor gave the file handler extension. */
+        function fileHandlerOptions(): any {
+            const config = vi.mocked(Editor).mock.calls.at(-1)![0] as any;
+            return config.extensions.find((ext: any) => ext?.configuredWith?.uploadImage)?.configuredWith;
+        }
+
+        it('uploads through the media library and inserts the URL it returns, never a data URL', async () => {
+            imageUpload.upload.mockResolvedValue('https://storage.example/photo-m.webp');
+            const file = new File(['x'], 'photo.jpg', { type: 'image/jpeg' });
+            const onProgress = vi.fn();
+
+            const src = await fileHandlerOptions().uploadImage(file, onProgress);
+
+            expect(imageUpload.upload).toHaveBeenCalledWith(file, onProgress);
+            expect(src).toBe('https://storage.example/photo-m.webp');
+            expect(src.startsWith('data:')).toBe(false);
+        });
+
+        it('shows the failure and labels the placeholder through the same service', () => {
+            const file = new File(['x'], 'photo.jpg', { type: 'image/jpeg' });
+            const error = new Error('Invalid file type. Allowed types: JPEG, PNG, WebP, GIF.');
+
+            fileHandlerOptions().onUploadError(file, error);
+            fileHandlerOptions().uploadingLabel(file, 50);
+
+            expect(imageUpload.showError).toHaveBeenCalledWith(file, error);
+            expect(imageUpload.uploadingLabel).toHaveBeenCalledWith(file, 50);
+        });
+
+        it('no longer has the toolbar file input that read images as data URLs', () => {
+            expect((component as any).handleImageUpload).toBeUndefined();
+            expect(fixture.nativeElement.querySelector('input[type="file"]')).toBeNull();
         });
     });
 

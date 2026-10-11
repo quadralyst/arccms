@@ -2,12 +2,6 @@
 <!-- <div>
     <div class="border-black border-2 border-b-0 rounded-t-md p-1 flex">
 
-        <button [matTooltip]="'Image'" matTooltipPosition="below" type="button"
-            class="px-1 hover:text-white fixedMenuButtonStyles" (click)="fileInput.click()">
-            <i class="bi bi-image"></i>
-        </button>
-        <input type="file" #fileInput (change)="handleImageUpload($event)" style="display: none;">
-
         <button [matTooltip]="'Bold'" matTooltipPosition="below" type="button"
             class="px-1 hover:text-dark fixedMenuButtonStyles" (click)="editor.chain().focus().toggleBold().run()"
             [ngClass]="{ 'fixed_custome_selected': editor.isActive('bold') }">
@@ -195,7 +189,6 @@
     <tiptap-editor #contentArea [editor]="editor" id="editor-with-bubble-menu"></tiptap-editor>
     <tiptap-bubble-menu [editor]="editor">
         <div class="border rounded text-gray-300 divide-x p-1 bubble_menu" data-test-id="bubble-menu">
-            <input type="file" #fileInput (change)="handleImageUpload($event)" style="display: none;">
 
             <!-- Heading Buttons -->
             <button [matTooltip]="'Text formate'" matTooltipPosition="below"

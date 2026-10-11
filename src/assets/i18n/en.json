@@ -1426,6 +1426,10 @@
       "size": "Size",
       "size_original": "Original",
       "size_original_hint": "Uploaded before sizes existed — one file only.",
+      "editor_uploading": "Uploading {{ name }}... {{ percent }}%",
+      "editor_upload_failed": "Could not add {{ name }}: {{ reason }}",
+      "editor_upload_failed_reason": "the upload did not finish. Check your connection and try again.",
+      "editor_library_failed": "The image is in place, but it could not be added to My Uploads.",
       "crop": {
         "start": "Crop",
         "recrop": "Crop again",

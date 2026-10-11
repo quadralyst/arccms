@@ -40,8 +40,8 @@ import Youtube from '@tiptap/extension-youtube';
 import StarterKit from '@tiptap/starter-kit';
 import { AngularRenderer, TiptapEditorDirective, TiptapBubbleMenuDirective } from 'ngx-tiptap';
 import tippy, { Instance, Props } from 'tippy.js';
-import { ImageDropExtension } from './service/drag-drop-extension';
 import { EmojiExtension } from './service/emoji-extension';
+import { EditorImageUploadService } from './service/editor-image-upload.service';
 import { FileHandlerExtension } from './service/file-handler-extension';
 import { ImageMoveExtension } from './service/image-move-extension';
 import { MenitonsList } from './service/mentions/mentions.component';
@@ -149,7 +149,6 @@ export default class TiptapEditorComponent {
 
   isOpenAlignOverlay = false;
   injector = inject(Injector);
-  @ViewChild('fileInput') fileInput!: ElementRef;
   dialog = inject(MatDialog);
   allUsers: any[] = [];
   editor!: Editor;
@@ -487,10 +486,15 @@ export default class TiptapEditorComponent {
           loop: true,
           progressBarColor: 'white',
         }),
-        ImageDropExtension,
         ImageMoveExtension,
         EmojiExtension,
-        FileHandlerExtension,
+        // A dropped or pasted image goes to the media library and in at the
+        // Insert image size; the service is fetched only when one arrives.
+        FileHandlerExtension.configure({
+          uploadImage: (file, onProgress) => this.injector.get(EditorImageUploadService).upload(file, onProgress),
+          onUploadError: (file, error) => this.injector.get(EditorImageUploadService).showError(file, error),
+          uploadingLabel: (file, percent) => this.injector.get(EditorImageUploadService).uploadingLabel(file, percent),
+        }),
       ],
       editorProps: {
         attributes: {
@@ -527,16 +531,6 @@ export default class TiptapEditorComponent {
   setColor(event: any) {
     const color = event.target.value;
     this.editor.chain().focus().setColor(color).run();
-  }
-
-  handleImageUpload(event: any) {
-    const image = event.target.files[0];
-    const reader = new FileReader();
-    reader.onload = (e: any) => {
-      const imageUrl = e.target.result;
-      this.editor.chain().focus().setImage({ src: imageUrl }).run();
-    };
-    reader.readAsDataURL(image);
   }
 
   openToAddUrlModal(type: any): void {
