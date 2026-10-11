@@ -3,15 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Add admin menu items | Arc CMS docs</title>
-  <meta name="description" content="Add your app's links and groups to the admin side menu with CUSTOM_NAV, pick Font Awesome icons, and hide items when a feature is off.">
-  <meta name="docs:sources" content="src/custom/nav.ts, src/shared/components/side-navbar, src/custom/i18n, index.html, public/assets/icons, scripts/generate-icon-index.mjs">
+  <title>Change the admin menu | Arc CMS docs</title>
+  <meta name="description" content="Add your app's links and groups to the admin side menu with CUSTOM_NAV, change, hide, add and move Arc CMS's items by id with CUSTOM_NAV_CHANGES, for every role or some, and pick Font Awesome icons.">
+  <meta name="docs:sources" content="src/custom/nav.ts, src/shared/components/side-navbar, src/app/core/nav, src/app/custom-space.spec.ts, src/custom/i18n, index.html, public/assets/icons, scripts/generate-icon-index.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/admin-menu.html">
   <main>
-    <h1>Add admin menu items</h1>
-    <p class="lead">List your app's admin links in <code>CUSTOM_NAV</code>, in <code>src/custom/nav.ts</code>. They appear in the admin side menu just before Profile, translated like the core items.</p>
+    <h1>Change the admin menu</h1>
+    <p class="lead">List your app's admin links in <code>CUSTOM_NAV</code>, in <code>src/custom/nav.ts</code>: they appear in the admin side menu just before Profile, translated like the core items. To change, hide, add or move items anywhere in the menu, Arc CMS's own included, use <code>CUSTOM_NAV_CHANGES</code> in the same file (<a href="#change-arc-cms-s-items">Change Arc CMS's items</a>).</p>
+    <div class="trap"><p>The menu only shows links. Who may open a page is decided by its route guard alone (<a href="pages-and-routes.html#who-may-open-a-page">Who may open a page</a>). Hiding an item does not keep anyone out of its page, and showing one to a role does not let that role in.</p></div>
 
     <h2>Add an item</h2>
     <ol class="steps">
@@ -42,20 +43,21 @@ export const CUSTOM_NAV: MenuItem[] = [
     <table>
       <thead><tr><th>Field</th><th>For</th></tr></thead>
       <tbody>
-        <tr><td><code>label</code></td><td>The English label, and the item's identity. It is not translated; keep it unique</td></tr>
+        <tr><td><code>id</code></td><td>The item's identity, unique in the menu: what <code>CUSTOM_NAV_CHANGES</code> names. Optional for your own items; give one to an item you want to change for some roles</td></tr>
+        <tr><td><code>label</code></td><td>The English label, shown when there is no <code>labelKey</code></td></tr>
         <tr><td><code>labelKey</code></td><td>The translation key shown instead of <code>label</code></td></tr>
         <tr><td><code>route</code></td><td>The address the item opens</td></tr>
         <tr><td><code>externalUrl</code></td><td>An outside address, opened in a new tab, instead of <code>route</code></td></tr>
         <tr><td><code>icon</code></td><td>Font Awesome classes, such as <code>fa-solid fa-book-open</code></td></tr>
         <tr><td><code>allowRoles</code></td><td>The roles that see the item, such as <code>['admin']</code> or <code>['admin', 'user']</code></td></tr>
         <tr><td><code>subItems</code></td><td>Items shown under this one, which makes it a group that opens and closes</td></tr>
-        <tr><td><code>queryParams</code></td><td>Query parameters added to a sub-item's link</td></tr>
+        <tr><td><code>queryParams</code></td><td>Query parameters added to the item's link</td></tr>
         <tr><td><code>separator</code></td><td><code>true</code> for a dividing line instead of a link (give it <code>label: ''</code> and <code>allowRoles</code>)</td></tr>
         <tr><td><code>feature</code></td><td>A feature id: the item is left out when that feature is off</td></tr>
       </tbody>
     </table>
     <div class="trap"><p>An item without <code>allowRoles</code> is never shown, for anyone. Set it on every top-level item. Sub-items are shown to whoever sees their group.</p></div>
-    <div class="trap"><p>The menu finds Profile and Logout by their <code>label</code>, and clicking an item labelled <code>Logout</code> opens the sign-out dialog instead of its route. Never use <code>Profile</code> or <code>Logout</code> as a label, and keep every label unique: a group's open or closed state is also kept by its label.</p></div>
+    <div class="trap"><p>The menu finds Profile and Logout by their <code>id</code>, and clicking the item with the id <code>logout</code> opens the sign-out dialog. Never give your own item a core item's id: the test suite fails on it. A group's open or closed state is kept by its <code>id</code>, or by its label when it has none, so give every group of yours an id or a unique label.</p></div>
 
     <h2>Group items</h2>
     <pre><code>export const CUSTOM_NAV: MenuItem[] = [
@@ -79,7 +81,97 @@ export const CUSTOM_NAV: MenuItem[] = [
     <p>A group whose sub-items all go goes with them.</p>
 
     <h2>Where the items appear</h2>
-    <p>Your items are placed together, in the order you list them, just before Profile, with a dividing line before Profile. The menu shows only the items whose <code>allowRoles</code> include the signed-in person's role.</p>
+    <p>Your items are placed together, in the order you list them, just before Profile, with a dividing line before Profile. To put one somewhere else, give it an <code>id</code> and move it with <code>CUSTOM_NAV_CHANGES</code>, or add it there with <code>CUSTOM_NAV_CHANGES</code> instead. The menu shows only the items whose <code>allowRoles</code> include the signed-in person's role.</p>
+
+    <h2>Change Arc CMS's items</h2>
+    <p>Export <code>CUSTOM_NAV_CHANGES</code> from <code>src/custom/nav.ts</code>. Its <code>admin</code> list changes the admin menu; its <code>member</code> list changes the member menu the same way (<a href="member-area.html#change-the-member-menu">Change the member menu</a>). Each change names an item by its <code>id</code> (<a href="#the-admin-menu-s-ids">The admin menu's ids</a>), never by its label, which is translated:</p>
+    <pre><code>import type { MenuItem } from '../shared/components/side-navbar/side-navbar.component';
+import type { NavChanges } from '../app/core/nav/nav-changes';
+
+export const CUSTOM_NAV_CHANGES: NavChanges = {
+  admin: [
+    // Dashboard opens the app's own page
+    { id: 'dashboard', route: '/admin/extension-dashboard' },
+    // Media Manager is gone from the menu
+    { id: 'media', hide: true },
+    // Users is reworded with the app's own key
+    { id: 'users', labelKey: 'custom.nav.people' },
+    // A new item just after Dashboard, for admins and editors
+    { add: { id: 'reports', label: 'Reports', labelKey: 'custom.nav.reports', route: '/admin/reports',
+             icon: 'fa-solid fa-chart-line', allowRoles: ['admin', 'editor'] }, after: 'dashboard' },
+    // Settings moves to the top, for admins only
+    { id: 'settings', before: 'dashboard', roles: ['admin'] },
+  ],
+};
+
+export const CUSTOM_NAV: MenuItem[] = [];</code></pre>
+    <p>A change can:</p>
+    <table>
+      <thead><tr><th>To</th><th>Write</th></tr></thead>
+      <tbody>
+        <tr><td>Change an item</td><td><code>{ id, ...fields }</code> with any of <code>route</code>, <code>queryParams</code>, <code>externalUrl</code>, <code>icon</code>, <code>label</code>, <code>labelKey</code> and <code>allowRoles</code></td></tr>
+        <tr><td>Hide an item</td><td><code>{ id, hide: true }</code></td></tr>
+        <tr><td>Add an item</td><td><code>{ add: item, before: id }</code>, <code>{ add: item, after: id }</code>, or <code>{ add: item }</code> for the end of the menu. The item takes the <a href="#the-fields-of-an-item">fields above</a> and needs an <code>id</code> of its own</td></tr>
+        <tr><td>Move an item</td><td><code>{ id, before: id }</code> or <code>{ id, after: id }</code></td></tr>
+        <tr><td>Do any of these for some roles only</td><td>Add <code>roles: ['editor']</code> to the change (<a href="#change-the-menu-for-some-roles">below</a>)</td></tr>
+      </tbody>
+    </table>
+    <p>How the changes are made:</p>
+    <ul>
+      <li>They are applied in the order you list them, after Arc CMS builds the menu, adds your <code>CUSTOM_NAV</code> items and leaves out the items of features that are off. So an item of a feature that is off stays gone, whatever a change says, and an added item with a <code>feature</code> that is off is left out too.</li>
+      <li>A change can name an item at the top level or inside a group (such as <code>contacts</code> in Audience). <code>before</code> and <code>after</code> put the item in the same list as the item they name, so you can move a link into a group or out of one. A group never goes inside another group.</li>
+      <li>Setting <code>route</code> drops the item's <code>externalUrl</code>, and setting <code>externalUrl</code> drops its <code>route</code>: an item opens one or the other. Setting <code>label</code> without <code>labelKey</code> shows your label as written, untranslated; to reword an item in every admin language, set <code>labelKey</code> to a key of yours in <code>src/custom/i18n/</code>, or reword the core key there (<a href="custom-space.html#styles-and-translations">Styles and translations</a>).</li>
+      <li>A change that names an id the menu does not have is ignored when the app runs (the test suite reports it first, see <a href="#what-the-test-suite-checks">below</a>). An add whose <code>before</code> or <code>after</code> item is not in the menu goes at the end; a move whose item is not there leaves the item where it was.</li>
+      <li>Profile and Logout cannot be hidden: people must always be able to reach their profile and sign out. A change to their <code>allowRoles</code> can only add roles, and Logout always opens the sign-out dialog, so its <code>route</code>, <code>queryParams</code> and <code>externalUrl</code> cannot be changed. You can still reword and move them.</li>
+      <li>A dividing line is kept before Profile, wherever it is, and lines never lead, trail or come two in a row, so hiding items leaves no gaps.</li>
+    </ul>
+
+    <h3>Change the menu for some roles</h3>
+    <p>A change with <code>roles</code> applies only when the signed-in person's role is one of them. Without <code>roles</code> it applies to every role. This is how one app shows admins, editors and its own roles different menus:</p>
+    <pre><code>admin: [
+  // Editors see Media Manager, without Settings
+  { id: 'media', allowRoles: ['admin', 'editor'], roles: ['editor'] },
+  { id: 'settings', hide: true, roles: ['editor'] },
+  // Profile and Logout for editors too
+  { id: 'profile', allowRoles: ['editor'] },
+  { id: 'logout', allowRoles: ['editor'] },
+],</code></pre>
+    <p>The menu shows an item to the roles in its <code>allowRoles</code>; <code>roles</code> on a change decides who the change is for. Each page an editor can now see in the menu still needs a route guard that lets editors in: the menu never gives anyone access.</p>
+
+    <h3>What the test suite checks</h3>
+    <p><code>npm run test</code> (in <code>src/app/custom-space.spec.ts</code>) reads your <code>src/custom/nav.ts</code> and fails, with the list of valid ids, on:</p>
+    <ul>
+      <li>a change, <code>before</code> or <code>after</code> that names an id the menu does not have (core's, your <code>CUSTOM_NAV</code> items', or one an add in the same list brings);</li>
+      <li>a <code>route</code> that is not a path on this site starting with <code>/</code>, or an <code>externalUrl</code> that is not an <code>https://</code> address;</li>
+      <li>an add without an <code>id</code> or <code>label</code>, or with an id the menu already has; both <code>before</code> and <code>after</code> on one change; an empty <code>roles</code>;</li>
+      <li>hiding Profile or Logout, or changing where Logout leads;</li>
+      <li>a <code>labelKey</code> that no English file has, and an admin label key missing from <code>src/custom/i18n/hi.json</code>.</li>
+    </ul>
+
+    <h2>The admin menu's ids</h2>
+    <p>Arc CMS's items and their ids, in menu order. Each signup form's own group and each content type's link are built from your data and have no id.</p>
+    <table>
+      <thead><tr><th>Id</th><th>Item</th><th>Opens</th><th>Sub-items</th></tr></thead>
+      <tbody>
+        <tr><td><code>dashboard</code></td><td>Dashboard</td><td><code>/admin/dashboard</code></td><td></td></tr>
+        <tr><td><code>signup-forms</code></td><td>Signup Forms</td><td><code>/admin/waitlists</code></td><td></td></tr>
+        <tr><td><code>media</code></td><td>Media Manager</td><td><code>/admin/media</code></td><td></td></tr>
+        <tr><td><code>content</code></td><td>Content</td><td></td><td><code>content-types</code> (Content types), <code>authors</code> (Authors)</td></tr>
+        <tr><td><code>users</code></td><td>Users</td><td><code>/admin/users</code></td><td></td></tr>
+        <tr><td><code>audience</code></td><td>Audience</td><td></td><td><code>contacts</code> (Contacts), <code>lists</code> (Lists), <code>contact-tags</code> (Tags), <code>contact-fields</code> (Fields), <code>app-users</code> (App users)</td></tr>
+        <tr><td><code>email</code></td><td>Email + SMS</td><td></td><td><code>brand-kit</code> (Brand Kit), <code>composer</code> (Composer), <code>broadcasts</code> (Broadcasts), <code>drip-campaigns</code> (Drip Campaigns), <code>announcements</code> (Announcements), <code>email-logs</code> (Email Logs), <code>sms-logs</code> (SMS Logs)</td></tr>
+        <tr><td><code>feedback</code></td><td>Feedback</td><td><code>/admin/feedback</code></td><td></td></tr>
+        <tr><td><code>messages</code></td><td>Messages</td><td><code>/admin/messages</code></td><td></td></tr>
+        <tr><td><code>products</code></td><td>Products</td><td><code>/admin/products</code></td><td></td></tr>
+        <tr><td><code>transactions</code></td><td>Transactions</td><td><code>/admin/transactions</code></td><td></td></tr>
+        <tr><td><code>data</code></td><td>Data</td><td></td><td><code>export-data</code> (Export Data), <code>import-data</code> (Import Data), <code>export-files</code> (Export Files), <code>import-files</code> (Import Files)</td></tr>
+        <tr><td><code>profile</code></td><td>Profile</td><td><code>/admin/profile</code></td><td></td></tr>
+        <tr><td><code>settings</code></td><td>Settings</td><td><code>/admin/settings</code></td><td></td></tr>
+        <tr><td><code>about</code></td><td>About</td><td><code>https://arccms.com/about</code></td><td></td></tr>
+        <tr><td><code>logout</code></td><td>Logout</td><td>The sign-out dialog</td><td></td></tr>
+      </tbody>
+    </table>
+    <p>The ids are in <code>src/app/core/nav/admin-menu.ts</code>; the changes are made by <code>applyNavChanges()</code> in <code>src/app/core/nav/nav-changes.ts</code>.</p>
 
     <h2>Choose an icon</h2>
     <p>The admin loads Font Awesome Free 6.5.1 (see <code>index.html</code>), so any free icon works. Write the style class and the icon class: <code>fa-solid fa-book-open</code>, <code>fa-regular fa-calendar</code>, <code>fa-brands fa-youtube</code>.</p>

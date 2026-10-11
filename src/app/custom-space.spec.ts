@@ -13,6 +13,10 @@ import { CUSTOM_STARTERS, isAppSpec } from '../../scripts/custom-starters.mjs';
 import { mergeTranslations } from './core/i18n/translation.loader';
 import { insertCustomNav, type MenuItem } from '../shared/components/side-navbar/side-navbar.component';
 import { customAdminKeys, flattenKeys } from './core/i18n/member-keys';
+import { menuIds } from './core/nav/menu';
+import { navChangeLabels, navChangeProblems, type NavChanges } from './core/nav/nav-changes';
+import { ADMIN_LOCKS, ADMIN_MENU_IDS } from './core/nav/admin-menu';
+import { MEMBER_MENU_IDS } from './core/nav/member-menu';
 import coreEn from '../assets/i18n/en.json';
 import customEn from '../custom/i18n/en.json';
 import customHi from '../custom/i18n/hi.json';
@@ -150,7 +154,7 @@ describe('custom space', () => {
     });
 
     describe('admin menu', () => {
-        const core = (): MenuItem[] => [{ label: 'Dashboard' }, { label: 'Settings' }, { label: 'Profile' }, { label: 'Logout' }];
+        const core = (): MenuItem[] => [{ id: 'dashboard', label: 'Dashboard' }, { id: 'settings', label: 'Settings' }, { id: 'profile', label: 'Profile' }, { id: 'logout', label: 'Logout' }];
 
         it('puts the app items before Profile', () => {
             const items = insertCustomNav(core(), [{ label: 'Lessons', route: '/admin/lessons' }]);
@@ -163,7 +167,52 @@ describe('custom space', () => {
         });
 
         it('is wired into the side menu', () => {
-            expect(read('src/shared/components/side-navbar/side-navbar.component.ts')).toContain('insertCustomNav(items, withoutFeaturesOff(CUSTOM_NAV))');
+            const navbar = read('src/shared/components/side-navbar/side-navbar.component.ts');
+            expect(navbar).toContain('insertCustomNav(items, withoutFeaturesOff(CUSTOM_NAV))');
+            expect(navbar).toContain('applyNavChanges(items, CUSTOM_NAV_CHANGES.admin, this.authStore.currentUser()?.role, ADMIN_LOCKS)');
+        });
+    });
+
+    describe('menu changes', () => {
+        /** Every mistake in an app's CUSTOM_NAV_CHANGES, against the ids each menu has. */
+        const problems = (changes: NavChanges, appItems: MenuItem[] = []) => [
+            ...navChangeProblems('admin', changes.admin, { ids: [...ADMIN_MENU_IDS, ...menuIds(appItems)], locks: ADMIN_LOCKS }),
+            ...navChangeProblems('member', changes.member, { ids: MEMBER_MENU_IDS }),
+        ];
+
+        // The app's real file: a change to an id core does not have, or a link that is not
+        // a path or an https address, fails here rather than as a silent menu.
+        it('checks src/custom/nav.ts: every id it names exists, every route is a path, every outside address https', async () => {
+            const { CUSTOM_NAV, CUSTOM_NAV_CHANGES } = await vi.importActual<typeof import('../custom/nav')>('../custom/nav');
+            expect(problems(CUSTOM_NAV_CHANGES, CUSTOM_NAV), 'fix CUSTOM_NAV_CHANGES in src/custom/nav.ts').toEqual([]);
+        });
+
+        it('reports a misspelt id with the valid ones, a route that is not a path and an address that is not https', () => {
+            const found = problems({
+                admin: [{ id: 'dashbord', route: '/admin/extension-dashboard' }, { id: 'media', route: 'admin/media' }],
+                member: [{ add: { id: 'lessons', label: 'Lessons', externalUrl: 'http://example.com' }, before: 'profle' }],
+            });
+            expect(found).toHaveLength(4);
+            expect(found[0]).toMatch(/^admin 'dashbord': not an item of the admin menu \(valid ids: dashboard, signup-forms, media, /);
+            expect(found[1]).toBe("admin 'media': route 'admin/media' is not a path on this site starting with /");
+            expect(found[2]).toBe("member add 'lessons': before/after 'profle' is not an item of the member menu (valid ids: home, dashboard, payments, account, premium, profile, plans, lessons)");
+            expect(found[3]).toBe("member add 'lessons': externalUrl 'http://example.com' is not an https:// address");
+        });
+
+        it("lets a change name the app's own CUSTOM_NAV items by id", () => {
+            expect(problems({ admin: [{ id: 'lessons', hide: true, roles: ['editor'] }] }, [{ id: 'lessons', label: 'Lessons' }])).toEqual([]);
+        });
+
+        it('has every core id in the docs, where apps look them up', () => {
+            const admin = read('docs/app/admin-menu.html');
+            const member = read('docs/app/member-area.html');
+            expect(ADMIN_MENU_IDS.filter((id) => !admin.includes(`<code>${id}</code>`)), 'docs/app/admin-menu.html').toEqual([]);
+            expect(MEMBER_MENU_IDS.filter((id) => !member.includes(`<code>${id}</code>`)), 'docs/app/member-area.html').toEqual([]);
+        });
+
+        it('is read by both menus', () => {
+            expect(read('src/app/pages/user/user-shell.component.ts')).toContain('CUSTOM_NAV_CHANGES.member');
+            expect(read('src/shared/components/side-navbar/side-navbar.component.ts')).toContain('CUSTOM_NAV_CHANGES.admin');
         });
     });
 
@@ -191,11 +240,21 @@ describe('custom space', () => {
          * missing one shows in English.
          */
         it('keeps the custom files in step: every admin string in English has a Hindi one, and Hindi has no extras', async () => {
-            const { CUSTOM_NAV } = await vi.importActual<typeof import('../custom/nav')>('../custom/nav');
+            const { CUSTOM_NAV, CUSTOM_NAV_CHANGES } = await vi.importActual<typeof import('../custom/nav')>('../custom/nav');
             const en = new Set(flattenKeys(customEn));
             const hi = new Set(flattenKeys(customHi));
-            expect(customAdminKeys(customEn, coreEn, CUSTOM_NAV).filter((key) => !hi.has(key)), 'add these to src/custom/i18n/hi.json').toEqual([]);
+            const adminNav = [...CUSTOM_NAV, ...navChangeLabels(CUSTOM_NAV_CHANGES.admin)];
+            expect(customAdminKeys(customEn, coreEn, adminNav).filter((key) => !hi.has(key)), 'add these to src/custom/i18n/hi.json').toEqual([]);
             expect([...hi].filter((key) => !en.has(key)), 'src/custom/i18n/hi.json has keys en.json lacks').toEqual([]);
+        });
+
+        // A menu label key no English file has shows as the bare key.
+        it('finds every menu label key the app uses in English, its own or core', async () => {
+            const { CUSTOM_NAV, CUSTOM_NAV_CHANGES } = await vi.importActual<typeof import('../custom/nav')>('../custom/nav');
+            const english = new Set([...flattenKeys(coreEn), ...flattenKeys(customEn)]);
+            const keys = (items: MenuItem[]): string[] => items.flatMap((i) => [...(i.labelKey ? [i.labelKey] : []), ...keys(i.subItems ?? [])]);
+            const used = keys([...CUSTOM_NAV, ...navChangeLabels(CUSTOM_NAV_CHANGES.admin), ...navChangeLabels(CUSTOM_NAV_CHANGES.member)]);
+            expect(used.filter((key) => !english.has(key)), 'add these to src/custom/i18n/en.json').toEqual([]);
         });
 
         it('counts as admin strings the rewording of core admin ones and the menu labels, never member strings', () => {

@@ -119,6 +119,7 @@ import { adminCreateUser } from '../users/adminCreateUser.js';</code></pre>
       <li>The starter files and their shipped values are listed once, in <code>scripts/custom-starters.mjs</code>. A test fails if a starter file is missing from the list or from its setup file.</li>
       <li>An app's own specs, in <code>src/custom/</code>, <code>functions/src/custom/</code> and <code class="new">custom/</code>, are not mocked: they see the app's real files.</li>
       <li>The member language check (<code>src/test/member-language-parity.spec.ts</code>) is a core spec that reads the app's real <code>src/custom/languages.ts</code> on purpose, with <code>vi.importActual()</code>: it checks the app's own translations.</li>
+      <li>The menu checks in <code>src/app/custom-space.spec.ts</code> read the app's real <code>src/custom/nav.ts</code> the same way: every id <code>CUSTOM_NAV_CHANGES</code> names must exist, every route must be a path and every outside address https, and every menu label key must be in an English file (<a href="../app/admin-menu.html#what-the-test-suite-checks">What the test suite checks</a>). The menus themselves are tested with the shipped, empty file, and a spec about a change sets <code>CUSTOM_NAV_CHANGES.admin</code> or <code>.member</code> and deletes it afterwards.</li>
     </ul>
     <p>A spec about a particular choice mocks the file itself, and its mock wins:</p>
     <pre><code>vi.mock('../../../custom/features', () =&gt; ({ CUSTOM_FEATURES: { on: ['pwa'] } }));</code></pre>

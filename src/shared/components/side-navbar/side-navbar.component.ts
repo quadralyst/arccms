@@ -21,9 +21,11 @@ import { ConfirmationPopupComponent } from '../confirmation-popup/confirmation-p
 import { ContentTypesStore } from '../../../app/pages/admin/contents/content-types/content-types.store';
 import { ContentType, contentTypeName } from '../../../app/pages/admin/contents/content-types/content-types.model';
 import { WaitlistAdminStore } from '../../../app/pages/admin/(waitlists)/waitlist.store';
-import { CUSTOM_NAV } from '../../../custom/nav';
+import { CUSTOM_NAV, CUSTOM_NAV_CHANGES } from '../../../custom/nav';
 import { isOn } from '../../../app/core/features/features';
-import type { FeatureId } from '../../../app/core/features/feature-registry';
+import { insertCustomNav, withoutFeaturesOff, type MenuItem } from '../../../app/core/nav/menu';
+import { applyNavChanges } from '../../../app/core/nav/nav-changes';
+import { ADMIN_LOCKS, adminContentGroup, coreAdminItems } from '../../../app/core/nav/admin-menu';
 import { SiteBrandService } from '../../../app/core/brand/site-brand';
 
 /**
@@ -53,63 +55,13 @@ function isSvg(src: string): boolean {
     return /^data:image\/svg\+xml/i.test(src) || /\.svg(\?|#|$)/i.test(src);
 }
 
-export type MenuItem = {
-    icon?: string;
-    /**
-     * The English label, and the item's identity.
-     *
-     * Menu state is keyed by it (`manualToggles`, the Logout and Profile
-     * lookups), so it stays untranslated on purpose — translating it would
-     * mean Logout stops logging out the moment the admin switches language.
-     * `labelKey` names the translation; items built from CMS data (content
-     * types, signup forms) have no key because their names *are* data.
-     */
-    label: string;
-    /** Translation key for `label`, for the items we author. */
-    labelKey?: string;
-    route?: string;
-    externalUrl?: string;
-    subItems?: MenuItem[];
-    isOpen?: boolean;
-    allowRoles?: string[];
-    queryParams?: Record<string, string>;
-    separator?: boolean;
-    /** The feature this item belongs to; it is left out when that feature is off. */
-    feature?: FeatureId;
-};
-
-/**
- * The menu without the items of features that are off (specs/feature-flags-spec.md):
- * a group whose sub-items all go goes too, and separators never lead, trail or
- * double up. Returns new objects; `items` is left alone.
- */
-export function withoutFeaturesOff(items: readonly MenuItem[], on: (id: FeatureId) => boolean = isOn): MenuItem[] {
-    const kept: MenuItem[] = [];
-    for (const item of items) {
-        if (item.feature && !on(item.feature)) continue;
-        if (item.subItems) {
-            const subItems = withoutFeaturesOff(item.subItems, on);
-            if (!subItems.length) continue;
-            kept.push({ ...item, subItems });
-            continue;
-        }
-        if (item.separator && (!kept.length || kept[kept.length - 1].separator)) continue;
-        kept.push({ ...item });
-    }
-    while (kept.length && kept[kept.length - 1].separator) kept.pop();
-    return kept;
+/** What a group's open state is kept by: its id, or its label for a group built from CMS data. */
+function groupKey(item: MenuItem): string {
+    return item.id ?? item.label;
 }
 
-/**
- * Put the app's menu items (src/custom/nav.ts, docs/app/custom-space.html) before
- * Profile, or at the end when there is no Profile item. Changes `items` in place.
- */
-export function insertCustomNav(items: MenuItem[], custom: readonly MenuItem[]): MenuItem[] {
-    if (!custom.length) return items;
-    const profileIndex = items.findIndex((i) => i.label === 'Profile');
-    items.splice(profileIndex === -1 ? items.length : profileIndex, 0, ...custom.map((item) => ({ ...item })));
-    return items;
-}
+/** The menu model, in src/app/core/nav/menu.ts; exported here too, where apps' src/custom/nav.ts imports it. */
+export { insertCustomNav, withoutFeaturesOff, type MenuItem };
 
 @Component({
     selector: 'arc-side-navbar',
@@ -183,7 +135,7 @@ export default class NavbarComponent extends BaseComponent {
 
     /** Current router URL, kept in sync on NavigationEnd so OnPush change detection re-evaluates active state. */
     readonly currentUrl = signal<string>(this.router.url);
-    /** Explicit user expand/collapse choices, keyed by group label. Overrides route-based auto-expand. */
+    /** Explicit user expand/collapse choices, keyed by group id (label for a signup form's group). Overrides route-based auto-expand. */
     private readonly manualToggles = signal<Record<string, boolean>>({});
 
     private destroyRef = inject(DestroyRef);
@@ -206,141 +158,8 @@ export default class NavbarComponent extends BaseComponent {
     private readonly translationsLoaded = signal(0);
     readonly waitlistAdminStore = inject(WaitlistAdminStore);
 
-    baseMenuItems: MenuItem[] = [
-        {
-            icon: 'fa-solid fa-gauge-high',
-            label: 'Dashboard',
-            labelKey: 'admin.nav.dashboard',
-            route: '/admin/dashboard',
-            allowRoles: [this.constantVariables.ADMIN],
-        },
-        {
-            // Reframed as "Signup Forms" (U3): a waitlist is a signup form with
-            // gamification on. Route + collection unchanged — label only.
-            icon: 'fa-solid fa-list-alt',
-            label: 'Signup Forms',
-            labelKey: 'admin.nav.signup_forms',
-            route: '/admin/waitlists',
-            allowRoles: [this.constantVariables.ADMIN],
-            feature: 'forms',
-        },
-        {
-            icon: 'fa-solid fa-images',
-            label: 'Media Manager',
-            labelKey: 'admin.nav.media_manager',
-            route: '/admin/media',
-            allowRoles: [this.constantVariables.ADMIN],
-        },
-        {
-            icon: 'fa-solid fa-users',
-            label: 'Users',
-            labelKey: 'admin.nav.users',
-            route: '/admin/users',
-            allowRoles: [this.constantVariables.ADMIN],
-        },
-        {
-            icon: 'fa-solid fa-address-book',
-            label: 'Audience',
-            labelKey: 'admin.nav.audience',
-            allowRoles: [this.constantVariables.ADMIN],
-            feature: 'audience',
-            subItems: [
-                { label: 'Contacts', labelKey: 'admin.nav.contacts', route: '/admin/contacts', icon: 'fa-solid fa-user-group' },
-                { label: 'Lists', labelKey: 'admin.nav.lists', route: '/admin/lists', icon: 'fa-solid fa-rectangle-list' },
-                { label: 'Tags', labelKey: 'admin.nav.tags', route: '/admin/contact-tags', icon: 'fa-solid fa-tags' },
-                { label: 'Fields', labelKey: 'admin.nav.fields', route: '/admin/contact-fields', icon: 'fa-solid fa-table-columns' },
-                { label: 'App users', labelKey: 'admin.nav.app_users', route: '/admin/app-users', icon: 'fa-solid fa-mobile-screen' },
-            ],
-        },
-        {
-            icon: 'fa-solid fa-palette',
-            label: 'Email + SMS',
-            // Without SMS the group is only email, and says so.
-            labelKey: isOn('sms') ? 'admin.nav.email' : 'admin.nav.email_only',
-            allowRoles: [this.constantVariables.ADMIN],
-            subItems: [
-                { label: 'Brand Kit', labelKey: 'admin.nav.brand_kit', route: '/admin/email/brand-kit', icon: 'fa-solid fa-palette' },
-                { label: 'Composer', labelKey: 'admin.nav.composer', route: '/admin/email/composer', icon: 'fa-solid fa-pen-ruler' },
-                { label: 'Broadcasts', labelKey: 'admin.nav.broadcasts', route: '/admin/email/broadcasts', icon: 'fa-solid fa-tower-broadcast', feature: 'email-marketing' },
-                { label: 'Drip Campaigns', labelKey: 'admin.nav.drip_campaigns', route: '/admin/email/drip-campaigns', icon: 'fa-solid fa-droplet', feature: 'email-marketing' },
-                { label: 'Announcements', labelKey: 'admin.nav.announcements', route: '/admin/email/announcements', icon: 'fa-solid fa-bullhorn', feature: 'email-marketing' },
-                { label: 'Email Logs', labelKey: 'admin.nav.email_logs', route: '/admin/email-logs', icon: 'fa-solid fa-envelope-open-text' },
-                { label: 'SMS Logs', labelKey: 'admin.nav.sms_logs', route: '/admin/sms-logs', icon: 'fa-solid fa-comment-sms', feature: 'sms' },
-            ],
-        },
-        {
-            icon: 'fa-solid fa-comment-dots',
-            label: 'Feedback',
-            labelKey: 'admin.nav.feedback',
-            route: '/admin/feedback',
-            allowRoles: [this.constantVariables.ADMIN],
-        },
-        {
-            icon: 'fa-solid fa-envelope',
-            label: 'Messages',
-            labelKey: 'admin.nav.messages',
-            route: '/admin/messages',
-            allowRoles: [this.constantVariables.ADMIN],
-            feature: 'contact',
-        },
-        {
-            icon: 'fa-solid fa-box-open',
-            label: 'Products',
-            labelKey: 'admin.nav.products',
-            route: '/admin/products',
-            allowRoles: [this.constantVariables.ADMIN],
-            feature: 'payments',
-        },
-        {
-            icon: 'fa-solid fa-receipt',
-            label: 'Transactions',
-            labelKey: 'admin.nav.transactions',
-            route: '/admin/transactions',
-            allowRoles: [this.constantVariables.ADMIN],
-            feature: 'payments',
-        },
-        {
-            icon: 'fa-solid fa-database',
-            label: 'Data',
-            labelKey: 'admin.nav.data',
-            allowRoles: [this.constantVariables.ADMIN],
-            feature: 'data',
-            subItems: [
-                { label: 'Export Data', labelKey: 'admin.nav.export_data', route: '/admin/data/export-data', icon: 'fa-solid fa-file-export' },
-                { label: 'Import Data', labelKey: 'admin.nav.import_data', route: '/admin/data/import-data', icon: 'fa-solid fa-file-import' },
-                { label: 'Export Files', labelKey: 'admin.nav.export_files', route: '/admin/data/export-files', icon: 'fa-solid fa-cloud-arrow-down' },
-                { label: 'Import Files', labelKey: 'admin.nav.import_files', route: '/admin/data/import-files', icon: 'fa-solid fa-cloud-arrow-up' },
-            ],
-        },
-        {
-            icon: 'fa-solid fa-user',
-            label: 'Profile',
-            labelKey: 'admin.nav.profile',
-            route: '/admin/profile',
-            allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER],
-        },
-        {
-            icon: 'fa-solid fa-gear',
-            label: 'Settings',
-            labelKey: 'admin.nav.settings',
-            route: '/admin/settings',
-            allowRoles: [this.constantVariables.ADMIN],
-        },
-        {
-            icon: 'fa-solid fa-circle-info',
-            label: 'About',
-            labelKey: 'admin.nav.about',
-            externalUrl: 'https://arccms.com/about',
-            allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER],
-        },
-        {
-            icon: 'fa-solid fa-right-from-bracket',
-            label: 'Logout',
-            labelKey: 'admin.nav.logout',
-            route: '',
-            allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER],
-        },
-    ];
+    /** Arc CMS's own items (src/app/core/nav/admin-menu.ts). */
+    baseMenuItems: MenuItem[] = coreAdminItems();
 
     menuItems = computed(() => {
         const types = this.contentTypesStore.items();
@@ -366,18 +185,7 @@ export default class NavbarComponent extends BaseComponent {
             route: `/admin/contents/${t.slug}`,
         })).sort((a: MenuItem, b: MenuItem) => (a.label || '').localeCompare(b.label || ''));
 
-        const contentGroup: MenuItem = {
-            icon: 'fa-solid fa-layer-group',
-            label: 'Content',
-            labelKey: 'admin.nav.content',
-            allowRoles: [this.constantVariables.ADMIN],
-            feature: 'content',
-            subItems: [
-                { label: 'Content types', labelKey: 'admin.nav.content_types', route: '/admin/contents/content-types', icon: 'fa-solid fa-newspaper' },
-                { label: 'Authors', labelKey: 'admin.nav.authors', route: '/admin/authors', icon: 'fa-solid fa-user-pen' },
-                ...contentTypeLinks,
-            ],
-        };
+        const contentGroup = adminContentGroup(contentTypeLinks);
 
         // Dynamic waitlist items
         const waitlists = this.waitlistAdminStore.items();
@@ -412,23 +220,26 @@ export default class NavbarComponent extends BaseComponent {
         ]);
         // The app's own items (src/custom/nav.ts), before Profile.
         insertCustomNav(items, withoutFeaturesOff(CUSTOM_NAV));
-        // Add separator before Profile (find its index)
-        const profileIndex = items.findIndex(i => i.label === 'Profile');
-        if (profileIndex > -1) {
-            items.splice(profileIndex, 0, { label: '', separator: true, allowRoles: [this.constantVariables.ADMIN, this.constantVariables.USER] });
-        }
+        // Then the app's changes for this person's role (src/custom/nav.ts), which can
+        // neither bring back an item of a feature that is off nor take away Profile or Logout.
+        const changed = applyNavChanges(items, CUSTOM_NAV_CHANGES.admin, this.authStore.currentUser()?.role, ADMIN_LOCKS);
+        // A separator before Profile, wherever it is; then none leading, trailing or doubled.
+        const profileIndex = changed.findIndex(i => i.id === 'profile');
+        if (profileIndex > -1) changed.splice(profileIndex, 0, separator());
+        const menu = withoutFeaturesOff(changed);
 
         // Resolve each group's open state: honour explicit user toggles, otherwise
         // auto-expand the group whose child matches the current route so the active
         // item stays visible after the page loads.
         const url = this.currentUrl();
         const toggles = this.manualToggles();
-        for (const item of items) {
+        for (const item of menu) {
             if (!item.subItems?.length) continue;
             const containsActiveRoute = item.subItems.some(sub => this.isUrlUnder(url, sub.route));
-            item.isOpen = item.label in toggles ? toggles[item.label] : containsActiveRoute;
+            const key = groupKey(item);
+            item.isOpen = key in toggles ? toggles[key] : containsActiveRoute;
         }
-        return items;
+        return menu;
     });
 
     /** A menu item's display label: translated when we authored it, data otherwise. */
@@ -465,8 +276,8 @@ export default class NavbarComponent extends BaseComponent {
             const nextOpen = !item.isOpen;
             item.isOpen = nextOpen;
             // Remember the explicit choice so a route-driven recompute doesn't override it.
-            this.manualToggles.update(toggles => ({ ...toggles, [item.label]: nextOpen }));
-        } else if (item.label === 'Logout') {
+            this.manualToggles.update(toggles => ({ ...toggles, [groupKey(item)]: nextOpen }));
+        } else if (item.id === 'logout') {
             this.confirmLogout();
         }
         if (this.drawerMode === 'over' && item.route) {

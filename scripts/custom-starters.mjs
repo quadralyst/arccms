@@ -25,7 +25,7 @@ export const CUSTOM_STARTERS = [
     { file: 'src/custom/features.ts', exports: { CUSTOM_FEATURES: {} } },
     { file: 'src/custom/home.ts', exports: { CUSTOM_HOME: {} } },
     { file: 'src/custom/languages.ts', exports: { MEMBER_LANGUAGES: [] } },
-    { file: 'src/custom/nav.ts', exports: { CUSTOM_NAV: [] } },
+    { file: 'src/custom/nav.ts', exports: { CUSTOM_NAV: [], CUSTOM_NAV_CHANGES: {} } },
     { file: 'src/custom/pwa.ts', exports: { CUSTOM_PWA: {} } },
     { file: 'src/custom/routes.ts', exports: { CUSTOM_ROUTES: [] } },
     { file: 'src/custom/sign-in.ts', exports: { CUSTOM_SIGN_IN: {} } },
