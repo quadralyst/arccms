@@ -195,7 +195,7 @@ describe('EditorImageUploadService', () => {
             service.showError(pdf, new MediaFileUploadError('size', 31 * 1024 * 1024));
             expect(notify.error).toHaveBeenCalledWith('admin.media.files.error_size', { name: 'Brochure.pdf', size: '31.0 MB' });
             service.showUnsupported(new File(['x'], '<b>.html', { type: 'text/html' }));
-            expect(notify.error).toHaveBeenCalledWith('admin.media.files.error_type', { name: '&#60;b&#62;.html' });
+            expect(notify.error).toHaveBeenCalledWith('admin.media.files.error_type', { name: '<b>.html' });
         });
     });
 });

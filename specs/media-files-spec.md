@@ -1,6 +1,6 @@
 # Documents in the Media Library, and Images from PDFs: Build Spec (MF)
 
-**Status:** SPEC, agreed with Gunjan 2026-10-11; details and search added the same day. Being built.
+**Status:** BUILT 2026-10-11 (MF1 to MF5), browser-tested on the xlm dev project, reviewed. Not merged.
 **Branch:** `feat/media-files`, cut from `dev` (45be9e8, brought up to a805ec6), worktree `../arccms-media-files`.
 
 **Scope:**
@@ -229,12 +229,13 @@ before the phase closes. New admin strings go in English and Hindi, then
    excludes `mediaFiles`.
 4. `FileUploadService`: `uploadDocument(file, progress)` (type by extension, cap, content
    type and disposition set, PDF thumbnail and page count through a lazily loaded pdf.js
-   helper, `src/shared/utils/pdf-pages.ts`), `deleteMediaFile(id)` (file, thumbnail, doc).
-   `MediaManagerService`: a live, paged list of `mediaFiles` by `uploadTime`, and title
-   updates.
+   helper, `src/shared/utils/pdf-pages.ts`). `MediaFilesService` (as built): a paged list
+   of `mediaFiles` by `uploadTime`, details updates, and `deleteFile(id)` (file, thumbnail,
+   doc).
 5. Files tab, upload card, file cards, preview panel, delete, copy link (section 4). A
    document dropped on My Uploads goes to Files (MF-D11).
-6. Data > Export Files and Import Files include `mediaFiles` and their thumbnails.
+6. Data > Export Files and Import Files include `mediaFiles` (as built: the file and its
+   details travel; the first-page thumbnail is drawn again on import, not exported).
 7. Tests: the helpers; `uploadDocument` (type by extension, refused types, the cap,
    disposition, thumbnail skipped for a locked PDF); the tab and preview; a test that the
    storage rules and the allowed-files table agree; rules tests for `mediaFiles` (types,

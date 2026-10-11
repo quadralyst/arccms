@@ -375,6 +375,29 @@ export class FileUploadService {
     }
 
     /**
+     * Removes stored files whose library record could not be written, so no
+     * file is left that no tab lists and nobody can delete. Best effort: a
+     * file already gone is fine, and a failure here is only logged.
+     */
+    async removeStored(paths: (string | undefined)[]): Promise<void> {
+        for (const path of new Set(paths.filter((p): p is string => !!p))) {
+            try {
+                await deleteObject(ref(this.storage, path));
+            } catch (error: any) {
+                if (error?.code !== 'storage/object-not-found') console.warn(`Could not remove ${path}:`, error);
+            }
+        }
+    }
+
+    /** The Storage paths of an upload: every size, or the one file of a GIF. */
+    static storedPaths(media: UploadedMedia | UploadedDocument): string[] {
+        if ('path' in media) return [media.path, media.thumbnail?.path].filter((p): p is string => !!p);
+        if (media.variants) return Object.values(media.variants).map((v) => v.path);
+        const match = /\/o\/([^?#]+)/.exec(media.downloadURL);
+        return match ? [decodeURIComponent(match[1])] : [];
+    }
+
+    /**
      * Uploads a document to the Files tab (docs/features/media.html, Files):
      * the type from its extension (MF-D6), at most 20 MB, stored as it is
      * under `mediaFiles/` with the content type and the open-or-download

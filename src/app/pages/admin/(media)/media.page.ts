@@ -803,20 +803,35 @@ export default class MediaManagerComponent extends BaseComponent {
     }
 
     /** An upload's title, alt text or notes changed in the side panel. */
+    /**
+     * An upload's title, alt text or notes changed in the side panel. The
+     * change shows at once, before the save finishes: a field saves when it
+     * loses focus, which is also when Insert is clicked, and the insert must
+     * carry the alt text just typed. A failed save puts the old values back.
+     */
     async onImageDetailsChanged(change: MediaDetailsChange): Promise<void> {
         const media = this.selectedMediaUrl;
         if (!media || media.urls) return;
+        const before: MediaDetailsChange = {};
+        for (const key of Object.keys(change) as (keyof MediaDetailsChange)[]) before[key] = media[key] ?? '';
+        this.applyImageDetails(media.id, change);
         try {
             await this.mediaManagerService.saveMediaDetails(media.id, change);
-            const apply = <T extends SelectableMedia>(item: T): T => (item.id === media.id ? { ...item, ...change } : item);
-            this.selectedMediaUrl = apply(media);
-            this.searchResults = (this.searchResults as SelectableMedia[]).map(apply) as MediaItem[];
-            this.allImages = this.allImages?.map(apply) ?? null;
-            this.selectedMediaList = this.selectedMediaList.map(apply);
         } catch (error) {
             console.error('Failed to save image details:', error);
             this.notify.error('admin.media.details.save_failed');
+            this.applyImageDetails(media.id, before);
         }
+        this.ref.detectChanges();
+    }
+
+    /** Puts details on an upload wherever the page holds it; the selection only if it is still selected. */
+    private applyImageDetails(id: string, change: MediaDetailsChange): void {
+        const apply = <T extends SelectableMedia>(item: T): T => (item.id === id ? { ...item, ...change } : item);
+        if (this.selectedMediaUrl?.id === id) this.selectedMediaUrl = apply(this.selectedMediaUrl);
+        this.searchResults = (this.searchResults as SelectableMedia[]).map(apply) as MediaItem[];
+        this.allImages = this.allImages?.map(apply) ?? null;
+        this.selectedMediaList = this.selectedMediaList.map(apply);
         this.ref.detectChanges();
     }
 
@@ -841,8 +856,9 @@ export default class MediaManagerComponent extends BaseComponent {
         return this.selectedFiles.map((f) => f.id);
     }
 
+    /** A file's details changed in its panel; another file may be selected by now. */
     onFileChanged(file: IMediaFile): void {
-        this.selectedFile = file;
+        if (this.selectedFile?.id === file.id) this.selectedFile = file;
         this.selectedFiles = this.selectedFiles.map((f) => (f.id === file.id ? file : f));
         this.filesTab?.replace(file);
         this.ref.detectChanges();
@@ -990,7 +1006,7 @@ export default class MediaManagerComponent extends BaseComponent {
             }
             const typeError = this.fileUploadService.validateFileType(file);
             if (typeError) {
-                this.toastService.error(`${escapeHtml(file.name)}: ${typeError}`);
+                this.toastService.error(`${file.name}: ${typeError}`);
             } else {
                 validFiles.push(file);
             }

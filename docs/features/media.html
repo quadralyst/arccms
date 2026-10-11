@@ -208,6 +208,7 @@
         <tr><td>"this type of file can't be uploaded"</td><td>Files takes PDF, Word, Excel, PowerPoint, CSV and text files. Save other documents in one of those formats; put images in <strong>My Uploads</strong>.</td></tr>
         <tr><td>"... is 24.9 MB. Files can be up to 20 MB."</td><td>Make the file smaller (in a PDF program, save a reduced-size copy) or split it.</td></tr>
         <tr><td>A PDF shows an icon, not its first page</td><td>It is locked with a password or could not be read. It still works as a link; <strong>Take an image</strong> needs an unlocked copy.</td></tr>
+        <tr><td>Part of a PDF page is blank in Take an image, or its text looks different</td><td>The page uses a JPEG 2000 picture or a font the PDF does not carry (common in Chinese, Japanese and Korean PDFs). Pages are drawn in the browser without extra decoders or font data, so those parts can be missing. Export the page to an image in a PDF program and upload that instead.</td></tr>
         <tr><td>"This PDF is locked with a password"</td><td>Remove the password (print or export an unlocked copy), then upload or drop that.</td></tr>
         <tr><td>"Could not read the PDF" on Take an image</td><td>The network dropped, the functions are not deployed since files were added (<code>readMediaFile</code> is missing), or the account is not an admin.</td></tr>
         <tr><td>A search finds nothing you expected</td><td>Every word must match. Older images have no title or notes until you add them; their file name still matches.</td></tr>

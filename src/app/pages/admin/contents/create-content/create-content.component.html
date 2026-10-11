@@ -796,7 +796,7 @@
                             <!-- File (media modal, Files tab): always a list of files (MF-D18) -->
                             @else if (field.type === 'file') {
                             <div class="custom-file-field">
-                                @for (file of fieldFiles(field.key); track file.url; let i = $index; let first = $first; let last = $last) {
+                                @for (file of fieldFiles(field.key); track $index; let i = $index; let first = $first; let last = $last) {
                                 <div class="custom-file-row">
                                     <i [class]="fileIcons[file.type] || 'fa-solid fa-file'" aria-hidden="true"></i>
                                     <div class="custom-file-text">

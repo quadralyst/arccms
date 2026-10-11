@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TranslocoTestingModule } from '@jsverse/transloco';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 const openPdf = vi.fn();
 vi.mock('../../../../../shared/utils/pdf-pages', async (importOriginal) => ({
@@ -52,7 +52,7 @@ describe('PdfImageTakerComponent (MF3, MF4)', () => {
             destroy: vi.fn().mockResolvedValue(undefined),
         };
         openPdf.mockResolvedValue(pdf);
-        upload = { uploadFile: vi.fn().mockResolvedValue({ downloadURL: 'https://x/img-xl.webp', name: 'img-xl.webp', uploadTime: new Date(), title: 'Brochure p2' }) };
+        upload = { removeStored: vi.fn().mockResolvedValue(undefined), uploadFile: vi.fn().mockResolvedValue({ downloadURL: 'https://x/img-xl.webp', name: 'img-xl.webp', uploadTime: new Date(), title: 'Brochure p2' }) };
         store = { addBatch: vi.fn(() => of(['img1'])) };
         notify = { success: vi.fn(), error: vi.fn() };
     });
@@ -114,6 +114,30 @@ describe('PdfImageTakerComponent (MF3, MF4)', () => {
         taker.onCropRect({ x: 0, y: 0, width: 10, height: 10 });
         await taker.save();
         expect(store.addBatch.mock.calls[0][0][0].source).toBeUndefined();
+    });
+
+    it('takes the stored image back out when its library record cannot be written', async () => {
+        const fixture = create();
+        const taker = fixture.componentInstance;
+        upload.uploadFile.mockResolvedValue({ downloadURL: 'u', name: 'n', uploadTime: new Date(), variants: { s: { path: 'a-s' }, m: { path: 'a-m' }, l: { path: 'a-l' }, xl: { path: 'a-xl' } } });
+        store.addBatch.mockReturnValue(throwError(() => new Error('denied')));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        await flush();
+        await taker.openPage(1);
+        taker.onCropRect({ x: 0, y: 0, width: 10, height: 10 });
+        await taker.save();
+        expect(upload.removeStored).toHaveBeenCalledWith(['a-s', 'a-m', 'a-l', 'a-xl']);
+        expect(notify.error).toHaveBeenCalledWith('admin.media.pdf.save_failed', expect.anything());
+        expect(taker.saving()).toBe(false);
+    });
+
+    it('keeps only the latest page view in memory', async () => {
+        const fixture = create();
+        const taker = fixture.componentInstance;
+        await flush();
+        await taker.openPage(1);
+        await taker.openPage(2);
+        expect(URL.revokeObjectURL).toHaveBeenCalled();
     });
 
     it('frees the PDF when closed', async () => {

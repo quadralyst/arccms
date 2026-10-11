@@ -19,7 +19,6 @@ import { FileUploadService, MediaUploadSettings, UploadedMedia } from '../../../
 import { NotifyService } from '../../../../../shared/services/notify.service';
 import { CROP_RATIOS, CropRatio, CropRect, cropRatioValue } from '../../../../../shared/utils/image-crop';
 import { frameToPdfRect, openPdf, PdfDocument, PdfOpenError, saveScale } from '../../../../../shared/utils/pdf-pages';
-import { escapeHtml } from '../../../../../shared/utils/escape-html';
 import { MediaManagerStore } from '../media-manager.store';
 
 /** Where the PDF comes from: a file on the admin's computer, or one in the library. */
@@ -107,6 +106,7 @@ export class PdfImageTakerComponent {
     private drawing = false;
     private destroyed = false;
     private objectUrls: string[] = [];
+    private cropObjectUrl: string | null = null;
 
     readonly ratioNumber = computed(() => {
         const size = this.cropImageSize();
@@ -243,7 +243,7 @@ export class PdfImageTakerComponent {
             const drawing = await this.pdf.renderPage(page, CROP_VIEW_SIZE, 'image/jpeg');
             if (this.destroyed || this.cropPage() !== page) return;
             this.cropScale = drawing.scale;
-            this.cropUrl.set(this.objectUrl(drawing.blob));
+            this.cropUrl.set(this.objectUrl(drawing.blob, 'crop'));
         } catch (error) {
             console.error(`Could not draw page ${page}:`, error);
             this.notify.error('admin.media.pdf.page_failed');
@@ -299,7 +299,14 @@ export class PdfImageTakerComponent {
                 title: this.i18n.translate('admin.media.pdf.image_title', { title: source.title, page }),
             };
             if (source.fileId) record.source = { fileId: source.fileId, page };
-            const [id] = await firstValueFrom(this.mediaStore.addBatch([record]));
+            let id: string;
+            try {
+                [id] = await firstValueFrom(this.mediaStore.addBatch([record]));
+            } catch (error) {
+                // An image no tab lists could never be found or deleted: take it back out.
+                await this.fileUpload.removeStored(FileUploadService.storedPaths(uploaded));
+                throw error;
+            }
             if (this.destroyed) return;
             this.savedCount.update((n) => n + 1);
             this.saved.emit({ id, media: record });
@@ -310,7 +317,7 @@ export class PdfImageTakerComponent {
             console.error('Could not save the image from the PDF:', error);
             if (this.destroyed) return;
             this.saving.set(false);
-            this.notify.error('admin.media.pdf.save_failed', { reason: error instanceof Error ? escapeHtml(error.message) : '' });
+            this.notify.error('admin.media.pdf.save_failed', { reason: error instanceof Error ? error.message : '' });
         }
     }
 
@@ -324,9 +331,18 @@ export class PdfImageTakerComponent {
         this.keepInFiles.emit();
     }
 
-    private objectUrl(blob: Blob): string {
+    /**
+     * A blob URL, freed on teardown. The crop view's page is large (1600 px),
+     * so only the latest is kept: opening another page frees the last one.
+     */
+    private objectUrl(blob: Blob, kind: 'thumb' | 'crop' = 'thumb'): string {
         const url = URL.createObjectURL(blob);
-        this.objectUrls.push(url);
+        if (kind === 'crop') {
+            if (this.cropObjectUrl) URL.revokeObjectURL(this.cropObjectUrl);
+            this.cropObjectUrl = url;
+        } else {
+            this.objectUrls.push(url);
+        }
         return url;
     }
 
@@ -336,6 +352,8 @@ export class PdfImageTakerComponent {
         this.queue = [];
         this.objectUrls.forEach((url) => URL.revokeObjectURL(url));
         this.objectUrls = [];
+        if (this.cropObjectUrl) URL.revokeObjectURL(this.cropObjectUrl);
+        this.cropObjectUrl = null;
         void this.pdf?.destroy();
         this.pdf = null;
     }

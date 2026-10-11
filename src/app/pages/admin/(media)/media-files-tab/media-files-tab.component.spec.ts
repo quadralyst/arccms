@@ -45,7 +45,7 @@ describe('MediaFilesTabComponent', () => {
             addBatch: vi.fn(() => of(['new1'])),
             rememberBytes: vi.fn(),
         };
-        upload = { uploadDocument: vi.fn() };
+        upload = { uploadDocument: vi.fn(), removeStored: vi.fn().mockResolvedValue(undefined) };
         notify = { error: vi.fn(), success: vi.fn(), info: vi.fn() };
     });
 
@@ -90,17 +90,19 @@ describe('MediaFilesTabComponent', () => {
         await tab.upload([new File(['x'], 'big.pdf'), new File(['x'], '<b>.html'), new File(['x'], 'ok.pdf')]);
 
         expect(notify.error).toHaveBeenCalledWith('admin.media.files.error_size', { name: 'big.pdf', size: '31.0 MB' });
-        expect(notify.error).toHaveBeenCalledWith('admin.media.files.error_type', { name: '&lt;b&gt;.html' });
+        expect(notify.error).toHaveBeenCalledWith('admin.media.files.error_type', { name: '<b>.html' });
         expect(files.addBatch).toHaveBeenCalledWith([expect.objectContaining({ id: 'ok' })]);
     });
 
     it('says so when the files are stored but not added to the library', async () => {
         const fixture = create();
-        upload.uploadDocument.mockResolvedValue(record('x', 'X'));
+        upload.uploadDocument.mockResolvedValue(record('x', 'X', { thumbnail: { url: 't', path: 'mediaFiles/x-thumb.jpg', width: 1, height: 1 } }));
         files.addBatch.mockReturnValue(throwError(() => new Error('denied')));
         vi.spyOn(console, 'error').mockImplementation(() => {});
         await fixture.componentInstance.upload([new File(['x'], 'x.pdf')]);
         expect(notify.error).toHaveBeenCalledWith('admin.media.files.metadata_failed');
+        // Files no tab lists could never be deleted: they are taken back out.
+        expect(upload.removeStored).toHaveBeenCalledWith(['mediaFiles/x.pdf', 'mediaFiles/x-thumb.jpg']);
     });
 
     it('searches every file once, by title and notes (MF-D23)', async () => {

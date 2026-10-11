@@ -34,7 +34,8 @@
     </div>
 </div>
 
-<arc-media-details [item]="f" [fallbackTitle]="f.name" (changed)="save($event)"></arc-media-details>
+<!-- A cleared title goes back to the current one: a file's title is its link text and download name. -->
+<arc-media-details [item]="f" [fallbackTitle]="f.title" (changed)="save($event)"></arc-media-details>
 
 <div class="file-panel-actions">
     <button type="button" class="btn btn-outline-secondary btn-sm" id="fileCopyLinkBtn" (click)="copyLink()">

@@ -72,7 +72,7 @@ export class EditorImageUploadService {
 
     /** A dropped file that is neither an image nor a document the library takes. */
     showUnsupported(file: File): void {
-        this.notify.error('admin.media.files.error_type', { name: escapeHtml(file.name) });
+        this.notify.error('admin.media.files.error_type', { name: file.name });
     }
 
     /** What the placeholder says while `file` uploads. */
@@ -87,7 +87,7 @@ export class EditorImageUploadService {
      */
     showError(file: File, error: unknown): void {
         if (error instanceof MediaFileUploadError) {
-            const name = escapeHtml(file.name);
+            const name = file.name;
             if (error.problem === 'type') this.notify.error('admin.media.files.error_type', { name });
             else this.notify.error('admin.media.files.error_size', { name, size: formatBytes(error.bytes) });
             return;

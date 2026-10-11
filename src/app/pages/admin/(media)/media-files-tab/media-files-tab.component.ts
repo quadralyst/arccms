@@ -7,7 +7,6 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { FileUploadService, MediaFileUploadError, UploadedDocument } from '../../../../../shared/services/file-upload.service';
 import { NotifyService } from '../../../../../shared/services/notify.service';
-import { escapeHtml } from '../../../../../shared/utils/escape-html';
 import { ALLOWED_FILE_ACCEPT, fileMeta, formatBytes, MEDIA_FILE_TYPE_ICONS } from '../../../../../shared/utils/media-files';
 import { filterBySearch } from '../../../../../shared/utils/media-search';
 import { IMediaFile } from '../media-files.model';
@@ -153,6 +152,8 @@ export class MediaFilesTabComponent {
             } catch (error) {
                 console.error('Failed to save file details:', error);
                 this.notify.error('admin.media.files.metadata_failed');
+                // Unlisted files could never be found or deleted: take them back out.
+                await this.fileUpload.removeStored(done.flatMap((d) => FileUploadService.storedPaths(d)));
             }
         }
 
@@ -167,7 +168,7 @@ export class MediaFilesTabComponent {
     }
 
     private reportUploadError(file: File, error: unknown): void {
-        const name = escapeHtml(file.name);
+        const name = file.name;
         if (error instanceof MediaFileUploadError) {
             if (error.problem === 'type') this.notify.error('admin.media.files.error_type', { name });
             else this.notify.error('admin.media.files.error_size', { name, size: formatBytes(error.bytes) });

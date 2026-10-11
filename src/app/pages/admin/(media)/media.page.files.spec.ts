@@ -250,6 +250,47 @@ describe('MediaManagerComponent documents', () => {
             expect(component.isLibrarySearching).toBe(false);
         });
 
+        it('applies alt text before the save finishes, so an Insert that blurred the field carries it', async () => {
+            await create({ isDialogOpen: true });
+            let finish!: () => void;
+            mediaService.saveMediaDetails.mockReturnValue(new Promise<void>((r) => { finish = r; }));
+            component.selectMedia({ id: 'i1', url: 'https://x/i1', name: 'i1.webp' });
+            const saving = component.onImageDetailsChanged({ alt: 'Lamps' });
+            component.insertMedia();
+            expect(dialogRef.close.mock.calls[0][0]).toMatchObject({ alt: 'Lamps' });
+            finish();
+            await saving;
+        });
+
+        it('keeps the newly selected item when a slow save of the previous one finishes', async () => {
+            await create({ isDialogOpen: false });
+            let finish!: () => void;
+            mediaService.saveMediaDetails.mockReturnValue(new Promise<void>((r) => { finish = r; }));
+            component.selectMedia({ id: 'i1', url: 'https://x/i1' });
+            const saving = component.onImageDetailsChanged({ title: 'First' });
+            component.selectMedia({ id: 'i2', url: 'https://x/i2' });
+            finish();
+            await saving;
+            expect(component.selectedMediaUrl?.id).toBe('i2');
+        });
+
+        it('puts the old details back when the save fails', async () => {
+            await create({ isDialogOpen: false });
+            mediaService.saveMediaDetails.mockRejectedValue(new Error('denied'));
+            vi.spyOn(console, 'error').mockImplementation(() => {});
+            component.selectMedia({ id: 'i1', url: 'https://x/i1', alt: 'Old' });
+            await component.onImageDetailsChanged({ alt: 'New' });
+            expect(component.selectedMediaUrl?.alt).toBe('Old');
+            expect(component.notify.error).toHaveBeenCalledWith('admin.media.details.save_failed');
+        });
+
+        it('does not switch the file panel back to a file saved after another was picked', async () => {
+            await create({ isDialogOpen: false });
+            component.selectFile(prices);
+            component.onFileChanged({ ...report, title: 'Renamed' });
+            expect(component.selectedFile?.id).toBe('f2');
+        });
+
         it('shows a file\'s own title, else its name', async () => {
             await create({ isDialogOpen: false });
             expect(component.imageTitle({ id: 'x', title: 'Shop', name: 'a.webp' })).toBe('Shop');

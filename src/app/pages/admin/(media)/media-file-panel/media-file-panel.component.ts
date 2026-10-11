@@ -47,14 +47,19 @@ export class MediaFilePanelComponent {
         return formatBytes(file.bytes);
     }
 
+    /**
+     * Saves a details change. It shows at once (Insert may be the click that
+     * saved it); a failed save puts the file back as it was.
+     */
     async save(change: MediaDetailsChange): Promise<void> {
         const file = this.file();
+        this.changed.emit({ ...file, ...change } as IMediaFile);
         try {
             await this.files.saveDetails(file, change);
-            this.changed.emit({ ...file, ...change } as IMediaFile);
         } catch (error) {
             console.error('Failed to save file details:', error);
             this.notify.error('admin.media.details.save_failed');
+            this.changed.emit(file);
         }
     }
 

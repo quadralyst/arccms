@@ -406,4 +406,22 @@ describe('FileUploadService', () => {
         const result = await service.uploadFile(gif, undefined, vi.fn());
         expect(result.title).toBe('Party Time');
     });
+
+    describe('removeStored and storedPaths', () => {
+        it('removes each path once, ignoring a file already gone', async () => {
+            (ref as any).mockImplementation((_s: unknown, path: string) => ({ fullPath: path }));
+            (deleteObject as any).mockRejectedValueOnce({ code: 'storage/object-not-found' }).mockResolvedValue(undefined);
+            await service.removeStored(['a', 'a', undefined, 'b']);
+            expect((deleteObject as any).mock.calls.map((c: any[]) => c[0].fullPath)).toEqual(['a', 'b']);
+        });
+
+        it('lists every stored file of an image, a GIF and a document', () => {
+            const sized = { downloadURL: 'u', name: 'n', uploadTime: new Date(), variants: { s: { path: 'p-s' }, m: { path: 'p-m' }, l: { path: 'p-l' }, xl: { path: 'p-xl' } } } as any;
+            expect(FileUploadService.storedPaths(sized)).toEqual(['p-s', 'p-m', 'p-l', 'p-xl']);
+            const gif = { downloadURL: 'https://x/o/arccms%2FmediaImages%2Fparty.gif?alt=media', name: 'party.gif', uploadTime: new Date() } as any;
+            expect(FileUploadService.storedPaths(gif)).toEqual(['arccms/mediaImages/party.gif']);
+            const doc = { path: 'mediaFiles/a.pdf', thumbnail: { path: 'mediaFiles/a-thumb.jpg' } } as any;
+            expect(FileUploadService.storedPaths(doc)).toEqual(['mediaFiles/a.pdf', 'mediaFiles/a-thumb.jpg']);
+        });
+    });
 });
