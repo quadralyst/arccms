@@ -87,30 +87,23 @@
       <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
       <tbody>
         <tr><td><code>ensureWaitlistExists</code></td><td>Callable</td><td>The public signup form</td><td>Creates the form document with defaults when no form has that id or slug.</td></tr>
-        <tr><td><code>joinForm</code></td><td>Callable</td><td>Public</td><td>Finds or creates the member for an email and returns the member id, referral code and links.</td></tr>
+        <tr><td><code>joinForm</code></td><td>Callable</td><td>Public</td><td>Finds or creates the member for an email and returns the member id.</td></tr>
         <tr><td><code>requestFormOtp</code></td><td>Callable</td><td>Public, one code a minute per form and address</td><td>Emails the form's verification code.</td></tr>
         <tr><td><code>verifyFormOtp</code></td><td>Callable</td><td>Public</td><td>Checks a form's code against its expiry and attempt limit.</td></tr>
-        <tr><td><code>finalizeFormSignup</code></td><td>Callable</td><td>Public; needs a verified code when the form sends one</td><td>Completes the signup: marks the member verified and confirmed and sets the queue position.</td></tr>
-        <tr><td><code>creditReferral</code></td><td>Callable</td><td>Public</td><td>Records a referral for a referral code, refusing self-referrals and duplicates.</td></tr>
-        <tr><td><code>getPublicLeaderboard</code></td><td>Callable</td><td>Public</td><td>Returns a form's top 50 confirmed members, with masked emails, and its counts.</td></tr>
-        <tr><td><code>getPublicMemberView</code></td><td>Callable</td><td>Public</td><td>Returns one member's own record, referrals (masked) and stats.</td></tr>
+        <tr><td><code>finalizeFormSignup</code></td><td>Callable</td><td>Public; needs a verified code when the form sends one</td><td>Completes the signup: marks the member verified and confirmed and updates the form's signup count.</td></tr>
         <tr><td><code>onWaitlistsCreate</code></td><td>Firestore trigger: <code>Waitlists/{waitlistsId}</code> created</td><td>A new form</td><td>Creates the form's audience list and its default code and welcome emails.</td></tr>
         <tr><td><code>onWaitlistsUpdate</code></td><td>Firestore trigger: <code>Waitlists/{waitlistsId}</code> updated</td><td>A form change</td><td>Renames the form's audience list when the form's name changes.</td></tr>
         <tr><td><code>onWaitlistsDelete</code></td><td>Firestore trigger: <code>Waitlists/{WaitlistsId}</code> deleted</td><td>Deleting a form</td><td>Deletes the form's subcollections and its audience list.</td></tr>
         <tr><td><code>onWaitlistUserCreate</code></td><td>Firestore trigger: <code>Waitlists/{WaitlistsId}/users/{usersId}</code> created</td><td>A new member</td><td>Sends the welcome email to a member who joined directly and is already verified.</td></tr>
         <tr><td><code>onWaitlistUserUpdate</code></td><td>Firestore trigger: <code>Waitlists/{WaitlistsId}/users/{usersId}</code> updated</td><td>A member change</td><td>Sends the welcome email when the member's email becomes verified, unless a sequence sends it.</td></tr>
-        <tr><td><code>onWaitlistUserDelete</code></td><td>Firestore trigger: <code>Waitlists/{WaitlistsId}/users/{usersId}</code> deleted</td><td>Deleting a member</td><td>Lowers the referrer's count and removes the referral record.</td></tr>
-        <tr><td><code>onReferralCreate</code></td><td>Firestore trigger: <code>Waitlists/{waitlistId}/users/{memberId}/referrals/{referralsId}</code> created</td><td>A new referral</td><td>Credits the member when the referral is already completed.</td></tr>
-        <tr><td><code>onReferralUpdate</code></td><td>Firestore trigger: <code>Waitlists/{waitlistId}/users/{memberId}/referrals/{referralsId}</code> updated</td><td>A referral change</td><td>Credits the member when a pending referral becomes completed.</td></tr>
         <tr><td><code>syncOtpEnabledFlag</code></td><td>Firestore trigger: <code>EmailTemplate/{templateId}</code> written</td><td>A template change</td><td>Copies whether a form's code email is active to the form's <code>otpEnabled</code>.</td></tr>
         <tr><td><code>getWaitlistTemplateDefaults</code></td><td>Callable</td><td>Admin</td><td>Returns the default code and welcome emails, without writing.</td></tr>
-        <tr><td><code>backfillWaitlistTemplates</code></td><td>Callable</td><td>Admin</td><td>Creates missing default emails for existing forms. <code>dryRun</code> only reports.</td></tr>
+        <tr><td><code>backfillWaitlistTemplates</code></td><td>Callable</td><td>Admin</td><td>Creates missing default emails for existing forms, and gives a welcome that is still the old default with referral and leaderboard buttons the plain one. <code>dryRun</code> only reports the missing emails.</td></tr>
         <tr><td><code>normalizeWaitlistTemplateIds</code></td><td>Callable</td><td>Admin</td><td>Merges duplicate form emails onto one document per form and type. <code>dryRun</code> only reports.</td></tr>
         <tr><td><code>stampFormTargetLists</code></td><td>Callable</td><td>Admin</td><td>Sets <code>targetListIds</code> on existing forms that lack it. <code>dryRun</code> only reports.</td></tr>
-        <tr><td><code>migrateWaitlistedUsers</code></td><td>Callable</td><td>Admin</td><td>Copies older referral records from <code>WaitlistedUsers</code> to the member who earned them. <code>dryRun</code> only reports.</td></tr>
-        <tr><td><code>getOptimizedLeaderboard</code></td><td>Callable</td><td>Signed in</td><td>Returns a leaderboard from <code>WaitlistedUsers</code> or from one form's members (<code>functions/src/waitlists/leaderboard/getLeaderBoardData.ts</code>).</td></tr>
       </tbody>
     </table>
+    <p>Signup forms have no referrals or leaderboard, so these functions of older versions are gone: creditReferral, getPublicLeaderboard, getPublicMemberView, getOptimizedLeaderboard, migrateWaitlistedUsers, onReferralCreate, onReferralUpdate and onWaitlistUserDelete. A deploy of all the functions deletes them from a project that still has them (see <a href="../operations/deploy.html#functions-that-are-deleted">Functions that are deleted</a>).</p>
 
     <h2>Audience</h2>
     <p>Owned by <a href="../features/audience.html">Audience</a>. Deployed only when the <code>audience</code> feature is on. Contacts are written only by functions, so every admin change to a contact goes through a callable.</p>

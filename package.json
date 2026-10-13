@@ -33,7 +33,8 @@
     "deploy:prod": "node scripts/arc-deploy.mjs --project production --non-interactive --force && npm run seed:prod",
     "seed": "node functions/scripts/call-seed.cjs",
     "seed:dev": "node functions/scripts/call-seed.cjs dev",
-    "seed:prod": "node functions/scripts/call-seed.cjs prod"
+    "seed:prod": "node functions/scripts/call-seed.cjs prod",
+    "forms:remove-referrals": "node scripts/forms-remove-referrals.mjs"
   },
   "private": true,
   "dependencies": {

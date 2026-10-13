@@ -41,7 +41,6 @@ export const onWaitlistUserUpdate = onDocumentUpdated(
     }
 
     // Send OTP email when a returning verified user re-enters their email.
-    // This lets them verify and navigate directly to the leaderboard page.
     const verificationCodeChanged =
       oldValue.verificationCode !== newValue.verificationCode &&
       newValue.verificationCode &&

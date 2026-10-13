@@ -46,27 +46,13 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/waitlist/waitlist.component').then((m) => m.WaitlistComponent),
   },
-  {
-    path: 'leaderboard',
-    loadComponent: () =>
-      import('./pages/waitlist/leaderboard/leaderboard.component').then((m) => m.LeaderboardComponent),
-  },
-  {
-    path: 'leaderboard/:waitlistId',
-    loadComponent: () =>
-      import('./pages/waitlist/leaderboard/leaderboard.component').then((m) => m.LeaderboardComponent),
-  },
-  {
-    path: 'leaderboard/:waitlistId/:waitlisteduserid',
-    loadComponent: () =>
-      import('./pages/waitlist/leaderboard/leaderboard.component').then((m) => m.LeaderboardComponent),
-  },
+  // Signup forms have no leaderboard or member page any more (specs/form-gamification-spec.md).
+  // Their links in emails already sent open the form, where the person sees they are on the list.
+  { path: 'leaderboard', redirectTo: '', pathMatch: 'full' },
+  { path: 'leaderboard/:waitlistId', redirectTo: 'waitlist/:waitlistId', pathMatch: 'full' },
+  { path: 'leaderboard/:waitlistId/:memberId', redirectTo: 'waitlist/:waitlistId', pathMatch: 'full' },
   // Any three-segment /user URL fits, so it goes when signup forms are off.
-  ...whenOn('forms', [{
-    path: 'user/:waitlistId/:userId',
-    loadComponent: () =>
-      import('./pages/waitlist/user-details/user-details.component').then((m) => m.UserDetailsComponent),
-  }]),
+  ...whenOn('forms', [{ path: 'user/:waitlistId/:userId', redirectTo: 'waitlist/:waitlistId', pathMatch: 'full' }]),
   {
     path: 'unsubscribe/:userId',
     loadComponent: () =>

@@ -65,13 +65,6 @@
       </div>
 
       <div class="detail-row">
-        <label>Position:</label>
-        <span class="position">{{
-          user.queuePosition > 0 ? "#" + user.queuePosition : "—"
-        }}</span>
-      </div>
-
-      <div class="detail-row">
         <label>Signed Up:</label>
         <span>{{ formatDate(user.signupTimestamp) }}</span>
       </div>
@@ -94,95 +87,6 @@
         <label>{{ entry.label }}:</label>
         <span>{{ entry.value }}</span>
       </div>
-      }
-    </div>
-    }
-
-    <!-- Referral Section -->
-    <div class="section">
-      <div class="section-title">Referral Information</div>
-
-      <div class="detail-row">
-        <label>Referral Code:</label>
-        <code>{{ user.referralCode }}</code>
-      </div>
-
-      @if(user.referralLink) {
-      <div class="detail-row">
-        <label>Referral Link:</label>
-        <div class="referral-link">
-          <code class="link-text">{{ user.referralLink }}</code>
-          <button
-            class="btn-copy"
-            (click)="copyToClipboard(user.referralLink)"
-            title="Copy"
-          >
-            <i class="fas fa-copy"></i>
-          </button>
-        </div>
-      </div>
-      }
-
-      <div class="detail-row">
-        <label>Total Referrals:</label>
-        <span
-          class="referral-count"
-          [class.has-referrals]="user.totalReferrals > 0"
-        >
-          {{ user.totalReferrals }}
-        </span>
-      </div>
-
-      @if(referredByCode()) {
-      <div class="detail-row referred-by-row">
-        <label>Referred By:</label>
-        @if(isLoadingReferredBy()) {
-          <span class="text-muted"><i class="fas fa-spinner fa-spin"></i></span>
-        } @else if(referredByUser(); as referrer) {
-          <span class="referred-by-info">
-            <span>{{ referrer.firstName || referrer.email }}</span>
-            <code>{{ referredByCode() }}</code>
-          </span>
-        } @else {
-          <span class="referred-by-info">
-            <code>{{ referredByCode() }}</code>
-            <span class="external-source-badge">External Source</span>
-          </span>
-        }
-      </div>
-      }
-    </div>
-
-    <!-- Referred Users Section -->
-    @if(isLoadingReferredUsers() || referredUsers().length > 0) {
-    <div class="section">
-      <div class="section-title">Referred Users</div>
-
-      @if(isLoadingReferredUsers()) {
-        <div class="referrals-loading">
-          <i class="fas fa-spinner fa-spin"></i> Loading referrals...
-        </div>
-      } @else {
-        <div class="referral-list">
-          @for(ref of referredUsers(); track ref.id) {
-          <div class="referral-item">
-            <div class="referral-item-header">
-              <span class="referral-item-name">{{ ref.referredName || ref.referredMaskedEmail }}</span>
-              <span
-                class="status-badge"
-                [class.confirmed]="ref.status === 'completed'"
-                [class.pending]="ref.status === 'pending'"
-              >
-                {{ ref.status === 'completed' ? 'Completed' : 'Pending' }}
-              </span>
-            </div>
-            @if(ref.referredName && ref.referredMaskedEmail) {
-            <div class="referral-item-email">{{ ref.referredMaskedEmail }}</div>
-            }
-            <div class="referral-item-date">{{ formatDate(ref.completedAt || ref.createdAt) }}</div>
-          </div>
-          }
-        </div>
       }
     </div>
     }

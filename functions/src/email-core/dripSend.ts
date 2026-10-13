@@ -80,9 +80,8 @@ export async function sendDueEnrollment(
   const settings = deps.settings
     ?? ((await db.collection('Settings').doc('email').get()).data() as EmailSettings | undefined);
 
-  // Per-list merge context (U5): a form-fed list resolves the member's queue
-  // position, referral link etc. so a welcome sent as a drip step reads exactly
-  // like the old direct welcome did.
+  // Per-list merge context (U5): a form-fed list resolves the form's name, so a
+  // welcome sent as a drip step reads exactly like the old direct welcome did.
   const listContext = await resolveListContext(campaign.listId, contact['email'] as string);
 
   const result = await queueEmail({

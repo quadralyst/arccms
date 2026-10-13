@@ -33,8 +33,6 @@ const SRC_ROOT = resolve(__dirname, '..');
  * dependencies is what makes it reviewable.
  */
 const ALLOWED: Record<string, string> = {
-  'email-core/migrateWaitlistedUsers.ts':
-    'the migration itself — it reads the registry to copy historical referral records out',
   'email-core/backfillContacts.ts':
     'legacy importer — builds Contacts from pre-unification signups',
   'email-core/handleUnsubscribe.ts':
@@ -44,9 +42,6 @@ const ALLOWED: Record<string, string> = {
     + 'upgraded deployment, and leaving them would make the erasure incomplete',
   'email-core/unsubscribeLegacyLink.ts':
     'resolves /unsubscribe/:waitlistId/:userId links already sent by email',
-  'waitlists/leaderboard/getLeaderBoardData.ts':
-    'documented compatibility path — an already-deployed frontend may still pass the '
-    + 'legacy collectionName, so the callable keeps accepting it',
 };
 
 /**
@@ -114,12 +109,11 @@ describe('WaitlistedUsers is retired (source scan)', () => {
       + `with a reason:\n  ${offenders.join('\n  ')}`).toEqual([]);
   });
 
-  it('is never written outside the migration', () => {
+  it('is never written', () => {
     const writers: string[] = [];
 
     for (const file of files) {
       const rel = relative(SRC_ROOT, file);
-      if (rel === 'email-core/migrateWaitlistedUsers.ts') continue;
       const content = codeOnly(readFileSync(file, 'utf-8'));
       if (WRITE_PATTERNS.some((p) => p.test(content))) writers.push(rel);
     }

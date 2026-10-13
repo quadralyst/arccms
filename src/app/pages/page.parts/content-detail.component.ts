@@ -984,7 +984,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private refreshLiveParts(): void {
         this.liveScript?.remove();
         const host = this.document.querySelector('arc-content-detail');
-        this.liveScript = host ? attachLiveParts(host, this.document, this.sitePages.pages()) : null;
+        this.liveScript = host ? attachLiveParts(host, this.document, this.sitePages.pages(), this.uiStrings.strings()) : null;
     }
 
     /**

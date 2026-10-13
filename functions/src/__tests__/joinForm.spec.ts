@@ -113,18 +113,21 @@ describe('joinForm', () => {
       const res = await call({ waitlistId: FORM, email: 'new@example.com', firstName: 'New' });
 
       expect(memberCount()).toBe(1);
-      expect(res.memberId).toBeTruthy();
-      expect(res.referralCode).toMatch(/^[A-Z2-9]{8}$/);
+      expect(res).toEqual({ memberId: expect.any(String) });
     });
 
-    it('sets waitlistedUserId to the member id rather than a registry id (U6)', async () => {
-      // The field is kept and populated because ~40 places build public links from it.
-      // getPublicMemberView resolves either shape, so links already sent by email — which
-      // carry a legacy registry id — keep working.
-      const res = await call({ waitlistId: FORM, email: 'new@example.com' });
+    // specs/form-gamification-spec.md: signup forms are plain.
+    it('writes no referral code, links, position, masked address or referrer', async () => {
+      const res = await call({
+        waitlistId: FORM, email: 'someone@example.com', origin: 'https://site.example', referredBy: 'CODE1',
+      });
 
-      expect(res.waitlistedUserId).toBe(res.memberId);
-      expect(store.get(`Waitlists/${FORM}/users/${res.memberId}`).waitlistedUserId).toBe(res.memberId);
+      const member = store.get(`Waitlists/${FORM}/users/${res.memberId}`);
+      for (const field of ['referralCode', 'referralLink', 'leaderboardLink', 'queuePosition', 'totalReferrals',
+        'maskedEmail', 'referredBy', 'waitlistedUserId']) {
+        expect(member, field).not.toHaveProperty(field);
+      }
+      expect(member.waitlistId).toBe(FORM);
     });
 
     it('starts unconfirmed and unverified', async () => {
@@ -133,7 +136,6 @@ describe('joinForm', () => {
       const member = store.get(`Waitlists/${FORM}/users/${res.memberId}`);
       expect(member.isConfirmed).toBe(false);
       expect(member.emailVerified).toBe(false);
-      expect(member.queuePosition).toBe(0);
     });
 
     it('lower-cases the address so casing cannot create a second member', async () => {
@@ -144,17 +146,6 @@ describe('joinForm', () => {
       expect(memberCount()).toBe(1);
     });
 
-    it('keys leaderboardLink on the member id', async () => {
-      const res = await call({
-        waitlistId: FORM, email: 'new@example.com', origin: 'https://site.example',
-      });
-
-      // Keyed on the member id now that no registry record is created.
-      expect(res.leaderboardLink).toBe(
-        `https://site.example/leaderboard/${FORM}/${res.memberId}`,
-      );
-    });
-
     it("applies the form's default tag server-side", async () => {
       store.set(`Waitlists/${FORM}`, { name: 'Founding Circle', defaultTagId: 'tag-vip' });
 
@@ -163,18 +154,6 @@ describe('joinForm', () => {
       expect(store.get(`Waitlists/${FORM}/users/${res.memberId}`).tags).toEqual(['tag-vip']);
     });
 
-    it('records referredBy when the signup came through a referral link', async () => {
-      const res = await call({ waitlistId: FORM, email: 'new@example.com', referredBy: 'CODE1' });
-
-      expect(store.get(`Waitlists/${FORM}/users/${res.memberId}`).referredBy).toBe('CODE1');
-    });
-
-    it('masks the address for the leaderboard', async () => {
-      const res = await call({ waitlistId: FORM, email: 'someone@example.com' });
-
-      expect(store.get(`Waitlists/${FORM}/users/${res.memberId}`).maskedEmail)
-        .toMatch(/^so\*+@example\.com$/);
-    });
   });
 
   describe('a returning member', () => {
@@ -196,13 +175,6 @@ describe('joinForm', () => {
       expect(repeat).not.toHaveProperty('exists');
       expect(repeat).not.toHaveProperty('isExisting');
       expect(repeat).not.toHaveProperty('verified');
-    });
-
-    it('preserves the original referral code across a re-submit', async () => {
-      const first = await call({ waitlistId: FORM, email: 'dup@example.com' });
-      const second = await call({ waitlistId: FORM, email: 'dup@example.com' });
-
-      expect(second.referralCode).toBe(first.referralCode);
     });
 
     it('updates the name while still unconfirmed', async () => {

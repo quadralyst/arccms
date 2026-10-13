@@ -209,7 +209,7 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
             throw new Error('The live site has no home page (/_site/home.html). Deploy the website first.');
         }
         const prefix = langPrefix(lang, defaultLang);
-        const strings = lang === defaultLang ? {} : await getUiStrings(lang);
+        const strings = await getUiStrings(lang);
 
         // Body: words, the site's details (SS3) and standard pages (SS6), cards, chrome, links, notices.
         const siteInfo = await siteInfoFor(lang, defaultLang);

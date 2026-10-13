@@ -18,7 +18,7 @@ import {
     signal,
 } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { WaitlistService } from './waitlist.service';
 import { IWaitlist, StepType, DEFAULT_UI_CONFIG } from './waitlist.model';
@@ -30,7 +30,7 @@ import { EmailConfigStatusService } from '../../../shared/services/email-config-
     templateUrl: './waitlist.component.html',
     styleUrls: ['./waitlist.component.scss'],
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, RouterLink],
+    imports: [CommonModule, ReactiveFormsModule],
     animations: [
         trigger('stepSlider', [
             transition('signup => verify', [
@@ -186,7 +186,6 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
     currentStep: StepType = 'signup';
     loading = false;
     error = '';
-    hasReferralCode = false;
     childLoaded = false;
 
     // Waitlist properties
@@ -198,22 +197,10 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
     totalSignups = 0;
 
     // User data
-    userData: Record<string, unknown> = {};
-    successData: Record<string, unknown> = {};
-    existingUserData: Record<string, unknown> = {};
+    userData: { email?: string; firstName?: string } = {};
     userId = '';
 
     waitlist = signal<IWaitlist | null>(null);
-    alreadyVerified = signal<boolean>(false);
-
-    /**
-     * Whether to show referral link, leaderboard, and queue position (U3).
-     * Defaults to true so existing waitlists are unchanged; only an explicit
-     * `gamificationEnabled: false` turns this into a plain signup form.
-     */
-    get showGamification(): boolean {
-        return this.waitlist()?.gamificationEnabled !== false;
-    }
 
     get isUsedAsChild(): boolean {
         return !!this.waitlistIdInput;
@@ -235,17 +222,6 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
     }
 
     private initializeForms(): void {
-        // Get referral code from URL or localStorage
-        let referralCode = this.route.snapshot.queryParamMap.get('ref');
-
-        if (!referralCode) {
-            referralCode = this.waitlistService.getReferralCodeFromStorage();
-        } else {
-            this.waitlistService.storeReferralCodeWithExpiration(referralCode);
-        }
-
-        this.hasReferralCode = !!referralCode;
-
         this.signupForm = this.fb.group({
             firstName: ['', Validators.required],
             email: ['', [Validators.required, Validators.email]],
@@ -253,7 +229,6 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
 
         this.otpForm = this.fb.group({
             otpCode: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(6)]],
-            referralCode: [referralCode || ''],
         });
     }
 
@@ -273,13 +248,6 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
             } else if (!finalWaitlistId) {
                 this.error = 'Invalid waitlist configuration - no waitlist ID provided';
                 this.currentStep = 'error';
-            }
-        });
-
-        this.route.queryParamMap.subscribe((queryParams) => {
-            const referralCode = queryParams.get('ref');
-            if (this.otpForm && referralCode) {
-                this.otpForm.patchValue({ referralCode });
             }
         });
     }
@@ -330,7 +298,6 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
                 slug: waitlistId,
                 description: this.description,
                 isActive: true,
-                startingPoint: 1000,
                 totalSignups: 0,
                 uiConfig: {
                     ...DEFAULT_UI_CONFIG,
@@ -355,10 +322,7 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
             this.loading = true;
             this.error = '';
             // Track signup submit
-            this.gaTracking.trackWaitlistSignupSubmit(
-                this.currentWaitlistId!,
-                !!this.otpForm.get('referralCode')?.value
-            );
+            this.gaTracking.trackWaitlistSignupSubmit(this.currentWaitlistId!);
 
             try {
                 const formValue = this.signupForm.value;
@@ -383,11 +347,6 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
                     email: email.trim(),
                 });
 
-                if ((result as Record<string, unknown>)['isExisting'] && (result as Record<string, unknown>)['emailVerified']) {
-                    this.alreadyVerified.set(true);
-                    this.otpForm.get('referralCode')?.setValue('');
-                }
-
                 if ((result as Record<string, unknown>)['error']) {
                     this.error = (result as Record<string, unknown>)['message'] as string;
                     this.currentStep = 'error';
@@ -395,36 +354,16 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
                     return;
                 }
 
-                this.userData = { email, firstName };
+                this.userData = { email: email.trim(), firstName: finalFirstName.trim() };
                 this.userId = result.userId || '';
 
                 // Check if OTP should be skipped (email not configured)
                 const shouldSkipOtp = !this.emailConfigService.isEmailConfigured();
 
                 if (shouldSkipOtp) {
-                    // Skip OTP — confirm the user immediately
-                    const storedRef = this.waitlistService.getReferralCodeFromStorage();
-                    const confirmation = await this.waitlistService.confirmWithoutOtp(
-                        this.currentWaitlistId!,
-                        this.userId,
-                        storedRef || '',
-                    );
-
-                    // Clear stored referral code after use
-                    this.waitlistService.clearReferralCodeFromStorage();
-
-                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-                    const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-                    this.successData = {
-                        queuePosition: confirmation.queuePosition,
-                        totalSignups: confirmation.totalSignups,
-                        referralCode: (result as any).referralCode || '',
-                        referralLink: (result as any).referralLink || `${baseUrl}${pathname}?ref=${(result as any).referralCode || ''}`,
-                        totalReferrals: 0,
-                        waitlistedUserId: (result as any).waitlistedUserId || this.userId,
-                        leaderboardLink: `${baseUrl}/leaderboard/${this.currentWaitlistId}/${(result as any).waitlistedUserId || this.userId}`,
-                    };
-                    this.currentStep = 'success';
+                    // Skip OTP: confirm the user immediately
+                    const confirmation = await this.waitlistService.confirmWithoutOtp(this.currentWaitlistId!, this.userId);
+                    this.finish(!!confirmation.alreadyConfirmed);
                 } else {
                     this.currentStep = 'verify';
                 }
@@ -443,61 +382,17 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
         if (this.otpForm.valid && !this.loading) {
             this.loading = true;
             try {
-                const { otpCode, referralCode } = this.otpForm.value;
-
-                const updatedUserData = {
-                    ...this.userData,
-                    referredBy: referralCode?.trim() || '',
-                    leaderboardLink: typeof window !== 'undefined'
-                        ? `${window.location.origin}/leaderboard/${this.userId}`
-                        : `/leaderboard/${this.userId}`,
-                };
-
-                const result = await this.waitlistService.verifyOtpAndProcessUser(
+                const { otpCode } = this.otpForm.value;
+                const result = await this.waitlistService.verifyAndConfirm(
                     this.currentWaitlistId!,
                     this.userId,
+                    this.userData.email || '',
                     otpCode,
-                    updatedUserData,
                 );
 
-                if (result.success && result.data) {
-                    // Track successful OTP verification
+                if (result.success) {
                     this.gaTracking.trackWaitlistOtpVerify(this.currentWaitlistId!, true);
-                    this.gaTracking.trackWaitlistSignupComplete(
-                        this.currentWaitlistId!,
-                        (result.data as Record<string, unknown>)['queuePosition'] as number || 0,
-                        referralCode
-                    );
-                    this.gaTracking.linkUserAfterSignup(this.userId, this.currentWaitlistId!);
-
-                    this.waitlistService.clearReferralCodeFromStorage();
-
-                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-                    const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-
-                    if (result.isExistingVerifiedUser) {
-                        this.existingUserData = {
-                            ...result.data,
-                            referralLink: result.data.referralLink ||
-                                `${baseUrl}${pathname}?ref=${result.data.referralCode}`,
-                            leaderboardLink: result.data.leaderboardLink ||
-                                `${baseUrl}/leaderboard/${this.userId}`,
-                        };
-                        this.gaTracking.trackWaitlistExistingUser(
-                            this.currentWaitlistId!,
-                            (result.data as Record<string, unknown>)['queuePosition'] as number || 0
-                        );
-                        this.currentStep = 'existing-user';
-                    } else {
-                        this.successData = {
-                            ...result.data,
-                            leaderboardLink: result.data.leaderboardLink ||
-                                `${baseUrl}/leaderboard/${this.userId}`,
-                            referralLink: result.data.referralLink ||
-                                `${baseUrl}${pathname}?ref=${result.data.referralCode}`,
-                        };
-                        this.currentStep = 'success';
-                    }
+                    this.finish(!!result.alreadyConfirmed);
                 } else {
                     // Track failed OTP verification
                     this.gaTracking.trackWaitlistOtpVerify(this.currentWaitlistId!, false);
@@ -519,13 +414,26 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
         }
     }
 
+    /** A confirmed signup: a tick and a line, or "already on the list". */
+    private finish(alreadyConfirmed: boolean): void {
+        if (alreadyConfirmed) {
+            this.gaTracking.trackWaitlistExistingUser(this.currentWaitlistId!);
+            this.currentStep = 'existing-user';
+        } else {
+            this.gaTracking.trackWaitlistSignupComplete(this.currentWaitlistId!);
+            this.gaTracking.linkUserAfterSignup(this.userId, this.currentWaitlistId!);
+            this.currentStep = 'success';
+        }
+    }
+
     async resendOtp(): Promise<void> {
         if (!this.loading) {
             this.loading = true;
             try {
                 const result = await this.waitlistService.resendVerificationCode(
                     this.currentWaitlistId!,
-                    this.userId,
+                    this.userData.email || '',
+                    this.userData.firstName,
                 );
                 if (!result.success) {
                     this.error = result.message || 'Failed to resend code';
@@ -551,8 +459,6 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
         this.signupForm.reset();
         this.otpForm.reset();
         this.userData = {};
-        this.existingUserData = {};
-        this.successData = {};
         this.userId = '';
         this.cdr.detectChanges();
     }
@@ -561,22 +467,6 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
         this.error = '';
         this.currentStep = 'signup';
         this.cdr.detectChanges();
-    }
-
-    async copyToClipboard(text: string): Promise<void> {
-        const success = await this.globalService.copyToClipboard(text);
-        if (success) {
-            // Track referral link copy if applicable
-            if (text.includes('ref=')) {
-                this.gaTracking.trackReferralLinkCopy(
-                    this.currentWaitlistId!,
-                    (this.successData['referralCode'] as string) || ''
-                );
-            }
-            this.toastService.success('Copied to clipboard!');
-        } else {
-            console.error('Failed to copy to clipboard');
-        }
     }
 
     onChildLoaded(): void {

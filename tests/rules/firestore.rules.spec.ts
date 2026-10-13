@@ -510,3 +510,42 @@ describe('media library details are staff only (MF-D24)', () => {
         await assertSucceeds(getDoc(doc(admin(), 'mediaFiles', 'f1')));
     });
 });
+
+// specs/form-gamification-spec.md: signup forms are plain, joined through Cloud Functions.
+describe('signup forms', () => {
+    const member = 'Waitlists/launch/users/m1';
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            const db = ctx.firestore();
+            await setDoc(doc(db, 'Waitlists', 'launch'), { name: 'Launch', totalSignups: 3, isActive: true });
+            await setDoc(doc(db, member), { email: 'm@x.com', waitlistId: 'launch', firstName: 'M', isSubscribed: true });
+            await setDoc(doc(db, member, 'referrals', 'r1'), { referredEmail: 'friend@x.com', status: 'completed' });
+        });
+    });
+
+    it('keeps the form public to read, and admin only to write, its signup count included', async () => {
+        await assertSucceeds(getDoc(doc(anon(), 'Waitlists', 'launch')));
+        await assertFails(updateDoc(doc(anon(), 'Waitlists', 'launch'), { totalSignups: 9999 }));
+        await assertFails(updateDoc(doc(alice(), 'Waitlists', 'launch'), { totalSignups: 9999 }));
+        await assertSucceeds(updateDoc(doc(admin(), 'Waitlists', 'launch'), { totalSignups: 4 }));
+    });
+
+    it('never lets a visitor read a member, or write a referral field onto one', async () => {
+        await assertFails(getDoc(doc(anon(), member)));
+        await assertFails(updateDoc(doc(anon(), member), { leaderboardLink: 'https://evil.example' }));
+        await assertFails(updateDoc(doc(anon(), member), { referredBy: 'CODE1' }));
+        await assertFails(updateDoc(doc(anon(), member), { queuePosition: 1 }));
+        await assertSucceeds(updateDoc(doc(anon(), member), { isSubscribed: false }));
+    });
+
+    it('closes the old referrals records to every client, admins included', async () => {
+        const referrals = collection(anon(), member, 'referrals');
+        await assertFails(addDoc(referrals, { referredEmail: 'x@y.com' }));
+        await assertFails(getDoc(doc(admin(), member, 'referrals', 'r1')));
+        await assertFails(updateDoc(doc(anon(), member, 'referrals', 'r1'), { status: 'pending' }));
+        await assertFails(deleteDoc(doc(admin(), member, 'referrals', 'r1')));
+        // The retired registry's records too.
+        await assertFails(addDoc(collection(anon(), 'WaitlistedUsers', 'w1', 'referrals'), { referredEmail: 'x@y.com' }));
+        await assertFails(getDoc(doc(admin(), 'WaitlistedUsers', 'w1', 'referrals', 'r1')));
+    });
+});

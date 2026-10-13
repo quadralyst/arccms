@@ -13,6 +13,8 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
 import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { applySiteInfoToHtml } from '../../core/site/apply-site-info-dom';
 import { attachLiveParts } from '../../core/site/live-parts';
+import { UiStringsService } from '../../core/services/ui-strings.service';
+import { TemplateHydrationService } from '../../core/services/template-hydration.service';
 
 @Component({
     selector: 'app-public-page-renderer',
@@ -53,6 +55,7 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
     private gaTracking = inject(GaTrackingService);
     private siteIdentity = inject(SiteIdentityService);
     private sitePages = inject(SitePagesService);
+    private uiStrings = inject(UiStringsService);
     private cdr = inject(ChangeDetectorRef);
     private document = inject(DOCUMENT);
     private platformId = inject(PLATFORM_ID);
@@ -102,13 +105,19 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
                 const hasForms = htmlContent.includes('data-arc-contact-form') || htmlContent.includes('data-waitlist-form');
                 const pages = usesSiteInfo || hasForms ? await this.sitePages.load() : [];
                 const about = usesSiteInfo ? await this.siteIdentity.load() : null;
-                this.processHtml(applySiteInfoToHtml(htmlContent, siteInfoOf(about, pages)));
+                // Static pages are in the default language: its strings file, when the
+                // site has one, words them and their forms' panels, as when published.
+                // Waited for only by a page that uses them; the header and footer follow it either way.
+                const usesStrings = htmlContent.includes('data-arc-t') || hasForms;
+                const loading = this.uiStrings.use('');
+                const strings = usesStrings ? await loading : {};
+                this.processHtml(applySiteInfoToHtml(TemplateHydrationService.applyStrings(htmlContent, strings), siteInfoOf(about, pages)));
                 this.cdr.detectChanges();
                 // Signup and contact forms on the page work as when published (SS5).
                 if (isPlatformBrowser(this.platformId)) {
                     this.liveScript?.remove();
                     const content = this.document.querySelector('.public-page-content');
-                    this.liveScript = content ? attachLiveParts(content, this.document, pages) : null;
+                    this.liveScript = content ? attachLiveParts(content, this.document, pages, strings) : null;
                 }
             } else {
                 this.router.navigate(['/404']);

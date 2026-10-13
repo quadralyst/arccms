@@ -79,7 +79,7 @@
       <li>Before every step the person is checked again. Leaving the list, unsubscribing, being suppressed or being erased ends their sequence. An archived campaign ends everyone's.</li>
       <li>A person never enters the same campaign twice, even after leaving and rejoining the list.</li>
       <li>A step that cannot go out yet is held, not skipped: a paused campaign, email or the Drip campaigns switch turned off, an inactive template, or a contact still <code>pending</code>. When a form sign-up confirms, their held step goes out at once.</li>
-      <li>On a form's list, steps can use the form's tags, such as the queue position and referral link (<a href="../reference/email-tags.html">Email merge tags</a>).</li>
+      <li>On a form's list, steps can use the form's tags, such as <code>##WAITLIST##</code>, the form's name (<a href="../reference/email-tags.html">Email merge tags</a>).</li>
     </ul>
     <div class="trap"><p>A template made with <strong>New email</strong> (in the Composer or from a step) has no sender of its own, and a step sends with its template's sender. Give each such template a sender before activating: see <a href="email.html#edit-templates-in-the-composer">Email engine</a>.</p></div>
     <p>Pause and Resume stop and restart sending without losing anyone's place, but people who join the list while it is paused are not enrolled. Archive ends the campaign for good.</p>

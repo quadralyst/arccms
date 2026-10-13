@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Run scripts and keep data | Arc CMS docs</title>
   <meta name="description" content="Keep your app's command-line scripts, source data and design files in the root custom folder, and run Admin SDK scripts against the right project and database with runAdminScript.">
-  <meta name="docs:sources" content="custom, scripts/arc-admin-script.mjs, functions/scripts/arc-env.cjs, functions/scripts/call-seed.cjs, scripts/check-core.mjs, vitest.config.ts">
+  <meta name="docs:sources" content="custom, scripts/arc-admin-script.mjs, scripts/forms-remove-referrals.mjs, functions/scripts/arc-env.cjs, functions/scripts/call-seed.cjs, scripts/check-core.mjs, vitest.config.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/scripts-and-data.html">
@@ -79,7 +79,7 @@ runAdminScript(async ({ db, args }) =&gt; {
 
     <h2>Credentials</h2>
     <p>When <code>GOOGLE_APPLICATION_CREDENTIALS</code> is set, such as to a service account key, the script signs in with it. Otherwise it uses your Firebase CLI login through a temporary credentials file, which it deletes when the script ends, fails or is stopped with Ctrl+C. With neither, it stops and says to run <code>firebase login</code>.</p>
-    <p>When your code throws, the error is printed and the script exits with 1. <code>npm run seed:dev</code> runs the same way.</p>
+    <p>When your code throws, the error is printed and the script exits with 1. <code>npm run seed:dev</code> and <code>npm run forms:remove-referrals</code> run the same way.</p>
 
     <h2>Test a script</h2>
     <p>Files named <code class="new">custom/**/*.spec.ts</code> run with the rest of the suite in <code>npm run test</code>. Keep the logic of a script in a function you can import, and test that function with sample data rather than a real project.</p>

@@ -1,6 +1,7 @@
 /**
  * U5 per-list merge context: a welcome sent as a drip step must resolve the same
- * gamification tags the old direct welcome did.
+ * tags the old direct welcome did. Signup forms are plain
+ * (specs/form-gamification-spec.md), so that is the form's name only.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -39,7 +40,7 @@ describe('resolveListContext (U5)', () => {
     vi.clearAllMocks();
   });
 
-  it('resolves waitlist gamification context from the member funnel doc', async () => {
+  it('resolves the form name only, never an old member\'s position or links', async () => {
     store.set('Waitlists/wl-1', { name: 'Alpha' });
     store.set('Waitlists/wl-1/users/u1', {
       email: 'a@x.com',
@@ -50,12 +51,7 @@ describe('resolveListContext (U5)', () => {
 
     const ctx = await resolveListContext('waitlist-wl-1', 'a@x.com');
 
-    expect(ctx).toMatchObject({
-      waitlistName: 'Alpha',
-      position: 42,
-      referralLink: 'https://x/r/abc',
-      leaderboardLink: 'https://x/l/wl-1',
-    });
+    expect(ctx).toEqual({ waitlistName: 'Alpha' });
   });
 
   it('returns the form name even when the member doc is missing', async () => {
@@ -84,15 +80,5 @@ describe('resolveListContext (U5)', () => {
 
     expect(ctx).toEqual({ waitlistName: 'our waitlist' });
     expect(ctx['position']).toBeUndefined();
-  });
-
-  it('matches the member by email, not by contact id', async () => {
-    // The funnel doc id is the waitlisted-user id, unrelated to emailHash.
-    store.set('Waitlists/wl-1', { name: 'Alpha' });
-    store.set('Waitlists/wl-1/users/some-random-id', { email: 'b@x.com', queuePosition: 7 });
-
-    const ctx = await resolveListContext('waitlist-wl-1', 'b@x.com');
-
-    expect(ctx['position']).toBe(7);
   });
 });

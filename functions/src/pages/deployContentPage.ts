@@ -382,7 +382,7 @@ export async function generateAndDeployContentDetailPage(
         templateData['related'] = related;
         templateData['hasRelated'] = related.length > 0;
         // "5 min read" in the page's language, from its min_read string.
-        const pageStrings = lang === defaultLang ? {} : await getUiStrings(lang);
+        const pageStrings = await getUiStrings(lang);
         if (pageStrings['min_read']) templateData['readingTime'] = interpolate(pageStrings['min_read'], { readTime: templateData['readTime'] });
 
         // Hydrate template: process loops first, then bindings

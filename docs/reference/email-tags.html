@@ -25,11 +25,9 @@
         <tr><td><code>##EMAIL##</code></td><td>An <code>email</code> value in the email's data. Arc CMS's own senders do not add one, so it comes out empty unless an app event's data has an <code>email</code> field.</td><td>Form verification and welcome templates, broadcasts, the composer.</td></tr>
         <tr><td><code>##OTP##</code></td><td>The one-time sign-in or verification code.</td><td>The form verification email template; composer templates whose type contains <code>otp</code>.</td></tr>
         <tr><td><code>##COMPANY_NAME##</code></td><td>The company name in the email settings.</td><td>The brand kit footer, the composer.</td></tr>
-        <tr><td><code>##UNSUBSCRIBE_LINK##</code></td><td>A signed one-click unsubscribe link for the recipient, on the site's address.</td><td>The brand kit footer, broadcasts, the composer.</td></tr>
+        <tr><td><code>##UNSUBSCRIBE_LINK##</code></td><td>A signed one-click unsubscribe link for the recipient, on the site's address.</td><td>The brand kit footer, broadcasts, the form welcome email template, the composer.</td></tr>
         <tr><td><code>##PREFERENCES_LINK##</code></td><td>A signed link to the recipient's email preferences page.</td><td>The brand kit footer, broadcasts, the composer.</td></tr>
-        <tr><td><code>##POSITION##</code></td><td>The member's place in the signup form's queue.</td><td>The form welcome email template.</td></tr>
-        <tr><td><code>##REFERRAL_CODE##</code></td><td>A <code>referralCode</code> value in the email's data. The welcome email does not carry one, so it comes out empty: use <code>##REFERRAL_LINK##</code>.</td><td>The form welcome email template.</td></tr>
-        <tr><td><code>##REFERRAL_LINK##</code></td><td>The member's personal referral link.</td><td>The form welcome email template.</td></tr>
+        <tr><td><code>##WAITLIST##</code></td><td>The signup form's name, or "our waitlist" when it has none.</td><td>The form welcome email template.</td></tr>
         <tr><td><code>##SUBJECT##</code></td><td>The email's own subject line.</td><td>No editor.</td></tr>
         <tr><td><code>##CONTENT##</code></td><td>A <code>content</code> value in the email's data. No core sender adds one.</td><td>No editor.</td></tr>
         <tr><td><code>##PAYMENT_AMOUNT##</code></td><td>The currency and amount of the payment, such as <code>USD 29</code>.</td><td>Composer templates whose type contains <code>payment</code>.</td></tr>
@@ -43,7 +41,8 @@
     <ul>
       <li><code>##FIELD:key##</code>, or <code>##FIELD:key|fallback##</code>: a custom contact field. The fallback is used when the recipient has no value. The contact fields page copies the tag for each field. See <a href="../features/audience.html">Audience</a>.</li>
       <li><code>##APP.path##</code>, or <code>##APP.path|fallback##</code>: a field of the host app's user, for emails to an App users list. The broadcast editor offers these when such a list is chosen; fields that look like credentials are never offered or merged. See <a href="../features/app-audience.html">App audience</a>.</li>
-      <li>Any other <code>##UPPER_SNAKE##</code> tag is looked up by name in the email's data (<code>##TRIAL_ENDS_AT##</code> reads <code>trialEndsAt</code>), then in five email settings: <code>##COMPANY_NAME##</code>, <code>##SENDER_NAME##</code>, <code>##SENDER_EMAIL##</code>, <code>##REPLY_TO_EMAIL##</code>, <code>##LIVE_URL##</code>. Form emails also fill <code>##WAITLIST##</code> (the form's name) and <code>##LEADERBOARD_LINK##</code>.</li>
+      <li>Any other <code>##UPPER_SNAKE##</code> tag is looked up by name in the email's data (<code>##TRIAL_ENDS_AT##</code> reads <code>trialEndsAt</code>), then in five email settings: <code>##COMPANY_NAME##</code>, <code>##SENDER_NAME##</code>, <code>##SENDER_EMAIL##</code>, <code>##REPLY_TO_EMAIL##</code>, <code>##LIVE_URL##</code>.</li>
+      <li><code>##POSITION##</code>, <code>##REFERRAL_CODE##</code>, <code>##REFERRAL_LINK##</code> and <code>##LEADERBOARD_LINK##</code>, from signup forms of older versions, have no value any more and come out empty. Remove them from any welcome email that still has them.</li>
     </ul>
 
     <h2>How tags are filled</h2>

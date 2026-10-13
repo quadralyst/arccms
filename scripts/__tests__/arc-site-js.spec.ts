@@ -1,7 +1,7 @@
 /**
  * arc-site.js, the live parts of a published page (public/assets/js/arc-site.js,
  * specs/own-website-spec.md W5): signup forms through the same callables as the
- * app, counts, referral codes, the install button and the signed-in hint.
+ * app, plain confirmation panels, counts, the install button and the signed-in hint.
  *
  * @vitest-environment jsdom
  */
@@ -72,11 +72,10 @@ beforeEach(() => {
     calls = [];
     localStorage.clear();
     callables = {
-        joinForm: () => ({ memberId: 'm1', referralCode: 'ASHA1234', referralLink: 'https://site/?ref=ASHA1234', waitlistedUserId: 'w1' }),
+        joinForm: () => ({ memberId: 'm1' }),
         requestFormOtp: () => ({ sent: true, status: 'sent' }),
         verifyFormOtp: (d) => { if (d['code'] !== '123456') throw new Error('Wrong code'); return { verified: true }; },
-        finalizeFormSignup: () => ({ queuePosition: 7, totalSignups: 42, emailVerified: true }),
-        creditReferral: () => ({ recorded: true }),
+        finalizeFormSignup: () => ({ totalSignups: 42, emailVerified: true }),
         ensureWaitlistExists: () => ({ success: true }),
     };
     docs = {
@@ -92,7 +91,7 @@ afterEach(() => {
 });
 
 describe('signup forms', () => {
-    it('joins, asks for the emailed code, then shows the position and referral link', async () => {
+    it('joins, asks for the emailed code, then shows a plain confirmation', async () => {
         page(FORM);
         await flush();
         const form = await signUp();
@@ -108,10 +107,10 @@ describe('signup forms', () => {
         expect(calls.map((c) => c.name)).toEqual(['joinForm', 'requestFormOtp', 'verifyFormOtp', 'finalizeFormSignup']);
         expect(calls[2].data).toEqual({ waitlistId: 'launch', email: 'asha@example.com', code: '123456' });
         expect(calls[3].data).toMatchObject({ waitlistId: 'launch', userId: 'm1' });
-        expect(form.querySelector('.waitlist-success-step')!.textContent).toContain('#7');
-        expect(form.querySelector('.waitlist-success-step')!.textContent).toContain('42');
-        expect((form.querySelector('.waitlist-copy-input') as HTMLInputElement).value).toBe('ASHA1234');
-        expect(form.querySelector('a.waitlist-leaderboard-btn')!.getAttribute('href')).toBe('/leaderboard/launch/w1');
+        expect(form.querySelector('.waitlist-success-icon')).toBeTruthy();
+        expect(form.querySelector('.waitlist-success-title')!.textContent).toBe('You\'re on the list!');
+        expect(form.querySelector('.waitlist-success-text')!.textContent).toBe('We\'ll be in touch at asha@example.com.');
+        expect(form.querySelector('.waitlist-success-step')!.textContent).not.toContain('42');
     });
 
     it('shows the server\'s message for a wrong code and lets the person try again', async () => {
@@ -134,14 +133,80 @@ describe('signup forms', () => {
         expect(form.querySelector('.waitlist-success-step')).toBeTruthy();
     });
 
-    it('credits the referral a visitor arrived with, then forgets it', async () => {
-        docs['Settings/email_status'] = { isEnabled: false };
+    // Signup forms have no referrals (specs/form-gamification-spec.md): nothing of
+    // them is drawn, sent or kept, and an old ?ref= link just opens the page.
+    it('has no referral box, position, copy rows or leaderboard button, and ignores ?ref=', async () => {
+        localStorage.setItem('arc_referral', JSON.stringify({ code: 'OLD', expiration: Date.now() + 1e6 }));
         page(FORM, '?ref=FRIEND99');
         await flush();
-        await signUp();
-        expect(calls.find((c) => c.name === 'finalizeFormSignup')!.data['referredBy']).toBe('FRIEND99');
-        expect(calls.find((c) => c.name === 'creditReferral')!.data).toMatchObject({ referrerCode: 'FRIEND99', referredMemberId: 'm1', status: 'completed' });
         expect(localStorage.getItem('arc_referral')).toBeNull();
+        let form = await signUp();
+        expect(form.querySelector('.waitlist-referral-input')).toBeNull();
+        (form.querySelector('.waitlist-otp-input') as HTMLInputElement).value = '123456';
+        (form.querySelector('.waitlist-verify-btn') as HTMLButtonElement).click();
+        await flush();
+        for (const gone of ['.waitlist-stat-number', '.waitlist-copy-input', '.waitlist-copy-btn', '.waitlist-leaderboard-btn']) {
+            expect(form.querySelector(gone)).toBeNull();
+        }
+        expect(calls.some((c) => c.name === 'creditReferral')).toBe(false);
+        for (const call of calls) {
+            expect(call.data).not.toHaveProperty('referredBy');
+            expect(call.data).not.toHaveProperty('referrerCode');
+        }
+        expect(localStorage.getItem('arc_referral')).toBeNull();
+
+        callables['finalizeFormSignup'] = () => ({ totalSignups: 0, emailVerified: true, alreadyConfirmed: true });
+        docs['Settings/email_status'] = { isEnabled: false };
+        page(FORM);
+        await flush();
+        form = await signUp();
+        expect(form.querySelector('.waitlist-existing-step .waitlist-leaderboard-btn')).toBeNull();
+        expect(form.querySelector('.waitlist-existing-step')!.textContent).not.toMatch(/#\d/);
+    });
+
+    // Downstream sites style and hide these, so they must not change name.
+    it('keeps the panel class names sites style', async () => {
+        page(FORM);
+        await flush();
+        const form = await signUp();
+        for (const name of ['.waitlist-verify-step', '.waitlist-otp-input', '.waitlist-verify-btn', '.waitlist-resend-btn', '.waitlist-back-btn', '.waitlist-inline-message']) {
+            expect(form.querySelector(name), name).toBeTruthy();
+        }
+        (form.querySelector('.waitlist-otp-input') as HTMLInputElement).value = '123456';
+        (form.querySelector('.waitlist-verify-btn') as HTMLButtonElement).click();
+        await flush();
+        for (const name of ['.waitlist-success-step', '.waitlist-success-icon', '.waitlist-success-title', '.waitlist-success-text']) {
+            expect(form.querySelector(name), name).toBeTruthy();
+        }
+    });
+
+    it('uses the form\'s own wording from its attributes, over the strings and the English', async () => {
+        docs['Settings/email_status'] = { isEnabled: false };
+        const strings = { signup_on_list: 'Strings title', signup_success_text: 'Strings text' };
+        const attr = ` data-strings="${JSON.stringify(strings).replace(/"/g, '&quot;')}"`;
+        // Single braces survive a content template's {{ }} filling; double ones work where they survive.
+        const worded = '<form data-waitlist-form data-waitlist-id="launch" data-waitlist-success-title="See you there, {name}"'
+            + ' data-waitlist-success-text="The joining link goes to {{ email }}." data-waitlist-existing-title="Already registered"'
+            + ' data-waitlist-existing-text="Check {email} for the link, {unknown}."><input name="email"><button type="submit">Join</button></form>';
+        page(worded, '', '', attr);
+        await flush();
+        let form = await signUp();
+        expect(form.querySelector('.waitlist-success-title')!.textContent).toBe('See you there, Asha');
+        expect(form.querySelector('.waitlist-success-text')!.textContent).toBe('The joining link goes to asha@example.com.');
+
+        // Without the attributes, the strings file wins over the English.
+        page(FORM, '', '', attr);
+        await flush();
+        form = await signUp();
+        expect(form.querySelector('.waitlist-success-title')!.textContent).toBe('Strings title');
+        expect(form.querySelector('.waitlist-success-text')!.textContent).toBe('Strings text');
+
+        callables['finalizeFormSignup'] = () => ({ totalSignups: 0, emailVerified: true, alreadyConfirmed: true });
+        page(worded);
+        await flush();
+        form = await signUp();
+        expect(form.querySelector('.waitlist-existing-step .waitlist-success-title')!.textContent).toBe('Already registered');
+        expect(form.querySelector('.waitlist-existing-step .waitlist-success-text')!.textContent).toBe('Check asha@example.com for the link, {unknown}.');
     });
 
     it('sends the visit\'s metadata with the signup, as the app does', async () => {
@@ -155,15 +220,14 @@ describe('signup forms', () => {
         expect(JSON.parse(localStorage.getItem('arc_session_data')!).visitCount).toBe(1);
     });
 
-    it('welcomes back someone already on the list, and credits no referral for them', async () => {
+    it('welcomes back someone already on the list', async () => {
         docs['Settings/email_status'] = { isEnabled: false };
-        callables['finalizeFormSignup'] = () => ({ queuePosition: 3, totalSignups: 0, emailVerified: true, alreadyConfirmed: true });
-        page(FORM, '?ref=FRIEND99');
+        callables['finalizeFormSignup'] = () => ({ totalSignups: 0, emailVerified: true, alreadyConfirmed: true });
+        page(FORM);
         await flush();
         const form = await signUp();
-        expect(form.querySelector('.waitlist-existing-step')!.textContent).toContain('Welcome back, Asha!');
-        expect(form.querySelector('.waitlist-existing-step')!.textContent).toContain('#3');
-        expect(calls.some((c) => c.name === 'creditReferral')).toBe(false);
+        expect(form.querySelector('.waitlist-existing-step .waitlist-success-title')!.textContent).toBe('Welcome back, Asha!');
+        expect(form.querySelector('.waitlist-existing-step .waitlist-success-text')!.textContent).toBe('You\'re already on the list.');
     });
 
     // B2: a translated page's panels are in its language; a missing key stays English.
@@ -177,7 +241,7 @@ describe('signup forms', () => {
         expect(form.querySelector('.waitlist-verify-btn')!.textContent).toBe('Verify Email');
 
         docs['Settings/email_status'] = { isEnabled: false };
-        callables['finalizeFormSignup'] = () => ({ queuePosition: 3, totalSignups: 0, emailVerified: true, alreadyConfirmed: true });
+        callables['finalizeFormSignup'] = () => ({ totalSignups: 0, emailVerified: true, alreadyConfirmed: true });
         page(FORM, '', '', attr);
         await flush();
         form = await signUp();

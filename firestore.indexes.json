@@ -103,42 +103,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "emailVerified",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "totalReferrals",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "signupTimestamp",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "isConfirmed",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "totalReferrals",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "signupTimestamp",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "premiumStatus",
           "order": "ASCENDING"
         },

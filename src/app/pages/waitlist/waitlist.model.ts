@@ -4,7 +4,6 @@
  * Core interfaces for the waitlist feature including:
  * - Waitlist configuration
  * - Waitlist users
- * - Referrals
  * - OTP verification
  */
 
@@ -39,7 +38,6 @@ export interface IWaitlist extends IBaseModel {
     isActive: boolean;
     otpEnabled?: boolean;
     disabledMessage?: string;
-    startingPoint: number;
     totalSignups: number;
     isFormRequired?: boolean;
     fields?: string[];
@@ -53,11 +51,6 @@ export interface IWaitlist extends IBaseModel {
      * on pre-U3 forms — the backend falls back to `[waitlist-{id}]`.
      */
     targetListIds?: string[];
-    /**
-     * When false, this is a plain signup form: no referral link, leaderboard, or
-     * queue position (U3). Absent/true = waitlist behaviour (backwards compatible).
-     */
-    gamificationEnabled?: boolean;
 }
 
 /**
@@ -80,11 +73,6 @@ export interface IWaitlistUser extends IBaseModel {
     firstName: string;
     source?: string;
     formData?: IWaitlistFormData;
-    referralCode: string;
-    referralLink: string;
-    referredBy?: string;
-    queuePosition: number;
-    totalReferrals: number;
     signupTimestamp: Date;
     emailVerified: boolean;
     isConfirmed: boolean;
@@ -94,48 +82,9 @@ export interface IWaitlistUser extends IBaseModel {
     waitlistedUserId: string;
     ipAddress?: string;
     isSubscribed: boolean;
-    leaderboardLink: string;
     waitlistId: string;
     waitlistIds?: string[];
     signupMetadata?: ISignupMetadata;
-}
-
-/**
- * Referral record
- */
-export interface IReferral extends IBaseModel {
-    referrerCode: string;
-    referredEmail: string;
-    referredMaskedEmail?: string;
-    referredName?: string;
-    referredUserId?: string;
-    waitlistId: string;
-    status: 'pending' | 'completed';
-    completedAt?: Date;
-}
-
-/**
- * Leaderboard entry for display
- */
-export interface ILeaderboardEntry {
-    id: string;
-    email: string;
-    maskedEmail: string;
-    firstName: string;
-    totalReferrals: number;
-    queuePosition: number;
-    rank?: number;
-    isSeparator?: boolean;
-    waitlistedUserId: string;
-}
-
-/**
- * Leaderboard response from API
- */
-export interface ILeaderboardResponse {
-    displayLeaderboard: ILeaderboardEntry[];
-    totalUsers: number;
-    currentUserPosition: number;
 }
 
 /**
@@ -148,26 +97,6 @@ export interface IJoinWaitlistResult {
     userId?: string;
     email?: string;
     verificationCode?: string;
-}
-
-/**
- * Result from OTP verification
- */
-export interface IVerifyOtpResult {
-    queuePosition: number;
-    totalSignups: number;
-    referralCode: string;
-    referralLink: string;
-    leaderboardLink: string;
-    waitlistedUserId: string;
-}
-
-/**
- * Local storage referral data
- */
-export interface IStoredReferral {
-    code: string;
-    expiration: number;
 }
 
 /**
@@ -207,8 +136,3 @@ export const DEFAULT_UI_CONFIG: IWaitlistUiConfig = {
  * OTP expiration time in minutes
  */
 export const OTP_EXPIRATION_MINUTES = 15;
-
-/**
- * Referral code expiration in hours
- */
-export const REFERRAL_EXPIRATION_HOURS = 24;

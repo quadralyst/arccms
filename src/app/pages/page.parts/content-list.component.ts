@@ -487,7 +487,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     private refreshLiveParts(): void {
         this.liveScript?.remove();
         const host = this.document.querySelector('arc-content-list');
-        this.liveScript = host ? attachLiveParts(host, this.document, this.sitePages.pages()) : null;
+        this.liveScript = host ? attachLiveParts(host, this.document, this.sitePages.pages(), this.uiStrings.strings()) : null;
     }
 
     /**

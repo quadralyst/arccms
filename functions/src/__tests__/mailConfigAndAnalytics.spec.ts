@@ -362,32 +362,6 @@ describe('Type safety — testAnalyticsConnection.ts', () => {
   });
 });
 
-describe('Type safety — getLeaderBoardData.ts', () => {
-  it('should not use (request: any) or catch (error: any)', async () => {
-    const fs = await import('fs');
-    const path = await import('path');
-    const fileContent = fs.readFileSync(
-      path.resolve(__dirname, '../waitlists/leaderboard/getLeaderBoardData.ts'),
-      'utf-8'
-    );
-
-    expect(fileContent).not.toMatch(/request:\s*any/);
-    expect(fileContent).not.toMatch(/catch\s*\(\w+:\s*any\)/);
-  });
-
-  it('should pass a string message to HttpsError, not a raw error object', async () => {
-    const fs = await import('fs');
-    const path = await import('path');
-    const fileContent = fs.readFileSync(
-      path.resolve(__dirname, '../waitlists/leaderboard/getLeaderBoardData.ts'),
-      'utf-8'
-    );
-
-    // Should NOT pass raw error: throw new HttpsError('internal', error)
-    expect(fileContent).not.toMatch(/HttpsError\('internal',\s*error\)/);
-  });
-});
-
 describe('processEmailTemplate (##NAME## tag)', () => {
   it('should have NAME mapped in defaultMappings (not just RECEIVER_NAME)', async () => {
     const fs = await import('fs');

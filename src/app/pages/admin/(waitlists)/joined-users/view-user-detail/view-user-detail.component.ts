@@ -3,7 +3,6 @@
  * 
  * Sliding panel component showing waitlist user details including:
  * - All form data fields (dynamic)
- * - Referral information
  * - Tags management
  * - Notes/Journal entries
  */
@@ -11,7 +10,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, OnInit, OnChanges, SimpleChanges, Injector, inject, runInInjectionContext, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Firestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, orderBy, query, Timestamp, where } from '@angular/fire/firestore';
+import { Firestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, orderBy, query, Timestamp } from '@angular/fire/firestore';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { IWaitlistUserTag } from '../waitlist-user-tags.model';
@@ -26,26 +25,11 @@ interface WaitlistUser {
     firstName: string;
     emailVerified: boolean;
     isConfirmed: boolean;
-    queuePosition: number;
-    totalReferrals: number;
-    referralCode: string;
-    referralLink?: string;
     signupTimestamp: any;
     verifiedAt?: any;
     formData?: Record<string, any>;
     tags?: string[];
     signupMetadata?: ISignupMetadata;
-    referredBy?: string;
-    waitlistedUserId?: string;
-}
-
-interface ReferralRecord {
-    id: string;
-    referredName: string;
-    referredMaskedEmail: string;
-    status: string;
-    createdAt: any;
-    completedAt: any;
 }
 
 @Component({
@@ -98,13 +82,6 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
         );
     });
     isSavingTags = signal(false);
-
-    // Referral detail state
-    referredByCode = signal<string>('');
-    referredByUser = signal<{ firstName: string; email: string } | null>(null);
-    isLoadingReferredBy = signal(false);
-    referredUsers = signal<ReferralRecord[]>([]);
-    isLoadingReferredUsers = signal(false);
 
     // Form data keys for display - uses userSignal for reactivity
     formDataEntries = computed(() => {
@@ -247,8 +224,6 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
             this.userSignal.set(this.user);
             this.loadNotes();
             this.loadUserTags();
-            this.loadReferredByInfo();
-            this.loadReferredUsers();
         }
         if (changes['waitlistId'] && this.waitlistId) {
             this.tagsStore.setWaitlistId(this.waitlistId);
@@ -447,79 +422,6 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
             console.error('Error saving tags:', error);
         } finally {
             this.isSavingTags.set(false);
-        }
-    }
-
-    // --- Referral Methods ---
-
-    async loadReferredByInfo(): Promise<void> {
-        if (!this.user?.referredBy) {
-            this.referredByCode.set('');
-            this.referredByUser.set(null);
-            return;
-        }
-
-        this.referredByCode.set(this.user.referredBy);
-        this.isLoadingReferredBy.set(true);
-        this.referredByUser.set(null);
-
-        try {
-            // U6: referral codes are looked up among this form's members. The global
-            // `WaitlistedUsers` registry is frozen and no longer written at signup, so a
-            // code belonging to anyone who joined after the cutover was never in it.
-            const referrerQuery = runInInjectionContext(this.injector, () => query(
-                collection(this.firestore, `Waitlists/${this.waitlistId}/users`),
-                where('referralCode', '==', this.user!.referredBy)
-            ));
-            const snapshot = await runInInjectionContext(this.injector, () => getDocs(referrerQuery));
-
-            if (!snapshot.empty) {
-                const data = snapshot.docs[0].data();
-                this.referredByUser.set({
-                    firstName: (data['firstName'] as string) || '',
-                    email: (data['email'] as string) || '',
-                });
-            }
-        } catch (error) {
-            console.error('Error loading referrer info:', error);
-        } finally {
-            this.isLoadingReferredBy.set(false);
-        }
-    }
-
-    async loadReferredUsers(): Promise<void> {
-        // U6 moved referral records under the member that earned them. Reading the old
-        // registry path showed nothing for referrals recorded after that move, so this
-        // panel quietly went stale for exactly the newest data an admin looks for.
-        const memberId = this.user?.id;
-        if (!memberId || !this.waitlistId) {
-            this.referredUsers.set([]);
-            return;
-        }
-
-        this.isLoadingReferredUsers.set(true);
-        try {
-            const referralsRef = runInInjectionContext(this.injector, () => collection(
-                this.firestore, `Waitlists/${this.waitlistId}/users/${memberId}/referrals`
-            ));
-            const snapshot = await runInInjectionContext(this.injector, () => getDocs(referralsRef));
-
-            const records: ReferralRecord[] = snapshot.docs.map((docSnap) => {
-                const data = docSnap.data();
-                return {
-                    id: docSnap.id,
-                    referredName: (data['referredName'] as string) || '',
-                    referredMaskedEmail: (data['referredMaskedEmail'] as string) || '',
-                    status: (data['status'] as string) || '',
-                    createdAt: data['createdAt'],
-                    completedAt: data['completedAt'],
-                };
-            });
-            this.referredUsers.set(records);
-        } catch (error) {
-            console.error('Error loading referred users:', error);
-        } finally {
-            this.isLoadingReferredUsers.set(false);
         }
     }
 

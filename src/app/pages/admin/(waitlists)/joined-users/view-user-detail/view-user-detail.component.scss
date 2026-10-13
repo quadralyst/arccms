@@ -122,28 +122,10 @@ code {
     }
 }
 
-.position {
-    font-weight: 600;
-    color: var(--arc-admin-accent);
-}
-
 .copyable-value {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.referral-link {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    .link-text {
-        max-width: 200px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
 }
 
 .btn-copy {
@@ -162,84 +144,6 @@ code {
         background: #e9ecef;
         color: var(--arc-admin-accent);
     }
-}
-
-.referral-count {
-    display: inline-block;
-    padding: 2px 8px;
-    background: #f1f3f5;
-    border-radius: 4px;
-    font-weight: 500;
-
-    &.has-referrals {
-        background: color-mix(in srgb, var(--arc-admin-accent) 25%, #fff);
-        color: var(--arc-admin-accent-dark);
-    }
-}
-
-/* Referred By Styles */
-.referred-by-row {
-    .referred-by-info {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        text-align: right;
-    }
-}
-
-.external-source-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 500;
-    background: #e9ecef;
-    color: #495057;
-}
-
-/* Referred Users List */
-.referrals-loading {
-    text-align: center;
-    padding: 16px;
-    color: #888;
-    font-size: 13px;
-}
-
-.referral-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.referral-item {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 10px 12px;
-    border-left: 3px solid var(--arc-admin-accent);
-}
-
-.referral-item-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 4px;
-}
-
-.referral-item-name {
-    font-size: 13px;
-    font-weight: 500;
-    color: #1a1a1a;
-}
-
-.referral-item-email {
-    font-size: 12px;
-    color: #666;
-}
-
-.referral-item-date {
-    font-size: 11px;
-    color: #888;
-    margin-top: 4px;
 }
 
 /* Tags Styles */

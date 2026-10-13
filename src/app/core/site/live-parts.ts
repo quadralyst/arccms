@@ -39,8 +39,17 @@ export function prepareLiveParts(root: ParentNode, doc: Document, pages: readonl
     return !!root.querySelector('form[data-waitlist-form], form[data-arc-contact-form]');
 }
 
+/**
+ * The signup and contact panels' text in the page's language: the `signup_*` and
+ * `contact_*` keys of its strings, as publishing puts them on the script tag.
+ */
+export function panelStrings(strings: Record<string, string> = {}): Record<string, string> {
+    return Object.fromEntries(Object.entries(strings).filter(([key, value]) =>
+        (key.startsWith('signup_') || key.startsWith('contact_')) && typeof value === 'string'));
+}
+
 /** arc-site.js with what the published page gives it (arcSiteScript in functions/src/shared/live-parts.ts). */
-export function arcSiteScriptElement(doc: Document): HTMLScriptElement {
+export function arcSiteScriptElement(doc: Document, strings: Record<string, string> = {}): HTMLScriptElement {
     const projectId = environment.firebaseConfig?.projectId ?? '';
     const version = siteManifest().files['assets/js/arc-site.js'];
     const script = doc.createElement('script');
@@ -49,6 +58,8 @@ export function arcSiteScriptElement(doc: Document): HTMLScriptElement {
     script.setAttribute('data-group', ARC_FUNCTION_GROUP);
     script.setAttribute('data-project', projectId);
     script.setAttribute('data-database', arcConfig.databaseId);
+    const panels = panelStrings(strings);
+    if (Object.keys(panels).length) script.setAttribute('data-strings', JSON.stringify(panels));
     return script;
 }
 
@@ -56,9 +67,11 @@ export function arcSiteScriptElement(doc: Document): HTMLScriptElement {
  * Prepares the forms under `root` and, when it has any, runs arc-site.js for
  * them. Returns the script element so the page can remove it when it goes.
  */
-export function attachLiveParts(root: ParentNode, doc: Document, pages: readonly SitePageLink[] = []): HTMLScriptElement | null {
+export function attachLiveParts(
+    root: ParentNode, doc: Document, pages: readonly SitePageLink[] = [], strings: Record<string, string> = {},
+): HTMLScriptElement | null {
     if (!prepareLiveParts(root, doc, pages)) return null;
-    const script = arcSiteScriptElement(doc);
+    const script = arcSiteScriptElement(doc, strings);
     doc.body.appendChild(script);
     return script;
 }

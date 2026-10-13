@@ -38,7 +38,7 @@
             <h2>Key Metrics</h2>
         </div>
         <div class="row g-2">
-            <div class="col-md-3 col-6">
+            <div class="col-md-4 col-6">
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon blue">
@@ -49,7 +49,7 @@
                     <div class="metric-value">{{ totalCount() | number }}</div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
+            <div class="col-md-4 col-6">
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon green">
@@ -60,7 +60,7 @@
                     <div class="metric-value">{{ verifiedCount() | number }}</div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
+            <div class="col-md-4 col-12">
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon orange">
@@ -69,17 +69,6 @@
                         <div class="metric-title">Pending Verification</div>
                     </div>
                     <div class="metric-value">{{ pendingCount() | number }}</div>
-                </div>
-            </div>
-            <div class="col-md-3 col-6">
-                <div class="metric-card">
-                    <div class="metric-card-header">
-                        <div class="metric-icon navy">
-                            <i class="bi bi-share-fill"></i>
-                        </div>
-                        <div class="metric-title">Total Referrals</div>
-                    </div>
-                    <div class="metric-value">{{ totalReferrals() | number }}</div>
                 </div>
             </div>
         </div>
@@ -106,10 +95,6 @@
                 class="btn btn-outline-success quick-action-btn">
                 <i class="bi bi-envelope me-2"></i> Email Templates
             </a>
-            <a [href]="'/leaderboard/' + waitlist()?.slug" target="_blank" rel="noopener"
-                class="btn btn-outline-warning quick-action-btn">
-                <i class="bi bi-trophy me-2"></i> Leaderboard
-            </a>
             <button class="btn btn-outline-info quick-action-btn" (click)="exportUsers()">
                 <i class="bi bi-download me-2"></i> Export
             </button>
@@ -125,7 +110,7 @@
             <h2>Growth Insights</h2>
         </div>
         <div class="row g-2">
-            <div class="col-md-3 col-6">
+            <div class="col-6">
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon teal">
@@ -136,7 +121,7 @@
                     <div class="metric-value">{{ signupsThisWeek() | number }}</div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
+            <div class="col-6">
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon green">
@@ -145,28 +130,6 @@
                         <div class="metric-title">Verification Rate</div>
                     </div>
                     <div class="metric-value">{{ verificationRate() }}%</div>
-                </div>
-            </div>
-            <div class="col-md-3 col-6">
-                <div class="metric-card">
-                    <div class="metric-card-header">
-                        <div class="metric-icon navy">
-                            <i class="bi bi-megaphone-fill"></i>
-                        </div>
-                        <div class="metric-title">Referral Rate</div>
-                    </div>
-                    <div class="metric-value">{{ referralRate() }}%</div>
-                </div>
-            </div>
-            <div class="col-md-3 col-6">
-                <div class="metric-card">
-                    <div class="metric-card-header">
-                        <div class="metric-icon orange">
-                            <i class="bi bi-bar-chart-fill"></i>
-                        </div>
-                        <div class="metric-title">Avg Referrals / User</div>
-                    </div>
-                    <div class="metric-value">{{ avgReferrals() }}</div>
                 </div>
             </div>
         </div>
@@ -243,39 +206,10 @@
         </div>
     </section>
 
-    <!-- Top Referrers & Recent Signups -->
+    <!-- Recent Signups -->
     <section class="dashboard-section">
         <div class="row g-2">
-            <div class="col-lg-5 d-flex flex-column">
-                <div class="section-header">
-                    <h2>Top Referrers</h2>
-                </div>
-                <div class="activity-table flex-grow-1">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Referrals</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @for (user of topReferrers(); track user.id) {
-                            <tr>
-                                <td>{{ user.firstName || '—' }}</td>
-                                <td>{{ user.email }}</td>
-                                <td><span class="badge bg-success">{{ user.totalReferrals }}</span></td>
-                            </tr>
-                            } @empty {
-                            <tr>
-                                <td colspan="3" class="text-center text-muted py-4">No referrals yet</td>
-                            </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="col-lg-7 d-flex flex-column">
+            <div class="col-12 d-flex flex-column">
                 <div class="section-header">
                     <h2>Recent Signups</h2>
                     <a [routerLink]="['/admin/waitlists/users', waitlistId()]">View All &rarr;</a>

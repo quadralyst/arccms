@@ -11,8 +11,6 @@ interface WaitlistUser {
     firstName: string;
     emailVerified: boolean;
     isConfirmed: boolean;
-    queuePosition: number;
-    totalReferrals: number;
     signupTimestamp: any;
     source?: string;
     signupMetadata?: {
@@ -60,7 +58,6 @@ export default class WaitlistDashboardComponent implements OnInit {
     totalCount = signal(0);
     verifiedCount = computed(() => this.users().filter(u => u.isConfirmed).length);
     pendingCount = computed(() => this.totalCount() - this.verifiedCount());
-    totalReferrals = computed(() => this.users().reduce((sum, u) => sum + (u.totalReferrals || 0), 0));
 
     // Growth Insights
     signupsThisWeek = computed(() => {
@@ -76,19 +73,6 @@ export default class WaitlistDashboardComponent implements OnInit {
         const total = this.totalCount();
         if (total === 0) return 0;
         return Math.round((this.verifiedCount() / total) * 100);
-    });
-
-    referralRate = computed(() => {
-        const total = this.totalCount();
-        if (total === 0) return 0;
-        const usersWithReferrals = this.users().filter(u => (u.totalReferrals || 0) > 0).length;
-        return Math.round((usersWithReferrals / total) * 100);
-    });
-
-    avgReferrals = computed(() => {
-        const total = this.totalCount();
-        if (total === 0) return 0;
-        return (this.totalReferrals() / total).toFixed(1);
     });
 
     // Source Breakdown
@@ -138,14 +122,6 @@ export default class WaitlistDashboardComponent implements OnInit {
         if (mins === 0) return `${secs}s`;
         return `${mins}m ${secs}s`;
     });
-
-    // Top Referrers
-    topReferrers = computed(() =>
-        [...this.users()]
-            .filter(u => (u.totalReferrals || 0) > 0)
-            .sort((a, b) => (b.totalReferrals || 0) - (a.totalReferrals || 0))
-            .slice(0, 5)
-    );
 
     // Recent Signups
     recentSignups = computed(() => this.users().slice(0, 10));
@@ -255,7 +231,6 @@ export default class WaitlistDashboardComponent implements OnInit {
             Name: u.firstName,
             Email: u.email,
             Status: u.emailVerified ? 'Verified' : (u.isConfirmed ? 'Confirmed' : 'Pending'),
-            Referrals: u.totalReferrals || 0,
             SignedUp: this.toDate(u.signupTimestamp)?.toISOString() || '',
         }));
 

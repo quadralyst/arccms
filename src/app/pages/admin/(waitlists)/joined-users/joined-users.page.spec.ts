@@ -44,13 +44,8 @@ function makeUser(overrides: Partial<any> = {}): any {
         firstName: 'Alice',
         emailVerified: true,
         isConfirmed: true,
-        queuePosition: 1,
-        totalReferrals: 0,
-        referralCode: 'ALICE123',
         signupTimestamp: { toDate: () => new Date('2025-01-01') },
         tags: [],
-        waitlistedUserId: 'wlu-1',
-        referredBy: undefined,
         ...overrides,
     };
 }
@@ -170,12 +165,13 @@ describe('JoinedUsersComponent', () => {
             expect(component.verifiedUsers()).toBe(1);
         });
 
-        it('should sum totalReferrals across all users', () => {
-            component.users.set([
-                makeUser({ totalReferrals: 3 }),
-                makeUser({ id: 'user-2', totalReferrals: 5 }),
-            ]);
-            expect(component.totalReferrals()).toBe(8);
+        // Signup forms have no referrals or queue (specs/form-gamification-spec.md).
+        it('has no referral total, and no Position or Referrals column', () => {
+            expect((component as any).totalReferrals).toBeUndefined();
+            component.initColumns();
+            const keys = (component.tableColumns || []).map((c: any) => c.key);
+            expect(keys).not.toContain('queuePosition');
+            expect(keys).not.toContain('totalReferrals');
         });
     });
 
@@ -237,15 +233,15 @@ describe('JoinedUsersComponent', () => {
         it('should replace the matching user in the list', () => {
             const original = makeUser();
             component.users.set([original]);
-            component.onUserUpdated({ ...original, totalReferrals: 10 });
-            expect(component.users()[0].totalReferrals).toBe(10);
+            component.onUserUpdated({ ...original, firstName: 'Alicia' });
+            expect(component.users()[0].firstName).toBe('Alicia');
         });
 
         it('should leave other users unchanged', () => {
             const u1 = makeUser({ id: 'u1' });
             const u2 = makeUser({ id: 'u2', email: 'bob@x.com' });
             component.users.set([u1, u2]);
-            component.onUserUpdated({ ...u1, totalReferrals: 99 });
+            component.onUserUpdated({ ...u1, firstName: 'Changed' });
             expect(component.users()[1].id).toBe('u2');
         });
     });
@@ -275,7 +271,7 @@ describe('JoinedUsersComponent', () => {
 
     describe('deleteUser() — unconfirmed user', () => {
         const unverified = () =>
-            makeUser({ isConfirmed: false, referredBy: undefined, waitlistedUserId: undefined });
+            makeUser({ isConfirmed: false });
 
         it('should delete the subcollection doc', async () => {
             vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -309,7 +305,7 @@ describe('JoinedUsersComponent', () => {
 
     describe('deleteUser() — confirmed user', () => {
         const verified = () =>
-            makeUser({ isConfirmed: true, referredBy: undefined, waitlistedUserId: undefined });
+            makeUser({ isConfirmed: true });
 
         it('should decrement totalSignups on the waitlist doc', async () => {
             vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -340,37 +336,10 @@ describe('JoinedUsersComponent', () => {
         });
     });
 
-    // -----------------------------------------------------------------------
-    // deleteUser — user with referrer
-    // -----------------------------------------------------------------------
-
-    describe('deleteUser() — referral reversal is the trigger\'s job (U6)', () => {
-        // This page used to reverse the referral itself: find the referrer in the global
-        // registry, decrement their count on BOTH the registry doc and the member doc, and
-        // delete the referral record. `onWaitlistUserDelete` already does that server-side
-        // via decrementReferralCounts — so the referrer's totalReferrals was decremented
-        // twice per deletion, and the extra work read a collection U6 has frozen.
-        it('deletes the member and leaves the referral counters alone', async () => {
-            const user = {
-                id: 'user-1', email: 'a@b.com', firstName: 'A', isConfirmed: true,
-                referredBy: 'REF123', waitlistedUserId: 'wl-1',
-            } as any;
-            component.users.set([user]);
-            component.waitlistId.set('waitlist-1');
-
-            await component.deleteUser(user);
-
-            // The member doc is deleted and the form's signup count adjusted; nothing
-            // touches totalReferrals or the referrals subcollection.
-            expect(batchMock.delete).toHaveBeenCalled();
-            const updates = batchMock.update.mock.calls.map((c: any[]) => Object.keys(c[1] || {})).flat();
-            expect(updates).not.toContain('totalReferrals');
-        });
-
+    describe('deleteUser(), the retired registry', () => {
         it('no longer reads the global registry', async () => {
             const user = {
                 id: 'user-1', email: 'a@b.com', isConfirmed: false,
-                referredBy: 'REF123', waitlistedUserId: 'wl-1',
             } as any;
             component.users.set([user]);
             component.waitlistId.set('waitlist-1');

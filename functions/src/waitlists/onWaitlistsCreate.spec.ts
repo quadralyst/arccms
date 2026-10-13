@@ -66,7 +66,11 @@ describe('onWaitlistsCreate', () => {
                     limit: () => ({
                         get: async () => {
                             const id = `${filters['waitlistId']}_${filters['type']}`;
-                            return { empty: !existingIds.has(id), docs: [] };
+                            const exists = existingIds.has(id);
+                            return {
+                                empty: !exists,
+                                docs: exists ? [{ id, ref: { update: vi.fn() }, data: () => ({ createdBy: 'admin' }) }] : [],
+                            };
                         },
                     }),
                 });

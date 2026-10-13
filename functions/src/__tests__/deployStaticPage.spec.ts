@@ -6,12 +6,14 @@ const {
     mockGetPartials,
     mockGetSiteConfig,
     mockGetMiscSettings,
+    mockGetUiStrings,
     mockDeployFileToHosting,
 } = vi.hoisted(() => ({
     mockFetch: vi.fn(),
     mockGetPartials: vi.fn(),
     mockGetSiteConfig: vi.fn(),
     mockGetMiscSettings: vi.fn(),
+    mockGetUiStrings: vi.fn(),
     mockDeployFileToHosting: vi.fn(),
 }));
 
@@ -23,6 +25,7 @@ vi.mock('../shared/site-settings', () => ({
     getPartials: mockGetPartials,
     getSiteConfig: mockGetSiteConfig,
     getMiscSettings: mockGetMiscSettings,
+    getUiStrings: mockGetUiStrings,
     // The search widget is built for the default language (S5).
     getLocalizationSettings: vi.fn().mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: [] }),
     // The site's own details for data-arc-site (SS3).
@@ -91,12 +94,43 @@ describe('deployStaticPage', () => {
         mockGetPartials.mockResolvedValue(MOCK_PARTIALS);
         mockGetSiteConfig.mockResolvedValue(MOCK_SITE_CONFIG);
         mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
+        mockGetUiStrings.mockResolvedValue({});
         mockDeployFileToHosting.mockResolvedValue(undefined);
 
         mockFetch.mockResolvedValue({
             ok: true,
             status: 200,
             text: () => Promise.resolve(RAW_HTML),
+        });
+    });
+
+    // specs/form-gamification-spec.md G-D4: static pages are in the default language,
+    // so its strings file words them, the signup panels included.
+    describe('the default language\'s strings file', () => {
+        const PAGE = '<html><head></head><body><arc-header></arc-header><h1 data-arc-t="page_heading">Hello</h1>'
+            + '<form data-waitlist-form><input name="email"><button type="submit">Join</button></form><arc-footer></arc-footer></body></html>';
+
+        it('applies it to the page and gives the signup panels their keys', async () => {
+            mockFetch.mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve(PAGE) });
+            mockGetUiStrings.mockResolvedValue({ page_heading: 'Welcome aboard', signup_on_list: 'Thanks, you are in!' });
+
+            await generateAndDeployStaticPage('privacy-policy');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2] as string;
+            expect(mockGetUiStrings).toHaveBeenCalledWith('en');
+            expect(deployedHtml).toContain('Welcome aboard');
+            expect(deployedHtml).toContain('data-strings=');
+            expect(deployedHtml).toContain('Thanks, you are in!');
+        });
+
+        it('keeps the authored text when the site has none', async () => {
+            mockFetch.mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve(PAGE) });
+
+            await generateAndDeployStaticPage('privacy-policy');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2] as string;
+            expect(deployedHtml).toContain('>Hello<');
+            expect(deployedHtml).not.toContain('data-strings=');
         });
     });
 

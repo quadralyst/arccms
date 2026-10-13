@@ -7,8 +7,8 @@ import { isBlank } from '../shared/blank.js';
  * Per-list merge context for drip sends (U5).
  *
  * A drip step knows the contact and the list, but a template may need data that
- * lives elsewhere — a waitlist welcome wants the member's queue position and
- * referral link, which are on the form's member doc, not the contact.
+ * lives elsewhere: a form's welcome wants the form's name, which is on the form,
+ * not the contact.
  *
  * Written as a registry (list-kind → resolver) rather than a special case for
  * waitlists, so the next list type that needs context (e.g. `##PLAN##` for
@@ -25,11 +25,11 @@ interface ContextResolver {
 }
 
 /**
- * Form-fed lists (`waitlist-{formId}`): load the member's funnel doc so the
- * gamification tags resolve exactly as they did when welcome was sent directly.
+ * Form-fed lists (`waitlist-{formId}`): the form's name, so `##WAITLIST##`
+ * resolves as it did when the welcome was sent directly. Signup forms keep no
+ * position or referral link any more (specs/form-gamification-spec.md).
  *
- * The member doc id is not the contact id, so it is found by email. Failure is
- * non-fatal — a missing position should degrade the tag, not block the send.
+ * Failure is non-fatal: a missing name should degrade the tag, not block the send.
  */
 const waitlistResolver: ContextResolver = {
   matches: (listId) => listId.startsWith('waitlist-'),
@@ -38,11 +38,7 @@ const waitlistResolver: ContextResolver = {
     if (!formId || isBlank(email)) return {};
 
     try {
-      const [formSnap, memberSnap] = await Promise.all([
-        db.collection('Waitlists').doc(formId).get(),
-        db.collection('Waitlists').doc(formId).collection('users')
-          .where('email', '==', email).limit(1).get(),
-      ]);
+      const formSnap = await db.collection('Waitlists').doc(formId).get();
 
       const context: ListContext = {};
       // Always set, and never blank — the welcome sent as a day-0 drip step uses
@@ -51,13 +47,6 @@ const waitlistResolver: ContextResolver = {
       context['waitlistName'] = waitlistDisplayName(
         formSnap.exists ? (formSnap.data()?.['name'] as string | undefined) : undefined,
       );
-
-      if (!memberSnap.empty) {
-        const m = memberSnap.docs[0].data();
-        context['referralLink'] = m['referralLink'] || '';
-        context['leaderboardLink'] = m['leaderboardLink'] || '';
-        context['position'] = m['queuePosition'];
-      }
       return context;
     } catch {
       return {};

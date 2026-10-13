@@ -15,7 +15,6 @@ export interface WaitlistFormData {
     isActive: boolean;
     disabledMessage: string;
     defaultTagId: string;
-    gamificationEnabled: boolean;
     targetListIds: string[];
     /** form input name → contact field key (U4.5). */
     fieldMap: Record<string, string>;
@@ -30,7 +29,6 @@ export interface WaitlistEditInput {
     isActive: boolean;
     disabledMessage?: string;
     defaultTagId?: string;
-    gamificationEnabled?: boolean;
     targetListIds?: string[];
     /** Parsed input names from the form's HTML, used to build the field mapping. */
     fields?: string[];
@@ -86,8 +84,6 @@ export class WaitlistEditDrawerComponent implements OnChanges {
             isActive: [true],
             disabledMessage: ['This waitlist is currently full. Please check back later for updates.'],
             defaultTagId: [''],
-            // Gamification on by default keeps existing waitlists behaving as before.
-            gamificationEnabled: [true],
             // Manual lists this form additionally feeds; own system list is implicit.
             targetListIds: [[] as string[]],
             // form input name → contact field key (U4.5).
@@ -111,7 +107,6 @@ export class WaitlistEditDrawerComponent implements OnChanges {
                 isActive: this.waitlist.isActive ?? true,
                 disabledMessage: this.waitlist.disabledMessage || '',
                 defaultTagId: this.waitlist.defaultTagId || '',
-                gamificationEnabled: this.waitlist.gamificationEnabled ?? true,
                 targetListIds: manualPicks,
                 fieldMap: this.waitlist.fieldMap || {},
             });
@@ -123,7 +118,6 @@ export class WaitlistEditDrawerComponent implements OnChanges {
             this.waitlistForm.reset({
                 isActive: true,
                 disabledMessage: 'This waitlist is currently full. Please check back later for updates.',
-                gamificationEnabled: true,
                 targetListIds: [],
             });
             this.coverImage.set('');
