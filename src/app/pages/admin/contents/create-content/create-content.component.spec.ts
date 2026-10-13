@@ -10,6 +10,7 @@ import { ContentTypesStore } from '../content-types/content-types.store';
 import { TagsStore } from '../content-types/tags/tags.store';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { GlobalService } from '../../../../../shared/services/global.service';
+import { SiteIdentityService } from '../../../../core/services/site-identity.service';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import { Firestore } from '@angular/fire/firestore';
 import { DraftContentsService } from '../draft-content-store/draft-contents.service';
@@ -31,6 +32,7 @@ describe('CreateContentComponent', () => {
     let mockContentTypesStore: any;
     let mockTagsStore: any;
     let mockGlobalService: any;
+    let mockSiteIdentity: any;
     let mockToastService: any;
     let mockFirestore: any;
     let mockAuthorsService: any;
@@ -71,6 +73,10 @@ describe('CreateContentComponent', () => {
             clearList: vi.fn(),
             add: vi.fn().mockReturnValue(of('new-id')),
             update: vi.fn().mockReturnValue(of(undefined)),
+            refreshCurrentItem: vi.fn((id: string, saved: any) => {
+                const current: any = mockDraftContentsStore.currentItem();
+                if (current?.id === id) mockDraftContentsStore.currentItem.set({ ...current, ...saved });
+            }),
             delete: vi.fn().mockReturnValue(of({})),
             checkExistingSlugUrl: vi.fn().mockResolvedValue({ exists: false, slug: 'test-slug' }),
             updateNextContentReferences: vi.fn().mockResolvedValue(undefined),
@@ -102,6 +108,12 @@ describe('CreateContentComponent', () => {
         mockGlobalService = {
             goBack: vi.fn(),
             debugMode: false,
+            copyToClipboard: vi.fn().mockResolvedValue(true),
+        };
+
+        mockSiteIdentity = {
+            load: vi.fn().mockResolvedValue({ finalUrl: '' }),
+            identity: signal({ finalUrl: '' }),
         };
 
         mockToastService = {
@@ -183,6 +195,7 @@ describe('CreateContentComponent', () => {
                     }
                 },
                 { provide: GlobalService, useValue: mockGlobalService },
+                { provide: SiteIdentityService, useValue: mockSiteIdentity },
                 { provide: ToastService, useValue: mockToastService },
                 { provide: MatDialog, useValue: mockDialog },
                 { provide: PublishQueueService, useValue: { enqueue: vi.fn().mockResolvedValue(undefined) } },
@@ -2406,6 +2419,165 @@ describe('CreateContentComponent', () => {
 
             expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
         });
+
+        // Any body edit replaced a stored, hand-written summary with the body's
+        // first 100 characters (a loaded control is never dirty), and the meta
+        // description followed it.
+        describe('summary and meta description', () => {
+            const summary = () => component.publishForm.get('summary')?.value;
+            const meta = () => component.seoForm.get('metaDescription')?.value;
+
+            it('keeps a stored, hand-written summary and meta description when the body changes', () => {
+                loadFromStore({ ...STORED, summary: 'Written by hand.', metaDescription: 'Meta by hand.' });
+                component.passEditorContentToParent('<p>Body</p>');
+
+                component.passEditorContentToParent('<p>A new first paragraph.</p>');
+
+                expect(summary()).toBe('Written by hand.');
+                expect(meta()).toBe('Meta by hand.');
+            });
+
+            it('lets an automatic summary, and a meta description equal to it, follow the body', () => {
+                loadFromStore({ ...STORED, summary: 'Body', metaDescription: 'Body' });
+                component.passEditorContentToParent('<p>Body</p>');
+
+                component.passEditorContentToParent('<p>A new first paragraph.</p>');
+
+                expect(summary()).toBe('A new first paragraph.');
+                expect(meta()).toBe('A new first paragraph.');
+            });
+
+            it('fills an empty summary and meta description from the body', () => {
+                loadFromStore({ ...STORED, summary: '', metaDescription: '' });
+                component.passEditorContentToParent('<p>Body</p>');
+
+                expect(summary()).toBe('Body');
+                expect(meta()).toBe('Body');
+            });
+
+            it('keeps a summary typed in this session when the body changes', () => {
+                loadFromStore({ ...STORED, summary: 'Body', metaDescription: 'Body' });
+                component.passEditorContentToParent('<p>Body</p>');
+                component.publishForm.get('summary')?.setValue('Typed summary.');
+
+                component.passEditorContentToParent('<p>A new first paragraph.</p>');
+
+                expect(summary()).toBe('Typed summary.');
+                expect(meta()).toBe('Typed summary.');
+            });
+
+            it('keeps a stored meta description when the summary is edited', () => {
+                loadFromStore({ ...STORED, summary: 'Old summary.', metaDescription: 'Meta by hand.' });
+                component.passEditorContentToParent('<p>Body</p>');
+
+                component.publishForm.get('summary')?.setValue('New summary.');
+
+                expect(meta()).toBe('Meta by hand.');
+            });
+
+            it('does not count loading the item as an edit', () => {
+                loadFromStore({ ...STORED, summary: 'Written by hand.', metaDescription: 'Meta by hand.' });
+                component.passEditorContentToParent('<p>Body</p>');
+
+                expect((component as any).hasUnsavedDraftChanges()).toBe(false);
+            });
+        });
+
+        // A save left the stored item as first loaded: a second publish reset
+        // publishedOn to now and the reference sync compared with old values.
+        const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+        describe('after a save', () => {
+
+            it('refreshes the stored item without refilling the forms', async () => {
+                loadFromStore();
+                editSeo();
+                const patch = vi.spyOn(component as any, 'patchForms');
+
+                component.pageTitle = 'Stored title';
+                component.saveAsDraft();
+                await flush();
+                settle();
+
+                expect((mockDraftContentsStore.currentItem() as any).seoTitle).toBe('Edited SEO title');
+                expect(patch).not.toHaveBeenCalled();
+                expectSeoEdits();
+            });
+
+            it('keeps text typed while the save was running', async () => {
+                loadFromStore();
+                const written = new Subject<void>();
+                mockDraftContentsStore.update.mockReturnValueOnce(written);
+
+                component.pageTitle = 'Stored title';
+                editSeo();
+                component.saveAsDraft();
+                component.seoForm.get('seoTitle')?.setValue('Typed during the save');
+                written.next();
+                written.complete();
+                await flush();
+                settle();
+
+                expect(component.seoForm.get('seoTitle')?.value).toBe('Typed during the save');
+            });
+
+            it('keeps the first publishedOn when the item is published twice', async () => {
+                loadFromStore();
+                component.pageTitle = 'Stored title';
+                component.passEditorContentToParent('<p>Body</p>');
+
+                component.directPublishContent();
+                await flush();
+                settle();
+                const first = mockDraftContentsStore.update.mock.calls[0][1].publishedOn;
+
+                await new Promise((resolve) => setTimeout(resolve, 5));
+                component.directPublishContent();
+                await flush();
+
+                expect(first).toBeInstanceOf(Date);
+                expect(mockDraftContentsStore.update.mock.calls[1][1].publishedOn).toBe(first);
+            });
+
+            it('gives the reference sync what was stored before each save', async () => {
+                loadFromStore();
+                component.pageTitle = 'Stored title';
+                editSeo();
+                component.saveAsDraft();
+                await flush();
+                settle();
+
+                component.seoForm.get('seoTitle')?.setValue('Second SEO title');
+                component.saveAsDraft();
+                await flush();
+
+                const calls = mockCollectionRefSyncService.syncReferencedData.mock.calls;
+                expect(calls[0][3].seoTitle).toBe('Stored SEO title');
+                expect(calls[1][3].seoTitle).toBe('Edited SEO title');
+            });
+        });
+
+        describe('canonical URL', () => {
+            it('drops a canonical the old editor filled from a local admin', () => {
+                loadFromStore({ ...STORED, canonicalUrl: 'http://localhost:5173/article/stored-title' });
+                expect(component.seoForm.get('canonicalUrl')?.value).toBe('');
+            });
+
+            it('keeps a canonical the author pointed at another site', () => {
+                loadFromStore({ ...STORED, canonicalUrl: 'https://partner.example/original' });
+                expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://partner.example/original');
+            });
+
+            it('saves an empty canonical in place of a localhost one', async () => {
+                loadFromStore({ ...STORED, canonicalUrl: 'http://localhost:5173/article/stored-title' });
+                component.pageTitle = 'Stored title';
+                editSeo();
+                component.saveAsDraft();
+                await flush();
+
+                expect(mockDraftContentsStore.update.mock.calls[0][1].canonicalUrl).toBe('');
+            });
+        });
     });
 
     describe('creating a tag from the tag box', () => {
@@ -2525,21 +2697,56 @@ describe('CreateContentComponent', () => {
 
     // ─── Canonical URL auto-fill ───────────────────────────────────────────
 
-    describe('canonical URL auto-fill', () => {
-        it('includes the content type segment', () => {
-            component.domain = 'https://x.com/';
+    // The canonical used to be filled from the admin's own address, so an item
+    // saved in a local admin published http://localhost:5173/... as its
+    // canonical and og:url. Empty now means "this page", built at publish.
+    describe('canonical URL is not auto-filled', () => {
+        it('sets the slug and leaves the canonical empty', () => {
+            component.domain = 'http://localhost:5173/';
             component.contentTypeSlug = 'articles';
             (component as any).setSlugValue('hello');
-            expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://x.com/articles/hello');
             expect(component.publishForm.get('urlSlug')?.value).toBe('hello');
+            expect(component.seoForm.get('canonicalUrl')?.value).toBe('');
         });
 
-        it('falls back to the form type when no route slug is set', () => {
+        it('keeps a canonical the author typed when the slug changes', () => {
+            component.seoForm.get('canonicalUrl')?.setValue('https://partner.example/original');
+            (component as any).setSlugValue('hello');
+            expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://partner.example/original');
+        });
+
+        it('builds Copy URL with the content type segment', () => {
             component.domain = 'https://x.com/';
             component.contentTypeSlug = '';
             component.publishForm.get('type')?.setValue('manuals');
-            (component as any).setSlugValue('hello');
-            expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://x.com/manuals/hello');
+            expect((component as any).publicUrlFor('hello')).toBe('https://x.com/manuals/hello');
+        });
+    });
+
+    // Copy URL used the address the admin was open on, so a local admin
+    // copied http://localhost:5173/... for a page on the live site.
+    describe('page address', () => {
+        async function openWith(finalUrl: string): Promise<void> {
+            mockSiteIdentity.load.mockResolvedValue({ finalUrl });
+            fixture = TestBed.createComponent(CreateContentComponent);
+            component = fixture.componentInstance;
+            component.contentTypeSlug = 'articles';
+            fixture.detectChanges(false);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            component.publishForm.get('urlSlug')?.setValue('hello');
+        }
+
+        it('copies the Production URL address when one is set', async () => {
+            await openWith('https://www.example.com/');
+            await component.copyUrlToClipboard();
+            expect(mockGlobalService.copyToClipboard).toHaveBeenCalledWith('https://www.example.com/articles/hello');
+            expect(component.domain).toBe('https://www.example.com/');
+        });
+
+        it('falls back to the address the admin is open on', async () => {
+            await openWith('');
+            await component.copyUrlToClipboard();
+            expect(mockGlobalService.copyToClipboard).toHaveBeenCalledWith(`${window.location.origin}/articles/hello`);
         });
     });
 });

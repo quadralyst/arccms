@@ -683,6 +683,18 @@ describe('ContentDetailComponent', () => {
             );
         });
 
+        it('should ignore a canonical saved from a local admin (og:url)', () => {
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
+            mockContentsStore.items.set([buildContent({ canonicalUrl: 'http://localhost:5173/articles/my-article' })]);
+            fixture.detectChanges();
+
+            const ogUrls = (mockMetaService.updateTag as any).mock.calls
+                .filter((call: any[]) => call[0]?.property === 'og:url')
+                .map((call: any[]) => call[0].content);
+            expect(ogUrls.length).toBeGreaterThan(0);
+            expect(ogUrls).not.toContain('http://localhost:5173/articles/my-article');
+        });
+
         it('should fall back to constructed URL when canonicalUrl is missing (og:url)', () => {
             // In test environment (browser), window.location.href is used as fallback.
             // We just verify that og:url IS always set (never missing) even without canonicalUrl.

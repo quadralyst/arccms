@@ -346,6 +346,18 @@ export function createGenericStore<T extends IBaseModel>(
             },
 
             /**
+             * Merges values just written into currentItem when it is that
+             * item, so a page that keeps editing after a save reads the stored
+             * copy as it now is. update() leaves currentItem alone, because
+             * pages that fill a form from it would refill on every save.
+             */
+            refreshCurrentItem(id: string, saved: Partial<T>) {
+                const current = store.currentItem();
+                if (!id || current?.id !== id) return;
+                patchState(store, { currentItem: { ...current, ...saved } as T });
+            },
+
+            /**
              * Delete item from Firestore
              */
             delete(id: string, collectionSuffix?: string): Observable<void> {

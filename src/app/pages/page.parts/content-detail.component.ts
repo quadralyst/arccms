@@ -39,6 +39,7 @@ import { IAuthor } from '../../../shared/models/author.model';
 import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../../../shared/utils/content-blocks';
 import { cleanReferences } from '../../../shared/models/references.model';
 import { buildMappedNode } from '../../../shared/utils/schema-mapping';
+import { authorCanonicalUrl } from '../../../shared/utils/canonical-url';
 import { SearchService } from '../../core/services/search.service';
 import { isOn } from '../../core/features/features';
 import { RELATED_LIMIT, RelatedItem, pickRelated, relatedQuery } from '../../../shared/utils/related-content';
@@ -604,10 +605,10 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         }
 
         // Build the best available canonical/og:url for this content.
-        // Use the stored canonicalUrl if present; otherwise construct from contentTypeSlug + urlSlug.
-        // This ensures og:url and canonical are always set even when canonicalUrl is missing or
-        // was saved without the content-type prefix.
-        const pageUrl = content.canonicalUrl ||
+        // Use the canonical the author set, if any (authorCanonicalUrl drops
+        // the editor's old auto-filled values, localhost ones included);
+        // otherwise this page's own address.
+        const pageUrl = this.authorCanonical(content) ||
             (isPlatformBrowser(this.platformId)
                 ? window.location.href
                 : `/${this.contentTypeSlug()}/${content.urlSlug}`);
@@ -759,6 +760,12 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         }
     }
 
+    /** The canonical the author set on this item, or '' (see authorCanonicalUrl). */
+    private authorCanonical(content: IContents): string {
+        return authorCanonicalUrl(content.canonicalUrl, this.contentTypeSlug(), content.urlSlug,
+            [this.siteIdentity.identity().finalUrl, this.pageOrigin()]);
+    }
+
     private pageOrigin(): string {
         return isPlatformBrowser(this.platformId) ? window.location.origin : '';
     }
@@ -881,7 +888,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         // Prefer canonicalUrl when set — consistent with what og:url uses.
         // Prefer seoTitle for share text — consistent with what og:title uses,
         // but never across languages (see localizedPageTitle).
-        const shareUrl = content.canonicalUrl ||
+        const shareUrl = this.authorCanonical(content) ||
             (isPlatformBrowser(this.platformId) ? window.location.href : '');
         const shareTitle = localizedPageTitle(content, this.translation());
         const shareSummary = content.summary || content.metaDescription || '';

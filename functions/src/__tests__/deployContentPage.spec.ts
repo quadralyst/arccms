@@ -103,6 +103,7 @@ vi.mock('../shared/site-settings', () => ({
 
 import {
     buildDetailJsonLd,
+    buildTemplateData,
     generateAndDeployContentDetailPage,
     removeContentPage,
 } from '../pages/deployContentPage.js';
@@ -735,6 +736,33 @@ describe('deployContentPage', () => {
             expect(htmlFor('/hi/articles/test-article.html'))
                 .toContain('<link rel="canonical" href="https://example.com/hi/articles/test-article">');
         });
+        it('should ignore a canonical the editor filled from a local admin', async () => {
+            // The editor used to fill the canonical from the admin's own
+            // address, so an item saved in a local admin published localhost.
+            mockCollectionDocGet.mockResolvedValue({
+                exists: true,
+                id: 'doc123',
+                data: () => ({ ...MOCK_CONTENT, canonicalUrl: 'http://localhost:5173/articles/test-article' }),
+            });
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const html = htmlFor('/articles/test-article.html');
+            expect(html).toContain('<link rel="canonical" href="https://example.com/articles/test-article">');
+            expect(html).toContain('<meta property="og:url" content="https://example.com/articles/test-article">');
+            expect(html).not.toContain('localhost');
+        });
+
+        it('should give templates only an author-set canonical', () => {
+            const data = buildTemplateData(
+                { ...MOCK_CONTENT, canonicalUrl: 'http://localhost:5173/articles/test-article' },
+                { slug: 'articles', name: 'Articles' },
+                { siteName: 'Site', baseUrl: 'https://example.com' },
+            );
+            expect(data.canonicalUrl).toBe('');
+            expect(data.share.facebook).toContain(encodeURIComponent('https://example.com/articles/test-article'));
+        });
+
         it('should link the switcher relatively but hreflang absolutely', async () => {
             // hreflang must be absolute for search engines; the switcher must
             // not be, or clicking a language on a preview channel or the
