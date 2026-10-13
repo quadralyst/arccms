@@ -47,7 +47,6 @@ export const ensureWaitlistExists = onCall(async (request) => {
         slug: waitlistId,
         description: 'Be the first to know when we launch',
         isActive: true,
-        startingPoint: 1000,
         totalSignups: 0,
         uiConfig: {
             title: formattedTitle,

@@ -22,34 +22,16 @@ import { isBlank } from '../shared/blank.js';
  * It also makes deduplication atomic. The client-side check was a read-then-write
  * race: two submits of the same address could both see "not found" and both create.
  *
- * Returns only what the form needs to continue: the member id, the referral code and
- * links. It deliberately does **not** report whether the person was already known, and
- * does not send the code — the caller asks for that separately via `requestFormOtp`.
+ * Returns only what the form needs to continue: the member id. It deliberately does
+ * **not** report whether the person was already known, and does not send the code:
+ * the caller asks for that separately via `requestFormOtp`.
+ *
+ * Signup forms are plain (specs/form-gamification-spec.md): no referral code, links,
+ * queue position or masked address is written. Members from before keep theirs, unread.
  */
 
 interface JoinResult {
   memberId: string;
-  referralCode: string;
-  referralLink: string;
-  leaderboardLink: string;
-  waitlistedUserId: string;
-}
-
-/** Ambiguity-free alphabet: no O/0, I/1, so a code read aloud still works. */
-const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-
-function generateReferralCode(): string {
-  let out = '';
-  for (let i = 0; i < 8; i++) {
-    out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
-  }
-  return out;
-}
-
-function maskEmail(email: string): string {
-  const [local, domain] = String(email || '').split('@');
-  if (!domain) return '';
-  return `${local.slice(0, 2)}${'*'.repeat(Math.max(local.length - 2, 1))}@${domain}`;
 }
 
 export const joinForm = onCall(async (request): Promise<JoinResult> => {
@@ -57,8 +39,6 @@ export const joinForm = onCall(async (request): Promise<JoinResult> => {
   const email = String(request.data?.email || '').trim().toLowerCase();
   const firstName = String(request.data?.firstName || '').trim();
   const source = String(request.data?.source || '').trim();
-  const referredBy = String(request.data?.referredBy || '').trim();
-  const origin = String(request.data?.origin || '').trim();
   const formData = (request.data?.formData as Record<string, unknown>) || {};
   const signupMetadata = (request.data?.signupMetadata as Record<string, unknown>) || {};
 
@@ -86,56 +66,27 @@ export const joinForm = onCall(async (request): Promise<JoinResult> => {
         await doc.ref.update({ firstName });
       }
 
-      return {
-        memberId: doc.id,
-        referralCode: (d['referralCode'] as string) || '',
-        referralLink: (d['referralLink'] as string) || '',
-        leaderboardLink: (d['leaderboardLink'] as string) || '',
-        waitlistedUserId: (d['waitlistedUserId'] as string) || '',
-      };
+      return { memberId: doc.id };
     }
 
     // ── New member ────────────────────────────────────────────────────────────
-    const referralCode = generateReferralCode();
-    const base = origin.startsWith('http') ? origin.replace(/\/$/, '') : '';
-
-    // U6: no `WaitlistedUsers` record is created any more. The member doc id is
-    // pre-generated instead, so it can go into `leaderboardLink` in the first write —
-    // a follow-up update here used to fire onWaitlistedUserUpdate and send a second
-    // OTP email.
-    //
-    // `waitlistedUserId` is still written, now carrying the member's own id. That field
-    // is what public links key on and it has ~40 consumers; populating it keeps every
-    // one of them working, and getPublicMemberView resolves either shape — a legacy
-    // registry id for members created before this, or a member id after. Links already
-    // sent by email therefore keep resolving.
+    // U6: no `WaitlistedUsers` record is created; the member doc is the record.
     const memberRef = members.doc();
-    const leaderboardLink = `${base}/leaderboard/${waitlistId}/${memberRef.id}`;
-    const referralLink = `${base}/?ref=${referralCode}`;
-
     const now = Timestamp.now();
-    const record = {
+    await memberRef.set({
       email,
       firstName,
       source,
       formData,
       signupMetadata,
-      referralCode,
-      referralLink,
-      leaderboardLink,
-      maskedEmail: maskEmail(email),
-      queuePosition: 0,
-      totalReferrals: 0,
       signupTimestamp: now,
       createdAt: now,
       emailVerified: false,
       isConfirmed: false,
       isSubscribed: true,
       ipAddress: '',
-      ...(referredBy ? { referredBy } : {}),
-    };
-
-    await memberRef.set({ ...record, waitlistId, waitlistedUserId: memberRef.id });
+      waitlistId,
+    });
 
     // The form's default tag, applied here rather than by the client — `tags` is not a
     // field an unauthenticated caller should be able to choose.
@@ -149,13 +100,7 @@ export const joinForm = onCall(async (request): Promise<JoinResult> => {
     }
 
     logger.info(`joinForm: created member ${memberRef.id} on ${waitlistId}.`);
-    return {
-      memberId: memberRef.id,
-      referralCode,
-      referralLink,
-      leaderboardLink,
-      waitlistedUserId: memberRef.id,
-    };
+    return { memberId: memberRef.id };
   } catch (err) {
     if (err instanceof HttpsError) throw err;
     logger.error(`joinForm failed for ${waitlistId}`, err);

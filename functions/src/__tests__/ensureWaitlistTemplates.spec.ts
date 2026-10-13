@@ -8,6 +8,8 @@
  * never cross forms.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const { store } = vi.hoisted(() => ({ store: new Map<string, any>() }));
 
@@ -64,6 +66,7 @@ vi.mock('../email-core/queueEmail', () => ({ queueEmail: vi.fn() }));
 const {
   ensureWaitlistTemplates, waitlistDisplayName, waitlistTemplateDocId,
   isUntouchedSystemTemplate, SUPERSEDED_WELCOME_SUBJECTS, WELCOME_SUBJECT_DEFAULT,
+  isOldDefaultWelcomeBody, welcomeBody,
 } = await import('../email-core/defaultTemplates.js');
 const { getEmailTemplate } = await import('../utils/emailTemplateHelper.js');
 
@@ -295,6 +298,61 @@ describe('getEmailTemplate', () => {
     await expect(getEmailTemplate('form-b', OTP, { ensure: false })).rejects.toThrow(
       /No email template found/,
     );
+  });
+});
+
+// specs/form-gamification-spec.md: signup forms have no referrals or leaderboard.
+describe('the plain welcome email', () => {
+  /** The welcome body versions up to 2026-10 seeded, exactly as stored (footer year 2025). */
+  const OLD_BODY = readFileSync(join(__dirname, 'fixtures/old-welcome-body.html'), 'utf8');
+  const welcomeDoc = `EmailTemplate/${waitlistTemplateDocId('form-a', WELCOME)}`;
+
+  beforeEach(() => {
+    store.clear();
+    batchOps.length = 0;
+    store.set('Waitlists/form-a', { name: 'Form A' });
+  });
+
+  it('seeds new forms with a welcome that has no referral, leaderboard or position', async () => {
+    await ensureWaitlistTemplates('form-a');
+    const body = store.get(welcomeDoc).template as string;
+    expect(body).toContain("You're on the list!");
+    expect(body).toContain('##WAITLIST##');
+    expect(body).toContain('##UNSUBSCRIBE_LINK##');
+    expect(body).not.toMatch(/REFERRAL|LEADERBOARD|POSITION|leaderboard|referral/i);
+  });
+
+  it('recognises the old default body from any year, and nothing else', () => {
+    expect(isOldDefaultWelcomeBody(OLD_BODY)).toBe(true);
+    expect(isOldDefaultWelcomeBody(OLD_BODY.replace('2025', '2031'))).toBe(true);
+    expect(isOldDefaultWelcomeBody(OLD_BODY.replace('The Team', 'The Asha Team'))).toBe(false);
+    expect(isOldDefaultWelcomeBody(welcomeBody(2026))).toBe(false);
+    expect(isOldDefaultWelcomeBody(undefined)).toBe(false);
+  });
+
+  it('replaces an untouched old default body with the plain one when the form is next used', async () => {
+    store.set(welcomeDoc, { waitlistId: 'form-a', type: WELCOME, createdBy: 'system', subject: 'Hi', template: OLD_BODY });
+
+    await ensureWaitlistTemplates('form-a');
+
+    const doc = store.get(welcomeDoc);
+    expect(doc.template).toBe(welcomeBody(new Date().getFullYear()));
+    expect(doc.subject).toBe('Hi'); // only the body changes
+  });
+
+  it('leaves an edited body, a block-editor design and a human-made template alone', async () => {
+    const edited = OLD_BODY.replace('The Team', 'The Asha Team');
+    store.set(welcomeDoc, { waitlistId: 'form-a', type: WELCOME, createdBy: 'system', template: edited });
+    await ensureWaitlistTemplates('form-a');
+    expect(store.get(welcomeDoc).template).toBe(edited);
+
+    store.set(welcomeDoc, { waitlistId: 'form-a', type: WELCOME, createdBy: 'system', template: OLD_BODY, design: { rows: [] } });
+    await ensureWaitlistTemplates('form-a');
+    expect(store.get(welcomeDoc).template).toBe(OLD_BODY);
+
+    store.set(welcomeDoc, { waitlistId: 'form-a', type: WELCOME, createdBy: 'admin@example.com', template: OLD_BODY });
+    await ensureWaitlistTemplates('form-a');
+    expect(store.get(welcomeDoc).template).toBe(OLD_BODY);
   });
 });
 

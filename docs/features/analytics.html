@@ -28,10 +28,10 @@
       <tbody>
         <tr><td><code>content_list_view</code>, <code>content_detail_view</code>, <code>public_page_view</code>, <code>share_click</code></td><td>A content list, a content item or a static page is viewed, or a share button is clicked</td></tr>
         <tr><td><code>waitlist_view</code>, <code>waitlist_signup_submit</code>, <code>waitlist_otp_verify</code>, <code>waitlist_signup_complete</code>, <code>waitlist_existing_user</code>, <code>waitlist_error</code></td><td>Steps of a signup form (see <a href="forms.html">Signup forms</a>)</td></tr>
-        <tr><td><code>referral_code_used</code>, <code>referral_link_copy</code>, <code>leaderboard_view</code>, <code>unsubscribe_view</code></td><td>A <code>ref</code> code is in the address (any page), a referral link is copied, or a leaderboard or unsubscribe page is viewed</td></tr>
+        <tr><td><code>unsubscribe_view</code></td><td>The unsubscribe page is viewed</td></tr>
       </tbody>
     </table>
-    <p>Content events need the <a href="content.html">Content</a> feature, and signup form events the <a href="forms.html">Signup forms</a> feature. UTM parameters and a <code>ref</code> code in the address are saved as user properties. After a form sign-up, the visitor is linked to their user id and the form. Nothing from their email address is sent.</p>
+    <p>Content events need the <a href="content.html">Content</a> feature, and signup form events the <a href="forms.html">Signup forms</a> feature. UTM parameters in the address are saved as user properties. After a form sign-up, the visitor is linked to their user id and the form. Nothing from their email address is sent.</p>
     <p>The dashboard shows nine numbers for the last 28 days, each compared with the 28 days before: Users, New Users, Sessions, Bounce Rate, Avg. Duration, Pages/Session, Pageviews, Event Count and Engaged Sessions. Beside them are five lists: Top Pages, Traffic Sources, Devices, Top Countries, and AI assistants (sessions sent by AI assistants, which GA4 files under Referral).</p>
     <p>The other cards on the dashboard (content, users, sign-ups) are counted from Firestore, not from Google Analytics; see <a href="../admin/overview.html">Use the admin area</a>. App install numbers are on <a href="pwa.html">Installable app (PWA)</a>.</p>
 

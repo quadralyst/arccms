@@ -70,6 +70,30 @@ describe('App Routes', () => {
         });
     });
 
+    // specs/form-gamification-spec.md: links in emails already sent keep working.
+    describe('old leaderboard and member links', () => {
+        it('open the form they came from, or the home page', async () => {
+            const kept = routes.filter((r) => r.path?.startsWith('leaderboard') || r.path === 'user/:waitlistId/:userId');
+            expect(kept.length).toBe(4);
+            expect(kept.every((r) => r.redirectTo !== undefined && !r.loadComponent)).toBe(true);
+
+            const stub = { children: [] };
+            TestBed.configureTestingModule({ providers: [provideRouter([
+                ...kept, { path: '', pathMatch: 'full', ...stub }, { path: 'waitlist/:waitlistId', ...stub }, { path: '**', ...stub },
+            ])] });
+            const router = TestBed.inject(Router);
+            for (const [from, to] of [
+                ['/leaderboard/launch/m1', '/waitlist/launch'],
+                ['/leaderboard/launch', '/waitlist/launch'],
+                ['/user/launch/w1', '/waitlist/launch'],
+                ['/leaderboard', '/'],
+            ]) {
+                await router.navigateByUrl(from);
+                expect(router.url, from).toBe(to);
+            }
+        });
+    });
+
     describe('Admin Routes', () => {
         it('should have admin/waitlists route with correct layout', async () => {
             const adminRoute = routes.find(r => r.path === 'admin/waitlists');

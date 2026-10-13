@@ -21,8 +21,6 @@ export interface WaitlistUserData {
   verificationCode?: string;
   emailVerified?: boolean;
   isConfirmed?: boolean;
-  referralLink?: string;
-  leaderboardLink?: string;
   [key: string]: any;
 }
 
@@ -77,8 +75,6 @@ export interface EmailLogData {
   currency?: string;
   price?: string;
   waitlistName?: string;
-  referralLink?: string;
-  leaderboardLink?: string;
   // ── Email-core pipeline fields (Phase 1) ──
   /** transactional vs marketing — controls consent/suppression rules */
   category?: EmailCategory;

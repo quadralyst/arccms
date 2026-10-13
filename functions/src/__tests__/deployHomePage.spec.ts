@@ -108,7 +108,8 @@ describe('deployHomePage', () => {
         mockGetSiteManifest.mockResolvedValue(MANIFEST);
         mockGetSiteFile.mockImplementation(async (path: string) => (path === 'home.html' ? HOME : null));
         mockLoadSiteTemplate.mockResolvedValue('<section data-arc-if="hasItems"><h2>{{ sectionTitle }}</h2><a class="all" href="{{ listUrl }}">All</a><div data-arc-loop="items"><a class="card" href="{{ url }}">{{ title }}</a></div></section>');
-        mockGetUiStrings.mockResolvedValue({ home_heading: 'नमस्ते', home_title: 'संस्कृत सीखें', legal_terms: 'शर्तें' });
+        mockGetUiStrings.mockImplementation(async (lang: string) =>
+            (lang === 'hi' ? { home_heading: 'नमस्ते', home_title: 'संस्कृत सीखें', legal_terms: 'शर्तें' } : {}));
         mockLocalization.mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी' }] });
         mockDeployBatch.mockResolvedValue(true);
         onboarding = { completed: true };
@@ -309,6 +310,28 @@ describe('deployHomePage', () => {
             addLegalNotices($, {}, null);
             expect($('form').children().eq(1).is('[data-legal-notice]')).toBe(true);
             expect($('[data-legal-notice] a').length).toBe(0);
+        });
+    });
+
+    // specs/form-gamification-spec.md G-D4: the default language's own strings file.
+    describe('the default language\'s strings file', () => {
+        it('words the default page, its notice and its signup panels when the site has one', async () => {
+            mockGetUiStrings.mockImplementation(async (lang: string) => (lang === 'en'
+                ? { home_heading: 'Welcome aboard', legal_terms: 'Terms', signup_on_list: 'Thanks, you are in!', signup_success_text: 'Watch {{ email }}.' }
+                : {}));
+            await generateAndDeployHomePage();
+            const $ = loadHtml(released()['/index.html'], { xmlMode: false });
+            expect($('h1').text()).toBe('Welcome aboard');
+            expect(JSON.parse($('script[src^="/assets/js/arc-site.js"]').attr('data-strings')!))
+                .toEqual({ signup_on_list: 'Thanks, you are in!', signup_success_text: 'Watch {{ email }}.' });
+            expect(mockGetUiStrings).toHaveBeenCalledWith('en');
+        });
+
+        it('keeps the authored English when the site has none', async () => {
+            await generateAndDeployHomePage();
+            const $ = loadHtml(released()['/index.html'], { xmlMode: false });
+            expect($('h1').text()).toBe('Hello');
+            expect($('script[src^="/assets/js/arc-site.js"]').attr('data-strings')).toBeUndefined();
         });
     });
 

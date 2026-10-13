@@ -14,8 +14,7 @@ const USER = 'user';
 export function coreAdminItems(): MenuItem[] {
     return [
         { id: 'dashboard', icon: 'fa-solid fa-gauge-high', label: 'Dashboard', labelKey: 'admin.nav.dashboard', route: '/admin/dashboard', allowRoles: [ADMIN] },
-        // Reframed as "Signup Forms" (U3): a waitlist is a signup form with
-        // gamification on. Route + collection unchanged: label only.
+        // Reframed as "Signup Forms" (U3). Route + collection unchanged: label only.
         { id: 'signup-forms', icon: 'fa-solid fa-list-alt', label: 'Signup Forms', labelKey: 'admin.nav.signup_forms', route: '/admin/waitlists', allowRoles: [ADMIN], feature: 'forms' },
         { id: 'media', icon: 'fa-solid fa-images', label: 'Media Manager', labelKey: 'admin.nav.media_manager', route: '/admin/media', allowRoles: [ADMIN] },
         { id: 'users', icon: 'fa-solid fa-users', label: 'Users', labelKey: 'admin.nav.users', route: '/admin/users', allowRoles: [ADMIN] },

@@ -35,16 +35,14 @@ describe('GaTrackingService', () => {
         service.trackShareClick('x', 'a');
         service.trackWaitlistView('w');
         service.trackWaitlistFormStart('w');
-        service.trackWaitlistSignupSubmit('w', false);
+        service.trackWaitlistSignupSubmit('w');
         service.trackWaitlistOtpSend('w');
         service.trackWaitlistOtpVerify('w', true);
-        service.trackWaitlistSignupComplete('w', 1);
-        service.trackWaitlistExistingUser('w', 1);
+        service.trackWaitlistSignupComplete('w');
+        service.trackWaitlistExistingUser('w');
         service.trackWaitlistError('w', 'e', 'm');
-        service.trackReferralLinkCopy('w', 'r');
-        service.trackLeaderboardView('w');
         service.trackUnsubscribeView('w');
-        expect(gate.log).toHaveBeenCalledTimes(15);
+        expect(gate.log).toHaveBeenCalledTimes(13);
         for (const [, params] of gate.log.mock.calls) expect(params.timestamp).toEqual(expect.any(Number));
         expect(gate.log).toHaveBeenCalledWith('content_list_view', expect.objectContaining({ content_type: 'blog', item_count: 3 }));
     });
@@ -66,13 +64,14 @@ describe('GaTrackingService', () => {
         expect(sent).not.toContain('email');
     });
 
-    it('saves UTM values and the referral code as user properties, once', () => {
+    // Signup forms have no referrals (specs/form-gamification-spec.md): an old ?ref= link is not tracked.
+    it('saves UTM values as user properties, once, and ignores ?ref=', () => {
         window.history.replaceState({}, '', '/?utm_source=news&ref=abc');
         service.initializeTracking();
         service.initializeTracking();
         expect(gate.setUserProperties).toHaveBeenCalledTimes(1);
-        expect(gate.setUserProperties).toHaveBeenCalledWith({ utm_source: 'news', referral_code: 'abc' });
-        expect(gate.log).toHaveBeenCalledWith('referral_code_used', expect.objectContaining({ referral_code: 'abc' }));
+        expect(gate.setUserProperties).toHaveBeenCalledWith({ utm_source: 'news' });
+        expect(gate.log).not.toHaveBeenCalledWith('referral_code_used', expect.anything());
         window.history.replaceState({}, '', '/');
     });
 });

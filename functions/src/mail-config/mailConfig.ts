@@ -363,8 +363,6 @@ export async function processEmailTemplate(
             const price = emailLogsData?.price || '';
             return price ? `${currency} ${price}` : '';
         },
-        REFERRAL_LINK: () => emailLogsData?.referralLink || '',
-        LEADERBOARD_LINK: () => emailLogsData?.leaderboardLink || '',
         WAITLIST: () => emailLogsData?.waitlistName || '',
         UNSUBSCRIBE_LINK: () => unsubscribe_link || '',
         PREFERENCES_LINK: () => preferences_link || '',

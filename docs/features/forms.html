@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Signup forms | Arc CMS docs</title>
-  <meta name="description" content="Collect sign-ups with verified signup forms and waitlists, with referral links, a leaderboard and per-form emails, straight into your audience.">
-  <meta name="docs:sources" content="functions/src/features/forms.ts, functions/src/waitlists, functions/src/email-core/syncOtpEnabledFlag.ts, functions/src/email-core/defaultTemplates.ts, functions/src/email-core/contactSync.ts, functions/src/utils/referralHelper.ts, src/app/pages/admin/(waitlists), src/app/pages/waitlist, src/shared/constants/waitlist-form.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, src/app/core/site/live-parts.ts, functions/src/shared/live-parts.ts, src/shared/constants/legal-notice.ts, firestore.rules">
+  <meta name="description" content="Collect sign-ups with verified signup forms on any page, with per-form emails, straight into your audience.">
+  <meta name="docs:sources" content="functions/src/features/forms.ts, functions/src/waitlists, functions/src/email-core/syncOtpEnabledFlag.ts, functions/src/email-core/defaultTemplates.ts, functions/src/email-core/contactSync.ts, src/app/pages/admin/(waitlists), src/app/pages/waitlist, src/shared/constants/waitlist-form.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, src/app/core/site/live-parts.ts, functions/src/shared/live-parts.ts, src/shared/constants/legal-notice.ts, firestore.rules, scripts/forms-remove-referrals.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/forms.html">
   <main>
     <h1>Signup forms</h1>
-    <p class="lead">A signup form collects email addresses, checks each one with a code, and puts every person into your audience. Turn on gamification and it becomes a waitlist, with a queue position, a referral link and a public leaderboard.</p>
+    <p class="lead">A signup form collects email addresses, checks each one with a code, and puts every person into your audience. Put one on any page: Arc CMS handles joining, the emailed code, the confirmation, the contact and its lists, and the welcome email.</p>
 
     <h2>What it is</h2>
     <p>Each form is a document in <code>Waitlists</code>. Its members live under it, one document per address. A form can be used in two ways:</p>
@@ -24,9 +24,7 @@
       <thead><tr><th>Address</th><th>What it shows</th></tr></thead>
       <tbody>
         <tr><td><code>/waitlist/{form}</code></td><td>The form's own signup page (the form is found by id or slug)</td></tr>
-        <tr><td><code>/leaderboard/{form}</code></td><td>The public leaderboard: top 50 confirmed members, addresses masked</td></tr>
-        <tr><td><code>/leaderboard/{form}/{member}</code></td><td>The leaderboard for one member, from the link in their welcome email</td></tr>
-        <tr><td><code>/user/{form}/{member}</code></td><td>One member's position and referral stats</td></tr>
+        <tr><td><code>/leaderboard/{form}</code>, <code>/leaderboard/{form}/{member}</code>, <code>/user/{form}/{member}</code></td><td>Open <code>/waitlist/{form}</code>. These were the leaderboard and member pages of older versions; their links in emails already sent still lead somewhere</td></tr>
         <tr><td><code>/admin/waitlists</code></td><td>Signup Forms in the admin menu</td></tr>
       </tbody>
     </table>
@@ -40,7 +38,7 @@
     <ul>
       <li>The Signup Forms menu item and every form page (<code>/waitlist</code>, <code>/leaderboard</code>, <code>/user/{form}/{member}</code>, <code>/admin/waitlists</code>) are gone and show the not-found page.</li>
       <li>Form markup on your pages stays as you wrote it, but nothing reads, counts or submits it.</li>
-      <li>The functions in <code>functions/src/features/forms.ts</code> are not built, so the next deploy of all functions removes them. Leaderboard and member links in emails already sent stop working.</li>
+      <li>The functions in <code>functions/src/features/forms.ts</code> are not built, so the next deploy of all functions removes them.</li>
       <li>The forms, members and templates stay in Firestore. Turn the feature back on to have them again.</li>
     </ul>
     <p>See <a href="../reference/feature-ids.html">Feature ids</a> and <a href="../app/choose-features.html">Choose your app's features</a>.</p>
@@ -75,19 +73,19 @@
         <tr><td><code>data-legal-notice</code></td><td>Your own terms notice. Without one, a standard notice is added above the submit button. It links to your terms and privacy pages: the published standard pages <code>/info/terms</code> and <code>/info/privacy-policy</code> (see <a href="content.html#standard-pages">Standard pages</a>), else your own static pages at <code>/p/terms</code> and <code>/p/privacy-policy</code>, else no link</td></tr>
       </tbody>
     </table>
-    <p>If no form has the given id, the first visit creates one with default settings. The code step, the success panel with the referral link, and the error messages are drawn inside the form.</p>
+    <p>If no form has the given id, the first visit creates one with default settings. The code step, the confirmation and the error messages are drawn inside the form. To reword the confirmation, see <a href="../website/forms.html">Add signup forms to your site</a>.</p>
     <div class="trap"><p>Put the form's id in <code>data-waitlist-id</code>, not a slug you changed later. The page finds the form by its slug, but sign-ups are sent with the value as written, and a value that is not the id fails with "This form does not exist".</p></div>
 
     <h2>Use it</h2>
 
     <h3>What happens on a sign-up</h3>
     <ol class="steps">
-      <li><p>The visitor submits. The <code>joinForm</code> function finds or creates their member record on that form, with an 8-character referral code. Submitting the same address again returns the same record, never a second one.</p></li>
+      <li><p>The visitor submits. The <code>joinForm</code> function finds or creates their member record on that form. Submitting the same address again returns the same record, never a second one.</p></li>
       <li><p>The member record creates a <code>pending</code> contact, which joins the form's list and the lists it feeds, gets the form's default tag and its mapped answers.</p></li>
       <li><p><code>requestFormOtp</code> emails a 6-digit code. It is valid for 15 minutes, can be resent once a minute, and allows 5 wrong tries.</p></li>
-      <li><p>The visitor enters it. <code>verifyFormOtp</code> checks it and <code>finalizeFormSignup</code> confirms the member and gives them the next queue position.</p></li>
+      <li><p>The visitor enters it. <code>verifyFormOtp</code> checks it and <code>finalizeFormSignup</code> confirms the member and counts them in the form's <code>totalSignups</code>.</p></li>
       <li><p>The contact becomes <code>subscribed</code>, the <code>waitlist.joined</code> event fires (see <a href="automations.html">Automations</a>), and the welcome email goes out.</p></li>
-      <li><p>If the visitor arrived through a referral link, <code>creditReferral</code> records the referral and the referrer's count goes up by one.</p></li>
+      <li><p>The form shows a tick, "You're on the list!" and the address. Someone who was already on the list sees "You're already on the list." instead.</p></li>
     </ol>
     <p>The code step is skipped, and the member confirmed at once, when email is not set up, when the <strong>Waitlist emails</strong> switch in Settings, Email Settings is off, or when the form's verification template is inactive. Such a member is confirmed but not verified.</p>
 
@@ -99,7 +97,6 @@
         <tr><td>Name, Description, Cover Image</td><td>Shown on the form's page. Renaming the form renames its list</td></tr>
         <tr><td>Active</td><td>Off: the form shows your message instead of accepting sign-ups</td></tr>
         <tr><td>Default Tag</td><td>Given to every new member</td></tr>
-        <tr><td>Gamification (referrals &amp; leaderboard)</td><td>Off: the form's page shows no referral link, leaderboard or position, a plain signup form</td></tr>
         <tr><td>Feeds lists</td><td>Other Contacts lists every member joins. The form's own list is always included</td></tr>
         <tr><td>Save form answers as</td><td>Maps a form input to a contact field, so emails to any list can use the answer (see <a href="audience.html">Audience</a>)</td></tr>
       </tbody>
@@ -111,42 +108,47 @@
       <thead><tr><th>Template</th><th>Kind</th><th>Sent</th></tr></thead>
       <tbody>
         <tr><td>Verification code (<code>waitlist_verify_otp_email</code>)</td><td>Transactional</td><td>On every sign-up that needs a code. Uses <code>##OTP##</code></td></tr>
-        <tr><td>Welcome (<code>waitlist_welcome_email</code>)</td><td>Marketing</td><td>When the member verifies their address. Uses <code>##WAITLIST##</code>, <code>##REFERRAL_LINK##</code>, <code>##LEADERBOARD_LINK##</code></td></tr>
+        <tr><td>Welcome (<code>waitlist_welcome_email</code>)</td><td>Marketing</td><td>When the member verifies their address. Uses <code>##WAITLIST##</code></td></tr>
       </tbody>
     </table>
     <p>A form's welcome can instead be the first step of a sequence on its list: the <code>migrateWelcomeToSequences</code> admin callable moves every form's welcome there and marks the form, after which the sequence sends it and the template is not sent directly (see <a href="email-marketing.html">Email marketing</a>).</p>
     <p>To turn a form's code step off, make its verification template inactive. For more emails after the welcome, add a sequence on the form's list (<a href="email-marketing.html">Email marketing</a>). Every tag is listed in <a href="../reference/email-tags.html">Email merge tags</a>.</p>
     <div class="trap"><p>Deleting the verification template does not turn the code step off: the default template is created again the next time a code is needed. Switch it to inactive instead.</p></div>
     <div class="trap"><p>The welcome template goes out when an address is verified. A form that confirms people without a code never sends it. For a welcome on such a form, use a sequence on the form's list with a first step at 0 hours.</p></div>
+    <div class="trap"><p>Older versions seeded a welcome with a referral link button and a leaderboard button. A form whose welcome is still exactly that default gets the plain one the next time a template is needed. A welcome you edited keeps your text, and its two buttons now lead nowhere: open the form's Email Templates and remove them.</p></div>
 
-    <h3>Referrals and the leaderboard</h3>
-    <p>Each member gets a referral link, the site's home page with <code>?ref=</code> and their code. A visitor who opens it keeps the code in their browser for 24 hours and passes it on when they sign up. Codes belong to one form: signing up on another form credits nobody. Referring yourself, or the same address twice, is not counted.</p>
-    <p>The leaderboard ranks confirmed members by referrals, most first, then by who signed up earliest. It shows first names and masked addresses only.</p>
+    <h3>Upgrading from referrals and the leaderboard</h3>
+    <p>Older versions gave every member a referral code and link, a queue position and a public leaderboard. Signup forms have none of these now. After updating an install that used them:</p>
+    <ol class="steps">
+      <li><p>Deploy the website first, then all the functions, then the rules. The old form page reads members through a function this version deletes, while the new pages work with the old functions. A deploy of all the functions deletes the referral and leaderboard functions; a targeted deploy never deletes one (see <a href="../operations/deploy.html#functions-that-are-deleted">Functions that are deleted</a>).</p></li>
+      <li><p>Run <code>npm run forms:remove-referrals</code> to count the old referral records, then <code>npm run forms:remove-referrals -- --apply</code> to delete them. Each one holds the address of the person referred, and nothing else removes it when that person is deleted.</p></li>
+      <li><p>Check each form's welcome email for referral or leaderboard buttons you added yourself.</p></li>
+    </ol>
+    <p>The old fields on member records (<code>referralCode</code>, <code>referralLink</code>, <code>leaderboardLink</code>, <code>queuePosition</code>, <code>totalReferrals</code>, <code>referredBy</code>) stay where they are and are not read any more. Old <code>?ref=</code> links open the page as usual.</p>
 
     <h3>Members</h3>
-    <p><strong>View Users</strong> on a form lists its members, with notes and the form's own tags. Each form's dashboard shows sign-up numbers, traffic sources, devices, top referrers and recent sign-ups, and exports the members.</p>
+    <p><strong>View Users</strong> on a form lists its members, with notes and the form's own tags. Each form's dashboard shows sign-up numbers, traffic sources, devices and recent sign-ups, and exports the members.</p>
     <ul>
-      <li>Deleting a member takes one off their referrer's count and takes the contact off the form's own list. The contact itself stays, and so do the other lists the form fed.</li>
-      <li>Deleting a form deletes all its members, their notes and referrals, takes every contact off the form's list and deletes that list.</li>
+      <li>Deleting a member takes the contact off the form's own list. The contact itself stays, and so do the other lists the form fed.</li>
+      <li>Deleting a form deletes all its members and their notes, takes every contact off the form's list and deletes that list.</li>
       <li>To remove a person everywhere, erase the contact (see <a href="audience.html">Audience</a>): that deletes their member records too.</li>
     </ul>
 
     <h2>Extend it</h2>
     <p>Any page that renders your own HTML can collect sign-ups by linking to <code>/waitlist/{form}</code>. To react to a sign-up in code or without code, listen for the <code>waitlist.joined</code> event with an automation rule (<a href="automations.html">Automations</a>), or add a sequence on the form's list.</p>
-    <p>The public functions are callable from any client, but prefer the built-in page and markup: they already call <code>joinForm</code>, <code>requestFormOtp</code>, <code>verifyFormOtp</code>, <code>finalizeFormSignup</code> and <code>creditReferral</code> in the right order. Calling them from a client uses the prefixed name, such as <code>arccms-joinForm</code>.</p>
+    <p>The public functions are callable from any client, but prefer the built-in page and markup: they already call <code>joinForm</code>, <code>requestFormOtp</code>, <code>verifyFormOtp</code> and <code>finalizeFormSignup</code> in the right order. Calling them from a client uses the prefixed name, such as <code>arccms-joinForm</code>.</p>
 
     <h2>What it stores</h2>
     <table>
       <thead><tr><th>Firestore</th><th>Holds</th></tr></thead>
       <tbody>
-        <tr><td><code>Waitlists/{form}</code></td><td>The form: name, slug, description, <code>isActive</code>, <code>uiConfig</code>, <code>gamificationEnabled</code>, <code>defaultTagId</code>, <code>targetListIds</code>, <code>fieldMap</code>, <code>otpEnabled</code>, <code>totalSignups</code></td></tr>
-        <tr><td><code>Waitlists/{form}/users/{member}</code></td><td>One member: <code>email</code>, <code>firstName</code>, <code>formData</code> (the answers), <code>signupMetadata</code>, <code>referralCode</code>, <code>referralLink</code>, <code>leaderboardLink</code>, <code>queuePosition</code>, <code>totalReferrals</code>, <code>emailVerified</code>, <code>isConfirmed</code>, <code>tags</code></td></tr>
-        <tr><td><code>Waitlists/{form}/users/{member}/referrals/{id}</code></td><td>The people this member referred, and whether each is completed</td></tr>
+        <tr><td><code>Waitlists/{form}</code></td><td>The form: name, slug, description, <code>isActive</code>, <code>uiConfig</code>, <code>defaultTagId</code>, <code>targetListIds</code>, <code>fieldMap</code>, <code>otpEnabled</code>, <code>totalSignups</code></td></tr>
+        <tr><td><code>Waitlists/{form}/users/{member}</code></td><td>One member: <code>email</code>, <code>firstName</code>, <code>formData</code> (the answers), <code>signupMetadata</code>, <code>emailVerified</code>, <code>isConfirmed</code>, <code>verifiedAt</code>, <code>tags</code></td></tr>
         <tr><td><code>Waitlists/{form}/users/{member}/notes/{id}</code></td><td>Admin notes on a member</td></tr>
         <tr><td><code>form_otps/{form}_{emailHash}</code></td><td>The pending code, stored hashed, with its expiry and tries</td></tr>
         <tr><td><code>EmailTemplate/{form}_{type}</code></td><td>The form's two templates</td></tr>
         <tr><td><code>WaitlistUserTags_{form}</code></td><td>The form's own member tags</td></tr>
-        <tr><td><code>WaitlistedUsers</code></td><td>A member registry from older installs. Nothing writes it; links in emails sent from it still resolve</td></tr>
+        <tr><td><code>WaitlistedUsers</code></td><td>A member registry from older installs. Nothing writes it</td></tr>
       </tbody>
     </table>
     <p>Every collection is also in <a href="../reference/data-model.html">Data model</a>. The contacts and the form's list belong to <a href="audience.html">Audience</a>. The cover image is picked from the <a href="media.html">Media</a> library.</p>
@@ -154,10 +156,9 @@
     <table>
       <thead><tr><th>Kind</th><th>Functions</th></tr></thead>
       <tbody>
-        <tr><td>Public callables</td><td><code>joinForm</code>, <code>requestFormOtp</code>, <code>verifyFormOtp</code>, <code>finalizeFormSignup</code>, <code>creditReferral</code>, <code>ensureWaitlistExists</code>, <code>getPublicLeaderboard</code>, <code>getPublicMemberView</code></td></tr>
-        <tr><td>Signed-in callable</td><td><code>getOptimizedLeaderboard</code></td></tr>
-        <tr><td>Admin callables</td><td><code>getWaitlistTemplateDefaults</code>, <code>backfillWaitlistTemplates</code>, and the one-time upgrade helpers <code>normalizeWaitlistTemplateIds</code>, <code>stampFormTargetLists</code>, <code>migrateWaitlistedUsers</code></td></tr>
-        <tr><td>Triggers</td><td><code>onWaitlistsCreate</code>, <code>onWaitlistsUpdate</code>, <code>onWaitlistsDelete</code> (forms); <code>onWaitlistUserCreate</code>, <code>onWaitlistUserUpdate</code>, <code>onWaitlistUserDelete</code> (members); <code>onReferralCreate</code>, <code>onReferralUpdate</code>; <code>syncOtpEnabledFlag</code> (on templates)</td></tr>
+        <tr><td>Public callables</td><td><code>joinForm</code>, <code>requestFormOtp</code>, <code>verifyFormOtp</code>, <code>finalizeFormSignup</code>, <code>ensureWaitlistExists</code></td></tr>
+        <tr><td>Admin callables</td><td><code>getWaitlistTemplateDefaults</code>, <code>backfillWaitlistTemplates</code>, and the one-time upgrade helpers <code>normalizeWaitlistTemplateIds</code>, <code>stampFormTargetLists</code></td></tr>
+        <tr><td>Triggers</td><td><code>onWaitlistsCreate</code>, <code>onWaitlistsUpdate</code>, <code>onWaitlistsDelete</code> (forms); <code>onWaitlistUserCreate</code>, <code>onWaitlistUserUpdate</code> (members); <code>syncOtpEnabledFlag</code> (on templates)</td></tr>
       </tbody>
     </table>
     <p>See <a href="../reference/cloud-functions.html">Cloud Functions</a> for the full list.</p>
@@ -166,14 +167,14 @@
     <table>
       <thead><tr><th>Data</th><th>Visitors</th><th>Admins</th></tr></thead>
       <tbody>
-        <tr><td><code>Waitlists/{form}</code></td><td>Read (it renders the page)</td><td>Read and write</td></tr>
-        <tr><td>Members</td><td>Create their own record; change only their name, tags, subscription, leaderboard link and referrer fields. No reads: the public pages go through the public callables, which return masked addresses</td><td>Read, write, delete</td></tr>
-        <tr><td>Referrals</td><td>Create; no reads</td><td>Read, write, delete</td></tr>
+        <tr><td><code>Waitlists/{form}</code></td><td>Read (it renders the page)</td><td>Read and write. The signup count is written by Cloud Functions</td></tr>
+        <tr><td>Members</td><td>Create their own record; change only their name, tags and subscription. No reads: joining and confirming go through the public callables</td><td>Read, write, delete</td></tr>
+        <tr><td>Old referral records</td><td>Nothing</td><td>Nothing (deleted by <code>npm run forms:remove-referrals</code>)</td></tr>
         <tr><td>Notes, <code>WaitlistUserTags_{form}</code>, <code>WaitlistedUsers</code></td><td>Nothing</td><td>Read and write</td></tr>
         <tr><td><code>form_otps</code></td><td>Nothing</td><td>Nothing (Cloud Functions only)</td></tr>
       </tbody>
     </table>
-    <p>Verification, confirmation, queue position and referral counts are worked out by Cloud Functions. The admin callables refuse anyone without the admin role (<a href="../concepts/roles-and-claims.html">Roles and claims</a>).</p>
+    <p>Verification, confirmation and the signup count are worked out by Cloud Functions. The admin callables refuse anyone without the admin role (<a href="../concepts/roles-and-claims.html">Roles and claims</a>).</p>
 
     <h2>Troubleshooting</h2>
     <table>
@@ -184,7 +185,7 @@
         <tr><td>"This form has no verification email template, so signups cannot be confirmed"</td><td>Email is on but the form's code template could not be found or made. Open the form's Email Templates page to restore the defaults.</td></tr>
         <tr><td>"This email has not been verified"</td><td>The form needs a code and none was verified for that address. Request a new code.</td></tr>
         <tr><td>A form on the site does nothing</td><td>It lacks <code>data-waitlist-form</code>, the published page was built before the form was added (publish it again), the form is not Active, or <code>forms</code> is off.</td></tr>
-        <tr><td>A referral was not counted</td><td>The code belongs to another form, it is a self-referral or repeat, or more than 24 hours passed between the click and the sign-up in that browser.</td></tr>
+        <tr><td>A welcome email has buttons that lead nowhere</td><td>It still has the referral and leaderboard buttons of older versions, edited by someone, so it was not upgraded. Remove them on the form's Email Templates page.</td></tr>
         <tr><td>"Save form answers as" is missing from the form's settings</td><td>It lists the input names held in the form document's <code>fields</code> list, and nothing fills that list for you. The mapping itself is the form's <code>fieldMap</code> (input name to contact field key), which an admin can also write directly.</td></tr>
       </tbody>
     </table>

@@ -57,5 +57,14 @@ describe('live parts in the app', () => {
         expect(script.getAttribute('src')).toMatch(/^\/assets\/js\/arc-site\.js/);
         expect(script.getAttribute('data-functions')).toMatch(/^https:\/\/.+cloudfunctions\.net$/);
         expect(document.body.contains(script)).toBe(true);
+        expect(script.hasAttribute('data-strings')).toBe(false);
+    });
+
+    // As publishing does: the panels' keys of the page's strings, and nothing else.
+    it('gives arc-site.js the page\'s signup and contact strings', () => {
+        const script = attachLiveParts(host(CONTACT), document, [], {
+            signup_on_list: 'Thanks, you are in!', contact_sent: 'Sent', read_more: 'Keep reading',
+        })!;
+        expect(JSON.parse(script.getAttribute('data-strings')!)).toEqual({ signup_on_list: 'Thanks, you are in!', contact_sent: 'Sent' });
     });
 });

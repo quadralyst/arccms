@@ -76,7 +76,6 @@ export const DEFAULT_WAITLIST = {
     description: 'Default waitlist for early access signups',
     isActive: true,
     otpEnabled: true,
-    startingPoint: 0,
     totalSignups: 0,
     uiConfig: DEFAULT_UI_CONFIG,
 };
@@ -117,7 +116,7 @@ export const OTP_TEMPLATE_PREVIEW = `<div class="container" style="max-width: 60
 export const WELCOME_TEMPLATE_PREVIEW = `<div class="container" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
   <div class="header" style="background-color: #2c3e50; color: #ffffff; text-align: center; padding: 40px 20px;">
     <h1 style="margin: 0; font-size: 28px; font-weight: 700;">
-      You're on the Waitlist!
+      You're on the list!
     </h1>
   </div>
   <div class="content" style="padding: 40px; text-align: center; color: #34495e; line-height: 1.6;">
@@ -125,16 +124,10 @@ export const WELCOME_TEMPLATE_PREVIEW = `<div class="container" style="width: 10
       Hello,
     </p>
     <p style="margin: 0 0 20px; font-size: 16px;">
-      Thank you for joining our waitlist! We're excited to have you. You can check your progress and see your rank on the leaderboard by clicking the links below.
+      Thanks for signing up for our waitlist. We're glad to have you.
     </p>
-    <a href="#" style="display: inline-block; text-decoration: none; color: #ffffff; font-weight: 600; font-size: 16px; padding: 12px 24px; border-radius: 8px; margin: 10px; background-color: #3498db;">
-      Your Referral Link
-    </a>
-    <a href="#" style="display: inline-block; text-decoration: none; color: #ffffff; font-weight: 600; font-size: 16px; padding: 12px 24px; border-radius: 8px; margin: 10px; background-color: #3498db;">
-      Waitlist Leaderboard
-    </a>
-    <p style="margin: 0 0 20px; font-size: 16px; margin-top: 32px;">
-      We'll notify you as soon as your spot is ready.
+    <p style="margin: 0 0 20px; font-size: 16px;">
+      We'll be in touch soon.
     </p>
     <p style="margin: 0 0 20px; font-size: 16px;">
       Best regards,<br>The Team

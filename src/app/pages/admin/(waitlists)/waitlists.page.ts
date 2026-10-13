@@ -35,11 +35,9 @@ interface IWaitlist {
     isActive: boolean;
     disabledMessage?: string;
     totalSignups: number;
-    startingPoint?: number;
     allUsersCount?: number;
     defaultTagId?: string;
     targetListIds?: string[];
-    gamificationEnabled?: boolean;
     /** Parsed form input names + their mapping to contact fields (U4.5). */
     fields?: string[];
     fieldMap?: Record<string, string>;
@@ -155,13 +153,6 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
                         label: 'Email Templates',
                         class: 'edit',
                         onAction: (row) => this.navigateToTemplates(row)
-                    },
-                    {
-                        icon: 'fas fa-trophy text-warning',
-                        action: 'leaderboard',
-                        label: 'View Leaderboard',
-                        class: 'edit',
-                        onAction: (row) => this.navigateToLeaderboard(row)
                     },
                     {
                         icon: 'fas fa-trash text-danger',
@@ -296,10 +287,6 @@ export default class WaitlistsComponent implements OnInit, OnDestroy {
 
     navigateToTemplates(waitlist: IWaitlist): void {
         this.router.navigate(['/admin/waitlists/templates', waitlist.id]);
-    }
-
-    navigateToLeaderboard(waitlist: IWaitlist): void {
-        this.router.navigate(['/leaderboard/', waitlist.slug]);
     }
 
     navigateToTags(waitlist: IWaitlist): void {

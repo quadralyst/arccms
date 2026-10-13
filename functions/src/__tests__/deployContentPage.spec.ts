@@ -765,10 +765,24 @@ describe('deployContentPage', () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
             expect(htmlFor('/hi/articles/test-article.html')).toContain('लेख पढ़ें');
-            // The default language keeps the authored English and is never asked
-            // for a strings file.
+            // The default language has no strings file here: the authored English stands.
             expect(htmlFor('/articles/test-article.html')).toContain('Read Article');
-            expect(mockGetUiStrings).not.toHaveBeenCalledWith('en');
+        });
+
+        // specs/form-gamification-spec.md G-D4: the default language's strings file
+        // words its pages the same way, the signup panels included.
+        it('applies the default language\'s own strings file when the site has one', async () => {
+            mockLoadSiteTemplate.mockResolvedValue('<article><span data-arc-t="read_more">Read Article</span></article>');
+            mockGetUiStrings.mockImplementation(async (lang: string) =>
+                lang === 'en' ? { read_more: 'Keep reading', signup_on_list: 'Thanks, you are in!' } : {});
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const html = htmlFor('/articles/test-article.html');
+            expect(mockGetUiStrings).toHaveBeenCalledWith('en');
+            expect(html).toContain('Keep reading');
+            expect(html).toContain('data-strings=');
+            expect(html).toContain('Thanks, you are in!');
         });
 
         // B2: {{ readingTime }} follows the page's min_read string.

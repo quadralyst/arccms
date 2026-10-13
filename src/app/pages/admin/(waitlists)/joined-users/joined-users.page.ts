@@ -34,16 +34,10 @@ interface WaitlistUser {
     firstName: string;
     emailVerified: boolean;
     isConfirmed: boolean;
-    queuePosition: number;
-    totalReferrals: number;
-    referralCode: string;
-    referralLink?: string;
     signupTimestamp: any;
     verifiedAt?: any;
     formData?: Record<string, any>;
     tags?: string[];
-    waitlistedUserId?: string;
-    referredBy?: string;
 }
 
 @Component({
@@ -86,7 +80,6 @@ export default class JoinedUsersComponent implements OnInit {
     // Stats
     totalUsers = computed(() => this.users().length);
     verifiedUsers = computed(() => this.users().filter(u => u.isConfirmed).length);
-    totalReferrals = computed(() => this.users().reduce((sum, u) => sum + u.totalReferrals, 0));
 
     // Pagination
     pageSize = signal(10);
@@ -133,17 +126,6 @@ export default class JoinedUsersComponent implements OnInit {
                     trueClass: 'active',
                     falseClass: 'inactive'
                 }
-            },
-            {
-                key: 'queuePosition',
-                header: 'Position',
-                transformFn: (row: WaitlistUser) =>
-                    (row.isConfirmed && row.queuePosition > 0) ? `#${row.queuePosition}` : '—'
-            },
-            {
-                key: 'totalReferrals',
-                header: 'Referrals',
-                classFn: (row: WaitlistUser) => row.totalReferrals > 0 ? 'text-success fw-bold' : ''
             },
             {
                 key: 'tags',
@@ -288,16 +270,6 @@ export default class JoinedUsersComponent implements OnInit {
                 batch.update(waitlistRef, { totalSignups: increment(-1) });
             }
 
-            // Referral reversal is NOT done here. `onWaitlistUserDelete` fires on this
-            // delete and calls `decrementReferralCounts`, which finds the referrer within
-            // the form, decrements them once and removes the referral record.
-            //
-            // This used to do the same thing client-side, against the global registry and
-            // the member doc. That meant the referrer's `totalReferrals` was decremented
-            // TWICE per deletion — once here, once by the trigger — and the extra work
-            // read a collection U6 has frozen. Deleting it fixes the double-decrement and
-            // leaves one owner for the counter.
-
             await batch.commit();
 
             // Remove user from local signal immediately — no reload needed
@@ -330,8 +302,6 @@ export default class JoinedUsersComponent implements OnInit {
             Name: u.firstName,
             Email: u.email,
             Status: u.emailVerified ? 'Verified' : (u.isConfirmed ? 'Confirmed' : 'Pending'),
-            Position: u.queuePosition,
-            Referrals: u.totalReferrals,
             Tags: this.getUserTags(u).map(t => t.label).join(', '),
             SignedUp: this.formatDate(u.signupTimestamp),
         }));

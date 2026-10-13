@@ -54,38 +54,13 @@ vi.mock('@angular/fire/functions', () => {
 import * as FirestoreSDK from '@angular/fire/firestore';
 import * as FunctionsSDK from '@angular/fire/functions';
 
-/**
- * Default response per callable, so a test only overrides the one it cares about.
- * `member` carries the fields the service reads off a member view.
- */
+/** Default response per callable, so a test only overrides the one it cares about. */
 function defaultCallableData(name: string): Record<string, unknown> {
     switch (name) {
-        case 'getPublicMemberView':
-            return {
-                member: {
-                    id: 'member-1',
-                    email: 'member@example.com',
-                    firstName: 'Member',
-                    isConfirmed: false,
-                    referralCode: 'CODE1',
-                    queuePosition: 0,
-                    waitlistedUserId: 'registry-1',
-                },
-                referrals: [],
-                stats: { successfulReferrals: 0, pendingReferrals: 0 },
-                waitlist: { id: 'waitlist-1', name: 'Test Waitlist' },
-            };
         case 'joinForm':
-            return {
-                memberId: 'member-1', referralCode: 'CODE1',
-                referralLink: 'https://site.example/?ref=CODE1',
-                leaderboardLink: 'https://site.example/leaderboard/waitlist-1/registry-1',
-                waitlistedUserId: 'registry-1',
-            };
+            return { memberId: 'member-1' };
         case 'finalizeFormSignup':
-            return { queuePosition: 1, totalSignups: 1, emailVerified: true, alreadyConfirmed: false };
-        case 'creditReferral':
-            return { recorded: true };
+            return { totalSignups: 1, emailVerified: true, alreadyConfirmed: false };
         default:
             // requestFormOtp / verifyFormOtp
             return { sent: true, status: 'pending', verified: true };
@@ -96,8 +71,8 @@ function defaultCallableData(name: string): Record<string, unknown> {
  * Override selected callables while every other one keeps its default. Returns the map
  * of spies so a test can assert on the call it cares about.
  *
- * Needed because #51 spread the flow across several callables: a single blanket spy
- * would starve verifyOtpAndProcessUser of its member view while satisfying the OTP check.
+ * Needed because the flow spans several callables: a single blanket spy could not
+ * reject the code check while letting the confirmation through.
  */
 function mockCallables(overrides: Record<string, (data?: any) => any> = {}) {
     const spies: Record<string, ReturnType<typeof vi.fn>> = {};
@@ -146,10 +121,8 @@ describe('WaitlistService', () => {
         // re-establish the pure helpers and the default happy-path server here.
         vi.mocked(FirestoreSDK.increment).mockImplementation((n: number) => ({ __increment: n }) as any);
         vi.mocked(FirestoreSDK.arrayUnion).mockImplementation((...args: unknown[]) => ({ __arrayUnion: args }) as any);
-        // #51 moved the member reads onto callables, so the default mock dispatches by
-        // function name. A single blanket response no longer works: verifyOtpAndProcessUser
-        // now needs getPublicMemberView to return a member, and requestFormOtp to report
-        // `sent`, in the same test.
+        // The default mock dispatches by function name, so each callable answers
+        // for itself.
         vi.mocked(FunctionsSDK.httpsCallable).mockImplementation(
             ((_fns: unknown, name: string) => vi.fn(async () => ({ data: defaultCallableData(name.replace(/^arccms-/, '')) }))) as any,
         );
@@ -169,15 +142,7 @@ describe('WaitlistService', () => {
         let joinSpy: ReturnType<typeof vi.fn>;
 
         beforeEach(() => {
-            joinSpy = vi.fn(async () => ({
-                data: {
-                    memberId: 'member-1',
-                    referralCode: 'ABCD2345',
-                    referralLink: 'https://site.example/?ref=ABCD2345',
-                    leaderboardLink: 'https://site.example/leaderboard/waitlist-1/registry-1',
-                    waitlistedUserId: 'registry-1',
-                },
-            }));
+            joinSpy = vi.fn(async () => ({ data: { memberId: 'member-1' } }));
             vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(joinSpy as any);
         });
 
@@ -211,12 +176,11 @@ describe('WaitlistService', () => {
             expect(getDocs).not.toHaveBeenCalled();
         });
 
-        it('returns the ids and links the form needs to continue', async () => {
+        it('returns the member id the form needs to continue, and sends no referral', async () => {
             const res = await service.joinWaitlist('waitlist-1', { email: 'new@example.com' });
 
             expect(res.userId).toBe('member-1');
-            expect(res['waitlistedUserId']).toBe('registry-1');
-            expect(res['referralCode']).toBe('ABCD2345');
+            expect(joinSpy.mock.calls[0][0]).not.toHaveProperty('referredBy');
         });
 
         it('asks the server to send the code after joining', async () => {
@@ -283,294 +247,141 @@ describe('WaitlistService', () => {
 
 
 
-    describe('referrals — recorded server-side (#51)', () => {
-        // The referrer lookup and the self-referral / duplicate guards used to run in
-        // the browser, which meant two things: they needed public read on member docs,
-        // and they were advisory — anyone could skip them and credit themselves
-        // repeatedly. Both guards now live in creditReferral; see its own spec.
-        it('delegates to creditReferral instead of querying member documents', async () => {
-            const spies = mockCallables();
-            const getDocs = vi.spyOn(FirestoreSDK, 'getDocs');
-            const addDoc = vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'x' } as any);
-
-            await service.confirmWithoutOtp('waitlist-1', 'member-1', 'REF123');
-
-            expect(spies['creditReferral']).toBeDefined();
-            expect(spies['creditReferral']).toHaveBeenCalledWith(expect.objectContaining({
-                waitlistId: 'waitlist-1', referrerCode: 'REF123', status: 'completed',
-            }));
-            // No client-side referrer lookup and no client-written referral record.
-            expect(getDocs).not.toHaveBeenCalled();
-            expect(addDoc).not.toHaveBeenCalled();
-        });
-
-        it('does not call it when no referral code was supplied', async () => {
+    describe('resendVerificationCode', () => {
+        it('asks the server to send the code to the address it is given', async () => {
             const spies = mockCallables();
 
-            await service.confirmWithoutOtp('waitlist-1', 'member-1', '');
+            const result = await service.resendVerificationCode('waitlist-1', 'a@b.com', 'Asha');
 
-            expect(spies['creditReferral']).toBeUndefined();
+            expect(spies['requestFormOtp']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', email: 'a@b.com', name: 'Asha' });
+            expect(result.success).toBe(true);
         });
 
-        it('lets the signup succeed even if recording the referral fails', async () => {
-            // A referral is an extra, not a precondition — losing it must not cost the
-            // signup that was already confirmed.
-            mockCallables({
-                creditReferral: () => { throw new Error('referral service down'); },
-            });
+        it('passes on the server\'s message, such as the resend throttle', async () => {
+            mockCallables({ requestFormOtp: () => { throw new Error('Please wait a minute before asking again.'); } });
 
-            await expect(service.confirmWithoutOtp('waitlist-1', 'member-1', 'REF123'))
-                .resolves.toBeDefined();
+            const result = await service.resendVerificationCode('waitlist-1', 'a@b.com');
+
+            expect(result).toEqual({ success: false, message: 'Please wait a minute before asking again.' });
         });
     });
 
-
-    describe('getLeaderboard', () => {
-        it('should read the leaderboard from the server, not from member documents', async () => {
-            // #51: this used to query Waitlists/{id}/users straight from the browser,
-            // which is why firestore.rules had to allow public reads on a collection
-            // holding raw email addresses. Anyone with the API key from the JS bundle
-            // could page every signup. The ordering, masking and counting all moved into
-            // getPublicLeaderboard.
-            const callableSpy = vi.fn(async () => ({
-                data: {
-                    leaderboard: [
-                        { id: 'user3', firstName: 'C', maskedEmail: 'te***@example.com', totalReferrals: 5, queuePosition: 3, waitlistedUserId: 'wu3' },
-                        { id: 'user1', firstName: 'A', maskedEmail: 'te***@example.com', totalReferrals: 0, queuePosition: 1, waitlistedUserId: 'wu1' },
-                    ],
-                    totalUsers: 3,
-                    unverifiedUsers: 2,
-                    waitlistId: 'test-waitlist',
-                },
-            }));
-            vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(callableSpy as any);
-            const getDocsSpy = vi.spyOn(FirestoreSDK, 'getDocs');
-
-            const result = await service.getLeaderboard('test-waitlist');
-
-            expect(FunctionsSDK.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'arccms-getPublicLeaderboard');
-            expect(callableSpy).toHaveBeenCalledWith({ waitlistId: 'test-waitlist' });
-            // The point of the change: no client-side read of member documents.
-            expect(getDocsSpy).not.toHaveBeenCalled();
-
-            expect(result.leaderboard).toHaveLength(2);
-            expect((result.leaderboard[0] as any).id).toBe('user3');
-            expect((result.leaderboard[0] as any).email).toBeUndefined();
-            expect(result.totalUsers).toBe(3);
-            expect(result.unverifiedUsers).toBe(2);
-        });
-    });
-
-    // Note: resendVerificationCode tests skipped due to vitest mock lifecycle issue
-    // where getDoc mock doesn't properly propagate to the service after earlier
-    // describe blocks have used vi.spyOn on the same function. The resendVerificationCode
-    // implementation has been manually verified.
-
-    // -----------------------------------------------------------------------
-    // Regression: emailVerified vs isConfirmed field correctness
-    // -----------------------------------------------------------------------
-
-
-
-    describe('verifyOtpAndProcessUser — rejected codes (U5: server-authoritative)', () => {
+    describe('verifyAndConfirm, rejected codes (U5: server-authoritative)', () => {
         /**
-         * These replace the old null-`verificationExpires` regression tests. Expiry,
-         * the attempt cap and the code comparison all moved to `verifyFormOtp`
-         * (U5) — the client no longer holds the code or the expiry, so it cannot
-         * make that judgement. What must still hold is that a code the server
-         * rejects never verifies the user, whatever the reason.
+         * Expiry, the attempt cap and the code comparison all live in `verifyFormOtp`
+         * (U5): the client never holds the code. What must hold is that a code the
+         * server rejects never confirms the signup, whatever the reason.
          */
-        function serverRejects(message: string): void {
-            // Only the OTP check fails. Making every callable throw would starve
-            // getPublicMemberView too, and the flow would fail for the wrong reason —
-            // the outer catch returns a generic message and the test would pass or fail
-            // without exercising the OTP path at all.
-            mockCallables({ verifyFormOtp: () => { throw new Error(message); } });
+        function serverRejects(message: string) {
+            return mockCallables({ verifyFormOtp: () => { throw new Error(message); } });
         }
 
-        it('returns the server message when the code has expired', async () => {
-            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
-                exists: () => true,
-                data: () => ({ email: 'a@b.com', isConfirmed: false }),
-            } as any);
-            serverRejects('Your code has expired. Please request a new one.');
+        it('returns the server message when the code has expired, and confirms nothing', async () => {
+            const spies = serverRejects('Your code has expired. Please request a new one.');
 
-            const result = await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '123456', {});
+            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
 
             expect(result.success).toBe(false);
             expect(result.message).toContain('expired');
+            expect(spies['finalizeFormSignup']).toBeUndefined();
         });
 
-        it('returns the server message on a wrong code, via the subcollection path', async () => {
-            vi.spyOn(FirestoreSDK, 'getDoc')
-                .mockResolvedValueOnce({ exists: () => false } as any) // WaitlistedUsers lookup
-                .mockResolvedValueOnce({
-                    exists: () => true,
-                    data: () => ({ email: 'a@b.com', isConfirmed: false }),
-                } as any); // subcollection lookup
+        it('returns the server message on a wrong code', async () => {
             serverRejects('Invalid verification code.');
 
-            const result = await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '000000', {});
+            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '000000');
 
             expect(result.success).toBe(false);
             expect(result.message).toContain('Invalid verification code');
         });
 
         it('surfaces the attempt-cap lockout rather than verifying', async () => {
-            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
-                exists: () => true,
-                data: () => ({ email: 'a@b.com', isConfirmed: false }),
-            } as any);
             serverRejects('Too many attempts. Please request a new code.');
 
-            const result = await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '123456', {});
+            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
 
             expect(result.success).toBe(false);
             expect(result.message).toContain('Too many attempts');
         });
 
-        it('does not throw when the callable itself fails', async () => {
-            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
-                exists: () => true,
-                data: () => ({ email: 'a@b.com', isConfirmed: false }),
-            } as any);
+        it('does not throw when the callables themselves fail', async () => {
             vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(
                 vi.fn(async () => { throw new Error('network down'); }) as any,
             );
 
-            const result = await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '123456', {});
+            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
 
             expect(result.success).toBe(false);
         });
     });
 
-    // ── U5 item 5: signup completion moved server-side ───────────────────────────
-    // These three used to assert that the *browser* wrote emailVerified, isConfirmed,
-    // queuePosition and the default tag. It no longer does, and that is the point:
-    // those fields have been removed from the unauthenticated-update whitelist in
-    // firestore.rules, so a client write would now be rejected outright. What the
-    // client must do instead is delegate to finalizeFormSignup, which derives whether
-    // an OTP was required rather than taking the caller's word for it.
-
-    describe('confirmWithoutOtp — delegates protected writes to finalizeFormSignup (U5)', () => {
-        let callableSpy: ReturnType<typeof vi.fn>;
-
-        beforeEach(() => {
-            const spies = mockCallables({
-                finalizeFormSignup: () => ({ queuePosition: 7, totalSignups: 7, emailVerified: false, alreadyConfirmed: false }),
-            });
-            // Touch the callable once so the spy exists for assertions below.
-            callableSpy = spies['finalizeFormSignup'] as any;
-
-            vi.spyOn(FirestoreSDK, 'getDoc').mockResolvedValue({
-                exists: () => true,
-                data: () => ({
-                    email: 'nootp@example.com',
-                    firstName: 'NoOtp',
-                    emailVerified: false,
-                    isConfirmed: false,
-                    waitlistedUserId: 'wl-user-1',
-                }),
-            } as any);
-            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ empty: true, docs: [] } as any);
-            vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
-            vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
-            vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'x' } as any);
-        });
-
-        it('should call finalizeFormSignup with the waitlist and member ids', async () => {
+    describe('verifyAndConfirm, accepted codes', () => {
+        it('checks the code for the address typed, then confirms through the server', async () => {
             const spies = mockCallables();
 
-            await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
+            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
 
-            expect(FunctionsSDK.httpsCallable).toHaveBeenCalledWith(expect.anything(), 'arccms-finalizeFormSignup');
-            expect(spies['finalizeFormSignup']).toHaveBeenCalledWith(
-                expect.objectContaining({ waitlistId: 'waitlist-1', userId: 'user-1' }),
-            );
+            expect(spies['verifyFormOtp']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', email: 'a@b.com', code: '123456' });
+            expect(spies['finalizeFormSignup']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', userId: 'user-1' });
+            expect(result).toEqual({ success: true, alreadyConfirmed: false });
         });
 
-        it('should return the position the server assigned, not one it counted itself', async () => {
-            const result = await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
+        it('says when the person was already on the list', async () => {
+            mockCallables({ finalizeFormSignup: () => ({ totalSignups: 0, emailVerified: true, alreadyConfirmed: true }) });
 
-            expect(result.queuePosition).toBe(7);
-            expect(result.totalSignups).toBe(7);
+            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
+
+            expect(result.alreadyConfirmed).toBe(true);
         });
 
-        it('should not write emailVerified, isConfirmed, queuePosition or verifiedAt from the client', async () => {
-            await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
+        it('reads no member document and calls no member view or referral callable', async () => {
+            const getDoc = vi.spyOn(FirestoreSDK, 'getDoc');
+            mockCallables();
 
-            const protectedKeys = ['emailVerified', 'isConfirmed', 'queuePosition', 'verifiedAt',
-                                   'verificationCode', 'verificationExpires', 'totalReferrals'];
-            const written = [
-                ...vi.mocked(FirestoreSDK.updateDoc).mock.calls,
-                ...vi.mocked(FirestoreSDK.setDoc).mock.calls,
-            ].flatMap((call) => Object.keys((call[1] as Record<string, unknown>) || {}));
+            await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
 
-            expect(written.filter((k) => protectedKeys.includes(k))).toEqual([]);
-        });
-
-        it('should not apply the default tag from the client — finalizeFormSignup owns it', async () => {
-            // The tag write targeted the same member doc, so it had to be moved too;
-            // `tags` stays whitelisted only for the preference-centre paths.
-            await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
-
-            const tagWrites = vi.mocked(FirestoreSDK.updateDoc).mock.calls.filter(
-                (call) => 'tags' in ((call[1] as Record<string, unknown>) || {}),
-            );
-            expect(tagWrites).toEqual([]);
-        });
-
-        it('should skip the server call entirely when the member is already confirmed', async () => {
-            // The member state now arrives through getPublicMemberView, not a client read.
-            const spies = mockCallables({
-                getPublicMemberView: () => ({
-                    member: { id: 'member-1', email: 'a@b.c', isConfirmed: true, queuePosition: 3 },
-                    referrals: [], stats: {}, waitlist: null,
-                }),
-            });
-            callableSpy = spies['finalizeFormSignup'] as any;
-
-            const result = await service.confirmWithoutOtp('waitlist-1', 'user-1', '');
-
-            // finalizeFormSignup must never be reached for an already-confirmed member.
-            expect(spies['finalizeFormSignup']).toBeUndefined();
-            expect(result.queuePosition).toBe(3);
+            const called = vi.mocked(FunctionsSDK.httpsCallable).mock.calls.map((c) => String(c[1]).replace(/^arccms-/, ''));
+            expect(called.sort()).toEqual(['finalizeFormSignup', 'verifyFormOtp']);
+            expect(getDoc).not.toHaveBeenCalled();
         });
     });
 
-    describe('processNewVerification — delegates protected writes to finalizeFormSignup (U5)', () => {
-        it('should complete the signup through the server rather than writing the fields itself', async () => {
-            // Each callable answers for itself (#51 spread this path across three).
-            mockCallables({
-                getPublicMemberView: () => ({
-                    member: {
-                        id: 'member-1', email: 'verified@example.com', firstName: 'Verified',
-                        isConfirmed: false, waitlistedUserId: 'wl-user-1', referralCode: 'CODE1',
-                    },
-                    referrals: [], stats: {}, waitlist: null,
-                }),
-                finalizeFormSignup: () => ({
-                    queuePosition: 2, totalSignups: 2, emailVerified: true, alreadyConfirmed: false,
-                }),
-            });
-            vi.spyOn(FirestoreSDK, 'getDocs').mockResolvedValue({ empty: true, docs: [] } as any);
+    // ── U5 item 5: signup completion moved server-side ───────────────────────────
+    // The browser used to write emailVerified, isConfirmed, queuePosition and the
+    // default tag. Those fields are out of the unauthenticated-update whitelist in
+    // firestore.rules, so the client delegates to finalizeFormSignup, which derives
+    // whether an OTP was required rather than taking the caller's word for it.
+
+    describe('confirmWithoutOtp, delegates protected writes to finalizeFormSignup (U5)', () => {
+        beforeEach(() => {
             vi.spyOn(FirestoreSDK, 'updateDoc').mockResolvedValue(undefined);
-            vi.spyOn(FirestoreSDK, 'addDoc').mockResolvedValue({ id: 'x' } as any);
+            vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
+        });
 
-            await service.verifyOtpAndProcessUser('waitlist-1', 'user-1', '123456', '');
+        it('should call finalizeFormSignup with the waitlist and member ids only', async () => {
+            const spies = mockCallables();
 
-            const calledFns = vi.mocked(FunctionsSDK.httpsCallable).mock.calls.map((c) => String(c[1]).replace(/^arccms-/, ''));
-            // The member view is fetched first (#51), then the code is checked, then the
-            // signup is finalised — all server-side.
-            expect(calledFns).toContain('getPublicMemberView');
-            expect(calledFns).toContain('verifyFormOtp');
-            expect(calledFns).toContain('finalizeFormSignup');
+            const result = await service.confirmWithoutOtp('waitlist-1', 'user-1');
 
-            const written = vi.mocked(FirestoreSDK.updateDoc).mock.calls
-                .flatMap((call) => Object.keys((call[1] as Record<string, unknown>) || {}));
-            expect(written).not.toContain('emailVerified');
-            expect(written).not.toContain('queuePosition');
-            expect(written).not.toContain('tags');
+            expect(spies['finalizeFormSignup']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', userId: 'user-1' });
+            expect(result).toEqual({ success: true, alreadyConfirmed: false });
+        });
+
+        it('should not write any member field from the client', async () => {
+            mockCallables();
+
+            await service.confirmWithoutOtp('waitlist-1', 'user-1');
+
+            expect(FirestoreSDK.updateDoc).not.toHaveBeenCalled();
+            expect(FirestoreSDK.setDoc).not.toHaveBeenCalled();
+        });
+
+        it('passes on an already-confirmed signup from the server', async () => {
+            mockCallables({ finalizeFormSignup: () => ({ totalSignups: 0, emailVerified: true, alreadyConfirmed: true }) });
+
+            const result = await service.confirmWithoutOtp('waitlist-1', 'user-1');
+
+            expect(result.alreadyConfirmed).toBe(true);
         });
     });
 });

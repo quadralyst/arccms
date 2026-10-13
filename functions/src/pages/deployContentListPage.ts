@@ -170,7 +170,7 @@ export async function generateAndDeployContentListPage(
         // Applied before hydration so a translated value may carry its own
         // interpolation — "Back to {{ contentType }}" — and before loops so a
         // repeated item template is translated once rather than per item.
-        const uiStrings = lang === defaultLang ? {} : await getUiStrings(lang);
+        const uiStrings = await getUiStrings(lang);
         // Then the site's own details (SS3) and its standard pages (SS6), before
         // hydration can touch a loop row's {{ url }}.
         const siteInfo = await siteInfoFor(lang, defaultLang);

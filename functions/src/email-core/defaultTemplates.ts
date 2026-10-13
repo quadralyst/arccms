@@ -1,4 +1,5 @@
 import { Timestamp } from 'firebase-admin/firestore';
+import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
 import type { EmailCategory, EmailSettings } from '../types.js';
 
@@ -203,43 +204,19 @@ export interface WaitlistTemplateDef {
   body: string;
 }
 
-/** Default per-form template set. Built per call so the footer year is current. */
-export function buildWaitlistTemplateDefs(): WaitlistTemplateDef[] {
-  const currentYear = new Date().getFullYear();
-
-  return [
-    {
-      type: 'waitlist_welcome_email',
-      category: 'marketing',
-      // Subjects go through the same ##TAG## pass as the body (mailConfig.ts), so
-      // this resolves to the form's own name. It used to be the literal string
-      // "Waitlist welcome email", which is what recipients actually saw.
-      subject: WELCOME_SUBJECT_DEFAULT,
-      title: 'Waitlist welcome email',
-      previewText: '',
-      body: `<div class="container" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+/** The card around a welcome email's words, with the unsubscribe line and footer. */
+function welcomeCard(heading: string, middle: string, year: number | string): string {
+  return `<div class="container" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
   <div class="header" style="background-color: #2c3e50; color: #ffffff; text-align: center; padding: 40px 20px;">
     <h1 style="margin: 0; font-size: 28px; font-weight: 700;">
-      You're on the ##WAITLIST## Waitlist!
+      ${heading}
     </h1>
   </div>
   <div class="content" style="padding: 40px; text-align: center; color: #34495e; line-height: 1.6;">
     <p style="margin: 0 0 20px; font-size: 16px;">
       Hello,
     </p>
-    <p style="margin: 0 0 20px; font-size: 16px;">
-      Thank you for joining our waitlist! We're excited to have you. You can check your progress and see your rank on the leaderboard by clicking the links below.
-    </p>
-    <a href=##REFERRAL_LINK## style="display: inline-block; text-decoration: none; color: #ffffff; font-weight: 600; font-size: 16px; padding: 12px 24px; border-radius: 8px; margin: 10px; background-color: #3498db;">
-      Your Referral Link
-    </a>
-    <a href=##LEADERBOARD_LINK## style="display: inline-block; text-decoration: none; color: #ffffff; font-weight: 600; font-size: 16px; padding: 12px 24px; border-radius: 8px; margin: 10px; background-color: #3498db;">
-      Waitlist Leaderboard
-    </a>
-    <p style="margin: 0 0 20px; font-size: 16px; margin-top: 32px;">
-      We'll notify you as soon as your spot is ready.
-    </p>
-    <p style="margin: 0 0 20px; font-size: 16px;">
+${middle}    <p style="margin: 0 0 20px; font-size: 16px;">
       Best regards,
       <br>
       The Team
@@ -259,11 +236,73 @@ export function buildWaitlistTemplateDefs(): WaitlistTemplateDef[] {
   </div>
   <div class="footer" style="text-align: center; padding: 20px; font-size: 12px; color: #9baec8; border-top: 1px solid #e2e8f0;">
     <p style="margin: 0; font-size: 12px; color: #9baec8;">
-      © ${currentYear}. All rights reserved.
+      © ${year}. All rights reserved.
     </p>
   </div>
 </div>
-`,
+`;
+}
+
+/** The default welcome: a plain confirmation (specs/form-gamification-spec.md). */
+export function welcomeBody(year: number | string): string {
+  return welcomeCard("You're on the list!", `    <p style="margin: 0 0 20px; font-size: 16px;">
+      Thanks for signing up for ##WAITLIST##. We're glad to have you.
+    </p>
+    <p style="margin: 0 0 20px; font-size: 16px;">
+      We'll be in touch soon.
+    </p>
+`, year);
+}
+
+/**
+ * The welcome bodies earlier versions seeded, with a referral link and a
+ * leaderboard button. Signup forms have neither any more, so an untouched copy
+ * is replaced by {@link welcomeBody} (see {@link isOldDefaultWelcomeBody}).
+ */
+function oldWelcomeBodies(year: string): string[] {
+  const middle = `    <p style="margin: 0 0 20px; font-size: 16px;">
+      Thank you for joining our waitlist! We're excited to have you. You can check your progress and see your rank on the leaderboard by clicking the links below.
+    </p>
+    <a href=##REFERRAL_LINK## style="display: inline-block; text-decoration: none; color: #ffffff; font-weight: 600; font-size: 16px; padding: 12px 24px; border-radius: 8px; margin: 10px; background-color: #3498db;">
+      Your Referral Link
+    </a>
+    <a href=##LEADERBOARD_LINK## style="display: inline-block; text-decoration: none; color: #ffffff; font-weight: 600; font-size: 16px; padding: 12px 24px; border-radius: 8px; margin: 10px; background-color: #3498db;">
+      Waitlist Leaderboard
+    </a>
+    <p style="margin: 0 0 20px; font-size: 16px; margin-top: 32px;">
+      We'll notify you as soon as your spot is ready.
+    </p>
+`;
+  return ["You're on the ##WAITLIST## Waitlist!", "You're on the Waitlist!"].map((heading) => welcomeCard(heading, middle, year));
+}
+
+/** Whitespace and the footer year never count, so a body seeded in any year matches. */
+function comparable(body: string): string {
+  return body.replace(/©\s*\d{4}/g, '© YEAR').replace(/\s+/g, ' ').trim();
+}
+
+/** Is this welcome body exactly an old default, which nobody has edited? */
+export function isOldDefaultWelcomeBody(body: unknown): boolean {
+  if (typeof body !== 'string' || !body.includes('##LEADERBOARD_LINK##')) return false;
+  const text = comparable(body);
+  return oldWelcomeBodies('YEAR').some((old) => comparable(old) === text);
+}
+
+/** Default per-form template set. Built per call so the footer year is current. */
+export function buildWaitlistTemplateDefs(): WaitlistTemplateDef[] {
+  const currentYear = new Date().getFullYear();
+
+  return [
+    {
+      type: 'waitlist_welcome_email',
+      category: 'marketing',
+      // Subjects go through the same ##TAG## pass as the body (mailConfig.ts), so
+      // this resolves to the form's own name. It used to be the literal string
+      // "Waitlist welcome email", which is what recipients actually saw.
+      subject: WELCOME_SUBJECT_DEFAULT,
+      title: 'Waitlist welcome email',
+      previewText: '',
+      body: welcomeBody(currentYear),
     },
     {
       type: 'waitlist_verify_otp_email',
@@ -425,13 +464,30 @@ export function waitlistDisplayName(name?: string | null): string {
  * Exported so the backfill's dry run reports exactly what the real run would do.
  */
 export async function formTemplateExists(formId: string, type: string): Promise<boolean> {
+  return (await findFormTemplate(formId, type)) !== null;
+}
+
+/** The form's template of this type, by the same query the senders run, or null. */
+async function findFormTemplate(formId: string, type: string): Promise<FirebaseFirestore.QueryDocumentSnapshot | null> {
   const snap = await db
     .collection('EmailTemplate')
     .where('waitlistId', '==', formId)
     .where('type', '==', type)
     .limit(1)
     .get();
-  return !snap.empty;
+  return snap.empty ? null : snap.docs[0];
+}
+
+/**
+ * Replace a welcome body that is still exactly an old default, with its referral
+ * link and leaderboard buttons, by today's plain one (specs/form-gamification-spec.md).
+ * A body anyone edited, or one built in the block editor, is left alone.
+ */
+async function upgradeOldWelcomeBody(doc: FirebaseFirestore.QueryDocumentSnapshot, body: string): Promise<boolean> {
+  const data = doc.data() || {};
+  if (data['design'] || !isUntouchedSystemTemplate(data) || !isOldDefaultWelcomeBody(data['template'])) return false;
+  await doc.ref.update({ template: body, modifiedAt: Timestamp.now() });
+  return true;
 }
 
 /**
@@ -448,7 +504,9 @@ export async function formTemplateExists(formId: string, type: string): Promise<
  * the off switch for a form's email, not deletion — `queueEmail` already gates on
  * it, and a missing template is indistinguishable from a never-seeded one.
  *
- * Existing docs are never overwritten, so admin edits survive.
+ * Existing docs are never overwritten, so admin edits survive. The one exception
+ * is a welcome body still exactly an old default with referral and leaderboard
+ * buttons, which becomes the plain one (see upgradeOldWelcomeBody).
  */
 export async function ensureWaitlistTemplates(formId: string): Promise<SeedResult> {
   const created: string[] = [];
@@ -488,7 +546,11 @@ export async function ensureWaitlistTemplates(formId: string): Promise<SeedResul
     // The senders' `limit(1)` would pick between them by document key, and the
     // admin page — which saves to the canonical id — would end up editing a
     // different doc than the one actually being sent.
-    if (await formTemplateExists(formId, def.type)) {
+    const existing = await findFormTemplate(formId, def.type);
+    if (existing) {
+      if (def.type === 'waitlist_welcome_email' && await upgradeOldWelcomeBody(existing, def.body)) {
+        logger.info(`ensureWaitlistTemplates: ${formId}'s welcome had the old default body; now the plain one.`);
+      }
       skipped.push(def.type);
       continue;
     }

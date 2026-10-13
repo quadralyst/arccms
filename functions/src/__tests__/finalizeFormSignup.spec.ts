@@ -221,17 +221,29 @@ describe('finalizeFormSignup', () => {
     });
   });
 
-  describe('queue position', () => {
+  describe('the signup count', () => {
     it('should count confirmed members server-side rather than trust the caller', async () => {
       store.set('Settings/email', { isEnabled: false });
       store.set('Waitlists/w1/users/a', { email: 'a@x.com', isConfirmed: true });
       store.set('Waitlists/w1/users/b', { email: 'b@x.com', isConfirmed: true });
       store.set('Waitlists/w1/users/c', { email: 'c@x.com', isConfirmed: false });
 
-      const result = await call({ waitlistId: 'w1', userId: 'u1', queuePosition: 1 });
+      const result = await call({ waitlistId: 'w1', userId: 'u1', totalSignups: 1 });
 
-      expect(result.queuePosition).toBe(3); // 2 confirmed + 1, not the requested 1
-      expect(store.get('Waitlists/w1/users/u1').queuePosition).toBe(3);
+      expect(result.totalSignups).toBe(3); // 2 confirmed + this one, not the requested 1
+      expect(store.get('Waitlists/w1').totalSignups).toBe(3);
+    });
+
+    // specs/form-gamification-spec.md: signup forms are plain.
+    it('records no queue position or referrer, whatever the caller sends', async () => {
+      store.set('Settings/email', { isEnabled: false });
+
+      const result = await call({ waitlistId: 'w1', userId: 'u1', referredBy: 'REF123' });
+
+      expect(result).not.toHaveProperty('queuePosition');
+      const member = store.get('Waitlists/w1/users/u1');
+      expect(member).not.toHaveProperty('queuePosition');
+      expect(member).not.toHaveProperty('referredBy');
     });
 
     it('should update the waitlist totalSignups to match', async () => {
@@ -244,7 +256,7 @@ describe('finalizeFormSignup', () => {
   });
 
   describe('idempotency', () => {
-    it('should not reshuffle the position when re-run on an already-confirmed member', async () => {
+    it('should not count the signup again when re-run on an already-confirmed member', async () => {
       store.set('Settings/email', { isEnabled: false });
       store.set('Waitlists/w1/users/u1', {
         email: 'new@example.com', isConfirmed: true, emailVerified: true, queuePosition: 4,
@@ -252,18 +264,18 @@ describe('finalizeFormSignup', () => {
 
       const result = await call({ waitlistId: 'w1', userId: 'u1' });
 
-      expect(result).toMatchObject({ alreadyConfirmed: true, queuePosition: 4, emailVerified: true });
+      expect(result).toEqual({ alreadyConfirmed: true, totalSignups: 0, emailVerified: true });
       expect(store.get('Waitlists/w1').totalSignups).toBe(0); // untouched
     });
 
-    it('should return the same position across a double submit', async () => {
+    it('should say "already confirmed" on a double submit', async () => {
       store.set('Settings/email', { isEnabled: false });
 
-      const first = await call({ waitlistId: 'w1', userId: 'u1' });
+      await call({ waitlistId: 'w1', userId: 'u1' });
       const second = await call({ waitlistId: 'w1', userId: 'u1' });
 
-      expect(second.queuePosition).toBe(first.queuePosition);
       expect(second.alreadyConfirmed).toBe(true);
+      expect(store.get('Waitlists/w1').totalSignups).toBe(1);
     });
   });
 
@@ -308,14 +320,6 @@ describe('finalizeFormSignup', () => {
 
       expect(store.get('Waitlists/w1/users/u1').isConfirmed).toBe(true);
       expect(store.get('WaitlistedUsers/g1').isConfirmed).toBe(false); // untouched
-    });
-
-    it('should record referredBy when the signup came through a referral link', async () => {
-      store.set('Settings/email', { isEnabled: false });
-
-      await call({ waitlistId: 'w1', userId: 'u1', referredBy: 'REF123' });
-
-      expect(store.get('Waitlists/w1/users/u1').referredBy).toBe('REF123');
     });
   });
 

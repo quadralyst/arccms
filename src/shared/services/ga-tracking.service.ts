@@ -46,12 +46,6 @@ export class GaTrackingService {
             if (value) utmParams[param] = value;
         });
 
-        const refCode = params.get('ref');
-        if (refCode) {
-            utmParams['referral_code'] = refCode;
-            this.trackEvent('referral_code_used', { referral_code: refCode });
-        }
-
         if (Object.keys(utmParams).length > 0) this.analytics.setUserProperties(utmParams);
     }
 
@@ -87,8 +81,8 @@ export class GaTrackingService {
         this.trackEvent('waitlist_form_start', { waitlist_id: waitlistId });
     }
 
-    trackWaitlistSignupSubmit(waitlistId: string, hasReferral: boolean): void {
-        this.trackEvent('waitlist_signup_submit', { waitlist_id: waitlistId, has_referral: hasReferral });
+    trackWaitlistSignupSubmit(waitlistId: string): void {
+        this.trackEvent('waitlist_signup_submit', { waitlist_id: waitlistId });
     }
 
     trackWaitlistOtpSend(waitlistId: string, isResend = false): void {
@@ -99,16 +93,12 @@ export class GaTrackingService {
         this.trackEvent('waitlist_otp_verify', { waitlist_id: waitlistId, success });
     }
 
-    trackWaitlistSignupComplete(waitlistId: string, queuePosition: number, referredBy?: string): void {
-        this.trackEvent('waitlist_signup_complete', {
-            waitlist_id: waitlistId,
-            queue_position: queuePosition,
-            referred_by: referredBy || 'none',
-        });
+    trackWaitlistSignupComplete(waitlistId: string): void {
+        this.trackEvent('waitlist_signup_complete', { waitlist_id: waitlistId });
     }
 
-    trackWaitlistExistingUser(waitlistId: string, queuePosition: number): void {
-        this.trackEvent('waitlist_existing_user', { waitlist_id: waitlistId, queue_position: queuePosition });
+    trackWaitlistExistingUser(waitlistId: string): void {
+        this.trackEvent('waitlist_existing_user', { waitlist_id: waitlistId });
     }
 
     trackWaitlistError(waitlistId: string, errorType: string, errorMessage: string): void {
@@ -117,16 +107,6 @@ export class GaTrackingService {
             error_type: errorType,
             error_message: errorMessage,
         });
-    }
-
-    // ========== REFERRAL EVENTS ==========
-
-    trackReferralLinkCopy(waitlistId: string, referralCode: string): void {
-        this.trackEvent('referral_link_copy', { waitlist_id: waitlistId, referral_code: referralCode });
-    }
-
-    trackLeaderboardView(waitlistId: string, userId?: string): void {
-        this.trackEvent('leaderboard_view', { waitlist_id: waitlistId, user_id: userId });
     }
 
     trackUnsubscribeView(waitlistId: string, userId?: string): void {

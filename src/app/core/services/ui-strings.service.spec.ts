@@ -6,18 +6,33 @@ import { HttpClient } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UiStringsService } from './ui-strings.service';
+import { LocalizationService } from './localization.service';
+import { setSiteManifestForTesting, siteManifest } from '../site/site';
 
 describe('UiStringsService', () => {
     let service: UiStringsService;
     let get: ReturnType<typeof vi.fn>;
 
+    let localization: { load: ReturnType<typeof vi.fn> };
+
     beforeEach(() => {
+        setSiteManifestForTesting();
         get = vi.fn().mockReturnValue(of({ read_more: 'लेख पढ़ें' }));
+        localization = { load: vi.fn().mockResolvedValue({ defaultLanguage: 'en' }) };
         TestBed.configureTestingModule({
-            providers: [UiStringsService, { provide: HttpClient, useValue: { get } }],
+            providers: [
+                UiStringsService,
+                { provide: HttpClient, useValue: { get } },
+                { provide: LocalizationService, useValue: localization },
+            ],
         });
         service = TestBed.inject(UiStringsService);
     });
+
+    /** A site whose strings include its default language, English. */
+    function withEnglishFile(): void {
+        setSiteManifestForTesting({ ...siteManifest(), strings: [...siteManifest().strings, 'en'] });
+    }
 
     it('starts empty, so the authored English stands', () => {
         expect(service.strings()).toEqual({});
@@ -62,7 +77,7 @@ describe('UiStringsService', () => {
         expect(await service.load('')).toEqual({});
     });
 
-    it('clears strings for the default language', async () => {
+    it('clears strings for a default language without a file', async () => {
         await service.use('hi');
         await service.use('');
 
@@ -70,9 +85,43 @@ describe('UiStringsService', () => {
         expect(service.translate('read_more', 'Read Article')).toBe('Read Article');
     });
 
-    it('does not request the default language', async () => {
+    it('requests nothing for a default language the site has no strings for', async () => {
         await service.use('');
         expect(get).not.toHaveBeenCalled();
+    });
+
+    // specs/form-gamification-spec.md G-D4: the default language's file works like any other.
+    it('loads the default language\'s own file when the site has one', async () => {
+        withEnglishFile();
+        get.mockReturnValue(of({ read_more: 'Keep reading' }));
+
+        await service.use('');
+
+        expect(get).toHaveBeenCalledWith('/_site/strings/en.json');
+        expect(service.activeLang()).toBe('');
+        expect(service.translate('read_more', 'Read Article')).toBe('Keep reading');
+        expect(await service.load('')).toEqual({ read_more: 'Keep reading' });
+        expect(get).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the authored English when the settings cannot be read', async () => {
+        withEnglishFile();
+        localization.load.mockRejectedValue(new Error('offline'));
+
+        await service.use('');
+
+        expect(get).not.toHaveBeenCalled();
+        expect(service.strings()).toEqual({});
+    });
+
+    it('keeps the language the page switched to last, whichever load finishes first', async () => {
+        withEnglishFile();
+        const pending = service.use('');
+        await service.use('hi');
+        await pending;
+
+        expect(service.activeLang()).toBe('hi');
+        expect(service.translate('read_more', 'Read Article')).toBe('लेख पढ़ें');
     });
 
     it('caches a language after the first load', async () => {

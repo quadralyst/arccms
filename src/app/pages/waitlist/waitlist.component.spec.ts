@@ -27,11 +27,9 @@ describe('WaitlistComponent', () => {
             getWaitlistBySlug: vi.fn(),
             createWaitlistWithId: vi.fn(),
             joinWaitlist: vi.fn(),
-            verifyOtpAndProcessUser: vi.fn(),
-            confirmWithoutOtp: vi.fn().mockResolvedValue({ queuePosition: 1, totalSignups: 1 }),
-            getReferralCodeFromStorage: vi.fn().mockReturnValue(null),
-            storeReferralCodeWithExpiration: vi.fn(),
-            clearReferralCodeFromStorage: vi.fn(),
+            verifyAndConfirm: vi.fn(),
+            confirmWithoutOtp: vi.fn().mockResolvedValue({ success: true, alreadyConfirmed: false }),
+            resendVerificationCode: vi.fn().mockResolvedValue({ success: true, message: '' }),
             getFirstNameFromEmail: vi.fn().mockReturnValue('TestUser'),
         };
 
@@ -159,7 +157,7 @@ describe('WaitlistComponent', () => {
         });
     });
 
-    describe('onSignup — skip-OTP path', () => {
+    describe('onSignup, skip-OTP path', () => {
         beforeEach(async () => {
             // Trigger ngOnInit to initialize forms
             fixture.detectChanges();
@@ -170,30 +168,27 @@ describe('WaitlistComponent', () => {
             await component.loadWaitlist('test-waitlist');
 
             component.signupForm.setValue({ firstName: 'Alice', email: 'alice@test.com' });
-            mockWaitlistService.joinWaitlist.mockResolvedValue({
-                userId: 'user-123',
-                referralCode: 'REF999',
-                referralLink: 'http://localhost?ref=REF999',
-                waitlistedUserId: 'wl-user-123',
-            });
+            mockWaitlistService.joinWaitlist.mockResolvedValue({ userId: 'user-123' });
         });
 
         it('should skip OTP and go directly to success when email is not configured', async () => {
             mockEmailConfigService.isEmailConfigured.mockReturnValue(false);
-            mockWaitlistService.confirmWithoutOtp.mockResolvedValue({
-                queuePosition: 5,
-                totalSignups: 20,
-            });
 
             await component.onSignup({});
 
-            expect(mockWaitlistService.confirmWithoutOtp).toHaveBeenCalledWith(
-                'test-waitlist',
-                'user-123',
-                '',
-            );
+            expect(mockWaitlistService.confirmWithoutOtp).toHaveBeenCalledWith('test-waitlist', 'user-123');
             expect(component.currentStep).toBe('success');
-            expect((component.successData as any).queuePosition).toBe(5);
+            expect(mockGaTrackingService.trackWaitlistSignupComplete).toHaveBeenCalledWith('test-waitlist');
+        });
+
+        it('shows "already on the list" for someone confirmed before', async () => {
+            mockEmailConfigService.isEmailConfigured.mockReturnValue(false);
+            mockWaitlistService.confirmWithoutOtp.mockResolvedValue({ success: true, alreadyConfirmed: true });
+
+            await component.onSignup({});
+
+            expect(component.currentStep).toBe('existing-user');
+            expect(mockGaTrackingService.trackWaitlistExistingUser).toHaveBeenCalledWith('test-waitlist');
         });
 
         it('should go to verify step when email IS configured', async () => {
@@ -204,34 +199,49 @@ describe('WaitlistComponent', () => {
             expect(mockWaitlistService.confirmWithoutOtp).not.toHaveBeenCalled();
             expect(component.currentStep).toBe('verify');
         });
+    });
 
-        it('should pass stored referral code to confirmWithoutOtp', async () => {
-            mockEmailConfigService.isEmailConfigured.mockReturnValue(false);
-            mockWaitlistService.getReferralCodeFromStorage.mockReturnValue('STORED_REF');
-            mockWaitlistService.confirmWithoutOtp.mockResolvedValue({
-                queuePosition: 3,
-                totalSignups: 10,
-            });
-
+    describe('the code step', () => {
+        beforeEach(async () => {
+            fixture.detectChanges();
+            mockWaitlistService.getWaitlist.mockResolvedValue({ id: 'test-waitlist', slug: 'test', name: 'Test' });
+            await component.loadWaitlist('test-waitlist');
+            component.signupForm.setValue({ firstName: 'Alice', email: 'alice@test.com' });
+            mockWaitlistService.joinWaitlist.mockResolvedValue({ userId: 'user-123' });
             await component.onSignup({});
-
-            expect(mockWaitlistService.confirmWithoutOtp).toHaveBeenCalledWith(
-                'test-waitlist',
-                'user-123',
-                'STORED_REF',
-            );
+            component.otpForm.setValue({ otpCode: '123456' });
         });
 
-        it('should clear referral code from storage after skip-OTP signup', async () => {
-            mockEmailConfigService.isEmailConfigured.mockReturnValue(false);
-            mockWaitlistService.confirmWithoutOtp.mockResolvedValue({
-                queuePosition: 1,
-                totalSignups: 1,
-            });
+        it('checks the code against the address typed, then shows the plain confirmation', async () => {
+            mockWaitlistService.verifyAndConfirm.mockResolvedValue({ success: true, alreadyConfirmed: false });
 
-            await component.onSignup({});
+            await component.onVerifyOtp();
 
-            expect(mockWaitlistService.clearReferralCodeFromStorage).toHaveBeenCalled();
+            expect(mockWaitlistService.verifyAndConfirm).toHaveBeenCalledWith('test-waitlist', 'user-123', 'alice@test.com', '123456');
+            expect(component.currentStep).toBe('success');
+            fixture.detectChanges();
+            const text = (fixture.nativeElement as HTMLElement).textContent || '';
+            expect(text).toContain('We\'ll be in touch at alice@test.com.');
+            expect(text).not.toMatch(/Leaderboard|Referral|Position/i);
+        });
+
+        it('stays on the code step with the server\'s message for a wrong code', async () => {
+            mockWaitlistService.verifyAndConfirm.mockResolvedValue({ success: false, message: 'Wrong code' });
+
+            await component.onVerifyOtp();
+
+            expect(component.currentStep).toBe('verify');
+            expect(component.error).toBe('Wrong code');
+        });
+
+        it('has no referral code box', () => {
+            fixture.detectChanges();
+            expect((fixture.nativeElement as HTMLElement).querySelector('[formcontrolname="referralCode"]')).toBeNull();
+        });
+
+        it('resends the code to the address typed', async () => {
+            await component.resendOtp();
+            expect(mockWaitlistService.resendVerificationCode).toHaveBeenCalledWith('test-waitlist', 'alice@test.com', 'Alice');
         });
     });
 });

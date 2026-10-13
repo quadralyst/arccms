@@ -247,7 +247,6 @@ describe('every callable that reads the caller\'s own record has been reviewed f
         'email-core/adminContactFields.ts': 'admin only',
         'email-core/backfillPendingContacts.ts': 'admin only',
         'email-core/backfillContacts.ts': 'admin only',
-        'email-core/migrateWaitlistedUsers.ts': 'admin only',
         'email-core/migrateTagsToContacts.ts': 'admin only',
     };
 

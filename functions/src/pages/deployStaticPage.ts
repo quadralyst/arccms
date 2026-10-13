@@ -1,5 +1,5 @@
 import { loadHtml } from '../shared/lazy-cheerio.js';
-import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings } from '../shared/site-settings.js';
+import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings } from '../shared/site-settings.js';
 import { siteInfoFor } from '../shared/site-info-source.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { replaceArcComponents, POWERED_BY_HTML } from '../shared/html-document.js';
@@ -47,11 +47,14 @@ export async function generateAndDeployStaticPage(
     ]);
     // The site's own details (SS3) and standard pages (SS6) in the page, its header and its footer.
     const siteInfo = await siteInfoFor(localization.defaultLanguage, localization.defaultLanguage);
-    const withSiteInfo = (html: string) => TemplateHydrationService.applySiteInfo(html, siteInfo);
-
-    // 3. Replace arc components. Static pages exist in the default language
-    //    only, so the search widget is built for that language.
+    // Static pages exist in the default language only: its strings file, when the
+    // site has one, words them as it does the other pages in that language.
     const defaultLang = localization.defaultLanguage;
+    const strings = await getUiStrings(defaultLang);
+    const withSiteInfo = (html: string) =>
+        TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, strings), siteInfo);
+
+    // 3. Replace arc components, the search widget built for that language.
     let processedHtml = replaceArcComponents(
         withSiteInfo(rawHtml),
         withSiteInfo(partials.headerHtml),
@@ -59,7 +62,7 @@ export async function generateAndDeployStaticPage(
         '',
         // The project, not the hosting site: the widget calls the project's
         // functions, and an install's own site is named differently.
-        buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang: defaultLang, defaultLang }),
+        buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang: defaultLang, defaultLang, strings }),
     );
 
     // 4. Post-process: live parts, CSS, meta tags, and powered-by footer
@@ -68,8 +71,8 @@ export async function generateAndDeployStaticPage(
         const $ = loadHtml(processedHtml, { xmlMode: false });
 
         // The live parts (SS5): signup and contact forms work here as on the home page.
-        prepareLiveParts($, {}, manifest, siteInfo.pages);
-        $('body').append(`\n${await liveSiteScript(manifest)}`);
+        prepareLiveParts($, strings, manifest, siteInfo.pages);
+        $('body').append(`\n${await liveSiteScript(manifest, strings)}`);
 
         // Inject site CSS <link> tags into <head>, versioned, the site's site.css last
         const stylesheets = await pageStylesheets(siteConfig.cssUrls || []);

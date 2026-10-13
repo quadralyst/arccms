@@ -123,6 +123,26 @@ describe('PublicPageRendererComponent', () => {
         expect(component.hasFooter).toBe(true);
     });
 
+    // specs/form-gamification-spec.md G-D4: the default language's strings file words a static page.
+    it('applies the default language\'s strings file to a page that uses data-arc-t', async () => {
+        setSiteManifestForTesting({
+            version: 1, home: {}, templates: {}, strings: ['en'], files: {},
+            pages: { 'test-page': 'app' },
+        });
+        mockLocalization.load.mockResolvedValue({ defaultLanguage: 'en' });
+        paramsSubject.next({ fileName: 'test-page' });
+        createComponent();
+
+        httpMock.expectOne('/_site/pages/test-page.html').flush('<body><h1 data-arc-t="page_heading">Hello</h1></body>');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        httpMock.expectOne('/_site/strings/en.json').flush({ page_heading: 'Welcome aboard' });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        fixture.detectChanges();
+
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('Welcome aboard');
+        mockLocalization.load.mockResolvedValue(undefined);
+    });
+
     it('should trigger change detection after content loads (regression test)', () => {
         // This test ensures that detectChanges is called manually after the async fetch
         // preventing the blank page issue in SSG/SSR scenarios.

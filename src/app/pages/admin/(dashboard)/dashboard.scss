@@ -582,12 +582,6 @@
         padding: 0.5rem;
     }
 
-    /* Hide referrals column on very small screens */
-    .activity-table .table th:nth-child(4),
-    .activity-table .table td:nth-child(4) {
-        display: none;
-    }
-
     .scrollable-card {
         flex: 0 0 180px;
         min-width: 180px;

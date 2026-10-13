@@ -9,17 +9,18 @@
  *
  * - Signup forms, <form data-waitlist-form data-waitlist-id="…">: the same steps
  *   and the same callables as the app's own signup (src/app/pages/waitlist/
- *   waitlist.service.ts): join, the emailed code when the form asks for one, the
- *   position and referral link. The terms notice is added by the publish pipeline,
- *   and by the app's preview of the home page (src/app/pages/index.page.ts), which
- *   runs this same script.
+ *   waitlist.service.ts): join, the emailed code when the form asks for one, then
+ *   a short confirmation. The form's data-waitlist-success-title,
+ *   data-waitlist-success-text, data-waitlist-existing-title and
+ *   data-waitlist-existing-text attributes reword it for that form. The terms
+ *   notice is added by the publish pipeline, and by the app's preview of the home
+ *   page (src/app/pages/index.page.ts), which runs this same script.
  * - Contact forms, <form data-arc-contact-form> with inputs named name, email,
  *   phone, subject and message (email and message required): sent to
  *   submitContactMessage, then replaced by a thank-you. A hidden honeypot input
  *   and the time since the page loaded go with it, for the server's spam checks
  *   (specs/site-sections-spec.md, SS5). The privacy line is added by publishing.
  * - Live counts, <span data-waitlist-count="form-id">: confirmed sign-ups.
- * - Referral codes from ?ref=, kept for the next sign-up (as the app does).
  * - Signup metadata: the same fields and visitor history as the app's forms
  *   (device, UTM, visits, scroll depth, time on page), and "Welcome back" for
  *   someone already on the list.
@@ -48,8 +49,8 @@
 
     /**
      * The signup panels' text in the page's language: the `signup_*` keys of
-     * strings/{lang}.json, put on the script tag by publishing. English when a key
-     * is missing, which is always the case on the default language's pages.
+     * strings/{lang}.json, put on the script tag by publishing (the default
+     * language's file too, when the site has one). English when a key is missing.
      */
     var STRINGS = (function () {
         try { return JSON.parse((script && script.getAttribute('data-strings')) || '{}') || {}; } catch (e) { return {}; }
@@ -63,8 +64,8 @@
         });
     }
 
-    var REFERRAL_KEY = 'arc_referral';
-    var REFERRAL_HOURS = 24 * 30;
+    /** Where referral codes were kept before signup forms dropped referrals; cleared on load. */
+    var OLD_REFERRAL_KEY = 'arc_referral';
     var SIGNED_IN_KEY = 'arc:signed-in';
     var DEFAULT_FORM = 'waitlist-form';
     /** Where installs from before the default form id kept their default form (src/shared/constants/waitlist-form.ts). */
@@ -120,27 +121,6 @@
         return null;
     }
 
-    // ─── Referral codes ────────────────────────────────────────────────────
-
-    function storeReferral(code) {
-        try {
-            localStorage.setItem(REFERRAL_KEY, JSON.stringify({ code: code, expiration: Date.now() + REFERRAL_HOURS * 3600 * 1000 }));
-        } catch (e) { /* storage off */ }
-    }
-
-    function storedReferral() {
-        try {
-            var data = JSON.parse(localStorage.getItem(REFERRAL_KEY) || 'null');
-            if (!data) return '';
-            if (Date.now() > data.expiration) { localStorage.removeItem(REFERRAL_KEY); return ''; }
-            return data.code || '';
-        } catch (e) { return ''; }
-    }
-
-    function clearReferral() {
-        try { localStorage.removeItem(REFERRAL_KEY); } catch (e) { /* storage off */ }
-    }
-
     // ─── Forms ─────────────────────────────────────────────────────────────
 
     function escapeHtml(text) {
@@ -151,10 +131,6 @@
     function firstNameFrom(email) {
         var name = (email.split('@')[0] || '').split(/[._+-]/)[0] || '';
         return name.charAt(0).toUpperCase() + name.slice(1);
-    }
-
-    function referralLinkFor(code) {
-        return location.origin + location.pathname + '?ref=' + encodeURIComponent(code || '');
     }
 
     // ─── Signup metadata ───────────────────────────────────────────────────
@@ -366,8 +342,7 @@
     var CARD = 'max-width:500px;margin:20px auto;padding:30px;border-radius:12px;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.1);font-family:sans-serif;text-align:center;border:1px solid #eaeaea;';
     var BUTTON = 'width:100%;padding:14px;background-color:#007bff;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;';
     var LINK = 'background:none;border:none;cursor:pointer;padding:0;font-size:14px;';
-    var STAT = 'font-size:22px;font-weight:700;color:#2563eb;';
-    var STAT_LABEL = 'font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-top:4px;';
+    var ICON = 'width:60px;height:60px;background-color:#4BB543;color:#fff;border-radius:50%;font-size:30px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;';
 
     /**
      * The form an id posts to, with its document. Only the default id is looked up
@@ -434,22 +409,18 @@
             email: state.email,
             firstName: state.firstName,
             source: source,
-            referredBy: '',
             formData: data,
             signupMetadata: signupMetadata(state.email),
             origin: location.origin,
         }).then(function (joined) {
             state.memberId = joined.memberId;
-            state.referralCode = joined.referralCode;
-            state.referralLink = joined.referralLink || referralLinkFor(joined.referralCode);
-            state.waitlistedUserId = joined.waitlistedUserId || joined.memberId;
             return Promise.all([
                 call('requestFormOtp', { waitlistId: state.waitlistId, email: state.email, name: state.firstName }).catch(function () { return null; }),
                 readDoc('Settings/email_status').catch(function () { return null; }),
             ]);
         }).then(function (results) {
             var emailOn = !!(results[1] && results[1].isEnabled);
-            if (!emailOn || state.otpEnabled === false) return confirm(form, state, storedReferral());
+            if (!emailOn || state.otpEnabled === false) return confirm(form, state);
             state.step = 'verify';
             showVerify(form, state);
         }).catch(function (error) {
@@ -458,22 +429,11 @@
     }
 
     /** Completes a signup whose code was checked, or that needed none. */
-    function confirm(form, state, referredBy) {
+    function confirm(form, state) {
         loading(form, t('signup_verifying', 'Verifying...'));
-        return call('finalizeFormSignup', { waitlistId: state.waitlistId, userId: state.memberId, referredBy: referredBy || undefined })
+        return call('finalizeFormSignup', { waitlistId: state.waitlistId, userId: state.memberId })
             .then(function (finalized) {
-                state.queuePosition = finalized.queuePosition;
-                state.totalSignups = finalized.totalSignups;
                 state.existing = !!finalized.alreadyConfirmed;
-                if (referredBy && !state.existing) {
-                    return call('creditReferral', {
-                        waitlistId: state.waitlistId, referrerCode: referredBy, referredEmail: state.email,
-                        referredName: state.firstName, referredMemberId: state.memberId, status: 'completed',
-                    }).catch(function () { /* a referral must not fail the signup */ });
-                }
-            })
-            .then(function () {
-                clearReferral();
                 state.step = state.existing ? 'existing-user' : 'success';
                 if (state.existing) showExisting(form, state);
                 else showSuccess(form, state);
@@ -484,12 +444,10 @@
     }
 
     function showVerify(form, state) {
-        var hasReferral = !!storedReferral();
         render(form, '<div class="waitlist-verify-step" style="' + CARD + '">'
             + '<h3 style="margin-top:0;color:#1a1a1a;font-size:24px;font-weight:700;">' + escapeHtml(t('signup_check_email', 'Check Your Email')) + '</h3>'
             + '<p style="color:#666;line-height:1.5;font-size:15px;margin-bottom:25px;">' + escapeHtml(t('signup_code_sent_to', 'We sent a 6-digit verification code to')) + '<br><strong style="color:#1a1a1a;">' + escapeHtml(state.email) + '</strong></p>'
             + '<div style="margin-bottom:15px;"><input type="text" class="waitlist-otp-input" placeholder="000000" maxlength="6" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:12px;font-size:24px;letter-spacing:8px;text-align:center;border:2px solid #ddd;border-radius:8px;box-sizing:border-box;"></div>'
-            + (hasReferral ? '' : '<div style="margin-bottom:20px;"><input type="text" class="waitlist-referral-input" placeholder="' + escapeHtml(t('signup_referral_placeholder', 'Referral code (optional)')) + '" maxlength="10" style="width:100%;padding:10px;font-size:14px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;"></div>')
             + '<div class="waitlist-inline-message" style="margin-bottom:15px;color:#d93025;font-size:13px;min-height:18px;"></div>'
             + '<button type="button" class="waitlist-verify-btn" style="' + BUTTON + '">' + escapeHtml(t('signup_verify_button', 'Verify Email')) + '</button>'
             + '<div style="margin-top:20px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:10px;">'
@@ -500,12 +458,10 @@
         form.querySelector('.waitlist-verify-btn').addEventListener('click', function () {
             var code = (otp.value || '').trim();
             if (!/^\d{6}$/.test(code)) return inline(form, t('signup_code_format', 'Please enter a 6-digit code'));
-            var referralInput = form.querySelector('.waitlist-referral-input');
-            var referredBy = (referralInput && referralInput.value.trim()) || storedReferral();
             loading(form, t('signup_verifying', 'Verifying...'));
             call('verifyFormOtp', { waitlistId: state.waitlistId, email: state.email, code: code }).then(function (result) {
                 if (!result || !result.verified) throw new Error(t('signup_code_invalid', 'Invalid or expired code'));
-                return confirm(form, state, referredBy);
+                return confirm(form, state);
             }).catch(function (error) {
                 showVerify(form, state);
                 inline(form, (error && error.message) || t('signup_code_invalid', 'Invalid or expired code'));
@@ -520,47 +476,45 @@
         if (otp) otp.focus();
     }
 
-    function copyRow(label, value) {
-        return '<div style="margin-bottom:15px;"><label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:#444;">' + escapeHtml(label) + '</label>'
-            + '<div style="display:flex;gap:8px;"><input type="text" readonly value="' + escapeHtml(value) + '" class="waitlist-copy-input" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-family:monospace;font-size:14px;">'
-            + '<button type="button" class="waitlist-copy-btn" data-copy="' + escapeHtml(value) + '" style="padding:10px 16px;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">📋 ' + escapeHtml(t('signup_copy', 'Copy')) + '</button></div></div>';
+    /**
+     * The form's own wording for a panel, from a data attribute on the form
+     * element, with {email} and {name} filled in. Single braces, because a content
+     * template empties every {{ … }} its item does not fill when it is published;
+     * {{ email }} still works where it survives. Empty when the form has none.
+     */
+    function formText(form, attribute, state) {
+        var text = form.getAttribute(attribute);
+        if (!text || !text.trim()) return '';
+        return text.replace(/\{\{\s*(\w+)\s*\}\}|\{(\w+)\}/g, function (match, double, single) {
+            var name = double || single;
+            if (name === 'email') return state.email;
+            if (name === 'name') return state.firstName;
+            return match;
+        });
+    }
+
+    /** A tick, a title and one line: what a finished signup shows. */
+    function showDone(form, stepClass, title, text) {
+        render(form, '<div class="' + stepClass + '" style="' + CARD + '">'
+            + '<div class="waitlist-success-icon" style="' + ICON + '">✓</div>'
+            + '<h3 class="waitlist-success-title" style="margin:0 0 10px;font-size:24px;color:#1a1a1a;">' + escapeHtml(title) + '</h3>'
+            + '<p class="waitlist-success-text" style="margin:0;font-size:16px;line-height:1.5;color:#666;overflow-wrap:anywhere;">' + escapeHtml(text) + '</p></div>');
     }
 
     function showSuccess(form, state) {
-        render(form, '<div class="waitlist-success-step" style="' + CARD + 'max-width:550px;border-radius:16px;">'
-            + '<div style="width:60px;height:60px;background-color:#4BB543;color:#fff;border-radius:50%;font-size:30px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;">✓</div>'
-            + '<h3 style="margin:0 0 25px;font-size:24px;color:#1a1a1a;">' + escapeHtml(t('signup_on_list', 'You\'re on the list!')) + '</h3>'
-            + '<div style="display:flex;justify-content:space-around;background:#f8f9fa;padding:20px;border-radius:12px;margin-bottom:30px;">'
-            + '<div style="flex:1;"><div class="waitlist-stat-number" style="' + STAT + '">#' + escapeHtml(state.queuePosition || 1) + '</div><div style="' + STAT_LABEL + '">' + escapeHtml(t('signup_position', 'Your Position')) + '</div></div>'
-            + '<div style="flex:1;border-left:1px solid #e0e0e0;"><div class="waitlist-stat-number" style="' + STAT + '">' + escapeHtml(state.totalSignups || 1) + '</div><div style="' + STAT_LABEL + '">' + escapeHtml(t('signup_total', 'Total Signups')) + '</div></div></div>'
-            + '<div style="border-top:1px solid #eee;padding-top:25px;text-align:left;">'
-            + '<h4 style="margin:0 0 8px;font-size:18px;text-align:center;">🚀 ' + escapeHtml(t('signup_move_up', 'Move up faster!')) + '</h4>'
-            + '<p style="margin:0 0 20px;font-size:14px;color:#666;text-align:center;">' + escapeHtml(t('signup_move_up_body', 'Each verified referral moves you up in the queue.')) + '</p>'
-            + copyRow(t('signup_referral_code', 'Your Referral Code:'), state.referralCode || '') + copyRow(t('signup_share_link', 'Share this link:'), state.referralLink || '') + '</div>'
-            + '<a href="/leaderboard/' + encodeURIComponent(state.waitlistId) + '/' + encodeURIComponent(state.waitlistedUserId || '') + '" class="waitlist-leaderboard-btn" style="display:block;text-decoration:none;padding:14px;background-color:#f0f4ff;color:#2563eb;border-radius:10px;font-weight:600;font-size:15px;">🏆 ' + escapeHtml(t('signup_leaderboard', 'View Leaderboard')) + '</a></div>');
-        bindCopyButtons(form);
+        var params = { email: state.email, name: state.firstName };
+        showDone(form, 'waitlist-success-step',
+            formText(form, 'data-waitlist-success-title', state) || t('signup_on_list', 'You\'re on the list!'),
+            formText(form, 'data-waitlist-success-text', state) || t('signup_success_text', 'We\'ll be in touch at {{ email }}.', params));
     }
 
-    /** Someone already on the list, as the app shows them. */
+    /** Someone already on the list. */
     function showExisting(form, state) {
-        render(form, '<div class="waitlist-existing-step" style="' + CARD + 'max-width:450px;border-radius:16px;">'
-            + '<div style="width:60px;height:60px;background-color:#2563eb;color:#fff;border-radius:50%;font-size:30px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-style:italic;font-family:serif;">i</div>'
-            + '<h3 style="margin:0 0 10px;font-size:24px;color:#1a1a1a;">' + escapeHtml(state.firstName ? t('signup_welcome_back_name', 'Welcome back, {{ name }}!', { name: state.firstName }) : t('signup_welcome_back', 'Welcome back!')) + '</h3>'
-            + '<p style="margin:0 0 25px;font-size:16px;color:#666;">' + escapeHtml(t('signup_already', 'You\'re already on the waitlist.')) + '</p>'
-            + '<div style="display:flex;justify-content:space-around;background:#f8f9fa;padding:20px;border-radius:12px;margin-bottom:30px;">'
-            + '<div style="flex:1;"><div class="waitlist-stat-number" style="' + STAT + '">#' + escapeHtml(state.queuePosition || 1) + '</div><div style="' + STAT_LABEL + '">Your Position</div></div></div>'
-            + '<div style="text-align:left;">' + copyRow(t('signup_referral_code', 'Your Referral Code:'), state.referralCode || '') + copyRow(t('signup_share_link', 'Share this link:'), state.referralLink || '') + '</div>'
-            + '<a href="/leaderboard/' + encodeURIComponent(state.waitlistId) + '/' + encodeURIComponent(state.waitlistedUserId || '') + '" class="waitlist-leaderboard-btn" style="display:block;text-decoration:none;padding:14px;background-color:#f0f4ff;color:#2563eb;border-radius:10px;font-weight:600;font-size:15px;">🏆 ' + escapeHtml(t('signup_leaderboard', 'View Leaderboard')) + '</a></div>');
-        bindCopyButtons(form);
-    }
-
-    function bindCopyButtons(form) {
-        Array.prototype.forEach.call(form.querySelectorAll('.waitlist-copy-btn'), function (btn) {
-            btn.addEventListener('click', function () {
-                var done = function () { var before = btn.textContent; btn.textContent = '✓ ' + t('signup_copied', 'Copied!'); setTimeout(function () { btn.textContent = before; }, 2000); };
-                if (navigator.clipboard) navigator.clipboard.writeText(btn.getAttribute('data-copy') || '').then(done, function () {});
-            });
-        });
+        var params = { email: state.email, name: state.firstName };
+        showDone(form, 'waitlist-existing-step',
+            formText(form, 'data-waitlist-existing-title', state)
+                || (state.firstName ? t('signup_welcome_back_name', 'Welcome back, {{ name }}!', params) : t('signup_welcome_back', 'Welcome back!')),
+            formText(form, 'data-waitlist-existing-text', state) || t('signup_already', 'You\'re already on the list.', params));
     }
 
     function showError(form, state, message) {
@@ -744,8 +698,7 @@
     // ─── Start ─────────────────────────────────────────────────────────────
 
     function start() {
-        var ref = new URLSearchParams(location.search).get('ref');
-        if (ref) storeReferral(ref);
+        try { localStorage.removeItem(OLD_REFERRAL_KEY); } catch (e) { /* storage off */ }
         applySignedIn();
         checkSetup();
         setupInstall();
@@ -760,7 +713,7 @@
     }
 
     site._internal = {
-        call: call, readDoc: readDoc, plain: plain, storedReferral: storedReferral, signupMetadata: signupMetadata,
+        call: call, readDoc: readDoc, plain: plain, signupMetadata: signupMetadata,
         redirect: function (url) { location.replace(url); },
     };
 

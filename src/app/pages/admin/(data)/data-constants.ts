@@ -173,10 +173,7 @@ export const KNOWN_COLLECTIONS: CollectionConfig[] = [
         name: 'Waitlists', displayName: 'Waitlists', feature: 'forms',
         subcollections: [{ name: 'users', displayName: 'Waitlist Users' }],
     },
-    {
-        name: 'WaitlistedUsers', displayName: 'Waitlisted Users', feature: 'forms',
-        subcollections: [{ name: 'referrals', displayName: 'Referrals' }],
-    },
+    { name: 'WaitlistedUsers', displayName: 'Waitlisted Users', feature: 'forms' },
     // Unified audience layer (U1/U2). Contacts carry consent, so exports of this
     // group contain marketing-permission state — treat as sensitive.
     { name: 'Contacts', displayName: 'Contacts', feature: 'audience' },

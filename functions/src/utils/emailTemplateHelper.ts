@@ -111,9 +111,6 @@ export async function createWelcomeEmailLog(
       // Never blank: the default subject is `Welcome to ##WAITLIST##`, and an
       // unmapped tag resolves to '' — which would send "Welcome to ".
       waitlistName: waitlistDisplayName(waitlistName),
-      referralLink: userData.referralLink || '',
-      leaderboardLink: userData.leaderboardLink || '',
-      position: userData.queuePosition,
     },
   });
 }

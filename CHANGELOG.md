@@ -26,6 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Contact form** (feature `contact`, on by default). `<form data-arc-contact-form>` on any published page, spam checks, a **Messages** inbox and an alert to admins (`admin_contact_message`). New functions `submitContactMessage` and `onContactMessageCreated`, a `ContactMessages` collection with its rules and index.
 - **Standard pages.** A built-in **Info Pages** type at `/info` with About, Contact, FAQ, Privacy Policy, Terms and Cookie Policy as drafts, created by the setup wizard or **Add standard pages**. A new `info` template folder shows a map, questions, contact details and the contact form per page. Structured data type **Web page**.
 - **Page layouts.** A template folder may hold layouts, `detail-{name}.html`, and an entry picks one with **Layout** in the editor (shown only when its folder has one); list and card templates are unchanged. A layout the live site lacks falls back to `detail.html`. Core ships a Contact layout for the standard pages (intro, map beside the address, contact boxes beside the form), a new **Info boxes** field on Info Pages, and a new Contact page starts with both.
+- **Word the signup confirmation your way.** A form can carry `data-waitlist-success-title`, `data-waitlist-success-text`, `data-waitlist-existing-title` and `data-waitlist-existing-text` (with `{name}` and `{email}`), and a strings file for the default language (`src/custom/site/strings/en.json` for English) now works like any other: its `signup_*` keys reword the panels and its other keys the page, on every page in that language, static pages included, and in the app. New key `signup_success_text`. See docs/website/forms.html.
+- **`npm run forms:remove-referrals`** counts, and with `-- --apply` deletes, the referral records signup forms of older versions left behind; each names the person who was referred. See docs/features/forms.html.
 
 ### Changed
 
@@ -64,6 +66,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `consumeRateLimit` (app kit) takes an optional fifth argument, `reason`, and its refusal carries `details.reason` and `details.retryAfter` (seconds). Existing calls work unchanged.
 - New member translation keys: `member.auth.server_error.*`, `member.auth.code_already_sent` and `member.auth.code_sent_again`.
 
+### Removed
+
+- **Signup forms have no referrals, queue position or leaderboard any more.** A form on any page shows a tick, "You're on the list!" and the person's address, or "You're already on the list."; the form's own page `/waitlist/{form}` does the same. Gone:
+  - the **Gamification** switch, the referral box on the code step, the position, signup count, referral code and link and leaderboard button in the panels, and `?ref=` handling;
+  - the `/leaderboard` and `/user/{form}/{member}` pages: their links in emails already sent now open `/waitlist/{form}` (or `/`);
+  - the admin's referral numbers, Top Referrers, Position and Referrals columns and CSV columns, the user detail's referral section, the form list's Leaderboard action and the dashboard's Referrals column;
+  - the functions `creditReferral`, `getPublicLeaderboard`, `getPublicMemberView`, `getOptimizedLeaderboard`, `migrateWaitlistedUsers`, `onReferralCreate`, `onReferralUpdate` and `onWaitlistUserDelete`;
+  - the merge tags `##POSITION##`, `##REFERRAL_CODE##`, `##REFERRAL_LINK##` and `##LEADERBOARD_LINK##` (they now come out empty), and the analytics events `referral_code_used`, `referral_link_copy` and `leaderboard_view`;
+  - the two `totalReferrals` indexes, and the rules that let a visitor create referral records or write `leaderboardLink` and `referredBy` on a member.
+- `joinForm` returns only `memberId`; `finalizeFormSignup` returns `totalSignups`, `emailVerified` and `alreadyConfirmed`. New members get no `referralCode`, `referralLink`, `leaderboardLink`, `queuePosition`, `totalReferrals`, `maskedEmail` or `waitlistedUserId`; members from before keep theirs, unread.
+- A visitor can no longer change a form's `totalSignups`: only an admin and Cloud Functions write a form document.
+- **Panel classes.** Kept: `.waitlist-verify-step`, `.waitlist-success-step`, `.waitlist-existing-step`, `.waitlist-otp-input`, `.waitlist-verify-btn`, `.waitlist-resend-btn`, `.waitlist-back-btn`, `.waitlist-inline-message`. New: `.waitlist-success-icon`, `.waitlist-success-title`, `.waitlist-success-text`, in both confirmations. Gone: `.waitlist-stat-number`, `.waitlist-leaderboard-btn`, `.waitlist-copy-input`, `.waitlist-copy-btn`, `.waitlist-referral-input`. CSS that hid the gamified parts of the panels can go.
+- The default welcome email is a plain confirmation. A form whose welcome is still exactly the old default, with its referral and leaderboard buttons, gets the new one the next time it is used; an edited welcome is left alone.
+- The signup panel keys `signup_position`, `signup_total`, `signup_move_up`, `signup_move_up_body`, `signup_referral_code`, `signup_share_link`, `signup_leaderboard`, `signup_referral_placeholder`, `signup_copy` and `signup_copied`, and the admin key `admin.dashboard.col_referrals`.
+
 ### For apps upgrading
 
 1. Merge the new version. If your copy edited files in `public/`, run `npm run arc:own-site`, then `npm run arc:own-site -- --write` (docs/website/move-your-site.html).
@@ -72,7 +89,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
    - The merge conflicts in `src/environments/environment.ts`, `environment.prod.ts` and `arc-install.ts` if your copy filled them in: Arc CMS emptied them. Keep your own version of all three (`git checkout --ours <file>`).
 4. Run `npm run typecheck` and fix any type error it reports in your own pages or functions: `npm run test` now fails on them. They would already have failed your production build.
 5. If your app has its own member languages, add the new member keys (`member.phone_country.*`, `member.auth.identifier_error.phone_start_choose`, `phone_not_allowed`, `member.auth.server_error.*`, `member.auth.code_already_sent`, `member.auth.code_sent_again`) to `src/custom/i18n/{lang}.json`; the member language check names any that are missing.
-6. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`). Then open Settings, SMS once as an admin: that copies the list of countries for the sign-in page.
+6. Deploy everything (`npm run deploy`), then republish (`npm run seed:prod`). If your install used signup forms, deploy the website before the functions (the old form page needs a function this version deletes), and deploy all the functions, not a targeted set: that deletes the referral and leaderboard functions. Then run `npm run forms:remove-referrals` and, if it finds records, `npm run forms:remove-referrals -- --apply`. Check each form's welcome email for referral or leaderboard buttons you added yourself, and remove any `##POSITION##`, `##REFERRAL_LINK##` or `##LEADERBOARD_LINK##` from your own emails. Then open Settings, SMS once as an admin: that copies the list of countries for the sign-in page.
 7. On an install set up before the standard pages, or before page layouts, open **Content types** and choose **Add standard pages** (it adds the pages and the Info boxes field that are missing). Then pick **Layout: Contact** on your Contact page if you want the new layout. If your own footer listed the old Documentation, GitHub or Community links from Arc CMS's footer, they are gone from the default one; keep your own footer as it is.
 
 ---

@@ -17,9 +17,7 @@ export const EMAIL_TAG = {
     COMPANY_NAME: '##COMPANY_NAME##',
     UNSUBSCRIBE_LINK: '##UNSUBSCRIBE_LINK##',
     PREFERENCES_LINK: '##PREFERENCES_LINK##',
-    POSITION: '##POSITION##',
-    REFERRAL_CODE: '##REFERRAL_CODE##',
-    REFERRAL_LINK: '##REFERRAL_LINK##',
+    WAITLIST: '##WAITLIST##',
     SUBJECT: '##SUBJECT##',
     CONTENT: '##CONTENT##',
     PAYMENT_AMOUNT: '##PAYMENT_AMOUNT##',
@@ -44,7 +42,7 @@ const T = EMAIL_TAG;
 const EMAIL_TAG_REGISTRY: Record<EmailTagContext, string[]> = {
     // Waitlist template editor (templates.page)
     waitlist_verify_otp_email: [T.NAME, T.EMAIL, T.OTP],
-    waitlist_welcome_email: [T.NAME, T.EMAIL, T.POSITION, T.REFERRAL_CODE, T.REFERRAL_LINK],
+    waitlist_welcome_email: [T.NAME, T.EMAIL, T.WAITLIST, T.UNSUBSCRIBE_LINK],
     waitlist_broadcast_email: [T.NAME, T.EMAIL, T.SUBJECT, T.CONTENT, T.UNSUBSCRIBE_LINK],
 
     // Broadcast email editor

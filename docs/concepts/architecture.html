@@ -40,7 +40,7 @@
     <table>
       <thead><tr><th>Area</th><th>Addresses</th><th>Who gets in</th></tr></thead>
       <tbody>
-        <tr><td>Public site</td><td><code>/</code>, content and static pages, <code>/search</code>, forms and leaderboards</td><td>Everyone</td></tr>
+        <tr><td>Public site</td><td><code>/</code>, content and static pages, <code>/search</code>, signup forms</td><td>Everyone</td></tr>
         <tr><td>Member area</td><td><code>/user/dashboard</code>, <code>/user/profile</code>, and your app's own pages</td><td>Anyone signed in (route guard in <code>src/app/pages/user/user.guards.ts</code>); premium pages need an entitlement</td></tr>
         <tr><td>Admin area</td><td><code>/admin/...</code></td><td>Admins (route guard in <code>src/app/guards/role.guard.ts</code>)</td></tr>
       </tbody>

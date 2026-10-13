@@ -407,7 +407,6 @@ export type TranslationKey =
     | 'admin.dashboard.app_installs'
     | 'admin.dashboard.col_date'
     | 'admin.dashboard.col_details'
-    | 'admin.dashboard.col_referrals'
     | 'admin.dashboard.col_waitlist'
     | 'admin.dashboard.configure_email'
     | 'admin.dashboard.connect'
@@ -2429,7 +2428,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.app_installs',
     'admin.dashboard.col_date',
     'admin.dashboard.col_details',
-    'admin.dashboard.col_referrals',
     'admin.dashboard.col_waitlist',
     'admin.dashboard.configure_email',
     'admin.dashboard.connect',

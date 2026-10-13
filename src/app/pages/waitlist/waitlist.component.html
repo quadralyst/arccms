@@ -31,11 +31,6 @@
             <div class="form-group">
                 <input type="text" formControlName="otpCode" placeholder="000000" maxlength="6" class="otp-input">
             </div>
-            @if(!hasReferralCode) {
-            <div class="form-group">
-                <input type="text" formControlName="referralCode" placeholder="Referral code (optional)">
-            </div>
-            }
             <button type="submit" class="btn-submit" [disabled]="otpForm.invalid || loading">
                 {{ loading ? 'Verifying...' : 'Verify Email' }}
             </button>
@@ -51,38 +46,14 @@
     <div class="success-step">
         <div class="success-icon">✓</div>
         <h3>You're on the list!</h3>
-        @if(showGamification) {
-        <div class="stats">
-            <div class="stat">
-                <div class="stat-number">#{{ $any(successData)['queuePosition'] }}</div>
-                <div class="stat-label">Your Position</div>
-            </div>
-            <div class="stat">
-                <div class="stat-number">{{ $any(successData)['totalSignups'] }}</div>
-                <div class="stat-label">Total Signups</div>
-            </div>
-        </div>
-        <div class="referral-section">
-            <h4>Share to move up!</h4>
-            <div class="copy-group">
-                <input readonly [value]="$any(successData)['referralCode']">
-                <button (click)="copyToClipboard($any(successData)['referralCode'] + '')">Copy</button>
-            </div>
-        </div>
-        <a [href]="$any(successData)['leaderboardLink']" class="btn-leaderboard">View Leaderboard</a>
-        } @else {
-        <p>Thanks for signing up — we'll be in touch.</p>
-        }
+        <p>We'll be in touch at {{ userData.email }}.</p>
     </div>
     }
     @if(currentStep === 'existing-user') {
     <div class="existing-step">
-        <div class="info-icon">ℹ</div>
+        <div class="success-icon">✓</div>
         <h3>Welcome back!</h3>
-        <p>You're already on the waitlist.</p>
-        @if(showGamification) {
-        <a [href]="$any(existingUserData)['leaderboardLink']" class="btn-leaderboard">View Leaderboard</a>
-        }
+        <p>You're already on the list.</p>
     </div>
     }
     @if(currentStep === 'error') {
@@ -166,7 +137,6 @@
                         {{ loading ? 'Sending...' : buttonText }}
                     </button>
                 </form>
-                <p class="leaderboard-link"><a routerLink="/leaderboard">Go To Leaderboard →</a></p>
             </div>
             }
             @if(currentStep === 'verify') {
@@ -177,9 +147,6 @@
                     <div class="form-group">
                         <input type="text" formControlName="otpCode" placeholder="000000" maxlength="6"
                             class="otp-input">
-                    </div>
-                    <div class="form-group">
-                        <input type="text" formControlName="referralCode" placeholder="Referral code (optional)">
                     </div>
                     <button type="submit" class="btn-submit" [disabled]="otpForm.invalid || loading">
                         {{ loading ? 'Verifying...' : 'Verify Email' }}
@@ -196,54 +163,14 @@
             <div class="success-step">
                 <div class="success-icon">✓</div>
                 <h3>You're on the list!</h3>
-                @if(showGamification) {
-                <div class="stats">
-                    <div class="stat">
-                        <div class="stat-number">#{{ successData['queuePosition'] }}</div>
-                        <div class="stat-label">Your Position</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-number">{{ successData['totalSignups'] }}</div>
-                        <div class="stat-label">Total Signups</div>
-                    </div>
-                </div>
-                <div class="referral-section">
-                    <h4>🚀 Move up by referring friends!</h4>
-                    <div class="copy-group">
-                        <label>Your Code:</label>
-                        <input readonly [value]="successData['referralCode']">
-                        <button (click)="copyToClipboard(successData['referralCode'] + '')">📋 Copy</button>
-                    </div>
-                    <div class="copy-group">
-                        <label>Share Link:</label>
-                        <input readonly [value]="successData['referralLink']">
-                        <button (click)="copyToClipboard(successData['referralLink'] + '')">📋 Copy</button>
-                    </div>
-                </div>
-                <a [href]="successData['leaderboardLink']" class="btn-leaderboard">🏆 View Leaderboard</a>
-                } @else {
-                <p>Thanks for signing up — we'll be in touch.</p>
-                }
+                <p>We'll be in touch at {{ userData.email }}.</p>
             </div>
             }
             @if(currentStep === 'existing-user') {
             <div class="existing-step">
-                <div class="info-icon">ℹ</div>
+                <div class="success-icon">✓</div>
                 <h3>Welcome back!</h3>
-                <p>You're already on the waitlist.</p>
-                @if(showGamification) {
-                <div class="stats">
-                    <div class="stat">
-                        <div class="stat-number">#{{ existingUserData['queuePosition'] }}</div>
-                        <div class="stat-label">Your Position</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-number">{{ existingUserData['totalReferrals'] || 0 }}</div>
-                        <div class="stat-label">Your Referrals</div>
-                    </div>
-                </div>
-                <a [href]="existingUserData['leaderboardLink']" class="btn-leaderboard">🏆 View Leaderboard</a>
-                }
+                <p>You're already on the list.</p>
             </div>
             }
             @if(currentStep === 'error') {

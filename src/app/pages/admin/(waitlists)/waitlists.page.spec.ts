@@ -122,11 +122,11 @@ describe('WaitlistsComponent', () => {
     });
 
     describe('Table Configuration', () => {
-        it('should have correct action order: Edit, Users, Tags, Templates, Leaderboard, Delete', () => {
+        it('should have correct action order: Edit, Users, Tags, Templates, Delete (no leaderboard)', () => {
             component.initTableColumns();
             const actionsColumn = component.tableColumns.find(c => c.type === 'actions');
             const actions = actionsColumn?.actions?.map((a: any) => a.action);
-            expect(actions).toEqual(['edit', 'users', 'tags', 'templates', 'leaderboard', 'delete']);
+            expect(actions).toEqual(['edit', 'users', 'tags', 'templates', 'delete']);
         });
     });
 
@@ -179,7 +179,6 @@ describe('WaitlistsComponent', () => {
                 isActive: true,
                 disabledMessage: '',
                 defaultTagId: '',
-                gamificationEnabled: true,
                 targetListIds: []
             });
 
@@ -194,14 +193,14 @@ describe('WaitlistsComponent', () => {
             await component.onDrawerSaved({
                 name: 'Beta', slug: 'beta', description: '', coverImage: '',
                 isActive: true, disabledMessage: '', defaultTagId: '',
-                gamificationEnabled: false,
                 targetListIds: ['newsletter'],
             });
 
             const data = vi.mocked(FirestoreSDK.setDoc).mock.calls[0][1] as Record<string, unknown>;
             // Own list is always present and leads; manual picks follow.
             expect(data['targetListIds']).toEqual(['waitlist-beta', 'newsletter']);
-            expect(data['gamificationEnabled']).toBe(false);
+            // Signup forms are plain: no switch is saved (specs/form-gamification-spec.md).
+            expect(data).not.toHaveProperty('gamificationEnabled');
         });
 
         it('should update existing waitlist via updateDoc', async () => {
@@ -217,7 +216,6 @@ describe('WaitlistsComponent', () => {
                 isActive: true,
                 disabledMessage: '',
                 defaultTagId: '',
-                gamificationEnabled: true,
                 targetListIds: []
             });
 
@@ -238,7 +236,6 @@ describe('WaitlistsComponent', () => {
                 isActive: true,
                 disabledMessage: '',
                 defaultTagId: 'tag-xyz',
-                gamificationEnabled: true,
                 targetListIds: []
             });
 

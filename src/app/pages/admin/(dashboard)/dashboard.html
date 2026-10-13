@@ -362,7 +362,6 @@
                             <th>{{ 'common.table.email' | transloco }}</th>
                             <th>{{ 'admin.dashboard.col_date' | transloco }}</th>
                             <th>{{ 'admin.dashboard.col_waitlist' | transloco }}</th>
-                            <th>{{ 'admin.dashboard.col_referrals' | transloco }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -371,11 +370,10 @@
                             <td>{{ signup.email }}</td>
                             <td>{{ getTimeAgo(signup.createdAt || signup.signupTimestamp) }}</td>
                             <td><span class="badge bg-secondary">{{ signup.waitlistId || 'Default' }}</span></td>
-                            <td>{{ signup.totalReferrals || 0 }}</td>
                         </tr>
                         } @empty {
                         <tr>
-                            <td colspan="4" class="text-center text-muted">{{ 'admin.dashboard.no_recent_signups' | transloco }}</td>
+                            <td colspan="3" class="text-center text-muted">{{ 'admin.dashboard.no_recent_signups' | transloco }}</td>
                         </tr>
                         }
                     </tbody>

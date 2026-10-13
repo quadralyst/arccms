@@ -11,7 +11,7 @@ import { signal, SimpleChange } from '@angular/core';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ViewUserDetailComponent } from './view-user-detail.component';
 
-// Mock Firestore query functions used by referral methods
+// Mock Firestore query functions used by the notes and tags
 const mockGetDocs = vi.fn();
 vi.mock('@angular/fire/firestore', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@angular/fire/firestore')>();
@@ -65,10 +65,6 @@ describe('ViewUserDetailComponent', () => {
         email: 'test@example.com',
         firstName: 'John',
         emailVerified: true,
-        queuePosition: 5,
-        totalReferrals: 3,
-        referralCode: 'ABC123',
-        referralLink: 'https://example.com/ref/ABC123',
         signupTimestamp: new Date(),
         formData: {
             city: 'New York',
@@ -242,184 +238,25 @@ describe('ViewUserDetailComponent', () => {
         });
     });
 
-    describe('Referral visibility', () => {
+    // Signup forms have no referrals or queue (specs/form-gamification-spec.md).
+    describe('no referral details', () => {
         beforeEach(() => {
             mockGetDocs.mockReset();
-            // Default: empty snapshot for notes/tags
             mockGetDocs.mockResolvedValue({ empty: true, docs: [], forEach: vi.fn() });
         });
 
-        it('should have empty referral signals initially', () => {
-            expect(component.referredByCode()).toBe('');
-            expect(component.referredByUser()).toBeNull();
-            expect(component.referredUsers()).toEqual([]);
-            expect(component.isLoadingReferredBy()).toBe(false);
-            expect(component.isLoadingReferredUsers()).toBe(false);
-        });
+        it('shows no position or referral section, and reads no referrals', async () => {
+            component.user = { ...mockUser, isConfirmed: true, queuePosition: 4, referralCode: 'OLD', totalReferrals: 2 } as any;
+            component.waitlistId = 'w1';
+            component.ngOnChanges({ user: new SimpleChange(null, component.user, true) });
+            fixture.detectChanges();
+            await fixture.whenStable();
 
-        it('should clear referral signals when user has no referredBy', async () => {
-            component.user = { ...mockUser, referredBy: undefined, isConfirmed: true };
-            component.waitlistId = 'wl-1';
-            component.ngOnChanges({
-                user: new SimpleChange(null, component.user, true),
-            });
-
-            // Wait for async methods to complete
-            await vi.waitFor(() => {
-                expect(component.isLoadingReferredBy()).toBe(false);
-            });
-
-            expect(component.referredByCode()).toBe('');
-            expect(component.referredByUser()).toBeNull();
-        });
-
-        it('should set referredByCode and resolve referrer when code matches a user', async () => {
-            const referrerDoc = {
-                id: 'referrer-1',
-                data: () => ({ firstName: 'Jane', email: 'jane@example.com', referralCode: 'XYZ789' }),
-            };
-            // First call: notes (empty). Second call: referrer lookup. Third+: referrals.
-            mockGetDocs
-                .mockResolvedValueOnce({ empty: true, docs: [], forEach: vi.fn() }) // notes
-                .mockResolvedValueOnce({ empty: false, docs: [referrerDoc] })        // referrer query
-                .mockResolvedValueOnce({ empty: true, docs: [] });                   // referrals
-
-            component.user = { ...mockUser, referredBy: 'XYZ789', waitlistedUserId: 'wu-1', isConfirmed: true };
-            component.waitlistId = 'wl-1';
-            component.ngOnChanges({
-                user: new SimpleChange(null, component.user, true),
-            });
-
-            await vi.waitFor(() => {
-                expect(component.isLoadingReferredBy()).toBe(false);
-            });
-
-            expect(component.referredByCode()).toBe('XYZ789');
-            expect(component.referredByUser()).toEqual({ firstName: 'Jane', email: 'jane@example.com' });
-        });
-
-        it('should set referredByCode but leave referredByUser null for arbitrary/external codes', async () => {
-            // All queries return empty — no matching referrer
-            mockGetDocs.mockResolvedValue({ empty: true, docs: [], forEach: vi.fn() });
-
-            component.user = { ...mockUser, referredBy: 'PRODUCTHUNT', waitlistedUserId: 'wu-1', isConfirmed: true };
-            component.waitlistId = 'wl-1';
-            component.ngOnChanges({
-                user: new SimpleChange(null, component.user, true),
-            });
-
-            await vi.waitFor(() => {
-                expect(component.isLoadingReferredBy()).toBe(false);
-            });
-
-            expect(component.referredByCode()).toBe('PRODUCTHUNT');
-            expect(component.referredByUser()).toBeNull();
-        });
-
-        it('should load referred users from subcollection', async () => {
-            const referral1 = {
-                id: 'ref-1',
-                data: () => ({
-                    referredName: 'Bob',
-                    referredMaskedEmail: 'b***@example.com',
-                    status: 'completed',
-                    createdAt: new Date(),
-                    completedAt: new Date(),
-                }),
-            };
-            const referral2 = {
-                id: 'ref-2',
-                data: () => ({
-                    referredName: 'Alice',
-                    referredMaskedEmail: 'a***@example.com',
-                    status: 'pending',
-                    createdAt: new Date(),
-                    completedAt: null,
-                }),
-            };
-
-            mockGetDocs
-                .mockResolvedValueOnce({ empty: true, docs: [], forEach: vi.fn() })      // notes
-                .mockResolvedValueOnce({ empty: false, docs: [referral1, referral2] });   // referrals (no referrer lookup since no referredBy)
-
-            component.user = { ...mockUser, waitlistedUserId: 'wu-1', isConfirmed: true };
-            component.waitlistId = 'wl-1';
-            component.ngOnChanges({
-                user: new SimpleChange(null, component.user, true),
-            });
-
-            await vi.waitFor(() => {
-                expect(component.isLoadingReferredUsers()).toBe(false);
-            });
-
-            const referred = component.referredUsers();
-            expect(referred).toHaveLength(2);
-            expect(referred[0].referredName).toBe('Bob');
-            expect(referred[0].status).toBe('completed');
-            expect(referred[1].referredName).toBe('Alice');
-            expect(referred[1].status).toBe('pending');
-        });
-
-        it('should return empty referred users when no waitlistedUserId', async () => {
-            mockGetDocs.mockResolvedValue({ empty: true, docs: [], forEach: vi.fn() });
-
-            component.user = { ...mockUser, waitlistedUserId: undefined, isConfirmed: true };
-            component.waitlistId = 'wl-1';
-            component.ngOnChanges({
-                user: new SimpleChange(null, component.user, true),
-            });
-
-            await vi.waitFor(() => {
-                expect(component.isLoadingReferredUsers()).toBe(false);
-            });
-
-            expect(component.referredUsers()).toEqual([]);
-        });
-
-        it('should handle Firestore errors gracefully in loadReferredByInfo', async () => {
-            mockGetDocs
-                .mockResolvedValueOnce({ empty: true, docs: [], forEach: vi.fn() }) // notes
-                .mockRejectedValueOnce(new Error('Firestore error'))                  // referrer query fails
-                .mockResolvedValueOnce({ empty: true, docs: [] });                    // referrals
-
-            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-            component.user = { ...mockUser, referredBy: 'BADCODE', waitlistedUserId: 'wu-1', isConfirmed: true };
-            component.waitlistId = 'wl-1';
-            component.ngOnChanges({
-                user: new SimpleChange(null, component.user, true),
-            });
-
-            await vi.waitFor(() => {
-                expect(component.isLoadingReferredBy()).toBe(false);
-            });
-
-            expect(component.referredByCode()).toBe('BADCODE');
-            expect(component.referredByUser()).toBeNull();
-            expect(consoleSpy).toHaveBeenCalledWith('Error loading referrer info:', expect.any(Error));
-            consoleSpy.mockRestore();
-        });
-
-        it('should handle Firestore errors gracefully in loadReferredUsers', async () => {
-            mockGetDocs
-                .mockResolvedValueOnce({ empty: true, docs: [], forEach: vi.fn() }) // notes
-                .mockRejectedValueOnce(new Error('Firestore error'));                 // referrals fail (no referrer lookup since no referredBy)
-
-            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-            component.user = { ...mockUser, waitlistedUserId: 'wu-1', isConfirmed: true };
-            component.waitlistId = 'wl-1';
-            component.ngOnChanges({
-                user: new SimpleChange(null, component.user, true),
-            });
-
-            await vi.waitFor(() => {
-                expect(component.isLoadingReferredUsers()).toBe(false);
-            });
-
-            expect(component.referredUsers()).toEqual([]);
-            expect(consoleSpy).toHaveBeenCalledWith('Error loading referred users:', expect.any(Error));
-            consoleSpy.mockRestore();
+            const text = (fixture.nativeElement as HTMLElement).textContent || '';
+            expect(text).toContain('test@example.com'); // the panel is on screen
+            expect(text).not.toMatch(/Position|Referral|Referred/);
+            const paths = mockGetDocs.mock.calls.map((c: unknown[]) => String(c[0]));
+            expect(paths.some((p) => p.includes('referrals'))).toBe(false);
         });
     });
 

@@ -273,8 +273,9 @@ export async function getLocalizationSettings(): Promise<LocalizationSettings> {
  * src/custom/site/strings/ merged over public/_site/strings/). They ship with the
  * templates and must exist at publish time (decision M-D18).
  *
- * The default language has no file: its text is the English authored into the
- * templates, which doubles as the fallback for any missing key.
+ * Every language reads its file the same way, the default language too: Arc CMS
+ * ships none for English, so the English authored into the templates stands
+ * until a site adds one, and stays the fallback for any missing key.
  *
  * Not cached here, like the partials.
  */

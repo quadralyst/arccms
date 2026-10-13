@@ -16,9 +16,9 @@ describe('getEmailTags', () => {
         expect(getEmailTags('waitlist_verify_otp_email')).toEqual([
             EMAIL_TAG.NAME, EMAIL_TAG.EMAIL, EMAIL_TAG.OTP,
         ]);
+        // Signup forms have no position or referrals (specs/form-gamification-spec.md).
         expect(getEmailTags('waitlist_welcome_email')).toEqual([
-            EMAIL_TAG.NAME, EMAIL_TAG.EMAIL, EMAIL_TAG.POSITION,
-            EMAIL_TAG.REFERRAL_CODE, EMAIL_TAG.REFERRAL_LINK,
+            EMAIL_TAG.NAME, EMAIL_TAG.EMAIL, EMAIL_TAG.WAITLIST, EMAIL_TAG.UNSUBSCRIBE_LINK,
         ]);
         expect(getEmailTags('broadcast')).toContain(EMAIL_TAG.UNSUBSCRIBE_LINK);
         expect(getEmailTags('brand_kit_footer')).toEqual([

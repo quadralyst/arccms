@@ -10,11 +10,14 @@ import type { EmailSettings } from '../types.js';
  * Server-authoritative completion of a form signup (audience-unification spec U5,
  * item 5).
  *
- * The browser used to write `emailVerified`, `isConfirmed`, `queuePosition` and
- * `verifiedAt` itself, which is why the security rules had to allow
- * unauthenticated updates to those fields — and therefore why anyone could mark
- * themselves verified, or jump the queue, with a single Firestore write. Moving
- * these writes here is what makes the rules lockdown possible.
+ * The browser used to write `emailVerified`, `isConfirmed` and `verifiedAt` itself,
+ * which is why the security rules had to allow unauthenticated updates to those
+ * fields, and therefore why anyone could mark themselves verified with a single
+ * Firestore write. Moving these writes here is what makes the rules lockdown
+ * possible.
+ *
+ * Signup forms are plain (specs/form-gamification-spec.md): no queue position or
+ * referral is recorded. The confirmed count still sets the form's `totalSignups`.
  *
  * **Authorization is derived, never supplied.** The caller cannot say "no OTP was
  * needed": this function decides whether the form requires one (email enabled AND
@@ -24,7 +27,6 @@ import type { EmailSettings } from '../types.js';
  */
 
 interface FinalizeResult {
-  queuePosition: number;
   totalSignups: number;
   emailVerified: boolean;
   alreadyConfirmed: boolean;
@@ -66,7 +68,6 @@ async function otpRequired(waitlistId: string): Promise<boolean> {
 export const finalizeFormSignup = onCall(async (request) => {
   const waitlistId = String(request.data?.waitlistId || '').trim();
   const userId = String(request.data?.userId || '').trim();
-  const referredBy = String(request.data?.referredBy || '').trim();
   if (!waitlistId || !userId) {
     throw new HttpsError('invalid-argument', 'waitlistId and userId are required.');
   }
@@ -82,11 +83,10 @@ export const finalizeFormSignup = onCall(async (request) => {
     throw new HttpsError('failed-precondition', 'This signup has no email address.');
   }
 
-  // Idempotent: re-running (a double-click, a retried request) must not shuffle
-  // positions or re-credit a referral.
+  // Idempotent: re-running (a double-click, a retried request) must not count the
+  // signup twice.
   if (member['isConfirmed'] === true) {
     return {
-      queuePosition: (member['queuePosition'] as number) || 0,
       totalSignups: 0,
       emailVerified: member['emailVerified'] === true,
       alreadyConfirmed: true,
@@ -121,14 +121,13 @@ export const finalizeFormSignup = onCall(async (request) => {
   }
 
   try {
-    // Queue position = confirmed members + 1. Counted server-side so a client
-    // cannot choose its own place in the queue.
+    // The form's signup count: confirmed members, this one included. Counted
+    // server-side so a client cannot inflate it.
     const confirmed = await db
       .collection('Waitlists').doc(waitlistId).collection('users')
       .where('isConfirmed', '==', true)
       .count().get();
-    const queuePosition = confirmed.data().count + 1;
-    const totalSignups = queuePosition;
+    const totalSignups = confirmed.data().count + 1;
 
     const now = Timestamp.now();
     const update: Record<string, unknown> = {
@@ -136,14 +135,11 @@ export const finalizeFormSignup = onCall(async (request) => {
       // saying otherwise would let unverified addresses into marketing sends.
       emailVerified: needsOtp,
       isConfirmed: true,
-      queuePosition,
       verifiedAt: now,
       // Clear any legacy plaintext leftovers.
       verificationCode: FieldValue.delete(),
       verificationExpires: FieldValue.delete(),
     };
-    if (referredBy) update['referredBy'] = referredBy;
-
     await memberRef.update(update);
     await db.collection('Waitlists').doc(waitlistId).update({ totalSignups });
 
@@ -163,10 +159,10 @@ export const finalizeFormSignup = onCall(async (request) => {
     }
 
     logger.info(
-      `finalizeFormSignup: ${email} on ${waitlistId} → position ${queuePosition}, `
+      `finalizeFormSignup: ${email} on ${waitlistId} confirmed (${totalSignups} signups), `
       + `emailVerified=${needsOtp}.`,
     );
-    return { queuePosition, totalSignups, emailVerified: needsOtp, alreadyConfirmed: false } satisfies FinalizeResult;
+    return { totalSignups, emailVerified: needsOtp, alreadyConfirmed: false } satisfies FinalizeResult;
   } catch (err) {
     if (err instanceof HttpsError) throw err;
     logger.error('finalizeFormSignup failed', err);

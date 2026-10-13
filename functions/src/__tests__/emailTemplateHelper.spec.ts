@@ -187,7 +187,10 @@ describe('emailTemplateHelper', () => {
         email: 'test@user.com',
         firstName: 'Tester',
         waitlistId: 'wl-123',
+        // An old member's gamified fields are never carried into the email.
         referralLink: 'ref-link',
+        leaderboardLink: 'board-link',
+        queuePosition: 4,
       };
       const templateData = {
         senderEmail: 'sender@test.com',
@@ -207,11 +210,8 @@ describe('emailTemplateHelper', () => {
         subject: 'Welcome',
         // default: subscribed unless explicitly false
         isSubscribed: true,
-        data: expect.objectContaining({
-          waitlistName: 'My Waitlist',
-          referralLink: 'ref-link',
-        }),
       }));
+      expect(mockQueueEmail.mock.calls[0][0].data).toEqual({ waitlistName: 'My Waitlist' });
     });
 
     it('should pass isSubscribed=false when the user has unsubscribed', async () => {

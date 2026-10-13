@@ -129,12 +129,13 @@ export default class HomeComponent implements OnInit, OnDestroy {
 
         const ownFile = !!lang && !!siteManifest().home[lang];
         const html = await firstValueFrom(this.http.get(ownFile ? `/_site/home.${lang}.html` : '/_site/home.html', { responseType: 'text' }));
-        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings, types, about, pages);
+        // A language's own file is already in its words; its forms' panels still take the strings, as when published.
+        this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings, types, about, pages, strings);
     }
 
     private render(
         page: Document, lang: string, strings: Record<string, string>, types: ReadonlySet<string>,
-        about: IAboutSettings, pages: SitePageLink[],
+        about: IAboutSettings, pages: SitePageLink[], panelStrings: Record<string, string> = strings,
     ): void {
         applyStringsToElement(page.documentElement, strings);
         applySiteInfoToElement(page.documentElement, siteInfoOf(about, pages));
@@ -172,7 +173,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
         }
         // The live parts (forms, counts, install, signed-in hint) by the same script
         // the published page runs, so what you try here is what visitors get.
-        this.add(this.document.body, arcSiteScriptElement(this.document));
+        this.add(this.document.body, arcSiteScriptElement(this.document, panelStrings));
     }
 
     private mountElements(): void {
