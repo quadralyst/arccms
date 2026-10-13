@@ -18,10 +18,12 @@ import {
     sortByImportOrder,
 } from '../data-constants';
 import { deserializeFirestoreValue } from '../data-serialization';
+import { ContentTypesService } from '../../contents/content-types/content-types.service';
 
 @Injectable({ providedIn: 'root' })
 export class ImportDataService {
     private db = inject(Firestore);
+    private contentTypes = inject(ContentTypesService);
 
     /**
      * Parse an uploaded JSON file into an ExportFormat object.
@@ -175,7 +177,7 @@ export class ImportDataService {
 
         let entries = Object.entries(documents);
         if (collectionPath === 'ContentTypes') {
-            const refused = await this.refuseSharedSlugs(entries);
+            const refused = await this.refuseSlugChanges(entries, options);
             errors.push(...refused.errors);
             entries = refused.entries;
         }
@@ -227,22 +229,33 @@ export class ImportDataService {
     }
 
     /**
-     * Drops each content type whose slug another type already uses, here or
-     * earlier in the file, and says why. A type's entries live under its slug
-     * (`arc_{slug}`), so two types with one slug would share them, and deleting
-     * either would delete them (see `onContentTypeDeleted`). The same type,
-     * by document id, is imported as usual. When the site's types cannot be
-     * read from the server, no type is imported.
+     * Drops each content type that would change a slug, and says why. A type's
+     * entries live under its slug (`arc_{slug}`, `arc_{slug}_drafts`,
+     * `Tags_{slug}`), so:
+     * - a type whose slug another type already uses, here or earlier in the
+     *   file, is refused: two types with one slug would share their entries,
+     *   and deleting either would delete them (see `onContentTypeDeleted`);
+     * - a type that is already on the site, by document id, under another slug
+     *   is refused while anything is stored under its current slug: the
+     *   import would leave those behind, gone from the admin and the site.
+     *   The edit form locks the slug for the same reason.
+     * The same type under the same slug is imported as usual. When the site's
+     * types cannot be read from the server, no type is imported; when a
+     * type's stored items cannot be checked, that type is not imported.
      */
-    private async refuseSharedSlugs(
+    private async refuseSlugChanges(
         entries: [string, any][],
+        options: ImportOptions,
     ): Promise<{ entries: [string, any][]; errors: string[] }> {
         const owner = new Map<string, string>();
+        const siteSlug = new Map<string, string>();
         try {
             const snapshot = await getDocsFromServer(collection(this.db, 'ContentTypes'));
             for (const existing of snapshot.docs) {
                 const slug = existing.data()['slug'];
-                if (typeof slug === 'string' && slug && !owner.has(slug)) owner.set(slug, existing.id);
+                if (typeof slug !== 'string' || !slug) continue;
+                siteSlug.set(existing.id, slug);
+                if (!owner.has(slug)) owner.set(slug, existing.id);
             }
         } catch (error: any) {
             return {
@@ -253,16 +266,51 @@ export class ImportDataService {
         const kept: [string, any][] = [];
         const errors: string[] = [];
         for (const [docId, rawData] of entries) {
-            const slug = rawData?.slug;
-            const holder = typeof slug === 'string' && slug ? owner.get(slug) : undefined;
+            const slug = typeof rawData?.slug === 'string' && rawData.slug ? rawData.slug as string : '';
+            const holder = slug ? owner.get(slug) : undefined;
             if (holder && holder !== docId) {
                 errors.push(`ContentTypes/${docId}: not imported, the content type ${holder} already uses the slug "${slug}"`);
                 continue;
             }
-            if (typeof slug === 'string' && slug) owner.set(slug, docId);
+            const renameError = await this.renameError(docId, slug, siteSlug.get(docId), options);
+            if (renameError) {
+                errors.push(renameError);
+                continue;
+            }
+            // A type that moves frees its old slug for a later type in the file.
+            const currentSlug = siteSlug.get(docId);
+            if (!options.skipExisting && slug && currentSlug && slug !== currentSlug && owner.get(currentSlug) === docId) owner.delete(currentSlug);
+            if (slug) owner.set(slug, docId);
             kept.push([docId, rawData]);
         }
         return { entries: kept, errors };
+    }
+
+    /**
+     * Why importing a type over the site's copy of it must not go ahead, or
+     * `null` when it may: its slug stays, the type is new, the import skips
+     * existing documents, or nothing is stored under the current slug. A
+     * merge keeps the site's slug when the file has none; an overwrite
+     * removes it.
+     */
+    private async renameError(
+        docId: string,
+        slug: string,
+        currentSlug: string | undefined,
+        options: ImportOptions,
+    ): Promise<string | null> {
+        if (!currentSlug || options.skipExisting) return null;
+        const nextSlug = slug || (options.overwriteExisting ? '' : currentSlug);
+        if (nextSlug === currentSlug) return null;
+        const change = nextSlug
+            ? `change its slug from "${currentSlug}" to "${nextSlug}"`
+            : `remove its slug "${currentSlug}"`;
+        try {
+            if (!(await this.contentTypes.hasStoredItems(currentSlug))) return null;
+        } catch (error: any) {
+            return `ContentTypes/${docId}: not imported, it would ${change}, and the site could not be checked for entries stored under "${currentSlug}" (${error?.message || 'unknown error'})`;
+        }
+        return `ContentTypes/${docId}: not imported, it would ${change}, which would leave the entries, drafts and tags stored under "${currentSlug}" behind`;
     }
 
     /**

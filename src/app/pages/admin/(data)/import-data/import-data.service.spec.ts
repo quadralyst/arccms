@@ -3,12 +3,15 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Firestore } from '@angular/fire/firestore';
 import { ImportDataService } from './import-data.service';
 import { ExportFormat, ImportOptions, ImportProgress } from '../data-constants';
+import { ContentTypesService } from '../../contents/content-types/content-types.service';
 
 // Track setDoc and writeBatch calls
 const mockBatchSet = vi.fn();
 const mockBatchCommit = vi.fn().mockResolvedValue(undefined);
 // The site's content types, as the server returns them: { id, slug }.
 const mockGetDocsFromServer = vi.fn();
+// Whether anything is stored under a slug, from ContentTypesService.
+const mockHasStoredItems = vi.fn();
 const siteTypes = (types: { id: string; slug: string }[]) => ({
     docs: types.map((t) => ({ id: t.id, data: () => ({ slug: t.slug }) })),
 });
@@ -63,11 +66,13 @@ describe('ImportDataService', () => {
     beforeEach(async () => {
         vi.clearAllMocks();
         mockGetDocsFromServer.mockResolvedValue(siteTypes([]));
+        mockHasStoredItems.mockResolvedValue(false);
 
         await TestBed.configureTestingModule({
             providers: [
                 ImportDataService,
                 { provide: Firestore, useValue: {} },
+                { provide: ContentTypesService, useValue: { hasStoredItems: mockHasStoredItems } },
             ],
         }).compileComponents();
 
@@ -386,10 +391,10 @@ describe('ImportDataService', () => {
         });
 
         describe('content type slugs', () => {
-            const importTypes = (types: Record<string, { slug: string }>) => service.importCollections(
+            const importTypes = (types: Record<string, { slug?: string }>, options = defaultOptions) => service.importCollections(
                 { ...validExportData, collections: { ContentTypes: types } },
                 ['ContentTypes'],
-                defaultOptions,
+                options,
                 vi.fn(),
             );
             const writtenIds = () => mockBatchSet.mock.calls.map((call) => call[0].id);
@@ -428,6 +433,101 @@ describe('ImportDataService', () => {
                 expect(mockBatchSet).not.toHaveBeenCalled();
                 expect(result.totalImported).toBe(0);
                 expect(result.errors[0]).toContain('offline');
+            });
+
+            it('refuses a type on the site under another slug while items are stored under its slug', async () => {
+                mockGetDocsFromServer.mockResolvedValue(siteTypes([{ id: 'ct1', slug: 'blog' }]));
+                mockHasStoredItems.mockResolvedValue(true);
+
+                const result = await importTypes({ ct1: { slug: 'posts' }, ct2: { slug: 'news' } });
+
+                expect(mockHasStoredItems).toHaveBeenCalledWith('blog');
+                expect(writtenIds()).toEqual(['ct2']);
+                expect(result.totalImported).toBe(1);
+                expect(result.errors).toEqual([
+                    'ContentTypes/ct1: not imported, it would change its slug from "blog" to "posts", which would leave the entries, drafts and tags stored under "blog" behind',
+                ]);
+            });
+
+            it('imports a type under another slug when nothing is stored under its slug', async () => {
+                mockGetDocsFromServer.mockResolvedValue(siteTypes([{ id: 'ct1', slug: 'blog' }]));
+
+                const result = await importTypes({ ct1: { slug: 'posts' } });
+
+                expect(mockHasStoredItems).toHaveBeenCalledWith('blog');
+                expect(writtenIds()).toEqual(['ct1']);
+                expect(result.errors).toEqual([]);
+            });
+
+            it('refuses a type under another slug when its stored items cannot be checked', async () => {
+                mockGetDocsFromServer.mockResolvedValue(siteTypes([{ id: 'ct1', slug: 'blog' }]));
+                mockHasStoredItems.mockRejectedValue(new Error('offline'));
+
+                const result = await importTypes({ ct1: { slug: 'posts' } });
+
+                expect(mockBatchSet).not.toHaveBeenCalled();
+                expect(result.errors).toHaveLength(1);
+                expect(result.errors[0]).toContain('ContentTypes/ct1: not imported');
+                expect(result.errors[0]).toContain('offline');
+            });
+
+            it('refuses an overwrite that removes the slug of a type with stored items', async () => {
+                mockGetDocsFromServer.mockResolvedValue(siteTypes([{ id: 'ct1', slug: 'blog' }]));
+                mockHasStoredItems.mockResolvedValue(true);
+
+                const result = await importTypes({ ct1: {} });
+
+                expect(mockBatchSet).not.toHaveBeenCalled();
+                expect(result.errors[0]).toContain('remove its slug "blog"');
+            });
+
+            it('lets a merge without a slug keep the site slug', async () => {
+                mockGetDocsFromServer.mockResolvedValue(siteTypes([{ id: 'ct1', slug: 'blog' }]));
+                mockHasStoredItems.mockResolvedValue(true);
+
+                const result = await importTypes({ ct1: {} }, { overwriteExisting: false, skipExisting: false });
+
+                expect(mockHasStoredItems).not.toHaveBeenCalled();
+                expect(writtenIds()).toEqual(['ct1']);
+                expect(result.errors).toEqual([]);
+            });
+
+            it('does not check stored items when existing documents are skipped', async () => {
+                mockGetDocsFromServer.mockResolvedValue(siteTypes([{ id: 'ct1', slug: 'blog' }]));
+                mockHasStoredItems.mockResolvedValue(true);
+
+                const result = await importTypes({ ct1: { slug: 'posts' } }, { overwriteExisting: false, skipExisting: true });
+
+                expect(mockHasStoredItems).not.toHaveBeenCalled();
+                expect(result.errors).toEqual([]);
+            });
+
+            it('does not check stored items for a type new to the site or under the same slug', async () => {
+                mockGetDocsFromServer.mockResolvedValue(siteTypes([{ id: 'ct1', slug: 'blog' }]));
+
+                await importTypes({ ct1: { slug: 'blog' }, ct2: { slug: 'news' } });
+
+                expect(mockHasStoredItems).not.toHaveBeenCalled();
+                expect(writtenIds()).toEqual(['ct1', 'ct2']);
+            });
+
+            it('lets a later type in the file take the slug a refused rename asked for', async () => {
+                mockGetDocsFromServer.mockResolvedValue(siteTypes([{ id: 'ct1', slug: 'blog' }]));
+                mockHasStoredItems.mockResolvedValue(true);
+
+                const result = await importTypes({ ct1: { slug: 'posts' }, ct2: { slug: 'posts' } });
+
+                expect(writtenIds()).toEqual(['ct2']);
+                expect(result.errors).toHaveLength(1);
+            });
+
+            it('lets a later type in the file take the slug an allowed rename gave up', async () => {
+                mockGetDocsFromServer.mockResolvedValue(siteTypes([{ id: 'ct1', slug: 'blog' }]));
+
+                const result = await importTypes({ ct1: { slug: 'posts' }, ct2: { slug: 'blog' } });
+
+                expect(writtenIds()).toEqual(['ct1', 'ct2']);
+                expect(result.errors).toEqual([]);
             });
 
             it('checks no slugs for other collections', async () => {
