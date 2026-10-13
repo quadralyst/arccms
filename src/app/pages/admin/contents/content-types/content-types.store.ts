@@ -36,4 +36,9 @@ export class ContentTypesStore extends ContentTypesStoreBase {
     async slugInUse(slug: string, exceptId?: string): Promise<boolean> {
         return this.contentTypesService.slugInUse(slug, exceptId);
     }
+
+    /** Whether any entry, draft or tag is stored under `slug`; throws when it cannot tell. */
+    async hasStoredItems(slug: string): Promise<boolean> {
+        return this.contentTypesService.hasStoredItems(slug);
+    }
 }

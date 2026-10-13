@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const m = vi.hoisted(() => ({
     // ContentTypes still in the database after the delete, as { id, slug }.
     types: [] as { id: string; slug: string }[],
-    // Documents per collection name.
+    // Document ids per collection path; a subcollection's path is `{col}/{id}/{sub}`.
     docs: {} as Record<string, string[]>,
     deleted: [] as string[],
     removeCollectionEntries: vi.fn(async () => undefined),
@@ -17,7 +17,11 @@ const m = vi.hoisted(() => ({
 function docRef(path: string) {
     return {
         path,
-        collection: (sub: string) => ({ get: async () => ({ docs: [] as unknown[] }) , path: `${path}/${sub}` }),
+        collection: (sub: string) => ({
+            get: async () => ({
+                docs: (m.docs[`${path}/${sub}`] ?? []).map((id) => ({ id, ref: docRef(`${path}/${sub}/${id}`) })),
+            }),
+        }),
     };
 }
 
@@ -72,6 +76,23 @@ describe('onContentTypeDeleted', () => {
         ]);
         expect(m.removeCollectionEntries).toHaveBeenCalledWith('arc_articles');
         expect(m.removeCollectionEntries).toHaveBeenCalledWith('arc_articles_drafts');
+    });
+
+    it("deletes each entry's languages, past versions and deploy logs, which a document delete leaves behind", async () => {
+        m.docs['arc_articles/a1/translations'] = ['hi'];
+        m.docs['arc_articles/a1/PublishedHistory'] = ['v1', 'v2'];
+        m.docs['arc_articles/a1/DeploymentLogs'] = ['l1'];
+        m.docs['arc_articles_drafts/a2/translations'] = ['hi', 'fr'];
+        await handler(deleteEvent('ct-1', 'articles'));
+        expect(m.deleted).toEqual(expect.arrayContaining([
+            'arc_articles/a1/translations/hi',
+            'arc_articles/a1/PublishedHistory/v1',
+            'arc_articles/a1/PublishedHistory/v2',
+            'arc_articles/a1/DeploymentLogs/l1',
+            'arc_articles_drafts/a2/translations/hi',
+            'arc_articles_drafts/a2/translations/fr',
+        ]));
+        expect(m.deleted).toHaveLength(10);
     });
 
     it('keeps everything when another type still uses the slug', async () => {

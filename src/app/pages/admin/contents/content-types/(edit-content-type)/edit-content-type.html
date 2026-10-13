@@ -152,11 +152,20 @@
                 <div class="url-display d-flex align-items-center">
                     <span class="me-2 text-muted">{{ domain }}</span>
                     <strong class="me-2">{{ editForm.get('slug')?.value }}</strong>
+                    <!-- Entries, drafts and tags are stored under the slug: it stays put once there are any. -->
+                    @if (slugHasItems() === false && !slugLock()) {
                     <button type="button" class="btn btn-link btn-sm p-0 text-primary" (click)="toggleSlugEdit()" title="Edit Slug" aria-label="Edit slug">
                         <i class="fas fa-edit"></i>
                     </button>
+                    }
                 </div>
+                @if (slugLock(); as lock) {
+                <small class="text-muted d-block" data-testid="slug-locked">
+                    <i class="fas fa-lock me-1"></i>{{ lock.key | transloco: lock.params }}
+                </small>
+                } @else {
                 <small class="text-muted">{{ 'admin.contents.types.form.slug_hint' | transloco }}</small>
+                }
             } @else {
                 <div class="input-group input-group-sm">
                     <span class="input-group-text" id="domain-addon">{{ domain }}</span>

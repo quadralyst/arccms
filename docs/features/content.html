@@ -235,7 +235,7 @@
       <tbody>
         <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages, and applies a new entry order</td></tr>
         <tr><td><code>onSiteSettingsWritten</code></td><td>Firestore trigger on <code>Settings</code></td><td>Queues a home page republish when <code>about</code>, <code>site</code>, <code>localization</code> or <code>misc</code> changes, or a whole site republish when an <code>about</code> change shows on other pages through <code>data-arc-site</code></td></tr>
-        <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger on <code>ContentTypes</code></td><td>Deletes the type's draft, published and tag collections and their search entries, unless another type still uses the same slug</td></tr>
+        <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger on <code>ContentTypes</code></td><td>Deletes the type's draft, published and tag collections, with each entry's translations, version history and deploy logs, and their search entries, unless another type still uses the same slug</td></tr>
         <tr><td><code>seedStaticPages</code></td><td>Callable, also run by the seed script</td><td>Rebuilds every published page, the static pages and the SEO files</td></tr>
       </tbody>
     </table>

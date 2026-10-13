@@ -51,6 +51,7 @@ describe('EditContentTypeComponent', () => {
             items: vi.fn().mockReturnValue([mockContentType]),
             checkExistingSlugUrl: vi.fn().mockResolvedValue({ exists: false, slug: '' }),
             slugInUse: vi.fn().mockResolvedValue(false),
+            hasStoredItems: vi.fn().mockResolvedValue(false),
         };
 
         mockToastService = {
@@ -297,6 +298,75 @@ describe('EditContentTypeComponent', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(component.errorSlug()).toBe(false);
             expect(component.isEditingSlug()).toBe(false);
+        });
+    });
+
+    // Entries, drafts and tags are stored under the slug (arc_{slug},
+    // arc_{slug}_drafts, Tags_{slug}), and other types' reference fields find a
+    // type by it, so a rename would strand them: the slug locks instead.
+    describe('Slug lock', () => {
+        const settle = async () => {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            fixture.detectChanges();
+        };
+        const pencil = () => fixture.nativeElement.querySelector('[aria-label="Edit slug"]');
+        const lockNote = () => fixture.nativeElement.querySelector('[data-testid="slug-locked"]');
+        const reopen = async () => {
+            fixture = TestBed.createComponent(EditContentTypeComponent);
+            component = fixture.componentInstance;
+            component.id = mockContentType.id!;
+            fixture.detectChanges();
+            await settle();
+        };
+
+        it('offers the pencil once the server says nothing is stored under the slug', async () => {
+            component.id = mockContentType.id!;
+            await settle();
+            expect(mockStore.hasStoredItems).toHaveBeenCalledWith('test-type');
+            expect(pencil()).toBeTruthy();
+            expect(lockNote()).toBeNull();
+        });
+
+        it('locks the slug, saying why, when the type has entries or tags', async () => {
+            mockStore.hasStoredItems.mockResolvedValue(true);
+            await reopen();
+            expect(pencil()).toBeNull();
+            expect(lockNote()?.textContent).toContain('stored under it');
+        });
+
+        it('locks the slug while another type links to it, naming that type', async () => {
+            mockStore.items.mockReturnValue([mockContentType, {
+                ...mockContentType, id: 'other', name: 'Books',
+                fields: [{ key: 'author', label: 'Author', type: 'text', required: false, order: 0,
+                    useCollectionRef: true, collectionRef: { collectionSlug: 'test-type', collectionName: 'Test Type', displayField: 'title', valueField: 'id' } }],
+            }]);
+            await reopen();
+            expect(pencil()).toBeNull();
+            expect(lockNote()?.textContent).toContain('Books');
+        });
+
+        it('refuses a rename at save when entries were added since the form opened', async () => {
+            component.id = mockContentType.id!;
+            component['updateFormdata'](mockContentType);
+            mockStore.hasStoredItems.mockResolvedValue(true);
+            component.toggleSlugEdit();
+            component.editForm.get('slug')?.setValue('new-slug');
+            await component.onSubmit();
+            expect(mockStore.update).not.toHaveBeenCalled();
+            expect(mockStore.slugInUse).not.toHaveBeenCalled();
+            expect(component.editForm.get('slug')?.value).toBe('test-type');
+            expect(component.isEditingSlug()).toBe(false);
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(expect.stringContaining('stored under it'), 'error', 'error');
+        });
+
+        it('saves nothing when it cannot tell whether entries are stored under the slug', async () => {
+            component.id = mockContentType.id!;
+            component['updateFormdata'](mockContentType);
+            mockStore.hasStoredItems.mockRejectedValue(new Error('offline'));
+            component.editForm.get('slug')?.setValue('new-slug');
+            await component.onSubmit();
+            expect(mockStore.update).not.toHaveBeenCalled();
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(expect.stringContaining('Could not check'), 'error', 'error');
         });
     });
 

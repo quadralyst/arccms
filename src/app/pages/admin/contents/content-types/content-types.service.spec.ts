@@ -67,6 +67,31 @@ describe('ContentTypesService', () => {
         });
     });
 
+    describe('hasStoredItems', () => {
+        const snap = (empty: boolean) => ({ empty });
+
+        it('asks the server about the entries, drafts and tags stored under the slug', async () => {
+            fs.getDocsFromServer.mockResolvedValue(snap(true));
+            await expect(service.hasStoredItems('articles')).resolves.toBe(false);
+            const { collection } = await import('@angular/fire/firestore');
+            const paths = vi.mocked(collection).mock.calls.map((call) => call[1]);
+            expect(paths).toEqual(expect.arrayContaining(['arc_articles', 'arc_articles_drafts', 'Tags_articles']));
+        });
+
+        it('is true when any one of them holds a document', async () => {
+            fs.getDocsFromServer
+                .mockResolvedValueOnce(snap(true))
+                .mockResolvedValueOnce(snap(true))
+                .mockResolvedValueOnce(snap(false));
+            await expect(service.hasStoredItems('articles')).resolves.toBe(true);
+        });
+
+        it('throws when the server cannot answer, so a rename never goes ahead on a guess', async () => {
+            fs.getDocsFromServer.mockRejectedValue(new Error('offline'));
+            await expect(service.hasStoredItems('articles')).rejects.toThrow('offline');
+        });
+    });
+
     describe('deleteImpact', () => {
         const type = { id: 'ct-1', slug: 'articles' };
 
