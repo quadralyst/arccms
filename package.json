@@ -70,7 +70,7 @@
     "prosemirror-model": "^1.25.4",
     "prosemirror-schema-basic": "^1.2.4",
     "prosemirror-state": "^1.4.4",
-    "prosemirror-view": "^1.41.4",
+    "prosemirror-view": "^1.42.6",
     "rxjs": "~7.8.0",
     "tippy.js": "^6.3.7",
     "tslib": "^2.3.0",
