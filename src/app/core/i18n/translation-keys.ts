@@ -185,6 +185,7 @@ export type TranslationKey =
     | 'admin.contents.editor.author_none'
     | 'admin.contents.editor.auto_saved'
     | 'admin.contents.editor.back_to_editor'
+    | 'admin.contents.editor.canonical_hint'
     | 'admin.contents.editor.change'
     | 'admin.contents.editor.choose_file'
     | 'admin.contents.editor.clear_translation'
@@ -2214,6 +2215,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.author_none',
     'admin.contents.editor.auto_saved',
     'admin.contents.editor.back_to_editor',
+    'admin.contents.editor.canonical_hint',
     'admin.contents.editor.change',
     'admin.contents.editor.choose_file',
     'admin.contents.editor.clear_translation',

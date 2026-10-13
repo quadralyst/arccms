@@ -22,6 +22,7 @@ import { abstractFromTakeaways, blockJsonLd, extractBlocks } from '../shared/con
 import { buildMappedNode } from '../shared/schema-mapping.js';
 import { findRelated } from '../shared/related-content.js';
 import { cleanReferences } from '../shared/references.js';
+import { authorCanonicalUrl } from '../shared/canonical-url.js';
 import { refreshLinkedEntries } from '../shared/linked-entries.js';
 import { interpolate } from '../shared/interpolate.js';
 import {
@@ -113,8 +114,9 @@ export function buildTemplateData(
 
     // Build canonical share URL — language variants share their content's
     // canonicalUrl only when the author set one explicitly.
+    const canonicalUrl = authorCanonicalUrl(content.canonicalUrl, contentType.slug, content.urlSlug, [siteConfig.baseUrl]);
     const shareUrl =
-        content.canonicalUrl ||
+        canonicalUrl ||
         detailUrl(siteConfig.baseUrl, lang, defaultLang, contentType.slug, content.urlSlug);
     // Same crossed-language trap as the <title>: share text must not fall back
     // to the base language's seoTitle on a translated page.
@@ -153,6 +155,8 @@ export function buildTemplateData(
         cat: typeName,
         contentTypeSlug: contentType.slug,
         ...content,
+        // The author's canonical only, never the editor's old auto-fill.
+        canonicalUrl,
         publishedOn,
         date: publishedOn,
         updatedOn,
@@ -437,7 +441,9 @@ export async function generateAndDeployContentDetailPage(
 
         const pageTitle = localizedPageTitle(localizedContent, translations.get(lang));
         const pageUrl =
-            (lang === defaultLang ? localizedContent.canonicalUrl : '') ||
+            (lang === defaultLang
+                ? authorCanonicalUrl(localizedContent.canonicalUrl, contentTypeSlug, content.urlSlug, [siteConfig.baseUrl])
+                : '') ||
             detailUrl(siteConfig.baseUrl, lang, defaultLang, contentTypeSlug, content.urlSlug);
         const jsonLd = buildDetailJsonLd({
             content: localizedContent,

@@ -207,6 +207,53 @@ describe('Generic Store Service', () => {
             });
         });
 
+        describe('refreshCurrentItem()', () => {
+            // A page that keeps editing after a save (the content editor) read
+            // the stored item as first loaded: a second publish reset
+            // publishedOn and the reference sync compared with stale values.
+
+            @Injectable({ providedIn: 'root' })
+            class FakeService {
+                getById = vi.fn();
+                update = vi.fn();
+            }
+
+            const TestStore = createGenericStore<TestModel>(FakeService as any);
+
+            let fakeService: FakeService;
+            let store: InstanceType<typeof TestStore>;
+
+            beforeEach(() => {
+                TestBed.configureTestingModule({
+                    providers: [
+                        FakeService,
+                        { provide: AuthState, useValue: { currentUser: () => ({ id: 'u1' }) } },
+                    ],
+                });
+                fakeService = TestBed.inject(FakeService);
+                store = TestBed.inject(TestStore);
+                fakeService.getById.mockReturnValue(of({ id: 'id-1', name: 'Loaded', value: 1 }));
+                store.getById('id-1');
+            });
+
+            it('merges what was written into the loaded item', () => {
+                store.refreshCurrentItem('id-1', { name: 'Saved' });
+                expect(store.currentItem()).toMatchObject({ id: 'id-1', name: 'Saved', value: 1 });
+            });
+
+            it('leaves another item alone', () => {
+                store.refreshCurrentItem('id-2', { name: 'Saved' });
+                expect(store.currentItem().name).toBe('Loaded');
+            });
+
+            it('is not done by update(), so a form filled from currentItem is not refilled', async () => {
+                fakeService.update.mockReturnValue(of(undefined));
+                const before = store.currentItem();
+                await new Promise<void>((resolve) => store.update('id-1', { name: 'Saved' }).subscribe(() => resolve()));
+                expect(store.currentItem()).toBe(before);
+            });
+        });
+
         describe('delete() error propagation', () => {
             // Regression: previously catchError swallowed the error and returned of(undefined),
             // causing callers to see `next` even on Firestore permission failures (e.g., the

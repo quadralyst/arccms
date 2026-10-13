@@ -1039,6 +1039,7 @@
         "deployed": "Deployed to hosting",
         "deploy_failed": "Deploy failed",
         "shared_badge": "shared",
+        "canonical_hint": "Leave empty to use this page's own address. Fill it in only when the original is on another page.",
         "updated_on": "Last updated",
         "updated_on_hint": "Shown on the page and sent to search engines as the modified date. Set it only when you have substantively revised the content.",
         "mark_updated_today": "Mark as updated today",

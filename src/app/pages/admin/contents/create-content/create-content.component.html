@@ -976,7 +976,8 @@
                             </label>
                             <input type="url" class="form-control form-control-sm" formControlName="canonicalUrl"
                                 placeholder="https://yourdomain.com/original-post-url" (input)="triggerAutoSave()"
-                                [readonly]="isTranslating()">
+                                [readonly]="isTranslating()" data-testid="canonical-url">
+                            <p class="text-muted small mt-1 mb-0">{{ 'admin.contents.editor.canonical_hint' | transloco }}</p>
                         </div>
                         <div class="form-group">
                             <label class="form-label">

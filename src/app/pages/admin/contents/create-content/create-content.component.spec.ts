@@ -71,6 +71,10 @@ describe('CreateContentComponent', () => {
             clearList: vi.fn(),
             add: vi.fn().mockReturnValue(of('new-id')),
             update: vi.fn().mockReturnValue(of(undefined)),
+            refreshCurrentItem: vi.fn((id: string, saved: any) => {
+                const current: any = mockDraftContentsStore.currentItem();
+                if (current?.id === id) mockDraftContentsStore.currentItem.set({ ...current, ...saved });
+            }),
             delete: vi.fn().mockReturnValue(of({})),
             checkExistingSlugUrl: vi.fn().mockResolvedValue({ exists: false, slug: 'test-slug' }),
             updateNextContentReferences: vi.fn().mockResolvedValue(undefined),
@@ -2406,6 +2410,102 @@ describe('CreateContentComponent', () => {
 
             expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
         });
+
+        // A save left the stored item as first loaded: a second publish reset
+        // publishedOn to now and the reference sync compared with old values.
+        const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+        describe('after a save', () => {
+
+            it('refreshes the stored item without refilling the forms', async () => {
+                loadFromStore();
+                editSeo();
+                const patch = vi.spyOn(component as any, 'patchForms');
+
+                component.pageTitle = 'Stored title';
+                component.saveAsDraft();
+                await flush();
+                settle();
+
+                expect((mockDraftContentsStore.currentItem() as any).seoTitle).toBe('Edited SEO title');
+                expect(patch).not.toHaveBeenCalled();
+                expectSeoEdits();
+            });
+
+            it('keeps text typed while the save was running', async () => {
+                loadFromStore();
+                const written = new Subject<void>();
+                mockDraftContentsStore.update.mockReturnValueOnce(written);
+
+                component.pageTitle = 'Stored title';
+                editSeo();
+                component.saveAsDraft();
+                component.seoForm.get('seoTitle')?.setValue('Typed during the save');
+                written.next();
+                written.complete();
+                await flush();
+                settle();
+
+                expect(component.seoForm.get('seoTitle')?.value).toBe('Typed during the save');
+            });
+
+            it('keeps the first publishedOn when the item is published twice', async () => {
+                loadFromStore();
+                component.pageTitle = 'Stored title';
+                component.passEditorContentToParent('<p>Body</p>');
+
+                component.directPublishContent();
+                await flush();
+                settle();
+                const first = mockDraftContentsStore.update.mock.calls[0][1].publishedOn;
+
+                await new Promise((resolve) => setTimeout(resolve, 5));
+                component.directPublishContent();
+                await flush();
+
+                expect(first).toBeInstanceOf(Date);
+                expect(mockDraftContentsStore.update.mock.calls[1][1].publishedOn).toBe(first);
+            });
+
+            it('gives the reference sync what was stored before each save', async () => {
+                loadFromStore();
+                component.pageTitle = 'Stored title';
+                editSeo();
+                component.saveAsDraft();
+                await flush();
+                settle();
+
+                component.seoForm.get('seoTitle')?.setValue('Second SEO title');
+                component.saveAsDraft();
+                await flush();
+
+                const calls = mockCollectionRefSyncService.syncReferencedData.mock.calls;
+                expect(calls[0][3].seoTitle).toBe('Stored SEO title');
+                expect(calls[1][3].seoTitle).toBe('Edited SEO title');
+            });
+        });
+
+        describe('canonical URL', () => {
+            it('drops a canonical the old editor filled from a local admin', () => {
+                loadFromStore({ ...STORED, canonicalUrl: 'http://localhost:5173/article/stored-title' });
+                expect(component.seoForm.get('canonicalUrl')?.value).toBe('');
+            });
+
+            it('keeps a canonical the author pointed at another site', () => {
+                loadFromStore({ ...STORED, canonicalUrl: 'https://partner.example/original' });
+                expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://partner.example/original');
+            });
+
+            it('saves an empty canonical in place of a localhost one', async () => {
+                loadFromStore({ ...STORED, canonicalUrl: 'http://localhost:5173/article/stored-title' });
+                component.pageTitle = 'Stored title';
+                editSeo();
+                component.saveAsDraft();
+                await flush();
+
+                expect(mockDraftContentsStore.update.mock.calls[0][1].canonicalUrl).toBe('');
+            });
+        });
     });
 
     describe('creating a tag from the tag box', () => {
@@ -2525,21 +2625,29 @@ describe('CreateContentComponent', () => {
 
     // ─── Canonical URL auto-fill ───────────────────────────────────────────
 
-    describe('canonical URL auto-fill', () => {
-        it('includes the content type segment', () => {
-            component.domain = 'https://x.com/';
+    // The canonical used to be filled from the admin's own address, so an item
+    // saved in a local admin published http://localhost:5173/... as its
+    // canonical and og:url. Empty now means "this page", built at publish.
+    describe('canonical URL is not auto-filled', () => {
+        it('sets the slug and leaves the canonical empty', () => {
+            component.domain = 'http://localhost:5173/';
             component.contentTypeSlug = 'articles';
             (component as any).setSlugValue('hello');
-            expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://x.com/articles/hello');
             expect(component.publishForm.get('urlSlug')?.value).toBe('hello');
+            expect(component.seoForm.get('canonicalUrl')?.value).toBe('');
         });
 
-        it('falls back to the form type when no route slug is set', () => {
+        it('keeps a canonical the author typed when the slug changes', () => {
+            component.seoForm.get('canonicalUrl')?.setValue('https://partner.example/original');
+            (component as any).setSlugValue('hello');
+            expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://partner.example/original');
+        });
+
+        it('builds Copy URL with the content type segment', () => {
             component.domain = 'https://x.com/';
             component.contentTypeSlug = '';
             component.publishForm.get('type')?.setValue('manuals');
-            (component as any).setSlugValue('hello');
-            expect(component.seoForm.get('canonicalUrl')?.value).toBe('https://x.com/manuals/hello');
+            expect((component as any).publicUrlFor('hello')).toBe('https://x.com/manuals/hello');
         });
     });
 });

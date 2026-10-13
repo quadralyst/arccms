@@ -1,6 +1,7 @@
 import { parseHexColor } from '../../../../../shared/utils/color';
 import { hasReplacePrompt } from '../standard-pages/standard-pages';
 import { nextUrlSlug, toUrlSlug } from '../../../../../shared/utils/url-slug';
+import { authorCanonicalUrl } from '../../../../../shared/utils/canonical-url';
 import { ImageSize } from '../../../../../shared/utils/image-sizes';
 import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -325,8 +326,21 @@ export class CreateContentComponent extends BaseComponent {
     return this.contentTypeStore.items() || [];
   });
 
-  /** The stored item as loaded. The forms are filled from it by an effect (see the constructor). */
+  /** The stored item, refreshed after each save. The forms are filled from it by an effect (see the constructor). */
   contentDetailedData: any = computed(() => this.draftContentStore.currentItem());
+
+  /** The stored item as this editor's last save left it; the fill effect skips it. */
+  private storedEcho: unknown = null;
+
+  /**
+   * Brings the stored item up to date with what was just written, so a later
+   * publish keeps the first publishedOn and the reference sync compares with
+   * what is stored, without refilling the forms.
+   */
+  private refreshStoredItem(id: string, written: any): void {
+    this.draftContentStore.refreshCurrentItem(id, written);
+    this.storedEcho = untracked(() => this.draftContentStore.currentItem());
+  }
 
   // Computed property to get current content type with its fields
   currentContentType = computed(() => {
@@ -1006,9 +1020,12 @@ export class CreateContentComponent extends BaseComponent {
     // Fills the forms when the stored item arrives or is replaced, and at no
     // other time. patchForms reads other signals (sources, tags, authors, the
     // active language); tracking them would refill the forms from the stored
-    // copy, which is stale after a save, on every one of those edits.
+    // copy on every one of those edits. A save refreshes the stored item with
+    // what this editor wrote (storedEcho); that is not a new item to load,
+    // and refilling from it would drop anything typed while the save ran.
     effect(() => {
       const item = this.draftContentStore.currentItem();
+      if (item === this.storedEcho) return;
       if (item && Object.keys(item).length > 0) {
         untracked(() => this.patchForms(item));
       }
@@ -1561,7 +1578,15 @@ export class CreateContentComponent extends BaseComponent {
     this.seoForm.patchValue({
       seoTitle: contentData?.seoTitle || '',
       metaDescription: contentData?.metaDescription || '',
-      canonicalUrl: contentData?.canonicalUrl || '',
+      // Only a canonical the author set. The editor used to fill this from
+      // the admin's own address (localhost in a local admin); such values are
+      // dropped so publishing uses the page's address on the public site.
+      canonicalUrl: authorCanonicalUrl(
+        contentData?.canonicalUrl,
+        contentData?.type || this.contentTypeSlug || '',
+        contentData?.urlSlug || '',
+        [this.domain],
+      ),
       updatedOn: toDateInputValue(contentData?.updatedOn),
     });
     this.references.set(cleanReferences(contentData?.references));
@@ -1836,15 +1861,12 @@ export class CreateContentComponent extends BaseComponent {
   }
 
   private setSlugValue(slug: string): void {
+    // The canonical is left alone: empty means this page's own address,
+    // which publishing builds from the site's public URL.
     this.publishForm.get('urlSlug')?.setValue(slug);
-    this.seoForm.get('canonicalUrl')?.setValue(this.publicUrlFor(slug));
   }
 
-  /**
-   * The page's real public URL: `{origin}/{type}/{slug}`. The canonical used
-   * to be written without the type segment, so it pointed at a URL that does
-   * not exist and, since D1, that wrong URL became the Article `@id` too.
-   */
+  /** The page's address, `{origin}/{type}/{slug}`, for Copy URL. */
   private publicUrlFor(slug: string): string {
     const type = this.contentTypeSlug || this.publishForm.get('type')?.value || '';
     return type ? `${this.domain}${type}/${slug}` : this.domain + slug;
@@ -2351,10 +2373,14 @@ export class CreateContentComponent extends BaseComponent {
     formValues.updatedAt = new Date();
 
     const savedSignature = this.draftSignature(formValues);
+    // The reference sync compares with what was stored before this write.
+    const id = this.contentId;
+    const before = untracked(() => this.draftContentStore.currentItem());
 
-    this.draftContentStore.update(this.contentId, formValues, this.contentTypeSlug).subscribe({
+    this.draftContentStore.update(id, formValues, this.contentTypeSlug).subscribe({
       next: () => {
         this.ngZone.run(async () => {
+          this.refreshStoredItem(id, formValues);
           this.lastDraftSavedDate = new Date();
           // What we just wrote is now the clean state. Without this a pending
           // auto-save debounce fires ~30s later and rewrites the document —
@@ -2381,7 +2407,7 @@ export class CreateContentComponent extends BaseComponent {
 
           // Trigger cascading updates for content that references this one
           await this.updateReferencingContents(formValues);
-          await this.triggerCollectionRefSync(formValues);
+          await this.triggerCollectionRefSync(formValues, before);
 
           this.saveStatusMessage =
             type === this.constantVariables.PUBLISH
@@ -2472,9 +2498,11 @@ export class CreateContentComponent extends BaseComponent {
     this.saveStatusType = 'info';
     this.cdr.detectChanges();
 
-    this.draftContentStore.update(this.contentId, formValues, this.contentTypeSlug).subscribe({
+    const id = this.contentId;
+    this.draftContentStore.update(id, formValues, this.contentTypeSlug).subscribe({
       next: () => {
         this.ngZone.run(() => {
+          this.refreshStoredItem(id, formValues);
           this.lastDraftSavedDate = new Date();
           this.saveStatusMessage = 'Auto-saved';
           this.saveStatusType = 'success';
@@ -2575,7 +2603,7 @@ export class CreateContentComponent extends BaseComponent {
   /**
    * Trigger sync for collection references
    */
-  private async triggerCollectionRefSync(formValues: any): Promise<void> {
+  private async triggerCollectionRefSync(formValues: any, originalData: any): Promise<void> {
     const contentType = this.contentTypeSlug || formValues.type;
     if (!contentType) return;
 
@@ -2584,7 +2612,7 @@ export class CreateContentComponent extends BaseComponent {
             contentType,
             this.contentId,
             formValues,
-            this.contentDetailedData() // Pass original data for optimization
+            originalData // what was stored before this save, for optimization
         );
     } catch (error) {
         console.error('Error syncing collection references:', error);

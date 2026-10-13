@@ -24,7 +24,7 @@
     </ul>
 
     <h2>State: NgRx Signals stores</h2>
-    <p>Page state lives in NgRx Signals stores (<code>signalStore</code> from <code>@ngrx/signals</code>), such as the auth store in <code>src/app/pages/(auth)/auth.store.ts</code>. A store for a Firestore collection is usually made with <code>createGenericStore()</code> from <code>src/shared/services/generic-store.service.ts</code>, which gives it loading, paging, sorting and the create, update and delete calls. Templates read store state as signals.</p>
+    <p>Page state lives in NgRx Signals stores (<code>signalStore</code> from <code>@ngrx/signals</code>), such as the auth store in <code>src/app/pages/(auth)/auth.store.ts</code>. A store for a Firestore collection is usually made with <code>createGenericStore()</code> from <code>src/shared/services/generic-store.service.ts</code>, which gives it loading, paging, sorting and the create, update and delete calls. <code>update()</code> does not change <code>currentItem</code>, so a page that fills a form from it is not refilled on every save; a page that keeps editing after a save calls <code>refreshCurrentItem(id, written)</code> to bring the stored copy up to date, as the content editor does. Templates read store state as signals.</p>
 
     <h2>Translations</h2>
     <p>The admin's and the members' text is translated with Transloco. English is the source language:</p>
