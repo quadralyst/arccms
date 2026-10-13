@@ -11,3 +11,8 @@ export function summaryPlainText(html: string): string {
         .replace(/&nbsp;/g, ' ')
         .replace(/[ \t]{2,}/g, ' ');
 }
+
+/** The automatic summary of a body: its first 100 characters of text. */
+export function bodyExcerpt(html: string): string {
+    return summaryPlainText(html || '').trim().substring(0, 100).trim();
+}

@@ -10,6 +10,7 @@ import { ContentTypesStore } from '../content-types/content-types.store';
 import { TagsStore } from '../content-types/tags/tags.store';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { GlobalService } from '../../../../../shared/services/global.service';
+import { SiteIdentityService } from '../../../../core/services/site-identity.service';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import { Firestore } from '@angular/fire/firestore';
 import { DraftContentsService } from '../draft-content-store/draft-contents.service';
@@ -31,6 +32,7 @@ describe('CreateContentComponent', () => {
     let mockContentTypesStore: any;
     let mockTagsStore: any;
     let mockGlobalService: any;
+    let mockSiteIdentity: any;
     let mockToastService: any;
     let mockFirestore: any;
     let mockAuthorsService: any;
@@ -106,6 +108,12 @@ describe('CreateContentComponent', () => {
         mockGlobalService = {
             goBack: vi.fn(),
             debugMode: false,
+            copyToClipboard: vi.fn().mockResolvedValue(true),
+        };
+
+        mockSiteIdentity = {
+            load: vi.fn().mockResolvedValue({ finalUrl: '' }),
+            identity: signal({ finalUrl: '' }),
         };
 
         mockToastService = {
@@ -187,6 +195,7 @@ describe('CreateContentComponent', () => {
                     }
                 },
                 { provide: GlobalService, useValue: mockGlobalService },
+                { provide: SiteIdentityService, useValue: mockSiteIdentity },
                 { provide: ToastService, useValue: mockToastService },
                 { provide: MatDialog, useValue: mockDialog },
                 { provide: PublishQueueService, useValue: { enqueue: vi.fn().mockResolvedValue(undefined) } },
@@ -2411,6 +2420,69 @@ describe('CreateContentComponent', () => {
             expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
         });
 
+        // Any body edit replaced a stored, hand-written summary with the body's
+        // first 100 characters (a loaded control is never dirty), and the meta
+        // description followed it.
+        describe('summary and meta description', () => {
+            const summary = () => component.publishForm.get('summary')?.value;
+            const meta = () => component.seoForm.get('metaDescription')?.value;
+
+            it('keeps a stored, hand-written summary and meta description when the body changes', () => {
+                loadFromStore({ ...STORED, summary: 'Written by hand.', metaDescription: 'Meta by hand.' });
+                component.passEditorContentToParent('<p>Body</p>');
+
+                component.passEditorContentToParent('<p>A new first paragraph.</p>');
+
+                expect(summary()).toBe('Written by hand.');
+                expect(meta()).toBe('Meta by hand.');
+            });
+
+            it('lets an automatic summary, and a meta description equal to it, follow the body', () => {
+                loadFromStore({ ...STORED, summary: 'Body', metaDescription: 'Body' });
+                component.passEditorContentToParent('<p>Body</p>');
+
+                component.passEditorContentToParent('<p>A new first paragraph.</p>');
+
+                expect(summary()).toBe('A new first paragraph.');
+                expect(meta()).toBe('A new first paragraph.');
+            });
+
+            it('fills an empty summary and meta description from the body', () => {
+                loadFromStore({ ...STORED, summary: '', metaDescription: '' });
+                component.passEditorContentToParent('<p>Body</p>');
+
+                expect(summary()).toBe('Body');
+                expect(meta()).toBe('Body');
+            });
+
+            it('keeps a summary typed in this session when the body changes', () => {
+                loadFromStore({ ...STORED, summary: 'Body', metaDescription: 'Body' });
+                component.passEditorContentToParent('<p>Body</p>');
+                component.publishForm.get('summary')?.setValue('Typed summary.');
+
+                component.passEditorContentToParent('<p>A new first paragraph.</p>');
+
+                expect(summary()).toBe('Typed summary.');
+                expect(meta()).toBe('Typed summary.');
+            });
+
+            it('keeps a stored meta description when the summary is edited', () => {
+                loadFromStore({ ...STORED, summary: 'Old summary.', metaDescription: 'Meta by hand.' });
+                component.passEditorContentToParent('<p>Body</p>');
+
+                component.publishForm.get('summary')?.setValue('New summary.');
+
+                expect(meta()).toBe('Meta by hand.');
+            });
+
+            it('does not count loading the item as an edit', () => {
+                loadFromStore({ ...STORED, summary: 'Written by hand.', metaDescription: 'Meta by hand.' });
+                component.passEditorContentToParent('<p>Body</p>');
+
+                expect((component as any).hasUnsavedDraftChanges()).toBe(false);
+            });
+        });
+
         // A save left the stored item as first loaded: a second publish reset
         // publishedOn to now and the reference sync compared with old values.
         const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -2648,6 +2720,33 @@ describe('CreateContentComponent', () => {
             component.contentTypeSlug = '';
             component.publishForm.get('type')?.setValue('manuals');
             expect((component as any).publicUrlFor('hello')).toBe('https://x.com/manuals/hello');
+        });
+    });
+
+    // Copy URL used the address the admin was open on, so a local admin
+    // copied http://localhost:5173/... for a page on the live site.
+    describe('page address', () => {
+        async function openWith(finalUrl: string): Promise<void> {
+            mockSiteIdentity.load.mockResolvedValue({ finalUrl });
+            fixture = TestBed.createComponent(CreateContentComponent);
+            component = fixture.componentInstance;
+            component.contentTypeSlug = 'articles';
+            fixture.detectChanges(false);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            component.publishForm.get('urlSlug')?.setValue('hello');
+        }
+
+        it('copies the Production URL address when one is set', async () => {
+            await openWith('https://www.example.com/');
+            await component.copyUrlToClipboard();
+            expect(mockGlobalService.copyToClipboard).toHaveBeenCalledWith('https://www.example.com/articles/hello');
+            expect(component.domain).toBe('https://www.example.com/');
+        });
+
+        it('falls back to the address the admin is open on', async () => {
+            await openWith('');
+            await component.copyUrlToClipboard();
+            expect(mockGlobalService.copyToClipboard).toHaveBeenCalledWith(`${window.location.origin}/articles/hello`);
         });
     });
 });

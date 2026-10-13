@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summaryPlainText } from './summary-text';
+import { bodyExcerpt, summaryPlainText } from './summary-text';
 
 describe('summaryPlainText', () => {
     it('leaves file cards out of the summary', () => {
@@ -13,5 +13,13 @@ describe('summaryPlainText', () => {
 
     it('keeps ordinary links', () => {
         expect(summaryPlainText('<p>Read <a href="https://x">the guide</a>.</p>').trim()).toBe('Read the guide.');
+    });
+});
+
+describe('bodyExcerpt', () => {
+    it('is the first 100 characters of text, trimmed', () => {
+        expect(bodyExcerpt(`<p>${'a'.repeat(99)} b c</p>`)).toBe(`${'a'.repeat(99)}`);
+        expect(bodyExcerpt('<p>  Short body. </p>')).toBe('Short body.');
+        expect(bodyExcerpt('')).toBe('');
     });
 });

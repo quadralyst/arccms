@@ -19,6 +19,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { ContentsService } from '../content-store/published-contents.service';
 import { LocalizationService } from '../../../../core/services/localization.service';
+import { SiteIdentityService } from '../../../../core/services/site-identity.service';
 import { AuthState } from '../../../(auth)/auth.store';
 import { signal } from '@angular/core';
 
@@ -118,6 +119,7 @@ describe('AddContentPage', () => {
                     }
                 },
                 { provide: GlobalService, useValue: mockGlobalService },
+                { provide: SiteIdentityService, useValue: { load: () => Promise.resolve({ finalUrl: '' }), identity: () => ({ finalUrl: '' }) } },
                 { provide: ToastService, useValue: mockToastService },
                 { provide: MatDialog, useValue: { open: vi.fn().mockReturnValue({ afterClosed: () => of(null) }) } },
                 { provide: PublishQueueService, useValue: { enqueue: vi.fn().mockResolvedValue(undefined) } },

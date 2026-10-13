@@ -2,6 +2,7 @@ import { parseHexColor } from '../../../../../shared/utils/color';
 import { hasReplacePrompt } from '../standard-pages/standard-pages';
 import { nextUrlSlug, toUrlSlug } from '../../../../../shared/utils/url-slug';
 import { authorCanonicalUrl } from '../../../../../shared/utils/canonical-url';
+import { SiteIdentityService } from '../../../../core/services/site-identity.service';
 import { ImageSize } from '../../../../../shared/utils/image-sizes';
 import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -21,7 +22,7 @@ import { ITag } from '../content-types/tags/tags.model';
 import MediaManagerComponent, { MediaSelection } from '../../(media)/media.page';
 import { mediaPickerDialogConfig } from '../../(media)/media-picker-dialog';
 import { fileMeta, MEDIA_FILE_TYPE_ICONS, MediaFileRef, toFileRows } from '../../../../../shared/utils/media-files';
-import { summaryPlainText } from '../../../../../shared/utils/summary-text';
+import { bodyExcerpt } from '../../../../../shared/utils/summary-text';
 import { ArcIcon, isArcIcon } from '../../../../../shared/models/icon.model';
 import { FieldRepeaterComponent } from '../../../../../shared/components/field-repeater/field-repeater.component';
 import { ResizableDirective } from '../../../../../shared/directives/resizable/resizable.directive';
@@ -165,6 +166,7 @@ export class CreateContentComponent extends BaseComponent {
   private draftContentsService = inject(DraftContentsService);
   private collectionRefSyncService = inject(CollectionRefSyncService);
   private publishQueueService = inject(PublishQueueService);
+  private siteIdentity = inject(SiteIdentityService);
   private contentsService = inject(ContentsService);
   private deployStatusSubscription: Subscription | null = null;
 
@@ -183,7 +185,14 @@ export class CreateContentComponent extends BaseComponent {
 
   public pageTitle: string = '';
   currentDateTime: string = '';
+  /**
+   * The site's public address with a trailing slash: the Production URL
+   * (Settings, About) once it has loaded, else the address the admin is open
+   * on. Used for the page URL shown and copied, and the share preview.
+   */
   public domain: string = '';
+  /** The address the admin is open on, with a trailing slash. */
+  private adminOrigin = '';
   public childCategories: any[] = [];
 
   publishForm!: FormGroup;
@@ -328,6 +337,11 @@ export class CreateContentComponent extends BaseComponent {
 
   /** The stored item, refreshed after each save. The forms are filled from it by an effect (see the constructor). */
   contentDetailedData: any = computed(() => this.draftContentStore.currentItem());
+
+  /** The automatic summary of the body last seen; the summary follows the body only while it equals this. */
+  private previousExcerpt = '';
+  /** The summary before its latest change; the meta description follows only while it equals this. */
+  private previousSummary = '';
 
   /** The stored item as this editor's last save left it; the fill effect skips it. */
   private storedEcho: unknown = null;
@@ -1064,8 +1078,10 @@ export class CreateContentComponent extends BaseComponent {
 
   ngOnInit() {
     if (typeof window !== 'undefined') {
-      this.domain = window.location.origin + '/';
+      this.adminOrigin = window.location.origin + '/';
+      this.domain = this.adminOrigin;
     }
+    void this.loadPublicAddress();
     this.fetchCurrentUrl();
     this.initLanguages();
     this.initAuthors();
@@ -1158,6 +1174,8 @@ export class CreateContentComponent extends BaseComponent {
     this.publishForm.get('summary')?.setValue(values.summary, { emitEvent: false });
     this.seoForm.get('seoTitle')?.setValue(values.seoTitle, { emitEvent: false });
     this.seoForm.get('metaDescription')?.setValue(values.metaDescription, { emitEvent: false });
+    this.previousExcerpt = bodyExcerpt(values.content);
+    this.previousSummary = (values.summary || '').trim();
     this.customFieldValues = this.adoptCustomFields(values.customFields);
     this.cdr.detectChanges();
   }
@@ -1575,6 +1593,10 @@ export class CreateContentComponent extends BaseComponent {
       layout: contentData?.layout || '',
     });
 
+    // What the loaded body's automatic summary is, so a stored summary equal
+    // to it keeps following the body and a hand-written one does not.
+    this.previousExcerpt = bodyExcerpt(contentData?.content || '');
+
     this.seoForm.patchValue({
       seoTitle: contentData?.seoTitle || '',
       metaDescription: contentData?.metaDescription || '',
@@ -1585,7 +1607,7 @@ export class CreateContentComponent extends BaseComponent {
         contentData?.canonicalUrl,
         contentData?.type || this.contentTypeSlug || '',
         contentData?.urlSlug || '',
-        [this.domain],
+        [this.domain, this.adminOrigin],
       ),
       updatedOn: toDateInputValue(contentData?.updatedOn),
     });
@@ -1648,10 +1670,15 @@ export class CreateContentComponent extends BaseComponent {
       layout: [''],
     });
 
-    // Sync summary changes to metaDescription
+    // The meta description follows the summary while it is empty or still
+    // equals the previous summary; a hand-written one is kept, including one
+    // loaded from the database.
     this.publishForm.get('summary')?.valueChanges.subscribe((value) => {
-      const metaDescControl = this.seoForm.get('metaDescription');
-      if (metaDescControl && (!metaDescControl.value || !metaDescControl.dirty)) {
+      const previous = this.previousSummary;
+      this.previousSummary = (value || '').trim();
+      const metaDescControl = this.seoForm?.get('metaDescription');
+      const meta = (metaDescControl?.value || '').trim();
+      if (metaDescControl && (!meta || meta === previous)) {
         metaDescControl.setValue(value, { emitEvent: false });
       }
     });
@@ -1788,24 +1815,17 @@ export class CreateContentComponent extends BaseComponent {
   public passEditorContentToParent(event: any): void {
     this.publishForm.get('content')?.setValue(event);
 
-    const plainText = summaryPlainText(event || '');
-    const words = plainText.trim().split(/\s+/);
-    // Use characters for summary instead of words, as requested (first 100 chars)
-    const summaryText = plainText.trim().substring(0, 100).trim();
-
-    // Only update summary if it's empty or hasn't been manually edited
+    // The summary follows the body only while it is empty or still the
+    // excerpt of the previous body. A hand-written summary is kept, including
+    // one loaded from the database, whose control is never dirty. The meta
+    // description follows the summary by the same rule (see initializeForms).
+    const excerpt = bodyExcerpt(event || '');
     const summaryControl = this.publishForm.get('summary');
-    if (summaryControl && (!summaryControl.value || !summaryControl.dirty)) {
-      summaryControl.setValue(summaryText);
+    const summary = (summaryControl?.value || '').trim();
+    if (summaryControl && (!summary || summary === this.previousExcerpt) && summary !== excerpt) {
+      summaryControl.setValue(excerpt);
     }
-
-    // Default existing logic for meta description fallback (now uses summary logic primarily)
-    const first160Words = words.slice(0, 160).join(' '); // Keeping existing logic for now as fallback? 
-    // Actually, let's align with the request: 
-    // "Set the summary by default as first 100 characters... also set this as a default value for SEO description."
-    // "If I change the summary then the SEO Description is using the default value, then update the SEO description"
-
-    // We handle the sync in valueChanges of summary. Here we just set summary.
+    this.previousExcerpt = excerpt;
 
     // TipTap echoes the value it was just given, reserializing it on the way.
     // That echo — and the summary/meta-description it cascades into above — is
@@ -1866,7 +1886,19 @@ export class CreateContentComponent extends BaseComponent {
     this.publishForm.get('urlSlug')?.setValue(slug);
   }
 
-  /** The page's address, `{origin}/{type}/{slug}`, for Copy URL. */
+  /**
+   * Uses the Production URL for page addresses, so Copy URL in a local admin
+   * gives the live address, not localhost.
+   */
+  private async loadPublicAddress(): Promise<void> {
+    const about = await this.siteIdentity.load();
+    const url = (about?.finalUrl || '').trim().replace(/\/+$/, '');
+    if (!url) return;
+    this.domain = url + '/';
+    this.cdr.markForCheck();
+  }
+
+  /** The page's public address, `{domain}{type}/{slug}`, for Copy URL. */
   private publicUrlFor(slug: string): string {
     const type = this.contentTypeSlug || this.publishForm.get('type')?.value || '';
     return type ? `${this.domain}${type}/${slug}` : this.domain + slug;
