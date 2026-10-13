@@ -29,6 +29,7 @@ import { ARTICLE_FAMILY, ContentTypeSchema, SCHEMA_TYPES, SchemaProperty, Schema
 import { ContentTypesStore } from '../content-types.store';
 import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, validateCollectionRefField, duplicateFieldKeyValidator, bareFieldKey, fieldKeyFromLabel, fullFieldKey, hasSlugPrefix } from '../collection-ref-helpers';
 import { roleGuard } from '../../../../../guards/role.guard';
+import type { TranslationKey } from '../../../../../core/i18n/translation-keys';
 import { TemplateFolderService, TemplateFolder } from '../../../../../core/services/template-folder.service';
 
 export const routeMeta: RouteMeta = {
@@ -75,6 +76,31 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     public errorSlug = signal(false);
     public checkingSlug = signal(false);
     private count = 0;
+    /**
+     * Whether any entry, draft or tag is stored under the saved slug: `null`
+     * until the server answers. They live in collections named after the slug
+     * (`arc_{slug}`, `arc_{slug}_drafts`, `Tags_{slug}`), so a rename would leave
+     * them behind, and the slug is locked while there are any.
+     */
+    public slugHasItems = signal<boolean | null>(null);
+
+    /** Other content types whose reference fields find this one by its slug. */
+    linkedBy = computed(() => {
+        const item = this.currentItem();
+        if (!item?.slug) return [];
+        return this.contentTypesStore.items()
+            .filter((ct) => ct.id !== item.id && (ct.fields || []).some(
+                (f) => f.useCollectionRef && f.collectionRef?.collectionSlug === item.slug))
+            .map((ct) => ct.name);
+    });
+
+    /** Why the slug cannot change, as a message, or `null` while it can. */
+    slugLock = computed<{ key: TranslationKey; params?: Record<string, string> } | null>(() => {
+        if (this.slugHasItems()) return { key: 'admin.contents.types.form.slug_locked_entries' };
+        const linked = this.linkedBy();
+        if (linked.length) return { key: 'admin.contents.types.form.slug_locked_linked', params: { types: linked.join(', ') } };
+        return null;
+    });
 
     currentItem = computed(() => {
         return this.contentTypesStore.currentItem();
@@ -183,6 +209,11 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             if (item && this.#id) {
                 this.updateFormdata(item as ContentType);
             }
+        });
+        effect(() => {
+            const slug = this.currentItem()?.slug;
+            this.slugHasItems.set(null);
+            if (slug) void this.loadSlugHasItems(slug);
         });
     }
 
@@ -463,6 +494,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         );
 
         const storedSlug = (this.currentItem() as ContentType | null)?.slug;
+        if (slug !== storedSlug && !(await this.slugCanChange(storedSlug || ''))) return;
         if (slug !== storedSlug && !(await this.slugIsFree(slug))) return;
 
         const updatedContentType: Partial<ContentType> = {
@@ -542,6 +574,48 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         } finally {
             this.checkingSlug.set(false);
         }
+        return false;
+    }
+
+    /**
+     * What the form shows: the pencil appears once the server says nothing is
+     * stored under the slug. When it cannot tell, the pencil shows anyway and
+     * `slugCanChange` asks again at save.
+     */
+    private async loadSlugHasItems(slug: string): Promise<void> {
+        let hasItems = false;
+        try {
+            hasItems = await this.contentTypesStore.hasStoredItems(slug);
+        } catch (error) {
+            console.error('Error checking for entries:', error);
+        }
+        // Another type may have opened meanwhile.
+        if (this.currentItem()?.slug === slug) this.slugHasItems.set(hasItems);
+    }
+
+    /**
+     * The lock check that counts, made at save: an entry may have been added
+     * since the form opened. A locked slug goes back to the saved one and the
+     * save stops, saying why; an unanswered check saves nothing.
+     */
+    private async slugCanChange(storedSlug: string): Promise<boolean> {
+        if (!storedSlug) return true;
+        this.checkingSlug.set(true);
+        try {
+            this.slugHasItems.set(await this.contentTypesStore.hasStoredItems(storedSlug));
+        } catch (error) {
+            console.error('Error checking for entries:', error);
+            this.notify.error('admin.contents.types.slug_check_failed');
+            return false;
+        } finally {
+            this.checkingSlug.set(false);
+        }
+        const lock = this.slugLock();
+        if (!lock) return true;
+        this.notify.error(lock.key, lock.params);
+        this.editForm.get('slug')?.setValue(storedSlug);
+        this.isEditingSlug.set(false);
+        this.errorSlug.set(false);
         return false;
     }
 

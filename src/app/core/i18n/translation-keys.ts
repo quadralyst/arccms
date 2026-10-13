@@ -380,6 +380,8 @@ export type TranslationKey =
     | 'admin.contents.types.form.slug'
     | 'admin.contents.types.form.slug_change_warning'
     | 'admin.contents.types.form.slug_hint'
+    | 'admin.contents.types.form.slug_locked_entries'
+    | 'admin.contents.types.form.slug_locked_linked'
     | 'admin.contents.types.form.slug_pattern'
     | 'admin.contents.types.form.slug_required'
     | 'admin.contents.types.form.slug_taken'
@@ -2407,6 +2409,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.form.slug',
     'admin.contents.types.form.slug_change_warning',
     'admin.contents.types.form.slug_hint',
+    'admin.contents.types.form.slug_locked_entries',
+    'admin.contents.types.form.slug_locked_linked',
     'admin.contents.types.form.slug_pattern',
     'admin.contents.types.form.slug_required',
     'admin.contents.types.form.slug_taken',

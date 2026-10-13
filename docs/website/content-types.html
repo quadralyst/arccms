@@ -26,10 +26,10 @@
       <li><p>Press <strong>Save Content Type</strong>. The type appears in the admin menu under Content.</p></li>
     </ol>
     <p><strong>Structured data</strong> (see <a href="seo.html">Get found by search engines and AI</a>) is at the bottom of the form when you add a type and when you edit it: choose a type such as Product or Event and map its properties to the custom fields you have added. When you edit a saved type, the form also has <strong>Searchable custom fields</strong> (see <a href="search.html">Add search</a>).</p>
-    <div class="warn"><p>Settle the slug before you write items. Items are stored under the slug (<code>arc_{slug}</code>), so changing it later hides every existing item of the type, in the admin area and on the site.</p></div>
+    <div class="warn"><p>Settle the slug before you write items. Items and tags are stored under the slug (<code>arc_{slug}</code>), so once a type has any, the slug is locked and the edit form says why. It is also locked while another type's reference field points at the type. While the type is empty you can still change it, but its web address changes with it, and links to the old one stop working.</p></div>
 
     <h2>Delete a content type</h2>
-    <p>Choose <strong>Delete</strong> on the type in <strong>Content types</strong>. The confirmation says how many entries the type has: they are deleted with it, drafts and published, and so are its tags. This cannot be undone, so export the type first if you may want it back (<a href="../features/data.html">Data import and export</a>). Deleting does not take its pages off the site: unpublish the entries first.</p>
+    <p>Choose <strong>Delete</strong> on the type in <strong>Content types</strong>. The confirmation says how many entries the type has: they are deleted with it, drafts and published, with their translations and version history, and so are its tags. This cannot be undone, so export the type first if you may want it back (<a href="../features/data.html">Data import and export</a>). Deleting does not take its pages off the site: unpublish the entries first.</p>
     <p>A site set up before slugs were checked can have two types with the same slug, which share one set of entries. Deleting one of them keeps the entries for the other, and its confirmation says so.</p>
 
     <h2>Choose field types</h2>

@@ -51,6 +51,22 @@ export class ContentTypesService extends DbService<ContentType> {
   }
 
   /**
+   * Whether anything is stored under `slug`: an entry, a draft or a tag. The
+   * slug names their collections (`arc_{slug}`, `arc_{slug}_drafts`,
+   * `Tags_{slug}`), so renaming a type that has any would leave them behind
+   * under the old name, gone from the admin and the site. Asked of the server;
+   * throws when it cannot tell, so a rename never goes ahead on a guess.
+   */
+  async hasStoredItems(slug: string): Promise<boolean> {
+    const snapshots = await Promise.all(
+      [`arc_${slug}`, `arc_${slug}_drafts`, `Tags_${slug}`].map((name) =>
+        runInInjectionContext(this.injector, () => getDocsFromServer(query(collection(this.firestore, name), limit(1)))),
+      ),
+    );
+    return snapshots.some((snap) => !snap.empty);
+  }
+
+  /**
    * What deleting a type removes, for its confirmation: the number of entries
    * (every entry has a draft, so the drafts are counted), or `null` when they
    * could not be counted; and whether another type shares the slug, in which

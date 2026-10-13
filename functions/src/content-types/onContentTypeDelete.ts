@@ -6,6 +6,10 @@ import { isFeatureOn } from '../feature-flags.js';
 import { removeCollectionEntries } from '../search/writer.js';
 
 const BATCH_LIMIT = 400;
+// What lives under an entry: its other languages (drafts and published), and on a
+// published copy its past versions and deploy logs. Firestore names are
+// case-sensitive: the publisher writes `PublishedHistory`.
+const ENTRY_SUBCOLLECTIONS = ['translations', 'PublishedHistory', 'DeploymentLogs'];
 
 export const onContentTypeDeleted = onDocumentDeleted(
     arcDocument('ContentTypes/{contentTypeId}'),
@@ -51,19 +55,19 @@ async function deleteCollection(collectionName: string) {
     let opCount = 0;
 
     for (const doc of snap.docs) {
-        // Delete publishedHistory subcollection (if exists)
-        const historySnap = await doc.ref
-            .collection('publishedHistory')
-            .get();
+        // Deleting a document leaves its subcollections behind.
+        for (const sub of ENTRY_SUBCOLLECTIONS) {
+            const subSnap = await doc.ref.collection(sub).get();
 
-        for (const historyDoc of historySnap.docs) {
-            batch.delete(historyDoc.ref);
-            opCount++;
+            for (const subDoc of subSnap.docs) {
+                batch.delete(subDoc.ref);
+                opCount++;
 
-            if (opCount >= BATCH_LIMIT) {
-                await batch.commit();
-                batch = db.batch();
-                opCount = 0;
+                if (opCount >= BATCH_LIMIT) {
+                    await batch.commit();
+                    batch = db.batch();
+                    opCount = 0;
+                }
             }
         }
 
