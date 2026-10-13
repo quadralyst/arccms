@@ -904,6 +904,13 @@
         "manage_tags": "Manage Tags",
         "deleted": "Content type deleted successfully.",
         "delete_failed": "Failed to delete content type. Please try again.",
+        "delete_confirm": {
+          "many": "Delete <strong>{{ name }}</strong> and its {{ count }} entries? The entries, drafts and published, and the type's tags are deleted permanently.",
+          "one": "Delete <strong>{{ name }}</strong> and its 1 entry? The entry, draft and published, and the type's tags are deleted permanently.",
+          "empty": "Delete <strong>{{ name }}</strong>? It has no entries. Its tags are deleted permanently.",
+          "unknown": "Delete <strong>{{ name }}</strong> and all its entries? The entries, drafts and published, and the type's tags are deleted permanently.",
+          "shared": "Delete <strong>{{ name }}</strong>? Another content type uses the slug <strong>{{ slug }}</strong>, so the entries stay with it."
+        },
         "form": {
           "add_title": "Add Content Type",
           "edit_title": "Edit Content Type",
@@ -988,6 +995,7 @@
         "update_failed": "Error updating content type",
         "entry_order_failed": "Saved, but the entries could not be put in the new order. Try Arrange on the entry list.",
         "slug_exists": "Slug \"{{ slug }}\" already exists.",
+        "slug_check_failed": "Could not check the slug. Check your connection and try again.",
         "republish_site": "Republish website",
         "republish_site_hint": "Publish every page, the home page and the sitemap again, from the live website's templates",
         "republish_started": "Republishing the website. It takes a minute or two.",

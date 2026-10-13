@@ -11,6 +11,7 @@ import { ContentTypesStore } from './content-types.store';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { NotifyService } from '../../../../../shared/services/notify.service';
 import { StandardPagesService } from '../standard-pages/standard-pages.service';
+import { ContentTypesService } from './content-types.service';
 
 describe('ContentTypesPage', () => {
     let component: ContentTypesPage;
@@ -19,6 +20,7 @@ describe('ContentTypesPage', () => {
     let mockActivatedRoute: any;
 
     const mockStandardPages = { ensure: vi.fn() };
+    const mockContentTypesService = { deleteImpact: vi.fn() };
     const mockStore = {
         items: signal([]),
         getAll: vi.fn(() => of([])),
@@ -53,6 +55,7 @@ describe('ContentTypesPage', () => {
                 { provide: PublishQueueService, useValue: mockPublishQueue },
                 { provide: NotifyService, useValue: mockNotify },
                 { provide: StandardPagesService, useValue: mockStandardPages },
+                { provide: ContentTypesService, useValue: mockContentTypesService },
             ]
         })
             .compileComponents();
@@ -83,6 +86,63 @@ describe('ContentTypesPage', () => {
     });
 
     // SS6: the standard pages, for a site that does not have them yet.
+    describe('Delete', () => {
+        const type = { id: 'ct-1', name: 'Articles', slug: 'articles' } as never;
+        let dialogOpen: ReturnType<typeof vi.fn>;
+        const message = (): string => dialogOpen.mock.calls[0][1].data.dialogMessage.changingThisBreaksApplicationSecurity;
+
+        beforeEach(() => {
+            dialogOpen = vi.fn(() => ({ afterClosed: () => of(false) }));
+            (TestBed.inject(MatDialog) as unknown as { open: typeof dialogOpen }).open = dialogOpen;
+        });
+
+        it('says the entries are deleted permanently, with their count', async () => {
+            mockContentTypesService.deleteImpact.mockResolvedValue({ entries: 12, shared: false });
+            await component.deleteItem(type);
+            expect(mockContentTypesService.deleteImpact).toHaveBeenCalledWith(type);
+            expect(message()).toContain('<strong>Articles</strong> and its 12 entries');
+            expect(message()).toContain('deleted permanently');
+        });
+
+        it('counts one entry in the singular', async () => {
+            mockContentTypesService.deleteImpact.mockResolvedValue({ entries: 1, shared: false });
+            await component.deleteItem(type);
+            expect(message()).toContain('its 1 entry?');
+        });
+
+        it('says when the type has no entries', async () => {
+            mockContentTypesService.deleteImpact.mockResolvedValue({ entries: 0, shared: false });
+            await component.deleteItem(type);
+            expect(message()).toContain('It has no entries');
+        });
+
+        it('still warns when the entries could not be counted', async () => {
+            mockContentTypesService.deleteImpact.mockResolvedValue({ entries: null, shared: false });
+            await component.deleteItem(type);
+            expect(message()).toContain('all its entries');
+            expect(message()).toContain('deleted permanently');
+        });
+
+        it('says the entries stay when another type shares the slug', async () => {
+            mockContentTypesService.deleteImpact.mockResolvedValue({ entries: 12, shared: true });
+            await component.deleteItem(type);
+            expect(message()).toContain('Another content type uses the slug <strong>articles</strong>');
+            expect(message()).not.toContain('permanently');
+        });
+
+        it('opens one dialog for a double click', async () => {
+            mockContentTypesService.deleteImpact.mockResolvedValue({ entries: 2, shared: false });
+            await Promise.all([component.deleteItem(type), component.deleteItem(type)]);
+            expect(dialogOpen).toHaveBeenCalledTimes(1);
+        });
+
+        it('escapes the name', async () => {
+            mockContentTypesService.deleteImpact.mockResolvedValue({ entries: 2, shared: false });
+            await component.deleteItem({ id: 'x', name: '<img src=x>', slug: 's' } as never);
+            expect(message()).toContain('&lt;img src=x&gt;');
+        });
+    });
+
     describe('Add standard pages', () => {
         const button = () => (fixture.nativeElement as HTMLElement).querySelector('[data-testid="add-standard-pages"]');
 

@@ -21,8 +21,13 @@ vi.mock('@angular/fire/firestore', async (importOriginal) => ({
     where: vi.fn((field: string, _op: string, value: unknown) => ({ field, value })),
     limit: vi.fn(() => ({})),
     query: vi.fn((ref: { path: string }, w: { field: string; value: unknown }) => ({ path: ref.path, where: w })),
+    // The Info Pages type is looked up on the server only (never the offline cache).
+    getDocsFromServer: vi.fn(async (q: { path: string }) => {
+        if (q.path !== 'ContentTypes') throw new Error(`unexpected server read of ${q.path}`);
+        return { docs: state.type ? [{ id: 'info', data: () => state.type }] : [] };
+    }),
     getDocs: vi.fn(async (q: { path: string; where: { value: unknown } }) => {
-        if (q.path === 'ContentTypes') return { docs: state.type ? [{ id: 'info', data: () => state.type }] : [] };
+        if (q.path === 'ContentTypes') throw new Error('the type check must not read the offline cache');
         return { empty: !state.drafts.includes(String(q.where.value)), docs: [] };
     }),
     getDoc: vi.fn(async () => ({ data: () => state.about })),

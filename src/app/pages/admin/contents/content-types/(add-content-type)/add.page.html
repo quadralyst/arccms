@@ -382,7 +382,7 @@
       <button
         type="submit"
         class="btn btn-primary"
-        [disabled]="addForm.invalid || contentTypesStore.isLoading()"
+        [disabled]="addForm.invalid || contentTypesStore.isLoading() || checkingSlug()"
       >
         {{ 'admin.contents.types.form.save' | transloco }}
       </button>

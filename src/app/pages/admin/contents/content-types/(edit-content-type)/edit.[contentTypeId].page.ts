@@ -427,7 +427,8 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         this.close.emit();
     }
 
-    onSubmit() {
+    async onSubmit() {
+        if (this.checkingSlug()) return;
         if (this.editForm.invalid) {
             console.warn('[EditContentType] Form is invalid:', this.getFormErrors(this.editForm));
             this.focusFirstInvalidField(this.editForm);
@@ -436,7 +437,7 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         }
 
         if (this.errorSlug()) {
-            this.errorMessages = [this.transloco.translate('admin.contents.types.fix_slug')];
+            this.notify.error('admin.contents.types.fix_slug');
             return;
         }
 
@@ -460,6 +461,9 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         const storedKeys = (formValue.fields || []).map((_field: any, index: number) =>
             this.storedKeyOf(this.fields.at(index) as FormGroup, slug),
         );
+
+        const storedSlug = (this.currentItem() as ContentType | null)?.slug;
+        if (slug !== storedSlug && !(await this.slugIsFree(slug))) return;
 
         const updatedContentType: Partial<ContentType> = {
             name: formValue.name || '',
@@ -517,6 +521,28 @@ export default class EditContentTypeComponent extends BaseComponent implements O
             console.error('Could not apply the entry order:', error);
             this.notify.error('admin.contents.types.entry_order_failed');
         }
+    }
+
+    /**
+     * The slug check that counts, made at save: Update works without Save slug
+     * having been pressed, and a type whose slug another type has would share,
+     * and on delete lose, that type's entries.
+     */
+    private async slugIsFree(slug: string): Promise<boolean> {
+        this.checkingSlug.set(true);
+        try {
+            if (!(await this.contentTypesStore.slugInUse(slug, this.id))) return true;
+            this.errorSlug.set(true);
+            this.isEditingSlug.set(true);
+            this.editForm.get('slug')?.markAsTouched();
+            this.notify.error('admin.contents.types.slug_exists', { slug });
+        } catch (error) {
+            console.error('Error checking slug existence:', error);
+            this.notify.error('admin.contents.types.slug_check_failed');
+        } finally {
+            this.checkingSlug.set(false);
+        }
+        return false;
     }
 
     public toggleSlugEdit(): void {

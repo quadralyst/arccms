@@ -50,6 +50,7 @@ describe('EditContentTypeComponent', () => {
             isLoading: vi.fn().mockReturnValue(false),
             items: vi.fn().mockReturnValue([mockContentType]),
             checkExistingSlugUrl: vi.fn().mockResolvedValue({ exists: false, slug: '' }),
+            slugInUse: vi.fn().mockResolvedValue(false),
         };
 
         mockToastService = {
@@ -239,6 +240,54 @@ describe('EditContentTypeComponent', () => {
             );
         });
 
+        it('does not check an unchanged slug at save', async () => {
+            await component.onSubmit();
+            expect(mockStore.slugInUse).not.toHaveBeenCalled();
+            expect(mockStore.update).toHaveBeenCalled();
+        });
+
+        it('checks a changed slug at save, even when Save slug was never pressed', async () => {
+            component.toggleSlugEdit();
+            component.editForm.get('slug')?.setValue('new-slug');
+            await component.onSubmit();
+            expect(mockStore.slugInUse).toHaveBeenCalledWith('new-slug', 'test-id');
+            expect(mockStore.update).toHaveBeenCalled();
+        });
+
+        it('refuses to rename to a slug another content type uses', async () => {
+            mockStore.slugInUse.mockResolvedValue(true);
+            component.editForm.get('slug')?.setValue('taken');
+            await component.onSubmit();
+            expect(mockStore.update).not.toHaveBeenCalled();
+            expect(component.errorSlug()).toBe(true);
+            expect(component.isEditingSlug()).toBe(true);
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(expect.stringContaining('taken'), 'error', 'error');
+        });
+
+        it('says to fix the slug, rather than doing nothing, when Update is pressed on a refused slug', async () => {
+            component.errorSlug.set(true);
+            await component.onSubmit();
+            expect(mockStore.update).not.toHaveBeenCalled();
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(expect.stringContaining('fix the slug'), 'error', 'error');
+        });
+
+        it('clears a refused slug once it is typed over, so Update checks it again', () => {
+            component.toggleSlugEdit();
+            component.errorSlug.set(true);
+            fixture.detectChanges();
+            const input: HTMLInputElement = fixture.nativeElement.querySelector('#slug');
+            input.value = 'another-slug';
+            input.dispatchEvent(new Event('input'));
+            expect(component.errorSlug()).toBe(false);
+        });
+
+        it('saves nothing when a changed slug cannot be checked', async () => {
+            mockStore.slugInUse.mockRejectedValue(new Error('offline'));
+            component.editForm.get('slug')?.setValue('new-slug');
+            await component.onSubmit();
+            expect(mockStore.update).not.toHaveBeenCalled();
+        });
+
         it('should allow current slug even if it exists in checkExist', async () => {
             // This can happen if the checkExist is called with the original slug
             mockStore.checkExistingSlugUrl.mockResolvedValue({ exists: true, slug: 'test-type' });
@@ -341,9 +390,9 @@ describe('EditContentTypeComponent', () => {
             });
         });
 
-        it('should not submit when form is invalid', () => {
+        it('should not submit when form is invalid', async () => {
             component.editForm.get('name')?.setValue('');
-            component.onSubmit();
+            await component.onSubmit();
             expect(mockStore.update).not.toHaveBeenCalled();
         });
 
@@ -354,20 +403,20 @@ describe('EditContentTypeComponent', () => {
                 mockEntryOrder.republish.mockClear();
             });
 
-            it('loads and saves the entry order', () => {
+            it('loads and saves the entry order', async () => {
                 component['updateFormdata']({ ...mockContentType, entryOrder: 'manual' });
                 expect(component.editForm.get('entryOrder')?.value).toBe('manual');
                 component['updateFormdata'](mockContentType);
                 expect(component.editForm.get('entryOrder')?.value).toBe('newest');
                 component.editForm.patchValue({ entryOrder: 'manual' });
-                component.onSubmit();
+                await component.onSubmit();
                 expect(mockStore.update.mock.calls[0][1].entryOrder).toBe('manual');
             });
 
             it('numbers the entries in their current order and republishes when switched to its own order', async () => {
                 component.editForm.patchValue({ entryOrder: 'manual' });
                 const slug = component.editForm.get('slug')?.value;
-                component.onSubmit();
+                await component.onSubmit();
                 await vi.waitFor(() => expect(mockEntryOrder.republish).toHaveBeenCalledWith(slug));
                 expect(mockEntryOrder.numberInCurrentOrder).toHaveBeenCalledWith(slug);
             });
@@ -376,24 +425,24 @@ describe('EditContentTypeComponent', () => {
                 component['updateFormdata']({ ...mockContentType, entryOrder: 'manual' });
                 component.editForm.patchValue({ entryOrder: 'newest' });
                 const slug = component.editForm.get('slug')?.value;
-                component.onSubmit();
+                await component.onSubmit();
                 await vi.waitFor(() => expect(mockEntryOrder.republish).toHaveBeenCalledWith(slug));
                 expect(mockEntryOrder.numberInCurrentOrder).not.toHaveBeenCalled();
             });
 
-            it('does nothing to the entries when the order did not change', () => {
-                component.onSubmit();
+            it('does nothing to the entries when the order did not change', async () => {
+                await component.onSubmit();
                 expect(mockEntryOrder.republish).not.toHaveBeenCalled();
                 expect(mockEntryOrder.numberInCurrentOrder).not.toHaveBeenCalled();
             });
         });
 
-        it('should submit when form is valid', () => {
-            component.onSubmit();
+        it('should submit when form is valid', async () => {
+            await component.onSubmit();
             expect(mockStore.update).toHaveBeenCalled();
         });
 
-        it('should submit with correct id and data', () => {
+        it('should submit with correct id and data', async () => {
             // Ensure slug is also set (form patchValue clears fields, slug needs to be re-set)
             component.editForm.patchValue({
                 name: 'Updated Type',
@@ -402,7 +451,7 @@ describe('EditContentTypeComponent', () => {
                 icon: 'fa-solid fa-star',
                 order: 2,
             });
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
             expect(callArgs.name).toBe('Updated Type');
             expect(callArgs.description).toBe('Updated Description');
@@ -410,7 +459,7 @@ describe('EditContentTypeComponent', () => {
             expect(callArgs.order).toBe(2);
         });
 
-        it('should submit with fields data', () => {
+        it('should submit with fields data', async () => {
             component.addField();
             const field = component.fields.at(0);
             field.patchValue({
@@ -419,14 +468,14 @@ describe('EditContentTypeComponent', () => {
                 type: 'richtext',
                 required: false,
             });
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
             expect(callArgs.fields).toHaveLength(1);
             expect(callArgs.fields[0].key).toBe('updated-type-content');
         });
 
         it('should show success message on successful submission', async () => {
-            component.onSubmit();
+            await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
                 'Content type updated successfully',
@@ -436,7 +485,7 @@ describe('EditContentTypeComponent', () => {
         });
 
         it('should reset form on successful submission', async () => {
-            component.onSubmit();
+            await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(component.editForm.get('name')?.value).toBeFalsy();
         });
@@ -444,14 +493,14 @@ describe('EditContentTypeComponent', () => {
         it('should emit close event on successful submission', async () => {
             const closeSpy = vi.fn();
             component.close.subscribe(closeSpy);
-            component.onSubmit();
+            await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(closeSpy).toHaveBeenCalled();
         });
 
         it('should show error message on submission failure', async () => {
             mockStore.update.mockReturnValue(throwError(() => new Error('Test Error')));
-            component.onSubmit();
+            await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
                 'Error updating content type',
@@ -460,16 +509,16 @@ describe('EditContentTypeComponent', () => {
             );
         });
 
-        it('should focus first invalid field when form is invalid', () => {
+        it('should focus first invalid field when form is invalid', async () => {
             const focusSpy = vi.spyOn(component, 'focusFirstInvalidField');
             component.editForm.get('name')?.setValue('');
-            component.onSubmit();
+            await component.onSubmit();
             expect(focusSpy).toHaveBeenCalledWith(component.editForm);
         });
 
-        it('should populate error messages when form is invalid', () => {
+        it('should populate error messages when form is invalid', async () => {
             component.editForm.get('name')?.setValue('');
-            component.onSubmit();
+            await component.onSubmit();
             expect(component.errorMessages.length).toBeGreaterThan(0);
         });
     });
@@ -561,7 +610,7 @@ describe('EditContentTypeComponent', () => {
             expect(component.fields.at(0).get('options')?.value).toBe('Red, Green, Blue');
         });
 
-        it('should save options with field data on submission', () => {
+        it('should save options with field data on submission', async () => {
             component.id = 'test-id';
             component.editForm.patchValue({
                 name: 'Test Type',
@@ -576,7 +625,7 @@ describe('EditContentTypeComponent', () => {
                 required: false,
                 options: 'Red, Green, Blue',
             });
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
             expect(callArgs.fields[0].options).toBe('Red, Green, Blue');
         });
@@ -601,7 +650,7 @@ describe('EditContentTypeComponent', () => {
     });
 
     describe('Field Order', () => {
-        it('should assign order based on array index', () => {
+        it('should assign order based on array index', async () => {
             component.id = 'test-id';
             component.editForm.patchValue({
                 name: 'Test Type',
@@ -622,7 +671,7 @@ describe('EditContentTypeComponent', () => {
                 type: 'number',
                 required: true,
             });
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
             expect(callArgs.fields[0].order).toBe(0);
             expect(callArgs.fields[1].order).toBe(1);
@@ -661,14 +710,14 @@ describe('EditContentTypeComponent', () => {
             expect(component.editForm.get('templateFolder')?.value).toBe('articles');
         });
 
-        it('should submit with templateFolder value', () => {
+        it('should submit with templateFolder value', async () => {
             component.id = 'test-id';
             component.editForm.patchValue({
                 name: 'Test Type',
                 slug: 'test-type',
                 templateFolder: 'custom-templates',
             });
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
             expect(callArgs.templateFolder).toBe('custom-templates');
         });
@@ -702,7 +751,7 @@ describe('EditContentTypeComponent', () => {
             expect(component.fields.at(lastIndex).get('key')?.disabled).toBe(false);
         });
 
-        it('should include disabled key values in submission via getRawValue', () => {
+        it('should include disabled key values in submission via getRawValue', async () => {
             component.id = 'test-id';
             component['updateFormdata'](mockContentType);
             component.editForm.patchValue({
@@ -710,14 +759,14 @@ describe('EditContentTypeComponent', () => {
                 slug: 'test-type',
             });
 
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
             // A stored key is written back exactly as loaded — never prefixed
             // or re-derived, since content documents already refer to it.
             expect(callArgs.fields[0].key).toBe('title');
         });
 
-        it('keeps an older underscore-prefixed stored key untouched', () => {
+        it('keeps an older underscore-prefixed stored key untouched', async () => {
             component.id = 'test-id';
             component['updateFormdata']({
                 ...mockContentType,
@@ -727,7 +776,7 @@ describe('EditContentTypeComponent', () => {
             component.addField();
             component.fields.at(1).patchValue({ label: 'Sponsor', type: 'text' });
 
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
             expect(callArgs.fields[0].key).toBe('test-type_prize');
             expect(callArgs.fields[0].label).toBe('Award');
@@ -787,7 +836,7 @@ describe('EditContentTypeComponent', () => {
     });
 
     describe('Slug Prepending to Field Keys', () => {
-        it('should prepend slug to field keys on submit', () => {
+        it('should prepend slug to field keys on submit', async () => {
             component.id = 'test-id';
             component.editForm.patchValue({
                 name: 'Articles',
@@ -801,12 +850,12 @@ describe('EditContentTypeComponent', () => {
                 required: false,
             });
 
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
             expect(callArgs.fields[0].key).toBe('articles-author');
         });
 
-        it('should not double-prepend slug if already prefixed', () => {
+        it('should not double-prepend slug if already prefixed', async () => {
             component.id = 'test-id';
             component.editForm.patchValue({
                 name: 'Articles',
@@ -820,7 +869,7 @@ describe('EditContentTypeComponent', () => {
                 required: false,
             });
 
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.update.mock.calls[0][1];
             expect(callArgs.fields[0].key).toBe('articles-author');
         });
@@ -834,16 +883,16 @@ describe('EditContentTypeComponent', () => {
             component.fields.at(component.fields.length - 1).patchValue({ key, label, type, required: false });
         }
 
-        it('defaults to Article with no properties and saves an empty mapping', () => {
+        it('defaults to Article with no properties and saves an empty mapping', async () => {
             component.id = 'test-id';
             component.editForm.patchValue({ name: 'Articles', slug: 'articles' });
             expect(component.schemaType()).toBe('Article');
             expect(component.schemaProperties()).toEqual([]);
-            component.onSubmit();
+            await component.onSubmit();
             expect(mockStore.update.mock.calls[0][1].schema).toEqual({ type: 'Article', fields: {} });
         });
 
-        it('offers only compatible fields per property and saves prefixed keys (new fields take the hyphen form)', () => {
+        it('offers only compatible fields per property and saves prefixed keys (new fields take the hyphen form)', async () => {
             component.id = 'test-id';
             component.editForm.patchValue({ name: 'Products', slug: 'products' });
             addField('price', 'number', 'Price');
@@ -859,7 +908,7 @@ describe('EditContentTypeComponent', () => {
             component.setMappedField('price', 'products-price');
             component.setMappedField('priceCurrency', 'products-currency');
             component.setMappedField('sku', 'products-gone');
-            component.onSubmit();
+            await component.onSubmit();
             expect(mockStore.update.mock.calls[0][1].schema).toEqual({
                 type: 'Product',
                 fields: { price: 'products-price', priceCurrency: 'products-currency' },

@@ -25,6 +25,7 @@ describe('AddContentTypeComponent', () => {
             items: vi.fn().mockReturnValue([]),
             getAll: vi.fn(),
             checkExistingSlugUrl: vi.fn().mockResolvedValue({ exists: false, slug: '' }),
+            slugInUse: vi.fn().mockResolvedValue(false),
         };
 
         mockToastService = {
@@ -308,19 +309,50 @@ describe('AddContentTypeComponent', () => {
             });
         });
 
-        it('should not submit when form is invalid', () => {
+        it('should not submit when form is invalid', async () => {
             component.addForm.get('name')?.setValue('');
-            component.onSubmit();
+            await component.onSubmit();
             expect(mockStore.add).not.toHaveBeenCalled();
         });
 
-        it('should submit when form is valid', () => {
-            component.onSubmit();
+        it('should submit when form is valid', async () => {
+            await component.onSubmit();
             expect(mockStore.add).toHaveBeenCalled();
         });
 
-        it('should submit with correct data structure', () => {
-            component.onSubmit();
+        it('checks the slug on the server at save, whatever the check while typing said', async () => {
+            await component.onSubmit();
+            expect(mockStore.slugInUse).toHaveBeenCalledWith('test-type');
+        });
+
+        it('refuses a slug another content type uses', async () => {
+            mockStore.slugInUse.mockResolvedValue(true);
+            await component.onSubmit();
+            expect(mockStore.add).not.toHaveBeenCalled();
+            expect(component.errorSlug()).toBe(true);
+            expect(component.addForm.get('slug')?.touched).toBe(true);
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(expect.stringContaining('test-type'), 'error', 'error');
+        });
+
+        it('saves nothing when the slug cannot be checked', async () => {
+            mockStore.slugInUse.mockRejectedValue(new Error('offline'));
+            await component.onSubmit();
+            expect(mockStore.add).not.toHaveBeenCalled();
+            expect(component.checkingSlug()).toBe(false);
+        });
+
+        it('ignores a second Save while the slug check runs', async () => {
+            let answer!: (taken: boolean) => void;
+            mockStore.slugInUse.mockReturnValue(new Promise<boolean>((resolve) => (answer = resolve)));
+            const first = component.onSubmit();
+            await component.onSubmit();
+            answer(false);
+            await first;
+            expect(mockStore.add).toHaveBeenCalledTimes(1);
+        });
+
+        it('should submit with correct data structure', async () => {
+            await component.onSubmit();
             const expectedData = {
                 name: 'Test Type',
                 singularName: '',
@@ -337,7 +369,7 @@ describe('AddContentTypeComponent', () => {
             expect(mockStore.add).toHaveBeenCalledWith(expectedData);
         });
 
-        it('should not include undefined values in the payload', () => {
+        it('should not include undefined values in the payload', async () => {
             component.addField();
             component.fields.at(0).patchValue({
                 key: 'title',
@@ -347,7 +379,7 @@ describe('AddContentTypeComponent', () => {
                 useCollectionRef: false
             });
             
-            component.onSubmit();
+            await component.onSubmit();
             
             const callArgs = mockStore.add.mock.calls[0][0];
             
@@ -363,7 +395,7 @@ describe('AddContentTypeComponent', () => {
             expect(hasUndefined(callArgs)).toBe(false);
         });
 
-        it('should submit with fields data', () => {
+        it('should submit with fields data', async () => {
             component.addField();
             const field = component.fields.at(0);
             field.patchValue({
@@ -372,14 +404,14 @@ describe('AddContentTypeComponent', () => {
                 type: 'text',
                 required: true,
             });
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.add.mock.calls[0][0];
             expect(callArgs.fields).toHaveLength(1);
             expect(callArgs.fields[0].key).toBe('test-type-title');
         });
 
         it('should show success message on successful submission', async () => {
-            component.onSubmit();
+            await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
                 'Content type created successfully',
@@ -389,7 +421,7 @@ describe('AddContentTypeComponent', () => {
         });
 
         it('should reset form on successful submission', async () => {
-            component.onSubmit();
+            await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(component.addForm.get('name')?.value).toBeFalsy();
         });
@@ -397,14 +429,14 @@ describe('AddContentTypeComponent', () => {
         it('should emit close event on successful submission', async () => {
             const closeSpy = vi.fn();
             component.close.subscribe(closeSpy);
-            component.onSubmit();
+            await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(closeSpy).toHaveBeenCalled();
         });
 
         it('should show error message on submission failure', async () => {
             mockStore.add.mockReturnValue(throwError(() => new Error('Test Error')));
-            component.onSubmit();
+            await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
                 'Error creating content type',
@@ -413,16 +445,16 @@ describe('AddContentTypeComponent', () => {
             );
         });
 
-        it('should focus first invalid field when form is invalid', () => {
+        it('should focus first invalid field when form is invalid', async () => {
             const focusSpy = vi.spyOn(component, 'focusFirstInvalidField');
             component.addForm.get('name')?.setValue('');
-            component.onSubmit();
+            await component.onSubmit();
             expect(focusSpy).toHaveBeenCalledWith(component.addForm);
         });
 
-        it('should populate error messages when form is invalid', () => {
+        it('should populate error messages when form is invalid', async () => {
             component.addForm.get('name')?.setValue('');
-            component.onSubmit();
+            await component.onSubmit();
             expect(component.errorMessages.length).toBeGreaterThan(0);
         });
     });
@@ -512,7 +544,7 @@ describe('AddContentTypeComponent', () => {
             expect(field.get('options')?.value).toBe('');
         });
 
-        it('should save options with field data on submission', () => {
+        it('should save options with field data on submission', async () => {
             component.addForm.patchValue({
                 name: 'Test Type',
                 slug: 'test-type',
@@ -526,12 +558,12 @@ describe('AddContentTypeComponent', () => {
                 required: false,
                 options: 'Red, Green, Blue',
             });
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.add.mock.calls[0][0];
             expect(callArgs.fields[0].options).toBe('Red, Green, Blue');
         });
 
-        it('should save empty options for non-option field types', () => {
+        it('should save empty options for non-option field types', async () => {
             component.addForm.patchValue({
                 name: 'Test Type',
                 slug: 'test-type',
@@ -544,14 +576,14 @@ describe('AddContentTypeComponent', () => {
                 type: 'text',
                 required: false,
             });
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.add.mock.calls[0][0];
             expect(callArgs.fields[0].options).toBe('');
         });
     });
 
     describe('Field Order', () => {
-        it('should assign order based on array index', () => {
+        it('should assign order based on array index', async () => {
             // Set required fields first
             component.addForm.patchValue({
                 name: 'Test Type',
@@ -572,7 +604,7 @@ describe('AddContentTypeComponent', () => {
                 type: 'number',
                 required: true,
             });
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.add.mock.calls[0][0];
             expect(callArgs.fields[0].order).toBe(0);
             expect(callArgs.fields[1].order).toBe(1);
@@ -633,20 +665,20 @@ describe('AddContentTypeComponent', () => {
             expect(component.isDuplicateField(0)).toBe(false);
         });
 
-        it('should not submit form when duplicate names exist', () => {
+        it('should not submit form when duplicate names exist', async () => {
             component.addForm.patchValue({ name: 'Test Type', slug: 'test-type' });
             component.addField();
             component.addField();
             component.fields.at(0).patchValue({ label: 'Dup', type: 'text' });
             component.fields.at(1).patchValue({ label: 'dup', type: 'text' });
 
-            component.onSubmit();
+            await component.onSubmit();
             expect(mockStore.add).not.toHaveBeenCalled();
         });
     });
 
     describe('Slug Prepending to Field Keys', () => {
-        it('should prepend slug to field keys on submit', () => {
+        it('should prepend slug to field keys on submit', async () => {
             component.addForm.patchValue({
                 name: 'Articles',
                 slug: 'articles',
@@ -659,12 +691,12 @@ describe('AddContentTypeComponent', () => {
                 required: false,
             });
 
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.add.mock.calls[0][0];
             expect(callArgs.fields[0].key).toBe('articles-author');
         });
 
-        it('should not double-prepend slug if already prefixed', () => {
+        it('should not double-prepend slug if already prefixed', async () => {
             component.addForm.patchValue({
                 name: 'Articles',
                 slug: 'articles',
@@ -677,7 +709,7 @@ describe('AddContentTypeComponent', () => {
                 required: false,
             });
 
-            component.onSubmit();
+            await component.onSubmit();
             const callArgs = mockStore.add.mock.calls[0][0];
             expect(callArgs.fields[0].key).toBe('articles-author');
         });
@@ -688,11 +720,11 @@ describe('AddContentTypeComponent', () => {
             component.fields.at(component.fields.length - 1).patchValue({ key, label, type });
         };
 
-        it('defaults to Article with no properties and saves an empty mapping', () => {
+        it('defaults to Article with no properties and saves an empty mapping', async () => {
             component.addForm.patchValue({ name: 'Articles', slug: 'articles' });
             expect(component.schemaType()).toBe('Article');
             expect(component.schemaProperties()).toEqual([]);
-            component.onSubmit();
+            await component.onSubmit();
             expect(mockStore.add.mock.calls[0][0].schema).toEqual({ type: 'Article', fields: {} });
         });
 
@@ -709,7 +741,7 @@ describe('AddContentTypeComponent', () => {
             expect(component.fieldsForProperty(currencyProp).map(f => f.key)).toEqual(['products-currency']);
         });
 
-        it('saves the type and its mapping to the new content type, dropping mappings to fields that are gone', () => {
+        it('saves the type and its mapping to the new content type, dropping mappings to fields that are gone', async () => {
             component.addForm.patchValue({ name: 'Products', slug: 'products' });
             addField('price', 'number', 'Price');
             addField('currency', 'text', 'Currency');
@@ -717,7 +749,7 @@ describe('AddContentTypeComponent', () => {
             component.setMappedField('price', 'products-price');
             component.setMappedField('priceCurrency', 'products-currency');
             component.setMappedField('sku', 'products-gone');
-            component.onSubmit();
+            await component.onSubmit();
             expect(mockStore.add.mock.calls[0][0].schema).toEqual({
                 type: 'Product',
                 fields: { price: 'products-price', priceCurrency: 'products-currency' },

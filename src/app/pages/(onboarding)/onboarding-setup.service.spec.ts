@@ -30,7 +30,9 @@ vi.mock('@angular/fire/firestore', async () => {
         collection: (...args: any[]) => mockCollection(...args),
         setDoc: (...args: any[]) => mockSetDoc(...args),
         getDoc: (...args: any[]) => mockGetDoc(...args),
-        getDocs: (...args: any[]) => mockGetDocs(...args),
+        // The slug check reads from the server only; a cache-capable read fails the test.
+        getDocs: () => { throw new Error('getDocs can answer from the offline cache'); },
+        getDocsFromServer: (...args: any[]) => mockGetDocs(...args),
         query: (...args: any[]) => mockQuery(...args),
         where: (...args: any[]) => mockWhere(...args),
         serverTimestamp: () => mockServerTimestamp(),
@@ -325,6 +327,14 @@ describe('OnboardingSetupService', () => {
             await service.createDefaultContentTypes();
 
             expect(mockWhere).toHaveBeenCalledWith('slug', '==', 'articles');
+            expect(mockSetDoc).not.toHaveBeenCalled();
+        });
+
+        it('should create nothing when the server cannot answer the slug check', async () => {
+            // Offline: getDocsFromServer rejects instead of answering from the cache.
+            mockGetDocs.mockRejectedValueOnce(new Error('unavailable'));
+
+            await expect(service.createDefaultContentTypes()).rejects.toThrow('unavailable');
             expect(mockSetDoc).not.toHaveBeenCalled();
         });
 
