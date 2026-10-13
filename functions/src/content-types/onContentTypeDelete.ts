@@ -14,6 +14,13 @@ export const onContentTypeDeleted = onDocumentDeleted(
         if (!deletedData?.slug) return;
 
         const slug = deletedData.slug;
+        // The entries belong to the slug, not to one type document. A site can hold
+        // two types with one slug (made before slugs were checked, or by an import),
+        // and deleting one of them must not take the other's entries with it.
+        if (await slugStillUsed(slug, event.params.contentTypeId)) {
+            console.log(`Content type ${event.params.contentTypeId} deleted; another type still uses "${slug}", so its entries stay.`);
+            return;
+        }
         await Promise.all([
             deleteCollection(getPublishedCollectionName(slug)),
             deleteCollection(getDraftCollectionName(slug)),
@@ -29,6 +36,11 @@ export const onContentTypeDeleted = onDocumentDeleted(
         }
     }
 );
+
+async function slugStillUsed(slug: string, deletedId: string): Promise<boolean> {
+    const snap = await db.collection('ContentTypes').where('slug', '==', slug).get();
+    return snap.docs.some((doc) => doc.id !== deletedId);
+}
 
 async function deleteCollection(collectionName: string) {
     const snap = await db.collection(collectionName).get();

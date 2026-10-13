@@ -1,8 +1,10 @@
 import { inject, Injectable } from '@angular/core';
 import {
+    collection,
     doc,
     Firestore,
     getDoc,
+    getDocsFromServer,
     setDoc,
     writeBatch,
 } from '@angular/fire/firestore';
@@ -171,7 +173,12 @@ export class ImportDataService {
         let skipped = 0;
         const errors: string[] = [];
 
-        const entries = Object.entries(documents);
+        let entries = Object.entries(documents);
+        if (collectionPath === 'ContentTypes') {
+            const refused = await this.refuseSharedSlugs(entries);
+            errors.push(...refused.errors);
+            entries = refused.entries;
+        }
         const BATCH_SIZE = 500;
 
         for (let i = 0; i < entries.length; i += BATCH_SIZE) {
@@ -217,6 +224,45 @@ export class ImportDataService {
         }
 
         return { imported, skipped, errors };
+    }
+
+    /**
+     * Drops each content type whose slug another type already uses, here or
+     * earlier in the file, and says why. A type's entries live under its slug
+     * (`arc_{slug}`), so two types with one slug would share them, and deleting
+     * either would delete them (see `onContentTypeDeleted`). The same type,
+     * by document id, is imported as usual. When the site's types cannot be
+     * read from the server, no type is imported.
+     */
+    private async refuseSharedSlugs(
+        entries: [string, any][],
+    ): Promise<{ entries: [string, any][]; errors: string[] }> {
+        const owner = new Map<string, string>();
+        try {
+            const snapshot = await getDocsFromServer(collection(this.db, 'ContentTypes'));
+            for (const existing of snapshot.docs) {
+                const slug = existing.data()['slug'];
+                if (typeof slug === 'string' && slug && !owner.has(slug)) owner.set(slug, existing.id);
+            }
+        } catch (error: any) {
+            return {
+                entries: [],
+                errors: [`ContentTypes: not imported, the site's content types could not be read to check their slugs (${error?.message || 'unknown error'})`],
+            };
+        }
+        const kept: [string, any][] = [];
+        const errors: string[] = [];
+        for (const [docId, rawData] of entries) {
+            const slug = rawData?.slug;
+            const holder = typeof slug === 'string' && slug ? owner.get(slug) : undefined;
+            if (holder && holder !== docId) {
+                errors.push(`ContentTypes/${docId}: not imported, the content type ${holder} already uses the slug "${slug}"`);
+                continue;
+            }
+            if (typeof slug === 'string' && slug) owner.set(slug, docId);
+            kept.push([docId, rawData]);
+        }
+        return { entries: kept, errors };
     }
 
     /**

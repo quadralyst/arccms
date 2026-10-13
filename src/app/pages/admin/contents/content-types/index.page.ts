@@ -12,6 +12,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ContentTypesStore } from './content-types.store';
+import { ContentTypesService } from './content-types.service';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { NotifyService } from '../../../../../shared/services/notify.service';
 import { ContentType } from './content-types.model';
@@ -56,6 +57,8 @@ export const routeMeta: RouteMeta = {
 })
 export default class ContentTypeComponent {
   contentTypesStore = inject(ContentTypesStore);
+  private contentTypesService = inject(ContentTypesService);
+  private preparingDelete = false;
   dialog = inject(MatDialog);
   sanitizer = inject(DomSanitizer);
   datePipe = inject(DatePipe);
@@ -225,9 +228,27 @@ export default class ContentTypeComponent {
     this.drawer.open();
   }
 
-  deleteItem(item: ContentType) {
+  /**
+   * Deleting a type deletes its entries for good (`onContentTypeDeleted`), so
+   * the confirmation says so, with their number; or that they stay, when another
+   * type shares the slug.
+   */
+  async deleteItem(item: ContentType) {
+    // The count takes a moment; a second click meanwhile must not open a second dialog.
+    if (this.preparingDelete) return;
+    this.preparingDelete = true;
+    let impact: { entries: number | null; shared: boolean };
+    try {
+      impact = await this.contentTypesService.deleteImpact(item);
+    } finally {
+      this.preparingDelete = false;
+    }
+    const { entries, shared } = impact;
+    const key = shared ? 'shared' : entries === null ? 'unknown' : entries === 0 ? 'empty' : entries === 1 ? 'one' : 'many';
     const msg = this.sanitizer.bypassSecurityTrustHtml(
-      this.transloco.translate('common.actions.delete_confirm', { name: escapeHtml(item.name) }),
+      this.transloco.translate(`admin.contents.types.delete_confirm.${key}`, {
+        name: escapeHtml(item.name), count: escapeHtml(String(entries ?? '')), slug: escapeHtml(item.slug),
+      }),
     );
     const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
       width: '350px',

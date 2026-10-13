@@ -76,7 +76,7 @@
         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
             <button type="button" class="btn btn-secondary me-md-2" (click)="closeEdit()">{{ 'common.actions.cancel' | transloco }}</button>
             <button type="submit" class="btn btn-primary"
-                [disabled]="!editForm.valid || contentTypesStore.isLoading()">{{ 'admin.contents.types.form.update' | transloco }}</button>
+                [disabled]="!editForm.valid || contentTypesStore.isLoading() || checkingSlug()">{{ 'admin.contents.types.form.update' | transloco }}</button>
         </div>
         } @else {
         <div class="form-group">
@@ -161,7 +161,7 @@
                 <div class="input-group input-group-sm">
                     <span class="input-group-text" id="domain-addon">{{ domain }}</span>
                     <input type="text" class="form-control form-control-sm" formControlName="slug" id="slug"
-                        aria-describedby="domain-addon"
+                        aria-describedby="domain-addon" (input)="errorSlug.set(false)"
                         [class.is-invalid]="(slug.invalid || errorSlug()) && (slug.dirty || slug.touched)"
                         [class.is-valid]="slug.valid && !errorSlug() && (slug.dirty || slug.touched)" />
                     <button class="btn btn-outline-secondary" type="button" (click)="toggleSlugEdit()" aria-label="Cancel slug edit">
@@ -446,7 +446,7 @@
         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
             <button type="button" class="btn btn-secondary me-md-2" (click)="closeEdit()">{{ 'common.actions.cancel' | transloco }}</button>
             <button type="submit" class="btn btn-primary"
-                [disabled]="!editForm.valid || contentTypesStore.isLoading()">{{ 'admin.contents.types.form.update' | transloco }}</button>
+                [disabled]="!editForm.valid || contentTypesStore.isLoading() || checkingSlug()">{{ 'admin.contents.types.form.update' | transloco }}</button>
         </div>
         }
     </form>

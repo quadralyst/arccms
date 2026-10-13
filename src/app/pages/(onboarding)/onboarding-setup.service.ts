@@ -8,7 +8,7 @@
 
 import { inject, Injectable } from '@angular/core';
 import { DEFAULT_MISC_SETTINGS } from '../admin/(settings)/misc/misc-settings.model';
-import { Firestore, doc, collection, setDoc, getDoc, getDocs, query, where, serverTimestamp } from '@angular/fire/firestore';
+import { Firestore, doc, collection, setDoc, getDoc, getDocsFromServer, query, where, serverTimestamp } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
 import { Auth } from '@angular/fire/auth';
 import { Observable, defer, from, map, of, catchError, switchMap } from 'rxjs';
@@ -185,6 +185,10 @@ export class OnboardingSetupService {
      * have. And new documents are keyed by slug, so even a racing double-call
      * writes the same document twice rather than two documents.
      *
+     * The check asks the server, never the offline cache: a cache that has not
+     * seen an older auto-ID type would answer "none" and seed a second one. When
+     * the server cannot answer, the step fails and Retry runs it again.
+     *
      * An existing type is never overwritten — by the time this re-runs the admin
      * may have renamed it or added fields, and a seed has no business
      * reverting that.
@@ -192,7 +196,7 @@ export class OnboardingSetupService {
     async createDefaultContentTypes(): Promise<void> {
         const colRef = collection(this.firestore, 'ContentTypes');
         for (const ct of DEFAULT_CONTENT_TYPES) {
-            const existing = await getDocs(query(colRef, where('slug', '==', ct.slug)));
+            const existing = await getDocsFromServer(query(colRef, where('slug', '==', ct.slug)));
             if (!existing.empty) {
                 continue;
             }

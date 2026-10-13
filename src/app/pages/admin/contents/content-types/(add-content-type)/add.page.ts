@@ -421,7 +421,8 @@ export default class AddContentTypeComponent extends BaseComponent {
         this.close.emit();
     }
 
-    onSubmit() {
+    async onSubmit() {
+        if (this.checkingSlug()) return;
         if (this.addForm.invalid) {
             this.focusFirstInvalidField(this.addForm);
             this.errorMessages = this.getFormErrors(this.addForm);
@@ -429,7 +430,7 @@ export default class AddContentTypeComponent extends BaseComponent {
         }
         
         if (this.errorSlug()) {
-            this.errorMessages = [this.transloco.translate('admin.contents.types.fix_slug')];
+            this.notify.error('admin.contents.types.fix_slug');
             return;
         }
 
@@ -465,6 +466,8 @@ export default class AddContentTypeComponent extends BaseComponent {
             }),
         };
 
+        if (!(await this.slugIsFree(slug))) return;
+
         this.contentTypesStore.add(newContentType).subscribe({
             next: () => {
                 this.notify.success('admin.contents.types.created');
@@ -475,6 +478,27 @@ export default class AddContentTypeComponent extends BaseComponent {
                 console.error('Error creating content type:', error);
             },
         });
+    }
+
+    /**
+     * The slug check that counts, made at save: the one while typing can be
+     * stale or skipped, and a type whose slug another type has would share,
+     * and on delete lose, that type's entries.
+     */
+    private async slugIsFree(slug: string): Promise<boolean> {
+        this.checkingSlug.set(true);
+        try {
+            if (!(await this.contentTypesStore.slugInUse(slug))) return true;
+            this.errorSlug.set(true);
+            this.addForm.get('slug')?.markAsTouched();
+            this.notify.error('admin.contents.types.slug_exists', { slug });
+        } catch (error) {
+            console.error('Error checking slug existence:', error);
+            this.notify.error('admin.contents.types.slug_check_failed');
+        } finally {
+            this.checkingSlug.set(false);
+        }
+        return false;
     }
 
     private validateCollectionRefField(field: any): string[] {

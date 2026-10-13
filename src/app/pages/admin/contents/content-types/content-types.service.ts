@@ -1,5 +1,5 @@
 import { Injectable, runInInjectionContext } from '@angular/core';
-import { query, where, getDocs, limit } from '@angular/fire/firestore';
+import { collection, getCountFromServer, query, where, getDocs, getDocsFromServer, limit } from '@angular/fire/firestore';
 import { DbService } from '../../../../../shared/services/db.service';
 import { ContentType } from './content-types.model';
 
@@ -33,5 +33,36 @@ export class ContentTypesService extends DbService<ContentType> {
       console.error('Error checking slug existence:', error);
       return { exists: false, slug: slug };
     }
+  }
+
+  /**
+   * Whether a content type other than `exceptId` already uses `slug`, asked of
+   * the server at save time. A type's entries live under its slug (`arc_{slug}`),
+   * so two types with one slug share their entries, and deleting either used to
+   * delete both sets. Unlike `checkExistingSlugUrl`, which only suggests a free
+   * slug while typing, this throws when it cannot read: a save must not go
+   * ahead on an unanswered check.
+   */
+  async slugInUse(slug: string, exceptId?: string): Promise<boolean> {
+    const snapshot = await runInInjectionContext(this.injector, () =>
+      getDocsFromServer(query(this.dbCollection, where('slug', '==', slug))),
+    );
+    return snapshot.docs.some((d) => d.id !== exceptId);
+  }
+
+  /**
+   * What deleting a type removes, for its confirmation: the number of entries
+   * (every entry has a draft, so the drafts are counted), or `null` when they
+   * could not be counted; and whether another type shares the slug, in which
+   * case `onContentTypeDeleted` keeps the entries for that type.
+   */
+  async deleteImpact(type: Pick<ContentType, 'id' | 'slug'>): Promise<{ entries: number | null; shared: boolean }> {
+    const [entries, shared] = await Promise.all([
+      runInInjectionContext(this.injector, () =>
+        getCountFromServer(collection(this.firestore, `arc_${type.slug}_drafts`)),
+      ).then((snap) => snap.data().count, () => null),
+      this.slugInUse(type.slug, type.id).catch(() => false),
+    ]);
+    return { entries, shared };
   }
 }

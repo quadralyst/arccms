@@ -1,5 +1,5 @@
 import { EnvironmentInjector, Injectable, inject, runInInjectionContext } from '@angular/core';
-import { Firestore, collection, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, updateDoc, where } from '@angular/fire/firestore';
+import { Firestore, collection, doc, getDoc, getDocs, getDocsFromServer, limit, query, serverTimestamp, setDoc, updateDoc, where } from '@angular/fire/firestore';
 import { isOn } from '../../../../core/features/features';
 import type { ContentTypeField } from '../content-types/content-types.model';
 import { STANDARD_PAGES_SLUG, standardPages, standardPagesFields, standardPagesType, type OwnerDetails } from './standard-pages';
@@ -38,7 +38,9 @@ export class StandardPagesService {
 
     async ensure(): Promise<StandardPagesResult> {
         const types = collection(this.firestore, 'ContentTypes');
-        const existing = await this.run(() => getDocs(query(types, where('slug', '==', STANDARD_PAGES_SLUG), limit(1))));
+        // From the server, not the offline cache: a cache that has not seen the
+        // type would answer "none" and a second Info Pages type would be made.
+        const existing = await this.run(() => getDocsFromServer(query(types, where('slug', '==', STANDARD_PAGES_SLUG), limit(1))));
         const found = existing.docs[0]?.data() as { standard?: string } | undefined;
         if (found && found.standard !== 'pages') return { createdType: false, createdPages: [], addedFields: [], foreignType: true };
 

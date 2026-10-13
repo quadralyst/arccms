@@ -303,6 +303,11 @@ export type TranslationKey =
     | 'admin.contents.types.col_public_pages'
     | 'admin.contents.types.create_failed'
     | 'admin.contents.types.created'
+    | 'admin.contents.types.delete_confirm.empty'
+    | 'admin.contents.types.delete_confirm.many'
+    | 'admin.contents.types.delete_confirm.one'
+    | 'admin.contents.types.delete_confirm.shared'
+    | 'admin.contents.types.delete_confirm.unknown'
     | 'admin.contents.types.delete_failed'
     | 'admin.contents.types.deleted'
     | 'admin.contents.types.empty_description'
@@ -393,6 +398,7 @@ export type TranslationKey =
     | 'admin.contents.types.republish_site'
     | 'admin.contents.types.republish_site_hint'
     | 'admin.contents.types.republish_started'
+    | 'admin.contents.types.slug_check_failed'
     | 'admin.contents.types.slug_exists'
     | 'admin.contents.types.standard_pages'
     | 'admin.contents.types.standard_pages_added'
@@ -2324,6 +2330,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.col_public_pages',
     'admin.contents.types.create_failed',
     'admin.contents.types.created',
+    'admin.contents.types.delete_confirm.empty',
+    'admin.contents.types.delete_confirm.many',
+    'admin.contents.types.delete_confirm.one',
+    'admin.contents.types.delete_confirm.shared',
+    'admin.contents.types.delete_confirm.unknown',
     'admin.contents.types.delete_failed',
     'admin.contents.types.deleted',
     'admin.contents.types.empty_description',
@@ -2414,6 +2425,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.types.republish_site',
     'admin.contents.types.republish_site_hint',
     'admin.contents.types.republish_started',
+    'admin.contents.types.slug_check_failed',
     'admin.contents.types.slug_exists',
     'admin.contents.types.standard_pages',
     'admin.contents.types.standard_pages_added',

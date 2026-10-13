@@ -7,6 +7,11 @@ import { ExportFormat, ImportOptions, ImportProgress } from '../data-constants';
 // Track setDoc and writeBatch calls
 const mockBatchSet = vi.fn();
 const mockBatchCommit = vi.fn().mockResolvedValue(undefined);
+// The site's content types, as the server returns them: { id, slug }.
+const mockGetDocsFromServer = vi.fn();
+const siteTypes = (types: { id: string; slug: string }[]) => ({
+    docs: types.map((t) => ({ id: t.id, data: () => ({ slug: t.slug }) })),
+});
 
 vi.mock('@angular/fire/firestore', async () => {
     const actual = await vi.importActual('@angular/fire/firestore');
@@ -16,6 +21,8 @@ vi.mock('@angular/fire/firestore', async () => {
             path: pathSegments.join('/'),
             id: pathSegments[pathSegments.length - 1],
         })),
+        collection: vi.fn((_db: any, path: string) => ({ path })),
+        getDocsFromServer: (...args: any[]) => mockGetDocsFromServer(...args),
         getDoc: vi.fn().mockResolvedValue({ exists: () => false }),
         setDoc: vi.fn().mockResolvedValue(undefined),
         writeBatch: vi.fn(() => ({
@@ -55,6 +62,7 @@ describe('ImportDataService', () => {
 
     beforeEach(async () => {
         vi.clearAllMocks();
+        mockGetDocsFromServer.mockResolvedValue(siteTypes([]));
 
         await TestBed.configureTestingModule({
             providers: [
@@ -375,6 +383,57 @@ describe('ImportDataService', () => {
             expect(result.collectionResults).toHaveLength(2);
             expect(result.collectionResults[0].name).toBe('ContentTypes');
             expect(result.collectionResults[0].imported).toBe(2);
+        });
+
+        describe('content type slugs', () => {
+            const importTypes = (types: Record<string, { slug: string }>) => service.importCollections(
+                { ...validExportData, collections: { ContentTypes: types } },
+                ['ContentTypes'],
+                defaultOptions,
+                vi.fn(),
+            );
+            const writtenIds = () => mockBatchSet.mock.calls.map((call) => call[0].id);
+
+            it('refuses a type whose slug another type on the site uses', async () => {
+                mockGetDocsFromServer.mockResolvedValue(siteTypes([{ id: 'articles', slug: 'blog' }]));
+
+                const result = await importTypes({ ct1: { slug: 'blog' }, ct2: { slug: 'news' } });
+
+                expect(writtenIds()).toEqual(['ct2']);
+                expect(result.totalImported).toBe(1);
+                expect(result.errors).toEqual(['ContentTypes/ct1: not imported, the content type articles already uses the slug "blog"']);
+            });
+
+            it('imports the same type again, by id, over itself', async () => {
+                mockGetDocsFromServer.mockResolvedValue(siteTypes([{ id: 'ct1', slug: 'blog' }]));
+
+                const result = await importTypes({ ct1: { slug: 'blog' } });
+
+                expect(writtenIds()).toEqual(['ct1']);
+                expect(result.errors).toEqual([]);
+            });
+
+            it('refuses the second of two types in the file that share a slug', async () => {
+                const result = await importTypes({ ct1: { slug: 'blog' }, ct2: { slug: 'blog' } });
+
+                expect(writtenIds()).toEqual(['ct1']);
+                expect(result.errors[0]).toContain('ContentTypes/ct2: not imported');
+            });
+
+            it('imports no type when the site types cannot be read from the server', async () => {
+                mockGetDocsFromServer.mockRejectedValue(new Error('offline'));
+
+                const result = await importTypes({ ct1: { slug: 'blog' } });
+
+                expect(mockBatchSet).not.toHaveBeenCalled();
+                expect(result.totalImported).toBe(0);
+                expect(result.errors[0]).toContain('offline');
+            });
+
+            it('checks no slugs for other collections', async () => {
+                await service.importCollections(validExportData, ['Settings'], defaultOptions, vi.fn());
+                expect(mockGetDocsFromServer).not.toHaveBeenCalled();
+            });
         });
     });
 });

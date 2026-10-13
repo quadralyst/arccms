@@ -235,7 +235,7 @@
       <tbody>
         <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages, and applies a new entry order</td></tr>
         <tr><td><code>onSiteSettingsWritten</code></td><td>Firestore trigger on <code>Settings</code></td><td>Queues a home page republish when <code>about</code>, <code>site</code>, <code>localization</code> or <code>misc</code> changes, or a whole site republish when an <code>about</code> change shows on other pages through <code>data-arc-site</code></td></tr>
-        <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger on <code>ContentTypes</code></td><td>Deletes the type's draft, published and tag collections and their search entries</td></tr>
+        <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger on <code>ContentTypes</code></td><td>Deletes the type's draft, published and tag collections and their search entries, unless another type still uses the same slug</td></tr>
         <tr><td><code>seedStaticPages</code></td><td>Callable, also run by the seed script</td><td>Rebuilds every published page, the static pages and the SEO files</td></tr>
       </tbody>
     </table>
@@ -265,9 +265,10 @@
         <tr><td><strong>Add standard pages</strong> says the address /info is taken</td><td>A type of your own already has the slug <code>info</code>. Nothing was added. Rename your type's slug, or build those pages in your own type.</td></tr>
         <tr><td>A deleted content type's pages are still online</td><td>Deleting a type deletes its Firestore data, not its files on Hosting. Unpublish its entries first, then delete the type.</td></tr>
         <tr><td>"URL slug already exists"</td><td>Slugs are unique within a type. Change the slug in the editor.</td></tr>
+        <tr><td>"Slug already exists" when saving a content type</td><td>Another content type uses that slug, and two types with one slug would share their entries. Choose another slug.</td></tr>
       </tbody>
     </table>
-    <div class="warn"><p>Deleting a content type deletes every entry of that type, draft and published, and its tags. It cannot be undone. Export the type first (<a href="data.html">Data import and export</a>).</p></div>
+    <div class="warn"><p>Deleting a content type deletes every entry of that type, draft and published, and its tags. It cannot be undone, and the confirmation says how many entries go. Export the type first (<a href="data.html">Data import and export</a>). The one exception is a type that shares its slug with another type, possible only on a site set up before slugs were checked: the entries stay for the other type.</p></div>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

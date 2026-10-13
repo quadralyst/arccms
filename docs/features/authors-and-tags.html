@@ -74,7 +74,7 @@
         <tr><td>Each entry</td><td><code>authorId</code>, <code>authorName</code>; <code>tags</code> (names) and <code>tagsWithColors</code> (<code>{ name, color }</code>)</td></tr>
       </tbody>
     </table>
-    <p>Deleting a content type deletes its <code>Tags_{slug}</code> collection. Authors and tags have no Cloud Functions of their own; publishing reads them (<code>functions/src/shared/authors.ts</code>).</p>
+    <p>Deleting a content type deletes its <code>Tags_{slug}</code> collection, unless another type still uses the slug. Authors and tags have no Cloud Functions of their own; publishing reads them (<code>functions/src/shared/authors.ts</code>).</p>
 
     <h2>Who can do what</h2>
     <table>

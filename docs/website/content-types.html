@@ -19,7 +19,7 @@
       <li><p>Fill in <strong>Content Type Name (Plural)</strong> and <strong>Singular Name</strong>, for example Case Studies and Case Study. The plural heads the list page and the admin menu; the singular labels buttons such as Add Case Study.</p></li>
       <li><p>Add a <strong>Description</strong> (shown under the list page heading) and pick an <strong>Icon (Font Awesome)</strong> for the admin menu.</p></li>
       <li><p>Leave <strong>Generate public pages</strong> on when each item deserves a page of its own, such as an article or a case study. Turn it off for parts of a page that editors change, such as services, a hero or testimonials: the items then show only as cards on the home page, with no page, list page or sitemap entry each (see <a href="editable-sections.html">Let editors change your home page</a>). With it off the slug is hidden, and the template picker is called <strong>Card template</strong>.</p></li>
-      <li><p>Check the <strong>Content Type Slug</strong>. It is filled in from the name and becomes the URL: <code>case-studies</code> gives <code>/case-studies</code>. Lowercase letters, numbers and hyphens only.</p></li>
+      <li><p>Check the <strong>Content Type Slug</strong>. It is filled in from the name and becomes the URL: <code>case-studies</code> gives <code>/case-studies</code>. Lowercase letters, numbers and hyphens only. Each type needs a slug of its own: save refuses one that another type already uses.</p></li>
       <li><p>Choose the <strong>Entry order</strong>: <strong>Newest first</strong> for articles and news, or <strong>Your own order</strong> for services, team members or questions, which you then drag into place with <strong>Arrange</strong> on the entry list.</p></li>
       <li><p>Check the <strong>Content Template</strong>. A template folder with the same name as the slug is picked for you; otherwise it is <strong>Default Template</strong>. You can switch to your own folder after <a href="templates.html">Design templates</a>.</p></li>
       <li><p>Under <strong>Custom fields</strong>, press <strong>Add Field</strong> for each extra field in your plan: give it a <strong>Name</strong>, a <strong>Type</strong> and, if it must be filled in before publishing, tick <strong>Required</strong>.</p></li>
@@ -27,6 +27,10 @@
     </ol>
     <p><strong>Structured data</strong> (see <a href="seo.html">Get found by search engines and AI</a>) is at the bottom of the form when you add a type and when you edit it: choose a type such as Product or Event and map its properties to the custom fields you have added. When you edit a saved type, the form also has <strong>Searchable custom fields</strong> (see <a href="search.html">Add search</a>).</p>
     <div class="warn"><p>Settle the slug before you write items. Items are stored under the slug (<code>arc_{slug}</code>), so changing it later hides every existing item of the type, in the admin area and on the site.</p></div>
+
+    <h2>Delete a content type</h2>
+    <p>Choose <strong>Delete</strong> on the type in <strong>Content types</strong>. The confirmation says how many entries the type has: they are deleted with it, drafts and published, and so are its tags. This cannot be undone, so export the type first if you may want it back (<a href="../features/data.html">Data import and export</a>). Deleting does not take its pages off the site: unpublish the entries first.</p>
+    <p>A site set up before slugs were checked can have two types with the same slug, which share one set of entries. Deleting one of them keeps the entries for the other, and its confirmation says so.</p>
 
     <h2>Choose field types</h2>
     <table>

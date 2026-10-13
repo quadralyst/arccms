@@ -31,4 +31,9 @@ export class ContentTypesStore extends ContentTypesStoreBase {
     async checkExistingSlugUrl(slug: string): Promise<{ exists: boolean; slug: string }> {
         return this.contentTypesService.checkExistingSlugUrl(slug);
     }
+
+    /** Whether another content type uses `slug`; throws when it cannot tell. */
+    async slugInUse(slug: string, exceptId?: string): Promise<boolean> {
+        return this.contentTypesService.slugInUse(slug, exceptId);
+    }
 }
