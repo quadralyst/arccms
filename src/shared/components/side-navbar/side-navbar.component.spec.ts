@@ -12,7 +12,8 @@ import NavbarComponent, { isWideLogo, svgSize, type MenuItem } from './side-navb
 import { SiteIdentityService } from '../../../app/core/services/site-identity.service';
 import { featureOfPath, isCorePath } from '../../../app/core/features/feature-routes';
 import type { FeatureId } from '../../../app/core/features/feature-registry';
-import { CUSTOM_NAV, CUSTOM_NAV_CHANGES } from '../../../custom/nav';
+import { CUSTOM_NAV, CUSTOM_NAV_CHANGES as NAV_FILE_CHANGES } from '../../../custom/nav';
+import { CUSTOM_NAV_CHANGES } from '../../../custom/nav-changes';
 import { CUSTOM_ROUTES } from '../../../custom/routes';
 import { explicitRouteUrls, isServedBy } from '../../../test/route-urls';
 import { AuthState } from '../../../app/pages/(auth)/auth.store';
@@ -550,11 +551,11 @@ describe('NavbarComponent: the button at the top of the panel', () => {
 });
 
 /**
- * The app's changes to the admin menu (CUSTOM_NAV_CHANGES in src/custom/nav.ts), read
+ * The app's changes to the admin menu (CUSTOM_NAV_CHANGES in src/custom/nav-changes.ts), read
  * back from the rendered menu with a real router, so each link's address is the one a
  * person follows.
  */
-describe("NavbarComponent: the app's menu changes (src/custom/nav.ts)", () => {
+describe("NavbarComponent: the app's menu changes (src/custom/nav-changes.ts)", () => {
     let component: NavbarComponent;
     let fixture: ComponentFixture<NavbarComponent>;
     const role = signal('admin');
@@ -580,6 +581,7 @@ describe("NavbarComponent: the app's menu changes (src/custom/nav.ts)", () => {
 
     afterEach(() => {
         delete CUSTOM_NAV_CHANGES.admin;
+        delete NAV_FILE_CHANGES.admin;
     });
 
     /** Each top-level row: its label, address and icon, or --- for a separator. */
@@ -620,6 +622,17 @@ describe("NavbarComponent: the app's menu changes (src/custom/nav.ts)", () => {
     it("opens the app's own page from Dashboard when the app changes its route", () => {
         CUSTOM_NAV_CHANGES.admin = [{ id: 'dashboard', route: '/admin/extension-dashboard' }];
         expect(renderedMenu()[0]).toBe('Dashboard /admin/extension-dashboard fa-solid fa-gauge-high');
+    });
+
+    // An app that wrote its changes in src/custom/nav.ts, where they first lived, keeps them.
+    it('reads changes from src/custom/nav.ts too, before those in nav-changes.ts', () => {
+        NAV_FILE_CHANGES.admin = [{ id: 'media', hide: true }, { id: 'dashboard', label: 'Home' }];
+        CUSTOM_NAV_CHANGES.admin = [{ id: 'dashboard', route: '/admin/extension-dashboard' }];
+        expect(renderedMenu().slice(0, 3)).toEqual([
+            'Home /admin/extension-dashboard fa-solid fa-gauge-high',
+            'Signup Forms /admin/waitlists fa-solid fa-list-alt',
+            '---',
+        ]);
     });
 
     it('hides, adds and moves items for the roles a change names, and keeps Profile and Logout', () => {

@@ -1,5 +1,5 @@
 /**
- * An app's changes to the core menus (CUSTOM_NAV_CHANGES in src/custom/nav.ts,
+ * An app's changes to the core menus (CUSTOM_NAV_CHANGES in src/custom/nav-changes.ts,
  * docs/app/admin-menu.html, docs/app/member-area.html): change, hide, add and move items,
  * named by their `id`, for every role or only some.
  *

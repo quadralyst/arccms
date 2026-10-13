@@ -11,7 +11,7 @@ import { EntitlementService } from './entitlement.service';
 import { isOn } from '../../core/features/features';
 import { homeFor, USER_DASHBOARD } from '../../core/home/home';
 import { memberMenu } from '../../core/nav/member-menu';
-import { CUSTOM_NAV_CHANGES } from '../../../custom/nav';
+import { appNavChanges } from '../../core/nav/app-nav-changes';
 import { memberPagesOpen } from '../../core/app-accounts/app-account-lock';
 import { SiteBrandService } from '../../core/brand/site-brand';
 
@@ -189,10 +189,10 @@ export class UserShellComponent implements OnInit {
     /** Whether this person may open Arc CMS's member pages (src/custom/app-accounts.ts). */
     readonly memberPages = computed(() => memberPagesOpen(this.authState.currentUser()));
 
-    /** The member menu for this person, with the app's changes for their role (src/custom/nav.ts). */
+    /** The member menu for this person, with the app's changes for their role (src/custom/nav-changes.ts). */
     readonly menu = computed(() => memberMenu(
         { home: this.appHome(), memberPages: this.memberPages(), role: this.authState.currentUser()?.role },
-        CUSTOM_NAV_CHANGES.member,
+        appNavChanges().member,
     ));
 
     displayName(): string {

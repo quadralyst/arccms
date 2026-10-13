@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Build the member area | Arc CMS docs</title>
   <meta name="description" content="Choose where each role lands after sign-in, put your own page at /user/dashboard, change the member menu per role, and gate content for paying members.">
-  <meta name="docs:sources" content="src/custom/user-dashboard.ts, src/custom/home.ts, src/custom/nav.ts, src/app/core/home/home.ts, src/app/core/nav, src/app/pages/user, src/app/app.routes.ts">
+  <meta name="docs:sources" content="src/custom/user-dashboard.ts, src/custom/home.ts, src/custom/nav-changes.ts, src/app/core/home/home.ts, src/app/core/nav, src/app/pages/user, src/app/app.routes.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/member-area.html">
@@ -66,7 +66,7 @@ export const CUSTOM_USER_DASHBOARD: UserDashboardLoader | null = () =&gt;
     <p>Give each page a route with <code>userGuard</code> (<a href="pages-and-routes.html#who-may-open-a-page">Who may open a page</a>) and wrap its template in <code>&lt;app-user-shell&gt;</code>. To link it from the member menu, add it with <code>CUSTOM_NAV_CHANGES</code> (<a href="#change-the-member-menu">below</a>), or make it the role's home page, which brings a Home item.</p>
 
     <h2>Change the member menu</h2>
-    <p>The <code>member</code> list of <code>CUSTOM_NAV_CHANGES</code>, in <code>src/custom/nav.ts</code>, changes the member menu the way its <code>admin</code> list changes the admin menu: change, hide, add and move items by their <code>id</code> (the table above), for every role or only the roles a change names. The full rules are in <a href="admin-menu.html#change-arc-cms-s-items">Change Arc CMS's items</a>.</p>
+    <p>The <code>member</code> list of <code>CUSTOM_NAV_CHANGES</code>, in <code>src/custom/nav-changes.ts</code>, changes the member menu the way its <code>admin</code> list changes the admin menu: change, hide, add and move items by their <code>id</code> (the table above), for every role or only the roles a change names. The full rules are in <a href="admin-menu.html#change-arc-cms-s-items">Change Arc CMS's items</a>.</p>
     <pre><code>import type { NavChanges } from '../app/core/nav/nav-changes';
 
 export const CUSTOM_NAV_CHANGES: NavChanges = {

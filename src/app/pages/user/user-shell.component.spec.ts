@@ -11,7 +11,8 @@ import { SiteBrandService } from '../../core/brand/site-brand';
 import { FEATURES } from '../../core/features/features';
 import { CUSTOM_HOME } from '../../../custom/home';
 import { CUSTOM_APP_ACCOUNTS } from '../../../custom/app-accounts';
-import { CUSTOM_NAV_CHANGES } from '../../../custom/nav';
+import { CUSTOM_NAV_CHANGES } from '../../../custom/nav-changes';
+import { CUSTOM_NAV_CHANGES as NAV_FILE_CHANGES } from '../../../custom/nav';
 
 @Component({ standalone: true, template: '' })
 class Blank {}
@@ -93,9 +94,10 @@ describe('UserShellComponent: the member menu as Arc CMS ships it', () => {
     });
 });
 
-describe("UserShellComponent: the app's member menu changes (src/custom/nav.ts)", () => {
+describe("UserShellComponent: the app's member menu changes (src/custom/nav-changes.ts)", () => {
     afterEach(() => {
         delete CUSTOM_NAV_CHANGES.member;
+        delete NAV_FILE_CHANGES.member;
         FEATURES.add('payments');
     });
 
@@ -139,6 +141,14 @@ describe("UserShellComponent: the app's member menu changes (src/custom/nav.ts)"
         ];
         const { links } = await memberMenu({ role: 'user' });
         expect(links.map((l) => l.text)).toEqual(['Dashboard', 'Profile']);
+    });
+
+    // An app that wrote its changes in src/custom/nav.ts, where they first lived, keeps them.
+    it('reads changes from src/custom/nav.ts too, before those in nav-changes.ts', async () => {
+        NAV_FILE_CHANGES.member = [{ id: 'premium', hide: true }, { id: 'dashboard', label: 'My week' }];
+        CUSTOM_NAV_CHANGES.member = [{ id: 'dashboard', label: 'This week' }];
+        const { links } = await memberMenu({ role: 'user' });
+        expect(links.map((l) => l.text)).toEqual(['This week', 'Payments', 'Account & Billing', 'Profile', 'Plans']);
     });
 });
 

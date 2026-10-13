@@ -7,14 +7,15 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 // @ts-expect-error: plain ESM script without type declarations
-import { isArcCmsRepository } from '../../scripts/check-core.mjs';
+import { classify, isArcCmsRepository } from '../../scripts/check-core.mjs';
 // @ts-expect-error: plain ESM script without type declarations
-import { CUSTOM_STARTERS, isAppSpec } from '../../scripts/custom-starters.mjs';
+import { CUSTOM_STARTERS, SHIPPED_FILES, isAppSpec, shippedHash, starterChanges } from '../../scripts/custom-starters.mjs';
 import { mergeTranslations } from './core/i18n/translation.loader';
 import { insertCustomNav, type MenuItem } from '../shared/components/side-navbar/side-navbar.component';
 import { customAdminKeys, flattenKeys } from './core/i18n/member-keys';
 import { menuIds } from './core/nav/menu';
 import { navChangeLabels, navChangeProblems, type NavChanges } from './core/nav/nav-changes';
+import { joinNavChanges } from './core/nav/app-nav-changes';
 import { ADMIN_LOCKS, ADMIN_MENU_IDS } from './core/nav/admin-menu';
 import { MEMBER_MENU_IDS } from './core/nav/member-menu';
 import coreEn from '../assets/i18n/en.json';
@@ -23,6 +24,13 @@ import customHi from '../custom/i18n/hi.json';
 
 const ROOT = resolve(__dirname, '..', '..');
 const read = (path: string) => readFileSync(resolve(ROOT, path), 'utf8');
+
+/** The app's real menu files (specs see the shipped ones): its items, and its changes from both files. */
+async function realNav() {
+    const { CUSTOM_NAV, CUSTOM_NAV_CHANGES } = await vi.importActual<typeof import('../custom/nav')>('../custom/nav');
+    const changes = await vi.importActual<typeof import('../custom/nav-changes')>('../custom/nav-changes');
+    return { CUSTOM_NAV, CUSTOM_NAV_CHANGES: joinNavChanges(CUSTOM_NAV_CHANGES, changes.CUSTOM_NAV_CHANGES) };
+}
 
 describe('custom space', () => {
     // Only Arc CMS ships them empty: an app fills them in, so in an app this would fail
@@ -40,6 +48,56 @@ describe('custom space', () => {
         expect(existsSync(resolve(ROOT, 'src/custom/site'))).toBe(false);
         // CI workflows are the app's (check:core counts .github as custom): Arc CMS ships none.
         expect(existsSync(resolve(ROOT, '.github'))).toBe(false);
+    });
+
+    /**
+     * Arc CMS never changes or deletes a file it has shipped in the custom space, comments
+     * included: the app owns it, and a change conflicts with what the app wrote there on its
+     * next update. A new plug point is a new file. Only in Arc CMS: an app changes these
+     * files all the time.
+     */
+    describe('starter files stay as shipped', () => {
+        it.skipIf(!isArcCmsRepository(ROOT))('every file in the custom space is as Arc CMS shipped it', () => {
+            const listed = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { cwd: ROOT, encoding: 'utf8' });
+            const files: Record<string, string> = {};
+            for (const file of listed.split('\n').filter((f) => f && classify(f) === 'custom')) {
+                if (existsSync(resolve(ROOT, file))) files[file] = read(file);
+            }
+            expect(starterChanges(files)).toEqual([]);
+        });
+
+        const shipped = { 'src/custom/brand.ts': shippedHash("// The app's name: docs/app/admin-look.html\nexport const CUSTOM_BRAND = {};\n") };
+        const asShipped = { 'src/custom/brand.ts': "// The app's name: docs/app/admin-look.html\nexport const CUSTOM_BRAND = {};\n" };
+
+        it('fails on a changed comment, naming the file and the rule', () => {
+            const found = starterChanges({ 'src/custom/brand.ts': "// The app's name, such as 'Acme': docs/app/admin-look.html\nexport const CUSTOM_BRAND = {};\n" }, shipped);
+            expect(found).toHaveLength(1);
+            expect(found[0]).toMatch(/^src\/custom\/brand\.ts changed from what Arc CMS shipped\. Arc CMS never changes a file it has shipped in the custom space/);
+            expect(found[0]).toContain('docs/app/custom-space.html#why-updates-never-conflict');
+        });
+
+        it('fails on a new export in a file already shipped, and on a deleted one', () => {
+            expect(starterChanges({ 'src/custom/brand.ts': `${asShipped['src/custom/brand.ts']}export const CUSTOM_BRAND_MORE = {};\n` }, shipped)).toEqual([
+                expect.stringMatching(/^src\/custom\/brand\.ts changed from what Arc CMS shipped/),
+            ]);
+            expect(starterChanges({}, shipped)).toEqual([expect.stringMatching(/^src\/custom\/brand\.ts was deleted\./)]);
+        });
+
+        it('passes on a new starter file once recorded, and says how to record one that is not', () => {
+            const added = { ...asShipped, 'src/custom/reports.ts': 'export const CUSTOM_REPORTS = {};\n' };
+            expect(starterChanges(added, { ...shipped, 'src/custom/reports.ts': shippedHash(added['src/custom/reports.ts']) })).toEqual([]);
+            expect(starterChanges(added, shipped)).toEqual([
+                `src/custom/reports.ts is new in the custom space. If it is a new starter file, ship it empty and record it in SHIPPED_FILES in scripts/custom-starters.mjs: 'src/custom/reports.ts': '${shippedHash(added['src/custom/reports.ts'])}',`,
+            ]);
+        });
+
+        it('passes on the same file checked out with Windows line endings', () => {
+            expect(starterChanges({ 'src/custom/brand.ts': asShipped['src/custom/brand.ts'].replace(/\n/g, '\r\n') }, shipped)).toEqual([]);
+        });
+
+        it('records every starter code file', () => {
+            expect(CUSTOM_STARTERS.filter((s: { file: string }) => !(s.file in SHIPPED_FILES)).map((s: { file: string }) => s.file)).toEqual([]);
+        });
     });
 
     it("gives core specs the shipped starter files, whatever an app puts there, and the app's specs the real ones", () => {
@@ -169,7 +227,7 @@ describe('custom space', () => {
         it('is wired into the side menu', () => {
             const navbar = read('src/shared/components/side-navbar/side-navbar.component.ts');
             expect(navbar).toContain('insertCustomNav(items, withoutFeaturesOff(CUSTOM_NAV))');
-            expect(navbar).toContain('applyNavChanges(items, CUSTOM_NAV_CHANGES.admin, this.authStore.currentUser()?.role, ADMIN_LOCKS)');
+            expect(navbar).toContain('applyNavChanges(items, appNavChanges().admin, this.authStore.currentUser()?.role, ADMIN_LOCKS)');
         });
     });
 
@@ -182,9 +240,9 @@ describe('custom space', () => {
 
         // The app's real file: a change to an id core does not have, or a link that is not
         // a path or an https address, fails here rather than as a silent menu.
-        it('checks src/custom/nav.ts: every id it names exists, every route is a path, every outside address https', async () => {
-            const { CUSTOM_NAV, CUSTOM_NAV_CHANGES } = await vi.importActual<typeof import('../custom/nav')>('../custom/nav');
-            expect(problems(CUSTOM_NAV_CHANGES, CUSTOM_NAV), 'fix CUSTOM_NAV_CHANGES in src/custom/nav.ts').toEqual([]);
+        it('checks src/custom/nav-changes.ts (and nav.ts): every id it names exists, every route is a path, every outside address https', async () => {
+            const { CUSTOM_NAV, CUSTOM_NAV_CHANGES } = await realNav();
+            expect(problems(CUSTOM_NAV_CHANGES, CUSTOM_NAV), 'fix CUSTOM_NAV_CHANGES in src/custom/nav-changes.ts').toEqual([]);
         });
 
         it('reports a misspelt id with the valid ones, a route that is not a path and an address that is not https', () => {
@@ -211,8 +269,20 @@ describe('custom space', () => {
         });
 
         it('is read by both menus', () => {
-            expect(read('src/app/pages/user/user-shell.component.ts')).toContain('CUSTOM_NAV_CHANGES.member');
-            expect(read('src/shared/components/side-navbar/side-navbar.component.ts')).toContain('CUSTOM_NAV_CHANGES.admin');
+            expect(read('src/app/pages/user/user-shell.component.ts')).toContain('appNavChanges().member');
+            expect(read('src/shared/components/side-navbar/side-navbar.component.ts')).toContain('appNavChanges().admin');
+        });
+
+        // nav.ts shipped CUSTOM_NAV_CHANGES first and is never edited, so an app may have written them there.
+        it('reads nav.ts first, then nav-changes.ts, each menu in its own list', () => {
+            const navFile: NavChanges = { admin: [{ id: 'media', hide: true }] };
+            const ownFile: NavChanges = { admin: [{ id: 'dashboard', label: 'Home' }], member: [{ id: 'premium', hide: true }] };
+            expect(joinNavChanges(navFile, ownFile)).toEqual({
+                admin: [{ id: 'media', hide: true }, { id: 'dashboard', label: 'Home' }],
+                member: [{ id: 'premium', hide: true }],
+            });
+            expect(joinNavChanges({}, undefined)).toEqual({ admin: [], member: [] });
+            expect(read('src/app/core/nav/app-nav-changes.ts')).toContain('joinNavChanges(NAV_FILE_CHANGES, CUSTOM_NAV_CHANGES)');
         });
     });
 
@@ -240,7 +310,7 @@ describe('custom space', () => {
          * missing one shows in English.
          */
         it('keeps the custom files in step: every admin string in English has a Hindi one, and Hindi has no extras', async () => {
-            const { CUSTOM_NAV, CUSTOM_NAV_CHANGES } = await vi.importActual<typeof import('../custom/nav')>('../custom/nav');
+            const { CUSTOM_NAV, CUSTOM_NAV_CHANGES } = await realNav();
             const en = new Set(flattenKeys(customEn));
             const hi = new Set(flattenKeys(customHi));
             const adminNav = [...CUSTOM_NAV, ...navChangeLabels(CUSTOM_NAV_CHANGES.admin)];
@@ -250,7 +320,7 @@ describe('custom space', () => {
 
         // A menu label key no English file has shows as the bare key.
         it('finds every menu label key the app uses in English, its own or core', async () => {
-            const { CUSTOM_NAV, CUSTOM_NAV_CHANGES } = await vi.importActual<typeof import('../custom/nav')>('../custom/nav');
+            const { CUSTOM_NAV, CUSTOM_NAV_CHANGES } = await realNav();
             const english = new Set([...flattenKeys(coreEn), ...flattenKeys(customEn)]);
             const keys = (items: MenuItem[]): string[] => items.flatMap((i) => [...(i.labelKey ? [i.labelKey] : []), ...keys(i.subItems ?? [])]);
             const used = keys([...CUSTOM_NAV, ...navChangeLabels(CUSTOM_NAV_CHANGES.admin), ...navChangeLabels(CUSTOM_NAV_CHANGES.member)]);

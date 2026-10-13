@@ -15,7 +15,7 @@
 
     <h2>The two spaces</h2>
     <p><strong>Core</strong> is everything Arc CMS ships. Your app receives it by pulling updates (<a href="../getting-started/upgrading.html">Upgrade Arc CMS</a>) and uses it: importing a core component or helper is fine, editing it is not.</p>
-    <p><strong>Custom</strong> is the set of files and folders Arc CMS ships once, empty, and never changes again:</p>
+    <p><strong>Custom</strong> is the set of files and folders Arc CMS ships once, empty, and never changes again: not a line of code, not a comment, not a README row. A new plug point comes as a new file, so an update only ever adds files there:</p>
     <table>
       <thead><tr><th>Path</th><th>For</th></tr></thead>
       <tbody>
@@ -29,7 +29,7 @@
       </tbody>
     </table>
     <p>How to use each file is in <a href="../app/custom-space.html">Use the custom space</a>.</p>
-    <p>Core reads the custom space at fixed plug points: the routes file, the pages folder, the admin and member menus, the translations, the stylesheet, the feature choices, and the functions (<code>functions/src/all.ts</code> exports <code>functions/src/custom/index.ts</code> as the <code>custom</code> group). The rules build places your rules inside the core rules, so they can call the core helpers. A test in <code>src/app/custom-space.spec.ts</code> checks that every starter file ships empty. It runs only in Arc CMS's own repository, told apart the way <code>npm run check:core</code> does it (a remote at Arc CMS and no <code>upstream</code> branch), so filling the files in an app does not fail it.</p>
+    <p>Core reads the custom space at fixed plug points: the routes file, the pages folder, the admin and member menus, the translations, the stylesheet, the feature choices, and the functions (<code>functions/src/all.ts</code> exports <code>functions/src/custom/index.ts</code> as the <code>custom</code> group). The rules build places your rules inside the core rules, so they can call the core helpers. Tests in <code>src/app/custom-space.spec.ts</code> check that every starter file ships empty, and that every file Arc CMS has shipped in the custom space is still exactly as shipped (<code>SHIPPED_FILES</code> in <code>scripts/custom-starters.mjs</code> holds a hash of each). They run only in Arc CMS's own repository, told apart the way <code>npm run check:core</code> does it (a remote at Arc CMS and no <code>upstream</code> branch), so filling the files in an app does not fail them.</p>
 
     <h2>What check:core reports</h2>
     <p>Run it before every commit in an app:</p>

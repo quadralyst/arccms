@@ -22,7 +22,8 @@ import { ConfirmationPopupComponent } from '../confirmation-popup/confirmation-p
 import { ContentTypesStore } from '../../../app/pages/admin/contents/content-types/content-types.store';
 import { ContentType, contentTypeName } from '../../../app/pages/admin/contents/content-types/content-types.model';
 import { WaitlistAdminStore } from '../../../app/pages/admin/(waitlists)/waitlist.store';
-import { CUSTOM_NAV, CUSTOM_NAV_CHANGES } from '../../../custom/nav';
+import { CUSTOM_NAV } from '../../../custom/nav';
+import { appNavChanges } from '../../../app/core/nav/app-nav-changes';
 import { isOn } from '../../../app/core/features/features';
 import { insertCustomNav, withoutFeaturesOff, type MenuItem } from '../../../app/core/nav/menu';
 import { applyNavChanges } from '../../../app/core/nav/nav-changes';
@@ -222,9 +223,9 @@ export default class NavbarComponent extends BaseComponent {
         ]);
         // The app's own items (src/custom/nav.ts), before Profile.
         insertCustomNav(items, withoutFeaturesOff(CUSTOM_NAV));
-        // Then the app's changes for this person's role (src/custom/nav.ts), which can
+        // Then the app's changes for this person's role (src/custom/nav-changes.ts), which can
         // neither bring back an item of a feature that is off nor take away Profile or Logout.
-        const changed = applyNavChanges(items, CUSTOM_NAV_CHANGES.admin, this.authStore.currentUser()?.role, ADMIN_LOCKS);
+        const changed = applyNavChanges(items, appNavChanges().admin, this.authStore.currentUser()?.role, ADMIN_LOCKS);
         // A separator before Profile, wherever it is; then none leading, trailing or doubled.
         const profileIndex = changed.findIndex(i => i.id === 'profile');
         if (profileIndex > -1) changed.splice(profileIndex, 0, separator());

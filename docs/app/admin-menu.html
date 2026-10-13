@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Change the admin menu | Arc CMS docs</title>
   <meta name="description" content="Add your app's links and groups to the admin side menu with CUSTOM_NAV, change, hide, add and move Arc CMS's items by id with CUSTOM_NAV_CHANGES, for every role or some, and pick Font Awesome icons.">
-  <meta name="docs:sources" content="src/custom/nav.ts, src/shared/components/side-navbar, src/app/core/nav, src/app/custom-space.spec.ts, src/custom/i18n, index.html, public/assets/icons, scripts/generate-icon-index.mjs">
+  <meta name="docs:sources" content="src/custom/nav.ts, src/custom/nav-changes.ts, src/shared/components/side-navbar, src/app/core/nav, src/app/custom-space.spec.ts, src/custom/i18n, index.html, public/assets/icons, scripts/generate-icon-index.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/admin-menu.html">
   <main>
     <h1>Change the admin menu</h1>
-    <p class="lead">List your app's admin links in <code>CUSTOM_NAV</code>, in <code>src/custom/nav.ts</code>: they appear in the admin side menu just before Profile, translated like the core items. To change, hide, add or move items anywhere in the menu, Arc CMS's own included, use <code>CUSTOM_NAV_CHANGES</code> in the same file (<a href="#change-arc-cms-s-items">Change Arc CMS's items</a>).</p>
+    <p class="lead">List your app's admin links in <code>CUSTOM_NAV</code>, in <code>src/custom/nav.ts</code>: they appear in the admin side menu just before Profile, translated like the core items. To change, hide, add or move items anywhere in the menu, Arc CMS's own included, use <code>CUSTOM_NAV_CHANGES</code> in <code>src/custom/nav-changes.ts</code> (<a href="#change-arc-cms-s-items">Change Arc CMS's items</a>).</p>
     <div class="trap"><p>The menu only shows links. Who may open a page is decided by its route guard alone (<a href="pages-and-routes.html#who-may-open-a-page">Who may open a page</a>). Hiding an item does not keep anyone out of its page, and showing one to a role does not let that role in.</p></div>
 
     <h2>Add an item</h2>
@@ -84,9 +84,8 @@ export const CUSTOM_NAV: MenuItem[] = [
     <p>Your items are placed together, in the order you list them, just before Profile, with a dividing line before Profile. To put one somewhere else, give it an <code>id</code> and move it with <code>CUSTOM_NAV_CHANGES</code>, or add it there with <code>CUSTOM_NAV_CHANGES</code> instead. The menu shows only the items whose <code>allowRoles</code> include the signed-in person's role.</p>
 
     <h2>Change Arc CMS's items</h2>
-    <p>Export <code>CUSTOM_NAV_CHANGES</code> from <code>src/custom/nav.ts</code>. Its <code>admin</code> list changes the admin menu; its <code>member</code> list changes the member menu the same way (<a href="member-area.html#change-the-member-menu">Change the member menu</a>). Each change names an item by its <code>id</code> (<a href="#the-admin-menu-s-ids">The admin menu's ids</a>), never by its label, which is translated:</p>
-    <pre><code>import type { MenuItem } from '../shared/components/side-navbar/side-navbar.component';
-import type { NavChanges } from '../app/core/nav/nav-changes';
+    <p>Fill in <code>CUSTOM_NAV_CHANGES</code> in <code>src/custom/nav-changes.ts</code>. Its <code>admin</code> list changes the admin menu; its <code>member</code> list changes the member menu the same way (<a href="member-area.html#change-the-member-menu">Change the member menu</a>). Each change names an item by its <code>id</code> (<a href="#the-admin-menu-s-ids">The admin menu's ids</a>), never by its label, which is translated:</p>
+    <pre><code>import type { NavChanges } from '../app/core/nav/nav-changes';
 
 export const CUSTOM_NAV_CHANGES: NavChanges = {
   admin: [
@@ -102,9 +101,8 @@ export const CUSTOM_NAV_CHANGES: NavChanges = {
     // Settings moves to the top, for admins only
     { id: 'settings', before: 'dashboard', roles: ['admin'] },
   ],
-};
-
-export const CUSTOM_NAV: MenuItem[] = [];</code></pre>
+};</code></pre>
+    <div class="note"><p>Older copies of Arc CMS had <code>CUSTOM_NAV_CHANGES</code> in <code>src/custom/nav.ts</code>, and that file still ships it, empty. If your app wrote its changes there, they still work: Arc CMS applies the ones in <code>nav.ts</code> first, then the ones in <code>nav-changes.ts</code>. Move them to <code>nav-changes.ts</code> when you next touch the menu, and leave <code>nav.ts</code>'s <code>CUSTOM_NAV_CHANGES</code> empty.</p></div>
     <p>A change can:</p>
     <table>
       <thead><tr><th>To</th><th>Write</th></tr></thead>
@@ -139,7 +137,7 @@ export const CUSTOM_NAV: MenuItem[] = [];</code></pre>
     <p>The menu shows an item to the roles in its <code>allowRoles</code>; <code>roles</code> on a change decides who the change is for. Each page an editor can now see in the menu still needs a route guard that lets editors in: the menu never gives anyone access.</p>
 
     <h3>What the test suite checks</h3>
-    <p><code>npm run test</code> (in <code>src/app/custom-space.spec.ts</code>) reads your <code>src/custom/nav.ts</code> and fails, with the list of valid ids, on:</p>
+    <p><code>npm run test</code> (in <code>src/app/custom-space.spec.ts</code>) reads your <code>src/custom/nav.ts</code> and <code>src/custom/nav-changes.ts</code> and fails, with the list of valid ids, on:</p>
     <ul>
       <li>a change, <code>before</code> or <code>after</code> that names an id the menu does not have (core's, your <code>CUSTOM_NAV</code> items', or one an add in the same list brings);</li>
       <li>a <code>route</code> that is not a path on this site starting with <code>/</code>, or an <code>externalUrl</code> that is not an <code>https://</code> address;</li>

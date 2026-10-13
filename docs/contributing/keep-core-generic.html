@@ -19,7 +19,7 @@
     <ol class="steps">
       <li><p><strong>Nothing specific to one app.</strong> No app's names, roles, collections, pages or wording in core code, rules, tests or docs.</p></li>
       <li><p><strong>An app's need becomes a general feature or a plug point.</strong> When an app needs something core does not offer, build the general version in core: a feature any site could switch on, or a plug point the app fills in from its custom space. Document the plug point where apps look for it (<a href="../app/custom-space.html">Use the custom space</a>).</p></li>
-      <li><p><strong>Leave the custom space empty.</strong> Core ships only the empty starter files there and never changes them (see below).</p></li>
+      <li><p><strong>Leave the custom space empty.</strong> Core ships only the empty starter files there and never changes or deletes one once shipped (see below).</p></li>
       <li><p><strong>Docs and tests are part of the change.</strong> See <a href="#docs-and-tests">Docs and tests</a>.</p></li>
     </ol>
 
@@ -28,20 +28,21 @@
     <table>
       <thead><tr><th>Path</th><th>What core ships</th></tr></thead>
       <tbody>
-        <tr><td><code>src/custom/</code></td><td>Empty starter files: <code>features.ts</code>, <code>routes.ts</code>, <code>nav.ts</code>, <code>home.ts</code>, <code>app-accounts.ts</code>, <code>sign-in.ts</code>, <code>user-dashboard.ts</code>, <code>pwa.ts</code>, <code>languages.ts</code>, <code>styles.css</code>, the <code>i18n/</code> files, an empty <code>pages/</code> folder and a README</td></tr>
+        <tr><td><code>src/custom/</code></td><td>Empty starter files: <code>features.ts</code>, <code>routes.ts</code>, <code>nav.ts</code>, <code>nav-changes.ts</code>, <code>home.ts</code>, <code>app-accounts.ts</code>, <code>sign-in.ts</code>, <code>user-dashboard.ts</code>, <code>pwa.ts</code>, <code>languages.ts</code>, <code>styles.css</code>, the <code>i18n/</code> files, an empty <code>pages/</code> folder and a README</td></tr>
         <tr><td><code>functions/src/custom/</code></td><td>Empty <code>index.ts</code>, <code>search-sources.ts</code> and <code>public-callables.txt</code></td></tr>
         <tr><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code></td><td>Nothing: the rules build treats them as optional</td></tr>
         <tr><td>A <code>custom</code> folder in <code>tests/rules/</code>, <code>docs/custom/</code> and <code>custom/</code> at the root</td><td>Nothing beyond the README in <code>docs/custom/</code> and in <code>custom/</code></td></tr>
         <tr><td><code class="new">.github/</code></td><td>Nothing: CI workflows are the app's (<a href="../app/ci.html">Deploy from CI</a>)</td></tr>
       </tbody>
     </table>
-    <p>Each starter file exports an empty value (an empty list, an empty object, or <code>null</code>) that core reads as "nothing added". Put nothing else in them in core, not even an example: every app has its own version of these files, so any change there conflicts with every app on its next update. Examples go in the file's comment, or in the docs.</p>
+    <p>Each starter file exports an empty value (an empty list, an empty object, or <code>null</code>) that core reads as "nothing added". Put nothing else in them in core, not even an example. Once a starter file has shipped, it is never changed again: not its code, not its comment, not a README row. Every app has its own version of these files, and a change to any line the app also changed conflicts on its next update. So examples live in the docs (<a href="../app/custom-space.html">Use the custom space</a> and the plug point's own page), and a starter's comment only says what the file is for and which page explains it.</p>
+    <p><code>scripts/custom-starters.mjs</code> records every file shipped in the custom space with a hash of its contents (<code>SHIPPED_FILES</code>). In Arc CMS's own repository, <code>src/app/custom-space.spec.ts</code> fails when one of them changed or was deleted, naming the file and this rule, and when a new file there is not recorded yet, printing the line to record it. In an app the check is skipped: the files are the app's to change.</p>
 
     <h3>Add a plug point</h3>
     <ol class="steps">
-      <li><p>Pick the file in the custom space the app will fill in, or add a new starter file that exports an empty value. List a new one, with its empty exports, in <code>scripts/custom-starters.mjs</code>, and stub it in <code>src/test/setup.ts</code> (or <code>functions/src/__tests__/setup.ts</code>) like the others, so core specs see it empty whatever an app puts there (<a href="../operations/testing.html#the-custom-space-in-specs">Testing</a>).</p></li>
+      <li><p>Add a new starter file that exports an empty value. A new plug point is always a new file, never a new export in a file already shipped, since that edit could conflict with an app's version of the file. List the new file, with its empty exports, in <code>CUSTOM_STARTERS</code> in <code>scripts/custom-starters.mjs</code>, record its hash in <code>SHIPPED_FILES</code> (the failing check prints the line), and stub it in <code>src/test/setup.ts</code> (or <code>functions/src/__tests__/setup.ts</code>) like the others, so core specs see it empty whatever an app puts there (<a href="../operations/testing.html#the-custom-space-in-specs">Testing</a>).</p></li>
       <li><p>Make core read it and behave exactly as before when it is empty.</p></li>
-      <li><p>Explain it in the file's own comment, and in the app docs.</p></li>
+      <li><p>Explain it in the app docs, with examples. The file's comment says in a line or two what it is for and links the page. Get the comment right before it ships: it cannot change afterwards.</p></li>
     </ol>
     <p>For example, <code>functions/src/custom/search-sources.ts</code> exports empty <code>SEARCH_COLLECTIONS</code> and <code>CUSTOM_SEARCH_SOURCES</code> lists, and core search indexes whatever an app adds to them.</p>
 
