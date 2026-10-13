@@ -325,13 +325,8 @@ export class CreateContentComponent extends BaseComponent {
     return this.contentTypeStore.items() || [];
   });
 
-  contentDetailedData: any = computed(() => {
-    const contentChanges = this.draftContentStore.currentItem();
-    if (Object.keys(contentChanges).length > 0) {
-      this.patchForms(contentChanges);
-    }
-    return this.draftContentStore.currentItem();
-  });
+  /** The stored item as loaded. The forms are filled from it by an effect (see the constructor). */
+  contentDetailedData: any = computed(() => this.draftContentStore.currentItem());
 
   // Computed property to get current content type with its fields
   currentContentType = computed(() => {
@@ -656,6 +651,30 @@ export class CreateContentComponent extends BaseComponent {
     }
 
     return adopted;
+  }
+
+  /**
+   * Shapes the custom field values for the type's fields once the type is
+   * known. The stored item can arrive before the content types do, and then
+   * its repeating fields were adopted against no fields at all. Shaping is
+   * not an edit, so an untouched item keeps reading as unchanged.
+   */
+  private adoptCustomFieldsForType(): void {
+    if (this.isTranslating()) return;
+    // Rows already shaped are left alone: new arrays would re-render the row
+    // being edited (see repeaterRows).
+    const unshaped = this.currentFields.some((field) => {
+      const value = this.customFieldValues[field.key];
+      return !!this.repeaterSchemaFor(field) && value !== undefined
+        && !(Array.isArray(value) && value.every((row) => typeof row?.id === 'string'));
+    });
+    if (!unshaped) return;
+    // Compared with the rows unshaped, as the baseline was signed before the
+    // fields were known; hasUnsavedDraftChanges would shape them first.
+    const untouched = this.savedDraftSignature !== null && this.savedDraftSignature
+      === this.draftSignature({ ...this.buildDraftFormValues(), customFields: { ...this.customFieldValues } });
+    this.customFieldValues = this.adoptCustomFields(this.customFieldValues);
+    if (untouched) this.captureDraftBaseline();
   }
 
   // Remove image for a custom field
@@ -984,9 +1003,15 @@ export class CreateContentComponent extends BaseComponent {
 
   constructor(private fb: FormBuilder) {
     super();
+    // Fills the forms when the stored item arrives or is replaced, and at no
+    // other time. patchForms reads other signals (sources, tags, authors, the
+    // active language); tracking them would refill the forms from the stored
+    // copy, which is stale after a save, on every one of those edits.
     effect(() => {
-      this.contentTypeItems();
-      this.contentDetailedData();
+      const item = this.draftContentStore.currentItem();
+      if (item && Object.keys(item).length > 0) {
+        untracked(() => this.patchForms(item));
+      }
     });
 
     // Reactive: Load references whenever the content type structure is available/changes
@@ -995,6 +1020,7 @@ export class CreateContentComponent extends BaseComponent {
       if (ct) {
          // Use untracked to avoid loops if loadReferenceOptions modifies signals tracked here (it modifies loadingReferences and referenceOptions)
          untracked(() => {
+             this.adoptCustomFieldsForType();
              this.loadReferenceOptions();
          });
       }
@@ -1329,9 +1355,11 @@ export class CreateContentComponent extends BaseComponent {
    * (timestamps, save status) is excluded so it never registers as a change.
    */
   private draftSignature(values: Record<string, unknown>): string {
+    // authorName is derived from authorId and the author list, which can load
+    // after the baseline is taken; authorId already records the real change.
     const VOLATILE = new Set([
       'updatedAt', 'modifiedAt', 'createdAt', 'modifiedBy', 'createdBy',
-      'publishedOn', 'lastPublishedAt', 'status', 'publishedStatus',
+      'publishedOn', 'lastPublishedAt', 'status', 'publishedStatus', 'authorName',
     ]);
     const normalize = (value: unknown): unknown => {
       if (value === null || value === undefined || value === '') return null;
@@ -1536,9 +1564,7 @@ export class CreateContentComponent extends BaseComponent {
       canonicalUrl: contentData?.canonicalUrl || '',
       updatedOn: toDateInputValue(contentData?.updatedOn),
     });
-    // patchForms runs from a computed (contentDetailedData), where a signal
-    // write is an error; untracked lifts this write out of that context.
-    untracked(() => this.references.set(cleanReferences(contentData?.references)));
+    this.references.set(cleanReferences(contentData?.references));
 
     // Pre-populate custom field values
     if (contentData?.customFields) {
@@ -1552,15 +1578,12 @@ export class CreateContentComponent extends BaseComponent {
       this.selectedNextContent = null;
     }
 
-    // Use untracked to allow signal writes from computed/effect contexts
-    untracked(() => {
-      this.selectedTags.set((contentData?.tags ?? [])
-        .map((label: string) => {
-          const tag = this.tagsStore.items().find((t) => t.label === label);
-          return tag ? { label, color: tag.color } : { label, color: '#6b7280' };
-        })
-        .filter(Boolean) as { label: string; color: string }[]);
-    });
+    this.selectedTags.set((contentData?.tags ?? [])
+      .map((label: string) => {
+        const tag = this.tagsStore.items().find((t) => t.label === label);
+        return tag ? { label, color: tag.color } : { label, color: '#6b7280' };
+      })
+      .filter(Boolean) as { label: string; color: string }[]);
     afterNextRender(
       () => {
         this.onTagSearchFocus();
@@ -1965,6 +1988,7 @@ export class CreateContentComponent extends BaseComponent {
       ?.setValue(this.selectedTags().map((t) => t.label));
     this.tagSearchTerm.set('');
     this.showTagDropdown.set(false);
+    this.triggerAutoSave();
   }
 
   removeTag(tag: { label: string; color: string }): void {
@@ -1975,9 +1999,12 @@ export class CreateContentComponent extends BaseComponent {
     this.triggerAutoSave();
   }
 
+  /** True while a tag typed in the tag box is being created, so Enter and a click make one tag. */
+  private creatingTag = false;
+
   async createInlineTag(): Promise<void> {
     const label = this.tagSearchTerm().trim();
-    if (!label) return;
+    if (!label || this.creatingTag) return;
 
     // Check if already exists
     const existing = this.tagsStore.getTagByLabel(label);
@@ -1991,23 +2018,28 @@ export class CreateContentComponent extends BaseComponent {
     const slug = this.contentTypeSlug || this.paramContentType || '';
 
     const newTag = {
-      id: '',
       label,
       color,
       contentTypeSlug: slug,
       usageCount: 1,
     } as ITag;
 
+    this.creatingTag = true;
     this.tagsStore.add(newTag).subscribe({
-      next: () => {
-        this.selectedTags.update(tags => [...tags, { label, color }]);
-        this.publishForm
-          .get('tags')
-          ?.setValue(this.selectedTags().map((t) => t.label));
-        this.tagSearchTerm.set('');
-        this.showTagDropdown.set(false);
+      next: (id) => {
+        this.creatingTag = false;
+        // The store reports a failed write as an empty id rather than an error.
+        if (!id) {
+          this.notify.error('admin.contents.editor.tag_create_failed');
+          return;
+        }
+        this.selectTag({ ...newTag, id });
+        // The list behind the dropdown does not hold the new tag yet; reload
+        // it so the tag is offered next time instead of being created twice.
+        this.tagsStore.getAll({ limitCount: 100, currentPageNumber: 0, previousPageNumber: -1 });
       },
       error: (error) => {
+        this.creatingTag = false;
         console.error('Error creating tag:', error);
         this.notify.error('admin.contents.editor.tag_create_failed');
       },

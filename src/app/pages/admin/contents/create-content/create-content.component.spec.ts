@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CreateContentComponent, toDateInputValue, fromDateInputValue } from './create-content.component';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { signal, NgZone } from '@angular/core';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
@@ -2236,6 +2236,249 @@ describe('CreateContentComponent', () => {
             expect(component.references()).toEqual([{ title: 'A', url: 'https://a.com' }]);
             component.removeReference(0);
             expect(component.references()).toEqual([]);
+        });
+    });
+
+    // The forms are filled from the stored item when it loads, and only then.
+    // They used to be refilled whenever the sources, tags, author list or
+    // active language changed, and the stored copy is stale after a save, so
+    // SEO edits reverted, Add source added no row and a new tag never attached.
+    describe('keeping edits in the forms', () => {
+        const STORED = {
+            id: 'doc-1',
+            title: 'Stored title',
+            content: '<p>Body</p>',
+            urlSlug: 'stored-title',
+            type: 'article',
+            seoTitle: 'Stored SEO title',
+            metaDescription: 'Stored meta description',
+            references: [{ title: 'Stored source', url: 'https://stored.example' }],
+            tags: ['stored-tag'],
+        };
+
+        /** Loads the item the way the page does: the store emits it. */
+        function loadFromStore(item: Record<string, unknown> = STORED): void {
+            component.contentTypeSlug = 'article';
+            component.contentId = 'doc-1';
+            mockDraftContentsStore.currentItem.set({ ...item });
+            settle();
+        }
+
+        /** Runs change detection (and so effects) without the dev-mode
+         *  second pass, which trips on plain fields a save sets. */
+        function settle(): void {
+            fixture.detectChanges(false);
+        }
+
+        function editSeo(): void {
+            component.seoForm.get('seoTitle')?.setValue('Edited SEO title');
+            component.seoForm.get('metaDescription')?.setValue('Edited meta description');
+            component.seoForm.get('metaDescription')?.markAsDirty();
+        }
+
+        function expectSeoEdits(): void {
+            expect(component.seoForm.get('seoTitle')?.value).toBe('Edited SEO title');
+            expect(component.seoForm.get('metaDescription')?.value).toBe('Edited meta description');
+        }
+
+        it('fills the forms when the stored item arrives', () => {
+            loadFromStore();
+
+            expect(component.seoForm.get('seoTitle')?.value).toBe('Stored SEO title');
+            expect(component.references()).toEqual([{ title: 'Stored source', url: 'https://stored.example' }]);
+            expect(component.selectedTags().map(t => t.label)).toEqual(['stored-tag']);
+        });
+
+        it('keeps saved SEO edits and adds the row when Add source is pressed', () => {
+            loadFromStore();
+            editSeo();
+            component.pageTitle = 'Stored title';
+            component.saveAsDraft();
+
+            component.addReference();
+            settle();
+
+            expectSeoEdits();
+            expect(component.references().length).toBe(2);
+        });
+
+        it('keeps SEO edits while panel tabs are switched', () => {
+            loadFromStore();
+            editSeo();
+
+            component.activeTab = 'basic';
+            settle();
+            component.openChecks();
+            settle();
+            component.activeTab = 'seo';
+            settle();
+
+            expectSeoEdits();
+        });
+
+        it('keeps edits when sources, tags or the author list change', async () => {
+            loadFromStore();
+            editSeo();
+            const patch = vi.spyOn(component as any, 'patchForms');
+
+            component.updateReference(0, 'title', 'Edited source');
+            component.selectTag({ id: 't2', label: 'picked', color: '#111111' } as any);
+            component.removeTag({ label: 'stored-tag', color: '#6b7280' });
+            await (component as any).initAuthors();
+            settle();
+
+            expect(patch).not.toHaveBeenCalled();
+            expectSeoEdits();
+            expect(component.references()[0].title).toBe('Edited source');
+            expect(component.selectedTags().map(t => t.label)).toEqual(['picked']);
+        });
+
+        it('refills the forms when the store emits a different item', () => {
+            loadFromStore();
+            editSeo();
+
+            loadFromStore({ ...STORED, id: 'doc-2', seoTitle: 'Other SEO title' });
+
+            expect(component.seoForm.get('seoTitle')?.value).toBe('Other SEO title');
+        });
+
+        it('keeps saved base edits when switching to a translation and back', async () => {
+            enableHindi();
+            loadFromStore();
+            await component['initLanguages']();
+            editSeo();
+            component.pageTitle = 'Edited title';
+            component.saveAsDraft();
+
+            await component.switchLanguage('hi');
+            settle();
+            await component.switchLanguage('en');
+            settle();
+
+            expectSeoEdits();
+            expect(component.pageTitle).toBe('Edited title');
+        });
+
+        it('shapes repeating fields when the content type arrives after the item', () => {
+            mockContentTypesStore.items.set([]);
+            settle();
+            loadFromStore({
+                ...STORED,
+                customFields: { questions: [{ question: 'Second?', position: 2 }, { question: 'First?', position: 1 }] },
+            });
+            component.passEditorContentToParent('<p>Body</p>');
+
+            mockContentTypesStore.items.set([
+                { name: 'Article', slug: 'article', fields: [{ key: 'questions', label: 'FAQ', type: 'faq' }] },
+            ]);
+            settle();
+
+            const rows = component.customFieldValues['questions'];
+            expect(rows.map((r: any) => r.question)).toEqual(['First?', 'Second?']);
+            expect(rows.every((r: any) => typeof r.id === 'string' && r.id)).toBe(true);
+            // Shaping the rows is not an edit, so nothing is auto-saved.
+            component['performAutoSave']();
+            expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+        });
+
+        it('still saves an edit made before the content type arrived', () => {
+            mockContentTypesStore.items.set([]);
+            settle();
+            loadFromStore({ ...STORED, customFields: { questions: [{ question: 'Only?' }] } });
+            component.passEditorContentToParent('<p>Body</p>');
+            component.pageTitle = 'Edited before the type loaded';
+
+            mockContentTypesStore.items.set([
+                { name: 'Article', slug: 'article', fields: [{ key: 'questions', label: 'FAQ', type: 'faq' }] },
+            ]);
+            settle();
+            component['performAutoSave']();
+
+            expect(mockDraftContentsStore.update).toHaveBeenCalled();
+        });
+
+        it('does not count the author name arriving after load as an edit', async () => {
+            loadFromStore({ ...STORED, authorId: 'a2' });
+            component.passEditorContentToParent('<p>Body</p>');
+
+            await (component as any).initAuthors();
+            component['performAutoSave']();
+
+            expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('creating a tag from the tag box', () => {
+        beforeEach(() => {
+            component.contentTypeSlug = 'article';
+            component.contentId = 'doc-1';
+            mockDraftContentsStore.currentItem.set({ id: 'doc-1', title: 'T', type: 'article', tags: [] });
+            fixture.detectChanges();
+            mockTagsStore.addTagWithAutoColor.mockReturnValue({ label: 'Fresh', color: '#FFB3BA' });
+        });
+
+        it('saves the tag with its name and attaches it to the item', async () => {
+            component.tagSearchTerm.set('  Fresh ');
+
+            await component.createInlineTag();
+            fixture.detectChanges();
+
+            expect(mockTagsStore.add).toHaveBeenCalledWith({
+                label: 'Fresh', color: '#FFB3BA', contentTypeSlug: 'article', usageCount: 1,
+            });
+            expect(component.selectedTags()).toEqual([{ label: 'Fresh', color: '#FFB3BA' }]);
+            expect(component.publishForm.get('tags')?.value).toEqual(['Fresh']);
+            expect(component.tagSearchTerm()).toBe('');
+            // The dropdown's list is reloaded so the tag is offered, not created twice.
+            expect(mockTagsStore.getAll).toHaveBeenCalled();
+        });
+
+        it('includes the new tag in the next save', async () => {
+            component.tagSearchTerm.set('Fresh');
+            await component.createInlineTag();
+            component.pageTitle = 'T';
+
+            component.saveAsDraft();
+
+            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            expect(payload.tags).toEqual(['Fresh']);
+            expect(payload.tagsWithColors).toEqual([{ name: 'Fresh', color: '#FFB3BA' }]);
+        });
+
+        it('reports a failed write and attaches nothing', async () => {
+            // The store turns a failed write into an empty id.
+            mockTagsStore.add.mockReturnValue(of(''));
+            const error = vi.spyOn(component.notify, 'error').mockImplementation(() => undefined as any);
+            component.tagSearchTerm.set('Fresh');
+
+            await component.createInlineTag();
+
+            expect(component.selectedTags()).toEqual([]);
+            expect(error).toHaveBeenCalledWith('admin.contents.editor.tag_create_failed');
+        });
+
+        it('creates one tag when Enter and a click both fire', async () => {
+            const pending = new Subject<string>();
+            mockTagsStore.add.mockReturnValue(pending);
+            component.tagSearchTerm.set('Fresh');
+
+            await component.createInlineTag();
+            await component.createInlineTag();
+            pending.next('new-tag-id');
+            pending.complete();
+
+            expect(mockTagsStore.add).toHaveBeenCalledTimes(1);
+            expect(component.selectedTags().map(t => t.label)).toEqual(['Fresh']);
+        });
+
+        it('selects an existing tag instead of creating it again', async () => {
+            mockTagsStore.getTagByLabel.mockReturnValue({ id: 't1', label: 'Fresh', color: '#000000' });
+            component.tagSearchTerm.set('fresh');
+
+            await component.createInlineTag();
+
+            expect(mockTagsStore.add).not.toHaveBeenCalled();
+            expect(component.selectedTags()).toEqual([{ label: 'Fresh', color: '#000000' }]);
         });
     });
 
