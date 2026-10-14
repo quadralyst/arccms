@@ -201,7 +201,7 @@ describe('content writes are staff only', () => {
         () => setDoc(doc(db, 'Tags_articles', 't1'), { name: 'x' }),
         () => setDoc(doc(db, 'media', 'm1'), { downloadURL: 'x' }),
         () => setDoc(doc(db, 'mediaFiles', 'f1'), { downloadURL: 'x', title: 'Price list' }),
-        () => addDoc(collection(db, '_publish_queue'), { action: 'publish' }),
+        () => addDoc(collection(db, '_publish_queue'), { action: 'publish', contentTypeSlug: 'articles', docId: 'p1', timestamp: new Date() }),
         () => setDoc(doc(db, '_search_queue', 'arc_articles_drafts~d1'), { collection: 'arc_articles_drafts', docId: 'd1', at: new Date() }),
     ];
 
@@ -308,6 +308,47 @@ describe('claims leases (functions/src/users/claimLock.ts)', () => {
         await assertFails(getDoc(doc(admin(), '_claim_locks', 'x')));
         await assertFails(setDoc(doc(alice(), '_claim_locks', ALICE), { token: 't', expiresAt: 0 }));
         await assertFails(setDoc(doc(admin(), '_claim_locks', 'x'), { token: 't', expiresAt: 0 }));
+    });
+});
+
+// What the admin app writes (PublishQueueService), and nothing else: a coalesced
+// item (functions/src/publishQueue/coalesced-items.ts) is the functions' own.
+describe('publish queue (functions/src/publishQueue/processPublishQueue.ts)', () => {
+    const item = (fields: Record<string, unknown> = {}) => ({ action: 'publish', contentTypeSlug: 'articles', docId: 'p1', timestamp: new Date(), ...fields });
+
+    it('lets staff add each item the admin app sends', async () => {
+        for (const action of ['publish', 'unpublish', 'update', 'delete', 'redeploy']) {
+            await assertSucceeds(addDoc(collection(editor(), '_publish_queue'), item({ action })));
+        }
+        await assertSucceeds(addDoc(collection(editor(), '_publish_queue'), item({ action: 'redeploy-all', contentTypeSlug: '', docId: '' })));
+        await assertSucceeds(addDoc(collection(admin(), '_publish_queue'), item({ action: 'order', docId: '' })));
+    });
+
+    it('refuses a coalesced item\'s fixed id, such as a forged running republish', async () => {
+        const forged = { ...item({ action: 'redeploy-all', contentTypeSlug: '', docId: '' }) };
+        await assertFails(setDoc(doc(editor(), '_publish_queue', 'redeploy-all'), forged));
+        await assertFails(setDoc(doc(admin(), '_publish_queue', 'redeploy-all'), forged));
+        await assertFails(setDoc(doc(editor(), '_publish_queue', 'items-from--articles'), item({ action: 'publish' })));
+    });
+
+    it('refuses other fields, missing fields, wrong types and actions the app never sends', async () => {
+        const add = (fields: Record<string, unknown>) => addDoc(collection(editor(), '_publish_queue'), fields);
+        await assertFails(add(item({ state: 'running', since: Date.now() + 1e12 })));
+        await assertFails(add(item({ coalesced: true })));
+        await assertFails(add({ action: 'publish', contentTypeSlug: 'articles', docId: 'p1' }));
+        await assertFails(add(item({ action: 'items-from' })));
+        await assertFails(add(item({ action: 'home' })));
+        await assertFails(add(item({ docId: 7 })));
+        await assertFails(add(item({ timestamp: 'now' })));
+    });
+
+    it('lets nobody read, change or delete a queue item', async () => {
+        await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), '_publish_queue', 'q1'), item()));
+        await assertFails(getDoc(doc(admin(), '_publish_queue', 'q1')));
+        await assertFails(getDocs(query(collection(editor(), '_publish_queue'), where('docId', '==', 'p1'))));
+        await assertFails(updateDoc(doc(admin(), '_publish_queue', 'q1'), { action: 'delete' }));
+        await assertFails(setDoc(doc(editor(), '_publish_queue', 'q1'), item({ action: 'delete' })));
+        await assertFails(deleteDoc(doc(editor(), '_publish_queue', 'q1')));
     });
 });
 

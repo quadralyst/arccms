@@ -3,7 +3,7 @@ import { GoogleAuth } from 'google-auth-library';
 import * as zlib from 'node:zlib';
 import * as crypto from 'node:crypto';
 import { arcHostingSite } from '../arc-config.js';
-import { newerVersion, readRecordedRelease, recordRelease, withReleaseLock } from './hosting-release-lock.js';
+import { lockWaitBefore, newerVersion, readRecordedRelease, recordRelease, withReleaseLock } from './hosting-release-lock.js';
 
 const API_BASE = 'https://firebasehosting.googleapis.com/v1beta1';
 
@@ -232,6 +232,30 @@ export class HostingBatch {
 
 // ─── Core Functions ─────────────────────────────────────────────────────────
 
+/** Why a release did not go out: the error code (such as HOSTING_RELEASE_BUSY) and message. */
+export interface DeployFailure {
+    code: string;
+    message: string;
+}
+
+export interface DeployBatchOptions {
+    /**
+     * When the release must be done by (ms). The wait for the release lock is
+     * cut so the release still fits (lockWaitBefore): a queue run with a
+     * time budget passes it, so waiting cannot run it past its timeout.
+     */
+    deadline?: number;
+    /**
+     * How many times to wait for the lock again when another release still
+     * held it at the end of the wait (HOSTING_RELEASE_BUSY), while the deadline
+     * leaves time. Before anything is recorded, so an editor never sees a
+     * failure that a later try undid. 0 when not given.
+     */
+    busyRetries?: number;
+    /** Called with the reason when the release does not go out, before it returns false. */
+    onFailure?: (failure: DeployFailure) => void;
+}
+
 /**
  * Deploys a batch of files to Firebase Hosting in a SINGLE version/release.
  *
@@ -243,16 +267,20 @@ export class HostingBatch {
  * One version per call is the point: see HostingBatch for the race that
  * per-file deploys are subject to. Steps 2 to 9 hold the site's release lock,
  * so releases from separate calls (separate queue items) run one at a time and
- * each builds on the one before (see hosting-release-lock.ts).
+ * each builds on the one before (see hosting-release-lock.ts). With
+ * `options.deadline`, the wait for that lock is cut so the release still fits.
  *
  * Writes step-by-step DeploymentLog to {collectionName}/{docId}/DeploymentLogs.
- * Updates deploy status fields on the content document.
+ * Updates deploy status fields on the content document. A site-wide release
+ * (no collection or document) has neither, so a failure is logged instead.
+ * Resolves with whether the release went out: a failed release is recorded, not thrown.
  */
 export async function deployBatchToHosting(
     siteId: string,
     batch: HostingBatch,
     collectionName: string,
     docId: string,
+    options: DeployBatchOptions = {},
 ): Promise<boolean> {
     if (batch.isEmpty) return false;
     const batchFiles = batch.files;
@@ -286,7 +314,7 @@ export async function deployBatchToHosting(
 
         // Steps 2 to 9 run one release at a time per site (hosting-release-lock.ts):
         // two at once would each build on the same version and drop each other's files.
-        await withReleaseLock(siteId, async (waitedMs) => {
+        const release = async (waitedMs: number) => {
             // Step 2: Get latest release. Only after the release lock is ours, so a
             // release that waited builds on the one it waited for.
             const currentVersionName = await baseVersionName(siteId, token);
@@ -377,7 +405,19 @@ export async function deployBatchToHosting(
             );
             await releaseVersion(siteId, newVersionName, token);
             addStep(steps, 9, 'Finalize and release', 'success');
-        });
+        };
+        for (let tries = 0; ; tries++) {
+            try {
+                await withReleaseLock(siteId, release, { maxWaitMs: lockWaitBefore(options.deadline) });
+                break;
+            } catch (error: any) {
+                const again = error?.code === 'HOSTING_RELEASE_BUSY'
+                    && tries < (options.busyRetries ?? 0)
+                    && lockWaitBefore(options.deadline) > 0;
+                if (!again) throw error;
+                console.warn(`${error.message} Waiting for it once more (${filePath}).`);
+            }
+        }
 
         // Step 10: Update Firestore status
         const deployDurationMs = Date.now() - startedAt.getTime();
@@ -394,6 +434,7 @@ export async function deployBatchToHosting(
     } catch (err: any) {
         errorMessage = err.message || 'Unknown error';
         errorCode = err.code || 'DEPLOY_UNKNOWN';
+        console.error(`Hosting release of ${batch.size} file(s) (${filePath}) failed: ${errorCode}: ${errorMessage}`);
         const failedStepNum = steps.length + 1;
         addStep(steps, failedStepNum, `Step ${failedStepNum} failed`, 'failed', undefined, errorMessage ?? undefined);
 
@@ -412,9 +453,9 @@ export async function deployBatchToHosting(
         }
     }
 
-    // Always write deployment log
+    // Always write deployment log, when there is a document to write it under
     const completedAt = new Date();
-    await writeDeploymentLog(collectionName, docId, {
+    if (collectionName && docId) await writeDeploymentLog(collectionName, docId, {
         action: 'publish',
         filePath,
         startedAt,
@@ -424,6 +465,7 @@ export async function deployBatchToHosting(
         steps,
         error: errorMessage,
     });
+    if (errorMessage) options.onFailure?.({ code: errorCode, message: errorMessage });
     return !errorMessage;
 }
 

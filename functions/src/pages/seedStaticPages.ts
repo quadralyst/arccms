@@ -12,6 +12,8 @@ import { generateAndDeployLlmsTxt } from './generateLlmsTxt.js';
 import { generateAndDeploySitemap } from './generateSitemap.js';
 import { generateAndDeployRssFeeds } from './generateRssFeed.js';
 import { isFeatureOn } from '../feature-flags.js';
+import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
+import { arcHostingSite } from '../arc-config.js';
 
 interface SeedResult {
     success: boolean;
@@ -181,70 +183,62 @@ export async function runSeed(): Promise<SeedResult> {
     return result;
 }
 
-/** Step 4 of the seed: robots.txt, llms.txt, the sitemap and the RSS feeds, each reported in `result`. */
+/**
+ * Step 4 of the seed: robots.txt, llms.txt, the sitemap and the RSS feeds, each
+ * reported in `result`. They go out in one release (HostingBatch), as in the
+ * publish queue: one release instead of one per file, through the release lock like
+ * every other one. A file that cannot be generated is reported and left out;
+ * the others still go out.
+ */
 async function deploySeoFiles(result: SeedResult): Promise<void> {
     result.details.push('\n--- SEO files ---');
 
-    // robots.txt
-    const robotsStart = Date.now();
-    try {
-        await generateAndDeployRobotsTxt();
-        const duration = ((Date.now() - robotsStart) / 1000).toFixed(1);
-        result.details.push(`Deployed /robots.txt (${duration}s)`);
-        result.deployed++;
-    } catch (err: any) {
-        const duration = ((Date.now() - robotsStart) / 1000).toFixed(1);
-        result.errors++;
-        result.success = false;
-        const errorMsg = `Failed to deploy /robots.txt (${duration}s): ${err.message}`;
-        result.details.push(`ERROR: ${errorMsg}`);
-        result.errorDetails.push(errorMsg);
+    const batch = new HostingBatch();
+    const generated: string[] = [];
+    const steps: Array<[string, () => Promise<void>]> = [
+        ['/robots.txt', () => generateAndDeployRobotsTxt(batch)],
+        // llms.txt + llms-full.txt (D-D7); removed when switched off in settings
+        ['/llms.txt and /llms-full.txt', () => generateAndDeployLlmsTxt(batch)],
+        ['/sitemap.xml', () => generateAndDeploySitemap(batch)],
+        // One feed per content type
+        ['RSS feeds', () => generateAndDeployRssFeeds(batch)],
+    ];
+    for (const [name, step] of steps) {
+        const started = Date.now();
+        try {
+            await step();
+            generated.push(name);
+            result.details.push(`Built ${name} (${((Date.now() - started) / 1000).toFixed(1)}s)`);
+        } catch (err: any) {
+            const errorMsg = `Failed to build ${name} (${((Date.now() - started) / 1000).toFixed(1)}s): ${err.message}`;
+            result.errors++;
+            result.success = false;
+            result.details.push(`ERROR: ${errorMsg}`);
+            result.errorDetails.push(errorMsg);
+        }
+    }
+    if (!generated.length) return;
+    const siteId = arcHostingSite();
+    if (!siteId) {
+        // As for the pages above: the files are built, and there is no site to release them to (CO5).
+        result.details.push(`Hosting is off for this install: ${generated.join(', ')} built, nothing released`);
+        result.deployed += generated.length;
+        return;
     }
 
-    // llms.txt + llms-full.txt (D-D7); skipped when switched off in settings
-    const llmsStart = Date.now();
-    try {
-        await generateAndDeployLlmsTxt();
-        const duration = ((Date.now() - llmsStart) / 1000).toFixed(1);
-        result.details.push(`Deployed /llms.txt and /llms-full.txt (${duration}s)`);
-        result.deployed++;
-    } catch (err: any) {
-        const duration = ((Date.now() - llmsStart) / 1000).toFixed(1);
+    const started = Date.now();
+    let reason = '';
+    const released = batch.isEmpty || await deployBatchToHosting(siteId, batch, '', '', {
+        onFailure: (failure) => { reason = `${failure.code}: ${failure.message}`; },
+    });
+    const duration = ((Date.now() - started) / 1000).toFixed(1);
+    if (released) {
+        result.details.push(`Deployed ${generated.join(', ')} in one release (${batch.size} file(s), ${duration}s)`);
+        result.deployed += generated.length;
+    } else {
+        const errorMsg = `Failed to release ${generated.join(', ')} (${duration}s): ${reason || 'see the function logs'}`;
         result.errors++;
         result.success = false;
-        const errorMsg = `Failed to deploy /llms.txt (${duration}s): ${err.message}`;
-        result.details.push(`ERROR: ${errorMsg}`);
-        result.errorDetails.push(errorMsg);
-    }
-
-    // sitemap.xml
-    const sitemapStart = Date.now();
-    try {
-        await generateAndDeploySitemap();
-        const duration = ((Date.now() - sitemapStart) / 1000).toFixed(1);
-        result.details.push(`Deployed /sitemap.xml (${duration}s)`);
-        result.deployed++;
-    } catch (err: any) {
-        const duration = ((Date.now() - sitemapStart) / 1000).toFixed(1);
-        result.errors++;
-        result.success = false;
-        const errorMsg = `Failed to deploy /sitemap.xml (${duration}s): ${err.message}`;
-        result.details.push(`ERROR: ${errorMsg}`);
-        result.errorDetails.push(errorMsg);
-    }
-
-    // RSS feeds (one per content type)
-    const rssStart = Date.now();
-    try {
-        await generateAndDeployRssFeeds();
-        const duration = ((Date.now() - rssStart) / 1000).toFixed(1);
-        result.details.push(`Deployed RSS feeds (${duration}s)`);
-        result.deployed++;
-    } catch (err: any) {
-        const duration = ((Date.now() - rssStart) / 1000).toFixed(1);
-        result.errors++;
-        result.success = false;
-        const errorMsg = `Failed to deploy RSS feeds (${duration}s): ${err.message}`;
         result.details.push(`ERROR: ${errorMsg}`);
         result.errorDetails.push(errorMsg);
     }
