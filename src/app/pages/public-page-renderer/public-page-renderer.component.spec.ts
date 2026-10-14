@@ -185,4 +185,109 @@ describe('PublicPageRendererComponent', () => {
         httpMock.expectNone('/_site/pages/no-such-page.html');
         expect(routerSpy.navigate).toHaveBeenCalledWith(['/404']);
     });
+
+    // A hand-written page's own <head>: its styles and scripts, as when published.
+    describe('the page\'s own styles and scripts', () => {
+        const ran = () => ((window as any).__arcPageRan ??= []) as string[];
+        const PAGE = `<!DOCTYPE html><html><head>
+            <title>Launch</title>
+            <link rel="canonical" href="https://example.com/launch">
+            <link rel="icon" href="/favicon.ico">
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link href="https://fonts.googleapis.com/css2?family=Poppins" rel="stylesheet">
+            <style>.hero { min-height: 80vh; }</style>
+            <script type="application/ld+json">{"@type":"Event"}</script>
+            <script>window.__arcPageRan.push('head');</script>
+        </head><body>
+            <arc-header></arc-header>
+            <section class="hero">Hi</section>
+            <script>window.__arcPageRan.push('body ' + !!document.querySelector('.public-page-content .hero'));</script>
+            <arc-footer></arc-footer>
+        </body></html>`;
+        const added = () => Array.from(document.head.querySelectorAll('[data-arc-page-head]'));
+
+        beforeEach(() => { (window as any).__arcPageRan = []; });
+        afterEach(() => {
+            fixture?.destroy();
+            delete (window as any).__arcPageRan;
+        });
+
+        function open(html: string, platform = 'browser') {
+            paramsSubject.next({ fileName: 'test-page' });
+            createComponent();
+            // Where the page is drawn, read when it arrives.
+            (component as any).platformId = platform;
+            httpMock.expectOne('/_site/pages/test-page.html').flush(html);
+        }
+
+        it('keeps its stylesheets, <style> blocks and font links, after the app\'s styles', () => {
+            const appSheet = document.createElement('link');
+            appSheet.rel = 'stylesheet';
+            appSheet.href = '/assets/css/site.css';
+            document.head.appendChild(appSheet);
+            open(PAGE);
+
+            const styles = added().filter((el) => el.tagName !== 'SCRIPT');
+            expect(styles.map((el) => el.outerHTML)).toEqual([
+                '<link rel="preconnect" href="https://fonts.googleapis.com" data-arc-page-head="">',
+                '<link href="https://fonts.googleapis.com/css2?family=Poppins" rel="stylesheet" data-arc-page-head="">',
+                '<style data-arc-page-head="">.hero { min-height: 80vh; }</style>',
+            ]);
+            // After the app's own stylesheets, so the page's rules win.
+            expect(appSheet.compareDocumentPosition(styles[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+            // Not the page's canonical or icon: the app's head keeps its own.
+            expect(document.head.querySelector('link[rel="canonical"][data-arc-page-head]')).toBeNull();
+            appSheet.remove();
+        });
+
+        it('runs its scripts once, in document order, after the page is drawn', () => {
+            open(PAGE);
+            expect(ran()).toEqual(['head', 'body true']);
+
+            fixture.detectChanges();
+            expect(ran()).toEqual(['head', 'body true']);
+            // Data such as JSON-LD is not run.
+            expect(added().some((el) => el.getAttribute('type') === 'application/ld+json')).toBe(false);
+        });
+
+        it('waits for a script it loads before running the next', async () => {
+            open(`<html><head><script src="/site/pages/lib.js"></script></head>
+                <body><p>Page</p><script>window.__arcPageRan.push('after lib');</script></body></html>`);
+
+            const lib = document.head.querySelector('script[src="/site/pages/lib.js"]') as HTMLScriptElement;
+            expect(lib).not.toBeNull();
+            await Promise.resolve();
+            expect(ran()).toEqual([]);
+
+            lib.dispatchEvent(new Event('load'));
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            expect(ran()).toEqual(['after lib']);
+        });
+
+        it('takes what it added out of the head when the page is left', () => {
+            open(PAGE);
+            expect(added().length).toBeGreaterThan(0);
+
+            fixture.destroy();
+            expect(added()).toEqual([]);
+        });
+
+        it('stops loading a page\'s scripts once it is left', async () => {
+            open(`<html><head><script src="/site/pages/lib.js"></script></head>
+                <body><script>window.__arcPageRan.push('after lib');</script></body></html>`);
+            const lib = document.head.querySelector('script[src="/site/pages/lib.js"]') as HTMLScriptElement;
+
+            fixture.destroy();
+            lib.dispatchEvent(new Event('load'));
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            expect(ran()).toEqual([]);
+        });
+
+        it('adds and runs nothing when rendered on the server', () => {
+            open(PAGE, 'server');
+
+            expect(added()).toEqual([]);
+            expect(ran()).toEqual([]);
+        });
+    });
 });

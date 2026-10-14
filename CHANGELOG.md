@@ -67,6 +67,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `consumeRateLimit` (app kit) takes an optional fifth argument, `reason`, and its refusal carries `details.reason` and `details.retryAfter` (seconds). Existing calls work unchanged.
 - New member translation keys: `member.auth.server_error.*`, `member.auth.code_already_sent` and `member.auth.code_sent_again`.
 
+- **A hand-written page's own styles win over the site's, as on the home page.** Publishing a page from `src/custom/site/pages/` now puts Arc CMS's stylesheets (Bootstrap, Font Awesome, `main.css`, your `site.css`) first in its `<head>`, right after `<meta charset>`, and the page's own `<style>` and `<link>` tags after them. Before, they came last, so a rule in `site.css` beat the page's own rule for the same class (a home page `.hero` in `site.css` reshaped a page's own `.hero`). Republish and check any page that relied on the site's rule winning. See docs/website/static-pages.html.
+
 ### Removed
 
 - **Signup forms have no referrals, queue position or leaderboard any more.** A form on any page shows a tick, "You're on the list!" and the person's address, or "You're already on the list."; the form's own page `/waitlist/{form}` does the same. Gone:
@@ -81,6 +83,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Panel classes.** Kept: `.waitlist-verify-step`, `.waitlist-success-step`, `.waitlist-existing-step`, `.waitlist-otp-input`, `.waitlist-verify-btn`, `.waitlist-resend-btn`, `.waitlist-back-btn`, `.waitlist-inline-message`. New: `.waitlist-success-icon`, `.waitlist-success-title`, `.waitlist-success-text`, in both confirmations. Gone: `.waitlist-stat-number`, `.waitlist-leaderboard-btn`, `.waitlist-copy-input`, `.waitlist-copy-btn`, `.waitlist-referral-input`. CSS that hid the gamified parts of the panels can go.
 - The default welcome email is a plain confirmation. A form whose welcome is still exactly the old default, with its referral and leaderboard buttons, gets the new one the next time it is used; an edited welcome is left alone.
 - The signup panel keys `signup_position`, `signup_total`, `signup_move_up`, `signup_move_up_body`, `signup_referral_code`, `signup_share_link`, `signup_leaderboard`, `signup_referral_placeholder`, `signup_copy` and `signup_copied`, and the admin key `admin.dashboard.col_referrals`.
+
+### Fixed
+
+- **`npm run dev` shows a hand-written page as it is published.** At `/p/{name}` the app kept only the page's `<body>`, so the page's own stylesheets, `<style>` blocks and fonts were missing and its scripts never ran. The app now adds them after its own styles while the page is open, takes them away when you leave it, and runs the page's scripts once the page is drawn, in the order written, each script with a `src` loaded before the next. See docs/website/static-pages.html.
 
 ### For apps upgrading
 
