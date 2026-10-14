@@ -18,12 +18,13 @@ import { DOCUMENT } from '@angular/common';
 
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { TemplateHydrationService } from '../../core/services/template-hydration.service';
-import { setSiteManifestForTesting, siteManifest } from '../../core/site/site';
+import { setSiteManifestForTesting } from '../../core/site/site';
+import { coreSiteManifest } from '../../../test/core-site';
 
-/** The built manifest plus a folder of the test's own. */
+/** Arc CMS's own manifest plus a folder of the test's own. */
 function withFolder(name: string): void {
-    const built = siteManifest();
-    setSiteManifestForTesting({ ...built, templates: { ...built.templates, [name]: { list: 'app' } } });
+    const core = coreSiteManifest();
+    setSiteManifestForTesting({ ...core, templates: { ...core.templates, [name]: { list: 'app' } } });
 }
 
 describe('ContentListComponent', () => {
@@ -271,8 +272,8 @@ describe('ContentListComponent', () => {
         });
 
         it('uses the default list.html for a folder that has only a detail.html', () => {
-            const built = siteManifest();
-            setSiteManifestForTesting({ ...built, templates: { ...built.templates, recipes: { detail: 'app' } } });
+            const core = coreSiteManifest();
+            setSiteManifestForTesting({ ...core, templates: { ...core.templates, recipes: { detail: 'app' } } });
             mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', templateFolder: 'recipes' }]);
             fixture.detectChanges();
 

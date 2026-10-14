@@ -4,10 +4,11 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClient } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UiStringsService } from './ui-strings.service';
 import { LocalizationService } from './localization.service';
 import { setSiteManifestForTesting, siteManifest } from '../site/site';
+import { coreSiteManifest } from '../../../test/core-site';
 
 describe('UiStringsService', () => {
     let service: UiStringsService;
@@ -16,7 +17,8 @@ describe('UiStringsService', () => {
     let localization: { load: ReturnType<typeof vi.fn> };
 
     beforeEach(() => {
-        setSiteManifestForTesting();
+        // Strings for Hindi only, whatever the app's site has (an app may word its default language).
+        setSiteManifestForTesting({ ...coreSiteManifest(), strings: ['hi'] });
         get = vi.fn().mockReturnValue(of({ read_more: 'लेख पढ़ें' }));
         localization = { load: vi.fn().mockResolvedValue({ defaultLanguage: 'en' }) };
         TestBed.configureTestingModule({
@@ -28,6 +30,8 @@ describe('UiStringsService', () => {
         });
         service = TestBed.inject(UiStringsService);
     });
+
+    afterEach(() => setSiteManifestForTesting());
 
     /** A site whose strings include its default language, English. */
     function withEnglishFile(): void {

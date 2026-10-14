@@ -56,6 +56,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - The About setting **Profiles elsewhere (sameAs)** is now **Social and profile links**.
 
 - **`npm run test` type-checks the app and the functions**, and **`npm run typecheck`** runs that check alone (`scripts/typecheck.mjs`). Vitest does not check types, so a type error used to pass the suite and fail only at `npm run build` or a deploy. The admin SMS settings page had one such error, which stopped the production build; it is fixed.
+- **The core specs pass in an app with its own website.** The strings, template, layout and home page specs read the site Arc CMS ships (`coreSiteManifest()` in `src/test/core-site.ts`) instead of the built manifest, so a strings file for the default language (`src/custom/site/strings/en.json`), or a template or layout of the app's own, no longer fails them. The `arc:own-site` end to end tests all get the long timeout. See docs/operations/testing.html.
 
 - On a site whose default country code is `+1` or `+7`, a number typed without `+` that starts with that digit (every Kazakh mobile starts with 7) was read as already carrying the code: `701 123 45 67` became `+7011234567`. Both twins of `normalizePhone` now need all eleven digits for those codes. In Russia, Kazakhstan and Belarus, a number typed with the domestic `8` in front of it beside the country chip is read correctly.
 - New member translation keys: `member.phone_country.*`, `member.auth.identifier_error.phone_start_choose` and `phone_not_allowed`; `phone_start` is shorter.

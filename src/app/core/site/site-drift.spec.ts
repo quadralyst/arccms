@@ -3,7 +3,8 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { liveSiteName, siteFileDrift, SiteDriftService, LIVE_MANIFEST_PATH, NO_LIVE_SITE_FILES } from './site-drift';
-import { setSiteManifestForTesting, siteManifest } from './site';
+import { setSiteManifestForTesting } from './site';
+import { coreSiteManifest } from '../../../test/core-site';
 
 // A project of its own: the shipped environment.ts names none (docs/app/environments.html).
 vi.mock('../../../environments/environment', () => ({ environment: { production: false, firebaseConfig: { projectId: 'acme' } } }));
@@ -35,7 +36,7 @@ describe('site drift', () => {
     }
 
     it('compares this build\'s files with the live site\'s, through the dev server, once', async () => {
-        setSiteManifestForTesting({ ...siteManifest(), files: { '_site/home.html': 'new' } });
+        setSiteManifestForTesting({ ...coreSiteManifest(), files: { '_site/home.html': 'new' } });
         const fetchMock = serve(200, { files: { '_site/home.html': 'old' } });
         const service = new SiteDriftService();
         expect(await service.differences()).toEqual(['_site/home.html']);

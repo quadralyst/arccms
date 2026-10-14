@@ -12,12 +12,13 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { GlobalService } from '../../../shared/services/global.service';
 import { ToastService } from '../../../shared/services/toast.service';
 
-import { setSiteManifestForTesting, siteManifest } from '../../core/site/site';
+import { setSiteManifestForTesting } from '../../core/site/site';
+import { coreSiteManifest } from '../../../test/core-site';
 
-/** The built manifest plus a folder of the test's own. */
+/** Arc CMS's own manifest plus a folder of the test's own. */
 function withFolder(name: string): void {
-    const built = siteManifest();
-    setSiteManifestForTesting({ ...built, templates: { ...built.templates, [name]: { partials: 'app' } } });
+    const core = coreSiteManifest();
+    setSiteManifestForTesting({ ...core, templates: { ...core.templates, [name]: { partials: 'app' } } });
 }
 
 describe('ContentPartialsComponent', () => {

@@ -22,7 +22,8 @@ import { LocalizationService } from '../../../../core/services/localization.serv
 import { AuthState } from '../../../(auth)/auth.store';
 import { AuthorsService } from '../../(authors)/authors.service';
 import { SearchService } from '../../../../core/services/search.service';
-import { setSiteManifestForTesting, siteManifest } from '../../../../core/site/site';
+import { setSiteManifestForTesting } from '../../../../core/site/site';
+import { coreSiteManifest } from '../../../../../test/core-site';
 
 describe('CreateContentComponent', () => {
     let component: CreateContentComponent;
@@ -487,8 +488,8 @@ describe('CreateContentComponent', () => {
     describe('Layout', () => {
         const select = () => fixture.nativeElement.querySelector('[data-testid="layout-select"]') as HTMLSelectElement | null;
         function withType(templateFolder: string, layouts?: Record<string, Record<string, 'core' | 'app'>>): void {
-            const built = siteManifest();
-            setSiteManifestForTesting({ ...built, templates: { ...built.templates, [templateFolder]: { detail: 'app' } }, layouts });
+            const core = coreSiteManifest();
+            setSiteManifestForTesting({ ...core, templates: { ...core.templates, [templateFolder]: { detail: 'app' } }, layouts });
             mockContentTypesStore.items.set([{ name: 'Pages', slug: 'pagesx', templateFolder }]);
             component.contentTypeSlug = 'pagesx';
             fixture.detectChanges();

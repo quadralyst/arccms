@@ -22,15 +22,16 @@ import { DOCUMENT } from '@angular/common';
 import { AuthorProfileService } from '../../core/services/author-profile.service';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { setSiteManifestForTesting, siteManifest } from '../../core/site/site';
+import { setSiteManifestForTesting } from '../../core/site/site';
+import { coreSiteManifest } from '../../../test/core-site';
 
 /** Arc CMS's default detail template, as the site serves it. */
 const DEFAULT_DETAIL = readFileSync(resolve(__dirname, '../../../../public/_site/templates/default/detail.html'), 'utf8');
 
-/** The built manifest plus a folder of the test's own. */
+/** Arc CMS's own manifest plus a folder of the test's own. */
 function withFolder(name: string): void {
-    const built = siteManifest();
-    setSiteManifestForTesting({ ...built, templates: { ...built.templates, [name]: { detail: 'app' } } });
+    const core = coreSiteManifest();
+    setSiteManifestForTesting({ ...core, templates: { ...core.templates, [name]: { detail: 'app' } } });
 }
 
 describe('ContentDetailComponent', () => {
@@ -47,6 +48,8 @@ describe('ContentDetailComponent', () => {
     let mockGaTrackingService: any;
 
     beforeEach(async () => {
+        // Arc CMS's site, not the app's: an app's strings for its default language would add a request.
+        setSiteManifestForTesting(coreSiteManifest());
         mockContentsStore = {
             items: signal([]),
             isLoading: signal(false),
@@ -200,10 +203,10 @@ describe('ContentDetailComponent', () => {
 
         // SS8 (specs/site-sections-spec.md): an item's own layout in its type's folder.
         it('loads the layout the item chose', () => {
-            const built = siteManifest();
+            const core = coreSiteManifest();
             setSiteManifestForTesting({
-                ...built,
-                templates: { ...built.templates, pages: { detail: 'app' } },
+                ...core,
+                templates: { ...core.templates, pages: { detail: 'app' } },
                 layouts: { pages: { contact: 'app' } },
             });
             mockContentsStore.items.set([{ id: '1', title: 'Contact', urlSlug: 'my-article', type: 'articles', publishedStatus: true, layout: 'contact' }]);
@@ -214,10 +217,10 @@ describe('ContentDetailComponent', () => {
         });
 
         it('switches to the draft\'s layout when a preview\'s draft arrives after the published copy', () => {
-            const built = siteManifest();
+            const core = coreSiteManifest();
             setSiteManifestForTesting({
-                ...built,
-                templates: { ...built.templates, pages: { detail: 'app' } },
+                ...core,
+                templates: { ...core.templates, pages: { detail: 'app' } },
                 layouts: { pages: { contact: 'app' } },
             });
             mockHttpClient.get.mockImplementation((url: string) => of(`<div class="${url.includes('detail-contact') ? 'contact' : 'standard'}">{{ title }}</div>`));
@@ -238,10 +241,10 @@ describe('ContentDetailComponent', () => {
         });
 
         it('uses the folder\'s detail.html for a layout the site does not have, and once a layout file is not a template', () => {
-            const built = siteManifest();
+            const core = coreSiteManifest();
             setSiteManifestForTesting({
-                ...built,
-                templates: { ...built.templates, pages: { detail: 'app' } },
+                ...core,
+                templates: { ...core.templates, pages: { detail: 'app' } },
                 layouts: { pages: { contact: 'app' } },
             });
             mockHttpClient.get.mockImplementation((url: string) =>

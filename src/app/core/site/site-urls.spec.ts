@@ -10,7 +10,8 @@ import { firstValueFrom } from 'rxjs';
 import { versionSiteUrls } from './site-urls';
 import { versionSiteUrls as versionSiteUrlsServer } from '../../../../functions/src/shared/site-urls';
 import { siteFilesInterceptor } from './site-files.interceptor';
-import { setSiteManifestForTesting, siteManifest } from './site';
+import { setSiteManifestForTesting } from './site';
+import { coreSiteManifest } from '../../../test/core-site';
 
 const FILES = { 'site/home.css': 'c1', 'site/hero.webp': 'h1', 'site/hero@2x.webp': 'h2', 'site/home.js': 'j1', 'assets/css/main.css': 'm1' };
 
@@ -45,7 +46,7 @@ describe('versionSiteUrls', () => {
 
 describe('siteFilesInterceptor', () => {
     it('versions the links in the site pages the app fetches, and nothing else', async () => {
-        setSiteManifestForTesting({ ...siteManifest(), files: FILES });
+        setSiteManifestForTesting({ ...coreSiteManifest(), files: FILES });
         TestBed.configureTestingModule({
             providers: [provideHttpClient(withInterceptors([siteFilesInterceptor])), provideHttpClientTesting()],
         });
