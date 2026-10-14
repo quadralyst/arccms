@@ -959,7 +959,7 @@
 
     // The option the arrow keys are on.
     &.active {
-        background-color: #e9f2ff;
+        background-color: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff);
     }
 
     .next-content-title {
