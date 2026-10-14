@@ -265,12 +265,13 @@ input:focus {
 
 .auth-logo {
     text-align: center;
-    // Room for the logo before the site's identity arrives, so nothing shifts.
-    min-height: 60px;
+    // Room for the logo before the site's identity arrives, so nothing shifts; a site
+    // that hides the tile can take it away (--arc-sign-in-logo-height: 0).
+    min-height: var(--arc-sign-in-logo-height, 60px);
     // margin-bottom: 1.5rem;
 }
 
-// The logo tile, or the name as a heading; --arc-sign-in-logo: none hides both.
+// The logo tile; --arc-sign-in-logo: none hides it and leaves the site's name.
 .auth-logo img {
     display: var(--arc-sign-in-logo, inline-block);
     width: 120px;
@@ -279,24 +280,41 @@ input:focus {
     object-fit: contain;
 }
 
-.auth-logo-text {
-    display: var(--arc-sign-in-logo, block);
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #111827;
+// The site's name above the card, the same one line on every step. Its track is as
+// wide as the card's words and centred with the card, so a name aligned left
+// (--arc-sign-in-name-align) starts where they start. Centred, the name may be
+// wider than the track and wraps where it always did, at the room above the card.
+.auth-logo-line {
+    // The card's width and the room inside it (its padding and the card body's).
+    --sign-in-card-width: min(var(--arc-sign-in-card-max-width, 500px), 100cqi - 2 * var(--arc-sign-in-gutter, 20px));
+    --sign-in-card-inset: calc(10px + 1rem);
+    // The room above the card: the form container's width less its side padding.
+    --sign-in-line-width: calc(min(450px, 100cqi) - 40px);
+    display: grid;
+    grid-template-columns: calc(var(--sign-in-card-width) - 2 * var(--sign-in-card-inset));
+    justify-content: unsafe center;
 }
 
-// The brand as a line of small capitals, on every step: --arc-sign-in-logo-text: "Name".
-// Nothing (content: none) until a site sets it.
-.auth-logo::after {
-    content: var(--arc-sign-in-logo-text, none);
-    display: block;
-    line-height: 60px;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--arc-sign-in-muted-color, #6B7280);
+.auth-logo-text {
+    justify-self: unsafe var(--arc-sign-in-name-align, center);
+    // The heading's margin used to run out of the 60px box unseen; in the grid it would add height.
+    margin: 0;
+    width: max-content;
+    max-width: var(--sign-in-line-width);
+    text-align: var(--arc-sign-in-name-align, center);
+    font-size: var(--arc-sign-in-name-size, 1.5rem);
+    font-weight: var(--arc-sign-in-name-weight, 600);
+    letter-spacing: var(--arc-sign-in-name-letter-spacing, normal);
+    text-transform: var(--arc-sign-in-name-transform, none);
+    color: var(--arc-sign-in-name-color, #111827);
+}
+
+// Beside a logo tile the name shows only for a site that hides the tile: no height
+// until --arc-sign-in-logo: none lifts the limit. Screen readers read it in place
+// of the tile, whose alt is empty.
+.auth-logo-text-by-tile {
+    max-height: var(--arc-sign-in-logo, 0);
+    overflow: hidden;
 }
 
 .auth-title {
@@ -661,6 +679,10 @@ input:focus {
         padding: 40px !important;
     }
 
+    .auth-logo-line {
+        --sign-in-card-inset: 50px;
+    }
+
     // The app's image (src/custom/sign-in-image.*): the whole panel, cropped to fill it
     .auth-left-image {
         position: absolute;
@@ -755,6 +777,8 @@ input:focus {
 // Nothing scrolls unless a step is taller than the screen (a long sign-up form).
 .auth-form-column {
     position: relative;
+    // Its width sizes the brand line (cqi in .auth-logo-line).
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     // Less the "Built with Arc CMS" line under the page, when the site shows it (PoweredByFooterComponent).
@@ -804,6 +828,10 @@ input:focus {
     // Tighter on a phone, so the logo, the card and the footer fit one screen.
     .auth-form-container {
         padding: 16px var(--arc-sign-in-gutter, 20px);
+    }
+
+    .auth-logo-line {
+        --sign-in-line-width: calc(min(450px, 100cqi) - 2 * var(--arc-sign-in-gutter, 20px));
     }
 
     .copyright {
