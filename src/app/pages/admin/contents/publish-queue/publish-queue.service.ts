@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Firestore, collection, addDoc, query, where, getDocs, deleteDoc } from '@angular/fire/firestore';
+import { Firestore, collection, addDoc } from '@angular/fire/firestore';
 
 /**
  * `redeploy` regenerates the static pages from what is already published,
@@ -34,32 +34,19 @@ export class PublishQueueService {
      * Enqueue a publish/unpublish/update/delete action for processing
      * by the Cloud Function.
      *
-     * Deletes any existing stale queue items for the same docId first,
-     * so re-publishing always creates a fresh trigger document and
-     * resets any stuck state.
+     * Each call adds a new document (a new id), so every publish fires the
+     * trigger afresh. The function deletes the document when it is done; the
+     * rules let the app create queue documents only, never read, change or
+     * delete them (firestore.rules, `_publish_queue`).
      */
     async enqueue(action: PublishAction, contentTypeSlug: string, docId: string): Promise<void> {
-        const queueRef = collection(this.firestore, '_publish_queue');
-
-        // Delete any existing stale queue items for the same document
-        // This ensures re-publishing triggers a fresh onCreate event
-        try {
-            const staleQuery = query(queueRef, where('docId', '==', docId));
-            const staleSnap = await getDocs(staleQuery);
-            const deletePromises = staleSnap.docs.map(doc => deleteDoc(doc.ref));
-            await Promise.all(deletePromises);
-        } catch (error) {
-            // Non-critical: log but continue with the enqueue
-            console.warn('Could not clean stale queue items:', error);
-        }
-
         const item: PublishQueueItem = {
             action,
             contentTypeSlug,
             docId,
             timestamp: new Date(),
         };
-        await addDoc(queueRef, item);
+        await addDoc(collection(this.firestore, '_publish_queue'), item);
     }
 
     /**
@@ -81,8 +68,7 @@ export class PublishQueueService {
     /**
      * The pages that show a content type's entries follow their new order, or
      * the type's changed entry order (specs/site-sections-spec.md, SS2). Added
-     * directly, like redeployAll: it names no document, so enqueue's clean-up
-     * of stale items by document id does not apply.
+     * like redeployAll: it names no document.
      */
     async reorder(contentTypeSlug: string): Promise<void> {
         await this.addSiteItem('order', contentTypeSlug);

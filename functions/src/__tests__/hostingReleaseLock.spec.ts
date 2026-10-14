@@ -74,7 +74,8 @@ vi.mock('google-auth-library', () => ({
 }));
 
 import { HostingBatch, deployBatchToHosting, removeFileFromHosting } from '../pages/deployToHosting.js';
-import { RELEASE_LOCK_STALE_MS, RELEASE_LOCK_WAIT_MS, newerVersion } from '../pages/hosting-release-lock.js';
+import { deploySeoFileToHosting } from '../pages/deploySeoFile.js';
+import { RELEASE_LOCK_STALE_MS, RELEASE_LOCK_WAIT_MS, RELEASE_TIME_MS, lockWaitBefore, newerVersion } from '../pages/hosting-release-lock.js';
 
 // ─── Fake Hosting API: versions with their files, releases in order ───────────
 
@@ -235,6 +236,23 @@ describe('Hosting releases run one at a time', () => {
         expect(warn).toHaveBeenCalledWith(expect.stringContaining('never finished'));
     });
 
+    it('takes over a lock whose start is further in the future than a clock could be off', async () => {
+        // A lock that says it was taken an hour from now was not written by a release.
+        store.set(LOCK, { data: { holder: 'forged', since: Date.now() + 60 * 60_000 }, updateTime: -1 });
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        expect(await publish('/a.html')).toBe(true);
+        expect(livePaths()).toEqual(['/a.html', '/index.html']);
+    });
+
+    it('waits for a lock a few seconds ahead, as a clock a little ahead of this one writes', async () => {
+        store.set(LOCK, { data: { holder: 'ahead', since: Date.now() + 5_000 }, updateTime: 1 });
+        setTimeout(() => store.delete(LOCK), 100);
+
+        expect(await publish('/a.html')).toBe(true);
+        expect(hosting.releases).toHaveLength(2);
+    });
+
     it('waits for a live lock rather than releasing past it', async () => {
         let resume!: () => void;
         hosting.gate = new Promise<void>(resolve => { resume = resolve; });
@@ -268,9 +286,9 @@ describe('Hosting releases run one at a time', () => {
 
     it('fails with HOSTING_RELEASE_BUSY, releasing nothing, when another release holds the lock too long', async () => {
         const started = Date.now();
-        // A live holder (its lock never goes stale here), and a clock that moves a
-        // minute each time it is read, so the wait runs out after one pause.
-        store.set(LOCK, { data: { holder: 'busy', since: started + 60 * 60_000 }, updateTime: 1 });
+        // A live holder, and a clock that moves a minute each time it is read, so
+        // the wait runs out after a pause or two, long before the lock is stale.
+        store.set(LOCK, { data: { holder: 'busy', since: started }, updateTime: 1 });
         let reads = 0;
         vi.spyOn(Date, 'now').mockImplementation(() => started + (reads++) * 60_000);
         store.set('arc_articles/doc1', { data: {}, updateTime: 1 });
@@ -282,6 +300,129 @@ describe('Hosting releases run one at a time', () => {
         expect(store.get('arc_articles/doc1')?.data.deployErrorCode).toBe('HOSTING_RELEASE_BUSY');
         expect(hosting.releases).toHaveLength(1);
         expect(store.get(LOCK)?.data.holder).toBe('busy');
+    });
+});
+
+// A queue run with a time budget passes a deadline: the wait for the lock must
+// not run it past its function's timeout.
+describe('a release with a deadline', () => {
+    /** A live holder, and a clock that moves a minute each time it is read. */
+    function busyClock() {
+        const started = Date.now();
+        store.set(LOCK, { data: { holder: 'busy', since: started }, updateTime: 1 });
+        let reads = 0;
+        vi.spyOn(Date, 'now').mockImplementation(() => started + (reads++) * 60_000);
+        return { started };
+    }
+
+    it('waits for the lock only while the release still fits before the deadline', async () => {
+        const { started } = busyClock();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const failures: Array<{ code: string; message: string }> = [];
+
+        const released = await deployBatchToHosting(SITE, new HostingBatch().add('/a.html', 'A'), '', '', {
+            deadline: started + RELEASE_TIME_MS + 60_000,
+            onFailure: (f) => failures.push(f),
+        });
+
+        expect(released).toBe(false);
+        expect(failures.map(f => f.code)).toEqual(['HOSTING_RELEASE_BUSY']);
+        // Gave up after at most the minute the deadline left, not the full wait.
+        const waitedS = Number(/after (\d+) seconds/.exec(failures[0].message)?.[1]);
+        expect(waitedS).toBeLessThanOrEqual(60);
+        expect(RELEASE_LOCK_WAIT_MS / 1000).toBeGreaterThan(60);
+        expect(hosting.releases).toHaveLength(1);
+    });
+
+    it('waits once more when asked and the deadline leaves time, recording nothing in between', async () => {
+        const { started } = busyClock();
+        store.set('arc_articles/doc1', { data: {}, updateTime: 1 });
+        // The other release ends just as the first wait runs out.
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => { store.delete(LOCK); });
+
+        const released = await deployBatchToHosting(SITE, new HostingBatch().add('/a.html', 'A'), 'arc_articles', 'doc1', {
+            deadline: started + 60 * 60_000,
+            busyRetries: 1,
+        });
+
+        expect(released).toBe(true);
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('once more'));
+        expect(store.get('arc_articles/doc1')?.data).toMatchObject({ deployStatus: 'deployed', deployErrorCode: '' });
+        expect(livePaths()).toEqual(['/a.html', '/index.html']);
+    });
+
+    it('does not wait again without busyRetries', async () => {
+        busyClock();
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        expect(await deployBatchToHosting(SITE, new HostingBatch().add('/a.html', 'A'), '', '')).toBe(false);
+        expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('once more'));
+    });
+});
+
+describe('lockWaitBefore', () => {
+    it('is the full wait without a deadline, or with one far enough away', () => {
+        expect(lockWaitBefore()).toBe(RELEASE_LOCK_WAIT_MS);
+        expect(lockWaitBefore(Date.now() + 60 * 60_000)).toBe(RELEASE_LOCK_WAIT_MS);
+    });
+
+    it('leaves the release its time before the deadline, and is never negative', () => {
+        const now = Date.now();
+        vi.spyOn(Date, 'now').mockReturnValue(now);
+        expect(lockWaitBefore(now + RELEASE_TIME_MS + 30_000)).toBe(30_000);
+        expect(lockWaitBefore(now + RELEASE_TIME_MS - 1)).toBe(0);
+        expect(lockWaitBefore(now - 1)).toBe(0);
+    });
+});
+
+// An SEO file released on its own (no batch: an app function, or a caller that
+// has none) is a release like any other, so it takes the same lock.
+describe('an SEO file released on its own', () => {
+    beforeEach(() => vi.stubEnv('ARC_HOSTING_SITE', SITE));
+    afterEach(() => vi.unstubAllEnvs());
+
+    it('keeps the files of a release running at the same time', async () => {
+        await Promise.all([
+            publish('/articles/a.html'),
+            deploySeoFileToHosting('/robots.txt', 'User-agent: *'),
+            deploySeoFileToHosting('/sitemap.xml', '<urlset/>'),
+        ]);
+
+        expect(livePaths()).toEqual(['/articles/a.html', '/index.html', '/robots.txt', '/sitemap.xml']);
+        expect(store.has(LOCK)).toBe(false);
+    });
+
+    it('waits for a live lock, then builds on the release it waited for, even before the list shows it', async () => {
+        hosting.listLag = 1;
+        let resume!: () => void;
+        hosting.gate = new Promise<void>(resolve => { resume = resolve; });
+        const first = publish('/a.html');
+        await vi.waitFor(() => expect(store.has(LOCK)).toBe(true));
+        const seo = deploySeoFileToHosting('/robots.txt', 'User-agent: *');
+        await new Promise(resolve => setTimeout(resolve, 50));
+        expect(hosting.versions.size).toBe(2); // the SEO release has not started
+        hosting.gate = null;
+        resume();
+        await first;
+        await seo;
+
+        expect(livePaths()).toEqual(['/a.html', '/index.html', '/robots.txt']);
+    });
+
+    it('throws when its release does not go out, so the caller can report it', async () => {
+        vi.mocked(fetch).mockImplementationOnce(async () => ({ ok: false, status: 500, text: async () => 'boom' }) as unknown as Response);
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        await expect(deploySeoFileToHosting('/robots.txt', 'x')).rejects.toThrow(/robots\.txt.*HOSTING_API_500/);
+        expect(store.has(LOCK)).toBe(false);
+    });
+
+    it('rides in the caller\'s batch when given one, releasing nothing itself', async () => {
+        const batch = new HostingBatch();
+        await deploySeoFileToHosting('/robots.txt', 'x', batch);
+        expect(batch.paths).toEqual(['/robots.txt']);
+        expect(hosting.releases).toHaveLength(1);
     });
 });
 

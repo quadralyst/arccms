@@ -194,7 +194,7 @@
       <li><p>The <code>processPublishQueue</code> function (<code>functions/src/publishQueue/processPublishQueue.ts</code>) copies the draft to <code>arc_{slug}</code> with <code>publishedOn</code> set to the time of publishing, adds a version to <code>PublishedHistory</code>, copies translations and updates the search index.</p></li>
       <li><p>It renders the detail page in every language the entry has, the Markdown twin, and the type's list page (and the home page when it shows the type), from the type's template (see <a href="templates.html">Templates</a>). With the <code>seo</code> feature on, it also rebuilds the sitemap, feeds, <code>robots.txt</code> and <code>llms.txt</code>.</p></li>
       <li><p>When a detail template shows this type's entries (<code>data-arc-items-src</code>, see <a href="templates.html#items-from-another-type">Entries of another type</a>), it queues an <code>items-from</code> item, which rebuilds those detail pages afterwards in a release of their own. Arranging the type's entries does the same.</p></li>
-      <li><p>All files go out as one Firebase Hosting release, through the Hosting REST API. The result is written to the published entry (<code>deployStatus</code>, <code>deployError</code>), which the editor shows. When the entry's own page cannot be built, the rest of the release (list page, sitemap, feeds) still goes out, and the entry is marked failed with the reason rather than deployed.</p></li>
+      <li><p>All files go out as one Firebase Hosting release, through the Hosting REST API. The result is written to the published entry (<code>deployStatus</code>, <code>deployError</code>), which the editor shows. When the entry's own page cannot be built, the rest of the release (list page, sitemap, feeds) still goes out, and the entry is marked failed with the reason rather than deployed. Releases to the site run one at a time; when others keep it busy for long, the release waits a second time before the entry is marked failed with <code>HOSTING_RELEASE_BUSY</code> (see <a href="../reference/cloud-functions.html#releases">Releases to Hosting</a>).</p></li>
     </ol>
     <table>
       <thead><tr><th>Page</th><th>File on Hosting</th></tr></thead>
@@ -248,6 +248,7 @@
       <thead><tr><th>Cloud Function</th><th>Kind</th><th>Does</th></tr></thead>
       <tbody>
         <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages, applies a new entry order, and rebuilds the detail pages that show a changed type's entries</td></tr>
+        <tr><td><code>recoverPublishQueue</code></td><td>Scheduled, every 10 minutes</td><td>Runs again a whole-site republish or <code>items-from</code> rebuild whose run never finished, so the changes it was asked for are not lost</td></tr>
         <tr><td><code>onSiteSettingsWritten</code></td><td>Firestore trigger on <code>Settings</code></td><td>Queues a home page republish when <code>about</code>, <code>site</code>, <code>localization</code> or <code>misc</code> changes, or a whole site republish when an <code>about</code> change shows on other pages through <code>data-arc-site</code></td></tr>
         <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger on <code>ContentTypes</code></td><td>Deletes the type's draft, published and tag collections, with each entry's translations, version history and deploy logs, and their search entries, unless another type still uses the same slug</td></tr>
         <tr><td><code>seedStaticPages</code></td><td>Callable, also run by the seed script</td><td>Rebuilds every published page, the static pages and the SEO files</td></tr>
@@ -262,7 +263,7 @@
         <tr><td><code>ContentTypes</code>, <code>arc_{slug}</code>, <code>Tags_{slug}</code></td><td>Anyone</td><td>Admins (and the reserved <code>editor</code> role)</td></tr>
         <tr><td><code>arc_{slug}_drafts</code> and their translations</td><td>Admins and editors</td><td>Admins and editors</td></tr>
         <tr><td><code>PublishedHistory</code></td><td>Admins</td><td>Cloud Functions only</td></tr>
-        <tr><td><code>_publish_queue</code></td><td>Nobody (functions only)</td><td>Admins and editors</td></tr>
+        <tr><td><code>_publish_queue</code></td><td>Nobody (functions only)</td><td>Admins and editors, to add an item only</td></tr>
       </tbody>
     </table>
     <p>The Content admin screens are admin only. See <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>

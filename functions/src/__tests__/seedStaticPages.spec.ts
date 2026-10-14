@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 const __filename = fileURLToPath(import.meta.url);
@@ -91,6 +91,13 @@ vi.mock('../feature-flags.js', () => ({ isFeatureOn: (id: string) => !featuresOf
 
 const { mockGenerateLlmsTxt } = vi.hoisted(() => ({ mockGenerateLlmsTxt: vi.fn() }));
 
+// The SEO files' release: HostingBatch stays real, only the release is a spy.
+const { mockDeployBatchToHosting } = vi.hoisted(() => ({ mockDeployBatchToHosting: vi.fn() }));
+vi.mock('../pages/deployToHosting', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../pages/deployToHosting.js')>()),
+    deployBatchToHosting: (...args: unknown[]) => mockDeployBatchToHosting(...args),
+}));
+
 import { seedStaticPages, runSeed } from '../pages/seedStaticPages.js';
 
 // The mock of onCall returns the handler directly
@@ -125,6 +132,7 @@ describe('seedStaticPages', () => {
         mockGenerateRobotsTxt.mockResolvedValue(undefined);
         mockGenerateSitemap.mockResolvedValue(undefined);
         mockGenerateRssFeeds.mockResolvedValue(undefined);
+        mockDeployBatchToHosting.mockResolvedValue(true);
         // Default: valid settings so existing tests pass validation
         mockGetPartials.mockResolvedValue({ headerHtml: '<header>Site</header>', footerHtml: '<footer/>' });
         mockGetSiteConfig.mockResolvedValue({ siteName: 'Test', baseUrl: 'https://example.web.app', cssUrls: [] });
@@ -546,6 +554,54 @@ describe('seedStaticPages', () => {
             expect(mockGenerateHomePage).toHaveBeenCalled();
             expect(mockGenerateStaticPage).toHaveBeenCalled();
             expect(result.success).toBe(true);
+        });
+
+        describe('in one release', () => {
+            type Batch = { add(path: string, content: string): void };
+            beforeEach(() => {
+                vi.stubEnv('ARC_HOSTING_SITE', 'my-site');
+                mockCollectionGet.mockResolvedValueOnce({ empty: true, docs: [] });
+                mockGenerateRobotsTxt.mockImplementation(async (batch: Batch) => batch.add('/robots.txt', 'User-agent: *'));
+                mockGenerateLlmsTxt.mockImplementation(async (batch: Batch) => batch.add('/llms.txt', '# Site'));
+                mockGenerateSitemap.mockImplementation(async (batch: Batch) => batch.add('/sitemap.xml', '<urlset/>'));
+                mockGenerateRssFeeds.mockImplementation(async (batch: Batch) => batch.add('/articles/feed.xml', '<rss/>'));
+            });
+            afterEach(() => vi.unstubAllEnvs());
+
+            it('releases robots.txt, llms.txt, the sitemap and the feeds together, through the one release path', async () => {
+                const result = await runSeed();
+
+                // deployBatchToHosting holds the release lock (hosting-release-lock.ts).
+                expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+                const [site, batch, collection, docId] = mockDeployBatchToHosting.mock.calls[0];
+                expect([site, collection, docId]).toEqual(['my-site', '', '']);
+                expect(batch.paths).toEqual(['/robots.txt', '/llms.txt', '/sitemap.xml', '/articles/feed.xml']);
+                expect(result.errors).toBe(0);
+                expect(result.deployed).toBe(7); // home page + 2 static pages + 4 SEO files
+            });
+
+            it('leaves out a file that cannot be built, and releases the others', async () => {
+                mockGenerateSitemap.mockRejectedValue(new Error('no pages'));
+                const result = await runSeed();
+
+                expect(mockDeployBatchToHosting.mock.calls[0][1].paths).toEqual(['/robots.txt', '/llms.txt', '/articles/feed.xml']);
+                expect(result.errors).toBe(1);
+                expect(result.errorDetails).toEqual([expect.stringContaining('Failed to build /sitemap.xml')]);
+                expect(result.deployed).toBe(6);
+            });
+
+            it('reports a release that does not go out, with its reason', async () => {
+                mockDeployBatchToHosting.mockImplementation(async (_s, _b, _c, _d, options: { onFailure?: (f: { code: string; message: string }) => void }) => {
+                    options.onFailure?.({ code: 'HOSTING_RELEASE_BUSY', message: 'Another release was still running' });
+                    return false;
+                });
+                const result = await runSeed();
+
+                expect(result.success).toBe(false);
+                expect(result.errors).toBe(1);
+                expect(result.errorDetails[0]).toContain('HOSTING_RELEASE_BUSY');
+                expect(result.deployed).toBe(3); // home page + 2 static pages
+            });
         });
     });
 });

@@ -165,7 +165,7 @@ npm run deploy:prod</code></pre>
         <tr><td><code>npm run deploy:dev</code>, <code>npm run deploy:prod</code></td><td>Every page, by itself</td></tr>
         <tr><td><code>npm run deploy -- --only hosting --project &lt;alias&gt;</code> (it builds the site first)</td><td>Nothing. The published pages are kept, but run <code>npm run seed -- &lt;alias&gt;</code> afterwards</td></tr>
         <tr><td>Publishing or unpublishing a content item</td><td>That item's pages in every language, its type's list page, the home page when it shows that type, the sitemap and the feeds</td></tr>
-        <tr><td><strong>Republish website</strong> (Content, Content types)</td><td>Every content page and list page, the home page, the static pages, the sitemap and the feeds, in one release</td></tr>
+        <tr><td><strong>Republish website</strong> (Content, Content types)</td><td>Every content page and list page, the home page, the static pages, the sitemap and the feeds, in one release, or in a few one after another when the site has more pages than one run of the function builds</td></tr>
         <tr><td>Saving Settings, <strong>About</strong>, the site address, the languages or the powered-by setting</td><td>The home page</td></tr>
       </tbody>
     </table>

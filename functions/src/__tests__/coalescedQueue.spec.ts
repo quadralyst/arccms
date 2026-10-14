@@ -51,16 +51,30 @@ const queue = vi.hoisted(() => {
             docs.delete(id);
         },
     });
-    return { docs, creates, ref, reset: () => { docs.clear(); creates.clear(); } };
+    /** The documents whose `field` equals `value`, as a query snapshot. */
+    const where = (field: string, value: unknown) => ({
+        get: async () => {
+            await tick();
+            const matching = [...docs].filter(([, doc]) => doc.data[field] === value);
+            return { docs: matching.map(([id, doc]) => ({ id, updateTime: doc.version, data: () => ({ ...doc.data }) })) };
+        },
+    });
+    return { docs, creates, ref, where, reset: () => { docs.clear(); creates.clear(); } };
 });
 
 vi.mock('../init', () => ({
-    db: { collection: (name: string) => ({ doc: (id: string) => { if (name !== '_publish_queue') throw new Error(name); return queue.ref(id); } }) },
+    db: {
+        collection: (name: string) => {
+            if (name !== '_publish_queue') throw new Error(name);
+            return { doc: (id: string) => queue.ref(id), where: (field: string, _op: string, value: unknown) => queue.where(field, value) };
+        },
+    },
 }));
 vi.mock('firebase-admin/firestore', () => ({ Timestamp: { now: () => ({ seconds: 1705334400, nanoseconds: 0 }) } }));
 
 import {
-    claimCoalesced, coalescedIdFor, finishCoalesced, itemsFromId, requestCoalesced, REDEPLOY_ALL_ID, STALE_MS,
+    claimCoalesced, coalescedIdFor, finishCoalesced, itemsFromId, MAX_FAILED_RUNS, recoverStaleCoalesced, requestCoalesced,
+    REDEPLOY_ALL_ID, STALE_MS,
 } from '../publishQueue/coalesced-items.js';
 
 const item = (id: string): Data | undefined => queue.docs.get(id)?.data;
@@ -71,6 +85,7 @@ describe('coalesced queue items', () => {
     beforeEach(() => {
         queue.reset();
         vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
     });
 
     it('has one fixed id per kind: the whole site, and each type', () => {
@@ -150,6 +165,21 @@ describe('coalesced queue items', () => {
         expect(queue.creates.get(REDEPLOY_ALL_ID)).toBe(2);
     });
 
+    it('does not take a run whose start is far in the future for a live one forever', async () => {
+        await ask(1);
+        await claimCoalesced(REDEPLOY_ALL_ID);
+        queue.docs.get(REDEPLOY_ALL_ID)!.data['since'] = Date.now() + 60 * 60_000;
+        expect(await requestCoalesced('redeploy-all')).toBe('queued');
+        expect(item(REDEPLOY_ALL_ID)).toMatchObject({ state: 'waiting' });
+    });
+
+    it('takes a run a few seconds ahead, as a clock a little ahead writes, for a live one', async () => {
+        await ask(1);
+        await claimCoalesced(REDEPLOY_ALL_ID);
+        queue.docs.get(REDEPLOY_ALL_ID)!.data['since'] = Date.now() + 5_000;
+        expect(await requestCoalesced('redeploy-all')).toBe('dirty');
+    });
+
     it('keeps one item per type for the pages showing its entries', async () => {
         await Promise.all([ask(20, 'items-from', 'events'), ask(5, 'items-from', 'news')]);
         expect(queue.creates.get(itemsFromId('events'))).toBe(1);
@@ -184,5 +214,135 @@ describe('coalesced queue items', () => {
         await claimCoalesced(id);
         await finishCoalesced(id);
         expect(item(id)).toBeUndefined();
+    });
+
+    it('marks a waiting continuation for a full run after it, as the pages before its cursor miss the change', async () => {
+        const id = itemsFromId('events');
+        await ask(1, 'items-from', 'events');
+        await claimCoalesced(id);
+        await finishCoalesced(id, { after: { type: 'guides', id: 'g7' } });
+        expect(item(id)).toMatchObject({ state: 'waiting', rerun: false });
+
+        // A change while the rest waits: the pages up to g7 are already built without it.
+        expect(await ask(3, 'items-from', 'events')).toEqual(['waiting', 'waiting', 'waiting']);
+        expect(item(id)).toMatchObject({ state: 'waiting', after: { type: 'guides', id: 'g7' }, rerun: true });
+        expect(queue.creates.get(id)).toBe(2);
+
+        // The rest runs, then one full run from the start.
+        await claimCoalesced(id);
+        await finishCoalesced(id);
+        expect(item(id)).toMatchObject({ state: 'waiting' });
+        expect(item(id)!['after']).toBeUndefined();
+        await claimCoalesced(id);
+        await finishCoalesced(id);
+        expect(item(id)).toBeUndefined();
+    });
+
+    it('leaves a waiting full run as it is: it reads the change when it starts', async () => {
+        await ask(1, 'items-from', 'events');
+        const before = queue.docs.get(itemsFromId('events'))!.version;
+        expect(await requestCoalesced('items-from', 'events')).toBe('waiting');
+        expect(queue.docs.get(itemsFromId('events'))!.version).toBe(before);
+        expect(item(itemsFromId('events'))!['rerun']).toBeUndefined();
+    });
+
+    describe('a run that fails', () => {
+        const failed = { failed: true, error: 'HOSTING_RELEASE_BUSY: busy' };
+
+        it('runs again, the same part, and keeps why it failed', async () => {
+            const id = itemsFromId('events');
+            await ask(1, 'items-from', 'events');
+            await claimCoalesced(id);
+            await finishCoalesced(id, { after: { type: 'guides', id: 'g7' } }, failed);
+            expect(item(id)).toMatchObject({ state: 'waiting', after: { type: 'guides', id: 'g7' }, failedRuns: 1, lastError: 'HOSTING_RELEASE_BUSY: busy' });
+            expect(queue.creates.get(id)).toBe(2);
+        });
+
+        it('stops after MAX_FAILED_RUNS runs in a row, so a run that always fails does not loop', async () => {
+            await ask(1);
+            for (let run = 1; run <= MAX_FAILED_RUNS; run++) {
+                expect(await claimCoalesced(REDEPLOY_ALL_ID)).not.toBeNull();
+                await finishCoalesced(REDEPLOY_ALL_ID, undefined, failed);
+            }
+            expect(item(REDEPLOY_ALL_ID)).toBeUndefined();
+            expect(queue.creates.get(REDEPLOY_ALL_ID)).toBe(MAX_FAILED_RUNS);
+            // A new change asks again: a fresh run, with no failures counted.
+            expect(await requestCoalesced('redeploy-all')).toBe('queued');
+            expect(item(REDEPLOY_ALL_ID)!['failedRuns']).toBeUndefined();
+        });
+
+        it('counts from 0 again after a run that worked', async () => {
+            await ask(1);
+            await claimCoalesced(REDEPLOY_ALL_ID);
+            await finishCoalesced(REDEPLOY_ALL_ID, undefined, failed);
+            await claimCoalesced(REDEPLOY_ALL_ID);
+            await requestCoalesced('redeploy-all'); // a change while the retry runs
+            await finishCoalesced(REDEPLOY_ALL_ID);
+            expect(item(REDEPLOY_ALL_ID)).toMatchObject({ state: 'waiting', dirty: false });
+            expect(item(REDEPLOY_ALL_ID)!['failedRuns']).toBeUndefined();
+        });
+
+        it('still runs once for a change that came in meanwhile after the last failure, and no more', async () => {
+            await ask(1);
+            for (let run = 1; run < MAX_FAILED_RUNS; run++) {
+                await claimCoalesced(REDEPLOY_ALL_ID);
+                await finishCoalesced(REDEPLOY_ALL_ID, undefined, failed);
+            }
+            await claimCoalesced(REDEPLOY_ALL_ID);
+            await requestCoalesced('redeploy-all');
+            await finishCoalesced(REDEPLOY_ALL_ID, undefined, failed);
+            expect(item(REDEPLOY_ALL_ID)).toMatchObject({ state: 'waiting', failedRuns: MAX_FAILED_RUNS });
+            await claimCoalesced(REDEPLOY_ALL_ID);
+            await finishCoalesced(REDEPLOY_ALL_ID, undefined, failed);
+            expect(item(REDEPLOY_ALL_ID)).toBeUndefined();
+        });
+    });
+
+    describe('recovering a run that never finished (recoverPublishQueue)', () => {
+        const age = (id: string, ms: number) => { queue.docs.get(id)!.data['since'] = Date.now() - ms; };
+
+        it('runs again a run the function died in, with the change it was marked dirty for, from the part it was on', async () => {
+            const id = itemsFromId('events');
+            await ask(1, 'items-from', 'events');
+            await claimCoalesced(id);
+            await finishCoalesced(id, { after: { type: 'guides', id: 'g7' } });
+            await claimCoalesced(id);
+            // A change while it runs, then the function is killed: nothing finishes it.
+            expect(await requestCoalesced('items-from', 'events')).toBe('dirty');
+            age(id, STALE_MS + 1);
+
+            expect(await recoverStaleCoalesced()).toEqual([id]);
+            expect(item(id)).toMatchObject({ state: 'waiting', after: { type: 'guides', id: 'g7' }, rerun: true, failedRuns: 1 });
+            expect(item(id)!['lastError']).toContain('never finished');
+            expect(queue.creates.get(id)).toBe(3);
+        });
+
+        it('runs again an item whose run never started', async () => {
+            await ask(1);
+            age(REDEPLOY_ALL_ID, STALE_MS + 1);
+            expect(await recoverStaleCoalesced()).toEqual([REDEPLOY_ALL_ID]);
+            expect(item(REDEPLOY_ALL_ID)).toMatchObject({ state: 'waiting', failedRuns: 1 });
+            expect(item(REDEPLOY_ALL_ID)!['lastError']).toContain('never started');
+        });
+
+        it('leaves live runs and waiting items alone', async () => {
+            await ask(1);
+            await ask(1, 'items-from', 'events');
+            await claimCoalesced(itemsFromId('events'));
+            age(REDEPLOY_ALL_ID, STALE_MS - 60_000);
+
+            expect(await recoverStaleCoalesced()).toEqual([]);
+            expect(queue.creates.get(REDEPLOY_ALL_ID)).toBe(1);
+            expect(item(itemsFromId('events'))).toMatchObject({ state: 'running' });
+        });
+
+        it('gives up on an item that keeps dying after MAX_FAILED_RUNS', async () => {
+            await ask(1);
+            queue.docs.get(REDEPLOY_ALL_ID)!.data['failedRuns'] = MAX_FAILED_RUNS - 1;
+            await claimCoalesced(REDEPLOY_ALL_ID);
+            age(REDEPLOY_ALL_ID, STALE_MS + 1);
+            expect(await recoverStaleCoalesced()).toEqual([REDEPLOY_ALL_ID]);
+            expect(item(REDEPLOY_ALL_ID)).toBeUndefined();
+        });
     });
 });

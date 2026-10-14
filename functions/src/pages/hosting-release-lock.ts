@@ -36,6 +36,14 @@ export const RELEASE_LOCK_STALE_MS = 10 * 60 * 1000;
 /** How long a release waits for another one before it gives up and fails. */
 export const RELEASE_LOCK_WAIT_MS = 3 * 60 * 1000;
 
+/**
+ * The time a release takes once it holds the lock (reading the live file list,
+ * creating, populating, uploading and releasing the version). A caller with a
+ * deadline waits for the lock only while this much time is still left
+ * (lockWaitBefore).
+ */
+export const RELEASE_TIME_MS = 90 * 1000;
+
 /** The base pause between two looks at a held lock; each adds up to as much again at random. */
 const POLL_MS = 500;
 
@@ -63,14 +71,37 @@ function recordRef(siteId: string): DocumentReference {
     return db.collection(COLLECTION).doc(siteId);
 }
 
+/**
+ * How far in the future a lock's `since` may be, for a clock a little ahead of
+ * this one. One further ahead was not written by a release (it writes
+ * `Date.now()`), so it is stale, not live forever.
+ */
+export const FUTURE_SINCE_MS = 60 * 1000;
+
 function isStale(data: { since?: unknown } | undefined): boolean {
-    return typeof data?.since !== 'number' || Date.now() - data.since > RELEASE_LOCK_STALE_MS;
+    if (typeof data?.since !== 'number') return true;
+    const age = Date.now() - data.since;
+    return age > RELEASE_LOCK_STALE_MS || age < -FUTURE_SINCE_MS;
+}
+
+/**
+ * How long a release that must be done by `deadline` (ms) may wait for the
+ * lock: RELEASE_LOCK_WAIT_MS, or less when the deadline leaves less than that
+ * after RELEASE_TIME_MS for the release itself. Never below 0. Without a
+ * deadline, RELEASE_LOCK_WAIT_MS.
+ */
+export function lockWaitBefore(deadline?: number): number {
+    if (deadline === undefined) return RELEASE_LOCK_WAIT_MS;
+    return Math.max(0, Math.min(RELEASE_LOCK_WAIT_MS, deadline - Date.now() - RELEASE_TIME_MS));
 }
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
-/** Takes the site's release lock, waiting while another release holds it. Resolves with how long it waited, in ms. */
-async function acquire(siteId: string, holder: string): Promise<number> {
+/**
+ * Takes the site's release lock, waiting while another release holds it, for up
+ * to `maxWaitMs`. Resolves with how long it waited, in ms.
+ */
+async function acquire(siteId: string, holder: string, maxWaitMs: number): Promise<number> {
     const lock = lockRef(siteId);
     const started = Date.now();
     for (;;) {
@@ -91,8 +122,8 @@ async function acquire(siteId: string, holder: string): Promise<number> {
             }
             continue;
         }
-        if (Date.now() - started > RELEASE_LOCK_WAIT_MS) {
-            const err = new Error(`Another release to ${siteId} was still running after ${RELEASE_LOCK_WAIT_MS / 60000} minutes; nothing was released. Publish again.`);
+        if (Date.now() - started >= maxWaitMs) {
+            const err = new Error(`Another release to ${siteId} was still running after ${Math.round(maxWaitMs / 1000)} seconds; nothing was released. Publish again.`);
             (err as any).code = 'HOSTING_RELEASE_BUSY';
             throw err;
         }
@@ -113,15 +144,25 @@ async function unlock(siteId: string, holder: string): Promise<void> {
     }
 }
 
+export interface ReleaseLockOptions {
+    /** The longest wait for the lock, in ms: RELEASE_LOCK_WAIT_MS when not given, and never more. */
+    maxWaitMs?: number;
+}
+
 /**
  * Runs `work` (one Hosting release: read the live version, build on it,
  * release) while no other release to `siteId` runs. `work` gets how long it
  * waited for the lock, in ms. Throws HOSTING_RELEASE_BUSY when another release
- * holds it for longer than RELEASE_LOCK_WAIT_MS.
+ * holds it for longer than RELEASE_LOCK_WAIT_MS (or `maxWaitMs`, when shorter).
  */
-export async function withReleaseLock<T>(siteId: string, work: (waitedMs: number) => Promise<T>): Promise<T> {
+export async function withReleaseLock<T>(
+    siteId: string,
+    work: (waitedMs: number) => Promise<T>,
+    options: ReleaseLockOptions = {},
+): Promise<T> {
     const holder = crypto.randomUUID();
-    const waitedMs = await acquire(siteId, holder);
+    const maxWaitMs = Math.max(0, Math.min(RELEASE_LOCK_WAIT_MS, options.maxWaitMs ?? RELEASE_LOCK_WAIT_MS));
+    const waitedMs = await acquire(siteId, holder, maxWaitMs);
     try {
         return await work(waitedMs);
     } finally {
