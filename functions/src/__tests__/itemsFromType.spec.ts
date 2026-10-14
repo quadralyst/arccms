@@ -93,7 +93,7 @@ const EVENTS = [
     { id: 'e3', title: 'Talk', urlSlug: 'talk', publishedOn: day(2) },
     { id: 'e4', title: 'Gone', urlSlug: 'gone', publishedOn: day(0), publishedStatus: false },
 ];
-const PAGE = { lang: 'en', defaultLang: 'en', type: 'entry-points', id: 'p1' };
+const PAGE = { lang: 'en', defaultLang: 'en', type: 'courses', id: 'p1' };
 
 describe('readItemsFromType', () => {
     beforeEach(() => vi.clearAllMocks());
@@ -194,28 +194,28 @@ describe('pages showing entries of a type', () => {
         mockGetSiteManifest.mockResolvedValue({ layouts: { guides: { gallery: 'app' } } });
         mockGetSiteFile.mockImplementation(async (path: string) => (path === 'templates/guides/detail-gallery.html' ? SHOWS : null));
         mockLoadSiteTemplate.mockImplementation(async (folder: string) => {
-            if (folder === 'entry-points') return SHOWS;
+            if (folder === 'courses') return SHOWS;
             if (folder === 'missing') throw new MissingTemplateFolderError('missing', true);
             return PLAIN;
         });
         mockLoadDetailTemplate.mockImplementation(async (folder: string, layout: string) =>
-            folder === 'entry-points' || (folder === 'guides' && layout === 'gallery') ? SHOWS : PLAIN);
+            folder === 'courses' || (folder === 'guides' && layout === 'gallery') ? SHOWS : PLAIN);
         mockGenerateDetailPage.mockResolvedValue(undefined);
         wireDb([
-            { slug: 'entry-points', templateFolder: 'entry-points' },
+            { slug: 'courses', templateFolder: 'courses' },
             { slug: 'guides', templateFolder: 'guides' },
             { slug: 'articles', templateFolder: 'articles' },
-            { slug: 'services', templateFolder: 'entry-points', hasPublicUrl: false },
+            { slug: 'services', templateFolder: 'courses', hasPublicUrl: false },
             { slug: 'broken', templateFolder: 'missing' },
         ], {
-            'entry-points': [{ id: 'p1' }, { id: 'p2' }],
+            'courses': [{ id: 'p1' }, { id: 'p2' }],
             guides: [{ id: 'g1', layout: 'gallery' }, { id: 'g2' }, { id: 'g3', layout: ' gallery ' }],
             articles: [{ id: 'a1' }],
         });
     });
 
     it('finds the types with public pages whose detail.html or a layout names the type', async () => {
-        expect((await typesShowingItemsOf('events')).map((t) => t.slug)).toEqual(['entry-points', 'guides']);
+        expect((await typesShowingItemsOf('events')).map((t) => t.slug)).toEqual(['courses', 'guides']);
         expect(await typesShowingItemsOf('news')).toEqual([]);
     });
 
@@ -234,7 +234,7 @@ describe('pages showing entries of a type', () => {
     it('rebuilds only the entries whose own template shows the type, into one batch, sharing one read cache', async () => {
         const batch = new HostingBatch();
         expect(await rebuildPagesShowingItemsOf('events', batch)).toEqual({ pages: 4, dropped: 0 });
-        expect(built()).toEqual(['entry-points/p1', 'entry-points/p2', 'guides/g1', 'guides/g3']);
+        expect(built()).toEqual(['courses/p1', 'courses/p2', 'guides/g1', 'guides/g3']);
         for (const call of mockGenerateDetailPage.mock.calls) expect(call[2]).toBe(batch);
         // The shown type's entries are read once for the rebuild, not once per page.
         expect(mockGenerateDetailPage.mock.calls[0][3]).toBeInstanceOf(Map);
@@ -255,10 +255,10 @@ describe('pages showing entries of a type', () => {
         mockGenerateDetailPage.mockImplementation(async (type: string, id: string, b: HostingBatch) => {
             b.add(`/${type}/${id}.html`, `<html>${id}</html>`);
             // Unpublished after its page was built, before the release.
-            if (id === 'p2') unpublished.add('entry-points/p2');
+            if (id === 'p2') unpublished.add('courses/p2');
         });
         expect(await rebuildPagesShowingItemsOf('events', batch)).toEqual({ pages: 3, dropped: 1 });
-        expect(batch.paths).toEqual(['/sitemap.xml', '/entry-points/p1.html', '/guides/g1.html', '/guides/g3.html']);
+        expect(batch.paths).toEqual(['/sitemap.xml', '/courses/p1.html', '/guides/g1.html', '/guides/g3.html']);
         // Left out, not removed: the unpublish took the page down already.
         expect(batch.removedPaths).toEqual([]);
     });
@@ -273,8 +273,8 @@ describe('pages showing entries of a type', () => {
             clock += 100;
         });
         const first = await rebuildPagesShowingItemsOf('events', new HostingBatch(), { deadline: 150 });
-        expect(first).toEqual({ pages: 2, dropped: 0, next: { type: 'entry-points', id: 'p2' } });
-        expect(built()).toEqual(['entry-points/p1', 'entry-points/p2']);
+        expect(first).toEqual({ pages: 2, dropped: 0, next: { type: 'courses', id: 'p2' } });
+        expect(built()).toEqual(['courses/p1', 'courses/p2']);
 
         mockGenerateDetailPage.mockClear();
         const rest = await rebuildPagesShowingItemsOf('events', new HostingBatch(), { after: first.next, deadline: Infinity });
@@ -287,6 +287,6 @@ describe('pages showing entries of a type', () => {
         buildsPages();
         const result = await rebuildPagesShowingItemsOf('events', new HostingBatch(), { deadline: 0 });
         expect(result.pages).toBe(1);
-        expect(result.next).toEqual({ type: 'entry-points', id: 'p1' });
+        expect(result.next).toEqual({ type: 'courses', id: 'p1' });
     });
 });

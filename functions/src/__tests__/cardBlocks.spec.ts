@@ -22,7 +22,7 @@ vi.mock('../shared/site-files', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../shared/site-files.js')>()),
     loadSiteTemplate: (...a: unknown[]) => mockLoadSiteTemplate(...a),
 }));
-vi.mock('../shared/site-info-source', () => ({ siteInfoFor: async () => ({ name: 'GoWow', sameAs: [], year: 2026, pages: [] }) }));
+vi.mock('../shared/site-info-source', () => ({ siteInfoFor: async () => ({ name: 'Example Site', sameAs: [], year: 2026, pages: [] }) }));
 
 import { cardBlockCount, cardBlockTypes, chromeCardsSignature, chromeShowsType, renderCardBlocks, siteChrome } from '../pages/card-blocks.js';
 import { MissingTemplateFolderError } from '../shared/site-files.js';
@@ -30,13 +30,13 @@ import { loadHtml } from '../shared/lazy-cheerio.js';
 import { HostingBatch } from '../pages/deployToHosting.js';
 
 const FOOTER = '<footer><h3 data-arc-t="more">More</h3>'
-    + '<arc-content-partials content-type="programs" count="2" section-title="Programs" template-folder="footer-links"></arc-content-partials>'
+    + '<arc-content-partials content-type="services" count="2" section-title="Services" template-folder="footer-links"></arc-content-partials>'
     + '<p data-arc-site="name"></p></footer>';
 const HEADER = '<nav><a href="/">Home</a></nav>';
 const TEMPLATE = '<ul class="links" data-arc-if="hasItems" data-arc-loop="items"><li><a href="{{ url }}">{{ title }}</a></li></ul><p class="head">{{ sectionTitle }}</p>';
 
-/** The published programs, newest first; changed by the tests. */
-let programs: { id: string; title: string; urlSlug: string }[];
+/** The published services, newest first; changed by the tests. */
+let services: { id: string; title: string; urlSlug: string }[];
 let entryReads: number;
 /** The limit of each entry read. */
 let limits: number[];
@@ -45,8 +45,8 @@ function wireDb(): void {
     mockCollection.mockImplementation((name: string) => {
         if (name === 'ContentTypes') {
             return {
-                where: (_f: string, _op: string, slug: string) => ({ limit: () => ({ get: async () => (slug === 'programs'
-                    ? { empty: false, docs: [{ data: () => ({ slug: 'programs', name: 'Programs', templateFolder: 'programs' }) }] }
+                where: (_f: string, _op: string, slug: string) => ({ limit: () => ({ get: async () => (slug === 'services'
+                    ? { empty: false, docs: [{ data: () => ({ slug: 'services', name: 'Services', templateFolder: 'services' }) }] }
                     : { empty: true, docs: [] }) }) }),
             };
         }
@@ -56,10 +56,10 @@ function wireDb(): void {
                 if (!Number.isInteger(n)) throw new Error(`limit(${n}) is not an integer`);
                 entryReads++;
                 limits.push(n);
-                return { docs: programs.slice(0, n).map((p) => ({ id: p.id, data: () => ({ ...p, publishedOn: { seconds: 1705334400 } }) })) };
+                return { docs: services.slice(0, n).map((p) => ({ id: p.id, data: () => ({ ...p, publishedOn: { seconds: 1705334400 } }) })) };
             } }) }),
             doc: (id: string) => ({ collection: () => ({ doc: () => ({ get: async () => ({
-                exists: id === 'kpl', data: () => ({ title: 'कर्म प्रीमियर लीग' }),
+                exists: id === 'consulting', data: () => ({ title: 'परामर्श' }),
             }) }) }) }),
         };
     });
@@ -68,12 +68,12 @@ function wireDb(): void {
 describe('card blocks in the header and footer', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        process.env.GCLOUD_PROJECT = 'gowow-test';
+        process.env.GCLOUD_PROJECT = 'demo-test';
         delete process.env.ARC_HOSTING_SITE;
-        programs = [
-            { id: 'kpl', title: 'Karma Premier League', urlSlug: 'kpl' },
-            { id: 'bogo', title: 'Buy One <Give> One', urlSlug: 'bogo' },
-            { id: 'shc', title: 'Social Hero', urlSlug: 'shc' },
+        services = [
+            { id: 'consulting', title: 'Consulting', urlSlug: 'consulting' },
+            { id: 'design', title: 'Design <and> Build', urlSlug: 'design' },
+            { id: 'support', title: 'Support', urlSlug: 'support' },
         ];
         entryReads = 0;
         limits = [];
@@ -84,32 +84,32 @@ describe('card blocks in the header and footer', () => {
     });
 
     describe('siteChrome', () => {
-        const site = { name: 'GoWow', sameAs: [], year: 2026, pages: [] } as never;
+        const site = { name: 'Example Site', sameAs: [], year: 2026, pages: [] } as never;
 
         it('fills a footer block with cards, laid out by the folder it names, and its words and site details', async () => {
             const { headerHtml, footerHtml } = await siteChrome({ headerHtml: HEADER, footerHtml: FOOTER }, 'en', 'en', {}, site);
             expect(headerHtml).toContain(HEADER);
             expect(mockLoadSiteTemplate).toHaveBeenCalledWith('footer-links', 'partials');
-            expect(footerHtml).toContain('<a href="/programs/kpl">Karma Premier League</a>');
-            expect(footerHtml).toContain('<p class="head">Programs</p>');
-            expect(footerHtml).toContain('<p>GoWow</p>');
+            expect(footerHtml).toContain('<a href="/services/consulting">Consulting</a>');
+            expect(footerHtml).toContain('<p class="head">Services</p>');
+            expect(footerHtml).toContain('<p>Example Site</p>');
             expect(footerHtml).not.toContain('arc-content-partials');
-            expect(footerHtml).not.toContain('Social Hero'); // count="2"
+            expect(footerHtml).not.toContain('Support'); // count="2"
             // One <li> per card: the loop on the list repeats its first child.
             expect(footerHtml.match(/<li>/g)).toHaveLength(2);
         });
 
         it('escapes entry text as the home page\'s blocks do', async () => {
             const { footerHtml } = await siteChrome({ headerHtml: HEADER, footerHtml: FOOTER }, 'en', 'en', {}, site);
-            expect(footerHtml).toContain('Buy One &lt;Give&gt; One');
+            expect(footerHtml).toContain('Design &lt;and&gt; Build');
         });
 
         it('shows a language\'s translation, links and heading', async () => {
             const { footerHtml } = await siteChrome(
-                { headerHtml: HEADER, footerHtml: FOOTER.replace(' section-title="Programs"', '') }, 'hi', 'en',
+                { headerHtml: HEADER, footerHtml: FOOTER.replace(' section-title="Services"', '') }, 'hi', 'en',
                 { latest_of_type: 'नवीनतम {{ contentType }}', more: 'और' }, site);
-            expect(footerHtml).toContain('<a href="/hi/programs/kpl">कर्म प्रीमियर लीग</a>');
-            expect(footerHtml).toContain('नवीनतम Programs');
+            expect(footerHtml).toContain('<a href="/hi/services/consulting">परामर्श</a>');
+            expect(footerHtml).toContain('नवीनतम Services');
             expect(footerHtml).toContain('<h3>और</h3>');
         });
 
@@ -137,16 +137,16 @@ describe('card blocks in the header and footer', () => {
                 if (folder === 'footer-links') throw new MissingTemplateFolderError('footer-links', true);
                 return TEMPLATE;
             });
-            const footer = FOOTER.replace('</footer>', '<arc-content-partials content-type="programs" count="1" template-folder="programs"></arc-content-partials></footer>');
+            const footer = FOOTER.replace('</footer>', '<arc-content-partials content-type="services" count="1" template-folder="services"></arc-content-partials></footer>');
             const { headerHtml, footerHtml } = await siteChrome({ headerHtml: HEADER, footerHtml: footer }, 'en', 'en', {}, site, new HostingBatch());
             expect(headerHtml).toContain(HEADER);
             expect(footerHtml).not.toContain('arc-content-partials');
             expect(footerHtml).toContain('<h3>More</h3>');
-            expect(footerHtml).toContain('<p>GoWow</p>');
+            expect(footerHtml).toContain('<p>Example Site</p>');
             // The block that works is still filled.
-            expect(footerHtml).toContain('<a href="/programs/kpl">Karma Premier League</a>');
-            expect(footerHtml).not.toContain('Buy One');
-            expect(errors.mock.calls.some(([message]) => /content-type="programs", template-folder="footer-links"/.test(String(message)))).toBe(true);
+            expect(footerHtml).toContain('<a href="/services/consulting">Consulting</a>');
+            expect(footerHtml).not.toContain('Design');
+            expect(errors.mock.calls.some(([message]) => /content-type="services", template-folder="footer-links"/.test(String(message)))).toBe(true);
             errors.mockRestore();
         });
 
@@ -157,7 +157,7 @@ describe('card blocks in the header and footer', () => {
         });
 
         it('reads a whole number of cards, whatever the count says', async () => {
-            const block = (count: string) => `<arc-content-partials content-type="programs" count="${count}"></arc-content-partials>`;
+            const block = (count: string) => `<arc-content-partials content-type="services" count="${count}"></arc-content-partials>`;
             for (const count of ['3.5', '0.5', '-2', '999', 'many', '0']) {
                 await siteChrome({ headerHtml: HEADER, footerHtml: block(count) }, 'en', 'en', {}, site);
             }
@@ -168,17 +168,17 @@ describe('card blocks in the header and footer', () => {
 
     describe('what the publish queue compares', () => {
         it('knows which types the header and footer show', async () => {
-            expect(cardBlockTypes(FOOTER)).toEqual(['programs']);
+            expect(cardBlockTypes(FOOTER)).toEqual(['services']);
             // A block in an HTML comment shows nothing.
-            expect(cardBlockTypes(`<!-- <arc-content-partials content-type="news"></arc-content-partials> -->${FOOTER}`)).toEqual(['programs']);
-            expect(await chromeShowsType('programs')).toBe(true);
+            expect(cardBlockTypes(`<!-- <arc-content-partials content-type="news"></arc-content-partials> -->${FOOTER}`)).toEqual(['services']);
+            expect(await chromeShowsType('services')).toBe(true);
             expect(await chromeShowsType('articles')).toBe(false);
         });
 
         it('shows nothing with hosting off', async () => {
             process.env.ARC_HOSTING_SITE = 'none';
-            expect(await chromeShowsType('programs')).toBe(false);
-            expect(await chromeCardsSignature('programs')).toBe('');
+            expect(await chromeShowsType('services')).toBe(false);
+            expect(await chromeCardsSignature('services')).toBe('');
         });
 
         it('is empty for a type no block shows, so the queue skips it', async () => {
@@ -187,18 +187,18 @@ describe('card blocks in the header and footer', () => {
         });
 
         it('changes with what a block shows, in any language, and only then', async () => {
-            const before = await chromeCardsSignature('programs');
+            const before = await chromeCardsSignature('services');
             expect(before).toContain('en:');
             expect(before).toContain('hi:');
-            expect(await chromeCardsSignature('programs')).toBe(before);
+            expect(await chromeCardsSignature('services')).toBe(before);
 
-            // A program below the two shown changes: the footer does not show it.
-            programs[2].title = 'Social Heroes';
-            expect(await chromeCardsSignature('programs')).toBe(before);
+            // A service below the two shown changes: the footer does not show it.
+            services[2].title = 'Support plans';
+            expect(await chromeCardsSignature('services')).toBe(before);
 
-            // A new program goes to the top.
-            programs.unshift({ id: 'new', title: 'Sociothon', urlSlug: 'sociothon' });
-            expect(await chromeCardsSignature('programs')).not.toBe(before);
+            // A new service goes to the top.
+            services.unshift({ id: 'new', title: 'Training', urlSlug: 'training' });
+            expect(await chromeCardsSignature('services')).not.toBe(before);
         });
     });
 });

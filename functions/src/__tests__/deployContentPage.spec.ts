@@ -1223,17 +1223,17 @@ describe('deployContentPage', () => {
             });
             mockTranslationsGet.mockResolvedValue({ docs: [{ id: 'hi', data: () => ({ lang: 'hi', title: 'Hindi title' }) }] });
             mockLoadSiteTemplate.mockResolvedValue(`<article><h1>{{ title }}</h1>
-                <ul class="gallery" data-arc-loop="items" data-arc-items-src="impact-actions" data-limit="2"><li class="a"><a href="{{ url }}">{{ title }}</a></li></ul>
-                <div class="empty-state">No stories yet</div>
+                <ul class="events" data-arc-loop="items" data-arc-items-src="events" data-limit="2"><li class="a"><a href="{{ url }}">{{ title }}</a></li></ul>
+                <div class="empty-state">No events yet</div>
                 <ol class="news" data-arc-loop="items" data-arc-items-src="news"><li class="n">{{ title }}</li></ol></article>`);
             mockReadItemsFromType.mockImplementation(async (loops: Array<{ name: string }>, page: { lang: string }) => ({
-                [loops[0].name]: [{ title: `Beach ${page.lang}`, url: page.lang === 'hi' ? '/hi/impact-actions/beach' : '/impact-actions/beach' }],
+                [loops[0].name]: [{ title: `Fair ${page.lang}`, url: page.lang === 'hi' ? '/hi/events/fair' : '/events/fair' }],
                 [loops[1].name]: [],
             }));
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
             const loops = [
-                { name: 'arc-items-from-0', type: 'impact-actions', limit: 2 },
+                { name: 'arc-items-from-0', type: 'events', limit: 2 },
                 { name: 'arc-items-from-1', type: 'news', limit: 6 },
             ];
             expect(mockReadItemsFromType).toHaveBeenCalledTimes(2);
@@ -1245,8 +1245,8 @@ describe('deployContentPage', () => {
             const files: Array<{ path: string; content: string }> = mockDeployBatchToHosting.mock.calls[0][1].files;
             const en = files.find((f) => f.path === '/articles/test-article.html')!.content;
             const hi = files.find((f) => f.path === '/hi/articles/test-article.html')!.content;
-            expect(en).toContain('<li class="a"><a href="/impact-actions/beach">Beach en</a></li>');
-            expect(hi).toContain('<li class="a"><a href="/hi/impact-actions/beach">Beach hi</a></li>');
+            expect(en).toContain('<li class="a"><a href="/events/fair">Fair en</a></li>');
+            expect(hi).toContain('<li class="a"><a href="/hi/events/fair">Fair hi</a></li>');
             // An empty loop is emptied, so CSS such as .news:empty + .empty-state can show an empty state.
             expect(en).toContain('<ol class="news"></ol>');
             expect(en).not.toContain('data-arc-items-src');
