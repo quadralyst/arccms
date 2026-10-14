@@ -6,6 +6,15 @@ import { CollectionReference, collection, doc, getDoc, onSnapshot, query, orderB
 import { EMPTY, Observable, from, map } from 'rxjs';
 import { IContentTranslation } from '../draft-content-store/content-translation.model';
 
+/**
+ * How long the editor waits for a publish's result: longer than the publish
+ * queue function may run (QUEUE_TIMEOUT_MS, 540s, in
+ * functions/src/publishQueue/processPublishQueue.ts). A publish can wait minutes
+ * for the Hosting release lock while a whole-site republish or an items-from
+ * rebuild releases, so a shorter wait gave up on publishes that then went live.
+ */
+export const DEPLOY_STATUS_WAIT_MS = 10 * 60 * 1000;
+
 export interface DeployStatusUpdate {
     /** `skipped`: the install has website publishing turned off (ARC_HOSTING_SITE=none). */
     deployStatus: 'deployed' | 'failed' | 'pending' | 'skipped' | null;
@@ -86,13 +95,13 @@ export class ContentsService extends DbService<IContents> {
      * Uses Firestore onSnapshot listener on the published collection document.
      * Automatically completes after:
      *  - deployStatus changes to 'deployed', 'failed' or 'skipped'
-     *  - 60 seconds timeout (emits { deployStatus: null } as timeout signal)
+     *  - DEPLOY_STATUS_WAIT_MS (emits { deployStatus: null } as timeout signal)
      *
      * Never polls during SSR. Publishing is user-triggered, so this is not
      * reachable on the server today, but the listener would outlive the request
      * injector that @angular/fire captures for its callback — the next snapshot
      * would fire against a destroyed injector and the NG0205 would land on a
-     * Firestore timer where nothing catches it. The 60s timeout below is a
+     * Firestore timer where nothing catches it. The timeout below is a
      * second reason to stay off the server: a pending macrotask can hold up
      * prerender completion.
      *
@@ -107,11 +116,11 @@ export class ContentsService extends DbService<IContents> {
             const collectionName = `arc_${contentTypeSlug}`;
             const docRef = runInInjectionContext(this.injector, () => doc(this.firestore, collectionName, docId));
 
-            // Timeout after 60 seconds
+            // Give up once the publish function can no longer be running
             const timeoutId = setTimeout(() => {
                 subscriber.next({
                     deployStatus: null,
-                    deployError: 'Deployment status check timed out after 60 seconds.',
+                    deployError: `No result after ${DEPLOY_STATUS_WAIT_MS / 60_000} minutes.`,
                     deployErrorCode: 'TIMEOUT',
                     deployedAt: null,
                     deployedUrl: '',
@@ -119,7 +128,7 @@ export class ContentsService extends DbService<IContents> {
                 });
                 subscriber.complete();
                 unsubscribe();
-            }, 60_000);
+            }, DEPLOY_STATUS_WAIT_MS);
 
             // The record still holds the previous publish's result when the
             // watch begins. That is not this publish's answer: a finished

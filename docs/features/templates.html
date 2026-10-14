@@ -209,7 +209,7 @@
         <tr><td><code>data-arc-loop="items" data-arc-items-src="events"</code></td><td>The <a href="#card-bindings">card bindings</a> of each entry of that type</td><td>Another type's published entries (see <a href="#items-from-another-type">Entries of another type</a>)</td></tr>
       </tbody>
     </table>
-    <div class="trap"><p>Use <code>href="{{ langPrefix }}/{{ contentTypeSlug }}/{{ nextContent.slug }}"</code> for a next link. <code>nextContent.url</code> exists only when the app renders the page, so a published page built with it has an empty link.</p></div>
+    <div class="trap"><p>Use <code>href="{{ langPrefix }}/{{ contentTypeSlug }}/{{ nextContent.slug }}"</code> for a next link, and the same with <code>previousContent</code> for a previous one. <code>nextContent.url</code> and <code>previousContent.url</code> exist only when the app renders the page, so a published page built with it has an empty link.</p></div>
 
     <h3>List page bindings</h3>
     <p>Outside the loop, <code>list.html</code> has:</p>

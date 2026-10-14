@@ -1293,6 +1293,20 @@ describe('the queue run\'s time budget', () => {
         expect(COALESCED_BUILD_MS + longestWait + RELEASE_TIME_MS).toBeLessThanOrEqual(RELEASE_BY_MS);
         expect(RELEASE_BY_MS).toBeLessThan(QUEUE_TIMEOUT_MS);
     });
+
+    it('ends before the editor stops waiting for the result', async () => {
+        const fs = await import('fs');
+        const path = await import('path');
+        const service = fs.readFileSync(
+            path.resolve(__dirname, '../../../src/app/pages/admin/contents/content-store/published-contents.service.ts'),
+            'utf-8',
+        );
+        // DEPLOY_STATUS_WAIT_MS is written as a product, such as 10 * 60 * 1000.
+        const match = service.match(/export const DEPLOY_STATUS_WAIT_MS = ([\d_ *]+);/);
+        expect(match).not.toBeNull();
+        const editorWaitMs = match![1].split('*').reduce((total, n) => total * Number(n.trim().replace(/_/g, '')), 1);
+        expect(editorWaitMs).toBeGreaterThan(QUEUE_TIMEOUT_MS);
+    });
 });
 
 describe('collectionHelpers', () => {
