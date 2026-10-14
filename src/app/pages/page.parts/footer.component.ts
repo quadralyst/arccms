@@ -2,12 +2,14 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { footer } from 'virtual:arc-site';
 import { LanguageSwitcherComponent } from './language-switcher.component';
 import { PublicSearchComponent } from './public-search.component';
+import { ContentPartialsComponent } from './content-partials.component';
 import { renderSiteFragment } from './site-fragment';
 import { useSiteStyles } from '../../core/site/site-styles';
 
 /**
  * The site footer: the site's own /_site/footer.html (src/custom/site/footer.html,
- * else Arc CMS's), the same file publishing puts on every static page.
+ * else Arc CMS's), the same file publishing puts on every static page, with the
+ * same elements as the header (card blocks included).
  * ngSkipHydration for the same reason as the header.
  */
 @Component({
@@ -24,6 +26,7 @@ export class FooterComponent {
         renderSiteFragment(footer, {
             'arc-search': PublicSearchComponent,
             'arc-language-switcher': LanguageSwitcherComponent,
+            'arc-content-partials': ContentPartialsComponent,
         });
     }
 }

@@ -36,6 +36,7 @@ import {
 import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { getSiteManifest, loadDetailTemplate, pageStylesheets } from '../shared/site-files.js';
 import { siteInfoFor } from '../shared/site-info-source.js';
+import { siteChrome } from './card-blocks.js';
 import { liveSiteScript, withLiveParts } from '../shared/live-parts.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
@@ -419,18 +420,15 @@ export async function generateAndDeployContentDetailPage(
         // The partials are one file shared by every language, so their links
         // are root-relative and have to be pointed at this language — without
         // it the page reads in Hindi and its chrome navigates to English.
+        // Their card blocks are filled once per release and language (card-blocks.ts).
         const contentTypes = await publicContentTypeSlugs();
-        const chrome = (html: string) =>
-            prefixAnchorHrefs(
-                TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, pageStrings), siteInfo),
-                langPrefix(lang, defaultLang),
-                contentTypes,
-            );
+        const chrome = await siteChrome(partials, lang, defaultLang, pageStrings, siteInfo, target);
+        const inLanguage = (html: string) => prefixAnchorHrefs(html, langPrefix(lang, defaultLang), contentTypes);
 
         hydratedHtml = replaceArcComponents(
             hydratedHtml,
-            chrome(partials.headerHtml),
-            chrome(partials.footerHtml),
+            inLanguage(chrome.headerHtml),
+            inLanguage(chrome.footerHtml),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
             buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings: pageStrings }),
         );

@@ -15,8 +15,10 @@
  *   a published page (core/site/site-urls.ts);
  * - links to pages that exist in every language pointed at the page's language
  *   (`/articles` becomes `/hi/articles` on a Hindi page; `/signup` stays);
- * - the Arc CMS elements in the HTML, such as `<arc-search>` and
- *   `<arc-language-switcher>`, become the real components;
+ * - the Arc CMS elements in the HTML, such as `<arc-search>`,
+ *   `<arc-language-switcher>` and the card blocks (`<arc-content-partials>`),
+ *   become the real components, a card block's attributes setting its inputs
+ *   (setAttributeInputs);
  * - its scripts run, as on a published page. An inline script runs again each
  *   time the fragment is drawn again (for the page's language), so it binds to
  *   the elements it finds; a script file is loaded once.
@@ -42,6 +44,18 @@ import { versionSiteUrls } from '../../core/site/site-urls';
 
 /** Arc CMS elements a fragment may hold, by tag name, and the component each becomes. */
 export type FragmentElements = Record<string, Type<unknown>>;
+
+/**
+ * Sets a component's inputs from its element's attributes, for a component that
+ * says how (a static `attributeInputs(element)`, such as ContentPartialsComponent's
+ * `content-type="articles"`). Call before attaching its view, so its first
+ * change detection sees them.
+ */
+export function setAttributeInputs(ref: ComponentRef<unknown>, component: Type<unknown>, element: Element): void {
+    const inputsOf = (component as unknown as { attributeInputs?: (element: Element) => Record<string, unknown> }).attributeInputs;
+    if (!inputsOf) return;
+    for (const [input, value] of Object.entries(inputsOf(element))) ref.setInput(input, value);
+}
 
 export interface FragmentOptions {
     /**
@@ -115,6 +129,7 @@ export function renderSiteFragment(html: string, elements: FragmentElements, opt
         for (const [tag, component] of Object.entries(elements)) {
             host.querySelectorAll(tag).forEach((hostElement) => {
                 const ref = createComponent(component, { environmentInjector, elementInjector, hostElement });
+                setAttributeInputs(ref, component, hostElement);
                 appRef.attachView(ref.hostView);
                 mounted.push(ref);
             });

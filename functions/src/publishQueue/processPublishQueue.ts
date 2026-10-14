@@ -4,6 +4,7 @@ import { db } from '../init.js';
 import { getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
 import { MissingTemplateFolderError } from '../shared/site-files.js';
 import { generateAndDeployHomePage, homeShowsType } from '../pages/deployHomePage.js';
+import { chromeCardsSignature, chromeShowsType } from '../pages/card-blocks.js';
 import { generateAndDeployContentDetailPage, removeContentPage } from '../pages/deployContentPage.js';
 import { HostingBatch, deployBatchToHosting } from '../pages/deployToHosting.js';
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
@@ -51,7 +52,8 @@ async function queueRedeployAll(reason: string): Promise<void> {
 /**
  * Copies each draft's `sortOrder` to its published copy (removing it where the
  * draft has none), then rebuilds the pages that show the type's entries: its
- * list page when it has public pages, and the home page when it shows the type.
+ * list page when it has public pages, the home page when it shows the type, and
+ * every page (a queued whole-site republish) when the header or footer does.
  * Only `sortOrder` is written, so a draft's unpublished edits stay unpublished.
  */
 export async function applyEntryOrder(slug: string, batch: HostingBatch): Promise<void> {
@@ -76,8 +78,11 @@ export async function applyEntryOrder(slug: string, batch: HostingBatch): Promis
     const hasPublicUrl = typeData?.hasPublicUrl !== false;
     if (hasPublicUrl) await generateAndDeployContentListPage(slug, batch);
     if (await homeShowsType(slug).catch(() => false)) await generateAndDeployHomePage(batch);
-    // The footer lists the standard pages in this order (SS6).
+    // The footer lists the standard pages in this order (SS6). A card block in the
+    // header or footer shows the type's entries in its order, which this item may
+    // have changed without moving an entry (newest first to your own order).
     if (typeData?.standard === 'pages' && writes.length) await queueRedeployAll(`standard pages put in a new order`);
+    else if (await chromeShowsType(slug).catch(() => false)) await queueRedeployAll(`${slug} in a new order in the header or footer`);
     console.log(`Entry order applied to ${slug}: ${writes.length} published entr${writes.length === 1 ? 'y' : 'ies'} changed`);
 }
 
@@ -402,6 +407,9 @@ export const processPublishQueue = onDocumentCreated({
     // of it now, to republish the site if that changes.
     const isStandardPage = contentTypeData?.standard === 'pages';
     const footerBefore = isStandardPage ? await footerSignature(publishedRef) : '';
+    // A card block in the header or footer shows the type's entries on every page:
+    // note what it shows now, to republish the site if that changes ('' when none).
+    const chromeBefore = await chromeCardsSignature(contentTypeSlug).catch(() => '');
 
     try {
         switch (action) {
@@ -648,9 +656,12 @@ export const processPublishQueue = onDocumentCreated({
 
     // The footer of every page lists the standard pages: when this one went live,
     // came down or changed its title, every page is republished, in a queue item
-    // of its own so its release cannot race this one.
+    // of its own so its release cannot race this one. The same when the header's
+    // or footer's card blocks of this type now show something else.
     if (isStandardPage && (await footerSignature(publishedRef)) !== footerBefore) {
         await queueRedeployAll(`standard page ${docId} changed in the footer`);
+    } else if (chromeBefore && (await chromeCardsSignature(contentTypeSlug).catch(() => '')) !== chromeBefore) {
+        await queueRedeployAll(`${contentTypeSlug}/${docId} changed a card block in the header or footer`);
     }
 
     // Always clean up the queue document

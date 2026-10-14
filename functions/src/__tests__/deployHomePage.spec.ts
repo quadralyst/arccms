@@ -14,6 +14,9 @@ const { mockGetSiteFile, mockGetSiteManifest, mockLoadSiteTemplate, mockDeployBa
     mockCollection: vi.fn(),
 }));
 
+/** The site footer; a test may give it a card block. */
+const partialsFooter = vi.hoisted(() => ({ html: '<footer>Footer</footer>' }));
+
 vi.mock('../init', () => ({ db: { collection: (...args: unknown[]) => mockCollection(...args) } }));
 vi.mock('../shared/site-files', async (importOriginal) => ({
     ...(await importOriginal<typeof import('../shared/site-files.js')>()),
@@ -23,7 +26,7 @@ vi.mock('../shared/site-files', async (importOriginal) => ({
     pageStylesheets: async (urls: string[]) => [...urls, '/assets/css/site.css?v=s1'],
 }));
 vi.mock('../shared/site-settings', () => ({
-    getPartials: async () => ({ headerHtml: '<nav class="site-nav"><a href="/articles">Articles</a><arc-search></arc-search></nav>', footerHtml: '<footer>Footer</footer>' }),
+    getPartials: async () => ({ headerHtml: '<nav class="site-nav"><a href="/articles">Articles</a><arc-search></arc-search></nav>', footerHtml: partialsFooter.html }),
     getSiteConfig: async () => ({ siteName: 'Deepakam', baseUrl: 'https://deepakam.example', cssUrls: ['/assets/css/main.css'] }),
     getMiscSettings: async () => ({ showPoweredBy: false }),
     getLocalizationSettings: (...a: unknown[]) => mockLocalization(...a),
@@ -225,6 +228,22 @@ describe('deployHomePage', () => {
             const $ = loadHtml(released()['/index.html'], { xmlMode: false });
             expect($('p.who').text()).toBe('Deepakam');
             expect($('p.mail').length).toBe(0); // no contact email in About
+        });
+
+        it('fills a card block in the site footer too, in each language (card-blocks.ts)', async () => {
+            partialsFooter.html = '<footer><arc-content-partials content-type="articles" count="1" section-title="Read"></arc-content-partials></footer>';
+            try {
+                await generateAndDeployHomePage();
+            } finally {
+                partialsFooter.html = '<footer>Footer</footer>';
+            }
+            const en = loadHtml(released()['/index.html'], { xmlMode: false });
+            expect(en('footer a.card').attr('href')).toBe('/articles/first-post');
+            expect(en('footer h2').text()).toBe('Read');
+            const hi = loadHtml(released()['/hi/index.html'], { xmlMode: false });
+            expect(hi('footer a.card').attr('href')).toBe('/hi/articles/first-post');
+            expect(hi('footer a.card').text()).toBe('पहला लेख');
+            expect(released()['/index.html']).not.toContain('arc-content-partials');
         });
 
         it('removes a card block whose content type does not exist', async () => {

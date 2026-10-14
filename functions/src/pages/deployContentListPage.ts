@@ -29,6 +29,7 @@ import { versionSiteUrls } from '../shared/site-urls.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { publicContentTypeSlugs } from '../shared/public-content-types.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
+import { siteChrome } from './card-blocks.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { arcHostingSite } from '../arc-config.js';
 
@@ -183,14 +184,14 @@ export async function generateAndDeployContentListPage(
         // The partials are one file shared by every language, so their links
         // are root-relative and have to be pointed at this language — without
         // it the page reads in Hindi and its chrome navigates to English.
+        // Their card blocks are filled once per release and language (card-blocks.ts).
         const contentTypes = await publicContentTypeSlugs();
-        const chrome = (html: string) =>
-            prefixAnchorHrefs(TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, uiStrings), siteInfo), prefix, contentTypes);
+        const chrome = await siteChrome(partials, lang, defaultLang, uiStrings, siteInfo, target);
 
         hydratedHtml = replaceArcComponents(
             hydratedHtml,
-            chrome(partials.headerHtml),
-            chrome(partials.footerHtml),
+            prefixAnchorHrefs(chrome.headerHtml, prefix, contentTypes),
+            prefixAnchorHrefs(chrome.footerHtml, prefix, contentTypes),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
             buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings: uiStrings }),
         );
