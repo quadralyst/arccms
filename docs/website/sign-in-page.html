@@ -14,7 +14,7 @@
     <p class="lead">The sign-in page at <code>/signup</code>, where visitors sign in or create an account, shows your site's name, logo, words and colours. Three things set them, and none of them is a core file.</p>
 
     <h2>Name and logo</h2>
-    <p>The page takes them from <strong>Settings</strong>, <strong>About</strong>: the site name and the logo URL you already fill in for search engines. Where About has none, an app's own default fills in (<code>src/custom/brand.ts</code> and <code class="new">src/custom/logo.svg</code>, see <a href="../app/admin-look.html#name-and-logo">Brand the admin</a>). With a name and no logo it shows the name; with neither, it shows Arc CMS's. The browser tab reads "Sign in | <em>your site name</em>", and "Sign in" alone until the name is in.</p>
+    <p>The page takes them from <strong>Settings</strong>, <strong>About</strong>: the site name and the logo URL you already fill in for search engines. Where About has none, an app's own default fills in (<code>src/custom/brand.ts</code> and <code class="new">src/custom/logo.svg</code>, see <a href="../app/admin-look.html#name-and-logo">Brand the admin</a>). With a name and no logo it shows the name; with neither, it shows Arc CMS's. The first step shows the logo above the card, the steps after it the name; a site can hide the logo and show the name, restyled, on every step (see <a href="#look">the whole look</a>). The browser tab reads "Sign in | <em>your site name</em>", and "Sign in" alone until the name is in.</p>
 
     <h2>The brand panel</h2>
     <p>On screens 992 pixels wide and more, a coloured panel sits beside the form; narrower, the form is alone and centred. Arc CMS's says only "Welcome" and "Sign in, or create your account, to continue" (<code>public/_site/sign-in.html</code>). Write your own as <code class="new">src/custom/site/sign-in.html</code>, an HTML fragment like the header:</p>
@@ -44,7 +44,13 @@
     --arc-sign-in-text-color: #2b271d;
     --arc-sign-in-panel: none;
     --arc-sign-in-logo: none;
-    --arc-sign-in-logo-text: "My Shop";
+    --arc-sign-in-logo-height: 0;
+    --arc-sign-in-name-size: 13px;
+    --arc-sign-in-name-weight: 700;
+    --arc-sign-in-name-letter-spacing: .1em;
+    --arc-sign-in-name-transform: uppercase;
+    --arc-sign-in-name-color: #8b8168;
+    --arc-sign-in-name-align: left;
     --arc-sign-in-card-background: #fdf8e3;
     --arc-sign-in-card-radius: 24px;
     --arc-sign-in-card-shadow: none;
@@ -85,10 +91,18 @@
         <tr><td><code>--arc-sign-in-panel</code></td><td><code>none</code> switches the brand panel off on wide screens: the card then sits alone in the middle, as on a phone</td></tr>
         <tr><td><code>--arc-sign-in-panel-background</code></td><td>The brand panel's background, any CSS background</td></tr>
         <tr><td><code>--arc-sign-in-panel-color</code></td><td>The brand panel's text colour</td></tr>
-        <tr><td><code>--arc-sign-in-logo</code></td><td><code>none</code> hides the logo above the card, and the site's name shown as a heading in its place, on every step</td></tr>
-        <tr><td><code>--arc-sign-in-logo-text</code></td><td>Words in quotes, such as <code>"My Shop"</code>, shown above the card in small capitals on every step. Set it with <code>--arc-sign-in-logo: none</code> to show the words instead of the logo. Write the site's name here when you want the name: the stylesheet cannot read it from Settings</td></tr>
+        <tr><td><code>--arc-sign-in-logo</code></td><td><code>none</code> hides the logo tile; the site's name (Settings, About) then shows above the card on every step, as one line</td></tr>
+        <tr><td><code>--arc-sign-in-logo-height</code></td><td>The room kept above the card for the logo, 60 pixels; <code>0</code> lets the name sit just above the card once the tile is hidden</td></tr>
+        <tr><td><code>--arc-sign-in-name-size</code></td><td>The name's size, such as <code>13px</code></td></tr>
+        <tr><td><code>--arc-sign-in-name-weight</code></td><td>Its weight, such as <code>700</code></td></tr>
+        <tr><td><code>--arc-sign-in-name-letter-spacing</code></td><td>The room between its letters, such as <code>.1em</code></td></tr>
+        <tr><td><code>--arc-sign-in-name-transform</code></td><td><code>uppercase</code> for small capitals</td></tr>
+        <tr><td><code>--arc-sign-in-name-color</code></td><td>Its colour</td></tr>
+        <tr><td><code>--arc-sign-in-name-align</code></td><td><code>left</code> or <code>right</code> lines the name up with the card's words, on a phone and on a wide screen; <code>center</code> by default</td></tr>
       </tbody>
     </table>
+
+    <p>The name is the one in Settings, About, so the stylesheet never names the site and one app can serve many sites. It is never shown twice: with the tile hidden there is one line on every step.</p>
 
     <h3>The card and its words</h3>
     <table>
@@ -101,7 +115,7 @@
         <tr><td><code>--arc-sign-in-gutter</code></td><td>The room either side of the card, and of the brand above it, on a phone</td></tr>
         <tr><td><code>--arc-sign-in-title-color</code></td><td>Each step's title, such as "Welcome" and "Verify Email"</td></tr>
         <tr><td><code>--arc-sign-in-title-align</code></td><td>Where the title and the lines under it sit: <code>left</code>, <code>center</code> or <code>right</code></td></tr>
-        <tr><td><code>--arc-sign-in-muted-color</code></td><td>The quieter words: the lines under the title, hints, the legal notice, the footer and the small capitals brand</td></tr>
+        <tr><td><code>--arc-sign-in-muted-color</code></td><td>The quieter words: the lines under the title, hints, the legal notice and the footer</td></tr>
         <tr><td><code>--arc-sign-in-label-color</code></td><td>The labels over fields</td></tr>
         <tr><td><code>--arc-sign-in-link-color</code></td><td>The links: change the email or number, forgot password or PIN, show PIN, resend the code</td></tr>
       </tbody>

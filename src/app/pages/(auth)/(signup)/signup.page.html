@@ -26,11 +26,15 @@
                 <!-- Signed in already: the logo and a spinner while the account opens, no form -->
                 <div class="auth-opening" role="status" aria-live="polite">
                     <div class="auth-form-container">
+                        <!-- The logo tile, and the site's name: shown beside no tile, or when a site hides the tile (--arc-sign-in-logo: none) -->
                         <div class="auth-logo">
                             @if (brandLogo()) {
-                            <img class="auth-logo-image" [src]="brandLogo()" [alt]="brandName()">
-                            } @else if (brandName()) {
-                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            <img class="auth-logo-image" [src]="brandLogo()" alt="">
+                            }
+                            @if (brandName()) {
+                            <div class="auth-logo-line">
+                                <h2 class="auth-logo-text" [class.auth-logo-text-by-tile]="!!brandLogo()">{{ brandName() }}</h2>
+                            </div>
                             }
                         </div>
                     </div>
@@ -43,11 +47,15 @@
                     <!-- Request Slide: phone number or email -->
                     @if (currentStep() === 'request') {
                     <div class="auth-form-container">
+                        <!-- The logo tile, and the site's name: shown beside no tile, or when a site hides the tile (--arc-sign-in-logo: none) -->
                         <div class="auth-logo">
                             @if (brandLogo()) {
-                            <img class="auth-logo-image" [src]="brandLogo()" [alt]="brandName()">
-                            } @else if (brandName()) {
-                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            <img class="auth-logo-image" [src]="brandLogo()" alt="">
+                            }
+                            @if (brandName()) {
+                            <div class="auth-logo-line">
+                                <h2 class="auth-logo-text" [class.auth-logo-text-by-tile]="!!brandLogo()">{{ brandName() }}</h2>
+                            </div>
                             }
                         </div>
                     </div>
@@ -125,7 +133,9 @@
                     @if (currentStep() === 'login') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            <div class="auth-logo-line">
+                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            </div>
                         </div>
                     </div>
                     <div class="request-container request-height">
@@ -204,7 +214,9 @@
                     @if (currentStep() === 'pin') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            <div class="auth-logo-line">
+                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            </div>
                         </div>
                     </div>
                     <div class="request-container request-height">
@@ -267,7 +279,9 @@
                     @if (currentStep() === 'verify') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            <div class="auth-logo-line">
+                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            </div>
                         </div>
                     </div>
                     <div class="verification-container request-height">
@@ -343,7 +357,9 @@
                     @if (currentStep() === 'signup') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            <div class="auth-logo-line">
+                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            </div>
                         </div>
                     </div>
                     <div class="signup-container request-height">
@@ -460,7 +476,9 @@
                     @if (currentStep() === 'newPin') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            <div class="auth-logo-line">
+                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            </div>
                         </div>
                     </div>
                     <div class="request-container request-height">
@@ -502,7 +520,9 @@
                     @if (currentStep() === 'newPassword') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
-                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            <div class="auth-logo-line">
+                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            </div>
                         </div>
                     </div>
                     <div class="request-container request-height">
@@ -553,11 +573,15 @@
                     <!-- Signup Disabled Message -->
                     @if (currentStep() === 'disabled' ) {
                     <div class="auth-form-container">
+                        <!-- The logo tile, and the site's name: shown beside no tile, or when a site hides the tile (--arc-sign-in-logo: none) -->
                         <div class="auth-logo">
                             @if (brandLogo()) {
-                            <img class="auth-logo-image" [src]="brandLogo()" [alt]="brandName()">
-                            } @else if (brandName()) {
-                            <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            <img class="auth-logo-image" [src]="brandLogo()" alt="">
+                            }
+                            @if (brandName()) {
+                            <div class="auth-logo-line">
+                                <h2 class="auth-logo-text" [class.auth-logo-text-by-tile]="!!brandLogo()">{{ brandName() }}</h2>
+                            </div>
                             }
                         </div>
                     </div>
