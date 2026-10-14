@@ -171,6 +171,20 @@ export class HostingBatch {
         return this;
     }
 
+    /**
+     * Takes a queued file out again, as if it had never been added: unlike
+     * remove(), the release then leaves that path as the live site has it.
+     */
+    discard(filePath: string): this {
+        this.additions.delete(filePath);
+        return this;
+    }
+
+    /** The paths of the queued files, in the order they were first added. */
+    get paths(): string[] {
+        return [...this.additions.keys()];
+    }
+
     get files(): Array<{ path: string; content: string }> {
         return [...this.additions].map(([path, content]) => ({ path, content }));
     }

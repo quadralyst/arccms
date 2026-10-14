@@ -59,6 +59,15 @@ describe('items from another type', () => {
         expect(itemsFromTypeSources(null)).toEqual([]);
     });
 
+    it('does not count a loop in an HTML comment, in either copy', () => {
+        const html = `<!-- <ul data-arc-loop="items" data-arc-items-src="events"></ul> -->
+            <ul data-arc-loop="items" data-arc-items-src="news"></ul><!--
+            <ol data-arc-loop="items" data-arc-items-src="old"></ol>
+            -->`;
+        expect(itemsFromTypeSources(html)).toEqual(['news']);
+        expect(published.itemsFromTypeSources(html)).toEqual(['news']);
+    });
+
     it('gives every container a loop of its own, leaving a plain items loop alone', () => {
         const html = `<ul data-arc-loop="items" data-arc-items-src="events" data-limit="3"><li>{{ title }}</li></ul>
             <ul data-arc-loop="items"><li>own</li></ul>

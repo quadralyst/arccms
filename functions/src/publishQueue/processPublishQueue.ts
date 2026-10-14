@@ -24,6 +24,9 @@ import { indexDocument, removeSearchEntries } from '../search/writer.js';
 import { runReindex } from '../search/reindexSearch.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { arcDocument, arcHostingSite } from '../arc-config.js';
+import { claimCoalesced, coalescedIdFor, finishCoalesced, requestCoalesced } from './coalesced-items.js';
+import type { RebuildCursor } from '../pages/items-from-type-pages.js';
+import type { ItemsFromTypeCache } from '../pages/published-entries.js';
 
 interface QueueItem {
     action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home' | 'order' | 'items-from';
@@ -44,30 +47,43 @@ export async function footerSignature(publishedRef: DocumentReference): Promise<
     return JSON.stringify([snap.data()?.['title'] ?? '', titles]);
 }
 
-/** Queues a whole-site republish. */
-async function queueRedeployAll(reason: string): Promise<void> {
-    console.log(`Republishing the whole site: ${reason}`);
-    await db.collection('_publish_queue').add({ action: 'redeploy-all', contentTypeSlug: '', docId: '', timestamp: Timestamp.now() });
+/**
+ * Queues a whole-site republish, in a queue item of its own so its release cannot
+ * race this one. It coalesces (coalesced-items.ts): a bulk publish of a hundred
+ * entries the header shows asks a hundred times, and the site is republished
+ * once, or once more when a change comes in while it runs. Returns whether a
+ * republish that starts after this call is certain.
+ */
+export async function queueRedeployAll(reason: string): Promise<boolean> {
+    try {
+        const outcome = await requestCoalesced('redeploy-all');
+        console.log(`Republishing the whole site (${outcome}): ${reason}`);
+        return true;
+    } catch (error) {
+        console.error(`Could not queue the whole-site republish (${reason}):`, error);
+        return false;
+    }
 }
 
 /**
  * Queues a rebuild of the detail pages that show entries of this type
  * (data-arc-items-src), when any template does, in a queue item of its own so
- * its release cannot race this one. One waiting rebuild per type is enough: it
- * reads the entries when it runs, so a second change before then adds nothing.
+ * its release cannot race this one. One per type, coalesced like the whole-site
+ * republish: it reads the entries when it runs, so a change before then adds
+ * nothing, and a change while it runs makes it run once more.
  */
 export async function queuePagesShowingItemsOf(slug: string): Promise<void> {
     try {
         if (!(await typesShowingItemsOf(slug)).length) return;
-        const waiting = await db.collection('_publish_queue')
-            .where('action', '==', 'items-from').where('contentTypeSlug', '==', slug).limit(1).get();
-        if (!waiting.empty) return;
-        console.log(`Rebuilding the pages that show entries of ${slug}`);
-        await db.collection('_publish_queue').add({ action: 'items-from', contentTypeSlug: slug, docId: '', timestamp: Timestamp.now() });
+        const outcome = await requestCoalesced('items-from', slug);
+        console.log(`Rebuilding the pages that show entries of ${slug} (${outcome})`);
     } catch (error) {
         console.error(`Could not queue the pages that show entries of ${slug}:`, error);
     }
 }
+
+/** How long an items-from run builds pages before it releases them and queues the rest: the function has 540s. */
+export const ITEMS_FROM_BUILD_MS = 360_000;
 
 /**
  * Copies each draft's `sortOrder` to its published copy (removing it where the
@@ -75,8 +91,9 @@ export async function queuePagesShowingItemsOf(slug: string): Promise<void> {
  * list page when it has public pages, the home page when it shows the type, and
  * every page (a queued whole-site republish) when the header or footer does.
  * Only `sortOrder` is written, so a draft's unpublished edits stay unpublished.
+ * Returns whether it queued a whole-site republish.
  */
-export async function applyEntryOrder(slug: string, batch: HostingBatch): Promise<void> {
+export async function applyEntryOrder(slug: string, batch: HostingBatch): Promise<boolean> {
     const [drafts, published, typeSnap] = await Promise.all([
         db.collection(getDraftCollectionName(slug)).get(),
         db.collection(getPublishedCollectionName(slug)).get(),
@@ -101,9 +118,11 @@ export async function applyEntryOrder(slug: string, batch: HostingBatch): Promis
     // The footer lists the standard pages in this order (SS6). A card block in the
     // header or footer shows the type's entries in its order, which this item may
     // have changed without moving an entry (newest first to your own order).
-    if (typeData?.standard === 'pages' && writes.length) await queueRedeployAll(`standard pages put in a new order`);
-    else if (await chromeShowsType(slug).catch(() => false)) await queueRedeployAll(`${slug} in a new order in the header or footer`);
+    let siteRepublished = false;
+    if (typeData?.standard === 'pages' && writes.length) siteRepublished = await queueRedeployAll(`standard pages put in a new order`);
+    else if (await chromeShowsType(slug).catch(() => false)) siteRepublished = await queueRedeployAll(`${slug} in a new order in the header or footer`);
     console.log(`Entry order applied to ${slug}: ${writes.length} published entr${writes.length === 1 ? 'y' : 'ies'} changed`);
+    return siteRepublished;
 }
 
 /**
@@ -118,6 +137,8 @@ export async function applyEntryOrder(slug: string, batch: HostingBatch): Promis
 async function collectAllPublishedPages(batch: HostingBatch): Promise<number> {
     const contentTypes = await db.collection('ContentTypes').get();
     let pages = 0;
+    // Entries of other types (data-arc-items-src) are read once for the whole site.
+    const itemsFromTypeCache: ItemsFromTypeCache = new Map();
 
     for (const typeDoc of contentTypes.docs) {
         const { slug, hasPublicUrl } = typeDoc.data() as { slug?: string; hasPublicUrl?: boolean };
@@ -128,7 +149,7 @@ async function collectAllPublishedPages(batch: HostingBatch): Promise<number> {
 
         for (const doc of published.docs) {
             try {
-                await generateAndDeployContentDetailPage(slug, doc.id, batch);
+                await generateAndDeployContentDetailPage(slug, doc.id, batch, itemsFromTypeCache);
                 pages++;
             } catch (error) {
                 // One unbuildable page must not cost the other 23 their repair.
@@ -323,6 +344,7 @@ export const processPublishQueue = onDocumentCreated({
 
     const { action, contentTypeSlug, docId } = queueData;
     const queueDocRef = event.data?.ref;
+    const queueId = queueDocRef?.id ?? event.params?.queueId ?? '';
 
     // 'redeploy-all' and 'home' are site-wide, so they name no content type and no
     // document; 'order' is about a whole content type, so it names no document.
@@ -355,9 +377,24 @@ export const processPublishQueue = onDocumentCreated({
         return;
     }
 
+    // A whole-site republish and a rebuild of the pages showing a type's entries
+    // coalesce (coalesced-items.ts): each is one queue document with a fixed id.
+    // One added any other way (the admin's Republish button, a settings change)
+    // joins it, so it cannot run beside it and race its release.
+    const coalescedId = coalescedIdFor(action, contentTypeSlug);
+    if (coalescedId && queueId !== coalescedId) {
+        if (action === 'redeploy-all') await queueRedeployAll(`asked for by queue item ${queueId}`);
+        else await requestCoalesced('items-from', contentTypeSlug).catch((error) =>
+            console.error(`Could not queue the pages that show entries of ${contentTypeSlug}:`, error));
+        if (queueDocRef) await queueDocRef.delete();
+        return;
+    }
+
     // Handled ahead of the per-document setup below, which needs a document to
     // point at. This one is about the site, not about a document.
     if (action === 'redeploy-all') {
+        // Nothing to run when another delivery of the same trigger is running it.
+        if (!(await claimCoalesced(coalescedId))) return;
         try {
             const pages = await collectAllPublishedPages(batch);
             // The home page is part of the site, whatever it shows.
@@ -396,36 +433,48 @@ export const processPublishQueue = onDocumentCreated({
         } catch (error) {
             console.error('Search reindex after redeploy-all failed:', error);
         }
-        if (queueDocRef) await queueDocRef.delete();
+        // Removed whether it worked or not, and queued once more if a change came in meanwhile.
+        await finishCoalesced(coalescedId);
         return;
     }
 
     // A content type's entries were put in a new order (the Arrange dialog), or its
     // entry order changed: the pages that show them follow (specs/site-sections-spec.md, SS2).
     if (action === 'order') {
+        let siteRepublished = false;
         try {
-            await applyEntryOrder(contentTypeSlug, batch);
+            siteRepublished = await applyEntryOrder(contentTypeSlug, batch);
             if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, '', '');
         } catch (error) {
             console.error(`Entry order update failed for ${contentTypeSlug}:`, error);
         }
         if (queueDocRef) await queueDocRef.delete();
-        await queuePagesShowingItemsOf(contentTypeSlug);
+        // A whole-site republish rebuilds those pages too.
+        if (!siteRepublished) await queuePagesShowingItemsOf(contentTypeSlug);
         return;
     }
 
     // Entries of this type changed: the detail pages that show them
-    // (data-arc-items-src) are built again, in one release. The queue item goes
-    // first, so a change made while this runs queues a rebuild of its own.
+    // (data-arc-items-src) are built again, in one release. A change made while
+    // this runs marks the item, and it runs once more (coalesced-items.ts). A
+    // type with more pages than fit in one run releases what it built and queues
+    // the rest, from where it stopped.
     if (action === 'items-from') {
-        if (queueDocRef) await queueDocRef.delete();
+        const claimed = await claimCoalesced(coalescedId);
+        if (!claimed) return;
+        let continuation: Record<string, unknown> | undefined;
         try {
-            const pages = await rebuildPagesShowingItemsOf(contentTypeSlug, batch);
+            const after = claimed['after'] as RebuildCursor | undefined;
+            const result = await rebuildPagesShowingItemsOf(contentTypeSlug, batch, { after, deadline: Date.now() + ITEMS_FROM_BUILD_MS });
             if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, '', '');
-            console.log(`Rebuilt ${pages} page(s) that show entries of ${contentTypeSlug}`);
+            console.log(`Rebuilt ${result.pages} page(s) that show entries of ${contentTypeSlug}`
+                + (result.dropped ? `, leaving out ${result.dropped} unpublished meanwhile` : '')
+                + (result.next ? `; the rest follow after ${result.next.type}/${result.next.id}` : ''));
+            if (result.next) continuation = { after: result.next };
         } catch (error) {
             console.error(`Rebuilding the pages that show entries of ${contentTypeSlug} failed:`, error);
         }
+        await finishCoalesced(coalescedId, continuation);
         return;
     }
 
@@ -694,15 +743,17 @@ export const processPublishQueue = onDocumentCreated({
     // came down or changed its title, every page is republished, in a queue item
     // of its own so its release cannot race this one. The same when the header's
     // or footer's card blocks of this type now show something else.
+    let siteRepublished = false;
     if (isStandardPage && (await footerSignature(publishedRef)) !== footerBefore) {
-        await queueRedeployAll(`standard page ${docId} changed in the footer`);
+        siteRepublished = await queueRedeployAll(`standard page ${docId} changed in the footer`);
     } else if (chromeBefore && (await chromeCardsSignature(contentTypeSlug).catch(() => '')) !== chromeBefore) {
-        await queueRedeployAll(`${contentTypeSlug}/${docId} changed a card block in the header or footer`);
+        siteRepublished = await queueRedeployAll(`${contentTypeSlug}/${docId} changed a card block in the header or footer`);
     }
 
     // Detail pages of any type may show this type's entries (data-arc-items-src):
-    // they are rebuilt in a queue item of their own. A redeploy changes no entry.
-    if (action !== 'redeploy') await queuePagesShowingItemsOf(contentTypeSlug);
+    // they are rebuilt in a queue item of their own, unless the whole site is
+    // republished, which rebuilds them anyway. A redeploy changes no entry.
+    if (action !== 'redeploy' && !siteRepublished) await queuePagesShowingItemsOf(contentTypeSlug);
 
     // Always clean up the queue document
     if (queueDocRef) {

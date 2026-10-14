@@ -92,6 +92,16 @@ describe('HostingBatch', () => {
         expect(batch.size).toBe(1);
     });
 
+    it('should list the queued paths, and let one be taken out without removing it from the site', () => {
+        const batch = new HostingBatch().add('/a.html', 'A').add('/b.html', 'B').remove('/old.html');
+        expect(batch.paths).toEqual(['/a.html', '/b.html']);
+        batch.discard('/a.html');
+        expect(batch.paths).toEqual(['/b.html']);
+        // Unlike remove(), the release leaves the path as the live site has it.
+        expect(batch.removedPaths).toEqual(['/old.html']);
+        expect(batch.size).toBe(2);
+    });
+
     it('should count additions and removals together', () => {
         const batch = new HostingBatch().add('/a.html', 'A').remove('/b.html');
 

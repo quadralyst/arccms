@@ -123,6 +123,21 @@ vi.mock('../pages/card-blocks', () => ({
     chromeShowsType: (slug: string) => mockChromeShowsType(slug),
 }));
 
+// Coalesced queue items (coalesced-items.ts, coalescedQueue.spec.ts): asked for,
+// claimed and finished through spies; a claim succeeds unless a test says not.
+const { mockRequestCoalesced, mockClaimCoalesced, mockFinishCoalesced } = vi.hoisted(() => ({
+    mockRequestCoalesced: vi.fn(async (_action: string, _slug?: string) => 'queued'),
+    mockClaimCoalesced: vi.fn(async (_id: string): Promise<Record<string, unknown> | null> => ({ state: 'running' })),
+    mockFinishCoalesced: vi.fn(async (_id: string, _continuation?: Record<string, unknown>) => undefined),
+}));
+vi.mock('../publishQueue/coalesced-items', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../publishQueue/coalesced-items.js')>()),
+    requestCoalesced: (action: string, slug?: string) => mockRequestCoalesced(action, slug),
+    claimCoalesced: (id: string) => mockClaimCoalesced(id),
+    finishCoalesced: (id: string, continuation?: Record<string, unknown>) => mockFinishCoalesced(id, continuation),
+}));
+const requested = (action: string) => mockRequestCoalesced.mock.calls.filter(([a]) => a === action);
+
 vi.mock('../pages/generateRssFeed', () => ({
     generateAndDeployRssFeeds: vi.fn().mockResolvedValue(undefined),
 }));
@@ -203,9 +218,11 @@ function buildChain(contentTypeData: any = { hasPublicUrl: true }) {
     return { docRef, subCollectionRef };
 }
 
-function createEvent(action: string, contentTypeSlug: string, docId: string) {
+/** A queue item's trigger event; `id` is the queue document's id (a coalesced item has a fixed one). */
+function createEvent(action: string, contentTypeSlug: string, docId: string, id = 'q1') {
     const deleteRef = vi.fn().mockResolvedValue(undefined);
     return {
+        params: { queueId: id },
         data: {
             data: () => ({
                 action,
@@ -213,7 +230,7 @@ function createEvent(action: string, contentTypeSlug: string, docId: string) {
                 docId,
                 timestamp: { seconds: 1705334400, nanoseconds: 0 },
             }),
-            ref: { delete: deleteRef },
+            ref: { id, delete: deleteRef },
         },
     };
 }
@@ -443,7 +460,7 @@ describe('processPublishQueue', () => {
             queueAdd.mockResolvedValue(undefined);
         }
         const published = (title: string) => ({ exists: true, data: () => ({ title, urlSlug: 'about', content: '<p>x</p>' }) });
-        const redeployQueued = () => queueAdd.mock.calls.some(([item]) => item.action === 'redeploy-all');
+        const redeployQueued = () => requested('redeploy-all').length > 0;
 
         beforeEach(() => queueAdd.mockReset());
 
@@ -478,88 +495,117 @@ describe('processPublishQueue', () => {
 
     // Detail pages that show entries of another type (data-arc-items-src).
     describe('pages showing entries of the changed type', () => {
-        const queueAdd = vi.fn();
-        let waiting = false;
-        function wire() {
-            const base = mockCollection.getMockImplementation()!;
-            mockCollection.mockImplementation((name: string) => (name === '_publish_queue'
-                ? { add: queueAdd, where: () => ({ where: () => ({ limit: () => ({ get: async () => ({ empty: !waiting }) }) }) }) }
-                : base(name)));
-            queueAdd.mockResolvedValue(undefined);
-        }
-        const queued = () => queueAdd.mock.calls.filter(([item]) => item.action === 'items-from').map(([item]) => item);
+        const queued = () => requested('items-from').map(([, slug]) => slug);
         const live = { exists: true, data: () => ({ title: 'Drive', urlSlug: 'drive', content: '<p>x</p>' }) };
+        const ITEM_ID = 'items-from--impact-actions';
 
         beforeEach(() => {
-            queueAdd.mockReset();
-            waiting = false;
             mockTypesShowingItemsOf.mockResolvedValue([{ slug: 'entry-points', templateFolder: 'entry-points' }]);
-            wire();
+            mockRebuildPagesShowingItemsOf.mockResolvedValue({ pages: 0, dropped: 0 });
         });
         afterEach(() => {
             mockTypesShowingItemsOf.mockResolvedValue([]);
             mockRebuildPagesShowingItemsOf.mockReset();
+            mockChromeSignature.mockReset().mockResolvedValue('');
         });
 
-        it.each(['publish', 'update', 'unpublish', 'delete'])('queues a rebuild of them after %s, in a queue item of its own', async (action) => {
+        it.each(['publish', 'update', 'unpublish', 'delete'])('asks for a rebuild of them after %s, in the type\'s one queue item', async (action) => {
             mockGet.mockResolvedValue(live);
             await handler(createEvent(action, 'impact-actions', 'a1'));
             expect(mockTypesShowingItemsOf).toHaveBeenCalledWith('impact-actions');
-            expect(queued()).toEqual([expect.objectContaining({ action: 'items-from', contentTypeSlug: 'impact-actions', docId: '' })]);
+            expect(queued()).toEqual(['impact-actions']);
             // Not in this item's release.
             expect(mockRebuildPagesShowingItemsOf).not.toHaveBeenCalled();
         });
 
-        it('queues one only when a template shows the type, and not a second while one waits', async () => {
+        it('asks for none when no template shows the type', async () => {
             mockGet.mockResolvedValue(live);
             mockTypesShowingItemsOf.mockResolvedValueOnce([]);
             await handler(createEvent('publish', 'articles', 'p1'));
             expect(queued()).toEqual([]);
+        });
 
-            waiting = true;
+        it('asks for none when the same change republishes the whole site, which rebuilds them anyway', async () => {
+            mockGet.mockResolvedValue(live);
+            mockChromeSignature.mockResolvedValueOnce('en:<li>Old</li>').mockResolvedValue('en:<li>Drive</li>');
             await handler(createEvent('publish', 'impact-actions', 'a1'));
+            expect(requested('redeploy-all')).toHaveLength(1);
             expect(queued()).toEqual([]);
         });
 
-        it('queues none for a redeploy, which changes no entry', async () => {
+        it('a bulk publish of 20 entries asks 20 times for the one coalescing item, and never adds an item of its own', async () => {
+            mockGet.mockResolvedValue(live);
+            const queueAdd = vi.fn();
+            const base = mockCollection.getMockImplementation()!;
+            mockCollection.mockImplementation((name: string) => (name === '_publish_queue' ? { add: queueAdd } : base(name)));
+            await Promise.all(Array.from({ length: 20 }, (_, i) => handler(createEvent('publish', 'impact-actions', `a${i}`))));
+            expect(queued()).toHaveLength(20);
+            expect(queueAdd).not.toHaveBeenCalled();
+        });
+
+        it('asks for none for a redeploy, which changes no entry', async () => {
             mockGet.mockResolvedValue(live);
             await handler(createEvent('redeploy', 'impact-actions', 'a1'));
             expect(queued()).toEqual([]);
         });
 
-        it('queues one when the type\'s entries are put in a new order', async () => {
+        it('asks for one when the type\'s entries are put in a new order', async () => {
             const base = mockCollection.getMockImplementation()!;
             mockCollection.mockImplementation((name: string) => (name.startsWith('arc_')
                 ? { get: async () => ({ docs: [] }), doc: mockDoc }
                 : base(name)));
             await handler(createEvent('order', 'impact-actions', ''));
-            expect(queued()).toEqual([expect.objectContaining({ action: 'items-from', contentTypeSlug: 'impact-actions' })]);
+            expect(queued()).toEqual(['impact-actions']);
         });
 
-        it('rebuilds them in one release that stamps no entry, removing its queue item first', async () => {
+        it('claims the item, rebuilds them in one release that stamps no entry, then finishes the item', async () => {
             const order: string[] = [];
+            mockClaimCoalesced.mockImplementationOnce(async () => { order.push('claim'); return { state: 'running' }; });
             mockRebuildPagesShowingItemsOf.mockImplementation(async (_slug: string, batch: { add(p: string, c: string): void }) => {
                 order.push('rebuild');
                 batch.add('/entry-points/door.html', '<html></html>');
-                return 1;
+                return { pages: 1, dropped: 0 };
             });
-            const event = createEvent('items-from', 'impact-actions', '');
-            event.data.ref.delete.mockImplementation(async () => { order.push('delete'); });
+            mockDeployBatchToHosting.mockImplementation(async () => { order.push('release'); return true; });
+            mockFinishCoalesced.mockImplementationOnce(async () => { order.push('finish'); });
+            const event = createEvent('items-from', 'impact-actions', '', ITEM_ID);
             await handler(event);
 
-            expect(mockRebuildPagesShowingItemsOf).toHaveBeenCalledWith('impact-actions', expect.anything());
-            expect(order).toEqual(['delete', 'rebuild']);
-            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+            expect(mockClaimCoalesced).toHaveBeenCalledWith(ITEM_ID);
+            expect(mockRebuildPagesShowingItemsOf).toHaveBeenCalledWith('impact-actions', expect.anything(), expect.objectContaining({ after: undefined, deadline: expect.any(Number) }));
+            expect(order).toEqual(['claim', 'rebuild', 'release', 'finish']);
+            expect(mockFinishCoalesced).toHaveBeenCalledWith(ITEM_ID, undefined);
             expect(mockDeployBatchToHosting.mock.calls[0][2]).toBe('');
             expect(mockDeployBatchToHosting.mock.calls[0][3]).toBe('');
-            // Rebuilding the pages changes no entry, so it queues nothing further.
+            // The coalesced item is finished, not deleted, and rebuilding the pages changes no entry.
+            expect(event.data.ref.delete).not.toHaveBeenCalled();
             expect(queued()).toEqual([]);
             expect(mockGenerateDetailPage).not.toHaveBeenCalled();
         });
 
+        it('goes on from where a continuation says, and queues the rest when it runs out of time', async () => {
+            mockClaimCoalesced.mockResolvedValueOnce({ state: 'running', after: { type: 'entry-points', id: 'p4' } });
+            mockRebuildPagesShowingItemsOf.mockResolvedValue({ pages: 3, dropped: 0, next: { type: 'guides', id: 'g2' } });
+            await handler(createEvent('items-from', 'impact-actions', '', ITEM_ID));
+            expect(mockRebuildPagesShowingItemsOf.mock.calls[0][2]).toMatchObject({ after: { type: 'entry-points', id: 'p4' } });
+            expect(mockFinishCoalesced).toHaveBeenCalledWith(ITEM_ID, { after: { type: 'guides', id: 'g2' } });
+        });
+
+        it('finishes the item when the rebuild fails, so the next change can queue one', async () => {
+            mockRebuildPagesShowingItemsOf.mockRejectedValue(new Error('boom'));
+            await handler(createEvent('items-from', 'impact-actions', '', ITEM_ID));
+            expect(mockFinishCoalesced).toHaveBeenCalledWith(ITEM_ID, undefined);
+        });
+
+        it('runs nothing when another delivery of the trigger is running it', async () => {
+            mockClaimCoalesced.mockResolvedValueOnce(null);
+            await handler(createEvent('items-from', 'impact-actions', '', ITEM_ID));
+            expect(mockRebuildPagesShowingItemsOf).not.toHaveBeenCalled();
+            expect(mockFinishCoalesced).not.toHaveBeenCalled();
+        });
+
         it('releases nothing when no page shows the type any more', async () => {
-            mockRebuildPagesShowingItemsOf.mockResolvedValue(0);
-            await handler(createEvent('items-from', 'impact-actions', ''));
+            await handler(createEvent('items-from', 'impact-actions', '', ITEM_ID));
             expect(mockDeployBatchToHosting).not.toHaveBeenCalled();
         });
     });
@@ -574,7 +620,7 @@ describe('processPublishQueue', () => {
             queueAdd.mockResolvedValue(undefined);
             mockGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Karma League', urlSlug: 'kpl' }) });
         }
-        const redeploys = () => queueAdd.mock.calls.filter(([item]) => item.action === 'redeploy-all').length;
+        const redeploys = () => requested('redeploy-all').length;
 
         beforeEach(() => queueAdd.mockReset());
         // Back to showing nothing, for the tests after these.
@@ -705,24 +751,27 @@ describe('processPublishQueue', () => {
         });
 
         it('should rebuild every published page of every public content type', async () => {
-            await handler(createEvent('redeploy-all', '', ''));
+            await handler(createEvent('redeploy-all', '', '', 'redeploy-all'));
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything());
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc2', expect.anything());
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc1', expect.anything(), expect.anything());
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc2', expect.anything(), expect.anything());
             expect(mockGenerateListPage).toHaveBeenCalledWith('articles', expect.anything());
+            // One read cache for the whole site: another type's entries are read once, not once per page.
+            expect(mockGenerateDetailPage.mock.calls[0][3]).toBeInstanceOf(Map);
+            expect(mockGenerateDetailPage.mock.calls[1][3]).toBe(mockGenerateDetailPage.mock.calls[0][3]);
         });
 
         it('should skip content types without a public URL', async () => {
-            await handler(createEvent('redeploy-all', '', ''));
+            await handler(createEvent('redeploy-all', '', '', 'redeploy-all'));
 
-            expect(mockGenerateDetailPage).not.toHaveBeenCalledWith('notes', expect.anything(), expect.anything());
+            expect(mockGenerateDetailPage.mock.calls.map(([slug]) => slug)).not.toContain('notes');
         });
 
         it('rebuilds the static pages too, in the same release', async () => {
             mockGenerateStaticPage.mockImplementation(async (slug: string, batch: any) => {
                 batch.add(`/pages/${slug}/index.html`, '<html></html>');
             });
-            await handler(createEvent('redeploy-all', '', ''));
+            await handler(createEvent('redeploy-all', '', '', 'redeploy-all'));
             expect(mockGenerateStaticPage).toHaveBeenCalledWith('privacy-policy', expect.anything());
             expect(mockGenerateStaticPage).toHaveBeenCalledWith('terms', expect.anything());
             expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
@@ -735,7 +784,7 @@ describe('processPublishQueue', () => {
                 batch.add(`/${slug}/${id}.html`, '<html></html>');
             });
 
-            await handler(createEvent('redeploy-all', '', ''));
+            await handler(createEvent('redeploy-all', '', '', 'redeploy-all'));
 
             // Two releases would rebuild the second from a file list that does
             // not yet contain the first, dropping it — the race this exists to
@@ -743,14 +792,48 @@ describe('processPublishQueue', () => {
             expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
         });
 
+        it('claims the one whole-site item and finishes it after the release and the reindex', async () => {
+            const event = createEvent('redeploy-all', '', '', 'redeploy-all');
+            await handler(event);
+            expect(mockClaimCoalesced).toHaveBeenCalledWith('redeploy-all');
+            expect(mockFinishCoalesced).toHaveBeenCalledWith('redeploy-all', undefined);
+            expect(event.data.ref.delete).not.toHaveBeenCalled();
+        });
+
+        it('finishes it when the rebuild fails too, so it is not left blocking the next one', async () => {
+            mockGenerateHome.mockRejectedValueOnce(new Error('no home'));
+            mockGenerateStaticPage.mockRejectedValue(new Error('no page'));
+            mockDeployBatchToHosting.mockRejectedValue(new Error('release failed'));
+            mockGenerateDetailPage.mockImplementation(async (slug: string, id: string, batch: any) => batch.add(`/${slug}/${id}.html`, 'x'));
+            await handler(createEvent('redeploy-all', '', '', 'redeploy-all'));
+            expect(mockFinishCoalesced).toHaveBeenCalledWith('redeploy-all', undefined);
+            mockGenerateStaticPage.mockReset();
+        });
+
+        it('rebuilds nothing when another delivery of the trigger is running it', async () => {
+            mockClaimCoalesced.mockResolvedValueOnce(null);
+            await handler(createEvent('redeploy-all', '', '', 'redeploy-all'));
+            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+            expect(mockFinishCoalesced).not.toHaveBeenCalled();
+        });
+
+        it('turns one added any other way (the admin\'s Republish button) into a request for the one item', async () => {
+            const event = createEvent('redeploy-all', '', '', 'abc123');
+            await handler(event);
+            expect(requested('redeploy-all')).toHaveLength(1);
+            expect(event.data.ref.delete).toHaveBeenCalled();
+            expect(mockClaimCoalesced).not.toHaveBeenCalled();
+            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+        });
+
         it('should keep going when one page cannot be rebuilt', async () => {
             mockGenerateDetailPage.mockImplementation(async (_slug: string, id: string) => {
                 if (id === 'doc1') throw new Error('template missing');
             });
 
-            await handler(createEvent('redeploy-all', '', ''));
+            await handler(createEvent('redeploy-all', '', '', 'redeploy-all'));
 
-            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc2', expect.anything());
+            expect(mockGenerateDetailPage).toHaveBeenCalledWith('articles', 'doc2', expect.anything(), expect.anything());
         });
     });
 

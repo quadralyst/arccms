@@ -278,6 +278,7 @@ export async function generateAndDeployContentDetailPage(
     contentTypeSlug: string,
     docId: string,
     batch?: HostingBatch,
+    itemsFromTypeCache: ItemsFromTypeCache = new Map(),
 ): Promise<void> {
     // When the caller supplies a batch, files join it and are released with the
     // rest of the publish in one version — see HostingBatch for why.
@@ -355,8 +356,8 @@ export async function generateAndDeployContentDetailPage(
     const languageLabels = Object.fromEntries(
         localization.enabledLanguages.map(l => [l.code, l.nativeLabel || l.label]),
     );
-    // Entries of other types (data-arc-items-src), read once for every language.
-    const itemsFromTypeCache: ItemsFromTypeCache = new Map();
+    // Entries of other types (data-arc-items-src) are read once for every language,
+    // and once for every page when a rebuild passes its own cache.
 
     for (const language of languages) {
         const lang = language.code;
