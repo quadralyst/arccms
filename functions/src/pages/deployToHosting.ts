@@ -3,6 +3,7 @@ import { GoogleAuth } from 'google-auth-library';
 import * as zlib from 'node:zlib';
 import * as crypto from 'node:crypto';
 import { arcHostingSite } from '../arc-config.js';
+import { newerVersion, readRecordedRelease, recordRelease, withReleaseLock } from './hosting-release-lock.js';
 
 const API_BASE = 'https://firebasehosting.googleapis.com/v1beta1';
 
@@ -84,6 +85,33 @@ export async function listVersionFiles(versionName: string, token: string): Prom
         pageToken = page.nextPageToken || '';
     } while (pageToken);
     return files;
+}
+
+/**
+ * The version a release builds on: the latest listed release, or the version
+ * this code released last when the list has not caught up with it yet (see
+ * hosting-release-lock.ts). Call it while holding the release lock.
+ */
+async function baseVersionName(siteId: string, token: string): Promise<string | undefined> {
+    const releasesData = await apiFetch(
+        `${API_BASE}/sites/${siteId}/releases?pageSize=1`,
+        token,
+        { method: 'GET' },
+    );
+    return newerVersion(releasesData.releases?.[0], await readRecordedRelease(siteId));
+}
+
+/** Releases a finalized version and records it for the next release to build on. */
+async function releaseVersion(siteId: string, versionName: string, token: string): Promise<void> {
+    const release = await apiFetch(
+        `${API_BASE}/sites/${siteId}/releases?versionName=${versionName}`,
+        token,
+        { method: 'POST', body: JSON.stringify({}) },
+    );
+    await recordRelease(siteId, {
+        version: versionName,
+        releaseTime: typeof release?.releaseTime === 'string' ? release.releaseTime : new Date().toISOString(),
+    });
 }
 
 function gzipAndHash(content: string): { gzipped: Buffer; hash: string } {
@@ -213,7 +241,9 @@ export class HostingBatch {
  *  9. Finalize+release 10. Update Firestore
  *
  * One version per call is the point: see HostingBatch for the race that
- * per-file deploys are subject to.
+ * per-file deploys are subject to. Steps 2 to 9 hold the site's release lock,
+ * so releases from separate calls (separate queue items) run one at a time and
+ * each builds on the one before (see hosting-release-lock.ts).
  *
  * Writes step-by-step DeploymentLog to {collectionName}/{docId}/DeploymentLogs.
  * Updates deploy status fields on the content document.
@@ -254,103 +284,100 @@ export async function deployBatchToHosting(
         const token = await getAuthToken();
         addStep(steps, 1, 'Authenticate with Hosting API', 'success');
 
-        // Step 2: Get latest release
-        const releasesData = await apiFetch(
-            `${API_BASE}/sites/${siteId}/releases?pageSize=1`,
-            token,
-            { method: 'GET' },
-        );
-        const currentVersionName = releasesData.releases?.[0]?.version?.name;
-        addStep(steps, 2, 'Fetch current release', 'success',
-            currentVersionName ? `version: ${currentVersionName}` : 'No existing releases');
+        // Steps 2 to 9 run one release at a time per site (hosting-release-lock.ts):
+        // two at once would each build on the same version and drop each other's files.
+        await withReleaseLock(siteId, async (waitedMs) => {
+            // Step 2: Get latest release. Only after the release lock is ours, so a
+            // release that waited builds on the one it waited for.
+            const currentVersionName = await baseVersionName(siteId, token);
+            addStep(steps, 2, 'Fetch current release', 'success',
+                (currentVersionName ? `version: ${currentVersionName}` : 'No existing releases')
+                + (waitedMs >= 1000 ? `, after waiting ${Math.round(waitedMs / 1000)}s for another release` : ''));
 
-        // Step 3: Get current version files
-        const fileHashes: Record<string, string> = currentVersionName
-            ? await listVersionFiles(currentVersionName, token)
-            : {};
-        addStep(steps, 3, 'Retrieve existing files', 'success',
-            `${Object.keys(fileHashes).length} files`);
+            // Step 3: Get current version files
+            const fileHashes: Record<string, string> = currentVersionName
+                ? await listVersionFiles(currentVersionName, token)
+                : {};
+            addStep(steps, 3, 'Retrieve existing files', 'success',
+                `${Object.keys(fileHashes).length} files`);
 
-        // Step 4: Get current version config
-        let currentConfig: any = {};
-        if (currentVersionName) {
-            const versionData = await apiFetch(
-                `${API_BASE}/${currentVersionName}`,
-                token,
-                { method: 'GET' },
-            );
-            currentConfig = versionData.config || {};
-        }
-        addStep(steps, 4, 'Retrieve version config', 'success');
-
-        // Step 5: Gzip + hash every file in the batch, then drop removals
-        const prepared = batchFiles.map(file => {
-            const { gzipped, hash } = gzipAndHash(file.content);
-            fileHashes[file.path] = hash;
-            return { ...file, gzipped, hash };
-        });
-        for (const path of batchRemovals) {
-            delete fileHashes[path];
-        }
-        addStep(steps, 5, 'Gzip and hash content', 'success',
-            `${prepared.length} file(s), ${batchRemovals.length} removal(s)`);
-
-        // Step 6: Create new version
-        const newVersion = await apiFetch(
-            `${API_BASE}/sites/${siteId}/versions`,
-            token,
-            { method: 'POST', body: JSON.stringify({ config: currentConfig }) },
-        );
-        const newVersionName = newVersion.name;
-        addStep(steps, 6, 'Create new version', 'success', newVersionName);
-
-        // Step 7: Populate files
-        const populateResult = await apiFetch(
-            `${API_BASE}/${newVersionName}:populateFiles`,
-            token,
-            { method: 'POST', body: JSON.stringify({ files: fileHashes }) },
-        );
-        const uploadRequiredHashes: string[] = populateResult.uploadRequiredHashes || [];
-        const uploadUrl: string = populateResult.uploadUrl || '';
-        addStep(steps, 7, 'Populate files', 'success',
-            `${uploadRequiredHashes.length} uploads required`);
-
-        // Step 8: Upload (conditional, per file — unchanged content is skipped)
-        let uploaded = 0;
-        for (const file of prepared) {
-            if (!uploadRequiredHashes.includes(file.hash)) continue;
-            const uploadRes = await fetch(`${uploadUrl}/${file.hash}`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/octet-stream',
-                },
-                body: new Uint8Array(file.gzipped),
-            });
-            if (!uploadRes.ok) {
-                const text = await uploadRes.text();
-                const err = new Error(`Upload failed ${uploadRes.status}: ${text} (${file.path})`);
-                (err as any).code = `HOSTING_API_${uploadRes.status}`;
-                throw err;
+            // Step 4: Get current version config
+            let currentConfig: any = {};
+            if (currentVersionName) {
+                const versionData = await apiFetch(
+                    `${API_BASE}/${currentVersionName}`,
+                    token,
+                    { method: 'GET' },
+                );
+                currentConfig = versionData.config || {};
             }
-            uploaded++;
-        }
-        addStep(steps, 8, 'Upload file content',
-            uploaded ? 'success' : 'skipped',
-            uploaded ? `${uploaded} uploaded` : 'Content already exists');
+            addStep(steps, 4, 'Retrieve version config', 'success');
 
-        // Step 9: Finalize + Release
-        await apiFetch(
-            `${API_BASE}/${newVersionName}?updateMask=status`,
-            token,
-            { method: 'PATCH', body: JSON.stringify({ status: 'FINALIZED' }) },
-        );
-        await apiFetch(
-            `${API_BASE}/sites/${siteId}/releases?versionName=${newVersionName}`,
-            token,
-            { method: 'POST', body: JSON.stringify({}) },
-        );
-        addStep(steps, 9, 'Finalize and release', 'success');
+            // Step 5: Gzip + hash every file in the batch, then drop removals
+            const prepared = batchFiles.map(file => {
+                const { gzipped, hash } = gzipAndHash(file.content);
+                fileHashes[file.path] = hash;
+                return { ...file, gzipped, hash };
+            });
+            for (const path of batchRemovals) {
+                delete fileHashes[path];
+            }
+            addStep(steps, 5, 'Gzip and hash content', 'success',
+                `${prepared.length} file(s), ${batchRemovals.length} removal(s)`);
+
+            // Step 6: Create new version
+            const newVersion = await apiFetch(
+                `${API_BASE}/sites/${siteId}/versions`,
+                token,
+                { method: 'POST', body: JSON.stringify({ config: currentConfig }) },
+            );
+            const newVersionName = newVersion.name;
+            addStep(steps, 6, 'Create new version', 'success', newVersionName);
+
+            // Step 7: Populate files
+            const populateResult = await apiFetch(
+                `${API_BASE}/${newVersionName}:populateFiles`,
+                token,
+                { method: 'POST', body: JSON.stringify({ files: fileHashes }) },
+            );
+            const uploadRequiredHashes: string[] = populateResult.uploadRequiredHashes || [];
+            const uploadUrl: string = populateResult.uploadUrl || '';
+            addStep(steps, 7, 'Populate files', 'success',
+                `${uploadRequiredHashes.length} uploads required`);
+
+            // Step 8: Upload (conditional, per file: unchanged content is skipped)
+            let uploaded = 0;
+            for (const file of prepared) {
+                if (!uploadRequiredHashes.includes(file.hash)) continue;
+                const uploadRes = await fetch(`${uploadUrl}/${file.hash}`, {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/octet-stream',
+                    },
+                    body: new Uint8Array(file.gzipped),
+                });
+                if (!uploadRes.ok) {
+                    const text = await uploadRes.text();
+                    const err = new Error(`Upload failed ${uploadRes.status}: ${text} (${file.path})`);
+                    (err as any).code = `HOSTING_API_${uploadRes.status}`;
+                    throw err;
+                }
+                uploaded++;
+            }
+            addStep(steps, 8, 'Upload file content',
+                uploaded ? 'success' : 'skipped',
+                uploaded ? `${uploaded} uploaded` : 'Content already exists');
+
+            // Step 9: Finalize + Release
+            await apiFetch(
+                `${API_BASE}/${newVersionName}?updateMask=status`,
+                token,
+                { method: 'PATCH', body: JSON.stringify({ status: 'FINALIZED' }) },
+            );
+            await releaseVersion(siteId, newVersionName, token);
+            addStep(steps, 9, 'Finalize and release', 'success');
+        });
 
         // Step 10: Update Firestore status
         const deployDurationMs = Date.now() - startedAt.getTime();
@@ -403,9 +430,9 @@ export async function deployBatchToHosting(
 /**
  * Deploys a single file. Thin wrapper over `deployBatchToHosting`.
  *
- * Prefer batching when a caller writes several files in one operation — each
- * call here is its own Hosting release, and sequential releases can race (see
- * HostingBatch).
+ * Prefer batching when a caller writes several files in one operation: each
+ * call here is its own Hosting release, and releases to a site run one at a
+ * time (see hosting-release-lock.ts).
  */
 export async function deployFileToHosting(
     siteId: string,
@@ -438,61 +465,55 @@ export async function removeFileFromHosting(
     // Step 1: Auth
     const token = await getAuthToken();
 
-    // Step 2: Get latest release
-    const releasesData = await apiFetch(
-        `${API_BASE}/sites/${siteId}/releases?pageSize=1`,
-        token,
-        { method: 'GET' },
-    );
-    const currentVersionName = releasesData.releases?.[0]?.version?.name;
-    if (!currentVersionName) return; // nothing to remove from
+    // Steps 2 to 9 run one release at a time per site, as in deployBatchToHosting.
+    await withReleaseLock(siteId, async () => {
+        // Step 2: Get latest release
+        const currentVersionName = await baseVersionName(siteId, token);
+        if (!currentVersionName) return; // nothing to remove from
 
-    // Step 3: Get current version files
-    const fileHashes = await listVersionFiles(currentVersionName, token);
+        // Step 3: Get current version files
+        const fileHashes = await listVersionFiles(currentVersionName, token);
 
-    // Check if file exists
-    if (!fileHashes[filePath]) {
-        return; // file not in current version, nothing to remove
-    }
+        // Check if file exists
+        if (!fileHashes[filePath]) {
+            return; // file not in current version, nothing to remove
+        }
 
-    // Step 4: Remove file from hash map
-    delete fileHashes[filePath];
+        // Step 4: Remove file from hash map
+        delete fileHashes[filePath];
 
-    // Step 5: Get current version config
-    const versionData = await apiFetch(
-        `${API_BASE}/${currentVersionName}`,
-        token,
-        { method: 'GET' },
-    );
-    const currentConfig = versionData.config || {};
+        // Step 5: Get current version config
+        const versionData = await apiFetch(
+            `${API_BASE}/${currentVersionName}`,
+            token,
+            { method: 'GET' },
+        );
+        const currentConfig = versionData.config || {};
 
-    // Step 6: Create new version
-    const newVersion = await apiFetch(
-        `${API_BASE}/sites/${siteId}/versions`,
-        token,
-        { method: 'POST', body: JSON.stringify({ config: currentConfig }) },
-    );
-    const newVersionName = newVersion.name;
+        // Step 6: Create new version
+        const newVersion = await apiFetch(
+            `${API_BASE}/sites/${siteId}/versions`,
+            token,
+            { method: 'POST', body: JSON.stringify({ config: currentConfig }) },
+        );
+        const newVersionName = newVersion.name;
 
-    // Step 7: Populate files (without removed file)
-    await apiFetch(
-        `${API_BASE}/${newVersionName}:populateFiles`,
-        token,
-        { method: 'POST', body: JSON.stringify({ files: fileHashes }) },
-    );
+        // Step 7: Populate files (without removed file)
+        await apiFetch(
+            `${API_BASE}/${newVersionName}:populateFiles`,
+            token,
+            { method: 'POST', body: JSON.stringify({ files: fileHashes }) },
+        );
 
-    // Step 8: Finalize
-    await apiFetch(
-        `${API_BASE}/${newVersionName}?updateMask=status`,
-        token,
-        { method: 'PATCH', body: JSON.stringify({ status: 'FINALIZED' }) },
-    );
+        // Step 8: Finalize
+        await apiFetch(
+            `${API_BASE}/${newVersionName}?updateMask=status`,
+            token,
+            { method: 'PATCH', body: JSON.stringify({ status: 'FINALIZED' }) },
+        );
 
-    // Step 9: Release
-    await apiFetch(
-        `${API_BASE}/sites/${siteId}/releases?versionName=${newVersionName}`,
-        token,
-        { method: 'POST', body: JSON.stringify({}) },
-    );
+        // Step 9: Release
+        await releaseVersion(siteId, newVersionName, token);
+    });
 }
 
