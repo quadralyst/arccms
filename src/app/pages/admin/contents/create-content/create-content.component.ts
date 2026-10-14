@@ -11,6 +11,7 @@ import { SafeHtml } from '@angular/platform-browser';
 import { CommonModule, formatDate } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { IDraftContents, INextContentReference } from '../draft-content-store/draft-contents.model';
+import { SeriesLinks, planBacklinks, seriesReference } from '../draft-content-store/series-links';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
@@ -225,10 +226,15 @@ export class CreateContentComponent extends BaseComponent {
   showTagDropdown = signal<boolean>(false);
   tagsStore = inject(TagsStore);
 
-  // Next content selection
+  // Series links: the next and previous entries, picked from the same type
   selectedNextContent: INextContentReference | null = null;
   nextContentSearchTerm = signal<string>('');
   showNextContentDropdown = signal<boolean>(false);
+  selectedPreviousContent: INextContentReference | null = null;
+  /** The links as last loaded or saved, which the next save's backlinks compare with. */
+  private storedSeriesLinks: SeriesLinks | null = null;
+  previousContentSearchTerm = signal<string>('');
+  showPreviousContentDropdown = signal<boolean>(false);
   availableContents: IDraftContents[] = [];
   isLoadingContents = false;
 
@@ -1618,12 +1624,12 @@ export class CreateContentComponent extends BaseComponent {
       this.customFieldValues = this.adoptCustomFields(contentData.customFields);
     }
 
-    // Pre-populate next content reference
-    if (contentData?.nextContent) {
-      this.selectedNextContent = contentData.nextContent;
-    } else {
-      this.selectedNextContent = null;
-    }
+    // Pre-populate the series links
+    this.selectedNextContent = contentData?.nextContent || null;
+    this.selectedPreviousContent = contentData?.previousContent || null;
+    this.storedSeriesLinks = contentData?.id
+      ? { nextContent: this.selectedNextContent, previousContent: this.selectedPreviousContent }
+      : null;
 
     this.selectedTags.set((contentData?.tags ?? [])
       .map((label: string) => {
@@ -2115,13 +2121,29 @@ export class CreateContentComponent extends BaseComponent {
    * Get filtered contents based on search term
    */
   get filteredNextContents(): IDraftContents[] {
-    const term = this.nextContentSearchTerm().toLowerCase();
-    if (!term) return this.availableContents;
-    return this.availableContents.filter(
+    return this.filterSeriesOptions(this.nextContentSearchTerm());
+  }
+
+  /** The entries the Previous picker offers for its search term. */
+  get filteredPreviousContents(): IDraftContents[] {
+    return this.filterSeriesOptions(this.previousContentSearchTerm());
+  }
+
+  private filterSeriesOptions(search: string): IDraftContents[] {
+    const term = search.toLowerCase();
+    // Never the entry itself, also for a new entry saved after the list loaded.
+    const options = this.availableContents.filter((content) => !this.contentId || content.id !== this.contentId);
+    if (!term) return options;
+    return options.filter(
       (content) =>
         content.title?.toLowerCase().includes(term) ||
         content.metaDescription?.toLowerCase().includes(term)
     );
+  }
+
+  /** The copy of an entry a series link stores. */
+  private toSeriesReference(content: IDraftContents): INextContentReference {
+    return seriesReference(content.id, content);
   }
 
   /**
@@ -2177,15 +2199,11 @@ export class CreateContentComponent extends BaseComponent {
    * Select a content as the next content
    */
   selectNextContent(content: IDraftContents): void {
-    this.selectedNextContent = {
-      id: content.id,
-      title: content.title || '',
-      summary: content.metaDescription || '',
-      slug: content.urlSlug || ''
-    };
+    this.selectedNextContent = this.toSeriesReference(content);
     this.nextContentSearchTerm.set('');
     this.showNextContentDropdown.set(false);
     this.cdr.detectChanges();
+    this.triggerAutoSave();
   }
 
   /**
@@ -2194,6 +2212,40 @@ export class CreateContentComponent extends BaseComponent {
   removeNextContent(): void {
     this.selectedNextContent = null;
     this.cdr.detectChanges();
+    this.triggerAutoSave();
+  }
+
+  // Previous content: the same picker as Next.
+
+  onPreviousContentSearchInput(event: any): void {
+    this.previousContentSearchTerm.set(event.target.value);
+    this.showPreviousContentDropdown.set(true);
+  }
+
+  onPreviousContentSearchFocus(): void {
+    if (this.availableContents.length === 0) {
+      this.loadAvailableContents();
+    }
+    this.showPreviousContentDropdown.set(true);
+  }
+
+  onPreviousContentSearchBlur(): void {
+    // Delay to allow click on dropdown items
+    setTimeout(() => this.showPreviousContentDropdown.set(false), 200);
+  }
+
+  selectPreviousContent(content: IDraftContents): void {
+    this.selectedPreviousContent = this.toSeriesReference(content);
+    this.previousContentSearchTerm.set('');
+    this.showPreviousContentDropdown.set(false);
+    this.cdr.detectChanges();
+    this.triggerAutoSave();
+  }
+
+  removePreviousContent(): void {
+    this.selectedPreviousContent = null;
+    this.cdr.detectChanges();
+    this.triggerAutoSave();
   }
 
   public saveAsDraft(afterSave?: () => void) {
@@ -2238,11 +2290,6 @@ export class CreateContentComponent extends BaseComponent {
     this.isSavingDraft = true;
     this.saveStatusMessage = 'Saving draft...';
     this.saveStatusType = 'info';
-
-    // Handle Previous Content Linking
-    if (this.selectedNextContent) {
-      this.updatePreviousContentLink(this.selectedNextContent.id, formValues);
-    }
 
     // If we have a contentId, it's an update; otherwise it's a new item
     if (this.contentId) {
@@ -2367,6 +2414,9 @@ export class CreateContentComponent extends BaseComponent {
             // is enqueued so the pipeline copies what was just saved.
             await this.persistPendingTranslations(newId);
 
+            // Only now does the entry have an id for the others to point at.
+            await this.syncSeriesBacklinks(newId, formValues);
+
             // Enqueue publish action so the Cloud Function syncs to the published collection
             if (isPublish) {
               this.publishQueueService.enqueue('publish', this.contentTypeSlug, newId);
@@ -2438,7 +2488,8 @@ export class CreateContentComponent extends BaseComponent {
           }
 
           // Trigger cascading updates for content that references this one
-          await this.updateReferencingContents(formValues);
+          await this.syncSeriesBacklinks(id, formValues);
+          await this.updateReferencingContents(formValues, id);
           await this.triggerCollectionRefSync(formValues, before);
 
           this.saveStatusMessage =
@@ -2495,6 +2546,7 @@ export class CreateContentComponent extends BaseComponent {
       status: this.constantVariables.DRAFT,
       updatedAt: new Date(),
       nextContent: this.selectedNextContent,
+      previousContent: this.selectedPreviousContent,
       tagsWithColors: this.selectedTags().map(t => ({ name: t.label, color: t.color })),
       // Language-varying fields come from the default language, never from the
       // form when a translation is being edited.
@@ -2541,6 +2593,9 @@ export class CreateContentComponent extends BaseComponent {
           this.isAutoSaving = false;
           this.captureDraftBaseline();
           this.persistPendingTranslations(this.contentId);
+          // Picking Next or Previous auto-saves, so the links follow here too.
+          void this.syncSeriesBacklinks(id, formValues)
+            .then(() => this.updateReferencingContents(formValues, id));
           this.cdr.detectChanges();
 
           setTimeout(() => {
@@ -2653,23 +2708,47 @@ export class CreateContentComponent extends BaseComponent {
   }
 
   /**
-   * Update all content items that reference this content as their nextContent
-   * Called when title, summary (metaDescription), or slug changes
+   * Refresh the copy of this entry kept by entries whose Next or Previous
+   * points at it, after its title, summary (metaDescription) or slug changed.
+   * Entries whose copy already matches are not touched.
    */
-  private async updateReferencingContents(formValues: any): Promise<void> {
+  private async updateReferencingContents(formValues: any, id: string = this.contentId): Promise<void> {
+    if (!id) return;
+    const { title, summary, slug } = seriesReference(id, {
+      ...formValues,
+      title: formValues.title || this.pageTitle || '',
+    });
     try {
-      const title = formValues.title || this.pageTitle || '';
-      const summary = formValues.metaDescription || '';
-      const slug = formValues.urlSlug || '';
-
-      await this.draftContentStore.updateNextContentReferences(
-        this.contentId,
-        { title, summary, slug },
-        this.contentTypeSlug
-      );
+      await this.draftContentStore.updateNextContentReferences(id, { title, summary, slug }, this.contentTypeSlug);
+      await this.draftContentStore.updatePreviousContentReferences(id, { title, summary, slug }, this.contentTypeSlug);
     } catch (error) {
       console.error('Error updating referencing contents:', error);
       // Don't block the save operation on cascading update failure
+    }
+  }
+
+  /**
+   * Keep the other side of this entry's series links in step after a save:
+   * the entry picked as Next gets this one as its Previous, the entry picked
+   * as Previous gets this one as its Next, and an entry no longer picked loses
+   * the link back. Only once the entry has a real id, and never over a link
+   * an editor pointed at another entry (series-links.ts).
+   */
+  private async syncSeriesBacklinks(id: string, written: any): Promise<void> {
+    const contentType = this.contentTypeSlug || written?.type;
+    if (!id || !contentType) return;
+    // Compared with the links as last loaded or saved (none for a new entry),
+    // then those become the saved ones for the next save.
+    const before = this.storedSeriesLinks;
+    this.storedSeriesLinks = { nextContent: written.nextContent ?? null, previousContent: written.previousContent ?? null };
+    const changes = planBacklinks(id, before, written);
+    if (changes.length === 0) return;
+    const owner = seriesReference(id, { ...written, title: written.title || this.pageTitle || '' });
+    try {
+      await this.draftContentStore.applyBacklinks(contentType, owner, changes);
+    } catch (error) {
+      console.error('Error updating series links:', error);
+      // Non-blocking, like the other reference updates
     }
   }
 
@@ -2771,19 +2850,6 @@ export class CreateContentComponent extends BaseComponent {
       }
     });
   }
-  private updatePreviousContentLink(nextContentId: string, currentContent: any): void {
-    const previousContentRef: INextContentReference = {
-      id: this.contentId || 'temp-id',
-      title: currentContent.title,
-      summary: currentContent.summary || '',
-      slug: currentContent.urlSlug
-    };
-
-    this.draftContentStore.update(nextContentId, { previousContent: previousContentRef }, this.contentTypeSlug).subscribe({
-      error: (e) => console.error('Failed to update previous content link', e)
-    });
-  }
-
   /**
    * Copy the full URL to clipboard
    */
@@ -2873,6 +2939,15 @@ export class CreateContentComponent extends BaseComponent {
     // Restore custom fields
     if (version.customFields) {
       this.customFieldValues = this.adoptCustomFields(version.customFields);
+    }
+
+    // Restore the series links. A version saved before an entry had a
+    // Previous has no such field: the current link is kept then.
+    if (version.nextContent !== undefined) {
+      this.selectedNextContent = version.nextContent || null;
+    }
+    if (version.previousContent !== undefined) {
+      this.selectedPreviousContent = version.previousContent || null;
     }
 
     // Close the version preview and switch to basic tab so user sees the restored content

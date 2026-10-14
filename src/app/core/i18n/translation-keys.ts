@@ -222,9 +222,12 @@ export type TranslationKey =
     | 'admin.contents.editor.move_down'
     | 'admin.contents.editor.move_up'
     | 'admin.contents.editor.next_content_hint'
+    | 'admin.contents.editor.next_content_label'
     | 'admin.contents.editor.no_content_found'
     | 'admin.contents.editor.no_cover_image'
     | 'admin.contents.editor.preview'
+    | 'admin.contents.editor.previous_content_hint'
+    | 'admin.contents.editor.previous_content_label'
     | 'admin.contents.editor.publish'
     | 'admin.contents.editor.reference_title_placeholder'
     | 'admin.contents.editor.references'
@@ -248,6 +251,8 @@ export type TranslationKey =
     | 'admin.contents.editor.select_icon'
     | 'admin.contents.editor.select_image'
     | 'admin.contents.editor.seo_title'
+    | 'admin.contents.editor.series_remove'
+    | 'admin.contents.editor.series_search_placeholder'
     | 'admin.contents.editor.shared_badge'
     | 'admin.contents.editor.slug_exists'
     | 'admin.contents.editor.slug_warning'
@@ -2252,9 +2257,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.move_down',
     'admin.contents.editor.move_up',
     'admin.contents.editor.next_content_hint',
+    'admin.contents.editor.next_content_label',
     'admin.contents.editor.no_content_found',
     'admin.contents.editor.no_cover_image',
     'admin.contents.editor.preview',
+    'admin.contents.editor.previous_content_hint',
+    'admin.contents.editor.previous_content_label',
     'admin.contents.editor.publish',
     'admin.contents.editor.reference_title_placeholder',
     'admin.contents.editor.references',
@@ -2278,6 +2286,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.select_icon',
     'admin.contents.editor.select_image',
     'admin.contents.editor.seo_title',
+    'admin.contents.editor.series_remove',
+    'admin.contents.editor.series_search_placeholder',
     'admin.contents.editor.shared_badge',
     'admin.contents.editor.slug_exists',
     'admin.contents.editor.slug_warning',

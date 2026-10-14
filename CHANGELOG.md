@@ -29,6 +29,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Word the signup confirmation your way.** A form can carry `data-waitlist-success-title`, `data-waitlist-success-text`, `data-waitlist-existing-title` and `data-waitlist-existing-text` (with `{name}` and `{email}`), and a strings file for the default language (`src/custom/site/strings/en.json` for English) now works like any other: its `signup_*` keys reword the panels and its other keys the page, on every page in that language, static pages included, and in the app. New key `signup_success_text`. See docs/website/forms.html.
 - **`npm run forms:remove-referrals`** counts, and with `-- --apply` deletes, the referral records signup forms of older versions left behind; each names the person who was referred. See docs/features/forms.html.
 
+- **Previous beside Next in the editor.** An entry picks the entry before it in a series as well as the one after it, with the same search box. Both are saved with the draft, published, kept in version history and put back by a restore. Picking Next makes this entry the other one's Previous, and picking Previous makes it the other one's Next, unless that entry already links elsewhere; removing or changing a link removes the link back while it still points here. Renaming an entry, or changing its slug, updates the copy kept by entries that link to it. The other entry's draft shows as Edited until it is published again. See docs/features/content.html.
+- New translation keys: `admin.contents.editor.previous_content_label`, `previous_content_hint`, `next_content_label`, `series_search_placeholder` and `series_remove`; `next_content_hint` is longer.
+
 ### Changed
 
 - **The button that collapses the side menu is always in reach**, in the admin and the member area. In the admin it no longer slips off the panel beside a long site name or a wide logo, and it stays at the top while the menu scrolls; the member area gets the same button, collapsing its menu to icons. On a phone each area's menu bar stays at the top of the screen, closing the admin menu there no longer changes the wider screen's choice, a first visit opens the admin menu instead of collapsing it, and the admin follows a window resized across phone width. A page's own sticky bar uses `--arc-admin-sticky-top` to sit below the phone bar. See docs/admin/overview.html and docs/members/overview.html.
@@ -81,6 +84,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **Panel classes.** Kept: `.waitlist-verify-step`, `.waitlist-success-step`, `.waitlist-existing-step`, `.waitlist-otp-input`, `.waitlist-verify-btn`, `.waitlist-resend-btn`, `.waitlist-back-btn`, `.waitlist-inline-message`. New: `.waitlist-success-icon`, `.waitlist-success-title`, `.waitlist-success-text`, in both confirmations. Gone: `.waitlist-stat-number`, `.waitlist-leaderboard-btn`, `.waitlist-copy-input`, `.waitlist-copy-btn`, `.waitlist-referral-input`. CSS that hid the gamified parts of the panels can go.
 - The default welcome email is a plain confirmation. A form whose welcome is still exactly the old default, with its referral and leaderboard buttons, gets the new one the next time it is used; an edited welcome is left alone.
 - The signup panel keys `signup_position`, `signup_total`, `signup_move_up`, `signup_move_up_body`, `signup_referral_code`, `signup_share_link`, `signup_leaderboard`, `signup_referral_placeholder`, `signup_copy` and `signup_copied`, and the admin key `admin.dashboard.col_referrals`.
+
+### Fixed
+
+- Picking a Next entry on a new, unsaved entry wrote the placeholder id `temp-id` into the other entry's Previous, a link to nowhere. The link back is now written only after the first save, and an old `temp-id` link is replaced the next time it is set.
+- Removing or changing Next left the old entry's Previous pointing here; it is now cleared. A Previous someone set by hand is no longer overwritten.
+- Saving an entry no longer rewrites every entry whose Next points at it when nothing they show changed, which marked them all Edited.
 
 ### For apps upgrading
 

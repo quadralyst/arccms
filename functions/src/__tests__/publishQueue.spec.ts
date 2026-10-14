@@ -330,6 +330,22 @@ describe('processPublishQueue', () => {
             // Queue doc should still be cleaned up
             expect(event.data.ref.delete).toHaveBeenCalled();
         });
+
+        it('copies the Next and Previous links to the published copy and its version', async () => {
+            const nextContent = { id: 'n1', title: 'Part three', summary: '', slug: 'part-three' };
+            const previousContent = { id: 'p1', title: 'Part one', summary: '', slug: 'part-one' };
+            mockGet.mockResolvedValue({
+                exists: true,
+                data: () => ({ title: 'Part two', content: '<p>body</p>', urlSlug: 'part-two', nextContent, previousContent }),
+            });
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            // The published document, then the PublishedHistory entry a restore reads.
+            const written = mockBatchSet.mock.calls.map(([, data]) => data);
+            expect(written[0]).toEqual(expect.objectContaining({ id: 'doc1', nextContent, previousContent }));
+            expect(written[1]).toEqual(expect.objectContaining({ nextContent, previousContent }));
+        });
     });
 
     describe('a page that cannot be built', () => {

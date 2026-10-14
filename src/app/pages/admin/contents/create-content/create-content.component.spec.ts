@@ -81,6 +81,8 @@ describe('CreateContentComponent', () => {
             delete: vi.fn().mockReturnValue(of({})),
             checkExistingSlugUrl: vi.fn().mockResolvedValue({ exists: false, slug: 'test-slug' }),
             updateNextContentReferences: vi.fn().mockResolvedValue(undefined),
+            updatePreviousContentReferences: vi.fn().mockResolvedValue(undefined),
+            applyBacklinks: vi.fn().mockResolvedValue([]),
             unsubscribeStore: vi.fn(),
         };
 
@@ -1436,26 +1438,261 @@ describe('CreateContentComponent', () => {
         });
     });
 
-    describe('Next/Previous Content Logic', () => {
-        it('should update previous content link when saving with next content', () => {
-            component.selectedNextContent = {
-                id: 'next-id',
-                title: 'Next Article',
-                summary: 'Summary',
-                slug: 'next-slug'
-            };
-            component.pageTitle = 'Current Article';
-            component.publishForm.patchValue({ urlSlug: 'current-slug' });
+    describe('Next and Previous (series links)', () => {
+        const ref = (id: string, title = `Title ${id}`) => ({ id, title, summary: '', slug: `slug-${id}` });
+        const option = (id: string, title: string, metaDescription = '') =>
+            ({ id, title, metaDescription, urlSlug: `slug-${id}` }) as any;
 
-            mockDraftContentsStore.update.mockReturnValue(of({}));
+        /** Lets the save's async continuation (translations, links) finish. */
+        async function flush(): Promise<void> {
+            for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+        }
 
-            component.saveAsDraft();
+        /** Loads a saved entry the way the page does: the store emits it. */
+        function loadStored(extra: Record<string, unknown> = {}): void {
+            component.contentTypeSlug = 'article';
+            component.contentId = 'doc-1';
+            mockDraftContentsStore.currentItem.set({
+                id: 'doc-1', title: 'Part two', content: '<p>Body</p>', urlSlug: 'part-two',
+                metaDescription: 'The second part', type: 'article', tags: [], ...extra,
+            });
+            fixture.detectChanges(false);
+        }
 
-            expect(mockDraftContentsStore.update).toHaveBeenCalledWith('next-id', expect.objectContaining({
-                previousContent: expect.objectContaining({
-                    slug: 'current-slug'
-                })
-            }), '');
+        describe('the pickers', () => {
+            it('shows a Previous picker beside Next, labelled with the type name in the admin language', () => {
+                component.contentTypeSlug = 'article';
+                fixture.detectChanges(false);
+                const root: HTMLElement = fixture.nativeElement;
+
+                const previous = root.querySelector('[data-testid="previous-content-picker"]');
+                const next = root.querySelector('[data-testid="next-content-picker"]');
+                expect(previous?.textContent).toContain('Previous Article');
+                expect(previous?.textContent).toContain('Link to the previous content in a series');
+                expect(next?.textContent).toContain('Next Article');
+                expect((root.querySelector('[data-testid="previous-content-search"]') as HTMLInputElement).placeholder)
+                    .toBe('Search for content...');
+            });
+
+            it('picks and removes a Previous entry like Next, auto-saving each change', () => {
+                const autoSave = vi.spyOn(component, 'triggerAutoSave');
+
+                component.selectPreviousContent(option('p1', 'Part one', 'The first part'));
+                expect(component.selectedPreviousContent).toEqual({
+                    id: 'p1', title: 'Part one', summary: 'The first part', slug: 'slug-p1',
+                });
+
+                component.removePreviousContent();
+                expect(component.selectedPreviousContent).toBeNull();
+                expect(autoSave).toHaveBeenCalledTimes(2);
+            });
+
+            it('filters Previous options by the search term and never offers the entry itself', () => {
+                component.contentId = 'doc-1';
+                component.availableContents = [
+                    option('doc-1', 'Tree planting, this entry'),
+                    option('t1', 'Tree planting drive'),
+                    option('c1', 'Climate change', 'Global warming'),
+                ];
+
+                component.previousContentSearchTerm.set('tree');
+                expect(component.filteredPreviousContents.map((c) => c.id)).toEqual(['t1']);
+
+                component.previousContentSearchTerm.set('');
+                expect(component.filteredPreviousContents.map((c) => c.id)).toEqual(['t1', 'c1']);
+                expect(component.filteredNextContents.map((c) => c.id)).toEqual(['t1', 'c1']);
+            });
+
+            it('shows the stored Previous and Next when an entry opens', () => {
+                loadStored({ previousContent: ref('p1', 'Part one'), nextContent: ref('n1', 'Part three') });
+
+                expect(component.selectedPreviousContent?.id).toBe('p1');
+                expect(component.selectedNextContent?.id).toBe('n1');
+                const root: HTMLElement = fixture.nativeElement;
+                expect(root.querySelector('[data-testid="previous-content-selected"]')?.textContent).toContain('Part one');
+            });
+        });
+
+        describe('saving', () => {
+            it('saves both links in the draft payload', () => {
+                loadStored();
+                component.selectedNextContent = ref('n1');
+                component.selectedPreviousContent = ref('p1');
+
+                component.saveAsDraft();
+
+                expect(mockDraftContentsStore.update).toHaveBeenCalledWith('doc-1', expect.objectContaining({
+                    nextContent: ref('n1'),
+                    previousContent: ref('p1'),
+                }), 'article');
+            });
+
+            it('saves a cleared link as null, so the stored one goes', () => {
+                loadStored({ previousContent: ref('p1') });
+                component.removePreviousContent();
+
+                component.saveAsDraft();
+
+                expect(mockDraftContentsStore.update).toHaveBeenCalledWith('doc-1',
+                    expect.objectContaining({ previousContent: null }), 'article');
+            });
+
+            it('links a new entry\'s Next back only after the save gives it an id, never as "temp-id"', async () => {
+                component.contentTypeSlug = 'article';
+                component.pageTitle = 'Part one';
+                component.publishForm.patchValue({ urlSlug: 'part-one' });
+                component.selectedNextContent = ref('n1');
+
+                component.saveAsDraft();
+                // Nothing touches another entry before the entry exists.
+                expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+                expect(mockDraftContentsStore.applyBacklinks).not.toHaveBeenCalled();
+                await flush();
+
+                expect(mockDraftContentsStore.add).toHaveBeenCalled();
+                expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith(
+                    'article',
+                    expect.objectContaining({ id: 'new-id', title: 'Part one', slug: 'part-one' }),
+                    [{ targetId: 'n1', field: 'previousContent', action: 'set' }],
+                );
+                const everyCall = JSON.stringify([
+                    mockDraftContentsStore.update.mock.calls,
+                    mockDraftContentsStore.applyBacklinks.mock.calls,
+                ]);
+                expect(everyCall).not.toContain('temp-id');
+            });
+
+            it('remembers what the first save linked, so changing Next later clears the first one', async () => {
+                component.contentTypeSlug = 'article';
+                component.pageTitle = 'Part one';
+                component.selectedNextContent = ref('n1');
+                component.saveAsDraft();
+                await flush();
+                mockDraftContentsStore.applyBacklinks.mockClear();
+
+                component.selectNextContent(option('n2', 'Part three'));
+                component.saveAsDraft();
+                await flush();
+
+                expect(mockDraftContentsStore.update).toHaveBeenCalledWith('new-id', expect.anything(), 'article');
+                expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith('article', expect.objectContaining({ id: 'new-id' }), [
+                    { targetId: 'n1', field: 'previousContent', action: 'clear' },
+                    { targetId: 'n2', field: 'previousContent', action: 'set' },
+                ]);
+            });
+
+            it('asks for the backlink of the new Next and the new Previous (the symmetric rule)', async () => {
+                loadStored();
+                component.selectNextContent(option('n1', 'Part three'));
+                component.selectPreviousContent(option('p1', 'Part one'));
+
+                component.saveAsDraft();
+                await flush();
+
+                expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith(
+                    'article',
+                    { id: 'doc-1', title: 'Part two', summary: 'The second part', slug: 'part-two' },
+                    [
+                        { targetId: 'n1', field: 'previousContent', action: 'set' },
+                        { targetId: 'p1', field: 'nextContent', action: 'set' },
+                    ],
+                );
+            });
+
+            it('clears the old Next\'s backlink when Next changes, and sets the new one', async () => {
+                loadStored({ nextContent: ref('old') });
+                component.selectNextContent(option('new', 'Part three'));
+
+                component.saveAsDraft();
+                await flush();
+
+                expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith('article', expect.anything(), [
+                    { targetId: 'old', field: 'previousContent', action: 'clear' },
+                    { targetId: 'new', field: 'previousContent', action: 'set' },
+                ]);
+            });
+
+            it('clears the backlinks when Next and Previous are removed', async () => {
+                loadStored({ nextContent: ref('n1'), previousContent: ref('p1') });
+                component.removeNextContent();
+                component.removePreviousContent();
+
+                component.saveAsDraft();
+                await flush();
+
+                expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith('article', expect.anything(), [
+                    { targetId: 'n1', field: 'previousContent', action: 'clear' },
+                    { targetId: 'p1', field: 'nextContent', action: 'clear' },
+                ]);
+            });
+
+            it('keeps the links in step on auto-save too, comparing with what was stored', async () => {
+                loadStored({ nextContent: ref('old') });
+                component.selectNextContent(option('new', 'Part three'));
+
+                component['performAutoSave']();
+                await flush();
+
+                expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith('article', expect.anything(), [
+                    { targetId: 'old', field: 'previousContent', action: 'clear' },
+                    { targetId: 'new', field: 'previousContent', action: 'set' },
+                ]);
+            });
+
+            it('refreshes the title and slug other entries keep for it, in their Next and Previous', async () => {
+                loadStored();
+                component.pageTitle = 'Part two, renamed';
+                component.publishForm.patchValue({ urlSlug: 'part-two-renamed' });
+
+                component.saveAsDraft();
+                await flush();
+
+                const renamed = { title: 'Part two, renamed', summary: 'The second part', slug: 'part-two-renamed' };
+                expect(mockDraftContentsStore.updateNextContentReferences).toHaveBeenCalledWith('doc-1', renamed, 'article');
+                expect(mockDraftContentsStore.updatePreviousContentReferences).toHaveBeenCalledWith('doc-1', renamed, 'article');
+            });
+
+            it('publishes both links: the publish saves them to the draft the pipeline copies', async () => {
+                loadStored({ nextContent: ref('n1'), previousContent: ref('p1') });
+                vi.spyOn(component as any, 'validateForPublish').mockReturnValue({ valid: true, errors: [], missing: [] });
+
+                component.directPublishContent();
+                await flush();
+
+                expect(mockDraftContentsStore.update).toHaveBeenCalledWith('doc-1', expect.objectContaining({
+                    nextContent: ref('n1'),
+                    previousContent: ref('p1'),
+                    status: 'publish',
+                }), 'article');
+            });
+        });
+
+        describe('restoring a version', () => {
+            beforeEach(() => {
+                vi.spyOn(window, 'confirm').mockReturnValue(true);
+            });
+
+            it('restores both links from the version', () => {
+                loadStored({ nextContent: ref('n-now'), previousContent: ref('p-now') });
+
+                component.restoreVersion({
+                    historyId: 'h1', versionNumber: 2, title: 'Part two', content: '<p>Old</p>', publishedOn: null,
+                    nextContent: ref('n-then'), previousContent: null,
+                });
+
+                expect(component.selectedNextContent?.id).toBe('n-then');
+                expect(component.selectedPreviousContent).toBeNull();
+            });
+
+            it('keeps the current Previous when the version has no such field', () => {
+                loadStored({ previousContent: ref('p-now') });
+
+                component.restoreVersion({
+                    historyId: 'h1', versionNumber: 1, title: 'Part two', content: '<p>Old</p>', publishedOn: null,
+                });
+
+                expect(component.selectedPreviousContent?.id).toBe('p-now');
+            });
         });
     });
 
