@@ -335,7 +335,7 @@
       <thead><tr><th>Attribute</th><th>On a published page</th><th>In the app</th></tr></thead>
       <tbody>
         <tr><td><code>content-type</code></td><td>The type's slug. Required: with no type or an unknown one, the element is removed. A type without public pages works: its cards have no links.</td><td><code>articles</code> when left out</td></tr>
-        <tr><td><code>count</code></td><td>How many cards, a whole number from 1 to 50 (a larger number gives 50). Default <code>4</code>, also for <code>0</code> or text that is not a number.</td><td>Default <code>4</code>, from the 50 newest entries</td></tr>
+        <tr><td><code>count</code></td><td>How many cards, a whole number from 1 to 50 (a larger number gives 50). Default <code>4</code>, also for <code>0</code> or text that is not a number.</td><td>The same rule, and a fraction is rounded down (<code>2.7</code> gives 2, a negative number 1). Only that many of the newest entries are read; a type in its own order reads all its entries, to show the first ones.</td></tr>
         <tr><td><code>section-title</code></td><td>The heading, bound as <code>sectionTitle</code>. Default "Latest {type name}", or the page's <code>latest_of_type</code> string, such as <code>"नवीनतम {{ contentType }}"</code>.</td><td>The same</td></tr>
         <tr><td><code>template-folder</code></td><td>Another folder's <code>partials.html</code>. Default: the type's folder, else the default folder. A folder the live site does not have stops the home page's publish, or every page's for a block in the header or footer.</td><td>The same. A file that is not a template shows nothing.</td></tr>
       </tbody>

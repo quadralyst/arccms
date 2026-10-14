@@ -98,12 +98,35 @@ describe('ContentPartialsComponent', () => {
         expect(component).toBeTruthy();
     });
 
-    it('loads the newest items, up to the 50 a card block can show, not the store\'s first ten', () => {
+    it('reads only the newest `count` items, as when published, not 50 or the store\'s first ten', () => {
+        fixture.componentRef.setInput('count', 3);
         fixture.detectChanges();
+        expect(mockContentsStore.getAll).toHaveBeenCalledTimes(1);
         expect(mockContentsStore.getAll).toHaveBeenCalledWith(
-            expect.objectContaining({ orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: 50 }),
+            expect.objectContaining({ orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: 3 }),
             'articles',
         );
+    });
+
+    it('reads its own type alone, by its slug, not every content type', () => {
+        fixture.detectChanges();
+        expect(mockContentTypesStore.getAll).toHaveBeenCalledTimes(1);
+        expect(mockContentTypesStore.getAll).toHaveBeenCalledWith(expect.objectContaining({
+            whereConditions: [{ field: 'slug', operator: '==', value: 'articles' }],
+            limitCount: 1,
+        }));
+    });
+
+    it('reads and shows a count that is not a whole number from 1 to 50 as the publish side does', () => {
+        const contents = Array.from({ length: 60 }, (_, i) => ({ id: `${i}`, type: 'articles', publishedStatus: true, title: `${i}` }));
+        mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
+        mockContentsStore.items.set(contents);
+        for (const [count, shown] of [[-2, 1], [2.7, 2], [0, 4], [500, 50]]) {
+            fixture.componentRef.setInput('count', count);
+            fixture.detectChanges();
+            expect(component.filteredContents().length).toBe(shown);
+        }
+        expect(mockContentsStore.getAll).toHaveBeenCalledWith(expect.objectContaining({ limitCount: 1 }), 'articles');
     });
 
     describe('Input Bindings', () => {

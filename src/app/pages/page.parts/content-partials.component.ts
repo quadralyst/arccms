@@ -23,6 +23,18 @@ import { IContentTranslation, mergeTranslation } from '../admin/contents/draft-c
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { siteTemplateUrl } from '../../core/site/site';
 
+/** The most entries a card block shows, as when published (functions/src/pages/card-blocks.ts). */
+export const MAX_CARD_BLOCK_COUNT = 50;
+
+/**
+ * The number of entries a card block shows, by the publish side's rule: a whole
+ * number from 1 to 50, and 4 when it is not a number or is 0.
+ */
+export function cardBlockCount(value: unknown): number {
+    const count = Number(value) || 4;
+    return Math.max(1, Math.min(MAX_CARD_BLOCK_COUNT, Math.floor(count)));
+}
+
 /** `<arc-content-partials>` attributes and the component inputs they set. */
 const CARD_BLOCK_ATTRIBUTES: Record<string, string> = {
     'content-type': 'contentType',
@@ -46,7 +58,9 @@ const CARD_BLOCK_ATTRIBUTES: Record<string, string> = {
     selector: 'arc-content-partials',
     standalone: true,
     imports: [CommonModule, SafeHtmlPipe],
-    providers: [ContentsStore],
+    // Stores of its own: its queries never replace or cancel the page's (a
+    // content page reads its own type through the root ContentTypesStore).
+    providers: [ContentsStore, ContentTypesStore],
     template: `
     @if(hydrated()) {
     @if(contentTypesStore.isLoading() || contentsStore.isLoading()) {
@@ -76,13 +90,14 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     /**
      * The inputs a card block's attributes set, for an element in the site's own
      * HTML that is mounted by code (the home page, renderSiteFragment): `content-type`,
-     * `count` (a number, else 4), `section-title` and `template-folder`.
+     * `count` (cardBlockCount: a whole number from 1 to 50, else 4), `section-title`
+     * and `template-folder`.
      */
     static attributeInputs(element: Element): Record<string, unknown> {
         const inputs: Record<string, unknown> = {};
         for (const [attr, input] of Object.entries(CARD_BLOCK_ATTRIBUTES)) {
             const value = element.getAttribute(attr);
-            if (value !== null) inputs[input] = input === 'count' ? Number(value) || 4 : value;
+            if (value !== null) inputs[input] = input === 'count' ? cardBlockCount(value) : value;
         }
         return inputs;
     }
@@ -102,6 +117,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     // Inputs - support both property binding and attribute binding
     contentType = input<string>('articles');
     count = input<number>(4);
+    /** The entries shown and read: `count` as a whole number from 1 to 50. */
+    private shownCount = computed(() => cardBlockCount(this.count()));
     /** The heading; empty gives "Latest {type}", as on a published page. */
     sectionTitle = input<string>('');
     templateFolder = input<string>('');
@@ -193,7 +210,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         // arranged), as when published (core/utils/display-order.ts), then cut.
         const order = entryOrderOf(this.currentContentType());
         return sortForDisplay(items as unknown as Record<string, any>[], order)
-            .slice(0, this.count()) as unknown as IContents[];
+            .slice(0, this.shownCount()) as unknown as IContents[];
     });
 
     constructor() {
@@ -266,20 +283,22 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     }
 
     ngOnInit() {
-        // Subscribe to stores to load data
-        // Every content type, not the store's default first page of ten
-        // ordered by createdAt, which silently dropped the oldest types on
-        // sites with more than ten. Unlike the list and detail pages this
-        // component cannot query its own slug alone: the home page embeds one
-        // partial per type against the same root store, and per-slug queries
-        // would overwrite each other. limitCount 0 means no limit in DbService.
-        this.subscribeToData(this.contentTypesStore, { limitCount: 0 });
-        // The newest items, up to the 50 a card block can show (as when
-        // published, deployHomePage.ts). The store's default was a first page of
-        // ten in no useful order. This component has its own store.
+        const slug = this.contentType();
+        if (!slug) return;
+        // Its own type only, in a store of its own (see providers): one equality
+        // query on `slug`, as the list and detail pages read theirs, so a block in
+        // the header or footer never replaces or cancels the page's own query.
+        this.contentTypesStore.getAll({
+            whereConditions: [{ field: 'slug', operator: '==', value: slug }],
+            orderByField: 'slug',
+            orderByDirection: 'asc',
+            limitCount: 1,
+        } as QueryParams);
+        // The newest `count` items, as when published (published-entries.ts);
+        // a type in its own order reads them all instead (the effect above).
         this.contentsStore.getAll(
-            { orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: 50 } as QueryParams,
-            this.contentType() || undefined,
+            { orderByField: 'publishedOn', orderByDirection: 'desc', limitCount: this.shownCount() } as QueryParams,
+            slug,
         );
     }
 
