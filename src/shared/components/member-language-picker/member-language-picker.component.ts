@@ -45,9 +45,10 @@ import { MemberLanguageService } from '../../../app/core/i18n/member-language.se
             height: 36px;
             padding: 0 12px;
             border-radius: 8px;
-            border: 1px solid #e0e0e0;
-            background: #fff;
-            color: #495057;
+            /* The sign-in page's chip variables (docs/website/sign-in-page.html) */
+            border: 1px solid var(--arc-sign-in-language-border, #e0e0e0);
+            background: var(--arc-sign-in-language-background, #fff);
+            color: var(--arc-sign-in-language-color, #495057);
             font: inherit;
             font-size: 14px;
             cursor: pointer;

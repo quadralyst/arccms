@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Brand the sign-in page | Arc CMS docs</title>
-  <meta name="description" content="Give the sign-in page your site's name, logo, words, image and colours, from your site folder, the custom space and Settings, About.">
-  <meta name="docs:sources" content="src/app/core/brand/site-brand.ts, src/app/core/brand/app-brand-files.ts, src/app/pages/(auth)/(signup)/signup.page.html, src/app/pages/(auth)/(signup)/signup.page.scss, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/page.parts/sign-in-panel.component.ts, public/_site/sign-in.html, src/app/core/site/site-styles.ts, src/app/core/services/site-identity.service.ts, scripts/arc-site.mjs">
+  <meta name="description" content="Give the sign-in page your site's name, logo, words, image, colours and whole look, from your site folder, the custom space and Settings, About.">
+  <meta name="docs:sources" content="src/app/core/brand/site-brand.ts, src/app/core/brand/app-brand-files.ts, src/app/pages/(auth)/(signup)/signup.page.html, src/app/pages/(auth)/(signup)/signup.page.scss, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/page.parts/sign-in-panel.component.ts, public/_site/sign-in.html, src/app/core/site/site-styles.ts, src/shared/components/code-input/code-input.component.ts, src/shared/components/phone-country/phone-country.component.ts, src/shared/components/member-language-picker/member-language-picker.component.ts, src/shared/components/legal-notice/legal-notice.component.ts, src/app/core/services/site-identity.service.ts, scripts/arc-site.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/sign-in-page.html">
@@ -27,8 +27,9 @@
     <h2 id="image">An image instead</h2>
     <p>An app can fill the whole panel with an image instead: put it at <code class="new">src/custom/sign-in-image.webp</code> (or <code>.jpg</code>, <code>.jpeg</code>, <code>.png</code>, <code>.svg</code>). It covers the panel, cropped to fill it and centred, and the panel's text is not shown, so put any words in the image. Pick one that still reads when its edges are cropped: the panel is half the screen wide and the full height. The file is found when the app is built, so a new image needs a deploy.</p>
 
-    <h2>Colours and font</h2>
-    <p>The page loads <code class="new">src/custom/site/site.css</code>, your website's stylesheet. Set these in it:</p>
+    <h2 id="look">Colours, font and the whole look</h2>
+    <p>The page loads <code class="new">src/custom/site/site.css</code>, your website's stylesheet. Its look comes from the variables below: set the ones you want in that file and leave out the rest. Each one you leave out keeps Arc CMS's own look, so a site that sets none sees no change. Every step of the page reads them, from the first one (phone number or email) through the password, PIN and code steps to creating an account, and the code boxes and the language picker too. You never need Arc CMS's class names, which can change.</p>
+    <p>Colours and the font only:</p>
     <pre><code>:root {
     --arc-sign-in-panel-background: linear-gradient(135deg, #e8590c, #f59f00);
     --arc-sign-in-panel-color: #fff;
@@ -37,16 +38,111 @@
     --arc-sign-in-accent: #e8590c;
     --arc-sign-in-font: 'Mukta', sans-serif;
 }</code></pre>
+    <p>A look of your own: no brand panel, the name in small capitals, a paper card on a tinted page, quiet fields and a dark button:</p>
+    <pre><code>:root {
+    --arc-sign-in-page-background: #e0dbcb;
+    --arc-sign-in-text-color: #2b271d;
+    --arc-sign-in-panel: none;
+    --arc-sign-in-logo: none;
+    --arc-sign-in-logo-text: "My Shop";
+    --arc-sign-in-card-background: #fdf8e3;
+    --arc-sign-in-card-radius: 24px;
+    --arc-sign-in-card-shadow: none;
+    --arc-sign-in-card-max-width: 420px;
+    --arc-sign-in-title-color: #2b271d;
+    --arc-sign-in-title-align: left;
+    --arc-sign-in-muted-color: #8b8168;
+    --arc-sign-in-label-color: #574f3d;
+    --arc-sign-in-field-background: transparent;
+    --arc-sign-in-field-border: 1.5px solid #b6ac90;
+    --arc-sign-in-field-focus-border: #2b271d;
+    --arc-sign-in-field-focus-shadow: none;
+    --arc-sign-in-field-shadow: none;
+    --arc-sign-in-field-radius: 12px;
+    --arc-sign-in-field-height: 52px;
+    --arc-sign-in-field-icons: none;
+    --arc-sign-in-button-background: #2b271d;
+    --arc-sign-in-button-hover-background: #000;
+    --arc-sign-in-button-color: #fdf8e3;
+    --arc-sign-in-button-radius: 12px;
+    --arc-sign-in-button-height: 52px;
+    --arc-sign-in-button-shadow: none;
+    --arc-sign-in-secondary-background: #f4ecd0;
+    --arc-sign-in-secondary-color: #2b271d;
+    --arc-sign-in-secondary-border: transparent;
+    --arc-sign-in-link-color: #0d8478;
+    --arc-sign-in-language-background: #fdf8e3;
+    --arc-sign-in-language-border: #ebe1c0;
+}</code></pre>
+
+    <h3>The page and the brand</h3>
     <table>
       <thead><tr><th>Variable</th><th>Sets</th></tr></thead>
       <tbody>
+        <tr><td><code>--arc-sign-in-page-background</code></td><td>The page behind the card, any CSS background</td></tr>
+        <tr><td><code>--arc-sign-in-text-color</code></td><td>The page's text where nothing below sets its own, such as the address a code was sent to</td></tr>
+        <tr><td><code>--arc-sign-in-font</code></td><td>The page's font; load a web font in <code>site.css</code> with <code>@import</code></td></tr>
+        <tr><td><code>--arc-sign-in-panel</code></td><td><code>none</code> switches the brand panel off on wide screens: the card then sits alone in the middle, as on a phone</td></tr>
         <tr><td><code>--arc-sign-in-panel-background</code></td><td>The brand panel's background, any CSS background</td></tr>
         <tr><td><code>--arc-sign-in-panel-color</code></td><td>The brand panel's text colour</td></tr>
-        <tr><td><code>--arc-sign-in-button-background</code>, <code>--arc-sign-in-button-hover-background</code></td><td>The main button, and the button under the pointer</td></tr>
-        <tr><td><code>--arc-sign-in-accent</code></td><td>The border of the field being typed in</td></tr>
-        <tr><td><code>--arc-sign-in-font</code></td><td>The page's font; load a web font in <code>site.css</code> with <code>@import</code></td></tr>
+        <tr><td><code>--arc-sign-in-logo</code></td><td><code>none</code> hides the logo above the card, and the site's name shown as a heading in its place, on every step</td></tr>
+        <tr><td><code>--arc-sign-in-logo-text</code></td><td>Words in quotes, such as <code>"My Shop"</code>, shown above the card in small capitals on every step. Set it with <code>--arc-sign-in-logo: none</code> to show the words instead of the logo. Write the site's name here when you want the name: the stylesheet cannot read it from Settings</td></tr>
       </tbody>
     </table>
+
+    <h3>The card and its words</h3>
+    <table>
+      <thead><tr><th>Variable</th><th>Sets</th></tr></thead>
+      <tbody>
+        <tr><td><code>--arc-sign-in-card-background</code></td><td>The card's background colour</td></tr>
+        <tr><td><code>--arc-sign-in-card-radius</code></td><td>The card's corners</td></tr>
+        <tr><td><code>--arc-sign-in-card-shadow</code></td><td>The card's shadow, any CSS box shadow, or <code>none</code></td></tr>
+        <tr><td><code>--arc-sign-in-card-max-width</code></td><td>The widest the card gets</td></tr>
+        <tr><td><code>--arc-sign-in-gutter</code></td><td>The room either side of the card, and of the brand above it, on a phone</td></tr>
+        <tr><td><code>--arc-sign-in-title-color</code></td><td>Each step's title, such as "Welcome" and "Verify Email"</td></tr>
+        <tr><td><code>--arc-sign-in-title-align</code></td><td>Where the title and the lines under it sit: <code>left</code>, <code>center</code> or <code>right</code></td></tr>
+        <tr><td><code>--arc-sign-in-muted-color</code></td><td>The quieter words: the lines under the title, hints, the legal notice, the footer and the small capitals brand</td></tr>
+        <tr><td><code>--arc-sign-in-label-color</code></td><td>The labels over fields</td></tr>
+        <tr><td><code>--arc-sign-in-link-color</code></td><td>The links: change the email or number, forgot password or PIN, show PIN, resend the code</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Fields</h3>
+    <p>These reach every field, the boxes for a code or a PIN and the phone country beside a number included.</p>
+    <table>
+      <thead><tr><th>Variable</th><th>Sets</th></tr></thead>
+      <tbody>
+        <tr><td><code>--arc-sign-in-field-background</code></td><td>The field's background, also while it is typed in</td></tr>
+        <tr><td><code>--arc-sign-in-field-border</code></td><td>The field's border, written in full: <code>1.5px solid #b6ac90</code></td></tr>
+        <tr><td><code>--arc-sign-in-field-focus-border</code></td><td>The border colour of the field being typed in; without it, <code>--arc-sign-in-accent</code></td></tr>
+        <tr><td><code>--arc-sign-in-accent</code></td><td>The border of the field being typed in, when <code>--arc-sign-in-field-focus-border</code> is not set, and the spinner while a signed-in account opens</td></tr>
+        <tr><td><code>--arc-sign-in-field-focus-shadow</code></td><td>The glow round the field being typed in, any CSS box shadow, or <code>none</code></td></tr>
+        <tr><td><code>--arc-sign-in-field-shadow</code></td><td>The field's shadow while it is not typed in, or <code>none</code></td></tr>
+        <tr><td><code>--arc-sign-in-field-radius</code></td><td>The field's corners. With it set, every field is rounded all round, and so is the button beside a password field</td></tr>
+        <tr><td><code>--arc-sign-in-field-height</code></td><td>The field's height, the code boxes' too</td></tr>
+        <tr><td><code>--arc-sign-in-field-color</code></td><td>The colour of what is typed</td></tr>
+        <tr><td><code>--arc-sign-in-field-icons</code></td><td><code>none</code> hides the boxed icons in front of fields (a lock, a person); the field then starts at the edge</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Buttons and the language picker</h3>
+    <table>
+      <thead><tr><th>Variable</th><th>Sets</th></tr></thead>
+      <tbody>
+        <tr><td><code>--arc-sign-in-button-background</code>, <code>--arc-sign-in-button-hover-background</code></td><td>The main button, and the button under the pointer or pressed, any CSS background</td></tr>
+        <tr><td><code>--arc-sign-in-button-color</code></td><td>The main button's words</td></tr>
+        <tr><td><code>--arc-sign-in-button-radius</code></td><td>The main button's corners</td></tr>
+        <tr><td><code>--arc-sign-in-button-height</code></td><td>The main button's height</td></tr>
+        <tr><td><code>--arc-sign-in-button-shadow</code></td><td>The main button's shadow, or <code>none</code></td></tr>
+        <tr><td><code>--arc-sign-in-secondary-background</code></td><td>The button that shows a password, beside or inside its field</td></tr>
+        <tr><td><code>--arc-sign-in-secondary-color</code></td><td>Its icon's colour</td></tr>
+        <tr><td><code>--arc-sign-in-secondary-border</code></td><td>Its border colour; <code>transparent</code> for none</td></tr>
+        <tr><td><code>--arc-sign-in-language-background</code></td><td>The language picker at the top, when the app has member languages (see <a href="../app/member-languages.html#sign-in-page">Member languages</a>)</td></tr>
+        <tr><td><code>--arc-sign-in-language-border</code></td><td>Its border colour</td></tr>
+        <tr><td><code>--arc-sign-in-language-color</code></td><td>Its words and globe</td></tr>
+      </tbody>
+    </table>
+    <p>To see each step while you work, run <code>npm run dev</code>, open <code>/signup</code> and, in the browser's console, type <code>ng.getComponent(document.querySelector('arc-signup')).currentStep.set('verify')</code> with any step: <code>request</code>, <code>login</code>, <code>pin</code>, <code>verify</code>, <code>signup</code>, <code>newPin</code>, <code>newPassword</code> or <code>disabled</code>.</p>
     <div class="note"><p>Your website's stylesheets are on only while a page of the website or the sign-in page is shown. The admin area and the member area never get them, so a rule in <code>site.css</code> cannot change how they look.</p></div>
 
     <h2>Next</h2>

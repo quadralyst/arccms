@@ -51,19 +51,28 @@ import { extractCode } from '../../utils/identifier.util';
             }
         </div>
     `,
+    // The sign-in page's field variables (docs/website/sign-in-page.html). Only the
+    // website's stylesheet sets them, so the admin and member area keep these defaults.
     styles: [`
         :host { display: block; }
         .code-boxes { display: flex; gap: 8px; justify-content: center; }
         .code-box {
-            width: 44px; height: 52px; padding: 0;
+            width: 44px; height: var(--arc-sign-in-field-height, 52px); padding: 0;
             text-align: center; font-size: 1.4rem; font-weight: 600;
-            border: 1px solid #ced4da; border-radius: 8px; background: #fff; color: #212529;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+            border: var(--arc-sign-in-field-border, 1px solid #ced4da);
+            border-radius: var(--arc-sign-in-field-radius, 8px);
+            background: var(--arc-sign-in-field-background, #fff);
+            color: var(--arc-sign-in-field-color, #212529);
+            box-shadow: var(--arc-sign-in-field-shadow, 0 1px 2px rgba(0, 0, 0, 0.06));
         }
-        .code-box:focus { outline: none; border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.2); }
+        .code-box:focus {
+            outline: none;
+            border-color: var(--arc-sign-in-field-focus-border, #0d6efd);
+            box-shadow: var(--arc-sign-in-field-focus-shadow, 0 0 0 3px rgba(13, 110, 253, 0.2));
+        }
         .code-box.is-invalid { border-color: #dc3545; }
         .code-box:disabled { background: #f1f3f5; }
-        @media (max-width: 380px) { .code-boxes { gap: 6px; } .code-box { width: 40px; height: 48px; } }
+        @media (max-width: 380px) { .code-boxes { gap: 6px; } .code-box { width: 40px; height: var(--arc-sign-in-field-height, 48px); } }
     `],
 })
 export class CodeInputComponent {

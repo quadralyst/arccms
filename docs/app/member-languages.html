@@ -55,7 +55,7 @@ german(): void {
     <p>The language picker in the page header is the admin's: once you declare member languages it shows only in the admin area, since the admin's choice does not change member pages. Members choose on the sign-in page, or through the member picker on your own pages.</p>
 
     <h3 id="build-your-own-picker">Build your own picker</h3>
-    <p><code>&lt;arc-member-language-picker&gt;</code> carries its own button styles and icon (inline SVG), so it works inside a Shadow DOM host; its menu opens in the page's overlay, outside the host, with the app's Material styles. To draw your own menu in your app's look, use <code>MemberLanguageService</code> (<code>src/app/core/i18n/member-language.service.ts</code>). These members are supported and stable:</p>
+    <p><code>&lt;arc-member-language-picker&gt;</code> carries its own button styles and icon (inline SVG), so it works inside a Shadow DOM host; on the sign-in page its colours follow the <code>--arc-sign-in-language-*</code> variables (see <a href="../website/sign-in-page.html#look">Brand the sign-in page</a>); its menu opens in the page's overlay, outside the host, with the app's Material styles. To draw your own menu in your app's look, use <code>MemberLanguageService</code> (<code>src/app/core/i18n/member-language.service.ts</code>). These members are supported and stable:</p>
     <table>
       <thead><tr><th>Member</th><th>What it is</th></tr></thead>
       <tbody>

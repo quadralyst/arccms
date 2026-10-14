@@ -1,6 +1,12 @@
-// The site's font on the sign-in page (docs/website/sign-in-page.html).
+// The sign-in page's look comes from --arc-sign-in-* variables a site sets in its
+// stylesheet (src/custom/site/site.css), listed in docs/website/sign-in-page.html.
+// Each one falls back to Arc CMS's own look, so a site that sets none sees no change.
+// Bootstrap's utility classes (text-primary, text-center, d-lg-block) are kept off the
+// parts they style, since their !important would beat the variables.
 .arc-signup {
     font-family: var(--arc-sign-in-font, inherit);
+    color: var(--arc-sign-in-text-color, inherit);
+    background: var(--arc-sign-in-page-background, none);
 }
 
 .verification-container,
@@ -15,15 +21,15 @@
 .signup-card,
 .request-card {
     width: 100%;
-    max-width: 500px;
-    margin: 0 20px;
+    max-width: var(--arc-sign-in-card-max-width, 500px);
+    margin: 0 var(--arc-sign-in-gutter, 20px);
     padding: 10px;
-    text-align: center;
-    /* Center align content */
-    border-radius: 10px;
-    /* Example border radius */
-    box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
-    /* Subtle shadow */
+    // The title and the lines under it; fields, buttons and the small print set their own.
+    text-align: var(--arc-sign-in-title-align, center);
+    border-radius: var(--arc-sign-in-card-radius, 10px);
+    box-shadow: var(--arc-sign-in-card-shadow, rgba(0, 0, 0, 0.24) 0px 3px 8px);
+    background-color: var(--arc-sign-in-card-background, var(--bs-card-bg));
+    color: var(--arc-sign-in-text-color, var(--bs-body-color));
 }
 
 .signup-title,
@@ -32,8 +38,42 @@
     font-weight: bold;
     font-size: 24px;
     margin-bottom: 16px;
-    color: #007bff;
-    /* Example Bootstrap primary color */
+}
+
+// The titles after the first step: Bootstrap's primary blue unless the site sets its own.
+.login-title,
+.signup-title,
+.verification-title {
+    color: var(--arc-sign-in-title-color, rgba(var(--bs-primary-rgb), 1));
+    text-align: var(--arc-sign-in-title-align, center);
+}
+
+.login-subtitle,
+.signup-subtitle {
+    color: var(--arc-sign-in-muted-color, inherit);
+}
+
+// Bootstrap's grey for small print, which it sets with !important.
+.arc-signup .text-muted {
+    color: var(--arc-sign-in-muted-color, var(--bs-secondary-color)) !important;
+}
+
+// Links: the change-address link was dark, the rest Bootstrap's link and primary blues.
+.change-email {
+    color: var(--arc-sign-in-link-color, var(--bs-dark));
+}
+
+.signup-card .change-email {
+    color: var(--arc-sign-in-link-color, rgba(var(--bs-link-color-rgb), var(--bs-link-opacity, 1)));
+}
+
+.auth-link {
+    color: var(--arc-sign-in-link-color, rgba(var(--bs-primary-rgb), 1));
+}
+
+// The seconds left before a code can be sent again, inside the resend line.
+.auth-link .counter {
+    color: var(--arc-sign-in-text-color, var(--bs-dark));
 }
 
 /* ===================Request email============================ */
@@ -57,7 +97,8 @@
 /* ===================Verify OTP============================ */
 
 .verification-message {
-    text-align: center;
+    text-align: var(--arc-sign-in-title-align, center);
+    color: var(--arc-sign-in-muted-color, inherit);
     margin-bottom: 2rem;
 }
 
@@ -142,19 +183,19 @@
 
 .form-control.is-invalid,
 .was-validated .form-control:invalid {
-    border-radius: 3px !important;
+    border-radius: var(--arc-sign-in-field-radius, 3px) !important;
 }
 
 input:invalid:focus {
     outline: none;
-    box-shadow: none;
-    border-radius: 3px !important;
+    box-shadow: var(--arc-sign-in-field-focus-shadow, none);
+    border-radius: var(--arc-sign-in-field-radius, 3px) !important;
 }
 
 input:valid:focus {
     outline: none;
-    box-shadow: none;
-    border-radius: 3px !important;
+    box-shadow: var(--arc-sign-in-field-focus-shadow, none);
+    border-radius: var(--arc-sign-in-field-radius, 3px) !important;
 }
 
 input:focus {
@@ -163,7 +204,7 @@ input:focus {
 }
 
 .forgot-password {
-    color: #007bff;
+    color: var(--arc-sign-in-link-color, #007bff);
     text-decoration: none;
 }
 
@@ -229,7 +270,9 @@ input:focus {
     // margin-bottom: 1.5rem;
 }
 
+// The logo tile, or the name as a heading; --arc-sign-in-logo: none hides both.
 .auth-logo img {
+    display: var(--arc-sign-in-logo, inline-block);
     width: 120px;
     height: 60px;
     margin-right: 10px;
@@ -237,24 +280,38 @@ input:focus {
 }
 
 .auth-logo-text {
+    display: var(--arc-sign-in-logo, block);
     font-size: 1.5rem;
     font-weight: 600;
     color: #111827;
 }
 
+// The brand as a line of small capitals, on every step: --arc-sign-in-logo-text: "Name".
+// Nothing (content: none) until a site sets it.
+.auth-logo::after {
+    content: var(--arc-sign-in-logo-text, none);
+    display: block;
+    line-height: 60px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--arc-sign-in-muted-color, #6B7280);
+}
+
 .auth-title {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #111827;
+    color: var(--arc-sign-in-title-color, #111827);
     margin-bottom: 0.5rem;
-    text-align: center;
+    text-align: var(--arc-sign-in-title-align, center);
 }
 
 .auth-subtitle {
     font-size: 0.95rem;
-    color: #6B7280;
+    color: var(--arc-sign-in-muted-color, #6B7280);
     margin-bottom: 2rem;
-    text-align: center;
+    text-align: var(--arc-sign-in-title-align, center);
 }
 
 /* Until the settings say email or phone: the room stays, the words do not show (F22). */
@@ -265,46 +322,90 @@ input:focus {
 .form-label {
     font-size: 0.9rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--arc-sign-in-label-color, #374151);
     margin-bottom: 0.5rem;
 }
 
 .form-control {
     padding: 0.75rem 1rem;
-    border-radius: 8px;
-    border: 1px solid #D1D5DB;
+    border-radius: var(--arc-sign-in-field-radius, 8px);
+    border: var(--arc-sign-in-field-border, 1px solid #D1D5DB);
     font-size: 0.95rem;
     transition: all 0.2s;
-    background-color: #F9FAFB;
+    background-color: var(--arc-sign-in-field-background, #F9FAFB);
+    color: var(--arc-sign-in-field-color, var(--bs-body-color));
+    min-height: var(--arc-sign-in-field-height, auto);
+    box-shadow: var(--arc-sign-in-field-shadow, none);
 }
 
 .form-control:focus {
-    border-color: var(--arc-sign-in-accent, #3C76F5);
+    border-color: var(--arc-sign-in-field-focus-border, var(--arc-sign-in-accent, #3C76F5));
     box-shadow: 0 0 0 4px rgba(60, 118, 245, 0.15);
-    background-color: #fff;
+    background-color: var(--arc-sign-in-field-background, #fff);
+}
+
+// A field after a boxed icon has square left corners, joined to the icon. With a
+// radius of its own (--arc-sign-in-field-radius) it is rounded all round, for when
+// the icons are off (--arc-sign-in-field-icons: none); so is the button beside it.
+// Focused or invalid fields take their corners from the rules above.
+.input-group > .input-group-text + .form-control:not(:focus):not(.is-invalid) {
+    border-top-left-radius: var(--arc-sign-in-field-radius, 0) !important;
+    border-bottom-left-radius: var(--arc-sign-in-field-radius, 0) !important;
+}
+
+.input-group > .form-control:has(+ .btn, + .password-toggle):not(:focus):not(.is-invalid) {
+    border-top-right-radius: var(--arc-sign-in-field-radius, 0) !important;
+    border-bottom-right-radius: var(--arc-sign-in-field-radius, 0) !important;
+}
+
+.input-group > .form-control + .btn {
+    border-top-left-radius: var(--arc-sign-in-field-radius, 0) !important;
+    border-bottom-left-radius: var(--arc-sign-in-field-radius, 0) !important;
+}
+
+// The boxed icons in front of fields (a lock, a person); --arc-sign-in-field-icons: none hides them.
+.input-group > .input-group-text:first-child {
+    display: var(--arc-sign-in-field-icons, flex);
 }
 
 .form-text {
     font-size: 0.85rem;
-    color: #6B7280;
+    color: var(--arc-sign-in-muted-color, #6B7280);
 }
 
 .btn-primary {
     padding: 0.75rem 1rem;
-    border-radius: 8px;
+    border-radius: var(--arc-sign-in-button-radius, 8px);
     font-weight: 500;
     font-size: 0.95rem;
     background: var(--arc-sign-in-button-background, linear-gradient(135deg, #3C76F5, #24C6DC));
     border: none;
     transition: all 0.3s;
-    box-shadow: 0 2px 5px rgba(60, 118, 245, 0.2);
+    box-shadow: var(--arc-sign-in-button-shadow, 0 2px 5px rgba(60, 118, 245, 0.2));
     width: 100%;
+    min-height: var(--arc-sign-in-button-height, auto);
+    // Bootstrap's own colours for each state, so a press or a busy button keeps the site's.
+    --bs-btn-color: var(--arc-sign-in-button-color, #fff);
+    --bs-btn-hover-color: var(--arc-sign-in-button-color, #fff);
+    --bs-btn-active-color: var(--arc-sign-in-button-color, #fff);
+    --bs-btn-disabled-color: var(--arc-sign-in-button-color, #fff);
+    // Pressed: a site's solid hover colour, not Bootstrap's dark blue (a gradient draws over it).
+    --bs-btn-active-bg: var(--arc-sign-in-button-hover-background, #0a58ca);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(60, 118, 245, 0.3);
+    box-shadow: var(--arc-sign-in-button-shadow, 0 4px 10px rgba(60, 118, 245, 0.3));
     background: var(--arc-sign-in-button-hover-background, linear-gradient(135deg, #2654BD, #20b2c7));
+}
+
+// The button beside a password field that shows it.
+.btn-outline-secondary {
+    --bs-btn-bg: var(--arc-sign-in-secondary-background, transparent);
+    --bs-btn-color: var(--arc-sign-in-secondary-color, #6c757d);
+    --bs-btn-border-color: var(--arc-sign-in-secondary-border, #6c757d);
+    // It sits beside a field, so it takes the field's corners.
+    --bs-btn-border-radius: var(--arc-sign-in-field-radius, var(--bs-border-radius));
 }
 
 .btn-secondary {
@@ -397,7 +498,7 @@ input:focus {
 .copyright {
     width: 100%;
     text-align: center;
-    color: #9CA3AF;
+    color: var(--arc-sign-in-muted-color, #9CA3AF);
     font-size: 0.8rem;
     padding: 20px 0;
     // position: fixed;
@@ -471,12 +572,16 @@ input:focus {
     position: relative;
 }
 
+// The show-password box inside a field; it takes the secondary button's look, as
+// the show-password button beside the field on the other steps does.
 .password-toggle {
     position: absolute;
     right: 1rem;
     top: 50%;
     transform: translateY(-50%);
-    color: #6B7280;
+    color: var(--arc-sign-in-secondary-color, #6B7280);
+    background-color: var(--arc-sign-in-secondary-background, var(--bs-tertiary-bg));
+    border-color: var(--arc-sign-in-secondary-border, var(--bs-border-color));
     cursor: pointer;
 }
 
@@ -526,7 +631,17 @@ input:focus {
     display: block;
 }
 
+// The brand panel's column, from the width the panel is drawn at. A site switches it
+// off with --arc-sign-in-panel: none; the form column (.col) then takes the whole width.
+.auth-panel-column {
+    display: none;
+}
+
 @media (min-width: 992px) {
+    .auth-panel-column {
+        display: var(--arc-sign-in-panel, block);
+    }
+
     // The brand panel's look; a site sets these in src/custom/site/site.css
     // (docs/website/sign-in-page.html). Its content is styled by SignInPanelComponent.
     .auth-left {
@@ -563,7 +678,7 @@ input:focus {
     align-items: center;
     gap: 12px;
     margin: 20px 0 16px;
-    color: #6c757d;
+    color: var(--arc-sign-in-muted-color, #6c757d);
     font-size: 0.875rem;
 
     &::before,
@@ -596,6 +711,9 @@ input:focus {
     display: block;
     margin: 6px auto 0;
     text-decoration: none;
+    --bs-btn-color: var(--arc-sign-in-link-color, var(--bs-link-color));
+    --bs-btn-hover-color: var(--arc-sign-in-link-color, var(--bs-link-hover-color));
+    --bs-btn-active-color: var(--arc-sign-in-link-color, var(--bs-link-hover-color));
 }
 
 /* Test SMS provider: the code shown instead of sent */
@@ -629,7 +747,7 @@ input:focus {
     margin-top: 4px;
     font-size: 0.75rem;
     font-family: monospace;
-    color: #6c757d;
+    color: var(--arc-sign-in-muted-color, #6c757d);
 }
 
 // The form column is the visible screen (100dvh, 100svh where dvh is missing), with
@@ -673,16 +791,19 @@ input:focus {
         margin-top: 0;
         padding: 0;
     }
+    .auth-opening-spinner {
+        color: var(--arc-sign-in-accent, rgba(var(--bs-primary-rgb), 1));
+    }
     .auth-opening-text {
         margin: 0;
-        color: #6b7280;
+        color: var(--arc-sign-in-muted-color, #6b7280);
     }
 }
 
 @media (max-width: 767.98px) {
     // Tighter on a phone, so the logo, the card and the footer fit one screen.
     .auth-form-container {
-        padding: 16px 20px;
+        padding: 16px var(--arc-sign-in-gutter, 20px);
     }
 
     .copyright {
