@@ -24,18 +24,22 @@ vi.mock('../shared/site-files', async (importOriginal) => ({
 }));
 vi.mock('../shared/site-info-source', () => ({ siteInfoFor: async () => ({ name: 'GoWow', sameAs: [], year: 2026, pages: [] }) }));
 
-import { cardBlockTypes, chromeCardsSignature, chromeShowsType, siteChrome } from '../pages/card-blocks.js';
+import { cardBlockCount, cardBlockTypes, chromeCardsSignature, chromeShowsType, renderCardBlocks, siteChrome } from '../pages/card-blocks.js';
+import { MissingTemplateFolderError } from '../shared/site-files.js';
+import { loadHtml } from '../shared/lazy-cheerio.js';
 import { HostingBatch } from '../pages/deployToHosting.js';
 
 const FOOTER = '<footer><h3 data-arc-t="more">More</h3>'
     + '<arc-content-partials content-type="programs" count="2" section-title="Programs" template-folder="footer-links"></arc-content-partials>'
     + '<p data-arc-site="name"></p></footer>';
 const HEADER = '<nav><a href="/">Home</a></nav>';
-const TEMPLATE = '<ul class="links" data-arc-if="hasItems"><li data-arc-loop="items"><a href="{{ url }}">{{ title }}</a></li></ul><p class="head">{{ sectionTitle }}</p>';
+const TEMPLATE = '<ul class="links" data-arc-if="hasItems" data-arc-loop="items"><li><a href="{{ url }}">{{ title }}</a></li></ul><p class="head">{{ sectionTitle }}</p>';
 
 /** The published programs, newest first; changed by the tests. */
 let programs: { id: string; title: string; urlSlug: string }[];
 let entryReads: number;
+/** The limit of each entry read. */
+let limits: number[];
 
 function wireDb(): void {
     mockCollection.mockImplementation((name: string) => {
@@ -48,7 +52,10 @@ function wireDb(): void {
         }
         return {
             orderBy: () => ({ limit: (n: number) => ({ get: async () => {
+                // Firestore refuses a limit that is not a whole number.
+                if (!Number.isInteger(n)) throw new Error(`limit(${n}) is not an integer`);
                 entryReads++;
+                limits.push(n);
                 return { docs: programs.slice(0, n).map((p) => ({ id: p.id, data: () => ({ ...p, publishedOn: { seconds: 1705334400 } }) })) };
             } }) }),
             doc: (id: string) => ({ collection: () => ({ doc: () => ({ get: async () => ({
@@ -69,6 +76,7 @@ describe('card blocks in the header and footer', () => {
             { id: 'shc', title: 'Social Hero', urlSlug: 'shc' },
         ];
         entryReads = 0;
+        limits = [];
         mockGetPartials.mockResolvedValue({ headerHtml: HEADER, footerHtml: FOOTER });
         mockLoadSiteTemplate.mockResolvedValue(TEMPLATE);
         mockLocalization.mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: [{ code: 'en' }, { code: 'hi' }] });
@@ -87,6 +95,8 @@ describe('card blocks in the header and footer', () => {
             expect(footerHtml).toContain('<p>GoWow</p>');
             expect(footerHtml).not.toContain('arc-content-partials');
             expect(footerHtml).not.toContain('Social Hero'); // count="2"
+            // One <li> per card: the loop on the list repeats its first child.
+            expect(footerHtml.match(/<li>/g)).toHaveLength(2);
         });
 
         it('escapes entry text as the home page\'s blocks do', async () => {
@@ -121,15 +131,46 @@ describe('card blocks in the header and footer', () => {
             expect(entryReads).toBe(4);
         });
 
-        it('stops the publish when a block names a folder the live site does not have, as a content page does', async () => {
-            mockLoadSiteTemplate.mockRejectedValue(new Error('Template folder \'footer-links\' is not on the live site.'));
-            await expect(siteChrome({ headerHtml: HEADER, footerHtml: FOOTER }, 'en', 'en', {}, site, new HostingBatch())).rejects.toThrow(/footer-links/);
+        it('leaves out a block that names a folder the live site does not have, logs it, and keeps the rest of the page', async () => {
+            const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            mockLoadSiteTemplate.mockImplementation(async (folder: string) => {
+                if (folder === 'footer-links') throw new MissingTemplateFolderError('footer-links', true);
+                return TEMPLATE;
+            });
+            const footer = FOOTER.replace('</footer>', '<arc-content-partials content-type="programs" count="1" template-folder="programs"></arc-content-partials></footer>');
+            const { headerHtml, footerHtml } = await siteChrome({ headerHtml: HEADER, footerHtml: footer }, 'en', 'en', {}, site, new HostingBatch());
+            expect(headerHtml).toContain(HEADER);
+            expect(footerHtml).not.toContain('arc-content-partials');
+            expect(footerHtml).toContain('<h3>More</h3>');
+            expect(footerHtml).toContain('<p>GoWow</p>');
+            // The block that works is still filled.
+            expect(footerHtml).toContain('<a href="/programs/kpl">Karma Premier League</a>');
+            expect(footerHtml).not.toContain('Buy One');
+            expect(errors.mock.calls.some(([message]) => /content-type="programs", template-folder="footer-links"/.test(String(message)))).toBe(true);
+            errors.mockRestore();
+        });
+
+        it('still stops the home page for a block in its own body that cannot be filled', async () => {
+            mockLoadSiteTemplate.mockRejectedValue(new MissingTemplateFolderError('footer-links', true));
+            const $ = loadHtml(`<main>${FOOTER}</main>`, { xmlMode: false }, false);
+            await expect(renderCardBlocks($, 'en', 'en', {})).rejects.toBeInstanceOf(MissingTemplateFolderError);
+        });
+
+        it('reads a whole number of cards, whatever the count says', async () => {
+            const block = (count: string) => `<arc-content-partials content-type="programs" count="${count}"></arc-content-partials>`;
+            for (const count of ['3.5', '0.5', '-2', '999', 'many', '0']) {
+                await siteChrome({ headerHtml: HEADER, footerHtml: block(count) }, 'en', 'en', {}, site);
+            }
+            expect(limits).toEqual([3, 1, 1, 50, 4, 4]);
+            expect([cardBlockCount('3.5'), cardBlockCount(undefined), cardBlockCount('7')]).toEqual([3, 4, 7]);
         });
     });
 
     describe('what the publish queue compares', () => {
         it('knows which types the header and footer show', async () => {
             expect(cardBlockTypes(FOOTER)).toEqual(['programs']);
+            // A block in an HTML comment shows nothing.
+            expect(cardBlockTypes(`<!-- <arc-content-partials content-type="news"></arc-content-partials> -->${FOOTER}`)).toEqual(['programs']);
             expect(await chromeShowsType('programs')).toBe(true);
             expect(await chromeShowsType('articles')).toBe(false);
         });

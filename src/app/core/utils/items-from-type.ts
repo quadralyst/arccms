@@ -37,10 +37,13 @@ export function itemsFromTypeLimit(raw: unknown): number {
     return Math.min(n, ITEMS_FROM_TYPE_MAX);
 }
 
-/** The type slugs a template reads entries of, each once, without parsing it. */
+/**
+ * The type slugs a template reads entries of, each once, without parsing it.
+ * A loop in an HTML comment reads nothing, so it does not count.
+ */
 export function itemsFromTypeSources(html: string | null | undefined): string[] {
     const types = new Set<string>();
-    for (const match of (html || '').matchAll(/\bdata-arc-items-src\s*=\s*["']\s*([^"']+?)\s*["']/gi)) {
+    for (const match of (html || '').replace(/<!--[\s\S]*?-->/g, '').matchAll(/\bdata-arc-items-src\s*=\s*["']\s*([^"']+?)\s*["']/gi)) {
         types.add(match[1]);
     }
     return [...types];

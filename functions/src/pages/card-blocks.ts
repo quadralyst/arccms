@@ -24,10 +24,14 @@ import { arcHostingSite } from '../arc-config.js';
  * with ContentPartialsComponent, in the home page, the header and the footer.
  */
 
-/** The content types a piece of the site's HTML shows cards of, from its <arc-content-partials content-type="…">. */
+/**
+ * The content types a piece of the site's HTML shows cards of, from its
+ * <arc-content-partials content-type="…">. A block in an HTML comment shows
+ * nothing, so it does not count.
+ */
 export function cardBlockTypes(html: string): string[] {
     const types = new Set<string>();
-    for (const match of html.matchAll(/<arc-content-partials\b[^>]*\bcontent-type\s*=\s*["']([^"']+)["']/gi)) {
+    for (const match of (html || '').replace(/<!--[\s\S]*?-->/g, '').matchAll(/<arc-content-partials\b[^>]*\bcontent-type\s*=\s*["']([^"']+)["']/gi)) {
         types.add(match[1].trim());
     }
     return [...types];
@@ -57,12 +61,30 @@ export function partialPageData(
     };
 }
 
+/** The most cards a block shows. */
+export const CARD_BLOCK_MAX = 50;
+
+/**
+ * A block's count attribute as a number of cards: 4 when it is not a number (or
+ * 0), else rounded down and kept from 1 to CARD_BLOCK_MAX. A Firestore limit
+ * takes only a whole number: count="3.5" would stop the read.
+ */
+export function cardBlockCount(value: string | null | undefined): number {
+    return Math.max(1, Math.min(CARD_BLOCK_MAX, Math.floor(Number(value) || 4)));
+}
+
 /**
  * Replaces each card block in `$` with cards of its type, as the app's
  * content-partials component draws them. A type without public pages shows its
  * cards too, without links (specs/site-sections-spec.md, SS1); only a type that
- * does not exist is removed. A template folder the live site does not have stops
- * the publish (MissingTemplateFolderError), as for a content page.
+ * does not exist is removed.
+ *
+ * A block that cannot be filled (a template folder the live site does not have,
+ * MissingTemplateFolderError, or a failed read) stops the page, as for a content
+ * page: the home page's own blocks. With `dropFailing` (the header's and
+ * footer's blocks, which are on every page) the block is logged, naming its
+ * content type and template folder, and left out, and the page goes on: one
+ * broken block must not stop every page of the site from publishing.
  */
 export async function renderCardBlocks(
     $: cheerio.CheerioAPI,
@@ -70,43 +92,66 @@ export async function renderCardBlocks(
     defaultLang: string,
     strings: Record<string, string>,
     about: SiteInfoSource | null = null,
+    dropFailing = false,
 ): Promise<void> {
-    const prefix = langPrefix(lang, defaultLang);
     for (const element of $('arc-content-partials').toArray()) {
         const $el = $(element);
-        const slug = ($el.attr('content-type') || '').trim();
-        const count = Math.max(1, Math.min(50, Number($el.attr('count')) || 4));
-        const typeSnap = slug
-            ? await db.collection('ContentTypes').where('slug', '==', slug).limit(1).get()
-            : null;
-        const type = typeSnap && !typeSnap.empty ? typeSnap.docs[0].data() : null;
-        if (!type) {
+        try {
+            await renderCardBlock($el, lang, defaultLang, strings, about);
+        } catch (error) {
+            if (!dropFailing) throw error;
+            const slug = ($el.attr('content-type') || '').trim();
+            const folder = ($el.attr('template-folder') || '').trim();
+            console.error(`Left out a card block in the header or footer (content-type="${slug}"`
+                + `${folder ? `, template-folder="${folder}"` : ''}): it could not be filled, so pages publish without it:`, error);
             $el.remove();
-            continue;
         }
-
-        const collectionName = getPublishedCollectionName(slug);
-        // In the type's entry order: newest first, or the order an admin arranged (SS2).
-        const entries = await readPublishedInDisplayOrder(slug, type, count);
-        const typeName = contentTypeName(type, lang);
-        const items = await Promise.all(entries.map(async (content) => {
-            let translation: ContentTranslation | undefined;
-            if (lang !== defaultLang) {
-                const tr = await db.collection(collectionName).doc(content.id).collection('translations').doc(lang).get();
-                if (tr.exists) translation = { ...(tr.data() as ContentTranslation), lang };
-            }
-            return cardData({ ...mergeTranslation(content, translation), id: content.id }, slug, typeName, lang, prefix, type.hasPublicUrl !== false);
-        }));
-
-        const template = await loadSiteTemplate(($el.attr('template-folder') || '').trim() || type.templateFolder, 'partials');
-        let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(template, strings), about);
-        html = TemplateHydrationService.processLoops(html, { items });
-        html = TemplateHydrationService.hydrateTemplate(html, partialPageData({ ...type, slug }, lang, prefix, $el.attr('section-title') || '', items.length, strings));
-        $el.replaceWith(html);
     }
 }
 
-/** Fills the card blocks in a piece of HTML (a header or footer); returned as it is when it has none. */
+async function renderCardBlock(
+    $el: cheerio.Cheerio<any>,
+    lang: string,
+    defaultLang: string,
+    strings: Record<string, string>,
+    about: SiteInfoSource | null,
+): Promise<void> {
+    const prefix = langPrefix(lang, defaultLang);
+    const slug = ($el.attr('content-type') || '').trim();
+    const count = cardBlockCount($el.attr('count'));
+    const typeSnap = slug
+        ? await db.collection('ContentTypes').where('slug', '==', slug).limit(1).get()
+        : null;
+    const type = typeSnap && !typeSnap.empty ? typeSnap.docs[0].data() : null;
+    if (!type) {
+        $el.remove();
+        return;
+    }
+
+    const collectionName = getPublishedCollectionName(slug);
+    // In the type's entry order: newest first, or the order an admin arranged (SS2).
+    const entries = await readPublishedInDisplayOrder(slug, type, count);
+    const typeName = contentTypeName(type, lang);
+    const items = await Promise.all(entries.map(async (content) => {
+        let translation: ContentTranslation | undefined;
+        if (lang !== defaultLang) {
+            const tr = await db.collection(collectionName).doc(content.id).collection('translations').doc(lang).get();
+            if (tr.exists) translation = { ...(tr.data() as ContentTranslation), lang };
+        }
+        return cardData({ ...mergeTranslation(content, translation), id: content.id }, slug, typeName, lang, prefix, type.hasPublicUrl !== false);
+    }));
+
+    const template = await loadSiteTemplate(($el.attr('template-folder') || '').trim() || type.templateFolder, 'partials');
+    let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(template, strings), about);
+    html = TemplateHydrationService.processLoops(html, { items });
+    html = TemplateHydrationService.hydrateTemplate(html, partialPageData({ ...type, slug }, lang, prefix, $el.attr('section-title') || '', items.length, strings));
+    $el.replaceWith(html);
+}
+
+/**
+ * Fills the card blocks in a piece of HTML (a header or footer); returned as it
+ * is when it has none. A block that cannot be filled is left out (renderCardBlocks).
+ */
 export async function fillCardBlocks(
     html: string,
     lang: string,
@@ -116,7 +161,7 @@ export async function fillCardBlocks(
 ): Promise<string> {
     if (!/<arc-content-partials\b/i.test(html)) return html;
     const $ = loadHtml(html, { xmlMode: false }, false);
-    await renderCardBlocks($, lang, defaultLang, strings, about);
+    await renderCardBlocks($, lang, defaultLang, strings, about, true);
     return $.html();
 }
 

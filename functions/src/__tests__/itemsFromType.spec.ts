@@ -37,6 +37,8 @@ import { MissingTemplateFolderError } from '../shared/site-files.js';
 
 const day = (n: number) => ({ seconds: 1767600000 + n * 86400 });
 const snapOf = (id: string, data: Record<string, unknown>) => ({ id, data: () => data });
+/** Entries unpublished since they were read ("type/id"): their published copy is gone. */
+const unpublished = new Set<string>();
 
 /** An in-memory Firestore: content types, published entries and their translations. */
 function wireDb(types: Record<string, any>[], entries: Record<string, Record<string, any>[]>, translations: Record<string, Record<string, any>> = {}) {
@@ -70,6 +72,7 @@ function wireDb(types: Record<string, any>[], entries: Record<string, Record<str
                 }),
             }),
             doc: (id: string) => ({
+                get: async () => ({ exists: (entries[slug] || []).some((e) => e['id'] === id) && !unpublished.has(`${slug}/${id}`) }),
                 collection: () => ({
                     doc: (lang: string) => ({
                         get: async () => {
@@ -156,6 +159,24 @@ describe('readItemsFromType', () => {
         expect(reads.limits).toEqual([3]);
     });
 
+    it('reads a type and each translation once for every page of a rebuild sharing the cache', async () => {
+        const reads = wireDb([{ slug: 'events', name: 'Events' }], { events: EVENTS }, { 'events/e2/hi': { title: 'सैर' } });
+        const cache = new Map();
+        const loops = [{ name: 'arc-items-from-0', type: 'events', limit: 3 }];
+        for (const id of ['p1', 'p2', 'p3']) {
+            await readItemsFromType(loops, { ...PAGE, id }, cache);
+            await readItemsFromType(loops, { ...PAGE, id, lang: 'hi' }, cache);
+        }
+        expect(reads.typeQueries).toBe(1);
+        expect(reads.limits).toEqual([3]);
+        // A page of the shown type itself leaves out its own entry from the same read.
+        const own = await readItemsFromType(loops, { ...PAGE, type: 'events', id: 'e2' }, cache);
+        const other = await readItemsFromType(loops, { ...PAGE, type: 'events', id: 'e3' }, cache);
+        expect(own['arc-items-from-0'].map((r) => r['id'])).toEqual(['e3', 'e1']);
+        expect(other['arc-items-from-0'].map((r) => r['id'])).toEqual(['e2', 'e1']);
+        expect(reads.typeQueries).toBe(2);
+    });
+
     it('reads nothing for a template without such loops', async () => {
         expect(await readItemsFromType([], PAGE)).toEqual({});
         expect(mockCollection).not.toHaveBeenCalled();
@@ -168,6 +189,7 @@ describe('pages showing entries of a type', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        unpublished.clear();
         mockHostingSite.mockReturnValue('test-site');
         mockGetSiteManifest.mockResolvedValue({ layouts: { guides: { gallery: 'app' } } });
         mockGetSiteFile.mockImplementation(async (path: string) => (path === 'templates/guides/detail-gallery.html' ? SHOWS : null));
@@ -203,17 +225,68 @@ describe('pages showing entries of a type', () => {
         expect(mockCollection).not.toHaveBeenCalled();
     });
 
-    it('rebuilds only the entries whose own template shows the type, into one batch', async () => {
+    const built = () => mockGenerateDetailPage.mock.calls.map(([type, id]) => `${type}/${id}`);
+    /** Builds a page as the real builder does: its file joins the batch. */
+    const buildsPages = () => mockGenerateDetailPage.mockImplementation(async (type: string, id: string, batch: HostingBatch) => {
+        batch.add(`/${type}/${id}.html`, `<html>${id}</html>`);
+    });
+
+    it('rebuilds only the entries whose own template shows the type, into one batch, sharing one read cache', async () => {
         const batch = new HostingBatch();
-        expect(await rebuildPagesShowingItemsOf('events', batch)).toBe(4);
-        expect(mockGenerateDetailPage.mock.calls.map(([type, id]) => `${type}/${id}`)).toEqual(['entry-points/p1', 'entry-points/p2', 'guides/g1', 'guides/g3']);
+        expect(await rebuildPagesShowingItemsOf('events', batch)).toEqual({ pages: 4, dropped: 0 });
+        expect(built()).toEqual(['entry-points/p1', 'entry-points/p2', 'guides/g1', 'guides/g3']);
         for (const call of mockGenerateDetailPage.mock.calls) expect(call[2]).toBe(batch);
+        // The shown type's entries are read once for the rebuild, not once per page.
+        expect(mockGenerateDetailPage.mock.calls[0][3]).toBeInstanceOf(Map);
+        for (const call of mockGenerateDetailPage.mock.calls) expect(call[3]).toBe(mockGenerateDetailPage.mock.calls[0][3]);
         // One template check per layout, not per entry.
         expect(mockLoadDetailTemplate.mock.calls.filter(([folder]) => folder === 'guides')).toHaveLength(2);
     });
 
     it('carries on past a page that cannot be built', async () => {
         mockGenerateDetailPage.mockRejectedValueOnce(new Error('boom'));
-        expect(await rebuildPagesShowingItemsOf('events', new HostingBatch())).toBe(3);
+        expect((await rebuildPagesShowingItemsOf('events', new HostingBatch())).pages).toBe(3);
+    });
+
+    it('leaves out the page of an entry unpublished while the rebuild ran, so the release does not put it back', async () => {
+        buildsPages();
+        const batch = new HostingBatch();
+        batch.add('/sitemap.xml', '<urlset/>');
+        mockGenerateDetailPage.mockImplementation(async (type: string, id: string, b: HostingBatch) => {
+            b.add(`/${type}/${id}.html`, `<html>${id}</html>`);
+            // Unpublished after its page was built, before the release.
+            if (id === 'p2') unpublished.add('entry-points/p2');
+        });
+        expect(await rebuildPagesShowingItemsOf('events', batch)).toEqual({ pages: 3, dropped: 1 });
+        expect(batch.paths).toEqual(['/sitemap.xml', '/entry-points/p1.html', '/guides/g1.html', '/guides/g3.html']);
+        // Left out, not removed: the unpublish took the page down already.
+        expect(batch.removedPaths).toEqual([]);
+    });
+
+    it('stops at the deadline with where it got to, and a continuation goes on from there', async () => {
+        buildsPages();
+        const now = vi.spyOn(Date, 'now');
+        let clock = 0;
+        now.mockImplementation(() => clock);
+        mockGenerateDetailPage.mockImplementation(async (type: string, id: string, b: HostingBatch) => {
+            b.add(`/${type}/${id}.html`, 'x');
+            clock += 100;
+        });
+        const first = await rebuildPagesShowingItemsOf('events', new HostingBatch(), { deadline: 150 });
+        expect(first).toEqual({ pages: 2, dropped: 0, next: { type: 'entry-points', id: 'p2' } });
+        expect(built()).toEqual(['entry-points/p1', 'entry-points/p2']);
+
+        mockGenerateDetailPage.mockClear();
+        const rest = await rebuildPagesShowingItemsOf('events', new HostingBatch(), { after: first.next, deadline: Infinity });
+        expect(rest).toEqual({ pages: 2, dropped: 0 });
+        expect(built()).toEqual(['guides/g1', 'guides/g3']);
+        now.mockRestore();
+    });
+
+    it('always builds at least one page, however late it starts', async () => {
+        buildsPages();
+        const result = await rebuildPagesShowingItemsOf('events', new HostingBatch(), { deadline: 0 });
+        expect(result.pages).toBe(1);
+        expect(result.next).toEqual({ type: 'entry-points', id: 'p1' });
     });
 });
