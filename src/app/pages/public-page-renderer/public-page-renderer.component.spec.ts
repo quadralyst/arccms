@@ -11,6 +11,14 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
 import { LocalizationService } from '../../core/services/localization.service';
 import { setSiteManifestForTesting } from '../../core/site/site';
 
+// A plain header and footer, not the app's own: an app's may hold card blocks,
+// which read Firestore, and these tests are about the page between them.
+vi.mock('virtual:arc-site', async (importOriginal) => ({
+    ...(await importOriginal<Record<string, unknown>>()),
+    header: '<header class="site-header"><a href="/">Home</a></header>',
+    footer: '<footer class="site-footer"><a href="/">Home</a></footer>',
+}));
+
 describe('PublicPageRendererComponent', () => {
     let component: PublicPageRendererComponent;
     let fixture: ComponentFixture<PublicPageRendererComponent>;
