@@ -67,6 +67,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `consumeRateLimit` (app kit) takes an optional fifth argument, `reason`, and its refusal carries `details.reason` and `details.retryAfter` (seconds). Existing calls work unchanged.
 - New member translation keys: `member.auth.server_error.*`, `member.auth.code_already_sent` and `member.auth.code_sent_again`.
 
+### Fixed
+
+- Deleting a field from the middle of a content type's field list, on the add or edit screen, removed the last field from the screen while the form dropped the right one, and later typing went to the deleted field. The screen now removes the field you deleted, and the form counts the deletion as an unsaved change. Deleting a pricing tier on the Products screen had the same fault and is fixed the same way.
+
 ### Removed
 
 - **Signup forms have no referrals, queue position or leaderboard any more.** A form on any page shows a tick, "You're on the list!" and the person's address, or "You're already on the list."; the form's own page `/waitlist/{form}` does the same. Gone:

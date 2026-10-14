@@ -236,7 +236,7 @@ export const routeMeta: RouteMeta = {
                                     <p class="text-warning small"><i class="fa-solid fa-triangle-exclamation me-1"></i><span [innerHTML]="'admin.products.grandfathering_note' | transloco"></span></p>
                                 }
                                 <div formArrayName="tiers">
-                                    @for (tier of tiers.controls; track $index; let i = $index) {
+                                    @for (tier of tiers.controls; track tier; let i = $index) {
                                         <div class="row tier-row" [formGroupName]="i">
                                             <div class="col-md-2"><mat-form-field appearance="outline" class="w-100"><mat-label>{{ 'admin.products.label' | transloco }}</mat-label><input matInput formControlName="label" /></mat-form-field></div>
                                             <div class="col-md-2"><mat-form-field appearance="outline" class="w-100"><mat-label>{{ 'admin.products.limit' | transloco }}</mat-label><input matInput type="number" formControlName="maxCount" /></mat-form-field></div>
@@ -386,6 +386,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
 
     removeTier(i: number): void {
         this.tiers.removeAt(i);
+        this.form.markAsDirty();
     }
 
     /** Open the right-side detail panel for a product. */
