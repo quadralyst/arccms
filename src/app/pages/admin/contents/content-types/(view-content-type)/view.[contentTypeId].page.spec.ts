@@ -7,6 +7,7 @@ import { ContentTypesStore } from '../content-types.store';
 import { ContentType } from '../content-types.model';
 import { ToastService } from '../../../../../../shared/services/toast.service';
 import { of } from 'rxjs';
+import { setSiteManifestForTesting, siteManifest } from '../../../../../core/site/site';
 
 describe('ViewContentTypeComponent', () => {
     let component: ViewContentTypeComponent;
@@ -142,7 +143,11 @@ describe('ViewContentTypeComponent', () => {
     });
 
     // SS8 (specs/site-sections-spec.md): the folder's layouts, for the Layouts row.
+    // A fixed manifest, so an app's own layouts in src/custom/site/ do not change the result.
     describe('Layouts', () => {
+        beforeEach(() => setSiteManifestForTesting({ ...siteManifest(), layouts: { info: { contact: 'core' } } }));
+        afterEach(() => setSiteManifestForTesting());
+
         it('lists the layouts of the type\'s folder, and none for a folder without', () => {
             expect(component.layoutsOf('info')).toEqual([{ name: 'contact', label: 'Contact' }]);
             expect(component.layoutsOf('articles')).toEqual([]);
