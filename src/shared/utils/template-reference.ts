@@ -116,6 +116,7 @@ export const DIRECTIVES: TemplateAttr[] = [
     bind('data-arc-if', 'Show when set', 'data-arc-if="key"', 'Removes the element when empty, 0 or false'),
     bind('data-arc-loop', 'Repeat', 'data-arc-loop="key"', 'Repeats the first child only'),
     bind('data-limit', 'Cap a loop', 'data-limit="6"', 'On the loop element'),
+    bind('data-arc-repeat', 'Repeat from a number', 'data-arc-repeat="rating" data-max="5"', 'Children N times, such as stars: full, half, empty; {{ @index }}, {{ @state }}'),
     bind('data-arc-style-background', 'Background color', 'data-arc-style-background="key"'),
     bind('data-arc-t', 'Translate fixed text', 'data-arc-t="read_more"', 'From strings/{lang}.json'),
     // The site's own details from Settings, About (SS3): in templates, the header, footer and static pages.
@@ -177,6 +178,8 @@ export function customFieldReference(field: TemplateRefField, typeSlug: string):
             return row(`<time data-arc-bind="${k}"></time>`, 'Date in the page\'s language; {{ }} prints the stored value');
         case 'checkbox':
             return row(`{{ ${k} }}`, 'Ticked options joined with commas');
+        case 'number':
+            return row(`{{ ${k} }}`, `number; data-arc-repeat="${k}" repeats an element that many times, such as stars`);
         case 'labelvalue':
         case 'maplocation':
         case 'faq':
