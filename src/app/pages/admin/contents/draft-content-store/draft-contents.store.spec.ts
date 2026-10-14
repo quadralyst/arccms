@@ -24,6 +24,8 @@ describe('DraftContentsStore', () => {
             getBySlug: vi.fn(),
             getContentsByType: vi.fn(),
             updateNextContentReferences: vi.fn(),
+            updatePreviousContentReferences: vi.fn(),
+            applyBacklinks: vi.fn(),
         };
 
         TestBed.configureTestingModule({
@@ -219,6 +221,28 @@ describe('DraftContentsStore', () => {
             await store.updateNextContentReferences('id-456', updatedData, 'pages');
 
             expect(mockService.updateNextContentReferences).toHaveBeenCalledWith('id-456', updatedData, 'pages');
+        });
+    });
+
+    describe('updatePreviousContentReferences', () => {
+        it('passes the renamed entry to the service', async () => {
+            const updatedData = { title: 'Part one', summary: '', slug: 'part-one' };
+            mockService.updatePreviousContentReferences.mockResolvedValue(undefined);
+
+            await store.updatePreviousContentReferences('p1', updatedData, 'articles');
+
+            expect(mockService.updatePreviousContentReferences).toHaveBeenCalledWith('p1', updatedData, 'articles');
+        });
+    });
+
+    describe('applyBacklinks', () => {
+        it('passes the changes to the service and returns the ids it changed', async () => {
+            const owner = { id: 'a', title: 'A', summary: '', slug: 'a' };
+            const changes = [{ targetId: 'b', field: 'previousContent' as const, action: 'set' as const }];
+            mockService.applyBacklinks.mockResolvedValue(['b']);
+
+            await expect(store.applyBacklinks('articles', owner, changes)).resolves.toEqual(['b']);
+            expect(mockService.applyBacklinks).toHaveBeenCalledWith('articles', owner, changes);
         });
     });
 });

@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { createGenericStore } from '../../../../../shared/services/generic-store.service';
-import { IDraftContents } from './draft-contents.model';
+import { IDraftContents, INextContentReference } from './draft-contents.model';
 import { DraftContentsService } from './draft-contents.service';
+import { BacklinkChange } from './series-links';
 
 const DraftContentsStoreBase = createGenericStore<IDraftContents>(DraftContentsService);
 
@@ -44,5 +45,31 @@ export class DraftContentsStore extends DraftContentsStoreBase {
         contentType: string
     ): Promise<void> {
         return this.draftService.updateNextContentReferences(contentId, updatedData, contentType);
+    }
+
+    /**
+     * Update all content items that reference a specific content as their "previousContent"
+     * @param contentId The ID of the content that was updated
+     * @param updatedData The new title, summary, and slug values
+     * @param contentType The content type slug
+     */
+    async updatePreviousContentReferences(
+        contentId: string,
+        updatedData: { title: string; summary: string; slug: string },
+        contentType: string
+    ): Promise<void> {
+        return this.draftService.updatePreviousContentReferences(contentId, updatedData, contentType);
+    }
+
+    /**
+     * Points other entries' Previous or Next back at a saved entry, or clears
+     * them, by the rules in series-links.ts. Resolves to the ids that changed.
+     */
+    async applyBacklinks(
+        contentType: string,
+        owner: INextContentReference,
+        changes: BacklinkChange[],
+    ): Promise<string[]> {
+        return this.draftService.applyBacklinks(contentType, owner, changes);
     }
 }
