@@ -42,6 +42,8 @@ import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { publicContentTypeSlugs } from '../shared/public-content-types.js';
 import { HostingBatch, deployBatchToHosting, removeFileFromHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
+import { nameItemsFromTypeLoops } from '../shared/items-from-type.js';
+import { type ItemsFromTypeCache, readItemsFromType } from './published-entries.js';
 import { arcHostingSite } from '../arc-config.js';
 
 // ─── Private Helpers ────────────────────────────────────────────────────────
@@ -352,6 +354,8 @@ export async function generateAndDeployContentDetailPage(
     const languageLabels = Object.fromEntries(
         localization.enabledLanguages.map(l => [l.code, l.nativeLabel || l.label]),
     );
+    // Entries of other types (data-arc-items-src), read once for every language.
+    const itemsFromTypeCache: ItemsFromTypeCache = new Map();
 
     for (const language of languages) {
         const lang = language.code;
@@ -396,8 +400,14 @@ export async function generateAndDeployContentDetailPage(
         // Then the site's own details (SS3) and its standard pages (SS6), before
         // hydration can touch a loop row's {{ url }}.
         const siteInfo = await siteInfoFor(lang, defaultLang);
-        const localizedTemplate = TemplateHydrationService.applySiteInfo(
-            TemplateHydrationService.applyStrings(templateHtml, pageStrings), siteInfo);
+        // Each loop of another type's entries (data-arc-items-src) becomes a loop
+        // of its own, filled with that type's published entries as cards, the
+        // same as the app draws them (shared/items-from-type.ts).
+        const fromTypes = nameItemsFromTypeLoops(TemplateHydrationService.applySiteInfo(
+            TemplateHydrationService.applyStrings(templateHtml, pageStrings), siteInfo));
+        const localizedTemplate = fromTypes.html;
+        const itemsFromType = await readItemsFromType(
+            fromTypes.loops, { lang, defaultLang, type: contentTypeSlug, id: docId }, itemsFromTypeCache);
 
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, {
             // Repeating custom fields (Info Cards) become named loops, so a
@@ -412,6 +422,7 @@ export async function generateAndDeployContentDetailPage(
             references: cleanReferences(localizedContent.references),
             // Related items (D-D15): data-arc-loop="related".
             related,
+            ...itemsFromType,
         });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 

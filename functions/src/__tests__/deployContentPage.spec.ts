@@ -23,6 +23,7 @@ const {
     mockContentTypeLimitGet,
     mockCollection,
     mockTopDoc,
+    mockReadItemsFromType,
 } = vi.hoisted(() => ({
     mockFetch: vi.fn(),
     mockLoadSiteTemplate: vi.fn(),
@@ -45,6 +46,7 @@ const {
     mockContentTypeLimitGet: vi.fn(),
     mockCollection: vi.fn(),
     mockTopDoc: vi.fn(),
+    mockReadItemsFromType: vi.fn(),
 }));
 
 // ─── Global fetch mock ──────────────────────────────────────────────────────
@@ -77,6 +79,12 @@ vi.mock('../pages/deployToHosting', async (importOriginal) => {
         removeFileFromHosting: mockRemoveFileFromHosting,
     };
 });
+
+// Entries of other types (data-arc-items-src), read in published-entries.ts (itemsFromType.spec.ts).
+vi.mock('../pages/published-entries', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../pages/published-entries.js')>()),
+    readItemsFromType: (...args: unknown[]) => mockReadItemsFromType(...args),
+}));
 
 vi.mock('../shared/authors', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../shared/authors.js')>();
@@ -182,6 +190,7 @@ function restoreMockImplementations() {
     mockGetAboutConfig.mockResolvedValue(MOCK_ABOUT);
     mockGetAuthor.mockResolvedValue(null);
     mockFindRelated.mockResolvedValue([]);
+    mockReadItemsFromType.mockResolvedValue({});
     // Single-language site by default, so the pre-M3 expectations hold.
     mockGetLocalizationSettings.mockResolvedValue({
         defaultLanguage: 'en',
@@ -1193,6 +1202,43 @@ describe('deployContentPage', () => {
             mockFindRelated.mockResolvedValue([]);
             await generateAndDeployContentDetailPage('articles', 'doc123');
             expect(mockDeployBatchToHosting.mock.calls[0][1].files[0].content).not.toContain('<nav');
+        });
+
+        it('fills each loop of another type\'s entries with its own rows, in every language, sharing one read cache', async () => {
+            mockGetLocalizationSettings.mockResolvedValue({
+                defaultLanguage: 'en',
+                enabledLanguages: [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi' }],
+            });
+            mockTranslationsGet.mockResolvedValue({ docs: [{ id: 'hi', data: () => ({ lang: 'hi', title: 'Hindi title' }) }] });
+            mockLoadSiteTemplate.mockResolvedValue(`<article><h1>{{ title }}</h1>
+                <ul class="gallery" data-arc-loop="items" data-arc-items-src="impact-actions" data-limit="2"><li class="a"><a href="{{ url }}">{{ title }}</a></li></ul>
+                <div class="empty-state">No stories yet</div>
+                <ol class="news" data-arc-loop="items" data-arc-items-src="news"><li class="n">{{ title }}</li></ol></article>`);
+            mockReadItemsFromType.mockImplementation(async (loops: Array<{ name: string }>, page: { lang: string }) => ({
+                [loops[0].name]: [{ title: `Beach ${page.lang}`, url: page.lang === 'hi' ? '/hi/impact-actions/beach' : '/impact-actions/beach' }],
+                [loops[1].name]: [],
+            }));
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            const loops = [
+                { name: 'arc-items-from-0', type: 'impact-actions', limit: 2 },
+                { name: 'arc-items-from-1', type: 'news', limit: 6 },
+            ];
+            expect(mockReadItemsFromType).toHaveBeenCalledTimes(2);
+            expect(mockReadItemsFromType.mock.calls[0][0]).toEqual(loops);
+            expect(mockReadItemsFromType.mock.calls[0][1]).toEqual({ lang: 'en', defaultLang: 'en', type: 'articles', id: 'doc123' });
+            expect(mockReadItemsFromType.mock.calls[1][1]).toEqual({ lang: 'hi', defaultLang: 'en', type: 'articles', id: 'doc123' });
+            expect(mockReadItemsFromType.mock.calls[1][2]).toBe(mockReadItemsFromType.mock.calls[0][2]);
+
+            const files: Array<{ path: string; content: string }> = mockDeployBatchToHosting.mock.calls[0][1].files;
+            const en = files.find((f) => f.path === '/articles/test-article.html')!.content;
+            const hi = files.find((f) => f.path === '/hi/articles/test-article.html')!.content;
+            expect(en).toContain('<li class="a"><a href="/impact-actions/beach">Beach en</a></li>');
+            expect(hi).toContain('<li class="a"><a href="/hi/impact-actions/beach">Beach hi</a></li>');
+            // An empty loop is emptied, so CSS such as .news:empty + .empty-state can show an empty state.
+            expect(en).toContain('<ol class="news"></ol>');
+            expect(en).not.toContain('data-arc-items-src');
+            expect(en).not.toContain('arc-items-from');
         });
 
         it('still emits Article and WebSite when Settings/about is empty', async () => {
