@@ -639,7 +639,7 @@ input:focus {
     position: relative;
     display: flex;
     flex-direction: column;
-    // Less the "Powered by" badge under the page, when the site shows it (PoweredByFooterComponent).
+    // Less the "Built with Arc CMS" line under the page, when the site shows it (PoweredByFooterComponent).
     min-height: calc(100vh - var(--arc-powered-by-height, 0px));
     min-height: calc(100svh - var(--arc-powered-by-height, 0px));
     min-height: calc(100dvh - var(--arc-powered-by-height, 0px));
