@@ -51,10 +51,9 @@ describe('series links', () => {
             ]);
         });
 
-        it('re-asserts an unchanged link, which also refreshes a renamed entry', () => {
-            expect(planBacklinks('a', { nextContent: ref('b') }, { nextContent: ref('b') })).toEqual([
-                { targetId: 'b', field: 'previousContent', action: 'set' },
-            ]);
+        it('asks nothing for an unchanged link, so a link removed elsewhere is not put back', () => {
+            expect(planBacklinks('a', { nextContent: ref('b') }, { nextContent: ref('b') })).toEqual([]);
+            expect(planBacklinks('a', { previousContent: ref('p') }, { previousContent: ref('p', 'Renamed') })).toEqual([]);
         });
 
         it('ignores a link to the entry itself and a stored "temp-id"', () => {

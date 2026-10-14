@@ -47,16 +47,26 @@ export function seriesReference(
     };
 }
 
-function linkedId(ref: INextContentReference | null | undefined): string {
+/** The id a link points at, '' for none. */
+export function linkedId(ref: INextContentReference | null | undefined): string {
     return ref?.id || '';
+}
+
+/** What applying a save's backlink changes did: the entries it changed, and the changes that failed. */
+export interface BacklinkResult {
+    changed: string[];
+    failed: BacklinkChange[];
 }
 
 /**
  * The backlink changes one save asks for. `before` is what was stored before
  * the save (null for a new entry), `after` what was just written. A link that
- * is set asks for its target's backlink; a link that moved away from an entry
- * or was removed asks for that entry's backlink to be cleared. A link to the
- * entry itself, or a placeholder id, is ignored.
+ * now points at a new entry asks for that entry's backlink; a link that moved
+ * away from an entry or was removed asks for that entry's backlink to be
+ * cleared. An unchanged link asks for nothing, so an editor open on a stale
+ * copy never puts back a link removed elsewhere (a rename is refreshed by
+ * refreshedReference instead). A link to the entry itself, or a placeholder
+ * id, is ignored.
  */
 export function planBacklinks(
     ownerId: string,
@@ -72,7 +82,7 @@ export function planBacklinks(
         if (was && was !== now && was !== ownerId && isRealId(was)) {
             changes.push({ targetId: was, field: backlink, action: 'clear' });
         }
-        if (now && now !== ownerId && isRealId(now)) {
+        if (now && now !== was && now !== ownerId && isRealId(now)) {
             changes.push({ targetId: now, field: backlink, action: 'set' });
         }
     }

@@ -4,7 +4,7 @@ import { draftQueueEntry } from '../../../../../shared/services/search-queue';
 import { DbService } from '../../../../../shared/services/db.service';
 import { IDraftContents, INextContentReference } from './draft-contents.model';
 import { IContentTranslation, pruneTranslation } from './content-translation.model';
-import { BacklinkChange, SeriesField, SeriesLinks, backlinkValue, isRealId, refreshedReference } from './series-links';
+import { BacklinkChange, BacklinkResult, SeriesField, SeriesLinks, backlinkValue, isRealId, refreshedReference, seriesReference } from './series-links';
 
 @Injectable({
     providedIn: 'root'
@@ -259,16 +259,18 @@ export class DraftContentsService extends DbService<IDraftContents> {
      * Next an editor set by hand in the meantime is seen and kept. A missing
      * target is skipped. The changed entry's draft is marked edited; its page
      * shows the new link once it is published again.
-     * @returns the ids of the entries that changed
+     * @returns the ids of the entries that changed, and the changes that
+     * failed, so the editor can ask for them again on its next save
      */
     async applyBacklinks(
         contentType: string,
         owner: INextContentReference,
         changes: BacklinkChange[],
-    ): Promise<string[]> {
-        if (!isRealId(owner.id) || changes.length === 0) return [];
-        const collectionRef = this.getCollectionRef(contentType);
+    ): Promise<BacklinkResult> {
         const changed: string[] = [];
+        const failed: BacklinkChange[] = [];
+        if (!isRealId(owner.id) || changes.length === 0) return { changed, failed };
+        const collectionRef = this.getCollectionRef(contentType);
         for (const change of changes) {
             try {
                 const docRef = runInInjectionContext(this.injector, () => doc(collectionRef, change.targetId));
@@ -285,8 +287,23 @@ export class DraftContentsService extends DbService<IDraftContents> {
             } catch (error) {
                 // One target failing must not stop the others.
                 console.error(`Error updating ${change.field} of ${change.targetId}:`, error);
+                failed.push(change);
             }
         }
-        return changed;
+        return { changed, failed };
+    }
+
+    /**
+     * The link copy an entry should store for another entry of the type, from
+     * that entry as it is now: its current title, meta description and slug.
+     * Null when the entry no longer exists or the id is a placeholder. A read
+     * that fails throws, so a caller never mistakes it for a deleted entry.
+     */
+    async currentSeriesReference(contentType: string, id: string): Promise<INextContentReference | null> {
+        if (!isRealId(id)) return null;
+        const ref = runInInjectionContext(this.injector, () => doc(this.getCollectionRef(contentType), id));
+        const snap = await runInInjectionContext(this.injector, () => getDoc(ref));
+        if (!snap.exists()) return null;
+        return seriesReference(id, snap.data() as IDraftContents);
     }
 }

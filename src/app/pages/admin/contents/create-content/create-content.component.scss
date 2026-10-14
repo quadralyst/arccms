@@ -957,6 +957,11 @@
         background-color: #f8f9ff;
     }
 
+    // The option the arrow keys are on.
+    &.active {
+        background-color: #e9f2ff;
+    }
+
     .next-content-title {
         font-size: 0.875rem;
         font-weight: 500;
