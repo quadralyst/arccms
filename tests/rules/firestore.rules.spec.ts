@@ -311,6 +311,15 @@ describe('claims leases (functions/src/users/claimLock.ts)', () => {
     });
 });
 
+describe('Hosting release lock (functions/src/pages/hosting-release-lock.ts)', () => {
+    it('keeps _hosting_releases closed to everyone, admins included', async () => {
+        await assertFails(getDoc(doc(anon(), '_hosting_releases', 'site')));
+        await assertFails(getDoc(doc(admin(), '_hosting_releases', 'site~lock')));
+        await assertFails(setDoc(doc(alice(), '_hosting_releases', 'site~lock'), { holder: 'h', since: 0 }));
+        await assertFails(setDoc(doc(admin(), '_hosting_releases', 'site'), { version: 'v', releaseTime: '' }));
+    });
+});
+
 describe('contact messages', () => {
     const message = { name: 'Asha', email: 'asha@example.com', message: 'Hello', status: 'new', createdAt: serverTimestamp() };
     beforeEach(() => env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'ContactMessages', 'm1'), message)));

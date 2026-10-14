@@ -443,6 +443,12 @@ service cloud.firestore {
     match /_claim_locks/{uid} {
       allow read, write: if false;
     }
+    // The lock that makes Hosting releases to a site run one at a time, and the
+    // version last released (functions/src/pages/hosting-release-lock.ts). Only
+    // functions touch it.
+    match /_hosting_releases/{docId} {
+      allow read, write: if false;
+    }
 
     // A phone number or email moved from one account to another. Admin read;
     // written only by the functions that move them.

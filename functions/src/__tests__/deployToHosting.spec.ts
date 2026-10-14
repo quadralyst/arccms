@@ -15,6 +15,9 @@ const {
     mockInnerDoc,
     mockCollection,
     mockTopDoc,
+    mockDocCreate,
+    mockDocGet,
+    mockDocDelete,
 } = vi.hoisted(() => ({
     mockFetch: vi.fn(),
     mockGetAccessToken: vi.fn(),
@@ -27,6 +30,9 @@ const {
     mockInnerDoc: vi.fn(),
     mockCollection: vi.fn(),
     mockTopDoc: vi.fn(),
+    mockDocCreate: vi.fn(),
+    mockDocGet: vi.fn(),
+    mockDocDelete: vi.fn(),
 }));
 
 // ─── Global fetch mock ──────────────────────────────────────────────────────
@@ -76,7 +82,15 @@ function restoreMockImplementations() {
     mockDocSet.mockResolvedValue(undefined);
     mockSubCollectionAdd.mockResolvedValue({ id: 'log-id' });
     mockSubCollection.mockReturnValue({ add: mockSubCollectionAdd });
-    mockInnerDoc.mockReturnValue({ update: mockDocUpdate, collection: mockSubCollection });
+    // The release lock and the recorded release (hosting-release-lock.ts): the lock
+    // is always free and nothing is recorded, so each release builds on the listed one.
+    mockDocCreate.mockResolvedValue(undefined);
+    mockDocGet.mockResolvedValue({ exists: false, data: () => undefined });
+    mockDocDelete.mockResolvedValue(undefined);
+    mockInnerDoc.mockReturnValue({
+        update: mockDocUpdate, set: mockDocSet, create: mockDocCreate, get: mockDocGet, delete: mockDocDelete,
+        collection: mockSubCollection,
+    });
     mockCollection.mockReturnValue({ doc: mockInnerDoc });
     mockTopDoc.mockReturnValue({ set: mockDocSet });
 }

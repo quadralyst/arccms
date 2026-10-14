@@ -113,11 +113,12 @@ Pre-existing, but M3 made it far more likely: a publish used to deploy 2 files
 version from one snapshot removes the race by construction, and cuts releases per
 publish from N to 1.
 
-**Still true between queue items.** The batch is per queue item, so two publishes
-finishing within a second of each other race the same way. Rare by hand, certain in a
-loop — which is why site-wide repair is the single `redeploy-all` item in 3b rather
-than one item per page. A real fix would serialize releases (a lock, or a single
-draining worker); worth doing if publishes ever become automated.
+**Between queue items, fixed 2026-10-14.** The batch is per queue item, so two
+publishes finishing within a second of each other raced the same way. Releases to a
+site now run one at a time behind a lock (`functions/src/pages/hosting-release-lock.ts`,
+`_hosting_releases/{siteId}~lock`), and the holder records the version it released so
+the next release builds on it even while the release list lags. Regression tests:
+`functions/src/__tests__/hostingReleaseLock.spec.ts`.
 
 **A related bug this hid, fixed 2026-07-27.** That refactor passed the Firestore
 collection name where `deployBatchToHosting` expects the Hosting **site id**, so every
