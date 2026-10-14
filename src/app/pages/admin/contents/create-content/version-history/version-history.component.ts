@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ContentsService } from '../../content-store/published-contents.service';
+import { INextContentReference } from '../../draft-content-store/draft-contents.model';
 
 export interface VersionHistoryItem {
     historyId: string;
@@ -25,6 +26,9 @@ export interface VersionHistoryItem {
     summary?: string;
     urlSlug?: string;
     customFields?: Record<string, unknown>;
+    /** The series links as published; absent on versions from before the field existed. */
+    nextContent?: INextContentReference | null;
+    previousContent?: INextContentReference | null;
     [key: string]: any;
 }
 

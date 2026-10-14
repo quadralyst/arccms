@@ -753,6 +753,18 @@ describe('deployContentPage', () => {
             expect(html).not.toContain('localhost');
         });
 
+        it('passes the Next and Previous links to the template', () => {
+            const nextContent = { id: 'n1', title: 'Part three', summary: '', slug: 'part-three' };
+            const previousContent = { id: 'p1', title: 'Part one', summary: '', slug: 'part-one' };
+            const data = buildTemplateData(
+                { ...MOCK_CONTENT, nextContent, previousContent },
+                { slug: 'articles', name: 'Articles' },
+                { siteName: 'Site', baseUrl: 'https://example.com' },
+            );
+            expect(data.nextContent).toEqual(nextContent);
+            expect(data.previousContent).toEqual(previousContent);
+        });
+
         it('should give templates only an author-set canonical', () => {
             const data = buildTemplateData(
                 { ...MOCK_CONTENT, canonicalUrl: 'http://localhost:5173/articles/test-article' },

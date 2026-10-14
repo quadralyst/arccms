@@ -887,29 +887,31 @@
                         }
                         }
 
-                        <!-- Next Content Section -->
+                        <!-- Previous Content Section -->
                         <hr class="my-3">
-                        <div class="form-group next-content-section">
+                        <div class="form-group next-content-section previous-content-section" data-testid="previous-content-picker">
                             <label class="form-label">
-                                <i class="fa-solid fa-arrow-right me-1"></i>
-                                Next {{ getContentTypeName() }}
+                                <i class="fa-solid fa-arrow-left me-1"></i>
+                                {{ 'admin.contents.editor.previous_content_label' | transloco: { type: getContentTypeName() } }}
                             </label>
                             <p class="text-muted small mb-2">
-                                {{ 'admin.contents.editor.next_content_hint' | transloco }}
+                                {{ 'admin.contents.editor.previous_content_hint' | transloco }}
                             </p>
 
-                            <!-- Selected Next Content Display -->
-                            @if (selectedNextContent) {
-                            <div class="next-content-selected">
+                            <!-- Selected Previous Content Display -->
+                            @if (selectedPreviousContent) {
+                            <div class="next-content-selected" data-testid="previous-content-selected">
                                 <div class="next-content-info">
-                                    <strong>{{ selectedNextContent.title }}</strong>
+                                    <strong>{{ selectedPreviousContent.title }}</strong>
                                     <small class="text-muted d-block">
-                                        {{ (selectedNextContent.summary || '') | slice:0:100 }}{{
-                                        (selectedNextContent.summary.length || 0) > 100 ? '...' : '' }}
+                                        {{ (selectedPreviousContent.summary || '') | slice:0:100 }}{{
+                                        (selectedPreviousContent.summary || '').length > 100 ? '...' : '' }}
                                     </small>
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm"
-                                    (click)="removeNextContent()">
+                                    [attr.aria-label]="'admin.contents.editor.series_remove' | transloco"
+                                    [title]="'admin.contents.editor.series_remove' | transloco"
+                                    (click)="removePreviousContent()" data-testid="previous-content-remove">
                                     <i class="fa-solid fa-times"></i>
                                 </button>
                             </div>
@@ -917,9 +919,74 @@
                             <!-- Search/Select Dropdown -->
                             <div class="next-content-search position-relative">
                                 <input type="text" class="form-control form-control-sm"
-                                    placeholder="Search for content..." [value]="nextContentSearchTerm()"
+                                    [placeholder]="'admin.contents.editor.series_search_placeholder' | transloco"
+                                    [value]="previousContentSearchTerm()"
+                                    (input)="onPreviousContentSearchInput($event)" (focus)="onPreviousContentSearchFocus()"
+                                    (blur)="onPreviousContentSearchBlur()" data-testid="previous-content-search">
+
+                                @if (showPreviousContentDropdown()) {
+                                <div class="next-content-dropdown">
+                                    @if (isLoadingContents) {
+                                    <div class="next-content-empty">
+                                        <i class="fa-solid fa-spinner fa-spin me-1"></i> {{ 'common.state.loading' | transloco }}
+                                    </div>
+                                    } @else if (filteredPreviousContents.length > 0) {
+                                    @for (content of filteredPreviousContents; track content.id) {
+                                    <div class="next-content-option" (mousedown)="selectPreviousContent(content)" data-testid="previous-content-option">
+                                        <span class="next-content-title">{{ content.title }}</span>
+                                        <span class="next-content-summary">
+                                            {{ (content.metaDescription || '') | slice:0:80 }}{{
+                                            (content.metaDescription || '').length > 80 ? '...' : '' }}
+                                        </span>
+                                    </div>
+                                    }
+                                    } @else {
+                                    <div class="next-content-empty">
+                                        {{ 'admin.contents.editor.no_content_found' | transloco }}
+                                    </div>
+                                    }
+                                </div>
+                                }
+                            </div>
+                            }
+                        </div>
+
+                        <!-- Next Content Section -->
+                        <hr class="my-3">
+                        <div class="form-group next-content-section" data-testid="next-content-picker">
+                            <label class="form-label">
+                                <i class="fa-solid fa-arrow-right me-1"></i>
+                                {{ 'admin.contents.editor.next_content_label' | transloco: { type: getContentTypeName() } }}
+                            </label>
+                            <p class="text-muted small mb-2">
+                                {{ 'admin.contents.editor.next_content_hint' | transloco }}
+                            </p>
+
+                            <!-- Selected Next Content Display -->
+                            @if (selectedNextContent) {
+                            <div class="next-content-selected" data-testid="next-content-selected">
+                                <div class="next-content-info">
+                                    <strong>{{ selectedNextContent.title }}</strong>
+                                    <small class="text-muted d-block">
+                                        {{ (selectedNextContent.summary || '') | slice:0:100 }}{{
+                                        (selectedNextContent.summary || '').length > 100 ? '...' : '' }}
+                                    </small>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                    [attr.aria-label]="'admin.contents.editor.series_remove' | transloco"
+                                    [title]="'admin.contents.editor.series_remove' | transloco"
+                                    (click)="removeNextContent()" data-testid="next-content-remove">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
+                            </div>
+                            } @else {
+                            <!-- Search/Select Dropdown -->
+                            <div class="next-content-search position-relative">
+                                <input type="text" class="form-control form-control-sm"
+                                    [placeholder]="'admin.contents.editor.series_search_placeholder' | transloco"
+                                    [value]="nextContentSearchTerm()"
                                     (input)="onNextContentSearchInput($event)" (focus)="onNextContentSearchFocus()"
-                                    (blur)="onNextContentSearchBlur()">
+                                    (blur)="onNextContentSearchBlur()" data-testid="next-content-search">
 
                                 @if (showNextContentDropdown()) {
                                 <div class="next-content-dropdown">
@@ -929,11 +996,11 @@
                                     </div>
                                     } @else if (filteredNextContents.length > 0) {
                                     @for (content of filteredNextContents; track content.id) {
-                                    <div class="next-content-option" (mousedown)="selectNextContent(content)">
+                                    <div class="next-content-option" (mousedown)="selectNextContent(content)" data-testid="next-content-option">
                                         <span class="next-content-title">{{ content.title }}</span>
                                         <span class="next-content-summary">
                                             {{ (content.metaDescription || '') | slice:0:80 }}{{
-                                            (content.metaDescription.length || 0) > 80 ? '...' : '' }}
+                                            (content.metaDescription || '').length > 80 ? '...' : '' }}
                                         </span>
                                     </div>
                                     }
