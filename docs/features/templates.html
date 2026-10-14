@@ -65,6 +65,7 @@
         <tr><td><code>data-arc-if="key"</code></td><td>Removes the element when the value is missing, empty, <code>0</code> or <code>false</code>. Dots work (<code>data-arc-if="author.name"</code>).</td></tr>
         <tr><td><code>data-arc-loop="name"</code></td><td>Repeats the container's <strong>first child</strong> once per row; other children are dropped. An empty or unknown loop empties the container.</td></tr>
         <tr><td><code>data-limit="N"</code></td><td>On a loop container: at most N rows. <code>0</code>, or anything that is not a number, means no limit.</td></tr>
+        <tr><td><code>data-arc-repeat="key"</code></td><td>Repeats the element's children from a number, for star ratings, progress dots and meters, with <code>data-max="N"</code> to cap it. See <a href="#repeat-from-a-number">Repeat from a number</a>.</td></tr>
         <tr><td><code>data-arc-style-background="key"</code></td><td>Adds <code>background-color</code> from the value and <code>color: #333</code> to the element's <code>style</code></td></tr>
         <tr><td><code>data-arc-t="key"</code></td><td>Replaces the element's content with that UI string, as plain text, in the page's language. The content you wrote stays when there is no translation.</td></tr>
         <tr><td><code>data-arc-t-attr="placeholder:key"</code></td><td>The same for an attribute. Several pairs are separated by commas: <code>data-arc-t-attr="placeholder:search_hint, title:search_title"</code>.</td></tr>
@@ -73,6 +74,43 @@
       </tbody>
     </table>
     <p>A template is filled in this order: UI strings (<code>data-arc-t</code>) first, then site info (<code>data-arc-site</code>, below), then loops, then the page's own bindings. So a translated string may itself hold a placeholder such as <code>{{ contentType }}</code>, and a loop's row is translated once, before it is repeated. UI string keys and translations are covered in <a href="languages.html">Languages</a>.</p>
+
+    <h3 id="repeat-from-a-number">Repeat from a number</h3>
+    <p><code>data-arc-repeat</code> repeats an element's children as many times as a number says, for a star rating, progress dots or a meter. It works in detail, list and card templates and in the home page's card blocks, both on published pages and in the app. Inside a loop row it reads the row's number, so each card gets its own stars.</p>
+    <pre><code>&lt;div class="stars" data-arc-repeat="rating" data-max="5" aria-label="Rated {{ rating }} out of 5"&gt;
+    &lt;i class="fa-solid fa-star"&gt;&lt;/i&gt;
+    &lt;i class="fa-solid fa-star-half-stroke"&gt;&lt;/i&gt;
+    &lt;i class="fa-regular fa-star"&gt;&lt;/i&gt;
+&lt;/div&gt;</code></pre>
+    <p>With <code>rating</code> 3.5 this prints three full stars, one half star and one empty star.</p>
+    <table>
+      <thead><tr><th>Part</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>data-arc-repeat="key"</code></td><td>The number: a key in the data, such as a number field (<code>rating</code> or <code>reviews-rating</code>), or a number written in the attribute, <code>data-arc-repeat="3"</code>. A value stored as text, such as "4.5", counts.</td></tr>
+        <tr><td>Fractions</td><td>A fraction from .25 to under .75 adds one half slot; from .75 it rounds up to a full slot, and under .25 it is dropped. So 2.2 is two full slots, 2.5 is two full and a half, 2.8 is three full.</td></tr>
+        <tr><td>One child</td><td>That child is every slot. Tell them apart with <code>{{ @state }}</code>, which is <code>full</code>, <code>half</code> or <code>empty</code>, such as <code>class="dot dot--{{ @state }}"</code>. Empty slots are added only with <code>data-max</code>.</td></tr>
+        <tr><td>Two children</td><td>The first is a full slot, the second a half slot. No empty slots are added.</td></tr>
+        <tr><td>Three children</td><td>Full, half and empty. Empty slots fill up to <code>data-max</code>, or to five without it. More children are ignored.</td></tr>
+        <tr><td>No child element</td><td>The element's text is repeated, the number rounded: <code>&lt;span data-arc-repeat="rating"&gt;★&lt;/span&gt;</code>.</td></tr>
+        <tr><td><code>data-max="N"</code></td><td>Caps the number and sets how many slots there are. A number or a key. Up to 100; <code>0</code>, or anything that is not a number, means no cap.</td></tr>
+        <tr><td>Missing, empty, not a number, <code>0</code> or below</td><td>Counts as 0: no full or half slots, so the element is left empty unless it has empty slots to show (one child with <code>data-max</code>, or three children). Add <code>data-arc-if="rating"</code> to remove it instead.</td></tr>
+        <tr><td>Limits</td><td>At most 100 copies, whatever the number. A repeat inside a repeat works, each reading its own <code>@</code> values, but a template gets at most 10,000 elements this way; a repeat that would pass that is left empty.</td></tr>
+      </tbody>
+    </table>
+    <p>Each copy can use these values, as well as everything the template can use:</p>
+    <table>
+      <thead><tr><th>Value</th><th>Is</th></tr></thead>
+      <tbody>
+        <tr><td><code>{{ @index }}</code>, <code>{{ @number }}</code></td><td>The slot's position, from 0 and from 1</td></tr>
+        <tr><td><code>{{ @state }}</code></td><td><code>full</code>, <code>half</code> or <code>empty</code></td></tr>
+        <tr><td><code>{{ @value }}</code></td><td>The number, after the cap</td></tr>
+        <tr><td><code>{{ @max }}</code>, <code>{{ @total }}</code></td><td>How many slots there are</td></tr>
+        <tr><td><code>{{ @percent }}</code></td><td>The number as a share of the slots, 0 to 100, rounded: 2.5 of 4 is 63. For a bar's width: <code>style="width: {{ @percent }}%"</code>.</td></tr>
+        <tr><td><code>{{ @itemPercent }}</code></td><td>The same for this slot's position: the second of four is 50</td></tr>
+        <tr><td><code>{{ @fraction }}</code></td><td>How full this slot is, with two decimals: <code>1.00</code>, the half slot's fraction such as <code>0.50</code>, or <code>0.00</code></td></tr>
+      </tbody>
+    </table>
+    <p>The <code>@</code> values work only inside the repeated children; on the element itself, use the key, as the <code>aria-label</code> above does. Only numbers and the three state words are written into the copies, so the data cannot add markup through them.</p>
 
     <h3 id="site-info">Site info</h3>
     <p>The site's own details, typed once in <strong>Settings</strong>, <strong>About</strong>, print on any page with <code>data-arc-site</code>: in the header, the footer, the home page, every template (list, detail and partials) and static pages, both on published pages and in the app. A change in About republishes every page that uses them.</p>
