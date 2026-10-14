@@ -142,7 +142,7 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
     try {
         updatedTemplate = await processEmailTemplate(emailLogsData, settings);
 
-        // Conditionally append "Powered by Arc CMS" branding
+        // Conditionally append the "Built with Arc CMS" line
         try {
             const miscSettings = await getMiscSettings();
             if (miscSettings.showPoweredBy) {

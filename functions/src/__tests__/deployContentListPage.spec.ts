@@ -343,7 +343,7 @@ describe('deployContentListPage', () => {
     });
 
     describe('Powered-by footer', () => {
-        it('should include "Powered by Arc CMS" when showPoweredBy is true', async () => {
+        it('should include "Built with Arc CMS" when showPoweredBy is true', async () => {
             mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
     // Single-language site by default, so the pre-M3 expectations hold.
     mockGetLocalizationSettings.mockResolvedValue({
@@ -355,17 +355,17 @@ describe('deployContentListPage', () => {
             await generateAndDeployContentListPage('articles');
 
             const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
-            expect(deployedHtml).toContain('Powered by');
+            expect(deployedHtml).toContain('Built with <a href="https://arccms.com"');
             expect(deployedHtml).toContain('arccms.com');
         });
 
-        it('should NOT include "Powered by Arc CMS" when showPoweredBy is false', async () => {
+        it('should NOT include "Built with Arc CMS" when showPoweredBy is false', async () => {
             mockGetMiscSettings.mockResolvedValue({ showPoweredBy: false });
 
             await generateAndDeployContentListPage('articles');
 
             const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
-            expect(deployedHtml).not.toContain('Powered by');
+            expect(deployedHtml).not.toContain('arc-powered-by');
             expect(deployedHtml).not.toContain('arccms.com');
         });
     });

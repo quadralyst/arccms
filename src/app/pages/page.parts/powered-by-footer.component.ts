@@ -1,14 +1,18 @@
-import { afterRenderEffect, Component, DestroyRef, ElementRef, inject, Injector, OnInit, runInInjectionContext, signal, viewChild, ChangeDetectionStrategy, PLATFORM_ID } from '@angular/core';
+import { afterRenderEffect, Component, computed, DestroyRef, ElementRef, inject, Injector, OnInit, runInInjectionContext, signal, viewChild, ChangeDetectionStrategy, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Router, NavigationEnd } from '@angular/router';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 import { filter } from 'rxjs/operators';
 import { IMiscSettings, DEFAULT_MISC_SETTINGS } from '../admin/(settings)/misc/misc-settings.model';
+import { UiStringsService } from '../../core/services/ui-strings.service';
+import { POWERED_BY_NAME, POWERED_BY_URL, poweredByWords } from '../../../shared/constants/powered-by';
 
 /**
  * Powered By Footer Component
  *
- * Displays an unobtrusive "Powered by Arc CMS" text at the bottom of all public pages.
+ * Displays an unobtrusive "Built with Arc CMS" line at the bottom of all public pages,
+ * in the page's language: the `powered_by` and `powered_by_title` keys of the site's
+ * strings (src/shared/constants/powered-by.ts). Only "Arc CMS" is a link.
  * The text is always rendered in static HTML (for SSR/crawlers).
  * When the admin disables it in Settings → Misc, hydration hides it client-side.
  * Hidden on admin routes.
@@ -24,7 +28,7 @@ import { IMiscSettings, DEFAULT_MISC_SETTINGS } from '../admin/(settings)/misc/m
     template: `
         @if (showBadge()) {
         <div class="arc-powered-by" #badge>
-            <a href="https://arccms.com" target="_blank" rel="dofollow noopener" title="Arc CMS: an open source CMS for landing pages">⚡️ Powered by Arc CMS: an open source CMS for landing pages</a>
+            {{ words().before }}<a [href]="url" target="_blank" rel="noopener" [title]="words().title">{{ name }}</a>{{ words().after }}
         </div>
         }
     `,
@@ -53,6 +57,12 @@ export class PoweredByFooterComponent implements OnInit {
     private router = inject(Router);
     private platformId = inject(PLATFORM_ID);
     private injector = inject(Injector);
+    private uiStrings = inject(UiStringsService);
+
+    readonly url = POWERED_BY_URL;
+    readonly name = POWERED_BY_NAME;
+    /** The line in the page's language. */
+    readonly words = computed(() => poweredByWords(this.uiStrings.strings()));
 
     showBadge = signal(true);
     private isAdminRoute = signal(false);

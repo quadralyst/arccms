@@ -345,23 +345,23 @@ describe('deployStaticPage', () => {
     });
 
     describe('Powered-by footer', () => {
-        it('should include "Powered by Arc CMS" when showPoweredBy is true', async () => {
+        it('should include "Built with Arc CMS" when showPoweredBy is true', async () => {
             mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
 
             await generateAndDeployStaticPage('privacy-policy');
 
             const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
-            expect(deployedHtml).toContain('Powered by');
+            expect(deployedHtml).toContain('Built with <a href="https://arccms.com"');
             expect(deployedHtml).toContain('arccms.com');
         });
 
-        it('should NOT include "Powered by Arc CMS" when showPoweredBy is false', async () => {
+        it('should NOT include "Built with Arc CMS" when showPoweredBy is false', async () => {
             mockGetMiscSettings.mockResolvedValue({ showPoweredBy: false });
 
             await generateAndDeployStaticPage('privacy-policy');
 
             const deployedHtml = mockDeployFileToHosting.mock.calls[0][2];
-            expect(deployedHtml).not.toContain('Powered by');
+            expect(deployedHtml).not.toContain('arc-powered-by');
             expect(deployedHtml).not.toContain('arccms.com');
         });
     });

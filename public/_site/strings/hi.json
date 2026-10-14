@@ -40,6 +40,8 @@
   "placeholder_brand": "यह साइट Arc CMS पर चलती है, जो आपके अपने Firebase प्रोजेक्ट पर लैंडिंग पेज, ब्लॉग और वेटलिस्ट के लिए ओपन सोर्स CMS है।",
   "placeholder_link_site": "arccms.com देखें",
   "placeholder_link_github": "GitHub पर Arc CMS",
+  "powered_by": "{link} से बना · आपकी साइट, आपका कोड, आपका डेटा",
+  "powered_by_title": "Arc CMS: उन वेबसाइटों और ऐप्स की ओपन सोर्स नींव, जो आपके अपने हैं",
   "latest_of_type": "नवीनतम {{ contentType }}",
   "signup_loading": "आपको जोड़ा जा रहा है...",
   "signup_verifying": "जाँच हो रही है...",

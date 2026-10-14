@@ -139,42 +139,20 @@ describe('sendMail — powered-by branding', () => {
 });
 
 describe('POWERED_BY_EMAIL_HTML (html-document.ts)', () => {
-  it('should export an email-specific powered-by constant', async () => {
-    const fs = await import('fs');
-    const path = await import('path');
-    const fileContent = fs.readFileSync(
-      path.resolve(__dirname, '../shared/html-document.ts'),
-      'utf-8'
-    );
-    expect(fileContent).toContain('export const POWERED_BY_EMAIL_HTML');
+  it('uses table layout for email clients', async () => {
+    const { POWERED_BY_EMAIL_HTML } = await import('../shared/html-document.js');
+    expect(POWERED_BY_EMAIL_HTML).toContain('<table');
+    expect(POWERED_BY_EMAIL_HTML).toContain('role="presentation"');
   });
 
-  it('should use table layout for email compatibility', async () => {
-    const fs = await import('fs');
-    const path = await import('path');
-    const fileContent = fs.readFileSync(
-      path.resolve(__dirname, '../shared/html-document.ts'),
-      'utf-8'
-    );
-    const match = fileContent.match(/POWERED_BY_EMAIL_HTML\s*=\s*`([^`]+)`/);
-    expect(match).not.toBeNull();
-    const html = match![1];
-    expect(html).toContain('<table');
-    expect(html).toContain('role="presentation"');
-  });
-
-  it('should link to arccms.com with Powered by Arc CMS text', async () => {
-    const fs = await import('fs');
-    const path = await import('path');
-    const fileContent = fs.readFileSync(
-      path.resolve(__dirname, '../shared/html-document.ts'),
-      'utf-8'
-    );
-    const match = fileContent.match(/POWERED_BY_EMAIL_HTML\s*=\s*`([^`]+)`/);
-    expect(match).not.toBeNull();
-    const html = match![1];
-    expect(html).toContain('arccms.com');
-    expect(html).toContain('Powered by Arc CMS');
+  it('reads as the pages\' line, in English, with only the name linked and no emoji', async () => {
+    const { POWERED_BY_EMAIL_HTML } = await import('../shared/html-document.js');
+    expect(POWERED_BY_EMAIL_HTML).toContain('Built with <a href="https://arccms.com" target="_blank" rel="noopener" title="Arc CMS: the open-source foundation for websites and apps you own"');
+    expect(POWERED_BY_EMAIL_HTML).toContain('>Arc CMS</a> · your site, your code, your data</td>');
+    expect(POWERED_BY_EMAIL_HTML.match(/<a /g)).toHaveLength(1);
+    expect(POWERED_BY_EMAIL_HTML).not.toContain('Powered by');
+    expect(POWERED_BY_EMAIL_HTML).not.toContain('dofollow');
+    expect(POWERED_BY_EMAIL_HTML).not.toMatch(/\p{Extended_Pictographic}|&#9889;/u);
   });
 });
 

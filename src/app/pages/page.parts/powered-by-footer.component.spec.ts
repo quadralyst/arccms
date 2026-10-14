@@ -1,8 +1,10 @@
+import { signal } from '@angular/core';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { provideRouter } from '@angular/router';
 import { Firestore } from '@angular/fire/firestore';
 import { PoweredByFooterComponent } from './powered-by-footer.component';
+import { UiStringsService } from '../../core/services/ui-strings.service';
 
 vi.mock('@angular/fire/firestore', () => ({
     doc: vi.fn(),
@@ -14,15 +16,18 @@ describe('PoweredByFooterComponent', () => {
     let component: PoweredByFooterComponent;
     let fixture: ComponentFixture<PoweredByFooterComponent>;
     let firestoreMock: any;
+    let pageStrings: ReturnType<typeof signal<Record<string, string>>>;
 
     beforeEach(async () => {
         firestoreMock = {};
+        pageStrings = signal<Record<string, string>>({});
 
         await TestBed.configureTestingModule({
             imports: [PoweredByFooterComponent],
             providers: [
                 provideRouter([]),
                 { provide: Firestore, useValue: firestoreMock },
+                { provide: UiStringsService, useValue: { strings: pageStrings } },
             ],
         }).compileComponents();
 
@@ -46,27 +51,46 @@ describe('PoweredByFooterComponent', () => {
             expect(component.showBadge()).toBe(true);
         });
 
-        it('should render powered-by text when visible', () => {
+        it('reads "Built with Arc CMS · your site, your code, your data", with no emoji', () => {
             fixture.detectChanges();
             const el = fixture.nativeElement.querySelector('.arc-powered-by');
-            expect(el).toBeTruthy();
-            expect(el.textContent).toContain('Powered by');
-            expect(el.textContent).toContain('Arc CMS');
+            expect(el.textContent.replace(/\s+/g, ' ').trim()).toBe('Built with Arc CMS · your site, your code, your data');
+            expect(el.textContent).not.toMatch(/\p{Extended_Pictographic}/u);
         });
 
-        it('should have link to arccms.com', () => {
+        it('links only the name, to arccms.com in a new tab, without dofollow', () => {
             fixture.detectChanges();
-            const link = fixture.nativeElement.querySelector('.arc-powered-by a');
-            expect(link).toBeTruthy();
+            const links = fixture.nativeElement.querySelectorAll('.arc-powered-by a');
+            expect(links.length).toBe(1);
+            const link = links[0];
+            expect(link.textContent.trim()).toBe('Arc CMS');
             expect(link.getAttribute('href')).toBe('https://arccms.com');
             expect(link.getAttribute('target')).toBe('_blank');
-            expect(link.getAttribute('rel')).toBe('dofollow noopener');
+            expect(link.getAttribute('rel')).toBe('noopener');
+            expect(link.getAttribute('title')).toBe('Arc CMS: the open-source foundation for websites and apps you own');
+        });
+    });
+
+    describe('in the page\'s language', () => {
+        it('uses the powered_by and powered_by_title keys of the page\'s strings', () => {
+            pageStrings.set({
+                powered_by: '{link} से बना · आपकी साइट, आपका कोड, आपका डेटा',
+                powered_by_title: 'हिंदी शीर्षक',
+            });
+            fixture.detectChanges();
+            const el = fixture.nativeElement.querySelector('.arc-powered-by');
+            expect(el.textContent.replace(/\s+/g, ' ').trim()).toBe('Arc CMS से बना · आपकी साइट, आपका कोड, आपका डेटा');
+            const link = el.querySelector('a');
+            expect(link.textContent.trim()).toBe('Arc CMS');
+            expect(link.getAttribute('title')).toBe('हिंदी शीर्षक');
         });
 
-        it('should contain correct link text', () => {
+        it('keeps the English when a translation leaves out {link}', () => {
+            pageStrings.set({ powered_by: 'बिना लिंक के' });
             fixture.detectChanges();
-            const link = fixture.nativeElement.querySelector('.arc-powered-by a');
-            expect(link.textContent).toContain('Powered by Arc CMS: an open source CMS for landing pages');
+            const el = fixture.nativeElement.querySelector('.arc-powered-by');
+            expect(el.textContent).toContain('Built with');
+            expect(el.querySelector('a').textContent.trim()).toBe('Arc CMS');
         });
     });
 
@@ -98,7 +122,7 @@ describe('PoweredByFooterComponent', () => {
                 TestBed.resetTestingModule();
                 TestBed.configureTestingModule({
                     imports: [PoweredByFooterComponent],
-                    providers: [provideRouter([]), { provide: Firestore, useValue: {} }],
+                    providers: [provideRouter([]), { provide: Firestore, useValue: {} }, { provide: UiStringsService, useValue: { strings: signal({}) } }],
                 });
                 const shown = TestBed.createComponent(PoweredByFooterComponent);
                 vi.spyOn(shown.componentInstance, 'loadSettings' as any).mockImplementation(async () => undefined);
