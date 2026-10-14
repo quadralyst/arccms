@@ -36,12 +36,15 @@ import {
 import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { getSiteManifest, loadDetailTemplate, pageStylesheets } from '../shared/site-files.js';
 import { siteInfoFor } from '../shared/site-info-source.js';
+import { siteChrome } from './card-blocks.js';
 import { liveSiteScript, withLiveParts } from '../shared/live-parts.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { publicContentTypeSlugs } from '../shared/public-content-types.js';
 import { HostingBatch, deployBatchToHosting, removeFileFromHosting } from './deployToHosting.js';
 import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
+import { nameItemsFromTypeLoops } from '../shared/items-from-type.js';
+import { type ItemsFromTypeCache, readItemsFromType } from './published-entries.js';
 import { arcHostingSite } from '../arc-config.js';
 
 // ─── Private Helpers ────────────────────────────────────────────────────────
@@ -275,6 +278,7 @@ export async function generateAndDeployContentDetailPage(
     contentTypeSlug: string,
     docId: string,
     batch?: HostingBatch,
+    itemsFromTypeCache: ItemsFromTypeCache = new Map(),
 ): Promise<void> {
     // When the caller supplies a batch, files join it and are released with the
     // rest of the publish in one version — see HostingBatch for why.
@@ -352,6 +356,8 @@ export async function generateAndDeployContentDetailPage(
     const languageLabels = Object.fromEntries(
         localization.enabledLanguages.map(l => [l.code, l.nativeLabel || l.label]),
     );
+    // Entries of other types (data-arc-items-src) are read once for every language,
+    // and once for every page when a rebuild passes its own cache.
 
     for (const language of languages) {
         const lang = language.code;
@@ -396,8 +402,14 @@ export async function generateAndDeployContentDetailPage(
         // Then the site's own details (SS3) and its standard pages (SS6), before
         // hydration can touch a loop row's {{ url }}.
         const siteInfo = await siteInfoFor(lang, defaultLang);
-        const localizedTemplate = TemplateHydrationService.applySiteInfo(
-            TemplateHydrationService.applyStrings(templateHtml, pageStrings), siteInfo);
+        // Each loop of another type's entries (data-arc-items-src) becomes a loop
+        // of its own, filled with that type's published entries as cards, the
+        // same as the app draws them (shared/items-from-type.ts).
+        const fromTypes = nameItemsFromTypeLoops(TemplateHydrationService.applySiteInfo(
+            TemplateHydrationService.applyStrings(templateHtml, pageStrings), siteInfo));
+        const localizedTemplate = fromTypes.html;
+        const itemsFromType = await readItemsFromType(
+            fromTypes.loops, { lang, defaultLang, type: contentTypeSlug, id: docId }, itemsFromTypeCache);
 
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, {
             // Repeating custom fields (Info Cards) become named loops, so a
@@ -412,6 +424,7 @@ export async function generateAndDeployContentDetailPage(
             references: cleanReferences(localizedContent.references),
             // Related items (D-D15): data-arc-loop="related".
             related,
+            ...itemsFromType,
         });
         hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
 
@@ -419,18 +432,15 @@ export async function generateAndDeployContentDetailPage(
         // The partials are one file shared by every language, so their links
         // are root-relative and have to be pointed at this language — without
         // it the page reads in Hindi and its chrome navigates to English.
+        // Their card blocks are filled once per release and language (card-blocks.ts).
         const contentTypes = await publicContentTypeSlugs();
-        const chrome = (html: string) =>
-            prefixAnchorHrefs(
-                TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, pageStrings), siteInfo),
-                langPrefix(lang, defaultLang),
-                contentTypes,
-            );
+        const chrome = await siteChrome(partials, lang, defaultLang, pageStrings, siteInfo, target);
+        const inLanguage = (html: string) => prefixAnchorHrefs(html, langPrefix(lang, defaultLang), contentTypes);
 
         hydratedHtml = replaceArcComponents(
             hydratedHtml,
-            chrome(partials.headerHtml),
-            chrome(partials.footerHtml),
+            inLanguage(chrome.headerHtml),
+            inLanguage(chrome.footerHtml),
             buildLanguageSwitcher(switcherLinks, lang, languageLabels),
             buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings: pageStrings }),
         );

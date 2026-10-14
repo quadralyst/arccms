@@ -21,7 +21,7 @@ vi.mock('../../../../../shared/services/db.service', () => ({
     },
 }));
 
-import { ContentsService } from './published-contents.service';
+import { ContentsService, DEPLOY_STATUS_WAIT_MS } from './published-contents.service';
 
 describe('ContentsService', () => {
     let service: ContentsService;
@@ -188,6 +188,35 @@ describe('ContentsService', () => {
             expect(w.seen).toEqual([]);
             w.push({ deployStatus: 'deployed', deployedAt: at('2026-10-04T09:40:00Z') });
             expect(w.seen).toEqual(['deployed']);
+        });
+
+        it('keeps waiting while a publish may still be waiting for the release lock', () => {
+            vi.useFakeTimers();
+            try {
+                const w = watch();
+                w.push({ deployStatus: 'deployed', deployedAt: at('2026-10-04T09:14:00Z') });
+                vi.advanceTimersByTime(9 * 60 * 1000);
+                expect(w.done()).toBe(false);
+
+                w.push({ deployStatus: 'deployed', deployedAt: at('2026-10-04T09:40:00Z') });
+                expect(w.seen).toEqual(['deployed']);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('gives up only once the publish function can no longer be running', () => {
+            vi.useFakeTimers();
+            try {
+                const w = watch();
+                vi.advanceTimersByTime(DEPLOY_STATUS_WAIT_MS - 1);
+                expect(w.done()).toBe(false);
+                vi.advanceTimersByTime(1);
+                expect(w.seen).toEqual(['null: No result after 10 minutes.']);
+                expect(w.done()).toBe(true);
+            } finally {
+                vi.useRealTimers();
+            }
         });
 
         it('reports the first result of an item never deployed before', () => {

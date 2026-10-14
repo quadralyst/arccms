@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Templates | Arc CMS docs</title>
   <meta name="description" content="How content pages are rendered from plain HTML templates: folders, how a template is chosen, the data-arc attributes, every binding, partials, header, footer and styles.">
-  <meta name="docs:sources" content="public/_site/templates, public/_site/header.html, public/_site/footer.html, public/assets/css/main.css, public/assets/css/site.css, scripts/arc-site.mjs, scripts/vite-arc-site.ts, src/app/core/site/site.ts, src/app/pages/page.parts/site-fragment.ts, functions/src/shared/template-hydration.ts, functions/src/shared/html-document.ts, functions/src/shared/template-fragment.ts, functions/src/shared/image-sizes.ts, functions/src/shared/site-settings.ts, functions/src/shared/site-files.ts, functions/src/shared/authors.ts, functions/src/shared/content-cards.ts, functions/src/shared/interpolate.ts, functions/src/pages/deployContentPage.ts, functions/src/pages/deployContentListPage.ts, functions/src/pages/deployHomePage.ts, src/app/core/services/template-hydration.service.ts, src/app/core/services/template-folder.service.ts, src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/page.parts/content-partials.component.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/page.parts/footer.component.ts, src/app/pages/index.page.ts, src/shared/utils/image-sizes.ts, functions/src/shared/site-urls.ts, src/app/core/site/site-urls.ts, src/app/core/site/site-files.interceptor.ts, src/shared/utils/site-info.ts, functions/src/shared/site-info.ts, functions/src/shared/site-info-source.ts, src/app/core/site/apply-site-info-dom.ts, src/app/core/site/site-info-source.ts, src/app/core/site/site-pages.service.ts, public/_site/templates/info, src/app/pages/admin/contents/create-content">
+  <meta name="docs:sources" content="public/_site/templates, public/_site/header.html, public/_site/footer.html, public/assets/css/main.css, public/assets/css/site.css, scripts/arc-site.mjs, scripts/vite-arc-site.ts, src/app/core/site/site.ts, src/app/pages/page.parts/site-fragment.ts, functions/src/shared/template-hydration.ts, functions/src/shared/html-document.ts, functions/src/shared/template-fragment.ts, functions/src/shared/image-sizes.ts, functions/src/shared/site-settings.ts, functions/src/shared/site-files.ts, functions/src/shared/authors.ts, functions/src/shared/content-cards.ts, functions/src/shared/interpolate.ts, functions/src/pages/deployContentPage.ts, functions/src/pages/deployContentListPage.ts, functions/src/pages/deployHomePage.ts, src/app/core/services/template-hydration.service.ts, src/app/core/services/template-folder.service.ts, src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/page.parts/content-partials.component.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/page.parts/footer.component.ts, src/app/pages/index.page.ts, src/shared/utils/image-sizes.ts, functions/src/shared/site-urls.ts, src/app/core/site/site-urls.ts, src/app/core/site/site-files.interceptor.ts, src/shared/utils/site-info.ts, functions/src/shared/site-info.ts, functions/src/shared/site-info-source.ts, src/app/core/site/apply-site-info-dom.ts, src/app/core/site/site-info-source.ts, src/app/core/site/site-pages.service.ts, public/_site/templates/info, src/app/pages/admin/contents/create-content, src/app/core/utils/items-from-type.ts, functions/src/shared/items-from-type.ts, src/app/core/services/items-from-type.service.ts, functions/src/pages/published-entries.ts, functions/src/pages/items-from-type-pages.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/templates.html">
@@ -65,6 +65,8 @@
         <tr><td><code>data-arc-if="key"</code></td><td>Removes the element when the value is missing, empty, <code>0</code> or <code>false</code>. Dots work (<code>data-arc-if="author.name"</code>).</td></tr>
         <tr><td><code>data-arc-loop="name"</code></td><td>Repeats the container's <strong>first child</strong> once per row; other children are dropped. An empty or unknown loop empties the container.</td></tr>
         <tr><td><code>data-limit="N"</code></td><td>On a loop container: at most N rows. <code>0</code>, or anything that is not a number, means no limit.</td></tr>
+        <tr><td><code>data-arc-items-src="type"</code></td><td>On a loop container in a detail template: the loop shows that content type's published entries as cards, 6 unless <code>data-limit</code> says otherwise, at most 50. See <a href="#items-from-another-type">Entries of another type</a>.</td></tr>
+        <tr><td><code>data-arc-repeat="key"</code></td><td>Repeats the element's children from a number, for star ratings, progress dots and meters, with <code>data-max="N"</code> to cap it. See <a href="#repeat-from-a-number">Repeat from a number</a>.</td></tr>
         <tr><td><code>data-arc-style-background="key"</code></td><td>Adds <code>background-color</code> from the value and <code>color: #333</code> to the element's <code>style</code></td></tr>
         <tr><td><code>data-arc-t="key"</code></td><td>Replaces the element's content with that UI string, as plain text, in the page's language. The content you wrote stays when there is no translation.</td></tr>
         <tr><td><code>data-arc-t-attr="placeholder:key"</code></td><td>The same for an attribute. Several pairs are separated by commas: <code>data-arc-t-attr="placeholder:search_hint, title:search_title"</code>.</td></tr>
@@ -73,6 +75,43 @@
       </tbody>
     </table>
     <p>A template is filled in this order: UI strings (<code>data-arc-t</code>) first, then site info (<code>data-arc-site</code>, below), then loops, then the page's own bindings. So a translated string may itself hold a placeholder such as <code>{{ contentType }}</code>, and a loop's row is translated once, before it is repeated. UI string keys and translations are covered in <a href="languages.html">Languages</a>.</p>
+
+    <h3 id="repeat-from-a-number">Repeat from a number</h3>
+    <p><code>data-arc-repeat</code> repeats an element's children as many times as a number says, for a star rating, progress dots or a meter. It works in detail, list and card templates and in the home page's card blocks, both on published pages and in the app. Inside a loop row it reads the row's number, so each card gets its own stars.</p>
+    <pre><code>&lt;div class="stars" data-arc-repeat="rating" data-max="5" aria-label="Rated {{ rating }} out of 5"&gt;
+    &lt;i class="fa-solid fa-star"&gt;&lt;/i&gt;
+    &lt;i class="fa-solid fa-star-half-stroke"&gt;&lt;/i&gt;
+    &lt;i class="fa-regular fa-star"&gt;&lt;/i&gt;
+&lt;/div&gt;</code></pre>
+    <p>With <code>rating</code> 3.5 this prints three full stars, one half star and one empty star.</p>
+    <table>
+      <thead><tr><th>Part</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>data-arc-repeat="key"</code></td><td>The number: a key in the data, such as a number field (<code>rating</code> or <code>reviews-rating</code>), or a number written in the attribute, <code>data-arc-repeat="3"</code>. A value stored as text, such as "4.5", counts.</td></tr>
+        <tr><td>Fractions</td><td>A fraction from .25 to under .75 adds one half slot; from .75 it rounds up to a full slot, and under .25 it is dropped. So 2.2 is two full slots, 2.5 is two full and a half, 2.8 is three full.</td></tr>
+        <tr><td>One child</td><td>That child is every slot. Tell them apart with <code>{{ @state }}</code>, which is <code>full</code>, <code>half</code> or <code>empty</code>, such as <code>class="dot dot--{{ @state }}"</code>. Empty slots are added only with <code>data-max</code>.</td></tr>
+        <tr><td>Two children</td><td>The first is a full slot, the second a half slot. No empty slots are added.</td></tr>
+        <tr><td>Three children</td><td>Full, half and empty. Empty slots fill up to <code>data-max</code>, or to five without it. More children are ignored.</td></tr>
+        <tr><td>No child element</td><td>The element's text is repeated, the number rounded: <code>&lt;span data-arc-repeat="rating"&gt;★&lt;/span&gt;</code>.</td></tr>
+        <tr><td><code>data-max="N"</code></td><td>Caps the number and sets how many slots there are. A number or a key. Up to 100; <code>0</code>, or anything that is not a number, means no cap.</td></tr>
+        <tr><td>Missing, empty, not a number, <code>0</code> or below</td><td>Counts as 0: no full or half slots, so the element is left empty unless it has empty slots to show (one child with <code>data-max</code>, or three children). Add <code>data-arc-if="rating"</code> to remove it instead.</td></tr>
+        <tr><td>Limits</td><td>At most 100 copies, whatever the number. A repeat inside a repeat works, each reading its own <code>@</code> values, but a template gets at most 10,000 elements this way; a repeat that would pass that is left empty.</td></tr>
+      </tbody>
+    </table>
+    <p>Each copy can use these values, as well as everything the template can use:</p>
+    <table>
+      <thead><tr><th>Value</th><th>Is</th></tr></thead>
+      <tbody>
+        <tr><td><code>{{ @index }}</code>, <code>{{ @number }}</code></td><td>The slot's position, from 0 and from 1</td></tr>
+        <tr><td><code>{{ @state }}</code></td><td><code>full</code>, <code>half</code> or <code>empty</code></td></tr>
+        <tr><td><code>{{ @value }}</code></td><td>The number, after the cap</td></tr>
+        <tr><td><code>{{ @max }}</code>, <code>{{ @total }}</code></td><td>How many slots there are</td></tr>
+        <tr><td><code>{{ @percent }}</code></td><td>The number as a share of the slots, 0 to 100, rounded: 2.5 of 4 is 63. For a bar's width: <code>style="width: {{ @percent }}%"</code>.</td></tr>
+        <tr><td><code>{{ @itemPercent }}</code></td><td>The same for this slot's position: the second of four is 50</td></tr>
+        <tr><td><code>{{ @fraction }}</code></td><td>How full this slot is, with two decimals: <code>1.00</code>, the half slot's fraction such as <code>0.50</code>, or <code>0.00</code></td></tr>
+      </tbody>
+    </table>
+    <p>The <code>@</code> values work only inside the repeated children; on the element itself, use the key, as the <code>aria-label</code> above does. Only numbers and the three state words are written into the copies, so the data cannot add markup through them.</p>
 
     <h3 id="site-info">Site info</h3>
     <p>The site's own details, typed once in <strong>Settings</strong>, <strong>About</strong>, print on any page with <code>data-arc-site</code>: in the header, the footer, the home page, every template (list, detail and partials) and static pages, both on published pages and in the app. A change in About republishes every page that uses them.</p>
@@ -109,7 +148,7 @@
         <tr><td><code>data-arc-if</code></td><td>A yes or no test of one value. Missing, empty text, <code>0</code> and <code>false</code> remove the element; anything else keeps it, including a list with no rows and an object. There is no negation or comparison: <code>data-arc-if="!coverImage"</code> or <code>data-arc-if="lang == 'hi'"</code> is read as a key, finds nothing and always removes the element. To show something only when a value is empty, use a flag such as <code>hasRelated</code> or CSS such as <code>.cards:empty + .empty-state</code>.</td></tr>
         <tr><td>Inside a loop row</td><td><code>{{ }}</code> and <code>data-arc-if</code> see only the row's own keys: <code>{{ title }}</code> is the row's title, and a page key the row does not have prints nothing. A <code>data-arc-bind</code> the row cannot fill is filled afterwards from the page's data.</td></tr>
         <tr><td>A loop inside a loop row</td><td>Not supported: the inner container is emptied. For a card's tags use <code>tagsHtml</code> or <code>tagsDisplay</code>.</td></tr>
-        <tr><td>The same loop name twice</td><td>Both containers get the same rows, built from the <strong>first</strong> container's row and its <code>data-limit</code>; the second container's own row is ignored.</td></tr>
+        <tr><td>The same loop name twice</td><td>Both containers get the same rows, built from the <strong>first</strong> container's row and its <code>data-limit</code>; the second container's own row is ignored. A container with <code>data-arc-items-src</code> is the exception: each one gets its own rows, row and limit.</td></tr>
         <tr><td><code>data-arc-t</code> with an icon inside</td><td>A translation replaces everything inside the element with text, so an icon inside it is lost. Keep icons outside: <code>&lt;i class="fas fa-arrow-right"&gt;&lt;/i&gt; &lt;span data-arc-t="read_more"&gt;Read&lt;/span&gt;</code>.</td></tr>
         <tr><td><code>arc-skeleton</code></td><td>Removed from an element when <code>{{ }}</code> in its own text, <code>[innerHTML]</code> or <code>data-arc-bind</code> fills it. The app styles it, and every unfilled <code>data-arc-bind</code>, as a grey shimmer with hidden text. Published pages have no style for it.</td></tr>
       </tbody>
@@ -123,7 +162,7 @@
         <tr><td><code>&lt;arc-footer&gt;&lt;/arc-footer&gt;</code></td><td>Replaced with the site footer, where the tag is</td><td>The app draws the footer at the bottom of the page</td></tr>
         <tr><td><code>&lt;arc-search&gt;&lt;/arc-search&gt;</code></td><td>Replaced with the search box (see <a href="search.html">Search</a>) anywhere in the page; removed when there is none</td><td>Works in the header and the footer; does nothing in a template</td></tr>
         <tr><td><code>&lt;arc-language-switcher&gt;&lt;/arc-language-switcher&gt;</code></td><td>Replaced with links to the page's other languages. Removed when the page exists in fewer than two languages: a detail page exists in the languages it is translated into, a list page in every enabled language.</td><td>Works in the header and the footer; does nothing in a template</td></tr>
-        <tr><td><code>&lt;arc-content-partials&gt;</code></td><td>Filled with cards on the home page (see <a href="#partials">Partials</a>); removed from content pages</td><td>Filled on the home page; does nothing in a template</td></tr>
+        <tr><td><code>&lt;arc-content-partials&gt;</code></td><td>Filled with cards on the home page and in the header and footer of every page (see <a href="#partials">Partials</a>); removed from content pages, where <a href="#items-from-another-type"><code>data-arc-items-src</code></a> shows another type's entries instead</td><td>Filled on the home page and in the header and footer; does nothing in a template</td></tr>
         <tr><td><code>&lt;arc-admin-edit-button&gt;</code></td><td>An old tag, always removed</td><td>Does nothing</td></tr>
       </tbody>
     </table>
@@ -150,7 +189,7 @@
         <tr><td><code>authorName</code></td><td>Text</td><td>Asha Rao</td><td>The profile's name; without a profile, the name stored on the entry, so a byline survives a deleted author</td></tr>
         <tr><td><code>tags</code></td><td>List</td><td>News,Tips</td><td>The tag names. For colored tags use the <code>tags</code> loop below.</td></tr>
         <tr><td><code>share.facebook</code>, <code>share.twitter</code>, <code>share.linkedin</code>, <code>share.whatsapp</code>, <code>share.email</code></td><td>URL</td><td>https://wa.me/?text=…</td><td>Share links for the page</td></tr>
-        <tr><td><code>nextContent.title</code>, <code>nextContent.slug</code>, <code>nextContent.id</code>, <code>nextContent.summary</code></td><td>Text</td><td>Part two</td><td>The next entry linked in the editor. Missing when none, so <code>data-arc-if="nextContent"</code> hides the link. <code>previousContent.*</code> is the same for the previous entry.</td></tr>
+        <tr><td><code>nextContent.title</code>, <code>nextContent.slug</code>, <code>nextContent.id</code>, <code>nextContent.summary</code></td><td>Text</td><td>Part two</td><td>The next entry picked in the editor (see <a href="content.html#series">Link entries in a series</a>). Missing when none, so <code>data-arc-if="nextContent"</code> hides the link. <code>previousContent.*</code> is the same for the previous entry.</td></tr>
         <tr><td><code>nextContent.url</code>, <code>previousContent.url</code></td><td>Text</td><td>/articles/part-two</td><td>App only: empty on a published page (see the warning below)</td></tr>
         <tr><td><code>hasReferences</code>, <code>hasRelated</code></td><td>Flag</td><td>true</td><td>For <code>data-arc-if</code> around the sources and related blocks</td></tr>
         <tr><td><code>references</code>, <code>related</code></td><td>List</td><td></td><td>The rows of the loops below. Always set, so test the flags instead.</td></tr>
@@ -167,9 +206,10 @@
         <tr><td><code>data-arc-loop="references"</code></td><td><code>title</code> (text), <code>url</code> (URL)</td><td>The sources the editor cited. Only http and https links, each once.</td></tr>
         <tr><td><code>data-arc-loop="related"</code></td><td><code>title</code>, <code>url</code>, <code>snippet</code>, <code>badge</code> (text)</td><td>Up to four related entries in the page's language, found by search; none without the search feature. In the app they arrive a moment after the page.</td></tr>
         <tr><td>A repeating custom field's key</td><td>That field's rows (see <a href="#custom-field-bindings">Custom field bindings</a>)</td><td>By stored key or short key, in the order the editor set</td></tr>
+        <tr><td><code>data-arc-loop="items" data-arc-items-src="events"</code></td><td>The <a href="#card-bindings">card bindings</a> of each entry of that type</td><td>Another type's published entries (see <a href="#items-from-another-type">Entries of another type</a>)</td></tr>
       </tbody>
     </table>
-    <div class="trap"><p>Use <code>href="{{ langPrefix }}/{{ contentTypeSlug }}/{{ nextContent.slug }}"</code> for a next link. <code>nextContent.url</code> exists only when the app renders the page, so a published page built with it has an empty link.</p></div>
+    <div class="trap"><p>Use <code>href="{{ langPrefix }}/{{ contentTypeSlug }}/{{ nextContent.slug }}"</code> for a next link, and the same with <code>previousContent</code> for a previous one. <code>nextContent.url</code> and <code>previousContent.url</code> exist only when the app renders the page, so a published page built with it has an empty link.</p></div>
 
     <h3>List page bindings</h3>
     <p>Outside the loop, <code>list.html</code> has:</p>
@@ -251,6 +291,36 @@
     <p>A layout cannot have fields of its own: fields belong to the type. Use the site's details through <a href="#site-info">site info</a>, and the type's ordinary fields, such as an Info Cards field that only the pages using that layout fill in; on the other pages it stays empty and shows nothing.</p>
     <p>When the live site does not have the chosen layout yet, publishing uses the folder's <code>detail.html</code> instead and notes it in the function log, so the page stays online in its standard look. Deploy the website, then publish the page again. The app's preview falls back the same way.</p>
 
+    <h3 id="items-from-another-type">Entries of another type</h3>
+    <p>A detail template, or a layout, can show the published entries of any content type, such as the latest events on a service page. Add <code>data-arc-items-src</code> with the type's slug to a loop container:</p>
+    <pre><code>&lt;section class="service-events"&gt;
+    &lt;h2&gt;Coming up&lt;/h2&gt;
+    &lt;ul class="event-cards" data-arc-loop="items" data-arc-items-src="events" data-limit="3"&gt;
+        &lt;li&gt;
+            &lt;a href="{{ url }}"&gt;&lt;img src="{{ coverImage_m }}" alt="{{ title }}"&gt;&lt;/a&gt;
+            &lt;h3 data-arc-bind="title"&gt;Event&lt;/h3&gt;
+            &lt;p&gt;{{ publishedOn }} · {{ venue }}&lt;/p&gt;
+        &lt;/li&gt;
+    &lt;/ul&gt;
+    &lt;p class="empty-state"&gt;No events yet.&lt;/p&gt;
+&lt;/section&gt;</code></pre>
+    <table>
+      <thead><tr><th>Case</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td>Rows</td><td>One per published entry of the type, in its order: newest first, or the type's own order (see <a href="content.html#your-own-order">Put entries in your own order</a>). Each row has the <a href="#card-bindings">card bindings</a> of a list page, the type's custom fields included (<code>{{ venue }}</code> as well as <code>{{ events-venue }}</code>).</td></tr>
+        <tr><td>How many</td><td><code>data-limit</code>, from 1 to 50. Without it, or with <code>0</code> or anything that is not a number, 6.</td></tr>
+        <tr><td>Language</td><td>On a translated page, each entry shows its translation where it has one, and links stay in that language (<code>/hi/events/…</code>).</td></tr>
+        <tr><td>The page's own type</td><td>Allowed. The page's own entry is left out, so <code>data-arc-items-src="articles"</code> on an article shows the other articles.</td></tr>
+        <tr><td>Several on one page</td><td>Each container gets its own rows, from its own type, with its own row and limit. The loop name is usually <code>items</code>, but any name works.</td></tr>
+        <tr><td>No entries</td><td>The container is emptied. Show an empty state with CSS: <code>.empty-state { display: none; } .event-cards:empty + .empty-state { display: block; }</code>.</td></tr>
+        <tr><td>A type without public pages</td><td>Its entries show, with an empty <code>url</code>; guard a link with <code>data-arc-if="url"</code>.</td></tr>
+        <tr><td>A value that is not a slug, or a type that does not exist</td><td>No rows, as for no entries.</td></tr>
+        <tr><td>Escaping</td><td>As for any binding: <code>{{ }}</code> is escaped, and a <code>data-arc-bind</code> value that looks like HTML is inserted as HTML.</td></tr>
+        <tr><td>Where</td><td>Detail templates and layouts only, and not inside another loop's row. In <code>list.html</code> and <code>partials.html</code> the <code>items</code> loop is the page's own entries.</td></tr>
+      </tbody>
+    </table>
+    <p>A published page has the entries built in. Whenever an entry of the shown type is published, updated, unpublished or deleted, or the type's entries are arranged, the detail pages whose template (their layout, else the folder's <code>detail.html</code>) shows that type are rebuilt, in a release of their own a moment after the change. The rebuild coalesces: one per type waits at a time and reads the entries when it starts, so a bulk publish or an import rebuilds the pages once, and a change made while it runs makes it run once more after it. It reads the shown type's entries and their translations once for all the pages, and a page whose entry is unpublished while it runs is left out of its release. When there are more pages than fit in one run of the function (about four minutes of building), it releases what it built and goes on in a new run from where it stopped. When the same change also republishes the whole site, which rebuilds those pages too, no separate rebuild is queued. A type shown on many pages still makes publishing its entries cost more; put the loop in a layout to limit it to the pages that need it. A loop in an HTML comment shows nothing and rebuilds nothing. In the app the entries arrive a moment after the page.</p>
+
     <h3 id="image-sizes">Image sizes</h3>
     <p>Every upload is stored at four sizes (see <a href="media.html">Media</a>). Any image binding has one sibling per size, so a template can use a size the editor did not pick:</p>
     <pre><code>&lt;img src="{{ coverImage_m }}"
@@ -259,15 +329,15 @@
     <p>The widths above are for the default maximum of 1200px; they follow the maximum set in <strong>Settings</strong>, <strong>Misc</strong>. Unsplash photos are resized by Unsplash to the same limits; an image pasted from elsewhere gets none.</p>
 
     <h3 id="partials">Partials</h3>
-    <p><code>partials.html</code> renders a block of cards (such as "Latest articles") on the home page, where it is written as an element:</p>
+    <p><code>partials.html</code> renders a block of cards (such as "Latest articles") on the home page or in the site's header or footer, where it is written as an element:</p>
     <pre><code>&lt;arc-content-partials content-type="articles" count="4" section-title="Latest articles"&gt;&lt;/arc-content-partials&gt;</code></pre>
     <table>
       <thead><tr><th>Attribute</th><th>On a published page</th><th>In the app</th></tr></thead>
       <tbody>
         <tr><td><code>content-type</code></td><td>The type's slug. Required: with no type or an unknown one, the element is removed. A type without public pages works: its cards have no links.</td><td><code>articles</code> when left out</td></tr>
-        <tr><td><code>count</code></td><td>How many cards, a whole number from 1 to 50 (a larger number gives 50). Default <code>4</code>, also for <code>0</code> or text that is not a number.</td><td>Default <code>4</code>, from the 50 newest entries</td></tr>
+        <tr><td><code>count</code></td><td>How many cards, a whole number from 1 to 50 (a larger number gives 50, a fraction is rounded down, so <code>3.5</code> gives 3, and a negative number gives 1). Default <code>4</code>, also for <code>0</code> or text that is not a number.</td><td>The same rule. Only that many of the newest entries are read; a type in its own order reads all its entries, to show the first ones.</td></tr>
         <tr><td><code>section-title</code></td><td>The heading, bound as <code>sectionTitle</code>. Default "Latest {type name}", or the page's <code>latest_of_type</code> string, such as <code>"नवीनतम {{ contentType }}"</code>.</td><td>The same</td></tr>
-        <tr><td><code>template-folder</code></td><td>Another folder's <code>partials.html</code>. Default: the type's folder, else the default folder. A folder the live site does not have stops the home page's publish.</td><td>The same. A file that is not a template shows nothing.</td></tr>
+        <tr><td><code>template-folder</code></td><td>Another folder's <code>partials.html</code>. Default: the type's folder, else the default folder. A folder the live site does not have stops the home page's publish. A block in the header or footer that cannot be filled is left out instead, and every page publishes without it; the function log names its <code>content-type</code> and <code>template-folder</code>.</td><td>The same. A file that is not a template shows nothing.</td></tr>
       </tbody>
     </table>
     <p>Outside the loop, a partial has:</p>
@@ -281,13 +351,13 @@
         <tr><td><code>lang</code>, <code>langPrefix</code></td><td>Text</td><td>hi, /hi</td><td>The page's language and its URL prefix</td></tr>
       </tbody>
     </table>
-    <p>Inside <code>data-arc-loop="items"</code>, each card has the <a href="#card-bindings">list item bindings</a>, in the type's order. The default <code>partials.html</code> makes the whole card a link only when it has a <code>url</code>. A card shows its translation on a translated home page, in the app too. A type without a <code>partials.html</code> of its own uses the default folder's cards. A partial's <code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> stay where they are in the home page; in the app they run once, after the cards are first drawn. The element works on the home page only; publishing removes it from content pages.</p>
+    <p>Inside <code>data-arc-loop="items"</code>, each card has the <a href="#card-bindings">list item bindings</a>, in the type's order. The default <code>partials.html</code> makes the whole card a link only when it has a <code>url</code>. A card shows its translation on a translated home page, in the app too. A type without a <code>partials.html</code> of its own uses the default folder's cards. A partial's <code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> stay where they are in the home page; in the app they run once, after the cards are first drawn. The element works on the home page and in the header and footer, where it shows on every page and is published into each one (<code>functions/src/pages/card-blocks.ts</code>); when what such a block shows changes, the whole site is published again (see <a href="../website/editable-sections.html#header-footer">Cards in the header and footer</a>). Publishing removes it from a list or detail template's own HTML.</p>
 
     <h3>Header, footer and styles</h3>
     <table>
       <thead><tr><th>What</th><th>Edit</th><th>Notes</th></tr></thead>
       <tbody>
-        <tr><td>Header and footer</td><td><code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code> (else Arc CMS's <code>public/_site/header.html</code>, <code>public/_site/footer.html</code>)</td><td>Plain HTML: no <code>{{ }}</code> or other bindings, only <code>data-arc-t</code> and <a href="#site-info">site info</a> (<code>data-arc-site</code>). The default footer lists the published standard pages (<code>data-arc-site-loop="pages"</code>) and a copyright line with the year and site name; its rules in <code>main.css</code> apply only to the site footer (<code>footer.site-footer</code>, or a <code>&lt;footer&gt;</code> directly in <code>&lt;body&gt;</code>, <code>&lt;arc-footer&gt;</code> or a template), never to a footer inside a card or dialog. The app renders them as they are, filling <code>data-arc-t</code>, site info and the language of links; both turn <code>&lt;arc-search&gt;</code> and <code>&lt;arc-language-switcher&gt;</code> into the search box and the language links. Their scripts run in the app too, each time they are drawn (again when the page's language arrives), so a script binds to the elements it finds; a script file is loaded once. Publishing reads the same files from the live Hosting site at <code>/_site/</code>.</td></tr>
+        <tr><td>Header and footer</td><td><code class="new">src/custom/site/header.html</code>, <code class="new">src/custom/site/footer.html</code> (else Arc CMS's <code>public/_site/header.html</code>, <code>public/_site/footer.html</code>)</td><td>Plain HTML: no <code>{{ }}</code> or other bindings, only <code>data-arc-t</code>, <a href="#site-info">site info</a> (<code>data-arc-site</code>) and <a href="#partials">card blocks</a> (<code>&lt;arc-content-partials&gt;</code>, filled on every page). The default footer lists the published standard pages (<code>data-arc-site-loop="pages"</code>) and a copyright line with the year and site name; its rules in <code>main.css</code> apply only to the site footer (<code>footer.site-footer</code>, or a <code>&lt;footer&gt;</code> directly in <code>&lt;body&gt;</code>, <code>&lt;arc-footer&gt;</code> or a template), never to a footer inside a card or dialog. The app renders them as they are, filling <code>data-arc-t</code>, site info and the language of links; both turn <code>&lt;arc-search&gt;</code>, <code>&lt;arc-language-switcher&gt;</code> and <code>&lt;arc-content-partials&gt;</code> into the search box, the language links and the cards. Their scripts run in the app too, each time they are drawn (again when the page's language arrives), so a script binds to the elements it finds; a script file is loaded once. Publishing reads the same files from the live Hosting site at <code>/_site/</code>.</td></tr>
         <tr><td>Site stylesheets</td><td><code class="new">src/custom/site/site.css</code>, served as <code>/assets/css/site.css</code></td><td>Loaded on the website's pages and the sign-in page, never in the admin or member area. Published pages link every URL in <code>cssUrls</code> of <code>Settings/site</code> (by default Bootstrap 5, Font Awesome 6.5.1 and <code>/assets/css/main.css</code>, Arc CMS's own styles, a core file), then <code>/assets/css/site.css</code>, both stylesheets with a version that changes with the file. There is no admin screen for the list; change it in the Firestore console. The app always loads Bootstrap and Font Awesome, whatever the list says.</td></tr>
         <tr><td>The site's own files</td><td><code class="new">src/custom/site/assets/</code>, served at <code>/site/</code></td><td>Every one is listed with a hash in <code>/_site/site.json</code>. Published pages and the app's preview add it to links (<code>versionSiteUrls</code> in <code>functions/src/shared/site-urls.ts</code> and <code>src/app/core/site/site-urls.ts</code>: <code>src</code>, <code>href</code>, <code>poster</code>, <code>srcset</code>), and the build adds it to <code>url()</code> in the app's stylesheets (<code>scripts/arc-site.mjs</code>), so a changed file is never served from a year-long browser cache.</td></tr>
         <tr><td>A template's own styles and scripts</td><td><code>&lt;style&gt;</code> and <code>&lt;script&gt;</code> in the template</td><td>On a published list or detail page, every <code>&lt;style&gt;</code> moves into the head and every <code>&lt;script&gt;</code> to the end of the body. The app runs a list or detail template's scripts once it has drawn it; it never runs a partial's.</td></tr>

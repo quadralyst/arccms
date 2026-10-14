@@ -14,6 +14,7 @@ import { firstValueFrom, take } from 'rxjs';
 import { HeaderComponent } from './page.parts/header.component';
 import { FooterComponent } from './page.parts/footer.component';
 import { ContentPartialsComponent } from './page.parts/content-partials.component';
+import { setAttributeInputs } from './page.parts/site-fragment';
 import { PublicSearchComponent } from './page.parts/public-search.component';
 import { LanguageSwitcherComponent } from './page.parts/language-switcher.component';
 import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service';
@@ -40,14 +41,6 @@ const ELEMENTS: Record<string, Type<unknown>> = {
     'arc-content-partials': ContentPartialsComponent,
     'arc-search': PublicSearchComponent,
     'arc-language-switcher': LanguageSwitcherComponent,
-};
-
-/** `<arc-content-partials>` attributes and the component inputs they set. */
-const PARTIALS_INPUTS: Record<string, string> = {
-    'content-type': 'contentType',
-    count: 'count',
-    'section-title': 'sectionTitle',
-    'template-folder': 'templateFolder',
 };
 
 /**
@@ -186,12 +179,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
                     elementInjector: this.elementInjector,
                     hostElement,
                 });
-                if (component === ContentPartialsComponent) {
-                    for (const [attr, input] of Object.entries(PARTIALS_INPUTS)) {
-                        const value = hostElement.getAttribute(attr);
-                        if (value !== null) ref.setInput(input, input === 'count' ? Number(value) || 4 : value);
-                    }
-                }
+                setAttributeInputs(ref, component, hostElement);
                 this.appRef.attachView(ref.hostView);
                 this.mounted.push(ref);
             }

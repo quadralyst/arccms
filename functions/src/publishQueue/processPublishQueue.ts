@@ -4,9 +4,11 @@ import { db } from '../init.js';
 import { getPublishedCollectionName, getDraftCollectionName } from '../draftContent/collectionHelpers.js';
 import { MissingTemplateFolderError } from '../shared/site-files.js';
 import { generateAndDeployHomePage, homeShowsType } from '../pages/deployHomePage.js';
+import { chromeCardsSignature, chromeShowsType } from '../pages/card-blocks.js';
 import { generateAndDeployContentDetailPage, removeContentPage } from '../pages/deployContentPage.js';
-import { HostingBatch, deployBatchToHosting } from '../pages/deployToHosting.js';
+import { HostingBatch, deployBatchToHosting, type DeployBatchOptions } from '../pages/deployToHosting.js';
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
+import { rebuildPagesShowingItemsOf, typesShowingItemsOf } from '../pages/items-from-type-pages.js';
 import { generateAndDeployStaticPage, staticPageSlugs } from '../pages/deployStaticPage.js';
 import { generateAndDeploySitemap } from '../pages/generateSitemap.js';
 import { generateAndDeployRssFeeds } from '../pages/generateRssFeed.js';
@@ -22,9 +24,12 @@ import { indexDocument, removeSearchEntries } from '../search/writer.js';
 import { runReindex } from '../search/reindexSearch.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { arcDocument, arcHostingSite } from '../arc-config.js';
+import { claimCoalesced, coalescedIdFor, finishCoalesced, requestCoalesced } from './coalesced-items.js';
+import type { RebuildCursor } from '../pages/items-from-type-pages.js';
+import type { ItemsFromTypeCache } from '../pages/published-entries.js';
 
 interface QueueItem {
-    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home' | 'order';
+    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home' | 'order' | 'items-from';
     contentTypeSlug: string;
     docId: string;
     timestamp: Timestamp;
@@ -42,19 +47,96 @@ export async function footerSignature(publishedRef: DocumentReference): Promise<
     return JSON.stringify([snap.data()?.['title'] ?? '', titles]);
 }
 
-/** Queues a whole-site republish. */
-async function queueRedeployAll(reason: string): Promise<void> {
-    console.log(`Republishing the whole site: ${reason}`);
-    await db.collection('_publish_queue').add({ action: 'redeploy-all', contentTypeSlug: '', docId: '', timestamp: Timestamp.now() });
+/**
+ * Queues a whole-site republish, in a queue item of its own so its release cannot
+ * race this one. It coalesces (coalesced-items.ts): a bulk publish of a hundred
+ * entries the header shows asks a hundred times, and the site is republished
+ * once, or once more when a change comes in while it runs. Returns whether a
+ * republish that starts after this call is certain.
+ */
+export async function queueRedeployAll(reason: string): Promise<boolean> {
+    try {
+        const outcome = await requestCoalesced('redeploy-all');
+        console.log(`Republishing the whole site (${outcome}): ${reason}`);
+        return true;
+    } catch (error) {
+        console.error(`Could not queue the whole-site republish (${reason}):`, error);
+        return false;
+    }
+}
+
+/**
+ * Queues a rebuild of the detail pages that show entries of this type
+ * (data-arc-items-src), when any template does, in a queue item of its own so
+ * its release cannot race this one. One per type, coalesced like the whole-site
+ * republish: it reads the entries when it runs, so a change before then adds
+ * nothing, and a change while it runs makes it run once more.
+ */
+export async function queuePagesShowingItemsOf(slug: string): Promise<void> {
+    try {
+        if (!(await typesShowingItemsOf(slug)).length) return;
+        const outcome = await requestCoalesced('items-from', slug);
+        console.log(`Rebuilding the pages that show entries of ${slug} (${outcome})`);
+    } catch (error) {
+        console.error(`Could not queue the pages that show entries of ${slug}:`, error);
+    }
+}
+
+/** The queue function's timeout (timeoutSeconds below), in ms. */
+export const QUEUE_TIMEOUT_MS = 540_000;
+
+/**
+ * When a run's release must be done, counted from the start of the run: the
+ * rest of the timeout is kept for what follows the release (IndexNow, finishing
+ * a coalesced item). The wait for the release lock is cut to fit
+ * (DeployBatchOptions.deadline).
+ */
+export const RELEASE_BY_MS = QUEUE_TIMEOUT_MS - 60_000;
+
+/**
+ * How long a coalesced run (redeploy-all, items-from) builds pages before it
+ * releases what it built and queues the rest. With the wait for the release
+ * lock (at most RELEASE_BY_MS - this - RELEASE_TIME_MS, so 150s) and the release
+ * itself, the run fits in the function's 540s.
+ */
+export const COALESCED_BUILD_MS = 240_000;
+
+/**
+ * The release of an ordinary queue item: done before the run's time is up,
+ * and when another release still holds the lock after the full wait, one more
+ * wait while time is left, so a publish does not fail for a release queue that
+ * was only long (DeployBatchOptions.busyRetries).
+ */
+function itemRelease(runStart: number): DeployBatchOptions {
+    return { deadline: runStart + RELEASE_BY_MS, busyRetries: 1 };
+}
+
+/**
+ * Releases a coalesced run's batch before the run's time is up. Resolves with
+ * whether it went out, and why not. Nothing to release, or Hosting turned off
+ * for this install, is no failure: there is nothing to run again for.
+ */
+async function releaseRun(batch: HostingBatch, runStart: number): Promise<{ released: boolean; failure: string }> {
+    if (batch.isEmpty) return { released: false, failure: '' };
+    const siteId = arcHostingSite();
+    let failure = '';
+    const released = await deployBatchToHosting(siteId, batch, '', '', {
+        deadline: runStart + RELEASE_BY_MS,
+        onFailure: (f) => { failure = `${f.code}: ${f.message}`; },
+    });
+    if (!siteId) return { released: false, failure: '' };
+    return { released, failure: released ? '' : (failure || 'the release did not go out') };
 }
 
 /**
  * Copies each draft's `sortOrder` to its published copy (removing it where the
  * draft has none), then rebuilds the pages that show the type's entries: its
- * list page when it has public pages, and the home page when it shows the type.
+ * list page when it has public pages, the home page when it shows the type, and
+ * every page (a queued whole-site republish) when the header or footer does.
  * Only `sortOrder` is written, so a draft's unpublished edits stay unpublished.
+ * Returns whether it queued a whole-site republish.
  */
-export async function applyEntryOrder(slug: string, batch: HostingBatch): Promise<void> {
+export async function applyEntryOrder(slug: string, batch: HostingBatch): Promise<boolean> {
     const [drafts, published, typeSnap] = await Promise.all([
         db.collection(getDraftCollectionName(slug)).get(),
         db.collection(getPublishedCollectionName(slug)).get(),
@@ -76,34 +158,61 @@ export async function applyEntryOrder(slug: string, batch: HostingBatch): Promis
     const hasPublicUrl = typeData?.hasPublicUrl !== false;
     if (hasPublicUrl) await generateAndDeployContentListPage(slug, batch);
     if (await homeShowsType(slug).catch(() => false)) await generateAndDeployHomePage(batch);
-    // The footer lists the standard pages in this order (SS6).
-    if (typeData?.standard === 'pages' && writes.length) await queueRedeployAll(`standard pages put in a new order`);
+    // The footer lists the standard pages in this order (SS6). A card block in the
+    // header or footer shows the type's entries in its order, which this item may
+    // have changed without moving an entry (newest first to your own order).
+    let siteRepublished = false;
+    if (typeData?.standard === 'pages' && writes.length) siteRepublished = await queueRedeployAll(`standard pages put in a new order`);
+    else if (await chromeShowsType(slug).catch(() => false)) siteRepublished = await queueRedeployAll(`${slug} in a new order in the header or footer`);
     console.log(`Entry order applied to ${slug}: ${writes.length} published entr${writes.length === 1 ? 'y' : 'ies'} changed`);
+    return siteRepublished;
 }
 
-/**
- * Rebuilds every published page into one batch.
- *
- * One batch, and therefore one Hosting release, is the whole point. Releases
- * are built from the *previous* release's file list, so two of them finishing
- * within a second of each other silently drop one another's files — which is
- * exactly what a per-document repair loop does. Site-wide repair has to be a
- * single queue item.
- */
-async function collectAllPublishedPages(batch: HostingBatch): Promise<number> {
-    const contentTypes = await db.collection('ContentTypes').get();
-    let pages = 0;
+/** Where a whole-site rebuild stopped: the last entry it went through (as items-from's cursor). */
+type SiteCursor = RebuildCursor;
 
-    for (const typeDoc of contentTypes.docs) {
-        const { slug, hasPublicUrl } = typeDoc.data() as { slug?: string; hasPublicUrl?: boolean };
-        if (!slug || hasPublicUrl === false) continue;
+const bySlug = (a: { slug: string }, b: { slug: string }) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
+const byDocId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/**
+ * Rebuilds every published detail and list page into one batch.
+ *
+ * One batch per run: releases are built from the *previous* release's file
+ * list, and a per-document repair loop would make one release per page. Types
+ * go by slug and entries by id, so a run that reaches `deadline` returns where
+ * it stopped (`next`) and a continuation goes on from `after`; each part is one
+ * release, and the release lock makes each build on the one before.
+ */
+async function collectAllPublishedPages(
+    batch: HostingBatch,
+    options: { after?: SiteCursor; deadline?: number } = {},
+): Promise<{ pages: number; next?: SiteCursor }> {
+    const { after, deadline = Infinity } = options;
+    const contentTypes = (await db.collection('ContentTypes').get()).docs
+        .map((doc) => doc.data() as { slug?: string; hasPublicUrl?: boolean })
+        .filter((type): type is { slug: string; hasPublicUrl?: boolean } => !!type.slug && type.hasPublicUrl !== false)
+        .sort(bySlug);
+    let pages = 0;
+    /** The last entry gone through, built or not: where a continuation goes on from. */
+    let cursor: SiteCursor | undefined;
+    /** Entries gone through: each part goes through at least one, so the rebuild always moves on. */
+    let seen = 0;
+    // Entries of other types (data-arc-items-src) are read once for the whole run.
+    const itemsFromTypeCache: ItemsFromTypeCache = new Map();
+
+    for (const { slug } of contentTypes) {
+        if (after && slug < after.type) continue;
 
         const published = await db.collection(getPublishedCollectionName(slug)).get();
         if (published.empty) continue;
 
-        for (const doc of published.docs) {
+        for (const doc of [...published.docs].sort(byDocId)) {
+            if (after && slug === after.type && doc.id <= after.id) continue;
+            if (Date.now() >= deadline && seen) return { pages, next: cursor };
+            cursor = { type: slug, id: doc.id };
+            seen++;
             try {
-                await generateAndDeployContentDetailPage(slug, doc.id, batch);
+                await generateAndDeployContentDetailPage(slug, doc.id, batch, itemsFromTypeCache);
                 pages++;
             } catch (error) {
                 // One unbuildable page must not cost the other 23 their repair.
@@ -118,7 +227,7 @@ async function collectAllPublishedPages(batch: HostingBatch): Promise<number> {
         }
     }
 
-    return pages;
+    return { pages };
 }
 
 /**
@@ -290,19 +399,22 @@ export const processPublishQueue = onDocumentCreated({
     ...arcDocument('_publish_queue/{queueId}'),
     // A 'redeploy-all' rebuilds every published page in one invocation —
     // template fetches and all — which does not fit in the 60s default.
-    timeoutSeconds: 540,
+    timeoutSeconds: QUEUE_TIMEOUT_MS / 1000,
     memory: '512MiB',
 }, async (event) => {
+    /** When this run started: its release and its build have budgets counted from here. */
+    const runStart = Date.now();
     const queueData = event.data?.data() as QueueItem | undefined;
     if (!queueData) return;
 
     const { action, contentTypeSlug, docId } = queueData;
     const queueDocRef = event.data?.ref;
+    const queueId = queueDocRef?.id ?? event.params?.queueId ?? '';
 
     // 'redeploy-all' and 'home' are site-wide, so they name no content type and no
     // document; 'order' is about a whole content type, so it names no document.
     const siteWide = action === 'redeploy-all' || action === 'home';
-    const typeWide = action === 'order';
+    const typeWide = action === 'order' || action === 'items-from';
     if (!action || (!siteWide && (!contentTypeSlug || (!typeWide && !docId)))) {
         console.error('Invalid queue item — missing required fields:', queueData);
         if (queueDocRef) await queueDocRef.delete();
@@ -322,7 +434,7 @@ export const processPublishQueue = onDocumentCreated({
     if (action === 'home') {
         try {
             await generateAndDeployHomePage(batch);
-            if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, '', '');
+            if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, '', '', itemRelease(runStart));
         } catch (error) {
             console.error('Home page republish failed:', error);
         }
@@ -330,61 +442,133 @@ export const processPublishQueue = onDocumentCreated({
         return;
     }
 
+    // A whole-site republish and a rebuild of the pages showing a type's entries
+    // coalesce (coalesced-items.ts): each is one queue document with a fixed id.
+    // One added any other way (the admin's Republish button, a settings change)
+    // joins it, so it cannot run beside it and race its release.
+    const coalescedId = coalescedIdFor(action, contentTypeSlug);
+    if (coalescedId && queueId !== coalescedId) {
+        if (action === 'redeploy-all') await queueRedeployAll(`asked for by queue item ${queueId}`);
+        else await requestCoalesced('items-from', contentTypeSlug).catch((error) =>
+            console.error(`Could not queue the pages that show entries of ${contentTypeSlug}:`, error));
+        if (queueDocRef) await queueDocRef.delete();
+        return;
+    }
+
     // Handled ahead of the per-document setup below, which needs a document to
     // point at. This one is about the site, not about a document.
     if (action === 'redeploy-all') {
+        // Nothing to run when another delivery of the same trigger is running it.
+        const claimed = await claimCoalesced(coalescedId);
+        if (!claimed) return;
+        const after = claimed['after'] as SiteCursor | undefined;
+        let continuation: Record<string, unknown> | undefined;
+        let failure = '';
         try {
-            const pages = await collectAllPublishedPages(batch);
-            // The home page is part of the site, whatever it shows.
-            try {
-                await generateAndDeployHomePage(batch);
-            } catch (homeErr) {
-                console.error('Home page rebuild failed during redeploy-all:', homeErr);
-            }
-            // So are the static pages (privacy policy, terms): they show the
-            // header, footer and site styles too.
-            for (const slug of await staticPageSlugs().catch(() => [] as string[])) {
+            // A site with more pages than fit in one run releases what it built
+            // and goes on in a new run from where it stopped (as items-from).
+            const { pages, next } = await collectAllPublishedPages(batch, { after, deadline: runStart + COALESCED_BUILD_MS });
+            if (!next) {
+                // The last part: the home page is part of the site, whatever it shows.
                 try {
-                    await generateAndDeployStaticPage(slug, batch);
-                } catch (pageErr) {
-                    console.error(`Static page ${slug} rebuild failed during redeploy-all:`, pageErr);
+                    await generateAndDeployHomePage(batch);
+                } catch (homeErr) {
+                    console.error('Home page rebuild failed during redeploy-all:', homeErr);
+                }
+                // So are the static pages (privacy policy, terms): they show the
+                // header, footer and site styles too.
+                for (const slug of await staticPageSlugs().catch(() => [] as string[])) {
+                    try {
+                        await generateAndDeployStaticPage(slug, batch);
+                    } catch (pageErr) {
+                        console.error(`Static page ${slug} rebuild failed during redeploy-all:`, pageErr);
+                    }
+                }
+                // Sitemap, feeds, robots/llms and IndexNow are the seo feature's. Each
+                // on its own, as for one entry: a file that cannot be built must not
+                // hold back the pages, and running the part again would not fix it.
+                if (isFeatureOn('seo')) {
+                    for (const [name, step] of [
+                        ['Sitemap', () => generateAndDeploySitemap(batch)],
+                        ['RSS feed', () => generateAndDeployRssFeeds(batch)],
+                        ['Discoverability files', () => addDiscoverabilityFiles(batch)],
+                    ] as Array<[string, () => Promise<void>]>) {
+                        try {
+                            await step();
+                        } catch (seoErr) {
+                            console.error(`${name} regeneration failed during redeploy-all:`, seoErr);
+                        }
+                    }
                 }
             }
-            // Sitemap, feeds, robots/llms and IndexNow are the seo feature's.
-            if (isFeatureOn('seo')) {
-                await generateAndDeploySitemap(batch);
-                await generateAndDeployRssFeeds(batch);
-                await addDiscoverabilityFiles(batch);
-            }
-            if (!batch.isEmpty) {
-                await deployBatchToHosting(arcHostingSite(), batch, '', '');
-                if (isFeatureOn('seo')) await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
-            }
-            console.log(`Redeployed ${pages} page(s) in ${batch.size} file(s)`);
-        } catch (error) {
+            const run = await releaseRun(batch, runStart);
+            failure = run.failure;
+            if (run.released && isFeatureOn('seo')) await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
+            if (!failure && next) continuation = { after: next };
+            console.log(`Redeployed ${pages} page(s) in ${batch.size} file(s)`
+                + (failure ? `, but the release did not go out (${failure})` : '')
+                + (next && !failure ? `; the rest follow after ${next.type}/${next.id}` : ''));
+        } catch (error: any) {
+            failure = error?.message || String(error);
             console.error('Site-wide redeploy failed:', error);
         }
-        // The published search index is rebuilt with the pages: a site-wide
-        // repair should leave nothing behind that a search cannot find.
-        if (isFeatureOn('search')) try {
+        // The published search index is rebuilt with the pages, once they all
+        // went out: a site-wide repair should leave nothing behind that a search
+        // cannot find.
+        if (!failure && !continuation && isFeatureOn('search')) try {
             await runReindex({ source: CONTENT_SOURCE_ID });
         } catch (error) {
             console.error('Search reindex after redeploy-all failed:', error);
         }
-        if (queueDocRef) await queueDocRef.delete();
+        // Removed whether it worked or not, and queued again for the rest, for a
+        // change that came in meanwhile, or (a failed run) to try the same part again.
+        if (failure) await finishCoalesced(coalescedId, after ? { after } : undefined, { failed: true, error: failure });
+        else await finishCoalesced(coalescedId, continuation);
         return;
     }
 
     // A content type's entries were put in a new order (the Arrange dialog), or its
     // entry order changed: the pages that show them follow (specs/site-sections-spec.md, SS2).
     if (action === 'order') {
+        let siteRepublished = false;
         try {
-            await applyEntryOrder(contentTypeSlug, batch);
-            if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, '', '');
+            siteRepublished = await applyEntryOrder(contentTypeSlug, batch);
+            if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, '', '', itemRelease(runStart));
         } catch (error) {
             console.error(`Entry order update failed for ${contentTypeSlug}:`, error);
         }
         if (queueDocRef) await queueDocRef.delete();
+        // A whole-site republish rebuilds those pages too.
+        if (!siteRepublished) await queuePagesShowingItemsOf(contentTypeSlug);
+        return;
+    }
+
+    // Entries of this type changed: the detail pages that show them
+    // (data-arc-items-src) are built again, in one release. A change made while
+    // this runs marks the item, and it runs once more (coalesced-items.ts). A
+    // type with more pages than fit in one run releases what it built and queues
+    // the rest, from where it stopped.
+    if (action === 'items-from') {
+        const claimed = await claimCoalesced(coalescedId);
+        if (!claimed) return;
+        const after = claimed['after'] as RebuildCursor | undefined;
+        let continuation: Record<string, unknown> | undefined;
+        let failure = '';
+        try {
+            const result = await rebuildPagesShowingItemsOf(contentTypeSlug, batch, { after, deadline: runStart + COALESCED_BUILD_MS });
+            failure = (await releaseRun(batch, runStart)).failure;
+            console.log(`Rebuilt ${result.pages} page(s) that show entries of ${contentTypeSlug}`
+                + (result.dropped ? `, leaving out ${result.dropped} unpublished meanwhile` : '')
+                + (failure ? `, but the release did not go out (${failure})` : '')
+                + (result.next && !failure ? `; the rest follow after ${result.next.type}/${result.next.id}` : ''));
+            if (!failure && result.next) continuation = { after: result.next };
+        } catch (error: any) {
+            failure = error?.message || String(error);
+            console.error(`Rebuilding the pages that show entries of ${contentTypeSlug} failed:`, error);
+        }
+        // A failed run is run again from where it started (MAX_FAILED_RUNS).
+        if (failure) await finishCoalesced(coalescedId, after ? { after } : undefined, { failed: true, error: failure });
+        else await finishCoalesced(coalescedId, continuation);
         return;
     }
 
@@ -402,6 +586,9 @@ export const processPublishQueue = onDocumentCreated({
     // of it now, to republish the site if that changes.
     const isStandardPage = contentTypeData?.standard === 'pages';
     const footerBefore = isStandardPage ? await footerSignature(publishedRef) : '';
+    // A card block in the header or footer shows the type's entries on every page:
+    // note what it shows now, to republish the site if that changes ('' when none).
+    const chromeBefore = await chromeCardsSignature(contentTypeSlug).catch(() => '');
 
     try {
         switch (action) {
@@ -630,7 +817,7 @@ export const processPublishQueue = onDocumentCreated({
             // deploy silently targets a site that does not exist otherwise.
             const siteId = arcHostingSite();
             const released = await deployBatchToHosting(
-                siteId, batch, pageError ? '' : publishedCollection, pageError ? '' : docId);
+                siteId, batch, pageError ? '' : publishedCollection, pageError ? '' : docId, itemRelease(runStart));
             // Only after the release succeeded: a ping for pages that never
             // went live would send the engines to a 404 (D-D9). deployBatchToHosting
             // records a failure (or hosting being off) rather than throwing, so the
@@ -648,10 +835,19 @@ export const processPublishQueue = onDocumentCreated({
 
     // The footer of every page lists the standard pages: when this one went live,
     // came down or changed its title, every page is republished, in a queue item
-    // of its own so its release cannot race this one.
+    // of its own so its release cannot race this one. The same when the header's
+    // or footer's card blocks of this type now show something else.
+    let siteRepublished = false;
     if (isStandardPage && (await footerSignature(publishedRef)) !== footerBefore) {
-        await queueRedeployAll(`standard page ${docId} changed in the footer`);
+        siteRepublished = await queueRedeployAll(`standard page ${docId} changed in the footer`);
+    } else if (chromeBefore && (await chromeCardsSignature(contentTypeSlug).catch(() => '')) !== chromeBefore) {
+        siteRepublished = await queueRedeployAll(`${contentTypeSlug}/${docId} changed a card block in the header or footer`);
     }
+
+    // Detail pages of any type may show this type's entries (data-arc-items-src):
+    // they are rebuilt in a queue item of their own, unless the whole site is
+    // republished, which rebuilds them anyway. A redeploy changes no entry.
+    if (action !== 'redeploy' && !siteRepublished) await queuePagesShowingItemsOf(contentTypeSlug);
 
     // Always clean up the queue document
     if (queueDocRef) {

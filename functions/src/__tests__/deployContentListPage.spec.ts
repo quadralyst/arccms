@@ -543,4 +543,35 @@ describe('deployContentListPage', () => {
             expect(crumbs.map((c: any) => c.item)).toEqual(['https://example.com/', 'https://example.com/articles']);
         });
     });
+
+    // A card block in the footer (functions/src/pages/card-blocks.ts): every page shows it.
+    describe('card blocks in the header and footer', () => {
+        const PARTIALS_TEMPLATE = '<section class="cards"><h3>{{ sectionTitle }}</h3><ul data-arc-loop="items"><li><a href="{{ url }}">{{ title }}</a></li></ul></section>';
+
+        beforeEach(() => {
+            mockGetPartials.mockResolvedValue({
+                headerHtml: '<header>Site Header</header>',
+                footerHtml: '<footer><arc-content-partials content-type="articles" count="1" section-title="Read next"></arc-content-partials></footer>',
+            });
+            mockLoadSiteTemplate.mockImplementation(async (_folder: string, file: string) => (file === 'partials' ? PARTIALS_TEMPLATE : MOCK_LIST_TEMPLATE));
+        });
+
+        it('fills the footer\'s block with cards, as on the home page', async () => {
+            await generateAndDeployContentListPage('articles');
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            const footer = html.slice(html.indexOf('<footer>'), html.indexOf('</footer>'));
+            expect(footer).toContain('<h3>Read next</h3>');
+            expect(footer).toContain('<a href="/articles/first-article">First Article</a>');
+            expect(html).not.toContain('arc-content-partials');
+        });
+
+        it('escapes an entry\'s text the way the home page\'s blocks do', async () => {
+            mockContentsGet.mockResolvedValue({ docs: [{ id: 'x', data: () => ({ ...MOCK_CONTENTS[0], title: 'Fish & <chips>' }) }] });
+            await generateAndDeployContentListPage('articles');
+            const html: string = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
+            const footer = html.slice(html.indexOf('<footer>'), html.indexOf('</footer>'));
+            expect(footer).toContain('Fish &amp; &lt;chips&gt;');
+            expect(footer).not.toContain('<chips>');
+        });
+    });
 });

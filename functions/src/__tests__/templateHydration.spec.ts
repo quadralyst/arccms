@@ -370,9 +370,9 @@ describe('TemplateHydrationService', () => {
         });
 
         it('interpolates a hyphenated key inside an attribute', () => {
-            const html = '<i class="card-icon {{ flagship-programs_icon }}"></i>';
+            const html = '<i class="card-icon {{ featured-services_icon }}"></i>';
             const result = TemplateHydrationService.hydrateTemplate(html, {
-                'flagship-programs_icon': { classes: 'fa-solid fa-star', name: 'star' },
+                'featured-services_icon': { classes: 'fa-solid fa-star', name: 'star' },
             });
 
             expect(result).toContain('class="card-icon fa-solid fa-star"');
@@ -852,5 +852,87 @@ describe('File fields (docs/features/templates.html, MF-D18)', () => {
         expect(TemplateHydrationService.arrayLoopData({ gallery: rows })['gallery']).toEqual(rows);
         const result = TemplateHydrationService.hydrateTemplate('<i>{{ gallery_url }}</i>', { gallery: rows });
         expect(result).not.toContain('https://x/a.jpg');
+    });
+});
+
+describe('Repeat from a number (data-arc-repeat, docs/features/templates.html)', () => {
+    /** The hydrated fragment without the document cheerio wraps it in. */
+    const body = (html: string) => html.replace(/^[\s\S]*<body>|<\/body>[\s\S]*$/g, '');
+    const fill = (html: string, data: Record<string, unknown>) => body(TemplateHydrationService.hydrateTemplate(html, data));
+    const count = (html: string, needle: string) => html.split(needle).length - 1;
+
+    const STARS = '<p data-arc-repeat="rating"><i class="full"></i><i class="half"></i></p>';
+    const DOTS = '<p data-arc-repeat="rating" data-max="4"><b class="{{ @state }}">{{ @number }}</b></p>';
+    const THREE = '<p data-arc-repeat="rating"><i class="full"></i><i class="half"></i><i class="empty"></i></p>';
+
+    // [case, template, data, the exact output]; the app's spec runs the same cases.
+    const CASES: [string, string, Record<string, unknown>, string][] = [
+        ['a whole number, one child', '<p data-arc-repeat="rating"><i>*</i></p>', { rating: 3 }, '<p><i>*</i><i>*</i><i>*</i></p>'],
+        ['a number written as text', '<p data-arc-repeat="rating"><i>*</i></p>', { rating: ' 2 ' }, '<p><i>*</i><i>*</i></p>'],
+        ['a number in the attribute', '<ol data-arc-repeat="3"><li>{{ @number }}</li></ol>', {}, '<ol><li>1</li><li>2</li><li>3</li></ol>'],
+        ['full and half children', STARS, { rating: '3.5' }, '<p><i class="full"></i><i class="full"></i><i class="full"></i><i class="half"></i></p>'],
+        ['a fraction under .25 rounds down', STARS, { rating: 2.2 }, '<p><i class="full"></i><i class="full"></i></p>'],
+        ['a fraction from .75 rounds up', STARS, { rating: 2.75 }, '<p><i class="full"></i><i class="full"></i><i class="full"></i></p>'],
+        ['two children never add empty slots', '<p data-arc-repeat="rating" data-max="5"><i class="full"></i><i class="half"></i></p>', { rating: 4.5 },
+            '<p><i class="full"></i><i class="full"></i><i class="full"></i><i class="full"></i><i class="half"></i></p>'],
+        ['three children fill to five', THREE, { rating: 3.5 }, '<p><i class="full"></i><i class="full"></i><i class="full"></i><i class="half"></i><i class="empty"></i></p>'],
+        ['three children fill to data-max from a key', '<p data-arc-repeat="rating" data-max="slots"><i class="full"></i><i class="half"></i><i class="empty"></i></p>',
+            { rating: 1, slots: 3 }, '<p><i class="full"></i><i class="empty"></i><i class="empty"></i></p>'],
+        ['one child with data-max shows every state', DOTS, { rating: 2.5 },
+            '<p><b class="full">1</b><b class="full">2</b><b class="half">3</b><b class="empty">4</b></p>'],
+        ['the @ values', '<p data-arc-repeat="rating" data-max="4"><b data-i="{{ @index }}" data-f="{{@fraction}}">{{ @value }}/{{ @max }}/{{ @total }} {{ @percent }}% {{ @itemPercent }}%</b></p>',
+            { rating: 1.5 },
+            '<p><b data-i="0" data-f="1.00">1.5/4/4 38% 25%</b><b data-i="1" data-f="0.50">1.5/4/4 38% 50%</b><b data-i="2" data-f="0.00">1.5/4/4 38% 75%</b><b data-i="3" data-f="0.00">1.5/4/4 38% 100%</b></p>'],
+        ['an unknown @ word is left alone', '<p data-arc-repeat="1"><b>{{ @other }}</b></p>', {}, '<p><b>{{ @other }}</b></p>'],
+        ['data-max caps the number', DOTS, { rating: 9 },
+            '<p><b class="full">1</b><b class="full">2</b><b class="full">3</b><b class="full">4</b></p>'],
+        ['a data-max that is not a number is ignored', '<p data-arc-repeat="rating" data-max="slots"><i>*</i></p>', { rating: 2 }, '<p><i>*</i><i>*</i></p>'],
+        ['a data-max of 0 is ignored', '<p data-arc-repeat="rating" data-max="0"><i>*</i></p>', { rating: 2 }, '<p><i>*</i><i>*</i></p>'],
+        ['text with no child element repeats, rounded', '<span data-arc-repeat="rating">★</span>', { rating: 4.6 }, '<span>★★★★★</span>'],
+        ['a missing number empties the element', STARS, {}, '<p></p>'],
+        ['a missing number with three children is all empty slots', THREE, {}, '<p>' + '<i class="empty"></i>'.repeat(5) + '</p>'],
+        ['a number that is not one empties the element', STARS, { rating: 'five' }, '<p></p>'],
+        ['a negative number empties the element', STARS, { rating: -3 }, '<p></p>'],
+        ['zero empties the element', '<span data-arc-repeat="rating">★</span>', { rating: 0 }, '<span></span>'],
+        ['a flag is not a number', STARS, { rating: true }, '<p></p>'],
+        ['an object is not a number', STARS, { rating: { value: 4 } }, '<p></p>'],
+        ['Infinity is not a number', STARS, { rating: 'Infinity' }, '<p></p>'],
+        ['the data adds no markup', '<p data-arc-repeat="rating"><i title="{{ @value }}">{{ @state }}</i></p>',
+            { rating: '2<img src=x onerror=alert(1)>' }, '<p><i title="2">full</i><i title="2">full</i></p>'],
+        ['each copy is filled like the template', '<ul data-arc-repeat="rating"><li>{{ title }} {{ @number }}</li></ul>',
+            { rating: 2, title: 'A &amp; B' }, '<ul><li>A &amp;amp; B 1</li><li>A &amp;amp; B 2</li></ul>'],
+        ['the short key of a custom field', STARS, { 'reviews-rating': 1, contentTypeSlug: 'reviews' }, '<p><i class="full"></i></p>'],
+        ['with data-arc-if on the same element', '<p data-arc-if="rating" data-arc-repeat="rating"><i>*</i></p><em>x</em>', { rating: 0 }, '<em>x</em>'],
+        ['a repeat inside a repeat reads its own @ values', '<ol data-arc-repeat="2"><li><b data-arc-repeat="2"><i>{{ @number }}</i></b></li></ol>', {},
+            '<ol><li><b><i>1</i><i>2</i></b></li><li><b><i>1</i><i>2</i></b></li></ol>'],
+    ];
+
+    it.each(CASES)('%s', (_label, html, data, out) => {
+        expect(fill(html, data)).toBe(out);
+    });
+
+    it('makes at most 100 copies', () => {
+        const out = fill('<p data-arc-repeat="rating"><i></i></p>', { rating: 1e9 });
+        expect(count(out, '<i>')).toBe(100);
+    });
+
+    it('stops a repeat inside a repeat from growing the page without bound', () => {
+        const html = '<div data-arc-repeat="100"><p data-arc-repeat="100"><b data-arc-repeat="100"><i></i></b></p></div>';
+        const out = fill(html, {});
+        expect(count(out, '<i>') + count(out, '<b>') + count(out, '<p>')).toBeLessThanOrEqual(10000);
+        expect(out).not.toContain('data-arc-repeat');
+    });
+
+    it('reads each row\'s own number inside a loop', () => {
+        const html = '<ul data-arc-loop="items"><li>{{ title }}: <span data-arc-repeat="rating" data-max="5"><i class="full"></i><i class="half"></i></span></li></ul>';
+        const looped = TemplateHydrationService.processLoops(html, {
+            items: [
+                { title: 'Alex', 'testimonials_rating': 5, contentTypeSlug: 'testimonials' },
+                { title: 'Sam', 'testimonials_rating': '3.5', contentTypeSlug: 'testimonials' },
+            ],
+        });
+        const out = body(TemplateHydrationService.hydrateTemplate(looped, { title: 'Page', rating: 1 }));
+        expect(out).toContain('Alex: <span>' + '<i class="full"></i>'.repeat(5) + '</span>');
+        expect(out).toContain('Sam: <span>' + '<i class="full"></i>'.repeat(3) + '<i class="half"></i></span>');
     });
 });

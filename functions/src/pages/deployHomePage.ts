@@ -1,13 +1,9 @@
 import type * as cheerio from 'cheerio';
-import { db } from '../init.js';
 import {
     getAboutConfig, getLocalizationSettings, getMiscSettings, getPartials, getSiteConfig, getUiStrings,
 } from '../shared/site-settings.js';
-import { getSiteFile, getSiteManifest, loadSiteTemplate, pageStylesheets, versionedUrl, type SiteManifest } from '../shared/site-files.js';
-import { langPrefix, mergeTranslation, type ContentTranslation } from '../shared/content-translation.js';
-import { contentTypeDescription, contentTypeName } from '../shared/content-type-names.js';
-import { interpolate } from '../shared/interpolate.js';
-import { cardData } from '../shared/content-cards.js';
+import { getSiteFile, getSiteManifest, pageStylesheets, versionedUrl, type SiteManifest } from '../shared/site-files.js';
+import { langPrefix } from '../shared/content-translation.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
 import { renderJsonLdScripts } from '../shared/structured-data.js';
 import { buildLanguageSwitcher, replaceArcComponents, toOgLocale, poweredByHtml } from '../shared/html-document.js';
@@ -18,17 +14,17 @@ import { versionSiteUrls } from '../shared/site-urls.js';
 import { loadHtml } from '../shared/lazy-cheerio.js';
 import { buildSearchWidget } from '../search/widget.js';
 import { isFeatureOn } from '../feature-flags.js';
-import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
-import { readPublishedInDisplayOrder } from './published-entries.js';
+import { cardBlockTypes, renderCardBlocks, siteChrome } from './card-blocks.js';
 import { siteInfoFor } from '../shared/site-info-source.js';
-import type { SiteInfoSource } from '../shared/site-info.js';
 import { arcSiteScript, prepareLiveParts, setupState } from '../shared/live-parts.js';
 
 import { arcHostingSite } from '../arc-config.js';
 
-// The live parts moved to shared/live-parts.ts (SS5); re-exported for existing callers.
+// The live parts moved to shared/live-parts.ts (SS5), the card blocks to card-blocks.ts;
+// re-exported for existing callers.
 export { addLegalNotices, arcSiteScript, setupState, type SetupState } from '../shared/live-parts.js';
+export { partialPageData } from './card-blocks.js';
 
 /**
  * The home page, published like content (specs/own-website-spec.md, W4).
@@ -57,13 +53,7 @@ export function homeUrl(baseUrl: string, lang: string, defaultLang: string): str
 }
 
 /** The content types a home page shows cards of, from its <arc-content-partials content-type="…">. */
-export function homeContentTypes(html: string): string[] {
-    const types = new Set<string>();
-    for (const match of html.matchAll(/<arc-content-partials\b[^>]*\bcontent-type\s*=\s*["']([^"']+)["']/gi)) {
-        types.add(match[1].trim());
-    }
-    return [...types];
-}
+export const homeContentTypes = cardBlockTypes;
 
 /**
  * The source of a language's home page: its own file when the site has one,
@@ -85,79 +75,6 @@ export async function homeSource(
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const escapeAttr = (s: string) => escapeHtml(s).replace(/"/g, '&quot;');
-
-/**
- * What partials.html binds outside the items loop. The default heading is the
- * page's `latest_of_type` string, else "Latest {type}". A type without public
- * pages has no list page, so `listUrl` is empty. Pure; the admin's Template
- * Reference is checked against it.
- */
-export function partialPageData(
-    type: Record<string, any>, lang: string, prefix: string, sectionTitle: string, itemCount: number,
-    strings: Record<string, string> = {},
-): Record<string, any> {
-    const typeName = contentTypeName(type, lang);
-    const latest = strings['latest_of_type'] ? interpolate(strings['latest_of_type'], { contentType: typeName }) : `Latest ${typeName}`;
-    return {
-        contentType: typeName,
-        contentTypeSlug: type.slug,
-        contentTypeDescription: contentTypeDescription(type, lang),
-        sectionTitle: sectionTitle.trim() || latest,
-        listUrl: type.hasPublicUrl === false ? '' : `${prefix}/${type.slug}`,
-        hasItems: itemCount > 0,
-        lang,
-        langPrefix: prefix,
-    };
-}
-
-/**
- * Replaces each <arc-content-partials content-type="…" count="…" section-title="…"
- * template-folder="…"> with cards of that type, laid out by its partials.html,
- * as the app's content-partials component draws them. A type without public
- * pages shows its cards too, without links (specs/site-sections-spec.md, SS1);
- * only a type that does not exist is removed.
- */
-async function renderContentPartials(
-    $: cheerio.CheerioAPI,
-    lang: string,
-    defaultLang: string,
-    strings: Record<string, string>,
-    about: SiteInfoSource | null = null,
-): Promise<void> {
-    const prefix = langPrefix(lang, defaultLang);
-    for (const element of $('arc-content-partials').toArray()) {
-        const $el = $(element);
-        const slug = ($el.attr('content-type') || '').trim();
-        const count = Math.max(1, Math.min(50, Number($el.attr('count')) || 4));
-        const typeSnap = slug
-            ? await db.collection('ContentTypes').where('slug', '==', slug).limit(1).get()
-            : null;
-        const type = typeSnap && !typeSnap.empty ? typeSnap.docs[0].data() : null;
-        if (!type) {
-            $el.remove();
-            continue;
-        }
-
-        const collectionName = getPublishedCollectionName(slug);
-        // In the type's entry order: newest first, or the order an admin arranged (SS2).
-        const entries = await readPublishedInDisplayOrder(slug, type, count);
-        const typeName = contentTypeName(type, lang);
-        const items = await Promise.all(entries.map(async (content) => {
-            let translation: ContentTranslation | undefined;
-            if (lang !== defaultLang) {
-                const tr = await db.collection(collectionName).doc(content.id).collection('translations').doc(lang).get();
-                if (tr.exists) translation = { ...(tr.data() as ContentTranslation), lang };
-            }
-            return cardData({ ...mergeTranslation(content, translation), id: content.id }, slug, typeName, lang, prefix, type.hasPublicUrl !== false);
-        }));
-
-        const template = await loadSiteTemplate(($el.attr('template-folder') || '').trim() || type.templateFolder, 'partials');
-        let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(template, strings), about);
-        html = TemplateHydrationService.processLoops(html, { items });
-        html = TemplateHydrationService.hydrateTemplate(html, partialPageData({ ...type, slug }, lang, prefix, $el.attr('section-title') || '', items.length, strings));
-        $el.replaceWith(html);
-    }
-}
 
 function setMetaIfMissing($: cheerio.CheerioAPI, attr: 'name' | 'property', key: string, content: string): void {
     if (!content || $(`meta[${attr}="${key}"]`).length) return;
@@ -215,16 +132,16 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         const siteInfo = await siteInfoFor(lang, defaultLang);
         let html = TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(source.html, strings), siteInfo);
         const $body = loadHtml(html, { xmlMode: false });
-        await renderContentPartials($body, lang, defaultLang, strings, siteInfo);
+        await renderCardBlocks($body, lang, defaultLang, strings, siteInfo);
         // Signup and contact forms: their notices, and contact forms only with the feature (SS5).
         prepareLiveParts($body, strings, manifest, siteInfo.pages);
         html = $body.html();
-        const chrome = (part: string) => prefixAnchorHrefs(
-            TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(part, strings), siteInfo), prefix, contentTypes);
+        // The header and footer, their own card blocks filled, as on every page.
+        const chrome = await siteChrome(partials, lang, defaultLang, strings, siteInfo, target);
         html = replaceArcComponents(
             html,
-            chrome(partials.headerHtml),
-            chrome(partials.footerHtml),
+            prefixAnchorHrefs(chrome.headerHtml, prefix, contentTypes),
+            prefixAnchorHrefs(chrome.footerHtml, prefix, contentTypes),
             buildLanguageSwitcher(switcherLinks, lang, labels),
             buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings }),
         );

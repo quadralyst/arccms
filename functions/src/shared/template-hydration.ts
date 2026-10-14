@@ -290,6 +290,120 @@ export class TemplateHydrationService {
     return result;
   }
 
+  /** The most copies one data-arc-repeat makes, and the largest data-max it takes. */
+  private static readonly MAX_REPEAT = 100;
+
+  /**
+   * The most elements data-arc-repeat may add to one template: a repeat inside
+   * a repeat multiplies, and a page must not grow without bound.
+   */
+  private static readonly MAX_REPEAT_ELEMENTS = 10000;
+
+  /** A number from a key in the data, else from the attribute itself ("5"); NaN when neither is one. */
+  private static repeatNumber(data: TemplateContext, raw: string): number {
+    if (!raw) return NaN;
+    const value = this.getNestedValue(data, raw);
+    return parseFloat(String(value ?? raw));
+  }
+
+  /**
+   * Repeats an element's children from a number, for star ratings, progress
+   * dots and meters (docs/features/templates.html, Repeat from a number):
+   *
+   *   <div data-arc-repeat="rating" data-max="5">
+   *     <i class="fa-solid fa-star"></i>        a full slot
+   *     <i class="fa-solid fa-star-half"></i>   a half slot (optional)
+   *     <i class="fa-regular fa-star"></i>      an empty slot (optional)
+   *   </div>
+   *
+   * The number is a key in the data, or written in the attribute
+   * (`data-arc-repeat="3"`). A fraction from .25 to under .75 adds one half
+   * slot; from .75 it rounds up to a full one. With one child, that child is
+   * every slot, told apart by {{ @state }} (full, half or empty). With two,
+   * there are full and half slots only. With three, empty slots fill up to
+   * data-max, or to five without one. `data-max` (a number or a key) caps the
+   * number and sets how many slots there are. An element with no child element
+   * repeats its own text, the number rounded.
+   *
+   * Each copy can use {{ @index }} (from 0), {{ @number }} (from 1),
+   * {{ @state }}, {{ @percent }} (the number as a share of the slots, 0 to 100),
+   * {{ @itemPercent }} (this slot's), {{ @value }}, {{ @max }} or {{ @total }}
+   * (the slots) and {{ @fraction }} (1, the half slot's fraction, or 0).
+   *
+   * A missing, non-numeric or negative number counts as 0 (only empty slots,
+   * if any); nothing makes more than MAX_REPEAT copies, and a template no more
+   * than MAX_REPEAT_ELEMENTS elements, past which a repeat is left empty. Only numbers and the state words are written into the copies, so
+   * the data cannot add markup. Runs before {{ }}, so each copy is then filled
+   * like the rest of the template, and innermost first, so a repeat inside a
+   * repeat reads its own @ values.
+   *
+   * The same in src/app/core/services/template-hydration.service.ts and
+   * functions/src/shared/template-hydration.ts; both spec files run the same
+   * cases, and the app's checks the two agree.
+   */
+  private static applyRepeats($: cheerio.CheerioAPI, data: TemplateContext): void {
+    let budget = this.MAX_REPEAT_ELEMENTS;
+
+    $('[data-arc-repeat]').toArray().reverse().forEach((element) => {
+      const $el = $(element);
+      const given = this.repeatNumber(data, ($el.attr('data-arc-repeat') || '').trim());
+      const maxGiven = Math.floor(this.repeatNumber(data, ($el.attr('data-max') || '').trim()));
+      const max = Number.isFinite(maxGiven) && maxGiven >= 1 ? Math.min(maxGiven, this.MAX_REPEAT) : 0;
+      const value = Math.min(Number.isFinite(given) && given > 0 ? given : 0, max || this.MAX_REPEAT);
+      $el.removeAttr('data-arc-repeat');
+      $el.removeAttr('data-max');
+
+      const children = $el.children().toArray();
+      if (!children.length) {
+        $el.text($el.text().repeat(Math.round(value)));
+        return;
+      }
+
+      const whole = Math.floor(value);
+      const fraction = value - whole;
+      const full = whole + (fraction >= 0.75 ? 1 : 0);
+      const half = fraction >= 0.25 && fraction < 0.75 ? 1 : 0;
+      const count = children.length;
+      const total = max || (count >= 3 ? Math.max(5, full + half) : full + half);
+      const empty = count === 2 ? 0 : Math.max(0, total - full - half);
+
+      // Which child each state copies: one child is every state; two have no empty.
+      const source = { full: 0, half: count >= 2 ? 1 : 0, empty: count >= 3 ? 2 : 0 };
+      const states = [
+        ...Array<'full'>(full).fill('full'),
+        ...Array<'half'>(half).fill('half'),
+        ...Array<'empty'>(empty).fill('empty'),
+      ];
+
+      const cost = states.reduce((sum, state) => sum + 1 + $(children[source[state]]).find('*').length, 0);
+      if (cost > budget) {
+        $el.empty();
+        return;
+      }
+      budget -= cost;
+
+      const html = children.map((child) => $.html(child));
+      const percent = (part: number) => String(total > 0 ? Math.min(100, Math.round((part / total) * 100)) : 0);
+      $el.html(states.map((state, index) => {
+        const tokens: Record<string, string> = {
+          index: String(index),
+          number: String(index + 1),
+          value: String(value),
+          total: String(total),
+          max: String(total),
+          state,
+          percent: percent(value),
+          itemPercent: percent(index + 1),
+          fraction: (state === 'full' ? 1 : state === 'half' ? fraction : 0).toFixed(2),
+        };
+        return html[source[state]].replace(
+          /\{\{\s*@(index|number|value|total|max|state|percent|itemPercent|fraction)\s*\}\}/g,
+          (_token, name: string) => tokens[name],
+        );
+      }).join(''));
+    });
+  }
+
   /**
    * Hydrates a single HTML template with data
    *
@@ -341,6 +455,8 @@ export class TemplateHydrationService {
     data = this.flattenLocations(data);
     // An FAQ answer gains its HTML. See flattenAnswers.
     data = this.flattenAnswers(data);
+    // Children repeated from a number, such as star ratings. See applyRepeats.
+    this.applyRepeats($, data);
 
 
     // 1. Process Angular-style Interpolation {{ variable }}

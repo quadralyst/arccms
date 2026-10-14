@@ -77,7 +77,7 @@
       <thead><tr><th>Type</th><th>The editor shows</th><th>Stored</th><th>In a template</th></tr></thead>
       <tbody>
         <tr><td><code>text</code></td><td>A one-line text box</td><td>The text</td><td><code>&lt;p&gt;{{ subtitle }}&lt;/p&gt;</code></td></tr>
-        <tr><td><code>number</code></td><td>A number box</td><td>The number as text, such as <code>"25"</code></td><td><code>&lt;span&gt;{{ price }}&lt;/span&gt;</code>. As it is text, <code>data-arc-if</code> hides only an empty value: <code>0</code> still shows.</td></tr>
+        <tr><td><code>number</code></td><td>A number box</td><td>The number as text, such as <code>"25"</code></td><td><code>&lt;span&gt;{{ price }}&lt;/span&gt;</code>. As it is text, <code>data-arc-if</code> hides only an empty value: <code>0</code> still shows. For stars or dots, <code>data-arc-repeat="rating"</code> repeats an element that many times (see <a href="templates.html#repeat-from-a-number">Repeat from a number</a>).</td></tr>
         <tr><td><code>richtext</code></td><td>A rich editor, with <strong>Expand</strong> for a full-screen one</td><td>HTML</td><td><code>&lt;div [innerHTML]="agenda"&gt;&lt;/div&gt;</code> or <code>&lt;div data-arc-bind="agenda"&gt;&lt;/div&gt;</code>. <code>{{ agenda }}</code> shows the tags as text.</td></tr>
         <tr><td><code>date</code></td><td>A date picker, for a day only</td><td><code>YYYY-MM-DD</code>, such as <code>2026-10-05</code>. A value saved with an older version may include a time.</td><td><code>{{ deadline }}</code> prints the value as stored. <code>&lt;time data-arc-bind="deadline"&gt;&lt;/time&gt;</code> sets <code>datetime</code> and shows "October 5, 2026" in the page's language.</td></tr>
         <tr><td><code>datetime</code></td><td>A date and time picker</td><td><code>YYYY-MM-DDTHH:mm</code>, such as <code>2026-10-05T18:30</code></td><td><code>{{ starts }}</code> prints the value as stored. In <code>&lt;time data-arc-bind="starts"&gt;</code> it shows the date only, in the page's language.</td></tr>
@@ -148,7 +148,20 @@
       <li><p>On the type's entry list, choose <strong>Arrange</strong> (it shows only for a type in your own order).</p></li>
       <li><p>Drag the entries into place, or use the arrows, and save. Drafts are listed too and keep their place for when they are published.</p></li>
     </ol>
-    <p>Saving republishes the type's list page and, when it shows the type, the home page, in one release. Moving an entry does not mark it <strong>Edited</strong>. A new entry goes after the arranged ones until you arrange it. Above 200 entries the dialog reminds you that the list page shows the first 100.</p>
+    <p>Saving republishes the type's list page and, when it shows the type, the home page, in one release, then the detail pages that show the type's entries (<code>data-arc-items-src</code>) in another; when a card block in the site's header or footer shows the type, every page follows in a release of its own (see <a href="../website/editable-sections.html#header-footer">Cards in the header and footer</a>). Moving an entry does not mark it <strong>Edited</strong>. A new entry goes after the arranged ones until you arrange it. Above 200 entries the dialog reminds you that the list page shows the first 100.</p>
+
+    <h3 id="series">Link entries in a series</h3>
+    <p>Parts of a tutorial, chapters or episodes link to each other. Under the custom fields in the editor, <strong>Previous {type}</strong> and <strong>Next {type}</strong> each pick another entry of the same type: type to search by title or meta description, then click an entry, or move to it with the arrow keys and press Enter; Escape closes the list and the cross removes a pick. The entry picked in one is not offered in the other, so an entry cannot come both before and after this one. Both are saved with the draft, published with the entry and kept in its version history. Restoring a version puts its links back as the linked entries are now, with their current title and slug; a link to an entry deleted since then is dropped. The detail template shows them through <code>previousContent</code> and <code>nextContent</code> (see <a href="templates.html">Templates</a>).</p>
+    <p>The other entry links back on its own, after the save:</p>
+    <ul>
+      <li>Picking <strong>Next</strong> makes this entry the other one's <strong>Previous</strong>, and picking <strong>Previous</strong> makes it the other one's <strong>Next</strong>, unless that entry already links to a different one. A link someone picked by hand is never replaced.</li>
+      <li>Removing or changing a link removes the link back from the entry it pointed at, but only while that entry still points at this one.</li>
+      <li>A new entry links back once its first save has created it.</li>
+      <li>A save writes only the links you changed in the editor since it opened or last saved. A link set or removed by another entry's save in the meantime, say from another tab, stays as it is, and an editor still showing an older link never puts it back.</li>
+      <li>A link back that could not be written, say while offline, is tried again on the entry's next save.</li>
+      <li>Changing an entry's title, slug or meta description updates the copy kept by the entries that link to it.</li>
+    </ul>
+    <p>Each of these changes the other entry's draft only, so it shows as <strong>Edited</strong>. Publish it again for its page to show the new link.</p>
 
     <h3 id="standard-pages">Standard pages</h3>
     <p>Every site needs an About page, a way to get in touch and its policies. The setup wizard creates a content type called <strong>Info Pages</strong> (slug <code>info</code>, template folder <code>info</code>, your own order) with six drafts, in this order:</p>
@@ -180,7 +193,8 @@
       <li><p>The editor saves the draft to <code>arc_{slug}_drafts</code> and writes a queue item (<code>publish</code>, <code>unpublish</code> or <code>delete</code>) to <code>_publish_queue</code>.</p></li>
       <li><p>The <code>processPublishQueue</code> function (<code>functions/src/publishQueue/processPublishQueue.ts</code>) copies the draft to <code>arc_{slug}</code> with <code>publishedOn</code> set to the time of publishing, adds a version to <code>PublishedHistory</code>, copies translations and updates the search index.</p></li>
       <li><p>It renders the detail page in every language the entry has, the Markdown twin, and the type's list page (and the home page when it shows the type), from the type's template (see <a href="templates.html">Templates</a>). With the <code>seo</code> feature on, it also rebuilds the sitemap, feeds, <code>robots.txt</code> and <code>llms.txt</code>.</p></li>
-      <li><p>All files go out as one Firebase Hosting release, through the Hosting REST API. The result is written to the published entry (<code>deployStatus</code>, <code>deployError</code>), which the editor shows. When the entry's own page cannot be built, the rest of the release (list page, sitemap, feeds) still goes out, and the entry is marked failed with the reason rather than deployed.</p></li>
+      <li><p>When a detail template shows this type's entries (<code>data-arc-items-src</code>, see <a href="templates.html#items-from-another-type">Entries of another type</a>), it queues an <code>items-from</code> item, which rebuilds those detail pages afterwards in a release of their own. Arranging the type's entries does the same. When the change alters what a header or footer card block shows, it queues a republish of the whole site the same way (see <a href="../website/editable-sections.html">Editable sections</a>).</p></li>
+      <li><p>All files go out as one Firebase Hosting release, through the Hosting REST API. The result is written to the published entry (<code>deployStatus</code>, <code>deployError</code>), which the editor shows. When the entry's own page cannot be built, the rest of the release (list page, sitemap, feeds) still goes out, and the entry is marked failed with the reason rather than deployed. Releases to the site run one at a time; when others keep it busy for long, the release waits a second time before the entry is marked failed with <code>HOSTING_RELEASE_BUSY</code> (see <a href="../reference/cloud-functions.html#releases">Releases to Hosting</a>). The editor waits for the result for up to 10 minutes, longer than the function may run, so a publish that waits its turn is still reported.</p></li>
     </ol>
     <table>
       <thead><tr><th>Page</th><th>File on Hosting</th></tr></thead>
@@ -203,9 +217,9 @@
     <h3 id="static-pages">Static pages</h3>
     <p>A static page is an HTML file in <code class="new">src/custom/site/pages/</code>, such as <code class="new">src/custom/site/pages/privacy-policy.html</code>, served at <code>/p/privacy-policy</code>. One with the same name as an Arc CMS sample in <code>public/_site/pages/</code> replaces it. It can carry <code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code>, a <code>&lt;title&gt;</code> and meta tags.</p>
     <ul>
-      <li>In the app, <code>/p/{name}</code> fetches <code>/pages/{name}.html</code>, adds the site header and footer, and applies the title and meta tags.</li>
-      <li>On Hosting, <code>/p/{name}</code> redirects (301) to <code>/pages/{name}</code>.</li>
-      <li>The seed builds a finished copy, with header, footer and site stylesheets, at <code>/pages/{name}/index.html</code> for <code>privacy-policy</code> and <code>cookie-policy</code>. That list is fixed in <code>functions/src/pages/seedStaticPages.ts</code>.</li>
+      <li>In the app, <code>/p/{name}</code> fetches <code>/_site/pages/{name}.html</code>, adds the site header and footer, applies the title and meta tags, adds the page's own stylesheets, <code>&lt;style&gt;</code> blocks and font links after the app's styles (taken away when you leave the page), and runs its scripts once the page is drawn. That happens in <code>npm run dev</code>, and on the live site when the app's own router opens <code>/p/{name}</code>. The page's scripts run with the app's rights, so a page is only ever the app's own file (see <a href="../website/static-pages.html">Write static pages</a>).</li>
+      <li>On Hosting, a request for <code>/p/{name}</code> (a plain link, a typed address, a reload) redirects (301) to <code>/pages/{name}</code>.</li>
+      <li>The seed builds a finished copy, with header, footer and site stylesheets, at <code>/pages/{name}/index.html</code> for every page the site has. The site stylesheets come first in its <code>&lt;head&gt;</code>, so the page's own styles win.</li>
     </ul>
     <p>The walkthrough is <a href="../website/static-pages.html">Write static pages</a>.</p>
 
@@ -233,7 +247,8 @@
     <table>
       <thead><tr><th>Cloud Function</th><th>Kind</th><th>Does</th></tr></thead>
       <tbody>
-        <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages, and applies a new entry order</td></tr>
+        <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages, applies a new entry order, and rebuilds the detail pages that show a changed type's entries</td></tr>
+        <tr><td><code>recoverPublishQueue</code></td><td>Scheduled, every 10 minutes</td><td>Runs again a whole-site republish or <code>items-from</code> rebuild whose run never finished, so the changes it was asked for are not lost</td></tr>
         <tr><td><code>onSiteSettingsWritten</code></td><td>Firestore trigger on <code>Settings</code></td><td>Queues a home page republish when <code>about</code>, <code>site</code>, <code>localization</code> or <code>misc</code> changes, or a whole site republish when an <code>about</code> change shows on other pages through <code>data-arc-site</code></td></tr>
         <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger on <code>ContentTypes</code></td><td>Deletes the type's draft, published and tag collections, with each entry's translations, version history and deploy logs, and their search entries, unless another type still uses the same slug</td></tr>
         <tr><td><code>seedStaticPages</code></td><td>Callable, also run by the seed script</td><td>Rebuilds every published page, the static pages and the SEO files</td></tr>
@@ -248,7 +263,7 @@
         <tr><td><code>ContentTypes</code>, <code>arc_{slug}</code>, <code>Tags_{slug}</code></td><td>Anyone</td><td>Admins (and the reserved <code>editor</code> role)</td></tr>
         <tr><td><code>arc_{slug}_drafts</code> and their translations</td><td>Admins and editors</td><td>Admins and editors</td></tr>
         <tr><td><code>PublishedHistory</code></td><td>Admins</td><td>Cloud Functions only</td></tr>
-        <tr><td><code>_publish_queue</code></td><td>Nobody (functions only)</td><td>Admins and editors</td></tr>
+        <tr><td><code>_publish_queue</code></td><td>Nobody (functions only)</td><td>Admins and editors, to add an item only</td></tr>
       </tbody>
     </table>
     <p>The Content admin screens are admin only. See <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>

@@ -67,14 +67,14 @@
                 <!-- Article Navigation -->
                 <nav class="article-nav">
                     <div class="nav-prev" data-arc-if="previousContent">
-                        <a href="{{ previousContent.url }}" class="nav-link">
-                            <span class="nav-direction"><i class="fas fa-chevron-left"></i data-arc-t="previous"> Previous</span>
+                        <a href="{{ langPrefix }}/{{ contentTypeSlug }}/{{ previousContent.slug }}" class="nav-link">
+                            <span class="nav-direction"><i class="fas fa-chevron-left"></i> <span data-arc-t="previous">Previous</span></span>
                             <span class="nav-title">{{ previousContent.title }}</span>
                         </a>
                     </div>
                     <div class="nav-next" data-arc-if="nextContent">
-                        <a href="{{ nextContent.url }}" class="nav-link">
-                            <span class="nav-direction" data-arc-t="next">Next <i class="fas fa-chevron-right"></i></span>
+                        <a href="{{ langPrefix }}/{{ contentTypeSlug }}/{{ nextContent.slug }}" class="nav-link">
+                            <span class="nav-direction"><span data-arc-t="next">Next</span> <i class="fas fa-chevron-right"></i></span>
                             <span class="nav-title">{{ nextContent.title }}</span>
                         </a>
                     </div>

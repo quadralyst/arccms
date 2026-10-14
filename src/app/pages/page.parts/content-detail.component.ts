@@ -43,6 +43,8 @@ import { authorCanonicalUrl } from '../../../shared/utils/canonical-url';
 import { SearchService } from '../../core/services/search.service';
 import { isOn } from '../../core/features/features';
 import { RELATED_LIMIT, RelatedItem, pickRelated, relatedQuery } from '../../../shared/utils/related-content';
+import { ItemsFromTypeLoop, nameItemsFromTypeLoops } from '../../core/utils/items-from-type';
+import { ItemsFromTypeService } from '../../core/services/items-from-type.service';
 import {
     buildBreadcrumbList,
     buildOrganization,
@@ -155,6 +157,14 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     related = signal<RelatedItem[]>([]);
     private searchService = inject(SearchService);
     private relatedKey = '';
+
+    /**
+     * Entries of other types for the template's data-arc-items-src loops, by
+     * request (type, rows, language, page entry); the static page has them baked
+     * in. Filled after the first draw, which then draws again.
+     */
+    private typeItems = signal<Record<string, Record<string, any>[]>>({});
+    private typeItemsRequested = new Set<string>();
     private document = inject(DOCUMENT);
     private platformId = inject(PLATFORM_ID);
     private transferState = inject(TransferState);
@@ -379,12 +389,13 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             });
         });
 
-        // The author, the related items and the page's strings arrive after the
-        // template was first hydrated; hydrate it again with them, without
-        // re-running its scripts.
+        // The author, the related items, other types' entries and the page's
+        // strings arrive after the template was first hydrated; hydrate it
+        // again with them, without re-running its scripts.
         effect(() => {
             this.author();
             this.related();
+            this.typeItems();
             this.uiStrings.strings();
             this.mediaSettings.maxSize();
             this.siteIdentity.identity();
@@ -956,6 +967,10 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         hydratedHtml = TemplateHydrationService.applyStrings(hydratedHtml, this.uiStrings.strings());
         // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
         hydratedHtml = TemplateHydrationService.applySiteInfo(hydratedHtml, siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
+        // Each loop of another type's entries (data-arc-items-src) becomes a loop
+        // of its own, as when published (core/utils/items-from-type.ts).
+        const fromTypes = nameItemsFromTypeLoops(hydratedHtml);
+        hydratedHtml = fromTypes.html;
 
         // Always processing loops to ensure cleanup of placeholders if empty
         hydratedHtml = TemplateHydrationService.processLoops(hydratedHtml, {
@@ -968,7 +983,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             ),
             references: this.references(),
             related: this.related(),
-            tags: tagsData
+            tags: tagsData,
+            ...this.itemsFromTypeRows(fromTypes.loops, contentType.slug, content.id),
         });
 
 
@@ -983,6 +999,27 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         }
         // Forms on the page work as when published (SS5), after every draw.
         if (isPlatformBrowser(this.platformId)) setTimeout(() => this.refreshLiveParts(), 0);
+    }
+
+    /**
+     * The rows of each data-arc-items-src loop, by loop name. Rows not read yet
+     * are requested (browser only) and the loop stays empty until they arrive.
+     */
+    private itemsFromTypeRows(loops: ItemsFromTypeLoop[], pageType: string, pageId: string): Record<string, Record<string, any>[]> {
+        const rows: Record<string, Record<string, any>[]> = {};
+        if (!loops.length) return rows;
+        const lang = this.pageLang() || this.localization.defaultLanguage();
+        const loaded = this.typeItems();
+        for (const loop of loops) {
+            const key = `${loop.type}|${loop.limit}|${lang}|${pageType}/${pageId}`;
+            rows[loop.name] = loaded[key] ?? [];
+            if (key in loaded || this.typeItemsRequested.has(key) || !isPlatformBrowser(this.platformId)) continue;
+            this.typeItemsRequested.add(key);
+            void this.injector.get(ItemsFromTypeService)
+                .rows(loop, { lang, langPrefix: this.pageLang() ? `/${this.pageLang()}` : '', translated: !!this.pageLang(), type: pageType, id: pageId })
+                .then((items) => this.typeItems.update((all) => ({ ...all, [key]: items })));
+        }
+        return rows;
     }
 
     /** The live parts' script for this draw's forms; removed and added again on each draw. */

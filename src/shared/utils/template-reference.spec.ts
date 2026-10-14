@@ -126,6 +126,14 @@ describe('Template Reference', () => {
             expect(render(field, value)).toContain(expected);
         });
 
+        it('repeats an element from a number field, as its note says', () => {
+            const field: TemplateRefField = { key: 'events-stars', label: 'Stars', type: 'number' };
+            expect(customFieldReference(field, 'events').note).toContain('data-arc-repeat="stars"');
+            const entry = { ...ENTRY, customFields: { 'events-stars': 3 } };
+            const html = TemplateHydrationService.hydrateTemplate('<p data-arc-repeat="stars"><i></i></p>', detailData(entry));
+            expect(html).toContain('<p><i></i><i></i><i></i></p>');
+        });
+
         // SS4: the FAQ field's loop, with the answer as paragraphs and links.
         it('renders an FAQ field\'s rows in order, the answer as HTML', () => {
             const field = { key: 'events-faq', label: 'FAQ', type: 'faq' };

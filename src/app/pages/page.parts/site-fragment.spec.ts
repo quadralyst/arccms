@@ -19,7 +19,10 @@ const header = coreSiteFile('header.html');
 const footer = coreSiteFile('footer.html');
 
 @Component({ selector: 'arc-stub-search', standalone: true, template: '<input class="stub-search">' })
-class StubSearchComponent {}
+class StubSearchComponent {
+    static made = 0;
+    constructor() { StubSearchComponent.made++; }
+}
 
 const HTML = `
     <nav>
@@ -169,6 +172,30 @@ describe('renderSiteFragment', () => {
 
         render(); // a fragment without data-arc-site
         expect(loadIdentity).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps an element\'s component while it is drawn the same, and makes it anew when its language changes', () => {
+        StubSearchComponent.made = 0;
+        const fixture = TestBed.createComponent(FragmentHostComponent);
+        fixture.detectChanges();
+        const el = fixture.nativeElement as HTMLElement;
+        const search = el.querySelector('arc-search');
+        expect(StubSearchComponent.made).toBe(1);
+
+        // Redrawn for the strings and the content types: the same component, in the new drawing.
+        strings.set({ nav_articles: 'Posts' });
+        fixture.detectChanges();
+        types.set(new Set(['articles']));
+        fixture.detectChanges();
+        expect(StubSearchComponent.made).toBe(1);
+        expect(el.querySelector('arc-search')).toBe(search);
+        expect(el.querySelector('a')!.textContent).toBe('Posts');
+        expect(el.querySelectorAll('arc-search')).toHaveLength(1);
+
+        activeLang.set('hi');
+        fixture.detectChanges();
+        expect(StubSearchComponent.made).toBe(2);
+        expect(el.querySelector('arc-search')).not.toBe(search);
     });
 
     // B4: a header or footer script runs in the app, as on a published page.

@@ -334,10 +334,23 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Publish queue: staff write trigger docs; Cloud Function processes them
-    match /_publish_queue/{docId} {
+    // Publish queue: staff add trigger docs (PublishQueueService); processPublishQueue
+    // runs and deletes them. Create only, with exactly the fields the admin app sends.
+    // Never with the fixed id of a whole-site republish or an items-from rebuild
+    // (functions/src/publishQueue/coalesced-items.ts): those hold the run's state
+    // (`running`, `since`), and a forged one would block the run.
+    match /_publish_queue/{queueId} {
       allow read: if false;       // Cloud Functions use Admin SDK (bypasses rules)
-      allow write: if isEditor();
+      allow create: if isEditor()
+                    && queueId != 'redeploy-all'
+                    && !queueId.matches('items-from--.*')
+                    && request.resource.data.keys().hasOnly(['action', 'contentTypeSlug', 'docId', 'timestamp'])
+                    && request.resource.data.keys().hasAll(['action', 'contentTypeSlug', 'docId', 'timestamp'])
+                    && request.resource.data.action in ['publish', 'unpublish', 'update', 'delete', 'redeploy', 'redeploy-all', 'order']
+                    && request.resource.data.contentTypeSlug is string
+                    && request.resource.data.docId is string
+                    && request.resource.data.timestamp is timestamp;
+      allow update, delete: if false;
     }
 
     // Draft search queue (specs/feature-flags-spec.md 6.5): the editor writes an
@@ -441,6 +454,12 @@ service cloud.firestore {
     // The lease that makes claims writes on one account run one at a time
     // (functions/src/users/claimLock.ts). Only functions touch it.
     match /_claim_locks/{uid} {
+      allow read, write: if false;
+    }
+    // The lock that makes Hosting releases to a site run one at a time, and the
+    // version last released (functions/src/pages/hosting-release-lock.ts). Only
+    // functions touch it.
+    match /_hosting_releases/{docId} {
       allow read, write: if false;
     }
 

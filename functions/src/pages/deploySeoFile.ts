@@ -1,155 +1,37 @@
-import * as zlib from 'node:zlib';
-import * as crypto from 'node:crypto';
-import { GoogleAuth } from 'google-auth-library';
-import { HostingBatch } from './deployToHosting.js';
+import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { arcHostingSite } from '../arc-config.js';
 
-const API_BASE = 'https://firebasehosting.googleapis.com/v1beta1';
-
-// ─── Private Helpers (mirrored from deployToHosting.ts) ─────────────────────
-
-async function getAuthToken(): Promise<string> {
-    const auth = new GoogleAuth({
-        scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-    });
-    const client = await auth.getClient();
-    const tokenResult = await client.getAccessToken();
-    if (!tokenResult.token) {
-        throw new Error('Could not authenticate with Firebase Hosting API');
-    }
-    return tokenResult.token;
-}
-
-async function apiFetch(url: string, token: string, options: RequestInit): Promise<any> {
-    const res = await fetch(url, {
-        ...options,
-        headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            ...(options.headers || {}),
-        },
-    });
-    if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Hosting API error ${res.status}: ${text}`);
-    }
-    return res.json();
-}
-
-function gzipAndHash(content: string): { gzipped: Buffer; hash: string } {
-    const gzipped = zlib.gzipSync(Buffer.from(content, 'utf-8'), { level: 9 });
-    const hash = crypto.createHash('sha256').update(gzipped).digest('hex');
-    return { gzipped, hash };
-}
-
-// ─── Exported Function ──────────────────────────────────────────────────────
-
 /**
- * Deploys a single file to Firebase Hosting without Firestore status tracking.
+ * Deploys one SEO file (robots.txt, sitemap.xml, an RSS feed, llms.txt) to
+ * Firebase Hosting. These belong to no content document, so nothing records
+ * their deploy status.
  *
- * Used for SEO files (robots.txt, sitemap.xml, RSS feeds) that are not tied
- * to a specific Firestore content document and don't need deployment logs.
+ * With a batch (a publish, the seed, a whole-site republish), the file rides
+ * along in the caller's release instead of racing the content pages: see
+ * HostingBatch. Without one, it is a release of its own, through the same
+ * deployBatchToHosting as every other release, so it holds the site's release
+ * lock and builds on the version released last (hosting-release-lock.ts).
+ * Prefer a batch when writing several files: each call without one is a
+ * release, and releases to a site run one at a time.
  *
- * Follows the same hosting API pipeline as deployToHosting.ts but skips
- * the Firestore DeploymentLog and status update steps.
+ * Throws when a release of its own does not go out, so a caller can report it.
  */
 export async function deploySeoFileToHosting(
     filePath: string,
     fileContent: string,
     batch?: HostingBatch,
 ): Promise<void> {
-    const siteId = arcHostingSite();
-
-    // When the caller is batching a publish, the SEO file rides along in the
-    // same release instead of racing the content pages — see HostingBatch.
     if (batch) {
         batch.add(filePath, fileContent);
         return;
     }
 
+    const siteId = arcHostingSite();
     if (!siteId) return; // Hosting is off for this install (CO5).
 
-    // Step 1: Auth
-    const token = await getAuthToken();
-
-    // Step 2: Get latest release
-    const releasesData = await apiFetch(
-        `${API_BASE}/sites/${siteId}/releases?pageSize=1`,
-        token,
-        { method: 'GET' },
-    );
-    const currentVersionName = releasesData.releases?.[0]?.version?.name;
-
-    // Step 3: Get current version files
-    let fileHashes: Record<string, string> = {};
-    if (currentVersionName) {
-        const filesData = await apiFetch(
-            `${API_BASE}/${currentVersionName}/files`,
-            token,
-            { method: 'GET' },
-        );
-        for (const f of filesData.files || []) {
-            fileHashes[f.path] = f.hash;
-        }
-    }
-
-    // Step 4: Get current version config
-    let currentConfig: any = {};
-    if (currentVersionName) {
-        const versionData = await apiFetch(
-            `${API_BASE}/${currentVersionName}`,
-            token,
-            { method: 'GET' },
-        );
-        currentConfig = versionData.config || {};
-    }
-
-    // Step 5: Gzip + hash
-    const { gzipped, hash } = gzipAndHash(fileContent);
-    fileHashes[filePath] = hash;
-
-    // Step 6: Create new version
-    const newVersion = await apiFetch(
-        `${API_BASE}/sites/${siteId}/versions`,
-        token,
-        { method: 'POST', body: JSON.stringify({ config: currentConfig }) },
-    );
-    const newVersionName = newVersion.name;
-
-    // Step 7: Populate files
-    const populateResult = await apiFetch(
-        `${API_BASE}/${newVersionName}:populateFiles`,
-        token,
-        { method: 'POST', body: JSON.stringify({ files: fileHashes }) },
-    );
-    const uploadRequiredHashes: string[] = populateResult.uploadRequiredHashes || [];
-    const uploadUrl: string = populateResult.uploadUrl || '';
-
-    // Step 8: Upload (conditional — API tells us if content already exists)
-    if (uploadRequiredHashes.includes(hash)) {
-        const uploadRes = await fetch(`${uploadUrl}/${hash}`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/octet-stream',
-            },
-            body: new Uint8Array(gzipped),
-        });
-        if (!uploadRes.ok) {
-            const text = await uploadRes.text();
-            throw new Error(`Upload failed ${uploadRes.status}: ${text}`);
-        }
-    }
-
-    // Step 9: Finalize + Release
-    await apiFetch(
-        `${API_BASE}/${newVersionName}?updateMask=status`,
-        token,
-        { method: 'PATCH', body: JSON.stringify({ status: 'FINALIZED' }) },
-    );
-    await apiFetch(
-        `${API_BASE}/sites/${siteId}/releases?versionName=${newVersionName}`,
-        token,
-        { method: 'POST', body: JSON.stringify({}) },
-    );
+    let reason = '';
+    const released = await deployBatchToHosting(siteId, new HostingBatch().add(filePath, fileContent), '', '', {
+        onFailure: (failure) => { reason = `${failure.code}: ${failure.message}`; },
+    });
+    if (!released) throw new Error(`Could not release ${filePath} to Hosting${reason ? ` (${reason})` : ''}`);
 }

@@ -1,9 +1,10 @@
 import { Injectable, runInInjectionContext } from '@angular/core';
-import { CollectionReference, collection, getDocs, getDoc, query, where, limit, doc, writeBatch, orderBy } from '@angular/fire/firestore';
+import { CollectionReference, collection, getDocs, getDoc, query, where, limit, doc, writeBatch, orderBy, runTransaction } from '@angular/fire/firestore';
 import { draftQueueEntry } from '../../../../../shared/services/search-queue';
 import { DbService } from '../../../../../shared/services/db.service';
 import { IDraftContents, INextContentReference } from './draft-contents.model';
 import { IContentTranslation, pruneTranslation } from './content-translation.model';
+import { BacklinkChange, BacklinkResult, SeriesField, SeriesLinks, backlinkValue, isRealId, refreshedReference, seriesReference } from './series-links';
 
 @Injectable({
     providedIn: 'root'
@@ -185,54 +186,124 @@ export class DraftContentsService extends DbService<IDraftContents> {
     }
 
     /**
-     * Update all content items that reference a specific content as their "nextContent"
-     * This is called when a content's title, summary, or slug changes
+     * Refreshes the copy of an entry kept in other entries' Next links after
+     * its title, summary or slug changed. Entries whose copy already matches
+     * are left alone, so a save that renames nothing marks nothing edited.
      * @param contentId The ID of the content that was updated
      * @param updatedData The new title, summary, and slug values
-     * @param contentType The content type of the updated content (assuming references are in same type or we need to know where to look)
+     * @param contentType The content type slug; links stay within one type
      */
     async updateNextContentReferences(
         contentId: string,
         updatedData: { title: string; summary: string; slug: string },
         contentType: string
     ): Promise<void> {
+        return this.refreshSeriesReferences('nextContent', contentId, updatedData, contentType);
+    }
+
+    /**
+     * The same as updateNextContentReferences, for the copy kept in other
+     * entries' Previous links.
+     */
+    async updatePreviousContentReferences(
+        contentId: string,
+        updatedData: { title: string; summary: string; slug: string },
+        contentType: string
+    ): Promise<void> {
+        return this.refreshSeriesReferences('previousContent', contentId, updatedData, contentType);
+    }
+
+    private async refreshSeriesReferences(
+        field: SeriesField,
+        contentId: string,
+        updatedData: { title: string; summary: string; slug: string },
+        contentType: string
+    ): Promise<void> {
+        if (!isRealId(contentId)) return;
+        const owner: INextContentReference = { id: contentId, ...updatedData };
         try {
-            // For now, assume nextContent links are within the same content type collection
             const collectionRef = this.getCollectionRef(contentType);
-            // Query for all documents that have this content as their nextContent
-            const q = runInInjectionContext(this.injector, () => query(collectionRef, where('nextContent.id', '==', contentId)));
+            const q = runInInjectionContext(this.injector, () => query(collectionRef, where(`${field}.id`, '==', contentId)));
             const querySnapshot = await runInInjectionContext(this.injector, () => getDocs(q));
 
-            if (querySnapshot.empty) {
-                return;
-            }
+            const stale = querySnapshot.docs.filter(
+                (docSnap) => refreshedReference((docSnap.data() as SeriesLinks)[field], owner) !== undefined,
+            );
+            if (stale.length === 0) return;
 
-            // Use batch writes with chunking to stay under Firestore's 500 operation limit
+            // Chunked to stay under Firestore's 500 operations per batch.
             const MAX_BATCH_OPS = 400;
-            const docs = querySnapshot.docs;
-            for (let i = 0; i < docs.length; i += MAX_BATCH_OPS) {
-                const chunk = docs.slice(i, i + MAX_BATCH_OPS);
+            for (let i = 0; i < stale.length; i += MAX_BATCH_OPS) {
+                const chunk = stale.slice(i, i + MAX_BATCH_OPS);
                 const batch = runInInjectionContext(this.injector, () => writeBatch(this.firestore));
 
                 for (const docSnap of chunk) {
                     const docRef = runInInjectionContext(this.injector, () => doc(collectionRef, docSnap.id));
-                    const updatedNextContent: INextContentReference = {
-                        id: contentId,
-                        title: updatedData.title,
-                        summary: updatedData.summary,
-                        slug: updatedData.slug
-                    };
                     batch.update(docRef, {
-                        nextContent: updatedNextContent,
+                        [field]: { ...owner },
                         modifiedAt: new Date()
                     });
                 }
 
-                await batch.commit();
+                await runInInjectionContext(this.injector, () => batch.commit());
             }
         } catch (error) {
-            console.error('Error updating next content references:', error);
+            console.error(`Error updating ${field} references:`, error);
             throw error;
         }
+    }
+
+    /**
+     * Applies the backlink changes one save asks for (see planBacklinks):
+     * each target is read and written in its own transaction, so a Previous or
+     * Next an editor set by hand in the meantime is seen and kept. A missing
+     * target is skipped. The changed entry's draft is marked edited; its page
+     * shows the new link once it is published again.
+     * @returns the ids of the entries that changed, and the changes that
+     * failed, so the editor can ask for them again on its next save
+     */
+    async applyBacklinks(
+        contentType: string,
+        owner: INextContentReference,
+        changes: BacklinkChange[],
+    ): Promise<BacklinkResult> {
+        const changed: string[] = [];
+        const failed: BacklinkChange[] = [];
+        if (!isRealId(owner.id) || changes.length === 0) return { changed, failed };
+        const collectionRef = this.getCollectionRef(contentType);
+        for (const change of changes) {
+            try {
+                const docRef = runInInjectionContext(this.injector, () => doc(collectionRef, change.targetId));
+                const wrote = await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
+                    const snap = await transaction.get(docRef);
+                    if (!snap.exists()) return false;
+                    const current = (snap.data() as SeriesLinks)[change.field];
+                    const next = backlinkValue(current, change.action, owner);
+                    if (next === undefined) return false;
+                    transaction.update(docRef, { [change.field]: next, modifiedAt: new Date() });
+                    return true;
+                }));
+                if (wrote) changed.push(change.targetId);
+            } catch (error) {
+                // One target failing must not stop the others.
+                console.error(`Error updating ${change.field} of ${change.targetId}:`, error);
+                failed.push(change);
+            }
+        }
+        return { changed, failed };
+    }
+
+    /**
+     * The link copy an entry should store for another entry of the type, from
+     * that entry as it is now: its current title, meta description and slug.
+     * Null when the entry no longer exists or the id is a placeholder. A read
+     * that fails throws, so a caller never mistakes it for a deleted entry.
+     */
+    async currentSeriesReference(contentType: string, id: string): Promise<INextContentReference | null> {
+        if (!isRealId(id)) return null;
+        const ref = runInInjectionContext(this.injector, () => doc(this.getCollectionRef(contentType), id));
+        const snap = await runInInjectionContext(this.injector, () => getDoc(ref));
+        if (!snap.exists()) return null;
+        return seriesReference(id, snap.data() as IDraftContents);
     }
 }

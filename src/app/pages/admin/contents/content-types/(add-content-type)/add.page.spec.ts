@@ -1,3 +1,4 @@
+import { ChangeDetectorRef } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule, FormArray } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -203,6 +204,53 @@ describe('AddContentTypeComponent', () => {
             expect(component.fields.length).toBe(3);
             component.removeField(1);
             expect(component.fields.length).toBe(2);
+        });
+
+        describe('removing a field from the middle', () => {
+            const root = () => fixture.nativeElement as HTMLElement;
+            const cards = () => Array.from(root().querySelectorAll<HTMLElement>('[formarrayname="fields"] .field-item'));
+            const labelInputs = () => cards().map((card) => card.querySelector('input[formcontrolname="label"]') as HTMLInputElement);
+            const render = () => {
+                fixture.debugElement.injector.get(ChangeDetectorRef).markForCheck();
+                fixture.detectChanges();
+            };
+
+            beforeEach(() => {
+                ['First', 'Second', 'Third'].forEach((label) => {
+                    component.addField();
+                    component.fields.at(component.fields.length - 1).get('label')?.setValue(label);
+                });
+                render();
+            });
+
+            it('removes that field from the screen and keeps the others on their own inputs', () => {
+                const thirdCard = cards()[2];
+                (cards()[1].querySelector('.btn-outline-danger') as HTMLButtonElement).click();
+                render();
+
+                expect(component.fields.controls.map((f) => f.get('label')?.value)).toEqual(['First', 'Third']);
+                expect(labelInputs().map((input) => input.value)).toEqual(['First', 'Third']);
+                // The card of the field that stayed is the same element, now in second place.
+                expect(cards()[1]).toBe(thirdCard);
+            });
+
+            it('sends later edits to the field shown, not to the removed one', () => {
+                (cards()[1].querySelector('.btn-outline-danger') as HTMLButtonElement).click();
+                render();
+
+                const input = labelInputs()[1];
+                input.value = 'Third edited';
+                input.dispatchEvent(new Event('input'));
+
+                expect(component.fields.at(1).get('label')?.value).toBe('Third edited');
+                expect(component.fields.at(0).get('label')?.value).toBe('First');
+            });
+
+            it('marks the form as changed', () => {
+                expect(component.addForm.dirty).toBe(false);
+                (cards()[1].querySelector('.btn-outline-danger') as HTMLButtonElement).click();
+                expect(component.addForm.dirty).toBe(true);
+            });
         });
 
         it('should get field group at specified index', () => {

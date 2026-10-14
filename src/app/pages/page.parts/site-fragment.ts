@@ -15,13 +15,19 @@
  *   a published page (core/site/site-urls.ts);
  * - links to pages that exist in every language pointed at the page's language
  *   (`/articles` becomes `/hi/articles` on a Hindi page; `/signup` stays);
- * - the Arc CMS elements in the HTML, such as `<arc-search>` and
- *   `<arc-language-switcher>`, become the real components;
+ * - the Arc CMS elements in the HTML, such as `<arc-search>`,
+ *   `<arc-language-switcher>` and the card blocks (`<arc-content-partials>`),
+ *   become the real components, a card block's attributes setting its inputs
+ *   (setAttributeInputs);
  * - its scripts run, as on a published page. An inline script runs again each
  *   time the fragment is drawn again (for the page's language), so it binds to
  *   the elements it finds; a script file is loaded once.
  *
- * It renders again when the page's language or its strings change. A fragment can
+ * It renders again when the page's language or its strings change, or the site's
+ * details or public content types arrive. An Arc CMS element drawn the same way
+ * as before (same tag and attributes, same language) keeps its component, which
+ * follows the strings and the site's details itself: a card block is not read
+ * again and does not flash for each of those. A fragment can
  * instead follow a language of its own (`options.language`), such as the sign-in panel
  * in the language a member chose.
  */
@@ -43,6 +49,18 @@ import { versionSiteUrls } from '../../core/site/site-urls';
 /** Arc CMS elements a fragment may hold, by tag name, and the component each becomes. */
 export type FragmentElements = Record<string, Type<unknown>>;
 
+/**
+ * Sets a component's inputs from its element's attributes, for a component that
+ * says how (a static `attributeInputs(element)`, such as ContentPartialsComponent's
+ * `content-type="articles"`). Call before attaching its view, so its first
+ * change detection sees them.
+ */
+export function setAttributeInputs(ref: ComponentRef<unknown>, component: Type<unknown>, element: Element): void {
+    const inputsOf = (component as unknown as { attributeInputs?: (element: Element) => Record<string, unknown> }).attributeInputs;
+    if (!inputsOf) return;
+    for (const [input, value] of Object.entries(inputsOf(element))) ref.setInput(input, value);
+}
+
 export interface FragmentOptions {
     /**
      * The language to show the fragment's `data-arc-t` text in, instead of the page's:
@@ -50,6 +68,12 @@ export interface FragmentOptions {
      * their addresses (no language prefix).
      */
     language?: () => string;
+}
+
+/** What an Arc CMS element is drawn from: its tag, its attributes as drawn, and the page's language. */
+function mountKey(element: Element, lang: string): string {
+    const attributes = Array.from(element.attributes).map((attr) => [attr.name, attr.value]);
+    return JSON.stringify([lang, element.tagName, attributes]);
 }
 
 /** Call from a component's constructor (injection context): renders `html` into its host element. */
@@ -62,7 +86,8 @@ export function renderSiteFragment(html: string, elements: FragmentElements, opt
     const appRef = inject(ApplicationRef);
     const environmentInjector = inject(EnvironmentInjector);
     const elementInjector = inject(Injector);
-    let mounted: ComponentRef<unknown>[] = [];
+    /** The components drawn, each with its element and what it was drawn from (mountKey). */
+    let mounted: { ref: ComponentRef<unknown>; element: Element; key: string }[] = [];
     const loadedScripts = new Set<string>();
 
     // The fragment's own language, when it has one: its strings, loaded without
@@ -80,9 +105,10 @@ export function renderSiteFragment(html: string, elements: FragmentElements, opt
     const pageLang = () => (ownLanguage ? '' : uiStrings.activeLang());
     const pageStrings = () => (ownLanguage ? ownStrings() : uiStrings.strings());
 
-    /** Runs the fragment's scripts, which innerHTML leaves inert. */
-    const runScripts = () => {
+    /** Runs the fragment's scripts, which innerHTML leaves inert; not those inside a kept component, which ran. */
+    const runScripts = (kept: Element[]) => {
         host.querySelectorAll('script').forEach((inert) => {
+            if (kept.some((element) => element.contains(inert))) return;
             const src = inert.getAttribute('src');
             if (src && loadedScripts.has(src)) return;
             if (src) loadedScripts.add(src);
@@ -93,16 +119,19 @@ export function renderSiteFragment(html: string, elements: FragmentElements, opt
         });
     };
 
+    const destroy = (ref: ComponentRef<unknown>) => {
+        appRef.detachView(ref.hostView);
+        ref.destroy();
+    };
     const unmount = () => {
-        for (const ref of mounted) {
-            appRef.detachView(ref.hostView);
-            ref.destroy();
-        }
+        for (const { ref } of mounted) destroy(ref);
         mounted = [];
     };
 
     const render = (lang: string, strings: Record<string, string>, types: ReadonlySet<string>) => {
-        unmount();
+        const before = mounted;
+        mounted = [];
+        const kept: Element[] = [];
         host.innerHTML = versionSiteUrls(html, siteManifest().files);
         applyStringsToElement(host, strings);
         applySiteInfoToElement(host, siteInfoOf(siteIdentity.identity(), sitePages.pages()));
@@ -114,12 +143,24 @@ export function renderSiteFragment(html: string, elements: FragmentElements, opt
         }
         for (const [tag, component] of Object.entries(elements)) {
             host.querySelectorAll(tag).forEach((hostElement) => {
+                const key = mountKey(hostElement, lang);
+                const same = before.findIndex((old) => old.key === key);
+                if (same >= 0) {
+                    // Drawn as before: its component and what it shows stay.
+                    const [old] = before.splice(same, 1);
+                    hostElement.replaceWith(old.element);
+                    kept.push(old.element);
+                    mounted.push(old);
+                    return;
+                }
                 const ref = createComponent(component, { environmentInjector, elementInjector, hostElement });
+                setAttributeInputs(ref, component, hostElement);
                 appRef.attachView(ref.hostView);
-                mounted.push(ref);
+                mounted.push({ ref, element: hostElement, key });
             });
         }
-        runScripts();
+        for (const { ref } of before) destroy(ref);
+        runScripts(kept);
     };
 
     // Rendered at once, then again whenever the page's language, its strings,

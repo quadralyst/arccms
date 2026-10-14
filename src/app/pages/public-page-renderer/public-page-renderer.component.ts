@@ -61,19 +61,34 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
     private platformId = inject(PLATFORM_ID);
     /** The live parts' script for the page's forms (SS5). */
     private liveScript: HTMLScriptElement | null = null;
+    /** The inside of the page's own <head>, for its stylesheets and scripts. */
+    private pageHead = '';
+    /** What this component put in document.head for the page drawn, removed when it is left. */
+    private headAdded: Element[] = [];
+    /** Counts the pages drawn, so the scripts of a page left stop loading. */
+    private drawn = 0;
+    /**
+     * Counts the pages asked for (and the component's end), so a page still
+     * waiting for its strings or site details when it is left, for another /p/
+     * page or another route, is never drawn: its styles and scripts would stay.
+     */
+    private asked = 0;
 
     sanitizedContent: SafeHtml = '';
     hasHeader = false;
     hasFooter = false;
 
     ngOnDestroy(): void {
+        this.asked++;
         this.liveScript?.remove();
+        this.clearPageHead();
     }
 
     ngOnInit() {
         this.route.params.pipe(
             map(params => params['fileName']),
             switchMap(fileName => {
+                this.asked++;
                 if (!fileName || fileName.toLowerCase() === 'index') {
                     return of(null);
                 }
@@ -86,7 +101,8 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
 
                 // A page the site does not have would answer with the app shell
                 // (HTTP 200), so only pages in the site's manifest are fetched.
-                if (!siteManifest().pages[cleanFileName]) {
+                // Its own entries only: not `constructor` or `__proto__`.
+                if (!Object.hasOwn(siteManifest().pages, cleanFileName)) {
                     return of(null);
                 }
                 return this.http.get(sitePageUrl(cleanFileName), { responseType: 'text' }).pipe(
@@ -97,6 +113,9 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
                 );
             })
         ).subscribe(async htmlContent => {
+            const asked = this.asked;
+            /** Whether the page was left while its data was read. */
+            const left = () => asked !== this.asked;
             if (htmlContent) {
                 // The site's own details for data-arc-site (SS3), read only when the page asks.
                 // Read only for a page that asks: the site's details (SS3), and the
@@ -104,19 +123,24 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
                 const usesSiteInfo = htmlContent.includes('data-arc-site');
                 const hasForms = htmlContent.includes('data-arc-contact-form') || htmlContent.includes('data-waitlist-form');
                 const pages = usesSiteInfo || hasForms ? await this.sitePages.load() : [];
+                if (left()) return;
                 const about = usesSiteInfo ? await this.siteIdentity.load() : null;
+                if (left()) return;
                 // Static pages are in the default language: its strings file, when the
                 // site has one, words them and their forms' panels, as when published.
                 // Waited for only by a page that uses them; the header and footer follow it either way.
                 const usesStrings = htmlContent.includes('data-arc-t') || hasForms;
                 const loading = this.uiStrings.use('');
                 const strings = usesStrings ? await loading : {};
+                if (left()) return;
                 this.processHtml(applySiteInfoToHtml(TemplateHydrationService.applyStrings(htmlContent, strings), siteInfoOf(about, pages)));
                 this.cdr.detectChanges();
-                // Signup and contact forms on the page work as when published (SS5).
                 if (isPlatformBrowser(this.platformId)) {
-                    this.liveScript?.remove();
                     const content = this.document.querySelector('.public-page-content');
+                    // The page's own styles and scripts, as when published.
+                    this.drawPageHead(content);
+                    // Signup and contact forms on the page work as when published (SS5).
+                    this.liveScript?.remove();
                     this.liveScript = content ? attachLiveParts(content, this.document, pages, strings) : null;
                 }
             } else {
@@ -176,7 +200,10 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
             }
         }
 
-        // 3. Content Extraction (Body)
+        // 3. The page's own <head>, for its stylesheets and scripts (drawPageHead).
+        this.pageHead = processedHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? '';
+
+        // 4. Content Extraction (Body)
         const bodyRegex = /<body[^>]*>([\s\S]*?)<\/body>/is;
         const bodyMatch = processedHtml.match(bodyRegex);
 
@@ -191,4 +218,94 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
             this.sanitizedContent = this.sanitizer.bypassSecurityTrustHtml(processedHtml);
         }
     }
+
+    /**
+     * Draws what the page's own <head> brings, as publishing keeps it: its
+     * stylesheets, <style> blocks and font links go at the end of document.head,
+     * after the app's site styles, so the page's rules win as on the published
+     * page. Then its scripts run once, the head's first, in document order, each
+     * src script loaded before the next runs. Browser only.
+     *
+     * Trust: these pages are the app's own files from its site folder
+     * (src/custom/site/pages/ over public/_site/pages/, listed in the site's
+     * manifest), written by the app's developers, so their styles and scripts run
+     * as they do when published, with the app's rights. This route runs in
+     * `npm run dev` and, on the live site, whenever the app's router opens /p/
+     * (firebase.json redirects only requests that reach Hosting). Never give this
+     * content from the database or from visitors, and never bind site details
+     * (data-arc-site, site loops) inside a <script>: admin-edited text would run
+     * as code. docs/website/static-pages.html says the same.
+     */
+    private drawPageHead(content: Element | null): void {
+        this.clearPageHead();
+        const drawn = ++this.drawn;
+        const view = this.document.defaultView;
+        const head = this.pageHead && view?.DOMParser
+            ? new view.DOMParser().parseFromString(`<!DOCTYPE html><html><head>${this.pageHead}</head><body></body></html>`, 'text/html').head
+            : null;
+        const headScripts: HTMLScriptElement[] = [];
+        for (const el of Array.from(head?.children ?? [])) {
+            if (el.tagName === 'SCRIPT') headScripts.push(el as HTMLScriptElement);
+            else if (el.tagName === 'STYLE' || (el.tagName === 'LINK' && isStyleLink(el))) {
+                const copy = this.document.importNode(el, true);
+                copy.setAttribute('data-arc-page-head', '');
+                this.document.head.appendChild(copy);
+                this.headAdded.push(copy);
+            }
+        }
+        const bodyScripts = Array.from(content?.querySelectorAll('script') ?? []);
+        void this.runPageScripts([...headScripts, ...bodyScripts], content, drawn);
+    }
+
+    /**
+     * Runs the scripts in order. A script set through innerHTML (or parsed apart)
+     * never runs, so each is made anew: a body script in its place, a head script
+     * at the end of document.head.
+     */
+    private async runPageScripts(scripts: HTMLScriptElement[], content: Element | null, drawn: number): Promise<void> {
+        for (const old of scripts) {
+            if (drawn !== this.drawn) return;
+            if (!isRunnableScript(old)) continue;
+            const script = this.document.createElement('script');
+            for (const attr of Array.from(old.attributes)) script.setAttribute(attr.name, attr.value);
+            script.textContent = old.textContent;
+            const loaded = script.hasAttribute('src')
+                ? new Promise<void>((resolve) => { script.onload = script.onerror = () => resolve(); })
+                : null;
+            if (content?.contains(old)) {
+                old.replaceWith(script);
+            } else {
+                script.setAttribute('data-arc-page-head', '');
+                this.document.head.appendChild(script);
+                this.headAdded.push(script);
+            }
+            if (loaded) await loaded;
+        }
+    }
+
+    /** Takes the page's styles out of document.head, so they do not reach other routes. */
+    private clearPageHead(): void {
+        this.drawn++;
+        for (const el of this.headAdded) el.remove();
+        this.headAdded = [];
+    }
+}
+
+/** A <link> that styles the page: a stylesheet, or a font or style it preloads or a host it connects to early. */
+function isStyleLink(link: Element): boolean {
+    const rel = (link.getAttribute('rel') || '').toLowerCase().split(/\s+/);
+    if (rel.includes('stylesheet') || rel.includes('preconnect') || rel.includes('dns-prefetch')) return true;
+    const as = (link.getAttribute('as') || '').toLowerCase();
+    return rel.includes('preload') && (as === 'style' || as === 'font');
+}
+
+/**
+ * A script the browser would run: classic JavaScript or a module, not data such
+ * as JSON-LD, and not a `nomodule` fallback, which a browser with modules skips
+ * (with a src it would never fire load or error, and hold up every script after it).
+ */
+function isRunnableScript(script: HTMLScriptElement): boolean {
+    if (script.hasAttribute('nomodule')) return false;
+    const type = (script.getAttribute('type') || '').trim().toLowerCase();
+    return !type || type === 'module' || /^(text|application)\/(x-)?(java|ecma)script$/.test(type);
 }

@@ -87,10 +87,20 @@ describe('firestore.rules: users', () => {
 describe('firestore.rules: content writes are staff only', () => {
     const rules = effective('firestore.rules');
 
-    it.each(['/ContentTypes/{docId}', '/media/{docId}', '/mediaFiles/{docId}', '/_publish_queue/{docId}'])('%s', (p) => {
+    it.each(['/ContentTypes/{docId}', '/media/{docId}', '/mediaFiles/{docId}'])('%s', (p) => {
         const block = matchBlock(rules, p);
         expect(block).toMatch(/allow (read, )?write:\s*if isEditor\(\);/);
         expect(block).not.toMatch(/allow (read, )?write:\s*if isAuthenticated\(\);/);
+    });
+
+    // Create only, never a coalesced item's fixed id (tests/rules/firestore.rules.spec.ts has the cases).
+    it('/_publish_queue/{queueId}', () => {
+        const block = matchBlock(rules, '/_publish_queue/{queueId}');
+        expect(block).toMatch(/allow create: if isEditor\(\)/);
+        expect(block).toMatch(/queueId != 'redeploy-all'/);
+        expect(block).toMatch(/!queueId\.matches\('items-from--\.\*'\)/);
+        expect(block).toMatch(/allow update, delete: if false;/);
+        expect(block).not.toMatch(/allow (read, )?write:/);
     });
 
     // Staff notes live in media details (MF-D24): nobody else reads them.

@@ -116,6 +116,8 @@ export const DIRECTIVES: TemplateAttr[] = [
     bind('data-arc-if', 'Show when set', 'data-arc-if="key"', 'Removes the element when empty, 0 or false'),
     bind('data-arc-loop', 'Repeat', 'data-arc-loop="key"', 'Repeats the first child only'),
     bind('data-limit', 'Cap a loop', 'data-limit="6"', 'On the loop element'),
+    bind('data-arc-items-src', 'Entries of another type', 'data-arc-loop="items" data-arc-items-src="events" data-limit="3"', 'Detail pages: that type\'s published entries as cards (6 by default, up to 50)'),
+    bind('data-arc-repeat', 'Repeat from a number', 'data-arc-repeat="rating" data-max="5"', 'Children N times, such as stars: full, half, empty; {{ @index }}, {{ @state }}'),
     bind('data-arc-style-background', 'Background color', 'data-arc-style-background="key"'),
     bind('data-arc-t', 'Translate fixed text', 'data-arc-t="read_more"', 'From strings/{lang}.json'),
     // The site's own details from Settings, About (SS3): in templates, the header, footer and static pages.
@@ -177,6 +179,8 @@ export function customFieldReference(field: TemplateRefField, typeSlug: string):
             return row(`<time data-arc-bind="${k}"></time>`, 'Date in the page\'s language; {{ }} prints the stored value');
         case 'checkbox':
             return row(`{{ ${k} }}`, 'Ticked options joined with commas');
+        case 'number':
+            return row(`{{ ${k} }}`, `number; data-arc-repeat="${k}" repeats an element that many times, such as stars`);
         case 'labelvalue':
         case 'maplocation':
         case 'faq':
@@ -204,7 +208,7 @@ export function templateReference(typeSlug: string, fields: TemplateRefField[] =
         { id: 'detail-loops', title: 'Detail page loops', icon: 'fas fa-repeat', rows: DETAIL_LOOPS },
         { id: 'list', title: 'List page', icon: 'fas fa-list', hint: 'list.html, outside the items loop', rows: LIST_FIELDS },
         { id: 'partials', title: 'Card block', icon: 'fas fa-table-cells-large', hint: 'partials.html, outside the items loop', rows: PARTIALS_FIELDS },
-        { id: 'items', title: 'Each item', icon: 'fas fa-clone', hint: 'Inside data-arc-loop="items", in lists and card blocks', rows: ITEM_FIELDS },
+        { id: 'items', title: 'Each item', icon: 'fas fa-clone', hint: 'Inside data-arc-loop="items", in lists, card blocks and data-arc-items-src loops', rows: ITEM_FIELDS },
         { id: 'directives', title: 'Attributes', icon: 'fas fa-code', rows: DIRECTIVES },
     );
     return sections;

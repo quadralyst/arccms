@@ -1,3 +1,4 @@
+import { ChangeDetectorRef } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule, FormArray } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -438,6 +439,68 @@ describe('EditContentTypeComponent', () => {
             expect(component.fields.length).toBe(3);
             component.removeField(1);
             expect(component.fields.length).toBe(2);
+        });
+
+        describe('removing a field from the middle', () => {
+            const root = () => fixture.nativeElement as HTMLElement;
+            const cards = () => Array.from(root().querySelectorAll<HTMLElement>('[formarrayname="fields"] .field-group'));
+            const labelInputs = () => cards().map((card) => card.querySelector('input[formcontrolname="label"]') as HTMLInputElement);
+            const keyHints = () => cards().map((card) => card.querySelector('.field-key-hint code')?.textContent?.trim());
+            const render = () => {
+                fixture.debugElement.injector.get(ChangeDetectorRef).markForCheck();
+                fixture.detectChanges();
+            };
+
+            beforeEach(() => {
+                // Set before loading: a new id clears the form.
+                component.id = 'test-id';
+                component['updateFormdata']({
+                    ...mockContentType,
+                    fields: [
+                        { key: 'title', label: 'Title', type: 'text', required: true, order: 0 },
+                        { key: 'price', label: 'Price', type: 'number', required: false, order: 1 },
+                        { key: 'summary', label: 'Summary', type: 'text', required: false, order: 2 },
+                    ],
+                });
+                component.editForm.markAsPristine();
+                render();
+            });
+
+            it('removes that field from the screen and keeps the others on their own inputs', () => {
+                const summaryCard = cards()[2];
+                (cards()[1].querySelector('.btn-remove-field') as HTMLButtonElement).click();
+                render();
+
+                expect(component.fields.controls.map((f) => f.get('key')?.value)).toEqual(['title', 'summary']);
+                expect(labelInputs().map((input) => input.value)).toEqual(['Title', 'Summary']);
+                expect(keyHints()).toEqual(['title', 'summary']);
+                // The card of the field that stayed is the same element, now in second place.
+                expect(cards()[1]).toBe(summaryCard);
+            });
+
+            it('sends later edits to the field shown, and saves them under its key', async () => {
+                (cards()[1].querySelector('.btn-remove-field') as HTMLButtonElement).click();
+                render();
+
+                const input = labelInputs()[1];
+                input.value = 'Abstract';
+                input.dispatchEvent(new Event('input'));
+                expect(component.fields.at(1).get('label')?.value).toBe('Abstract');
+
+                component.editForm.patchValue({ name: 'Test Type', slug: 'test-type' });
+                await component.onSubmit();
+                const saved = mockStore.update.mock.calls[0][1].fields;
+                expect(saved.map((f: { key: string; label: string }) => [f.key, f.label])).toEqual([
+                    ['title', 'Title'],
+                    ['summary', 'Abstract'],
+                ]);
+            });
+
+            it('marks the form as changed', () => {
+                expect(component.editForm.dirty).toBe(false);
+                (cards()[1].querySelector('.btn-remove-field') as HTMLButtonElement).click();
+                expect(component.editForm.dirty).toBe(true);
+            });
         });
 
         it('should get field group at specified index', () => {

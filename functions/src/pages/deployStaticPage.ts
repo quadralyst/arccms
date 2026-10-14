@@ -9,6 +9,7 @@ import { arcHostingSite } from '../arc-config.js';
 import { getSiteFile, getSiteManifest, LEGACY_STATIC_PAGES, pageStylesheets } from '../shared/site-files.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
 import { liveSiteScript, prepareLiveParts } from '../shared/live-parts.js';
+import { siteChrome } from './card-blocks.js';
 
 /**
  * Generates and deploys a processed static page (e.g., privacy-policy, terms).
@@ -16,7 +17,7 @@ import { liveSiteScript, prepareLiveParts } from '../shared/live-parts.js';
  * Pipeline:
  *  1. Fetch raw HTML from the live site at /_site/pages/{pageSlug}.html
  *  2. Load partials (header/footer) and site config (CSS URLs)
- *  3. Replace <arc-header> and <arc-footer> with actual HTML
+ *  3. Replace <arc-header> and <arc-footer> with actual HTML, their card blocks filled
  *  4. Inject site CSS <link> tags into <head>
  *  5. Add arc-served-by / arc-deployed-at meta tags
  *  6. Deploy processed HTML to /pages/{pageSlug}/index.html
@@ -54,11 +55,13 @@ export async function generateAndDeployStaticPage(
     const withSiteInfo = (html: string) =>
         TemplateHydrationService.applySiteInfo(TemplateHydrationService.applyStrings(html, strings), siteInfo);
 
-    // 3. Replace arc components, the search widget built for that language.
+    // 3. Replace arc components, the search widget built for that language. The
+    // header and footer have their card blocks filled, once per release (card-blocks.ts).
+    const chrome = await siteChrome(partials, defaultLang, defaultLang, strings, siteInfo, batch);
     let processedHtml = replaceArcComponents(
         withSiteInfo(rawHtml),
-        withSiteInfo(partials.headerHtml),
-        withSiteInfo(partials.footerHtml),
+        chrome.headerHtml,
+        chrome.footerHtml,
         '',
         // The project, not the hosting site: the widget calls the project's
         // functions, and an install's own site is named differently.
@@ -74,13 +77,17 @@ export async function generateAndDeployStaticPage(
         prepareLiveParts($, strings, manifest, siteInfo.pages);
         $('body').append(`\n${await liveSiteScript(manifest, strings)}`);
 
-        // Inject site CSS <link> tags into <head>, versioned, the site's site.css last
+        // Site CSS <link> tags, versioned, the site's site.css last. Arc CMS's
+        // stylesheets go first in <head> (after the charset), so the page's own
+        // <style> and <link> tags (after them) win, as on the home page.
         const stylesheets = await pageStylesheets(siteConfig.cssUrls || []);
         if (stylesheets.length > 0) {
             const cssLinks = stylesheets
                 .map(url => `<link rel="stylesheet" href="${url}">`)
                 .join('\n    ');
-            $('head').append(`\n    ${cssLinks}`);
+            $('head').prepend(`\n    ${cssLinks}\n`);
+            const charset = $('meta[charset]');
+            if (charset.length) $('head').prepend(charset.first());
         }
 
         // 5. Add arc-served-by meta tags
