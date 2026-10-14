@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { createGenericStore } from '../../../../../shared/services/generic-store.service';
 import { IDraftContents, INextContentReference } from './draft-contents.model';
 import { DraftContentsService } from './draft-contents.service';
-import { BacklinkChange } from './series-links';
+import { BacklinkChange, BacklinkResult } from './series-links';
 
 const DraftContentsStoreBase = createGenericStore<IDraftContents>(DraftContentsService);
 
@@ -63,13 +63,22 @@ export class DraftContentsStore extends DraftContentsStoreBase {
 
     /**
      * Points other entries' Previous or Next back at a saved entry, or clears
-     * them, by the rules in series-links.ts. Resolves to the ids that changed.
+     * them, by the rules in series-links.ts. Resolves to the ids that changed
+     * and the changes that failed.
      */
     async applyBacklinks(
         contentType: string,
         owner: INextContentReference,
         changes: BacklinkChange[],
-    ): Promise<string[]> {
+    ): Promise<BacklinkResult> {
         return this.draftService.applyBacklinks(contentType, owner, changes);
+    }
+
+    /**
+     * The link copy for another entry of the type as it is now, or null when
+     * it no longer exists. Throws when the read fails.
+     */
+    async currentSeriesReference(contentType: string, id: string): Promise<INextContentReference | null> {
+        return this.draftService.currentSeriesReference(contentType, id);
     }
 }

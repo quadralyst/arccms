@@ -26,6 +26,7 @@ describe('DraftContentsStore', () => {
             updateNextContentReferences: vi.fn(),
             updatePreviousContentReferences: vi.fn(),
             applyBacklinks: vi.fn(),
+            currentSeriesReference: vi.fn(),
         };
 
         TestBed.configureTestingModule({
@@ -236,13 +237,23 @@ describe('DraftContentsStore', () => {
     });
 
     describe('applyBacklinks', () => {
-        it('passes the changes to the service and returns the ids it changed', async () => {
+        it('passes the changes to the service and returns what it changed and what failed', async () => {
             const owner = { id: 'a', title: 'A', summary: '', slug: 'a' };
             const changes = [{ targetId: 'b', field: 'previousContent' as const, action: 'set' as const }];
-            mockService.applyBacklinks.mockResolvedValue(['b']);
+            mockService.applyBacklinks.mockResolvedValue({ changed: ['b'], failed: [] });
 
-            await expect(store.applyBacklinks('articles', owner, changes)).resolves.toEqual(['b']);
+            await expect(store.applyBacklinks('articles', owner, changes)).resolves.toEqual({ changed: ['b'], failed: [] });
             expect(mockService.applyBacklinks).toHaveBeenCalledWith('articles', owner, changes);
+        });
+    });
+
+    describe('currentSeriesReference', () => {
+        it('asks the service for the entry as it is now', async () => {
+            const current = { id: 'b', title: 'B', summary: '', slug: 'b' };
+            mockService.currentSeriesReference.mockResolvedValue(current);
+
+            await expect(store.currentSeriesReference('articles', 'b')).resolves.toEqual(current);
+            expect(mockService.currentSeriesReference).toHaveBeenCalledWith('articles', 'b');
         });
     });
 });

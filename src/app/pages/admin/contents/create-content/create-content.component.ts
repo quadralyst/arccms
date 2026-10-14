@@ -11,7 +11,9 @@ import { SafeHtml } from '@angular/platform-browser';
 import { CommonModule, formatDate } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { IDraftContents, INextContentReference } from '../draft-content-store/draft-contents.model';
-import { SeriesLinks, planBacklinks, seriesReference } from '../draft-content-store/series-links';
+import {
+  BACKLINK_FIELD, BacklinkChange, SERIES_FIELDS, SeriesField, SeriesLinks, isRealId, linkedId, planBacklinks, seriesReference,
+} from '../draft-content-store/series-links';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
@@ -235,6 +237,9 @@ export class CreateContentComponent extends BaseComponent {
   private storedSeriesLinks: SeriesLinks | null = null;
   previousContentSearchTerm = signal<string>('');
   showPreviousContentDropdown = signal<boolean>(false);
+  /** The option the arrow keys are on in each picker's list. */
+  nextContentActive = signal<number>(0);
+  previousContentActive = signal<number>(0);
   availableContents: IDraftContents[] = [];
   isLoadingContents = false;
 
@@ -2121,18 +2126,25 @@ export class CreateContentComponent extends BaseComponent {
    * Get filtered contents based on search term
    */
   get filteredNextContents(): IDraftContents[] {
-    return this.filterSeriesOptions(this.nextContentSearchTerm());
+    return this.filterSeriesOptions(this.nextContentSearchTerm(), this.selectedPreviousContent);
   }
 
   /** The entries the Previous picker offers for its search term. */
   get filteredPreviousContents(): IDraftContents[] {
-    return this.filterSeriesOptions(this.previousContentSearchTerm());
+    return this.filterSeriesOptions(this.previousContentSearchTerm(), this.selectedNextContent);
   }
 
-  private filterSeriesOptions(search: string): IDraftContents[] {
+  /**
+   * `otherPick` is the other picker's entry: one entry cannot come both
+   * before and after this one.
+   */
+  private filterSeriesOptions(search: string, otherPick: INextContentReference | null): IDraftContents[] {
     const term = search.toLowerCase();
+    const taken = linkedId(otherPick);
     // Never the entry itself, also for a new entry saved after the list loaded.
-    const options = this.availableContents.filter((content) => !this.contentId || content.id !== this.contentId);
+    const options = this.availableContents.filter(
+      (content) => (!this.contentId || content.id !== this.contentId) && (!taken || content.id !== taken),
+    );
     if (!term) return options;
     return options.filter(
       (content) =>
@@ -2173,6 +2185,7 @@ export class CreateContentComponent extends BaseComponent {
    */
   onNextContentSearchInput(event: any): void {
     this.nextContentSearchTerm.set(event.target.value);
+    this.nextContentActive.set(0);
     this.showNextContentDropdown.set(true);
   }
 
@@ -2184,6 +2197,7 @@ export class CreateContentComponent extends BaseComponent {
     if (this.availableContents.length === 0) {
       this.loadAvailableContents();
     }
+    this.nextContentActive.set(0);
     this.showNextContentDropdown.set(true);
   }
 
@@ -2203,6 +2217,7 @@ export class CreateContentComponent extends BaseComponent {
     this.nextContentSearchTerm.set('');
     this.showNextContentDropdown.set(false);
     this.cdr.detectChanges();
+    this.focusSeriesControl('next-content-remove');
     this.triggerAutoSave();
   }
 
@@ -2212,6 +2227,9 @@ export class CreateContentComponent extends BaseComponent {
   removeNextContent(): void {
     this.selectedNextContent = null;
     this.cdr.detectChanges();
+    this.focusSeriesControl('next-content-search');
+    // Back in the box, the list waits for the keys or typing.
+    this.showNextContentDropdown.set(false);
     this.triggerAutoSave();
   }
 
@@ -2219,6 +2237,7 @@ export class CreateContentComponent extends BaseComponent {
 
   onPreviousContentSearchInput(event: any): void {
     this.previousContentSearchTerm.set(event.target.value);
+    this.previousContentActive.set(0);
     this.showPreviousContentDropdown.set(true);
   }
 
@@ -2226,6 +2245,7 @@ export class CreateContentComponent extends BaseComponent {
     if (this.availableContents.length === 0) {
       this.loadAvailableContents();
     }
+    this.previousContentActive.set(0);
     this.showPreviousContentDropdown.set(true);
   }
 
@@ -2239,13 +2259,79 @@ export class CreateContentComponent extends BaseComponent {
     this.previousContentSearchTerm.set('');
     this.showPreviousContentDropdown.set(false);
     this.cdr.detectChanges();
+    this.focusSeriesControl('previous-content-remove');
     this.triggerAutoSave();
   }
 
   removePreviousContent(): void {
     this.selectedPreviousContent = null;
     this.cdr.detectChanges();
+    this.focusSeriesControl('previous-content-search');
+    // Back in the box, the list waits for the keys or typing.
+    this.showPreviousContentDropdown.set(false);
     this.triggerAutoSave();
+  }
+
+  /**
+   * The keys of a picker's search box, a combobox: Down opens the list or
+   * moves down it, Up moves up, Enter picks the option the keys are on and
+   * Escape closes the list. Focus stays in the box; the list follows through
+   * aria-activedescendant.
+   */
+  onSeriesSearchKeydown(which: 'next' | 'previous', event: KeyboardEvent): void {
+    const isNext = which === 'next';
+    const open = isNext ? this.showNextContentDropdown : this.showPreviousContentDropdown;
+    const active = isNext ? this.nextContentActive : this.previousContentActive;
+    const options = this.isLoadingContents ? [] : (isNext ? this.filteredNextContents : this.filteredPreviousContents);
+    const count = options.length;
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!open()) {
+        if (this.availableContents.length === 0) this.loadAvailableContents();
+        active.set(0);
+        open.set(true);
+        return;
+      }
+      if (!count) return;
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      active.set((Math.min(active(), count - 1) + step + count) % count);
+      this.revealSeriesOption(which, active());
+    } else if (event.key === 'Enter') {
+      // Enter never submits the form from here.
+      event.preventDefault();
+      if (!open() || !count) return;
+      const content = options[Math.min(active(), count - 1)];
+      if (isNext) this.selectNextContent(content);
+      else this.selectPreviousContent(content);
+    } else if (event.key === 'Escape' && open()) {
+      event.preventDefault();
+      open.set(false);
+    }
+  }
+
+  /** The id of the option the arrow keys are on, for aria-activedescendant; null while the list is closed or empty. */
+  seriesActiveOptionId(which: 'next' | 'previous'): string | null {
+    const isNext = which === 'next';
+    const open = isNext ? this.showNextContentDropdown() : this.showPreviousContentDropdown();
+    const count = isNext ? this.filteredNextContents.length : this.filteredPreviousContents.length;
+    if (!open || this.isLoadingContents || !count) return null;
+    const active = Math.min(isNext ? this.nextContentActive() : this.previousContentActive(), count - 1);
+    return `${which}-content-option-${active}`;
+  }
+
+  /**
+   * Picking or removing swaps the search box and the picked entry, so focus
+   * moves to what took the place of the control that had it, not to the page.
+   */
+  private focusSeriesControl(id: string): void {
+    if (typeof document === 'undefined') return;
+    document.getElementById(id)?.focus();
+  }
+
+  private revealSeriesOption(which: 'next' | 'previous', index: number): void {
+    if (typeof document === 'undefined') return;
+    document.getElementById(`${which}-content-option-${index}`)?.scrollIntoView?.({ block: 'nearest' });
   }
 
   public saveAsDraft(afterSave?: () => void) {
@@ -2459,10 +2545,13 @@ export class CreateContentComponent extends BaseComponent {
     const id = this.contentId;
     const before = untracked(() => this.draftContentStore.currentItem());
 
-    this.draftContentStore.update(id, formValues, this.contentTypeSlug).subscribe({
+    // Series links the editor did not change are left as they are stored.
+    const written = this.withChangedSeriesLinks(formValues);
+
+    this.draftContentStore.update(id, written, this.contentTypeSlug).subscribe({
       next: () => {
         this.ngZone.run(async () => {
-          this.refreshStoredItem(id, formValues);
+          this.refreshStoredItem(id, written);
           this.lastDraftSavedDate = new Date();
           // What we just wrote is now the clean state. Without this a pending
           // auto-save debounce fires ~30s later and rewrites the document —
@@ -2488,7 +2577,7 @@ export class CreateContentComponent extends BaseComponent {
           }
 
           // Trigger cascading updates for content that references this one
-          await this.syncSeriesBacklinks(id, formValues);
+          await this.syncSeriesBacklinks(id, written);
           await this.updateReferencingContents(formValues, id);
           await this.triggerCollectionRefSync(formValues, before);
 
@@ -2583,10 +2672,12 @@ export class CreateContentComponent extends BaseComponent {
     this.cdr.detectChanges();
 
     const id = this.contentId;
-    this.draftContentStore.update(id, formValues, this.contentTypeSlug).subscribe({
+    // Series links the editor did not change are left as they are stored.
+    const written = this.withChangedSeriesLinks(formValues);
+    this.draftContentStore.update(id, written, this.contentTypeSlug).subscribe({
       next: () => {
         this.ngZone.run(() => {
-          this.refreshStoredItem(id, formValues);
+          this.refreshStoredItem(id, written);
           this.lastDraftSavedDate = new Date();
           this.saveStatusMessage = 'Auto-saved';
           this.saveStatusType = 'success';
@@ -2594,7 +2685,7 @@ export class CreateContentComponent extends BaseComponent {
           this.captureDraftBaseline();
           this.persistPendingTranslations(this.contentId);
           // Picking Next or Previous auto-saves, so the links follow here too.
-          void this.syncSeriesBacklinks(id, formValues)
+          void this.syncSeriesBacklinks(id, written)
             .then(() => this.updateReferencingContents(formValues, id));
           this.cdr.detectChanges();
 
@@ -2728,27 +2819,62 @@ export class CreateContentComponent extends BaseComponent {
   }
 
   /**
+   * The values a save of a stored entry writes: a series link still pointing
+   * where it pointed when the editor last loaded or saved it is left out, so
+   * the stored one stands. Another editor's save may have set it in the
+   * meantime (picking this entry as its Next sets this entry's Previous), or
+   * removed it; writing the editor's older copy would undo that.
+   */
+  private withChangedSeriesLinks(values: any): any {
+    const stored = this.storedSeriesLinks;
+    if (!stored) return values;
+    const written = { ...values };
+    for (const field of SERIES_FIELDS) {
+      if (linkedId(written[field]) === linkedId(stored[field])) delete written[field];
+    }
+    return written;
+  }
+
+  /**
    * Keep the other side of this entry's series links in step after a save:
    * the entry picked as Next gets this one as its Previous, the entry picked
    * as Previous gets this one as its Next, and an entry no longer picked loses
-   * the link back. Only once the entry has a real id, and never over a link
-   * an editor pointed at another entry (series-links.ts).
+   * the link back. Only once the entry has a real id, only for a link the save
+   * changed, and never over a link an editor pointed at another entry
+   * (series-links.ts). A link whose backlink could not be written is kept
+   * as not yet saved, so the next save asks for that backlink again.
    */
   private async syncSeriesBacklinks(id: string, written: any): Promise<void> {
     const contentType = this.contentTypeSlug || written?.type;
     if (!id || !contentType) return;
     // Compared with the links as last loaded or saved (none for a new entry),
-    // then those become the saved ones for the next save.
+    // then those become the saved ones for the next save. A link the save
+    // left out (see withChangedSeriesLinks) keeps its stored value.
     const before = this.storedSeriesLinks;
-    this.storedSeriesLinks = { nextContent: written.nextContent ?? null, previousContent: written.previousContent ?? null };
-    const changes = planBacklinks(id, before, written);
+    const after: SeriesLinks = {};
+    for (const field of SERIES_FIELDS) {
+      after[field] = field in written ? written[field] ?? null : before?.[field] ?? null;
+    }
+    this.storedSeriesLinks = after;
+    const changes = planBacklinks(id, before, after);
     if (changes.length === 0) return;
     const owner = seriesReference(id, { ...written, title: written.title || this.pageTitle || '' });
+    let failed: BacklinkChange[];
     try {
-      await this.draftContentStore.applyBacklinks(contentType, owner, changes);
+      ({ failed } = await this.draftContentStore.applyBacklinks(contentType, owner, changes));
     } catch (error) {
       console.error('Error updating series links:', error);
       // Non-blocking, like the other reference updates
+      failed = changes;
+    }
+    for (const change of failed) {
+      // The field on this entry whose change asked for the failed backlink.
+      const field: SeriesField = BACKLINK_FIELD[change.field];
+      const stored: SeriesLinks | null = this.storedSeriesLinks;
+      // Unless a later save moved the link on already.
+      if (stored && linkedId(stored[field]) === linkedId(after[field])) {
+        this.storedSeriesLinks = { ...stored, [field]: before?.[field] ?? null };
+      }
     }
   }
 
@@ -2898,7 +3024,7 @@ export class CreateContentComponent extends BaseComponent {
    * Restore a historical version by copying its fields into the current draft form.
    * Does NOT auto-publish — the user must review and manually save/publish.
    */
-  restoreVersion(version: VersionHistoryItem): void {
+  async restoreVersion(version: VersionHistoryItem): Promise<void> {
     const confirmed = window.confirm(
       'This will overwrite your current draft with this version. Any unsaved changes will be lost. Continue?'
     );
@@ -2944,10 +3070,10 @@ export class CreateContentComponent extends BaseComponent {
     // Restore the series links. A version saved before an entry had a
     // Previous has no such field: the current link is kept then.
     if (version.nextContent !== undefined) {
-      this.selectedNextContent = version.nextContent || null;
+      this.selectedNextContent = await this.restoredSeriesLink(version.nextContent, this.selectedNextContent);
     }
     if (version.previousContent !== undefined) {
-      this.selectedPreviousContent = version.previousContent || null;
+      this.selectedPreviousContent = await this.restoredSeriesLink(version.previousContent, this.selectedPreviousContent);
     }
 
     // Close the version preview and switch to basic tab so user sees the restored content
@@ -2958,6 +3084,28 @@ export class CreateContentComponent extends BaseComponent {
 
     // Trigger auto-save for the restored content
     this.triggerAutoSave();
+  }
+
+  /**
+   * A series link from an old version, as the entry it points at is now: its
+   * current title, meta description and slug. A link to an entry since
+   * deleted, to this entry itself, or to the placeholder 'temp-id' older
+   * versions wrote is dropped, so the restored page never links to a missing
+   * page. If the entry cannot be read, the current link is kept.
+   */
+  private async restoredSeriesLink(
+    link: INextContentReference | null | undefined,
+    current: INextContentReference | null,
+  ): Promise<INextContentReference | null> {
+    const id = linkedId(link);
+    if (!isRealId(id) || id === this.contentId) return null;
+    const contentType = this.contentTypeSlug || this.publishForm.get('type')?.value || '';
+    try {
+      return await this.draftContentStore.currentSeriesReference(contentType, id);
+    } catch (error) {
+      console.error('Error reading a series link to restore:', error);
+      return current;
+    }
   }
 
   ngOnDestroy(): void {

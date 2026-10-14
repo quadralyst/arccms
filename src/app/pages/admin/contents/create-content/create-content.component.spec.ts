@@ -82,7 +82,9 @@ describe('CreateContentComponent', () => {
             checkExistingSlugUrl: vi.fn().mockResolvedValue({ exists: false, slug: 'test-slug' }),
             updateNextContentReferences: vi.fn().mockResolvedValue(undefined),
             updatePreviousContentReferences: vi.fn().mockResolvedValue(undefined),
-            applyBacklinks: vi.fn().mockResolvedValue([]),
+            applyBacklinks: vi.fn().mockResolvedValue({ changed: [], failed: [] }),
+            currentSeriesReference: vi.fn().mockResolvedValue(null),
+            getContentsByType: vi.fn().mockResolvedValue([]),
             unsubscribeStore: vi.fn(),
         };
 
@@ -1503,6 +1505,120 @@ describe('CreateContentComponent', () => {
                 expect(component.filteredNextContents.map((c) => c.id)).toEqual(['t1', 'c1']);
             });
 
+            it('never offers the other picker\'s entry, so one entry is not both Previous and Next', () => {
+                component.availableContents = [option('a', 'Part A'), option('b', 'Part B'), option('c', 'Part C')];
+
+                component.selectNextContent(option('b', 'Part B'));
+                expect(component.filteredPreviousContents.map((c) => c.id)).toEqual(['a', 'c']);
+                expect(component.filteredNextContents.map((c) => c.id)).toEqual(['a', 'b', 'c']);
+
+                component.selectPreviousContent(option('a', 'Part A'));
+                expect(component.filteredNextContents.map((c) => c.id)).toEqual(['b', 'c']);
+            });
+
+            describe('by keyboard', () => {
+                const key = (input: HTMLElement, name: string) =>
+                    input.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
+
+                for (const which of ['previous', 'next'] as const) {
+                    const selected = which === 'next' ? 'selectedNextContent' : 'selectedPreviousContent';
+
+                    it(`the ${which} picker is a combobox named by its label`, () => {
+                        component.contentTypeSlug = 'article';
+                        fixture.detectChanges(false);
+                        const root: HTMLElement = fixture.nativeElement;
+                        const input = root.querySelector(`[data-testid="${which}-content-search"]`) as HTMLInputElement;
+                        const label = root.querySelector(`[data-testid="${which}-content-picker"] label`) as HTMLLabelElement;
+
+                        expect(label.htmlFor).toBe(input.id);
+                        expect(input.getAttribute('role')).toBe('combobox');
+                        expect(input.getAttribute('aria-expanded')).toBe('false');
+                        expect(input.getAttribute('aria-controls')).toBe(`${which}-content-listbox`);
+                    });
+
+                    it(`picks a ${which} entry with the arrow keys and Enter, and closes the list with Escape`, () => {
+                        component.contentTypeSlug = 'article';
+                        component.availableContents = [option('a', 'Part A'), option('b', 'Part B'), option('c', 'Part C')];
+                        const autoSave = vi.spyOn(component, 'triggerAutoSave');
+                        fixture.detectChanges(false);
+                        const root: HTMLElement = fixture.nativeElement;
+                        const input = root.querySelector(`[data-testid="${which}-content-search"]`) as HTMLInputElement;
+
+                        key(input, 'ArrowDown'); // opens the list on the first option
+                        fixture.detectChanges(false);
+                        expect(input.getAttribute('aria-expanded')).toBe('true');
+                        const options = root.querySelectorAll(`[data-testid="${which}-content-option"]`);
+                        expect(options.length).toBe(3);
+                        expect(options[0].getAttribute('role')).toBe('option');
+                        expect(input.getAttribute('aria-activedescendant')).toBe(options[0].id);
+
+                        key(input, 'ArrowDown');
+                        key(input, 'ArrowDown');
+                        key(input, 'ArrowDown'); // wraps round to the first
+                        key(input, 'ArrowUp'); // and back to the last
+                        fixture.detectChanges(false);
+                        expect(input.getAttribute('aria-activedescendant')).toBe(options[2].id);
+                        expect(options[2].getAttribute('aria-selected')).toBe('true');
+                        expect(options[2].classList).toContain('active');
+
+                        key(input, 'Escape');
+                        fixture.detectChanges(false);
+                        expect(input.getAttribute('aria-expanded')).toBe('false');
+                        expect(input.getAttribute('aria-activedescendant')).toBeNull();
+                        expect(component[selected]).toBeNull();
+
+                        key(input, 'ArrowDown');
+                        key(input, 'ArrowDown');
+                        const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+                        input.dispatchEvent(enter);
+                        expect(enter.defaultPrevented).toBe(true);
+                        expect(component[selected]?.id).toBe('b');
+                        expect(autoSave).toHaveBeenCalledTimes(1);
+                    });
+
+                    it(`keeps focus in the ${which} picker after a pick and a removal`, () => {
+                        component.contentTypeSlug = 'article';
+                        component.availableContents = [option('a', 'Part A')];
+                        fixture.detectChanges(false);
+                        const root: HTMLElement = fixture.nativeElement;
+                        document.body.appendChild(root);
+                        try {
+                            const input = root.querySelector(`[data-testid="${which}-content-search"]`) as HTMLInputElement;
+                            input.focus();
+                            key(input, 'ArrowDown');
+                            key(input, 'Enter');
+
+                            const remove = root.querySelector(`[data-testid="${which}-content-remove"]`) as HTMLButtonElement;
+                            expect(document.activeElement).toBe(remove);
+
+                            remove.click();
+                            fixture.detectChanges(false);
+                            const box = root.querySelector(`[data-testid="${which}-content-search"]`) as HTMLInputElement;
+                            expect(document.activeElement).toBe(box);
+                            expect(box.getAttribute('aria-expanded')).toBe('false');
+                        } finally {
+                            root.remove();
+                        }
+                    });
+
+                    it(`picks a ${which} entry by click without the box losing focus first`, () => {
+                        component.contentTypeSlug = 'article';
+                        component.availableContents = [option('a', 'Part A')];
+                        fixture.detectChanges(false);
+                        const root: HTMLElement = fixture.nativeElement;
+                        key(root.querySelector(`[data-testid="${which}-content-search"]`) as HTMLElement, 'ArrowDown');
+                        fixture.detectChanges(false);
+                        const optionEl = root.querySelector(`[data-testid="${which}-content-option"]`) as HTMLElement;
+
+                        const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+                        optionEl.dispatchEvent(down);
+                        expect(down.defaultPrevented).toBe(true);
+                        optionEl.click();
+                        expect(component[selected]?.id).toBe('a');
+                    });
+                }
+            });
+
             it('shows the stored Previous and Next when an entry opens', () => {
                 loadStored({ previousContent: ref('p1', 'Part one'), nextContent: ref('n1', 'Part three') });
 
@@ -1652,18 +1768,92 @@ describe('CreateContentComponent', () => {
                 expect(mockDraftContentsStore.updatePreviousContentReferences).toHaveBeenCalledWith('doc-1', renamed, 'article');
             });
 
-            it('publishes both links: the publish saves them to the draft the pipeline copies', async () => {
+            it('publishes a changed link through the draft the pipeline copies, and leaves an unchanged one as stored', async () => {
                 loadStored({ nextContent: ref('n1'), previousContent: ref('p1') });
+                component.selectNextContent(option('n2', 'Part three'));
                 vi.spyOn(component as any, 'validateForPublish').mockReturnValue({ valid: true, errors: [], missing: [] });
 
                 component.directPublishContent();
                 await flush();
 
-                expect(mockDraftContentsStore.update).toHaveBeenCalledWith('doc-1', expect.objectContaining({
-                    nextContent: ref('n1'),
-                    previousContent: ref('p1'),
-                    status: 'publish',
-                }), 'article');
+                const written = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+                expect(written).toMatchObject({ nextContent: { id: 'n2' }, status: 'publish' });
+                expect(written).not.toHaveProperty('previousContent');
+            });
+
+            describe('with the same entries open in two tabs', () => {
+                it('keeps a Previous another tab\'s save set on this entry while this tab saves other edits', async () => {
+                    // Tab 1 has B open with no Previous. Tab 2 saves A with Next = B,
+                    // which sets B's Previous to A in the database, not in this tab.
+                    loadStored({ nextContent: null, previousContent: null });
+                    component.pageTitle = 'Part two, edited';
+
+                    component['performAutoSave']();
+                    await flush();
+
+                    const written = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+                    expect(written.title).toBe('Part two, edited');
+                    expect(written).not.toHaveProperty('previousContent');
+                    expect(written).not.toHaveProperty('nextContent');
+                    expect(mockDraftContentsStore.applyBacklinks).not.toHaveBeenCalled();
+                });
+
+                it('does not put back a link removed elsewhere when a stale tab saves', async () => {
+                    // Tab 1 has A open with Next = B. Elsewhere A's Next was removed and
+                    // B's Previous cleared; tab 1 still shows B.
+                    loadStored({ nextContent: ref('b'), previousContent: ref('p') });
+                    component.pageTitle = 'Part two, edited';
+
+                    component.saveAsDraft();
+                    await flush();
+
+                    const written = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+                    expect(written).not.toHaveProperty('nextContent');
+                    expect(written).not.toHaveProperty('previousContent');
+                    expect(mockDraftContentsStore.applyBacklinks).not.toHaveBeenCalled();
+                });
+
+                it('still writes a link this tab changed, and compares the next save with it', async () => {
+                    loadStored({ nextContent: ref('b') });
+                    component.selectNextContent(option('c', 'Part C'));
+                    component.saveAsDraft();
+                    await flush();
+                    expect(mockDraftContentsStore.update.mock.calls.at(-1)[1].nextContent).toMatchObject({ id: 'c' });
+
+                    mockDraftContentsStore.applyBacklinks.mockClear();
+                    component.pageTitle = 'Renamed';
+                    component.saveAsDraft();
+                    await flush();
+
+                    expect(mockDraftContentsStore.update.mock.calls.at(-1)[1]).not.toHaveProperty('nextContent');
+                    expect(mockDraftContentsStore.applyBacklinks).not.toHaveBeenCalled();
+                });
+            });
+
+            it('asks again on the next save for a backlink that failed', async () => {
+                vi.spyOn(console, 'error').mockImplementation(() => undefined);
+                loadStored({ nextContent: ref('n1') });
+                component.removeNextContent();
+                mockDraftContentsStore.applyBacklinks.mockResolvedValueOnce({
+                    changed: [], failed: [{ targetId: 'n1', field: 'previousContent', action: 'clear' }],
+                });
+                component.saveAsDraft();
+                await flush();
+
+                component.pageTitle = 'Renamed';
+                component.saveAsDraft();
+                await flush();
+
+                expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledTimes(2);
+                expect(mockDraftContentsStore.applyBacklinks.mock.calls[1][2]).toEqual([
+                    { targetId: 'n1', field: 'previousContent', action: 'clear' },
+                ]);
+
+                // Once it went through, it is not asked for again.
+                component.pageTitle = 'Renamed again';
+                component.saveAsDraft();
+                await flush();
+                expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledTimes(2);
             });
         });
 
@@ -1672,26 +1862,54 @@ describe('CreateContentComponent', () => {
                 vi.spyOn(window, 'confirm').mockReturnValue(true);
             });
 
-            it('restores both links from the version', () => {
+            const version = (extra: Record<string, unknown> = {}) => ({
+                historyId: 'h1', versionNumber: 2, title: 'Part two', content: '<p>Old</p>', publishedOn: null, ...extra,
+            });
+
+            it('restores both links from the version, as the linked entries are now', async () => {
                 loadStored({ nextContent: ref('n-now'), previousContent: ref('p-now') });
+                mockDraftContentsStore.currentSeriesReference.mockImplementation(async (_type: string, id: string) =>
+                    id === 'n-then' ? { id, title: 'Part three, renamed', summary: 'Now', slug: 'part-three-new' } : null);
 
-                component.restoreVersion({
-                    historyId: 'h1', versionNumber: 2, title: 'Part two', content: '<p>Old</p>', publishedOn: null,
-                    nextContent: ref('n-then'), previousContent: null,
-                });
+                await component.restoreVersion(version({
+                    nextContent: { id: 'n-then', title: 'Part three', summary: 'Then', slug: 'part-three-old' },
+                    previousContent: null,
+                }));
 
-                expect(component.selectedNextContent?.id).toBe('n-then');
+                expect(mockDraftContentsStore.currentSeriesReference).toHaveBeenCalledWith('article', 'n-then');
+                expect(component.selectedNextContent).toEqual(
+                    { id: 'n-then', title: 'Part three, renamed', summary: 'Now', slug: 'part-three-new' });
                 expect(component.selectedPreviousContent).toBeNull();
             });
 
-            it('keeps the current Previous when the version has no such field', () => {
+            it('drops a link to an entry since deleted, and a "temp-id" link, without looking the placeholder up', async () => {
+                loadStored({ nextContent: ref('n-now'), previousContent: ref('p-now') });
+
+                await component.restoreVersion(version({ nextContent: ref('deleted'), previousContent: ref('temp-id') }));
+
+                expect(component.selectedNextContent).toBeNull();
+                expect(component.selectedPreviousContent).toBeNull();
+                expect(mockDraftContentsStore.currentSeriesReference).toHaveBeenCalledTimes(1);
+                expect(mockDraftContentsStore.currentSeriesReference).toHaveBeenCalledWith('article', 'deleted');
+            });
+
+            it('keeps the current link when the linked entry cannot be read', async () => {
+                vi.spyOn(console, 'error').mockImplementation(() => undefined);
+                loadStored({ nextContent: ref('n-now') });
+                mockDraftContentsStore.currentSeriesReference.mockRejectedValueOnce(new Error('offline'));
+
+                await component.restoreVersion(version({ nextContent: ref('n-then') }));
+
+                expect(component.selectedNextContent?.id).toBe('n-now');
+            });
+
+            it('keeps the current Previous when the version has no such field', async () => {
                 loadStored({ previousContent: ref('p-now') });
 
-                component.restoreVersion({
-                    historyId: 'h1', versionNumber: 1, title: 'Part two', content: '<p>Old</p>', publishedOn: null,
-                });
+                await component.restoreVersion(version({ versionNumber: 1 }));
 
                 expect(component.selectedPreviousContent?.id).toBe('p-now');
+                expect(mockDraftContentsStore.currentSeriesReference).not.toHaveBeenCalled();
             });
         });
     });
