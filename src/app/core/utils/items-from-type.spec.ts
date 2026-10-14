@@ -24,19 +24,19 @@ const ENTRIES = [
 ];
 const ids = (entries: { id: string }[]) => entries.map((e) => e.id);
 
-/** The entry-point page's gallery from a site built on Arc CMS, as written for the first version. */
-const GALLERY = `<section class="gallery">
-    <ul class="gallery__grid" data-arc-loop="items" data-arc-items-src="impact-actions" data-limit="6">
-        <li class="gallery__item">
-            <a class="gallery__link" href="{{ url }}">
-                <img class="gallery__media" src="{{coverImage}}" alt="{{ title }}" loading="lazy">
-                <span class="gallery__caption" data-arc-bind="title">Teaching Session</span>
-                <span class="gallery__location" data-arc-bind="impact-actions_place_or_work"></span>
+/** A full event list, mixing the binding styles a real template uses: {{ }} with and without spaces, data-arc-bind over placeholder text, a custom field and a comment. */
+const EVENT_LIST = `<section class="event-list">
+    <ul class="event-list__items" data-arc-loop="items" data-arc-items-src="events" data-limit="6">
+        <li class="event-list__item">
+            <a class="event-list__link" href="{{ url }}">
+                <img class="event-list__image" src="{{coverImage}}" alt="{{ title }}" loading="lazy">
+                <span class="event-list__title" data-arc-bind="title">Sample event</span>
+                <span class="event-list__venue" data-arc-bind="events_venue"></span>
             </a>
         </li>
     </ul>
-    <!-- Empty State -->
-    <div class="empty-state" id="partialsEmptyState"><h3>No Stories Yet</h3></div>
+    <!-- Empty state -->
+    <div class="empty-state" id="eventsEmptyState"><h3>No events yet</h3></div>
 </section>`;
 
 describe('items from another type', () => {
@@ -107,11 +107,11 @@ describe('items from another type', () => {
     });
 
     describe('filled into a template, the same by the app and by publishing', () => {
-        const actions = [
-            { id: 'x1', title: 'Beach clean-up', urlSlug: 'beach', coverImage: 'https://img.example/b.jpg', publishedOn: day(2), customFields: { 'impact-actions_place_or_work': 'Juhu' } },
-            { id: 'x2', title: 'Teaching "day" & more', urlSlug: 'teach', publishedOn: day(1), customFields: {} },
+        const events = [
+            { id: 'x1', title: 'Open day', urlSlug: 'open-day', coverImage: 'https://img.example/o.jpg', publishedOn: day(2), customFields: { events_venue: 'Main hall' } },
+            { id: 'x2', title: 'Talk "live" & more', urlSlug: 'talk', publishedOn: day(1), customFields: {} },
         ];
-        const rows = actions.map((a) => cardData(a, 'impact-actions', 'Impact actions', 'hi', '/hi'));
+        const rows = events.map((e) => cardData(e, 'events', 'Events', 'hi', '/hi'));
 
         function fill(Hydration: typeof TemplateHydrationService | typeof PublishedHydration, html: string, data: Record<string, any[]>) {
             const named = nameItemsFromTypeLoops(html);
@@ -119,38 +119,38 @@ describe('items from another type', () => {
             return Hydration.processLoops(named.html, byName) as string;
         }
 
-        it('fills a site\'s template written for the first version unchanged: links in the page\'s language, custom fields, escaped values', () => {
+        it('fills a full template: links in the page\'s language, custom fields, escaped values', () => {
             for (const Hydration of [TemplateHydrationService, PublishedHydration]) {
-                const html = fill(Hydration, GALLERY, { 0: rows });
-                expect(html).toContain('href="/hi/impact-actions/beach"');
-                expect(html).toContain('src="https://img.example/b.jpg"');
-                expect(html).toContain('Juhu');
-                expect(html).toContain('alt="Teaching &quot;day&quot; &amp; more"');
-                expect(html).not.toContain('Teaching Session');
-                expect((html.match(/gallery__item/g) || []).length).toBe(2);
+                const html = fill(Hydration, EVENT_LIST, { 0: rows });
+                expect(html).toContain('href="/hi/events/open-day"');
+                expect(html).toContain('src="https://img.example/o.jpg"');
+                expect(html).toContain('Main hall');
+                expect(html).toContain('alt="Talk &quot;live&quot; &amp; more"');
+                expect(html).not.toContain('Sample event');
+                expect((html.match(/class="event-list__item"/g) || []).length).toBe(2);
             }
-            expect(fill(TemplateHydrationService, GALLERY, { 0: rows })).toBe(fill(PublishedHydration, GALLERY, { 0: rows }));
+            expect(fill(TemplateHydrationService, EVENT_LIST, { 0: rows })).toBe(fill(PublishedHydration, EVENT_LIST, { 0: rows }));
         });
 
         it('empties the container when there are no rows, so CSS such as :empty + .empty-state can show the empty state', () => {
             for (const Hydration of [TemplateHydrationService, PublishedHydration]) {
-                const html = fill(Hydration, GALLERY, {});
-                expect(html).toContain('<ul class="gallery__grid"></ul>');
-                expect(html).not.toContain('Teaching Session');
-                expect(html).toContain('No Stories Yet');
+                const html = fill(Hydration, EVENT_LIST, {});
+                expect(html).toContain('<ul class="event-list__items"></ul>');
+                expect(html).not.toContain('Sample event');
+                expect(html).toContain('No events yet');
             }
         });
 
         it('fills several containers, each from its own type and with its own row', () => {
-            const html = `<ul data-arc-loop="items" data-arc-items-src="impact-actions"><li class="a">{{ title }}</li></ul>
+            const html = `<ul data-arc-loop="items" data-arc-items-src="events"><li class="a">{{ title }}</li></ul>
                 <ol data-arc-loop="items" data-arc-items-src="news"><li class="n">{{ title }}</li></ol>`;
             const news = [cardData({ id: 'n1', title: 'Headline', urlSlug: 'h' }, 'news', 'News', 'en', '')];
             for (const Hydration of [TemplateHydrationService, PublishedHydration]) {
                 const out = fill(Hydration, html, { 0: rows, 1: news });
-                expect(out).toContain('<li class="a">Beach clean-up</li>');
+                expect(out).toContain('<li class="a">Open day</li>');
                 expect(out).toContain('<li class="n">Headline</li>');
                 expect(out).not.toContain('<li class="a">Headline</li>');
-                expect(out).not.toContain('<li class="n">Beach clean-up</li>');
+                expect(out).not.toContain('<li class="n">Open day</li>');
             }
         });
     });

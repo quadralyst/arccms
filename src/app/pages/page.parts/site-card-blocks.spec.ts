@@ -14,10 +14,10 @@ import { of, Subject } from 'rxjs';
 
 vi.mock('virtual:arc-site', async (importOriginal) => ({
     ...(await importOriginal<Record<string, unknown>>()),
-    header: '<nav class="site-nav"><arc-content-partials content-type="programs" count="2" section-title="Programs">'
+    header: '<nav class="site-nav"><arc-content-partials content-type="services" count="2" section-title="Services">'
         + '</arc-content-partials></nav>',
-    footer: '<footer class="site-footer"><div class="col"><arc-content-partials content-type="entry-points" count="five"'
-        + ' template-folder="entry-point"></arc-content-partials></div></footer>',
+    footer: '<footer class="site-footer"><div class="col"><arc-content-partials content-type="partners" count="five"'
+        + ' template-folder="partner-links"></arc-content-partials></div></footer>',
 }));
 
 import { HeaderComponent } from './header.component';
@@ -64,14 +64,14 @@ describe('card blocks in the header and footer the app draws', () => {
         const fixture = TestBed.createComponent(HeaderComponent);
         fixture.detectChanges();
         const block = (fixture.nativeElement as HTMLElement).querySelector('nav arc-content-partials .given');
-        expect(block?.textContent).toBe('programs|2|Programs|');
+        expect(block?.textContent).toBe('services|2|Services|');
     });
 
     it('does the same in the footer: a count that is not a number gives 4', () => {
         const fixture = TestBed.createComponent(FooterComponent);
         fixture.detectChanges();
         const block = (fixture.nativeElement as HTMLElement).querySelector('footer .col arc-content-partials .given');
-        expect(block?.textContent).toBe('entry-points|4||entry-point');
+        expect(block?.textContent).toBe('partners|4||partner-links');
     });
 });
 
@@ -104,7 +104,7 @@ describe('ContentPartialsComponent.attributeInputs', () => {
  * again for each, nor touch the page's own query of its content type.
  */
 describe('a footer card block\'s reads for one page view', () => {
-    const entry = (i: number) => ({ id: `e${i}`, type: 'entry-points', publishedStatus: true, title: `Entry ${i}`, urlSlug: `e${i}`, publishedOn: new Date(2026, 0, 30 - i) });
+    const entry = (i: number) => ({ id: `e${i}`, type: 'partners', publishedStatus: true, title: `Partner ${i}`, urlSlug: `e${i}`, publishedOn: new Date(2026, 0, 30 - i) });
     const result = (rows: unknown[]) => of({ collectionData: rows, totalCount: rows.length, firstVisible: null, lastVisible: null });
     let strings: ReturnType<typeof signal<Record<string, string>>>;
     let identity: ReturnType<typeof signal<IAboutSettings>>;
@@ -125,7 +125,7 @@ describe('a footer card block\'s reads for one page view', () => {
         typesReads = vi.fn((params: { whereConditions?: { value: string }[] }) => {
             const slug = params?.whereConditions?.[0]?.value;
             if (slug === 'events') return pageQuery;
-            return result([{ id: 't1', slug: 'entry-points', name: 'Entry points' }, { id: 't2', slug: 'events', name: 'Events' }]
+            return result([{ id: 't1', slug: 'partners', name: 'Partners' }, { id: 't2', slug: 'events', name: 'Events' }]
                 .filter((type) => !slug || type.slug === slug));
         });
         await TestBed.configureTestingModule({
@@ -169,7 +169,7 @@ describe('a footer card block\'s reads for one page view', () => {
         fixture.detectChanges();
         pages.set([{ slug: 'terms', title: 'Terms' }]);
         fixture.detectChanges();
-        types.set(new Set(['entry-points', 'events']));
+        types.set(new Set(['partners', 'events']));
         fixture.detectChanges();
         // Not whenStable: the page's query, still on its way, holds the app unstable.
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -178,13 +178,13 @@ describe('a footer card block\'s reads for one page view', () => {
         // One read of the block's type (by its slug) and one of its four entries.
         const blockTypeReads = typesReads.mock.calls.filter(([params]) => params?.whereConditions?.[0]?.value !== 'events');
         expect(blockTypeReads).toHaveLength(1);
-        expect(blockTypeReads[0][0]).toMatchObject({ whereConditions: [{ field: 'slug', operator: '==', value: 'entry-points' }], limitCount: 1 });
+        expect(blockTypeReads[0][0]).toMatchObject({ whereConditions: [{ field: 'slug', operator: '==', value: 'partners' }], limitCount: 1 });
         expect(contentsReads).toHaveBeenCalledTimes(1);
-        expect(contentsReads).toHaveBeenCalledWith(expect.objectContaining({ limitCount: 4 }), 'entry-points');
+        expect(contentsReads).toHaveBeenCalledWith(expect.objectContaining({ limitCount: 4 }), 'partners');
 
         // The same block, still showing its cards: not mounted again.
         expect(el.querySelector('arc-content-partials')).toBe(block);
-        expect(Array.from(el.querySelectorAll('.cards li')).map((li) => li.textContent)).toEqual(['Entry 0', 'Entry 1', 'Entry 2', 'Entry 3']);
+        expect(Array.from(el.querySelectorAll('.cards li')).map((li) => li.textContent)).toEqual(['Partner 0', 'Partner 1', 'Partner 2', 'Partner 3']);
 
         // The page's own query was not cancelled, and its answer is what the root store holds.
         expect(pageQuery.observed).toBe(true);

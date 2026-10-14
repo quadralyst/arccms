@@ -229,8 +229,12 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
      * Trust: these pages are the app's own files from its site folder
      * (src/custom/site/pages/ over public/_site/pages/, listed in the site's
      * manifest), written by the app's developers, so their styles and scripts run
-     * as they do when published. Never give this content from the database or
-     * from visitors.
+     * as they do when published, with the app's rights. This route runs in
+     * `npm run dev` and, on the live site, whenever the app's router opens /p/
+     * (firebase.json redirects only requests that reach Hosting). Never give this
+     * content from the database or from visitors, and never bind site details
+     * (data-arc-site, site loops) inside a <script>: admin-edited text would run
+     * as code. docs/website/static-pages.html says the same.
      */
     private drawPageHead(content: Element | null): void {
         this.clearPageHead();

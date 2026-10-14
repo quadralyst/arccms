@@ -292,8 +292,8 @@
     <p>When the live site does not have the chosen layout yet, publishing uses the folder's <code>detail.html</code> instead and notes it in the function log, so the page stays online in its standard look. Deploy the website, then publish the page again. The app's preview falls back the same way.</p>
 
     <h3 id="items-from-another-type">Entries of another type</h3>
-    <p>A detail template, or a layout, can show the published entries of any content type, such as the latest events on a programme page. Add <code>data-arc-items-src</code> with the type's slug to a loop container:</p>
-    <pre><code>&lt;section class="programme-events"&gt;
+    <p>A detail template, or a layout, can show the published entries of any content type, such as the latest events on a service page. Add <code>data-arc-items-src</code> with the type's slug to a loop container:</p>
+    <pre><code>&lt;section class="service-events"&gt;
     &lt;h2&gt;Coming up&lt;/h2&gt;
     &lt;ul class="event-cards" data-arc-loop="items" data-arc-items-src="events" data-limit="3"&gt;
         &lt;li&gt;

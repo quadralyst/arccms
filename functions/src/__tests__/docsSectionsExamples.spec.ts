@@ -97,11 +97,11 @@ describe('docs/examples/sections', () => {
         const code = [...page.matchAll(/<pre><code>([\s\S]*?)<\/code><\/pre>/g)].map((m) => m[1]).find((c) => c.includes('class="footer-links"'));
         expect(code).toBeTruthy();
         const partial = code!.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
-        const items = ['kpl', 'bogo', 'shc'].map((id) => cardData({ id, title: id.toUpperCase(), urlSlug: id }, 'programs', 'Programs', 'en', '', true));
+        const items = ['north', 'south', 'east'].map((id) => cardData({ id, title: id.toUpperCase(), urlSlug: id }, 'partners', 'Partners', 'en', '', true));
         let html = TemplateHydrationService.processLoops(partial, { items });
-        html = TemplateHydrationService.hydrateTemplate(html, partialPageData({ slug: 'programs', name: 'Programs' }, 'en', '', '', items.length));
+        html = TemplateHydrationService.hydrateTemplate(html, partialPageData({ slug: 'partners', name: 'Partners' }, 'en', '', '', items.length));
         const $ = loadHtml(html, { xmlMode: false });
         expect($('ul.footer-links > li').length).toBe(3);
-        expect($('ul.footer-links > li > a').map((_, el) => $(el).attr('href')).get()).toEqual(['/programs/kpl', '/programs/bogo', '/programs/shc']);
+        expect($('ul.footer-links > li > a').map((_, el) => $(el).attr('href')).get()).toEqual(['/partners/north', '/partners/south', '/partners/east']);
     });
 });

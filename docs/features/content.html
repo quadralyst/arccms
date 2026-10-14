@@ -217,8 +217,8 @@
     <h3 id="static-pages">Static pages</h3>
     <p>A static page is an HTML file in <code class="new">src/custom/site/pages/</code>, such as <code class="new">src/custom/site/pages/privacy-policy.html</code>, served at <code>/p/privacy-policy</code>. One with the same name as an Arc CMS sample in <code>public/_site/pages/</code> replaces it. It can carry <code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code>, a <code>&lt;title&gt;</code> and meta tags.</p>
     <ul>
-      <li>In the app, <code>/p/{name}</code> fetches <code>/_site/pages/{name}.html</code>, adds the site header and footer, applies the title and meta tags, adds the page's own stylesheets, <code>&lt;style&gt;</code> blocks and font links after the app's styles (taken away when you leave the page), and runs its scripts once the page is drawn.</li>
-      <li>On Hosting, <code>/p/{name}</code> redirects (301) to <code>/pages/{name}</code>.</li>
+      <li>In the app, <code>/p/{name}</code> fetches <code>/_site/pages/{name}.html</code>, adds the site header and footer, applies the title and meta tags, adds the page's own stylesheets, <code>&lt;style&gt;</code> blocks and font links after the app's styles (taken away when you leave the page), and runs its scripts once the page is drawn. That happens in <code>npm run dev</code>, and on the live site when the app's own router opens <code>/p/{name}</code>. The page's scripts run with the app's rights, so a page is only ever the app's own file (see <a href="../website/static-pages.html">Write static pages</a>).</li>
+      <li>On Hosting, a request for <code>/p/{name}</code> (a plain link, a typed address, a reload) redirects (301) to <code>/pages/{name}</code>.</li>
       <li>The seed builds a finished copy, with header, footer and site stylesheets, at <code>/pages/{name}/index.html</code> for every page the site has. The site stylesheets come first in its <code>&lt;head&gt;</code>, so the page's own styles win.</li>
     </ul>
     <p>The walkthrough is <a href="../website/static-pages.html">Write static pages</a>.</p>

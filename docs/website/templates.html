@@ -141,27 +141,27 @@
     <p>The home page can show cards of any type with <code>&lt;arc-content-partials content-type="articles" count="4"&gt;&lt;/arc-content-partials&gt;</code>, laid out by that type's <code>partials.html</code> (its folder's, else the default's), and republished whenever that type's content changes. <code>section-title</code> sets the heading and <code>template-folder</code> borrows another folder's cards; the attributes and defaults are in <a href="../features/templates.html#partials">Partials</a>. See <a href="home-page.html">Build your home page</a>. The site's header and footer can hold card blocks too, which then show on every page, published or drawn by the app; see <a href="editable-sections.html#header-footer">Cards in the header and footer</a>, which also says what keeping every page fresh costs. In a list or detail template, or the body of a static page, the element is removed.</p>
     <pre><code>&lt;!-- src/custom/site/footer.html --&gt;
 &lt;footer class="site-footer"&gt;
-    &lt;arc-content-partials content-type="programs" count="5" section-title="Programs" template-folder="footer-links"&gt;&lt;/arc-content-partials&gt;
+    &lt;arc-content-partials content-type="partners" count="5" section-title="Partners" template-folder="footer-links"&gt;&lt;/arc-content-partials&gt;
 &lt;/footer&gt;</code></pre>
 
     <h2 id="entries-of-another-type">Entries of another type on a detail page</h2>
-    <p>A detail template, or a layout, can show the published entries of another content type, such as a gallery of the latest impact stories on each programme page. Put <code>data-arc-items-src</code> with that type's slug on a loop container. The rows are the type's cards, with the same values as a list page's rows, its custom fields included:</p>
-    <pre><code>&lt;section class="gallery"&gt;
-    &lt;h2&gt;In action&lt;/h2&gt;
-    &lt;ul class="gallery__grid" data-arc-loop="items" data-arc-items-src="impact-stories" data-limit="6"&gt;
+    <p>A detail template, or a layout, can show the published entries of another content type, such as the latest events on each service page. Put <code>data-arc-items-src</code> with that type's slug on a loop container. The rows are the type's cards, with the same values as a list page's rows, its custom fields included:</p>
+    <pre><code>&lt;section class="service-events"&gt;
+    &lt;h2&gt;Events&lt;/h2&gt;
+    &lt;ul class="event-cards" data-arc-loop="items" data-arc-items-src="events" data-limit="3"&gt;
         &lt;li&gt;
             &lt;a href="{{ url }}"&gt;
                 &lt;img src="{{ coverImage_m }}" alt="{{ title }}" loading="lazy"&gt;
-                &lt;span data-arc-bind="title"&gt;Story&lt;/span&gt;
-                &lt;span&gt;{{ place }}&lt;/span&gt;
+                &lt;span data-arc-bind="title"&gt;Event&lt;/span&gt;
+                &lt;span&gt;{{ publishedOn }} · {{ venue }}&lt;/span&gt;
             &lt;/a&gt;
         &lt;/li&gt;
     &lt;/ul&gt;
-    &lt;div class="empty-state"&gt;No stories yet.&lt;/div&gt;
+    &lt;div class="empty-state"&gt;No events yet.&lt;/div&gt;
 &lt;/section&gt;
 &lt;style&gt;
-    .gallery .empty-state { display: none; }
-    .gallery__grid:empty + .empty-state { display: block; }
+    .service-events .empty-state { display: none; }
+    .event-cards:empty + .empty-state { display: block; }
 &lt;/style&gt;</code></pre>
     <ul>
       <li><code>data-limit</code> sets how many, from 1 to 50; without it you get 6. The entries come newest first, or in the type's own order when an editor arranged them.</li>

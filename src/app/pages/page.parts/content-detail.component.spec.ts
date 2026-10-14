@@ -583,14 +583,14 @@ describe('ContentDetailComponent', () => {
     // Entries of another content type (data-arc-items-src), as when published.
     describe('entries of another type', () => {
         const TEMPLATE = `<div class="arc-cms-template"><h1>{{ title }}</h1>
-            <ul class="gallery" data-arc-loop="items" data-arc-items-src="impact-actions" data-limit="2"><li class="a"><a href="{{ url }}">{{ title }}</a></li></ul>
-            <div class="empty-state">No stories yet</div>
+            <ul class="events" data-arc-loop="items" data-arc-items-src="events" data-limit="2"><li class="a"><a href="{{ url }}">{{ title }}</a></li></ul>
+            <div class="empty-state">No events yet</div>
             <ol class="news" data-arc-loop="items" data-arc-items-src="news"><li class="n">{{ title }}</li></ol>
             <ul class="own" data-arc-loop="items" data-arc-items-src="articles" data-limit="9"><li>{{ title }}</li></ul></div>`;
 
         async function draw(): Promise<string> {
             mockHttpClient.get.mockReturnValue(of(TEMPLATE));
-            mockContentsStore.items.set([{ id: 'doc1', title: 'Door', urlSlug: 'my-article', type: 'articles', publishedStatus: true }]);
+            mockContentsStore.items.set([{ id: 'doc1', title: 'Welcome', urlSlug: 'my-article', type: 'articles', publishedStatus: true }]);
             mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', templateFolder: 'custom' }]);
             fixture.detectChanges();
             await fixture.whenStable();
@@ -600,21 +600,21 @@ describe('ContentDetailComponent', () => {
         }
 
         it('reads each loop\'s type at its own limit, for the page\'s language and entry, and draws the rows once they arrive', async () => {
-            mockItemsFromType.rows.mockImplementation(async (loop: { type: string }) => (loop.type === 'impact-actions'
-                ? [{ title: 'Beach', url: '/impact-actions/beach' }, { title: 'School', url: '/impact-actions/school' }]
+            mockItemsFromType.rows.mockImplementation(async (loop: { type: string }) => (loop.type === 'events'
+                ? [{ title: 'Fair', url: '/events/fair' }, { title: 'Talk', url: '/events/talk' }]
                 : loop.type === 'articles' ? [{ title: 'Other article' }] : []));
             const html = await draw();
 
             const page = { lang: 'en', langPrefix: '', translated: false, type: 'articles', id: 'doc1' };
-            expect(mockItemsFromType.rows).toHaveBeenCalledWith(expect.objectContaining({ type: 'impact-actions', limit: 2 }), page);
+            expect(mockItemsFromType.rows).toHaveBeenCalledWith(expect.objectContaining({ type: 'events', limit: 2 }), page);
             expect(mockItemsFromType.rows).toHaveBeenCalledWith(expect.objectContaining({ type: 'news', limit: 6 }), page);
             expect(mockItemsFromType.rows).toHaveBeenCalledWith(expect.objectContaining({ type: 'articles', limit: 9 }), page);
-            expect(html).toContain('<li class="a"><a href="/impact-actions/beach">Beach</a></li><li class="a"><a href="/impact-actions/school">School</a></li>');
+            expect(html).toContain('<li class="a"><a href="/events/fair">Fair</a></li><li class="a"><a href="/events/talk">Talk</a></li>');
             expect(html).toContain('<li>Other article</li>');
             // No rows: the container is emptied, for CSS such as .news:empty + .empty-state.
             expect(html).toContain('<ol class="news"></ol>');
             expect(html).not.toContain('data-arc-items-src');
-            expect(html).toContain('<h1>Door</h1>');
+            expect(html).toContain('<h1>Welcome</h1>');
         });
 
         it('reads each loop once, however often the page is drawn again', async () => {
@@ -627,7 +627,7 @@ describe('ContentDetailComponent', () => {
 
         it('reads nothing for a template without such loops', async () => {
             mockHttpClient.get.mockReturnValue(of('<ul data-arc-loop="items"><li>{{ title }}</li></ul>'));
-            mockContentsStore.items.set([{ id: 'doc1', title: 'Door', urlSlug: 'my-article', type: 'articles', publishedStatus: true }]);
+            mockContentsStore.items.set([{ id: 'doc1', title: 'Welcome', urlSlug: 'my-article', type: 'articles', publishedStatus: true }]);
             mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', templateFolder: 'custom' }]);
             fixture.detectChanges();
             expect(mockItemsFromType.rows).not.toHaveBeenCalled();

@@ -1437,12 +1437,12 @@ describe('Repeat from a number (data-arc-repeat, docs/features/templates.html)',
         const html = '<ul data-arc-loop="items"><li>{{ title }}: <span data-arc-repeat="rating" data-max="5"><i class="full"></i><i class="half"></i></span></li></ul>';
         const looped = TemplateHydrationService.processLoops(html, {
             items: [
-                { title: 'Asha', 'voices-of-impact_rating': 5, contentTypeSlug: 'voices-of-impact' },
-                { title: 'Ravi', 'voices-of-impact_rating': '3.5', contentTypeSlug: 'voices-of-impact' },
+                { title: 'Alex', 'testimonials_rating': 5, contentTypeSlug: 'testimonials' },
+                { title: 'Sam', 'testimonials_rating': '3.5', contentTypeSlug: 'testimonials' },
             ],
         });
         const out = body(TemplateHydrationService.hydrateTemplate(looped, { title: 'Page', rating: 1 }));
-        expect(out).toContain('Asha: <span>' + '<i class="full"></i>'.repeat(5) + '</span>');
-        expect(out).toContain('Ravi: <span>' + '<i class="full"></i>'.repeat(3) + '<i class="half"></i></span>');
+        expect(out).toContain('Alex: <span>' + '<i class="full"></i>'.repeat(5) + '</span>');
+        expect(out).toContain('Sam: <span>' + '<i class="full"></i>'.repeat(3) + '<i class="half"></i></span>');
     });
 });
