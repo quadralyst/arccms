@@ -451,7 +451,7 @@ describe('deployContentPage', () => {
     // --- Powered-by footer ---
 
     describe('Powered-by footer', () => {
-        it('should include "Powered by Arc CMS" when showPoweredBy is true', async () => {
+        it('should include "Built with Arc CMS" when showPoweredBy is true', async () => {
             mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
     // Single-language site by default, so the pre-M3 expectations hold.
     mockGetLocalizationSettings.mockResolvedValue({
@@ -463,17 +463,17 @@ describe('deployContentPage', () => {
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
             const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
-            expect(deployedHtml).toContain('Powered by');
+            expect(deployedHtml).toContain('Built with <a href="https://arccms.com"');
             expect(deployedHtml).toContain('arccms.com');
         });
 
-        it('should NOT include "Powered by Arc CMS" when showPoweredBy is false', async () => {
+        it('should NOT include "Built with Arc CMS" when showPoweredBy is false', async () => {
             mockGetMiscSettings.mockResolvedValue({ showPoweredBy: false });
 
             await generateAndDeployContentDetailPage('articles', 'doc123');
 
             const deployedHtml = mockDeployBatchToHosting.mock.calls[0][1].files[0].content;
-            expect(deployedHtml).not.toContain('Powered by');
+            expect(deployedHtml).not.toContain('arc-powered-by');
             expect(deployedHtml).not.toContain('arccms.com');
         });
     });
@@ -795,6 +795,18 @@ describe('deployContentPage', () => {
             expect(htmlFor('/hi/articles/test-article.html')).toContain('लेख पढ़ें');
             // The default language has no strings file here: the authored English stands.
             expect(htmlFor('/articles/test-article.html')).toContain('Read Article');
+        });
+
+        it('writes the powered-by line in each page\'s language', async () => {
+            mockGetMiscSettings.mockResolvedValue({ showPoweredBy: true });
+            mockGetUiStrings.mockImplementation(async (lang: string) =>
+                lang === 'hi' ? { powered_by: '{link} से बना', powered_by_title: 'हिंदी' } : {});
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            expect(htmlFor('/hi/articles/test-article.html')).toMatch(/title="हिंदी"[^>]*>Arc CMS<\/a> से बना<\/div>/);
+            expect(htmlFor('/articles/test-article.html')).toContain('Built with <a href="https://arccms.com"');
         });
 
         // specs/form-gamification-spec.md G-D4: the default language's strings file

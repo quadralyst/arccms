@@ -19,7 +19,7 @@ import {
     replaceArcComponents,
     extractStylesAndScripts,
     PageMeta,
-    POWERED_BY_HTML,
+    poweredByHtml,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { getSiteManifest, loadSiteTemplate, pageStylesheets } from '../shared/site-files.js';
@@ -144,7 +144,6 @@ export async function generateAndDeployContentListPage(
         url: listUrl('', lang.code, defaultLang, contentTypeSlug),
     }));
 
-    const poweredBy = miscSettings.showPoweredBy ? POWERED_BY_HTML : undefined;
     const languageLabels = Object.fromEntries(
         languages.map(l => [l.code, l.nativeLabel || l.label]),
     );
@@ -242,6 +241,7 @@ export async function generateAndDeployContentListPage(
         const manifest = await getSiteManifest();
         const liveBody = withLiveParts(body, uiStrings, manifest, siteInfo.pages);
         const liveScripts = [scripts, await liveSiteScript(manifest, uiStrings)].filter(Boolean).join('\n');
+        const poweredBy = miscSettings.showPoweredBy ? poweredByHtml(uiStrings) : undefined;
         const fullHtml = buildHtmlDocument(liveBody, meta, '', '', styles, liveScripts, poweredBy);
 
         // Links to the site's files carry their version (shared/site-urls.ts).

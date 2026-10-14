@@ -10,7 +10,7 @@ import { interpolate } from '../shared/interpolate.js';
 import { cardData } from '../shared/content-cards.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
 import { renderJsonLdScripts } from '../shared/structured-data.js';
-import { buildLanguageSwitcher, replaceArcComponents, toOgLocale, POWERED_BY_HTML } from '../shared/html-document.js';
+import { buildLanguageSwitcher, replaceArcComponents, toOgLocale, poweredByHtml } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { publicContentTypeSlugs } from '../shared/public-content-types.js';
@@ -272,7 +272,7 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
 
         // The live parts of a published page: forms, counts, install, setup (W5).
         $('body').append(`\n${arcSiteScript(versionedUrl('/assets/js/arc-site.js', manifest), setup, strings)}`);
-        if (miscSettings.showPoweredBy) $('body').append(`\n${POWERED_BY_HTML}`);
+        if (miscSettings.showPoweredBy) $('body').append(`\n${poweredByHtml(strings)}`);
 
         // Links to the site's files (the page's own CSS, scripts, images) carry their version.
         const out = versionSiteUrls($.html(), manifest?.files);

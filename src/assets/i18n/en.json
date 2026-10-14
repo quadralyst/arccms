@@ -340,12 +340,12 @@
         "media_saved": "Media settings saved successfully",
         "branding": "Branding",
         "branding_hint": "Control branding elements shown on public pages.",
-        "powered_by": "Show \"Powered by Arc CMS\"",
+        "powered_by": "Show \"Built with Arc CMS\"",
         "save_branding": "Save Branding",
         "branding_saved": "Branding saved successfully",
         "media_intro": "Configure constraints for uploaded media images. Images exceeding the max dimensions will be automatically resized before upload.",
         "webp_note": "When enabled, all uploaded images (except GIFs) are automatically converted to WebP format for faster page loads and smaller file sizes.",
-        "powered_by_note": "When enabled, a small \"Powered by Arc CMS\" text is shown at the bottom of all public pages and outgoing emails."
+        "powered_by_note": "When enabled, a small \"Built with Arc CMS\" line is shown at the bottom of all public pages, in each page's language, and of outgoing emails."
       },
       "enable_to_configure": "Enable it to configure your settings.",
       "background_style": "Background Style",

@@ -2,21 +2,67 @@ import type * as cheerio from 'cheerio';
 import { loadHtml } from './lazy-cheerio.js';
 import { renderJsonLdScripts } from './structured-data.js';
 
-/** Canonical branding text used in the powered-by footer (static pages & Angular component). */
-export const POWERED_BY_LABEL = '\u26A1\uFE0F Powered by Arc CMS: an open source CMS for landing pages';
+/**
+ * The "Built with Arc CMS" line at the foot of every published page, while
+ * Settings/misc.showPoweredBy is on. Its words are the page's: the `powered_by`
+ * and `powered_by_title` keys of its strings, `{link}` marking where the
+ * "Arc CMS" link goes.
+ *
+ * Mirror of src/shared/constants/powered-by.ts (the source of truth), which the
+ * app's footer reads; a parity test keeps the two equal.
+ */
+export const POWERED_BY_URL = 'https://arccms.com';
+export const POWERED_BY_NAME = 'Arc CMS';
+
+/** The English, used for any key a page's strings leave out. */
+export const POWERED_BY_DEFAULTS = {
+    powered_by: 'Built with {link} · your site, your code, your data',
+    powered_by_title: 'Arc CMS: the open-source foundation for websites and apps you own',
+} as const;
+
+export interface PoweredByWords {
+    before: string;
+    after: string;
+    title: string;
+}
 
 /**
- * "Powered by Arc CMS" footer HTML — matches the Angular component's styles.
- * Injected into static pages when Settings/misc.showPoweredBy is true.
+ * The line in a page's strings. A translated `powered_by` without `{link}` would
+ * lose the link, so the English stands for it.
  */
-export const POWERED_BY_HTML = `<div style="text-align:center;padding:8px 16px;font-size:0.75rem;color:#6e6e73;background:#f5f5f7;border-top:1px solid #e8e8ed;"><a href="https://arccms.com" target="_blank" rel="dofollow noopener" title="Arc CMS: an open source CMS for landing pages" style="color:#0066cc;text-decoration:none;">${POWERED_BY_LABEL}</a></div>`;
+export function poweredByWords(strings: Record<string, string> = {}): PoweredByWords {
+    const own = typeof strings['powered_by'] === 'string' ? strings['powered_by'].trim() : '';
+    const sentence = own.includes('{link}') ? own : POWERED_BY_DEFAULTS.powered_by;
+    const at = sentence.indexOf('{link}');
+    const title = typeof strings['powered_by_title'] === 'string' && strings['powered_by_title'].trim()
+        ? strings['powered_by_title'].trim()
+        : POWERED_BY_DEFAULTS.powered_by_title;
+    return { before: sentence.slice(0, at), after: sentence.slice(at + '{link}'.length), title };
+}
+
+/** The footer's HTML in a page's language, styled as the app's footer (PoweredByFooterComponent). */
+export function poweredByHtml(strings: Record<string, string> = {}): string {
+    const { before, after, title } = poweredByWords(strings);
+    return '<div class="arc-powered-by" style="text-align:center;padding:8px 16px;font-size:0.75rem;color:#6e6e73;background:#f5f5f7;border-top:1px solid #e8e8ed;">'
+        + escapeHtml(before)
+        + `<a href="${POWERED_BY_URL}" target="_blank" rel="noopener" title="${escapeAttr(title)}" style="color:#0066cc;text-decoration:none;">${POWERED_BY_NAME}</a>`
+        + escapeHtml(after)
+        + '</div>';
+}
 
 /**
- * "Powered by Arc CMS" footer HTML for outgoing emails.
- * Uses table layout with inline styles for maximum email client
- * compatibility (Gmail, Outlook, Apple Mail, Yahoo).
+ * The same line for outgoing emails, in English (emails are not translated), with
+ * table layout and inline styles for email clients (Gmail, Outlook, Apple Mail, Yahoo).
  */
-export const POWERED_BY_EMAIL_HTML = `<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin-top:16px;"><tr><td align="center" style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:16px;color:#6e6e73;border-top:1px solid #e8e8ed;"><a href="https://arccms.com" target="_blank" rel="noopener" style="color:#0066cc;text-decoration:none;">&#9889;&#65039; Powered by Arc CMS</a></td></tr></table>`;
+export const POWERED_BY_EMAIL_HTML = (() => {
+    const { before, after, title } = poweredByWords();
+    return '<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin-top:16px;"><tr>'
+        + '<td align="center" style="padding:12px 16px;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:16px;color:#6e6e73;border-top:1px solid #e8e8ed;">'
+        + escapeHtml(before)
+        + `<a href="${POWERED_BY_URL}" target="_blank" rel="noopener" title="${escapeAttr(title)}" style="color:#0066cc;text-decoration:none;">${POWERED_BY_NAME}</a>`
+        + escapeHtml(after)
+        + '</td></tr></table>';
+})();
 
 /** One language variant of a page, for hreflang annotation. */
 export interface PageAlternate {

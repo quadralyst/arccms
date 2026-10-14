@@ -17,7 +17,7 @@ function rule(selector: string, source = css): string {
 }
 
 describe('the sign-in page fits a phone screen (F19)', () => {
-    it('fills the visible screen, not the room behind the browser bars, less the Powered by badge', () => {
+    it('fills the visible screen, not the room behind the browser bars, less the Built with Arc CMS line', () => {
         const column = rule('.auth-form-column');
         expect(column).toContain('display: flex');
         expect(column).toContain('flex-direction: column');

@@ -2,7 +2,7 @@ import { loadHtml } from '../shared/lazy-cheerio.js';
 import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings } from '../shared/site-settings.js';
 import { siteInfoFor } from '../shared/site-info-source.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
-import { replaceArcComponents, POWERED_BY_HTML } from '../shared/html-document.js';
+import { replaceArcComponents, poweredByHtml } from '../shared/html-document.js';
 import { buildSearchWidget } from '../search/widget.js';
 import { deployFileToHosting, type HostingBatch } from './deployToHosting.js';
 import { arcHostingSite } from '../arc-config.js';
@@ -91,9 +91,9 @@ export async function generateAndDeployStaticPage(
             $('head').append(`<meta name="arc-deployed-at" content="${new Date().toISOString()}">`);
         }
 
-        // 6. Inject "Powered by Arc CMS" footer if enabled
+        // 6. The "Built with Arc CMS" line, in the page's words, if enabled
         if (miscSettings.showPoweredBy) {
-            $('body').append(POWERED_BY_HTML);
+            $('body').append(poweredByHtml(strings));
         }
 
         processedHtml = $.html();
