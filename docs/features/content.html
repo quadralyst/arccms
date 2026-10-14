@@ -148,7 +148,7 @@
       <li><p>On the type's entry list, choose <strong>Arrange</strong> (it shows only for a type in your own order).</p></li>
       <li><p>Drag the entries into place, or use the arrows, and save. Drafts are listed too and keep their place for when they are published.</p></li>
     </ol>
-    <p>Saving republishes the type's list page and, when it shows the type, the home page, in one release. Moving an entry does not mark it <strong>Edited</strong>. A new entry goes after the arranged ones until you arrange it. Above 200 entries the dialog reminds you that the list page shows the first 100.</p>
+    <p>Saving republishes the type's list page and, when it shows the type, the home page, in one release, then the detail pages that show the type's entries (<code>data-arc-items-src</code>) in another. Moving an entry does not mark it <strong>Edited</strong>. A new entry goes after the arranged ones until you arrange it. Above 200 entries the dialog reminds you that the list page shows the first 100.</p>
 
     <h3 id="series">Link entries in a series</h3>
     <p>Parts of a tutorial, chapters or episodes link to each other. Under the custom fields in the editor, <strong>Previous {type}</strong> and <strong>Next {type}</strong> each pick another entry of the same type: type to search by title or meta description, click an entry to pick it, and the cross removes it. Both are saved with the draft, published with the entry, kept in its version history and put back when you restore a version. The detail template shows them through <code>previousContent</code> and <code>nextContent</code> (see <a href="templates.html">Templates</a>).</p>
@@ -191,6 +191,7 @@
       <li><p>The editor saves the draft to <code>arc_{slug}_drafts</code> and writes a queue item (<code>publish</code>, <code>unpublish</code> or <code>delete</code>) to <code>_publish_queue</code>.</p></li>
       <li><p>The <code>processPublishQueue</code> function (<code>functions/src/publishQueue/processPublishQueue.ts</code>) copies the draft to <code>arc_{slug}</code> with <code>publishedOn</code> set to the time of publishing, adds a version to <code>PublishedHistory</code>, copies translations and updates the search index.</p></li>
       <li><p>It renders the detail page in every language the entry has, the Markdown twin, and the type's list page (and the home page when it shows the type), from the type's template (see <a href="templates.html">Templates</a>). With the <code>seo</code> feature on, it also rebuilds the sitemap, feeds, <code>robots.txt</code> and <code>llms.txt</code>.</p></li>
+      <li><p>When a detail template shows this type's entries (<code>data-arc-items-src</code>, see <a href="templates.html#items-from-another-type">Entries of another type</a>), it queues an <code>items-from</code> item, which rebuilds those detail pages afterwards in a release of their own. Arranging the type's entries does the same.</p></li>
       <li><p>All files go out as one Firebase Hosting release, through the Hosting REST API. The result is written to the published entry (<code>deployStatus</code>, <code>deployError</code>), which the editor shows. When the entry's own page cannot be built, the rest of the release (list page, sitemap, feeds) still goes out, and the entry is marked failed with the reason rather than deployed.</p></li>
     </ol>
     <table>
@@ -244,7 +245,7 @@
     <table>
       <thead><tr><th>Cloud Function</th><th>Kind</th><th>Does</th></tr></thead>
       <tbody>
-        <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages, and applies a new entry order</td></tr>
+        <tr><td><code>processPublishQueue</code></td><td>Firestore trigger on <code>_publish_queue</code></td><td>Publishes, updates, unpublishes and deletes entries and their pages, applies a new entry order, and rebuilds the detail pages that show a changed type's entries</td></tr>
         <tr><td><code>onSiteSettingsWritten</code></td><td>Firestore trigger on <code>Settings</code></td><td>Queues a home page republish when <code>about</code>, <code>site</code>, <code>localization</code> or <code>misc</code> changes, or a whole site republish when an <code>about</code> change shows on other pages through <code>data-arc-site</code></td></tr>
         <tr><td><code>onContentTypeDeleted</code></td><td>Firestore trigger on <code>ContentTypes</code></td><td>Deletes the type's draft, published and tag collections, with each entry's translations, version history and deploy logs, and their search entries, unless another type still uses the same slug</td></tr>
         <tr><td><code>seedStaticPages</code></td><td>Callable, also run by the seed script</td><td>Rebuilds every published page, the static pages and the SEO files</td></tr>

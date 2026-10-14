@@ -7,6 +7,7 @@ import { generateAndDeployHomePage, homeShowsType } from '../pages/deployHomePag
 import { generateAndDeployContentDetailPage, removeContentPage } from '../pages/deployContentPage.js';
 import { HostingBatch, deployBatchToHosting } from '../pages/deployToHosting.js';
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
+import { rebuildPagesShowingItemsOf, typesShowingItemsOf } from '../pages/items-from-type-pages.js';
 import { generateAndDeployStaticPage, staticPageSlugs } from '../pages/deployStaticPage.js';
 import { generateAndDeploySitemap } from '../pages/generateSitemap.js';
 import { generateAndDeployRssFeeds } from '../pages/generateRssFeed.js';
@@ -24,7 +25,7 @@ import { isFeatureOn } from '../feature-flags.js';
 import { arcDocument, arcHostingSite } from '../arc-config.js';
 
 interface QueueItem {
-    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home' | 'order';
+    action: 'publish' | 'unpublish' | 'update' | 'delete' | 'redeploy' | 'redeploy-all' | 'home' | 'order' | 'items-from';
     contentTypeSlug: string;
     docId: string;
     timestamp: Timestamp;
@@ -46,6 +47,25 @@ export async function footerSignature(publishedRef: DocumentReference): Promise<
 async function queueRedeployAll(reason: string): Promise<void> {
     console.log(`Republishing the whole site: ${reason}`);
     await db.collection('_publish_queue').add({ action: 'redeploy-all', contentTypeSlug: '', docId: '', timestamp: Timestamp.now() });
+}
+
+/**
+ * Queues a rebuild of the detail pages that show entries of this type
+ * (data-arc-items-src), when any template does, in a queue item of its own so
+ * its release cannot race this one. One waiting rebuild per type is enough: it
+ * reads the entries when it runs, so a second change before then adds nothing.
+ */
+export async function queuePagesShowingItemsOf(slug: string): Promise<void> {
+    try {
+        if (!(await typesShowingItemsOf(slug)).length) return;
+        const waiting = await db.collection('_publish_queue')
+            .where('action', '==', 'items-from').where('contentTypeSlug', '==', slug).limit(1).get();
+        if (!waiting.empty) return;
+        console.log(`Rebuilding the pages that show entries of ${slug}`);
+        await db.collection('_publish_queue').add({ action: 'items-from', contentTypeSlug: slug, docId: '', timestamp: Timestamp.now() });
+    } catch (error) {
+        console.error(`Could not queue the pages that show entries of ${slug}:`, error);
+    }
 }
 
 /**
@@ -302,7 +322,7 @@ export const processPublishQueue = onDocumentCreated({
     // 'redeploy-all' and 'home' are site-wide, so they name no content type and no
     // document; 'order' is about a whole content type, so it names no document.
     const siteWide = action === 'redeploy-all' || action === 'home';
-    const typeWide = action === 'order';
+    const typeWide = action === 'order' || action === 'items-from';
     if (!action || (!siteWide && (!contentTypeSlug || (!typeWide && !docId)))) {
         console.error('Invalid queue item — missing required fields:', queueData);
         if (queueDocRef) await queueDocRef.delete();
@@ -385,6 +405,22 @@ export const processPublishQueue = onDocumentCreated({
             console.error(`Entry order update failed for ${contentTypeSlug}:`, error);
         }
         if (queueDocRef) await queueDocRef.delete();
+        await queuePagesShowingItemsOf(contentTypeSlug);
+        return;
+    }
+
+    // Entries of this type changed: the detail pages that show them
+    // (data-arc-items-src) are built again, in one release. The queue item goes
+    // first, so a change made while this runs queues a rebuild of its own.
+    if (action === 'items-from') {
+        if (queueDocRef) await queueDocRef.delete();
+        try {
+            const pages = await rebuildPagesShowingItemsOf(contentTypeSlug, batch);
+            if (!batch.isEmpty) await deployBatchToHosting(arcHostingSite(), batch, '', '');
+            console.log(`Rebuilt ${pages} page(s) that show entries of ${contentTypeSlug}`);
+        } catch (error) {
+            console.error(`Rebuilding the pages that show entries of ${contentTypeSlug} failed:`, error);
+        }
         return;
     }
 
@@ -652,6 +688,10 @@ export const processPublishQueue = onDocumentCreated({
     if (isStandardPage && (await footerSignature(publishedRef)) !== footerBefore) {
         await queueRedeployAll(`standard page ${docId} changed in the footer`);
     }
+
+    // Detail pages of any type may show this type's entries (data-arc-items-src):
+    // they are rebuilt in a queue item of their own. A redeploy changes no entry.
+    if (action !== 'redeploy') await queuePagesShowingItemsOf(contentTypeSlug);
 
     // Always clean up the queue document
     if (queueDocRef) {

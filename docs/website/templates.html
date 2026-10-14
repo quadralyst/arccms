@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Design templates | Arc CMS docs</title>
   <meta name="description" content="Give each content type its own partials, list and detail layout with plain HTML templates in your site folder, preview them, and put them live.">
-  <meta name="docs:sources" content="public/_site/templates, public/_site/header.html, public/_site/footer.html, public/assets/css/main.css, scripts/arc-site.mjs, src/app/core/site/site.ts, src/app/core/services/template-hydration.service.ts, functions/src/shared/template-hydration.ts, src/app/core/services/template-folder.service.ts, src/shared/utils/template-fragment.ts, src/app/pages/admin/contents/content-types/(view-content-type), src/app/pages/page.parts/content-detail.component.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/page.parts/content-partials.component.ts, functions/src/pages/deployContentPage.ts, functions/src/pages/deployContentListPage.ts, functions/src/shared/html-document.ts, functions/src/shared/site-files.ts, functions/src/shared/site-settings.ts, src/app/core/site/site-styles.ts, src/styles.css">
+  <meta name="docs:sources" content="public/_site/templates, public/_site/header.html, public/_site/footer.html, public/assets/css/main.css, scripts/arc-site.mjs, src/app/core/site/site.ts, src/app/core/services/template-hydration.service.ts, functions/src/shared/template-hydration.ts, src/app/core/services/template-folder.service.ts, src/shared/utils/template-fragment.ts, src/app/pages/admin/contents/content-types/(view-content-type), src/app/pages/page.parts/content-detail.component.ts, src/app/core/utils/items-from-type.ts, src/app/core/services/items-from-type.service.ts, functions/src/shared/items-from-type.ts, functions/src/pages/items-from-type-pages.ts, src/app/pages/page.parts/content-list.component.ts, src/app/pages/page.parts/content-partials.component.ts, functions/src/pages/deployContentPage.ts, functions/src/pages/deployContentListPage.ts, functions/src/shared/html-document.ts, functions/src/shared/site-files.ts, functions/src/shared/site-settings.ts, src/app/core/site/site-styles.ts, src/styles.css">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/templates.html">
@@ -77,7 +77,7 @@
       <tbody>
         <tr><td><code>{{ title }}</code></td><td>Insert a value into text or an attribute, such as <code>href="{{ url }}"</code>. A missing value prints nothing.</td></tr>
         <tr><td><code>data-arc-bind="title"</code></td><td>Replace the element's content with a value; on an <code>&lt;img&gt;</code> it sets the source, on an <code>&lt;a&gt;</code> the link</td></tr>
-        <tr><td><code>data-arc-loop="items"</code></td><td>Repeat the first child once per item (on a list page or in cards), per tag (<code>tags</code>) or per row of a repeating field; <code>data-limit="6"</code> caps it</td></tr>
+        <tr><td><code>data-arc-loop="items"</code></td><td>Repeat the first child once per item (on a list page or in cards), per tag (<code>tags</code>) or per row of a repeating field; <code>data-limit="6"</code> caps it, and <code>data-arc-items-src="events"</code> on a detail page repeats another type's entries (see <a href="#entries-of-another-type">Entries of another type on a detail page</a>)</td></tr>
         <tr><td><code>data-arc-if="coverImage"</code></td><td>Remove the element when the value is empty</td></tr>
         <tr><td><code>data-arc-t="read_more"</code></td><td>Translate fixed text into the page's language (see <a href="languages.html">Publish in more than one language</a>)</td></tr>
       </tbody>
@@ -138,7 +138,35 @@
     <div class="trap"><p>Publishing an item after editing its template locally, but before deploying the website, produces a page with the old template. Deploy the website first. A type whose folder is new, so not on the live site yet, is not published at all: the editor shows "Template folder 'x' is not on the live site. Deploy the website, then publish again." Publishing sees a deploy within a few seconds: the functions keep each live file only until a deploy changes it.</p></div>
 
     <h2>Cards on the home page</h2>
-    <p>The home page can show cards of any type with <code>&lt;arc-content-partials content-type="articles" count="4"&gt;&lt;/arc-content-partials&gt;</code>, laid out by that type's <code>partials.html</code> (its folder's, else the default's), and republished whenever that type's content changes. <code>section-title</code> sets the heading and <code>template-folder</code> borrows another folder's cards; the attributes and defaults are in <a href="../features/templates.html#partials">Partials</a>. See <a href="home-page.html">Build your home page</a>. Content pages and static pages do not render it.</p>
+    <p>The home page can show cards of any type with <code>&lt;arc-content-partials content-type="articles" count="4"&gt;&lt;/arc-content-partials&gt;</code>, laid out by that type's <code>partials.html</code> (its folder's, else the default's), and republished whenever that type's content changes. <code>section-title</code> sets the heading and <code>template-folder</code> borrows another folder's cards; the attributes and defaults are in <a href="../features/templates.html#partials">Partials</a>. See <a href="home-page.html">Build your home page</a>. Content pages and static pages do not render it; a detail page shows another type's entries as below.</p>
+
+    <h2 id="entries-of-another-type">Entries of another type on a detail page</h2>
+    <p>A detail template, or a layout, can show the published entries of another content type, such as a gallery of the latest impact stories on each programme page. Put <code>data-arc-items-src</code> with that type's slug on a loop container. The rows are the type's cards, with the same values as a list page's rows, its custom fields included:</p>
+    <pre><code>&lt;section class="gallery"&gt;
+    &lt;h2&gt;In action&lt;/h2&gt;
+    &lt;ul class="gallery__grid" data-arc-loop="items" data-arc-items-src="impact-stories" data-limit="6"&gt;
+        &lt;li&gt;
+            &lt;a href="{{ url }}"&gt;
+                &lt;img src="{{ coverImage_m }}" alt="{{ title }}" loading="lazy"&gt;
+                &lt;span data-arc-bind="title"&gt;Story&lt;/span&gt;
+                &lt;span&gt;{{ place }}&lt;/span&gt;
+            &lt;/a&gt;
+        &lt;/li&gt;
+    &lt;/ul&gt;
+    &lt;div class="empty-state"&gt;No stories yet.&lt;/div&gt;
+&lt;/section&gt;
+&lt;style&gt;
+    .gallery .empty-state { display: none; }
+    .gallery__grid:empty + .empty-state { display: block; }
+&lt;/style&gt;</code></pre>
+    <ul>
+      <li><code>data-limit</code> sets how many, from 1 to 50; without it you get 6. The entries come newest first, or in the type's own order when an editor arranged them.</li>
+      <li>A page can have several such loops, each from its own type with its own limit. Naming the page's own type shows its other entries, never the page itself.</li>
+      <li>On a translated page each entry shows its translation, and its link stays in that language.</li>
+      <li>With no entries the container is emptied, so the CSS above shows the empty state.</li>
+      <li>The published page has the entries built in. When an entry of the shown type is published, changed, unpublished or deleted, or the type's entries are arranged, the pages whose template shows it are rebuilt a moment later. A type shown on many pages makes each of its changes rebuild all of them, so put the loop in a <a href="../features/templates.html#layouts">layout</a> when only some pages need it.</li>
+    </ul>
+    <p>The full rules are in <a href="../features/templates.html#items-from-another-type">Entries of another type</a>.</p>
 
     <h2>Next</h2>
     <p>Write the front door of your site: <a href="home-page.html">Build your home page</a>.</p>

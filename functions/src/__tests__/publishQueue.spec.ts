@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 const __filename = fileURLToPath(import.meta.url);
@@ -103,6 +103,16 @@ vi.mock('../pages/deployHomePage', () => ({
     // The home page shows no content types unless a test says so.
     homeShowsType: (...args: unknown[]) => mockHomeShowsType(...(args as [])),
     generateAndDeployHomePage: (...args: unknown[]) => mockGenerateHome(...args),
+}));
+
+// No template shows entries of another type (data-arc-items-src) unless a test says so.
+const { mockTypesShowingItemsOf, mockRebuildPagesShowingItemsOf } = vi.hoisted(() => ({
+    mockTypesShowingItemsOf: vi.fn(async (_slug: string): Promise<{ slug: string; templateFolder: string }[]> => []),
+    mockRebuildPagesShowingItemsOf: vi.fn(),
+}));
+vi.mock('../pages/items-from-type-pages', () => ({
+    typesShowingItemsOf: (slug: string) => mockTypesShowingItemsOf(slug),
+    rebuildPagesShowingItemsOf: (...args: unknown[]) => mockRebuildPagesShowingItemsOf(...args),
 }));
 
 vi.mock('../pages/generateRssFeed', () => ({
@@ -455,6 +465,94 @@ describe('processPublishQueue', () => {
             mockGet.mockResolvedValueOnce({ exists: false, data: () => undefined }).mockResolvedValue(published('Post'));
             await handler(createEvent('publish', 'articles', 'p1'));
             expect(redeployQueued()).toBe(false);
+        });
+    });
+
+    // Detail pages that show entries of another type (data-arc-items-src).
+    describe('pages showing entries of the changed type', () => {
+        const queueAdd = vi.fn();
+        let waiting = false;
+        function wire() {
+            const base = mockCollection.getMockImplementation()!;
+            mockCollection.mockImplementation((name: string) => (name === '_publish_queue'
+                ? { add: queueAdd, where: () => ({ where: () => ({ limit: () => ({ get: async () => ({ empty: !waiting }) }) }) }) }
+                : base(name)));
+            queueAdd.mockResolvedValue(undefined);
+        }
+        const queued = () => queueAdd.mock.calls.filter(([item]) => item.action === 'items-from').map(([item]) => item);
+        const live = { exists: true, data: () => ({ title: 'Drive', urlSlug: 'drive', content: '<p>x</p>' }) };
+
+        beforeEach(() => {
+            queueAdd.mockReset();
+            waiting = false;
+            mockTypesShowingItemsOf.mockResolvedValue([{ slug: 'entry-points', templateFolder: 'entry-points' }]);
+            wire();
+        });
+        afterEach(() => {
+            mockTypesShowingItemsOf.mockResolvedValue([]);
+            mockRebuildPagesShowingItemsOf.mockReset();
+        });
+
+        it.each(['publish', 'update', 'unpublish', 'delete'])('queues a rebuild of them after %s, in a queue item of its own', async (action) => {
+            mockGet.mockResolvedValue(live);
+            await handler(createEvent(action, 'impact-actions', 'a1'));
+            expect(mockTypesShowingItemsOf).toHaveBeenCalledWith('impact-actions');
+            expect(queued()).toEqual([expect.objectContaining({ action: 'items-from', contentTypeSlug: 'impact-actions', docId: '' })]);
+            // Not in this item's release.
+            expect(mockRebuildPagesShowingItemsOf).not.toHaveBeenCalled();
+        });
+
+        it('queues one only when a template shows the type, and not a second while one waits', async () => {
+            mockGet.mockResolvedValue(live);
+            mockTypesShowingItemsOf.mockResolvedValueOnce([]);
+            await handler(createEvent('publish', 'articles', 'p1'));
+            expect(queued()).toEqual([]);
+
+            waiting = true;
+            await handler(createEvent('publish', 'impact-actions', 'a1'));
+            expect(queued()).toEqual([]);
+        });
+
+        it('queues none for a redeploy, which changes no entry', async () => {
+            mockGet.mockResolvedValue(live);
+            await handler(createEvent('redeploy', 'impact-actions', 'a1'));
+            expect(queued()).toEqual([]);
+        });
+
+        it('queues one when the type\'s entries are put in a new order', async () => {
+            const base = mockCollection.getMockImplementation()!;
+            mockCollection.mockImplementation((name: string) => (name.startsWith('arc_')
+                ? { get: async () => ({ docs: [] }), doc: mockDoc }
+                : base(name)));
+            await handler(createEvent('order', 'impact-actions', ''));
+            expect(queued()).toEqual([expect.objectContaining({ action: 'items-from', contentTypeSlug: 'impact-actions' })]);
+        });
+
+        it('rebuilds them in one release that stamps no entry, removing its queue item first', async () => {
+            const order: string[] = [];
+            mockRebuildPagesShowingItemsOf.mockImplementation(async (_slug: string, batch: { add(p: string, c: string): void }) => {
+                order.push('rebuild');
+                batch.add('/entry-points/door.html', '<html></html>');
+                return 1;
+            });
+            const event = createEvent('items-from', 'impact-actions', '');
+            event.data.ref.delete.mockImplementation(async () => { order.push('delete'); });
+            await handler(event);
+
+            expect(mockRebuildPagesShowingItemsOf).toHaveBeenCalledWith('impact-actions', expect.anything());
+            expect(order).toEqual(['delete', 'rebuild']);
+            expect(mockDeployBatchToHosting).toHaveBeenCalledTimes(1);
+            expect(mockDeployBatchToHosting.mock.calls[0][2]).toBe('');
+            expect(mockDeployBatchToHosting.mock.calls[0][3]).toBe('');
+            // Rebuilding the pages changes no entry, so it queues nothing further.
+            expect(queued()).toEqual([]);
+            expect(mockGenerateDetailPage).not.toHaveBeenCalled();
+        });
+
+        it('releases nothing when no page shows the type any more', async () => {
+            mockRebuildPagesShowingItemsOf.mockResolvedValue(0);
+            await handler(createEvent('items-from', 'impact-actions', ''));
+            expect(mockDeployBatchToHosting).not.toHaveBeenCalled();
         });
     });
 

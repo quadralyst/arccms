@@ -20,6 +20,7 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
 import { Meta, Title } from '@angular/platform-browser';
 import { DOCUMENT } from '@angular/common';
 import { AuthorProfileService } from '../../core/services/author-profile.service';
+import { ItemsFromTypeService } from '../../core/services/items-from-type.service';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setSiteManifestForTesting } from '../../core/site/site';
@@ -41,6 +42,7 @@ describe('ContentDetailComponent', () => {
     let mockContentTypesStore: any;
     let mockDraftContentsStore: any;
     let mockAuthorProfiles: any;
+    let mockItemsFromType: any;
     let mockAuth: any;
     let mockHttpClient: any;
     let mockTitleService: any;
@@ -95,6 +97,9 @@ describe('ContentDetailComponent', () => {
                     : null),
         };
         
+        // Entries of other types for data-arc-items-src loops: none unless a test says so.
+        mockItemsFromType = { rows: vi.fn().mockResolvedValue([]) };
+
         mockAuth = {
             onAuthStateChanged: vi.fn((callback) => {
                 callback(null); // Default to not logged in
@@ -116,6 +121,7 @@ describe('ContentDetailComponent', () => {
                 { provide: DOCUMENT, useValue: document },
                 { provide: GaTrackingService, useValue: mockGaTrackingService },
                 { provide: AuthorProfileService, useValue: mockAuthorProfiles },
+                { provide: ItemsFromTypeService, useValue: mockItemsFromType },
                 {
                     provide: ActivatedRoute,
                     useValue: {
@@ -571,6 +577,61 @@ describe('ContentDetailComponent', () => {
 
             const html = component.templateHtml();
             expect(html).toContain('href="/blog-posts"');
+        });
+    });
+
+    // Entries of another content type (data-arc-items-src), as when published.
+    describe('entries of another type', () => {
+        const TEMPLATE = `<div class="arc-cms-template"><h1>{{ title }}</h1>
+            <ul class="gallery" data-arc-loop="items" data-arc-items-src="impact-actions" data-limit="2"><li class="a"><a href="{{ url }}">{{ title }}</a></li></ul>
+            <div class="empty-state">No stories yet</div>
+            <ol class="news" data-arc-loop="items" data-arc-items-src="news"><li class="n">{{ title }}</li></ol>
+            <ul class="own" data-arc-loop="items" data-arc-items-src="articles" data-limit="9"><li>{{ title }}</li></ul></div>`;
+
+        async function draw(): Promise<string> {
+            mockHttpClient.get.mockReturnValue(of(TEMPLATE));
+            mockContentsStore.items.set([{ id: 'doc1', title: 'Door', urlSlug: 'my-article', type: 'articles', publishedStatus: true }]);
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', templateFolder: 'custom' }]);
+            fixture.detectChanges();
+            await fixture.whenStable();
+            await new Promise(r => setTimeout(r, 0));
+            fixture.detectChanges();
+            return component.templateHtml();
+        }
+
+        it('reads each loop\'s type at its own limit, for the page\'s language and entry, and draws the rows once they arrive', async () => {
+            mockItemsFromType.rows.mockImplementation(async (loop: { type: string }) => (loop.type === 'impact-actions'
+                ? [{ title: 'Beach', url: '/impact-actions/beach' }, { title: 'School', url: '/impact-actions/school' }]
+                : loop.type === 'articles' ? [{ title: 'Other article' }] : []));
+            const html = await draw();
+
+            const page = { lang: 'en', langPrefix: '', translated: false, type: 'articles', id: 'doc1' };
+            expect(mockItemsFromType.rows).toHaveBeenCalledWith(expect.objectContaining({ type: 'impact-actions', limit: 2 }), page);
+            expect(mockItemsFromType.rows).toHaveBeenCalledWith(expect.objectContaining({ type: 'news', limit: 6 }), page);
+            expect(mockItemsFromType.rows).toHaveBeenCalledWith(expect.objectContaining({ type: 'articles', limit: 9 }), page);
+            expect(html).toContain('<li class="a"><a href="/impact-actions/beach">Beach</a></li><li class="a"><a href="/impact-actions/school">School</a></li>');
+            expect(html).toContain('<li>Other article</li>');
+            // No rows: the container is emptied, for CSS such as .news:empty + .empty-state.
+            expect(html).toContain('<ol class="news"></ol>');
+            expect(html).not.toContain('data-arc-items-src');
+            expect(html).toContain('<h1>Door</h1>');
+        });
+
+        it('reads each loop once, however often the page is drawn again', async () => {
+            await draw();
+            component.related.set([{ title: 'R', url: '/r', snippet: '', badge: '' } as any]);
+            fixture.detectChanges();
+            await new Promise(r => setTimeout(r, 0));
+            expect(mockItemsFromType.rows).toHaveBeenCalledTimes(3);
+        });
+
+        it('reads nothing for a template without such loops', async () => {
+            mockHttpClient.get.mockReturnValue(of('<ul data-arc-loop="items"><li>{{ title }}</li></ul>'));
+            mockContentsStore.items.set([{ id: 'doc1', title: 'Door', urlSlug: 'my-article', type: 'articles', publishedStatus: true }]);
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', templateFolder: 'custom' }]);
+            fixture.detectChanges();
+            expect(mockItemsFromType.rows).not.toHaveBeenCalled();
+            expect(component.templateHtml()).toContain('<ul></ul>');
         });
     });
 
