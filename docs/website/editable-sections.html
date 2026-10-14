@@ -97,13 +97,14 @@
     &lt;arc-content-partials content-type="programs" count="5" template-folder="footer-links"&gt;&lt;/arc-content-partials&gt;
 &lt;/div&gt;</code></pre>
     <p>A footer usually wants a short list rather than the type's big cards, so give the block a folder of its own with <code>template-folder</code>, here <code class="new">src/custom/site/templates/footer-links/partials.html</code>:</p>
-    <pre><code>&lt;ul class="footer-links" data-arc-if="hasItems"&gt;
-    &lt;li data-arc-loop="items"&gt;&lt;a href="{{ url }}"&gt;{{ title }}&lt;/a&gt;&lt;/li&gt;
+    <pre><code>&lt;ul class="footer-links" data-arc-loop="items"&gt;
+    &lt;li&gt;&lt;a href="{{ url }}"&gt;{{ title }}&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;</code></pre>
     <ul>
       <li><strong>Published pages</strong> have the cards in their HTML, filled when the page is published, so they work without JavaScript and search engines see the links. A whole-site republish reads each block once per language, not once per page.</li>
       <li><strong>Keeping every page fresh:</strong> when publishing, editing, unpublishing or deleting an entry changes what a header or footer block shows, in any language, the whole site is published again, in a release of its own after the entry's, as for the standard pages in the footer. An edit to an entry the blocks do not show (one below the <code>count</code>, or a field the template does not print) publishes nothing more. Arranging the type's entries, or changing its entry order, always publishes the whole site again.</li>
       <li><strong>The cost</strong> is one whole-site republish per change the blocks show, about as long as <strong>Republish website</strong>. Use header and footer blocks for types that change now and then, such as programs, services or partners. For a type that changes every day, such as articles, link to its list page instead.</li>
+      <li><strong>Pages the app draws</strong> read each block once per page view: its content type, and its <code>count</code> newest entries (all of them for a type in its own order). The block stays drawn while the page's strings and the site's details arrive, and its reads are its own, so they never hold up or replace the page's.</li>
       <li>A <code>template-folder</code> the live site does not have stops the publish of every page, with the error <a href="templates.html">Design templates</a> describes. Deploy the website before publishing with a new folder.</li>
     </ul>
 

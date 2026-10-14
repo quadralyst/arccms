@@ -67,12 +67,19 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
     private headAdded: Element[] = [];
     /** Counts the pages drawn, so the scripts of a page left stop loading. */
     private drawn = 0;
+    /**
+     * Counts the pages asked for (and the component's end), so a page still
+     * waiting for its strings or site details when it is left, for another /p/
+     * page or another route, is never drawn: its styles and scripts would stay.
+     */
+    private asked = 0;
 
     sanitizedContent: SafeHtml = '';
     hasHeader = false;
     hasFooter = false;
 
     ngOnDestroy(): void {
+        this.asked++;
         this.liveScript?.remove();
         this.clearPageHead();
     }
@@ -81,6 +88,7 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
         this.route.params.pipe(
             map(params => params['fileName']),
             switchMap(fileName => {
+                this.asked++;
                 if (!fileName || fileName.toLowerCase() === 'index') {
                     return of(null);
                 }
@@ -93,7 +101,8 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
 
                 // A page the site does not have would answer with the app shell
                 // (HTTP 200), so only pages in the site's manifest are fetched.
-                if (!siteManifest().pages[cleanFileName]) {
+                // Its own entries only: not `constructor` or `__proto__`.
+                if (!Object.hasOwn(siteManifest().pages, cleanFileName)) {
                     return of(null);
                 }
                 return this.http.get(sitePageUrl(cleanFileName), { responseType: 'text' }).pipe(
@@ -104,6 +113,9 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
                 );
             })
         ).subscribe(async htmlContent => {
+            const asked = this.asked;
+            /** Whether the page was left while its data was read. */
+            const left = () => asked !== this.asked;
             if (htmlContent) {
                 // The site's own details for data-arc-site (SS3), read only when the page asks.
                 // Read only for a page that asks: the site's details (SS3), and the
@@ -111,13 +123,16 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
                 const usesSiteInfo = htmlContent.includes('data-arc-site');
                 const hasForms = htmlContent.includes('data-arc-contact-form') || htmlContent.includes('data-waitlist-form');
                 const pages = usesSiteInfo || hasForms ? await this.sitePages.load() : [];
+                if (left()) return;
                 const about = usesSiteInfo ? await this.siteIdentity.load() : null;
+                if (left()) return;
                 // Static pages are in the default language: its strings file, when the
                 // site has one, words them and their forms' panels, as when published.
                 // Waited for only by a page that uses them; the header and footer follow it either way.
                 const usesStrings = htmlContent.includes('data-arc-t') || hasForms;
                 const loading = this.uiStrings.use('');
                 const strings = usesStrings ? await loading : {};
+                if (left()) return;
                 this.processHtml(applySiteInfoToHtml(TemplateHydrationService.applyStrings(htmlContent, strings), siteInfoOf(about, pages)));
                 this.cdr.detectChanges();
                 if (isPlatformBrowser(this.platformId)) {
@@ -280,8 +295,13 @@ function isStyleLink(link: Element): boolean {
     return rel.includes('preload') && (as === 'style' || as === 'font');
 }
 
-/** A script the browser would run: classic JavaScript or a module, not data such as JSON-LD. */
+/**
+ * A script the browser would run: classic JavaScript or a module, not data such
+ * as JSON-LD, and not a `nomodule` fallback, which a browser with modules skips
+ * (with a src it would never fire load or error, and hold up every script after it).
+ */
 function isRunnableScript(script: HTMLScriptElement): boolean {
+    if (script.hasAttribute('nomodule')) return false;
     const type = (script.getAttribute('type') || '').trim().toLowerCase();
     return !type || type === 'module' || /^(text|application)\/(x-)?(java|ecma)script$/.test(type);
 }

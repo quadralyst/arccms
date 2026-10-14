@@ -178,6 +178,17 @@ describe('PublicPageRendererComponent', () => {
         expect(routerSpy.navigate).toHaveBeenCalledWith(['/404']);
     });
 
+    it('takes only the site\'s own pages from its manifest, not names every object has', () => {
+        for (const fileName of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+            routerSpy.navigate.mockClear();
+            paramsSubject.next({ fileName });
+            createComponent();
+            httpMock.expectNone(`/_site/pages/${fileName}.html`);
+            expect(routerSpy.navigate).toHaveBeenCalledWith(['/404']);
+            fixture.destroy();
+        }
+    });
+
     it('goes to the not-found page without a request for a page the site does not have', () => {
         paramsSubject.next({ fileName: 'no-such-page' });
         createComponent();
@@ -281,6 +292,62 @@ describe('PublicPageRendererComponent', () => {
             lib.dispatchEvent(new Event('load'));
             await new Promise((resolve) => setTimeout(resolve, 0));
             expect(ran()).toEqual([]);
+        });
+
+        it('skips a nomodule script, which a browser with modules never loads, and runs the next', async () => {
+            open(`<html><head><script nomodule src="/site/pages/legacy.js"></script>
+                <script>window.__arcPageRan.push('after legacy');</script></head><body><p>Page</p></body></html>`);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+
+            expect(ran()).toEqual(['after legacy']);
+            expect(document.head.querySelector('script[src="/site/pages/legacy.js"]')).toBeNull();
+        });
+
+        /** A page that waits for the default language's strings file before it is drawn. */
+        const WORDED = `<html><head><style>.worded { color: red; }</style>
+            <script>window.__arcPageRan.push('worded');</script></head>
+            <body><h1 data-arc-t="page_heading">Hello</h1></body></html>`;
+
+        async function openWorded(): Promise<void> {
+            setSiteManifestForTesting({
+                version: 1, home: {}, templates: {}, strings: ['en'], files: {},
+                pages: { 'test-page': 'app', other: 'app' },
+            });
+            mockLocalization.load.mockResolvedValue({ defaultLanguage: 'en' });
+            open(WORDED);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+
+        afterEach(() => mockLocalization.load.mockResolvedValue(undefined));
+
+        it('draws nothing of a page left while its strings were still loading', async () => {
+            await openWorded();
+            const strings = httpMock.expectOne('/_site/strings/en.json');
+
+            fixture.destroy();
+            strings.flush({ page_heading: 'Welcome' });
+            await new Promise((resolve) => setTimeout(resolve, 0));
+
+            expect(added()).toEqual([]);
+            expect(ran()).toEqual([]);
+        });
+
+        it('draws only the page opened next, when the one before was still loading its strings', async () => {
+            await openWorded();
+            const strings = httpMock.expectOne('/_site/strings/en.json');
+
+            paramsSubject.next({ fileName: 'other' });
+            httpMock.expectOne('/_site/pages/other.html')
+                .flush('<html><head><style>.other { color: blue; }</style></head><body><p class="other">Other</p></body></html>');
+            strings.flush({ page_heading: 'Welcome' });
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            fixture.detectChanges();
+
+            expect(added().map((el) => el.textContent)).toEqual(['.other { color: blue; }']);
+            expect(ran()).toEqual([]);
+            const content = (fixture.nativeElement as HTMLElement).querySelector('.public-page-content')!;
+            expect(content.textContent).toContain('Other');
+            expect(content.textContent).not.toContain('Hello');
         });
 
         it('adds and runs nothing when rendered on the server', () => {
