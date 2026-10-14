@@ -77,13 +77,17 @@ export async function generateAndDeployStaticPage(
         prepareLiveParts($, strings, manifest, siteInfo.pages);
         $('body').append(`\n${await liveSiteScript(manifest, strings)}`);
 
-        // Inject site CSS <link> tags into <head>, versioned, the site's site.css last
+        // Site CSS <link> tags, versioned, the site's site.css last. Arc CMS's
+        // stylesheets go first in <head> (after the charset), so the page's own
+        // <style> and <link> tags (after them) win, as on the home page.
         const stylesheets = await pageStylesheets(siteConfig.cssUrls || []);
         if (stylesheets.length > 0) {
             const cssLinks = stylesheets
                 .map(url => `<link rel="stylesheet" href="${url}">`)
                 .join('\n    ');
-            $('head').append(`\n    ${cssLinks}`);
+            $('head').prepend(`\n    ${cssLinks}\n`);
+            const charset = $('meta[charset]');
+            if (charset.length) $('head').prepend(charset.first());
         }
 
         // 5. Add arc-served-by meta tags

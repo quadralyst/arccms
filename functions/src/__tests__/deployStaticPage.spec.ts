@@ -185,6 +185,34 @@ describe('deployStaticPage', () => {
             expect(deployedHtml).toContain('<link rel="stylesheet" href="/assets/css/theme.css">');
         });
 
+        it('links Arc CMS\'s stylesheets before the page\'s own <style> and <link>, so the page\'s rules win', async () => {
+            const page = `<!DOCTYPE html><html lang="en"><head>
+    <title>Launch</title>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="/site/pages/launch.css">
+    <style>.hero { min-height: 80vh; }</style>
+</head><body><arc-header></arc-header><section class="hero">Hi</section><arc-footer></arc-footer></body></html>`;
+            mockFetch.mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve(page) });
+
+            await generateAndDeployStaticPage('launch');
+
+            const deployedHtml: string = mockDeployFileToHosting.mock.calls[0][2];
+            const at = (needle: string) => {
+                const i = deployedHtml.indexOf(needle);
+                expect(i, needle).toBeGreaterThan(-1);
+                return i;
+            };
+            const lastSiteSheet = at('href="/assets/css/site.css"');
+            expect(at('href="/assets/css/main.css"')).toBeLessThan(at('href="/assets/css/theme.css"'));
+            expect(at('href="/assets/css/theme.css"')).toBeLessThan(lastSiteSheet);
+            expect(lastSiteSheet).toBeLessThan(at('href="/site/pages/launch.css"'));
+            expect(lastSiteSheet).toBeLessThan(at('<style>.hero'));
+            // The charset stays the first thing in <head>.
+            expect(at('<meta charset="UTF-8">')).toBeLessThan(at('href="/assets/css/main.css"'));
+            expect(deployedHtml.match(/<meta charset/g)).toHaveLength(1);
+        });
+
         it('should add arc-served-by meta tag', async () => {
             await generateAndDeployStaticPage('privacy-policy');
 

@@ -73,9 +73,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `consumeRateLimit` (app kit) takes an optional fifth argument, `reason`, and its refusal carries `details.reason` and `details.retryAfter` (seconds). Existing calls work unchanged.
 - New member translation keys: `member.auth.server_error.*`, `member.auth.code_already_sent` and `member.auth.code_sent_again`.
 
-### Fixed
-
-- Deleting a field from the middle of a content type's field list, on the add or edit screen, removed the last field from the screen while the form dropped the right one, and later typing went to the deleted field. The screen now removes the field you deleted, and the form counts the deletion as an unsaved change. Deleting a pricing tier on the Products screen had the same fault and is fixed the same way.
+- **A hand-written page's own styles win over the site's, as on the home page.** Publishing a page from `src/custom/site/pages/` now puts Arc CMS's stylesheets (Bootstrap, Font Awesome, `main.css`, your `site.css`) first in its `<head>`, right after `<meta charset>`, and the page's own `<style>` and `<link>` tags after them. Before, they came last, so a rule in `site.css` beat the page's own rule for the same class (a home page `.hero` in `site.css` reshaped a page's own `.hero`). Republish and check any page that relied on the site's rule winning. See docs/website/static-pages.html.
 
 ### Removed
 
@@ -94,9 +92,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- Deleting a field from the middle of a content type's field list, on the add or edit screen, removed the last field from the screen while the form dropped the right one, and later typing went to the deleted field. The screen now removes the field you deleted, and the form counts the deletion as an unsaved change. Deleting a pricing tier on the Products screen had the same fault and is fixed the same way.
 - Picking a Next entry on a new, unsaved entry wrote the placeholder id `temp-id` into the other entry's Previous, a link to nowhere. The link back is now written only after the first save, and an old `temp-id` link is replaced the next time it is set.
 - Removing or changing Next left the old entry's Previous pointing here; it is now cleared. A Previous someone set by hand is no longer overwritten.
 - Saving an entry no longer rewrites every entry whose Next points at it when nothing they show changed, which marked them all Edited.
+- **`npm run dev` shows a hand-written page as it is published.** At `/p/{name}` the app kept only the page's `<body>`, so the page's own stylesheets, `<style>` blocks and fonts were missing and its scripts never ran. The app now adds them after its own styles while the page is open, takes them away when you leave it, and runs the page's scripts once the page is drawn, in the order written, each script with a `src` loaded before the next. See docs/website/static-pages.html.
 
 ### For apps upgrading
 
