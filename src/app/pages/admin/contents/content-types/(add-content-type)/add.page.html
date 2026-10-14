@@ -150,7 +150,7 @@
     <div class="form-section-title">{{ 'admin.contents.types.form.custom_fields' | transloco }}</div>
 
     <div formArrayName="fields">
-      @for(field of fields.controls; track $index; let fieldIndex = $index) {
+      @for(field of fields.controls; track field; let fieldIndex = $index) {
       <div [formGroupName]="fieldIndex" class="field-item card mb-3">
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -218,11 +218,11 @@
                     class="form-check-input"
                     type="checkbox"
                     formControlName="useCollectionRef"
-                    [id]="'useCollectionRef_' + $index"
+                    [id]="'useCollectionRef_' + fieldIndex"
                   />
                   <label
                     class="form-check-label"
-                    [for]="'useCollectionRef_' + $index"
+                    [for]="'useCollectionRef_' + fieldIndex"
                   >
                     {{ 'admin.contents.types.form.use_collection' | transloco }}
                   </label>

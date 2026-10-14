@@ -685,8 +685,10 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         this.fields.push(fieldGroup);
     }
 
+    /** Removing a field is an unsaved change, like editing one. */
     removeField(index: number): void {
         this.fields.removeAt(index);
+        this.editForm.markAsDirty();
     }
 
     /** The stored key of this field: as saved, or as it will be saved for a new one. */

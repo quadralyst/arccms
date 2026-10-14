@@ -127,8 +127,10 @@ export default class AddContentTypeComponent extends BaseComponent {
         this.fields.push(this.createFieldGroup());
     }
 
+    /** Removing a field is an unsaved change, like editing one. */
     removeField(index: number) {
         this.fields.removeAt(index);
+        this.addForm.markAsDirty();
     }
 
     getFieldGroup(index: number): FormGroup {
