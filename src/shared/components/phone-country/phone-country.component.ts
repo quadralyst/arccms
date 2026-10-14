@@ -74,7 +74,8 @@ let nextId = 0;
     `,
     styles: [`
         :host { position: relative; display: inline-flex; align-self: stretch; }
-        .chip { display: inline-flex; align-items: center; gap: 0.35rem; height: 100%; padding: 0 0.6rem; border: 1px solid #ced4da; border-right: 0; border-radius: 0.375rem 0 0 0.375rem; background: #f8f9fa; color: #212529; font-size: 0.95rem; white-space: nowrap; }
+        /* Joined to the number box; on the sign-in page it takes the page's field variables (docs/website/sign-in-page.html). */
+        .chip { display: inline-flex; align-items: center; gap: 0.35rem; height: 100%; padding: 0 0.6rem; border: var(--arc-sign-in-field-border, 1px solid #ced4da); border-right: 0; border-radius: var(--arc-sign-in-field-radius, 0.375rem) 0 0 var(--arc-sign-in-field-radius, 0.375rem); background: var(--arc-sign-in-field-background, #f8f9fa); color: var(--arc-sign-in-field-color, #212529); font-size: 0.95rem; white-space: nowrap; }
         button.chip { cursor: pointer; }
         button.chip:hover { background: #e9ecef; }
         button.chip:focus-visible { outline: 2px solid #86b7fe; outline-offset: -2px; }

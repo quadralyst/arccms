@@ -19,7 +19,7 @@ import { SitePagesService } from '../../../app/core/site/site-pages.service';
         </p>
     `,
     styles: [`
-        .legal-notice { font-size: 0.8rem; color: #6c757d; margin: 0.75rem 0 0; line-height: 1.4; text-align: center; }
+        .legal-notice { font-size: 0.8rem; color: var(--arc-sign-in-muted-color, #6c757d); margin: 0.75rem 0 0; line-height: 1.4; text-align: center; }
         .legal-notice a { color: inherit; text-decoration: underline; }
     `],
 })

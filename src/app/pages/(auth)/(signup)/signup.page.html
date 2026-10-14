@@ -2,8 +2,9 @@
     <div class="container-fluid p-0">
         <div class="row g-0">
 
-            <!-- Shown from the width the brand panel is drawn at (992px, signup.page.scss), so it is never an empty half -->
-            <div class="col-lg-6 d-none d-lg-block m-0 p-0">
+            <!-- Shown from the width the brand panel is drawn at (992px, signup.page.scss), so it is never an empty half;
+                 a site can switch it off (--arc-sign-in-panel: none) and the form column fills the width -->
+            <div class="col-lg-6 auth-panel-column m-0 p-0">
                 <!-- <arc-image [imgName]="'Mask.png'"></arc-image> -->
                 <div class="auth-container">
                     <!-- Left Panel - Gradient Background -->
@@ -18,7 +19,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-lg-6 auth-form-column">
+            <div class="col auth-form-column">
                 <!-- English and the app's member languages; nothing when it declares none -->
                 <arc-member-language-picker class="auth-language"></arc-member-language-picker>
                 @if (opening()) {
@@ -27,13 +28,13 @@
                     <div class="auth-form-container">
                         <div class="auth-logo">
                             @if (brandLogo()) {
-                            <img class="auth-logo-image d-inline-block" [src]="brandLogo()" [alt]="brandName()">
+                            <img class="auth-logo-image" [src]="brandLogo()" [alt]="brandName()">
                             } @else if (brandName()) {
                             <h2 class="auth-logo-text">{{ brandName() }}</h2>
                             }
                         </div>
                     </div>
-                    <span class="spinner-border text-primary" aria-hidden="true"></span>
+                    <span class="spinner-border auth-opening-spinner" aria-hidden="true"></span>
                     <p class="auth-opening-text">{{ 'member.auth.opening' | transloco }}</p>
                 </div>
                 } @else {
@@ -44,7 +45,7 @@
                     <div class="auth-form-container">
                         <div class="auth-logo">
                             @if (brandLogo()) {
-                            <img class="auth-logo-image d-inline-block" [src]="brandLogo()" [alt]="brandName()">
+                            <img class="auth-logo-image" [src]="brandLogo()" [alt]="brandName()">
                             } @else if (brandName()) {
                             <h2 class="auth-logo-text">{{ brandName() }}</h2>
                             }
@@ -130,7 +131,7 @@
                     <div class="request-container request-height">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title login-title text-primary mb-3">{{ 'member.auth.welcome_back_greeting' | transloco }}</h5>
+                                <h5 class="card-title login-title mb-3">{{ 'member.auth.welcome_back_greeting' | transloco }}</h5>
                                 @let loggingIn = parts('member.auth.logging_in_as');
                                 <p class="login-subtitle m-0">
                                     {{ loggingIn[0] }}<strong>{{ email }}</strong>{{ loggingIn[1] }}
@@ -171,7 +172,7 @@
 
                                 <div class="d-flex justify-content-between mt-4">
                                     <a (click)="changeIdentifier()"
-                                        class="change-email cursor text-decoration-none text-dark"
+                                        class="change-email cursor text-decoration-none"
                                         style="cursor: pointer;">
                                         <i class="bi bi-arrow-left"></i>&nbsp;{{ 'member.auth.change_email' | transloco }}
                                     </a>
@@ -209,7 +210,7 @@
                     <div class="request-container request-height">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title login-title text-primary mb-3">{{ 'member.auth.welcome_back_greeting' | transloco }}</h5>
+                                <h5 class="card-title login-title mb-3">{{ 'member.auth.welcome_back_greeting' | transloco }}</h5>
                                 @let signingIn = parts('member.auth.signing_in_as');
                                 <p class="login-subtitle m-0">
                                     {{ signingIn[0] }}<strong>{{ phoneDisplay() }}</strong>{{ signingIn[1] }}
@@ -231,7 +232,7 @@
                                 }
 
                                 <div class="d-flex justify-content-between mt-3">
-                                    <a (click)="changeIdentifier()" class="change-email cursor text-decoration-none text-dark"
+                                    <a (click)="changeIdentifier()" class="change-email cursor text-decoration-none"
                                         style="cursor: pointer;">
                                         <i class="bi bi-arrow-left"></i>&nbsp;{{ 'member.auth.change_number' | transloco }}
                                     </a>
@@ -272,7 +273,7 @@
                     <div class="verification-container request-height">
                         <div class="card verification-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title verification-title text-center text-primary">{{ getStepTitle() }}</h5>
+                                <h5 class="card-title verification-title">{{ getStepTitle() }}</h5>
                                 @let codeSent = parts('member.auth.code_sent_to');
                                 <p class="verification-message">
                                     {{ codeSent[0] }}<br />
@@ -304,18 +305,18 @@
 
                                 <div class="d-flex justify-content-between mt-4">
                                     <a (click)="changeIdentifier()"
-                                        class="change-email cursor text-decoration-none text-dark"
+                                        class="change-email cursor text-decoration-none"
                                         style="cursor: pointer;">
                                         <i class="bi bi-arrow-left"></i>&nbsp;{{ (channel() === 'phone' ? 'member.auth.change_number' : 'member.auth.change_email') | transloco }}
                                     </a>
 
                                     <span id="timer" class="">
                                         @if (resendCountdown() === 0) {
-                                        <a href="javascript:void(0)" class="text-primary mb-0 text-decoration-none"
+                                        <a href="javascript:void(0)" class="auth-link mb-0 text-decoration-none"
                                             (click)="resendOtp()">{{ 'member.auth.resend' | transloco }}</a>
                                         } @else {
                                         @let resendIn = parts('member.auth.resend_in');
-                                        <p class="text-primary mb-0">{{ resendIn[0] }}<span class="counter text-dark">{{
+                                        <p class="auth-link mb-0">{{ resendIn[0] }}<span class="counter">{{
                                                 resendCountdown() }}</span>{{ resendIn[1] }}</p>
                                         }
                                     </span>
@@ -348,7 +349,7 @@
                     <div class="signup-container request-height">
                         <div class="card signup-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title signup-title text-primary">{{ 'member.auth.complete_profile' | transloco }}</h5>
+                                <h5 class="card-title signup-title">{{ 'member.auth.complete_profile' | transloco }}</h5>
                                 @let signingUp = parts('member.auth.signing_up_as');
                                 <p class="signup-subtitle m-0">
                                     {{ signingUp[0] }}<strong>{{ sentTo() }}</strong>{{ signingUp[1] }}
@@ -465,7 +466,7 @@
                     <div class="request-container request-height">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title login-title text-primary mb-3">{{ getStepTitle() }}</h5>
+                                <h5 class="card-title login-title mb-3">{{ getStepTitle() }}</h5>
                                 <p class="login-subtitle">{{ getStepDescription() }}</p>
 
                                 <div class="mt-4">
@@ -507,7 +508,7 @@
                     <div class="request-container request-height">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title login-title text-primary mb-3">{{ getStepTitle() }}</h5>
+                                <h5 class="card-title login-title mb-3">{{ getStepTitle() }}</h5>
                                 <p class="login-subtitle">{{ getStepDescription() }}</p>
 
                                 <div class="mb-3 mt-4">
@@ -554,7 +555,7 @@
                     <div class="auth-form-container">
                         <div class="auth-logo">
                             @if (brandLogo()) {
-                            <img class="auth-logo-image d-inline-block" [src]="brandLogo()" [alt]="brandName()">
+                            <img class="auth-logo-image" [src]="brandLogo()" [alt]="brandName()">
                             } @else if (brandName()) {
                             <h2 class="auth-logo-text">{{ brandName() }}</h2>
                             }
@@ -562,7 +563,7 @@
                     </div>
                     <div class="request-container">
                         <div class="card request-card border-0">
-                            <div class="card-body customPadding text-center">
+                            <div class="card-body customPadding">
                                 <div class="disabled-icon mb-4">
                                     <i class="fa-solid fa-user-lock fa-3x text-muted"></i>
                                 </div>
@@ -570,7 +571,7 @@
                                 <p class="auth-subtitle">{{ 'member.auth.closed_body' | transloco }}</p>
                                 <p class="text-muted">{{ 'member.auth.closed_contact' | transloco }}</p>
                                 @let haveOne = parts('member.auth.closed_have_one');
-                                <p class="text-muted">{{ haveOne[0] }}<a (click)="changeIdentifier()" class="text-primary"
+                                <p class="text-muted">{{ haveOne[0] }}<a (click)="changeIdentifier()" class="auth-link"
                                         role="button">{{ 'member.auth.closed_sign_in_other' | transloco }}</a>{{ haveOne[1] }}</p>
                             </div>
                         </div>
