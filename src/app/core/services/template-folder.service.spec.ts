@@ -8,6 +8,7 @@ import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 import { TemplateFolderService } from './template-folder.service';
 import { SiteManifest, setSiteManifestForTesting, siteManifest } from '../site/site';
+import { coreSiteManifest } from '../../../test/core-site';
 
 const MANIFEST: SiteManifest = {
     version: 1,
@@ -63,8 +64,10 @@ describe('TemplateFolderService', () => {
     });
 
     it('reads the manifest this build serves, with Arc CMS\'s shipped folders in it', () => {
+        expect(Object.keys(coreSiteManifest().templates)).toEqual(expect.arrayContaining(['default', 'articles', 'manuals']));
+        expect(coreSiteManifest().templates['default']).toEqual({ detail: 'core', list: 'core', partials: 'core' });
+        // An app's folders are added and its files replace core's, so every shipped folder stays.
         setSiteManifestForTesting();
-        expect(Object.keys(siteManifest().templates)).toEqual(expect.arrayContaining(['default', 'articles', 'manuals']));
-        expect(siteManifest().templates['default']).toEqual({ detail: 'core', list: 'core', partials: 'core' });
+        expect(Object.keys(siteManifest().templates)).toEqual(expect.arrayContaining(Object.keys(coreSiteManifest().templates)));
     });
 });

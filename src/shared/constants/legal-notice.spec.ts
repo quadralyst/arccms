@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { buildContactNoticeElement, buildLegalNoticeElement, LEGAL_NOTICE, legalNoticeLang, legalNoticeParts, legalNoticeUrls, legalNoticeWithPages } from './legal-notice';
-import { setSiteManifestForTesting, siteManifest } from '../../app/core/site/site';
+import { setSiteManifestForTesting } from '../../app/core/site/site';
+import { coreSiteManifest } from '../../test/core-site';
 
 // Arc CMS on its own: no terms or privacy page of the app's (an app's src/custom/site/ may have them).
 const NO_APP_PAGES = { ...LEGAL_NOTICE, ...legalNoticeUrls(() => false) };
@@ -24,9 +25,9 @@ describe('legal notice', () => {
 
     it('never links Arc CMS\'s own sample policy', () => {
         // Arc CMS ships public/_site/pages/privacy-policy.html; only an app's own page is linked.
-        setSiteManifestForTesting({ ...siteManifest(), pages: { 'privacy-policy': 'core' } });
+        setSiteManifestForTesting({ ...coreSiteManifest(), pages: { 'privacy-policy': 'core' } });
         expect(legalNoticeUrls().privacyUrl).toBe('');
-        setSiteManifestForTesting({ ...siteManifest(), pages: { 'privacy-policy': 'app' } });
+        setSiteManifestForTesting({ ...coreSiteManifest(), pages: { 'privacy-policy': 'app' } });
         expect(legalNoticeUrls().privacyUrl).toBe('/p/privacy-policy');
     });
 

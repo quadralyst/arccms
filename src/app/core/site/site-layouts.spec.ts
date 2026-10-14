@@ -4,10 +4,11 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { layoutLabel, setSiteManifestForTesting, siteLayoutUrl, siteLayouts, siteManifest, type SiteManifest } from './site';
+import { coreSiteManifest } from '../../../test/core-site';
 
 function withSite(extra: Partial<SiteManifest>): void {
-    const built = siteManifest();
-    setSiteManifestForTesting({ ...built, ...extra, templates: { ...built.templates, ...extra.templates } });
+    const core = coreSiteManifest();
+    setSiteManifestForTesting({ ...core, ...extra, templates: { ...core.templates, ...extra.templates } });
 }
 
 describe('site layouts', () => {
@@ -42,6 +43,8 @@ describe('site layouts', () => {
     });
 
     it('ships the Contact layout for the standard pages', () => {
-        expect(siteManifest().layouts?.['info']?.['contact']).toBe('core');
+        expect(coreSiteManifest().layouts?.['info']?.['contact']).toBe('core');
+        // The build serves it, Arc CMS's or the app's own.
+        expect(siteManifest().layouts?.['info']?.['contact']).toBeDefined();
     });
 });

@@ -16,7 +16,8 @@ import { ContentPartialsComponent } from './page.parts/content-partials.componen
 import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service';
 import { LocalizationService } from '../core/services/localization.service';
 import { UiStringsService } from '../core/services/ui-strings.service';
-import { setSiteManifestForTesting, siteManifest } from '../core/site/site';
+import { setSiteManifestForTesting } from '../core/site/site';
+import { coreSiteManifest } from '../../test/core-site';
 import { PublicContentTypesService } from '../core/site/public-content-types';
 
 const HOME = `<!doctype html><html lang="en"><head>
@@ -134,8 +135,8 @@ describe('HomeComponent (home page preview)', () => {
     });
 
     it('shows the language\'s own file when the site has one', async () => {
-        const built = siteManifest();
-        setSiteManifestForTesting({ ...built, home: { default: 'app', hi: 'app' } });
+        const core = coreSiteManifest();
+        setSiteManifestForTesting({ ...core, home: { default: 'app', hi: 'app' } });
         await open('hi');
         expect(http.get).toHaveBeenCalledWith('/_site/home.hi.html', { responseType: 'text' });
     });
