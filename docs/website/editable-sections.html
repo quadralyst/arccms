@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Let editors change your home page | Arc CMS docs</title>
   <meta name="description" content="Turn the hard-coded sections of a mockup (services, a hero, questions and contact details) into content that admins edit, with no page of its own for each item.">
-  <meta name="docs:sources" content="docs/examples/sections, functions/src/pages/deployHomePage.ts, functions/src/shared/content-cards.ts, functions/src/shared/display-order.ts, functions/src/shared/site-info.ts, functions/src/shared/site-info-source.ts, src/app/pages/page.parts/content-partials.component.ts, src/app/pages/admin/contents/entry-order, src/app/pages/admin/contents/content-types, public/_site/footer.html">
+  <meta name="docs:sources" content="docs/examples/sections, functions/src/pages/deployHomePage.ts, functions/src/pages/card-blocks.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/shared/content-cards.ts, functions/src/shared/display-order.ts, functions/src/shared/site-info.ts, functions/src/shared/site-info-source.ts, src/app/pages/page.parts/content-partials.component.ts, src/app/pages/page.parts/site-fragment.ts, src/app/pages/admin/contents/entry-order, src/app/pages/admin/contents/content-types, public/_site/footer.html">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/editable-sections.html">
@@ -26,7 +26,7 @@
     <p>Every file on this page is in <code>docs/examples/sections/</code>. It assumes your home page is already <code class="new">src/custom/site/home.html</code> (see <a href="home-page.html">Build your home page</a>) and that <code>npm run dev</code> is running.</p>
 
     <h2>Why a content type without public pages</h2>
-    <p>A content type normally gives every entry a page of its own, a list page and a sitemap entry. A service card or a hero needs none of those. With <strong>Generate public pages</strong> off, a type's entries are edited, drafted and published like any other, but they show only where you put a card block, <code>&lt;arc-content-partials&gt;</code>, laid out by the type's <code>partials.html</code>. Their cards have no links: <code>{{ url }}</code> and the block's <code>{{ listUrl }}</code> are empty. Publishing one of its entries publishes the home page again, when the home page shows the type.</p>
+    <p>A content type normally gives every entry a page of its own, a list page and a sitemap entry. A service card or a hero needs none of those. With <strong>Generate public pages</strong> off, a type's entries are edited, drafted and published like any other, but they show only where you put a card block, <code>&lt;arc-content-partials&gt;</code>, laid out by the type's <code>partials.html</code>. Their cards have no links: <code>{{ url }}</code> and the block's <code>{{ listUrl }}</code> are empty. Publishing one of its entries publishes the home page again, when the home page shows the type, and every page when the header or footer shows it (see <a href="#header-footer">Cards in the header and footer</a>).</p>
 
     <h2>1. Services</h2>
     <ol class="steps">
@@ -90,6 +90,23 @@
     <p><code>data-arc-site="email"</code> on a link prints the address and makes it a <code>mailto:</code> link; <code>phone</code> makes a <code>tel:</code> link. <code>data-arc-site-if</code> keeps an element, with its icon or label, only when the site has that detail, and <code>contact</code> is true when it has any of them. The social loop repeats its first child per link, with the icon of the site the link points at. The same attributes work in the header, on the home page, in templates and in static pages: the whole list is in <a href="../features/templates.html#site-info">Site info</a>.</p>
     <p>The example footer also keeps the default footer's list of the published standard pages (<code>data-arc-site-loop="pages"</code>) and its copyright line.</p>
 
+    <h2 id="header-footer">Cards in the header and footer</h2>
+    <p>A card block works in <code class="new">src/custom/site/header.html</code> and <code class="new">src/custom/site/footer.html</code> too, so a footer column of programs or a header menu of services is edited in the admin like the home page's sections. It shows on every page: published content and list pages, static and hand-written pages, the home page, and the pages the app draws (sign-in, the form pages, search, the member area), with the same cards and the same escaping as on the home page. Write it with plain attributes, as in <code>home.html</code>:</p>
+    <pre><code>&lt;div class="footer-col"&gt;
+    &lt;h3&gt;Programs&lt;/h3&gt;
+    &lt;arc-content-partials content-type="programs" count="5" template-folder="footer-links"&gt;&lt;/arc-content-partials&gt;
+&lt;/div&gt;</code></pre>
+    <p>A footer usually wants a short list rather than the type's big cards, so give the block a folder of its own with <code>template-folder</code>, here <code class="new">src/custom/site/templates/footer-links/partials.html</code>:</p>
+    <pre><code>&lt;ul class="footer-links" data-arc-if="hasItems"&gt;
+    &lt;li data-arc-loop="items"&gt;&lt;a href="{{ url }}"&gt;{{ title }}&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</code></pre>
+    <ul>
+      <li><strong>Published pages</strong> have the cards in their HTML, filled when the page is published, so they work without JavaScript and search engines see the links. A whole-site republish reads each block once per language, not once per page.</li>
+      <li><strong>Keeping every page fresh:</strong> when publishing, editing, unpublishing or deleting an entry changes what a header or footer block shows, in any language, the whole site is published again, in a release of its own after the entry's, as for the standard pages in the footer. An edit to an entry the blocks do not show (one below the <code>count</code>, or a field the template does not print) publishes nothing more. Arranging the type's entries, or changing its entry order, always publishes the whole site again.</li>
+      <li><strong>The cost</strong> is one whole-site republish per change the blocks show, about as long as <strong>Republish website</strong>. Use header and footer blocks for types that change now and then, such as programs, services or partners. For a type that changes every day, such as articles, link to its list page instead.</li>
+      <li>A <code>template-folder</code> the live site does not have stops the publish of every page, with the error <a href="templates.html">Design templates</a> describes. Deploy the website before publishing with a new folder.</li>
+    </ul>
+
     <h2>5. Put it live</h2>
     <ol class="steps">
       <li><p>Check the home page in <code>npm run dev</code>: the blocks fill from the published entries, and the footer from About.</p></li>
@@ -101,6 +118,7 @@
       <tbody>
         <tr><td>Publishes, edits or unpublishes a service, the hero or a question</td><td>The home page is published again, in every language</td></tr>
         <tr><td>Arranges the services or questions</td><td>The home page is published again in the new order</td></tr>
+        <tr><td>Publishes, edits or arranges an entry that a header or footer card block shows</td><td>Every page is published again, when what the block shows changed</td></tr>
         <tr><td>Changes the phone or a social link in About</td><td>Every page that prints it is published again</td></tr>
         <tr><td>Edits the FAQ page</td><td>That page is published again when they publish it</td></tr>
       </tbody>
@@ -108,7 +126,7 @@
 
     <h2>Limits</h2>
     <ul>
-      <li>Card blocks work on the home page only, not in templates or static pages.</li>
+      <li>Card blocks work on the home page and in the header and footer, not in templates or in the body of a static page.</li>
       <li>A card cannot loop over a repeating field (Info Cards, Gallery, FAQ). Use one entry per item, as the Questions type does.</li>
       <li>The header menu is still plain HTML in <code class="new">src/custom/site/header.html</code>; there is no menu editor yet.</li>
       <li>A block shows at most 50 cards.</li>

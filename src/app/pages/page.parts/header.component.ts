@@ -2,14 +2,16 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { header } from 'virtual:arc-site';
 import { LanguageSwitcherComponent } from './language-switcher.component';
 import { PublicSearchComponent } from './public-search.component';
+import { ContentPartialsComponent } from './content-partials.component';
 import { renderSiteFragment } from './site-fragment';
 import { useSiteStyles } from '../../core/site/site-styles';
 
 /**
  * The site header: the site's own /_site/header.html (src/custom/site/header.html,
  * else Arc CMS's), the same file publishing puts on every static page. Its
- * <arc-search> and <arc-language-switcher> become the real components; the
- * switcher renders nothing on a single-language site.
+ * <arc-search>, <arc-language-switcher> and card blocks (<arc-content-partials>)
+ * become the real components; the switcher renders nothing on a single-language
+ * site, and a card block draws the cards publishing puts there.
  *
  * ngSkipHydration: the HTML is placed by code, not by a compiled template, so a
  * prerendered copy is rendered afresh in the browser rather than hydrated.
@@ -28,6 +30,7 @@ export class HeaderComponent {
         renderSiteFragment(header, {
             'arc-search': PublicSearchComponent,
             'arc-language-switcher': LanguageSwitcherComponent,
+            'arc-content-partials': ContentPartialsComponent,
         });
     }
 }

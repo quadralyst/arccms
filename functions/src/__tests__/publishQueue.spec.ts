@@ -114,6 +114,14 @@ vi.mock('../pages/items-from-type-pages', () => ({
     typesShowingItemsOf: (slug: string) => mockTypesShowingItemsOf(slug),
     rebuildPagesShowingItemsOf: (...args: unknown[]) => mockRebuildPagesShowingItemsOf(...args),
 }));
+const { mockChromeSignature, mockChromeShowsType } = vi.hoisted(() => ({
+    mockChromeSignature: vi.fn(async (_slug: string) => ''), mockChromeShowsType: vi.fn(async (_slug: string) => false),
+}));
+vi.mock('../pages/card-blocks', () => ({
+    // The header and footer show no card blocks unless a test says so.
+    chromeCardsSignature: (slug: string) => mockChromeSignature(slug),
+    chromeShowsType: (slug: string) => mockChromeShowsType(slug),
+}));
 
 vi.mock('../pages/generateRssFeed', () => ({
     generateAndDeployRssFeeds: vi.fn().mockResolvedValue(undefined),
@@ -553,6 +561,61 @@ describe('processPublishQueue', () => {
             mockRebuildPagesShowingItemsOf.mockResolvedValue(0);
             await handler(createEvent('items-from', 'impact-actions', ''));
             expect(mockDeployBatchToHosting).not.toHaveBeenCalled();
+        });
+    });
+
+    // A card block in the header or footer (pages/card-blocks.ts) is on every page.
+    describe('card blocks in the header and footer', () => {
+        const queueAdd = vi.fn();
+        function wire() {
+            buildChain({ hasPublicUrl: false });
+            const base = mockCollection.getMockImplementation()!;
+            mockCollection.mockImplementation((name: string) => (name === '_publish_queue' ? { add: queueAdd } : base(name)));
+            queueAdd.mockResolvedValue(undefined);
+            mockGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Karma League', urlSlug: 'kpl' }) });
+        }
+        const redeploys = () => queueAdd.mock.calls.filter(([item]) => item.action === 'redeploy-all').length;
+
+        beforeEach(() => queueAdd.mockReset());
+        // Back to showing nothing, for the tests after these.
+        afterEach(() => {
+            mockChromeSignature.mockReset().mockResolvedValue('');
+            mockChromeShowsType.mockReset().mockResolvedValue(false);
+        });
+
+        it('republishes the whole site, once and in its own queue item, when what a block shows changes', async () => {
+            wire();
+            mockChromeSignature.mockResolvedValueOnce('en:<li>Old</li>').mockResolvedValue('en:<li>Karma League</li>');
+            await handler(createEvent('publish', 'programs', 'kpl'));
+            expect(mockChromeSignature).toHaveBeenCalledWith('programs');
+            expect(redeploys()).toBe(1);
+        });
+
+        it('leaves the rest of the site alone for a change the blocks do not show', async () => {
+            wire();
+            mockChromeSignature.mockResolvedValue('en:<li>Karma League</li>');
+            await handler(createEvent('update', 'programs', 'kpl'));
+            expect(redeploys()).toBe(0);
+        });
+
+        it('never for a type no header or footer block shows', async () => {
+            wire();
+            mockChromeSignature.mockResolvedValue('');
+            await handler(createEvent('unpublish', 'programs', 'kpl'));
+            expect(redeploys()).toBe(0);
+        });
+
+        it('republishes it when the type\'s entries are put in a new order', async () => {
+            wire();
+            mockChromeShowsType.mockResolvedValue(true);
+            mockCollection.mockImplementation((name: string) => {
+                if (name === '_publish_queue') return { add: queueAdd };
+                if (name === 'ContentTypes') return { where: () => ({ limit: () => ({ get: async () => ({ empty: false, docs: [{ data: () => ({ slug: 'programs', hasPublicUrl: false }) }] }) }) }) };
+                return { get: async () => ({ docs: [] }), doc: mockDoc };
+            });
+            await handler(createEvent('order', 'programs', ''));
+            expect(mockChromeShowsType).toHaveBeenCalledWith('programs');
+            expect(redeploys()).toBe(1);
         });
     });
 

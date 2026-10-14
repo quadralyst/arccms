@@ -23,14 +23,24 @@ import { IContentTranslation, mergeTranslation } from '../admin/contents/draft-c
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { siteTemplateUrl } from '../../core/site/site';
 
+/** `<arc-content-partials>` attributes and the component inputs they set. */
+const CARD_BLOCK_ATTRIBUTES: Record<string, string> = {
+    'content-type': 'contentType',
+    count: 'count',
+    'section-title': 'sectionTitle',
+    'template-folder': 'templateFolder',
+};
+
 /**
  * Content Partials Component
  * Embeddable component that displays content cards from any content type.
  * Can be used to show "Recent Articles", "Featured Posts", etc. in any page.
  * 
+ * In the site's HTML (the home page, the header and the footer) it is written with
+ * plain attributes, which set its inputs when it is mounted (attributeInputs):
+ *
  * @example
- * <arc-content-partials contentType="articles" [count]="4"></arc-content-partials>
- * <arc-content-partials content-type="articles" count="6" section-title="Latest Posts"></arc-content-partials>
+ * <arc-content-partials content-type="articles" count="6" section-title="Latest Posts" template-folder="news"></arc-content-partials>
  */
 @Component({
     selector: 'arc-content-partials',
@@ -63,6 +73,20 @@ import { siteTemplateUrl } from '../../core/site/site';
     encapsulation: ViewEncapsulation.None,
 })
 export class ContentPartialsComponent extends BaseComponent implements OnInit {
+    /**
+     * The inputs a card block's attributes set, for an element in the site's own
+     * HTML that is mounted by code (the home page, renderSiteFragment): `content-type`,
+     * `count` (a number, else 4), `section-title` and `template-folder`.
+     */
+    static attributeInputs(element: Element): Record<string, unknown> {
+        const inputs: Record<string, unknown> = {};
+        for (const [attr, input] of Object.entries(CARD_BLOCK_ATTRIBUTES)) {
+            const value = element.getAttribute(attr);
+            if (value !== null) inputs[input] = input === 'count' ? Number(value) || 4 : value;
+        }
+        return inputs;
+    }
+
     private http = inject(HttpClient);
     private platformId = inject(PLATFORM_ID);
     private transferState = inject(TransferState);
