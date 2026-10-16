@@ -362,23 +362,34 @@ input:focus {
     background-color: var(--arc-sign-in-field-background, #fff);
 }
 
-// A field after a boxed icon has square left corners, joined to the icon. With a
+// A field after a boxed icon has square start corners, joined to the icon. With a
 // radius of its own (--arc-sign-in-field-radius) it is rounded all round, for when
-// the icons are off (--arc-sign-in-field-icons: none); so is the button beside it.
-// Focused or invalid fields take their corners from the rules above.
+// the icons are off (--arc-sign-in-field-icons: none). Focused or invalid fields take
+// their corners from the rules above. The corners are logical (start, end), so they
+// sit on the right sides in a right-to-left language too.
 .input-group > .input-group-text + .form-control:not(:focus):not(.is-invalid) {
-    border-top-left-radius: var(--arc-sign-in-field-radius, 0) !important;
-    border-bottom-left-radius: var(--arc-sign-in-field-radius, 0) !important;
+    border-start-start-radius: var(--arc-sign-in-field-radius, 0) !important;
+    border-end-start-radius: var(--arc-sign-in-field-radius, 0) !important;
 }
 
-.input-group > .form-control:has(+ .btn, + .password-toggle):not(:focus):not(.is-invalid) {
-    border-top-right-radius: var(--arc-sign-in-field-radius, 0) !important;
-    border-bottom-right-radius: var(--arc-sign-in-field-radius, 0) !important;
+// The eye that shows the password (a button beside the field) stands a small gap from
+// the field, and both are rounded all round by the field's radius (--arc-sign-in-field-radius),
+// focused or not, invalid or not. The gap is on the eye's start side, which is beside the
+// field in either direction; it replaces Bootstrap's overlap of the two borders.
+.input-group > .form-control:has(+ .btn) {
+    border-start-end-radius: var(--arc-sign-in-field-radius, 8px) !important;
+    border-end-end-radius: var(--arc-sign-in-field-radius, 8px) !important;
 }
 
 .input-group > .form-control + .btn {
-    border-top-left-radius: var(--arc-sign-in-field-radius, 0) !important;
-    border-bottom-left-radius: var(--arc-sign-in-field-radius, 0) !important;
+    margin-inline: 0.5rem 0 !important;
+    border-radius: var(--arc-sign-in-field-radius, 8px) !important;
+}
+
+// The password inside the field (the sign-up step): its end corners are the field's.
+.input-group > .form-control:has(+ .password-toggle):not(:focus):not(.is-invalid) {
+    border-start-end-radius: var(--arc-sign-in-field-radius, 0) !important;
+    border-end-end-radius: var(--arc-sign-in-field-radius, 0) !important;
 }
 
 // The boxed icons in front of fields (a lock, a person); --arc-sign-in-field-icons: none hides them.

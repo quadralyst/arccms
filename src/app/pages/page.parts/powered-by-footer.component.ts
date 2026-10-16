@@ -6,6 +6,7 @@ import { filter } from 'rxjs/operators';
 import { IMiscSettings, DEFAULT_MISC_SETTINGS } from '../admin/(settings)/misc/misc-settings.model';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { POWERED_BY_NAME, POWERED_BY_URL, poweredByWords } from '../../../shared/constants/powered-by';
+import { lastKnownPoweredBy, rememberPoweredBy } from './powered-by-last-known';
 
 /**
  * Powered By Footer Component
@@ -13,8 +14,11 @@ import { POWERED_BY_NAME, POWERED_BY_URL, poweredByWords } from '../../../shared
  * Displays an unobtrusive "Built with Arc CMS" line at the bottom of all public pages,
  * in the page's language: the `powered_by` and `powered_by_title` keys of the site's
  * strings (src/shared/constants/powered-by.ts). Only "Arc CMS" is a link.
- * The text is always rendered in static HTML (for SSR/crawlers).
- * When the admin disables it in Settings → Misc, hydration hides it client-side.
+ * The text is always rendered in static HTML (for SSR/crawlers), but with the `hidden`
+ * attribute until the setting is known, so a site that turned it off never shows it, not
+ * even for a frame. It is known at once when this browser remembers the last read
+ * (powered-by-last-known.ts), else when Settings → Misc has been read. When the admin
+ * disables it there, the component removes it client-side.
  * Hidden on admin routes.
  *
  * While it shows, its height is on the page as `--arc-powered-by-height`, so a page
@@ -27,7 +31,7 @@ import { POWERED_BY_NAME, POWERED_BY_URL, poweredByWords } from '../../../shared
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         @if (showBadge()) {
-        <div class="arc-powered-by" #badge>
+        <div class="arc-powered-by" #badge [hidden]="!settingsKnown()">
             {{ words().before }}<a [href]="url" target="_blank" rel="noopener" [title]="words().title">{{ name }}</a>{{ words().after }}
         </div>
         }
@@ -67,6 +71,13 @@ export class PoweredByFooterComponent implements OnInit {
     showBadge = signal(true);
     private isAdminRoute = signal(false);
     private settingsLoaded = signal(false);
+    /** What this browser last read; `null` before its first read, and on the server. */
+    private remembered = isPlatformBrowser(this.platformId) ? lastKnownPoweredBy() : null;
+    /**
+     * Whether the line may be seen: the setting has been read, or this browser last saw it on.
+     * A remembered "off" waits for the read, so a stale "on" is the only thing that can flash.
+     */
+    readonly settingsKnown = computed(() => this.settingsLoaded() || this.remembered === true);
     private poweredByEnabled = signal(true);
     private badge = viewChild<ElementRef<HTMLElement>>('badge');
     private destroyRef = inject(DestroyRef);
@@ -127,10 +138,9 @@ export class PoweredByFooterComponent implements OnInit {
         try {
             const docRef = runInInjectionContext(this.injector, () => doc(this.firestore, 'Settings', 'misc'));
             const docSnap = await runInInjectionContext(this.injector, () => getDoc(docRef));
-            if (docSnap.exists()) {
-                const data = docSnap.data() as IMiscSettings;
-                this.poweredByEnabled.set(data.showPoweredBy ?? DEFAULT_MISC_SETTINGS.showPoweredBy ?? true);
-            }
+            const data = docSnap.exists() ? docSnap.data() as IMiscSettings : null;
+            this.poweredByEnabled.set(data?.showPoweredBy ?? DEFAULT_MISC_SETTINGS.showPoweredBy ?? true);
+            rememberPoweredBy(this.poweredByEnabled());
         } catch (error) {
             // On error, keep showing (fail-open)
             console.error('PoweredByFooterComponent: Error loading settings:', error);
