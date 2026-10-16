@@ -70,6 +70,13 @@ describe('MiscSettingsPage', () => {
             expect(component.isSavingBranding()).toBe(false);
             consoleSpy.mockRestore();
         });
+
+        it('remembers the line\'s setting in this browser after saving, so the footer is right at once', async () => {
+            const { readFileSync } = await import('node:fs');
+            const source = readFileSync(`${__dirname}/misc-settings.page.ts`, 'utf8');
+            const save = source.slice(source.indexOf('async saveBranding'), source.indexOf('async saveMediaSettings'));
+            expect(save.indexOf('rememberPoweredBy(this.settings().showPoweredBy ?? true)')).toBeGreaterThan(save.indexOf('setDoc('));
+        });
     });
 
     describe('saveMediaSettings', () => {

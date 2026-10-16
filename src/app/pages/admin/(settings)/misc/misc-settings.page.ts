@@ -14,6 +14,7 @@ import { FormsModule } from '@angular/forms';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
 import { IMiscSettings, DEFAULT_MISC_SETTINGS } from './misc-settings.model';
 import { imageSizeLimits } from '../../../../../shared/utils/image-sizes';
+import { rememberPoweredBy } from '../../../page.parts/powered-by-last-known';
 
 @Component({
   selector: 'arc-misc-settings',
@@ -199,6 +200,7 @@ export class MiscSettingsPage implements OnInit {
     try {
       const docRef = doc(this.firestore, 'Settings', 'misc');
       await setDoc(docRef, { showPoweredBy: this.settings().showPoweredBy }, { merge: true });
+      rememberPoweredBy(this.settings().showPoweredBy ?? true);
       this.brandingSaveMessage.set(this.t('admin.settings.misc.branding_saved'));
       setTimeout(() => this.brandingSaveMessage.set(''), 3000);
     } catch (error) {

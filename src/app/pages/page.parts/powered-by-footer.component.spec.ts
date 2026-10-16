@@ -3,6 +3,7 @@ import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { provideRouter } from '@angular/router';
 import { Firestore } from '@angular/fire/firestore';
+import { getDoc } from '@angular/fire/firestore';
 import { PoweredByFooterComponent } from './powered-by-footer.component';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 
@@ -91,6 +92,91 @@ describe('PoweredByFooterComponent', () => {
             const el = fixture.nativeElement.querySelector('.arc-powered-by');
             expect(el.textContent).toContain('Built with');
             expect(el.querySelector('a').textContent.trim()).toBe('Arc CMS');
+        });
+    });
+
+    describe('not shown before the setting is known', () => {
+        const badge = (f: ComponentFixture<PoweredByFooterComponent>) => f.nativeElement.querySelector('.arc-powered-by') as HTMLElement;
+        let pending: (value: unknown) => void;
+
+        /** A footer whose read of Settings/misc waits until the test answers it. */
+        function freshFooter(): ComponentFixture<PoweredByFooterComponent> {
+            vi.mocked(getDoc).mockReturnValue(new Promise((resolve) => { pending = resolve; }) as any);
+            const f = TestBed.createComponent(PoweredByFooterComponent);
+            f.detectChanges();
+            return f;
+        }
+        const answer = async (f: ComponentFixture<PoweredByFooterComponent>, data: object | null) => {
+            pending({ exists: () => data !== null, data: () => data });
+            await f.whenStable();
+            f.detectChanges();
+        };
+
+        beforeEach(() => {
+            localStorage.clear();
+        });
+
+        it('keeps the line in the page but hidden on a first visit, so a site that turned it off never shows it', async () => {
+            const f = freshFooter();
+            expect(badge(f)).toBeTruthy();
+            expect(badge(f).hidden).toBe(true);
+            await answer(f, { showPoweredBy: false });
+            expect(badge(f)).toBeFalsy();
+        });
+
+        it('shows it once the setting says it is on', async () => {
+            const f = freshFooter();
+            await answer(f, { showPoweredBy: true });
+            expect(badge(f).hidden).toBe(false);
+        });
+
+        it('shows it when the site has never saved the setting (on by default)', async () => {
+            const f = freshFooter();
+            await answer(f, null);
+            expect(badge(f).hidden).toBe(false);
+        });
+
+        it('shows it when the read fails (fail open)', async () => {
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            vi.mocked(getDoc).mockRejectedValue(new Error('offline'));
+            const f = TestBed.createComponent(PoweredByFooterComponent);
+            f.detectChanges();
+            await f.whenStable();
+            f.detectChanges();
+            expect(badge(f).hidden).toBe(false);
+            expect(localStorage.getItem('arc-powered-by')).toBeNull();
+        });
+
+        it('remembers what it read, for the next visit', async () => {
+            const off = freshFooter();
+            await answer(off, { showPoweredBy: false });
+            expect(localStorage.getItem('arc-powered-by')).toBe('0');
+            const on = freshFooter();
+            await answer(on, { showPoweredBy: true });
+            expect(localStorage.getItem('arc-powered-by')).toBe('1');
+        });
+
+        it('shows at once when this browser last saw it on', () => {
+            localStorage.setItem('arc-powered-by', '1');
+            expect(badge(freshFooter()).hidden).toBe(false);
+        });
+
+        it('stays hidden until the read when this browser last saw it off', async () => {
+            localStorage.setItem('arc-powered-by', '0');
+            const f = freshFooter();
+            expect(badge(f).hidden).toBe(true);
+            await answer(f, { showPoweredBy: true });
+            expect(badge(f).hidden).toBe(false);
+        });
+
+        it('works with storage blocked', async () => {
+            vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+            vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+            const f = freshFooter();
+            expect(badge(f).hidden).toBe(true);
+            await answer(f, { showPoweredBy: true });
+            expect(badge(f).hidden).toBe(false);
+            vi.restoreAllMocks();
         });
     });
 

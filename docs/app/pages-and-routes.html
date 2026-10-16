@@ -162,7 +162,7 @@ export const routeMeta: RouteMeta = {
     <p>On such a page collection is off from the moment the route is recognised, before the page shows, and it turns on again on the next tracked page. Nothing is reloaded. What was sent before the person reached the page stays sent, so keep personal details out of the addresses that lead there. See <a href="../features/analytics.html">Analytics</a>.</p>
 
     <h2>Full-screen pages</h2>
-    <p>Around every page, Arc CMS shows the admin's message banner, the powered-by footer, the site usage (cookie) banner, the installed app's update bar and the feedback button. A game, a player, a kiosk or a presentation screen needs the whole screen instead. Say so on its route:</p>
+    <p>Around every page, Arc CMS shows the admin's message banner, the powered-by footer, the site usage (cookie) banner, the installed app's update bar and the feedback button. A game, a player, a kiosk or a presentation screen needs the whole screen instead. Say so on its route: The powered-by footer stays out of sight until the site's setting for it has been read, so a site that turned it off never shows it for a moment; a browser that has read the setting before remembers it (<code>localStorage</code> key <code>arc-powered-by</code>) and shows the line at once.</p>
     <pre><code>{ path: 'play', loadComponent: () =&gt; import('./play/play.component').then((m) =&gt; m.default), data: { fullScreen: true } }</code></pre>
     <p>On that page:</p>
     <table>
