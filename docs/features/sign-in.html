@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sign-in methods | Arc CMS docs</title>
   <meta name="description" content="Let people sign in with an email and password, a phone number and PIN, or Google, and move an email or number between accounts.">
-  <meta name="docs:sources" content="functions/src/auth, functions/src/features/sms.ts, functions/src/users/onUserCreate.ts, functions/src/users/accountCallables.ts, src/app/pages/(auth), src/app/pages/admin/(settings)/user-setting, src/shared/services/global-auth.service.ts, src/shared/utils/identifier.util.ts, src/shared/utils/phone-country.ts, src/shared/components/phone-country, src/shared/data/countries.ts, public/flags, src/custom/home.ts, firestore.rules">
+  <meta name="docs:sources" content="src/app/core/layout/keyboard-viewport.ts, functions/src/auth, functions/src/features/sms.ts, functions/src/users/onUserCreate.ts, functions/src/users/accountCallables.ts, src/app/pages/(auth), src/app/pages/admin/(settings)/user-setting, src/shared/services/global-auth.service.ts, src/shared/utils/identifier.util.ts, src/shared/utils/phone-country.ts, src/shared/components/phone-country, src/shared/data/countries.ts, public/flags, src/custom/home.ts, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/sign-in.html">
@@ -147,6 +147,8 @@ gcloud iam service-accounts add-iam-policy-binding &lt;service-account&gt; --mem
     <ul>
       <li><strong>Busy until the page moves on.</strong> From the tap on Create Account, Sign in, Save PIN, a PIN or Google until the page has moved on, every button stays busy, though the sign-in itself has finished and the person's record is still on its way: nothing can be tapped twice. A failed attempt, or a move a guard refuses, gives the buttons back; so does a record that has not arrived after 20 seconds (<code>LEAVING_LIMIT_MS</code>).</li>
       <li><strong>No email-only words on a first visit.</strong> Until the settings say whether phone sign-in is on, the label above the box, the line under the title and the placeholder keep their room but stay empty, so a site with phone sign-in never shows "Email" first. Settings that cannot be read leave the page asking for an email, as before.</li>
+      <li><strong>Above a phone's keyboard.</strong> While a field is focused on a phone, the page measures the visual viewport (<code>src/app/core/layout/keyboard-viewport.ts</code>), gives itself the keyboard's height as room below it and scrolls the form's submit button to just above the keyboard, so Continue stays in sight (Safari on an iPhone leaves the page its full height, which hides the foot of it).</li>
+      <li><strong>The project line is for developers.</strong> Under the copyright, <code>npm run dev</code> shows which Firebase project and database the page signs in to, so nobody signs in to the wrong install. No built site shows it, including a dev project's deployed site that testers and clients use.</li>
     </ul>
 
     <h3>Google</h3>

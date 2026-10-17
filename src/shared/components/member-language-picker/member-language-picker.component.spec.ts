@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { Component, signal, ViewEncapsulation } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MemberLanguagePickerComponent } from './member-language-picker.component';
@@ -65,5 +67,15 @@ describe('MemberLanguagePickerComponent', () => {
         expect(root.querySelectorAll('[class*="fa-"], i')).toHaveLength(0);
         const styles = [...root.querySelectorAll('style')].map((s) => s.textContent).join('\n');
         expect(styles).toContain('.member-lang-btn');
+    });
+
+    it('opens its menu towards the page, with a side margin of its own so it never touches the screen\'s edge (F26)', () => {
+        const { fixture, el } = render([ENGLISH, GERMAN]);
+        el.querySelector<HTMLButtonElement>('button')!.click();
+        fixture.detectChanges();
+        const panel = document.querySelector('.mat-mdc-menu-panel')!;
+        expect(panel.classList.contains('arc-member-lang-menu')).toBe(true);
+        const global = readFileSync(resolve(__dirname, '../../../styles.css'), 'utf8');
+        expect(global).toMatch(/\.arc-member-lang-menu \{\s*margin-inline: 8px;/);
     });
 });

@@ -71,3 +71,10 @@ describe('the show-password eye beside a field (F25)', () => {
         expect(joined).not.toMatch(/border-(top|bottom)-(left|right)-radius/);
     });
 });
+
+describe('the page above a phone\'s keyboard (F26)', () => {
+    it('takes the keyboard\'s height as room below the column while a field is focused, on a phone', () => {
+        const phone = css.slice(css.indexOf('@media (max-width: 767.98px)'));
+        expect(phone).toMatch(/:host\(\.keyboard-open\) \.auth-form-column \{\s*margin-bottom: var\(--arc-keyboard-height, 0px\);/);
+    });
+});

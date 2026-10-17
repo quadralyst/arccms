@@ -1925,8 +1925,9 @@ export type TranslationKey =
     | 'member.titles.signing_in'
     | 'member.titles.unauthorized'
     | 'member.unauthorized.description'
+    | 'member.unauthorized.go_home'
     | 'member.unauthorized.heading'
-    | 'member.unauthorized.sign_up'
+    | 'member.unauthorized.sign_in'
     | 'user.account.access_restricted'
     | 'user.account.active'
     | 'user.account.available_credits'
@@ -3960,8 +3961,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.titles.signing_in',
     'member.titles.unauthorized',
     'member.unauthorized.description',
+    'member.unauthorized.go_home',
     'member.unauthorized.heading',
-    'member.unauthorized.sign_up',
+    'member.unauthorized.sign_in',
     'user.account.access_restricted',
     'user.account.active',
     'user.account.available_credits',

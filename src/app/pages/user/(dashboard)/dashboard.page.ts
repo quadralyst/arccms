@@ -43,6 +43,10 @@ export const routeMeta: RouteMeta = {
     styles: [`
         .dash { padding: 24px; max-width: 960px; }
         .empty { padding: 24px; text-align: center; }
+        @media (max-width: 768px) {
+            .dash { padding: 12px; }
+            .empty { padding: 16px; }
+        }
     `],
 })
 export default class UserDashboardComponent {
