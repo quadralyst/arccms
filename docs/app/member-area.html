@@ -25,7 +25,7 @@
         <tr><td><code>plans</code></td><td>Plans</td><td><code>/pricing</code></td><td>With the <code>payments</code> feature</td></tr>
       </tbody>
     </table>
-    <p>Below the menu, the Sign out button is always there. The ids are what <code>CUSTOM_NAV_CHANGES</code> names to change the menu (<a href="#change-the-member-menu">Change the member menu</a>); the list is in <code>src/app/core/nav/member-menu.ts</code>.</p>
+    <p>On a phone <code>&lt;arc-page-header&gt;</code> keeps the title and the bell on one line, so put the page's first card right under it. Below the menu, the Sign out button is always there. The ids are what <code>CUSTOM_NAV_CHANGES</code> names to change the menu (<a href="#change-the-member-menu">Change the member menu</a>); the list is in <code>src/app/core/nav/member-menu.ts</code>.</p>
     <p>What members see on these pages is described in <a href="../members/overview.html">What members see</a>. These pages are guarded by <code>memberPagesGuard</code>, which is <code>userGuard</code> plus one rule: an account your app manages (<a href="app-accounts.html#locked">App accounts</a>) sees a read-only profile, and is kept out of these pages altogether when <code>src/custom/app-accounts.ts</code> says so (<a href="app-accounts.html#member-pages">The member pages</a>).</p>
 
     <h2>Show your own dashboard</h2>

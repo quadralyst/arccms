@@ -2243,7 +2243,8 @@
     "unauthorized": {
       "heading": "403 - Forbidden",
       "description": "Access Denied",
-      "sign_up": "Go to Signup"
+      "go_home": "Go to your home page",
+      "sign_in": "Sign in"
     },
     "cookie_banner": {
       "learn_more": "Learn more",

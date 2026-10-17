@@ -116,14 +116,24 @@ import { isOn } from '../../../app/core/features/features';
             padding-left: 0;
             margin-left: 0;
         }
+        /*
+         * A phone: still a row, so the title and the bell share a line. The title takes the
+         * room the actions leave and the actions wrap onto their own line only when they
+         * do not fit beside it (search, several buttons). The header used to stack as a
+         * column, where the title's 280px flex-basis became its HEIGHT: an empty band.
+         */
         @media (max-width: 768px) {
             .arc-page-header {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 0.75rem;
+                align-items: center;
+                gap: 8px 12px;
+                margin-bottom: 16px;
             }
+            .lead { flex: 1 1 8rem; }
+            .titles h1 { font-size: 22px; }
             .actions { justify-content: flex-start; }
             .search-slot { width: 100%; order: -1; }
+            /* With the admin search box shown, the actions keep a line of their own, as they always did. */
+            .actions:has(.search-slot:not(:empty)) { flex: 1 1 100%; }
         }
     `],
 })

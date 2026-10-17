@@ -13,11 +13,13 @@ import { CommonModule, isPlatformBrowser } from '@angular/common';
 import {
   afterNextRender,
   ChangeDetectorRef,
+  DestroyRef,
   Component,
   computed,
   effect,
   ElementRef,
   inject,
+  isDevMode,
   Injector,
   OnInit,
   PLATFORM_ID,
@@ -53,6 +55,7 @@ import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChi
 import { PhoneCountryComponent } from '../../../../shared/components/phone-country/phone-country.component';
 import { readSignInError, SignInService, type CodeReply } from '../sign-in.service';
 import { RESEND_SECONDS, SentCodes } from '../sent-codes';
+import { trackKeyboard } from '../../../core/layout/keyboard-viewport';
 import { environment } from '../../../../environments/environment';
 import { arcConfig } from '../../../core/config/arc-config';
 import { homeFor, safeRedirect } from '../../../core/home/home';
@@ -88,6 +91,11 @@ export const SIGNED_IN_WAIT_MS = 20_000;
  * page to move on, before they work again (a record that never answers).
  */
 export const LEAVING_LIMIT_MS = 20_000;
+
+/** The project line under the footer's copyright, for developers running `npm run dev` only; '' otherwise. */
+export function instanceLabelFor(devServer: boolean, production: boolean, projectId: string, databaseId: string): string {
+  return devServer && !production ? `${projectId} · ${databaseId} database` : '';
+}
 
 @Component({
   selector: 'arc-signup',
@@ -210,17 +218,18 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   /** A reset code while testing, not shown: nothing was sent and the code is only in SMS Logs or Email Logs. */
   testCodeInLogs = signal(false);
   /**
-   * Development builds only: which Firebase project and database this page signs
-   * in to, so nobody signs in to the wrong install by mistake. Empty in production.
+   * For developers only: which Firebase project and database this page signs in to, so
+   * nobody signs in to the wrong install by mistake. Shown while running `npm run dev`;
+   * empty in every build, so a deployed dev site that testers and clients use never shows it.
    */
-  readonly instanceLabel = environment.production
-    ? ''
-    : `${environment.firebaseConfig.projectId} · ${arcConfig.databaseId} database`;
+  readonly instanceLabel = instanceLabelFor(isDevMode(), environment.production, environment.firebaseConfig.projectId, arcConfig.databaseId);
 
   private codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
   private pinBoxes = viewChild<CodeInputComponent>('pinBoxes');
   private nameBox = viewChild<ElementRef<HTMLInputElement>>('nameBox');
   private injector = inject(Injector);
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private destroyRef = inject(DestroyRef);
 
   private countdownInterval: any;
   /** True only when the user actually completed the OTP step (email verification). */
@@ -240,6 +249,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     // In the browser only: a server render may read another database than the browser's.
     if (isPlatformBrowser(this.platformId)) {
       this.siteBrand.load().catch(() => undefined);
+      // The card stays above a phone's keyboard while a field is focused (core/layout/keyboard-viewport.ts).
+      afterNextRender(() => this.destroyRef.onDestroy(trackKeyboard(this.host.nativeElement)), { injector: this.injector });
     }
     this.initForm();
 

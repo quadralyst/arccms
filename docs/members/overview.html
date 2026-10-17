@@ -32,6 +32,10 @@
     </div>
     <p>With payments on, the sidebar also shows the member's credit balance.</p>
     <p>The button at the top of the sidebar collapses it to its icons, each naming itself under the pointer, and opens it again; the browser remembers the choice. It stays in place while the menu scrolls. On a phone the sidebar folds into a bar that stays at the top of the screen: its button opens and closes the menu, and opening a page closes it.</p>
+    <p>On a phone the page header keeps the page's title and the notification bell on one line, and the first card sits right under it: the Dashboard and the Profile have no empty band above their first card. The Profile has one heading, the page header's; its own heading and Back button are not drawn in the member area.</p>
+
+    <h2>When someone has no permission</h2>
+    <p>A member who opens a page for admins sees a short "403 - Forbidden" page in their language, with one button that fits who is looking: a signed-in person goes to their own home (the app's choice in <code>src/custom/home.ts</code>, else the Dashboard), and someone signed out goes to sign in. The plain <code>/403.html</code> that the hosting serves is a separate file (<a href="../website/overview.html">Your website</a>).</p>
 
     <h2>Signing in and signing up</h2>
     <p>People sign in and sign up on the same page, with the methods the site has switched on (see <a href="../features/sign-in.html">Sign-in methods</a>). A sign-in that started from a protected page returns there afterwards. Otherwise each role lands on its home: admins on <code>/admin/dashboard</code>, everyone else on <code>/user/dashboard</code>, unless the app sets another home.</p>

@@ -25,7 +25,8 @@ import { MemberLanguageService } from '../../../app/core/i18n/member-language.se
             <svg class="member-lang-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>
             <span>{{ activeLabel() }}</span>
         </button>
-        <mat-menu #menu="matMenu">
+        <!-- Opens towards the page (xPosition before), and keeps a side margin of its own (src/styles.css) so it never touches the screen's edge -->
+        <mat-menu #menu="matMenu" xPosition="before" class="arc-member-lang-menu">
             @for (language of languages; track language.code) {
             <button mat-menu-item type="button" [attr.lang]="language.code" [class.is-active]="language.code === member.activeLang()" (click)="member.use(language.code)">
                 <span>{{ language.label }}</span>

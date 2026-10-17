@@ -1238,3 +1238,8 @@ arc-content-partials {
     justify-content: flex-end;
   }
 }
+
+/* The sign-in page's language menu (member-language-picker.component.ts) keeps a side margin on a narrow screen, so it never sits flush against the edge. */
+.arc-member-lang-menu {
+    margin-inline: 8px;
+}

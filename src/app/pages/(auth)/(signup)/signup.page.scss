@@ -848,6 +848,14 @@ input:focus {
     .copyright {
         padding: 12px 0 16px;
     }
+
+    // While a field is focused the keyboard hides the foot of the page (Safari leaves the
+    // page its full height), so the page takes the keyboard's height as room below it (a margin: the column is border-box):
+    // the card, Continue under it, can then be scrolled above the keyboard
+    // (core/layout/keyboard-viewport.ts measures the visual viewport and sets the height).
+    :host(.keyboard-open) .auth-form-column {
+        margin-bottom: var(--arc-keyboard-height, 0px);
+    }
 }
 
 // The member language picker, top right of the form column

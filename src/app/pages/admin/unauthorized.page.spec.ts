@@ -1,111 +1,59 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
-import UnauthorizedComponent, { fallbackHtml } from './unauthorized.page';
-import { HttpClient } from '@angular/common/http';
-import { of, throwError } from 'rxjs';
-import { vi, describe, beforeEach, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import UnauthorizedComponent from './unauthorized.page';
+import { AuthState } from '../(auth)/auth.store';
+import { CUSTOM_HOME } from '../../../custom/home';
 
-describe('UnauthorizedComponent — success path', () => {
-    let component: UnauthorizedComponent;
-    let fixture: ComponentFixture<UnauthorizedComponent>;
-    let mockHttp: { get: ReturnType<typeof vi.fn> };
+/** The 403 page as `person` sees it (null: signed out). */
+function render(person: { role?: string } | null) {
+    TestBed.configureTestingModule({
+        imports: [UnauthorizedComponent],
+        providers: [provideRouter([]), { provide: AuthState, useValue: { currentUser: signal(person) } }],
+    });
+    const fixture = TestBed.createComponent(UnauthorizedComponent);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    return { text: root.textContent!, links: [...root.querySelectorAll('a')].map((a) => ({ text: a.textContent!.trim(), href: a.getAttribute('href') })) };
+}
 
-    beforeEach(async () => {
-        mockHttp = {
-            get: vi.fn().mockReturnValue(of('<html><body>403 content</body></html>')),
-        };
-
-        await TestBed.configureTestingModule({
-            imports: [UnauthorizedComponent],
-            providers: [
-                { provide: HttpClient, useValue: mockHttp },
-            ],
-        }).compileComponents();
-
-        fixture = TestBed.createComponent(UnauthorizedComponent);
-        component = fixture.componentInstance;
+describe('the 403 page (F26)', () => {
+    afterEach(() => {
+        for (const key of Object.keys(CUSTOM_HOME)) delete CUSTOM_HOME[key];
     });
 
-    describe('Component Creation', () => {
-        it('should create', () => {
-            expect(component).toBeTruthy();
-        });
-
-        it('should expose pageContent$ as an Observable (not set in ngOnInit)', () => {
-            // Regression: the original implementation set pageContent inside ngOnInit
-            // via a subscribe callback, which caused ExpressionChangedAfterItHasBeenChecked.
-            // pageContent$ must be declared as a class field Observable so the async pipe
-            // can manage the subscription and CD timing correctly.
-            expect(component.pageContent$).toBeDefined();
-            expect(typeof component.pageContent$.subscribe).toBe('function');
-        });
-
-        it('should not have an ngOnInit method', () => {
-            // Verify the component does not use ngOnInit to wire data — that pattern
-            // caused the NG0100 error. All data must flow through the async pipe.
-            expect((component as any).ngOnInit).toBeUndefined();
-        });
+    it('offers a signed-in member their home, not sign-up', () => {
+        const { links, text } = render({ role: 'user' });
+        expect(links).toEqual([{ text: 'Go to your home page', href: '/user/dashboard' }]);
+        expect(text).not.toMatch(/sign\s?up/i);
     });
 
-    describe('Content Rendering', () => {
-        it('should render the 403 HTML from the server into the DOM', () => {
-            fixture.detectChanges();
+    it('offers a signed-in person the home their app set for their role', () => {
+        CUSTOM_HOME['user'] = '/app/today';
+        expect(render({ role: 'user' }).links).toEqual([{ text: 'Go to your home page', href: '/app/today' }]);
+    });
 
-            // The async pipe subscribes on detectChanges and the mock returns
-            // synchronously via of(), so the content is available immediately.
-            const div = fixture.nativeElement.querySelector('div');
-            expect(div).toBeTruthy();
-            expect(div.innerHTML).toContain('403 content');
-        });
+    it('offers someone signed out the way to sign in', () => {
+        expect(render(null).links).toEqual([{ text: 'Sign in', href: '/signup' }]);
+    });
 
-        it('should request /403.html with responseType text', () => {
-            fixture.detectChanges();
-
-            expect(mockHttp.get).toHaveBeenCalledWith('/403.html', { responseType: 'text' });
-        });
-
-        it('should only make one HTTP request (Observable is not re-subscribed on re-render)', () => {
-            fixture.detectChanges();
-            fixture.detectChanges();
-
-            expect(mockHttp.get).toHaveBeenCalledTimes(1);
-        });
+    it('says what happened, in the person\'s language, with no typo', () => {
+        const { text } = render(null);
+        expect(text).toContain('403 - Forbidden');
+        expect(text).toContain('Access Denied');
+        expect(text).not.toContain('Opps');
     });
 });
 
-describe('UnauthorizedComponent — error fallback', () => {
-    // Isolated describe so TestBed starts fresh with the error-throwing HTTP mock.
-    let fixture: ComponentFixture<UnauthorizedComponent>;
+describe('public/403.html, the plain page the hosting serves', () => {
+    const html = readFileSync(resolve(__dirname, '../../../../public/403.html'), 'utf8');
 
-    beforeEach(async () => {
-        const mockHttp = {
-            get: vi.fn().mockReturnValue(throwError(() => new Error('404 Not Found'))),
-        };
-
-        await TestBed.configureTestingModule({
-            imports: [UnauthorizedComponent],
-            providers: [{ provide: HttpClient, useValue: mockHttp }],
-        }).compileComponents();
-
-        fixture = TestBed.createComponent(UnauthorizedComponent);
-    });
-
-    it('should not throw when the HTTP request fails', () => {
-        expect(() => fixture.detectChanges()).not.toThrow();
-    });
-
-    it('should render a fallback 403 message when /403.html cannot be loaded', () => {
-        fixture.detectChanges();
-
-        const div = fixture.nativeElement.querySelector('div');
-        expect(div).toBeTruthy();
-        // The fallback contains a 403 heading and a link back to signup
-        expect(div.innerHTML).toContain('403');
-        expect(div.innerHTML).toContain('signup');
-    });
-
-    it('says it in the person\'s language', () => {
-        fixture.detectChanges();
-        expect(fixture.nativeElement.textContent).toContain('Access Denied');
-        expect(fallbackHtml((key) => key)).toContain('>member.unauthorized.sign_up</a>');
+    it('has no typo, and keeps a side margin so its button never touches a phone\'s edges', () => {
+        expect(html).toContain('Oops!');
+        expect(html).not.toContain('Opps');
+        expect(html).toMatch(/class="text-center px-3"/);
     });
 });

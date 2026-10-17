@@ -2235,7 +2235,8 @@
     "unauthorized": {
       "heading": "403 - वर्जित",
       "description": "पहुँच अस्वीकृत",
-      "sign_up": "साइन अप पर जाएँ"
+      "go_home": "अपने होम पेज पर जाएँ",
+      "sign_in": "साइन इन करें"
     },
     "cookie_banner": {
       "learn_more": "और जानें",
