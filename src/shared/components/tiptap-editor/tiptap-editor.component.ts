@@ -56,6 +56,9 @@ import { filterEmailTags, insertTagMention } from '../../constants/email-tags';
 import { SiteLook, SiteLookService } from '../../../app/core/site/site-look.service';
 import { buildLookWrappers } from '../../../app/core/site/site-look-view';
 
+/** ngx-tiptap's default plugin key for `<tiptap-bubble-menu>`. */
+const BUBBLE_MENU_KEY = 'NgxTiptapBubbleMenu';
+
 /** Two looks that would build the same editor. */
 function sameLook(a: SiteLook | null, b: SiteLook | null): boolean {
   if (!a || !b) return a === b;
@@ -576,6 +579,7 @@ export default class TiptapEditorComponent {
     this.shownLook = look;
     if (!look) {
       this.setEditorClasses([]);
+      this.placeBubbleMenu(null);
       return;
     }
 
@@ -587,6 +591,10 @@ export default class TiptapEditorComponent {
     host.classList.add(...this.lookHostClasses);
     this.lookRoot = root;
     this.setEditorClasses(look.chain.body.classes.length ? look.chain.body.classes : ['arc-site-look-body']);
+    // TipTap puts the selection menu beside the editable element, which is now
+    // inside the look, where it would take the site's fonts and styles: keep it
+    // outside, in the editor's own wrapper.
+    this.placeBubbleMenu(root.parentElement);
     // The inline indent from applyMarginLeft would beat the site's own spacing.
     for (const element of [this.editor.view.dom, ...Array.from(this.editor.view.dom.querySelectorAll<HTMLElement>('*'))]) {
       (element as HTMLElement).style.removeProperty('margin-left');
@@ -605,6 +613,16 @@ export default class TiptapEditorComponent {
     this.lookHostClasses = [];
     this.releaseLook?.();
     this.releaseLook = null;
+  }
+
+  /**
+   * Where the selection menu (ngx-tiptap's bubble menu, plugin key
+   * `NgxTiptapBubbleMenu`) is put when it shows; null puts it back beside the
+   * editable element, TipTap's own choice.
+   */
+  private placeBubbleMenu(home: HTMLElement | null): void {
+    if (this.editor.isDestroyed || !this.editor.state || !this.editor.view?.dispatch) return;
+    this.editor.view.dispatch(this.editor.state.tr.setMeta(BUBBLE_MENU_KEY, { type: 'updateOptions', options: { appendTo: () => home } }));
   }
 
   private setEditorClasses(lookClasses: string[]): void {

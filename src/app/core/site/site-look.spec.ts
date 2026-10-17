@@ -209,6 +209,11 @@ describe('scopeCss', () => {
         expect(out).not.toMatch(/margin|padding|overflow/);
     });
 
+    it('keeps text properties that only start like frame ones', () => {
+        const out = blocks('body { overflow-wrap: break-word; overflow-x: hidden; margin-inline: auto; transform-origin: top; text-indent: 1em; border-width: 1px; line-height: 1.6 }');
+        expect(out).toContain(':scope { overflow-wrap: break-word; text-indent: 1em; border-width: 1px; line-height: 1.6 }');
+    });
+
     it('keeps a root rule with nested rules whole', () => {
         expect(blocks('body { margin: 0; & .x { color: red } }')).toContain(':scope { margin: 0; & .x { color: red } }');
     });

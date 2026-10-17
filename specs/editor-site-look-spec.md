@@ -292,3 +292,17 @@ What it gives: the rest of the content editor follows.
   layer with a field given the body's look in memory, on 121 (the same table cell 2px).
   The dev project has no type with a rich text field and no shipped template places one
   outside a loop, so a field's own box was checked by the unit tests only.
+
+**Review of the whole feature (2026-10-17, asked for before merging):**
+- The editor's selection menu (ngx-tiptap's bubble menu) is put by TipTap beside the
+  editable element, which is inside the look: it took the site's font, and a site rule on
+  `button` or `div` could restyle it. The editor now tells it (TipTap's `updateOptions`
+  meta, `appendTo`) to show in the editor's own wrapper, outside the look. The `/`, emoji
+  and mention menus already go to `document.body`.
+- A browser without `@scope` would drop every rule of the look and leave the editor with
+  neither the site's styles nor its own: the service now gives no look there
+  (`supportsScope`).
+- The page-frame filter dropped `overflow-wrap` with `overflow`; it now drops only the
+  frame properties themselves.
+- The docs said every rule stays inside the editor; fonts, `@property` and `@layer` order
+  are page-wide, and say so now.

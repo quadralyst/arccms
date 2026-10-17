@@ -39,6 +39,11 @@ export interface SiteLookRequest {
     lang: string;
 }
 
+/** Whether the browser keeps `@scope` rules (Chrome 118, Safari 17.4, Firefox 146 and later). */
+export function supportsScope(): boolean {
+    return typeof globalThis !== 'undefined' && 'CSSScopeRule' in globalThis;
+}
+
 /** Elements inside the look's root that the site CSS must not reach: the editor's own controls. */
 export const SITE_LOOK_LIMIT = '.arc-editor-ui';
 
@@ -80,7 +85,9 @@ export class SiteLookService {
 
     /** The look for one field of an entry, or null when the template does not place it or cannot be loaded (ES-D12). */
     async forField(request: SiteLookRequest): Promise<SiteLook | null> {
-        if (!this.isBrowser) return null;
+        // Without @scope the browser would drop every rule of the look, leaving
+        // the editor with neither the site's styles nor its own.
+        if (!this.isBrowser || !supportsScope()) return null;
         try {
             const template = await this.template(request.folder, request.layout);
             if (!template) return null;

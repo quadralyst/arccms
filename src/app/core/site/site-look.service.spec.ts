@@ -51,10 +51,13 @@ describe('SiteLookService', () => {
         http = {
             get: vi.fn((url: string) => (url in files ? of(files[url]) : throwError(() => new Error(`404 ${url}`)))),
         };
+        // jsdom has no @scope; the browsers the look is for do.
+        (globalThis as Record<string, unknown>)['CSSScopeRule'] = class {};
         setUp();
     });
 
     afterEach(() => {
+        delete (globalThis as Record<string, unknown>)['CSSScopeRule'];
         setSiteManifestForTesting();
         document.querySelectorAll('style[data-arc-site-look]').forEach((style) => style.remove());
     });
@@ -86,6 +89,12 @@ describe('SiteLookService', () => {
         expect((await service.forField(request({ key: 'notes-summary' })))?.chain.body.classes).toEqual(['full']);
         // A field stored as notes-content is not the body.
         expect(await service.forField(request({ key: 'notes-content' }))).toBeNull();
+    });
+
+    it('gives null in a browser without @scope, so the editor keeps its own look', async () => {
+        delete (globalThis as Record<string, unknown>)['CSSScopeRule'];
+        expect(await service.forField(request())).toBeNull();
+        expect(http.get).not.toHaveBeenCalled();
     });
 
     it('gives null for a field the template does not place', async () => {

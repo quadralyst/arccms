@@ -269,7 +269,7 @@ function cssRule(prelude: string, block: string): string {
 }
 
 /** Properties that size or place the page itself, dropped from rules that land on the look's root. */
-const PAGE_FRAME = /^(margin|padding|height|min-height|max-height|width|min-width|max-width|overflow|overflow-x|overflow-y|position|top|right|bottom|left|inset|display|float|transform|zoom)(-|$)/i;
+const PAGE_FRAME = /^((margin|padding|inset|transform)(-[\w-]+)?|(min-|max-)?(height|width)|overflow(-x|-y|-block|-inline)?|position|top|right|bottom|left|display|float|zoom)$/i;
 
 /**
  * A root rule's declarations without the page frame: `body { margin: 0;

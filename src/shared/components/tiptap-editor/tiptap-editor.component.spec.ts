@@ -78,7 +78,8 @@ vi.mock('@tiptap/core', () => {
                 options: {
                     element: { style: {} }
                 },
-                view: { dom: document.createElement('div') },
+                view: { dom: document.createElement('div'), dispatch: vi.fn() },
+                state: { tr: { setMeta: vi.fn(function (this: unknown, key: string, value: unknown) { return { key, value }; }) } },
                 setOptions: vi.fn()
             };
         }),
@@ -194,6 +195,19 @@ describe('TiptapEditorComponent', () => {
             show(LOOK);
             expect((root()!.firstElementChild as HTMLElement).id).toBe('');
             taken.remove();
+        });
+
+        it('keeps the selection menu outside the look, and gives TipTap its own choice back without one', () => {
+            show(LOOK);
+            const placed = (component.editor.view.dispatch as any).mock.calls.at(-1)[0];
+            expect(placed.key).toBe('NgxTiptapBubbleMenu');
+            expect(placed.value.type).toBe('updateOptions');
+            expect(placed.value.options.appendTo()).toBe(root()!.parentElement);
+            expect(root()!.contains(placed.value.options.appendTo())).toBe(false);
+
+            show(null);
+            const back = (component.editor.view.dispatch as any).mock.calls.at(-1)[0];
+            expect(back.value.options.appendTo()).toBeNull();
         });
 
         it('clears the indent applyMarginLeft puts on the editor\'s elements', () => {
