@@ -32,8 +32,9 @@ as a cleanup.
 | ES-D2 | Keeping the CSS inside the editor | **Every style rule is wrapped in `@scope (.arc-site-look) to (.arc-editor-ui)`**, so it styles only the editor's body and never the admin around it. This is the same reason `SiteStylesService` keeps the site sheets off in the admin today (they share class names such as `.navbar`). The `to (.arc-editor-ui)` limit keeps the site CSS off editor controls that sit inside the body (ES-D9). |
 | ES-D3 | Finding where the body sits in the template | **By its binding, not its class.** The element with `[innerHTML]="content"` (`.article-content` in articles and default, `.arc-page-body` in info, `.docs-content` in manuals, anything in an app's own template) and its ancestors up to the template's root are rebuilt around the editor as empty elements with the same tag, `class` and `id`. Only layout tags keep their tag (`div`, `article`, `section`, `main`, `aside`, `header`, `footer`, `figure`, `span`, `nav`); any other, including links, buttons, forms and custom elements such as `<arc-header>`, becomes a `div`, so nothing interactive or Angular-rendered is created in the admin. Interpolated attributes, `data-arc-*`, `[...]` bindings and `arc-skeleton` are dropped. The ProseMirror element itself takes the bound element's classes. |
 | ES-D4 | Rules that name the page itself | **`html`, `body` and `:root` at the start of a selector become `:scope`** (the look's root), so `body { font-family }`, `:root { --brand: ... }` and `body > footer` work as on the page. Inside `:is()`, `:where()` and `:not()` they are left alone. |
-| ES-D5 | Rules that cannot sit inside `@scope` | **`@import`, `@font-face`, `@keyframes`, `@property`, `@counter-style` and `@font-feature-values` are moved out**, unchanged, ahead of the scoped rules (`@import` first, as CSS requires). `@media`, `@supports` and `@layer` blocks stay, each with its rules scoped inside. |
-| ES-D6 | Relative `url()` | **Resolved against the file it came from** (`/assets/css/site.css`, `/_site/templates/articles/detail.html`), because the rules now live in a `<style>` in the admin page. `data:` and absolute URLs are untouched. |
+| ES-D5 | Rules that cannot sit inside `@scope` | **`@font-face`, `@keyframes`, `@property`, `@counter-style`, `@font-feature-values`, `@font-palette-values` and `@layer` order statements are moved out** ahead of the scoped rules. Keyframes get a per-look prefix, and so do the names in `animation` and `animation-name` that point at them, so a site animation never replaces an admin one of the same name. **`@import`s are returned for the service to fetch and scope as well** (left in, an imported sheet's rules would style the admin). `@media`, `@supports`, `@container`, `@layer` and `@starting-style` blocks stay, each with its rules scoped inside; the site's own `@scope` nests inside the look's. `@page`, `@namespace` and unknown at-rules are left out. |
+| ES-D6 | Relative `url()` | **Resolved where the page resolves it**, because the rules now live in a `<style>` in the admin page: against the sheet's own address for `main.css`, `site.css` and their imports, and against the entry's page address (`/{type}/{slug}`) for a template's inline styles, which on the page sit in the page's document. `data:`, root-relative and absolute URLs are untouched. |
+| ES-D6a | The page frame | **Rules that land on the look's root alone keep only what styles text and colour**: `margin`, `padding`, sizes, `overflow`, position, `display`, `float`, `transform` and `zoom` are dropped from them, since `body { padding-top: 70px; overflow-x: hidden }` frames the whole page and on the editor's root would only add gaps. A root rule holding nested rules is kept whole. |
 | ES-D7 | What the page's `<body>` gives that the admin's does not | **The look's root first gets Bootstrap's body defaults** (`--bs-body-font-family`, `-font-size`, `-font-weight`, `-line-height`, `-color`, `-bg`, `text-align`), because Bootstrap's own `body` rule does not reach inside the editor. Then the site's rules apply on top, so anything the admin pane passes down by inheritance is replaced. |
 | ES-D8 | Language | **The look's root carries `lang` for the language being edited** (the default or a translation), the same value the page puts on `<html>`, so `:lang()` rules and fonts chosen per script behave as on that language's page. No `dir`: the website sets none today, so the editor sets none either. |
 | ES-D9 | The editor's own styles | **When the site look is on, the editor drops its own text styling**: `.ProseMirror`'s colour, padding and margin (including the `!important` ones), `img { display: block }`, the `.custom_tip_tap_editor` padding, and in the version preview the `.version-preview-body` and `.version-preview-content` text and padding rules. **Editing aids stay**: placeholders, the selected image and node outlines, table cell selection, the structured block label, the file card, the drop cursor. Controls drawn inside the body (node view buttons, handles) carry `.arc-editor-ui`. |
@@ -211,6 +212,8 @@ What it gives: the rest of the content editor follows.
 - **Only the body's ancestors are rebuilt, not what sits beside it.** A template that puts
   the body in a flex row with a sidebar can show a wider body in the editor. None of the
   shipped templates does.
+- **Classes a script puts on the page's `<html>` or `<body>`** (a theme switch such as
+  `html.dark`) are not on the editor's root, so rules that need them do not apply there.
 - **Template scripts do not run in the editor.** A template that changes the body with a
   script shows the change only on the page.
 - **Page parts outside the body** (title, cover, date, tags) are not shown in the editor.
@@ -223,3 +226,21 @@ What it gives: the rest of the content editor follows.
 3. The template's page wrappers (padding, background, the centred column) show in the
    editor, since they decide the body's width and spacing on the page.
 4. Rich text fields that the template does not place keep today's look.
+
+## 8. Changes made while building
+
+**ES1 (2026-10-17):**
+- `@import`s are returned for the service to fetch and scope, not hoisted (ES-D5): hoisted
+  unscoped, an imported sheet would style the admin. ES2's service fetches each one (a
+  sheet of its own, placed before the sheet that imports it) and leaves out one it cannot
+  fetch.
+- A template's inline styles resolve relative `url()`s against the entry's page address,
+  where the page's browser resolves them, not against the template file (ES-D6).
+- The page frame is dropped from root rules (ES-D6a, new).
+- Keyframes get a per-look prefix, found during the review: hoisted as they were, a site
+  `@keyframes` named like an admin one replaced it while the editor was open (ES-D5).
+- The page's template choice now remembers each file that was not a template, rather than
+  one layout and one folder: an entry whose layout is fine is no longer sent to the default
+  because another file of its folder was broken. Otherwise unchanged.
+- For ES2: an id copied into the rebuilt wrapper is left off when the admin page already
+  has an element with that id, so the admin's own `getElementById` keeps working.
