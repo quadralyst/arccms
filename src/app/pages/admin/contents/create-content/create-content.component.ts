@@ -69,6 +69,7 @@ import {
 } from '../draft-content-store/content-translation.model';
 import { isOn } from '../../../../core/features/features';
 import { layoutLabel, siteLayouts } from '../../../../core/site/site';
+import { SiteLook, SiteLookService } from '../../../../core/site/site-look.service';
 
 /**
  * The subset of editor state that varies by language. Everything else on a
@@ -385,6 +386,18 @@ export class CreateContentComponent extends BaseComponent {
    */
   layoutOptions = computed(() => siteLayouts(this.currentContentType()?.templateFolder)
     .map((name) => ({ name, label: layoutLabel(name) })));
+
+  /** The Layout field's value, as a signal for the site look. */
+  private chosenLayout = signal<string>('');
+  private siteLookService = inject(SiteLookService);
+  /**
+   * The live page's look for the body (specs/editor-site-look-spec.md, ES2):
+   * the template of this type and layout, in the language being edited. Null
+   * until it is loaded, and when the template does not place the body.
+   */
+  bodyLook = signal<SiteLook | null>(null);
+  /** The latest look asked for; an older answer arriving late is dropped. */
+  private bodyLookRequest = 0;
 
   // Get current content type fields
   get currentFields(): ContentTypeField[] {
@@ -1068,6 +1081,28 @@ export class CreateContentComponent extends BaseComponent {
       }
     });
 
+    // The body's site look follows the type, the layout and the language being
+    // edited. The look shown stays until the next one is ready (ES-D12).
+    effect(() => {
+      const contentType = this.currentContentType();
+      const layout = this.chosenLayout();
+      const lang = this.activeLang() || this.defaultLang();
+      const request = ++this.bodyLookRequest;
+      if (!contentType) {
+        this.bodyLook.set(null);
+        return;
+      }
+      void this.siteLookService.forField({
+        folder: contentType.templateFolder,
+        layout,
+        typeSlug: contentType.slug,
+        key: 'content',
+        lang,
+      }).then((look) => {
+        if (request === this.bodyLookRequest) this.bodyLook.set(look);
+      });
+    });
+
     // Auto-save pipeline: debounces 30 seconds after last edit, only for existing drafts
     this.autoSaveSubscription = this.autoSaveTrigger$.pipe(
       debounceTime(30_000),
@@ -1680,6 +1715,7 @@ export class CreateContentComponent extends BaseComponent {
       authorId: [''],
       layout: [''],
     });
+    this.publishForm.get('layout')?.valueChanges.subscribe((value) => this.chosenLayout.set(value || ''));
 
     // The meta description follows the summary while it is empty or still
     // equals the previous summary; a hand-written one is kept, including one

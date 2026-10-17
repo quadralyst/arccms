@@ -54,16 +54,21 @@ export interface ScopeOptions {
 /** Tags kept as they are when rebuilt; anything else becomes a `div`, so nothing interactive or Angular-rendered is created. */
 const LAYOUT_TAGS = new Set(['div', 'article', 'section', 'main', 'aside', 'header', 'footer', 'figure', 'span', 'nav']);
 
+/** Elements that take a `data-arc-bind` value as an attribute (src, href, value), never as content. */
+const BIND_AS_ATTRIBUTE = new Set(['img', 'a', 'iframe', 'input', 'textarea', 'select', 'time']);
+
 /**
- * Where a template puts a field: the element bound with `[innerHTML]="key"` and
- * its ancestors, or null when the template does not place it. When the field is
- * placed twice, the first place is used.
+ * Where a template puts a field: the element bound with `[innerHTML]="key"`, or
+ * with `data-arc-bind="key"` on an element that takes it as content, and its
+ * ancestors; null when the template does not place it. When the field is placed
+ * twice, the first place is used.
  */
 export function bodyChain(templateHtml: string, key: string): BodyChain | null {
     const doc = new DOMParser().parseFromString(templateHtml, 'text/html');
     // HTML lowercases attribute names, so `[innerHTML]` reads as `[innerhtml]`.
-    const bound = Array.from(doc.body.querySelectorAll('*'))
-        .find((el) => el.getAttribute('[innerhtml]')?.trim() === key);
+    const bound = Array.from(doc.body.querySelectorAll('*')).find((el) =>
+        el.getAttribute('[innerhtml]')?.trim() === key
+        || (el.getAttribute('data-arc-bind')?.trim() === key && !BIND_AS_ATTRIBUTE.has(el.tagName.toLowerCase())));
     if (!bound) return null;
     const ancestors: ChainElement[] = [];
     for (let el = bound.parentElement; el && el !== doc.body; el = el.parentElement) {
@@ -92,14 +97,25 @@ export function templateStyles(templateHtml: string): string {
 }
 
 /**
+ * The Bootstrap custom properties the admin sets on its own elements
+ * (src/admin-theme.css, `:is(.arc-admin, ...)`). The look's root gets the
+ * page's values for them, read from `<html>`, where the admin leaves them alone.
+ */
+export const ADMIN_BOOTSTRAP_VARIABLES = ['--bs-primary', '--bs-link-color', '--bs-link-hover-color', '--bs-focus-ring-color'];
+
+/**
  * Bootstrap's `body` defaults for the look's root. On the page Bootstrap's own
  * `body` rule gives them; it does not reach inside the editor, where the admin
  * pane would pass down its own instead. Assembled before the site's rules, so
  * the site's `body` rules win as they do on the page.
  */
-export function rootDefaults(options: Pick<ScopeOptions, 'scope' | 'limit'>): string {
+export function rootDefaults(options: Pick<ScopeOptions, 'scope' | 'limit'> & { rootVariables?: Record<string, string> }): string {
+    const variables = Object.entries(options.rootVariables ?? {})
+        .filter(([name, value]) => /^--[\w-]+$/.test(name) && value.trim() && !/[;{}]/.test(value))
+        .map(([name, value]) => `${name}: ${value.trim()};\n`)
+        .join('');
     return `${scopePrelude(options)} {\n:scope {
-font-family: var(--bs-body-font-family);
+${variables}font-family: var(--bs-body-font-family);
 font-size: var(--bs-body-font-size);
 font-weight: var(--bs-body-font-weight);
 line-height: var(--bs-body-line-height);
@@ -110,6 +126,12 @@ background-color: var(--bs-body-bg);
 }
 
 export interface AssembleOptions extends Pick<ScopeOptions, 'scope' | 'limit'> {
+    /**
+     * Custom properties the admin changes on its own elements that the page has
+     * otherwise (Bootstrap's primary and link colours, ADMIN_BOOTSTRAP_VARIABLES),
+     * with the page's values, so the look does not inherit the admin's.
+     */
+    rootVariables?: Record<string, string>;
     /**
      * Put before the name of every `@keyframes` the sheets define, and before
      * those names in `animation` and `animation-name`. Keyframes are global, so
@@ -162,6 +184,34 @@ export function scopeCss(css: string, options: ScopeOptions): ScopedCss {
     const out: ScopedCss = { hoisted: [], blocks: [], imports: [] };
     out.blocks = scopeRules(splitRules(stripComments(css)), options, true, out);
     return out;
+}
+
+/**
+ * An imported sheet under its `@import` condition: `layer(base)` puts its rules
+ * in that layer, `supports(...)` and a media query wrap them, as the import
+ * would on the page.
+ */
+export function underImportCondition(sheet: ScopedCss, condition: string): ScopedCss {
+    let rest = condition.trim();
+    const wrappers: string[] = [];
+    const layer = rest.match(/^layer(?:\(\s*([\w.-]+)\s*\))?\s*/i);
+    if (layer) {
+        wrappers.push(layer[1] ? `@layer ${layer[1]}` : '@layer');
+        rest = rest.slice(layer[0].length);
+    }
+    const supports = rest.match(/^supports\(/i);
+    if (supports) {
+        const close = findTop(rest, supports[0].length, ')');
+        const end = close === -1 ? rest.length : close;
+        wrappers.push(`@supports (${rest.slice(supports[0].length, end).trim()})`);
+        rest = rest.slice(end + 1).trim();
+    }
+    if (rest) wrappers.push(`@media ${rest}`);
+    const blocks = wrappers.reduceRight(
+        (inner, wrapper) => (inner.length ? [`${wrapper} {\n${inner.join('\n')}\n}`] : inner),
+        sheet.blocks,
+    );
+    return { ...sheet, blocks };
 }
 
 function scopePrelude({ scope, limit }: Pick<ScopeOptions, 'scope' | 'limit'>): string {

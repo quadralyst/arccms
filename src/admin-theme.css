@@ -43,12 +43,14 @@
 }
 
 /* Links, as Bootstrap colours them; one step above Bootstrap's own `a` rule, which loads
-   after this file, and below a page's own link styles. Bootstrap's classed links keep theirs. */
-:where(.arc-admin, .arc-onboarding, .arc-admin-overlay) a:not(.btn, .nav-link, .navbar-brand, .badge, .dropdown-item, .list-group-item, .alert-link, .mat-mdc-button-base) {
+   after this file, and below a page's own link styles. Bootstrap's classed links keep theirs,
+   and so do links in an editor showing the website's look (.arc-site-look), which are
+   coloured as on the website. */
+:where(.arc-admin, .arc-onboarding, .arc-admin-overlay) a:not(.btn, .nav-link, .navbar-brand, .badge, .dropdown-item, .list-group-item, .alert-link, .mat-mdc-button-base):not(:where(.arc-site-look a)) {
   color: var(--arc-admin-accent);
 }
 
-:where(.arc-admin, .arc-onboarding, .arc-admin-overlay) a:not(.btn, .nav-link, .navbar-brand, .badge, .dropdown-item, .list-group-item, .alert-link, .mat-mdc-button-base):hover {
+:where(.arc-admin, .arc-onboarding, .arc-admin-overlay) a:not(.btn, .nav-link, .navbar-brand, .badge, .dropdown-item, .list-group-item, .alert-link, .mat-mdc-button-base):not(:where(.arc-site-look a)):hover {
   color: var(--arc-admin-accent-dark);
 }
 

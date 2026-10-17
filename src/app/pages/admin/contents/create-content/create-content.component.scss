@@ -1,4 +1,7 @@
 .create-content-container {
+    // The page's own width decides the toolbar (below): with the side menu open
+    // the page is far narrower than the window.
+    container: editor-page / inline-size;
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -75,11 +78,15 @@
     align-items: center;
     flex: 1;
     max-width: 60%;
+    min-width: 0;
 }
 
 .content-type-label {
     font-size: 0.95rem;
     color: #495057;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .title-input {
@@ -103,8 +110,11 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
+    flex-shrink: 0;
 
     .btn {
+        white-space: nowrap;
+
         i {
             margin-right: 0.25rem;
         }
@@ -112,6 +122,30 @@
 
     .btn-text {
         display: inline;
+    }
+}
+
+// A page too narrow for every label (a small window with the side menu open):
+// the secondary buttons and the Live site differs notice show only their icons,
+// their names kept for screen readers and on hover; Publish keeps its label.
+@container editor-page (max-width: 820px) {
+    .nav-right {
+        .btn:not(.btn-primary) {
+            position: relative;
+
+            i { margin-right: 0; }
+
+            .btn-text {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+            }
+        }
+
+        ::ng-deep .site-drift-label { display: none; }
     }
 }
 
@@ -124,8 +158,9 @@
 
 // Editor Area
 .editor-area {
+    --editor-area-pad: 1.5rem;
     flex: 1;
-    padding: 1.5rem;
+    padding: var(--editor-area-pad);
     overflow-y: auto;
     background-color: #fff;
     margin: 1rem;
@@ -541,6 +576,13 @@
 .editor-wrapper {
     flex: 1;
     min-height: 400px;
+
+    // With the site look the template brings its own spacing (ES-D9), so the body
+    // uses the card's full width, as the page's body uses the window's.
+    &.has-site-look {
+        margin-inline: calc(-1 * var(--editor-area-pad));
+        margin-bottom: calc(-1 * var(--editor-area-pad));
+    }
 
     // TipTap editor styling
     app-tiptap-editor {
@@ -1094,7 +1136,7 @@
     }
 
     .editor-area {
-        padding: 1rem;
+        --editor-area-pad: 1rem;
         margin: 0.5rem;
     }
 
@@ -1178,7 +1220,7 @@
     }
 
     .editor-area {
-        padding: 0.75rem;
+        --editor-area-pad: 0.75rem;
         margin: 0.25rem;
         border-radius: 0.25rem;
     }

@@ -17,12 +17,12 @@
 
         <div class="nav-right">
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="globalService.goBack()"
-                [disabled]="isSavingDraft">
+                [disabled]="isSavingDraft" [title]="'common.actions.close' | transloco">
                 <i class="fa-solid fa-xmark"></i> <span class="btn-text">{{ 'common.actions.close' | transloco }}</span>
             </button>
 
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="navigateBySlug()"
-                [disabled]="isSavingDraft || !publishForm.get('urlSlug')?.value">
+                [disabled]="isSavingDraft || !publishForm.get('urlSlug')?.value" [title]="'admin.contents.editor.preview' | transloco">
                 <i class="fa-regular fa-eye"></i> <span class="btn-text">{{ 'admin.contents.editor.preview' | transloco }}</span>
             </button>
 
@@ -37,7 +37,7 @@
             }
 
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="saveAsDraft()"
-                [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
+                [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid" [title]="'admin.contents.editor.save_draft' | transloco">
                 @if(isSavingDraft){
                 <i class="fas fa-spinner fa-spin"></i> <span class="btn-text">{{ 'common.actions.saving' | transloco }}</span>
                 }
@@ -238,8 +238,8 @@
                 }
             </div>
 
-            <div class="editor-wrapper">
-                <app-tiptap-editor [productValue]="publishForm.get('content')?.value"
+            <div class="editor-wrapper" [class.has-site-look]="!!bodyLook()">
+                <app-tiptap-editor [productValue]="publishForm.get('content')?.value" [siteLook]="bodyLook()"
                     (textEditorContent)="passEditorContentToParent($event); triggerAutoSave()">
                 </app-tiptap-editor>
             </div>

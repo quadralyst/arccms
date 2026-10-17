@@ -212,6 +212,8 @@ What it gives: the rest of the content editor follows.
 - **Only the body's ancestors are rebuilt, not what sits beside it.** A template that puts
   the body in a flex row with a sidebar can show a wider body in the editor. None of the
   shipped templates does.
+- **Tables** are wrapped by the editor for editing, so a column can be a pixel or two wider
+  or narrower than on the page.
 - **Classes a script puts on the page's `<html>` or `<body>`** (a theme switch such as
   `html.dark`) are not on the editor's root, so rules that need them do not apply there.
 - **Template scripts do not run in the editor.** A template that changes the body with a
@@ -244,3 +246,30 @@ What it gives: the rest of the content editor follows.
   because another file of its folder was broken. Otherwise unchanged.
 - For ES2: an id copied into the rebuilt wrapper is left off when the admin page already
   has an element with that id, so the admin's own `getElementById` keeps working.
+
+**ES2 (2026-10-17):**
+- The body is found by `data-arc-bind="key"` as well as `[innerHTML]="key"` (ES-D3), on any
+  element that takes the value as content (not an image, link, frame, form field or `<time>`).
+- The innermost template element's classes go on the `<tiptap-editor>` element, and the
+  filled element's on the editable one, so `.wrapper > .body` and `.body > p` both match.
+- Found in the browser check against Preview: the admin's link colour rule and the Bootstrap
+  variables it sets on `.arc-admin` (`--bs-primary`, link colours, focus ring) reached the
+  editor's body. Links in `.arc-site-look` are left out of the admin rule, and the look's
+  root gets the page's values of those variables, read from `<html>`
+  (`ADMIN_BOOTSTRAP_VARIABLES`, kept in step with admin-theme.css by a test).
+- The editor's own table and structured block spacing are off under the look; the block is
+  marked by an outline and its label instead, and table cell selection stays.
+- The body editor runs to the editor card's edges (its padding kept in `--editor-area-pad`),
+  since the template brings its own spacing.
+- The editor's toolbar follows the page's width, not the window's (a container query): on a
+  page under 820px wide, Close, Preview, Save as draft and the Live site differs notice show
+  only their icons, named on hover and for screen readers. Reported during the browser check:
+  with the side menu open, a window just over the phone size wrapped every label.
+- Result of the browser check (xlm dev project, 1440px and 375px windows): every measured
+  property of the body, paragraphs, headings, lists, links, tables and structured blocks
+  matched Preview for the default template and both info layouts (121, 44 and 22 values).
+  Left: TipTap's table view wraps a table and gives it a minimum width, so a column can
+  differ by a pixel or two, and on a phone the column is a few pixels narrower because the
+  editor card keeps a small margin. Typing, focus and switching the layout work; with the
+  look's stylesheet on and off, 271 of 272 admin elements outside the editor were unchanged
+  (the editor's own container changed height).

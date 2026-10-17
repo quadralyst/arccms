@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { assembleSiteLook, bodyChain, resolveUrls, rewriteSelector, rootDefaults, scopeCss, templateStyles } from './site-look';
+import { ADMIN_BOOTSTRAP_VARIABLES, assembleSiteLook, bodyChain, resolveUrls, rewriteSelector, rootDefaults, scopeCss, templateStyles, underImportCondition } from './site-look';
 
 const TEMPLATES = join(__dirname, '../../../../public/_site/templates');
 const template = (path: string) => readFileSync(join(TEMPLATES, path), 'utf8');
@@ -95,6 +95,16 @@ describe('bodyChain', () => {
         expect(bodyChain(html, 'sidebarNote')!.body).toEqual({ tag: 'aside', classes: ['extra'], id: null });
         expect(bodyChain(html, 'missing')).toBeNull();
         expect(bodyChain('<div>{{ content }}</div>', 'content')).toBeNull();
+    });
+
+    it('finds a field placed with data-arc-bind too, but not on an element that takes it as an attribute', () => {
+        const html = `<a class="link" data-arc-bind="content"></a><img data-arc-bind="content"><time data-arc-bind="content"></time>`
+            + `<div class="page"><div class="text" data-arc-bind="content"></div></div>`;
+        expect(bodyChain(html, 'content')).toEqual({
+            ancestors: [{ tag: 'div', classes: ['page'], id: null }],
+            body: { tag: 'div', classes: ['text'], id: null },
+        });
+        expect(bodyChain('<a data-arc-bind="content"></a>', 'content')).toBeNull();
     });
 
     it('uses the first place when a field is placed twice', () => {
@@ -315,5 +325,45 @@ describe('assembleSiteLook', () => {
         for (const variable of ['font-family', 'font-size', 'font-weight', 'line-height', 'color', 'text-align', 'bg']) {
             expect(rootDefaults(OPTIONS)).toContain(`var(--bs-body-${variable})`);
         }
+    });
+});
+
+describe('underImportCondition', () => {
+    const sheet = () => scopeCss('@font-face { font-family: F } .a { color: red }', OPTIONS);
+
+    it.each([
+        ['', [`${SCOPE} {\n.a { color: red }\n}`]],
+        ['screen and (min-width: 40em)', [`@media screen and (min-width: 40em) {\n${SCOPE} {\n.a { color: red }\n}\n}`]],
+        ['layer(base)', [`@layer base {\n${SCOPE} {\n.a { color: red }\n}\n}`]],
+        ['layer', [`@layer {\n${SCOPE} {\n.a { color: red }\n}\n}`]],
+        ['supports(display: grid) print', [`@supports (display: grid) {\n@media print {\n${SCOPE} {\n.a { color: red }\n}\n}\n}`]],
+        ['layer(x.y) supports(selector(:has(a)))', [`@layer x.y {\n@supports (selector(:has(a))) {\n${SCOPE} {\n.a { color: red }\n}\n}\n}`]],
+    ])('puts an import with condition "%s" under it', (condition, blocks) => {
+        const out = underImportCondition(sheet(), condition);
+        expect(out.blocks).toEqual(blocks);
+        // Hoisted rules stay global, as an imported @font-face is.
+        expect(out.hoisted).toEqual(['@font-face { font-family: F }']);
+    });
+
+    it('leaves an empty sheet empty', () => {
+        expect(underImportCondition(scopeCss('', OPTIONS), 'print').blocks).toEqual([]);
+    });
+});
+
+describe('ADMIN_BOOTSTRAP_VARIABLES', () => {
+    it('lists every Bootstrap variable the admin sets on its own elements, so the look gives each its page value', () => {
+        const theme = readFileSync(join(__dirname, '../../../admin-theme.css'), 'utf8');
+        const block = theme.match(/:is\(\.arc-admin, \.arc-onboarding, \.arc-admin-overlay\) \{([^}]*)\}/)![1];
+        const set = [...block.matchAll(/(--bs-[\w-]+)\s*:/g)].map((m) => m[1]);
+        expect(set.length).toBeGreaterThan(0);
+        expect([...ADMIN_BOOTSTRAP_VARIABLES].sort()).toEqual([...set].sort());
+    });
+
+    it('puts the page values on the look\'s root, ignoring empty or unsafe ones', () => {
+        const css = rootDefaults({ ...OPTIONS, rootVariables: { '--bs-primary': ' #0d6efd ', '--bs-link-color': '', '--x': 'red; } body { color: red', 'color': 'red' } });
+        expect(css).toContain('--bs-primary: #0d6efd;');
+        expect(css).not.toContain('--bs-link-color');
+        expect(css).not.toContain('body { color: red');
+        expect(css).not.toMatch(/^color: red/m);
     });
 });

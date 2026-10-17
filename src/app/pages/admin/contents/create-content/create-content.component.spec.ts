@@ -24,6 +24,7 @@ import { AuthorsService } from '../../(authors)/authors.service';
 import { SearchService } from '../../../../core/services/search.service';
 import { setSiteManifestForTesting } from '../../../../core/site/site';
 import { coreSiteManifest } from '../../../../../test/core-site';
+import { SiteLookService } from '../../../../core/site/site-look.service';
 
 describe('CreateContentComponent', () => {
     let component: CreateContentComponent;
@@ -43,6 +44,7 @@ describe('CreateContentComponent', () => {
     let mockDialog: any;
     let mockLocalizationService: any;
     let mockAuthState: any;
+    let mockSiteLook: any;
 
     const ENGLISH = { code: 'en', label: 'English', nativeLabel: 'English' };
     const HINDI = { code: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी' };
@@ -177,6 +179,12 @@ describe('CreateContentComponent', () => {
             ensureAdminAuthor: vi.fn().mockResolvedValue(null),
         };
 
+        // The body's site look (ES2): none unless a test gives one.
+        mockSiteLook = {
+            forField: vi.fn().mockResolvedValue(null),
+            use: vi.fn().mockReturnValue(() => undefined),
+        };
+
         mockDialog = {
             open: vi.fn().mockReturnValue({
                 afterClosed: vi.fn().mockReturnValue(of(null)),
@@ -209,6 +217,7 @@ describe('CreateContentComponent', () => {
                 { provide: AuthState, useValue: mockAuthState },
                 { provide: AuthorsService, useValue: mockAuthorsService },
                 { provide: SearchService, useValue: mockSearchService },
+                { provide: SiteLookService, useValue: mockSiteLook },
             ]
         }).compileComponents();
 
@@ -525,6 +534,78 @@ describe('CreateContentComponent', () => {
             component.publishForm.get('layout')?.setValue('');
             component.saveAsDraft();
             expect(mockDraftContentsStore.update.mock.calls[0][1]).toMatchObject({ layout: '' });
+        });
+    });
+
+    // ES2 (specs/editor-site-look-spec.md): the body editor in the live page's look.
+    describe('Site look', () => {
+        const LOOK = {
+            chain: { ancestors: [{ tag: 'div', classes: ['wrapper'], id: null }], body: { tag: 'div', classes: ['article-content'], id: null } },
+            scopeClass: 'arc-site-look-1',
+            lang: 'en',
+        };
+        const flush = () => new Promise((resolve) => setTimeout(resolve));
+        const bodyEditor = () => fixture.debugElement.query((el) => el.name === 'app-tiptap-editor')?.componentInstance;
+
+        function withType(): void {
+            const core = coreSiteManifest();
+            setSiteManifestForTesting({ ...core, templates: { ...core.templates, 'notes-folder': { detail: 'app' } }, layouts: { 'notes-folder': { wide: 'app' } } });
+            mockContentTypesStore.items.set([{ name: 'Notes', slug: 'notes', templateFolder: 'notes-folder' }]);
+            component.contentTypeSlug = 'notes';
+            fixture.detectChanges();
+        }
+        afterEach(() => setSiteManifestForTesting());
+
+        it('asks for the body\'s look of the type, its layout and the language, and gives it to the body editor', async () => {
+            mockSiteLook.forField.mockResolvedValue(LOOK);
+            withType();
+            await flush();
+            fixture.detectChanges();
+
+            expect(mockSiteLook.forField).toHaveBeenLastCalledWith({ folder: 'notes-folder', layout: '', typeSlug: 'notes', key: 'content', lang: 'en' });
+            expect(component.bodyLook()).toEqual(LOOK);
+            expect(bodyEditor()?.siteLook).toEqual(LOOK);
+            expect(fixture.nativeElement.querySelector('.editor-wrapper.has-site-look')).not.toBeNull();
+        });
+
+        it('asks again when the layout or the edited language changes', async () => {
+            withType();
+            component.publishForm.get('layout')?.setValue('wide');
+            fixture.detectChanges();
+            expect(mockSiteLook.forField).toHaveBeenLastCalledWith(expect.objectContaining({ layout: 'wide', lang: 'en' }));
+
+            component.activeLang.set('hi');
+            fixture.detectChanges();
+            expect(mockSiteLook.forField).toHaveBeenLastCalledWith(expect.objectContaining({ layout: 'wide', lang: 'hi' }));
+        });
+
+        it('keeps the editor\'s own look when the template does not place the body', async () => {
+            mockSiteLook.forField.mockResolvedValue(null);
+            withType();
+            await flush();
+            fixture.detectChanges();
+            expect(component.bodyLook()).toBeNull();
+            expect(fixture.nativeElement.querySelector('.editor-wrapper.has-site-look')).toBeNull();
+        });
+
+        it('names the toolbar buttons on hover, since a narrow page shows only their icons', () => {
+            const titles = Array.from(fixture.nativeElement.querySelectorAll('.nav-right .btn'))
+                .map((button: any) => button.getAttribute('title'));
+            expect(titles.slice(0, 3).every((title) => !!title)).toBe(true);
+        });
+
+        it('drops an older answer that arrives after a newer one', async () => {
+            let answerFirst!: (look: unknown) => void;
+            mockSiteLook.forField
+                .mockReturnValueOnce(new Promise((resolve) => { answerFirst = resolve; }))
+                .mockResolvedValueOnce({ ...LOOK, scopeClass: 'arc-site-look-2' });
+            withType();
+            component.publishForm.get('layout')?.setValue('wide');
+            fixture.detectChanges();
+            await flush();
+            answerFirst(LOOK);
+            await flush();
+            expect(component.bodyLook()?.scopeClass).toBe('arc-site-look-2');
         });
     });
 
