@@ -15,12 +15,13 @@
 /* TipTap popups are handled globally in styles.css */
 
 
-::ng-deep .ProseMirror {
+/* The editor's own look. With the site look on (`arc-site-look-on`), the text
+   and its spacing come from the site's CSS instead (specs/editor-site-look-spec.md,
+   ES-D9); the editing aids further down stay. */
+::ng-deep .ProseMirror:not(.arc-site-look-on) {
   color: #000;
   margin: 0 !important;
   padding: 10px !important;
-  // box-shadow: 0px 0px 8px inset rgba(0, 0, 0, 0.2) !important;
-  // border-radius: 8px !important;
 
   /* Constrain images and media to editor width */
   img {
@@ -29,12 +30,20 @@
     display: block;
   }
 
-    video,
-    iframe {
-      max-width: 100%;
-      height: auto;
-    }
+  video,
+  iframe {
+    max-width: 100%;
+    height: auto;
+  }
+}
 
+/* The <tiptap-editor> element carries the classes of the template element just
+   around the body; it is a block there, unless the site's CSS says otherwise. */
+::ng-deep :where(.arc-site-look tiptap-editor) {
+  display: block;
+}
+
+::ng-deep .ProseMirror {
     ul[data-type="taskList"] {
       list-style: none;
       padding: 0;
@@ -245,13 +254,25 @@
 /* Structured blocks (specs/discoverability-spec.md, D-D10): a labelled,
    tinted box so the author can see where a block starts and ends. The
    public page styles them differently; see the default templates. */
-::ng-deep .ProseMirror section.arc-block {
-  position: relative;
+::ng-deep .ProseMirror:not(.arc-site-look-on) section.arc-block {
   margin: 1rem 0;
   padding: 1.5rem 1rem 0.75rem;
   border: 1px dashed #94a3b8;
   border-radius: 8px;
   background: #f8fafc;
+
+  > :last-child { margin-bottom: 0; }
+}
+
+/* With the site look the block keeps the page's spacing; the outline and the
+   label below mark it without moving anything. */
+::ng-deep .ProseMirror.arc-site-look-on section.arc-block {
+  outline: 1px dashed #94a3b8;
+  outline-offset: 4px;
+}
+
+::ng-deep .ProseMirror section.arc-block {
+  position: relative;
 
   &::before {
     content: 'Block';
@@ -272,12 +293,10 @@
   &[data-arc-block='takeaways']::before { content: 'Key takeaways · bullet list'; }
   &[data-arc-block='howto']::before { content: 'How-to · H3 title, numbered steps'; }
   &[data-arc-block='definition']::before { content: 'Definition · "What is X?" then the answer'; }
-
-  > :last-child { margin-bottom: 0; }
 }
 
 /* Tables: the default browser rendering has no borders at all. */
-::ng-deep .ProseMirror table {
+::ng-deep .ProseMirror:not(.arc-site-look-on) table {
   border-collapse: collapse;
   width: 100%;
   margin: 1rem 0;
@@ -290,9 +309,10 @@
   }
 
   th { background: #f1f5f9; font-weight: 600; }
-
-  .selectedCell { background: color-mix(in srgb, var(--arc-admin-accent) 16%, #fff); }
 }
+
+/* An editing aid, with or without the site look. */
+::ng-deep .ProseMirror table .selectedCell { background: color-mix(in srgb, var(--arc-admin-accent) 16%, #fff); }
 
 .blocks-list button i:first-child { width: 1.2em; }
 

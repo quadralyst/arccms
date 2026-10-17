@@ -1,4 +1,7 @@
 .create-content-container {
+    // The page's own width decides the toolbar (below): with the side menu open
+    // the page is far narrower than the window.
+    container: editor-page / inline-size;
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -75,11 +78,15 @@
     align-items: center;
     flex: 1;
     max-width: 60%;
+    min-width: 0;
 }
 
 .content-type-label {
     font-size: 0.95rem;
     color: #495057;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .title-input {
@@ -103,8 +110,11 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
+    flex-shrink: 0;
 
     .btn {
+        white-space: nowrap;
+
         i {
             margin-right: 0.25rem;
         }
@@ -112,6 +122,30 @@
 
     .btn-text {
         display: inline;
+    }
+}
+
+// A page too narrow for every label (a small window with the side menu open):
+// the secondary buttons and the Live site differs notice show only their icons,
+// their names kept for screen readers and on hover; Publish keeps its label.
+@container editor-page (max-width: 820px) {
+    .nav-right {
+        .btn:not(.btn-primary) {
+            position: relative;
+
+            i { margin-right: 0; }
+
+            .btn-text {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+            }
+        }
+
+        ::ng-deep .site-drift-label { display: none; }
     }
 }
 
@@ -124,8 +158,9 @@
 
 // Editor Area
 .editor-area {
+    --editor-area-pad: 1.5rem;
     flex: 1;
-    padding: 1.5rem;
+    padding: var(--editor-area-pad);
     overflow-y: auto;
     background-color: #fff;
     margin: 1rem;
@@ -262,6 +297,12 @@
     min-width: 0;
 }
 
+// The buttons keep their words on one line; the version label gives way.
+.version-preview-header .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .version-preview-label {
     font-size: 0.85rem;
     font-weight: 500;
@@ -355,6 +396,40 @@
     padding: 1rem;
     overflow-y: auto;
     background-color: #fafbfc;
+}
+
+// The version's body in the page's look (ES3): the template brings its own
+// spacing, so it uses the column's full width, as the editor's body does.
+.version-preview-content arc-site-look-view {
+    margin-inline: -1.5rem;
+}
+
+.version-preview-area {
+    container: version-preview / inline-size;
+}
+
+// A narrow preview (a small window, the settings panel open): the details go
+// under the version instead of squeezing it into a sliver beside them.
+@container version-preview (max-width: 720px) {
+    .version-preview-columns {
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    .version-preview-content,
+    .version-preview-meta {
+        overflow: visible;
+    }
+
+    .version-preview-content {
+        border-right: none;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .version-preview-meta {
+        width: auto;
+        min-width: 0;
+    }
 }
 
 .meta-section {
@@ -541,6 +616,13 @@
 .editor-wrapper {
     flex: 1;
     min-height: 400px;
+
+    // With the site look the template brings its own spacing (ES-D9), so the body
+    // uses the card's full width, as the page's body uses the window's.
+    &.has-site-look {
+        margin-inline: calc(-1 * var(--editor-area-pad));
+        margin-bottom: calc(-1 * var(--editor-area-pad));
+    }
 
     // TipTap editor styling
     app-tiptap-editor {
@@ -1094,7 +1176,7 @@
     }
 
     .editor-area {
-        padding: 1rem;
+        --editor-area-pad: 1rem;
         margin: 0.5rem;
     }
 
@@ -1178,7 +1260,7 @@
     }
 
     .editor-area {
-        padding: 0.75rem;
+        --editor-area-pad: 0.75rem;
         margin: 0.25rem;
         border-radius: 0.25rem;
     }
@@ -1282,6 +1364,12 @@
             width: 100%;
             min-height: 120px;
             font-size: 0.875rem;
+        }
+
+        // In the page's look (ES3) the template's own spacing takes room, so
+        // the box is taller; Expand still opens it full screen.
+        &.has-site-look {
+            max-height: 360px;
         }
     }
 }

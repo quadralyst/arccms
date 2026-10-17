@@ -78,6 +78,22 @@ export function siteLayoutUrl(folder: string | null | undefined, layout: string 
         : siteTemplateUrl(folder, 'detail');
 }
 
+/**
+ * The detail templates an entry can render with, in the order to try them: its
+ * layout's, its folder's detail.html, the default's, without repeats. A file
+ * that turns out not to be a template is skipped for the next. Shared by the
+ * live page and the editor's site look (specs/editor-site-look-spec.md, ES-D1),
+ * so both pick the same template.
+ */
+export function detailTemplateCandidates(folder: string | null | undefined, layout: string | null | undefined): string[] {
+    const urls = [
+        siteLayoutUrl(folder, layout),
+        siteTemplateUrl(folder, 'detail'),
+        siteTemplateUrl(DEFAULT_TEMPLATE_FOLDER, 'detail'),
+    ];
+    return urls.filter((url, i) => urls.indexOf(url) === i);
+}
+
 /** A layout's name as the editor shows it: `wide-hero` is "Wide hero". */
 export function layoutLabel(name: string): string {
     const words = name.replace(/[-_]+/g, ' ').trim();

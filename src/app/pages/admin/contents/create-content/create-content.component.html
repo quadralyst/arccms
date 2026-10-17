@@ -17,12 +17,12 @@
 
         <div class="nav-right">
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="globalService.goBack()"
-                [disabled]="isSavingDraft">
+                [disabled]="isSavingDraft" [title]="'common.actions.close' | transloco">
                 <i class="fa-solid fa-xmark"></i> <span class="btn-text">{{ 'common.actions.close' | transloco }}</span>
             </button>
 
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="navigateBySlug()"
-                [disabled]="isSavingDraft || !publishForm.get('urlSlug')?.value">
+                [disabled]="isSavingDraft || !publishForm.get('urlSlug')?.value" [title]="'admin.contents.editor.preview' | transloco">
                 <i class="fa-regular fa-eye"></i> <span class="btn-text">{{ 'admin.contents.editor.preview' | transloco }}</span>
             </button>
 
@@ -37,7 +37,7 @@
             }
 
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="saveAsDraft()"
-                [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
+                [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid" [title]="'admin.contents.editor.save_draft' | transloco">
                 @if(isSavingDraft){
                 <i class="fas fa-spinner fa-spin"></i> <span class="btn-text">{{ 'common.actions.saving' | transloco }}</span>
                 }
@@ -100,7 +100,12 @@
                     </div>
                     }
                     <h1 class="version-preview-title">{{ previewingVersion()!.title }}</h1>
+                    @if (bodyLook()) {
+                    <!-- In the page's look, as the editor shows the body (ES3). -->
+                    <arc-site-look-view [look]="bodyLook()!" [html]="previewingVersion()!.content" />
+                    } @else {
                     <div class="version-preview-body" [innerHTML]="getPreviewSafeHtml(previewingVersion()!.content)"></div>
+                    }
                 </div>
 
                 <!-- Right: Basic + SEO info (narrower) -->
@@ -238,8 +243,8 @@
                 }
             </div>
 
-            <div class="editor-wrapper">
-                <app-tiptap-editor [productValue]="publishForm.get('content')?.value"
+            <div class="editor-wrapper" [class.has-site-look]="!!bodyLook()">
+                <app-tiptap-editor [productValue]="publishForm.get('content')?.value" [siteLook]="bodyLook()"
                     (textEditorContent)="passEditorContentToParent($event); triggerAutoSave()">
                 </app-tiptap-editor>
             </div>
@@ -642,9 +647,9 @@
                                         <i class="fa-solid fa-expand me-1"></i> {{ 'admin.contents.editor.expand' | transloco }}
                                     </button>
                                 </div>
-                                <div class="richtext-editor-container">
+                                <div class="richtext-editor-container" [class.has-site-look]="!!fieldLooks()[field.key]">
                                     <app-tiptap-editor
-                                        [productValue]="customFieldValues[field.key] || ''"
+                                        [productValue]="customFieldValues[field.key] || ''" [siteLook]="fieldLooks()[field.key] ?? null"
                                         (textEditorContent)="onRichTextFieldChange(field.key, $event)">
                                     </app-tiptap-editor>
                                 </div>

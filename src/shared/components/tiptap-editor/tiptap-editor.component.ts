@@ -53,6 +53,17 @@ import { ARC_BLOCKS, ArcBlock, ArcBlockKind, ArcBlockMeta } from './service/arc-
 import MediaManagerComponent, { MediaSelection } from '../../../app/pages/admin/(media)/media.page';
 import { mediaPickerDialogConfig } from '../../../app/pages/admin/(media)/media-picker-dialog';
 import { filterEmailTags, insertTagMention } from '../../constants/email-tags';
+import { SiteLook, SiteLookService } from '../../../app/core/site/site-look.service';
+import { buildLookWrappers } from '../../../app/core/site/site-look-view';
+
+/** ngx-tiptap's default plugin key for `<tiptap-bubble-menu>`. */
+const BUBBLE_MENU_KEY = 'NgxTiptapBubbleMenu';
+
+/** Two looks that would build the same editor. */
+function sameLook(a: SiteLook | null, b: SiteLook | null): boolean {
+  if (!a || !b) return a === b;
+  return a.scopeClass === b.scopeClass && a.lang === b.lang && JSON.stringify(a.chain) === JSON.stringify(b.chain);
+}
 
 declare global {
   interface Window {
@@ -161,6 +172,18 @@ export default class TiptapEditorComponent {
   @Input() productValue: any;
   /** Available merge tags for the `#` autocomplete (`['##NAME##', ...]`). */
   @Input() tags: string[] = [];
+  /**
+   * The live page's look for this field (specs/editor-site-look-spec.md, ES2):
+   * the template's elements are rebuilt around the editor and its stylesheet put
+   * on the page. None keeps the editor's own look, as in the email editors.
+   */
+  @Input() siteLook: SiteLook | null = null;
+  private hostRef = inject(ElementRef);
+  /** The look's root, the stand-in for the page's body, while a look is shown. */
+  private lookRoot: HTMLElement | null = null;
+  private shownLook: SiteLook | null = null;
+  private lookHostClasses: string[] = [];
+  private releaseLook: (() => void) | null = null;
   editorContentValue: any = '';
 
   editorDefaultValue = ``;
@@ -220,6 +243,11 @@ export default class TiptapEditorComponent {
   }
 
   ngOnChanges(changes: SimpleChanges) {
+    // Before the view exists this does nothing; ngAfterViewInit shows the look then.
+    if (changes['siteLook']) {
+      this.showSiteLook();
+    }
+
     if (changes['parentEvent'] && changes['parentEvent'].currentValue) {
       const command = changes['parentEvent'].currentValue as keyof Editor['chain'];
 
@@ -506,23 +534,101 @@ export default class TiptapEditorComponent {
         }),
       ],
       editorProps: {
-        attributes: {
-          class: 'custom_tip_tap_editor',
-          spellCheck: 'false',
-        },
+        attributes: this.editorAttributes([]),
       },
     });
   }
 
+  /** The editable element's attributes; with a look, the classes of the element the template fills, and `arc-site-look-on`. */
+  private editorAttributes(lookClasses: string[]): Record<string, string> {
+    const classes = ['custom_tip_tap_editor', ...(lookClasses.length ? ['arc-site-look-on', ...lookClasses] : [])];
+    return { class: classes.join(' '), spellCheck: 'false' };
+  }
+
   ngAfterViewInit() {
     this.applyMarginLeft();
+    this.showSiteLook();
   }
 
   applyMarginLeft() {
-    const elements = this.document.querySelectorAll('#editor-with-bubble-menu *');
+    // This editor's own elements only: with several editors on a page, another's
+    // could have a site look, whose spacing comes from the site.
+    if (this.siteLook) return;
+    const elements = this.hostRef.nativeElement.querySelectorAll('#editor-with-bubble-menu *');
 
     elements.forEach((element: any) => {
       element.style.marginLeft = '3rem';
+    });
+  }
+
+  /**
+   * Shows `siteLook` (ES2): the look's root and the template's elements around
+   * the editor, the innermost one's classes on the `<tiptap-editor>` element so
+   * that `.wrapper > .body` still matches, and the filled element's classes on
+   * the editable element. A look equal to the one shown is left as it is, so the
+   * editor keeps its focus.
+   */
+  private showSiteLook(): void {
+    if (!this.isBrowser || !this.editor) return;
+    const host = this.hostRef.nativeElement.querySelector('tiptap-editor') as HTMLElement | null;
+    if (!host) return;
+    const look = this.siteLook;
+    if (sameLook(look, this.shownLook) && (!look || this.lookRoot)) return;
+
+    this.hideSiteLook(host);
+    this.shownLook = look;
+    if (!look) {
+      this.setEditorClasses([]);
+      this.placeBubbleMenu(null);
+      return;
+    }
+
+    const ancestors = look.chain.ancestors;
+    const { root, inner } = buildLookWrappers(this.document, look, ancestors.slice(0, -1));
+    host.parentNode?.insertBefore(root, host);
+    inner.appendChild(host);
+    this.lookHostClasses = (ancestors[ancestors.length - 1]?.classes ?? []).filter((name) => !host.classList.contains(name));
+    host.classList.add(...this.lookHostClasses);
+    this.lookRoot = root;
+    this.setEditorClasses(look.chain.body.classes.length ? look.chain.body.classes : ['arc-site-look-body']);
+    // TipTap puts the selection menu beside the editable element, which is now
+    // inside the look, where it would take the site's fonts and styles: keep it
+    // outside, in the editor's own wrapper.
+    this.placeBubbleMenu(root.parentElement);
+    // The inline indent from applyMarginLeft would beat the site's own spacing.
+    for (const element of [this.editor.view.dom, ...Array.from(this.editor.view.dom.querySelectorAll<HTMLElement>('*'))]) {
+      (element as HTMLElement).style.removeProperty('margin-left');
+    }
+    this.releaseLook = this.injector.get(SiteLookService).use(look);
+  }
+
+  /** Takes the look off: the editor back where it was, the classes removed, the stylesheet released. */
+  private hideSiteLook(host: HTMLElement): void {
+    if (this.lookRoot) {
+      this.lookRoot.parentNode?.insertBefore(host, this.lookRoot);
+      this.lookRoot.remove();
+      this.lookRoot = null;
+    }
+    host.classList.remove(...this.lookHostClasses);
+    this.lookHostClasses = [];
+    this.releaseLook?.();
+    this.releaseLook = null;
+  }
+
+  /**
+   * Where the selection menu (ngx-tiptap's bubble menu, plugin key
+   * `NgxTiptapBubbleMenu`) is put when it shows; null puts it back beside the
+   * editable element, TipTap's own choice.
+   */
+  private placeBubbleMenu(home: HTMLElement | null): void {
+    if (this.editor.isDestroyed || !this.editor.state || !this.editor.view?.dispatch) return;
+    this.editor.view.dispatch(this.editor.state.tr.setMeta(BUBBLE_MENU_KEY, { type: 'updateOptions', options: { appendTo: () => home } }));
+  }
+
+  private setEditorClasses(lookClasses: string[]): void {
+    if (this.editor.isDestroyed) return;
+    this.editor.setOptions({
+      editorProps: { ...this.editor.options.editorProps, attributes: this.editorAttributes(lookClasses) },
     });
   }
 
@@ -534,6 +640,8 @@ export default class TiptapEditorComponent {
   }
 
   ngOnDestroy(): void {
+    this.releaseLook?.();
+    this.releaseLook = null;
     this.editor?.destroy();
   }
 

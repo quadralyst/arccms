@@ -190,7 +190,8 @@ function findPlaceholder(state: EditorState, id: object): number | null {
 
 function placeholderDom(doc: Document, label: string): HTMLElement {
   const dom = doc.createElement('span');
-  dom.className = 'arc-image-uploading';
+  // arc-editor-ui: an editing aid, which the site look's CSS leaves alone.
+  dom.className = 'arc-image-uploading arc-editor-ui';
   dom.setAttribute('contenteditable', 'false');
   dom.setAttribute('role', 'status');
   dom.style.cssText = 'display:inline-block;padding:0.5rem 0.75rem;margin:0.25rem 0;border:1px dashed currentColor;border-radius:6px;opacity:0.7;font-size:0.875rem;';

@@ -10,6 +10,7 @@ import TiptapEditorComponent from './tiptap-editor.component';
 import { TiptapEditorDirective, TiptapBubbleMenuDirective } from 'ngx-tiptap';
 import { Editor } from '@tiptap/core';
 import { EditorImageUploadService } from './service/editor-image-upload.service';
+import { SiteLook, SiteLookService } from '../../../app/core/site/site-look.service';
 
 // Mock TipTap Editor synchronously to avoid hoisting issues
 vi.mock('@tiptap/core', () => {
@@ -77,6 +78,8 @@ vi.mock('@tiptap/core', () => {
                 options: {
                     element: { style: {} }
                 },
+                view: { dom: document.createElement('div'), dispatch: vi.fn() },
+                state: { tr: { setMeta: vi.fn(function (this: unknown, key: string, value: unknown) { return { key, value }; }) } },
                 setOptions: vi.fn()
             };
         }),
@@ -98,10 +101,15 @@ describe('TiptapEditorComponent', () => {
         showError: vi.fn(),
         uploadingLabel: vi.fn(),
     };
+    const releaseLook = vi.fn();
+    const siteLook = { use: vi.fn(() => releaseLook) };
 
     beforeEach(async () => {
         await TestBed.configureTestingModule({
-            providers: [{ provide: EditorImageUploadService, useValue: imageUpload }],
+            providers: [
+                { provide: EditorImageUploadService, useValue: imageUpload },
+                { provide: SiteLookService, useValue: siteLook },
+            ],
             imports: [
                 CommonModule,
                 FormsModule,
@@ -126,6 +134,122 @@ describe('TiptapEditorComponent', () => {
 
     it('should create', () => {
         expect(component).toBeTruthy();
+    });
+
+    // ES2 (specs/editor-site-look-spec.md): the live page's look around the editor.
+    describe('site look', () => {
+        const LOOK: SiteLook = {
+            chain: {
+                ancestors: [
+                    { tag: 'article', classes: ['page'], id: 'top' },
+                    { tag: 'div', classes: ['container'], id: null },
+                    { tag: 'div', classes: ['wrapper', 'narrow'], id: null },
+                ],
+                body: { tag: 'div', classes: ['article-content'], id: null },
+            },
+            scopeClass: 'arc-site-look-1',
+            lang: 'hi',
+        };
+        const host = () => fixture.nativeElement.querySelector('tiptap-editor') as HTMLElement;
+        const root = () => fixture.nativeElement.querySelector('.arc-site-look') as HTMLElement | null;
+        const lastClasses = () => (component.editor.setOptions as any).mock.calls.at(-1)?.[0].editorProps.attributes.class;
+        beforeEach(() => {
+            // The previous test's editor is torn down after its afterEach, releasing its look.
+            releaseLook.mockClear();
+            siteLook.use.mockClear();
+        });
+        function show(look: SiteLook | null): void {
+            fixture.componentRef.setInput('siteLook', look);
+            fixture.detectChanges();
+        }
+
+        it('keeps the editor\'s own look without one', () => {
+            expect(root()).toBeNull();
+            expect(host().parentElement?.classList.contains('no-select')).toBe(true);
+            expect(siteLook.use).not.toHaveBeenCalled();
+        });
+
+        it('rebuilds the template\'s elements around the editor, with the look\'s root and language', () => {
+            show(LOOK);
+            const lookRoot = root()!;
+            expect(lookRoot.className).toBe('arc-site-look arc-site-look-1');
+            expect(lookRoot.lang).toBe('hi');
+            const article = lookRoot.firstElementChild as HTMLElement;
+            expect(article.tagName).toBe('ARTICLE');
+            expect(article.className).toBe('page');
+            expect(article.id).toBe('top');
+            const container = article.firstElementChild as HTMLElement;
+            expect(container.className).toBe('container');
+            // The innermost element's classes go on <tiptap-editor>, so `.wrapper > .article-content` still matches.
+            expect(container.firstElementChild).toBe(host());
+            expect(host().classList.contains('wrapper') && host().classList.contains('narrow')).toBe(true);
+            expect(lastClasses()).toBe('custom_tip_tap_editor arc-site-look-on article-content');
+            expect(siteLook.use).toHaveBeenCalledTimes(1);
+            expect(siteLook.use).toHaveBeenCalledWith(LOOK);
+        });
+
+        it('leaves off an id the admin page already has', () => {
+            const taken = document.createElement('div');
+            taken.id = 'top';
+            document.body.appendChild(taken);
+            show(LOOK);
+            expect((root()!.firstElementChild as HTMLElement).id).toBe('');
+            taken.remove();
+        });
+
+        it('keeps the selection menu outside the look, and gives TipTap its own choice back without one', () => {
+            show(LOOK);
+            const placed = (component.editor.view.dispatch as any).mock.calls.at(-1)[0];
+            expect(placed.key).toBe('NgxTiptapBubbleMenu');
+            expect(placed.value.type).toBe('updateOptions');
+            expect(placed.value.options.appendTo()).toBe(root()!.parentElement);
+            expect(root()!.contains(placed.value.options.appendTo())).toBe(false);
+
+            show(null);
+            const back = (component.editor.view.dispatch as any).mock.calls.at(-1)[0];
+            expect(back.value.options.appendTo()).toBeNull();
+        });
+
+        it('clears the indent applyMarginLeft puts on the editor\'s elements', () => {
+            const dom = component.editor.view.dom as HTMLElement;
+            const paragraph = document.createElement('p');
+            dom.appendChild(paragraph);
+            dom.style.marginLeft = '3rem';
+            paragraph.style.marginLeft = '3rem';
+            show(LOOK);
+            expect(dom.style.marginLeft).toBe('');
+            expect(paragraph.style.marginLeft).toBe('');
+        });
+
+        it('leaves an equal look as it is, so the editor keeps its focus', () => {
+            show(LOOK);
+            const first = root();
+            show({ ...LOOK, chain: JSON.parse(JSON.stringify(LOOK.chain)) });
+            expect(root()).toBe(first);
+            expect(siteLook.use).toHaveBeenCalledTimes(1);
+        });
+
+        it('swaps to another look, and back to its own look, releasing the stylesheet each time', () => {
+            show(LOOK);
+            show({ ...LOOK, scopeClass: 'arc-site-look-2', chain: { ancestors: [], body: { tag: 'div', classes: [], id: null } } });
+            expect(releaseLook).toHaveBeenCalledTimes(1);
+            expect(root()!.className).toBe('arc-site-look arc-site-look-2');
+            expect(root()!.firstElementChild).toBe(host());
+            expect(host().classList.contains('wrapper')).toBe(false);
+            expect(lastClasses()).toBe('custom_tip_tap_editor arc-site-look-on arc-site-look-body');
+
+            show(null);
+            expect(releaseLook).toHaveBeenCalledTimes(2);
+            expect(root()).toBeNull();
+            expect(host().parentElement?.classList.contains('no-select')).toBe(true);
+            expect(lastClasses()).toBe('custom_tip_tap_editor');
+        });
+
+        it('releases the stylesheet when the editor goes', () => {
+            show(LOOK);
+            fixture.destroy();
+            expect(releaseLook).toHaveBeenCalledTimes(1);
+        });
     });
 
     describe('Text Formatting', () => {
