@@ -60,15 +60,17 @@ const BIND_AS_ATTRIBUTE = new Set(['img', 'a', 'iframe', 'input', 'textarea', 's
 /**
  * Where a template puts a field: the element bound with `[innerHTML]="key"`, or
  * with `data-arc-bind="key"` on an element that takes it as content, and its
- * ancestors; null when the template does not place it. When the field is placed
- * twice, the first place is used.
+ * ancestors; null when the template does not place it. A field with several
+ * names (a custom field answers to its key with and without the type slug) is
+ * looked for under each. When it is placed twice, the first place is used.
  */
-export function bodyChain(templateHtml: string, key: string): BodyChain | null {
+export function bodyChain(templateHtml: string, key: string | string[]): BodyChain | null {
+    const keys = new Set(typeof key === 'string' ? [key] : key);
     const doc = new DOMParser().parseFromString(templateHtml, 'text/html');
     // HTML lowercases attribute names, so `[innerHTML]` reads as `[innerhtml]`.
     const bound = Array.from(doc.body.querySelectorAll('*')).find((el) =>
-        el.getAttribute('[innerhtml]')?.trim() === key
-        || (el.getAttribute('data-arc-bind')?.trim() === key && !BIND_AS_ATTRIBUTE.has(el.tagName.toLowerCase())));
+        keys.has(el.getAttribute('[innerhtml]')?.trim() ?? '')
+        || (keys.has(el.getAttribute('data-arc-bind')?.trim() ?? '') && !BIND_AS_ATTRIBUTE.has(el.tagName.toLowerCase())));
     if (!bound) return null;
     const ancestors: ChainElement[] = [];
     for (let el = bound.parentElement; el && el !== doc.body; el = el.parentElement) {

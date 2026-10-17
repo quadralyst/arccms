@@ -54,6 +54,7 @@ import MediaManagerComponent, { MediaSelection } from '../../../app/pages/admin/
 import { mediaPickerDialogConfig } from '../../../app/pages/admin/(media)/media-picker-dialog';
 import { filterEmailTags, insertTagMention } from '../../constants/email-tags';
 import { SiteLook, SiteLookService } from '../../../app/core/site/site-look.service';
+import { buildLookWrappers } from '../../../app/core/site/site-look-view';
 
 /** Two looks that would build the same editor. */
 function sameLook(a: SiteLook | null, b: SiteLook | null): boolean {
@@ -578,21 +579,10 @@ export default class TiptapEditorComponent {
       return;
     }
 
-    const root = this.document.createElement('div');
-    root.className = `arc-site-look ${look.scopeClass}`;
-    if (look.lang) root.lang = look.lang;
-    host.parentNode?.insertBefore(root, host);
-    let parent: HTMLElement = root;
     const ancestors = look.chain.ancestors;
-    for (const element of ancestors.slice(0, -1)) {
-      const node = this.document.createElement(element.tag);
-      if (element.classes.length) node.className = element.classes.join(' ');
-      // An id the admin page already has would break its own lookups.
-      if (element.id && !this.document.getElementById(element.id)) node.id = element.id;
-      parent.appendChild(node);
-      parent = node;
-    }
-    parent.appendChild(host);
+    const { root, inner } = buildLookWrappers(this.document, look, ancestors.slice(0, -1));
+    host.parentNode?.insertBefore(root, host);
+    inner.appendChild(host);
     this.lookHostClasses = (ancestors[ancestors.length - 1]?.classes ?? []).filter((name) => !host.classList.contains(name));
     host.classList.add(...this.lookHostClasses);
     this.lookRoot = root;

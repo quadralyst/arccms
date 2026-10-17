@@ -100,7 +100,12 @@
                     </div>
                     }
                     <h1 class="version-preview-title">{{ previewingVersion()!.title }}</h1>
+                    @if (bodyLook()) {
+                    <!-- In the page's look, as the editor shows the body (ES3). -->
+                    <arc-site-look-view [look]="bodyLook()!" [html]="previewingVersion()!.content" />
+                    } @else {
                     <div class="version-preview-body" [innerHTML]="getPreviewSafeHtml(previewingVersion()!.content)"></div>
+                    }
                 </div>
 
                 <!-- Right: Basic + SEO info (narrower) -->
@@ -642,9 +647,9 @@
                                         <i class="fa-solid fa-expand me-1"></i> {{ 'admin.contents.editor.expand' | transloco }}
                                     </button>
                                 </div>
-                                <div class="richtext-editor-container">
+                                <div class="richtext-editor-container" [class.has-site-look]="!!fieldLooks()[field.key]">
                                     <app-tiptap-editor
-                                        [productValue]="customFieldValues[field.key] || ''"
+                                        [productValue]="customFieldValues[field.key] || ''" [siteLook]="fieldLooks()[field.key] ?? null"
                                         (textEditorContent)="onRichTextFieldChange(field.key, $event)">
                                     </app-tiptap-editor>
                                 </div>

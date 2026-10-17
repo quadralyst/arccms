@@ -297,6 +297,12 @@
     min-width: 0;
 }
 
+// The buttons keep their words on one line; the version label gives way.
+.version-preview-header .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .version-preview-label {
     font-size: 0.85rem;
     font-weight: 500;
@@ -390,6 +396,40 @@
     padding: 1rem;
     overflow-y: auto;
     background-color: #fafbfc;
+}
+
+// The version's body in the page's look (ES3): the template brings its own
+// spacing, so it uses the column's full width, as the editor's body does.
+.version-preview-content arc-site-look-view {
+    margin-inline: -1.5rem;
+}
+
+.version-preview-area {
+    container: version-preview / inline-size;
+}
+
+// A narrow preview (a small window, the settings panel open): the details go
+// under the version instead of squeezing it into a sliver beside them.
+@container version-preview (max-width: 720px) {
+    .version-preview-columns {
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    .version-preview-content,
+    .version-preview-meta {
+        overflow: visible;
+    }
+
+    .version-preview-content {
+        border-right: none;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .version-preview-meta {
+        width: auto;
+        min-width: 0;
+    }
 }
 
 .meta-section {
@@ -1324,6 +1364,12 @@
             width: 100%;
             min-height: 120px;
             font-size: 0.875rem;
+        }
+
+        // In the page's look (ES3) the template's own spacing takes room, so
+        // the box is taller; Expand still opens it full screen.
+        &.has-site-look {
+            max-height: 360px;
         }
     }
 }

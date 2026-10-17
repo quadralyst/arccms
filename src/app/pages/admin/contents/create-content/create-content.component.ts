@@ -70,6 +70,7 @@ import {
 import { isOn } from '../../../../core/features/features';
 import { layoutLabel, siteLayouts } from '../../../../core/site/site';
 import { SiteLook, SiteLookService } from '../../../../core/site/site-look.service';
+import { SiteLookViewComponent } from '../../../../core/site/site-look-view';
 
 /**
  * The subset of editor state that varies by language. Everything else on a
@@ -142,6 +143,7 @@ const COVER_IMAGE_SIZE: ImageSize = 'xl';
     ResizableDirective,
     RouterLink,
     SiteDriftNoticeComponent,
+    SiteLookViewComponent,
   ],
   templateUrl: './create-content.component.html',
   styleUrl: './create-content.component.scss',
@@ -398,6 +400,13 @@ export class CreateContentComponent extends BaseComponent {
   bodyLook = signal<SiteLook | null>(null);
   /** The latest look asked for; an older answer arriving late is dropped. */
   private bodyLookRequest = 0;
+  /**
+   * Each rich text field's look, by key (ES3): where the template places the
+   * field. A field the template does not place has none and keeps the editor's
+   * own look.
+   */
+  fieldLooks = signal<Record<string, SiteLook | null>>({});
+  private fieldLookRequest = 0;
 
   // Get current content type fields
   get currentFields(): ContentTypeField[] {
@@ -753,6 +762,7 @@ export class CreateContentComponent extends BaseComponent {
       data: {
         content: currentContent,
         fieldLabel: fieldLabel,
+        siteLook: this.fieldLooks()[fieldKey] ?? null,
       },
     });
 
@@ -1090,6 +1100,7 @@ export class CreateContentComponent extends BaseComponent {
       const request = ++this.bodyLookRequest;
       if (!contentType) {
         this.bodyLook.set(null);
+        this.fieldLooks.set({});
         return;
       }
       void this.siteLookService.forField({
@@ -1100,6 +1111,21 @@ export class CreateContentComponent extends BaseComponent {
         lang,
       }).then((look) => {
         if (request === this.bodyLookRequest) this.bodyLook.set(look);
+      });
+
+      // The rich text fields, each where the same template places it.
+      const fieldRequest = ++this.fieldLookRequest;
+      const keys = (contentType.fields || []).filter((field) => field.type === 'richtext').map((field) => field.key);
+      void Promise.all(keys.map((key) => this.siteLookService.forField({
+        folder: contentType.templateFolder,
+        layout,
+        typeSlug: contentType.slug,
+        key,
+        lang,
+      }))).then((looks) => {
+        if (fieldRequest === this.fieldLookRequest) {
+          this.fieldLooks.set(Object.fromEntries(keys.map((key, i) => [key, looks[i]])));
+        }
       });
     });
 

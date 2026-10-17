@@ -107,6 +107,13 @@ describe('bodyChain', () => {
         expect(bodyChain('<a data-arc-bind="content"></a>', 'content')).toBeNull();
     });
 
+    it('looks for a field under each of its names, taking the first place in the template', () => {
+        const html = '<div class="a" [innerHTML]="agenda"></div><div class="b" [innerHTML]="events-agenda"></div>';
+        expect(bodyChain(html, ['events-agenda', 'agenda'])!.body.classes).toEqual(['a']);
+        expect(bodyChain(html, ['events-agenda'])!.body.classes).toEqual(['b']);
+        expect(bodyChain(html, ['nothing', 'else'])).toBeNull();
+    });
+
     it('uses the first place when a field is placed twice', () => {
         const chain = bodyChain(`<div class="one" [innerHTML]="content"></div><div class="two" [innerHTML]="content"></div>`, 'content');
         expect(chain!.body.classes).toEqual(['one']);

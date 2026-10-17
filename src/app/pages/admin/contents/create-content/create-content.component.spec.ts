@@ -588,6 +588,62 @@ describe('CreateContentComponent', () => {
             expect(fixture.nativeElement.querySelector('.editor-wrapper.has-site-look')).toBeNull();
         });
 
+        // ES3: rich text fields, their fullscreen editor and the version preview.
+        function withRichTextField(): void {
+            const core = coreSiteManifest();
+            setSiteManifestForTesting({ ...core, templates: { ...core.templates, 'notes-folder': { detail: 'app' } } });
+            mockContentTypesStore.items.set([{
+                name: 'Notes', slug: 'notes', templateFolder: 'notes-folder',
+                fields: [{ key: 'notes-agenda', label: 'Agenda', type: 'richtext' }, { key: 'notes-venue', label: 'Venue', type: 'text' }],
+            }]);
+            component.contentTypeSlug = 'notes';
+            fixture.detectChanges();
+        }
+        const FIELD_LOOK = { ...LOOK, chain: { ancestors: [], body: { tag: 'aside', classes: ['agenda'], id: null } }, scopeClass: 'arc-site-look-1' };
+
+        it('asks for each rich text field\'s look by its key, and gives it to that field\'s editor', async () => {
+            mockSiteLook.forField.mockImplementation(async (request: any) => (request.key === 'notes-agenda' ? FIELD_LOOK : LOOK));
+            withRichTextField();
+            await flush();
+            fixture.detectChanges();
+
+            expect(mockSiteLook.forField).toHaveBeenCalledWith({ folder: 'notes-folder', layout: '', typeSlug: 'notes', key: 'notes-agenda', lang: 'en' });
+            expect(mockSiteLook.forField).not.toHaveBeenCalledWith(expect.objectContaining({ key: 'notes-venue' }));
+            expect(component.fieldLooks()).toEqual({ 'notes-agenda': FIELD_LOOK });
+            const field = fixture.nativeElement.querySelector('.richtext-editor-container.has-site-look');
+            expect(field).not.toBeNull();
+            const editors = fixture.debugElement.queryAll((el) => el.name === 'app-tiptap-editor').map((el) => el.componentInstance.siteLook);
+            expect(editors).toContainEqual(FIELD_LOOK);
+        });
+
+        it('opens a rich text field\'s fullscreen editor in its look', async () => {
+            mockSiteLook.forField.mockImplementation(async (request: any) => (request.key === 'notes-agenda' ? FIELD_LOOK : null));
+            withRichTextField();
+            await flush();
+            component.openFullscreenEditor('notes-agenda', 'Agenda');
+            expect(mockDialog.open.mock.calls.at(-1)[1].data).toMatchObject({ fieldLabel: 'Agenda', siteLook: FIELD_LOOK });
+
+            component.openFullscreenEditor('unknown', 'Other');
+            expect(mockDialog.open.mock.calls.at(-1)[1].data.siteLook).toBeNull();
+        });
+
+        it('shows a version preview in the body\'s look, and plain without one', async () => {
+            mockSiteLook.forField.mockResolvedValue(LOOK);
+            withType();
+            await flush();
+            component.previewVersion({ versionNumber: 2, title: 'Older', content: '<p>Before</p>', publishedOn: new Date() } as any);
+            fixture.detectChanges();
+            const view = fixture.debugElement.query((el) => el.name === 'arc-site-look-view');
+            expect(view?.componentInstance.look()).toEqual(LOOK);
+            expect(view?.componentInstance.html()).toBe('<p>Before</p>');
+            expect(fixture.nativeElement.querySelector('.version-preview-body')).toBeNull();
+
+            component.bodyLook.set(null);
+            fixture.detectChanges();
+            expect(fixture.nativeElement.querySelector('arc-site-look-view')).toBeNull();
+            expect(fixture.nativeElement.querySelector('.version-preview-body')?.innerHTML).toBe('<p>Before</p>');
+        });
+
         it('names the toolbar buttons on hover, since a narrow page shows only their icons', () => {
             const titles = Array.from(fixture.nativeElement.querySelectorAll('.nav-right .btn'))
                 .map((button: any) => button.getAttribute('title'));

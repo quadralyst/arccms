@@ -2,10 +2,13 @@ import { Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import TiptapEditorComponent from '../../../../../../shared/components/tiptap-editor/tiptap-editor.component';
+import { SiteLook } from '../../../../../core/site/site-look.service';
 
 export interface FullscreenEditorData {
     content: string;
     fieldLabel: string;
+    /** The field's look on the live page, when the template places it (specs/editor-site-look-spec.md, ES3). */
+    siteLook?: SiteLook | null;
 }
 
 @Component({
@@ -27,7 +30,7 @@ export interface FullscreenEditorData {
             </div>
             <div class="fullscreen-editor-body">
                 <app-tiptap-editor
-                    [productValue]="currentContent"
+                    [productValue]="currentContent" [siteLook]="data.siteLook ?? null"
                     (textEditorContent)="onContentChange($event)">
                 </app-tiptap-editor>
             </div>

@@ -1,6 +1,6 @@
 # The Editor Looks Like the Live Page: Build Spec (ES)
 
-**Status:** AGREED 2026-10-17, with the four assumptions in section 7 confirmed. Not built.
+**Status:** BUILT 2026-10-17 (ES1 to ES3), browser-checked on the xlm dev project. Agreed 2026-10-17, with the four assumptions in section 7 confirmed.
 Option B of the 2026-10-17 discussion, with the six changes from its review (section 2).
 **Branch:** `feat/editor-site-look`, cut from `dev` (60920714), worktree `../arccms-editor-site-look`.
 
@@ -273,3 +273,22 @@ What it gives: the rest of the content editor follows.
   editor card keeps a small margin. Typing, focus and switching the layout work; with the
   look's stylesheet on and off, 271 of 272 admin elements outside the editor were unchanged
   (the editor's own container changed height).
+
+**ES3 (2026-10-17):**
+- A custom field is looked for by its key, then by its name without the type slug
+  (`events-agenda`, then `agenda`), as the page's data aliases it; never `content`, which
+  is the body's (`fieldNames`).
+- The wrappers are built by one function (`buildLookWrappers`, site-look-view.ts) for the
+  editor and for `arc-site-look-view`, the read-only view the version preview uses. The
+  preview uses the layout the entry has now.
+- Found in the browser check: at a small window the version preview squeezed the version
+  into a column about 130px wide beside its details (true before this work too). Under 720px
+  of preview width the details now go under the version (a container query), and the
+  preview's header buttons keep their words on one line.
+- A rich text field's box is taller with the look (360px instead of 200px), since the
+  template's own spacing takes room in it; Expand still opens it full screen.
+- Browser check: the version preview matched Preview on 110 values (width left out: the
+  preview column sits beside the details), and the fullscreen editor, opened in the dialog
+  layer with a field given the body's look in memory, on 121 (the same table cell 2px).
+  The dev project has no type with a rich text field and no shipped template places one
+  outside a loop, so a field's own box was checked by the unit tests only.

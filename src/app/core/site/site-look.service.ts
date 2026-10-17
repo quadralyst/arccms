@@ -43,6 +43,19 @@ export interface SiteLookRequest {
 export const SITE_LOOK_LIMIT = '.arc-editor-ui';
 
 const SITE_SHEETS = ['assets/css/main.css', 'assets/css/site.css'];
+
+/**
+ * The names a template can place a field by, in the order to look for them: its
+ * key, then for a custom field stored as `{typeSlug}-{name}` (or `{typeSlug}_{name}`
+ * on older types) the bare name, as the page's data offers it
+ * (TemplateHydrationService.aliasCustomFields). Never `content` for a custom
+ * field: the page keeps that name for the body.
+ */
+export function fieldNames(key: string, typeSlug: string): string[] {
+    const prefix = [`${typeSlug}-`, `${typeSlug}_`].find((p) => typeSlug && key.startsWith(p) && key.length > p.length);
+    const bare = prefix ? key.slice(prefix.length) : '';
+    return bare && bare !== 'content' ? [key, bare] : [key];
+}
 /** How deep `@import`s are followed. */
 const IMPORT_DEPTH = 3;
 
@@ -71,7 +84,10 @@ export class SiteLookService {
         try {
             const template = await this.template(request.folder, request.layout);
             if (!template) return null;
-            const chain = bodyChain(template.html, request.key);
+            let chain: BodyChain | null = null;
+            for (const name of fieldNames(request.key, request.typeSlug)) {
+                chain ??= bodyChain(template.html, name);
+            }
             if (!chain) return null;
             const { scopeClass } = await this.sheet(template, request.typeSlug);
             return { chain, scopeClass, lang: request.lang };

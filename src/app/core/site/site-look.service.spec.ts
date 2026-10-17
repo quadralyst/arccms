@@ -8,7 +8,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpClient } from '@angular/common/http';
 import { PLATFORM_ID } from '@angular/core';
 import { of, throwError } from 'rxjs';
-import { SiteLookService } from './site-look.service';
+import { SiteLookService, fieldNames } from './site-look.service';
 import { setSiteManifestForTesting, siteManifest } from './site';
 import { coreSiteManifest } from '../../../test/core-site';
 
@@ -73,6 +73,19 @@ describe('SiteLookService', () => {
             lang: 'hi',
         });
         expect((await service.forField(request({ key: 'extra' })))?.chain.body.classes).toEqual(['aside']);
+    });
+
+    it('finds a custom field by its key, else by its name without the type slug, never the body\'s place', async () => {
+        files['/_site/templates/notes/detail.html'] =
+            '<div class="page"><div class="note-body" [innerHTML]="content"></div><aside class="agenda" [innerHTML]="agenda"></aside>'
+            + '<section class="full" data-arc-bind="notes-summary"></section><p class="bare" [innerHTML]="summary"></p></div>';
+        setUp();
+        expect((await service.forField(request({ key: 'notes-agenda' })))?.chain.body.classes).toEqual(['agenda']);
+        expect((await service.forField(request({ key: 'notes_agenda' })))?.chain.body.classes).toEqual(['agenda']);
+        // The full key wins over the bare name.
+        expect((await service.forField(request({ key: 'notes-summary' })))?.chain.body.classes).toEqual(['full']);
+        // A field stored as notes-content is not the body.
+        expect(await service.forField(request({ key: 'notes-content' }))).toBeNull();
     });
 
     it('gives null for a field the template does not place', async () => {
@@ -149,5 +162,19 @@ describe('SiteLookService', () => {
 
         service.use(look);
         expect(document.getElementById('arc-site-look-1')?.textContent).toContain('note-body');
+    });
+});
+
+describe('fieldNames', () => {
+    it.each([
+        ['content', 'events', ['content']],
+        ['events-agenda', 'events', ['events-agenda', 'agenda']],
+        ['events_agenda', 'events', ['events_agenda', 'agenda']],
+        ['events-content', 'events', ['events-content']],
+        ['events-', 'events', ['events-']],
+        ['other-agenda', 'events', ['other-agenda']],
+        ['agenda', '', ['agenda']],
+    ])('%s on %s is looked for as %j', (key, typeSlug, names) => {
+        expect(fieldNames(key, typeSlug)).toEqual(names);
     });
 });
