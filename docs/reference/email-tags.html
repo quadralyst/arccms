@@ -41,12 +41,13 @@
     <ul>
       <li><code>##FIELD:key##</code>, or <code>##FIELD:key|fallback##</code>: a custom contact field. The fallback is used when the recipient has no value. The contact fields page copies the tag for each field. See <a href="../features/audience.html">Audience</a>.</li>
       <li><code>##APP.path##</code>, or <code>##APP.path|fallback##</code>: a field of the host app's user, for emails to an App users list. The broadcast editor offers these when such a list is chosen; fields that look like credentials are never offered or merged. See <a href="../features/app-audience.html">App audience</a>.</li>
+      <li>In an app's own email (<code>sendAppEmail</code>), a tag in the <code>data</code> it sends: <code>DATE</code> fills <code>##DATE##</code>, ahead of every other source. A value given as <code>{ html }</code> goes in as written, unescaped, so the app escapes what it puts inside. See <a href="../app/app-email.html#write-your-templates">Send email from your app</a>.</li>
       <li>Any other <code>##UPPER_SNAKE##</code> tag is looked up by name in the email's data (<code>##TRIAL_ENDS_AT##</code> reads <code>trialEndsAt</code>), then in five email settings: <code>##COMPANY_NAME##</code>, <code>##SENDER_NAME##</code>, <code>##SENDER_EMAIL##</code>, <code>##REPLY_TO_EMAIL##</code>, <code>##LIVE_URL##</code>.</li>
       <li><code>##POSITION##</code>, <code>##REFERRAL_CODE##</code>, <code>##REFERRAL_LINK##</code> and <code>##LEADERBOARD_LINK##</code>, from signup forms of older versions, have no value any more and come out empty. Remove them from any welcome email that still has them.</li>
     </ul>
 
     <h2>How tags are filled</h2>
-    <p>The send happens in the Cloud Functions: each queued email is written to <code>EmailLogs</code> with its data, and the sender replaces every tag in the subject and the body in one pass. Values are escaped, so markup in a name shows as text, and a value that itself looks like a tag is not replaced again.</p>
+    <p>The send happens in the Cloud Functions: each queued email is written to <code>EmailLogs</code> with its data, and the sender replaces every tag in the subject and the body in one pass. Values are escaped, so markup in a name shows as text (except an app's <code>{ html }</code> values), and a value that itself looks like a tag is not replaced again.</p>
     <div class="trap"><p>A tag with no value becomes empty text, not the tag itself. A subject such as <code>Welcome, ##NAME##</code> is safe, but a tag the email does not carry leaves a gap. Send yourself a test from the editor before a real send.</p></div>
     <p>To add a tag to the list an editor offers, add it to <code>EMAIL_TAG</code> and the right context in <code>src/shared/constants/email-tags.ts</code>, and make sure the sender puts a value for it in the email's data.</p>
   </main>

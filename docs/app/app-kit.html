@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>The app kit | Arc CMS docs</title>
-  <meta name="description" content="The supported server exports an app's own Cloud Functions use for accounts, claims, sessions and sign-in, from one import that stays stable across Arc CMS updates.">
-  <meta name="docs:sources" content="functions/src/app-kit, functions/src/users/claims.ts, functions/src/auth/accounts.ts, functions/src/app-kit/pins.ts">
+  <meta name="description" content="The supported server exports an app's own Cloud Functions use for accounts, claims, sessions, sign-in and email, from one import that stays stable across Arc CMS updates.">
+  <meta name="docs:sources" content="functions/src/app-kit, functions/src/users/claims.ts, functions/src/auth/accounts.ts, functions/src/app-kit/pins.ts, functions/src/email-core/appEmail.ts, functions/src/email-core/emailAttachments.ts, functions/src/email-core/appEmailOutcome.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/app-kit.html">
   <main>
     <h1>The app kit</h1>
-    <p class="lead">Your own Cloud Functions in <code>functions/src/custom/</code> use Arc CMS's accounts, claims and sign-in through one import, <code>functions/src/app-kit/index.ts</code>. What it exports is supported: it keeps its meaning across Arc CMS updates, and a test fails if it changes without this page.</p>
+    <p class="lead">Your own Cloud Functions in <code>functions/src/custom/</code> use Arc CMS's accounts, claims, sign-in and email through one import, <code>functions/src/app-kit/index.ts</code>. What it exports is supported: it keeps its meaning across Arc CMS updates, and a test fails if it changes without this page.</p>
 
     <pre><code>import { createAppAccount, issueSignInToken, mergeAppClaims } from '../app-kit/index.js';</code></pre>
     <p>Everything else in <code>functions/src</code> is core's to change. You may read it to learn how something works, but import from the kit, and ask for a missing export in Arc CMS rather than reaching past it.</p>
@@ -39,7 +39,14 @@
         <tr><td><code>consumeRateLimit()</code></td><td>Counts one use of a key in a time window and refuses with <code>resource-exhausted</code> once the limit is reached: <code>consumeRateLimit(key, max, windowMs, message, reason?)</code>. The refusal's <code>details</code> carry <code>reason</code> (default <code>too-many-attempts</code>) and <code>retryAfter</code>, the seconds until the window reopens.</td><td><a href="pin.html#rate-limits">PINs for your app</a></td></tr>
         <tr><td><code>hashedKey()</code></td><td>A rate-limit key you choose, such as a device id, hashed and kept apart from Arc CMS's keys: <code>hashedKey('kiosk-device', deviceId)</code>.</td><td><a href="pin.html#rate-limits">PINs for your app</a></td></tr>
         <tr><td><code>callerKey()</code></td><td>A rate-limit key for the caller's address, hashed. <code>{ trustedProxies: 1 }</code> for a function reached through a Hosting rewrite.</td><td><a href="pin.html#rate-limits">PINs for your app</a></td></tr>
-      </tbody>
+              <tr><td><code>sendAppEmail()</code></td><td>Sends a transactional email from your functions: one of your templates (<code>functions/src/custom/email-templates.ts</code>) in a language, or a subject and body you built, inside the site's email layout, to 1 to 50 addresses, with files. Returns one log per address; the outcome comes back as <code>AppEvents</code>.</td><td><a href="app-email.html">Send email from your app</a></td></tr>
+        <tr><td><code>captureAppEmails()</code></td><td>For your unit tests: records what <code>sendAppEmail</code> would send (recipients, template, language, data, attachments) without Firestore, Storage or a provider, until <code>stop()</code>.</td><td><a href="app-email.html#test-it">Send email from your app</a></td></tr>
+        <tr><td><code>escapeEmailHtml()</code></td><td>Text made safe to put inside HTML you pass as <code>{ html }</code> tag data, such as the cells of a table.</td><td><a href="app-email.html#write-your-templates">Send email from your app</a></td></tr>
+        <tr><td><code>MAX_APP_EMAIL_RECIPIENTS</code></td><td><code>50</code>: the most addresses one <code>sendAppEmail</code> call takes.</td><td><a href="app-email.html">Send email from your app</a></td></tr>
+        <tr><td><code>MAX_ATTACHMENTS</code></td><td><code>10</code>: the most files on one email.</td><td><a href="app-email.html#attachments">Send email from your app</a></td></tr>
+        <tr><td><code>MAX_ATTACHMENT_BYTES</code></td><td>5 MB: the most bytes all of one email's files may come to.</td><td><a href="app-email.html#attachments">Send email from your app</a></td></tr>
+        <tr><td><code>APP_EMAIL_EVENTS</code></td><td>The <code>AppEvents</code> types an app email's outcome is written as: <code>email.sent</code>, <code>email.failed</code>, <code>email.bounced</code>.</td><td><a href="app-email.html#outcome">Send email from your app</a></td></tr>
+</tbody>
     </table>
     <p>Errors a person can act on are <code>HttpsError</code>s with code <code>invalid-argument</code> or <code>not-found</code>, so a callable can let them through as they are.</p>
   </main>

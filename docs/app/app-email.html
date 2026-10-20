@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Send email from your app | Arc CMS docs</title>
+  <meta name="description" content="Send transactional email from your own Cloud Functions with sendAppEmail: your templates in your languages, files attached, several recipients, the outcome back as AppEvents, and a capture for unit tests.">
+  <meta name="docs:sources" content="functions/src/email-core/appEmail.ts, functions/src/email-core/emailLanguages.ts, functions/src/email-core/appEmailTemplates.ts, functions/src/email-core/emailLayout.ts, functions/src/email-core/emailAttachments.ts, functions/src/email-core/appEmailOutcome.ts, functions/src/email-core/syncAppEmailTemplates.ts, functions/src/custom/email-templates.ts, functions/src/app-kit/index.ts, functions/src/email-log/handleEmailWebhook.ts, storage.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/app-email.html">
+  <main>
+    <h1>Send email from your app</h1>
+    <p class="lead">Your own Cloud Functions can send transactional email, such as a receipt, a report or a reminder, with <code>sendAppEmail</code> from the app kit. It sends one of your templates in the language you ask for, or a subject and body you built, inside the site's email layout, to the addresses you hold, with files attached. It goes through the same engine as Arc CMS's own email: the switches in Settings, Email, suppression of bounced addresses, retries, and a log for each address in Email Logs. When each email is sent, fails or bounces, an <code>AppEvents</code> entry with your reference tells your app, so it can show "Sent" or "Not delivered" on its own screen.</p>
+    <p>Marketing email stays with lists and consent (<a href="../features/email.html">Email</a>): <code>sendAppEmail</code> sends transactional email only.</p>
+
+    <h2>An example: a shop's daily closing</h2>
+    <p>When a shop's last till closes, the app emails the day's closing to the addresses the owner set, in the business's language, with two CSV files. First the template, in <code>functions/src/custom/email-templates.ts</code>:</p>
+    <pre><code>import type { AccountEmailLanguages, AppEmailTemplate } from '../app-kit/index.js';
+
+export const APP_EMAIL_TEMPLATES: AppEmailTemplate[] = [
+  {
+    key: 'daily_closing',
+    title: 'Daily closing',
+    languages: {
+      en: {
+        subject: 'Closing for ##SHOP## on ##DATE##',
+        body: '&lt;h1&gt;Closing for ##DATE##&lt;/h1&gt;&lt;p&gt;Takings: ##TOTAL##&lt;/p&gt;##FIGURES##&lt;p&gt;The sales and payments are attached.&lt;/p&gt;',
+      },
+      de: {
+        subject: 'Tagesabschluss ##SHOP## vom ##DATE##',
+        body: '&lt;h1&gt;Abschluss vom ##DATE##&lt;/h1&gt;&lt;p&gt;Umsatz: ##TOTAL##&lt;/p&gt;##FIGURES##&lt;p&gt;Verkäufe und Zahlungen sind angehängt.&lt;/p&gt;',
+      },
+    },
+    sample: { SHOP: 'Corner Café', DATE: '20 October 2026', TOTAL: '812.40' },
+  },
+];
+
+export const ACCOUNT_EMAIL_LANGUAGES: AccountEmailLanguages = {};</code></pre>
+    <p>Then the function that sends it, in a file of your own such as <code class="new">functions/src/custom/closing.ts</code>, exported from <code>functions/src/custom/index.ts</code>:</p>
+    <pre><code>import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { arcDocument } from '../arc-config.js';
+import { escapeEmailHtml, sendAppEmail } from '../app-kit/index.js';
+
+export const onClosingDone = onDocumentUpdated(arcDocument('businesses/{bid}/closings/{cid}'), async (event) =&gt; {
+  const closing = event.data?.after.data();
+  if (!closing || closing['status'] !== 'done' || event.data?.before.data()?.['status'] === 'done') return;
+  const { bid, cid } = event.params;
+
+  const rows = closing['lines'].map((l: { name: string; amount: string }) =&gt;
+    `&lt;tr&gt;&lt;td&gt;${escapeEmailHtml(l.name)}&lt;/td&gt;&lt;td&gt;${escapeEmailHtml(l.amount)}&lt;/td&gt;&lt;/tr&gt;`).join('');
+
+  await sendAppEmail({
+    to: closing['reportTo'],                      // the addresses the owner set
+    template: 'daily_closing',
+    language: closing['language'],                // such as 'de'
+    data: {
+      SHOP: closing['shopName'],
+      DATE: closing['dateText'],
+      TOTAL: closing['totalText'],
+      FIGURES: { html: `&lt;table&gt;${rows}&lt;/table&gt;` },
+    },
+    attachments: [
+      { name: 'sales.csv', contentType: 'text/csv', content: closing['salesCsv'] },
+      { name: 'payments.csv', contentType: 'text/csv', content: closing['paymentsCsv'] },
+    ],
+    replyTo: closing['ownerEmail'],
+    dedupeKey: `closing-${cid}`,                  // a retried trigger sends nothing new
+    ref: `businesses/${bid}/closings/${cid}`,     // comes back with the outcome
+  });
+});</code></pre>
+    <p>The till learns whether it went from <code>AppEvents</code> (<a href="#outcome">The outcome back to your app</a>).</p>
+
+    <h2>Write your templates</h2>
+    <p>Each entry of <code>APP_EMAIL_TEMPLATES</code> has:</p>
+    <table>
+      <thead><tr><th>Field</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>key</code></td><td>Its name in your code, <code>a-z</code>, <code>0-9</code> and <code>_</code>, such as <code>daily_closing</code>. The admin's list shows it as <code>app.daily_closing</code>.</td></tr>
+        <tr><td><code>title</code></td><td>Its name in the admin's template list.</td></tr>
+        <tr><td><code>languages</code></td><td>One version per language, by code (<code>en</code>, <code>de</code>, <code>pt-br</code>): a <code>subject</code>, a <code>body</code> (the inside of the email, HTML) and, if you like, a <code>previewText</code> (the line a mail app shows after the subject).</td></tr>
+        <tr><td><code>sample</code></td><td>Tag data for the admin's preview, such as <code>{ DATE: '20 October 2026' }</code>.</td></tr>
+      </tbody>
+    </table>
+    <p>Write the body only: Arc CMS wraps it in the site's email layout, with the logo, colours and font from Email, Brand Kit, and a footer with the company name and address. <code>##TAG##</code> tokens are filled from the <code>data</code> you send; a tag is capitals and <code>_</code> only, and its data key is the same (<code>DATE</code> fills <code>##DATE##</code>). Text is shown as text, so a name with <code>&lt;</code> in it cannot break the email. For HTML you build, such as a table of figures, pass <code>{ html: '...' }</code>: it goes in as written, so escape what you put inside it with <code>escapeEmailHtml</code>. The site's own tags work too, such as <code>##COMPANY_NAME##</code> (see <a href="../reference/email-tags.html">Email tags</a>).</p>
+    <p>A mistake in the file (a key used twice, a language with no subject or body) stops the functions from loading, so the deploy fails with a message naming the file and what to change. The admin cannot edit your templates: they are your code, changed in this file and live with the next functions deploy.</p>
+
+    <h2>What sendAppEmail takes</h2>
+    <pre><code>import { sendAppEmail } from '../app-kit/index.js';</code></pre>
+    <table>
+      <thead><tr><th>Field</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>to</code></td><td>One address or a list, up to 50. Each address gets its own log, so suppression, bounces and status are per address.</td></tr>
+        <tr><td><code>template</code>, <code>data</code></td><td>The key of one of your templates, and the data for its tags. Or, instead:</td></tr>
+        <tr><td><code>subject</code>, <code>html</code>, <code>text</code></td><td>A subject and body you built (the body wrapped in the site's layout), and a plain-text version if you have one.</td></tr>
+        <tr><td><code>language</code></td><td>The language to send in, such as <code>de</code> or <code>de-CH</code>. Leave it out for the site's default language.</td></tr>
+        <tr><td><code>attachments</code></td><td>Files: <code>{ name, contentType, content }</code>, the content as text (sent as UTF-8), a <code>Buffer</code>, or base64 text with <code>encoding: 'base64'</code>. Up to 10 files and 5 MB in all.</td></tr>
+        <tr><td><code>replyTo</code></td><td>Where replies go. Default: the reply-to address in Settings, Email.</td></tr>
+        <tr><td><code>dedupeKey</code></td><td>A key stable for this email, such as <code>closing-c9</code>: calling again with it sends nothing new. Use one in every trigger, since a trigger can run twice.</td></tr>
+        <tr><td><code>ref</code></td><td>Your own reference, such as <code>businesses/b1/closings/c9</code>, kept on the log and returned in the outcome events.</td></tr>
+      </tbody>
+    </table>
+    <p>The sender is the name and address in Settings, Email. <code>sendAppEmail</code> throws, saying what to fix, when the input is wrong (no address, an unknown template, files over 5 MB); nothing is sent then. Otherwise it returns one entry per address:</p>
+    <pre><code>{
+  logs: [
+    { to: 'owner@example.com', id: 'aB3...', status: 'pending' },
+    { to: 'books@example.com', id: 'Xy9...', status: 'suppressed', skipReason: 'suppressed' },
+  ],
+  ids: ['aB3...', 'Xy9...'],
+}</code></pre>
+    <p><code>pending</code> is on its way. <code>skipped</code> and <code>suppressed</code> were stopped at once, with the reason: <code>email_disabled</code> (email off, or no provider), <code>feature_disabled</code> (App emails off), <code>contact_disabled</code> (an admin switched the address off) or <code>suppressed</code> (the address bounced or complained). <code>duplicate: true</code> means the <code>dedupeKey</code> was sent before; the id is that email's.</p>
+
+    <h2>Which language is sent</h2>
+    <p>The version for the language you ask for (<code>de-CH</code> finds <code>de</code>), else the site's default language (Settings, Languages), else English, else the first language the template has. The log records the language sent.</p>
+
+    <h2>Attachments</h2>
+    <p>Files are kept in Storage beside the log, not in the log itself: each log has its own copy in <code>email-logs/{logId}/</code>, under the install's upload folder. A retry sends the same files again. They are deleted with the log when Email Logs are purged (Settings, Email, Auto-Purge Email Logs, or Purge Old Logs in Email Logs). Only admins can read them, in Email Logs, and no browser can write them. An email that was stopped lists its files but stores none.</p>
+
+    <h2 id="outcome">The outcome back to your app</h2>
+    <p>For each of your emails, Arc CMS writes one <code>AppEvents</code> entry when its fate is known:</p>
+    <table>
+      <thead><tr><th>Type</th><th>When</th><th><code>data</code></th></tr></thead>
+      <tbody>
+        <tr><td><code>email.sent</code></td><td>The provider took it. With the Simulated provider, <code>simulated: true</code> as well.</td><td><code>logId</code>, <code>ref</code>, <code>to</code>, <code>template</code></td></tr>
+        <tr><td><code>email.failed</code></td><td>Stopped at once (the reasons above), or the provider refused it on every try.</td><td>The same, and <code>reason</code></td></tr>
+        <tr><td><code>email.bounced</code></td><td>The provider reported a bounce (it needs the email webhook, see <a href="../features/email.html">Email</a>).</td><td>The same, and <code>reason</code></td></tr>
+      </tbody>
+    </table>
+    <p>Each comes once per log, whatever retries or repeated webhooks happen. React with your own trigger, as for any app event (<a href="functions.html">Write your own Cloud Functions</a>):</p>
+    <pre><code>export const onEmailOutcome = onDocumentCreated(arcDocument('AppEvents/{id}'), async (event) =&gt; {
+  const e = event.data?.data();
+  if (!e || !String(e['type']).startsWith('email.')) return;
+  const { ref, logId, to, reason } = e['data'];
+  if (!String(ref ?? '').startsWith('businesses/')) return;
+  // One entry per address, so the till can show "Sent" or "Not delivered" beside each.
+  await db.doc(String(ref)).set({ emails: { [logId]: { to, outcome: e['type'], reason: reason ?? null } } }, { merge: true });
+});</code></pre>
+    <p>A bounced or complaining address is suppressed: the next email to it, from your app or from Arc CMS, is stopped with <code>suppressed</code>. Subscribing again does not lift a bounce; erasing the contact in Audience, Contacts does.</p>
+
+    <h2>The switch</h2>
+    <p>Settings, Email, Features has <strong>App emails</strong>, on unless an admin switches it off. Off, every <code>sendAppEmail</code> writes a <code>skipped</code> log with <code>feature_disabled</code> and an <code>email.failed</code> event, and sends nothing. Turning email off as a whole (the switch at the top of Settings, Email) stops it too.</p>
+
+    <h2 id="account-emails">Arc CMS's account emails in your languages</h2>
+    <p>The sign-up code and password reset code emails, and the code for adding an email to an account (which uses the sign-up template), go in the member's language: the sign-in page sends the language it shows (see <a href="member-languages.html">Member languages</a>). Arc CMS writes them in English, in Settings, where an admin edits them. Word them in your languages in <code>ACCOUNT_EMAIL_LANGUAGES</code>, in the same file:</p>
+    <pre><code>export const ACCOUNT_EMAIL_LANGUAGES: AccountEmailLanguages = {
+  signup_otp_email: {
+    de: { subject: 'Ihr Bestätigungscode', body: '&lt;p&gt;Hallo ##NAME##,&lt;/p&gt;&lt;p&gt;Ihr Code: &lt;strong&gt;##OTP##&lt;/strong&gt;. Er gilt 10 Minuten.&lt;/p&gt;' },
+  },
+  password_reset_otp_email: {
+    de: { subject: 'Ihr Code zum Zurücksetzen', body: '&lt;p&gt;Ihr Code: &lt;strong&gt;##OTP##&lt;/strong&gt;&lt;/p&gt;' },
+  },
+};</code></pre>
+    <p>A member gets your version for their language, else for the site's default language, else the English template from Settings. English is always the template in Settings, so the file takes no <code>en</code> here. Keep <code>##OTP##</code> in every version: it is the code.</p>
+
+    <h2>In the admin</h2>
+    <ul>
+      <li><strong>Email, Composer</strong> lists your templates, marked <em>App</em>, with their languages. They open as a preview, in each language, filled with their <code>sample</code> data, and cannot be edited there. Opening the composer brings the list up to date with your file (the <code>syncAppEmailTemplates</code> function), and so does each send.</li>
+      <li><strong>Email Logs</strong> shows each email as it was sent, its language, Reply-To and your reference, and lists its files with an Open link.</li>
+      <li><strong>Settings, Automations</strong> does not offer your templates for rules: they need your data.</li>
+    </ul>
+
+    <h2>Test it</h2>
+    <p><strong>On a dev project</strong>, choose the Simulated provider in Settings, Email. Nothing is sent: each email is recorded in Email Logs as it would have gone, files included, so you can open it there and check the whole flow, events included, with no real provider.</p>
+    <p><strong>In your unit tests</strong>, <code>captureAppEmails</code> from the app kit records what would be sent, without Firestore, Storage or a provider. <code>sendAppEmail</code> still checks its input as for real, so a mistake fails the test:</p>
+    <pre><code>import { captureAppEmails } from '../../app-kit/index.js';
+
+it('emails the closing in the shop\'s language with both files', async () =&gt; {
+  const mail = captureAppEmails({ defaultLanguage: 'en' });   // the site's default language
+  try {
+    await sendClosing('b1', 'c9');
+  } finally {
+    mail.stop();
+  }
+  expect(mail.emails).toHaveLength(1);
+  expect(mail.emails[0]).toMatchObject({ to: ['owner@example.com'], template: 'daily_closing', language: 'de', ref: 'businesses/b1/closings/c9' });
+  expect(mail.emails[0].attachments.map((f) =&gt; f.name)).toEqual(['sales.csv', 'payments.csv']);
+});</code></pre>
+    <p>Each captured email has <code>to</code>, <code>template</code>, <code>languageAsked</code> and <code>language</code> (the one sent), <code>subject</code>, <code>html</code> (with its tags still to fill), <code>text</code>, <code>data</code>, <code>attachments</code> (with their bytes as <code>content</code>), <code>replyTo</code>, <code>dedupeKey</code> and <code>ref</code>.</p>
+
+    <h2>Deploy</h2>
+    <p>Deploy your function as usual (<a href="../operations/targeted-deploys.html">Deploy only what changed</a>). A change to your templates is live once the functions that send them are deployed, since each send reads them from the code. The admin's list catches up with the next send; to see it at once, deploy <code>syncAppEmailTemplates</code> too, which the composer calls. A change to <code>ACCOUNT_EMAIL_LANGUAGES</code> is live once the code functions are deployed: <code>requestSignupOtp</code>, <code>requestPasswordReset</code> and <code>requestEmailLinkOtp</code> (<a href="../operations/targeted-deploys.html">Deploy only what changed</a> has the targets).</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

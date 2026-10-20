@@ -246,6 +246,8 @@ describe('the app kit\'s exports', () => {
         'revokeSessions', 'signedInByApp',
         'APP_PINS', 'callerKey', 'consumeRateLimit', 'createPhonePinCheck', 'createPinStore', 'hashedKey', 'isValidPin', 'isWeakPin',
         'pinTooEasy', 'signInStrength',
+        'sendAppEmail', 'captureAppEmails', 'escapeEmailHtml', 'MAX_APP_EMAIL_RECIPIENTS', 'MAX_ATTACHMENTS', 'MAX_ATTACHMENT_BYTES',
+        'APP_EMAIL_EVENTS',
     ];
 
     it('are exactly the documented ones', () => {

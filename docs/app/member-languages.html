@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Member languages | Arc CMS docs</title>
   <meta name="description" content="Show your members a language Arc CMS does not ship, such as German, while the admin keeps Arc CMS's own languages: declare it, translate it, check it.">
-  <meta name="docs:sources" content="src/custom/languages.ts, src/app/core/i18n/member-languages.ts, src/app/core/i18n/member-language.service.ts, src/app/core/i18n/member-keys.ts, src/app/core/i18n/translation.loader.ts, src/app/core/i18n/admin-locale.provider.ts, scripts/i18n-member.mjs, scripts/i18n-pseudo.mjs, src/test/member-language-parity.spec.ts, src/test/pseudo-language.ts, src/shared/components/member-language-picker, src/app/pages/page.parts/sign-in-panel.component.ts">
+  <meta name="docs:sources" content="src/custom/languages.ts, src/app/core/i18n/member-languages.ts, src/app/core/i18n/member-language.service.ts, src/app/core/i18n/member-keys.ts, src/app/core/i18n/translation.loader.ts, src/app/core/i18n/admin-locale.provider.ts, scripts/i18n-member.mjs, scripts/i18n-pseudo.mjs, src/test/member-language-parity.spec.ts, src/test/pseudo-language.ts, src/shared/components/member-language-picker, src/app/pages/page.parts/sign-in-panel.component.ts, src/app/pages/(auth)/sign-in.service.ts, functions/src/email-core/appEmailTemplates.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/member-languages.html">
@@ -92,7 +92,7 @@ german(): void {
 
     <h2 id="what-stays-in-english">What stays in English</h2>
     <ul>
-      <li><strong>Emails and SMS.</strong> The code emails (sign-up and password reset) and SMS that Arc CMS sends stay in English. Only a site whose email engine sends nothing falls back to Firebase's own reset email, which Arc CMS asks for in the member language; Firebase uses it where it has a template for it.</li>
+      <li><strong>SMS, and code emails you have not worded.</strong> The code emails (sign-up, password reset, and adding an email to an account) go in the member language once you word them in it in <code>functions/src/custom/email-templates.ts</code> (see <a href="app-email.html#account-emails">Arc CMS's account emails in your languages</a>); a language you have not worded gets your version for the site's default language, else the English template in Settings. SMS stay in English. Only a site whose email engine sends nothing falls back to Firebase's own reset email, which Arc CMS asks for in the member language; Firebase uses it where it has a template for it.</li>
       <li><strong>Pages of optional features</strong>: pricing and checkout, signup forms, notifications. An app that needs them in its language rewords their text in its own files once they have keys.</li>
       <li><strong>The published site</strong>, content and list pages included (with what they say when there is nothing to show): it follows the page's own language, through the site's strings files, not the member language. See <a href="../features/languages.html">Languages</a>.</li>
       <li><strong>What an admin writes</strong>, such as the cookie banner's message: it is the site's own content.</li>

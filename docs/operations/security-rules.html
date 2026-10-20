@@ -82,9 +82,10 @@
         <tr><td><code>users/{userDocId}/...</code>, at the bucket root or under the upload folder</td><td>The owner (<code>arccms_uid</code>) or an admin. Never public</td><td>Staff, and whatever the app's <code class="new">storage.app.rules</code> allows the owner</td></tr>
         <tr><td><code>users/{userDocId}/feedback/{feedbackId}/...</code></td><td>The owner or an admin</td><td>The owner may create <code>screenshot.jpg</code> (JPEG, under 5 MB) or a voice note (<code>voice.mp4</code>, <code>.webm</code> or <code>.ogg</code>, under 10 MB), never overwrite</td></tr>
         <tr><td><code>avatars/{uid}/...</code></td><td>Anyone</td><td>That signed-in person: images under 5 MB</td></tr>
+        <tr><td><code>email-logs/{logId}/...</code>, at the bucket root or under the upload folder</td><td>Admins. Never public</td><td>Nobody from a browser: Cloud Functions write the files an app's email carries</td></tr>
       </tbody>
     </table>
-    <p>Any folder named <code>users</code> in the first two levels of a path is never public.</p>
+    <p>Any folder named <code>users</code> or <code>email-logs</code> in the first two levels of a path is never public.</p>
 
     <h2>The helper functions</h2>
     <p>The top of <code>firestore.rules</code> defines these, and <code>storage.rules</code> the same names with the same meaning. App rules may call the five marked stable; keep their names and meaning when you change core.</p>

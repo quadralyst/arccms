@@ -171,7 +171,7 @@ gcloud iam service-accounts add-iam-policy-binding &lt;service-account&gt; --mem
     <ul>
       <li><strong>Send people to sign in and back:</strong> link to <code>/signup?redirect=/your-page</code>.</li>
       <li><strong>Where people land</strong> by role: <code>src/custom/home.ts</code>, described in <a href="../app/sign-in.html">Set up sign-in</a>.</li>
-      <li><strong>The sign-up code email</strong> is the <code>signup_otp_email</code> template, and the reset code email is <code>password_reset_otp_email</code> (see <a href="email.html">Email engine</a>).</li>
+      <li><strong>The sign-up code email</strong> is the <code>signup_otp_email</code> template, and the reset code email is <code>password_reset_otp_email</code> (see <a href="email.html">Email engine</a>). The page sends the language it shows with each code request, so both go in the member's language when the app words them in it (see <a href="../app/app-email.html#account-emails">Arc CMS's account emails in your languages</a>); otherwise they are the English templates.</li>
     </ul>
     <p>A new sign-in method (another provider) is a change to core, not something an app adds.</p>
 

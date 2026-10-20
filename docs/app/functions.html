@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Write your own Cloud Functions | Arc CMS docs</title>
   <meta name="description" content="Add your app's callables and Firestore triggers in functions/src/custom, call them from the browser, read the right database, and test and deploy them.">
-  <meta name="docs:sources" content="functions/src/custom, functions/src/all.ts, functions/src/index.ts, functions/src/function-names.ts, functions/src/init.ts, functions/src/arc-config.ts, functions/src/users/claims.ts, functions/src/email-core/appEvents.ts, functions/scripts/check-callable-access.sh, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, src/app/core/config/arc-functions.ts, functions/src/__tests__/arcConfigGuard.spec.ts, functions/src/auth/warmUp.ts, functions/src/shared/lazy-cheerio.ts">
+  <meta name="docs:sources" content="functions/src/custom, functions/src/all.ts, functions/src/index.ts, functions/src/function-names.ts, functions/src/init.ts, functions/src/arc-config.ts, functions/src/users/claims.ts, functions/src/email-core/appEvents.ts, functions/src/email-core/appEmail.ts, functions/scripts/check-callable-access.sh, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, src/app/core/config/arc-functions.ts, functions/src/__tests__/arcConfigGuard.spec.ts, functions/src/auth/warmUp.ts, functions/src/shared/lazy-cheerio.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/functions.html">
@@ -104,13 +104,16 @@ export const onLessonDone = onDocumentCreated(
     <p><code>functions/src/init.ts</code> also exports <code>owner</code> (Firebase Auth) and <code>storage</code>.</p>
 
     <h2>React to what happens to a person</h2>
-    <p>When core finishes its own work on a person, it writes a document to <code>AppEvents</code> with a <code>type</code>, such as <code>user.signed_up</code>, <code>user.deleted</code>, <code>user.signInDeleted</code>, <code>payment.succeeded</code>, <code>payment.failed</code> or <code>waitlist.joined</code>. React with your own trigger and return at once for other types:</p>
+    <p>When core finishes its own work on a person, it writes a document to <code>AppEvents</code> with a <code>type</code>, such as <code>user.signed_up</code>, <code>user.deleted</code>, <code>user.signInDeleted</code>, <code>payment.succeeded</code>, <code>payment.failed</code> or <code>waitlist.joined</code>, and for the emails your app sends, <code>email.sent</code>, <code>email.failed</code> and <code>email.bounced</code> (see <a href="app-email.html#outcome">Send email from your app</a>). React with your own trigger and return at once for other types:</p>
     <pre><code>export const onSignedUp = onDocumentCreated(arcDocument('AppEvents/{id}'), async (event) =&gt; {
   const e = event.data?.data();
   if (e?.['type'] !== 'user.signed_up') return;
   // e.userId is the Auth uid: create the person's starter data
 });</code></pre>
     <p>This is safer than a second trigger on a core collection such as <code>users</code>. If you do add one, it must not rely on core's trigger having run, must write only its own fields or subcollections, must be safe to run twice, and must return at once when the change does not concern it.</p>
+
+    <h2>Send email</h2>
+    <p>Send transactional email, such as a receipt or a report, with <code>sendAppEmail</code> from the app kit: your templates in your languages, files attached, the outcome back as <code>AppEvents</code>. See <a href="app-email.html">Send email from your app</a>.</p>
 
     <h2>Follow the app's features</h2>
     <p>If your function calls into a feature, check it first with <code>isFeatureOn('payments')</code> from <code>functions/src/feature-flags.ts</code> (<a href="choose-features.html">Choose your app's features</a>).</p>
