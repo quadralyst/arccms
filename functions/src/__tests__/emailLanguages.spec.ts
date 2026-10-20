@@ -13,7 +13,8 @@ import {
   type AppEmailTemplate,
 } from '../email-core/emailLanguages.js';
 import { DEFAULT_EMAIL_BRAND, wrapInEmailLayout } from '../email-core/emailLayout.js';
-import { DEFAULT_BRAND_KIT } from '../../../src/shared/email-compiler/email-design.model';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 // @ts-expect-error: plain ESM script without type declarations
 import { starterExports } from '../../../scripts/custom-starters.mjs';
 
@@ -73,9 +74,16 @@ describe('which language a send gets (AE-D4)', () => {
 });
 
 describe('the site\'s email layout (AE-D7)', () => {
-  it('starts from the Brand Kit\'s own defaults', () => {
-    const { footerText: _f, socialLinks: _s, ...kit } = DEFAULT_BRAND_KIT;
-    expect(DEFAULT_EMAIL_BRAND).toEqual(kit);
+  it('starts from the Brand Kit\'s own defaults (DEFAULT_BRAND_KIT in the browser)', () => {
+    // Read as text: the functions cannot import the browser's files.
+    const model = readFileSync(resolve(__dirname, '../../../src/shared/email-compiler/email-design.model.ts'), 'utf8');
+    const block = model.slice(model.indexOf('export const DEFAULT_BRAND_KIT'), model.indexOf('};', model.indexOf('export const DEFAULT_BRAND_KIT')));
+    const firstFont = /SAFE_FONTS: string\[\] = \[\s*"([^"]+)"/.exec(model)?.[1];
+    for (const [key, value] of Object.entries(DEFAULT_EMAIL_BRAND)) {
+      const line = new RegExp(`\\b${key}: ([^,\\n]+),`).exec(block)?.[1]?.trim();
+      const browser = line === 'SAFE_FONTS[0]' ? firstFont : line?.replace(/^'|'$/g, '');
+      expect(String(value), key).toBe(browser);
+    }
   });
 
   it('wraps the body with the brand, and drops values that could break out of the markup', () => {

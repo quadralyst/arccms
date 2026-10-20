@@ -84,6 +84,12 @@ export interface CapturedAppEmail {
 }
 
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
+/**
+ * The most characters of a body, and of all the tag data together. The log keeps
+ * the body, the data and, once sent, the merged email, all under Firestore's 1 MB
+ * per document.
+ */
+export const MAX_APP_EMAIL_HTML = 150_000;
 const TAG_KEY = /^[A-Z_]+$/;
 
 function fail(message: string): never {
@@ -107,6 +113,7 @@ function checkedData(data: unknown): Record<string, AppTagValue> {
       || (typeof value === 'object' && value !== null && typeof (value as { html?: unknown }).html === 'string');
     if (!ok) fail(`data '${key}' must be text, a number, true or false, or { html }.`);
   }
+  if (JSON.stringify(data).length > MAX_APP_EMAIL_HTML) fail(`data comes to more than ${MAX_APP_EMAIL_HTML} characters; send a large table as an attachment.`);
   return data as Record<string, AppTagValue>;
 }
 
@@ -158,7 +165,7 @@ async function compose(input: SendAppEmailInput, defaultLanguage: () => Promise<
     };
   }
   const subject = optionalText(input.subject, 'subject', 1000);
-  const html = optionalText(input.html, 'html', 500_000);
+  const html = optionalText(input.html, 'html', MAX_APP_EMAIL_HTML);
   if (!subject || !html) fail('give a template, or a subject and html.');
   const language = languageAsked || normalizeLanguage(await defaultLanguage()) || 'en';
   const email = await rendered(language, { subject, body: html }, brand);

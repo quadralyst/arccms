@@ -92,7 +92,7 @@ export const onClosingDone = onDocumentUpdated(arcDocument('businesses/{bid}/clo
       <tbody>
         <tr><td><code>to</code></td><td>One address or a list, up to 50. Each address gets its own log, so suppression, bounces and status are per address.</td></tr>
         <tr><td><code>template</code>, <code>data</code></td><td>The key of one of your templates, and the data for its tags. Or, instead:</td></tr>
-        <tr><td><code>subject</code>, <code>html</code>, <code>text</code></td><td>A subject and body you built (the body wrapped in the site's layout), and a plain-text version if you have one.</td></tr>
+        <tr><td><code>subject</code>, <code>html</code>, <code>text</code></td><td>A subject and body you built (the body wrapped in the site's layout), and a plain-text version if you have one. The body, and the <code>data</code> all together, may each be up to 150,000 characters: the log keeps them under Firestore's 1 MB per document. Send a bigger table as a file.</td></tr>
         <tr><td><code>language</code></td><td>The language to send in, such as <code>de</code> or <code>de-CH</code>. Leave it out for the site's default language.</td></tr>
         <tr><td><code>attachments</code></td><td>Files: <code>{ name, contentType, content }</code>, the content as text (sent as UTF-8), a <code>Buffer</code>, or base64 text with <code>encoding: 'base64'</code>. Up to 10 files and 5 MB in all.</td></tr>
         <tr><td><code>replyTo</code></td><td>Where replies go. Default: the reply-to address in Settings, Email.</td></tr>

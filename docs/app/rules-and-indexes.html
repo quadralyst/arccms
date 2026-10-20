@@ -50,7 +50,7 @@ match /Lessons/{lessonId} {
         || (request.resource.size &lt; 10 * 1024 * 1024
             &amp;&amp; request.resource.contentType.matches('audio/.*')));
 }</code></pre>
-    <p>Every other path in the bucket is public for reading, except folders named <code>users</code> in the first two levels. Put private files under <code>users/{userDocId}/</code>.</p>
+    <p>Every other path in the bucket is public for reading, except folders named <code>users</code> or <code>email-logs</code> (the files of sent email, admins only) in the first two levels. Put private files under <code>users/{userDocId}/</code>.</p>
     <div class="trap"><p>An install that keeps its uploads in a folder (an upload prefix set with <code>npm run arc:configure</code>) stores the per-user folders at <code>{prefix}/users/{userDocId}/</code>. A rule for <code>/users/...</code> alone never matches there. Add the same rule for <code>/{prefix}/users/{userDocId}/...</code>, as the core rules do.</p></div>
 
     <h2>The helpers you can call</h2>

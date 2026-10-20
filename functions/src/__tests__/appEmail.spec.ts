@@ -13,10 +13,11 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('../init', async () => {
-  const { MemoryFirestore } = await import('./helpers/memoryFirestore');
+  const { MemoryFirestore } = await import('./helpers/memoryFirestore.js');
   const bucket = {
     file: (path: string) => ({
       save: async (bytes: Buffer, opts: { contentType?: string }) => void h.files.set(path, { bytes, contentType: opts?.contentType }),
+      delete: async () => void h.files.delete(path),
       download: async () => {
         const f = h.files.get(path);
         if (!f) throw Object.assign(new Error(`No such object: ${path}`), { code: 404 });
@@ -31,7 +32,7 @@ vi.mock('../init', async () => {
 });
 
 vi.mock('firebase-admin/firestore', async () => {
-  const { FakeTimestamp } = await import('./helpers/memoryFirestore');
+  const { FakeTimestamp } = await import('./helpers/memoryFirestore.js');
   return {
     Timestamp: Object.assign(FakeTimestamp, { fromDate: (d: Date) => FakeTimestamp.fromMillis(d.getTime()) }),
     FieldValue: { serverTimestamp: () => ({ _serverTimestamp: true }), increment: (n: number) => ({ _increment: n }), delete: () => ({ _delete: true }) },
@@ -93,7 +94,7 @@ import { requestSignupOtp } from '../auth/signupOtp.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import type { EmailLogData } from '../types.js';
 
-const mem = db as unknown as import('./helpers/memoryFirestore').MemoryFirestore;
+const mem = db as unknown as import('./helpers/memoryFirestore.js').MemoryFirestore;
 
 function emailSettings(extra: Record<string, unknown> = {}) {
   mem.seed('Settings', 'email', {
@@ -164,6 +165,8 @@ describe('sendAppEmail: templates in the app\'s languages', () => {
     await expect(sendAppEmail({ to: 'a@example.com', template: 'daily_closing', data: { date: 'x' } as never })).rejects.toThrow(/capitals/);
     await expect(sendAppEmail({ to: 'a@example.com', subject: 'x', html: 'y', attachments: [{ name: 'big.bin', contentType: 'application/octet-stream', content: Buffer.alloc(5 * 1024 * 1024 + 1) }] }))
       .rejects.toThrow(/at most 5 MB/);
+    await expect(sendAppEmail({ to: 'a@example.com', template: 'daily_closing', data: { TABLE: { html: 'x'.repeat(150_001) } } }))
+      .rejects.toThrow(/send a large table as an attachment/);
     expect(logs()).toEqual([]);
   });
 

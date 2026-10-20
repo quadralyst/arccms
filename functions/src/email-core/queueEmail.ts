@@ -14,7 +14,7 @@ import { isFeatureOn } from '../feature-flags.js';
 import { sendMail } from '../mail-config/mailConfig.js';
 import type { EmailLogData } from '../types.js';
 import { claimEmailSend } from './claimEmailSend.js';
-import { listedAttachments, storeAttachments, type PreparedAttachment } from './emailAttachments.js';
+import { deleteStoredAttachments, listedAttachments, storeAttachments, type PreparedAttachment, type StoredAttachment } from './emailAttachments.js';
 import { emitEmailOutcome } from './appEmailOutcome.js';
 
 /** Default max delivery attempts before an email is marked `failed`. */
@@ -267,12 +267,14 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     ? db.collection('EmailLogs').doc(emailLogId(params.type, params.dedupeKey))
     : db.collection('EmailLogs').doc();
   const id: string = params.dedupeKey ? emailLogId(params.type, params.dedupeKey) : ref.id;
+  let stored: StoredAttachment[] = [];
   try {
     if (files.length) {
       // The files go first, so the send (onEmailLogCreate) never runs ahead of them.
       // A duplicate keeps the files of the email already queued.
       if (params.dedupeKey && (await ref.get()).exists) return { id, status: 'pending', duplicate: true };
-      (pending as Record<string, unknown>)['attachments'] = await storeAttachments(id, files);
+      stored = await storeAttachments(id, files);
+      (pending as Record<string, unknown>)['attachments'] = stored;
     }
     await ref.create(pending);
     if (params.sendNow) await sendFromCaller(id, pending);
@@ -281,6 +283,8 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     if (isAlreadyExists(error)) {
       return { id, status: 'pending', duplicate: true };
     }
+    // No log was written: its files would never be sent or purged.
+    await deleteStoredAttachments(stored);
     throw error;
   }
 }

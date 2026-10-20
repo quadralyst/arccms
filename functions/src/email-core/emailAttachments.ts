@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { storage } from '../init.js';
 import { arcStorageBucket, arcStoragePrefix } from '../arc-config.js';
 
@@ -98,7 +99,12 @@ export async function storeAttachments(logId: string, files: PreparedAttachment[
   const folder = emailLogFolder(logId);
   return Promise.all(files.map(async (file, i) => {
     const path = `${folder}${i + 1}-${file.name}`;
-    await bucket().file(path).save(file.bytes, { contentType: file.contentType, resumable: false });
+    // A download token, so the admin's Open link (getDownloadURL, read allowed to admins only) always works.
+    await bucket().file(path).save(file.bytes, {
+      contentType: file.contentType,
+      resumable: false,
+      metadata: { metadata: { firebaseStorageDownloadTokens: randomUUID() } },
+    });
     return { name: file.name, contentType: file.contentType, size: file.size, path };
   }));
 }
@@ -112,14 +118,22 @@ export async function loadAttachments(files: StoredAttachment[] | undefined): Pr
   }));
 }
 
-/** Delete the files of logs being purged. A failure is logged, never thrown: the purge goes on. */
-export async function deleteEmailLogFiles(logs: Array<{ id: string; data: Record<string, unknown> }>): Promise<void> {
-  const withFiles = logs.filter((l) => Array.isArray(l.data['attachments']) && (l.data['attachments'] as StoredAttachment[]).some((f) => f.path));
-  await Promise.all(withFiles.map(async (l) => {
+/** Delete stored files by their paths; one already gone is fine. A failure is logged, never thrown. */
+export async function deleteStoredAttachments(files: StoredAttachment[]): Promise<void> {
+  await Promise.all(files.filter((f) => f.path).map(async (f) => {
     try {
-      await bucket().deleteFiles({ prefix: emailLogFolder(l.id) });
+      await bucket().file(f.path as string).delete({ ignoreNotFound: true });
     } catch (err) {
-      console.error(`deleteEmailLogFiles: could not delete the files of ${l.id}`, err);
+      console.error(`deleteStoredAttachments: could not delete ${f.path}`, err);
     }
   }));
+}
+
+/**
+ * Delete the files of logs being purged, by the paths each log lists (so a change
+ * of upload folder since cannot leave them behind). Never throws: the purge goes on.
+ */
+export async function deleteEmailLogFiles(logs: Array<{ id: string; data: Record<string, unknown> }>): Promise<void> {
+  const files = logs.flatMap((l) => (Array.isArray(l.data['attachments']) ? (l.data['attachments'] as StoredAttachment[]) : []));
+  await deleteStoredAttachments(files);
 }
