@@ -9,6 +9,11 @@ import { POWERED_BY_EMAIL_HTML } from '../shared/html-document.js';
 import { buildUnsubscribeUrl, buildPreferencesUrl } from '../email-core/unsubscribeToken.js';
 import { getUnsubscribeSecret } from '../email-core/unsubscribeSecret.js';
 import { APP_TAG_PATTERN } from '../app-audience/mergeFields.js';
+import { loadAttachments } from '../email-core/emailAttachments.js';
+import { emitEmailOutcome } from '../email-core/appEmailOutcome.js';
+
+/** A file as the providers take it. */
+type MailAttachment = { filename: string; contentType: string; content: Buffer };
 
 /** Base retry backoff unit: 5 minutes. */
 const RETRY_BASE_MS = 5 * 60 * 1000;
@@ -51,7 +56,7 @@ const MERGE_TAG_PATTERN = new RegExp(
 const SETTINGS_TAG_KEYS = ['companyName', 'senderName', 'senderEmail', 'replyToEmail', 'liveUrl'] as const;
 
 /** Log fields that are plumbing, not merge data: never read by a `##TAG##`. */
-const LOG_KEYS_NEVER_MERGED = new Set(['bcc', 'template', 'text', 'emailHash', 'contactFields', 'appFields']);
+const LOG_KEYS_NEVER_MERGED = new Set(['bcc', 'template', 'text', 'emailHash', 'contactFields', 'appFields', 'appData', 'attachments']);
 
 /**
  * A merge value as HTML text. Values come from people (names, host app
@@ -107,6 +112,7 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
             skipReason: 'email_disabled',
             sendingTime: Timestamp.now(),
         });
+        await emitEmailOutcome(emailLogsId, { ...emailLogsData, status: 'skipped', skipReason: 'email_disabled' });
         return;
     }
 
@@ -160,6 +166,10 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
         // exact message that would have been sent — verifiable from EmailLogs alone.
         const logOnly = isDebugProvider;
 
+        // The files beside the log (emailAttachments.ts), read on every attempt. The
+        // Simulated provider sends nothing, so it leaves them where Email Logs shows them.
+        const attachments: MailAttachment[] = logOnly ? [] : await loadAttachments(emailLogsData.attachments);
+
         let result: { messageId?: string } | undefined;
 
         if (logOnly) {
@@ -168,14 +178,14 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
         } else {
             switch (activeProvider) {
                 case 'resend':
-                    result = await sendResendMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
+                    result = await sendResendMail(emailLogsData, updatedTemplate, settings, unsubHeaders, attachments);
                     break;
                 case 'gmail':
-                    result = await sendGmailMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
+                    result = await sendGmailMail(emailLogsData, updatedTemplate, settings, unsubHeaders, attachments);
                     break;
                 case 'smtp':
                 default:
-                    result = await sendSmtpMail(emailLogsData, updatedTemplate, settings, unsubHeaders);
+                    result = await sendSmtpMail(emailLogsData, updatedTemplate, settings, unsubHeaders, attachments);
                     break;
             }
         }
@@ -197,6 +207,7 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
         }
 
         await logRef.update(updateData);
+        await emitEmailOutcome(emailLogsId, { ...emailLogsData, ...updateData });
 
         // Increment daily/hourly send counters (skip in log-only — no real send).
         if (!logOnly) {
@@ -230,6 +241,7 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
             failData.unmappedTags = updatedTemplate.unmappedTags;
         }
         await logRef.update(failData);
+        if (exhausted) await emitEmailOutcome(emailLogsId, { ...emailLogsData, ...failData });
         console.error(
             `Error sending email ${emailLogsId} (attempt ${newAttempts}/${maxAttempts}, ${exhausted ? 'failed' : 'will retry'}):`,
             err,
@@ -255,7 +267,7 @@ function buildListUnsubscribeHeaders(
     };
 }
 
-async function sendSmtpMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings, extraHeaders: Record<string, string> = {}) {
+async function sendSmtpMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings, extraHeaders: Record<string, string> = {}, attachments: MailAttachment[] = []) {
     const smtpSettings = settings?.smtp || {} as Partial<import('../types.js').SmtpConfig>;
 
     const transporterMail = nodemailer.createTransport({
@@ -273,14 +285,15 @@ async function sendSmtpMail(emailLogsData: EmailLogData, updatedTemplate: Proces
         to: `"${emailLogsData.toName}" <${emailLogsData.toEmail}>`,
         subject: updatedTemplate.subject,
         text: emailLogsData.text,
-        replyTo: settings.replyToEmail,
+        replyTo: emailLogsData.replyTo || settings.replyToEmail,
         html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? '', settings.trackingPixelUrl),
         bcc: emailLogsData.bcc || undefined,
         headers: extraHeaders,
+        ...(attachments.length ? { attachments } : {}),
     });
 }
 
-async function sendResendMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings, extraHeaders: Record<string, string> = {}) {
+async function sendResendMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings, extraHeaders: Record<string, string> = {}, attachments: MailAttachment[] = []) {
     const resendConfig = settings?.resend;
     if (!resendConfig?.apiKey) {
         throw new Error('Resend API Key is missing');
@@ -299,8 +312,11 @@ async function sendResendMail(emailLogsData: EmailLogData, updatedTemplate: Proc
             subject: updatedTemplate.subject,
             html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? '', settings.trackingPixelUrl),
             text: emailLogsData.text,
-            reply_to: settings.replyToEmail,
+            reply_to: emailLogsData.replyTo || settings.replyToEmail,
             ...(Object.keys(extraHeaders).length ? { headers: extraHeaders } : {}),
+            ...(attachments.length ? {
+                attachments: attachments.map((a) => ({ filename: a.filename, content: a.content.toString('base64'), content_type: a.contentType })),
+            } : {}),
         }),
     });
 
@@ -313,7 +329,7 @@ async function sendResendMail(emailLogsData: EmailLogData, updatedTemplate: Proc
     return { messageId: data.id };
 }
 
-async function sendGmailMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings, extraHeaders: Record<string, string> = {}) {
+async function sendGmailMail(emailLogsData: EmailLogData, updatedTemplate: ProcessedTemplate, settings: EmailSettings, extraHeaders: Record<string, string> = {}, attachments: MailAttachment[] = []) {
     const gmailSettings = settings?.gmail || {} as Partial<import('../types.js').GmailConfig>;
     const transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -330,9 +346,10 @@ async function sendGmailMail(emailLogsData: EmailLogData, updatedTemplate: Proce
         subject: updatedTemplate.subject,
         text: emailLogsData.text,
         html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? '', settings.trackingPixelUrl),
-        replyTo: settings.replyToEmail || undefined,
+        replyTo: emailLogsData.replyTo || settings.replyToEmail || undefined,
         bcc: emailLogsData.bcc || undefined,
         headers: extraHeaders,
+        ...(attachments.length ? { attachments } : {}),
     });
 }
 
@@ -380,6 +397,8 @@ export async function processEmailTemplate(
     const orFallback = (raw: unknown, fallback?: string): string =>
         raw === undefined || raw === null || raw === '' ? fallback ?? '' : String(raw);
 
+    // An app's tag data (sendAppEmail): text, or `{ html }` put in as written.
+    const appData = (emailLogsData.appData || {}) as Record<string, unknown>;
     const logData = emailLogsData as unknown as Record<string, unknown>;
     const settingsData = pickSettingsTagData(configData);
     const foundTags = new Set<string>();
@@ -409,17 +428,24 @@ export async function processEmailTemplate(
         fieldKey: string | undefined, fieldFallback: string | undefined,
         appPath: string | undefined, appFallback: string | undefined,
         tag: string | undefined,
-    ): string => {
+    ): string | { html: string } => {
         if (fieldKey !== undefined) return orFallback(fieldValues[fieldKey], fieldFallback);
         if (appPath !== undefined) return orFallback(appValues[appPath], appFallback);
         foundTags.add(tag as string);
+        const own = appData[tag as string];
+        if (isHtmlValue(own)) return own;
+        if (own !== undefined && own !== null && typeof own !== 'object') return String(own);
         return tagValue(tag as string);
     };
 
-    const processedTemplate = template.replace(MERGE_TAG_PATTERN, (_m, f, ff, a, af, t) =>
-        mergeValueHtml(valueOf(f, ff, a, af, t)));
-    const processedSubject = subject.replace(MERGE_TAG_PATTERN, (_m, f, ff, a, af, t) =>
-        mergeValueSubject(valueOf(f, ff, a, af, t)));
+    const processedTemplate = template.replace(MERGE_TAG_PATTERN, (_m, f, ff, a, af, t) => {
+        const value = valueOf(f, ff, a, af, t);
+        return typeof value === 'string' ? mergeValueHtml(value) : value.html;
+    });
+    const processedSubject = subject.replace(MERGE_TAG_PATTERN, (_m, f, ff, a, af, t) => {
+        const value = valueOf(f, ff, a, af, t);
+        return mergeValueSubject(typeof value === 'string' ? value : htmlAsText(value.html));
+    });
 
     // Log unmapped tags for debugging
     if (unmappedTags.length > 0) {
@@ -433,6 +459,17 @@ export async function processEmailTemplate(
         usedTags: Array.from(foundTags),
         unmappedTags,
     };
+}
+
+/** A tag value an app gave as `{ html }`. */
+function isHtmlValue(value: unknown): value is { html: string } {
+    return typeof value === 'object' && value !== null && typeof (value as { html?: unknown }).html === 'string';
+}
+
+/** HTML as subject text: tags dropped, common entities read. */
+function htmlAsText(html: string): string {
+    return html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 }
 
 /** The `Settings/email` values a `##TAG##` may read (see SETTINGS_TAG_KEYS). */

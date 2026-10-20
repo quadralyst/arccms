@@ -1,7 +1,9 @@
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
+import { computeEmailHash } from '../email-core/unsubscribeToken.js';
+import { emitEmailOutcome } from '../email-core/appEmailOutcome.js';
 
 interface EmailWebhookPayload {
   eventType?: string;
@@ -15,9 +17,14 @@ interface EmailWebhookPayload {
   data?: {
     messageId?: string;
     message_id?: string;
+    /** Resend's id for the email. */
+    email_id?: string;
     recipient?: string;
     email?: string;
+    to?: string[];
     timestamp?: string;
+    created_at?: string;
+    bounce?: { type?: string; subType?: string; message?: string };
   };
   email?: string;
   messageId?: string;
@@ -92,11 +99,11 @@ export const handleEmailWebhook = onRequest(async (request, response) => {
       messageId = eventData.mail.messageId;
       recipientEmail = eventData.mail.destination?.[0];
     }
-    // Alternative format
+    // Alternative format, Resend's included (`email.bounced`, data.email_id, data.to)
     else if (eventData.type && eventData.data) {
-      eventType = eventData.type;
-      messageId = eventData.data.messageId || eventData.data.message_id;
-      recipientEmail = eventData.data.recipient || eventData.data.email;
+      eventType = eventData.type.replace(/^email\./, '');
+      messageId = eventData.data.messageId || eventData.data.message_id || eventData.data.email_id;
+      recipientEmail = eventData.data.recipient || eventData.data.email || eventData.data.to?.[0];
     }
     // Direct format
     else if (eventData.event && eventData.email) {
@@ -114,15 +121,21 @@ export const handleEmailWebhook = onRequest(async (request, response) => {
       response.status(400).send('No event type');
       return;
     }
+    // AWS SES names events in capitals (Bounce, Delivery, Complaint).
+    eventType = eventType.toLowerCase();
 
     logger.info(`Processing webhook - eventType: ${eventType}, messageId: ${messageId}, recipient: ${recipientEmail}`);
 
     // Find email log by messageId first
     let emailLogDoc;
+    // Only a log found by the provider's message id may suppress an address: the
+    // match by address and time below could be faked by anyone who reaches this URL.
+    let matchedByMessageId = false;
     if (messageId) {
       const messageIdQuery = await db.collection('EmailLogs').where('messageId', '==', messageId).limit(1).get();
       if (!messageIdQuery.empty) {
         emailLogDoc = messageIdQuery.docs[0];
+        matchedByMessageId = true;
       }
     }
 
@@ -177,6 +190,7 @@ export const handleEmailWebhook = onRequest(async (request, response) => {
     // Handle different event types
     switch (eventType) {
       case 'send':
+      case 'sent':
         updateData.status = 'sent';
         updateData.sentAt = FieldValue.serverTimestamp();
         break;
@@ -240,6 +254,22 @@ export const handleEmailWebhook = onRequest(async (request, response) => {
     // Update the email log document
     await emailLogDoc.ref.update(updateData);
 
+    // A hard bounce or a complaint stops mail to the address (specs/app-email-spec.md,
+    // AE-D9): queueEmail's suppression gate blocks the next send, transactional too.
+    const log = emailLogDoc.data() as Record<string, unknown>;
+    const suppressAs = suppressionReason(updateData);
+    const address = String(log['toEmail'] || recipientEmail || '');
+    if (suppressAs && matchedByMessageId && address) {
+      const emailHash = computeEmailHash(address);
+      await db.collection('Suppression').doc(emailHash).set(
+        { email: address.trim().toLowerCase(), emailHash, reason: suppressAs, at: Timestamp.now(), logId: emailLogDoc.id },
+        { merge: true },
+      );
+    }
+    if (updateData.status === 'bounced') {
+      await emitEmailOutcome(emailLogDoc.id, { ...log, status: 'bounced' }, { reason: bounceReason(updateData) });
+    }
+
     logger.info(`Email webhook processed for messageId: ${messageId}, eventType: ${eventType}`);
     response.status(200).send('Webhook processed successfully');
   } catch (error) {
@@ -247,3 +277,22 @@ export const handleEmailWebhook = onRequest(async (request, response) => {
     response.status(500).send('Internal server error');
   }
 });
+
+/**
+ * The Suppression reason a webhook event means, or null: a hard bounce (AWS's
+ * Permanent, or a bounce that names no type, as Resend's do) is `bounce`, a
+ * complaint is `complaint`. A soft bounce (mailbox full) suppresses nothing.
+ */
+export function suppressionReason(update: Record<string, unknown>): 'bounce' | 'complaint' | null {
+  if (update['status'] === 'complained') return 'complaint';
+  if (update['status'] !== 'bounced') return null;
+  const details = update['bounceDetails'] as { bounceType?: string; bounce?: { type?: string } } | undefined;
+  const type = details?.bounceType ?? details?.bounce?.type;
+  return !type || /^(permanent|hard)/i.test(type) ? 'bounce' : null;
+}
+
+/** What a bounce event says about why, for the app's email.bounced event. */
+function bounceReason(update: Record<string, unknown>): string {
+  const details = update['bounceDetails'] as { bounceType?: string; bounceSubType?: string; bounce?: { type?: string; message?: string } } | undefined;
+  return [details?.bounceType ?? details?.bounce?.type, details?.bounceSubType ?? details?.bounce?.message].filter(Boolean).join(': ') || 'bounced';
+}

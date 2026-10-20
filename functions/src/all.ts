@@ -22,6 +22,7 @@ export * from './email-core/retryPendingEmails.js';
 // Email-core (Phase 2): default-template seeding callable + signup OTP callables
 // + welcome-on-signup trigger.
 export * from './email-core/seedEmailTemplates.js';
+export { syncAppEmailTemplates } from './email-core/syncAppEmailTemplates.js';
 export * from './email-core/dedupeEmailTemplates.js';
 export * from './auth/signupOtp.js';
 

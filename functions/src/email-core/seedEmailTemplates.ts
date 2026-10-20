@@ -6,12 +6,13 @@ import { ensureEventMappings } from './appEvents.js';
 import { ensureSystemLists } from './contacts.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { isArcAdmin } from '../users/claims.js';
+import { syncAllAppEmailTemplates } from './syncAppEmailTemplates.js';
 
 /**
  * Admin callable: seed the whole email system's default config (idempotent).
  *
- * Templates, the notification-type registry, event mappings and the system
- * lists. Safe to run repeatedly — only missing entries are created. Used from
+ * Templates (the app's own too, from functions/src/custom/email-templates.ts),
+ * the notification-type registry, event mappings and the system lists. Safe to run repeatedly — only missing entries are created. Used from
  * the admin UI (and can be wired into onboarding).
  */
 export const seedEmailTemplates = onCall(async (request) => {
@@ -21,6 +22,7 @@ export const seedEmailTemplates = onCall(async (request) => {
 
   try {
     const result = await ensureDefaultTemplates();
+    await syncAllAppEmailTemplates();
     await ensureNotificationTypes();
     await ensureEventMappings();
     // System lists are the audience feature's (specs/feature-flags-spec.md).

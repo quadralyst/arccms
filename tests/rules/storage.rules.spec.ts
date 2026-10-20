@@ -129,6 +129,37 @@ describe('per-user folders (docs/app/account-contract.html)', () => {
     });
 });
 
+describe('email log files (specs/app-email-spec.md, AE-D8)', () => {
+    const editor = () => env.authenticatedContext('ed-uid', { arccms_role: 'editor' }).storage();
+    const csv = { contentType: 'text/csv' };
+
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await uploadBytes(ref(ctx.storage(), 'email-logs/log1/1-sales.csv'), png, csv);
+            await uploadBytes(ref(ctx.storage(), 'arccms/email-logs/log1/1-sales.csv'), png, csv);
+        });
+    });
+
+    it('are never public, at the bucket root or under the upload folder', async () => {
+        await assertFails(getBytes(ref(anon(), 'email-logs/log1/1-sales.csv')));
+        await assertFails(getBytes(ref(anon(), 'arccms/email-logs/log1/1-sales.csv')));
+        await assertFails(getBytes(ref(alice(), 'email-logs/log1/1-sales.csv')));
+        await assertFails(getBytes(ref(editor(), 'arccms/email-logs/log1/1-sales.csv')));
+    });
+
+    it('are read by admins, in Email Logs', async () => {
+        await assertSucceeds(getBytes(ref(admin(), 'email-logs/log1/1-sales.csv')));
+        await assertSucceeds(getBytes(ref(admin(), 'arccms/email-logs/log1/1-sales.csv')));
+    });
+
+    it('are written by the functions only, never from a browser', async () => {
+        await assertFails(uploadBytes(ref(admin(), 'email-logs/log1/2-new.csv'), png, csv));
+        await assertFails(uploadBytes(ref(admin(), 'arccms/email-logs/log1/1-sales.csv'), png, csv));
+        await assertFails(uploadBytes(ref(editor(), 'arccms/email-logs/log2/1-x.csv'), png, csv));
+        await assertFails(deleteObject(ref(admin(), 'email-logs/log1/1-sales.csv')));
+    });
+});
+
 describe('library files (docs/features/media.html, Files)', () => {
     const editor = () => env.authenticatedContext('editor-uid', { arccms_role: 'editor' }).storage();
     const pdf = { contentType: 'application/pdf' };

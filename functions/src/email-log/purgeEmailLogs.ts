@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { Timestamp } from 'firebase-admin/firestore';
+import { deleteEmailLogFiles } from '../email-core/emailAttachments.js';
 import { db, owner } from '../init.js';
 import { isArcAdmin } from '../users/claims.js';
 
@@ -44,6 +45,8 @@ export const purgeEmailLogs = onCall(async (request) => {
             break;
         }
 
+        // Files kept beside a log (an app email's attachments) go with it.
+        await deleteEmailLogFiles(snapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() })));
         const batch = db.batch();
         snapshot.docs.forEach((doc) => batch.delete(doc.ref));
         await batch.commit();

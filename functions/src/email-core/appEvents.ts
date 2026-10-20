@@ -23,6 +23,11 @@ export const RULE_EMAIL_EXCLUDED_TEMPLATES: readonly string[] = [
   'signup_otp_email', 'password_reset_otp_email', 'waitlist_verify_otp_email', 'notification_generic_email', 'admin_digest_email',
 ];
 
+/** Whether a rule may send this template: not one of the above, and not an app's own (`app.{key}`, filled with its feature's data). */
+export function isRuleEmailTemplate(type: string): boolean {
+  return !RULE_EMAIL_EXCLUDED_TEMPLATES.includes(type) && !type.startsWith('app.');
+}
+
 /**
  * Generic event bus (spec §3.11, D11). Product code calls {@link emitAppEvent};
  * admin-configurable mappings in `Settings/event_mappings` turn events into
@@ -181,10 +186,10 @@ async function runActions(rule: EventRule, { type, userId, appUserId, email, eve
   }
 
   // 2. Queue an email.
-  if (rule.sendEmail && email && RULE_EMAIL_EXCLUDED_TEMPLATES.includes(rule.sendEmail.templateType)) {
+  if (rule.sendEmail && email && !isRuleEmailTemplate(rule.sendEmail.templateType)) {
     results['email'] = 'template_not_for_rules';
   }
-  if (rule.sendEmail && email && !RULE_EMAIL_EXCLUDED_TEMPLATES.includes(rule.sendEmail.templateType)) {
+  if (rule.sendEmail && email && isRuleEmailTemplate(rule.sendEmail.templateType)) {
     try {
       const tpl = await loadTemplate(rule.sendEmail.templateType);
       if (tpl) {

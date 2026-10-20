@@ -55,18 +55,31 @@ service firebase.storage {
     //
     // Public read, because images are served on public pages and SSR, except
     // the per-user folders: `users/{userDocId}/...` at the bucket root or under
-    // one upload folder (`arccms/users/...`, the install's storagePrefix). A
-    // folder named `users` in the first two levels is therefore never public.
+    // one upload folder (`arccms/users/...`, the install's storagePrefix), and
+    // the files of email logs (`email-logs/...`, below). A folder named `users`
+    // or `email-logs` in the first two levels is therefore never public.
     match /{fileName} {
       allow read: if true;
       allow write: if isEditor();
     }
     match /{first}/{second}/{rest=**} {
-      allow read: if first != 'users' && second != 'users';
+      allow read: if first != 'users' && second != 'users'
+        && first != 'email-logs' && second != 'email-logs';
       // Library files have their own rules below. Without this exclusion a
       // staff write there would pass here whatever its type, since a request
-      // is allowed when any rule allows it.
-      allow write: if isEditor() && first != 'mediaFiles' && second != 'mediaFiles';
+      // is allowed when any rule allows it. Email log files are the functions' only.
+      allow write: if isEditor() && first != 'mediaFiles' && second != 'mediaFiles'
+        && first != 'email-logs' && second != 'email-logs';
+    }
+
+    // The files an email carried (an app's attachments, specs/app-email-spec.md),
+    // kept beside its log: admins read them in Email Logs, only the functions
+    // write them, and the purge deletes them with the log.
+    match /email-logs/{logId}/{fileName} {
+      allow read: if isAdmin();
+    }
+    match /{prefix}/email-logs/{logId}/{fileName} {
+      allow read: if isAdmin();
     }
 
     // Library files (docs/features/media.html, Files): documents only, each

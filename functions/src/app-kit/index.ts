@@ -1,6 +1,6 @@
 /**
  * The app kit: the supported, documented way for an app's own Cloud Functions
- * (functions/src/custom/) to use ArcCMS's accounts, claims and sign-in
+ * (functions/src/custom/) to use ArcCMS's accounts, claims, sign-in and email
  * (docs/app/app-kit.html). Import from here only; everything else in functions/src is
  * core's to change. A test keeps this list and the docs page in step.
  */
@@ -27,3 +27,15 @@ export type { PinCheck } from '../auth/accounts.js';
 // The password and PIN strength the app chose in src/custom/sign-in.ts (specs/sign-in-strength-spec.md)
 export { signInStrength } from '../sign-in-choice.js';
 export type { SignInStrength } from '../shared/sign-in-strength.js';
+
+// Sending the app's own email: its templates in its languages, attachments, the
+// outcome back as AppEvents, and a capture for its unit tests (specs/app-email-spec.md)
+export { sendAppEmail, captureAppEmails, MAX_APP_EMAIL_RECIPIENTS } from '../email-core/appEmail.js';
+export type { SendAppEmailInput, SendAppEmailResult, SendAppEmailLog, CapturedAppEmail } from '../email-core/appEmail.js';
+export { mergeValueHtml as escapeEmailHtml } from '../mail-config/mailConfig.js';
+export { MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES } from '../email-core/emailAttachments.js';
+export type { EmailAttachmentInput } from '../email-core/emailAttachments.js';
+export { APP_EMAIL_EVENTS } from '../email-core/appEmailOutcome.js';
+export type { AppEmailEvent } from '../email-core/appEmailOutcome.js';
+export type { AppEmailTemplate, AccountEmailLanguages, EmailLanguageVersion } from '../email-core/emailLanguages.js';
+export type { AppTagValue } from '../email-core/queueEmail.js';

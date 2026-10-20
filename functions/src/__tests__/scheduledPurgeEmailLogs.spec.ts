@@ -33,6 +33,9 @@ const {
     mockLimit: vi.fn(),
 }));
 
+const { mockDeleteFiles } = vi.hoisted(() => ({ mockDeleteFiles: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../email-core/emailAttachments', () => ({ deleteEmailLogFiles: mockDeleteFiles }));
+
 vi.mock('../init', () => {
     // Chain: db.collection('EmailLogs').where(...).limit(...).get()
     mockLimit.mockReturnValue({ get: mockEmailLogsGet });
@@ -92,7 +95,9 @@ const handler = scheduledPurgeEmailLogs as unknown as () => Promise<void>;
 
 function makeSnapshot(size: number) {
     const docs = Array.from({ length: size }, (_, i) => ({
+        id: `doc-${i}`,
         ref: { id: `doc-${i}` },
+        data: () => ({}),
     }));
     return {
         empty: size === 0,
@@ -107,6 +112,15 @@ describe('scheduledPurgeEmailLogs', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockBatchCommit.mockResolvedValue(undefined);
+    });
+
+    it('deletes the files kept beside each purged log (specs/app-email-spec.md, AE-D8)', async () => {
+        mockSettingsGet.mockResolvedValue({ data: () => ({}) });
+        const files = { attachments: [{ name: 'a.csv', contentType: 'text/csv', size: 1, path: 'email-logs/l1/1-a.csv' }] };
+        mockEmailLogsGet.mockResolvedValueOnce({ empty: false, size: 1, docs: [{ id: 'l1', ref: { id: 'l1' }, data: () => files }] });
+        await handler();
+        expect(mockDeleteFiles).toHaveBeenCalledWith([{ id: 'l1', data: files }]);
+        expect(mockBatchDelete).toHaveBeenCalledWith({ id: 'l1' });
     });
 
     describe('source code structure', () => {

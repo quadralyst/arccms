@@ -36,7 +36,9 @@ export type EmailSource =
   | 'broadcast'
   | 'drip'
   | 'event'
-  | 'test';
+  | 'test'
+  /** An app's own email, from sendAppEmail (specs/app-email-spec.md). */
+  | 'app';
 
 /** EmailLogs.status lifecycle (spec §3.4). */
 export type EmailLogStatus =
@@ -111,6 +113,19 @@ export interface EmailLogData {
   isOpened?: boolean;
   openedAt?: Timestamp;
   ipAddress?: string;
+  // ── App email fields (specs/app-email-spec.md) ──
+  /** The language the email is written in. */
+  language?: string;
+  /** Reply-To for this email; else Settings, Email's reply-to address. */
+  replyTo?: string;
+  /** The app's reference, such as `businesses/b1/closings/c9`. */
+  appRef?: string;
+  /** The app template's key. */
+  appTemplate?: string;
+  /** The app's tag data: text, or `{ html }` put in as written. */
+  appData?: Record<string, string | number | boolean | { html: string }>;
+  /** Files, stored beside the log in Storage (`path`), or only listed on a blocked send. */
+  attachments?: Array<{ name: string; contentType: string; size: number; path?: string }>;
   [key: string]: any;
 }
 
@@ -177,6 +192,8 @@ export interface EmailFeatureToggles {
   drips?: boolean;
   /** instant admin alerts + daily digest */
   adminAlerts?: boolean;
+  /** the app's own emails, from sendAppEmail (specs/app-email-spec.md, AE-D12) */
+  appEmails?: boolean;
 }
 
 /** Admin digest configuration (spec §3.1) */

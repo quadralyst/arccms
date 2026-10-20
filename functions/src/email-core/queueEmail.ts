@@ -14,6 +14,8 @@ import { isFeatureOn } from '../feature-flags.js';
 import { sendMail } from '../mail-config/mailConfig.js';
 import type { EmailLogData } from '../types.js';
 import { claimEmailSend } from './claimEmailSend.js';
+import { listedAttachments, storeAttachments, type PreparedAttachment } from './emailAttachments.js';
+import { emitEmailOutcome } from './appEmailOutcome.js';
 
 /** Default max delivery attempts before an email is marked `failed`. */
 export const DEFAULT_MAX_ATTEMPTS = 3;
@@ -30,7 +32,11 @@ const SOURCE_FEATURE_KEY: Partial<Record<EmailSource, keyof NonNullable<EmailSet
   notification: 'notificationEmails',
   broadcast: 'broadcasts',
   drip: 'drips',
+  app: 'appEmails',
 };
+
+/** A tag value an app gives: text (escaped when merged) or `{ html }`, put in as written. */
+export type AppTagValue = string | number | boolean | { html: string };
 
 export interface QueueEmailParams {
   /** Which feature is producing this email (drives the feature-toggle gate). */
@@ -100,6 +106,21 @@ export interface QueueEmailParams {
    * The trigger still runs and sends it only if this call did not.
    */
   sendNow?: boolean;
+  /** The language the email is written in (specs/app-email-spec.md, AE-D4), kept on the log. */
+  language?: string;
+  /** Reply-To for this email; else Settings, Email's reply-to address. */
+  replyTo?: string;
+  /**
+   * An app's email (source `app`, sendAppEmail): its reference (`businesses/b1/closings/c9`),
+   * template key and tag data, kept on the log as `appRef`, `appTemplate` and `appData`.
+   * Its outcome is written to AppEvents (appEmailOutcome.ts).
+   */
+  app?: { ref?: string; template?: string; data?: Record<string, AppTagValue> };
+  /**
+   * Files, checked by prepareAttachments. A send that passes the gates stores them
+   * beside its log before writing it; a blocked one lists them and stores none.
+   */
+  attachments?: PreparedAttachment[];
 }
 
 export interface QueueEmailResult {
@@ -145,13 +166,23 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     ...(params.appUser ? { appUserId: params.appUser.id } : {}),
     ...(params.appUser?.docId ? { appDocId: params.appUser.docId } : {}),
     ...(params.data || {}),
+    ...(params.language ? { language: params.language } : {}),
+    ...(params.replyTo ? { replyTo: params.replyTo } : {}),
+    ...(params.app?.ref ? { appRef: params.app.ref } : {}),
+    ...(params.app?.template ? { appTemplate: params.app.template } : {}),
+    ...(params.app?.data ? { appData: params.app.data } : {}),
   };
+  const files = params.attachments ?? [];
 
-  const blocked = (
+  const blocked = async (
     status: 'skipped' | 'suppressed',
     skipReason: EmailSkipReason,
-  ): Promise<QueueEmailResult> =>
-    writeLog({ ...base, status, skipReason }).then((id) => ({ id, status, skipReason }));
+  ): Promise<QueueEmailResult> => {
+    const log = { ...base, status, skipReason, ...(files.length ? { attachments: listedAttachments(files) } : {}) };
+    const id = await writeLog(log);
+    await emitEmailOutcome(id, log);
+    return { id, status, skipReason };
+  };
 
   // 1. Master kill-switch — email disabled (or no provider configured).
   if (!settings?.isEnabled || !settings?.activeProvider) {
@@ -224,7 +255,7 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     // Only the host fields this email's ##APP.*## tags use, never the whole document.
     ...(params.appUser ? { appFields: usedAppFields(params.appUser.fields, params.template, params.subject) } : {}),
   };
-  if (!params.dedupeKey) {
+  if (!params.dedupeKey && !files.length) {
     const id = await writeLog(pending);
     if (params.sendNow) await sendFromCaller(id, pending);
     return { id, status: 'pending' };
@@ -232,9 +263,18 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
 
   // create() fails with ALREADY_EXISTS if this email was already enqueued for
   // this event — the idempotent no-op wanted when a trigger retries.
-  const id = emailLogId(params.type, params.dedupeKey);
+  const ref = params.dedupeKey
+    ? db.collection('EmailLogs').doc(emailLogId(params.type, params.dedupeKey))
+    : db.collection('EmailLogs').doc();
+  const id: string = params.dedupeKey ? emailLogId(params.type, params.dedupeKey) : ref.id;
   try {
-    await db.collection('EmailLogs').doc(id).create(pending);
+    if (files.length) {
+      // The files go first, so the send (onEmailLogCreate) never runs ahead of them.
+      // A duplicate keeps the files of the email already queued.
+      if (params.dedupeKey && (await ref.get()).exists) return { id, status: 'pending', duplicate: true };
+      (pending as Record<string, unknown>)['attachments'] = await storeAttachments(id, files);
+    }
+    await ref.create(pending);
     if (params.sendNow) await sendFromCaller(id, pending);
     return { id, status: 'pending' };
   } catch (error) {
