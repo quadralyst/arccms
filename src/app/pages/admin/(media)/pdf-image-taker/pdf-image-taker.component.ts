@@ -18,12 +18,12 @@ import {
 import { DecimalPipe } from '@angular/common';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
-import { CropImageSize, CropMark, ImageCropperComponent } from '../../../../../shared/components/image-cropper/image-cropper.component';
+import { CropImageSize, ImageCropperComponent } from '../../../../../shared/components/image-cropper/image-cropper.component';
 import { FileUploadService, MediaUploadSettings, UploadedMedia } from '../../../../../shared/services/file-upload.service';
 import { NotifyService } from '../../../../../shared/services/notify.service';
-import { CROP_RATIOS, CropRatio, CropRect, cropRatioValue, initialCropRect } from '../../../../../shared/utils/image-crop';
+import { CROP_RATIOS, CropRatio, CropRect, cropRatioValue } from '../../../../../shared/utils/image-crop';
 import { IMAGE_SIZE_LABELS, IMAGE_SIZES, ImageSize, imageSizeLimits } from '../../../../../shared/utils/image-sizes';
-import { frameToPdfRect, openPdf, PdfDocument, PdfOpenError, PdfRect, saveScale, snapFrame } from '../../../../../shared/utils/pdf-pages';
+import { frameToPdfRect, openPdf, PdfDocument, PdfOpenError, PdfRect, saveScale } from '../../../../../shared/utils/pdf-pages';
 import { MediaManagerStore } from '../media-manager.store';
 import { PdfPickerMemory } from '../pdf-picker-memory.service';
 
@@ -74,19 +74,11 @@ export function cropViewSize(zoom: number): number {
     return CROP_VIEW_SIZE;
 }
 
-/** Whether a saved part of a page covers most of `picture`: that picture was taken. */
-export function coversPicture(taken: PdfRect, picture: PdfRect): boolean {
-    const w = Math.min(taken.x + taken.width, picture.x + picture.width) - Math.max(taken.x, picture.x);
-    const h = Math.min(taken.y + taken.height, picture.y + picture.height) - Math.max(taken.y, picture.y);
-    return w > 0 && h > 0 && w * h >= 0.5 * picture.width * picture.height;
-}
-
 /**
  * Take an image from a PDF (docs/features/media.html, Take an image from a
  * PDF; MF3, MF4, PI2, PI4). The pages show as a grid, drawn as they scroll
  * into view; clicking one opens the crop step admins know from cropping an
- * upload, with the pictures on the page outlined and the frame on the first
- * one not yet taken. The page can be zoomed and paged through. Save draws
+ * upload. The page can be zoomed and paged through. Save draws
  * only the framed part again, at the XL size (MF-D14), and stores it as a
  * normal upload in My Uploads. In a picker, Insert saves and hands the image
  * back at once (PI-D16). The PDF itself is never changed.
@@ -168,10 +160,6 @@ export class PdfImageTakerComponent {
     readonly viewPending = signal(false);
     /** The frame the cropper is told to place, in its image's pixels. */
     readonly placedFrame = signal<CropRect | null>(null);
-    /** The pictures found on the page in the crop step, in page points (PI-D10). */
-    readonly pictures = signal<PdfRect[]>([]);
-    /** Bumped when a part is taken, so the ticks redraw. */
-    private readonly takenVersion = signal(0);
     readonly alt = signal('');
     /** The library file, once known: the source's, or the stored PDF's (PI-D6). */
     readonly storedId = signal<string | null>(null);
@@ -206,21 +194,6 @@ export class PdfImageTakerComponent {
         const size = this.cropImageSize();
         if (this.ratio() === 'original') return size ? size.width / size.height : null;
         return cropRatioValue(this.ratio(), 1, 1);
-    });
-
-    /** The outlines over the page: the pictures found, with a tick on those taken (PI-D9). */
-    readonly marks = computed<CropMark[]>(() => {
-        this.takenVersion();
-        const page = this.cropPage();
-        const size = this.cropImageSize();
-        if (!page || !size) return [];
-        const pictures = this.pictures();
-        const taken = this.memory.takenOn(this.key(), page);
-        return pictures.map((picture, i) => ({
-            rect: this.toImage(picture),
-            label: this.i18n.translate(taken.some((t) => coversPicture(t, picture)) ? 'admin.media.pdf.picture_label_taken' : 'admin.media.pdf.picture_label', { n: i + 1, count: pictures.length }),
-            taken: taken.some((t) => coversPicture(t, picture)),
-        }));
     });
 
     /** What the saved image will measure: the frame at the save scale (MF-D14). */
@@ -350,7 +323,6 @@ export class PdfImageTakerComponent {
         const before = source.key ?? source.title;
         this.storedId.set(id);
         this.memory.rekey(before, id);
-        this.takenVersion.update((n) => n + 1);
     }
 
     /**
@@ -407,10 +379,7 @@ export class PdfImageTakerComponent {
         }
     }
 
-    /**
-     * The crop step for `page`: drawn for the current zoom, its pictures
-     * found, the frame on the first one not yet taken (PI-D9).
-     */
+    /** The crop step for `page`, drawn for the current zoom. */
     async openPage(page: number): Promise<void> {
         if (!this.pdf || this.saving()) return;
         const keepRatio = this.step() === 'crop';
@@ -419,7 +388,6 @@ export class PdfImageTakerComponent {
         this.cropRect.set(null);
         this.viewPending.set(false);
         this.cropImageSize.set(null);
-        this.pictures.set([]);
         this.placedFrame.set(null);
         if (!keepRatio) this.ratio.set(this.initialRatio());
         this.step.set('crop');
@@ -427,8 +395,6 @@ export class PdfImageTakerComponent {
         try {
             const pdf = this.pdf;
             const size = cropViewSize(this.zoom());
-            // The page shows as soon as it is drawn; the outlines follow.
-            const found = pdf.findPictures(page);
             const drawing = await pdf.renderPage(page, size, 'image/jpeg');
             if (this.destroyed || this.cropPage() !== page) return;
             this.drawnSize = size;
@@ -436,16 +402,6 @@ export class PdfImageTakerComponent {
             this.cropScale = drawing.scale;
             this.viewPending.set(true);
             this.cropUrl.set(this.objectUrl(drawing.blob, 'crop'));
-            const pictures = await found;
-            if (this.destroyed || this.cropPage() !== page) return;
-            this.pictures.set(pictures);
-            const next = this.firstUntaken(page, pictures);
-            // The frame starts on the next picture, unless it was moved meanwhile.
-            if (next && this.frameUntouched()) {
-                // Original is the page's shape, which means nothing for one picture.
-                if (this.ratio() === 'original') this.ratio.set('free');
-                this.placedFrame.set(this.snapped(next, drawing));
-            }
         } catch (error) {
             console.error(`Could not draw page ${page}:`, error);
             this.notify.error('admin.media.pdf.page_failed');
@@ -488,28 +444,14 @@ export class PdfImageTakerComponent {
         this.cropUrl.set(null);
         this.cropRect.set(null);
         this.viewPending.set(false);
-        this.pictures.set([]);
         this.placedFrame.set(null);
         this.step.set('pages');
     }
 
+    /** A new shape: a fresh centred frame of it. */
     selectRatio(ratio: CropRatio): void {
-        const on = this.currentPicture();
         this.ratio.set(ratio);
-        const size = this.cropImageSize();
-        // On a picture: the new shape stays on it (PI-D12); else, or for the
-        // page's own shape, a fresh centred frame.
-        this.placedFrame.set(on && size && ratio !== 'original' ? this.toImage(snapFrame(on, this.ratioValueFor(ratio, size))) : null);
-    }
-
-    /** A picture's outline clicked: the frame takes its edges (PI-D12). */
-    pickPicture(index: number): void {
-        const picture = this.pictures()[index];
-        const size = this.cropImageSize();
-        if (!picture || !size || this.saving()) return;
-        // Original is the page's shape, which means nothing for one picture.
-        if (this.ratio() === 'original') this.ratio.set('free');
-        this.placedFrame.set(this.toImage(snapFrame(picture, this.ratioValueFor(this.ratio(), size))));
+        this.placedFrame.set(null);
     }
 
     zoomIn(): void {
@@ -586,15 +528,11 @@ export class PdfImageTakerComponent {
         this.alt.set((event.target as HTMLInputElement).value);
     }
 
-    /** Save, take another: saves, then moves the frame to the next picture not taken. */
+    /** Save, take another: saves and stays on the page, the frame where it was. */
     async save(): Promise<void> {
         const saved = await this.store();
         if (!saved || this.destroyed) return;
         this.notify.success('admin.media.pdf.saved');
-        const page = this.cropPage();
-        const size = this.cropImageSize();
-        const next = page ? this.firstUntaken(page, this.pictures()) : null;
-        if (next && size) this.placedFrame.set(this.toImage(snapFrame(next, this.ratioValueFor(this.ratio(), size))));
     }
 
     /** Insert: saves, then hands the image back (with every one taken here, for a gallery). */
@@ -652,8 +590,6 @@ export class PdfImageTakerComponent {
             if (this.destroyed) return null;
             const saved: PdfImageSaved = { id, media: record };
             this.takenPerPage.set(page, count);
-            this.memory.markTaken(this.key(), page, pdfRect);
-            this.takenVersion.update((n) => n + 1);
             this.takenHere.update((list) => [...list, saved]);
             this.alt.set('');
             this.saved.emit(saved);
@@ -677,61 +613,6 @@ export class PdfImageTakerComponent {
     toList(): void {
         if (this.saving()) return;
         this.back.emit();
-    }
-
-    /** The first picture on `page` not yet taken, in reading order (PI-D9). */
-    private firstUntaken(page: number, pictures: PdfRect[]): PdfRect | null {
-        const taken = this.memory.takenOn(this.key(), page);
-        return pictures.find((picture) => !taken.some((t) => coversPicture(t, picture))) ?? null;
-    }
-
-    /** The picture the frame is on, if any. */
-    /**
-     * The picture the frame is on: the smallest one holding the frame, so a
-     * fixed-ratio frame snapped inside a picture, or one trimmed inside it,
-     * still counts as on it.
-     */
-    private currentPicture(): PdfRect | null {
-        const rect = this.cropRect();
-        const size = this.cropImageSize();
-        if (!rect || !size) return null;
-        const slackX = 0.01 * size.width;
-        const slackY = 0.01 * size.height;
-        let best: PdfRect | null = null;
-        this.marks().forEach((mark, i) => {
-            const holds = rect.x >= mark.rect.x - slackX
-                && rect.y >= mark.rect.y - slackY
-                && rect.x + rect.width <= mark.rect.x + mark.rect.width + slackX
-                && rect.y + rect.height <= mark.rect.y + mark.rect.height + slackY;
-            const picture = this.pictures()[i];
-            if (holds && picture && (!best || picture.width * picture.height < best.width * best.height)) best = picture;
-        });
-        return best;
-    }
-
-    /** The frame is still where the page opened it: the centred frame of the ratio, or none yet. */
-    private frameUntouched(): boolean {
-        const rect = this.cropRect();
-        const size = this.cropImageSize();
-        if (!rect || !size) return true;
-        const start = initialCropRect(this.ratioNumber(), size.width, size.height);
-        return Math.abs(rect.x - start.x) <= 1 && Math.abs(rect.y - start.y) <= 1
-            && Math.abs(rect.width - start.width) <= 1 && Math.abs(rect.height - start.height) <= 1;
-    }
-
-    /** A picture's frame on a page just drawn, before the cropper reports its size. */
-    private snapped(picture: PdfRect, drawing: { width: number; height: number; scale: number }): CropRect {
-        const frame = snapFrame(picture, this.ratioValueFor(this.ratio(), drawing));
-        return this.scaleRect(frame, drawing.scale);
-    }
-
-    private ratioValueFor(ratio: CropRatio, size: { width: number; height: number }): number | null {
-        return cropRatioValue(ratio, size.width, size.height);
-    }
-
-    /** Page points to the crop view's pixels. */
-    private toImage(rect: PdfRect): CropRect {
-        return this.scaleRect(rect, this.cropScale);
     }
 
     private scaleRect(rect: PdfRect, scale: number): CropRect {

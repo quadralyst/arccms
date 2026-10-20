@@ -103,9 +103,9 @@
 </div>
 <div class="crop-canvas pdf-crop-canvas">
     @if (cropUrl(); as url) {
-    <arc-image-cropper [src]="url" [ratio]="ratioNumber()" [frame]="placedFrame()" [zoom]="zoom()" [zoomable]="true" [marks]="marks()"
+    <arc-image-cropper [src]="url" [ratio]="ratioNumber()" [frame]="placedFrame()" [zoom]="zoom()" [zoomable]="true"
         (loaded)="onCropLoaded($event)" (rectChange)="onCropRect($event)" (failed)="onCropFailed()"
-        (zoomChange)="setZoom($event)" (markPicked)="pickPicture($event)"></arc-image-cropper>
+        (zoomChange)="setZoom($event)"></arc-image-cropper>
     } @else {
     <div class="pdf-taker-status" role="status">
         <i class="fas fa-spinner fa-spin me-2" aria-hidden="true"></i>
@@ -132,13 +132,9 @@
             <i class="fas fa-chevron-right" aria-hidden="true"></i>
         </button>
     </div>
-    <div class="pdf-crop-hint" aria-live="polite">
+    <div class="pdf-crop-hint">
         @if (cropUrl()) {
-        @if (pictures().length) {
-        {{ 'admin.media.pdf.pictures_found' | transloco:{ count: pictures().length } }}
-        } @else {
-        {{ 'admin.media.pdf.no_pictures' | transloco }}
-        }
+        {{ 'admin.media.pdf.crop_hint' | transloco }}
         }
     </div>
     <div class="pdf-zoom" role="group" [attr.aria-label]="'admin.media.pdf.zoom' | transloco">

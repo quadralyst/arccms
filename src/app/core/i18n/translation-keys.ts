@@ -667,6 +667,7 @@ export type TranslationKey =
     | 'admin.media.pdf.all_pdfs'
     | 'admin.media.pdf.alt_label'
     | 'admin.media.pdf.alt_placeholder'
+    | 'admin.media.pdf.crop_hint'
     | 'admin.media.pdf.done'
     | 'admin.media.pdf.drawing_page'
     | 'admin.media.pdf.fit'
@@ -677,7 +678,6 @@ export type TranslationKey =
     | 'admin.media.pdf.keeping'
     | 'admin.media.pdf.locked'
     | 'admin.media.pdf.next_page'
-    | 'admin.media.pdf.no_pictures'
     | 'admin.media.pdf.note_keeping'
     | 'admin.media.pdf.note_kept'
     | 'admin.media.pdf.note_library'
@@ -689,9 +689,6 @@ export type TranslationKey =
     | 'admin.media.pdf.page_label'
     | 'admin.media.pdf.page_nav'
     | 'admin.media.pdf.pages_hint'
-    | 'admin.media.pdf.picture_label'
-    | 'admin.media.pdf.picture_label_taken'
-    | 'admin.media.pdf.pictures_found'
     | 'admin.media.pdf.previous_page'
     | 'admin.media.pdf.read_failed'
     | 'admin.media.pdf.reading'
@@ -2703,6 +2700,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.pdf.all_pdfs',
     'admin.media.pdf.alt_label',
     'admin.media.pdf.alt_placeholder',
+    'admin.media.pdf.crop_hint',
     'admin.media.pdf.done',
     'admin.media.pdf.drawing_page',
     'admin.media.pdf.fit',
@@ -2713,7 +2711,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.pdf.keeping',
     'admin.media.pdf.locked',
     'admin.media.pdf.next_page',
-    'admin.media.pdf.no_pictures',
     'admin.media.pdf.note_keeping',
     'admin.media.pdf.note_kept',
     'admin.media.pdf.note_library',
@@ -2725,9 +2722,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.pdf.page_label',
     'admin.media.pdf.page_nav',
     'admin.media.pdf.pages_hint',
-    'admin.media.pdf.picture_label',
-    'admin.media.pdf.picture_label_taken',
-    'admin.media.pdf.pictures_found',
     'admin.media.pdf.previous_page',
     'admin.media.pdf.read_failed',
     'admin.media.pdf.reading',
