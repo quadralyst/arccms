@@ -7,6 +7,8 @@ import { queueEmail } from '../email-core/queueEmail.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { ensureDefaultTemplates } from '../email-core/defaultTemplates.js';
 import type { EmailTemplateData } from '../types.js';
+import { accountEmailInLanguage } from '../email-core/appEmailTemplates.js';
+import { normalizeLanguage } from '../email-core/emailLanguages.js';
 import { callerKey, consumeRateLimit, releaseRateLimit, requireOwnRecord } from './accounts.js';
 import { newOtpTicket, ticketMatches } from './otpTicket.js';
 import { isWarmUp, WARM } from './warmUp.js';
@@ -26,6 +28,15 @@ const SIGNUP_OTP_COLLECTION = 'signup_otps';
 
 function normalizeEmail(email: unknown): string {
   return String(email || '').trim().toLowerCase();
+}
+
+/**
+ * The language a code email is asked for in: the member's, which the sign-in page
+ * sends (specs/app-email-spec.md, AE-D5). Undefined when it sent none.
+ */
+export function requestedLanguage(data: unknown): string | undefined {
+  const lang = normalizeLanguage((data as { language?: unknown } | undefined)?.language);
+  return lang && lang.length <= 20 ? lang : undefined;
 }
 
 function generateCode(): string {
@@ -97,7 +108,7 @@ export const requestSignupOtp = onCall(async (request) => {
   await consumeRateLimit(callerLimit, 20, HOUR, 'Too many attempts. Please try again later.');
   await consumeRateLimit(addressLimit, 5, HOUR, 'Too many codes for this address. Please try again later.', 'too-many-codes');
   try {
-    return await issueEmailOtp(email, 'signup', { name });
+    return await issueEmailOtp(email, 'signup', { name, language: requestedLanguage(request.data) });
   } catch (err) {
     // Counted but not sent (a refusal from the provider, or a second request at once).
     await Promise.all([releaseRateLimit(callerLimit), releaseRateLimit(addressLimit)]);
@@ -133,12 +144,13 @@ export async function emailCodeAskedAgain(
  * (`sameCode`, specs/sign-in-codes-spec.md SC-D9), else a new one. Shared by
  * the sign-up page and by adding an email to an account (`requestEmailLinkOtp`).
  * With the Simulated provider the reply says `testMode`, and carries a sign-up
- * code as `testCode`.
+ * code as `testCode`. The email is in `language` when the app worded it in that
+ * language (functions/src/custom/email-templates.ts), else the template in Settings.
  */
 export async function issueEmailOtp(
   email: string,
   purpose: EmailOtpPurpose,
-  options: { name?: string; uid?: string } = {},
+  options: { name?: string; uid?: string; language?: string } = {},
 ): Promise<{ sent: boolean; status: string; testMode?: boolean; testCode?: string; testCodeInLogs?: boolean; sameCode?: boolean }> {
   const emailHash = computeEmailHash(email);
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
@@ -187,6 +199,7 @@ export async function issueEmailOtp(
   const again = sameCode ? { sameCode: true } : {};
 
   const toName = options.name || email.split('@')[0];
+  const worded = await accountEmailInLanguage(type, options.language);
 
   const result = await queueEmail({
     source: 'auth',
@@ -195,9 +208,10 @@ export async function issueEmailOtp(
     toName,
     senderEmail: template.senderEmail,
     senderName: template.senderName,
-    subject: template.subject,
-    template: template.template,
-    text: template.previewText || '',
+    subject: worded?.subject ?? template.subject,
+    template: worded?.template ?? template.template,
+    text: worded ? worded.previewText : template.previewText || '',
+    ...(worded ? { language: worded.language } : {}),
     type,
     templateIsActive: template.isActive !== false,
     data: { otp: code },

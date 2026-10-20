@@ -16,7 +16,7 @@ import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { callerKey, canSignIn, consumeRateLimit, findUserByEmail, readSignInSettings, releaseRateLimit } from './accounts.js';
 import { normalizeEmailAddress } from './linkIdentifiers.js';
 import { isUnfinishedSignup } from './emailAccount.js';
-import { emailCodeAskedAgain, issueEmailOtp, resetCodesShown, verifiedResetCode } from './signupOtp.js';
+import { emailCodeAskedAgain, issueEmailOtp, requestedLanguage, resetCodesShown, verifiedResetCode } from './signupOtp.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuse, refuseWeakPassword } from './refusal.js';
 import { AUTH_OWNER } from '../users/authOwner.js';
@@ -89,7 +89,7 @@ export const requestPasswordReset = onCall(async (request) => {
     const target = await resetTarget(email);
     await consumeRateLimit(addressLimit, 5, HOUR, 'Too many codes for this address. Please try again later.', 'too-many-codes');
     try {
-        const reply = await issueEmailOtp(email, 'reset', { name: target.name });
+        const reply = await issueEmailOtp(email, 'reset', { name: target.name, language: requestedLanguage(request.data) });
         if (!reply.sent) await Promise.all([releaseRateLimit(callerLimit), releaseRateLimit(addressLimit)]);
         return reply;
     } catch (err) {

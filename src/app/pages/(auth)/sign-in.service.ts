@@ -200,10 +200,19 @@ export class SignInService {
     /**
      * Email a sign-up code to this address. `testMode`: the Simulated email
      * provider, where nothing is sent, and the code comes back as `testCode`.
-     * `sameCode`: the address's code still worked, so it went again.
+     * `sameCode`: the address's code still worked, so it went again. The email is
+     * in the page's language when the app worded it in that language.
      */
     requestSignupCode(email: string, name?: string): Promise<CodeReply & { testCode?: string }> {
-        return this.call('requestSignupOtp', { email, ...(name ? { name } : {}) });
+        return this.call('requestSignupOtp', { email, ...(name ? { name } : {}), language: this.emailLanguage() });
+    }
+
+    /**
+     * The language the code emails are asked for in: the one the page shows, the
+     * member's (specs/app-email-spec.md, AE-D5).
+     */
+    private emailLanguage(): string {
+        return this.transloco.getActiveLang();
     }
 
     /**
@@ -214,7 +223,7 @@ export class SignInService {
      * `testCodeInLogs` says it is only in Email Logs.
      */
     requestPasswordReset(email: string): Promise<CodeReply & { testCode?: string; testCodeInLogs?: boolean }> {
-        return this.call('requestPasswordReset', { email });
+        return this.call('requestPasswordReset', { email, language: this.emailLanguage() });
     }
 
     /** Check the reset code sent to this address. */
@@ -358,7 +367,7 @@ export class SignInService {
 
     /** `testMode`: the Simulated email provider; the code is in Email Logs only. */
     requestEmailLinkCode(email: string): Promise<CodeReply> {
-        return this.call('requestEmailLinkOtp', { email });
+        return this.call('requestEmailLinkOtp', { email, language: this.emailLanguage() });
     }
 
     verifyEmailLinkCode(email: string, code: string): Promise<{ verified: boolean }> {

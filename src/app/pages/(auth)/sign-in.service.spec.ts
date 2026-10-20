@@ -191,3 +191,22 @@ describe('SignInService.warmUp', () => {
         await Promise.resolve();
     });
 });
+
+describe('code emails in the member\'s language (specs/app-email-spec.md, AE-D5)', () => {
+    const proto = SignInService.prototype as unknown as Record<string, (...args: unknown[]) => unknown>;
+    const page = (lang: string) => ({
+        call: vi.fn(async () => ({})),
+        transloco: { getActiveLang: () => lang },
+        emailLanguage: proto['emailLanguage'],
+    });
+
+    it('asks for the sign-up, password reset and add-an-email codes in the page\'s language', async () => {
+        const c = page('de');
+        await proto['requestSignupCode'].call(c, 'a@example.com', 'Ada');
+        await proto['requestPasswordReset'].call(c, 'a@example.com');
+        await proto['requestEmailLinkCode'].call(c, 'a@example.com');
+        expect(c.call).toHaveBeenNthCalledWith(1, 'requestSignupOtp', { email: 'a@example.com', name: 'Ada', language: 'de' });
+        expect(c.call).toHaveBeenNthCalledWith(2, 'requestPasswordReset', { email: 'a@example.com', language: 'de' });
+        expect(c.call).toHaveBeenNthCalledWith(3, 'requestEmailLinkOtp', { email: 'a@example.com', language: 'de' });
+    });
+});

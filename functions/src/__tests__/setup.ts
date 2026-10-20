@@ -17,6 +17,7 @@ async function starter(file: string, actual: () => Promise<unknown>) {
 }
 vi.mock('../custom/index.js', (actual) => starter('functions/src/custom/index.ts', actual));
 vi.mock('../custom/search-sources.js', (actual) => starter('functions/src/custom/search-sources.ts', actual));
+vi.mock('../custom/email-templates.js', (actual) => starter('functions/src/custom/email-templates.ts', actual));
 
 /**
  * Core function specs run with every feature on (specs/feature-flags-spec.md),

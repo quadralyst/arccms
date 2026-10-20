@@ -29,7 +29,7 @@ import { maskPhone, phoneHash } from './phoneNumber.js';
 import { readPhone } from './phoneAuth.js';
 import { cleanEmail, cleanPasted } from './pastedText.js';
 import { consumeVerifiedPhoneOtp } from './phoneOtp.js';
-import { consumeVerifiedEmailLinkOtp, emailCodeAskedAgain, isSimulatedEmail, issueEmailOtp } from './signupOtp.js';
+import { consumeVerifiedEmailLinkOtp, emailCodeAskedAgain, isSimulatedEmail, issueEmailOtp, requestedLanguage } from './signupOtp.js';
 import {
     ACCOUNT_TRANSFERS,
     AUTH_PINS,
@@ -161,7 +161,7 @@ export const requestEmailLinkOtp = onCall(async (request) => {
     await consumeRateLimit(limit, 10, HOUR, 'Too many codes. Please try again later.', 'too-many-codes');
     let result: Awaited<ReturnType<typeof issueEmailOtp>>;
     try {
-        result = await issueEmailOtp(email, 'link', { uid, name: String(me.data['name'] ?? '') || undefined });
+        result = await issueEmailOtp(email, 'link', { uid, name: String(me.data['name'] ?? '') || undefined, language: requestedLanguage(request.data) });
     } catch (err) {
         // Counted but not sent (a refusal from the provider, or a second request at once).
         await releaseRateLimit(limit);
