@@ -14,7 +14,7 @@ import { LowerCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import MediaManagerComponent, { MediaSelection } from '../../../app/pages/admin/(media)/media.page';
 import { mediaPickerDialogConfig } from '../../../app/pages/admin/(media)/media-picker-dialog';
 import { ArcIcon, isArcIcon } from '../../models/icon.model';
@@ -43,6 +43,7 @@ import {
 })
 export class FieldRepeaterComponent {
     private dialog = inject(MatDialog);
+    private transloco = inject(TranslocoService);
 
     readonly schema = input.required<RepeaterSchema>();
     readonly rows = input<RepeaterRow[]>([]);
@@ -68,6 +69,9 @@ export class FieldRepeaterComponent {
 
     /** The block's heading, when the schema declares one. */
     readonly heading = input('');
+
+    /** The field's name ("Team"), for the media picker's heading: "Team: Card 2, Photo". */
+    readonly label = input('');
 
     readonly rowsChange = output<RepeaterRow[]>();
     readonly headingChange = output<string>();
@@ -125,7 +129,10 @@ export class FieldRepeaterComponent {
     pickMedia(row: RepeaterRow, sub: RepeaterMediaSubField): void {
         if (this.isLocked()) return;
 
-        this.openPicker(sub, false).subscribe((result: MediaSelection | null) => {
+        // Numbered as the row's title shows it ("Card 2").
+        const index = this.rows().findIndex((r) => r.id === row.id);
+        const title = this.pickerTitle(sub, index >= 0 ? `${this.schema().rowLabel} ${index + 1}` : undefined);
+        this.openPicker(sub, false, title).subscribe((result: MediaSelection | null) => {
             if (result?.type !== 'submit') return;
 
             if (result.kind === 'icon' && result.icon && sub.iconKey) {
@@ -145,7 +152,7 @@ export class FieldRepeaterComponent {
     addFromLibrary(sub: RepeaterMediaSubField): void {
         if (this.isLocked()) return;
 
-        this.openPicker(sub, true).subscribe((result: MediaSelection | null) => {
+        this.openPicker(sub, true, this.pickerTitle(sub)).subscribe((result: MediaSelection | null) => {
             if (result?.type !== 'submit') return;
 
             const urls = result.mediaUrls?.length
@@ -242,12 +249,26 @@ export class FieldRepeaterComponent {
         ));
     }
 
-    private openPicker(sub: RepeaterMediaSubField, multiple: boolean) {
+    /**
+     * The picker's heading: the field, the row ("Card 2") when picking for
+     * one, and the sub-field ("Team: Card 2, Photo"). Without the field's
+     * name, the row and sub-field alone.
+     */
+    private pickerTitle(sub: RepeaterMediaSubField, row?: string): string {
+        const field = this.label().trim();
+        if (!field) return row ? `${row}, ${sub.label}` : sub.label;
+        return row
+            ? this.transloco.translate('admin.media.picker.repeater_row', { field, row, sub: sub.label })
+            : this.transloco.translate('admin.media.picker.repeater_field', { field, sub: sub.label });
+    }
+
+    private openPicker(sub: RepeaterMediaSubField, multiple: boolean, title: string) {
         const allowImages = sub.allowImages !== false;
         const allowIcons = sub.allowIcons === true;
 
         return this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({
             isDialogOpen: true,
+            title,
             allowImages,
             allowIcons: multiple ? false : allowIcons,
             multiple,

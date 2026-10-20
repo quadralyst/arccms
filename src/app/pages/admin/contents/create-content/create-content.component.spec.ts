@@ -2128,6 +2128,20 @@ describe('CreateContentComponent', () => {
             expect(mockDialog.open).toHaveBeenCalled();
         });
 
+        it("heads the picker with the field's name", () => {
+            component.openMediaManagerForField('hero_image', 'Hero image');
+            expect(mockDialog.open.mock.calls.at(-1)[1].data.title).toBe('Hero image');
+            component.openIconPickerForField('badge', 'Badge');
+            expect(mockDialog.open.mock.calls.at(-1)[1].data.title).toBe('Badge');
+            component.openFilePickerForField({ key: 'brochure', label: 'Brochure' });
+            expect(mockDialog.open.mock.calls.at(-1)[1].data.title).toBe('Brochure');
+        });
+
+        it('heads the cover image picker "Cover image"', () => {
+            component.openMediaManager();
+            expect(mockDialog.open.mock.calls.at(-1)[1].data.title).toBe('Cover image');
+        });
+
         it('should store selected image URL in customFieldValues', () => {
             const mockResult = { type: 'submit', mediaUrl: 'https://example.com/image.jpg' };
             mockDialog.open.mockReturnValue({

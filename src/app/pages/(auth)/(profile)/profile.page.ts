@@ -155,7 +155,7 @@ export default class ProfileComponent extends BaseComponent {
       fileInput?.click();
       return;
     }
-    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true }));
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, title: this.t('member.profile.photo_picker') }));
 
     dialogRef.afterClosed().subscribe(async (result: { mediaUrl: string; type: string } | null) => {
       if (result?.type === 'submit' && result.mediaUrl) {

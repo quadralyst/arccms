@@ -35,6 +35,39 @@ describe('mediaPickerDialogConfig', () => {
         expect(config.data).toBe(data);
     });
 
+    it("names the dialog for screen readers with the caller's title, and only then", () => {
+        expect(mediaPickerDialogConfig({ isDialogOpen: true, title: ' Hero image ' }).ariaLabel).toBe('Hero image');
+        expect(mediaPickerDialogConfig({ isDialogOpen: true }).ariaLabel).toBeUndefined();
+        expect(mediaPickerDialogConfig({ isDialogOpen: true, title: '  ' }).ariaLabel).toBeUndefined();
+    });
+
+    it('is given a title by every caller, so the admin knows what the image is for', () => {
+        const src = resolve(__dirname, '../../../..');
+        const calls = sourceFiles(src)
+            .filter((file) => !file.endsWith('media-picker-dialog.ts'))
+            .flatMap((file) => {
+                const text = readFileSync(file, 'utf8');
+                const found: { file: string; args: string }[] = [];
+                let at = text.indexOf('mediaPickerDialogConfig(');
+                while (at !== -1) {
+                    // The call's arguments, up to the bracket that closes it.
+                    let depth = 0;
+                    let end = at + 'mediaPickerDialogConfig'.length;
+                    for (; end < text.length; end++) {
+                        if (text[end] === '(') depth++;
+                        if (text[end] === ')' && --depth === 0) break;
+                    }
+                    found.push({ file, args: text.slice(at, end + 1) });
+                    at = text.indexOf('mediaPickerDialogConfig(', end);
+                }
+                return found;
+            })
+            // The import line names it without calling it.
+            .filter((call) => call.args.includes('{'));
+        expect(calls.length).toBeGreaterThanOrEqual(10);
+        for (const call of calls) expect(call.args, call.file).toMatch(/\btitle\b/);
+    });
+
     it('is how every caller opens the Media Manager as a dialog', () => {
         const src = resolve(__dirname, '../../../..');
         const callers = sourceFiles(src).filter((file) => readFileSync(file, 'utf8').includes('open(MediaManagerComponent'));

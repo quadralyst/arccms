@@ -97,6 +97,12 @@ interface MediaMenuItem {
  */
 export interface MediaDialogData {
     isDialogOpen: boolean;
+    /**
+     * What the picker is choosing for, shown as its heading on every tab and
+     * step: the field's name ("Hero image"), already in the admin's language.
+     * Without it the picker shows no heading, as before.
+     */
+    title?: string;
     /** Show the upload and Unsplash tabs. Defaults to true. */
     allowImages?: boolean;
     /** Show the Icons tab. Defaults to false. */
@@ -336,6 +342,11 @@ export default class MediaManagerComponent extends BaseComponent {
      */
     get showTabBar(): boolean {
         return this.menuItems.length > 1;
+    }
+
+    /** The caller's heading (MediaDialogData.title); empty for none, and on the Media page. */
+    get pickerTitle(): string {
+        return this._DIALOG_DATA.isDialogOpen ? (this._DIALOG_DATA.title ?? '').trim() : '';
     }
 
     ngOnInit(): void {

@@ -16,6 +16,7 @@ import {
     ViewChild,
 } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -55,6 +56,7 @@ type SendToOption = 'all' | 'some' | 'new' | '';
         TiptapEditorComponent,
         HtmlCodeEditorComponent,
         HashtagAutocompleteDirective,
+        TranslocoPipe,
     ],
     templateUrl: './broadcast-email-editor.component.html',
     styleUrls: ['./broadcast-email-editor.component.scss'],

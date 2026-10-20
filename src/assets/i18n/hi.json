@@ -1509,6 +1509,16 @@
         "moved_to_files": "दस्तावेज़ Files में रखे जाते हैं, इसलिए {{ count }} वहाँ गए।",
         "not_here": "दस्तावेज़ यहाँ नहीं जोड़े जा सकते। उन्हें मीडिया पेज पर Files में अपलोड करें।"
       },
+      "picker": {
+        "image_in": "{{ field }} में चित्र",
+        "files_in": "{{ field }} में फ़ाइलें",
+        "body": "मुख्य भाग",
+        "email": "ईमेल",
+        "cover_image": "कवर चित्र",
+        "logo": "लोगो",
+        "repeater_row": "{{ field }}: {{ row }}, {{ sub }}",
+        "repeater_field": "{{ field }}: {{ sub }}"
+      },
       "pdf": {
         "opening": "PDF खोली जा रही है...",
         "reading": "PDF पढ़ी जा रही है... {{ percent }}%",
@@ -2134,6 +2144,7 @@
       "subtitle": "अपने खाते की जानकारी प्रबंधित करें",
       "back": "वापस",
       "photo_alt": "प्रोफ़ाइल फ़ोटो",
+      "photo_picker": "प्रोफ़ाइल फ़ोटो",
       "change_photo": "फ़ोटो बदलें",
       "remove": "हटाएँ",
       "role_admin": "एडमिन",

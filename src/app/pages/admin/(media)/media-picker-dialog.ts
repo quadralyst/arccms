@@ -22,6 +22,8 @@ export function mediaPickerDialogConfig(data: MediaDialogData): MatDialogConfig<
         ...MEDIA_PICKER_DIALOG_SIZE,
         panelClass: 'common-dialog-box',
         disableClose: true,
+        // The heading names the dialog for screen readers too.
+        ...(data.title?.trim() ? { ariaLabel: data.title.trim() } : {}),
         data,
     };
 }

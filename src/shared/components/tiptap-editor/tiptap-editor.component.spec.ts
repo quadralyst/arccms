@@ -137,6 +137,25 @@ describe('TiptapEditorComponent', () => {
     });
 
     // ES2 (specs/editor-site-look-spec.md): the live page's look around the editor.
+    describe('media picker heading', () => {
+        function openedWith(open: () => void) {
+            const spy = vi.spyOn(component.dialog, 'open').mockReturnValue({ afterClosed: () => ({ subscribe: () => undefined }) } as any);
+            open();
+            return spy.mock.calls[0][1] as { data: { title?: string } };
+        }
+
+        it("names the field in the image and file pickers' heading", () => {
+            component.fieldName = ' Summary ';
+            expect(openedWith(() => component.openMediaManagerModal()).data.title).toBe('Image in Summary');
+            vi.restoreAllMocks();
+            expect(openedWith(() => component.openFilePickerModal()).data.title).toBe('Files in Summary');
+        });
+
+        it('leaves the pickers without a heading when the host names no field', () => {
+            expect(openedWith(() => component.openMediaManagerModal()).data.title).toBeUndefined();
+        });
+    });
+
     describe('site look', () => {
         const LOOK: SiteLook = {
             chain: {

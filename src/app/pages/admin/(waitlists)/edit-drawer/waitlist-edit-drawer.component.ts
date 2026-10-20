@@ -3,6 +3,7 @@ import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, Injec
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Firestore, collection, doc, getDoc, getDocs } from '@angular/fire/firestore';
 import { MatDialog } from '@angular/material/dialog';
+import { TranslocoService } from '@jsverse/transloco';
 import MediaManagerComponent from '../../(media)/media.page';
 import { mediaPickerDialogConfig } from '../../(media)/media-picker-dialog';
 import { getWaitlistUserTagsCollectionName, IWaitlistUserTag } from '../joined-users/waitlist-user-tags.model';
@@ -46,6 +47,7 @@ export class WaitlistEditDrawerComponent implements OnChanges {
     private fb = inject(FormBuilder);
     private firestore = inject(Firestore);
     private dialog = inject(MatDialog);
+    private transloco = inject(TranslocoService);
     private injector = inject(Injector);
 
     @Input() isOpen = false;
@@ -230,7 +232,10 @@ export class WaitlistEditDrawerComponent implements OnChanges {
     }
 
     openMediaManager(): void {
-        const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true }));
+        const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({
+            isDialogOpen: true,
+            title: this.transloco.translate('admin.media.picker.cover_image'),
+        }));
         dialogRef.afterClosed().subscribe((result: { mediaUrl: string; type: string } | null) => {
             if (result?.type === 'submit' && result?.mediaUrl) {
                 this.coverImage.set(result.mediaUrl);

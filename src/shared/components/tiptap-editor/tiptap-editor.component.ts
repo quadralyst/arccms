@@ -17,6 +17,7 @@ import {
 } from '@angular/core';
 import { FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
+import { TranslocoService } from '@jsverse/transloco';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { Editor, Extension, Node } from '@tiptap/core';
@@ -178,6 +179,12 @@ export default class TiptapEditorComponent {
    * on the page. None keeps the editor's own look, as in the email editors.
    */
   @Input() siteLook: SiteLook | null = null;
+  /**
+   * The field's name ("Body", "Summary"), for the image and file pickers'
+   * heading: "Image in Summary". None leaves the pickers without a heading.
+   */
+  @Input() fieldName = '';
+  private transloco = inject(TranslocoService);
   private hostRef = inject(ElementRef);
   /** The look's root, the stand-in for the page's body, while a look is shown. */
   private lookRoot: HTMLElement | null = null;
@@ -677,7 +684,7 @@ export default class TiptapEditorComponent {
    * Opens the Media Manager modal for inserting media into the editor
    */
   openMediaManagerModal(): void {
-    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true }));
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, title: this.pickerTitle('admin.media.picker.image_in') }));
 
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result && result.type === 'submit' && result.mediaUrl) {
@@ -692,7 +699,10 @@ export default class TiptapEditorComponent {
    * file goes in as a card linking to it (docs/features/media.html, Files).
    */
   openFilePickerModal(): void {
-    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files', multiple: true }));
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({
+      isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files', multiple: true,
+      title: this.pickerTitle('admin.media.picker.files_in'),
+    }));
 
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result?.type !== 'submit' || result.kind !== 'file') return;
@@ -701,6 +711,12 @@ export default class TiptapEditorComponent {
       for (const file of files) chain = chain.insertFileCard(file);
       chain.run();
     });
+  }
+
+  /** A picker's heading for this field ("Image in Summary"); none without a field name. */
+  private pickerTitle(key: 'admin.media.picker.image_in' | 'admin.media.picker.files_in'): string | undefined {
+    const field = this.fieldName.trim();
+    return field ? this.transloco.translate(key, { field }) : undefined;
   }
 
   /* ======================= Fixrd buttons event ================= */

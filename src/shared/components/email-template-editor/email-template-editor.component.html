@@ -41,6 +41,7 @@
         } @else {
         <div class="visual-editor">
             <app-tiptap-editor [productValue]="htmlContent" [tags]="placeholders"
+                [fieldName]="'admin.media.picker.email' | transloco"
                 (textEditorContent)="onEditorChanges($event)">
             </app-tiptap-editor>
         </div>

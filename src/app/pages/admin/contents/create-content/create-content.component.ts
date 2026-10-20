@@ -443,9 +443,9 @@ export class CreateContentComponent extends BaseComponent {
     return parseHexColor(value)?.rgb ?? '';
   }
 
-  // Open media manager for a custom image field
-  openMediaManagerForField(fieldKey: string): void {
-    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true }));
+  /** Open media manager for a custom image field; `title` is the field's name, the picker's heading. */
+  openMediaManagerForField(fieldKey: string, title?: string): void {
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, title }));
 
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result && result.type === 'submit' && result.mediaUrl) {
@@ -472,9 +472,10 @@ export class CreateContentComponent extends BaseComponent {
    * another; otherwise the picked files are added, or replace the one file
    * of a single-file field.
    */
-  openFilePickerForField(field: { key: string; multiple?: boolean }, replace?: number): void {
+  openFilePickerForField(field: { key: string; label?: string; multiple?: boolean }, replace?: number): void {
     const several = field.multiple === true && replace === undefined;
-    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files', multiple: several }));
+    const title = contentTypeFieldLabel(this.currentContentType(), field.key, field.label ?? '', this.activeLang());
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files', multiple: several, title }));
 
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result?.type !== 'submit' || result.kind !== 'file') return;
@@ -518,11 +519,11 @@ export class CreateContentComponent extends BaseComponent {
    * picked a cover image already knows this window, and the two field types
    * differ only in what they come back with.
    */
-  openIconPickerForField(fieldKey: string): void {
+  openIconPickerForField(fieldKey: string, title?: string): void {
     // Icons only. With the image tabs shown, picking a photo here would
     // return a URL this field discards — the dialog would close having
     // silently done nothing.
-    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, allowIcons: true, allowImages: false, initialTab: 'icons' }));
+    const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, allowIcons: true, allowImages: false, initialTab: 'icons', title }));
 
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result?.type === 'submit' && result.kind === 'icon' && result.icon) {
@@ -3027,6 +3028,7 @@ export class CreateContentComponent extends BaseComponent {
     const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({
       isDialogOpen: true,
       size: COVER_IMAGE_SIZE,
+      title: this.t('admin.media.picker.cover_image'),
     }));
 
     dialogRef.afterClosed().subscribe((result: { mediaUrl: string; type: string } | null) => {

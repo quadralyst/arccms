@@ -3,6 +3,11 @@
         <div class="modal-container justify-content-center">
             <div class="modal-body">
                 <div class="main-content">
+                    @if(pickerTitle && showTabBar){
+                    <!-- What the picker is choosing for (MediaDialogData.title), above
+                         the tabs so it stays in view on every tab and step. -->
+                    <h2 class="media-picker-title" id="mediaPickerTitle" [title]="pickerTitle">{{ pickerTitle }}</h2>
+                    }
                     <div class="tabs-and-actions-container">
                         @if(showTabBar){
                         <div class="media-tabs">
@@ -27,8 +32,8 @@
                              switch to, so it becomes a plain heading. Something has
                              to sit here — the container is space-between and Cancel
                              would otherwise jump to the left edge. -->
-                        <div class="media-single-title">
-                            <i class="fas fa-{{selectedItem?.icon}} fs-6"></i> {{ selectedItem?.name }}
+                        <div class="media-single-title" [attr.id]="pickerTitle ? 'mediaPickerTitle' : null">
+                            <i class="fas fa-{{selectedItem?.icon}} fs-6"></i> <span class="media-single-title-text" [title]="pickerTitle">{{ pickerTitle || selectedItem?.name }}</span>
                         </div>
                         }
                         <div class="action-elements">
@@ -147,7 +152,7 @@
                             <div class="row mt-2">
                                 <div class="col-12 col-md-4">
                                     <!-- Suppressed without the tab bar: the header already
-                                         carries this exact name as the dialog's title. -->
+                                         names the dialog (the tab, or the caller's title). -->
                                     @if(showTabBar){
                                     <label class="fs-5 media-tab-heading">{{ selectedItem?.name}}</label>
                                     }

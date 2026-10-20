@@ -1517,6 +1517,16 @@
         "moved_to_files": "Documents are kept in Files, so {{ count }} went there.",
         "not_here": "Documents can't be added here. Upload them on the Media page, under Files."
       },
+      "picker": {
+        "image_in": "Image in {{ field }}",
+        "files_in": "Files in {{ field }}",
+        "body": "Body",
+        "email": "Email",
+        "cover_image": "Cover image",
+        "logo": "Logo",
+        "repeater_row": "{{ field }}: {{ row }}, {{ sub }}",
+        "repeater_field": "{{ field }}: {{ sub }}"
+      },
       "pdf": {
         "opening": "Opening the PDF...",
         "reading": "Reading the PDF... {{ percent }}%",
@@ -2142,6 +2152,7 @@
       "subtitle": "Manage your account information",
       "back": "Back",
       "photo_alt": "Profile Photo",
+      "photo_picker": "Profile photo",
       "change_photo": "Change Photo",
       "remove": "Remove",
       "role_admin": "Admin",

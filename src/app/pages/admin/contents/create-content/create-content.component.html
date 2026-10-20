@@ -245,6 +245,7 @@
 
             <div class="editor-wrapper" [class.has-site-look]="!!bodyLook()">
                 <app-tiptap-editor [productValue]="publishForm.get('content')?.value" [siteLook]="bodyLook()"
+                    [fieldName]="'admin.media.picker.body' | transloco"
                     (textEditorContent)="passEditorContentToParent($event); triggerAutoSave()">
                 </app-tiptap-editor>
             </div>
@@ -642,7 +643,7 @@
                             <div class="richtext-field-wrapper">
                                 <div class="richtext-toolbar">
                                     <button type="button" class="btn btn-outline-secondary btn-sm"
-                                        (click)="openFullscreenEditor(field.key, field.label)"
+                                        (click)="openFullscreenEditor(field.key, fieldLabel(field))"
                                         title="Open in fullscreen editor">
                                         <i class="fa-solid fa-expand me-1"></i> {{ 'admin.contents.editor.expand' | transloco }}
                                     </button>
@@ -650,6 +651,7 @@
                                 <div class="richtext-editor-container" [class.has-site-look]="!!fieldLooks()[field.key]">
                                     <app-tiptap-editor
                                         [productValue]="customFieldValues[field.key] || ''" [siteLook]="fieldLooks()[field.key] ?? null"
+                                        [fieldName]="fieldLabel(field)"
                                         (textEditorContent)="onRichTextFieldChange(field.key, $event)">
                                     </app-tiptap-editor>
                                 </div>
@@ -774,7 +776,7 @@
                             @else if (field.type === 'image') {
                             <div class="custom-image-upload">
                                 @if (!customFieldValues[field.key]) {
-                                <div class="upload-area" (click)="openMediaManagerForField(field.key)">
+                                <div class="upload-area" (click)="openMediaManagerForField(field.key, fieldLabel(field))">
                                     <i class="fa-solid fa-image mb-1" style="font-size: 1.5rem; color: #adb5bd;"></i>
                                     <p class="mb-1 small">{{ 'admin.contents.editor.click_to_select_image' | transloco }}</p>
                                     <button type="button" class="btn btn-outline-primary btn-sm">{{ 'admin.contents.editor.select_image' | transloco }}</button>
@@ -785,7 +787,7 @@
                                         style="max-height: 120px; object-fit: cover;">
                                     <div class="d-flex gap-2">
                                         <button type="button" class="btn btn-outline-primary btn-sm"
-                                            (click)="openMediaManagerForField(field.key)">
+                                            (click)="openMediaManagerForField(field.key, fieldLabel(field))">
                                             <i class="fa-solid fa-arrows-rotate me-1"></i> {{ 'admin.contents.editor.change' | transloco }}
                                         </button>
                                         <button type="button" class="btn btn-outline-danger btn-sm"
@@ -837,7 +839,7 @@
                             @else if (field.type === 'icon') {
                             <div class="custom-icon-field">
                                 @if (!getCustomFieldIcon(field.key)) {
-                                <div class="upload-area" (click)="openIconPickerForField(field.key)">
+                                <div class="upload-area" (click)="openIconPickerForField(field.key, fieldLabel(field))">
                                     <i class="fa-solid fa-icons mb-1" style="font-size: 1.5rem; color: #adb5bd;"></i>
                                     <p class="mb-1 small">{{ 'admin.contents.editor.click_to_select_icon' | transloco }}</p>
                                     <button type="button" class="btn btn-outline-primary btn-sm">
@@ -855,7 +857,7 @@
                                     </div>
                                     <div class="icon-preview-actions">
                                         <button type="button" class="btn btn-outline-primary btn-sm"
-                                            (click)="openIconPickerForField(field.key)">
+                                            (click)="openIconPickerForField(field.key, fieldLabel(field))">
                                             <i class="fa-solid fa-arrows-rotate me-1"></i>
                                             {{ 'admin.contents.editor.change' | transloco }}
                                         </button>
@@ -875,6 +877,7 @@
                                 [schema]="repeater"
                                 [rows]="repeaterRows(field)"
                                 [heading]="repeaterHeading(field)"
+                                [label]="fieldLabel(field)"
                                 [translating]="isTranslating()"
                                 [basePlaceholders]="baseRepeaterPlaceholders(field)"
                                 [baseHeading]="baseRepeaterHeading(field)"

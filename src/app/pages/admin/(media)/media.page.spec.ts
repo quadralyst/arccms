@@ -724,6 +724,39 @@ describe('MediaManagerComponent tab visibility', () => {
         expect(fixture.nativeElement.querySelector('.media-single-title')?.textContent).toContain('Icons');
     });
 
+    it("shows the caller's title above the tabs, on every tab", async () => {
+        const { component, fixture } = await openWith({ isDialogOpen: true, title: '  Hero image  ' });
+        fixture.detectChanges();
+
+        const heading: HTMLElement = fixture.nativeElement.querySelector('#mediaPickerTitle');
+        expect(heading.tagName).toBe('H2');
+        expect(heading.textContent?.trim()).toBe('Hero image');
+        // Above the tab bar, not inside it, so it stays as tabs and steps change.
+        expect(heading.nextElementSibling?.classList).toContain('tabs-and-actions-container');
+        component.selectedMenu(component.menuItems.find((item) => item.value === 'pdf')!);
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('#mediaPickerTitle')?.textContent?.trim()).toBe('Hero image');
+    });
+
+    it("puts the caller's title in place of the lone tab's name", async () => {
+        const { fixture } = await openWith({ isDialogOpen: true, allowIcons: true, allowImages: false, title: 'Card icon' });
+        fixture.detectChanges();
+
+        expect(fixture.nativeElement.querySelector('h2.media-picker-title')).toBeNull();
+        const single: HTMLElement = fixture.nativeElement.querySelector('.media-single-title');
+        expect(single.id).toBe('mediaPickerTitle');
+        expect(single.textContent?.trim()).toBe('Card icon');
+        // Shortened when long, so the whole of it shows on hover.
+        expect(single.querySelector('.media-single-title-text')?.getAttribute('title')).toBe('Card icon');
+    });
+
+    it('shows no title when the caller sends none, or a blank one', async () => {
+        const { fixture } = await openWith({ isDialogOpen: true, title: '   ' });
+        fixture.detectChanges();
+
+        expect(fixture.nativeElement.querySelector('#mediaPickerTitle')).toBeNull();
+    });
+
     it('falls back to images when the caller allows neither kind', async () => {
         const { component } = await openWith({ isDialogOpen: true, allowImages: false });
 

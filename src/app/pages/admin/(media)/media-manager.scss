@@ -1333,12 +1333,28 @@ footer {
         }
     }
 }
+/* The caller's heading over the tabs (MediaDialogData.title): one line,
+   shortened with an ellipsis when it does not fit. */
+.media-picker-title {
+    flex-shrink: 0;
+    margin: 0 0 0.75rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--dark-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Stands in for the tab bar in a single-purpose dialog, so the header keeps
-   its shape and Cancel stays on the right. */
+   its shape and Cancel stays on the right. Shows the caller's heading when
+   there is one, else the tab's name. */
 .media-single-title {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    min-width: 0;
     font-size: 1.05rem;
     font-weight: 600;
     color: var(--dark-color);
@@ -1346,6 +1362,12 @@ footer {
     i {
         color: var(--primary-color);
     }
+}
+
+.media-single-title-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* ── Icons tab ───────────────────────────────────────────────────────────── */

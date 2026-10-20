@@ -717,6 +717,14 @@ export type TranslationKey =
     | 'admin.media.pdf_tab.search_placeholder'
     | 'admin.media.pdf_tab.show_more'
     | 'admin.media.pick_from'
+    | 'admin.media.picker.body'
+    | 'admin.media.picker.cover_image'
+    | 'admin.media.picker.email'
+    | 'admin.media.picker.files_in'
+    | 'admin.media.picker.image_in'
+    | 'admin.media.picker.logo'
+    | 'admin.media.picker.repeater_field'
+    | 'admin.media.picker.repeater_row'
     | 'admin.media.search_failed'
     | 'admin.media.search_placeholder'
     | 'admin.media.searching'
@@ -1895,6 +1903,7 @@ export type TranslationKey =
     | 'member.profile.passwords_mismatch'
     | 'member.profile.personal_info'
     | 'member.profile.photo_alt'
+    | 'member.profile.photo_picker'
     | 'member.profile.photo_remove_failed'
     | 'member.profile.photo_removed'
     | 'member.profile.photo_update_failed'
@@ -2750,6 +2759,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.pdf_tab.search_placeholder',
     'admin.media.pdf_tab.show_more',
     'admin.media.pick_from',
+    'admin.media.picker.body',
+    'admin.media.picker.cover_image',
+    'admin.media.picker.email',
+    'admin.media.picker.files_in',
+    'admin.media.picker.image_in',
+    'admin.media.picker.logo',
+    'admin.media.picker.repeater_field',
+    'admin.media.picker.repeater_row',
     'admin.media.search_failed',
     'admin.media.search_placeholder',
     'admin.media.searching',
@@ -3928,6 +3945,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.profile.passwords_mismatch',
     'member.profile.personal_info',
     'member.profile.photo_alt',
+    'member.profile.photo_picker',
     'member.profile.photo_remove_failed',
     'member.profile.photo_removed',
     'member.profile.photo_update_failed',
