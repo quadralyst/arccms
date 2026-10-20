@@ -178,10 +178,11 @@ describe('FieldRepeaterComponent', () => {
             expect(openSpy.mock.calls[0][1].data.title).toBe(`Highlights: Card 2, ${MEDIA.label}`);
             expect(openSpy.mock.calls[0][1].ariaLabel).toBe(`Highlights: Card 2, ${MEDIA.label}`);
 
-            // Without the field's name: the row and sub-field alone.
+            // Without the field's name: no heading, as before the option existed.
             fixture.componentRef.setInput('label', '');
             component.pickMedia(makeRow('a', 1), MEDIA);
-            expect(openSpy.mock.calls[1][1].data.title).toBe(`Card 1, ${MEDIA.label}`);
+            expect(openSpy.mock.calls[1][1].data.title).toBeUndefined();
+            expect(openSpy.mock.calls[1][1].ariaLabel).toBeUndefined();
         });
 
         it('stores a picked icon and clears any image', () => {

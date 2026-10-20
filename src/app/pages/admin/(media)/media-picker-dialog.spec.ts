@@ -41,10 +41,12 @@ describe('mediaPickerDialogConfig', () => {
         expect(mediaPickerDialogConfig({ isDialogOpen: true, title: '  ' }).ariaLabel).toBeUndefined();
     });
 
-    it('is given a title by every caller, so the admin knows what the image is for', () => {
+    it("is given a title by every core caller, so the admin knows what the image is for (an app's own pickers may leave it out)", () => {
         const src = resolve(__dirname, '../../../..');
+        const custom = join(src, 'custom');
         const calls = sourceFiles(src)
-            .filter((file) => !file.endsWith('media-picker-dialog.ts'))
+            // The title is optional: an app's custom space keeps working without it.
+            .filter((file) => !file.endsWith('media-picker-dialog.ts') && !file.startsWith(custom + '/'))
             .flatMap((file) => {
                 const text = readFileSync(file, 'utf8');
                 const found: { file: string; args: string }[] = [];

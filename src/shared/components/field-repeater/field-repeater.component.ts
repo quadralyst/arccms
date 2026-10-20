@@ -70,7 +70,11 @@ export class FieldRepeaterComponent {
     /** The block's heading, when the schema declares one. */
     readonly heading = input('');
 
-    /** The field's name ("Team"), for the media picker's heading: "Team: Card 2, Photo". */
+    /**
+     * The field's name ("Team"), for the media picker's heading: "Team:
+     * Card 2, Photo". Optional: without it the picker has no heading, as
+     * before.
+     */
     readonly label = input('');
 
     readonly rowsChange = output<RepeaterRow[]>();
@@ -251,18 +255,18 @@ export class FieldRepeaterComponent {
 
     /**
      * The picker's heading: the field, the row ("Card 2") when picking for
-     * one, and the sub-field ("Team: Card 2, Photo"). Without the field's
-     * name, the row and sub-field alone.
+     * one, and the sub-field ("Team: Card 2, Photo"). None without the
+     * field's name, so a host that does not pass `label` sees no change.
      */
-    private pickerTitle(sub: RepeaterMediaSubField, row?: string): string {
+    private pickerTitle(sub: RepeaterMediaSubField, row?: string): string | undefined {
         const field = this.label().trim();
-        if (!field) return row ? `${row}, ${sub.label}` : sub.label;
+        if (!field) return undefined;
         return row
             ? this.transloco.translate('admin.media.picker.repeater_row', { field, row, sub: sub.label })
             : this.transloco.translate('admin.media.picker.repeater_field', { field, sub: sub.label });
     }
 
-    private openPicker(sub: RepeaterMediaSubField, multiple: boolean, title: string) {
+    private openPicker(sub: RepeaterMediaSubField, multiple: boolean, title?: string) {
         const allowImages = sub.allowImages !== false;
         const allowIcons = sub.allowIcons === true;
 
