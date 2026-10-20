@@ -45,9 +45,12 @@ describe('ProfileComponent', () => {
         it('opens the media library for an admin', () => {
             const click = vi.fn();
             const open = vi.fn().mockReturnValue({ afterClosed: () => ({ subscribe: vi.fn() }) });
-            const ctx = { currentUser: () => ({ role: 'admin' }), locked: () => false, dialog: { open } };
+            const t = (key: string) => (key === 'member.profile.photo_picker' ? 'Profile photo' : key);
+            const ctx = { currentUser: () => ({ role: 'admin' }), locked: () => false, dialog: { open }, t };
             ProfileComponent.prototype.openPhotoSelector.call(ctx, { click } as any);
             expect(open).toHaveBeenCalled();
+            // The picker says what the image is for.
+            expect(open.mock.calls[0][1].data.title).toBe('Profile photo');
             expect(click).not.toHaveBeenCalled();
         });
 

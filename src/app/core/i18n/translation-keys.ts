@@ -667,6 +667,7 @@ export type TranslationKey =
     | 'admin.media.pdf.all_pdfs'
     | 'admin.media.pdf.alt_label'
     | 'admin.media.pdf.alt_placeholder'
+    | 'admin.media.pdf.crop_hint'
     | 'admin.media.pdf.done'
     | 'admin.media.pdf.drawing_page'
     | 'admin.media.pdf.fit'
@@ -677,7 +678,6 @@ export type TranslationKey =
     | 'admin.media.pdf.keeping'
     | 'admin.media.pdf.locked'
     | 'admin.media.pdf.next_page'
-    | 'admin.media.pdf.no_pictures'
     | 'admin.media.pdf.note_keeping'
     | 'admin.media.pdf.note_kept'
     | 'admin.media.pdf.note_library'
@@ -689,9 +689,6 @@ export type TranslationKey =
     | 'admin.media.pdf.page_label'
     | 'admin.media.pdf.page_nav'
     | 'admin.media.pdf.pages_hint'
-    | 'admin.media.pdf.picture_label'
-    | 'admin.media.pdf.picture_label_taken'
-    | 'admin.media.pdf.pictures_found'
     | 'admin.media.pdf.previous_page'
     | 'admin.media.pdf.read_failed'
     | 'admin.media.pdf.reading'
@@ -720,6 +717,14 @@ export type TranslationKey =
     | 'admin.media.pdf_tab.search_placeholder'
     | 'admin.media.pdf_tab.show_more'
     | 'admin.media.pick_from'
+    | 'admin.media.picker.body'
+    | 'admin.media.picker.cover_image'
+    | 'admin.media.picker.email'
+    | 'admin.media.picker.files_in'
+    | 'admin.media.picker.image_in'
+    | 'admin.media.picker.logo'
+    | 'admin.media.picker.repeater_field'
+    | 'admin.media.picker.repeater_row'
     | 'admin.media.search_failed'
     | 'admin.media.search_placeholder'
     | 'admin.media.searching'
@@ -1898,6 +1903,7 @@ export type TranslationKey =
     | 'member.profile.passwords_mismatch'
     | 'member.profile.personal_info'
     | 'member.profile.photo_alt'
+    | 'member.profile.photo_picker'
     | 'member.profile.photo_remove_failed'
     | 'member.profile.photo_removed'
     | 'member.profile.photo_update_failed'
@@ -2703,6 +2709,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.pdf.all_pdfs',
     'admin.media.pdf.alt_label',
     'admin.media.pdf.alt_placeholder',
+    'admin.media.pdf.crop_hint',
     'admin.media.pdf.done',
     'admin.media.pdf.drawing_page',
     'admin.media.pdf.fit',
@@ -2713,7 +2720,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.pdf.keeping',
     'admin.media.pdf.locked',
     'admin.media.pdf.next_page',
-    'admin.media.pdf.no_pictures',
     'admin.media.pdf.note_keeping',
     'admin.media.pdf.note_kept',
     'admin.media.pdf.note_library',
@@ -2725,9 +2731,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.pdf.page_label',
     'admin.media.pdf.page_nav',
     'admin.media.pdf.pages_hint',
-    'admin.media.pdf.picture_label',
-    'admin.media.pdf.picture_label_taken',
-    'admin.media.pdf.pictures_found',
     'admin.media.pdf.previous_page',
     'admin.media.pdf.read_failed',
     'admin.media.pdf.reading',
@@ -2756,6 +2759,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.pdf_tab.search_placeholder',
     'admin.media.pdf_tab.show_more',
     'admin.media.pick_from',
+    'admin.media.picker.body',
+    'admin.media.picker.cover_image',
+    'admin.media.picker.email',
+    'admin.media.picker.files_in',
+    'admin.media.picker.image_in',
+    'admin.media.picker.logo',
+    'admin.media.picker.repeater_field',
+    'admin.media.picker.repeater_row',
     'admin.media.search_failed',
     'admin.media.search_placeholder',
     'admin.media.searching',
@@ -3934,6 +3945,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.profile.passwords_mismatch',
     'member.profile.personal_info',
     'member.profile.photo_alt',
+    'member.profile.photo_picker',
     'member.profile.photo_remove_failed',
     'member.profile.photo_removed',
     'member.profile.photo_update_failed',

@@ -1,6 +1,6 @@
 # Images from a PDF, Straight into the Editor: Build Spec (PI)
 
-**Status:** BUILT 2026-10-11 (PI1 to PI4), browser-tested on the xlm dev project, reviewed. Agreed 2026-10-11, with the six assumptions in section 7 confirmed. Changes made while building are in section 8.
+**Status:** BUILT 2026-10-11 (PI1 to PI4), browser-tested on the xlm dev project, reviewed. **Snap to photos (scope point 5; PI-D9 to PI-D12, PI-D19's `marks`) removed 2026-10-20:** see section 9. Agreed 2026-10-11, with the six assumptions in section 7 confirmed. Changes made while building are in section 8.
 **Branch:** `feat/pdf-images`, cut from `dev` (0e05ae4), worktree `../arccms-pdf-images`.
 **Builds on:** specs/media-files-spec.md (MF3 and MF4: the page grid and crop step,
 `pdf-pages.ts`, the `mediaFiles` collection, `readMediaFile`).
@@ -272,4 +272,17 @@ What it gives: the two-click loop.
 - A PDF dropped on an open PDF in From a PDF opens it, instead of the browser leaving for the file.
 - The page shows as soon as it is drawn; outlines follow. Annotations are left out of picture finding.
 - Smaller: a fixed-ratio frame inside a picture keeps to it when the ratio changes; zoom waits while saving; outlines say "taken" to screen readers; "All PDFs" is in the crop step too; the same PDF opened twice at once uploads once; an offline read no longer forgets the PDF; "Pages: 12" instead of "12 pages" (no "1 pages"); the cropper's wheel and key zoom are off for callers that do not ask for zoom (`zoomable`).
+
+## 9. Snap to photos removed (2026-10-20)
+
+Gunjan, 2026-10-20: the automatic photo finding did not work well enough on real brochures, so it is gone; framing is by hand, as in any crop step. A review that day found why it misses: it ignores clipping paths (most layout tools trim a placed photo with a frame, so the outline is the whole placed photo, not what shows), a larger picture under photos (a background panel under 90% of the page) swallowed every photo on it through the "near copy" rule, and photos that touch with no gap were joined as "strips".
+
+What went:
+- `findPictures`, `picturesFromOperators`, `readingOrder`, `snapFrame` and the PI-D11 limits in `src/shared/utils/pdf-pages.ts`.
+- The cropper's `marks` input and `markPicked` output (PI-D19); `frame`, `zoom` and `zoomable` stay.
+- In the taker: outlines, ticks, the frame starting on the next picture (PI-D9), snapping on a click (PI-D12) and on a ratio change. A page opens with the centred frame; after **Save, take another** the frame stays where it was; a new ratio starts a fresh centred frame.
+- `PdfPickerMemory.markTaken` and `takenOn`; the memory keeps the PDF, page and zoom (PI-D7, PI-D8).
+- The strings `admin.media.pdf.picture_label`, `picture_label_taken`, `pictures_found` and `no_pictures`; the hint under the page is now `admin.media.pdf.crop_hint` ("Drag the frame around the part you want.").
+
+Everything else in this spec (From a PDF, the remembered place, Insert from the crop step, zoom and page navigation) is unchanged.
 

@@ -8,7 +8,7 @@
  */
 
 import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { injectT } from '../../../../core/i18n/inject-t';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -221,6 +221,7 @@ export default class AboutSettingsPage implements OnInit {
     private t = injectT();
     private aboutService = inject(AboutSettingsService);
     private dialog = inject(MatDialog);
+    private transloco = inject(TranslocoService);
     private siteIdentity = inject(SiteIdentityService);
 
     settings = signal<IAboutSettings>(DEFAULT_ABOUT_SETTINGS);
@@ -257,7 +258,7 @@ export default class AboutSettingsPage implements OnInit {
 
     /** Pick the logo from the media library, as the content editor does. */
     chooseLogo(): void {
-        this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true })).afterClosed()
+        this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, title: this.transloco.translate('admin.media.picker.logo') })).afterClosed()
             .subscribe((result: { mediaUrl: string; type: string } | null) => {
             if (result?.type === 'submit' && result.mediaUrl) this.updateField('logoUrl', result.mediaUrl);
         });

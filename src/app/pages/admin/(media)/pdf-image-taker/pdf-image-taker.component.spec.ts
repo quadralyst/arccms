@@ -11,7 +11,7 @@ vi.mock('../../../../../shared/utils/pdf-pages', async (importOriginal) => ({
 }));
 vi.mock('../media-manager.store', () => ({ MediaManagerStore: class {} }));
 
-import { coversPicture, cropViewSize, PdfImageTakerComponent, PdfImageSource } from './pdf-image-taker.component';
+import { cropViewSize, PdfImageTakerComponent, PdfImageSource } from './pdf-image-taker.component';
 import { MediaManagerStore } from '../media-manager.store';
 import { PdfPickerMemory } from '../pdf-picker-memory.service';
 import { FileUploadService } from '../../../../../shared/services/file-upload.service';
@@ -20,11 +20,9 @@ import { PdfOpenError } from '../../../../../shared/utils/pdf-pages';
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-// A page drawn at 2 px per point, 1131 x 1600 px; two pictures on it, in points.
-const PICTURES = [
-    { x: 50, y: 100, width: 200, height: 100 },
-    { x: 300, y: 100, width: 200, height: 100 },
-];
+// A page drawn at 2 px per point, 1131 x 1600 px, framed at 200 x 100
+// points from (50, 100).
+const FRAME = { x: 100, y: 200, width: 400, height: 200 };
 
 describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
     let upload: any;
@@ -51,11 +49,11 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
         return fixture;
     }
 
-    /** Opens `page` and plays the cropper's part: the image loads and reports the placed frame. */
-    async function openOn(taker: PdfImageTakerComponent, page = 2) {
+    /** Opens `page` and plays the cropper's part: the image loads and the admin frames `frame`. */
+    async function openOn(taker: PdfImageTakerComponent, page = 2, frame = FRAME) {
         await taker.openPage(page);
         taker.onCropLoaded({ width: 1131, height: 1600 });
-        taker.onCropRect(taker.placedFrame() ?? { x: 0, y: 0, width: 1131, height: 1600 });
+        taker.onCropRect(frame);
     }
 
     beforeEach(() => {
@@ -67,7 +65,6 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
             pageCount: 3,
             renderPage: vi.fn(async (_page: number, longest: number) => ({ blob: new Blob(['jpg']), width: Math.round(longest * 0.707), height: longest, scale: longest / 800 })),
             renderRegion: vi.fn().mockResolvedValue({ blob: new Blob(['png'], { type: 'image/png' }), width: 1200, height: 600, scale: 6 }),
-            findPictures: vi.fn().mockResolvedValue(PICTURES),
             destroy: vi.fn().mockResolvedValue(undefined),
         };
         openPdf.mockResolvedValue(pdf);
@@ -113,20 +110,20 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
         expect(fixture.componentInstance.problem()).toBe('read_failed');
     });
 
-    it('opens a page with its pictures outlined and the frame on the first (PI-D9, PI-D10)', async () => {
+    it('opens a page with the centred frame and remembers the place (PI-D7)', async () => {
         const fixture = create({ fileId: 'f1' });
         const taker = fixture.componentInstance;
         await flush();
-        await openOn(taker, 2);
+        await taker.openPage(2);
         expect(pdf.renderPage).toHaveBeenCalledWith(2, 1600, 'image/jpeg');
-        expect(pdf.findPictures).toHaveBeenCalledWith(2);
-        // Drawn at 2 px per point.
-        expect(taker.placedFrame()).toEqual({ x: 100, y: 200, width: 400, height: 200 });
-        expect(taker.marks().map((m) => m.taken)).toEqual([false, false]);
+        // No frame placed: the cropper starts with its own centred one.
+        expect(taker.placedFrame()).toBeNull();
         expect(memory.place()).toMatchObject({ key: 'f1', fileId: 'f1', page: 2, zoom: 1 });
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.pdf-crop-hint').textContent).toContain('admin.media.pdf.crop_hint');
     });
 
-    it('saves the framed part at the XL size as a normal upload, and moves the frame to the next picture (MF-D14, PI-D16)', async () => {
+    it('saves the framed part at the XL size as a normal upload, and leaves the frame where it was (MF-D14, PI-D16)', async () => {
         const fixture = create({ fileId: 'f1' });
         const taker = fixture.componentInstance;
         const saved = vi.fn();
@@ -135,7 +132,7 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
         await openOn(taker, 2);
         await taker.save();
 
-        // The first picture, 200 x 100 points, drawn at 6x for 1200 px.
+        // 200 x 100 points, drawn at 6x for 1200 px.
         expect(pdf.renderRegion).toHaveBeenCalledWith(2, { x: 50, y: 100, width: 200, height: 100 }, 6, 'image/png');
         const [file, settings] = upload.uploadFile.mock.calls[0];
         expect(file.name).toBe('Brochure-p2.png');
@@ -144,8 +141,8 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
         expect(saved).toHaveBeenCalledWith(expect.objectContaining({ id: 'img1' }));
         expect(taker.step()).toBe('crop');
         expect(taker.savedCount()).toBe(1);
-        expect(taker.marks().map((m) => m.taken)).toEqual([true, false]);
-        expect(taker.placedFrame()).toEqual({ x: 600, y: 200, width: 400, height: 200 });
+        expect(taker.placedFrame()).toBeNull();
+        expect(taker.cropRect()).toEqual(FRAME);
     });
 
     it('numbers a second image from the same page, and saves alt text then clears it (PI-D17)', async () => {
@@ -163,15 +160,6 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
         expect(second.alt).toBeUndefined();
         expect(second.title).toBe('Brochure, page 2 (2)');
         expect(taker.alt()).toBe('');
-    });
-
-    it('starts on the first picture not yet taken when the page is opened again (PI-D9)', async () => {
-        memory.markTaken('f1', 2, PICTURES[0]);
-        const fixture = create({ fileId: 'f1' });
-        const taker = fixture.componentInstance;
-        await flush();
-        await openOn(taker, 2);
-        expect(taker.placedFrame()).toEqual({ x: 600, y: 200, width: 400, height: 200 });
     });
 
     it('Insert saves, then hands back the image; a gallery gets every one taken (PI-D16, PI-D18)', async () => {
@@ -213,7 +201,7 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
         keep('kept1');
         await saving;
         expect(store.addBatch.mock.calls[0][0][0].source).toEqual({ fileId: 'kept1', page: 2 });
-        expect(memory.takenOn('kept1', 2)).toHaveLength(1);
+        expect(memory.place()).toMatchObject({ key: 'kept1', fileId: 'kept1', page: 2 });
         expect(taker.storeNote()).toBe('admin.media.pdf.note_kept');
     });
 
@@ -227,20 +215,17 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
         expect(taker.storeNote()).toBe('admin.media.pdf.note_not_kept');
     });
 
-    it('snaps the frame to a clicked picture, centring a fixed ratio on it (PI-D12)', async () => {
+    it('starts a fresh centred frame for a new ratio', async () => {
         const fixture = create();
         const taker = fixture.componentInstance;
         await flush();
         await openOn(taker, 2);
-        taker.pickPicture(1);
-        expect(taker.placedFrame()).toEqual({ x: 600, y: 200, width: 400, height: 200 });
-        taker.onCropRect({ x: 600, y: 200, width: 400, height: 200 });
+        taker.setZoom(2);
+        await flush();
+        expect(taker.placedFrame()).not.toBeNull();
         taker.selectRatio('1:1');
-        expect(taker.placedFrame()).toEqual({ x: 700, y: 200, width: 200, height: 200 });
-        taker.selectRatio('original');
+        expect(taker.ratio()).toBe('1:1');
         expect(taker.placedFrame()).toBeNull();
-        taker.pickPicture(0);
-        expect(taker.ratio()).toBe('free');
     });
 
     it('zooms in steps, draws the page again with more detail, and keeps the frame (PI-D14)', async () => {
@@ -254,7 +239,7 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
         expect(taker.zoom()).toBe(2);
         await flush();
         expect(pdf.renderPage).toHaveBeenLastCalledWith(2, 3200, 'image/jpeg');
-        // Drawn at 4 px per point now: the frame on the first picture, scaled.
+        // Drawn at 4 px per point now: the same frame, scaled.
         expect(taker.placedFrame()).toEqual({ x: 200, y: 400, width: 800, height: 400 });
         taker.setZoom(9);
         expect(taker.zoom()).toBe(4);
@@ -313,39 +298,8 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
         taker.onCropLoaded({ width: 2262, height: 3200 });
         taker.onCropRect(taker.placedFrame()!);
         await taker.save();
-        // The first picture, at 4 px per point: the same 200 x 100 points.
+        // At 4 px per point: the same 200 x 100 points.
         expect(pdf.renderRegion).toHaveBeenCalledWith(2, { x: 50, y: 100, width: 200, height: 100 }, 6, 'image/png');
-    });
-
-    it('keeps a fixed-ratio frame on its picture when the ratio changes again (PI-D12)', async () => {
-        const fixture = create();
-        const taker = fixture.componentInstance;
-        await flush();
-        await openOn(taker, 2);
-        taker.selectRatio('1:1');
-        taker.onCropRect(taker.placedFrame()!);
-        taker.selectRatio('16:9');
-        // Still on the first picture (400 x 200 px), now 16:9 inside it.
-        const frame = taker.placedFrame()!;
-        expect(frame.x).toBeGreaterThanOrEqual(100);
-        expect(frame.x + frame.width).toBeLessThanOrEqual(500.01);
-        expect(frame.width / frame.height).toBeCloseTo(16 / 9);
-    });
-
-    it('leaves a frame the admin already moved when the pictures arrive', async () => {
-        let resolve: (p: unknown) => void = () => {};
-        pdf.findPictures.mockReturnValue(new Promise((r) => (resolve = r)));
-        const fixture = create();
-        const taker = fixture.componentInstance;
-        await flush();
-        const opening = taker.openPage(2);
-        await flush();
-        taker.onCropLoaded({ width: 1131, height: 1600 });
-        taker.onCropRect({ x: 10, y: 10, width: 300, height: 300 });
-        resolve(PICTURES);
-        await opening;
-        expect(taker.placedFrame()).toBeNull();
-        expect(taker.marks()).toHaveLength(2);
     });
 
     it('counts images taken from earlier PDFs in a gallery\'s Insert (PI-D18)', async () => {
@@ -354,15 +308,6 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
         await flush();
         await openOn(taker, 2);
         expect(taker.insertCount()).toBe(3);
-    });
-
-    it('says which outlines are taken, for screen readers', async () => {
-        memory.markTaken('f1', 2, PICTURES[0]);
-        const fixture = create({ fileId: 'f1' });
-        const taker = fixture.componentInstance;
-        await flush();
-        await openOn(taker, 2);
-        expect(taker.marks().map((m) => m.label)).toEqual(['admin.media.pdf.picture_label_taken', 'admin.media.pdf.picture_label']);
     });
 
     it('takes the stored image back out when its library record cannot be written', async () => {
@@ -399,12 +344,5 @@ describe('PdfImageTakerComponent (MF3, MF4, PI2, PI4)', () => {
 describe('PDF crop helpers', () => {
     it('draws more detail as the zoom grows, up to twice the fit view', () => {
         expect([1, 1.5, 2, 4].map(cropViewSize)).toEqual([1600, 2400, 3200, 3200]);
-    });
-
-    it('counts a picture as taken when a saved part covers most of it', () => {
-        const picture = { x: 0, y: 0, width: 100, height: 100 };
-        expect(coversPicture({ x: 0, y: 0, width: 100, height: 60 }, picture)).toBe(true);
-        expect(coversPicture({ x: 0, y: 0, width: 100, height: 40 }, picture)).toBe(false);
-        expect(coversPicture({ x: 200, y: 0, width: 100, height: 100 }, picture)).toBe(false);
     });
 });

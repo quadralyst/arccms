@@ -171,6 +171,19 @@ describe('FieldRepeaterComponent', () => {
             });
         });
 
+        it("heads the picker with the field, the row as its title shows it, and the sub-field", () => {
+            fixture.componentRef.setInput('label', 'Highlights');
+            setRows([makeRow('a', 1), makeRow('b', 2)]);
+            component.pickMedia(makeRow('b', 2), MEDIA);
+            expect(openSpy.mock.calls[0][1].data.title).toBe(`Highlights: Card 2, ${MEDIA.label}`);
+            expect(openSpy.mock.calls[0][1].ariaLabel).toBe(`Highlights: Card 2, ${MEDIA.label}`);
+
+            // Without the field's name: the row and sub-field alone.
+            fixture.componentRef.setInput('label', '');
+            component.pickMedia(makeRow('a', 1), MEDIA);
+            expect(openSpy.mock.calls[1][1].data.title).toBe(`Card 1, ${MEDIA.label}`);
+        });
+
         it('stores a picked icon and clears any image', () => {
             const seen: RepeaterRow[][] = [];
             component.rowsChange.subscribe(r => seen.push(r));
@@ -265,6 +278,13 @@ describe('FieldRepeaterComponent', () => {
             // Icons are meaningless in a photo gallery, and multi-select only
             // makes sense for images.
             expect(openSpy.mock.calls[0][1].data).toMatchObject({ multiple: true, allowIcons: false });
+        });
+
+        it('heads the several-images picker with the field and the sub-field, no row', async () => {
+            await useGallery([]);
+            fixture.componentRef.setInput('label', 'Photos');
+            component.addFromLibrary(GALLERY_MEDIA);
+            expect(openSpy.mock.calls[0][1].data.title).toBe(`Photos: ${GALLERY_MEDIA.label}`);
         });
 
         it('appends one row per picked image, in order', async () => {

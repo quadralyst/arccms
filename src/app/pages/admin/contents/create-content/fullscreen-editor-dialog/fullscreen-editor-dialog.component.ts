@@ -30,7 +30,7 @@ export interface FullscreenEditorData {
             </div>
             <div class="fullscreen-editor-body">
                 <app-tiptap-editor
-                    [productValue]="currentContent" [siteLook]="data.siteLook ?? null"
+                    [productValue]="currentContent" [siteLook]="data.siteLook ?? null" [fieldName]="data.fieldLabel"
                     (textEditorContent)="onContentChange($event)">
                 </app-tiptap-editor>
             </div>

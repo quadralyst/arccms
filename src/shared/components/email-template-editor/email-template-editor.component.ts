@@ -18,6 +18,7 @@ import {
     ViewChild,
 } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -38,6 +39,7 @@ import { HtmlCodeEditorComponent } from '../html-code-editor/html-code-editor.co
         MatTabsModule,
         TiptapEditorComponent,
         HtmlCodeEditorComponent,
+        TranslocoPipe,
     ],
     templateUrl: './email-template-editor.component.html',
     styleUrls: ['./email-template-editor.component.scss'],

@@ -9,22 +9,6 @@ export interface CropImageSize {
 }
 
 /**
- * A suggested frame drawn over the image as an outline the admin can click:
- * a picture found on a PDF page, for instance (PI-D19).
- */
-export interface CropMark {
-    /** In the image's own pixels. */
-    rect: CropRect;
-    /** What a screen reader says for it ("Picture 2 of 4"). */
-    label: string;
-    /** Already used: shown with a tick. */
-    taken?: boolean;
-}
-
-/** The furthest a frame may sit from a mark, as a share of the image, and still be "on" it. */
-const ON_MARK = 0.01;
-
-/**
  * A crop frame over an image: drag inside it to move it, drag a corner or an
  * edge to resize it. It only chooses a rectangle; what is done with it (a new
  * upload, an Unsplash URL) is the caller's business.
@@ -48,8 +32,6 @@ const ON_MARK = 0.01;
  *   The cropper asks for another zoom through `zoomChange` (Ctrl or Cmd with
  *   the wheel, which is also a trackpad pinch, a two-finger pinch, the + and
  *   - keys); the caller decides. Dragging outside the frame pans.
- * - `marks` are suggested frames, drawn as outlines; clicking one emits
- *   `markPicked` with its index.
  */
 @Component({
     selector: 'arc-image-cropper',
@@ -76,17 +58,6 @@ const ON_MARK = 0.01;
                     (pointerdown)="startDrag($event, handle)"></span>
                 }
             </div>
-            @for (mark of marks(); track $index) {
-            <button type="button" class="arc-cropper-mark" [class.taken]="mark.taken" [class.current]="isCurrent(mark)"
-                [attr.aria-label]="mark.label" [attr.aria-pressed]="isCurrent(mark)"
-                [style.left.%]="pct(mark.rect.x, 'w')" [style.top.%]="pct(mark.rect.y, 'h')"
-                [style.width.%]="pct(mark.rect.width, 'w')" [style.height.%]="pct(mark.rect.height, 'h')"
-                (pointerdown)="onMarkPointer($event)" (click)="pickMark($index)">
-                <span class="arc-cropper-mark-badge" aria-hidden="true" (pointerdown)="$event.stopPropagation()">
-                    @if (mark.taken) { &#10003; } @else { {{ $index + 1 }} }
-                </span>
-            </button>
-            }
             }
         </div>
         </div>
@@ -181,51 +152,6 @@ const ON_MARK = 0.01;
         .h-s { left: 50%; top: 100%; cursor: ns-resize; }
         .h-w { left: 0; top: 50%; cursor: ew-resize; }
         .h-e { left: 100%; top: 50%; cursor: ew-resize; }
-        /* Handles above the marks, marks above the frame's body (the frame
-           makes no stacking layer of its own): a click on another picture
-           inside the frame picks it, a corner still resizes. */
-        .arc-cropper-handle { z-index: 2; }
-        .arc-cropper-mark {
-            position: absolute;
-            z-index: 1;
-            box-sizing: border-box;
-            padding: 0;
-            margin: 0;
-            background: transparent;
-            border: 2px dashed rgba(255, 255, 255, 0.95);
-            outline: 1px solid rgba(0, 0, 0, 0.55);
-            border-radius: 2px;
-            cursor: pointer;
-            line-height: 1;
-        }
-        .arc-cropper-mark:hover,
-        .arc-cropper-mark:focus-visible {
-            border-style: solid;
-            border-color: var(--arc-admin-accent, #2563eb);
-            background: rgba(37, 99, 235, 0.15);
-            outline: none;
-        }
-        .arc-cropper-mark.current {
-            pointer-events: none;
-            border-color: transparent;
-            outline: none;
-        }
-        .arc-cropper-mark-badge {
-            position: absolute;
-            left: 4px;
-            top: 4px;
-            min-width: 20px;
-            height: 20px;
-            padding: 0 5px;
-            border-radius: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #fff;
-            font: 600 12px/20px system-ui, sans-serif;
-            text-align: center;
-        }
-        .arc-cropper-mark.taken .arc-cropper-mark-badge {
-            background: #198754;
-        }
     `],
 })
 export class ImageCropperComponent {
@@ -248,16 +174,10 @@ export class ImageCropperComponent {
     readonly zoomable = input(false);
     /** The zoom the admin asked for with the wheel, a pinch or a key. */
     readonly zoomChange = output<number>();
-    /** Suggested frames, as clickable outlines. */
-    readonly marks = input<CropMark[]>([]);
-    /** The index of the mark the admin clicked. */
-    readonly markPicked = output<number>();
 
     readonly size = signal<CropImageSize | null>(null);
     /** The `src` whose image has loaded: a frame is placed only on the image it was meant for. */
     private readonly loadedSrc = signal<string | null>(null);
-    /** A press inside the frame on an outline moved the frame: its click is not a pick. */
-    private suppressPick = false;
     readonly rect = signal<CropRect | null>(null);
 
     /** Every handle. Edges stay with a ratio too: they resize about the opposite edge's middle. */
@@ -423,49 +343,6 @@ export class ImageCropperComponent {
         if (!delta) return;
         event.preventDefault();
         this.setRect(dragCropRect(rect, 'move', delta[0], delta[1], this.ratio(), size.width, size.height));
-    }
-
-    /**
-     * A press on an outline: inside the frame it moves the frame (the frame
-     * wins wherever it is, so a frame trimmed inside a picture, or a fixed
-     * ratio frame snapped onto one, still drags); outside it, the click picks
-     * the outline. The number badge always picks.
-     */
-    onMarkPointer(event: PointerEvent): void {
-        event.stopPropagation();
-        this.suppressPick = false;
-        const rect = this.rect();
-        const size = this.size();
-        if (!rect || !size) return;
-        const box = this.image().nativeElement.getBoundingClientRect();
-        if (!(box.width > 0) || !(box.height > 0)) return;
-        const x = ((event.clientX - box.left) / box.width) * size.width;
-        const y = ((event.clientY - box.top) / box.height) * size.height;
-        if (x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height) {
-            this.suppressPick = true;
-            this.startDrag(event, 'move');
-        }
-    }
-
-    pickMark(index: number): void {
-        if (this.suppressPick) {
-            this.suppressPick = false;
-            return;
-        }
-        this.markPicked.emit(index);
-    }
-
-    /** Whether the frame sits on `mark`: that outline is then not in the way of dragging. */
-    isCurrent(mark: CropMark): boolean {
-        const rect = this.rect();
-        const size = this.size();
-        if (!rect || !size) return false;
-        const dx = ON_MARK * size.width;
-        const dy = ON_MARK * size.height;
-        return Math.abs(rect.x - mark.rect.x) <= dx
-            && Math.abs(rect.y - mark.rect.y) <= dy
-            && Math.abs(rect.width - mark.rect.width) <= dx
-            && Math.abs(rect.height - mark.rect.height) <= dy;
     }
 
     /** Ctrl or Cmd with the wheel zooms about the pointer; a trackpad pinch arrives this way too. */
