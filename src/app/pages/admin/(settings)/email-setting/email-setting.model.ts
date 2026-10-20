@@ -78,6 +78,8 @@ export interface IEmailFeatureToggles {
     drips: boolean;
     /** instant admin alerts + daily digest */
     adminAlerts: boolean;
+    /** the app's own emails, from sendAppEmail (specs/app-email-spec.md, AE-D12) */
+    appEmails: boolean;
 }
 
 /** Default feature toggles — everything on. */
@@ -89,6 +91,7 @@ export const DEFAULT_EMAIL_FEATURES: IEmailFeatureToggles = {
     broadcasts: true,
     drips: true,
     adminAlerts: true,
+    appEmails: true,
 };
 
 /** UI metadata for rendering the Features toggle group. */
@@ -104,6 +107,7 @@ export const EMAIL_FEATURE_META: Array<{
     { key: 'broadcasts', label: 'Broadcasts', description: 'One-off campaign sends' },
     { key: 'drips', label: 'Drip campaigns', description: 'Automated sequences' },
     { key: 'adminAlerts', label: 'Admin alerts', description: 'Instant admin alerts & daily digest' },
+    { key: 'appEmails', label: 'App emails', description: 'Emails the app sends itself, such as reports and receipts' },
 ];
 
 /**

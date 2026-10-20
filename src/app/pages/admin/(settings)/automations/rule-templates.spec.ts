@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { isRuleEmailTemplate, NOT_FOR_RULES } from './automations-settings.page';
-import { RULE_EMAIL_EXCLUDED_TEMPLATES } from '../../../../../../functions/src/email-core/appEvents';
+import { RULE_EMAIL_EXCLUDED_TEMPLATES, isRuleEmailTemplate as serverAllows } from '../../../../../../functions/src/email-core/appEvents';
 
 describe('templates offered in rules', () => {
     it('leaves out codes, notifications and the admin digest, and keeps the rest', () => {
@@ -13,6 +13,12 @@ describe('templates offered in rules', () => {
         expect(isRuleEmailTemplate('app_user_upgraded')).toBe(true);
         expect(isRuleEmailTemplate('payment_succeeded_email')).toBe(true);
         expect(isRuleEmailTemplate('')).toBe(false);
+    });
+
+    it('leaves out the app\'s own templates, as the server does (specs/app-email-spec.md)', () => {
+        expect(isRuleEmailTemplate('app.daily_closing')).toBe(false);
+        expect(serverAllows('app.daily_closing')).toBe(false);
+        expect(serverAllows('payment_succeeded_email')).toBe(true);
     });
 
     it('matches what the server refuses to send from a rule', () => {

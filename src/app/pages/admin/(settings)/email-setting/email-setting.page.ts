@@ -138,6 +138,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
                 broadcasts: [DEFAULT_EMAIL_FEATURES.broadcasts],
                 drips: [DEFAULT_EMAIL_FEATURES.drips],
                 adminAlerts: [DEFAULT_EMAIL_FEATURES.adminAlerts],
+                appEmails: [DEFAULT_EMAIL_FEATURES.appEmails],
             }),
             requireSignupVerification: [false],
             showResetLinks: [false],

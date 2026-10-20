@@ -43,6 +43,31 @@ export function templateFeature(type: string): FeatureId | undefined {
     return undefined;
 }
 
+/** One language's version of a template, as the template document keeps it. */
+interface LanguageVersion {
+    subject?: string;
+    template?: string;
+}
+
+/**
+ * A template's languages for the preview (specs/app-email-spec.md): an app
+ * template's own, or English (the template itself) and the languages the app
+ * added to an account email. Empty for a template in one language.
+ */
+export function previewLanguages(t: Pick<TemplateDoc, 'owner' | 'subject' | 'template' | 'language' | 'languages'>): Array<{ code: string; subject: string; html: string }> {
+    const extra = Object.entries(t.languages ?? {}).map(([code, v]) => ({ code, subject: v.subject ?? '', html: v.template ?? '' }));
+    if (!extra.length) return [];
+    if (t.owner === 'app') return extra;
+    return [{ code: t.language || 'en', subject: t.subject ?? '', html: t.template ?? '' }, ...extra];
+}
+
+/** A template's ##TAG## tokens filled with its sample data, for the preview. Values show as text. */
+export function fillSample(text: string, sample: Record<string, string> | undefined): string {
+    if (!sample) return text;
+    const escape = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return text.replace(/##([A-Z_]+)##/g, (whole, tag: string) => (tag in sample ? escape(String(sample[tag])) : whole));
+}
+
 export const routeMeta: RouteMeta = {
     title: 'Email Composer',
     canActivate: [roleGuard],
@@ -58,6 +83,14 @@ interface TemplateDoc {
     template?: string;
     design?: EmailDesign;
     editorVersion?: 'html' | 'blocks';
+    /** `app`: a template the app ships (functions/src/custom/email-templates.ts), read-only here. */
+    owner?: string;
+    /** The language of `subject` and `template`, when the template has several. */
+    language?: string;
+    /** Its other languages: an app template's, or the app's wording of an account email. */
+    languages?: Record<string, LanguageVersion>;
+    /** Tag data for an app template's preview. */
+    sample?: Record<string, string>;
 }
 
 @Component({
@@ -104,6 +137,11 @@ export default class EmailComposerPageComponent implements OnInit {
             this.loading.set(false);
             return;
         }
+        // The app's templates catch up with its file (a new or changed one since the
+        // last deploy); the list below follows on its own. Not deployed yet: the list
+        // still shows what was there.
+        runInInjectionContext(this.injector, () => arcCallable(this.functions, 'syncAppEmailTemplates')({}))
+            .catch((err) => console.warn('Could not bring the app\'s templates up to date:', err));
         runInInjectionContext(this.injector, () => {
             const ref = collection(this.firestore, 'EmailTemplate');
             collectionData(query(ref, orderBy('type')), { idField: 'id' }).pipe(
@@ -135,8 +173,15 @@ export default class EmailComposerPageComponent implements OnInit {
                 key: 'type',
                 header: 'Type',
                 type: 'text',
-                transformFn: (row: TemplateDoc) =>
-                    (row.type || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+                transformFn: (row: TemplateDoc) => row.owner === 'app'
+                    ? `App (${(row.type || '').replace(/^app\./, '')})`
+                    : (row.type || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            },
+            {
+                key: 'languages',
+                header: 'Languages',
+                type: 'text',
+                transformFn: (row: TemplateDoc) => previewLanguages(row).map((l) => l.code).join(', ') || '-',
             },
             {
                 key: 'subject',
@@ -168,6 +213,8 @@ export default class EmailComposerPageComponent implements OnInit {
                         label: 'Edit',
                         class: 'edit',
                         isRowClick: true,
+                        // The app's templates are its code: previewed here, changed in its file.
+                        hide: (row: TemplateDoc) => row.owner === 'app',
                         onAction: (row: TemplateDoc) => this.onSelect(row.id),
                     },
                     {
@@ -189,9 +236,16 @@ export default class EmailComposerPageComponent implements OnInit {
     }
 
     onPreview(row: TemplateDoc): void {
+        const fill = (text: string) => fillSample(text, row.sample);
         this.dialog.open(EmailPreviewDialogComponent, {
             width: '820px',
-            data: { title: row.title || row.type, subject: row.subject, html: row.template },
+            data: {
+                title: row.title || row.type,
+                subject: fill(row.subject ?? ''),
+                html: fill(row.template ?? ''),
+                languages: previewLanguages(row).map((l) => ({ code: l.code, subject: fill(l.subject), html: fill(l.html) })),
+                note: row.owner === 'app' ? 'This template comes with the app. Its words change in the app\'s code, functions/src/custom/email-templates.ts.' : '',
+            },
         });
     }
 
@@ -254,6 +308,11 @@ export default class EmailComposerPageComponent implements OnInit {
     }
 
     onSelect(id: string): void {
+        const row = this.templates().find((tpl) => tpl.id === id);
+        if (row?.owner === 'app') {
+            this.onPreview(row);
+            return;
+        }
         this.selectedId.set(id);
         this.upgraded.set(false);
         const t = this.templates().find((tpl) => tpl.id === id) || null;

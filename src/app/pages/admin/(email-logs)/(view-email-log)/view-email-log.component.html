@@ -109,6 +109,37 @@
         <iframe class="email-preview" sandbox="" title="Email as sent" [srcdoc]="processedHtml()"></iframe>
     </div>
 
+    <!-- Attachments (an app email's files, kept beside the log) -->
+    @if(emailLog.attachments?.length) {
+    <div class="section">
+        <h6 class="section-title">Attachments</h6>
+        <ul class="list-unstyled mb-0 attachment-list">
+            @for(file of emailLog.attachments; track file.name + $index) {
+            <li class="d-flex align-items-center justify-content-between gap-2 py-1">
+                <span class="text-break">
+                    <mat-icon class="align-middle me-1" aria-hidden="true">attach_file</mat-icon>
+                    {{ file.name }}
+                    <span class="text-muted small ms-1">{{ file.contentType }}, {{ fileSize(file.size) }}</span>
+                </span>
+                @if(file.path) {
+                @if(fileUrls()[file.path]; as url) {
+                @if(url === 'missing') {
+                <span class="text-muted small">No longer stored</span>
+                } @else {
+                <a mat-stroked-button [href]="url" target="_blank" rel="noopener" [attr.download]="file.name">Open</a>
+                }
+                } @else {
+                <span class="text-muted small">Loading...</span>
+                }
+                } @else {
+                <span class="text-muted small">Not stored: the email was not sent</span>
+                }
+            </li>
+            }
+        </ul>
+    </div>
+    }
+
     <!-- Metadata -->
     <div class="section">
         <h6 class="section-title">Metadata</h6>
@@ -129,6 +160,24 @@
             <div class="meta-item">
                 <span class="meta-label">BCC</span>
                 <span class="meta-value">{{ emailLog.bcc }}</span>
+            </div>
+            }
+            @if(emailLog.language) {
+            <div class="meta-item">
+                <span class="meta-label">Language</span>
+                <span class="meta-value">{{ emailLog.language }}</span>
+            </div>
+            }
+            @if(emailLog.replyTo) {
+            <div class="meta-item">
+                <span class="meta-label">Reply-To</span>
+                <span class="meta-value text-break">{{ emailLog.replyTo }}</span>
+            </div>
+            }
+            @if(emailLog.appRef) {
+            <div class="meta-item">
+                <span class="meta-label">App reference</span>
+                <span class="meta-value text-break">{{ emailLog.appRef }}</span>
             </div>
             }
             @if(emailLog.broadcastId) {

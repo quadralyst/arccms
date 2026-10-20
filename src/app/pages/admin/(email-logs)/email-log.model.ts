@@ -30,6 +30,28 @@ export interface IEmailLog extends IBaseModel {
     bounceDetails?: any;
     complaintDetails?: any;
     otp?: string;
+    /** The language the email is written in (specs/app-email-spec.md). */
+    language?: string;
+    /** Where replies go, when the email set its own. */
+    replyTo?: string;
+    /** An app email's reference, such as `businesses/b1/closings/c9`. */
+    appRef?: string;
+    /** The files it carried. `path` is where Storage keeps them; a blocked send only lists them. */
+    attachments?: IEmailAttachment[];
+}
+
+export interface IEmailAttachment {
+    name: string;
+    contentType: string;
+    size: number;
+    path?: string;
+}
+
+/** A file size as people read it: 820 B, 12.4 KB, 1.2 MB. */
+export function fileSize(bytes: number): string {
+    if (!Number.isFinite(bytes) || bytes < 1024) return `${Math.max(0, Math.round(bytes || 0))} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 export const EMAIL_LOGS_COLLECTION = 'EmailLogs';

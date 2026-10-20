@@ -56,8 +56,11 @@ export const NOT_FOR_RULES: readonly string[] = [
     'signup_otp_email', 'password_reset_otp_email', 'waitlist_verify_otp_email', 'notification_generic_email', 'admin_digest_email',
 ];
 
+/** An app's own template (`app.{key}`, specs/app-email-spec.md): filled with its feature's data, so never offered either. */
+export const APP_TEMPLATE_PREFIX = 'app.';
+
 export function isRuleEmailTemplate(type: string): boolean {
-    return !!type && !NOT_FOR_RULES.includes(type);
+    return !!type && !NOT_FOR_RULES.includes(type) && !type.startsWith(APP_TEMPLATE_PREFIX);
 }
 
 @Component({
