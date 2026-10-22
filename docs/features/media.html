@@ -162,6 +162,7 @@
         <tr><td>An Unsplash photo (<strong>Free Images</strong>, in the picker only)</td><td><strong>Apply crop</strong> keeps the crop for this pick. Nothing is copied: the inserted URL asks Unsplash for the cropped photo (its <code>rect</code> setting, in the photo's original pixels), so the photo is still used from Unsplash. Every size a template derives keeps the crop. <strong>Remove crop</strong> goes back to the whole photo.</td></tr>
       </tbody>
     </table>
+    <p>Either way the preview then shows the cropped image. It can take a few seconds to download (Unsplash cuts the photo when asked, and a saved copy is new), so until it has, the old preview is dimmed under a spinner; the same happens whenever a new image is selected.</p>
     <p>Crop is not offered for GIFs (it would drop the animation), or when the picker is choosing several images at once.</p>
 
     <h3>Delete</h3>

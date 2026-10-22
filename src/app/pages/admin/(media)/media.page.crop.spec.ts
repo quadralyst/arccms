@@ -404,6 +404,38 @@ describe('MediaManagerComponent cropping', () => {
             expect(el.querySelector('.img_container')).not.toBeNull();
         });
 
+        it('covers the preview with a spinner until the new image has downloaded, after a crop too', async () => {
+            const render = () => {
+                component.ref.markForCheck();
+                fixture.detectChanges();
+            };
+            const el: HTMLElement = fixture.nativeElement;
+            const preview = () => el.querySelector<HTMLImageElement>('.preview-container img')!;
+            render();
+            expect(el.querySelector('.preview-loading')).toBeNull();
+
+            component.selectMedia(upload);
+            render();
+            expect(el.querySelector('.preview-loading')).not.toBeNull();
+            expect(preview().classList).toContain('is-loading');
+            preview().dispatchEvent(new Event('load'));
+            render();
+            expect(el.querySelector('.preview-loading')).toBeNull();
+            expect(preview().classList).not.toContain('is-loading');
+
+            component.startCrop();
+            frame({ width: 1200, height: 800 }, { x: 300, y: 100, width: 600, height: 600 });
+            await component.applyCrop();
+            render();
+            expect(component.selectedMediaUrl?.id).toBe('crop-id');
+            expect(el.querySelector('.preview-loading')).not.toBeNull();
+
+            // A failed download shows the placeholder, not a spinner that never ends.
+            preview().dispatchEvent(new Event('error'));
+            render();
+            expect(el.querySelector('.preview-loading')).toBeNull();
+        });
+
         it('keeps the tab while a cropped copy is saving', () => {
             component.selectedMenu(component.menuItems[0]);
             component.isSavingCrop = true;

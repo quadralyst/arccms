@@ -725,6 +725,7 @@ export type TranslationKey =
     | 'admin.media.picker.logo'
     | 'admin.media.picker.repeater_field'
     | 'admin.media.picker.repeater_row'
+    | 'admin.media.preview_loading'
     | 'admin.media.search_failed'
     | 'admin.media.search_placeholder'
     | 'admin.media.searching'
@@ -2767,6 +2768,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.media.picker.logo',
     'admin.media.picker.repeater_field',
     'admin.media.picker.repeater_row',
+    'admin.media.preview_loading',
     'admin.media.search_failed',
     'admin.media.search_placeholder',
     'admin.media.searching',

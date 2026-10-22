@@ -1419,6 +1419,7 @@
       "configure_api": "Configure API Key",
       "selected": "Selected Media",
       "open_full": "Open full size",
+      "preview_loading": "Loading the image",
       "dimensions": "Dimensions",
       "uploaded": "Uploaded",
       "insert": "Insert Media",

@@ -654,6 +654,20 @@ export default class MediaManagerComponent extends BaseComponent {
         return crop && media.urls ? unsplashCropUrl(shown, crop) : shown;
     }
 
+    /** The preview image that has finished downloading; until the shown one has, a spinner covers it. */
+    private previewLoadedUrl = '';
+
+    /** True while the preview panel's image is still downloading (a crop just applied, or another photo). */
+    get isPreviewLoading(): boolean {
+        const url = this.previewUrl(this.selectedMediaUrl);
+        return !!url && url !== this.previewLoadedUrl;
+    }
+
+    /** The preview image has loaded, or failed (the placeholder then shows): the spinner goes. */
+    onPreviewLoaded(): void {
+        this.previewLoadedUrl = this.previewUrl(this.selectedMediaUrl);
+    }
+
     /** True when the Unsplash photo has a crop the insert will carry. */
     isCropped(media: SelectableMedia | null): boolean {
         return !!media && this.unsplashCrops.has(media.id);

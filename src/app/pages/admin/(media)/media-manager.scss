@@ -389,6 +389,7 @@ body {
 }
 
 .preview-container {
+    position: relative;
     width: 100%;
     border-radius: 8px;
     overflow: hidden;
@@ -404,6 +405,21 @@ body {
     height: auto;
     object-fit: contain;
     border-radius: 0;
+    transition: opacity 0.15s;
+
+    &.is-loading {
+        opacity: 0.35;
+    }
+}
+
+// Over the image while a new one downloads.
+.preview-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
 }
 
 .preview-container.clickable {

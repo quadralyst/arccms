@@ -433,7 +433,18 @@
                         [title]="selectedMediaUrl ? 'Click to open full-size image in new tab' : ''">
                         <img [src]="previewUrl(selectedMediaUrl) || 'https://placehold.co/800x450/e9f7fe/555555?text=Selected+photo+will+come+here'"
                             [alt]="'admin.media.logo_alt' | transloco"
-                            (error)="handleImageError($event)">
+                            [class.is-loading]="isPreviewLoading"
+                            (load)="onPreviewLoaded()"
+                            (error)="onPreviewLoaded(); handleImageError($event)">
+                        <!-- A new image (a crop just applied, or another photo) can take a
+                             while to download; until it does, the old one is dimmed under a
+                             spinner instead of standing in for it. -->
+                        @if(isPreviewLoading) {
+                        <div class="preview-loading" role="status">
+                            <mat-spinner diameter="32"></mat-spinner>
+                            <span class="visually-hidden">{{ 'admin.media.preview_loading' | transloco }}</span>
+                        </div>
+                        }
                         @if(selectedMediaUrl) {
                         <div class="preview-overlay">
                             <i class="fas fa-external-link-alt"></i> {{ 'admin.media.open_full' | transloco }}
