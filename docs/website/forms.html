@@ -75,6 +75,7 @@
 
     <h3>The terms notice</h3>
     <p>Arc CMS adds a terms notice above the form's button: "By signing up, you agree to our Terms of Service and Privacy Policy, and to receive emails from us." The two names link to your terms and privacy pages once you publish them: the standard pages <code>/info/terms</code> and <code>/info/privacy-policy</code>, or your own hand-written pages (see <a href="static-pages.html">Write static pages</a>). Until then the names show as plain text. On a translated page it uses the <code>legal_notice</code>, <code>legal_terms</code> and <code>legal_privacy</code> keys of that language's strings file (see <a href="languages.html">Publish in more than one language</a>).</p>
+    <p>To word it your way in every language, link your own terms or add a link such as a cookie policy, write it in <code>src/custom/notices.ts</code> (see <a href="../app/sign-up-notice.html">Word the sign-up notice</a>). The same text then shows on your sign-up page and on every form, in the app and on the published pages.</p>
     <p>To write your own, put an element with <code>data-legal-notice</code> inside the form. Arc CMS then adds nothing:</p>
     <pre><code>&lt;p data-legal-notice&gt;By joining you accept our &lt;a href="/info/terms"&gt;terms&lt;/a&gt;.&lt;/p&gt;</code></pre>
     <p>The full markup reference is in <a href="../features/forms.html#put-a-form-on-a-page">Signup forms</a>.</p>

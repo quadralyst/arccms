@@ -10,7 +10,8 @@ import { arcConfig } from '../config/arc-config';
 import { environment } from '../../../environments/environment';
 import { isOn } from '../features/features';
 import { siteManifest } from './site';
-import { buildContactNoticeElement, buildLegalNoticeElement, legalNoticeLang, legalNoticeWithPages } from '../../../shared/constants/legal-notice';
+import { readStoredLocalization } from '../services/localization.service';
+import { buildContactNoticeElement, buildLegalNoticeElement, legalNoticeWithPages } from '../../../shared/constants/legal-notice';
 import type { SitePageLink } from '../../../shared/utils/site-info';
 
 const SUBMIT = 'button[type="submit"], input[type="submit"], button:not([type])';
@@ -23,18 +24,24 @@ function beforeSubmit(form: HTMLFormElement, notice: HTMLElement): void {
 
 /**
  * Contact forms only with the feature; the terms notice on signup forms and the
- * privacy line on contact forms that carry none. Returns whether the page has
- * any form left for arc-site.js to run.
+ * privacy line on contact forms that carry none, in the page's language (the
+ * app's own text from src/custom/notices.ts when it has one, as publishing
+ * does). Returns whether the page has any form left for arc-site.js to run.
  */
-export function prepareLiveParts(root: ParentNode, doc: Document, pages: readonly SitePageLink[] = []): boolean {
+export function prepareLiveParts(
+    root: ParentNode, doc: Document, pages: readonly SitePageLink[] = [], strings: Record<string, string> = {},
+    defaultLang = readStoredLocalization()?.defaultLanguage,
+): boolean {
     if (!isOn('contact')) root.querySelectorAll('form[data-arc-contact-form]').forEach((form) => form.remove());
-    const lang = legalNoticeLang(doc.documentElement.lang);
+    const lang = doc.documentElement.lang;
     const notice = legalNoticeWithPages(pages);
+    // The placeholders' words from the page's strings file, as publishing reads them.
+    const options = { defaultLang, labels: { terms: strings['legal_terms'], privacy: strings['legal_privacy'] } };
     for (const form of Array.from(root.querySelectorAll<HTMLFormElement>('form[data-waitlist-form]'))) {
-        if (!form.querySelector('[data-legal-notice]')) beforeSubmit(form, buildLegalNoticeElement(doc, lang, notice));
+        if (!form.querySelector('[data-legal-notice]')) beforeSubmit(form, buildLegalNoticeElement(doc, lang, notice, options));
     }
     for (const form of Array.from(root.querySelectorAll<HTMLFormElement>('form[data-arc-contact-form]'))) {
-        if (!form.querySelector('[data-contact-notice]')) beforeSubmit(form, buildContactNoticeElement(doc, lang, notice));
+        if (!form.querySelector('[data-contact-notice]')) beforeSubmit(form, buildContactNoticeElement(doc, lang, notice, options));
     }
     return !!root.querySelector('form[data-waitlist-form], form[data-arc-contact-form]');
 }
@@ -70,7 +77,7 @@ export function arcSiteScriptElement(doc: Document, strings: Record<string, stri
 export function attachLiveParts(
     root: ParentNode, doc: Document, pages: readonly SitePageLink[] = [], strings: Record<string, string> = {},
 ): HTMLScriptElement | null {
-    if (!prepareLiveParts(root, doc, pages)) return null;
+    if (!prepareLiveParts(root, doc, pages, strings)) return null;
     const script = arcSiteScriptElement(doc, strings);
     doc.body.appendChild(script);
     return script;

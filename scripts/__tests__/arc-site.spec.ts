@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import {
-    APP_SITE, CORE_PUBLIC, MANIFEST_PATH, assembleSite, readSiteFile, servedPath, siteContents, siteModule, siteSources,
+    APP_SITE, CORE_PUBLIC, MANIFEST_PATH, NOTICES_PATH, assembleSite, readSiteFile, servedPath, siteContents, siteModule, siteSources,
 } from '../arc-site.mjs';
 
 let root: string;
@@ -91,6 +91,18 @@ describe('siteSources', () => {
 });
 
 describe('siteContents', () => {
+    it('serves the app\'s notices for publishing, which reads them from the live site', () => {
+        expect(siteContents(root).manifest.files[NOTICES_PATH]).toBeUndefined();
+        const notices = { signup: { de: 'Es gelten die [AGB]({terms}).' } };
+        const { contents, manifest } = siteContents(root, { notices });
+        expect(manifest.files[NOTICES_PATH]).toMatch(/^[0-9a-f]{16}$/);
+        expect(JSON.parse(contents.get(NOTICES_PATH).content)).toEqual(notices);
+        const out = join(root, 'out');
+        assembleSite(root, out, { notices });
+        expect(JSON.parse(readFileSync(join(out, NOTICES_PATH), 'utf8'))).toEqual(notices);
+        expect(siteModule(root, { notices })).toContain(NOTICES_PATH);
+    });
+
     it('merges the app\'s strings over core\'s key by key', () => {
         app('strings/hi.json', JSON.stringify({ next: 'आगे', nav_lessons: 'पाठ' }));
         expect(JSON.parse(readSiteFile(root, '_site/strings/hi.json'))).toEqual({

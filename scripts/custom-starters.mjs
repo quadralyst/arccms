@@ -30,6 +30,7 @@ export const CUSTOM_STARTERS = [
     // nav.ts shipped with CUSTOM_NAV_CHANGES before nav-changes.ts existed; core reads both.
     { file: 'src/custom/nav.ts', exports: { CUSTOM_NAV: [], CUSTOM_NAV_CHANGES: {} } },
     { file: 'src/custom/nav-changes.ts', exports: { CUSTOM_NAV_CHANGES: {} } },
+    { file: 'src/custom/notices.ts', exports: { CUSTOM_NOTICES: {} } },
     { file: 'src/custom/pwa.ts', exports: { CUSTOM_PWA: {} } },
     { file: 'src/custom/routes.ts', exports: { CUSTOM_ROUTES: [] } },
     { file: 'src/custom/sign-in.ts', exports: { CUSTOM_SIGN_IN: {} } },
@@ -63,6 +64,7 @@ export const SHIPPED_FILES = {
     'src/custom/languages.ts': 'be2ef3b018631e32',
     'src/custom/nav-changes.ts': 'ee4433ead8d6c0a9',
     'src/custom/nav.ts': 'ff6e1483758b4f0a',
+    'src/custom/notices.ts': 'd6fa1f28f80af9ad',
     'src/custom/pages/.gitkeep': 'e3b0c44298fc1c14',
     'src/custom/pwa.ts': '0c9032e2aa1b94eb',
     'src/custom/routes.ts': 'bb7388f7df4aae16',

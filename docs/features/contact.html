@@ -62,7 +62,7 @@
     <p>Every admin gets a bell alert and an email (the <code>admin_contact_message</code> notification, see <a href="notifications.html">Notifications</a>), at most ten an hour: beyond that, messages are still saved, without an alert.</p>
 
     <h2>Extend it</h2>
-    <p>Style the form with your site's CSS; the thank-you is <code>.arc-contact-sent</code>, an error <code>.arc-contact-error</code> and the privacy line <code>.arc-contact-notice</code>. Its text can be translated through <code>strings/{lang}.json</code> with the <code>contact_*</code> keys.</p>
+    <p>Style the form with your site's CSS; the thank-you is <code>.arc-contact-sent</code>, an error <code>.arc-contact-error</code> and the privacy line <code>.arc-contact-notice</code>. Its text can be translated through <code>strings/{lang}.json</code> with the <code>contact_*</code> keys. To word the privacy line your way in each language, with your own links, write it in <code>src/custom/notices.ts</code> (see <a href="../app/sign-up-notice.html">Word the sign-up notice</a>).</p>
 
     <h2>What it stores</h2>
     <table>

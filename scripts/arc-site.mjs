@@ -15,6 +15,7 @@
  *   src/custom/site/site.css                        /assets/css/site.css
  *   src/custom/site/assets/...                      /site/...
  *   src/custom/site/favicon.ico, 403.html, 404.html /favicon.ico, /403.html, /404.html
+ *   CUSTOM_NOTICES (src/custom/notices.ts)          /_site/notices.json (the app's sign-up and contact notices)
  *
  * An app file replaces the core file served at the same path; strings files are
  * merged key by key instead. Everything is assembled into one folder
@@ -33,6 +34,12 @@ export const CORE_PUBLIC = 'public';
 export const APP_SITE = 'src/custom/site';
 /** Where the two are assembled. */
 export const SITE_OUT = '.arc-build/public';
+/**
+ * Where the app's sign-up and contact notices are served (docs/app/sign-up-notice.html).
+ * The app bundles them from src/custom/notices.ts; vite.config.ts passes them here
+ * too, because publishing reads them from the live site.
+ */
+export const NOTICES_PATH = '_site/notices.json';
 /** The manifest's served path. */
 export const MANIFEST_PATH = '_site/site.json';
 
@@ -127,9 +134,10 @@ const hash = (content) => createHash('sha256').update(content).digest('hex').sli
 
 /**
  * What the assembled folder holds: Map(servedPath, { file } | { content }),
- * the manifest, and the ignored app files.
+ * the manifest, and the ignored app files. `notices` is the app's CUSTOM_NOTICES,
+ * served at NOTICES_PATH.
  */
-export function siteContents(root = process.cwd()) {
+export function siteContents(root = process.cwd(), { notices } = {}) {
     const { sources, ignored } = siteSources(root);
     const contents = new Map();
     for (const [path, source] of sources) {
@@ -142,6 +150,7 @@ export function siteContents(root = process.cwd()) {
             contents.set(path, { from: source.from, file: source.file });
         }
     }
+    if (notices) contents.set(NOTICES_PATH, { from: 'app', content: `${JSON.stringify(notices, null, 2)}\n` });
     versionCssUrls(contents);
     const manifest = buildManifest(contents);
     contents.set(MANIFEST_PATH, { from: 'core', content: `${JSON.stringify(manifest, null, 2)}\n` });
@@ -251,8 +260,8 @@ function removeEmptyDirs(dir, keep) {
  * changed, writes the merged strings and the manifest, removes what is gone.
  * Returns { dir, manifest, ignored, changed } (changed: served paths written or removed).
  */
-export function assembleSite(root = process.cwd(), outDir = resolve(root, SITE_OUT)) {
-    const { contents, manifest, ignored } = siteContents(root);
+export function assembleSite(root = process.cwd(), outDir = resolve(root, SITE_OUT), options = {}) {
+    const { contents, manifest, ignored } = siteContents(root, options);
     const changed = [];
     for (const [path, entry] of contents) {
         if (place(join(outDir, path), entry)) changed.push(path);
@@ -278,8 +287,8 @@ export function readSiteFile(root, path) {
  * sign-in panel HTML, bundled so they are on screen with the first paint, and
  * the manifest.
  */
-export function siteModule(root = process.cwd()) {
-    const { contents, manifest } = siteContents(root);
+export function siteModule(root = process.cwd(), options = {}) {
+    const { contents, manifest } = siteContents(root, options);
     const text = (path) => (contents.has(path) ? contentOf(contents.get(path)).toString('utf8') : '');
     return [
         `export const header = ${JSON.stringify(text('_site/header.html'))};`,

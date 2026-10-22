@@ -64,6 +64,7 @@ window.ARC_DOCS_NAV = [
       { path: "app/member-area.html", title: "Build the member area" },
       { path: "app/functions.html", title: "Write your own Cloud Functions" },
       { path: "app/app-email.html", title: "Send email from your app" },
+      { path: "app/sign-up-notice.html", title: "Word the sign-up notice" },
       { path: "app/scripts-and-data.html", title: "Run scripts and keep data" },
       { path: "app/rules-and-indexes.html", title: "Set security rules and indexes" },
       { path: "app/account-contract.html", title: "Follow the account contract" },

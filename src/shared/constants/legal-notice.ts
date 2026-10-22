@@ -1,4 +1,12 @@
 import { appHasPage } from '../../app/core/site/site';
+import { noticeParts, noticeText, type NoticeKind, type SiteNotices } from '../utils/notice-text';
+import { CUSTOM_NOTICES } from '../../custom/notices';
+
+/**
+ * The app's own notices (src/custom/notices.ts, docs/app/sign-up-notice.html): when
+ * it has a text for the page, it replaces Arc CMS's own, here and when publishing.
+ */
+export const APP_NOTICES: SiteNotices = CUSTOM_NOTICES;
 
 /**
  * The static pages the notice links to, at /p/{name}, when the app supplies them
@@ -69,7 +77,7 @@ export function legalNoticeLang(pageLang: string | null | undefined): LegalNotic
     return base in LEGAL_NOTICE.text ? (base as LegalNoticeLang) : 'en';
 }
 
-/** The notice split into runs, in the given language. */
+/** Arc CMS's own notice split into runs, in the given language. */
 export function legalNoticeParts(lang: LegalNoticeLang = 'en', notice: LegalNotice = LEGAL_NOTICE): LegalNoticePart[] {
     const t = notice.text[lang] ?? notice.text.en;
     const links: Record<string, LegalNoticePart> = {
@@ -83,32 +91,6 @@ export function legalNoticeParts(lang: LegalNoticeLang = 'en', notice: LegalNoti
 }
 
 /**
- * The notice as a DOM element, for forms the app does not render itself (the
- * landing-page signup forms). Built with DOM calls, not innerHTML.
- */
-export function buildLegalNoticeElement(doc: Document, lang: LegalNoticeLang, notice: LegalNotice = LEGAL_NOTICE): HTMLElement {
-    const p = doc.createElement('p');
-    p.className = 'arc-legal-notice';
-    p.setAttribute('data-legal-notice', '');
-    p.style.cssText = 'font-size: 0.8rem; opacity: 0.75; margin: 0.5rem 0; line-height: 1.4;';
-    for (const part of legalNoticeParts(lang, notice)) {
-        if (part.href) {
-            const a = doc.createElement('a');
-            a.href = part.href;
-            a.target = '_blank';
-            a.rel = 'noopener';
-            a.style.color = 'inherit';
-            a.style.textDecoration = 'underline';
-            a.textContent = part.text;
-            p.appendChild(a);
-        } else {
-            p.appendChild(doc.createTextNode(part.text));
-        }
-    }
-    return p;
-}
-
-/**
  * The privacy line under a contact form (specs/site-sections-spec.md, SS5), as
  * publishing writes it (functions/src/shared/live-parts.ts, contact_notice): "We
  * use your details only to reply." and the privacy page's link when the site
@@ -119,27 +101,89 @@ export const CONTACT_NOTICE = {
     hi: 'हम आपकी जानकारी सिर्फ़ जवाब देने के लिए इस्तेमाल करते हैं। {privacy}',
 } as const;
 
-export function buildContactNoticeElement(doc: Document, lang: LegalNoticeLang, notice: LegalNotice = LEGAL_NOTICE): HTMLElement {
+/** Where a page's notice is read from: its language, the site's default language, the app's notices. */
+export interface NoticeOptions {
+    /** The site's default language, tried after the page's own. */
+    defaultLang?: string | null;
+    /** The app's notices; the file's by default. */
+    notices?: SiteNotices;
+    /**
+     * What `{terms}` and `{privacy}` read on a website page: its strings file's
+     * `legal_terms` and `legal_privacy`, as publishing reads them. Arc CMS's own otherwise.
+     */
+    labels?: { terms?: string; privacy?: string };
+}
+
+/** The app's text for a notice, split into runs, or null when it has none for the page. */
+function appNoticeParts(kind: NoticeKind, pageLang: string | null | undefined, notice: LegalNotice, options: NoticeOptions): LegalNoticePart[] | null {
+    const text = noticeText(options.notices ?? APP_NOTICES, kind, pageLang, options.defaultLang);
+    if (text === null) return null;
+    const t = notice.text[legalNoticeLang(pageLang)];
+    const label = (own: string | undefined, core: string) => (own?.trim() ? own : core);
+    return noticeParts(text, {
+        terms: { label: label(options.labels?.terms, t.terms), url: notice.termsUrl },
+        privacy: { label: label(options.labels?.privacy, t.privacy), url: notice.privacyUrl },
+    });
+}
+
+/**
+ * The sign-up notice for a page in the given language (`de-CH`, `hi`): the app's
+ * own text when it has one for the page (src/custom/notices.ts: the page's
+ * language, then the site's default, then English), else Arc CMS's own.
+ */
+export function signupNoticeParts(pageLang: string | null | undefined, notice: LegalNotice = LEGAL_NOTICE, options: NoticeOptions = {}): LegalNoticePart[] {
+    return appNoticeParts('signup', pageLang, notice, options) ?? legalNoticeParts(legalNoticeLang(pageLang), notice);
+}
+
+/** The contact form's line for a page, chosen as the sign-up notice is. */
+export function contactNoticeParts(pageLang: string | null | undefined, notice: LegalNotice = LEGAL_NOTICE, options: NoticeOptions = {}): LegalNoticePart[] {
+    const own = appNoticeParts('contact', pageLang, notice, options);
+    if (own) return own;
+    const lang = legalNoticeLang(pageLang);
+    const privacy: LegalNoticePart = { text: notice.text[lang].privacy, ...(notice.privacyUrl ? { href: notice.privacyUrl } : {}) };
+    return CONTACT_NOTICE[lang].split(/(\{privacy\})/).filter(Boolean).map((piece) => (piece === '{privacy}' ? privacy : { text: piece }));
+}
+
+/**
+ * The notices' look, each value a CSS variable an app can set in its site.css
+ * (docs/app/sign-up-notice.html#style-it), with Arc CMS's look as the fallback. The
+ * same as publishing writes (NOTICE_STYLE in functions/src/shared/live-parts.ts).
+ */
+export const NOTICE_STYLE = 'font-size: var(--arc-notice-font-size, 0.8rem); opacity: var(--arc-notice-opacity, 0.75); '
+    + 'margin: var(--arc-notice-margin, 0.5rem 0); line-height: var(--arc-notice-line-height, 1.4);';
+export const NOTICE_LINK_STYLE = 'color: var(--arc-notice-link-color, inherit); text-decoration: var(--arc-notice-link-decoration, underline);';
+
+/** A notice paragraph, built with DOM calls, never innerHTML. */
+function noticeElement(doc: Document, className: string, marker: string, parts: LegalNoticePart[]): HTMLElement {
     const p = doc.createElement('p');
-    p.className = 'arc-contact-notice';
-    p.setAttribute('data-contact-notice', '');
-    p.style.cssText = 'font-size: 0.8rem; opacity: 0.75; margin: 0.5rem 0; line-height: 1.4;';
-    const privacy = (notice.text[lang] ?? notice.text.en).privacy;
-    for (const piece of (CONTACT_NOTICE[lang] ?? CONTACT_NOTICE.en).split(/(\{privacy\})/).filter(Boolean)) {
-        if (piece !== '{privacy}') {
-            p.appendChild(doc.createTextNode(piece));
-        } else if (notice.privacyUrl) {
+    p.className = className;
+    p.setAttribute(marker, '');
+    p.setAttribute('style', NOTICE_STYLE);
+    for (const part of parts) {
+        if (part.href) {
             const a = doc.createElement('a');
-            a.href = notice.privacyUrl;
+            a.href = part.href;
             a.target = '_blank';
             a.rel = 'noopener';
-            a.style.color = 'inherit';
-            a.style.textDecoration = 'underline';
-            a.textContent = privacy;
+            a.setAttribute('style', NOTICE_LINK_STYLE);
+            a.textContent = part.text;
             p.appendChild(a);
         } else {
-            p.appendChild(doc.createTextNode(privacy));
+            p.appendChild(doc.createTextNode(part.text));
         }
     }
     return p;
+}
+
+/**
+ * The sign-up notice as a DOM element, for forms the app does not render itself
+ * (the landing-page signup forms).
+ */
+export function buildLegalNoticeElement(doc: Document, pageLang: string, notice: LegalNotice = LEGAL_NOTICE, options: NoticeOptions = {}): HTMLElement {
+    return noticeElement(doc, 'arc-legal-notice', 'data-legal-notice', signupNoticeParts(pageLang, notice, options));
+}
+
+/** The contact form's line as a DOM element. */
+export function buildContactNoticeElement(doc: Document, pageLang: string, notice: LegalNotice = LEGAL_NOTICE, options: NoticeOptions = {}): HTMLElement {
+    return noticeElement(doc, 'arc-contact-notice', 'data-contact-notice', contactNoticeParts(pageLang, notice, options));
 }

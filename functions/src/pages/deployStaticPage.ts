@@ -8,7 +8,7 @@ import { deployFileToHosting, type HostingBatch } from './deployToHosting.js';
 import { arcHostingSite } from '../arc-config.js';
 import { getSiteFile, getSiteManifest, LEGACY_STATIC_PAGES, pageStylesheets } from '../shared/site-files.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
-import { liveSiteScript, prepareLiveParts } from '../shared/live-parts.js';
+import { liveSiteScript, loadSiteNotices, prepareLiveParts } from '../shared/live-parts.js';
 import { siteChrome } from './card-blocks.js';
 
 /**
@@ -74,7 +74,7 @@ export async function generateAndDeployStaticPage(
         const $ = loadHtml(processedHtml, { xmlMode: false });
 
         // The live parts (SS5): signup and contact forms work here as on the home page.
-        prepareLiveParts($, strings, manifest, siteInfo.pages);
+        prepareLiveParts($, strings, manifest, siteInfo.pages, { lang: defaultLang, defaultLang, notices: await loadSiteNotices(manifest) });
         $('body').append(`\n${await liveSiteScript(manifest, strings)}`);
 
         // Site CSS <link> tags, versioned, the site's site.css last. Arc CMS's

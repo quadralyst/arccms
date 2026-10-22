@@ -8,8 +8,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const { featureOn } = vi.hoisted(() => ({ featureOn: { contact: true } as Record<string, boolean> }));
 vi.mock('../init', () => ({ db: {} }));
 vi.mock('../feature-flags', () => ({ isFeatureOn: (id: string) => featureOn[id] !== false }));
+const { siteFile } = vi.hoisted(() => ({ siteFile: vi.fn<(path: string) => Promise<string | null>>() }));
+vi.mock('../shared/site-files.js', async (actual) => ({ ...(await actual<object>()), getSiteFile: siteFile }));
 
-import { arcSiteScript, noticePageUrl, prepareLiveParts, withLiveParts } from '../shared/live-parts.js';
+import { arcSiteScript, loadSiteNotices, noticePageUrl, prepareLiveParts, withLiveParts } from '../shared/live-parts.js';
 import { loadHtml } from '../shared/lazy-cheerio.js';
 import type { SiteManifest } from '../shared/site-files.js';
 
@@ -73,3 +75,50 @@ describe('live parts', () => {
         expect(JSON.parse($('script').attr('data-strings')!)).toEqual({ contact_sent: 'धन्यवाद', signup_on_list: 'सूची' });
     });
 });
+
+describe('the app\'s own notices on a published page', () => {
+    const SIGNUP = '<form data-waitlist-form><input name="email"><button type="submit">Go</button></form>';
+    const NOTICES = {
+        signup: {
+            en: 'Join and accept {terms}.',
+            de: 'Mit der Anmeldung akzeptierst du die [AGB]({terms}) der Acme GmbH. [Cookies](/p/cookies) <b>x</b> [weg](javascript:alert`1`)',
+        },
+        contact: { de: 'Nur für die Antwort. {privacy}' },
+    };
+    const WITH_FILE = { ...MANIFEST, files: { '_site/notices.json': 'abc' } } as SiteManifest;
+
+    it('writes the German notice on a German page, its links drawn, its words escaped', () => {
+        const html = withLiveParts(SIGNUP + CONTACT, {}, MANIFEST, [{ url: '/info/terms', title: 'Terms' }], { lang: 'de-CH', defaultLang: 'en', notices: NOTICES });
+        const $ = loadHtml(html, { xmlMode: false });
+        expect($('[data-legal-notice]').text()).toBe('Mit der Anmeldung akzeptierst du die AGB der Acme GmbH. Cookies <b>x</b> weg');
+        expect($('[data-legal-notice] a').map((_, a) => $(a).attr('href')).get()).toEqual(['/info/terms', '/p/cookies']);
+        expect($('[data-legal-notice] b').length).toBe(0);
+        expect($('[data-contact-notice]').text()).toBe('Nur für die Antwort. Privacy Policy');
+        expect($('[data-contact-notice] a').attr('href')).toBe('/p/privacy-policy');
+    });
+
+    it('falls back on the site\'s default language, then English, then Arc CMS\'s words', () => {
+        const notice = (lang: string, defaultLang: string, notices: object = NOTICES) =>
+            loadHtml(withLiveParts(SIGNUP, {}, MANIFEST, [], { lang, defaultLang, notices }), { xmlMode: false })('[data-legal-notice]').text();
+        expect(notice('fr', 'de')).toContain('Acme GmbH');
+        expect(notice('fr', 'ja')).toBe('Join and accept Terms of Service.');
+        expect(notice('fr', 'ja', { signup: {}, contact: {} })).toBe('By signing up, you agree to our Terms of Service and Privacy Policy, and to receive emails from us.');
+    });
+
+    it('reads the notices the live site serves, and none from a site without them or with a broken file', async () => {
+        const good = { signup: { de: 'Es gelten die [AGB]({terms}).' }, contact: {} };
+        siteFile.mockResolvedValue(JSON.stringify(good));
+        expect(await loadSiteNotices(WITH_FILE)).toEqual(good);
+        expect(siteFile).toHaveBeenCalledWith('notices.json');
+        siteFile.mockClear();
+        expect(await loadSiteNotices(MANIFEST)).toEqual({});
+        expect(await loadSiteNotices(null)).toEqual({});
+        expect(siteFile).not.toHaveBeenCalled();
+        siteFile.mockResolvedValue('{ not json');
+        expect(await loadSiteNotices(WITH_FILE)).toEqual({});
+        // A file the build would have refused (a javascript: link, an unknown placeholder): none.
+        siteFile.mockResolvedValue(JSON.stringify(NOTICES));
+        expect(await loadSiteNotices(WITH_FILE)).toEqual({});
+    });
+});
+

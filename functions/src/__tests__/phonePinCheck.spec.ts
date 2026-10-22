@@ -88,7 +88,7 @@ describe('createPhonePinCheck', () => {
 
         await expect(checkPin('u1', OTHER)).resolves.toEqual({ ok: false, reason: 'wrong', remaining: MAX_PIN_ATTEMPTS - 3 });
         await expect(checkPin('u1', GOOD)).resolves.toEqual({ ok: true });
-    });
+    }, 20_000); // About 25 deliberately slow PIN hashes: 3 s alone, past 5 s under the whole suite's load.
 
     it('still opens when phone sign-in is locked: the two locks are apart', async () => {
         await setPin('u1', GOOD);

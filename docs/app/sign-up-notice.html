@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Word the sign-up notice | Arc CMS docs</title>
+  <meta name="description" content="Write your own sign-up notice and contact form line in every language your app uses, with links to your own terms, privacy policy or anything else, in src/custom/notices.ts, and style it with CSS.">
+  <meta name="docs:sources" content="src/custom/notices.ts, src/shared/utils/notice-text.ts, functions/src/shared/notice-text.ts, src/shared/constants/legal-notice.ts, src/shared/components/legal-notice/legal-notice.component.ts, src/app/core/site/live-parts.ts, functions/src/shared/live-parts.ts, scripts/arc-site.mjs, scripts/vite-arc-site.ts, vite.config.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/sign-up-notice.html">
+  <main>
+    <h1>Word the sign-up notice</h1>
+    <p class="lead">Every sign-up form carries a notice: "By signing up, you agree to our Terms of Service and Privacy Policy, and to receive emails from us." A contact form carries a line of its own: "We use your details only to reply. Privacy Policy". Arc CMS writes both in English and Hindi. In <code>src/custom/notices.ts</code> you write them your way, in every language your app uses, with links to wherever your terms live.</p>
+
+    <h2 id="where-it-shows">Where the notice shows</h2>
+    <p>One file words the notice everywhere it appears:</p>
+    <ul>
+      <li>the account sign-up page and the setup wizard;</li>
+      <li>the signup forms on your website (<code>data-waitlist-form</code>, see <a href="../website/forms.html">Add forms to your site</a>), both in the app and on the published pages;</li>
+      <li>the contact form's line (<code>data-arc-contact-form</code>, see <a href="../features/contact.html">Contact form</a>).</li>
+    </ul>
+    <p>A form that brings its own <code>data-legal-notice</code> or <code>data-contact-notice</code> element keeps it, as before.</p>
+
+    <h2 id="the-file">The file</h2>
+    <p>Arc CMS ships <code>src/custom/notices.ts</code> empty, and while it is empty every notice reads exactly as Arc CMS words it. It is yours: Arc CMS never changes it again, and <code>npm run check:core</code> counts it as your own code. <code>CUSTOM_NOTICES</code> holds two notices, each a text per language code:</p>
+    <pre><code>import type { CustomNotices } from '../shared/utils/notice-text';
+
+export const CUSTOM_NOTICES: CustomNotices = {
+  signup: {
+    en: 'By signing up, you agree to the {terms} and {privacy} of Acme Ltd. We will also email you news; you can stop it at any time.',
+    // Keep in step with the German pages on acme.example.
+    de: 'Mit der Anmeldung akzeptierst du die [AGB]({terms}), den [Datenschutz]({privacy}) und die [Cookie-Richtlinie](/p/cookies) der Acme GmbH. Fragen? [Schreib uns](mailto:legal@acme.example).',
+  },
+  contact: {
+    en: 'We use your details only to reply. [How we handle them](https://acme.example/privacy)',
+    de: 'Wir nutzen deine Angaben nur für die Antwort. [Datenschutz]({privacy})',
+  },
+};</code></pre>
+    <p>Fill only the notice you want to change: a notice with no text for the page is Arc CMS's own. The file is code, so you can keep a note beside a text, as above, or build a text from a constant you share between languages.</p>
+
+    <h2 id="links">Links and placeholders</h2>
+    <p>A text is plain words. It has no HTML; a <code>&lt;b&gt;</code> shows as those letters. Two things inside it are not plain:</p>
+    <ul>
+      <li><strong>A link</strong>, written <code>[the words](where it goes)</code>, as many as you need. It may go to a path on your site (<code>/p/cookies</code>, <code>/info/terms</code>), an <code>https:</code> address or a <code>mailto:</code> address. Anything else, such as <code>http:</code> or <code>javascript:</code>, is shown as plain words.</li>
+      <li><strong>A placeholder</strong>: <code>{terms}</code> or <code>{privacy}</code>. Alone, it shows "Terms of Service" or "Privacy Policy" in the page's language (Arc CMS has English and Hindi; on a website page, the <code>legal_terms</code> and <code>legal_privacy</code> keys of the page's strings file), linked to your terms or privacy page. As a link's target, <code>[AGB]({terms})</code>, your own words link to that page. In a language Arc CMS has no label for, use the link form.</li>
+    </ul>
+    <p>Your terms and privacy pages are the published standard pages <code>/info/terms</code> and <code>/info/privacy-policy</code>, else your own static pages at <code>/p/terms</code> and <code>/p/privacy-policy</code> (<a href="../website/static-pages.html">Write static pages</a>). Until you have one, its placeholder shows the words without a link. To link a page somewhere else, such as your company's website, write the address: <code>[Terms of Service](https://acme.example/terms)</code>.</p>
+
+    <h2 id="which-language">Which language shows</h2>
+    <p>For a page in a language, the notice is the first of these the file has:</p>
+    <ol>
+      <li>the page's language, as written (<code>de-ch</code>), then without its region (<code>de</code>), so a Swiss German page finds your German text;</li>
+      <li>the site's default language (Settings, Localization);</li>
+      <li>your English text;</li>
+      <li>Arc CMS's own notice.</li>
+    </ol>
+    <p>Language codes are not case sensitive: <code>de-CH</code> and <code>de-ch</code> are the same. The sign-up page and the setup wizard use the language they are shown in, on the sign-up page the one the person chose for the app (<a href="member-languages.html">Member languages</a>); a website page uses the page's own.</p>
+
+    <h2 id="mistakes">Mistakes stop the build</h2>
+    <p><code>npm run dev</code> and <code>npm run build</code> check the file before they start and stop on a mistake, naming the notice, the language and what is wrong:</p>
+    <pre><code>The app's notices need fixing (docs/app/sign-up-notice.html):
+  src/custom/notices.ts: signup.de: [AGB](javascript:void0) links to "javascript:void0"; a link goes to a path on the site (/p/terms), an https: address or a mailto: address.</code></pre>
+    <p>The check finds a link target that is not allowed, a link with no words, an unknown placeholder such as <code>{cookies}</code>, a link or placeholder left open, a language code that is not one, an empty text and a notice other than <code>signup</code> and <code>contact</code>. So no visitor sees a broken link or a placeholder.</p>
+
+    <h2 id="style-it">Style it</h2>
+    <p>The text carries words and links only, so its look stays in one place for every language: your CSS. The sign-up notice has the class <code>.arc-legal-notice</code> on the sign-up page, the setup wizard and every signup form, and the contact line has <code>.arc-contact-notice</code>. Their size, spacing and link look come from these variables, set in <code class="new">src/custom/site/site.css</code>, which the website and the sign-in pages load:</p>
+    <table>
+      <thead><tr><th>Variable</th><th>What it sets</th><th>Arc CMS's value</th></tr></thead>
+      <tbody>
+        <tr><td><code>--arc-notice-font-size</code></td><td>The size of the words</td><td><code>0.8rem</code></td></tr>
+        <tr><td><code>--arc-notice-line-height</code></td><td>The line height</td><td><code>1.4</code></td></tr>
+        <tr><td><code>--arc-notice-opacity</code></td><td>How faint the notice is, on website forms</td><td><code>0.75</code></td></tr>
+        <tr><td><code>--arc-notice-margin</code></td><td>The space around it, on website forms</td><td><code>0.5rem 0</code></td></tr>
+        <tr><td><code>--arc-notice-link-color</code></td><td>The links' colour</td><td>the notice's own</td></tr>
+        <tr><td><code>--arc-notice-link-decoration</code></td><td>The links' underline</td><td><code>underline</code></td></tr>
+      </tbody>
+    </table>
+    <pre><code>:root {
+  --arc-notice-font-size: 0.85rem;
+  --arc-notice-link-color: #0b5cad;
+}
+.arc-legal-notice { font-weight: 500; }</code></pre>
+    <p>Anything else, such as weight or alignment, goes on the classes. On the sign-up page the notice's colour is <code>--arc-sign-in-muted-color</code> (see <a href="../website/sign-in-page.html">Brand the sign-in page</a>).</p>
+
+    <h2 id="deploy">Deploy and test it</h2>
+    <p>The app reads the file when it is built, and the build serves its notices at <code>/_site/notices.json</code>, where publishing reads them. Deploy the website with <code>npm run deploy</code>: the sign-up pages change at once, and every published page is published again with the new words. No function needs deploying.</p>
+    <p>To see it, open the sign-up page with the app in each of your languages, and a page with a signup form. Arc CMS's own tests prove the language order, the links and that a published page says the same words as the app; to keep your wording from changing by accident, add a spec of your own under <code>src/custom/</code> that imports <code>CUSTOM_NOTICES</code> (see <a href="custom-space.html">Use the custom space</a>).</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

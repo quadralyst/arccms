@@ -18,6 +18,7 @@ import { resolve } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Plugin, ViteDevServer } from 'vite';
 import { assembleSite, isSiteSource, siteModule } from './arc-site.mjs';
+import type { SiteNotices } from '../src/shared/utils/notice-text';
 
 const VIRTUAL = 'virtual:arc-site';
 const RESOLVED = `\0${VIRTUAL}`;
@@ -74,7 +75,12 @@ function warnIgnored(ignored: string[], warn: (message: string) => void): void {
     }
 }
 
-export function arcSite({ assemble = true }: { assemble?: boolean } = {}): Plugin {
+/**
+ * `notices`: the app's CUSTOM_NOTICES (src/custom/notices.ts), served at /_site/notices.json for
+ * publishing. vite.config.ts imports the file, so a change to it restarts the dev server and
+ * the site is assembled again with the new words.
+ */
+export function arcSite({ assemble = true, notices }: { assemble?: boolean; notices?: SiteNotices } = {}): Plugin {
     let root = process.cwd();
     return {
         name: 'arc-site',
@@ -82,7 +88,7 @@ export function arcSite({ assemble = true }: { assemble?: boolean } = {}): Plugi
             root = resolve(config.root ?? process.cwd());
             if (!assemble) return;
             // At config time, before Vite reads its public folder.
-            const { dir, ignored } = assembleSite(root);
+            const { dir, ignored } = assembleSite(root, undefined, { notices });
             warnIgnored(ignored, console.warn);
             return { publicDir: dir };
         },
@@ -90,7 +96,7 @@ export function arcSite({ assemble = true }: { assemble?: boolean } = {}): Plugi
             return id === VIRTUAL ? RESOLVED : undefined;
         },
         load(id) {
-            return id === RESOLVED ? siteModule(root) : undefined;
+            return id === RESOLVED ? siteModule(root, { notices }) : undefined;
         },
         configureServer(server: ViteDevServer) {
             if (!assemble) return;
@@ -99,7 +105,7 @@ export function arcSite({ assemble = true }: { assemble?: boolean } = {}): Plugi
             const onChange = (file: string) => {
                 if (!isSiteSource(root, file)) return;
                 try {
-                    const { changed, ignored } = assembleSite(root);
+                    const { changed, ignored } = assembleSite(root, undefined, { notices });
                     warnIgnored(ignored, (message) => server.config.logger.warn(message));
                     if (!changed.some((path) => MODULE_PATHS.includes(path))) return;
                     for (const env of Object.values(server.environments)) {

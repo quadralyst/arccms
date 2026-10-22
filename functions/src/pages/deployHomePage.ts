@@ -17,7 +17,7 @@ import { isFeatureOn } from '../feature-flags.js';
 import { HostingBatch, deployBatchToHosting } from './deployToHosting.js';
 import { cardBlockTypes, renderCardBlocks, siteChrome } from './card-blocks.js';
 import { siteInfoFor } from '../shared/site-info-source.js';
-import { arcSiteScript, prepareLiveParts, setupState } from '../shared/live-parts.js';
+import { arcSiteScript, loadSiteNotices, prepareLiveParts, setupState } from '../shared/live-parts.js';
 
 import { arcHostingSite } from '../arc-config.js';
 
@@ -118,6 +118,8 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
     const alternates = languages.map((l) => ({ lang: l.code, url: homeUrl(baseUrl, l.code, defaultLang) }));
     const switcherLinks = languages.map((l) => ({ lang: l.code, url: l.code === defaultLang ? '/' : `/${l.code}` }));
     const labels = Object.fromEntries(languages.map((l) => [l.code, l.nativeLabel || l.label]));
+    // The app's own sign-up and contact notices (src/custom/notices.ts), read once.
+    const notices = await loadSiteNotices(manifest);
 
     for (const language of languages) {
         const lang = language.code;
@@ -134,7 +136,7 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         const $body = loadHtml(html, { xmlMode: false });
         await renderCardBlocks($body, lang, defaultLang, strings, siteInfo);
         // Signup and contact forms: their notices, and contact forms only with the feature (SS5).
-        prepareLiveParts($body, strings, manifest, siteInfo.pages);
+        prepareLiveParts($body, strings, manifest, siteInfo.pages, { lang, defaultLang, notices });
         html = $body.html();
         // The header and footer, their own card blocks filled, as on every page.
         const chrome = await siteChrome(partials, lang, defaultLang, strings, siteInfo, target);

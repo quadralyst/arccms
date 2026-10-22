@@ -155,7 +155,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
         }
         this.mountElements();
         // Signup and contact forms: their notices, contact forms only with the feature (SS5).
-        prepareLiveParts(this.host, this.document, this.pages);
+        prepareLiveParts(this.host, this.document, this.pages, panelStrings, this.localization.defaultLanguage());
 
         // The page's scripts, in order, as the published page runs them.
         for (const old of scripts) {

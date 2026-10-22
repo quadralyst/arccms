@@ -13,6 +13,8 @@ import { CUSTOM_FEATURES } from './src/custom/features';
 import { resolveSignInStrength } from './src/shared/utils/sign-in-strength';
 import { CUSTOM_SIGN_IN } from './src/custom/sign-in';
 import { CUSTOM_BRAND } from './src/custom/brand';
+import { noticeProblems } from './src/shared/utils/notice-text';
+import { CUSTOM_NOTICES } from './src/custom/notices';
 import { appTitle } from './scripts/vite-app-title';
 import { languageRouteCheck } from './scripts/vite-language-routes';
 import { oneBuildAtATime } from './scripts/vite-build-order';
@@ -26,6 +28,10 @@ import { pwaWorkbox } from './scripts/pwa-workbox';
 const features = resolveFeatures(CUSTOM_FEATURES);
 // The same for the password and PIN strength (src/custom/sign-in.ts): a wrong value stops here.
 resolveSignInStrength(CUSTOM_SIGN_IN);
+// The same for the app's sign-up and contact notices (src/custom/notices.ts): a link that
+// goes nowhere allowed or an unknown placeholder stops here, before a visitor sees it.
+const noticeErrors = noticeProblems(CUSTOM_NOTICES);
+if (noticeErrors.length) throw new Error(`The app's notices need fixing (docs/app/sign-up-notice.html):\n  ${noticeErrors.join('\n  ')}`);
 
 // The install's PWA settings (src/custom/pwa.ts over the core defaults, docs/features/pwa.html),
 // on when the features ask for it.
@@ -166,7 +172,7 @@ export default defineConfig(({ mode }) => {
       // The public website: core's public/ with the app's src/custom/site/ laid over it,
       // served from .arc-build/public, and the header, footer and manifest for the app
       // (scripts/arc-site.mjs, docs/website/overview.html).
-      arcSite(),
+      arcSite({ notices: CUSTOM_NOTICES }),
       // PWA (docs/features/pwa.html): manifest, icons and service worker, only when the install turns it on.
       // Browser build only: Analog also builds the server bundle with these plugins,
       // and the PWA plugin skips the service worker when it last saw a server build.

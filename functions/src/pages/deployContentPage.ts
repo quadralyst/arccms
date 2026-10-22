@@ -37,7 +37,7 @@ import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { getSiteManifest, loadDetailTemplate, pageStylesheets } from '../shared/site-files.js';
 import { siteInfoFor } from '../shared/site-info-source.js';
 import { siteChrome } from './card-blocks.js';
-import { liveSiteScript, withLiveParts } from '../shared/live-parts.js';
+import { hasLiveForms, liveSiteScript, loadSiteNotices, withLiveParts } from '../shared/live-parts.js';
 import { versionSiteUrls } from '../shared/site-urls.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { publicContentTypeSlugs } from '../shared/public-content-types.js';
@@ -490,7 +490,8 @@ export async function generateAndDeployContentDetailPage(
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
         // The live parts (SS5): signup and contact forms work here as on the home page.
         const manifest = await getSiteManifest();
-        const liveBody = withLiveParts(body, pageStrings, manifest, siteInfo.pages);
+        const notices = hasLiveForms(body) ? await loadSiteNotices(manifest) : {};
+        const liveBody = withLiveParts(body, pageStrings, manifest, siteInfo.pages, { lang, defaultLang, notices });
         const liveScripts = [scripts, await liveSiteScript(manifest, pageStrings)].filter(Boolean).join('\n');
         const poweredBy = miscSettings.showPoweredBy ? poweredByHtml(pageStrings) : undefined;
         const fullHtml = buildHtmlDocument(liveBody, meta, '', '', styles, liveScripts, poweredBy);

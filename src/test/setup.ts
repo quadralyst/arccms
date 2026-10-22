@@ -32,6 +32,7 @@ vi.mock('../custom/home', (actual) => starter('src/custom/home.ts', actual));
 vi.mock('../custom/languages', (actual) => starter('src/custom/languages.ts', actual));
 vi.mock('../custom/nav', (actual) => starter('src/custom/nav.ts', actual));
 vi.mock('../custom/nav-changes', (actual) => starter('src/custom/nav-changes.ts', actual));
+vi.mock('../custom/notices', (actual) => starter('src/custom/notices.ts', actual));
 vi.mock('../custom/pwa', (actual) => starter('src/custom/pwa.ts', actual));
 vi.mock('../custom/routes', (actual) => starter('src/custom/routes.ts', actual));
 vi.mock('../custom/sign-in', (actual) => starter('src/custom/sign-in.ts', actual));
