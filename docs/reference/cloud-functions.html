@@ -168,7 +168,7 @@
     <table>
       <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td><code>onEmailLogCreate</code></td><td>Firestore trigger: <code>EmailLogs/{EmailLogsId}</code> created</td><td>Every queued email</td><td>Sends a pending email through the active mail provider. A <code>sendNow</code> email, such as a sign-up code, is sent by the call that queued it, and this sends it only if that call did not.</td></tr>
+        <tr><td><code>onEmailLogCreate</code></td><td>Firestore trigger: <code>EmailLogs/{EmailLogsId}</code> created</td><td>Every queued email</td><td>Sends a pending email through the active mail provider. A <code>sendNow</code> email, such as a sign-up code, is written already claimed and sent by the call that queued it, so this leaves it.</td></tr>
         <tr><td><code>retryPendingEmails</code></td><td>Scheduled: every 5 minutes</td><td>The schedule</td><td>Sends again the emails in <code>retrying</code> or <code>deferred</code> whose next attempt is due.</td></tr>
         <tr><td><code>handleUnsubscribe</code></td><td>HTTP, GET and POST</td><td>Public, with a signed link</td><td>Unsubscribes the recipient. GET shows a page; POST is one-click unsubscribe.</td></tr>
         <tr><td><code>handleEmailPreferences</code></td><td>HTTP</td><td>Public, with a signed link</td><td>Shows the recipient's preferences page and subscribes or unsubscribes them.</td></tr>
@@ -229,7 +229,7 @@
     <table>
       <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td><code>checkEmailAccount</code></td><td>Callable</td><td>Public, 100 an hour per caller</td><td>Says whether an email is registered, new, an unfinished sign-up, or has no access.</td></tr>
+        <tr><td><code>checkEmailAccount</code></td><td>Callable</td><td>Public, 100 an hour per caller</td><td>Says whether an email is registered, new, an unfinished sign-up, or has no access. With <code>sendCode</code>, a new address while sign-ups are open is also emailed its sign-up code, under <code>requestSignupOtp</code>'s limits; the reply carries <code>code</code>, or the refusal as <code>codeRefused</code>.</td></tr>
         <tr><td><code>requestSignupOtp</code></td><td>Callable</td><td>Public, 20 an hour per caller and 5 an hour per address</td><td>Emails a sign-up code. With the Debug Provider the reply also carries the code, for the sign-up page to show. Asked again inside the minute, it sends nothing and answers <code>alreadySent</code> with the seconds left.</td></tr>
         <tr><td><code>verifySignupOtp</code></td><td>Callable</td><td>Public; own record for a link code</td><td>Checks a sign-up, reset or link code and returns a ticket.</td></tr>
         <tr><td><code>createAccountRecord</code></td><td>Callable</td><td>Signed in with email and password</td><td>Creates the person's <code>users</code> record with the default role and sets the claims. Refuses a locked app account a password was linked to, and takes the password off it.</td></tr>
@@ -248,7 +248,7 @@
     <table>
       <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td><code>checkPhoneAccount</code></td><td>Callable</td><td>Public, 100 an hour per caller</td><td>Says whether a number has an account and a PIN.</td></tr>
+        <tr><td><code>checkPhoneAccount</code></td><td>Callable</td><td>Public, 100 an hour per caller</td><td>Says whether a number has an account and a PIN. With <code>sendCode</code>, it also texts the code the next step needs (sign-up for a new number, a PIN reset for a number with no PIN), under <code>requestPhoneOtp</code>'s limits; the reply carries <code>code</code>, or the refusal as <code>codeRefused</code>.</td></tr>
         <tr><td><code>requestPhoneOtp</code></td><td>Callable</td><td>Public, 20 an hour per caller; own record to add a number</td><td>Texts a code for sign-up, a PIN reset, or adding the number to an account. Asked again for the same purpose inside the minute, it sends nothing and answers <code>alreadySent</code> with the seconds left; a code for another purpose goes at once.</td></tr>
         <tr><td><code>verifyPhoneOtp</code></td><td>Callable</td><td>Public; own record for a link code</td><td>Checks a text code and returns a ticket.</td></tr>
         <tr><td><code>completePhoneSignup</code></td><td>Callable</td><td>Public, with a verified ticket</td><td>Creates the sign-in account and <code>users</code> record for a number, with its PIN.</td></tr>
