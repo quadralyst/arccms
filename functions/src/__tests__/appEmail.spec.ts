@@ -63,6 +63,7 @@ vi.mock('../auth/accounts', () => ({
   callerKey: () => 'caller',
   consumeRateLimit: vi.fn(async () => undefined),
   releaseRateLimit: vi.fn(async () => undefined),
+  consumeRateLimits: vi.fn(async (limits: Array<{ key: string }>) => limits.map((l) => l.key)),
   requireOwnRecord: vi.fn(),
   pinPepper: async () => 'test-pepper',
 }));

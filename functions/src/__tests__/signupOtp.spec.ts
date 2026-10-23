@@ -57,6 +57,11 @@ const { mockRateLimit, mockRelease } = vi.hoisted(() => ({
 }));
 vi.mock('../auth/accounts', () => ({
   callerKey: () => 'caller', consumeRateLimit: mockRateLimit, releaseRateLimit: mockRelease, pinPepper: async () => 'test-pepper',
+  // Counts each limit through mockRateLimit, as consumeRateLimit would (SP-D3).
+  consumeRateLimits: async (limits: Array<{ key: string; max: number; windowMs: number; message: string; reason?: string }>) => {
+    for (const l of limits) await mockRateLimit(l.key, l.max, l.windowMs, l.message, ...(l.reason ? [l.reason] : []));
+    return limits.map((l) => l.key);
+  },
 }));
 
 vi.mock('../email-core/queueEmail', () => ({ queueEmail: mockQueueEmail }));
@@ -125,6 +130,19 @@ describe('requestSignupOtp', () => {
     expect(refused.details.wait).toBeGreaterThanOrEqual(38);
     expect(refused.details.wait).toBeLessThanOrEqual(40);
     expect(mockRateLimit).not.toHaveBeenCalled();
+  });
+
+  it('reads Settings/email once and hands it to queueEmail (specs/sign-in-speed-spec.md, SP-D11)', async () => {
+    mockEmailSettingsGet.mockResolvedValue({ data: () => ({ isEnabled: true, activeProvider: 'debug_log' }) });
+    await expect(reqHandler({ data: { email: EMAIL } })).resolves.toMatchObject({ testMode: true, testCode: expect.any(String) });
+    expect(mockEmailSettingsGet).toHaveBeenCalledTimes(1);
+    expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({ emailSettings: { isEnabled: true, activeProvider: 'debug_log' } }));
+  });
+
+  it('still sends when Settings/email cannot be read, leaving queueEmail to read it', async () => {
+    mockEmailSettingsGet.mockRejectedValue(new Error('unavailable'));
+    await expect(reqHandler({ data: { email: EMAIL } })).resolves.toMatchObject({ sent: true });
+    expect(mockQueueEmail.mock.calls[0][0].emailSettings).toBeUndefined();
   });
 
   it('gives the counts back when the code could not be sent (SC-D4)', async () => {

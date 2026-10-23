@@ -88,10 +88,12 @@ function buildTrackingPixel(emailId: string, trackingUrl?: string): string {
     return `<img src="${url}?emailId=${emailId}" width="1" height="1" style="opacity:0; position:absolute; top:-9999px; left:-9999px;" alt=""/>`;
 }
 
-export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string): Promise<void> {
-    const settingsEmailRef = db.collection('Settings').doc('email');
-    const settingsEmailDoc = await settingsEmailRef.get();
-
+/**
+ * `readSettings`: Settings/email as the caller read it a moment ago (a sign-in
+ * code sent by the call that queued it, specs/sign-in-speed-spec.md SP-D13).
+ * Without it, as from the trigger and the retries, they are read here.
+ */
+export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string, readSettings?: EmailSettings): Promise<void> {
     const logRef = db.collection('EmailLogs').doc(emailLogsId);
 
     const currentAttempts = emailLogsData.attempts || 0;
@@ -100,7 +102,7 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string)
     let updatedTemplate: ProcessedTemplate | undefined;
     let activeProvider = 'smtp';
 
-    const settings = settingsEmailDoc.data() as EmailSettings | undefined;
+    const settings = readSettings ?? ((await db.collection('Settings').doc('email').get()).data() as EmailSettings | undefined);
 
     // Belt-and-braces kill-switch (chokepoint 2): if email was disabled after
     // this doc was queued, mark it skipped rather than sending. Re-checked on

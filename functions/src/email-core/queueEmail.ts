@@ -13,7 +13,6 @@ import { appUserSubscribed } from './appUserConsent.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { sendMail } from '../mail-config/mailConfig.js';
 import type { EmailLogData } from '../types.js';
-import { claimEmailSend } from './claimEmailSend.js';
 import { deleteStoredAttachments, listedAttachments, storeAttachments, type PreparedAttachment, type StoredAttachment } from './emailAttachments.js';
 import { emitEmailOutcome } from './appEmailOutcome.js';
 
@@ -203,10 +202,15 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
   // Single read of the contact for the next two gates (consent + disabled).
   // Without the audience feature there are no contacts to manage, so a contact
   // left from before cannot block mail nobody can unblock; an unsubscribe still
-  // stops marketing through the Suppression gate below.
-  const contact = isFeatureOn('audience')
-    ? await getContactGateState(emailHash)
-    : { exists: false, consent: null, disabled: false };
+  // stops marketing through the Suppression gate below. The suppression for gate
+  // 6 is read at the same time; the gates still run in order
+  // (specs/sign-in-speed-spec.md, SP-D12).
+  const [contact, suppression] = await Promise.all([
+    isFeatureOn('audience')
+      ? getContactGateState(emailHash)
+      : Promise.resolve({ exists: false, consent: null, disabled: false } as Awaited<ReturnType<typeof getContactGateState>>),
+    getSuppression(emailHash),
+  ]);
 
   // 4. Admin disabled this contact (U-D12) — an absolute block, both categories.
   //    Deliberately stronger than consent: a disabled contact receives nothing,
@@ -235,7 +239,6 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
   // 6. Suppression check.
   //    marketing ⇒ any suppression reason blocks;
   //    transactional ⇒ only hard bounce/complaint block (protect reputation).
-  const suppression = await getSuppression(emailHash);
   if (suppression) {
     const hardReason = suppression.reason === 'bounce' || suppression.reason === 'complaint';
     if (params.category === 'marketing' || hardReason) {
@@ -250,14 +253,16 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
   const pending = {
     ...base,
     status: 'pending',
-    ...(params.sendNow ? { sendNow: true } : {}),
+    // Sent by this call (sendFromCaller), so written already claimed: onEmailLogCreate
+    // sees the claim and leaves it (specs/sign-in-speed-spec.md, SP-D13).
+    ...(params.sendNow ? { sendNow: true, sendClaimedAt: Timestamp.now() } : {}),
     ...(contact.fields ? { contactFields: contact.fields } : {}),
     // Only the host fields this email's ##APP.*## tags use, never the whole document.
     ...(params.appUser ? { appFields: usedAppFields(params.appUser.fields, params.template, params.subject) } : {}),
   };
   if (!params.dedupeKey && !files.length) {
     const id = await writeLog(pending);
-    if (params.sendNow) await sendFromCaller(id, pending);
+    if (params.sendNow) await sendFromCaller(id, pending, settings);
     return { id, status: 'pending' };
   }
 
@@ -277,7 +282,7 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
       (pending as Record<string, unknown>)['attachments'] = stored;
     }
     await ref.create(pending);
-    if (params.sendNow) await sendFromCaller(id, pending);
+    if (params.sendNow) await sendFromCaller(id, pending, settings);
     return { id, status: 'pending' };
   } catch (error) {
     if (isAlreadyExists(error)) {
@@ -290,13 +295,14 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
 }
 
 /**
- * Send a `sendNow` email from the call that queued it, once it has claimed it.
- * A failure is logged, never thrown: the log is written, and sendMail records
- * a failed send there and retries it like any other.
+ * Send a `sendNow` email from the call that queued it, which wrote it claimed,
+ * with the settings that call read a moment ago. A failure is logged, never
+ * thrown: the log is written, and sendMail records a failed send there and
+ * retries it like any other.
  */
-async function sendFromCaller(id: string, data: Record<string, unknown>): Promise<void> {
+async function sendFromCaller(id: string, data: Record<string, unknown>, settings: EmailSettings): Promise<void> {
   try {
-    if (await claimEmailSend(id)) await sendMail(data as EmailLogData, id);
+    await sendMail(data as EmailLogData, id, settings);
   } catch (error) {
     console.error(`queueEmail: sending ${id} now failed`, error);
   }
