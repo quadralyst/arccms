@@ -749,6 +749,48 @@ input:focus {
     --bs-btn-active-color: var(--arc-sign-in-link-color, var(--bs-link-hover-color));
 }
 
+// The PIN boxes, Show PIN and the error (F29): one column in that order with a gap
+// between each, so the error opens under the link and never over it, at any width or
+// text size. The link is drawn above its neighbours, so it stays visible and tappable.
+.pin-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .pin-toggle {
+        align-self: center;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+}
+
+// The error opens downwards, pushing what is under it down smoothly instead of at once.
+.pin-error {
+    margin: 0;
+    overflow: hidden;
+    animation: pin-error-reveal 0.2s ease-out;
+}
+
+@keyframes pin-error-reveal {
+    from {
+        opacity: 0;
+        max-height: 0;
+        padding-block: 0;
+    }
+
+    to {
+        opacity: 1;
+        max-height: 8rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pin-error {
+        animation: none;
+    }
+}
+
 /* Test SMS provider: the code shown instead of sent */
 .test-code {
     display: flex;

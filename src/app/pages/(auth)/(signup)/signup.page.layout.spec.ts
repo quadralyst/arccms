@@ -78,3 +78,31 @@ describe('the page above a phone\'s keyboard (F26)', () => {
         expect(phone).toMatch(/:host\(\.keyboard-open\) \.auth-form-column \{\s*margin-bottom: var\(--arc-keyboard-height, 0px\);/);
     });
 });
+
+describe('the PIN error under Show PIN (F29)', () => {
+    // Measured in a browser after a wrong PIN, at 320, 375 and 1200px wide and at 150% text:
+    // the error starts 8px under the link, and the link is what a tap at its middle hits.
+    const field = rule('.pin-field');
+    const link = rule('.pin-field .pin-toggle');
+    const error = rule('.pin-error');
+
+    it('stacks the boxes, the link and the error in one column with a gap, so none can reach over the next', () => {
+        expect(field).toContain('display: flex');
+        expect(field).toContain('flex-direction: column');
+        expect(field).toContain('gap: 8px');
+        expect(link).toContain('margin: 0');
+        expect(error).toContain('margin: 0');
+        expect(`${field}${link}${error}`).not.toMatch(/margin[^:]*:\s*-|position: absolute|transform/);
+    });
+
+    it('draws the link above its neighbours, so it stays visible and tappable', () => {
+        expect(link).toContain('position: relative');
+        expect(link).toContain('z-index: 1');
+    });
+
+    it('opens the error downwards rather than at once, and not at all for someone who asks for less motion', () => {
+        expect(error).toContain('animation: pin-error-reveal');
+        expect(css).toMatch(/@keyframes pin-error-reveal \{\s*from \{[^}]*max-height: 0/);
+        expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.pin-error \{\s*animation: none;/);
+    });
+});

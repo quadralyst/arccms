@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { CodeInputComponent } from './code-input.component';
 
 function setup(inputs: Record<string, unknown> = {}) {
@@ -151,5 +153,13 @@ describe('CodeInputComponent', () => {
             fixture.detectChanges();
             expect(boxes()).not.toContain(document.activeElement);
         });
+    });
+});
+
+describe('CodeInputComponent on a narrow phone (F29)', () => {
+    // Measured at 320px wide: six 40px boxes ran 21px past the sign-in card's padding.
+    it('lets the boxes narrow to fit the row, below their 44px', () => {
+        const source = readFileSync(resolve(__dirname, 'code-input.component.ts'), 'utf8');
+        expect(source).toMatch(/\.code-box \{[^}]*width: 44px; min-width: 0;/);
     });
 });

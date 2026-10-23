@@ -656,3 +656,32 @@ describe('SignupComponent: the cursor on each step (SS1)', () => {
         expect(document.activeElement).toBe(nameBox());
     });
 });
+
+describe('SignupComponent: a wrong PIN (F29)', () => {
+    // The layout rules are in signup.page.layout.spec.ts; measured in a browser at 320,
+    // 375 and 1200px wide and at 150% text: the error 8px under Show PIN, the link on top.
+    it('shows the error under Show PIN, in the same column, never in front of it', async () => {
+        settingsRead.resolve(OPEN);
+        signIn['signInWithPin'] = vi.fn().mockRejectedValue({
+            code: 'functions/permission-denied', message: 'Wrong PIN. 3 left.', details: { reason: 'wrong-pin', left: 3 },
+        });
+        render();
+        await flush();
+        page.currentStep.set('pin');
+        fixture.detectChanges();
+
+        await page.signInWithPin('123456');
+        fixture.detectChanges();
+
+        const field = fixture.nativeElement.querySelector('.pin-field') as HTMLElement;
+        const toggle = field.querySelector('.pin-toggle') as HTMLButtonElement;
+        const error = field.querySelector('.alert-danger') as HTMLElement;
+        expect(error.textContent!.trim()).toBe('Wrong PIN. 3 left.');
+        expect(error.getAttribute('role')).toBe('alert');
+        // The boxes, the link, then the error: siblings, in that order, nothing between.
+        expect([...field.children].map((el) => el.tagName.toLowerCase() === 'arc-code-input' ? 'boxes' : el.classList.contains('pin-toggle') ? 'link' : 'error'))
+            .toEqual(['boxes', 'link', 'error']);
+        expect(toggle.nextElementSibling).toBe(error);
+        expect(toggle.disabled).toBe(false);
+    });
+});

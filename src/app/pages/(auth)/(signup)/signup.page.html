@@ -229,7 +229,8 @@
                                 </p>
                                 <p class="login-subtitle">{{ 'member.auth.enter_pin' | transloco }}</p>
 
-                                <div class="mt-4">
+                                <!-- The boxes, Show PIN, then the error: one column, the error under the link, never over it -->
+                                <div class="pin-field mt-4">
                                     <arc-code-input #pinBoxes [label]="'member.auth.pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
                                         [disabled]="working() || pinLocked()" [invalid]="!!errorMessage()"
                                         (completed)="signInWithPin($event)"></arc-code-input>
@@ -237,11 +238,10 @@
                                         (click)="showPin.set(!showPin())">
                                         {{ (showPin() ? 'member.auth.hide_pin' : 'member.auth.show_pin') | transloco }}
                                     </button>
+                                    @if (errorMessage()) {
+                                    <div class="alert alert-danger pin-error" role="alert">{{ errorMessage() }}</div>
+                                    }
                                 </div>
-
-                                @if (errorMessage()) {
-                                <div class="alert alert-danger mt-2">{{ errorMessage() }}</div>
-                                }
 
                                 <div class="d-flex justify-content-between mt-3">
                                     <a (click)="changeIdentifier()" class="change-email cursor text-decoration-none"
@@ -487,18 +487,17 @@
                                 <h5 class="card-title login-title mb-3">{{ getStepTitle() }}</h5>
                                 <p class="login-subtitle">{{ getStepDescription() }}</p>
 
-                                <div class="mt-4">
+                                <div class="pin-field mt-4">
                                     <arc-code-input [label]="'member.auth.new_pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
                                         [disabled]="working()" (changed)="newPin.set($event)"></arc-code-input>
                                     <button type="button" class="btn btn-link btn-sm pin-toggle"
                                         (click)="showPin.set(!showPin())">
                                         {{ (showPin() ? 'member.auth.hide_pin' : 'member.auth.show_pin') | transloco }}
                                     </button>
+                                    @if (errorMessage()) {
+                                    <div class="alert alert-danger pin-error" role="alert">{{ errorMessage() }}</div>
+                                    }
                                 </div>
-
-                                @if (errorMessage()) {
-                                <div class="alert alert-danger mt-2">{{ errorMessage() }}</div>
-                                }
 
                                 <button type="submit" class="btn btn-primary w-100 mt-4" [disabled]="working()">
                                     {{ 'member.auth.save_pin' | transloco }}

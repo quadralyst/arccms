@@ -57,7 +57,8 @@ import { extractCode } from '../../utils/identifier.util';
         :host { display: block; }
         .code-boxes { display: flex; gap: 8px; justify-content: center; }
         .code-box {
-            width: 44px; height: var(--arc-sign-in-field-height, 52px); padding: 0;
+            /* Narrower than 44px when the row has less room (a 320px phone), never wider. */
+            width: 44px; min-width: 0; height: var(--arc-sign-in-field-height, 52px); padding: 0;
             text-align: center; font-size: 1.4rem; font-weight: 600;
             border: var(--arc-sign-in-field-border, 1px solid #ced4da);
             border-radius: var(--arc-sign-in-field-radius, 8px);
