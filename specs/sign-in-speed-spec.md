@@ -1,7 +1,8 @@
 # Sign-in Speed: Fewer Waits Before a Code: Build Spec (SP)
 
-**Status:** agreed with Gunjan 2026-10-23, after comparing a report on another app's slow OTP
-sign-in with Arc CMS. Not built.
+**Status:** BUILT 2026-10-23 (SP1 to SP6), agreed with Gunjan the same day, after comparing a
+report on another app's slow OTP sign-in with Arc CMS. The 10 sign-in functions are deployed to
+xlm and browser-tested; not merged into `dev`.
 **Branch:** `perf/sign-in-speed`, cut from `dev` (e621480d), worktree `../arccms-sign-in-speed`.
 
 **Scope:**
@@ -98,4 +99,24 @@ website is not deployed for this; the browser test runs at localhost against xlm
 
 ## 5. Results
 
-To be filled in SP6, measured the same way as section 1.
+Measured 2026-10-23 the same way as section 1, functions warm, after deploying the 10 sign-in
+functions from this branch to xlm:
+
+| Path | Before | After |
+|---|---|---|
+| Phone, new number | 6.0 s, two calls | 3.4 s, one call (`checkPhoneAccount` with the code) |
+| Email, new address | 7.8 s, two calls | 4.0 s, one call (`checkEmailAccount` with the code) |
+| Code email, log written to sent | 1.8 to 2.6 s | 0.6 to 1.6 s |
+
+Checked in the browser at localhost:5186 against xlm: a new number gets its code from the check,
+signs up with it (name and PIN) and lands on the dashboard; the same number inside the minute
+gets "We sent a code a moment ago" with the seconds left and no new code, and after the minute
+"We sent the same code again"; a number with a PIN goes to the PIN step with no code sent, and
+signs in with it; Forgot PIN shows "Sending your code..." with the countdown running during the
+4.8 s send and no Resend link, then the SMS Logs line; a number at its hourly limit lands on the
+code screen with "Too many codes. Try again after 1:39 PM." and Resend there at once; each new
+code email was sent once (attempts 1), written claimed.
+
+Still the slowest steps, and outside this spec: `completePhoneSignup` (7.4 s: the account, the
+PIN, the claims and the token) and `signInWithPin` (5.2 s). On xlm the region gap explains most
+of both; moving the functions next to the database is the larger fix.
