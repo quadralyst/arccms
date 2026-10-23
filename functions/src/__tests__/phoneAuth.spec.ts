@@ -438,6 +438,15 @@ describe('one call before a code (specs/sign-in-speed-spec.md)', () => {
         expect(mem.all('SmsLogs')).toHaveLength(1);
     });
 
+    it('a caller over the check\'s own limit learns nothing and is sent nothing (SP-D4)', async () => {
+        await check();
+        const limit = mem.all('_rate_limits').find((l) => l.id.startsWith('check-ip-'))!;
+        mem.seed('_rate_limits', limit.id, { ...limit.data, count: 100 });
+        await expect(check({ sendCode: true })).rejects.toMatchObject({ code: 'resource-exhausted' });
+        expect(mem.all('SmsLogs')).toHaveLength(0);
+        expect(mem.read('phone_otps', phoneHash(E164))).toBeUndefined();
+    });
+
     it('sends nothing without sendCode, as before', async () => {
         await expect(check()).resolves.toEqual({ phone: E164, exists: false, hasPin: false, signupOpen: true });
         expect(mem.all('SmsLogs')).toHaveLength(0);

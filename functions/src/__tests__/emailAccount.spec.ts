@@ -104,6 +104,14 @@ describe('checkEmailAccount with sendCode (specs/sign-in-speed-spec.md, SP-D6)',
         });
     });
 
+    it('a caller over the check\'s own limit learns nothing and is sent nothing (SP-D4)', async () => {
+        await call('new@example.com');
+        const limit = mem.all('_rate_limits').find((l) => l.id.startsWith('check-ip-'))!;
+        mem.seed('_rate_limits', limit.id, { ...limit.data, count: 100 });
+        await expect(call('new@example.com', { sendCode: true })).rejects.toMatchObject({ code: 'resource-exhausted' });
+        expect(sendSignupCode).not.toHaveBeenCalled();
+    });
+
     it('an error that is not a refusal comes back as internal, so the page shows its own text', async () => {
         sendSignupCode.mockRejectedValue(new Error('boom'));
         await expect(call('new@example.com', { sendCode: true })).resolves.toMatchObject({ codeRefused: { code: 'internal' } });
