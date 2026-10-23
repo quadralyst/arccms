@@ -376,6 +376,118 @@ describe('the one-minute wait and the hourly limit (specs/sign-in-codes-spec.md)
         });
         await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810' })).rejects.toMatchObject({ details: { reason: 'no-account' } });
     });
+
+    it('a refused request uses up neither limit: the caller\'s count is given back with the number\'s (SP-D3)', async () => {
+        const callerCount = () => mem.all('_rate_limits').filter((l) => l.id.startsWith('otp-ip-')).reduce((n, l) => n + Number(l.data['count']), 0);
+        for (let i = 0; i < 5; i++) {
+            await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+            ageLastCode();
+        }
+        expect(callerCount()).toBe(5);
+        await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' })).rejects.toMatchObject({ details: { reason: 'too-many-codes' } });
+        expect(callerCount()).toBe(5);
+        expect(numberCount()).toBe(5);
+    });
+});
+
+describe('consumeRateLimits (specs/sign-in-speed-spec.md, SP-D3)', () => {
+    const limit = (key: string, max: number, reason?: string) => ({ key, max, windowMs: 60_000, message: `Too many ${key}`, ...(reason ? { reason } : {}) });
+    const count = (key: string) => Number(mem.read('_rate_limits', key)?.['count'] ?? 0);
+
+    it('counts every limit and returns their keys', async () => {
+        const { consumeRateLimits } = await import('../auth/accounts.js');
+        await expect(consumeRateLimits([limit('a', 2), limit('b', 2)])).resolves.toEqual(['a', 'b']);
+        expect([count('a'), count('b')]).toEqual([1, 1]);
+    });
+
+    it('when both refuse, throws the first in list order and counts nothing', async () => {
+        const { consumeRateLimits } = await import('../auth/accounts.js');
+        await consumeRateLimits([limit('a', 1), limit('b', 1)]);
+        await expect(consumeRateLimits([limit('a', 1, 'first'), limit('b', 1, 'second')])).rejects.toMatchObject({ details: { reason: 'first' } });
+        await expect(consumeRateLimits([limit('b', 1, 'second'), limit('a', 1, 'first')])).rejects.toMatchObject({ details: { reason: 'second' } });
+        expect([count('a'), count('b')]).toEqual([1, 1]);
+    });
+
+    it('when one refuses, gives back the one that counted', async () => {
+        const { consumeRateLimits } = await import('../auth/accounts.js');
+        await consumeRateLimits([limit('b', 1)]);
+        await expect(consumeRateLimits([limit('a', 5), limit('b', 1, 'full')])).rejects.toMatchObject({ details: { reason: 'full' } });
+        expect([count('a'), count('b')]).toEqual([0, 1]);
+    });
+});
+
+describe('one call before a code (specs/sign-in-speed-spec.md)', () => {
+    const check = (data: Record<string, unknown> = {}) => call(phone.checkPhoneAccount, { phone: NUMBER, ...data });
+
+    it('a new number with sendCode: the check sends the sign-up code and answers both (SP-D5)', async () => {
+        const reply = await check({ sendCode: true });
+        expect(reply).toEqual({
+            phone: E164, exists: false, hasPin: false, signupOpen: true,
+            code: { sent: true, phone: E164, testMode: true, testCode: lastCode() },
+        });
+        expect(mem.read('phone_otps', phoneHash(E164))?.['purpose']).toBe('signup');
+        // The code it sent signs up, as one from requestPhoneOtp would.
+        const { ticket } = await call(phone.verifyPhoneOtp, { phone: NUMBER, code: reply.code.testCode, purpose: 'signup' });
+        await expect(call(phone.completePhoneSignup, { phone: NUMBER, name: 'Asha Rao', pin: '246810', ticket })).resolves.toEqual({ token: 'token-uid-asha' });
+    });
+
+    it('asked again within the minute, through either call, it is the code already sent (SP-D10)', async () => {
+        const first = await check({ sendCode: true });
+        await expect(check({ sendCode: true })).resolves.toMatchObject({ code: { alreadySent: true, testCode: first.code.testCode } });
+        await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' })).resolves.toMatchObject({ alreadySent: true });
+        expect(mem.all('SmsLogs')).toHaveLength(1);
+    });
+
+    it('sends nothing without sendCode, as before', async () => {
+        await expect(check()).resolves.toEqual({ phone: E164, exists: false, hasPin: false, signupOpen: true });
+        expect(mem.all('SmsLogs')).toHaveLength(0);
+    });
+
+    it('sends nothing for a number with a PIN: the next screen asks for the PIN', async () => {
+        await signUp();
+        const before = mem.all('SmsLogs').length;
+        await expect(check({ sendCode: true })).resolves.toEqual({ phone: E164, exists: true, hasPin: true, signupOpen: true });
+        expect(mem.all('SmsLogs')).toHaveLength(before);
+    });
+
+    it('sends a reset code for a number with an account and no PIN', async () => {
+        await signUp();
+        ageLastCode();
+        mem.store.get('auth_pins')?.clear();
+        const reply = await check({ sendCode: true });
+        expect(reply).toEqual({ phone: E164, exists: true, hasPin: false, signupOpen: true, code: { sent: true, phone: E164, testMode: true } });
+        expect(mem.read('phone_otps', phoneHash(E164))?.['purpose']).toBe('reset');
+    });
+
+    it('sends nothing for a new number while signups are closed', async () => {
+        mem.seed('Settings', 'users', { isSignupEnabled: false, phoneSignIn: true });
+        await expect(check({ sendCode: true })).resolves.toEqual({ phone: E164, exists: false, hasPin: false, signupOpen: false });
+        expect(mem.all('SmsLogs')).toHaveLength(0);
+    });
+
+    it('a refused send still answers the check, with the refusal as data (SP-D7)', async () => {
+        for (let i = 0; i < 5; i++) {
+            await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+            ageLastCode();
+        }
+        const reply = await check({ sendCode: true });
+        expect(reply).toMatchObject({
+            phone: E164, exists: false, hasPin: false, signupOpen: true,
+            codeRefused: { code: 'resource-exhausted', message: expect.any(String), details: { reason: 'too-many-codes', retryAfter: expect.any(Number) } },
+        });
+        expect(reply.code).toBeUndefined();
+    });
+
+    it('a provider that fails comes back as a refusal, with the counts given back', async () => {
+        mem.seed('Settings', 'sms', { provider: 'msg91', msg91AuthKey: 'k', msg91OtpTemplateId: 't' });
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ type: 'error', message: 'down' }) }));
+        try {
+            await expect(check({ sendCode: true })).resolves.toMatchObject({ exists: false, codeRefused: { code: 'unavailable', details: { reason: 'sms-failed' } } });
+            expect(Number(mem.read('_rate_limits', `otp-phone-${phoneHash(E164)}`)?.['count'] ?? 0)).toBe(0);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
 });
 
 describe('one code at a time (specs/sign-in-codes-spec.md, SC4)', () => {
