@@ -65,6 +65,7 @@ vi.mock('firebase-admin/firestore', () => ({
 }));
 
 import { queueEmail } from '../email-core/queueEmail.js';
+import type { EmailSettings } from '../types.js';
 
 /** Fully-enabled settings with all feature toggles on. */
 function enabledSettings(overrides: Record<string, any> = {}) {
@@ -131,7 +132,7 @@ describe('queueEmail', () => {
     });
 
     it('sends with the settings it was handed, reading none itself', async () => {
-      const settings = enabledSettings();
+      const settings = enabledSettings() as EmailSettings;
       await queueEmail({ ...baseParams, sendNow: true, emailSettings: settings });
 
       expect(mockSettingsGet).not.toHaveBeenCalled();
