@@ -116,7 +116,7 @@ describe('custom space', () => {
 
     it("lays the app's website (src/custom/site/) over Arc CMS's when the dev server and the build start", () => {
         expect(read('vite.config.ts')).toContain("import { arcSite } from './scripts/vite-arc-site';");
-        expect(read('vite.config.ts')).toMatch(/^\s+arcSite\(\{ notices: CUSTOM_NOTICES \}\),$/m);
+        expect(read('vite.config.ts')).toMatch(/^\s+arcSite\(\{ notices: CUSTOM_NOTICES, extra: tab\?\.files \}\),$/m);
         expect(read('scripts/arc-site.mjs')).toContain("export const APP_SITE = 'src/custom/site';");
     });
 

@@ -16,6 +16,7 @@
  *   src/custom/site/assets/...                      /site/...
  *   src/custom/site/favicon.ico, 403.html, 404.html /favicon.ico, /403.html, /404.html
  *   CUSTOM_NOTICES (src/custom/notices.ts)          /_site/notices.json (the app's sign-up and contact notices)
+ *   the tab icon made from the app's icon           /favicon.ico, /favicon-32x32.png, /favicon.svg (scripts/vite-tab-icon.ts)
  *
  * An app file replaces the core file served at the same path; strings files are
  * merged key by key instead. Everything is assembled into one folder
@@ -135,9 +136,10 @@ const hash = (content) => createHash('sha256').update(content).digest('hex').sli
 /**
  * What the assembled folder holds: Map(servedPath, { file } | { content }),
  * the manifest, and the ignored app files. `notices` is the app's CUSTOM_NOTICES,
- * served at NOTICES_PATH.
+ * served at NOTICES_PATH. `extra` is files made at build time, Map(servedPath, Buffer),
+ * such as the tab icon (scripts/vite-tab-icon.ts); each replaces the file at its path.
  */
-export function siteContents(root = process.cwd(), { notices } = {}) {
+export function siteContents(root = process.cwd(), { notices, extra } = {}) {
     const { sources, ignored } = siteSources(root);
     const contents = new Map();
     for (const [path, source] of sources) {
@@ -151,6 +153,7 @@ export function siteContents(root = process.cwd(), { notices } = {}) {
         }
     }
     if (notices) contents.set(NOTICES_PATH, { from: 'app', content: `${JSON.stringify(notices, null, 2)}\n` });
+    for (const [path, content] of extra ?? []) contents.set(path, { from: 'app', content });
     versionCssUrls(contents);
     const manifest = buildManifest(contents);
     contents.set(MANIFEST_PATH, { from: 'core', content: `${JSON.stringify(manifest, null, 2)}\n` });
@@ -231,7 +234,7 @@ export function buildManifest(contents) {
 /** Writes a file only when it differs; returns whether it wrote. */
 function place(target, entry) {
     if (entry.content !== undefined) {
-        if (existsSync(target) && readFileSync(target, 'utf8') === entry.content) return false;
+        if (existsSync(target) && readFileSync(target).equals(Buffer.from(entry.content))) return false;
         mkdirSync(dirname(target), { recursive: true });
         writeFileSync(target, entry.content);
         return true;

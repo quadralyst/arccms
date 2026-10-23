@@ -78,9 +78,12 @@ function warnIgnored(ignored: string[], warn: (message: string) => void): void {
 /**
  * `notices`: the app's CUSTOM_NOTICES (src/custom/notices.ts), served at /_site/notices.json for
  * publishing. vite.config.ts imports the file, so a change to it restarts the dev server and
- * the site is assembled again with the new words.
+ * the site is assembled again with the new words. `extra`: files made at build time, served at
+ * their paths over core's and the app's (the tab icon, scripts/vite-tab-icon.ts).
  */
-export function arcSite({ assemble = true, notices }: { assemble?: boolean; notices?: SiteNotices } = {}): Plugin {
+export function arcSite(
+    { assemble = true, notices, extra }: { assemble?: boolean; notices?: SiteNotices; extra?: Map<string, Buffer> } = {},
+): Plugin {
     let root = process.cwd();
     return {
         name: 'arc-site',
@@ -88,7 +91,7 @@ export function arcSite({ assemble = true, notices }: { assemble?: boolean; noti
             root = resolve(config.root ?? process.cwd());
             if (!assemble) return;
             // At config time, before Vite reads its public folder.
-            const { dir, ignored } = assembleSite(root, undefined, { notices });
+            const { dir, ignored } = assembleSite(root, undefined, { notices, extra });
             warnIgnored(ignored, console.warn);
             return { publicDir: dir };
         },
@@ -105,7 +108,7 @@ export function arcSite({ assemble = true, notices }: { assemble?: boolean; noti
             const onChange = (file: string) => {
                 if (!isSiteSource(root, file)) return;
                 try {
-                    const { changed, ignored } = assembleSite(root, undefined, { notices });
+                    const { changed, ignored } = assembleSite(root, undefined, { notices, extra });
                     warnIgnored(ignored, (message) => server.config.logger.warn(message));
                     if (!changed.some((path) => MODULE_PATHS.includes(path))) return;
                     for (const env of Object.values(server.environments)) {

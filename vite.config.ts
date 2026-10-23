@@ -22,6 +22,7 @@ import { arcSite } from './scripts/vite-arc-site';
 import { ENVIRONMENT_FILE, defaultEnvironment, environmentFor, environmentSwap, projectLine } from './scripts/arc-environment.mjs';
 import { routeCode } from './scripts/vite-route-code';
 import { pwaWorkbox } from './scripts/pwa-workbox';
+import { makeTabIcon, tabIcon } from './scripts/vite-tab-icon';
 
 // The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
@@ -142,9 +143,11 @@ function releaseClosedServer() {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
   const projectEnvironment = projectEnvironmentFor(mode);
   const release = releaseClosedServer();
+  // The tab's icon, made from the app's icon when it has one (scripts/vite-tab-icon.ts).
+  const tab = await makeTabIcon(pwaIcon);
   return {
     build: {
       target: ['es2020'],
@@ -172,7 +175,10 @@ export default defineConfig(({ mode }) => {
       // The public website: core's public/ with the app's src/custom/site/ laid over it,
       // served from .arc-build/public, and the header, footer and manifest for the app
       // (scripts/arc-site.mjs, docs/website/overview.html).
-      arcSite({ notices: CUSTOM_NOTICES }),
+      // With the tab icon's files at the root when the app has an icon.
+      arcSite({ notices: CUSTOM_NOTICES, extra: tab?.files }),
+      // The tab's icon in index.html: the app's when it has one, else /favicon.ico (docs/features/pwa.html#tab-icon).
+      tabIcon(tab, pwaIcon),
       // PWA (docs/features/pwa.html): manifest, icons and service worker, only when the install turns it on.
       // Browser build only: Analog also builds the server bundle with these plugins,
       // and the PWA plugin skips the service worker when it last saw a server build.
@@ -202,7 +208,7 @@ export default defineConfig(({ mode }) => {
         pwaAssets: {
           disabled: !pwa.enabled,
           image: pwaIcon,
-          // The home screen icons only: the install keeps its own favicon.
+          // The home screen icons only: the tab icon is made by tabIcon() above, PWA or not.
           // appleIcon: 'fill' in src/custom/pwa.ts makes the iPhone icon fill its square (no white tile).
           preset: {
             ...minimal2023Preset,

@@ -29,7 +29,7 @@
     on: ['pwa'],
 };</code></pre>
     <p>The choice is read at build time, so it takes a new build and deploy.</p>
-    <p>When it is off, the build writes no manifest, icons or service worker, the install card and update bar never show, the dashboard has no App installs numbers, and the <code>trackPwaEvent</code> function is not built. To turn it off again, remove <code>'pwa'</code> from <code>on</code> and deploy: on each visitor's next visit the site removes its service worker and stored files, so everyone gets the plain website. An icon already on a home screen still opens the site, as a normal web page.</p>
+    <p>When it is off, the build writes no manifest, home-screen icons or service worker (the tab icon is still made from an app's icon), the install card and update bar never show, the dashboard has no App installs numbers, and the <code>trackPwaEvent</code> function is not built. To turn it off again, remove <code>'pwa'</code> from <code>on</code> and deploy: on each visitor's next visit the site removes its service worker and stored files, so everyone gets the plain website. An icon already on a home screen still opens the site, as a normal web page.</p>
 
     <h2>Set it up</h2>
     <ol class="steps">
@@ -60,10 +60,14 @@
         </table>
         <p>The defaults are in <code>src/app/core/pwa/pwa-config.ts</code>. The installed app opens in its own window without the browser bar (<code>standalone</code>), with the whole site in scope.</p>
       </li>
-      <li><p><strong>Add one square icon</strong>, at least 512 by 512 pixels, as <code class="new">src/custom/pwa-icon.svg</code> or <code class="new">src/custom/pwa-icon.png</code> (the SVG wins if both exist), or anywhere in the project with <code>icon</code> naming it. Every size is made from it at build time, including the iPhone icon and the "maskable" one Android crops to a circle or rounded square, so keep the important part within the middle 80%. Without one, a plain "Arc" icon is used. The site's favicon is not changed.</p></li>
+      <li><p><strong>Add one square icon</strong>, at least 512 by 512 pixels, as <code class="new">src/custom/pwa-icon.svg</code> or <code class="new">src/custom/pwa-icon.png</code> (the SVG wins if both exist), or anywhere in the project with <code>icon</code> naming it. Every size is made from it at build time, including the iPhone icon and the "maskable" one Android crops to a circle or rounded square, so keep the important part within the middle 80%. Without one, a plain "Arc" icon is used. The browser tab's icon is made from it too (see <a href="#tab-icon">The tab icon</a>).</p></li>
       <li><p><strong>Build and deploy</strong> (see <a href="../operations/deploy.html">Deploy</a>). Deploy the functions too, for the install numbers.</p></li>
     </ol>
     <div class="trap"><p>Do not put <code>enabled</code> in <code>src/custom/pwa.ts</code>. The switch lives in <code>src/custom/features.ts</code>, and the build stops with a message saying so.</p></div>
+
+    <h3 id="tab-icon">The tab icon</h3>
+    <p>An app with its own icon (<code>icon</code> in <code class="new">src/custom/pwa.ts</code>, or <code class="new">src/custom/pwa-icon.svg</code> or <code>.png</code>) gets the browser tab's icon made from it as well, with nothing more to set, whether the PWA is on or off. <code>npm run dev</code> and the build make <code>/favicon-32x32.png</code>, <code>/favicon.svg</code> (the image itself, when it is an SVG) and a 48 pixel <code>/favicon.ico</code> for older browsers and for pages that link no icon, and the page links them with <code>?v=</code> and a hash of the image, so a new icon reaches browsers that kept the old one (<code>scripts/vite-tab-icon.ts</code>). The dev server makes them again when the image changes.</p>
+    <p>With no icon of its own, the tab shows Arc CMS's <code>/favicon.ico</code>, as before. An app that ships <code class="new">src/custom/site/favicon.ico</code> keeps that one as the tab icon; nothing is made from its PWA icon for the tab (see <a href="../website/overview.html">The website</a>).</p>
 
     <h2>Use it</h2>
     <h3>The install card</h3>
@@ -126,6 +130,7 @@
         <tr><td>The card asks someone on iPhone to open the page in Safari</td><td>They opened it inside another app (Instagram, Facebook, the Google app) or on iOS older than 16.4, where only Safari adds to the home screen. Safari, Chrome, Edge and Firefox on a current iPhone get the Share steps.</td></tr>
         <tr><td>The iPhone icon is a small square on a white tile</td><td>The default <code>appleIcon: 'padded'</code>. For an icon that is already a full square, set <code>appleIcon: 'fill'</code> in <code class="new">src/custom/pwa.ts</code>, then build and deploy. A home screen already holding the old icon keeps it until the app is added again.</td></tr>
         <tr><td>The install card never shows again</td><td>Someone pressed Not now on that device less than 30 days ago.</td></tr>
+        <tr><td>The tab still shows the old icon after a deploy</td><td>A browser that never read the page's icon links keeps <code>/favicon.ico</code> for up to a year (Hosting's cache time for images). The links themselves carry a new <code>?v=</code> when the image changes. A hard reload shows the new one.</td></tr>
         <tr><td>A change to the name, colors or icon does not show</td><td>They are read at build time. Build and deploy again; an installed app picks them up after its update.</td></tr>
         <tr><td>Users were not asked to update after a deploy</td><td>Nothing in the app's files changed, so there is no new version. Content published in the CMS needs no update.</td></tr>
         <tr><td>App installs shows nothing</td><td>The <code>trackPwaEvent</code> function is not deployed, or nobody has installed yet.</td></tr>

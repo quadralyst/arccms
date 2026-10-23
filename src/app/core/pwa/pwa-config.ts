@@ -36,7 +36,8 @@ export interface PwaConfig {
      */
     navigationTimeoutSeconds: number;
     /**
-     * The square image, at least 512 by 512 pixels, every icon size is made from: an
+     * The square image, at least 512 by 512 pixels, every icon size is made from, the
+     * browser tab's too (scripts/vite-tab-icon.ts): an
      * .svg or .png, from the project folder (`src/custom/brands/acme/icon.svg`). Unset,
      * it is src/custom/pwa-icon.svg or .png, else Arc CMS's own. A white-label app names
      * each brand's here.

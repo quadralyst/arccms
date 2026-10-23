@@ -106,7 +106,7 @@ describe('the notices check', () => {
         expect(config).toContain("import { CUSTOM_NOTICES } from './src/custom/notices';");
         expect(config).toMatch(/const noticeErrors = noticeProblems\(CUSTOM_NOTICES\);\s*if \(noticeErrors\.length\) throw new Error/);
         // ...and hands them to the site build, which serves them for publishing.
-        expect(config).toContain('arcSite({ notices: CUSTOM_NOTICES })');
+        expect(config).toContain('arcSite({ notices: CUSTOM_NOTICES, extra: tab?.files })');
     });
 });
 

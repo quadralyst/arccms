@@ -32,7 +32,7 @@
 };</code></pre>
       </li>
       <li>
-        <p><strong>Add one icon</strong>: a square image of at least 512 by 512 pixels, saved as <code class="new">src/custom/pwa-icon.svg</code> or <code class="new">src/custom/pwa-icon.png</code>. Keep the important part inside the middle 80%, since Android crops it into a circle or rounded square.</p>
+        <p><strong>Add one icon</strong>: a square image of at least 512 by 512 pixels, saved as <code class="new">src/custom/pwa-icon.svg</code> or <code class="new">src/custom/pwa-icon.png</code>. Keep the important part inside the middle 80%, since Android crops it into a circle or rounded square. The browser tab shows it too.</p>
         <p>An app built for several brands keeps one icon per brand and names the one to use in <code>pwa.ts</code>, with its path from the project folder:</p>
         <pre><code>export const CUSTOM_PWA: Partial&lt;PwaConfig&gt; = {
     name: 'Acme Lessons',
@@ -51,11 +51,12 @@
       <tbody>
         <tr><td>The web app manifest</td><td>Your name, short name, description, colors and start page, shown full screen (<code>standalone</code>) with the whole site as its scope</td></tr>
         <tr><td>Every icon size</td><td>Your one image: the standard app icon sizes, the maskable icon, and the 180 by 180 pixel iPhone icon</td></tr>
+        <tr><td>The tab icon</td><td>Your one image again, as the browser tab's icon: <code>/favicon-32x32.png</code>, <code>/favicon.svg</code> for an SVG, and <code>/favicon.ico</code>. Made with the feature on or off, and on <code>npm run dev</code> (see <a href="../features/pwa.html#tab-icon">The tab icon</a>)</td></tr>
         <tr><td>The service worker, <code>sw.js</code></td><td>Stores the app's main code, styles and fonts; pages always come from the network first, and the stored app opens when there is no connection</td></tr>
         <tr><td>iPhone tags</td><td>The home screen icon link and the short name as the iPhone app title</td></tr>
       </tbody>
     </table>
-    <p>With the feature off, none of these are built, and a visitor who still has an old service worker gets it removed on their next visit.</p>
+    <p>With the feature off, none of these are built but the tab icon, and a visitor who still has an old service worker gets it removed on their next visit.</p>
 
     <h2>Show the install button</h2>
     <p>Arc CMS shows the install card at the top of the member dashboard. To show it on a page of your own, such as your app's start page, add <code>&lt;arc-install-prompt /&gt;</code> (see <a href="../features/pwa.html#extend-it">Installable app (PWA)</a>). It shows what fits the browser, and nothing once the app is installed.</p>
