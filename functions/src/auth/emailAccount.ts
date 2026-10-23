@@ -24,10 +24,10 @@ import {
 import { normalizeEmailAddress } from './linkIdentifiers.js';
 import { readName } from './phoneAuth.js';
 import { authOwnerFor } from './googleAccount.js';
-import { consumeVerifiedSignupCode } from './signupOtp.js';
+import { consumeVerifiedSignupCode, requestedLanguage, requestedName, sendSignupCode } from './signupOtp.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuseOtherSignIn } from './appAccountLock.js';
-import { refuse } from './refusal.js';
+import { codeOrRefusal, refuse } from './refusal.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -45,14 +45,24 @@ export function isUnfinishedSignup(creationTime: string | undefined, now = Date.
     return Number.isFinite(created) && now - created <= UNFINISHED_SIGNUP_MS;
 }
 
+/**
+ * With `sendCode: true` (the page sends it when sign-up needs a code, E4), a
+ * new address while signups are open is also emailed its sign-up code, so the
+ * page makes one call instead of two; the send's reply comes back as `code`, or
+ * its refusal as `codeRefused` (specs/sign-in-speed-spec.md, SP-D6, SP-D7).
+ */
 export const checkEmailAccount = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
-    await consumeRateLimit(`check-ip-${callerKey(request)}`, 100, HOUR, 'Too many attempts. Please try again later.');
     const email = normalizeEmailAddress(request.data?.email);
-    const { signupOpen } = await readSignInSettings();
+    // The caller's limit, the settings and the record together; nothing is answered until the limit passes (SP-D4).
+    const [, { signupOpen }, record] = await Promise.all([
+        consumeRateLimit(`check-ip-${callerKey(request)}`, 100, HOUR, 'Too many attempts. Please try again later.'),
+        readSignInSettings(),
+        findUserByEmail(email),
+    ]);
 
     let status: EmailAccountStatus = 'new';
-    if (await findUserByEmail(email)) {
+    if (record) {
         status = 'registered';
         await db.collection('email_lookup').doc(computeEmailHash(email)).set({ exists: true });
     } else {
@@ -62,7 +72,10 @@ export const checkEmailAccount = onCall(async (request) => {
             status = signupOpen && password && isUnfinishedSignup(account.metadata?.creationTime) ? 'unfinished' : 'no-access';
         }
     }
-    return { status, signupOpen };
+    const reply = { status, signupOpen };
+    if (request.data?.sendCode !== true || status !== 'new' || !signupOpen) return reply;
+    const options = { name: requestedName(request.data), language: requestedLanguage(request.data) };
+    return { ...reply, ...(await codeOrRefusal(() => sendSignupCode(request, email, options))) };
 });
 
 /**

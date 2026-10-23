@@ -1,4 +1,4 @@
-import { onCall } from 'firebase-functions/v2/https';
+import { onCall, type CallableRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { createHash, randomInt } from 'node:crypto';
@@ -6,10 +6,10 @@ import { db } from '../init.js';
 import { queueEmail } from '../email-core/queueEmail.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { ensureDefaultTemplates } from '../email-core/defaultTemplates.js';
-import type { EmailTemplateData } from '../types.js';
+import type { EmailSettings, EmailTemplateData } from '../types.js';
 import { accountEmailInLanguage } from '../email-core/appEmailTemplates.js';
 import { normalizeLanguage } from '../email-core/emailLanguages.js';
-import { callerKey, consumeRateLimit, releaseRateLimit, requireOwnRecord } from './accounts.js';
+import { callerKey, consumeRateLimits, releaseRateLimit, requireOwnRecord } from './accounts.js';
 import { newOtpTicket, ticketMatches } from './otpTicket.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuse } from './refusal.js';
@@ -94,27 +94,48 @@ export const requestSignupOtp = onCall(async (request) => {
   if (!email || !email.includes('@')) {
     throw refuse('invalid-argument', 'invalid-email', 'Enter a valid email address.');
   }
-  const name = typeof request.data?.name === 'string' && request.data.name ? request.data.name : undefined;
-  // Asked again within the minute (a reload, another tab): the code already sent,
-  // nothing new (F22). Checked first: only codes really sent count towards the
-  // hourly limits, and one that could not be queued is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
+  return sendSignupCode(request, email, { name: requestedName(request.data), language: requestedLanguage(request.data) });
+});
+
+/** The name a sign-up code email greets, when the page sent one. */
+export function requestedName(data: unknown): string | undefined {
+  const name = (data as { name?: unknown } | undefined)?.name;
+  return typeof name === 'string' && name ? name : undefined;
+}
+
+/**
+ * Email this address its sign-up code, for requestSignupOtp and checkEmailAccount
+ * (`sendCode`, specs/sign-in-speed-spec.md SP-D6). Asked again within the minute
+ * (a reload, another tab): the code already sent, nothing new (F22). Checked
+ * first: only codes really sent count towards the hourly limits, and one that
+ * could not be queued is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
+ */
+export async function sendSignupCode(
+  request: CallableRequest,
+  email: string,
+  options: { name?: string; language?: string },
+): ReturnType<typeof issueEmailOtp> {
   const asked = await emailCodeAskedAgain(email, 'signup');
   if (asked) {
     const test = (await isSimulatedEmail()) ? { testMode: true, testCode: asked.code } : {};
     return { sent: true, status: 'pending', ...test, alreadySent: true, wait: asked.wait };
   }
-  const callerLimit = `email-otp-ip-${callerKey(request)}`;
-  const addressLimit = `email-otp-${computeEmailHash(email)}`;
-  await consumeRateLimit(callerLimit, 20, HOUR, 'Too many attempts. Please try again later.');
-  await consumeRateLimit(addressLimit, 5, HOUR, 'Too many codes for this address. Please try again later.', 'too-many-codes');
+  // Both limits at once; a refusal gives back the other's count (SP-D3).
+  const counted = await consumeRateLimits([
+    { key: `email-otp-ip-${callerKey(request)}`, max: 20, windowMs: HOUR, message: 'Too many attempts. Please try again later.' },
+    {
+      key: `email-otp-${computeEmailHash(email)}`, max: 5, windowMs: HOUR,
+      message: 'Too many codes for this address. Please try again later.', reason: 'too-many-codes',
+    },
+  ]);
   try {
-    return await issueEmailOtp(email, 'signup', { name, language: requestedLanguage(request.data) });
+    return await issueEmailOtp(email, 'signup', options);
   } catch (err) {
     // Counted but not sent (a refusal from the provider, or a second request at once).
-    await Promise.all([releaseRateLimit(callerLimit), releaseRateLimit(addressLimit)]);
+    await Promise.all(counted.map((key) => releaseRateLimit(key)));
     throw err;
   }
-});
+}
 
 /**
  * This address's code for this purpose (and for `link` this account), asked for
@@ -151,17 +172,30 @@ export async function issueEmailOtp(
   email: string,
   purpose: EmailOtpPurpose,
   options: { name?: string; uid?: string; language?: string } = {},
-): Promise<{ sent: boolean; status: string; testMode?: boolean; testCode?: string; testCodeInLogs?: boolean; sameCode?: boolean }> {
+): Promise<{
+  sent: boolean; status: string; testMode?: boolean; testCode?: string; testCodeInLogs?: boolean; sameCode?: boolean;
+  alreadySent?: boolean; wait?: number;
+}> {
   const emailHash = computeEmailHash(email);
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
   const now = Date.now();
 
   const type = EMAIL_OTP_TEMPLATE[purpose];
-  const template = await loadOtpTemplate(type);
+  // The template, the app's wording, the seal key (before the transaction, not inside it)
+  // and the email settings together, the settings read once for the whole send
+  // (specs/sign-in-speed-spec.md, SP-D11). Unreadable settings: queueEmail reads them itself.
+  const [template, worded, sealKey, emailSettings] = await Promise.all([
+    loadOtpTemplate(type),
+    accountEmailInLanguage(type, options.language),
+    codeSealKey(),
+    readEmailSettings().catch((err) => {
+      logger.warn('issueEmailOtp: Settings/email could not be read; queueEmail reads it again.', err);
+      return undefined;
+    }),
+  ]);
   if (!template) {
     throw refuse('failed-precondition', 'email-failed', "We couldn't send the email. Please try again later.");
   }
-  const sealKey = await codeSealKey(); // read before the transaction, not inside it
 
   // The wait, the choice of code and the write in one go (SC-D11).
   const { code, sameCode, before } = await db.runTransaction(async (tx) => {
@@ -199,7 +233,6 @@ export async function issueEmailOtp(
   const again = sameCode ? { sameCode: true } : {};
 
   const toName = options.name || email.split('@')[0];
-  const worded = await accountEmailInLanguage(type, options.language);
 
   const result = await queueEmail({
     source: 'auth',
@@ -217,6 +250,7 @@ export async function issueEmailOtp(
     data: { otp: code },
     // The person is waiting for this code: send it now, not from the trigger.
     sendNow: true,
+    ...(emailSettings ? { emailSettings: emailSettings as EmailSettings } : {}),
   });
 
   logger.info(`issueEmailOtp: queued ${purpose} OTP for ${email} (status=${result.status}).`);
@@ -229,20 +263,37 @@ export async function issueEmailOtp(
     else await ref.delete();
     return { sent, status: result.status, ...again };
   }
-  if (!(await isSimulatedEmail())) return { sent, status: result.status, ...again };
+  if (!simulatedIn(emailSettings)) return { sent, status: result.status, ...again };
   // Simulated provider: no email goes out, the code is only in Email Logs. The
   // page shows a sign-up code, which only makes a new account, like the Test SMS
   // provider. A link code would let anyone add an address to their account:
   // Email Logs only. A reset code would let anyone take over an account: on the
   // page only when an admin turned that on (resetCodesShown), else Email Logs.
-  return { sent, status: result.status, testMode: true, ...(await testCodeFor(purpose, code)), ...again };
+  return { sent, status: result.status, testMode: true, ...testCodeFor(purpose, code, emailSettings), ...again };
 }
 
 /** The code for the page to show while testing, or that it is only in Email Logs. */
-async function testCodeFor(purpose: EmailOtpPurpose, code: string): Promise<{ testCode?: string; testCodeInLogs?: boolean }> {
+function testCodeFor(purpose: EmailOtpPurpose, code: string, settings: EmailSettingsData): { testCode?: string; testCodeInLogs?: boolean } {
   if (purpose === 'signup') return { testCode: code };
-  if (purpose === 'reset') return (await resetCodesShown()) ? { testCode: code } : { testCodeInLogs: true };
+  if (purpose === 'reset') return resetCodesShownIn(settings) ? { testCode: code } : { testCodeInLogs: true };
   return {};
+}
+
+type EmailSettingsData = Record<string, unknown> | undefined;
+
+/** `Settings/email` as stored. */
+async function readEmailSettings(): Promise<EmailSettingsData> {
+  return (await db.collection('Settings').doc('email').get()).data();
+}
+
+/** Whether these email settings send to the Simulated provider, which records email in Email Logs and sends nothing. */
+function simulatedIn(settings: EmailSettingsData): boolean {
+  return settings?.['isEnabled'] === true && settings?.['activeProvider'] === 'debug_log';
+}
+
+/** Whether these email settings let the page show a password reset code (resetCodesShown). */
+function resetCodesShownIn(settings: EmailSettingsData): boolean {
+  return simulatedIn(settings) && settings?.['showResetLinks'] === true;
 }
 
 /**
@@ -253,14 +304,12 @@ async function testCodeFor(purpose: EmailOtpPurpose, code: string): Promise<{ te
  * any account's password.
  */
 export async function resetCodesShown(): Promise<boolean> {
-  const settings = (await db.collection('Settings').doc('email').get()).data();
-  return settings?.['isEnabled'] === true && settings?.['activeProvider'] === 'debug_log' && settings?.['showResetLinks'] === true;
+  return resetCodesShownIn(await readEmailSettings());
 }
 
 /** Whether email goes to the Simulated provider, which records it in Email Logs and sends nothing. */
 export async function isSimulatedEmail(): Promise<boolean> {
-  const settings = (await db.collection('Settings').doc('email').get()).data();
-  return settings?.['isEnabled'] === true && settings?.['activeProvider'] === 'debug_log';
+  return simulatedIn(await readEmailSettings());
 }
 
 /**

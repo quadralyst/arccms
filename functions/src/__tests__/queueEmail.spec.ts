@@ -65,6 +65,7 @@ vi.mock('firebase-admin/firestore', () => ({
 }));
 
 import { queueEmail } from '../email-core/queueEmail.js';
+import type { EmailSettings } from '../types.js';
 
 /** Fully-enabled settings with all feature toggles on. */
 function enabledSettings(overrides: Record<string, any> = {}) {
@@ -117,28 +118,33 @@ describe('queueEmail', () => {
   describe('sendNow (a code the person is waiting for)', () => {
     beforeEach(() => mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() }));
 
-    it('sends from the call once it has claimed the log, and marks the log so the trigger claims first', async () => {
+    it('sends from the call, writing the log already claimed so the trigger leaves it (specs/sign-in-speed-spec.md, SP-D13)', async () => {
       const res = await queueEmail({ ...baseParams, sendNow: true });
 
       expect(res).toEqual({ id: 'log-1', status: 'pending' });
-      expect(lastAddArg()).toMatchObject({ status: 'pending', sendNow: true });
-      expect(mockClaim).toHaveBeenCalledWith('log-1');
-      expect(mockSendMail).toHaveBeenCalledWith(expect.objectContaining({ toEmail: 'user@example.com', sendNow: true }), 'log-1');
+      expect(lastAddArg()).toMatchObject({ status: 'pending', sendNow: true, sendClaimedAt: expect.anything() });
+      expect(mockClaim).not.toHaveBeenCalled();
+      expect(mockSendMail).toHaveBeenCalledWith(
+        expect.objectContaining({ toEmail: 'user@example.com', sendNow: true }),
+        'log-1',
+        expect.objectContaining({ isEnabled: true }),
+      );
+    });
+
+    it('sends with the settings it was handed, reading none itself', async () => {
+      const settings = enabledSettings() as EmailSettings;
+      await queueEmail({ ...baseParams, sendNow: true, emailSettings: settings });
+
+      expect(mockSettingsGet).not.toHaveBeenCalled();
+      expect(mockSendMail).toHaveBeenCalledWith(expect.anything(), 'log-1', settings);
     });
 
     it('leaves the email to the trigger without sendNow', async () => {
       await queueEmail(baseParams);
 
       expect(lastAddArg().sendNow).toBeUndefined();
+      expect(lastAddArg().sendClaimedAt).toBeUndefined();
       expect(mockClaim).not.toHaveBeenCalled();
-      expect(mockSendMail).not.toHaveBeenCalled();
-    });
-
-    it('does not send when the trigger claimed it first', async () => {
-      mockClaim.mockResolvedValue(false);
-
-      await queueEmail({ ...baseParams, sendNow: true });
-
       expect(mockSendMail).not.toHaveBeenCalled();
     });
 

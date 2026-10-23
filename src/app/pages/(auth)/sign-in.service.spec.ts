@@ -210,3 +210,49 @@ describe('code emails in the member\'s language (specs/app-email-spec.md, AE-D5)
         expect(c.call).toHaveBeenNthCalledWith(3, 'requestEmailLinkOtp', { email: 'a@example.com', language: 'de' });
     });
 });
+
+describe('a code the check sends (specs/sign-in-speed-spec.md, SP-D5 to SP-D9)', () => {
+    const proto = SignInService.prototype as unknown as Record<string, (...args: unknown[]) => unknown>;
+    const page = (reply: Record<string, unknown>, lang = 'en') => ({
+        call: vi.fn(async () => reply),
+        transloco: { getActiveLang: () => lang, translate: (key: string, params: Record<string, unknown>) => english(key, params) },
+        emailLanguage: proto['emailLanguage'],
+        inMemberLanguage: proto['inMemberLanguage'],
+        withCodeError: proto['withCodeError'],
+    });
+
+    it('asks the phone check to send only when told to', async () => {
+        const c = page({ phone: '+919876543210', exists: false, hasPin: false, signupOpen: true });
+        await proto['checkPhone'].call(c, '+919876543210', { sendCode: true });
+        await proto['checkPhone'].call(c, '+919876543210');
+        expect(c.call).toHaveBeenNthCalledWith(1, 'checkPhoneAccount', { phone: '+919876543210', sendCode: true });
+        expect(c.call).toHaveBeenNthCalledWith(2, 'checkPhoneAccount', { phone: '+919876543210' });
+    });
+
+    it('asks the email check to send with the name and the page\'s language', async () => {
+        const c = page({ status: 'new', signupOpen: true }, 'hi');
+        await proto['checkEmail'].call(c, 'a@example.com', { sendCode: true, name: 'Ada' });
+        await proto['checkEmail'].call(c, 'a@example.com');
+        expect(c.call).toHaveBeenNthCalledWith(1, 'checkEmailAccount', { email: 'a@example.com', sendCode: true, language: 'hi', name: 'Ada' });
+        expect(c.call).toHaveBeenNthCalledWith(2, 'checkEmailAccount', { email: 'a@example.com' });
+    });
+
+    it('turns a refused send into the error the request would have thrown, in the member\'s words', async () => {
+        const c = page({
+            phone: '+919876543210', exists: false, hasPin: false, signupOpen: true,
+            codeRefused: { code: 'resource-exhausted', message: 'Please wait 39s', details: { reason: 'wait', wait: 39 } },
+        });
+        const account = await proto['checkPhone'].call(c, '+919876543210', { sendCode: true }) as Record<string, any>;
+        expect(account['codeRefused']).toBeUndefined();
+        expect(account['codeError']).toEqual({
+            code: 'resource-exhausted', message: 'Please wait 39 seconds before asking for another code.', details: { reason: 'wait', wait: 39 },
+        });
+        expect(readSignInError(account['codeError'])).toMatchObject({ reason: 'wait', details: { wait: 39 } });
+    });
+
+    it('passes a code it sent through as it came', async () => {
+        const code = { sent: true, testMode: true, testCode: '482913' };
+        const c = page({ status: 'new', signupOpen: true, code });
+        await expect(proto['checkEmail'].call(c, 'a@example.com', { sendCode: true })).resolves.toEqual({ status: 'new', signupOpen: true, code });
+    });
+});

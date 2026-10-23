@@ -97,7 +97,7 @@ const result = await sendSms({ to: '+919876543210', purpose: 'otp', code, text: 
       <tbody>
         <tr><td><code>sendTestSms</code></td><td>The test send (admin)</td></tr>
         <tr><td><code>checkPhoneSignIn</code></td><td>Whether phone sign-in can sign people in on this project, and the fix when it cannot (admin; see <a href="sign-in.html#google-cloud-setup-for-phone-sign-in">Google Cloud setup</a>)</td></tr>
-        <tr><td><code>checkPhoneAccount</code></td><td>Whether a number has an account and a PIN</td></tr>
+        <tr><td><code>checkPhoneAccount</code></td><td>Whether a number has an account and a PIN; with <code>sendCode</code>, also the code the next step needs</td></tr>
         <tr><td><code>requestPhoneOtp</code>, <code>verifyPhoneOtp</code></td><td>Send and check a code</td></tr>
         <tr><td><code>completePhoneSignup</code></td><td>Create the account after a sign-up code</td></tr>
         <tr><td><code>signInWithPin</code>, <code>resetPin</code>, <code>setPin</code></td><td>Sign in, reset the PIN after a code, change the PIN when signed in</td></tr>

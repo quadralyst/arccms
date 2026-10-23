@@ -558,10 +558,28 @@ describe('SignupComponent', () => {
                 phonePurpose: { set: vi.fn() },
                 pinLocked: { set: vi.fn() },
                 signIn: { checkPhone: vi.fn().mockResolvedValue({ phone: '+919876543210', signupOpen: true, ...account }) },
+                sentCodes: new SentCodes(),
                 sendOtp: vi.fn().mockResolvedValue(undefined),
                 goToStep: vi.fn(),
             };
         }
+
+        it('asks the check to send the code, and hands what it sent to the code screen (specs/sign-in-speed-spec.md, SP-D5)', async () => {
+            const code = { sent: true, testMode: true, testCode: '482913' };
+            const c = ctx({ exists: false, hasPin: false, code });
+            await checkPhone.call(c, '+919876543210');
+            expect(c.signIn.checkPhone).toHaveBeenCalledWith('+919876543210', { sendCode: true });
+            expect(c.sendOtp).toHaveBeenCalledWith(false, expect.objectContaining({ code }));
+        });
+
+        it('does not ask the check to send while this page has a working code for the number (SP-D8)', async () => {
+            for (const purpose of ['signup', 'reset']) {
+                const c = ctx({ exists: false, hasPin: false });
+                c.sentCodes.remember(`phone:${purpose}:+919876543210`, { testCode: '', testCodeInLogs: false });
+                await checkPhone.call(c, '+919876543210');
+                expect(c.signIn.checkPhone).toHaveBeenCalledWith('+919876543210', { sendCode: false });
+            }
+        });
 
         it('asks a registered number for its PIN', async () => {
             const c = ctx({ exists: true, hasPin: true });
@@ -620,6 +638,7 @@ describe('SignupComponent', () => {
                 testCodeInLogs: Object.assign(() => inLogs, { set: (v: boolean) => (inLogs = v) }),
                 toastService: { success: vi.fn() },
                 startCountdown: vi.fn(),
+                stopCountdown: vi.fn(),
                 signIn: { requestPhoneCode: vi.fn().mockResolvedValue({ sent: true, ...reply, ...(testCode ? { testCode } : {}) }) },
             };
             c['codeKey'] = () => (SignupComponent.prototype as any).codeKey.call(c);
@@ -722,7 +741,8 @@ describe('SignupComponent', () => {
             const c = resetCtx({ sent: false, status: 'skipped' });
             await expect(sendOtp.call(c)).resolves.toBe('not-sent');
             expect(c.toastService.success).not.toHaveBeenCalled();
-            expect(c.startCountdown).not.toHaveBeenCalled();
+            // Counting from the request, stopped once nothing went (SP-D14).
+            expect(c.stopCountdown).toHaveBeenCalled();
         });
     });
 
@@ -745,6 +765,7 @@ describe('SignupComponent', () => {
                 testCodeInLogs: Object.assign(() => inLogs, { set: (v: boolean) => (inLogs = v) }),
                 toastService: { success: vi.fn() },
                 startCountdown: vi.fn(),
+                stopCountdown: vi.fn(),
                 signIn: { requestPhoneCode: vi.fn().mockResolvedValue({ sent: true, testMode: true, testCode: '482913' }) },
             };
             c['codeKey'] = () => (SignupComponent.prototype as any).codeKey.call(c);
@@ -813,7 +834,45 @@ describe('SignupComponent', () => {
             c['signIn'].requestPhoneCode.mockRejectedValue({ code: 'functions/resource-exhausted', message: 'Too many codes.', details: { reason: 'too-many-codes', retryAfter: 600 } });
             await proto['sendOtp'].call(c);
             expect(c['otpError']()).toBe('Too many codes.');
-            expect(c['startCountdown']).not.toHaveBeenCalled();
+            // Counting from the request, stopped by the refusal, so Resend is there (SP-D14).
+            expect(c['startCountdown']).toHaveBeenCalledTimes(1);
+            expect(c['stopCountdown']).toHaveBeenCalled();
+            expect(c['otpNotice']()).toBe('');
+        });
+
+        it('says the code is on its way while the request runs, and counts from its start (specs/sign-in-speed-spec.md, SP-D14)', async () => {
+            const c = ctx();
+            let notice = '';
+            c['signIn'].requestPhoneCode.mockImplementation(async () => {
+                notice = c['otpNotice']();
+                expect(c['startCountdown']).toHaveBeenCalledWith();
+                return { sent: true, testMode: true, testCode: '482913' };
+            });
+            await proto['sendOtp'].call(c);
+            expect(notice).toBe(english('member.auth.sending_code'));
+            expect(c['otpNotice']()).toBe('');
+            // Not started again when the reply comes.
+            expect(c['startCountdown']).toHaveBeenCalledTimes(1);
+        });
+
+        it('a code the check sent: no request, the countdown starts now (SP-D9)', async () => {
+            const c = ctx();
+            await expect(proto['sendOtp'].call(c, false, { code: { sent: true, testMode: true, testCode: '135790' } })).resolves.toBe('sent');
+            expect(c['signIn'].requestPhoneCode).not.toHaveBeenCalled();
+            expect(c['testCode']()).toBe('135790');
+            expect(c['startCountdown']).toHaveBeenCalledTimes(1);
+            expect(c['otpNotice']()).toBe('');
+        });
+
+        it('a send the check was refused: shown like the request\'s own refusal, a "please wait" included (SP-D9)', async () => {
+            const refused = ctx();
+            await proto['sendOtp'].call(refused, false, { codeError: { code: 'resource-exhausted', message: 'Too many codes.', details: { reason: 'too-many-codes' } } });
+            expect(refused['signIn'].requestPhoneCode).not.toHaveBeenCalled();
+            expect(refused['otpError']()).toBe('Too many codes.');
+            const wait = ctx();
+            await proto['sendOtp'].call(wait, false, { codeError: { code: 'resource-exhausted', message: 'Please wait 39s', details: { reason: 'wait', wait: 39 } } });
+            expect(wait['startCountdown']).toHaveBeenLastCalledWith(39);
+            expect(wait['otpError']()).toBe('');
         });
     });
     describe('signInWithPin', () => {
@@ -886,7 +945,8 @@ describe('SignupComponent', () => {
                 errorMessage: { set: vi.fn() },
                 otpVerified: true, // should be reset to false by checkEmail
                 emailPurpose: { set: vi.fn() },
-                emailStatus: vi.fn().mockResolvedValue(status ?? (emailExists ? 'registered' : 'new')),
+                emailStatus: vi.fn().mockResolvedValue({ status: status ?? (emailExists ? 'registered' : 'new') }),
+                sentCodes: new SentCodes(),
                 settings: () => ({ isSignupEnabled: true, defaultRole: 'user' }),
                 shouldVerifySignup: vi.fn().mockResolvedValue(mustVerify),
                 sendOtp: vi.fn().mockResolvedValue(undefined),
@@ -909,6 +969,24 @@ describe('SignupComponent', () => {
             expect(c.goToStep).toHaveBeenCalledWith('verify');
         });
 
+        it('asks the check to email the code only when sign-up needs one and none still works (specs/sign-in-speed-spec.md, SP-D6, SP-D8)', async () => {
+            const needed = ctx(true);
+            const checked = { code: { sent: true, testMode: true, testCode: '482913' } };
+            needed.emailStatus.mockResolvedValue({ status: 'new', checked });
+            await checkEmail.call(needed);
+            expect(needed.emailStatus).toHaveBeenCalledWith('new@user.com', true);
+            expect(needed.sendOtp).toHaveBeenCalledWith(false, checked);
+
+            const notNeeded = ctx(false);
+            await checkEmail.call(notNeeded);
+            expect(notNeeded.emailStatus).toHaveBeenCalledWith('new@user.com', false);
+
+            const working = ctx(true);
+            working.sentCodes.remember('email:signup:new@user.com', { testCode: '', testCodeInLogs: false });
+            await checkEmail.call(working);
+            expect(working.emailStatus).toHaveBeenCalledWith('new@user.com', false);
+        });
+
         it('tells a login from another app (no record here) straight away', async () => {
             const c = ctx(false, false, 'no-access');
             await checkEmail.call(c);
@@ -920,10 +998,12 @@ describe('SignupComponent', () => {
         it('falls back to the lookup table when the server check fails', async () => {
             const emailStatus = (SignupComponent.prototype as any).emailStatus;
             const c = {
+                registrationForm: { get: () => ({ value: '' }) },
                 signIn: { checkEmail: vi.fn().mockRejectedValue(new Error('offline')) },
                 authStore: { checkItemNumberExist: vi.fn().mockResolvedValue({ toPromise: () => Promise.resolve([{}]) }) },
             };
-            await expect(emailStatus.call(c, 'a@b.co')).resolves.toBe('registered');
+            await expect(emailStatus.call(c, 'a@b.co', true)).resolves.toEqual({ status: 'registered' });
+            expect(c.signIn.checkEmail).toHaveBeenCalledWith('a@b.co', { sendCode: true, name: undefined });
         });
 
         it('routes an existing email to the login step', async () => {

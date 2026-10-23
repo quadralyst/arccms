@@ -11,6 +11,11 @@ export const CODE_LIFE_MS = 10 * 60 * 1000;
 /** The wait between two codes for one number or address (RESEND_THROTTLE_MS). */
 export const RESEND_SECONDS = 60;
 
+/** The key a code is remembered by: its channel, purpose, and number or address. */
+export function sentCodeKey(channel: 'phone' | 'email', purpose: string, value: string): string {
+    return `${channel}:${purpose}:${value}`;
+}
+
 export interface SentCode {
     at: number;
     /** The code shown on screen with a test provider, if any. */

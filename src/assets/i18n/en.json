@@ -2074,6 +2074,7 @@
       "password_update_failed": "Failed to update password",
       "code_already_sent": "We sent a code a moment ago. Enter it, or ask for it again when the timer ends.",
       "code_sent_again": "We sent the same code again.",
+      "sending_code": "Sending your code...",
       "server_error": {
         "wait": "Please wait {{ wait }} seconds before asking for another code.",
         "too_many_codes": "Too many codes. Try again after {{ time }}.",

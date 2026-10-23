@@ -1726,6 +1726,7 @@ export type TranslationKey =
     | 'member.auth.save_password'
     | 'member.auth.save_pin'
     | 'member.auth.send_code_failed'
+    | 'member.auth.sending_code'
     | 'member.auth.server_error.account_blocked'
     | 'member.auth.server_error.add_phone_first'
     | 'member.auth.server_error.app_managed'
@@ -3769,6 +3770,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.save_password',
     'member.auth.save_pin',
     'member.auth.send_code_failed',
+    'member.auth.sending_code',
     'member.auth.server_error.account_blocked',
     'member.auth.server_error.add_phone_first',
     'member.auth.server_error.app_managed',

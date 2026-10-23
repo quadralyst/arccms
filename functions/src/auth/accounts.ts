@@ -427,6 +427,34 @@ export async function releaseRateLimit(key: string): Promise<void> {
     });
 }
 
+/** One limit for consumeRateLimits: consumeRateLimit's arguments. */
+export interface RateLimit {
+    key: string;
+    max: number;
+    windowMs: number;
+    message: string;
+    reason?: string;
+}
+
+/**
+ * Count several limits at once (specs/sign-in-speed-spec.md, SP-D3). When any
+ * refuses, the ones that counted are given back, so a refused request uses up
+ * nothing, and the refusal thrown is the first in list order. Returns the keys
+ * counted, for releaseRateLimit when what they counted does not happen.
+ */
+export async function consumeRateLimits(limits: readonly RateLimit[]): Promise<string[]> {
+    const results = await Promise.allSettled(
+        limits.map((l) => consumeRateLimit(l.key, l.max, l.windowMs, l.message, l.reason)),
+    );
+    const refused = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (refused) {
+        const counted = limits.filter((_, i) => results[i].status === 'fulfilled');
+        await Promise.all(counted.map((l) => releaseRateLimit(l.key)));
+        throw refused.reason;
+    }
+    return limits.map((l) => l.key);
+}
+
 /**
  * The caller's IP, hashed, for per-IP limits. Google's front end adds the
  * address it saw to the END of X-Forwarded-For; anything before it is whatever

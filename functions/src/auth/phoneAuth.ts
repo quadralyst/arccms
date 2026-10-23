@@ -3,6 +3,7 @@
  * after that. Every step is public (before sign-in) and rate limited.
  *
  *   checkPhoneAccount    is this number registered, and does it have a PIN?
+ *                        With `sendCode`, it also sends the code the next step needs
  *   requestPhoneOtp      send a code (signup, reset or link); with the Test
  *                        provider no SMS is sent, and the reply carries a
  *                        sign-up code, and a reset code when an admin allows
@@ -28,6 +29,7 @@ import {
     canSignIn,
     checkPin,
     consumeRateLimit,
+    consumeRateLimits,
     findUserByPhone,
     releaseRateLimit,
     hasPin,
@@ -39,9 +41,9 @@ import {
     requirePhoneSignIn,
     setPin as storePin,
 } from './accounts.js';
-import { consumeVerifiedPhoneOtp, phoneCodeAskedAgain, isPhoneOtpPurpose, issuePhoneOtp, verifyPhoneOtp as checkPhoneOtp } from './phoneOtp.js';
+import { consumeVerifiedPhoneOtp, phoneCodeAskedAgain, isPhoneOtpPurpose, issuePhoneOtp, verifyPhoneOtp as checkPhoneOtp, type PhoneOtpPurpose } from './phoneOtp.js';
 import { isWarmUp, WARM } from './warmUp.js';
-import { refuse } from './refusal.js';
+import { codeOrRefusal, refuse } from './refusal.js';
 
 const HOUR = 60 * 60 * 1000;
 const TOO_MANY = 'Too many attempts. Please try again later.';
@@ -78,23 +80,37 @@ export function readNewPin(raw: unknown): string {
 }
 
 async function phoneContext(request: CallableRequest) {
-    const signIn = await requirePhoneSignIn();
-    const sms = await readSmsSettings();
+    // The two settings documents together: neither needs the other (specs/sign-in-speed-spec.md, SP-D1).
+    const [signIn, sms] = await Promise.all([requirePhoneSignIn(), readSmsSettings()]);
     const phone = readPhone(request.data?.phone, sms);
     return { signIn, sms, phone };
 }
 
+/**
+ * Is this number registered, and does it have a PIN? With `sendCode: true` it
+ * also sends the code when the next screen is the code screen (a new number
+ * while signups are open, or a number with no PIN), so the page makes one call
+ * instead of two; the send's reply comes back as `code`, or its refusal as
+ * `codeRefused` (specs/sign-in-speed-spec.md, SP-D5, SP-D7).
+ */
 export const checkPhoneAccount = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
-    await consumeRateLimit(`check-ip-${callerKey(request)}`, 100, HOUR, TOO_MANY);
-    const { signIn, phone } = await phoneContext(request);
+    // The caller's limit is counted while the settings are read; nothing is answered until it passes (SP-D4).
+    const [, { signIn, sms, phone }] = await Promise.all([
+        consumeRateLimit(`check-ip-${callerKey(request)}`, 100, HOUR, TOO_MANY),
+        phoneContext(request),
+    ]);
     const account = await findUserByPhone(phone);
-    return {
-        phone,
-        exists: !!account,
-        hasPin: account ? await hasPin(String(account.data['uid'])) : false,
-        signupOpen: signIn.signupOpen,
-    };
+    const purpose: PhoneOtpPurpose | null = account ? 'reset' : signIn.signupOpen ? 'signup' : null;
+    const sendCode = request.data?.sendCode === true && !!purpose;
+    // The PIN and the number's earlier code together; the code is only sent when there is no PIN.
+    const [pin, asked] = await Promise.all([
+        account ? hasPin(String(account.data['uid'])) : Promise.resolve(false),
+        sendCode ? phoneCodeAskedAgain(phone, purpose!) : Promise.resolve(null),
+    ]);
+    const reply = { phone, exists: !!account, hasPin: pin, signupOpen: signIn.signupOpen };
+    if (!sendCode || pin) return reply;
+    return { ...reply, ...(await codeOrRefusal(() => sendPhoneCode(request, { phone, purpose: purpose!, sms, asked }))) };
 });
 
 export const requestPhoneOtp = onCall(async (request) => {
@@ -104,36 +120,51 @@ export const requestPhoneOtp = onCall(async (request) => {
     const { signIn, sms, phone } = await phoneContext(request);
 
     let uid: string | undefined;
+    let asked: Awaited<ReturnType<typeof phoneCodeAskedAgain>>;
     if (purpose === 'link') {
+        // The earlier code is checked against the signed-in account, so it waits for it.
         uid = String((await requireOwnRecord(request)).data['uid']);
+        asked = await phoneCodeAskedAgain(phone, purpose, uid);
     } else {
-        const account = await findUserByPhone(phone);
+        // The account and the number's earlier code together (specs/sign-in-speed-spec.md, SP-D2).
+        const [account, earlier] = await Promise.all([findUserByPhone(phone), phoneCodeAskedAgain(phone, purpose)]);
         if (purpose === 'signup' && account) throw refuse('already-exists', 'number-taken', 'This number already has an account.');
         if (purpose === 'signup' && !signIn.signupOpen) throw refuse('failed-precondition', 'signup-closed', "New accounts can't be created on this site right now.");
         if (purpose === 'reset' && !account) throw refuse('not-found', 'no-account', 'No account uses this number.');
+        asked = earlier;
     }
+    return sendPhoneCode(request, { phone, purpose, sms, uid, asked });
+});
 
-    // Asked again within the minute (a reload, another tab): the code already sent,
-    // nothing new (F22). Checked first: only codes really sent count towards the
-    // hourly limits, and one the provider refuses is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
-    const asked = await phoneCodeAskedAgain(phone, purpose, uid);
+/**
+ * Send this number its code, for requestPhoneOtp and checkPhoneAccount. `asked`
+ * is the caller's phoneCodeAskedAgain: asked again within the minute (a reload,
+ * another tab), the reply is the code already sent and nothing goes (F22). It is
+ * checked before the hourly limits, so only codes really sent count, and one the
+ * provider refuses is given back (specs/sign-in-codes-spec.md, SC-D3, SC-D4).
+ */
+async function sendPhoneCode(
+    request: CallableRequest,
+    input: { phone: string; purpose: PhoneOtpPurpose; sms: SmsSettings; uid?: string; asked: { wait: number; code: string } | null },
+) {
+    const { phone, purpose, sms, uid, asked } = input;
     if (asked) return codeReply(phone, purpose, sms, sms.provider === 'log', asked.code, { alreadySent: true, wait: asked.wait });
-    const callerLimit = `otp-ip-${callerKey(request)}`;
-    const numberLimit = `otp-phone-${phoneHash(phone)}`;
-    await consumeRateLimit(callerLimit, 20, HOUR, TOO_MANY);
-    await consumeRateLimit(numberLimit, 5, HOUR, 'Too many codes for this number. Please try again later.', 'too-many-codes');
+    const counted = await consumeRateLimits([
+        { key: `otp-ip-${callerKey(request)}`, max: 20, windowMs: HOUR, message: TOO_MANY },
+        { key: `otp-phone-${phoneHash(phone)}`, max: 5, windowMs: HOUR, message: 'Too many codes for this number. Please try again later.', reason: 'too-many-codes' },
+    ]);
     let testCode: string | undefined;
     let sameCode: boolean | undefined;
     try {
         ({ testCode, sameCode } = await issuePhoneOtp(phone, purpose, sms, uid));
     } catch (err) {
         // Counted but not sent (a refusal from the provider, or a second request at once).
-        await Promise.all([releaseRateLimit(callerLimit), releaseRateLimit(numberLimit)]);
+        await Promise.all(counted.map((key) => releaseRateLimit(key)));
         throw err;
     }
-    logger.info(`requestPhoneOtp: ${purpose} code sent to ${maskPhone(phone)}.`);
+    logger.info(`sendPhoneCode: ${purpose} code sent to ${maskPhone(phone)}.`);
     return codeReply(phone, purpose, sms, !!testCode, testCode, sameCode ? { sameCode: true } : {});
-});
+}
 
 /**
  * A code request's reply. Test provider: no SMS goes out (Settings, SMS warns
@@ -196,16 +227,24 @@ export const completePhoneSignup = onCall(async (request) => {
         await owner.deleteUser(uid).catch(() => undefined);
         throw err;
     }
-    await storePin(uid, pin);
-    await applyNewAccountClaims(uid, ref.id, signIn.defaultRole);
+    // The PIN, the claims and the token together: the token carries no claims, they are
+    // read when the browser signs in with it, after this answers (specs/sign-in-speed-spec.md, SP-D15).
+    const [, , token] = await Promise.all([
+        storePin(uid, pin),
+        applyNewAccountClaims(uid, ref.id, signIn.defaultRole),
+        issueSignInToken(uid),
+    ]);
     logger.info(`completePhoneSignup: account created for ${maskPhone(phone)}.`);
-    return { token: await issueSignInToken(uid) };
+    return { token };
 });
 
 export const signInWithPin = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
-    await consumeRateLimit(`pin-ip-${callerKey(request)}`, 30, HOUR, TOO_MANY);
-    const { phone } = await phoneContext(request);
+    // The caller's limit is counted while the settings are read (SP-D4).
+    const [, { phone }] = await Promise.all([
+        consumeRateLimit(`pin-ip-${callerKey(request)}`, 30, HOUR, TOO_MANY),
+        phoneContext(request),
+    ]);
     const pin = readPin(request.data?.pin);
     const account = await findUserByPhone(phone);
     if (!account) throw refuse('not-found', 'no-account', 'No account uses this number.');
