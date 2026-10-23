@@ -23,7 +23,7 @@ import { SIGN_IN_STRENGTH } from '../../core/sign-in/sign-in-strength';
 
 export type PhoneOtpPurpose = 'signup' | 'reset' | 'link';
 
-export interface PhoneAccount {
+export interface PhoneAccount extends CheckedCode {
     phone: string;
     exists: boolean;
     hasPin: boolean;
@@ -113,6 +113,19 @@ export interface CodeReply {
     wait?: number;
 }
 
+/**
+ * A code the check sent itself, asked for with `sendCode` (specs/sign-in-speed-spec.md,
+ * SP-D5 to SP-D9): `code` is what the request callable would have answered;
+ * `codeError` is its refusal as that callable would have thrown it, in the member's
+ * language, for the code screen to show. Neither: the check sent nothing.
+ */
+export interface CheckedCode {
+    code?: CodeReply & { testCode?: string };
+    codeError?: { code: string; message: string; details?: Record<string, unknown> };
+}
+
+type CodeRefused = { codeRefused?: { code: string; message: string; details?: Record<string, unknown> } };
+
 @Injectable({ providedIn: 'root' })
 export class SignInService {
     private readonly auth = inject(Auth);
@@ -158,16 +171,29 @@ export class SignInService {
             const result = await runInInjectionContext(this.injector, () => arcCallable(this.functions, name)(data));
             return result.data as T;
         } catch (err) {
-            // Every page shows `message` (readSignInError): say it in the member's language.
-            const e = err as { message?: string; details?: Record<string, unknown> };
-            const text = translateRefusal(e?.details, (key, params) => this.transloco.translate(key, params), this.transloco.getActiveLang());
-            if (text && e && typeof e === 'object') {
-                try {
-                    e.message = text;
-                } catch { /* a frozen error keeps the server's text */ }
-            }
+            this.inMemberLanguage(err);
             throw err;
         }
+    }
+
+    /** Every page shows `message` (readSignInError): say a refusal in the member's language. */
+    private inMemberLanguage(err: unknown): void {
+        const e = err as { message?: string; details?: Record<string, unknown> };
+        const text = translateRefusal(e?.details, (key, params) => this.transloco.translate(key, params), this.transloco.getActiveLang());
+        if (text && e && typeof e === 'object') {
+            try {
+                e.message = text;
+            } catch { /* a frozen error keeps the server's text */ }
+        }
+    }
+
+    /** A check's reply, its `codeRefused` turned into the error the request callable would have thrown (SP-D9). */
+    private withCodeError<T extends object>(reply: T & CodeRefused): Omit<T, 'codeRefused'> & CheckedCode {
+        const { codeRefused, ...rest } = reply;
+        if (!codeRefused) return rest;
+        const codeError = { ...codeRefused };
+        this.inMemberLanguage(codeError);
+        return { ...rest, codeError };
     }
 
     // --- Email ---------------------------------------------------------------
@@ -177,8 +203,15 @@ export class SignInService {
      * or `unfinished`: a recent sign-up whose record was never made, which the
      * next password sign-in finishes.
      */
-    checkEmail(email: string): Promise<{ status: 'registered' | 'new' | 'no-access' | 'unfinished'; signupOpen: boolean }> {
-        return this.call('checkEmailAccount', { email });
+    async checkEmail(
+        email: string,
+        options: { sendCode?: boolean; name?: string } = {},
+    ): Promise<{ status: 'registered' | 'new' | 'no-access' | 'unfinished'; signupOpen: boolean } & CheckedCode> {
+        // `sendCode`: a new address is emailed its sign-up code in the same call (SP-D6).
+        const send = options.sendCode ? { sendCode: true, language: this.emailLanguage(), ...(options.name ? { name: options.name } : {}) } : {};
+        return this.withCodeError(await this.call<{ status: 'registered' | 'new' | 'no-access' | 'unfinished'; signupOpen: boolean } & CodeRefused>(
+            'checkEmailAccount', { email, ...send },
+        ));
     }
 
     /**
@@ -271,8 +304,9 @@ export class SignInService {
 
     // --- Phone ---------------------------------------------------------------
 
-    checkPhone(phone: string): Promise<PhoneAccount> {
-        return this.call('checkPhoneAccount', { phone });
+    /** `sendCode`: when the next screen is the code screen, the code goes in the same call (SP-D5). */
+    async checkPhone(phone: string, options: { sendCode?: boolean } = {}): Promise<PhoneAccount> {
+        return this.withCodeError(await this.call<PhoneAccount & CodeRefused>('checkPhoneAccount', { phone, ...(options.sendCode ? { sendCode: true } : {}) }));
     }
 
     /**

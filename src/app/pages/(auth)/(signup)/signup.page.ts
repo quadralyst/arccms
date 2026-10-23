@@ -53,8 +53,8 @@ import {
 import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../../../shared/data/countries';
 import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
 import { PhoneCountryComponent } from '../../../../shared/components/phone-country/phone-country.component';
-import { readSignInError, SignInService, type CodeReply } from '../sign-in.service';
-import { RESEND_SECONDS, SentCodes } from '../sent-codes';
+import { readSignInError, SignInService, type CheckedCode, type CodeReply } from '../sign-in.service';
+import { RESEND_SECONDS, SentCodes, sentCodeKey } from '../sent-codes';
 import { trackKeyboard } from '../../../core/layout/keyboard-viewport';
 import { environment } from '../../../../environments/environment';
 import { arcConfig } from '../../../core/config/arc-config';
@@ -698,7 +698,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     const email = this.email;
 
     try {
-      const status = await this.emailStatus(email);
+      // E4 decides whether sign-up needs a code; when it does, the check emails a new
+      // address its code in the same call, unless this page still has one that works
+      // (specs/sign-in-speed-spec.md, SP-D6, SP-D8).
+      const mustVerify = await this.shouldVerifySignup();
+      const sendCode = mustVerify && !this.sentCodes.fresh(sentCodeKey('email', 'signup', email));
+      const { status, checked } = await this.emailStatus(email, sendCode);
 
       // `unfinished`: a recent sign-up whose last step never answered; the
       // password step finishes it (auth.store login).
@@ -722,10 +727,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         // enabled "require signup verification". Otherwise skip straight to account
         // creation (the account is then marked emailVerified: false — see register()).
         // Signup must never block just because email is on.
-        const mustVerify = await this.shouldVerifySignup();
         if (mustVerify) {
           this.goToStep('verify');
-          await this.sendOtp();
+          await this.sendOtp(false, checked);
         } else {
           this.goToStep('signup');
         }
@@ -743,12 +747,17 @@ export default class SignupComponent extends BaseComponent implements OnInit {
    * `email_lookup` check, which can say "new" for a record whose lookup entry
    * was never written; the sign-up then lands on the password step instead.
    */
-  private async emailStatus(email: string): Promise<'registered' | 'new' | 'no-access' | 'unfinished'> {
+  private async emailStatus(
+    email: string,
+    sendCode: boolean,
+  ): Promise<{ status: 'registered' | 'new' | 'no-access' | 'unfinished'; checked?: CheckedCode }> {
     try {
-      return (await this.signIn.checkEmail(email)).status;
+      const name = this.registrationForm.get('name')?.value || undefined;
+      const reply = await this.signIn.checkEmail(email, { sendCode, name });
+      return { status: reply.status, checked: reply };
     } catch {
       const res = await (await this.authStore.checkItemNumberExist(email)).toPromise();
-      return res && res.length ? 'registered' : 'new';
+      return { status: res && res.length ? 'registered' : 'new' };
     }
   }
 
@@ -758,7 +767,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.errorMessage.set('');
     this.channel.set('phone');
     try {
-      const account = await this.signIn.checkPhone(typed);
+      // When the next screen is the code screen, the check sends the code in the same
+      // call, unless this page still has one for the number that works (SP-D5, SP-D8).
+      const sendCode = !this.sentCodes.fresh(sentCodeKey('phone', 'signup', typed)) && !this.sentCodes.fresh(sentCodeKey('phone', 'reset', typed));
+      const account = await this.signIn.checkPhone(typed, { sendCode });
       this.phone.set(account.phone);
       if (account.exists && account.hasPin) {
         this.pinLocked.set(false);
@@ -771,7 +783,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       }
       this.phonePurpose.set(account.exists ? 'reset' : 'signup');
       this.goToStep('verify');
-      await this.sendOtp();
+      await this.sendOtp(false, account);
     } catch (err) {
       this.errorMessage.set(readSignInError(err).message);
     } finally {
@@ -802,8 +814,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   private codeKey(): string {
     return this.channel() === 'phone'
-      ? `phone:${this.phonePurpose()}:${this.phone()}`
-      : `email:${this.emailPurpose()}:${this.email}`;
+      ? sentCodeKey('phone', this.phonePurpose(), this.phone())
+      : sentCodeKey('email', this.emailPurpose(), this.email);
   }
 
   /**
@@ -812,8 +824,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
    * seconds it gives, with a quiet line instead of an error (SC-D2). Says whether
    * a code is on its way, the email engine sent nothing (`not-sent`, a reset code
    * on a site without email), or the request failed (the error is in otpError).
+   * `checked`: the check before this screen already sent it, or was refused
+   * (specs/sign-in-speed-spec.md, SP-D9), so nothing is asked again.
    */
-  async sendOtp(resend = false): Promise<'sent' | 'not-sent' | 'failed'> {
+  async sendOtp(resend = false, checked?: CheckedCode): Promise<'sent' | 'not-sent' | 'failed'> {
     this.otpError.set('');
     this.otpNotice.set('');
     const key = this.codeKey();
@@ -825,15 +839,27 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       return 'sent';
     }
 
+    // The countdown runs from the moment the code is asked for, with a line saying it
+    // is on its way, so Resend is not offered while it is still going (SP-D14).
+    const sending = !checked?.code && !checked?.codeError;
+    if (sending) {
+      this.otpNotice.set(this.t('member.auth.sending_code'));
+      this.startCountdown();
+    }
     try {
       this.testCode.set('');
       const phone = this.channel() === 'phone';
-      const reply: CodeReply & { testCode?: string; testCodeInLogs?: boolean } = phone
+      if (checked?.codeError) throw checked.codeError;
+      const reply: CodeReply & { testCode?: string; testCodeInLogs?: boolean } = checked?.code ?? (phone
         ? await this.signIn.requestPhoneCode(this.phone(), this.phonePurpose())
         : this.emailPurpose() === 'reset'
           ? await this.signIn.requestPasswordReset(this.email)
-          : await this.signIn.requestSignupCode(this.email, this.registrationForm.get('name')?.value || undefined);
-      if (!phone && this.emailPurpose() === 'reset' && reply.sent === false) return 'not-sent';
+          : await this.signIn.requestSignupCode(this.email, this.registrationForm.get('name')?.value || undefined));
+      this.otpNotice.set('');
+      if (!phone && this.emailPurpose() === 'reset' && reply.sent === false) {
+        this.stopCountdown();
+        return 'not-sent';
+      }
       this.testCode.set(reply.testCode ?? '');
       this.testCodeInLogs.set((phone && !!reply.testMode && !reply.testCode) || !!reply.testCodeInLogs);
       const wait = Number(reply.wait);
@@ -847,9 +873,13 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       if (reply.sameCode) this.otpNotice.set(this.t('member.auth.code_sent_again'));
       else if (!reply.testMode) this.toastService.success(this.t(phone ? 'member.auth.code_sent_sms' : 'member.auth.code_sent_email'));
       this.sentCodes.remember(key, { testCode: this.testCode(), testCodeInLogs: this.testCodeInLogs() });
-      this.startCountdown();
+      // Already counting since the send began; a code the check sent starts it now.
+      if (!sending) this.startCountdown();
       return 'sent';
     } catch (error: any) {
+      // Not sent: Resend is there at once, unless the server says to wait.
+      this.otpNotice.set('');
+      this.stopCountdown();
       const failed = readSignInError(error, this.t('member.auth.send_code_failed'));
       const wait = Number(failed.details?.['wait']);
       if (failed.reason === 'wait' && wait > 0) {
@@ -862,6 +892,11 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.otpError.set(failed.message);
       return 'failed';
     }
+  }
+
+  private stopCountdown(): void {
+    clearInterval(this.countdownInterval);
+    this.resendCountdown.set(0);
   }
 
   startCountdown(seconds = RESEND_SECONDS) {

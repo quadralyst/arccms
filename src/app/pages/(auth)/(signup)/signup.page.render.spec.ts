@@ -144,8 +144,10 @@ describe('SignupComponent: the sign-in settings (F20)', () => {
         settingsRead.resolve(OPEN);
         await flush();
         fixture.detectChanges();
-        expect(signIn['checkEmail']).toHaveBeenCalledWith('new@person.com');
+        // Sign-up needs a code here, so the check is asked to send it (specs/sign-in-speed-spec.md, SP-D6).
+        expect(signIn['checkEmail']).toHaveBeenCalledWith('new@person.com', expect.objectContaining({ sendCode: true }));
         expect(page.currentStep()).toBe('verify');
+        // This check sent nothing (a server before SP), so the page asks for the code itself.
         expect(signIn['requestSignupCode']).toHaveBeenCalled();
         expect(page.errorMessage()).toBe('');
         expect(shown()).not.toContain(english('member.auth.check_email_failed'));
@@ -161,9 +163,65 @@ describe('SignupComponent: the sign-in settings (F20)', () => {
 
         settingsRead.resolve(OPEN);
         await flush();
-        expect(signIn['checkPhone']).toHaveBeenCalledWith('+919876543210');
+        expect(signIn['checkPhone']).toHaveBeenCalledWith('+919876543210', { sendCode: true });
         expect(page.currentStep()).toBe('verify');
         expect(page.channel()).toBe('phone');
+    });
+
+    it('a code the check sent goes straight to the code boxes, with no second call (specs/sign-in-speed-spec.md, SP-D5)', async () => {
+        signIn['checkPhone'].mockResolvedValue({
+            phone: '+919876543210', exists: false, hasPin: false, signupOpen: true,
+            code: { sent: true, phone: '+919876543210', testMode: true, testCode: '482913' },
+        });
+        settingsRead.resolve(OPEN);
+        render();
+        typed('98765 43210');
+        page.handleSubmit();
+        await flush();
+        fixture.detectChanges();
+        expect(page.currentStep()).toBe('verify');
+        expect(signIn['requestPhoneCode']).not.toHaveBeenCalled();
+        expect(page.testCode()).toBe('482913');
+        expect(page.resendCountdown()).toBeGreaterThan(55);
+        expect(shown()).not.toContain(english('member.auth.sending_code'));
+    });
+
+    it('a send the check was refused shows on the code screen, with Resend there at once (SP-D7, SP-D9)', async () => {
+        signIn['checkPhone'].mockResolvedValue({
+            phone: '+919876543210', exists: false, hasPin: false, signupOpen: true,
+            codeError: { code: 'resource-exhausted', message: 'Too many codes for this number.', details: { reason: 'too-many-codes' } },
+        });
+        settingsRead.resolve(OPEN);
+        render();
+        typed('98765 43210');
+        page.handleSubmit();
+        await flush();
+        fixture.detectChanges();
+        expect(page.currentStep()).toBe('verify');
+        expect(signIn['requestPhoneCode']).not.toHaveBeenCalled();
+        expect(page.otpError()).toBe('Too many codes for this number.');
+        expect(page.resendCountdown()).toBe(0);
+    });
+
+    it('while the code is on its way: the countdown runs and says so, so Resend is not offered (SP-D14)', async () => {
+        const sending = later<Record<string, unknown>>();
+        signIn['requestPhoneCode'].mockReturnValue(sending.promise);
+        settingsRead.resolve(OPEN);
+        render();
+        typed('98765 43210');
+        page.handleSubmit();
+        await flush();
+        fixture.detectChanges();
+        expect(page.currentStep()).toBe('verify');
+        expect(page.resendCountdown()).toBeGreaterThan(55);
+        expect(shown()).toContain(english('member.auth.sending_code'));
+        expect(fixture.nativeElement.querySelector('#timer a')).toBeNull();
+
+        sending.resolve({ sent: true, testMode: true, testCode: '482913' });
+        await flush();
+        fixture.detectChanges();
+        expect(shown()).not.toContain(english('member.auth.sending_code'));
+        expect(page.testCode()).toBe('482913');
     });
 
     it('says the sign-in options could not be loaded when the read fails, and tries again on the next Continue', async () => {
