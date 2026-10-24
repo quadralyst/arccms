@@ -1,5 +1,6 @@
 import { db } from '../init.js';
 import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings, getAboutConfig } from '../shared/site-settings.js';
+import { siteTimeZone } from '../shared/time-zone.js';
 import { buildSearchWidget } from '../search/widget.js';
 import {
     ContentTranslation,
@@ -50,26 +51,23 @@ import { arcHostingSite } from '../arc-config.js';
 // ─── Private Helpers ────────────────────────────────────────────────────────
 
 /**
- * Format a Firestore Timestamp or date value to a human-readable string.
+ * Format a Firestore Timestamp or date value to a human-readable string, in the page's
+ * language and the site's time zone (docs/app/clock-and-zones.html).
  * Handles Firestore Timestamp objects ({ seconds, nanoseconds }) and Date/string values.
  */
-function formatContentDate(date: any, lang = 'en'): string {
+function formatContentDate(date: any, lang = 'en', timeZone = 'UTC'): string {
     if (!date) return '';
     const dateObj = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-    try {
-        return dateObj.toLocaleDateString(lang, {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
-    } catch {
-        // An unknown locale must not abort a deploy — fall back to English.
-        return dateObj.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
+    const options = { year: 'numeric', month: 'long', day: 'numeric' } as const;
+    // An unknown locale or zone must not abort a deploy: English, then UTC.
+    for (const [locale, zone] of [[lang, timeZone], ['en-US', timeZone], ['en-US', 'UTC']]) {
+        try {
+            return dateObj.toLocaleDateString(locale, { ...options, timeZone: zone });
+        } catch {
+            // try the next
+        }
     }
+    return '';
 }
 
 /**
@@ -107,13 +105,14 @@ export function buildTemplateData(
     defaultLang = 'en',
     translation?: ContentTranslation,
     author: AuthorProfile | null = null,
+    timeZone = 'UTC',
 ): Record<string, any> {
     const readTime = content.readTime || calculateReadingTime(content.content || '');
-    const publishedOn = formatContentDate(content.publishedOn, lang);
+    const publishedOn = formatContentDate(content.publishedOn, lang, timeZone);
     // "Updated" is shown only when the author marked a real revision after
     // publishing; templates gate on `updatedOnDisplay` with data-arc-if.
     const dates = resolveContentDates(content);
-    const updatedOn = dates.isUpdated ? formatContentDate(content.updatedOn, lang) : '';
+    const updatedOn = dates.isUpdated ? formatContentDate(content.updatedOn, lang, timeZone) : '';
 
     // Build canonical share URL — language variants share their content's
     // canonicalUrl only when the author set one explicitly.
@@ -373,6 +372,7 @@ export async function generateAndDeployContentDetailPage(
             defaultLang,
             translations.get(lang),
             author,
+            siteTimeZone(localization),
         );
 
         const tagsData =
@@ -409,7 +409,7 @@ export async function generateAndDeployContentDetailPage(
             TemplateHydrationService.applyStrings(templateHtml, pageStrings), siteInfo));
         const localizedTemplate = fromTypes.html;
         const itemsFromType = await readItemsFromType(
-            fromTypes.loops, { lang, defaultLang, type: contentTypeSlug, id: docId }, itemsFromTypeCache);
+            fromTypes.loops, { lang, defaultLang, type: contentTypeSlug, id: docId, timeZone: siteTimeZone(localization) }, itemsFromTypeCache);
 
         let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, {
             // Repeating custom fields (Info Cards) become named loops, so a

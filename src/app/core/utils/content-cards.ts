@@ -12,16 +12,23 @@ import { calculateReadingTime } from './reading-time.util';
  * checks that the two give the same cards.
  */
 
-/** "Jan 15, 2024" in the page's language; English when the locale is unknown. */
-export function formatContentDateShort(date: any, lang = 'en'): string {
+/**
+ * "Jan 15, 2024" in the page's language and the site's time zone (docs/app/clock-and-zones.html);
+ * English when the locale is unknown, UTC when the zone is.
+ */
+export function formatContentDateShort(date: any, lang = 'en', timeZone = 'UTC'): string {
     if (!date) return '';
     const dateObj = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-    try {
-        return dateObj.toLocaleDateString(lang, { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch {
-        // An unknown locale must not abort a deploy.
-        return dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    const options = { year: 'numeric', month: 'short', day: 'numeric' } as const;
+    // An unknown locale or zone must not abort a deploy: English, then UTC.
+    for (const [locale, zone] of [[lang, timeZone], ['en-US', timeZone], ['en-US', 'UTC']]) {
+        try {
+            return dateObj.toLocaleDateString(locale, { ...options, timeZone: zone });
+        } catch {
+            // try the next
+        }
     }
+    return '';
 }
 
 /** The first 25 words of the meta description or the body, without markup. */
@@ -44,6 +51,7 @@ export function cardData(
     lang: string,
     prefix: string,
     hasPublicPages = true,
+    timeZone = 'UTC',
 ): Record<string, any> {
     const tagsData = localized['tagsWithColors'] ||
         (localized['tags'] || []).map((t: string) => ({ name: t, color: '#6b7280' }));
@@ -60,7 +68,7 @@ export function cardData(
         coverImage: localized['coverImage'] || '',
         excerpt: getExcerpt(localized),
         content: localized['content'] || '',
-        publishedOn: formatContentDateShort(localized['publishedOn'], lang),
+        publishedOn: formatContentDateShort(localized['publishedOn'], lang, timeZone),
         readTime: localized['readTime'] || calculateReadingTime(localized['content'] || ''),
         // The credited author's name (D2); falls back to a legacy `author` custom field.
         authorName: localized['authorName'] || '',

@@ -17,6 +17,7 @@ import { entryOrderOf } from '../utils/display-order';
 import { ItemsFromTypeLoop, pickItemsFromType } from '../utils/items-from-type';
 import { ContentType, contentTypeName } from '../../pages/admin/contents/content-types/content-types.model';
 import { IContentTranslation, mergeTranslation } from '../../pages/admin/contents/draft-content-store/content-translation.model';
+import { ArcZones } from '../time/arc-zones.service';
 
 /** The page whose template holds the loop. */
 export interface ItemsFromTypePage {
@@ -34,6 +35,8 @@ export interface ItemsFromTypePage {
 @Injectable({ providedIn: 'root' })
 export class ItemsFromTypeService {
     private injector = inject(Injector);
+    /** The site's zone, for the cards' dates (docs/app/clock-and-zones.html). */
+    private zones = inject(ArcZones);
 
     private get firestore(): Firestore {
         return this.injector.get(Firestore);
@@ -51,7 +54,7 @@ export class ItemsFromTypeService {
             return await Promise.all(shown.map(async (entry) => {
                 const translation = page.translated ? await this.readTranslation(loop.type, entry['id'], page.lang) : null;
                 return cardData({ ...mergeTranslation(entry, translation), id: entry['id'] },
-                    loop.type, typeName, page.lang, page.langPrefix, type.hasPublicUrl !== false);
+                    loop.type, typeName, page.lang, page.langPrefix, type.hasPublicUrl !== false, this.zones.site());
             }));
         } catch (error) {
             console.error(`Could not read the entries of '${loop.type}' for a data-arc-items-src loop:`, error);

@@ -34,6 +34,7 @@ import {
     normalizeLocalization,
 } from '../shared/site-settings.js';
 import { db } from '../init.js';
+import { siteTimeZone, validTimeZone } from '../shared/time-zone.js';
 
 describe('site-settings', () => {
     beforeEach(() => {
@@ -370,6 +371,26 @@ describe('site-settings', () => {
     });
 
     // ─── localization (M1) ─────────────────────────────────────────────────
+
+    describe("the site's time zone (specs/clock-and-zones-spec.md, T-D18)", () => {
+        it('keeps a zone name the runtime knows, and drops an offset, an abbreviation or nonsense', () => {
+            const base = { defaultLanguage: 'en', enabledLanguages: [{ code: 'en', label: 'English' }] };
+            expect(normalizeLocalization({ ...base, timeZone: 'Europe/Zurich' }).timeZone).toBe('Europe/Zurich');
+            expect(normalizeLocalization({ ...base, timeZone: 'utc' }).timeZone).toBe('UTC');
+            for (const bad of ['+05:30', 'CET', 'Etc/GMT+5', 'Mars/Olympus', 42, null]) {
+                expect(normalizeLocalization({ ...base, timeZone: bad }), String(bad)).not.toHaveProperty('timeZone');
+            }
+        });
+
+        it('dates pages in it, or UTC while the site has none', () => {
+            expect(siteTimeZone({ timeZone: 'Asia/Kolkata' })).toBe('Asia/Kolkata');
+            expect(siteTimeZone({})).toBe('UTC');
+            expect(siteTimeZone(null)).toBe('UTC');
+            expect(siteTimeZone({ timeZone: '+01:00' })).toBe('UTC');
+            expect(validTimeZone('America/Phoenix')).toBe('America/Phoenix');
+            expect(validTimeZone('EST')).toBeNull();
+        });
+    });
 
     describe('normalizeLocalization', () => {
         const ENGLISH = { code: 'en', label: 'English', nativeLabel: 'English' };

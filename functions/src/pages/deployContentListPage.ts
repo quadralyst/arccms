@@ -1,5 +1,6 @@
 import { db } from '../init.js';
 import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings, getAboutConfig } from '../shared/site-settings.js';
+import { siteTimeZone } from '../shared/time-zone.js';
 import { buildSearchWidget } from '../search/widget.js';
 import {
     ContentTranslation,
@@ -162,7 +163,7 @@ export async function generateAndDeployContentListPage(
         // as a broken site, and partial translation is the normal state.
         const listData = contents.map((content: Record<string, any>) => cardData(
             { id: content.id, ...mergeTranslation(content, translationsByDoc.get(content.id)?.get(lang)) },
-            contentTypeSlug, typeName, lang, prefix,
+            contentTypeSlug, typeName, lang, prefix, true, siteTimeZone(localization),
         ));
 
         // Hydrate: process loops first, then page-level bindings

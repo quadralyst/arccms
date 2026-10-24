@@ -36,6 +36,8 @@ export interface ItemsFromTypePage {
     defaultLang: string;
     type: string;
     id: string;
+    /** The site's time zone, for the cards' dates (docs/app/clock-and-zones.html). Default UTC. */
+    timeZone?: string;
 }
 
 /**
@@ -92,7 +94,7 @@ export async function readItemsFromType(
                         () => collection.doc(entry['id']).collection('translations').doc(page.lang).get());
                     if (tr.exists) translation = { ...(tr.data() as ContentTranslation), lang: page.lang };
                 }
-                return cardData({ ...mergeTranslation(entry, translation), id: entry['id'] }, loop.type, typeName, page.lang, prefix, type['hasPublicUrl'] !== false);
+                return cardData({ ...mergeTranslation(entry, translation), id: entry['id'] }, loop.type, typeName, page.lang, prefix, type['hasPublicUrl'] !== false, page.timeZone);
             }));
         } catch (error) {
             // One unreadable type must not cost the page: its loop is emptied.

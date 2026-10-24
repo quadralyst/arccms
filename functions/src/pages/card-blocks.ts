@@ -1,6 +1,7 @@
 import type * as cheerio from 'cheerio';
 import { db } from '../init.js';
 import { getLocalizationSettings, getPartials, getUiStrings, type Partials } from '../shared/site-settings.js';
+import { siteTimeZone } from '../shared/time-zone.js';
 import { loadSiteTemplate } from '../shared/site-files.js';
 import { langPrefix, mergeTranslation, type ContentTranslation } from '../shared/content-translation.js';
 import { contentTypeDescription, contentTypeName } from '../shared/content-type-names.js';
@@ -132,13 +133,15 @@ async function renderCardBlock(
     // In the type's entry order: newest first, or the order an admin arranged (SS2).
     const entries = await readPublishedInDisplayOrder(slug, type, count);
     const typeName = contentTypeName(type, lang);
+    // The cards' dates in the site's zone (docs/app/clock-and-zones.html); the settings read is cached.
+    const timeZone = siteTimeZone(await getLocalizationSettings());
     const items = await Promise.all(entries.map(async (content) => {
         let translation: ContentTranslation | undefined;
         if (lang !== defaultLang) {
             const tr = await db.collection(collectionName).doc(content.id).collection('translations').doc(lang).get();
             if (tr.exists) translation = { ...(tr.data() as ContentTranslation), lang };
         }
-        return cardData({ ...mergeTranslation(content, translation), id: content.id }, slug, typeName, lang, prefix, type.hasPublicUrl !== false);
+        return cardData({ ...mergeTranslation(content, translation), id: content.id }, slug, typeName, lang, prefix, type.hasPublicUrl !== false, timeZone);
     }));
 
     const template = await loadSiteTemplate(($el.attr('template-folder') || '').trim() || type.templateFolder, 'partials');

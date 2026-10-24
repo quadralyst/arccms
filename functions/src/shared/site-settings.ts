@@ -2,6 +2,7 @@ import { db } from '../init.js';
 import { arcHostingOrigin, arcHostingSite } from '../arc-config.js';
 import { clearSiteFilesCache, getSiteFile } from './site-files.js';
 import { DEFAULT_MAX_IMAGE_SIZE } from './image-sizes.js';
+import { validTimeZone } from './time-zone.js';
 
 export interface Partials {
     headerHtml: string;
@@ -59,6 +60,8 @@ export interface Language {
 export interface LocalizationSettings {
     defaultLanguage: string;
     enabledLanguages: Language[];
+    /** The site's time zone, an IANA name; absent until set (docs/app/clock-and-zones.html). */
+    timeZone?: string;
 }
 
 const DEFAULT_LANGUAGE_CODE = 'en';
@@ -239,7 +242,8 @@ export function normalizeLocalization(raw: unknown): LocalizationSettings {
         ...languages.filter((l) => l.code !== defaultLanguage),
     ];
 
-    return { defaultLanguage, enabledLanguages: ordered };
+    const timeZone = validTimeZone(data.timeZone);
+    return { defaultLanguage, enabledLanguages: ordered, ...(timeZone ? { timeZone } : {}) };
 }
 
 /**

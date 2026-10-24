@@ -56,4 +56,15 @@ describe('content cards', () => {
         expect(cardData({ content: 'word '.repeat(400) }, 't', 'T', 'en', '')['readTime']).toBeGreaterThan(1);
         expect(cardData({}, 't', 'T', 'en', '')['publishedOn']).toBe('');
     });
+    it("date a card in the site's time zone, in both copies (specs/clock-and-zones-spec.md, T5)", () => {
+        // 22:30 UTC on 31 March 2026 is 00:30 on 1 April in Zurich, 15:30 on 31 March in Phoenix.
+        const late = { ...ENTRY, publishedOn: { seconds: Date.parse('2026-03-31T22:30:00Z') / 1000 } };
+        expect(cardData(late, 'events', 'Events', 'en', '')['publishedOn']).toBe('Mar 31, 2026');
+        expect(cardData(late, 'events', 'Events', 'en', '', true, 'Europe/Zurich')['publishedOn']).toBe('Apr 1, 2026');
+        expect(cardData(late, 'events', 'Events', 'en', '', true, 'America/Phoenix')['publishedOn']).toBe('Mar 31, 2026');
+        expect(published.cardData(late, 'events', 'Events', 'en', '', true, 'Europe/Zurich'))
+            .toEqual(cardData(late, 'events', 'Events', 'en', '', true, 'Europe/Zurich'));
+        // A zone the runtime does not know falls back to UTC rather than stopping a deploy.
+        expect(published.cardData(late, 'events', 'Events', 'en', '', true, 'Not/AZone')['publishedOn']).toBe('Mar 31, 2026');
+    });
 });

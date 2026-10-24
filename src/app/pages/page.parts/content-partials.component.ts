@@ -22,6 +22,7 @@ import { ContentsService } from '../admin/contents/content-store/published-conte
 import { IContentTranslation, mergeTranslation } from '../admin/contents/draft-content-store/content-translation.model';
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { siteTemplateUrl } from '../../core/site/site';
+import { ArcZones } from '../../core/time/arc-zones.service';
 
 /** The most entries a card block shows, as when published (functions/src/pages/card-blocks.ts). */
 export const MAX_CARD_BLOCK_COUNT = 50;
@@ -103,6 +104,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     }
 
     private http = inject(HttpClient);
+    /** The site's zone, so a card's date matches the published page (docs/app/clock-and-zones.html). */
+    private zones = inject(ArcZones);
     private platformId = inject(PLATFORM_ID);
     private transferState = inject(TransferState);
 
@@ -366,7 +369,7 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         // The same cards as a published card block (core/utils/content-cards.ts).
         const typeName = contentTypeName(contentType, lang);
         const listData = contents.map(content =>
-            cardData(content as unknown as Record<string, any>, contentType.slug, typeName, lang || 'en', this.langPrefix(), hasPublicPages));
+            cardData(content as unknown as Record<string, any>, contentType.slug, typeName, lang || 'en', this.langPrefix(), hasPublicPages, this.zones.site()));
 
         // Chrome in the page's language first, then loops, then page-level data:
         // the same order as the list and detail pages.

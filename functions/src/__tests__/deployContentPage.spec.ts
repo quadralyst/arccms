@@ -762,6 +762,16 @@ describe('deployContentPage', () => {
             expect(html).not.toContain('localhost');
         });
 
+        it("dates the page in the site's time zone, UTC while it has none (specs/clock-and-zones-spec.md, T5)", () => {
+            // 22:30 UTC on 31 March 2026 is 00:30 on 1 April in Zurich.
+            const late = { ...MOCK_CONTENT, publishedOn: { seconds: Date.parse('2026-03-31T22:30:00Z') / 1000 } };
+            const site = { siteName: 'Site', baseUrl: 'https://example.com' };
+            const type = { slug: 'articles', name: 'Articles' };
+            expect(buildTemplateData(late, type, site).publishedOn).toBe('March 31, 2026');
+            expect(buildTemplateData(late, type, site, 'en', 'en', undefined, null, 'Europe/Zurich').publishedOn).toBe('April 1, 2026');
+            expect(buildTemplateData(late, type, site, 'en', 'en', undefined, null, 'Not/AZone').publishedOn).toBe('March 31, 2026');
+        });
+
         it('passes the Next and Previous links to the template', () => {
             const nextContent = { id: 'n1', title: 'Part three', summary: '', slug: 'part-three' };
             const previousContent = { id: 'p1', title: 'Part one', summary: '', slug: 'part-one' };
@@ -1238,8 +1248,9 @@ describe('deployContentPage', () => {
             ];
             expect(mockReadItemsFromType).toHaveBeenCalledTimes(2);
             expect(mockReadItemsFromType.mock.calls[0][0]).toEqual(loops);
-            expect(mockReadItemsFromType.mock.calls[0][1]).toEqual({ lang: 'en', defaultLang: 'en', type: 'articles', id: 'doc123' });
-            expect(mockReadItemsFromType.mock.calls[1][1]).toEqual({ lang: 'hi', defaultLang: 'en', type: 'articles', id: 'doc123' });
+            // timeZone: the site's, for the cards' dates; UTC while the site has none.
+            expect(mockReadItemsFromType.mock.calls[0][1]).toEqual({ lang: 'en', defaultLang: 'en', type: 'articles', id: 'doc123', timeZone: 'UTC' });
+            expect(mockReadItemsFromType.mock.calls[1][1]).toEqual({ lang: 'hi', defaultLang: 'en', type: 'articles', id: 'doc123', timeZone: 'UTC' });
             expect(mockReadItemsFromType.mock.calls[1][2]).toBe(mockReadItemsFromType.mock.calls[0][2]);
 
             const files: Array<{ path: string; content: string }> = mockDeployBatchToHosting.mock.calls[0][1].files;

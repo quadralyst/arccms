@@ -61,6 +61,7 @@ import {
     localizedPageTitle,
     mergeTranslation,
 } from '../admin/contents/draft-content-store/content-translation.model';
+import { ArcZones } from '../../core/time/arc-zones.service';
 
 /**
  * Dynamic Content Detail Component
@@ -139,6 +140,8 @@ const MAX_BLOCK_NODES = 12;
 })
 export class ContentDetailComponent extends BaseComponent implements OnInit, OnDestroy {
     private route = inject(ActivatedRoute);
+    /** The site's zone, so the dates match the published page (docs/app/clock-and-zones.html). */
+    private zones = inject(ArcZones);
     private http = inject(HttpClient);
     private titleService = inject(Title);
     private metaService = inject(Meta);
@@ -581,11 +584,11 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         };
     }
 
-    /** "January 5, 2026" in the page's language, as on a published page. */
+    /** "January 5, 2026" in the page's language and the site's time zone, as on a published page. */
     formatContentDate(date: any): string {
         if (!date) return '';
         const dateObj = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-        const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+        const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric', timeZone: this.zones.site() };
         try {
             return dateObj.toLocaleDateString(this.pageLang() || 'en-US', options);
         } catch {

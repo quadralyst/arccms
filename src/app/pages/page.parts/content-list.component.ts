@@ -34,6 +34,7 @@ import {
     IContentTranslation,
     mergeTranslation,
 } from '../admin/contents/draft-content-store/content-translation.model';
+import { ArcZones } from '../../core/time/arc-zones.service';
 
 /**
  * Dynamic Content List Component
@@ -102,6 +103,8 @@ import {
 })
 export class ContentListComponent extends BaseComponent implements OnInit, OnDestroy {
     private document = inject(DOCUMENT);
+    /** The site's zone, so a card's date matches the published page (docs/app/clock-and-zones.html). */
+    private zones = inject(ArcZones);
     // Router and ActivatedRoute are already injected in BaseComponent as 'router' and 'activatedRoute'
     private http = inject(HttpClient);
     private titleService = inject(Title);
@@ -459,7 +462,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
         const prefix = lang ? `/${lang}` : '';
         const typeName = contentTypeName(contentType, lang);
         const listData = contents.map(content =>
-            cardData(content as unknown as Record<string, any>, contentType.slug, typeName, lang || 'en', prefix));
+            cardData(content as unknown as Record<string, any>, contentType.slug, typeName, lang || 'en', prefix, true, this.zones.site()));
 
         // First process loops with list data
         // See ContentDetailComponent — chrome before loops and bindings.

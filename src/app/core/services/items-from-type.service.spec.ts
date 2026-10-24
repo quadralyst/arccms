@@ -5,6 +5,7 @@
  */
 import { TestBed } from '@angular/core/testing';
 import { Firestore, getDoc, getDocs } from '@angular/fire/firestore';
+import { ArcZones } from '../time/arc-zones.service';
 import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
 import { ItemsFromTypePage, ItemsFromTypeService } from './items-from-type.service';
 
@@ -70,7 +71,8 @@ describe('ItemsFromTypeService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         TestBed.configureTestingModule({
-            providers: [ItemsFromTypeService, { provide: Firestore, useValue: {} }],
+            // The site's zone for the cards' dates (docs/app/clock-and-zones.html): a fixed one, so only the entries are read here.
+            providers: [ItemsFromTypeService, { provide: Firestore, useValue: {} }, { provide: ArcZones, useValue: { site: () => 'Europe/Zurich' } }],
         });
         service = TestBed.inject(ItemsFromTypeService);
     });

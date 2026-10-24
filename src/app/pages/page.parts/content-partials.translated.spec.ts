@@ -17,6 +17,7 @@ import { ContentTypesStore } from '../admin/contents/content-types/content-types
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { LocalizationService } from '../../core/services/localization.service';
+import { ArcZones } from '../../core/time/arc-zones.service';
 import { MediaSettingsService } from '../../core/services/media-settings.service';
 
 const TEMPLATE = '<h2>{{ sectionTitle }}</h2><ul data-arc-loop="items"><li><a href="{{ url }}">{{ title }}</a></li></ul>'
@@ -42,6 +43,7 @@ describe('ContentPartialsComponent on a translated page', () => {
                 { provide: ContentsService, useValue: { getTranslation } },
                 { provide: UiStringsService, useValue: { activeLang: signal('hi'), strings: signal({ latest_of_type: 'नवीनतम {{ contentType }}' }) } },
                 { provide: LocalizationService, useValue: { defaultLanguage: signal('en') } },
+                { provide: ArcZones, useValue: { site: () => 'UTC' } },
                 { provide: MediaSettingsService, useValue: { load: vi.fn(), maxSize: signal(1200) } },
                 { provide: Router, useValue: { navigate: vi.fn() } },
                 { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => null } }, paramMap: of({ get: () => null, keys: [] }), queryParams: of({}) } },
