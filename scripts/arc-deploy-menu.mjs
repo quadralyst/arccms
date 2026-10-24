@@ -20,7 +20,7 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from '
 import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-    DEFAULT_DATABASE_ID, ROOT, configForProject, isMarkedProduction, readArcInstallConfig, readFirebaseAliases,
+    DEFAULT_DATABASE_ID, ROOT, configForProject, hasInstallSettings, isMarkedProduction, readArcInstallConfig, readFirebaseAliases,
 } from './arc-install-config.mjs';
 import {
     checkFunctionsRegion, cliActiveProject, functionsRegionOf, generatedConfigPath, runDeploy,
@@ -65,18 +65,8 @@ export function needsTypedConfirmation(alias, projectId, markedProduction = fals
 // Step 2: the install settings (review O5)
 // ---------------------------------------------------------------------------
 
-/**
- * Whether arccms.config.json sets this project up: its own entry, or shared
- * keys that change something. A shared `databaseId: "(default)"` or `profile:
- * "standalone"` is only the default written down, so a project with nothing
- * else is still offered the first-time setup.
- */
-export function hasInstallSettings(file, projectId) {
-    const { projects, ...shared } = file ?? {};
-    const meaningful = Object.entries(shared).filter(([key, value]) =>
-        !(key === 'databaseId' && value === DEFAULT_DATABASE_ID) && !(key === 'profile' && value === 'standalone'));
-    return meaningful.length > 0 || !!(projects && projects[projectId]);
-}
+// hasInstallSettings lives in arc-install-config.mjs, which the deploy shares; re-exported here.
+export { hasInstallSettings };
 
 /** The committed arc-install.ts entry for a project, or null. */
 export function committedInstallEntry(tsText, projectId) {

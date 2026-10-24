@@ -67,7 +67,7 @@ npm run deploy -- --only hosting --project default</code></pre>
         <tr><td><code>--confirm-production=&lt;project id&gt;</code></td><td>Needed to deploy a project marked production (<code>arc:configure --production=yes</code>): the id of the project this deploys to. Without it, a terminal asks for the id and anywhere else nothing is deployed. An id that is not the target's stops any deploy. Not passed on to Firebase</td></tr>
         <tr><td><code>--probe</code></td><td>After a deploy that included functions, checks that every callable can be reached from the browser (see <a href="#check-the-callables">Check the callables</a>)</td></tr>
         <tr><td><code>--non-interactive</code></td><td>A Firebase CLI option, passed on: the CLI asks nothing</td></tr>
-        <tr><td><code>--config &lt;file&gt;</code></td><td>A Firebase config of your own. Otherwise the project's generated <code>firebase.&lt;projectId&gt;.json</code> is used when <code>npm run arc:configure</code> wrote one, else <code>firebase.json</code></td></tr>
+        <tr><td><code>--config &lt;file&gt;</code></td><td>A Firebase config of your own. Otherwise the project's generated <code>firebase.&lt;projectId&gt;.json</code> is used when <code>npm run arc:configure</code> wrote one, else <code>firebase.json</code>. Every deploy rebuilds that file from <code>firebase.json</code> and <code>arccms.config.json</code> first, and says so when it changed, so what you add to <code>firebase.json</code> reaches the deploy</td></tr>
       </tbody>
     </table>
 

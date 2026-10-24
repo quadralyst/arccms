@@ -57,7 +57,8 @@ import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
-    DEFAULT_DATABASE_ID, REQUIRED_WEB_CONFIG_KEYS, WEB_CONFIG_KEYS, configForProject, readFirebaseAliases, resolveProjectId, webConfigPath,
+    DEFAULT_DATABASE_ID, REQUIRED_WEB_CONFIG_KEYS, WEB_CONFIG_KEYS, configForProject, hasInstallSettings, readFirebaseAliases, resolveProjectId,
+    webConfigPath,
 } from './arc-install-config.mjs';
 import { DEFAULT_FUNCTIONS_REGION, functionsRegionFor } from './arc-region.mjs';
 import { isArcCmsRepository } from './check-core.mjs';
@@ -472,6 +473,30 @@ export function renderFirebaseConfig(base, config) {
     if (hostingOff) delete out.hosting;
     if (sharesDefaultBucket(config)) delete out.storage;
     return out;
+}
+
+/**
+ * Rebuilds firebase.<projectId>.json from the committed firebase.json and the project's
+ * settings in arccms.config.json, as arc:configure writes it. Every deploy runs this, so a
+ * change to firebase.json (a Hosting header, a rewrite) reaches a project whose deploys use
+ * the generated file; it used to be written once and kept whatever firebase.json said then.
+ *
+ * Only for a project arccms.config.json sets up, and only to write the file: a project
+ * whose settings now need no generated file keeps the one it has until arc:configure
+ * removes it, and nothing else arc:configure writes is touched. Gives what it did:
+ * 'updated', 'created', 'unchanged' or 'skipped'.
+ */
+export function refreshFirebaseConfig(projectId, paths = PATHS) {
+    const file = readJson(paths.config);
+    if (!projectId || !file || !hasInstallSettings(file, projectId)) return 'skipped';
+    const firebase = renderFirebaseConfig(readJson(paths.firebase), normalizeConfig(configForProject(file, projectId)));
+    if (!firebase) return 'skipped';
+    const path = generatedFirebasePath(projectId, paths.root);
+    const text = `${JSON.stringify(firebase, null, 4)}\n`;
+    const current = existsSync(path) ? readFileSync(path, 'utf8') : null;
+    if (current === text) return 'unchanged';
+    writeFileSync(path, text);
+    return current === null ? 'created' : 'updated';
 }
 
 function stripDatabase({ database: _ignored, ...rest }) { return rest; }

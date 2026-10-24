@@ -14,7 +14,10 @@
  * - adds `--config firebase.<projectId>.json` when `npm run arc:configure`
  *   generated one for the target project, so a project set up with a named
  *   database, its own bucket or its own hosting site deploys those. Without that
- *   file this is plain `firebase deploy` against firebase.json;
+ *   file this is plain `firebase deploy` against firebase.json. The file is first
+ *   rebuilt from firebase.json and arccms.config.json (refreshFirebaseConfig), so a
+ *   change to firebase.json reaches it: it used to keep what firebase.json said when
+ *   arc:configure last ran, and a new Hosting header never went live (2026-10-24);
  * - builds the functions (`tsc`) before a deploy that includes them. The CLI
  *   uploads functions/lib as it is, so without this a deploy ships the last
  *   build and new functions are silently missing (found 2026-09-24);
@@ -68,7 +71,7 @@ import {
 } from './arc-install-config.mjs';
 import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
 import { builtArccms, isCloudFunction } from './arc-built-functions.mjs';
-import { main as configure, normalizeConfig } from './arc-configure.mjs';
+import { main as configure, normalizeConfig, refreshFirebaseConfig } from './arc-configure.mjs';
 import { checkSignInSetup, smsBuilt } from './arc-sign-in-setup.mjs';
 import { enabledFeatures } from './arc-features.mjs';
 import { channelDeployArgs, hostingSiteOf, releaseWebsite, withoutHosting } from './arc-hosting-release.mjs';
@@ -517,6 +520,10 @@ export async function runDeploy(args, options = {}) {
     if (deploysFunctions(args) && !options.regionChecked) {
         if (!checkFunctionsRegion(projectId).proceed) return { status: 1, created: [] };
     }
+    // firebase.<projectId>.json is derived from firebase.json: rebuild it first, so a change
+    // there (a Hosting header, a rewrite) reaches this deploy too.
+    const refreshed = (options.refreshConfig ?? refreshFirebaseConfig)(projectId);
+    if (refreshed === 'updated' || refreshed === 'created') console.log(`> ${relative(ROOT, generatedConfigPath(projectId))} rebuilt from firebase.json`);
     const generated = !!projectId && existsSync(generatedConfigPath(projectId));
     // Hosting off (arc:configure --site=none) leaves no hosting in the generated
     // config, so say that plainly rather than pass on the CLI's error (review O2).

@@ -20,7 +20,7 @@
       <tbody>
         <tr><td><code>.firebaserc</code></td><td>No</td><td>Write it in one line, with the aliases the job uses. Optional: every script also takes a project id where it takes an alias.</td></tr>
         <tr><td><code>arccms.config.json</code></td><td>No</td><td><code>npm run arc:configure</code> with flags (below) writes it.</td></tr>
-        <tr><td><code>firebase.&lt;projectId&gt;.json</code></td><td>No</td><td>Written by the same <code>arc:configure</code>, for a project with its own database, bucket, site or functions region.</td></tr>
+        <tr><td><code>firebase.&lt;projectId&gt;.json</code></td><td>No</td><td>Written by the same <code>arc:configure</code>, for a project with its own database, bucket, site or functions region, and rebuilt from <code>firebase.json</code> at the start of every deploy.</td></tr>
         <tr><td><code>functions/.env.&lt;projectId&gt;</code></td><td>No</td><td>Written by the same <code>arc:configure</code>, which keeps every line it does not own. If your own functions read other values from it, write those lines from CI secrets first.</td></tr>
         <tr><td><code>src/environments/firebase-web.&lt;projectId&gt;.ts</code></td><td>Yes</td><td>Committed, so CI has it. <code>arc:configure</code> rewrites it from <code>arccms.config.json</code> and removes it when the config has no web settings for the project, so pass it back with <code>--web-config</code>.</td></tr>
         <tr><td><code>src/environments/arc-install.ts</code></td><td>Yes</td><td>Committed. <code>arc:configure</code> rewrites it with the projects the job configured, which is all the build needs. Never commit it from CI.</td></tr>

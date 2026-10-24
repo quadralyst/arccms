@@ -26,6 +26,19 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const CONFIG_PATH = resolve(ROOT, 'arccms.config.json');
 export const FIREBASERC_PATH = resolve(ROOT, '.firebaserc');
 
+/**
+ * Whether arccms.config.json sets this project up: its own entry, or shared
+ * keys that change something. A shared `databaseId: "(default)"` or `profile:
+ * "standalone"` is only the default written down, so a project with nothing
+ * else is still offered the first-time setup.
+ */
+export function hasInstallSettings(file, projectId) {
+    const { projects, ...shared } = file ?? {};
+    const meaningful = Object.entries(shared).filter(([key, value]) =>
+        !(key === 'databaseId' && value === DEFAULT_DATABASE_ID) && !(key === 'profile' && value === 'standalone'));
+    return meaningful.length > 0 || !!(projects && projects[projectId]);
+}
+
 /** The parsed file, or `{}` when there is none. Throws on a file that is not valid JSON. */
 export function readArcInstallConfig(path = CONFIG_PATH) {
     if (!existsSync(path)) return {};
