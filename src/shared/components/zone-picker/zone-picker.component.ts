@@ -120,9 +120,11 @@ export class ZonePickerComponent {
         const rank = (entry: ZoneEntry): number => {
             const city = zoneCity(entry.zone).toLowerCase();
             if (city.startsWith(text) || entry.zone.toLowerCase() === text) return 0;
-            if (entry.long.startsWith(text) || entry.label.toLowerCase().includes(text)) return 1;
-            if (entry.zone.toLowerCase().includes(text)) return 2;
-            if (entry.haystack.includes(text)) return 3;
+            // A whole word of the long name first: "india" finds India Standard Time before Indian Ocean Time.
+            if (entry.long.startsWith(`${text} `) || entry.label.toLowerCase().includes(text)) return 1;
+            if (entry.long.startsWith(text)) return 2;
+            if (entry.zone.toLowerCase().includes(text)) return 3;
+            if (entry.haystack.includes(text)) return 4;
             return -1;
         };
         return all

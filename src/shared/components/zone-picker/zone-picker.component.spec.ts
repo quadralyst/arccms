@@ -56,7 +56,10 @@ describe('arc-zone-picker (specs/clock-and-zones-spec.md, T-D16)', () => {
         type('zur');
         expect(options()[0].dataset['zone']).toBe('Europe/Zurich');
         type('india');
-        expect(options().map((o) => o.dataset['zone'])).toContain('Asia/Kolkata');
+        // India Standard Time before Indian Ocean Time; Indianapolis, a city, comes first.
+        const india = options().map((o) => o.dataset['zone']);
+        expect(india.indexOf('Asia/Kolkata')).toBeLessThan(india.indexOf('Indian/Chagos'));
+        expect(india.indexOf('Asia/Kolkata')).toBeLessThanOrEqual(2); // after Indianapolis and Colombo, which also keeps India Standard Time
         type('phoenix');
         options()[0].click();
         fixture.detectChanges();
