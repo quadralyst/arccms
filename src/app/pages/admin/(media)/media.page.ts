@@ -1,5 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
-import { DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
+import { NgClass, NgTemplateOutlet } from '@angular/common';
+import { ArcTimePipe } from '../../../core/time/arc-time.pipe';
 import { TranslocoPipe } from '@jsverse/transloco';
 import {
     ChangeDetectionStrategy,
@@ -193,7 +194,7 @@ export function mediaFileRef(file: IMediaFile): MediaFileRef {
         MatPaginatorModule,
         NgClass,
         NgTemplateOutlet,
-        DatePipe,
+        ArcTimePipe,
         MatFormFieldModule,
         MatInputModule,
         FormsModule,

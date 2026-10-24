@@ -56,7 +56,7 @@
 
                         <!-- Date Type -->
                         <ng-container *ngIf="col.type === 'date'">
-                            {{ resolveDate(row[col.key]) | date: (col.dateFormat || 'MMM d, y') }}
+                            {{ resolveDate(row[col.key]) | arcTime: (col.dateFormat || 'MMM d, y') : zoneOf(col, row) }}
                         </ng-container>
 
                         <!-- Code Type -->

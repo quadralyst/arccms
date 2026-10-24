@@ -7,6 +7,8 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { map } from 'rxjs';
 import { RowActionsComponent, ROW_ACTIONS_COMPACT_QUERY } from '../row-actions/row-actions.component';
 import { RowAction, RowActionsPlan, planRowActions } from '../row-actions/row-actions';
+import { ArcTimePipe } from '../../../app/core/time/arc-time.pipe';
+import type { ZoneRef } from '../../../app/core/time/arc-time.service';
 
 /** A row action. See row-actions.ts for how a table lays them out. */
 export type TableAction = RowAction;
@@ -29,7 +31,17 @@ export interface TableColumn {
     sortable?: boolean;
 
     // Config-driven options replacing TemplateRef
-    dateFormat?: string; // for 'date' type
+    /**
+     * For 'date' type: an Angular date pattern (`'dd MMM yyyy'`) or an arcTime format
+     * (`'dateTime'`, `'ago'`). Default `'MMM d, y'`.
+     */
+    dateFormat?: string;
+    /**
+     * For 'date' type: the zone to show it in (docs/app/clock-and-zones.html). The reader's
+     * own by default; `'site'`, an IANA name, or a function of the row for a table of places:
+     * `row => ({ zone: row.shopZone, name: row.shopName })`.
+     */
+    dateZone?: ZoneRef | ((row: any) => ZoneRef);
     transformFn?: (row: any) => any;
     classFn?: (row: any) => string;
     /** Hover text for the cell — useful when a short label needs explaining. */
@@ -72,7 +84,7 @@ export interface TableColumn {
     templateUrl: './global-table.component.html',
     styleUrls: ['./global-table.component.scss'],
     standalone: true,
-    imports: [CommonModule, TranslocoPipe, TranslatablePipe, RowActionsComponent]
+    imports: [CommonModule, TranslocoPipe, TranslatablePipe, RowActionsComponent, ArcTimePipe]
 })
 export class GlobalTableComponent implements DoCheck {
     /**
@@ -212,6 +224,11 @@ export class GlobalTableComponent implements DoCheck {
             event.stopPropagation();
             this.onActionClick(targetAction, row);
         }
+    }
+
+    /** The zone a date cell is shown in: the column's, else the reader's. */
+    zoneOf(col: TableColumn, row: any): ZoneRef {
+        return typeof col.dateZone === 'function' ? col.dateZone(row) : col.dateZone ?? 'member';
     }
 
     resolveDate(date: any): any {

@@ -8,7 +8,7 @@ import { RouteMeta } from '@analogjs/router';
 import { SiteBrandService } from '../../../../core/brand/site-brand';
 import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, input, Output } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
+import { ArcTime } from '../../../../core/time/arc-time.service';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { UserStore } from '../user.store';
 import { IUser } from '../user.model';
@@ -24,7 +24,6 @@ export const routeMeta: RouteMeta = {
     selector: 'arc-view-user',
     standalone: true,
     imports: [ReactiveFormsModule],
-    providers: [DatePipe],
     templateUrl: './view-user.html',
     styleUrl: './view-user.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,7 +35,7 @@ export default class ViewUserComponent extends BaseComponent {
     action = input('view');
 
     userStore = inject(UserStore);
-    datePipe = inject(DatePipe);
+    private arcTime = inject(ArcTime);
     // private variable for id
     #id = '';
     @Input()
@@ -62,7 +61,7 @@ export default class ViewUserComponent extends BaseComponent {
     formatDisplayDate(date: any): string {
         if (!date) return 'N/A';
         const newDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-        return this.datePipe.transform(newDate, 'EEE, MMM d, y, h:mm a') || 'N/A';
+        return this.arcTime.format(newDate, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) || 'N/A';
     }
 
     getStatusBadgeClass(): string {

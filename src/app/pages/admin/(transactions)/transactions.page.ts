@@ -1,6 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { ArcTimePipe } from '../../../core/time/arc-time.pipe';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -20,7 +21,7 @@ export const routeMeta: RouteMeta = {
 
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent, TranslocoPipe],
+    imports: [CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent, TranslocoPipe, ArcTimePipe],
     template: `
         <div class="transactions-page">
             <arc-page-header [title]="'admin.transactions.title' | transloco"
@@ -45,7 +46,7 @@ export const routeMeta: RouteMeta = {
                         <p class="text-muted">{{ 'admin.transactions.none' | transloco }}</p>
                     } @else {
                         <table mat-table [dataSource]="filtered()" class="w-100">
-                            <ng-container matColumnDef="createdAt"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_date' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.createdAt.seconds * 1000 | date:'short' }}</td></ng-container>
+                            <ng-container matColumnDef="createdAt"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_date' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.createdAt | arcTime: 'short' }}</td></ng-container>
                             <ng-container matColumnDef="userEmail"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_customer' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.userEmail }}</td></ng-container>
                             <ng-container matColumnDef="amount"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_amount' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.currency }} {{ t.amount }}</td></ng-container>
                             <ng-container matColumnDef="premiumType"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_plan' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.premiumType }}</td></ng-container>

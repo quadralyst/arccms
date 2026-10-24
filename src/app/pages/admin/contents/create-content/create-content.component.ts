@@ -3,6 +3,7 @@ import { hasReplacePrompt } from '../standard-pages/standard-pages';
 import { nextUrlSlug, toUrlSlug } from '../../../../../shared/utils/url-slug';
 import { authorCanonicalUrl } from '../../../../../shared/utils/canonical-url';
 import { SiteIdentityService } from '../../../../core/services/site-identity.service';
+import { ArcTimePipe } from '../../../../core/time/arc-time.pipe';
 import { ImageSize } from '../../../../../shared/utils/image-sizes';
 import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
@@ -134,6 +135,7 @@ const COVER_IMAGE_SIZE: ImageSize = 'xl';
   standalone: true,
   imports: [
     CommonModule,
+    ArcTimePipe,
     FormsModule,
     ReactiveFormsModule,
     TiptapEditorComponent,

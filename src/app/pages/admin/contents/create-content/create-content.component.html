@@ -288,14 +288,14 @@
                         @if(lastDraftSavedDate){
                         <span class="status-badge draft">
                             <i class="fa-solid fa-floppy-disk"></i>
-                            Draft saved: {{ lastDraftSavedDate | date:'MMM d, y, h:mm a' }}
+                            Draft saved: {{ lastDraftSavedDate | arcTime: 'dateTime' }}
                         </span>
                         }
 
                         @if(lastPublishedDate){
                         <span class="status-badge published">
                             <i class="fa-solid fa-globe"></i>
-                            Published: {{ lastPublishedDate | date:'MMM d, y, h:mm a' }}
+                            Published: {{ lastPublishedDate | arcTime: 'dateTime' }}
                         </span>
                         }
 

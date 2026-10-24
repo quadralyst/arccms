@@ -14,7 +14,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { DatePipe } from '@angular/common';
+import { ArcTimePipe } from '../../../core/time/arc-time.pipe';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { TranslocoPipe } from '@jsverse/transloco';
@@ -74,7 +74,7 @@ export { MAX_APP_USERS };
 @Component({
     standalone: true,
     imports: [
-        DatePipe, FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule,
+        ArcTimePipe, FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule,
         MatPaginatorModule, MatSidenavModule, GlobalTableComponent, PageHeaderComponent, TranslocoPipe,
     ],
     templateUrl: './app-users.page.html',

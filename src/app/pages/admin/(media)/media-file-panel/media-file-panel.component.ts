@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { ArcTimePipe } from '../../../../core/time/arc-time.pipe';
 import { Component, inject, input, output, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -19,7 +19,7 @@ import { MediaFilesService } from '../media-files.service';
 @Component({
     selector: 'arc-media-file-panel',
     standalone: true,
-    imports: [TranslocoPipe, DatePipe, MediaDetailsComponent],
+    imports: [TranslocoPipe, ArcTimePipe, MediaDetailsComponent],
     templateUrl: './media-file-panel.component.html',
 })
 export class MediaFilePanelComponent {

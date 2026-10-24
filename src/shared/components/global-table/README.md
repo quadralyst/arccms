@@ -50,7 +50,8 @@ tableColumns: TableColumn[] = [
 | `clickable` | `boolean` | If true, clicking cell emits `cellClick`. |
 | `transformFn` | `(row) => string` | Function to transform displayed value. |
 | `classFn` | `(row) => string` | Function to return CSS classes for the cell content. |
-| `dateFormat` | `string` | Format string for `date` type (e.g. `'dd MMM yyyy'`). |
+| `dateFormat` | `string` | Format for `date` type: an Angular date pattern (e.g. `'dd MMM yyyy'`) or an arcTime format such as `'dateTime'` or `'ago'` (docs/app/clock-and-zones.html). Default `'MMM d, y'`. |
+| `dateZone` | `ZoneRef \| (row) => ZoneRef` | Zone for `date` type: the reader's own by default; `'site'`, an IANA name such as `'Europe/Zurich'`, or a function of the row for a table of places. |
 | `badgeConfig` | `Object` | Config for `badge` type (see below). |
 | `actions` | `TableAction[]` | Config for `actions` type (see below). |
 

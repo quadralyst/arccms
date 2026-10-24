@@ -20,6 +20,7 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { CommonModule } from '@angular/common';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { ArcTimePipe } from '../../../../core/time/arc-time.pipe';
 import { SearchService } from '../../../../core/services/search.service';
 import { isOn } from '../../../../core/features/features';
 import {
@@ -108,7 +109,7 @@ const STATE_BADGE: Record<SearchCollectionState, string> = {
 @Component({
     selector: 'arc-search-settings',
     standalone: true,
-    imports: [CommonModule, TranslocoPipe],
+    imports: [CommonModule, TranslocoPipe, ArcTimePipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <div class="settings-section">
@@ -158,7 +159,7 @@ const STATE_BADGE: Record<SearchCollectionState, string> = {
                   <td class="text-end">{{ row.status?.entries ?? '–' }}</td>
                   <td>
                     @if (reindexedAt(row.status); as when) {
-                      {{ when | date: 'medium' }}
+                      {{ when | arcTime: 'dateTime' }}
                     } @else {
                       <span class="text-muted">{{ 'admin.settings.search.never' | transloco }}</span>
                     }

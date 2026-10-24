@@ -1,4 +1,5 @@
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
+import { ArcTime } from '../../../../core/time/arc-time.service';
 import { ChangeDetectionStrategy, Component, computed, effect, EventEmitter, inject, Injector, Input, Output, runInInjectionContext, signal, untracked, OnChanges, SimpleChanges } from '@angular/core';
 import { Storage, getDownloadURL, ref } from '@angular/fire/storage';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,7 +13,6 @@ import { fileSize, IEmailLog, sentSubject } from '../email-log.model';
     selector: 'arc-view-email-log',
     standalone: true,
     imports: [CommonModule, MatIconModule, MatButtonModule],
-    providers: [DatePipe],
     templateUrl: './view-email-log.component.html',
     styleUrl: './view-email-log.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -23,7 +23,7 @@ export default class ViewEmailLogComponent implements OnChanges {
 
     readonly emailLogStore = inject(EmailLogStore);
     private readonly sanitizer = inject(DomSanitizer);
-    private readonly datePipe = inject(DatePipe);
+    private readonly arcTime = inject(ArcTime);
     private readonly storage = inject(Storage);
     private readonly injector = inject(Injector);
 
@@ -71,7 +71,8 @@ export default class ViewEmailLogComponent implements OnChanges {
     formatDate(date: any): string {
         if (!date) return '-';
         const d = date?.seconds ? new Date(date.seconds * 1000) : new Date(date);
-        return this.datePipe.transform(d, 'MMM d, y HH:mm:ss') || '-';
+        // The reader's zone, with seconds: a log is read to the second.
+        return this.arcTime.format(d, 'medium') || '-';
     }
 
     formatType(type?: string): string {

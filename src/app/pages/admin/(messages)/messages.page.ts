@@ -4,7 +4,7 @@
  * Possible spam. Reply opens the admin's own email client; Arc CMS sends nothing.
  */
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { ArcTimePipe } from '../../../core/time/arc-time.pipe';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { TranslocoPipe } from '@jsverse/transloco';
@@ -15,7 +15,7 @@ import { MessagesAdminService, replyLink, type ContactMessageItem, type MessageS
 @Component({
     selector: 'arc-messages-inbox',
     standalone: true,
-    imports: [DatePipe, MatButtonModule, MatButtonToggleModule, TranslocoPipe, PageHeaderComponent],
+    imports: [ArcTimePipe, MatButtonModule, MatButtonToggleModule, TranslocoPipe, PageHeaderComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { ngSkipHydration: 'true' },
     template: `
@@ -50,7 +50,7 @@ import { MessagesAdminService, replyLink, type ContactMessageItem, type MessageS
                             <strong>{{ item.name || item.email }}</strong>
                             @if (item.name) { <a class="text-muted" [href]="'mailto:' + item.email">{{ item.email }}</a> }
                             @if (item.phone) { <a class="text-muted" [href]="'tel:' + item.phone">{{ item.phone }}</a> }
-                            <span class="text-muted ms-auto">{{ item.createdAt | date: 'medium' }}</span>
+                            <span class="text-muted ms-auto">{{ item.createdAt | arcTime: 'dateTime' }}</span>
                         </div>
                         @if (item.subject) { <h3 class="msg-subject">{{ item.subject }}</h3> }
                         <p class="msg-text">{{ item.message }}</p>

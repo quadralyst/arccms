@@ -7,6 +7,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { GlobalTableComponent, TableColumn, TableAction } from './global-table.component';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { CommonModule } from '@angular/common';
+import { ArcZones } from '../../../app/core/time/arc-zones.service';
 
 describe('GlobalTableComponent', () => {
     let component: GlobalTableComponent;
@@ -616,5 +617,39 @@ describe('GlobalTableComponent', () => {
 
             expect(onActionSpy).toHaveBeenCalled();
         });
+    });
+});
+
+describe('GlobalTableComponent date columns in a zone (specs/clock-and-zones-spec.md, T4)', () => {
+    let component: GlobalTableComponent;
+    let fixture: ComponentFixture<GlobalTableComponent>;
+    // 20:00 UTC on 24 October 2026: 22:00 in Zurich, 01:30 the next day in Kolkata.
+    const at = { seconds: Date.parse('2026-10-24T20:00:00Z') / 1000, nanoseconds: 0 };
+    const cells = () => [...(fixture.nativeElement as HTMLElement).querySelectorAll('td')].map((td) => td.textContent?.replace(/\s+/g, ' ').trim());
+
+    beforeEach(() => {
+        TestBed.configureTestingModule({
+            imports: [GlobalTableComponent],
+            providers: [{ provide: ArcZones, useValue: { member: () => 'Asia/Kolkata', site: () => 'Europe/Zurich', device: () => 'UTC' } }],
+        });
+        fixture = TestBed.createComponent(GlobalTableComponent);
+        component = fixture.componentInstance;
+    });
+
+    it("shows a date in the reader's zone, keeping the column's Angular pattern", () => {
+        component.columns = [{ key: 'at', header: 'When', type: 'date', dateFormat: 'MMM d, y, HH:mm' }];
+        component.data = [{ id: '1', at }];
+        fixture.detectChanges();
+        expect(cells()).toContain('Oct 25, 2026, 01:30');
+    });
+
+    it('shows it in the zone a column names, or in each row\'s own place', () => {
+        component.columns = [
+            { key: 'at', header: 'Site', type: 'date', dateFormat: 'HH:mm', dateZone: 'site' },
+            { key: 'at', header: 'Shop', type: 'date', dateFormat: 'HH:mm', dateZone: (row: { zone: string }) => ({ zone: row.zone }) },
+        ];
+        component.data = [{ id: '1', at, zone: 'America/Phoenix' }];
+        fixture.detectChanges();
+        expect(cells()).toEqual(expect.arrayContaining(['22:00', '13:00']));
     });
 });

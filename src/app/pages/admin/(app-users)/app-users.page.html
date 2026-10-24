@@ -36,7 +36,7 @@
                                     }
                                     <span class="text-muted d-block">{{ activityStatusKey(a.status) | transloco: { status: a.status } }}</span>
                                 </span>
-                                <span class="text-muted text-nowrap">{{ a.at | date: 'short' }}</span>
+                                <span class="text-muted text-nowrap">{{ a.at | arcTime: 'short' }}</span>
                             </li>
                         }
                     </ul>

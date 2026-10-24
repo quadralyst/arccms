@@ -3,7 +3,7 @@
  * newest first. The switch at the top turns the button on or off for everyone.
  */
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { ArcTimePipe } from '../../../core/time/arc-time.pipe';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -15,7 +15,7 @@ import { describeBrowser, FeedbackAdminService, type FeedbackFilter, type Feedba
 @Component({
     selector: 'arc-feedback-inbox',
     standalone: true,
-    imports: [DatePipe, MatButtonModule, MatButtonToggleModule, MatSlideToggleModule, TranslocoPipe, PageHeaderComponent],
+    imports: [ArcTimePipe, MatButtonModule, MatButtonToggleModule, MatSlideToggleModule, TranslocoPipe, PageHeaderComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { ngSkipHydration: 'true' },
     template: `
@@ -55,7 +55,7 @@ import { describeBrowser, FeedbackAdminService, type FeedbackFilter, type Feedba
                         <div class="fb-body">
                             <div class="fb-meta">
                                 <strong>{{ item.sender?.name || item.sender?.email || item.sender?.phone || ('admin.feedback.someone' | transloco) }}</strong>
-                                <span class="text-muted">{{ item.createdAt | date: 'medium' }}</span>
+                                <span class="text-muted">{{ item.createdAt | arcTime: 'dateTime' }}</span>
                                 @if (item.status === 'new') {
                                     <span class="badge bg-primary">{{ 'admin.feedback.filter_new' | transloco }}</span>
                                 }

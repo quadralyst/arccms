@@ -1,6 +1,7 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { ArcTimePipe } from '../../../core/time/arc-time.pipe';
 import { Component, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -35,7 +36,7 @@ export const routeMeta: RouteMeta = {
     imports: [
         CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatIconModule,
         MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule, MatTableModule,
-        MatSidenavModule, MatTooltipModule, MatProgressSpinnerModule, PageHeaderComponent, RowActionsComponent, TranslocoPipe],
+        MatSidenavModule, MatTooltipModule, MatProgressSpinnerModule, PageHeaderComponent, RowActionsComponent, TranslocoPipe, ArcTimePipe],
     template: `
       <mat-drawer-container class="products-drawer-container" hasBackdrop="true">
         <!-- ═══════════ Right-side detail panel ═══════════ -->
@@ -62,7 +63,7 @@ export const routeMeta: RouteMeta = {
                 <div class="field"><span class="k">{{ 'admin.products.premium_type' | transloco }}</span><span class="v"><code>{{ p.premiumType }}</code></span></div>
                 <div class="field"><span class="k">{{ 'admin.products.tier_rank' | transloco }}</span><span class="v">#{{ p.tierRank }} <small class="text-muted">{{ 'admin.products.higher_more_access' | transloco }}</small></span></div>
                 <div class="field"><span class="k">{{ 'admin.products.confirmed_sales' | transloco }}</span><span class="v">{{ p.purchaseCount || 0 }}</span></div>
-                @if (p.createdAt) { <div class="field"><span class="k">{{ 'admin.products.created' | transloco }}</span><span class="v">{{ p.createdAt | date:'medium' }}</span></div> }
+                @if (p.createdAt) { <div class="field"><span class="k">{{ 'admin.products.created' | transloco }}</span><span class="v">{{ p.createdAt | arcTime: 'dateTime' }}</span></div> }
 
                 @if (p.features?.length) {
                   <div class="section-label">{{ 'admin.products.features' | transloco }}</div>
