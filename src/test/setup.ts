@@ -27,6 +27,7 @@ async function starter(file: string, actual: () => Promise<unknown>) {
 }
 vi.mock('../custom/app-accounts', (actual) => starter('src/custom/app-accounts.ts', actual));
 vi.mock('../custom/brand', (actual) => starter('src/custom/brand.ts', actual));
+vi.mock('../custom/clock', (actual) => starter('src/custom/clock.ts', actual));
 vi.mock('../custom/features', (actual) => starter('src/custom/features.ts', actual));
 vi.mock('../custom/home', (actual) => starter('src/custom/home.ts', actual));
 vi.mock('../custom/languages', (actual) => starter('src/custom/languages.ts', actual));

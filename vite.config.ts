@@ -12,6 +12,8 @@ import { resolveFeatures } from './src/app/core/features/feature-registry';
 import { CUSTOM_FEATURES } from './src/custom/features';
 import { resolveSignInStrength } from './src/shared/utils/sign-in-strength';
 import { CUSTOM_SIGN_IN } from './src/custom/sign-in';
+import { resolveClock } from './src/app/core/time/clock-config';
+import { CUSTOM_CLOCK } from './src/custom/clock';
 import { CUSTOM_BRAND } from './src/custom/brand';
 import { noticeProblems } from './src/shared/utils/notice-text';
 import { CUSTOM_NOTICES } from './src/custom/notices';
@@ -29,6 +31,8 @@ import { makeTabIcon, tabIcon } from './scripts/vite-tab-icon';
 const features = resolveFeatures(CUSTOM_FEATURES);
 // The same for the password and PIN strength (src/custom/sign-in.ts): a wrong value stops here.
 resolveSignInStrength(CUSTOM_SIGN_IN);
+// The same for the clock's skew threshold (src/custom/clock.ts).
+resolveClock(CUSTOM_CLOCK);
 // The same for the app's sign-up and contact notices (src/custom/notices.ts): a link that
 // goes nowhere allowed or an unknown placeholder stops here, before a visitor sees it.
 const noticeErrors = noticeProblems(CUSTOM_NOTICES);

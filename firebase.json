@@ -104,6 +104,15 @@
                 ]
             },
             {
+                "source": "/_arc/**",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "no-store"
+                    }
+                ]
+            },
+            {
                 "source": "/_site/**",
                 "headers": [
                     {

@@ -24,6 +24,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const CUSTOM_STARTERS = [
     { file: 'src/custom/app-accounts.ts', exports: { CUSTOM_APP_ACCOUNTS: {} } },
     { file: 'src/custom/brand.ts', exports: { CUSTOM_BRAND: {} } },
+    { file: 'src/custom/clock.ts', exports: { CUSTOM_CLOCK: {} } },
     { file: 'src/custom/features.ts', exports: { CUSTOM_FEATURES: {} } },
     { file: 'src/custom/home.ts', exports: { CUSTOM_HOME: {} } },
     { file: 'src/custom/languages.ts', exports: { MEMBER_LANGUAGES: [] } },
@@ -57,6 +58,7 @@ export const SHIPPED_FILES = {
     'src/custom/README.md': '19d24bc0d239b2e1',
     'src/custom/app-accounts.ts': '98766b44091a8f0c',
     'src/custom/brand.ts': '1d20a8595c79ea1f',
+    'src/custom/clock.ts': '1d143597b6347503',
     'src/custom/features.ts': '3de9e391c9514eb2',
     'src/custom/home.ts': 'bc67fe8100ed3a16',
     'src/custom/i18n/en.json': 'ca3d163bab055381',
