@@ -483,13 +483,17 @@ export function renderFirebaseConfig(base, config) {
  *
  * Only for a project arccms.config.json sets up, and only to write the file: a project
  * whose settings now need no generated file keeps the one it has until arc:configure
- * removes it, and nothing else arc:configure writes is touched. Gives what it did:
+ * removes it, settings it would refuse leave the file as it is, and nothing else
+ * arc:configure writes is touched. Gives what it did:
  * 'updated', 'created', 'unchanged' or 'skipped'.
  */
 export function refreshFirebaseConfig(projectId, paths = PATHS) {
     const file = readJson(paths.config);
     if (!projectId || !file || !hasInstallSettings(file, projectId)) return 'skipped';
-    const firebase = renderFirebaseConfig(readJson(paths.firebase), normalizeConfig(configForProject(file, projectId)));
+    const config = normalizeConfig(configForProject(file, projectId));
+    // Settings arc:configure would refuse are not written here either; it says what is wrong.
+    if (validateConfig(config, projectId).length) return 'skipped';
+    const firebase = renderFirebaseConfig(readJson(paths.firebase), config);
     if (!firebase) return 'skipped';
     const path = generatedFirebasePath(projectId, paths.root);
     const text = `${JSON.stringify(firebase, null, 4)}\n`;

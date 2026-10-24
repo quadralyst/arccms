@@ -82,6 +82,14 @@ describe('rebuilding firebase.<projectId>.json on every deploy', () => {
         expect(existsSync(paths.install)).toBe(false);
     });
 
+    it('leaves the file as it is when the settings are ones arc:configure would refuse', () => {
+        writeFileSync(paths.config, JSON.stringify({ projects: { 'acme-dev': { ...OWN_SITE, profile: 'sideways' } } }));
+        writeFileSync(generated('acme-dev'), '{"kept": true}\n');
+        expect(configure.validateConfig(configure.normalizeConfig({ ...OWN_SITE, profile: 'sideways' }), 'acme-dev')).not.toEqual([]);
+        expect(configure.refreshFirebaseConfig('acme-dev', paths)).toBe('skipped');
+        expect(readFileSync(generated('acme-dev'), 'utf8')).toBe('{"kept": true}\n');
+    });
+
     it('runs in every deploy before the generated file is read', () => {
         const source = readFileSync(join(ROOT, 'scripts/arc-deploy.mjs'), 'utf8');
         const body = source.slice(source.indexOf('export async function runDeploy('));
