@@ -172,6 +172,8 @@ export class LocalizationService {
     async saveTimeZone(zone: string): Promise<void> {
         const timeZone = canonicalZone(zone);
         if (!timeZone) throw new Error(`"${zone}" is not a time zone.`);
+        // The languages it keeps beside the zone, on screen and on this device, must be the real ones.
+        if (!this.loadedSignal()) await this.load();
         const docRef = runInInjectionContext(this.injector, () =>
             doc(this.firestore, SETTINGS_COLLECTION, LOCALIZATION_DOC),
         );

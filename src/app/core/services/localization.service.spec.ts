@@ -190,6 +190,14 @@ describe('LocalizationService', () => {
             expect(readStoredLocalization()?.timeZone).toBe('Europe/Zurich');
         });
 
+        it('reads the settings first when saved before they were loaded, so the kept copy holds the real languages', async () => {
+            vi.mocked(getDoc).mockResolvedValue(snapshot({ defaultLanguage: 'hi', enabledLanguages: [HINDI, ENGLISH] }) as never);
+            vi.mocked(setDoc).mockResolvedValue(undefined as never);
+            await service.saveTimeZone('Asia/Kolkata');
+            expect(readStoredLocalization()?.defaultLanguage).toBe('hi');
+            expect(readStoredLocalization()?.timeZone).toBe('Asia/Kolkata');
+        });
+
         it('refuses a value that is not a zone, writing nothing', async () => {
             await expect(service.saveTimeZone('CET')).rejects.toThrow(/not a time zone/);
             expect(vi.mocked(setDoc)).not.toHaveBeenCalled();

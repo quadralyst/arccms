@@ -179,7 +179,7 @@
         <tr><td><code>coverImage</code></td><td>URL</td><td>https://…/cover.jpg</td><td>Plus <code>coverImage_s</code> to <code>coverImage_xl</code> (see <a href="#image-sizes">Image sizes</a>)</td></tr>
         <tr><td><code>metaDescription</code>, <code>seoTitle</code>, <code>canonicalUrl</code></td><td>Text</td><td>Ten tips for…</td><td>The SEO fields as entered. <code>canonicalUrl</code> is empty unless the author pointed the page at another one; the page's own address is in <code>share</code></td></tr>
         <tr><td><code>content</code></td><td>HTML</td><td>&lt;p&gt;…&lt;/p&gt;</td><td>The body. Bind with <code>[innerHTML]="content"</code>.</td></tr>
-        <tr><td><code>publishedOn</code>, <code>date</code></td><td>Text</td><td>January 5, 2026</td><td>A long date in the page's language</td></tr>
+        <tr><td><code>publishedOn</code>, <code>date</code></td><td>Text</td><td>January 5, 2026</td><td>A long date in the page's language and the site's time zone</td></tr>
         <tr><td><code>updatedOn</code>, <code>updatedOnDisplay</code></td><td>Text</td><td>February 2, 2026</td><td>The revision date, empty unless the editor marked a revision after publishing</td></tr>
         <tr><td><code>readTime</code></td><td>Number</td><td>5</td><td>Minutes to read</td></tr>
         <tr><td><code>readingTime</code></td><td>Text</td><td>5 min read</td><td>On a translated page, the <code>min_read</code> string with <code>{{ readTime }}</code> filled in; English when that string is missing.</td></tr>
@@ -231,7 +231,7 @@
         <tr><td><code>coverImage</code></td><td>URL</td><td>https://…/cover.jpg</td><td>Plus its sizes (see <a href="#image-sizes">Image sizes</a>)</td></tr>
         <tr><td><code>excerpt</code></td><td>Text</td><td>Ten tips for a calmer…</td><td>The meta description, or else the body, cut to its first 25 words with "..."</td></tr>
         <tr><td><code>content</code></td><td>HTML</td><td>&lt;p&gt;…&lt;/p&gt;</td><td>The full body</td></tr>
-        <tr><td><code>publishedOn</code></td><td>Text</td><td>Jan 5, 2026</td><td>A short date in the page's language</td></tr>
+        <tr><td><code>publishedOn</code></td><td>Text</td><td>Jan 5, 2026</td><td>A short date in the page's language and the site's time zone</td></tr>
         <tr><td><code>readTime</code></td><td>Number</td><td>5</td><td>Minutes to read</td></tr>
         <tr><td><code>authorName</code></td><td>Text</td><td>Asha Rao</td><td>The name stored on the entry</td></tr>
         <tr><td><code>author</code></td><td>Text</td><td>Asha Rao</td><td>The same name as text, not an object: <code>{{ author.name }}</code> is empty in a card</td></tr>

@@ -63,6 +63,13 @@ describe('arcTime formatting (specs/clock-and-zones-spec.md, T-D12 to T-D14)', (
         expect(fmt(MESSAGE, 'MMM d, y', RAVI)).toBe('Oct 25, 2026');
     });
 
+    it('reads a name that is not one of its formats as an Angular pattern, never as an object property', () => {
+        expect(() => formatArcTime(MESSAGE, 'toString', ANNA)).not.toThrow();
+        expect(formatArcTime(MESSAGE, 'constructor', ANNA)).not.toContain('[object');
+        // A pattern Angular cannot read shows the date and time rather than breaking the page.
+        expect(fmt(MESSAGE, 'toString', ANNA, { locale: 'en-GB' })).toBe('24 Oct 2026, 22:00');
+    });
+
     it('takes Intl options too', () => {
         expect(fmt(MESSAGE, { weekday: 'long' }, RAVI, { locale: 'en-GB' })).toBe('Sunday');
     });

@@ -91,7 +91,12 @@ export class OnboardingSetupService {
 
         // The site's time zone starts as the zone of the person setting it up
         // (specs/clock-and-zones-spec.md, T-D9); Settings, Localization changes it.
-        await setDoc(doc(this.firestore, 'Settings', 'localization'), { timeZone: deviceZone() }, { merge: true });
+        // Going through the wizard again keeps a zone already set.
+        const localization = doc(this.firestore, 'Settings', 'localization');
+        const current = await getDoc(localization);
+        if (!current.exists() || !current.data()?.['timeZone']) {
+            await setDoc(localization, { timeZone: deviceZone() }, { merge: true });
+        }
 
         if (unsplashKey) {
             await setDoc(doc(this.firestore, 'Settings', 'integrations'), {

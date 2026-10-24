@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clock and time zones | Arc CMS docs</title>
+  <meta name="description" content="One true now for the browser, a warning when a device clock is wrong, and every time shown in the right zone: the site's, each person's own, or a place's.">
+  <meta name="docs:sources" content="src/app/core/time/arc-clock.ts, src/app/core/time/clock-sync.ts, src/app/core/time/clock-config.ts, src/custom/clock.ts, src/app/core/time/zones.ts, src/app/core/time/arc-time.ts, src/app/core/time/arc-time.service.ts, src/app/core/time/arc-time.pipe.ts, src/app/core/time/arc-zones.service.ts, src/shared/components/zone-picker, src/shared/components/arc-clock, public/_arc/clock.json, functions/src/shared/time-zone.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/clock-and-zones.html">
+  <main>
+    <h1>Clock and time zones</h1>
+    <p class="lead">A device's clock can be minutes off, and the people using your app can be anywhere. Arc CMS gives your app one true "now", tells you when a device clock is wrong, and shows every moment in the right zone: the site's, each person's own, or the zone of a place your app owns.</p>
+
+    <h2 id="three-zones">Three kinds of zone</h2>
+    <p>A zone is always an IANA name, such as <code>Europe/Zurich</code> or <code>Asia/Kolkata</code>, never an offset like <code>+05:30</code> or an abbreviation like <code>CET</code>: only a name knows when summer time starts. Old spellings some browsers still report, such as <code>Asia/Calcutta</code>, become the current name.</p>
+    <table>
+      <thead><tr><th>Zone</th><th>What it is</th><th>Where it is set</th><th>Used for</th></tr></thead>
+      <tbody>
+        <tr><td>Site zone</td><td>The site's own, one for everyone</td><td>Admin, Settings, Localization, <strong>Time zone</strong>. The setup wizard fills it from the browser of the person setting up the site. Stored as <code>timeZone</code> on <code>Settings/localization</code></td><td>Dates on published pages, so every visitor sees the same day. UTC until an admin sets one</td></tr>
+        <tr><td>Member zone</td><td>Each person's own, in the admin area too</td><td>Follows the device. A person can choose another on the profile page (<strong>Time zone</strong>), kept on that device like the member language</td><td>Every time on the admin and member screens: "Draft saved", created dates, feedback, transactions</td></tr>
+        <tr><td>Place zone</td><td>The zone of something your app owns, such as a shop or an office</td><td>Your app stores it on its own records, for example with <code>&lt;arc-zone-picker&gt;</code></td><td>A time that belongs to the place: "22:00 Zurich (01:30 for you)"</td></tr>
+      </tbody>
+    </table>
+    <p>When a zone is missing or unknown, a place falls back to the site zone, then UTC; a member falls back to the device, then UTC.</p>
+
+    <h2 id="show-a-time">Show a time</h2>
+    <p>Use the <code>arcTime</code> pipe (<code>src/app/core/time/arc-time.pipe.ts</code>) in place of Angular's <code>| date</code>, which takes a zone only as a fixed offset and so is wrong on one side of every summer time change:</p>
+    <pre><code>import { ArcTimePipe } from '../../app/core/time/arc-time.pipe';
+
+{{ order.createdAt | arcTime }}                          &lt;!-- 24 Oct 2026, 22:00, the reader's zone --&gt;
+{{ order.createdAt | arcTime: 'time' }}                  &lt;!-- 22:00 --&gt;
+{{ order.createdAt | arcTime: 'ago' }}                   &lt;!-- 2 minutes ago --&gt;
+{{ order.createdAt | arcTime: 'dateTime' : 'site' }}     &lt;!-- in the site's zone --&gt;
+{{ meeting.at | arcTime: 'place' : office.zone }}        &lt;!-- 22:00 Zurich (01:30 for you) --&gt;</code></pre>
+    <p>The arguments are the format, the zone and, rarely, a locale. The moment can be a <code>Date</code>, epoch milliseconds, an ISO string or a Firestore <code>Timestamp</code>; an empty one shows nothing, never "Invalid Date". A core test fails if a core screen uses <code>| date</code>, so the same is worth doing in your own screens.</p>
+    <table>
+      <thead><tr><th>Format</th><th>Shows</th></tr></thead>
+      <tbody>
+        <tr><td><code>time</code></td><td>22:00, or 10:00 PM where the locale writes 12 hours</td></tr>
+        <tr><td><code>date</code></td><td>24 Oct 2026</td></tr>
+        <tr><td><code>dateTime</code> (the default)</td><td>24 Oct 2026, 22:00</td></tr>
+        <tr><td><code>short</code>, <code>medium</code>, <code>long</code>, <code>full</code></td><td>The browser's own date and time styles; <code>medium</code> has seconds, <code>long</code> the zone's name</td></tr>
+        <tr><td><code>day</code></td><td>"Today", "Yesterday" or "Tomorrow" by the reader's own day, else the date</td></tr>
+        <tr><td><code>ago</code></td><td>"now", "2 minutes ago", "in 3 hours", up to 30 days, then the date; counted from <code>ArcClock</code>, not the device</td></tr>
+        <tr><td><code>place</code>, <code>placeDateTime</code></td><td>The place's time and name, and the reader's time when it differs: "22:00 Zurich (Sun 01:30 for you)". The weekday is added when the reader is on another day</td></tr>
+        <tr><td><code>Intl.DateTimeFormat</code> options</td><td>Anything else: <code>{ weekday: 'long' }</code></td></tr>
+        <tr><td>An Angular date pattern</td><td><code>'MMM d, y, HH:mm'</code>, formatted with the zone's offset at that very moment, so summer time is still right</td></tr>
+      </tbody>
+    </table>
+    <p>The zone argument is <code>'member'</code> (the default), <code>'site'</code>, <code>'device'</code>, an IANA name, or a place with a name for the label: <code>{ zone: shop.zone, name: shop.name }</code>. 12 or 24 hours, and the words "Today" and "2 minutes ago", follow the language on screen at once, with no reload; for English, the browser's regional English decides (<code>en-GB</code> writes 22:00).</p>
+    <p>In code, call <code>arcTime(value, format, zone)</code> from <code>src/app/core/time/arc-time.service.ts</code>, or <code>format()</code> on the <code>ArcTime</code> service there. For a table, <code>app-global-table</code>'s date columns take <code>dateZone</code>: a zone, or a function of the row for a table of several places (see its <code>README.md</code>).</p>
+
+    <h2 id="example-chat">Example: a chat between Zurich and Pune</h2>
+    <p>Anna is in Zurich and Ravi in Pune. Arc CMS has no chat; this shows how the pieces fit.</p>
+    <ul>
+      <li><strong>A message is one moment, stamped by the server</strong>, so a phone set ten minutes fast cannot reorder the conversation: <code>addDoc(messages, { text, author, sentAt: serverTimestamp() })</code>. To show a message before the server has stamped it, read it with <code>snapshot.data({ serverTimestamps: 'estimate' })</code>.</li>
+      <li><strong>Each sees their own time</strong>: <code>{{ m.sentAt | arcTime: 'time' }}</code> shows a message sent at 20:00 UTC as 22:00 to Anna and 01:30 to Ravi.</li>
+      <li><strong>Day breaks follow each reader</strong>: <code>{{ m.sentAt | arcTime: 'day' }}</code> is "Today" for Anna, and already "Today" (Sunday) for Ravi, whose Saturday messages are now "Yesterday".</li>
+      <li><strong>"2 minutes ago" uses the true now</strong>: <code>{{ m.sentAt | arcTime: 'ago' }}</code> is counted from <code>ArcClock</code>, so a phone that is slow does not say "in 8 minutes".</li>
+      <li><strong>A time that belongs to a place shows both</strong>: a call at the Zurich office, <code>{{ call.at | arcTime: 'place' : { zone: 'Europe/Zurich', name: 'Zurich office' } }}</code>, reads "22:00 Zurich office (Sun 01:30 for you)" to Ravi and "22:00" to Anna.</li>
+    </ul>
+
+    <h2 id="the-clock">The clock</h2>
+    <p><code>ArcClock</code> (<code>src/app/core/time/arc-clock.ts</code>) measures how far the device clock is from the server and corrects it. Inject it where you need the true time:</p>
+    <table>
+      <thead><tr><th>Member</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>now()</code></td><td>A signal: the corrected time in epoch milliseconds, moving on every second. For templates and effects</td></tr>
+        <tr><td><code>exact()</code></td><td>The corrected time at this instant, in place of <code>Date.now()</code></td></tr>
+        <tr><td><code>offset()</code></td><td>Server time minus device time, in milliseconds: positive when the device is behind. Under a second counts as 0, the measurement's own error</td></tr>
+        <tr><td><code>skewed()</code></td><td>True when the device is off by more than the threshold (2 minutes unless you set another)</td></tr>
+        <tr><td><code>synced()</code></td><td>True once a measurement has succeeded since the page opened</td></tr>
+        <tr><td><code>lastSyncedAt()</code></td><td>When the last good measurement was, kept from an earlier visit too; null if never</td></tr>
+        <tr><td><code>sync()</code></td><td>Measure now. Resolves true when it worked</td></tr>
+      </tbody>
+    </table>
+    <p>It measures when it is first used, when the browser comes back online, when the page is shown again (at most once a minute) and every 30 minutes. A page that never uses it never measures.</p>
+    <h3 id="how-it-measures">How it measures</h3>
+    <p>The server's time is the <code>Date</code> header of a tiny file on your own Hosting, <code>/_arc/clock.json</code>: no Firestore read, no function, nothing to pay, and it works on the sign-in screen. It is right to about half a second plus half the round trip, plenty for a warning and for showing minutes. Order between records comes from <code>serverTimestamp()</code>, never from this clock.</p>
+    <p>An old <code>Date</code> header from a cache would be wrong, so the answer always comes from the network: each request has a new address, asks for no cache, and <code>firebase.json</code> sends <code>Cache-Control: no-store</code> for <code>/_arc/</code>. The installable app's service worker has no rule for <code>/_arc/</code> (a test fails if one is added), and an answer that still looks cached (an <code>Age</code> header above 0, no <code>Date</code>, or a round trip over 5 seconds) is ignored. Keep <code>/_arc/</code> out of your own caching too.</p>
+    <h3 id="offline">Offline</h3>
+    <p>The last offset is kept on the device, so a page opened offline still shows the corrected time; <code>synced()</code> stays false until a measurement succeeds. A device clock changed while offline is not noticed until the next measurement. On <code>npm run dev</code> the dev server on your own machine answers, so the offset is about 0.</p>
+    <h3 id="skew-threshold">When a clock counts as wrong</h3>
+    <p>Two minutes by default. Set your own in <code>src/custom/clock.ts</code>:</p>
+    <pre><code>import type { CustomClock } from '../app/core/time/clock-config';
+
+export const CUSTOM_CLOCK: CustomClock = {
+    skewSeconds: 30,
+};</code></pre>
+    <p>A value that is not a number of seconds above 0 stops <code>npm run dev</code> and <code>npm run build</code> with a message saying what to write.</p>
+    <h3 id="stamp-records">Stamping records</h3>
+    <p>Let the server stamp what you store: <code>serverTimestamp()</code> in Firestore, and <code>request.time</code> in your rules. When a record has to be stamped on the device, for example one written while offline, use <code>ArcClock.exact()</code> instead of <code>Date.now()</code>: it is the device's time corrected by the last measurement. A rule that compares such a time with <code>request.time</code> should allow a few minutes either way, and <code>skewed()</code> tells you when to warn the person before it fails.</p>
+
+    <h2 id="building-blocks">Building blocks</h2>
+    <table>
+      <thead><tr><th>Component</th><th>For</th></tr></thead>
+      <tbody>
+        <tr><td><code>&lt;arc-zone-picker&gt;</code> (<code>src/shared/components/zone-picker/zone-picker.component.ts</code>)</td><td>Choosing a zone. Shows the choice as people read it ("Zurich, GMT+2") with a Change button that searches by city, zone name ("India Standard Time") or offset. <code>[(value)]</code> is an IANA name; with <code>[allowAutomatic]="true"</code>, "Automatic" follows the device and is <code>null</code>. Settings uses it for the site zone, the profile page for a person's own; use it for the zone of your places</td></tr>
+        <tr><td><code>&lt;arc-clock&gt;</code> (<code>src/shared/components/arc-clock/arc-clock.component.ts</code>)</td><td>The true date and time, and a warning when the device clock is off: "This device's clock is 7 minutes fast". <code>[zone]</code> takes any zone argument above, <code>[format]</code> any format (default <code>medium</code>). For a footer or a status bar; core places it nowhere. The warning's colour is <code>--arc-clock-warning-color</code></td></tr>
+      </tbody>
+    </table>
+    <p>From code, <code>setMemberZone('Europe/Zurich')</code> in <code>src/app/core/time/arc-zones.service.ts</code> chooses a person's zone on this device, and <code>setMemberZone(null)</code> follows the device again. <code>ArcZones</code> there has <code>member()</code>, <code>memberChoice()</code>, <code>device()</code> and <code>site()</code>.</p>
+
+    <h2 id="site-zone">The site zone and published pages</h2>
+    <p>The publish functions write dates into your pages, the cards of a list and a page's published and updated dates, in the site zone (<code>functions/src/shared/time-zone.ts</code>), and the browser shows the same when it renders a page itself. An article published at 00:30 in Zurich shows that day. A site set up before the time zone existed uses UTC until an admin sets one: Settings, Localization says so and offers the admin's own zone in one click. Pages published before the change keep their dates until they are published again.</p>
+
+    <h2 id="testing">Testing a wrong clock</h2>
+    <ul>
+      <li><strong>By hand</strong>, on a deployed site: set the device's clock a few minutes ahead, open the app, and <code>&lt;arc-clock&gt;</code> shows the warning; set it back and show the page again, and the warning goes.</li>
+      <li><strong>In a spec</strong>, give <code>ArcClock</code> its own network and clocks with the <code>ARC_CLOCK_SOURCES</code> token (<code>fetch</code>, <code>deviceNow</code>, <code>monotonicNow</code>), and its threshold with <code>ARC_CLOCK_SKEW_MS</code>; or provide a stand-in <code>ArcClock</code> with a <code>now</code> signal. A stand-in <code>ArcZones</code> with <code>member</code>, <code>site</code> and <code>device</code> fixes the zones.</li>
+    </ul>
+
+    <h2 id="not-covered">What stays as it was</h2>
+    <ul>
+      <li><strong>Emails and SMS</strong>: the server does not know a person's zone, which is kept on their device.</li>
+      <li><strong>Scheduled Cloud Functions</strong> keep their UTC schedules.</li>
+      <li><strong>Admin screens that show only a date</strong>, such as the tags and waitlist lists, still show the device's day.</li>
+    </ul>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

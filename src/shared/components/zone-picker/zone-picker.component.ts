@@ -71,7 +71,7 @@ interface ZoneEntry {
         .search { position: relative; max-width: 360px; }
         .results { position: absolute; z-index: 10; left: 0; right: 0; margin-top: 2px; background: #fff; border: 1px solid #dee2e6; border-radius: 0.375rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); max-height: 320px; overflow-y: auto; }
         .results li { padding: 0.4rem 0.75rem; cursor: pointer; }
-        .results li.active, .results li[role="option"]:hover { background: #e9f2ff; }
+        .results li.active, .results li[role="option"]:hover { background: color-mix(in srgb, var(--arc-admin-accent) 12%, #fff); }
         .results li.none { cursor: default; }
     `],
 })

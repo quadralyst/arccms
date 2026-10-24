@@ -168,11 +168,16 @@ export function formatArcTime(value: MomentInput, format: ArcTimeFormat = 'dateT
         case 'place': return placeText(moment, tz, locale, options, false);
         case 'placeDateTime': return placeText(moment, tz, locale, options, true);
     }
-    if (format in PRESETS) return dateFormatter(locale, tz, PRESETS[format as keyof typeof PRESETS]).format(moment);
-    // An Angular pattern: formatDate, with the offset this zone has at this very moment.
-    try {
-        return formatDate(moment, format, options.angularLocale || 'en-US', angularOffset(tz, moment));
-    } catch {
-        return formatDate(moment, format, 'en-US', angularOffset(tz, moment));
+    if (Object.hasOwn(PRESETS, format)) return dateFormatter(locale, tz, PRESETS[format as keyof typeof PRESETS]).format(moment);
+    // An Angular pattern: formatDate, with the offset this zone has at this very moment. A
+    // locale Angular has no data for falls back to English; a pattern it cannot read, to
+    // dateTime, so a typo shows a date rather than breaking the page.
+    for (const angularLocale of [options.angularLocale || 'en-US', 'en-US']) {
+        try {
+            return formatDate(moment, format, angularLocale, angularOffset(tz, moment));
+        } catch {
+            // try the next
+        }
     }
+    return dateFormatter(locale, tz, PRESETS.dateTime).format(moment);
 }

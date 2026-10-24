@@ -1,6 +1,6 @@
 # System Clock and Time Zones: Build Spec (T1 to T6)
 
-**Status:** draft for approval, 2026-10-24. Nothing built yet.
+**Status:** approved 2026-10-24; T1 to T6 built on this branch the same day. Not merged, pushed or deployed. Browser check of the signed-in screens pending (needs a sign-in on the worktree's dev server).
 **Branch:** `claude/system-clock-6f0a4b` (worktree), cut from `dev` at 62fad02b.
 **Scope:** one true "now" for the browser (`ArcClock`), three kinds of time zone (site,
 member, place) stored as IANA names, and one way to show a moment in a zone (`arcTime`).

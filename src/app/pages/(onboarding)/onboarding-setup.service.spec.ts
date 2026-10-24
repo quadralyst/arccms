@@ -157,6 +157,13 @@ describe('OnboardingSetupService', () => {
             expect(zoneCall[2]).toEqual({ merge: true });
         });
 
+        it('keeps a time zone already set when the wizard runs again', async () => {
+            mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ timeZone: 'Europe/Zurich' }) });
+            await service.saveSiteInfo('My Site', 'https://mysite.com');
+            expect(mockSetDoc).toHaveBeenCalledTimes(2);
+            expect(mockSetDoc.mock.calls.some((call: unknown[]) => (call[1] as Record<string, unknown>)?.['timeZone'])).toBe(false);
+        });
+
         it('should propagate Firestore errors', async () => {
             mockSetDoc.mockRejectedValueOnce(new Error('Firestore write failed'));
             await expect(service.saveSiteInfo('My Site', 'https://mysite.com')).rejects.toThrow('Firestore write failed');
