@@ -5,12 +5,13 @@
  *
  * Existing groups keep their names (apps may already reword them): `user.*` is the
  * member area, `common.pwa.*` the install and update prompts, `common.feedback.*` the
- * feedback panel, `common.version.*` the reload message. `member.*` holds the member
+ * feedback panel, `common.version.*` the reload message, `common.time.*` the zone picker
+ * and the clock (docs/app/clock-and-zones.html). `member.*` holds the member
  * screens' text that had none before. A test scans MEMBER_SCREEN_FILES and fails on a key
  * they use that this list does not cover, so a member screen cannot slip out of it.
  */
 
-export const MEMBER_KEY_PREFIXES = ['member.', 'user.', 'common.pwa.', 'common.feedback.', 'common.version.'] as const;
+export const MEMBER_KEY_PREFIXES = ['member.', 'user.', 'common.pwa.', 'common.feedback.', 'common.version.', 'common.time.'] as const;
 
 /** Single shared keys member screens use. */
 export const MEMBER_KEYS = ['common.actions.cancel', 'common.actions.close'] as const;
@@ -42,6 +43,9 @@ export const MEMBER_SCREEN_FILES = [
     'src/app/pages/page.parts/site-usage-banner.component.ts',
     // The language picker on the sign-in page
     'src/shared/components/member-language-picker/member-language-picker.component.ts',
+    // The time zone row on the profile page, and the clock an app can show (docs/app/clock-and-zones.html)
+    'src/shared/components/zone-picker/zone-picker.component.ts',
+    'src/shared/components/arc-clock/arc-clock.component.ts',
 ] as const;
 
 export function isMemberKey(key: string): boolean {

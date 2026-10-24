@@ -9,6 +9,8 @@ import { describe, it, expect } from 'vitest';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import ProfileComponent from './profile.page';
 import { english } from '../../../../test/english';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('ProfileComponent', () => {
     describe('Component Definition', () => {
@@ -91,6 +93,24 @@ describe('ProfileComponent', () => {
         it('should have saveName method', () => {
             expect(ProfileComponent.prototype.saveName).toBeDefined();
             expect(typeof ProfileComponent.prototype.saveName).toBe('function');
+        });
+    });
+
+    describe('Time zone (specs/clock-and-zones-spec.md, T-D10)', () => {
+        const html = readFileSync(resolve(__dirname, 'profile.page.html'), 'utf8');
+        const row = html.slice(html.indexOf('time-zone-row'), html.indexOf('</arc-zone-picker>'));
+
+        it("lets the person pick their own zone, Automatic following the device, kept by ArcZones", () => {
+            expect(row).toContain('[allowAutomatic]="true"');
+            expect(row).toContain('[value]="zones.memberChoice()"');
+            expect(row).toContain('(valueChange)="zones.useMemberZone($event)"');
+            expect(english('member.profile.time_zone')).toBe('Time zone');
+        });
+
+        it('is there for a locked app account too: the zone is kept on the device, not the account', () => {
+            // The row sits at the card's own level, just before the locked account's note, outside any locked guard.
+            const after = html.slice(html.indexOf('</arc-zone-picker>'));
+            expect(after).toMatch(/^<\/arc-zone-picker>\s*<div class="text-muted small mt-1">[^<]*<\/div>\s*<\/div>\s*<\/div>\s*@if \(locked\(\)\) \{\s*<p class="text-muted small mb-0 app-managed-note">/);
         });
     });
 

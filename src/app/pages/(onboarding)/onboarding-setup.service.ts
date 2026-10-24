@@ -13,6 +13,7 @@ import { Functions } from '@angular/fire/functions';
 import { Auth } from '@angular/fire/auth';
 import { Observable, defer, from, map, of, catchError, switchMap } from 'rxjs';
 import { DEFAULT_CONTENT_TYPES, DEFAULT_WAITLIST, DEFAULT_SITE_CSS_URLS } from './onboarding-defaults';
+import { deviceZone } from '../../core/time/zones';
 import { DEFAULT_EMAIL_SETTINGS, IEmailSettings, hasValidProviderConfig } from '../admin/(settings)/email-setting/email-setting.model';
 import { AuthService } from '../(auth)/auth.service';
 import { arcCallable } from '../../core/config/arc-functions';
@@ -72,7 +73,7 @@ export class OnboardingSetupService {
 
     /**
      * Save site identity info.
-     * Writes Settings/about and Settings/site.
+     * Writes Settings/about, Settings/site and the site's time zone (Settings/localization).
      * Optionally writes Settings/integrations if an Unsplash key is provided.
      */
     async saveSiteInfo(siteName: string, siteUrl: string, unsplashKey?: string): Promise<void> {
@@ -87,6 +88,10 @@ export class OnboardingSetupService {
             baseUrl: siteUrl,
             cssUrls: DEFAULT_SITE_CSS_URLS,
         }, { merge: true });
+
+        // The site's time zone starts as the zone of the person setting it up
+        // (specs/clock-and-zones-spec.md, T-D9); Settings, Localization changes it.
+        await setDoc(doc(this.firestore, 'Settings', 'localization'), { timeZone: deviceZone() }, { merge: true });
 
         if (unsplashKey) {
             await setDoc(doc(this.firestore, 'Settings', 'integrations'), {

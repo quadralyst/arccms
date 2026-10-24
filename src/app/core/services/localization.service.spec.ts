@@ -171,4 +171,34 @@ describe('LocalizationService', () => {
             expect(service.known()).toBeNull();
         });
     });
+    describe("the site's time zone (specs/clock-and-zones-spec.md, T-D9)", () => {
+        it('is read as its current IANA name, and dropped when it is not one', async () => {
+            vi.mocked(getDoc).mockResolvedValue(snapshot({ defaultLanguage: 'en', enabledLanguages: [ENGLISH], timeZone: 'Asia/Calcutta' }) as never);
+            expect((await service.load()).timeZone).toBe('Asia/Kolkata');
+            vi.mocked(getDoc).mockResolvedValue(snapshot({ defaultLanguage: 'en', enabledLanguages: [ENGLISH], timeZone: '+05:30' }) as never);
+            expect((await service.load(true)).timeZone).toBeUndefined();
+        });
+
+        it('is saved alone, leaving the languages, and kept on this device', async () => {
+            vi.mocked(getDoc).mockResolvedValue(snapshot({ defaultLanguage: 'hi', enabledLanguages: [HINDI, ENGLISH] }) as never);
+            await service.load();
+            vi.mocked(setDoc).mockResolvedValue(undefined as never);
+            await service.saveTimeZone('europe/zurich');
+            expect(vi.mocked(setDoc)).toHaveBeenLastCalledWith(expect.anything(), { timeZone: 'Europe/Zurich' }, { merge: true });
+            expect(service.settings().timeZone).toBe('Europe/Zurich');
+            expect(service.defaultLanguage()).toBe('hi');
+            expect(readStoredLocalization()?.timeZone).toBe('Europe/Zurich');
+        });
+
+        it('refuses a value that is not a zone, writing nothing', async () => {
+            await expect(service.saveTimeZone('CET')).rejects.toThrow(/not a time zone/);
+            expect(vi.mocked(setDoc)).not.toHaveBeenCalled();
+        });
+
+        it('survives a save of the languages', async () => {
+            vi.mocked(setDoc).mockResolvedValue(undefined as never);
+            await service.save({ defaultLanguage: 'en', enabledLanguages: [ENGLISH], timeZone: 'America/Phoenix' });
+            expect(vi.mocked(setDoc).mock.calls[0][1]).toEqual(expect.objectContaining({ timeZone: 'America/Phoenix' }));
+        });
+    });
 });

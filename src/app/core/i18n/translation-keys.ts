@@ -1273,6 +1273,7 @@ export type TranslationKey =
     | 'admin.settings.localization.make_default'
     | 'admin.settings.localization.move_down'
     | 'admin.settings.localization.move_up'
+    | 'admin.settings.localization.no_time_zone'
     | 'admin.settings.localization.other_enter_code'
     | 'admin.settings.localization.removal_note'
     | 'admin.settings.localization.remove_language'
@@ -1280,10 +1281,16 @@ export type TranslationKey =
     | 'admin.settings.localization.rtl_badge'
     | 'admin.settings.localization.save_failed'
     | 'admin.settings.localization.save_languages'
+    | 'admin.settings.localization.save_time_zone'
     | 'admin.settings.localization.saved'
     | 'admin.settings.localization.select_a_language'
+    | 'admin.settings.localization.time_zone_failed'
+    | 'admin.settings.localization.time_zone_intro'
+    | 'admin.settings.localization.time_zone_saved'
+    | 'admin.settings.localization.time_zone_title'
     | 'admin.settings.localization.title'
     | 'admin.settings.localization.unresolved_language'
+    | 'admin.settings.localization.use_zone'
     | 'admin.settings.message.button_label'
     | 'admin.settings.message.button_label_placeholder'
     | 'admin.settings.message.button_url'
@@ -1636,6 +1643,14 @@ export type TranslationKey =
     | 'common.table.slug'
     | 'common.table.status'
     | 'common.table.type'
+    | 'common.time.automatic'
+    | 'common.time.change'
+    | 'common.time.device_fast'
+    | 'common.time.device_slow'
+    | 'common.time.for_you'
+    | 'common.time.none'
+    | 'common.time.not_set'
+    | 'common.time.search'
     | 'common.unknown_error'
     | 'common.validation.generic'
     | 'common.validation.maxlength'
@@ -1920,6 +1935,8 @@ export type TranslationKey =
     | 'member.profile.status_active'
     | 'member.profile.status_inactive'
     | 'member.profile.subtitle'
+    | 'member.profile.time_zone'
+    | 'member.profile.time_zone_hint'
     | 'member.profile.title'
     | 'member.profile.update_password'
     | 'member.titles.account'
@@ -3317,6 +3334,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.localization.make_default',
     'admin.settings.localization.move_down',
     'admin.settings.localization.move_up',
+    'admin.settings.localization.no_time_zone',
     'admin.settings.localization.other_enter_code',
     'admin.settings.localization.removal_note',
     'admin.settings.localization.remove_language',
@@ -3324,10 +3342,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.localization.rtl_badge',
     'admin.settings.localization.save_failed',
     'admin.settings.localization.save_languages',
+    'admin.settings.localization.save_time_zone',
     'admin.settings.localization.saved',
     'admin.settings.localization.select_a_language',
+    'admin.settings.localization.time_zone_failed',
+    'admin.settings.localization.time_zone_intro',
+    'admin.settings.localization.time_zone_saved',
+    'admin.settings.localization.time_zone_title',
     'admin.settings.localization.title',
     'admin.settings.localization.unresolved_language',
+    'admin.settings.localization.use_zone',
     'admin.settings.message.button_label',
     'admin.settings.message.button_label_placeholder',
     'admin.settings.message.button_url',
@@ -3680,6 +3704,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.table.slug',
     'common.table.status',
     'common.table.type',
+    'common.time.automatic',
+    'common.time.change',
+    'common.time.device_fast',
+    'common.time.device_slow',
+    'common.time.for_you',
+    'common.time.none',
+    'common.time.not_set',
+    'common.time.search',
     'common.unknown_error',
     'common.validation.generic',
     'common.validation.maxlength',
@@ -3964,6 +3996,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.profile.status_active',
     'member.profile.status_inactive',
     'member.profile.subtitle',
+    'member.profile.time_zone',
+    'member.profile.time_zone_hint',
     'member.profile.title',
     'member.profile.update_password',
     'member.titles.account',

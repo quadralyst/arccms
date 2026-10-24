@@ -9,6 +9,8 @@
  * Spec: specs/multilingual-spec.md — Phase M1, decision M-D3.
  */
 
+import { canonicalZone } from '../../app/core/time/zones';
+
 /** A language the site can publish in. `code` is a BCP-47 primary subtag. */
 export interface ILanguage {
     /** BCP-47 primary subtag, e.g. 'en', 'hi', 'fr'. Doubles as the URL prefix. */
@@ -26,6 +28,12 @@ export interface ILocalizationSettings {
     defaultLanguage: string;
     /** Every language the site publishes, including the default. */
     enabledLanguages: ILanguage[];
+    /**
+     * The site's time zone, an IANA name such as `Europe/Zurich`
+     * (specs/clock-and-zones-spec.md, T-D9). Absent until an admin or the onboarding
+     * wizard sets it; times in the site zone use UTC meanwhile.
+     */
+    timeZone?: string;
 }
 
 export const DEFAULT_LANGUAGE_CODE = 'en';
@@ -88,7 +96,9 @@ export function normalizeLocalizationSettings(raw: unknown): ILocalizationSettin
         ...languages.filter((l) => l.code !== defaultLanguage),
     ];
 
-    return { defaultLanguage, enabledLanguages: ordered };
+    // A zone is kept only as a name this browser knows, in its current spelling (T-D8).
+    const timeZone = canonicalZone(data.timeZone);
+    return { defaultLanguage, enabledLanguages: ordered, ...(timeZone ? { timeZone } : {}) };
 }
 
 /** Languages other than the default — i.e. the ones that need translations. */

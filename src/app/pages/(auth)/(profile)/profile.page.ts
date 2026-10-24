@@ -27,6 +27,8 @@ import { newPasswordValidator, passwordProblemOf } from '../../../../shared/util
 import { minPasswordLength } from '../../../../shared/utils/password-rule';
 import { SIGN_IN_STRENGTH } from '../../../core/sign-in/sign-in-strength';
 import type { TranslationKey } from '../../../core/i18n/translation-keys';
+import { ArcZones } from '../../../core/time/arc-zones.service';
+import { ZonePickerComponent } from '../../../../shared/components/zone-picker/zone-picker.component';
 
 export const routeMeta: RouteMeta = {
   title: 'Profile',
@@ -36,7 +38,7 @@ export const routeMeta: RouteMeta = {
 @Component({
   selector: 'arc-profile',
   standalone: true,
-  imports: [ReactiveFormsModule, TranslocoPipe, SignInMethodsComponent],
+  imports: [ReactiveFormsModule, TranslocoPipe, SignInMethodsComponent, ZonePickerComponent],
   templateUrl: './profile.page.html',
   styleUrls: ['./profile.page.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -46,6 +48,8 @@ export default class ProfileComponent extends BaseComponent {
   private dialog = inject(MatDialog);
   private fileUpload = inject(FileUploadService);
   private signIn = inject(SignInService);
+  /** The person's own time zone, kept on this device (docs/app/clock-and-zones.html). */
+  zones = inject(ArcZones);
 
   // Section editing states
   isEditingName = signal(false);

@@ -28,11 +28,13 @@ import {
     findSupportedLanguage,
     isValidLanguageCode,
 } from '../../../../../shared/constants/languages';
+import { ZonePickerComponent } from '../../../../../shared/components/zone-picker/zone-picker.component';
+import { deviceZone, zoneLabel } from '../../../../core/time/zones';
 
 @Component({
     selector: 'arc-localization-settings',
     standalone: true,
-    imports: [CommonModule, FormsModule, TranslocoPipe],
+    imports: [CommonModule, FormsModule, TranslocoPipe, ZonePickerComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <div class="settings-section">
@@ -213,6 +215,38 @@ import {
             </span>
           }
         </div>
+
+        <!-- The site's time zone (specs/clock-and-zones-spec.md, T-D9), saved on its own. -->
+        <section class="time-zone mt-5" aria-labelledby="site-time-zone-title">
+          <h4 id="site-time-zone-title">{{ 'admin.settings.localization.time_zone_title' | transloco }}</h4>
+          <p class="text-muted mb-3">{{ 'admin.settings.localization.time_zone_intro' | transloco }}</p>
+          @if (!settings().timeZone) {
+            <div class="alert alert-warning d-flex align-items-center flex-wrap gap-2 no-zone">
+              <span class="me-auto">{{ 'admin.settings.localization.no_time_zone' | transloco }}</span>
+              <button class="btn btn-sm btn-primary use-device-zone" type="button" [disabled]="isSavingZone()" (click)="saveZone(deviceZone)">
+                {{ 'admin.settings.localization.use_zone' | transloco: { zone: deviceZoneLabel } }}
+              </button>
+            </div>
+          }
+          <arc-zone-picker inputId="siteTimeZone" [label]="'admin.settings.localization.time_zone_title' | transloco"
+            [value]="zoneDraft()" (valueChange)="pickZone($event)"></arc-zone-picker>
+          <div class="mt-3">
+            <button class="btn btn-primary save-zone" type="button" (click)="saveZone(zoneDraft())"
+              [disabled]="isSavingZone() || !zoneDraft() || zoneDraft() === settings().timeZone">
+              @if (isSavingZone()) {
+                <i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.actions.saving' | transloco }}
+              } @else {
+                <i class="fas fa-save me-1"></i> {{ 'admin.settings.localization.save_time_zone' | transloco }}
+              }
+            </button>
+            @if (zoneMessage()) {
+              <span class="ms-3 text-success"><i class="fas fa-check me-1"></i> {{ zoneMessage() }}</span>
+            }
+            @if (zoneError()) {
+              <span class="ms-3 text-danger"><i class="fas fa-triangle-exclamation me-1"></i> {{ zoneError() }}</span>
+            }
+          </div>
+        </section>
       }
     </div>
   `,
@@ -253,6 +287,15 @@ export class LocalizationSettingsPage implements OnInit {
     customLabel = signal('');
     addError = signal('');
 
+    /** The zone picked but not saved yet; the saved one until then. */
+    zoneDraft = signal<string | null>(null);
+    isSavingZone = signal(false);
+    zoneMessage = signal('');
+    zoneError = signal('');
+    /** This admin's browser zone, offered when the site has none. */
+    readonly deviceZone = deviceZone();
+    readonly deviceZoneLabel = zoneLabel(this.deviceZone);
+
     defaultLanguage = computed(() => this.settings().defaultLanguage);
     enabledLanguages = computed(() => this.settings().enabledLanguages);
 
@@ -273,6 +316,7 @@ export class LocalizationSettingsPage implements OnInit {
         try {
             const loaded = await this.localization.load(true);
             this.settings.set(loaded);
+            this.zoneDraft.set(loaded.timeZone ?? null);
         } finally {
             this.isLoading.set(false);
         }
@@ -361,6 +405,34 @@ export class LocalizationSettingsPage implements OnInit {
             this.saveError.set(this.transloco.translate('admin.settings.localization.save_failed'));
         } finally {
             this.isSaving.set(false);
+        }
+    }
+
+    pickZone(zone: string | null): void {
+        this.zoneMessage.set('');
+        this.zoneError.set('');
+        this.zoneDraft.set(zone);
+    }
+
+    /** Saves the site's zone alone; the languages on screen, saved or not, are left as they are. */
+    async saveZone(zone: string | null): Promise<void> {
+        if (!zone) return;
+        this.isSavingZone.set(true);
+        this.zoneMessage.set('');
+        this.zoneError.set('');
+        try {
+            await this.localization.saveTimeZone(zone);
+            const saved = this.localization.settings().timeZone;
+            // Keep the working copy's zone in step, so saving languages later never writes an old one.
+            this.settings.update((s) => ({ ...s, timeZone: saved }));
+            this.zoneDraft.set(saved ?? null);
+            this.zoneMessage.set(this.transloco.translate('admin.settings.localization.time_zone_saved'));
+            setTimeout(() => this.zoneMessage.set(''), 3000);
+        } catch (error) {
+            console.error('Error saving the site time zone:', error);
+            this.zoneError.set(this.transloco.translate('admin.settings.localization.time_zone_failed'));
+        } finally {
+            this.isSavingZone.set(false);
         }
     }
 

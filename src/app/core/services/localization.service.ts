@@ -26,6 +26,7 @@ import {
     languagePathPrefix,
     normalizeLocalizationSettings,
 } from '../../../shared/models/localization.model';
+import { canonicalZone } from '../time/zones';
 
 export const SETTINGS_COLLECTION = 'Settings';
 export const LOCALIZATION_DOC = 'localization';
@@ -162,6 +163,22 @@ export class LocalizationService {
         this.settingsSignal.set(normalized);
         storeLocalization(normalized);
         this.loadedSignal.set(true);
+    }
+
+    /**
+     * Saves the site's time zone alone (specs/clock-and-zones-spec.md, T-D9), leaving the
+     * languages as they are. A name the browser does not know is refused.
+     */
+    async saveTimeZone(zone: string): Promise<void> {
+        const timeZone = canonicalZone(zone);
+        if (!timeZone) throw new Error(`"${zone}" is not a time zone.`);
+        const docRef = runInInjectionContext(this.injector, () =>
+            doc(this.firestore, SETTINGS_COLLECTION, LOCALIZATION_DOC),
+        );
+        await setDoc(docRef, { timeZone }, { merge: true });
+        const updated = { ...this.settingsSignal(), timeZone };
+        this.settingsSignal.set(updated);
+        storeLocalization(updated);
     }
 
     isEnabled(code: string): boolean {

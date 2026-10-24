@@ -18,6 +18,7 @@ describe('LocalizationSettingsPage', () => {
     let localizationMock: {
         load: ReturnType<typeof vi.fn>;
         save: ReturnType<typeof vi.fn>;
+        saveTimeZone: ReturnType<typeof vi.fn>;
         settings: ReturnType<typeof vi.fn>;
     };
 
@@ -33,6 +34,7 @@ describe('LocalizationSettingsPage', () => {
         localizationMock = {
             load: vi.fn().mockResolvedValue(enGb),
             save: vi.fn().mockResolvedValue(undefined),
+            saveTimeZone: vi.fn().mockResolvedValue(undefined),
             settings: vi.fn().mockReturnValue(enGb),
         };
 
@@ -185,5 +187,54 @@ describe('LocalizationSettingsPage', () => {
         localizationMock.load.mockResolvedValue(DEFAULT_LOCALIZATION_SETTINGS);
         await component.ngOnInit();
         expect(component.enabledLanguages().map((l) => l.code)).toEqual(['en']);
+    });
+    describe("the site's time zone (specs/clock-and-zones-spec.md, T-D9)", () => {
+        const page = () => fixture.nativeElement as HTMLElement;
+
+        it('says the site has none yet, and offers this browser\'s zone in one click', async () => {
+            expect(page().querySelector('.no-zone')?.textContent).toContain('no time zone yet');
+            const zoned = { ...enGb, timeZone: component.deviceZone };
+            localizationMock.settings.mockReturnValue(zoned);
+            (page().querySelector('.use-device-zone') as HTMLButtonElement).click();
+            await fixture.whenStable();
+            expect(localizationMock.saveTimeZone).toHaveBeenCalledWith(component.deviceZone);
+            expect(component.settings().timeZone).toBe(component.deviceZone);
+            fixture.detectChanges();
+            expect(page().querySelector('.no-zone')).toBeNull();
+            expect(component.zoneMessage()).toBe('Time zone saved');
+        });
+
+        it('saves a picked zone without touching the languages on screen', async () => {
+            component.languageToAdd.set('fr');
+            component.addLanguage();
+            component.pickZone('Asia/Kolkata');
+            localizationMock.settings.mockReturnValue({ ...enGb, timeZone: 'Asia/Kolkata' });
+            await component.saveZone(component.zoneDraft());
+            expect(localizationMock.saveTimeZone).toHaveBeenCalledWith('Asia/Kolkata');
+            expect(localizationMock.save).not.toHaveBeenCalled();
+            // The unsaved French stays on screen, and a later language save carries the new zone.
+            expect(component.enabledLanguages().map((l) => l.code)).toEqual(['en', 'hi', 'fr']);
+            expect(component.settings().timeZone).toBe('Asia/Kolkata');
+        });
+
+        it('keeps the picked zone when saving it fails, and says so', async () => {
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            localizationMock.saveTimeZone.mockRejectedValue(new Error('permission-denied'));
+            component.pickZone('Europe/Zurich');
+            await component.saveZone('Europe/Zurich');
+            expect(component.zoneError()).toContain('could not be saved');
+            expect(component.zoneDraft()).toBe('Europe/Zurich');
+            expect(component.isSavingZone()).toBe(false);
+            consoleSpy.mockRestore();
+        });
+
+        it('starts from the saved zone and hides the prompt', async () => {
+            localizationMock.load.mockResolvedValue({ ...enGb, timeZone: 'America/Phoenix' });
+            await component.ngOnInit();
+            fixture.detectChanges();
+            expect(component.zoneDraft()).toBe('America/Phoenix');
+            expect(page().querySelector('.no-zone')).toBeNull();
+            expect(page().querySelector('arc-zone-picker')?.textContent).toContain('Phoenix');
+        });
     });
 });

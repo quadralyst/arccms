@@ -150,6 +150,16 @@
       "search": "Add a country: type its name or code",
       "remove": "Remove {{ country }}",
       "none": "No country matches"
+    },
+    "time": {
+      "for_you": "{{ time }} for you",
+      "automatic": "Automatic: {{ zone }}",
+      "change": "Change",
+      "search": "Search a city or time zone",
+      "none": "No time zone matches",
+      "device_fast": "This device's clock is {{ amount }} fast",
+      "device_slow": "This device's clock is {{ amount }} slow",
+      "not_set": "Not set"
     }
   },
   "admin": {
@@ -231,7 +241,14 @@
         "code_taken": "/{{ code }} is already a page on this site, so it cannot be a language code.",
         "saved": "Languages saved successfully",
         "save_failed": "Could not save languages. Please try again.",
-        "rtl_badge": "RTL"
+        "rtl_badge": "RTL",
+        "time_zone_title": "Time zone",
+        "time_zone_intro": "Dates on your published pages use the site's time zone. Everywhere else, each person sees times in their own zone.",
+        "no_time_zone": "Your site has no time zone yet, so dates on published pages use UTC.",
+        "use_zone": "Use {{ zone }}",
+        "save_time_zone": "Save time zone",
+        "time_zone_saved": "Time zone saved",
+        "time_zone_failed": "The time zone could not be saved. Try again."
       },
       "hub": {
         "title": "Settings",
@@ -2198,7 +2215,9 @@
       "password_change_error": "An error occurred while changing password.",
       "delete_confirm_body": "This deletes your account and everything saved in it. <strong>It cannot be undone.</strong>",
       "account_deleted": "Your account was deleted.",
-      "app_managed": "This account is managed for you, so these details can't be changed here."
+      "app_managed": "This account is managed for you, so these details can't be changed here.",
+      "time_zone": "Time zone",
+      "time_zone_hint": "Times are shown in this zone. Kept on this device."
     },
     "methods": {
       "title": "Sign-in methods",

@@ -31,7 +31,7 @@ export function untranslated(template: string): string[] {
     const clean = uncommented
         .replace(/<svg[\s\S]*?<\/svg>/g, '')
         .replace(/\{\{[\s\S]*?\}\}/g, ' ')
-        .replace(/@(if|else if|for|switch|case|let|default)\b[^{]*\{|@else\s*\{|\}/g, ' ');
+        .replace(/@(if|else if|for|switch|case|let|default)\b[^{]*\{|@(else|empty)\s*\{|\}/g, ' ');
     // Attribute values may hold `>` (`[class.pos]="n > 0"`): blank them before reading text.
     const markup = clean.replace(/="[^"]*"/g, '=""');
     const text = [...markup.matchAll(/>([^<>]+)</g)].map((m) => m[1].replace(/&[a-z]+;|&#\d+;/g, ' ').trim())

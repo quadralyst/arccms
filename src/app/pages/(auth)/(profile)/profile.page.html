@@ -109,6 +109,16 @@
           </div>
         }
       </div>
+
+      <!-- Time zone: this person's own, on this device; a locked app account may set it too. -->
+      <div class="info-row time-zone-row">
+        <label>{{ 'member.profile.time_zone' | transloco }}</label>
+        <div class="zone-value">
+          <arc-zone-picker inputId="profile-time-zone" [label]="'member.profile.time_zone' | transloco" [allowAutomatic]="true"
+            [value]="zones.memberChoice()" (valueChange)="zones.useMemberZone($event)"></arc-zone-picker>
+          <div class="text-muted small mt-1">{{ 'member.profile.time_zone_hint' | transloco }}</div>
+        </div>
+      </div>
       @if (locked()) {
         <p class="text-muted small mb-0 app-managed-note">{{ 'member.profile.app_managed' | transloco }}</p>
       }

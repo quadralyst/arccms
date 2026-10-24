@@ -99,8 +99,8 @@ describe('OnboardingSetupService', () => {
         it('should write Settings/about and Settings/site', async () => {
             await service.saveSiteInfo('My Site', 'https://mysite.com');
 
-            // Should call setDoc at least twice (about + site)
-            expect(mockSetDoc).toHaveBeenCalledTimes(2);
+            // about + site + the site's time zone
+            expect(mockSetDoc).toHaveBeenCalledTimes(3);
 
             // Verify Settings/about
             const aboutCall = mockSetDoc.mock.calls[0];
@@ -129,10 +129,10 @@ describe('OnboardingSetupService', () => {
         it('should write Settings/integrations when unsplash key provided', async () => {
             await service.saveSiteInfo('My Site', 'https://mysite.com', 'my-unsplash-key');
 
-            // about + site + integrations = 3 calls
-            expect(mockSetDoc).toHaveBeenCalledTimes(3);
+            // about + site + time zone + integrations = 4 calls
+            expect(mockSetDoc).toHaveBeenCalledTimes(4);
 
-            const integrationsCall = mockSetDoc.mock.calls[2];
+            const integrationsCall = mockSetDoc.mock.calls[3];
             expect(integrationsCall[1]).toEqual(expect.objectContaining({
                 unsplash: { accessKey: 'my-unsplash-key', secretKey: '' },
             }));
@@ -140,7 +140,21 @@ describe('OnboardingSetupService', () => {
 
         it('should not write integrations when unsplash key not provided', async () => {
             await service.saveSiteInfo('My Site', 'https://mysite.com');
-            expect(mockSetDoc).toHaveBeenCalledTimes(2);
+            expect(mockSetDoc).toHaveBeenCalledTimes(3);
+        });
+
+        it("sets the site's time zone from the browser of the person setting it up (specs/clock-and-zones-spec.md, T-D9)", async () => {
+            const resolved = vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
+                .mockReturnValue({ timeZone: 'Asia/Calcutta' } as Intl.ResolvedDateTimeFormatOptions);
+            try {
+                await service.saveSiteInfo('My Site', 'https://mysite.com');
+            } finally {
+                resolved.mockRestore();
+            }
+            expect(mockDoc).toHaveBeenCalledWith(expect.anything(), 'Settings', 'localization');
+            const zoneCall = mockSetDoc.mock.calls[2];
+            expect(zoneCall[1]).toEqual({ timeZone: 'Asia/Kolkata' });
+            expect(zoneCall[2]).toEqual({ merge: true });
         });
 
         it('should propagate Firestore errors', async () => {
