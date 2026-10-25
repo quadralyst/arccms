@@ -13,6 +13,7 @@ import ProfileComponent from './profile.page';
 import { SignInMethodsComponent } from './sign-in-methods.component';
 import { AuthState } from '../auth.store';
 import { SignInService } from '../sign-in.service';
+import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
 import { FileUploadService } from '../../../../shared/services/file-upload.service';
 import { headerTestProviders } from '../../../../test/header-test-providers';
 import { translocoTestingModule } from '../../../../test/transloco-test-providers';
@@ -36,6 +37,8 @@ describe('ProfileComponent for a locked app account', () => {
                 provideNoopAnimations(),
                 { provide: AuthState, useValue: { currentUser: user, isAdmin: () => false, updateUserProfile: vi.fn(), isSuccess: () => true, error: () => '' } },
                 { provide: SignInService, useValue: signIn },
+                // Settings, User Settings as read by the page: passwords for email accounts.
+                { provide: UserSettingService, useValue: { readSettings: vi.fn(async () => ({ isSignupEnabled: true, defaultRole: 'user' })) } },
                 { provide: MatDialog, useValue: { open: vi.fn() } },
                 { provide: FileUploadService, useValue: { uploadAvatar: vi.fn() } },
             ],

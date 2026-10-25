@@ -29,6 +29,8 @@ import { SIGN_IN_STRENGTH } from '../../../core/sign-in/sign-in-strength';
 import type { TranslationKey } from '../../../core/i18n/translation-keys';
 import { ArcZones } from '../../../core/time/arc-zones.service';
 import { ZonePickerComponent } from '../../../../shared/components/zone-picker/zone-picker.component';
+import { readStoredSignInSettings, UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
+import { emailPinOn } from '../../admin/(settings)/user-setting/user-setting.model';
 
 export const routeMeta: RouteMeta = {
   title: 'Profile',
@@ -98,8 +100,23 @@ export default class ProfileComponent extends BaseComponent {
     return role && role !== 'user' ? role : this.t('member.profile.role_user');
   }
 
-  /** Only accounts that sign in with email and password can change a password. */
+  /**
+   * The site signs email accounts in with a PIN (specs/sign-in-pin-spec.md). Firebase keeps
+   * the email's password entry on an account whose password was taken off, so the browser
+   * cannot tell; the rule is the server's (emailPinRules.ts keepsPassword).
+   */
+  private readonly emailPin = signal(emailPinOn(readStoredSignInSettings()));
+  private readonly userSettings = inject(UserSettingService);
+
+  /**
+   * Only accounts that sign in with email and password can change a password. While the
+   * site uses email PINs, a member's account (not an admin's, nor a login another app owns
+   * or shares) has no password to change: it signs in with its PIN.
+   */
   hasPassword(): boolean {
+    const user = this.currentUser() as { role?: string; authOwner?: string } | null | undefined;
+    const ownLogin = !user?.authOwner || user.authOwner === 'arccms';
+    if (this.emailPin() && user?.role !== 'admin' && ownLogin) return false;
     return this.signIn.hasPassword();
   }
 
@@ -111,6 +128,7 @@ export default class ProfileComponent extends BaseComponent {
 
   constructor() {
     super();
+    this.userSettings.readSettings().then((settings) => this.emailPin.set(emailPinOn(settings)), () => undefined);
   }
 
   getInitials(name: string): string {

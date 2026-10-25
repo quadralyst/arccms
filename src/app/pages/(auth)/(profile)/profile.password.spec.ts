@@ -12,6 +12,7 @@ import ProfileComponent from './profile.page';
 import { SignInMethodsComponent } from './sign-in-methods.component';
 import { AuthState } from '../auth.store';
 import { SignInService } from '../sign-in.service';
+import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
 import { FileUploadService } from '../../../../shared/services/file-upload.service';
 import { headerTestProviders } from '../../../../test/header-test-providers';
 import { translocoTestingModule } from '../../../../test/transloco-test-providers';
@@ -19,7 +20,7 @@ import { translocoTestingModule } from '../../../../test/transloco-test-provider
 @Component({ selector: 'arc-sign-in-methods', standalone: true, template: '' })
 class SignInMethodsStub {}
 
-async function render(): Promise<ProfileComponent> {
+async function render(settings: Record<string, unknown> = {}, role = 'user'): Promise<ProfileComponent> {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
         imports: [ProfileComponent, translocoTestingModule()],
@@ -28,10 +29,12 @@ async function render(): Promise<ProfileComponent> {
             provideRouter([]),
             provideNoopAnimations(),
             { provide: AuthState, useValue: {
-                currentUser: () => ({ id: 'doc-1', uid: 'uid-1', name: 'Anna Berg', email: 'anna.berg@example.com', role: 'user', isActive: true }),
+                currentUser: () => ({ id: 'doc-1', uid: 'uid-1', name: 'Anna Berg', email: 'anna.berg@example.com', role, isActive: true }),
                 isAdmin: () => false, updateUserProfile: vi.fn(), isSuccess: () => true, error: () => '',
             } },
             { provide: SignInService, useValue: { hasPassword: () => true, deleteMyAccount: vi.fn() } },
+            // Settings, User Settings as read by the page: passwords for email accounts.
+            { provide: UserSettingService, useValue: { readSettings: vi.fn(async () => ({ isSignupEnabled: true, defaultRole: 'user', ...settings })) } },
             { provide: MatDialog, useValue: { open: vi.fn() } },
             { provide: FileUploadService, useValue: { uploadAvatar: vi.fn() } },
         ],
@@ -54,5 +57,23 @@ describe('ProfileComponent: a new password (F22)', () => {
         }
         field.setValue('Monsoon-Train-42');
         expect(field.valid).toBe(true);
+    });
+});
+
+describe('ProfileComponent: the password section with email PIN sign-in (specs/sign-in-pin-spec.md)', () => {
+    // Firebase keeps the email's password entry on an account whose password was taken
+    // off, so the browser alone would still offer Change password.
+    it('hides it for a member while the site signs email accounts in with a PIN', async () => {
+        const page = await render({ emailSignIn: 'pin' });
+        await vi.waitFor(() => expect(page.hasPassword()).toBe(false));
+    });
+
+    it('keeps it for an admin, and for everyone while the site uses passwords', async () => {
+        const admin = await render({ emailSignIn: 'pin' }, 'admin');
+        await new Promise((r) => setTimeout(r));
+        expect(admin.hasPassword()).toBe(true);
+        const member = await render({ emailSignIn: 'password' });
+        await new Promise((r) => setTimeout(r));
+        expect(member.hasPassword()).toBe(true);
     });
 });
