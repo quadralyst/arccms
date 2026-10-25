@@ -34,7 +34,8 @@ import {
     releaseRateLimit,
     hasPin,
     issueSignInToken,
-    isValidPin,
+    pinRefusal,
+    readPin,
     pinTooEasy,
     newUserRecord,
     requireOwnRecord,
@@ -63,11 +64,6 @@ export function readName(raw: unknown): string {
     const name = typeof raw === 'string' ? raw.trim().replace(/\s+/g, ' ') : '';
     if (name.length < 2 || name.length > 60) throw refuse('invalid-argument', 'name-required', 'Please enter your name.');
     return name;
-}
-
-function readPin(raw: unknown): string {
-    if (!isValidPin(raw)) throw refuse('invalid-argument', 'pin-format', 'Your PIN is 6 digits.');
-    return raw;
 }
 
 /** A PIN being chosen: 6 digits, and under the strict rule not one of the first ones an attacker tries. */
@@ -253,14 +249,7 @@ export const signInWithPin = onCall(async (request) => {
     const uid = String(account.data['uid']);
     const result = await checkPin(uid, pin);
     if (result.ok) return { token: await issueSignInToken(uid) };
-    if (result.reason === 'wrong') {
-        const tries = result.remaining === 1 ? '1 try' : `${result.remaining} tries`;
-        throw new HttpsError('permission-denied', `Wrong PIN. ${tries} left.`, { reason: 'wrong', remaining: result.remaining });
-    }
-    if (result.reason === 'none') {
-        throw new HttpsError('failed-precondition', 'Set a PIN with a code sent to your number.', { reason: 'no-pin' });
-    }
-    throw new HttpsError('resource-exhausted', 'Too many tries. Reset your PIN with a code.', { reason: 'locked' });
+    throw pinRefusal(result);
 });
 
 export const resetPin = onCall(async (request) => {

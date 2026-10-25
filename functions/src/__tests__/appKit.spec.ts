@@ -275,6 +275,7 @@ describe('the app kit\'s exports', () => {
         'APP_ACCOUNT', 'createAppAccount', 'deleteAppAccount', 'isArcAdmin', 'issueSignInToken', 'mergeAppClaims', 'restoreAppSignIn',
         'revokeSessions', 'sessionClaims', 'signedInByApp',
         'APP_PINS', 'callerKey', 'consumeRateLimit', 'createPhonePinCheck', 'createPinStore', 'hashedKey', 'isValidPin', 'isWeakPin',
+        'signInWithMemberPin',
         'pinTooEasy', 'signInStrength',
         'sendAppEmail', 'captureAppEmails', 'escapeEmailHtml', 'MAX_APP_EMAIL_RECIPIENTS', 'MAX_ATTACHMENTS', 'MAX_ATTACHMENT_BYTES',
         'APP_EMAIL_EVENTS',

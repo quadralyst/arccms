@@ -197,11 +197,7 @@ export function applyNewAccountClaims(uid: string, userDocId: string, role: stri
  * the person getting "Something went wrong" and the cause sitting in the logs.
  */
 export async function issueSignInToken(uid: string, sessionClaims?: Record<string, unknown>): Promise<string> {
-    const withClaims = sessionClaims !== undefined && !(isPlainObject(sessionClaims) && !Object.keys(sessionClaims).length);
-    if (withClaims) {
-        const problems = sessionClaimProblems(sessionClaims);
-        if (problems.length) throw new HttpsError('invalid-argument', problems.join(' '));
-    }
+    const withClaims = checkSessionClaims(sessionClaims);
     try {
         return await (withClaims ? owner.createCustomToken(uid, { [SESSION_CLAIM]: sessionClaims }) : owner.createCustomToken(uid));
     } catch (error) {
@@ -213,8 +209,18 @@ export async function issueSignInToken(uid: string, sessionClaims?: Record<strin
     }
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-    return !!value && typeof value === 'object' && !Array.isArray(value);
+/**
+ * Whether `sessionClaims` has any claims to put in a token: false when left out or `{}`.
+ * Refuses (`invalid-argument`) what issueSignInToken() would refuse, so a caller can ask
+ * before anything is counted or written.
+ */
+export function checkSessionClaims(sessionClaims: unknown): boolean {
+    if (sessionClaims === undefined) return false;
+    const empty = !!sessionClaims && typeof sessionClaims === 'object' && !Array.isArray(sessionClaims) && !Object.keys(sessionClaims).length;
+    if (empty) return false;
+    const problems = sessionClaimProblems(sessionClaims);
+    if (problems.length) throw new HttpsError('invalid-argument', problems.join(' '));
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -223,6 +229,12 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 export function isValidPin(pin: unknown): pin is string {
     return typeof pin === 'string' && PIN_PATTERN.test(pin);
+}
+
+/** A PIN being typed to sign in, or the error the sign-in page shows: it is 6 digits. */
+export function readPin(raw: unknown): string {
+    if (!isValidPin(raw)) throw refuse('invalid-argument', 'pin-format', 'Your PIN is 6 digits.');
+    return raw;
 }
 
 /** PINs people pick most, which an attacker tries first on every number. */
@@ -392,6 +404,25 @@ export async function checkPin(uid: string, pin: string, at: PinLocation = phone
     });
 }
 
+/**
+ * The refusal for a sign-in PIN that did not pass, as the sign-in page shows it:
+ * `wrong` with the tries left, `no-pin`, or `locked` (reset with a code). Phone and
+ * email PIN sign-in and an app's signInWithMemberPin() all refuse with these.
+ */
+export function pinRefusal(
+    result: Exclude<PinCheck, { ok: true }>,
+    noPin = 'Set a PIN with a code sent to your number.',
+): HttpsError {
+    if (result.reason === 'wrong') {
+        const tries = result.remaining === 1 ? '1 try' : `${result.remaining} tries`;
+        return new HttpsError('permission-denied', `Wrong PIN. ${tries} left.`, { reason: 'wrong', remaining: result.remaining });
+    }
+    if (result.reason === 'none') {
+        return new HttpsError('failed-precondition', noPin, { reason: 'no-pin' });
+    }
+    return new HttpsError('resource-exhausted', 'Too many tries. Reset your PIN with a code.', { reason: 'locked' });
+}
+
 // ---------------------------------------------------------------------------
 // Rate limits
 // ---------------------------------------------------------------------------
@@ -426,6 +457,28 @@ export async function consumeRateLimit(
         return 0;
     });
     if (reopensAt) throw new HttpsError('resource-exhausted', message, { reason, retryAfter: Math.max(1, Math.ceil((reopensAt - now) / 1000)) });
+}
+
+/**
+ * Seconds until `key`'s window reopens when `max` uses are already counted in it, or 0
+ * when one more is allowed. Reads only: for a limit that counts failures alone, asked
+ * before the attempt, with countFailure() after a failed one.
+ */
+export async function rateLimitWait(key: string, max: number, windowMs: number): Promise<number> {
+    const data = (await db.collection(RATE_LIMITS).doc(key).get()).data();
+    const now = Date.now();
+    const windowStart = Number(data?.['windowStart'] ?? 0);
+    if (!data || now - windowStart >= windowMs || Number(data['count'] ?? 0) < max) return 0;
+    return Math.max(1, Math.ceil((windowStart + windowMs - now) / 1000));
+}
+
+/** Count one failure against `key` (see rateLimitWait); a limit already reached is not an error here. */
+export async function countFailure(key: string, max: number, windowMs: number): Promise<void> {
+    try {
+        await consumeRateLimit(key, max, windowMs, 'counted');
+    } catch (err) {
+        if ((err as { code?: unknown })?.code !== 'resource-exhausted') throw err;
+    }
 }
 
 /**

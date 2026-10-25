@@ -23,6 +23,9 @@ export { APP_PINS, createPinStore, hashedKey } from './pins.js';
 export type { PinStore } from './pins.js';
 export { createPhonePinCheck } from './phonePinCheck.js';
 export type { PhonePinCheck } from './phonePinCheck.js';
+// Signing a member in with their own sign-in PIN, counted as a sign-in (specs/sign-in-pin-spec.md, F32)
+export { signInWithMemberPin } from './memberPin.js';
+export type { MemberPinOptions } from './memberPin.js';
 export { callerKey, consumeRateLimit, isValidPin, isWeakPin, pinTooEasy } from '../auth/accounts.js';
 export type { PinCheck } from '../auth/accounts.js';
 // The password and PIN strength the app chose in src/custom/sign-in.ts (specs/sign-in-strength-spec.md)
