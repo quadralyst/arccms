@@ -7,7 +7,9 @@ Branch `claude/sign-in-f30-f32-3e413c`, cut from `dev` at `c8353c49`.
 
 - F30 `731b8868`, F32 `d5970dc0`, F31 part 2 `d51bc10a`, F31 part 1 server `0c5b09ab`, then the browser side, docs and review fixes.
 - Changes from the proposal found while building: `setPin` and `checkPhoneSignIn` are now deployed with or without the `sms` feature (email accounts have PINs too); every PIN sign-in remembers its device whether the setting is on or not, and a signed-in device reports itself once (`rememberThisDevice`), so turning the new-device code on later asks for no code on devices in use; on a site using passwords, an account with a password gets no email-and-PIN sign-in (`pin-sign-in-off`).
-- Still to check on a real project (no emulator): that `providersToUnlink: ['password']` takes the password off, and that `arccms_session` survives the hourly token refresh.
+- Browser test on xlm (2026-10-25): email sign-up with a PIN, the new-device code, Forgot PIN, a password account choosing a PIN, and switching back to Password all pass. `providersToUnlink: ['password']` does stop the password working, but Firebase keeps the email's `password` provider entry, so the profile now goes by the server's rule for its password section (`a940d3ab`).
+- Still unchecked: `arccms_session` through the hourly token refresh (needs Arc POS's till sign-in), and the phone new-device code in a browser.
+- Low, left: in Password mode the profile offers no Change PIN for an email-only PIN account (Forgot PIN on the sign-in page still works); the profile subtitle still says "Manage your name, email, password and photo." for PIN accounts.
 
 ## Decisions so far (Gunjan, 2026-10-25)
 
