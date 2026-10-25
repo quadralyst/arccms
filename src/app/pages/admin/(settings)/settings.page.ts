@@ -218,7 +218,11 @@ interface SettingCategory {
             }
 
             .setting-item {
-                flex: 0 0 auto; /* fixed size — don't squash */
+                /* Each chip its own width: without these the wide layout's
+                   flex: 1 0 auto !important and Material's width: 100% win,
+                   and one chip fills the row, the rest out of sight. */
+                flex: 0 0 auto !important;
+                width: auto !important;
                 margin: 0 !important;
                 border-radius: 8px !important;
                 padding: 7px 10px !important;

@@ -127,6 +127,17 @@ describe('SettingsPageComponent', () => {
         expect(rule('.settings-sidebar mat-nav-list')).toMatch(/flex: 1 0 auto/);
         expect(rule('.setting-item')).toMatch(/flex: 1 0 auto/);
     });
+
+    // Up to 992px wide the menu is a row of chips. Each must keep its own width, or
+    // the wide layout's flex: 1 0 auto !important and Material's width: 100% make
+    // the first chip fill the row and hide the others.
+    it('keeps each chip its own width in the narrow layout, so every setting can be reached', () => {
+        const source = readFileSync(join(__dirname, 'settings.page.ts'), 'utf8');
+        const narrow = source.slice(source.indexOf('@media (max-width: 992px)'));
+        const chip = narrow.match(/\n {12}\.setting-item \{([^}]*)\}/)?.[1] ?? '';
+        expect(chip).toMatch(/flex: 0 0 auto !important/);
+        expect(chip).toMatch(/width: auto !important/);
+    });
 });
 
 describe('the settings panes', () => {
