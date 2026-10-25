@@ -46,16 +46,18 @@ function generateCode(): string {
 /**
  * What a code is for: `signup` (the sign-up page), `link` (adding or changing
  * the email of the signed-in account, which records whose request it was) or
- * `reset` (Forgot password, passwordReset.ts). Records written before this
- * existed have no purpose and are sign-up codes.
+ * `reset` (Forgot password, passwordReset.ts) or `fresh` (a fresh code before a
+ * sensitive action, freshCode.ts, which like `link` records whose request it was).
+ * Records written before this existed have no purpose and are sign-up codes.
  */
-export type EmailOtpPurpose = 'signup' | 'link' | 'reset';
+export type EmailOtpPurpose = 'signup' | 'link' | 'reset' | 'fresh';
 
 /** The template each purpose's email uses: a reset code has its own words. */
 export const EMAIL_OTP_TEMPLATE: Record<EmailOtpPurpose, string> = {
   signup: 'signup_otp_email',
   link: 'signup_otp_email',
   reset: 'password_reset_otp_email',
+  fresh: 'signup_otp_email',
 };
 
 /** How long a verified code stays usable for the step that follows it. */
@@ -275,7 +277,8 @@ export async function issueEmailOtp(
 /** The code for the page to show while testing, or that it is only in Email Logs. */
 function testCodeFor(purpose: EmailOtpPurpose, code: string, settings: EmailSettingsData): { testCode?: string; testCodeInLogs?: boolean } {
   if (purpose === 'signup') return { testCode: code };
-  if (purpose === 'reset') return resetCodesShownIn(settings) ? { testCode: code } : { testCodeInLogs: true };
+  // A fresh code stands between a signed-in session and a sensitive action: as a reset code.
+  if (purpose === 'reset' || purpose === 'fresh') return resetCodesShownIn(settings) ? { testCode: code } : { testCodeInLogs: true };
   return {};
 }
 
@@ -332,13 +335,24 @@ export const verifySignupOtp = onCall(async (request) => {
   // A link code is for the signed-in account's own record (never a locked app account).
   if (purpose === 'link') await requireOwnRecord(request);
 
+  const ticket = await verifyEmailCode(email, code, purpose, request.auth?.uid);
+  logger.info(`verifySignupOtp: verified ${email}.`);
+  return { verified: true, ticket };
+});
+
+/**
+ * Check an emailed code and mark it verified, counting the try: the ticket the next
+ * step needs, or the refusal the page shows. `uid` is the signed-in account, for the
+ * purposes whose code is that account's (`link`, `fresh`).
+ */
+export async function verifyEmailCode(email: string, code: string, purpose: EmailOtpPurpose, uid: string | undefined): Promise<string> {
   const emailHash = computeEmailHash(email);
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
   const { ticket, ticketHash } = newOtpTicket();
   const outcome = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const data = snap.data();
-    if (!snap.exists || !data || !matchesPurpose(data, purpose, request.auth?.uid)) return 'missing';
+    if (!snap.exists || !data || !matchesPurpose(data, purpose, uid)) return 'missing';
     const expiresAt = (data['expiresAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
     if (expiresAt < Date.now()) return 'expired';
     const attempts = (data['attempts'] as number) || 0;
@@ -355,14 +369,13 @@ export const verifySignupOtp = onCall(async (request) => {
   if (outcome === 'expired') throw refuse('deadline-exceeded', 'code-expired', 'That code has expired. Please ask for a new one.');
   if (outcome === 'locked') throw refuse('resource-exhausted', 'code-tries', 'Too many tries. Please ask for a new code.');
   if (outcome === 'wrong') throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
-  logger.info(`verifySignupOtp: verified ${email}.`);
-  return { verified: true, ticket };
-});
+  return ticket;
+}
 
 function matchesPurpose(data: Record<string, unknown>, purpose: EmailOtpPurpose, uid: string | undefined): boolean {
   const stored = (data['purpose'] as EmailOtpPurpose | undefined) ?? 'signup';
   if (stored !== purpose) return false;
-  return purpose !== 'link' || (!!uid && data['uid'] === uid);
+  return (purpose !== 'link' && purpose !== 'fresh') || (!!uid && data['uid'] === uid);
 }
 
 /**
@@ -403,13 +416,13 @@ export async function verifiedResetCode(email: string, ticket: unknown, consume:
   });
 }
 
-/** Use up a verified link code. Returns false when there is none for this caller. */
-export async function consumeVerifiedEmailLinkOtp(email: string, uid: string): Promise<boolean> {
+/** Use up a verified link (or fresh) code. Returns false when there is none for this caller. */
+export async function consumeVerifiedEmailLinkOtp(email: string, uid: string, purpose: 'link' | 'fresh' = 'link'): Promise<boolean> {
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(normalizeEmail(email)));
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const data = snap.data();
-    if (!snap.exists || !data || data['verified'] !== true || !matchesPurpose(data, 'link', uid)) return false;
+    if (!snap.exists || !data || data['verified'] !== true || !matchesPurpose(data, purpose, uid)) return false;
     const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
     if (Date.now() - verifiedAt > EMAIL_VERIFIED_WINDOW_MS) return false;
     tx.delete(ref);

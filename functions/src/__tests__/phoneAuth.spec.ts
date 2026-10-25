@@ -607,8 +607,10 @@ describe('attempt counters and the caller\'s address (review F)', () => {
         const body = (text: string, name: string) => text.slice(text.indexOf(`export async function ${name}`)).split('\n}\n')[0];
         expect(body(read('phoneOtp.ts'), 'verifyPhoneOtp')).toContain('db.runTransaction');
         expect(body(read('accounts.ts'), 'checkPin')).toContain('db.runTransaction');
+        // verifySignupOtp and confirmFreshCode both check emailed codes through verifyEmailCode.
         const email = read('signupOtp.ts');
-        expect(email.slice(email.indexOf('export const verifySignupOtp')).split('\n});\n')[0]).toContain('db.runTransaction');
+        expect(email.slice(email.indexOf('export const verifySignupOtp')).split('\n});\n')[0]).toContain('verifyEmailCode(');
+        expect(email.slice(email.indexOf('export async function verifyEmailCode')).split('\n}\n')[0]).toContain('db.runTransaction');
     });
 
     it('key per-IP limits on the address Google saw, not one the client wrote', async () => {

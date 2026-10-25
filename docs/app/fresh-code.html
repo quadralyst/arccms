@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ask for a fresh code | Arc CMS docs</title>
+  <meta name="description" content="Before an action a PIN is not enough for, send the signed-in person a code to their own email or phone, and let your function go ahead only with the proof it gives.">
+  <meta name="docs:sources" content="functions/src/auth/freshCode.ts, src/app/core/sign-in/fresh-code.service.ts, src/app/core/sign-in/fresh-code-dialog.component.ts, src/shared/components/code-input/code-input.component.ts, functions/src/users/onUserDelete.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/fresh-code.html">
+  <main>
+    <h1>Ask for a fresh code</h1>
+    <p class="lead">A few actions are worth more than a PIN, which may have been seen over someone's shoulder: changing payment keys, a full export, deleting a business, setting up a device. Before one of them, ask the signed-in person for a fresh code. Arc CMS sends it to their own email address or phone number, and your function goes ahead only with the proof that confirming it gives. It works for every account, including those that sign in with a PIN and so have no password to type again.</p>
+
+    <h2 id="in-the-page">In your page</h2>
+    <p><code>FreshCodeService.confirm()</code> opens Arc CMS's own dialog. It sends the code as it opens, says where it went, takes the 6 digits and resolves with the proof, or <code>null</code> when the person cancels:</p>
+    <pre><code>import { FreshCodeService } from '../../app/core/sign-in/fresh-code.service';
+
+private readonly freshCode = inject(FreshCodeService);
+
+async setUpTill(): Promise&lt;void&gt; {
+  const proof = await this.freshCode.confirm({ purpose: 'pos-setup' });
+  if (!proof) return; // cancelled
+  await arcCallable(this.functions, 'custom-setUpTill')({ proof, name: 'Till 2' });
+}</code></pre>
+    <p>The <code>purpose</code> names the action: lower case letters, digits, <code>-</code> and <code>_</code>, starting with a letter. The proof is for that purpose only.</p>
+    <p>To ask inside a sheet of your own instead, call the two steps yourself and use the same code boxes as the sign-in page, <code>arc-code-input</code> (<code>src/shared/components/code-input/</code>):</p>
+    <pre><code>const sent = await this.freshCode.request('pos-setup');       // { via, to, wait, testCode? }
+// ... show "We've sent a 6-digit code to " + sent.to, and &lt;arc-code-input (completed)="..."&gt; ...
+const proof = await this.freshCode.confirmCode('pos-setup', code);</code></pre>
+    <p>A refusal comes as an error whose message is already in the member's language, with <code>details.reason</code> (<code>code-wrong</code>, <code>code-expired</code>, <code>code-tries</code>, <code>wait</code>, <code>too-many-codes</code>, <code>no-contact</code>).</p>
+
+    <h2 id="in-your-function">In your function</h2>
+    <p>Use the proof up with <code>useFreshCodeProof()</code> from the app kit before doing anything else:</p>
+    <pre><code>// functions/src/custom/tills.ts
+import { onCall } from 'firebase-functions/v2/https';
+import { useFreshCodeProof } from '../app-kit/index.js';
+
+export const setUpTill = onCall(async (request) =&gt; {
+  await useFreshCodeProof(request, request.data?.proof, 'pos-setup');
+  // ... the action ...
+});</code></pre>
+    <p>It throws <code>permission-denied</code> with <code>details.reason</code> <code>fresh-code-required</code> when the proof is missing, already used, more than 5 minutes old, another person's or for another purpose. Your page then asks for a code again.</p>
+
+    <h2 id="how-it-works">How it works</h2>
+    <ul>
+      <li><strong>Where the code goes.</strong> The person's verified email address, which costs nothing to send to; with none, their verified phone number by SMS; with neither, an email address on the account that is not verified yet. The person never types an address, and nobody can name another. An account with neither (an <a href="app-accounts.html">app account</a>) is refused with <code>no-contact</code>.</li>
+      <li><strong>The code</strong> is a sign-in code: 6 digits, good for 10 minutes, 5 tries, one a minute (asking again sooner sends nothing new), 5 an hour per person and 20 an hour per caller's address. The email uses the "Your verification code" template.</li>
+      <li><strong>The proof</strong> is a random value only its hash is kept of, in <code>auth_fresh_proofs</code>, which no browser can read. It works once, for that person and purpose, within 5 minutes of confirming the code. A new confirmation for the same purpose replaces it. Deleting the account deletes any left unused.</li>
+      <li><strong>Who may ask.</strong> Only a signed-in person, for themselves. A blocked account is refused, and so is a <a href="app-accounts.html#locked">locked app account</a>.</li>
+      <li><strong>While testing</strong> with the Simulated email provider or the Test SMS provider, nothing is sent and the code is in Email Logs or SMS Logs. It shows in the dialog only when an admin turned on showing reset codes on screen, as for Forgot PIN, since a fresh code guards what a session alone may not do.</li>
+    </ul>
+    <p>Add <code>setUpTill</code> to <code>functions/src/custom/public-callables.txt</code>, as every callable of yours (see <a href="functions.html">Write your own Cloud Functions</a>).</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

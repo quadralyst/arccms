@@ -5,8 +5,9 @@
  * a 10-minute expiry, a 60-second resend gap and 5 tries. Asking again while it
  * still works sends the same code (codeSeal.ts). A code is for one
  * purpose: `signup` (a new number), `reset` (a new PIN for a number that has an
- * account) or `link` (adding the number to the signed-in account, which also
- * records whose request it was). Verifying marks it verified and hands the
+ * account), `link` (adding the number to the signed-in account, which also
+ * records whose request it was) or `fresh` (a fresh code before a sensitive
+ * action, freshCode.ts, also the signed-in account's). Verifying marks it verified and hands the
  * browser a ticket (otpTicket.ts); the step that acts on it (create the
  * account, set the PIN, link the number) consumes it within 30 minutes, with
  * that ticket, or for `link` by the same signed-in account.
@@ -25,8 +26,15 @@ import { refuse } from './refusal.js';
 import { codeAskedAgain, codeSealKey, refuseWithinWait, reusableCode, sealCode } from './codeSeal.js';
 
 export const PHONE_OTPS = 'phone_otps';
+/** The purposes the public phone callables accept. */
 export const PHONE_OTP_PURPOSES = ['signup', 'reset', 'link'] as const;
-export type PhoneOtpPurpose = (typeof PHONE_OTP_PURPOSES)[number];
+/** Every purpose, with `fresh`, which only freshCode.ts asks for. */
+export type PhoneOtpPurpose = (typeof PHONE_OTP_PURPOSES)[number] | 'fresh';
+
+/** Purposes whose code belongs to the signed-in account that asked, not to a ticket. */
+export function forSignedInAccount(purpose: string): boolean {
+    return purpose === 'link' || purpose === 'fresh';
+}
 
 export const OTP_TTL_MS = 10 * 60 * 1000;
 export const RESEND_THROTTLE_MS = 60 * 1000;
@@ -34,8 +42,9 @@ export const MAX_OTP_ATTEMPTS = 5;
 /** How long a verified code stays usable for the step that follows it. */
 export const VERIFIED_WINDOW_MS = 30 * 60 * 1000;
 
+/** Whether the browser may ask a public phone callable for this purpose. */
 export function isPhoneOtpPurpose(value: unknown): value is PhoneOtpPurpose {
-    return PHONE_OTP_PURPOSES.includes(value as PhoneOtpPurpose);
+    return (PHONE_OTP_PURPOSES as readonly unknown[]).includes(value);
 }
 
 function hashCode(code: string, key: string): string {
@@ -46,9 +55,9 @@ export function otpSmsText(code: string): string {
     return `${code} is your verification code. It expires in 10 minutes. Do not share it with anyone.`;
 }
 
-/** The stored code is for this same request: the purpose, and for `link` the same account. */
+/** The stored code is for this same request: the purpose, and for `link` and `fresh` the same account. */
 function sameRequest(data: Record<string, unknown> | undefined, purpose: PhoneOtpPurpose, uid?: string): boolean {
-    return !!data && data['purpose'] === purpose && (purpose !== 'link' || data['uid'] === (uid ?? null));
+    return !!data && data['purpose'] === purpose && (!forSignedInAccount(purpose) || data['uid'] === (uid ?? null));
 }
 
 /**
@@ -138,7 +147,7 @@ export async function verifyPhoneOtp(e164: string, code: string, purpose: PhoneO
     const outcome = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
         const data = snap.data();
-        if (!snap.exists || !data || data['purpose'] !== purpose || (purpose === 'link' && data['uid'] !== uid)) return 'missing';
+        if (!snap.exists || !data || data['purpose'] !== purpose || (forSignedInAccount(purpose) && data['uid'] !== uid)) return 'missing';
         const expiresAt = (data['expiresAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
         if (expiresAt < Date.now()) return 'expired';
         const attempts = Number(data['attempts'] ?? 0);
@@ -159,8 +168,8 @@ export async function verifyPhoneOtp(e164: string, code: string, purpose: PhoneO
 
 /**
  * Use up a verified code. Returns false when there is none for this purpose,
- * or the caller is not the one who verified it: `link` codes belong to the
- * signed-in account that asked, the others to the browser holding the ticket.
+ * or the caller is not the one who verified it: `link` and `fresh` codes belong to
+ * the signed-in account that asked, the others to the browser holding the ticket.
  */
 export async function consumeVerifiedPhoneOtp(
     e164: string,
@@ -172,7 +181,7 @@ export async function consumeVerifiedPhoneOtp(
         const snap = await tx.get(ref);
         const data = snap.data();
         if (!snap.exists || !data || data['verified'] !== true || data['purpose'] !== purpose) return false;
-        if (purpose === 'link' ? !proof.uid || data['uid'] !== proof.uid : !ticketMatches(proof.ticket, data['ticketHash'])) return false;
+        if (forSignedInAccount(purpose) ? !proof.uid || data['uid'] !== proof.uid : !ticketMatches(proof.ticket, data['ticketHash'])) return false;
         const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
         if (Date.now() - verifiedAt > VERIFIED_WINDOW_MS) return false;
         tx.delete(ref);

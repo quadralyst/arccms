@@ -273,7 +273,7 @@ describe('revokeSessions', () => {
 describe('the app kit\'s exports', () => {
     const DOCUMENTED = [
         'APP_ACCOUNT', 'createAppAccount', 'deleteAppAccount', 'isArcAdmin', 'issueSignInToken', 'mergeAppClaims', 'restoreAppSignIn',
-        'revokeSessions', 'sessionClaims', 'signedInByApp',
+        'revokeSessions', 'sessionClaims', 'signedInByApp', 'useFreshCodeProof',
         'APP_PINS', 'callerKey', 'consumeRateLimit', 'createPhonePinCheck', 'createPinStore', 'hashedKey', 'isValidPin', 'isWeakPin',
         'signInWithMemberPin',
         'pinTooEasy', 'signInStrength',

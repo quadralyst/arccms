@@ -2130,7 +2130,9 @@
         "email_managed": "This email belongs to an account managed by another app.",
         "email_not_movable": "This email is used by a sign-in that can't be moved here.",
         "sign_in_managed": "Your sign-in is managed by another app, so its email can't be changed here.",
-        "host_account": "Reset your password in the app you signed up with."
+        "host_account": "Reset your password in the app you signed up with.",
+        "no_contact": "This account has no email address or phone number to send a code to.",
+        "fresh_code_required": "Please confirm with a fresh code first."
       },
       "step_title_reset_password": "Reset your password",
       "step_title_new_password": "Choose a new password",
@@ -2299,6 +2301,10 @@
       "premium": "Premium",
       "unauthorized": "No access",
       "not_found": "Page not found"
+    },
+    "fresh_code": {
+      "title": "Confirm it's you",
+      "cancel": "Cancel"
     }
   }
 }

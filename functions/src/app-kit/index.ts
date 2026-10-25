@@ -17,6 +17,8 @@ export { isArcAdmin, mergeAppClaims, revokeSessions, sessionClaims } from '../us
 // callable's caller signed in with it
 export { issueSignInToken } from '../auth/accounts.js';
 export { signedInByApp } from '../auth/appAccountLock.js';
+// A fresh code before a sensitive action: the proof the page got from confirmFreshCode, used up once (F31)
+export { useFreshCodeProof } from '../auth/freshCode.js';
 
 // PINs an app checks itself, a check of the phone sign-in PIN for a gate, and rate limits (specs/app-pin-spec.md)
 export { APP_PINS, createPinStore, hashedKey } from './pins.js';

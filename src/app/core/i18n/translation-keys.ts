@@ -1753,6 +1753,7 @@ export type TranslationKey =
     | 'member.auth.server_error.email_has_account'
     | 'member.auth.server_error.email_managed'
     | 'member.auth.server_error.email_not_movable'
+    | 'member.auth.server_error.fresh_code_required'
     | 'member.auth.server_error.google_email_taken'
     | 'member.auth.server_error.google_off'
     | 'member.auth.server_error.host_account'
@@ -1762,6 +1763,7 @@ export type TranslationKey =
     | 'member.auth.server_error.name_required'
     | 'member.auth.server_error.no_access'
     | 'member.auth.server_error.no_account'
+    | 'member.auth.server_error.no_contact'
     | 'member.auth.server_error.no_email_account'
     | 'member.auth.server_error.no_pin'
     | 'member.auth.server_error.number_taken'
@@ -1838,6 +1840,8 @@ export type TranslationKey =
     | 'member.errors.user_not_found'
     | 'member.errors.weak_password'
     | 'member.errors.wrong_password'
+    | 'member.fresh_code.cancel'
+    | 'member.fresh_code.title'
     | 'member.language.choose'
     | 'member.methods.add'
     | 'member.methods.already_yours_email'
@@ -3814,6 +3818,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.email_has_account',
     'member.auth.server_error.email_managed',
     'member.auth.server_error.email_not_movable',
+    'member.auth.server_error.fresh_code_required',
     'member.auth.server_error.google_email_taken',
     'member.auth.server_error.google_off',
     'member.auth.server_error.host_account',
@@ -3823,6 +3828,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.name_required',
     'member.auth.server_error.no_access',
     'member.auth.server_error.no_account',
+    'member.auth.server_error.no_contact',
     'member.auth.server_error.no_email_account',
     'member.auth.server_error.no_pin',
     'member.auth.server_error.number_taken',
@@ -3899,6 +3905,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.errors.user_not_found',
     'member.errors.weak_password',
     'member.errors.wrong_password',
+    'member.fresh_code.cancel',
+    'member.fresh_code.title',
     'member.language.choose',
     'member.methods.add',
     'member.methods.already_yours_email',

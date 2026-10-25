@@ -53,6 +53,8 @@ export * from './users/adminCreateUser.js';
 export * from './users/adminSetPassword.js';
 // The account's own: claim refresh and deleting it (docs/app/account-contract.html).
 export * from './users/accountCallables.js';
+// A fresh code before a sensitive action, for an app's own functions (docs/app/fresh-code.html).
+export * from './auth/freshCode.js';
 // Gives older records a `by`, so the users list can show only people.
 export * from './users/fillAccountSources.js';
 // Feedback button: sender details and the admins' alert (docs/features/feedback.html).

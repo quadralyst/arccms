@@ -71,6 +71,7 @@ window.ARC_DOCS_NAV = [
       { path: "app/app-accounts.html", title: "App accounts" },
       { path: "app/app-kit.html", title: "The app kit" },
       { path: "app/pin.html", title: "PINs for your app" },
+      { path: "app/fresh-code.html", title: "Ask for a fresh code" },
       { path: "app/member-languages.html", title: "Member languages" },
       { path: "app/clock-and-zones.html", title: "Clock and time zones" },
       { path: "app/sign-in.html", title: "Set up sign-in" },
