@@ -41,7 +41,7 @@
     <ul>
       <li>the SMS settings tab and the SMS Logs page go, and their URLs show the not-found page; the menu's Email + SMS group is called Email;</li>
       <li>phone sign-in is off whatever User Settings says, and its switch is hidden;</li>
-      <li>the functions <code>sendTestSms</code>, <code>checkPhoneSignIn</code> and the phone sign-in functions are not built, so the next full functions deploy deletes them.</li>
+      <li>the functions <code>sendTestSms</code> and the phone sign-in functions are not built, so the next full functions deploy deletes them. <code>setPin</code> and <code>checkPhoneSignIn</code> stay, since email accounts can sign in with a PIN too (see <a href="sign-in.html#email-pin">Email with a PIN</a>).</li>
     </ul>
     <p>Settings and logs stay in Firestore. How the switch works for every feature: <a href="../reference/feature-ids.html">Feature ids</a>.</p>
 
@@ -96,14 +96,13 @@ const result = await sendSms({ to: '+919876543210', purpose: 'otp', code, text: 
       <thead><tr><th>Function</th><th>Does</th></tr></thead>
       <tbody>
         <tr><td><code>sendTestSms</code></td><td>The test send (admin)</td></tr>
-        <tr><td><code>checkPhoneSignIn</code></td><td>Whether phone sign-in can sign people in on this project, and the fix when it cannot (admin; see <a href="sign-in.html#google-cloud-setup-for-phone-sign-in">Google Cloud setup</a>)</td></tr>
         <tr><td><code>checkPhoneAccount</code></td><td>Whether a number has an account and a PIN; with <code>sendCode</code>, also the code the next step needs</td></tr>
         <tr><td><code>requestPhoneOtp</code>, <code>verifyPhoneOtp</code></td><td>Send and check a code</td></tr>
         <tr><td><code>completePhoneSignup</code></td><td>Create the account after a sign-up code</td></tr>
-        <tr><td><code>signInWithPin</code>, <code>resetPin</code>, <code>setPin</code></td><td>Sign in, reset the PIN after a code, change the PIN when signed in</td></tr>
+        <tr><td><code>signInWithPin</code>, <code>resetPin</code></td><td>Sign in, reset the PIN after a code</td></tr>
       </tbody>
     </table>
-    <p>All are callables, deployed as <code>arccms-&lt;name&gt;</code>. See <a href="../reference/cloud-functions.html">Cloud Functions</a> and <a href="../reference/data-model.html">Data model</a>.</p>
+    <p>Changing the PIN when signed in (<code>setPin</code>) and the admin's check that the server can sign people in (<code>checkPhoneSignIn</code>, see <a href="sign-in.html#google-cloud-setup-for-phone-sign-in">Google Cloud setup</a>) are deployed with or without this feature, since email accounts can have PINs too. All are callables, deployed as <code>arccms-&lt;name&gt;</code>. See <a href="../reference/cloud-functions.html">Cloud Functions</a> and <a href="../reference/data-model.html">Data model</a>.</p>
 
     <h2>Who can do what</h2>
     <table>

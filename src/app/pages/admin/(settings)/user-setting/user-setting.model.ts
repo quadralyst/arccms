@@ -7,6 +7,8 @@
 import { isOn } from '../../../../core/features/features';
 import { DEFAULT_COUNTRY_CODE } from '../../../../../shared/utils/identifier.util';
 import { cleanCountryList, defaultFirst, resolveCountrySettings } from '../../../../../shared/data/countries';
+import { SIGN_IN_FIXED } from '../../../../core/sign-in/sign-in-strength';
+import type { EmailSignIn, FixedSignIn } from '../../../../../shared/utils/sign-in-strength';
 
 export interface IUserSettings {
     id?: string;
@@ -16,6 +18,14 @@ export interface IUserSettings {
     phoneSignIn?: boolean;
     /** Sign in with Google. Needs the Google provider on in the Firebase console. */
     googleSignIn?: boolean;
+    /**
+     * How new email accounts sign in: `password` (the default), or `pin`: a code by email
+     * the first time, then a 6-digit PIN (specs/sign-in-pin-spec.md). The app may fix it
+     * in src/custom/sign-in.ts, which then wins.
+     */
+    emailSignIn?: EmailSignIn;
+    /** A code by email or SMS the first time a PIN is used on a device. The app may fix it too. */
+    newDeviceCode?: boolean;
     /**
      * Copy of Settings, SMS's default country code (`Settings/sms` is admin only), so the
      * sign-in page reads a number without one the way the server will. Written by
@@ -36,6 +46,16 @@ export interface IUserSettings {
  */
 export function phoneSignInOn(settings: Pick<IUserSettings, 'phoneSignIn'> | null | undefined, smsOn = isOn('sms')): boolean {
     return smsOn && settings?.phoneSignIn === true;
+}
+
+/** Whether email accounts sign in with a PIN: the app's choice, else the admin's. */
+export function emailPinOn(settings: Pick<IUserSettings, 'emailSignIn'> | null | undefined, fixed: FixedSignIn = SIGN_IN_FIXED): boolean {
+    return (fixed.emailSignIn ?? settings?.emailSignIn) === 'pin';
+}
+
+/** Whether a PIN needs a code the first time on a device: the app's choice, else the admin's. */
+export function newDeviceCodeOn(settings: Pick<IUserSettings, 'newDeviceCode'> | null | undefined, fixed: FixedSignIn = SIGN_IN_FIXED): boolean {
+    return (fixed.newDeviceCode ?? settings?.newDeviceCode) === true;
 }
 
 /** The country code a number typed without one belongs to: Settings, SMS's default. */

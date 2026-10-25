@@ -29,7 +29,8 @@ vi.mock('firebase-functions/v2/https', () => ({
 
 import { db } from '../init.js';
 import { createAccountRecord } from '../auth/emailAccount.js';
-import { deleteMyAccount, refreshMyClaims, signedInRecently } from '../users/accountCallables.js';
+import { deleteMyAccount, refreshMyClaims, rememberThisDevice, signedInRecently } from '../users/accountCallables.js';
+import { knownDevice } from '../auth/devices.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { FakeTimestamp, type MemoryFirestore } from './helpers/memoryFirestore.js';
 import { newOtpTicket } from '../auth/otpTicket.js';
@@ -99,6 +100,24 @@ describe('createAccountRecord (email sign-up)', () => {
         mem.seed('Settings', 'users', { isSignupEnabled: false });
         await expect(call(createAccountRecord, { name: 'Asha' }, 'u1', password))
             .rejects.toMatchObject({ details: { reason: 'signup-closed' } });
+    });
+});
+
+describe('rememberThisDevice (specs/sign-in-pin-spec.md)', () => {
+    const KEY = 'r'.repeat(43);
+
+    it('remembers the device a signed-in person is on, for PIN sign-in', async () => {
+        mem.seed('users', 'rec-7', { uid: 'u7', role: 'user' });
+        await expect(call(rememberThisDevice, { deviceKey: KEY }, 'u7')).resolves.toEqual({ remembered: true });
+        await expect(knownDevice('u7', KEY)).resolves.toBe(true);
+    });
+
+    it('remembers nothing for a blocked account, or without a key', async () => {
+        mem.seed('users', 'rec-7', { uid: 'u7', isActive: false });
+        await expect(call(rememberThisDevice, { deviceKey: KEY }, 'u7')).resolves.toEqual({ remembered: false });
+        mem.seed('users', 'rec-8', { uid: 'u8' });
+        await expect(call(rememberThisDevice, { deviceKey: 'short' }, 'u8')).resolves.toEqual({ remembered: false });
+        await expect(knownDevice('u7', KEY)).resolves.toBe(false);
     });
 });
 

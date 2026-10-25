@@ -19,6 +19,7 @@ import { IAuth } from './auth.model';
 import { isLockedAppAccount } from '../../core/app-accounts/app-account-lock';
 import { AuthService } from './auth.service';
 import { readSignInError, SignInService } from './sign-in.service';
+import { deviceRemembered, markDeviceRemembered } from '../../core/sign-in/device-key';
 import { TranslocoService } from '@jsverse/transloco';
 import { BLOCKED_KEY, FALLBACK_KEY, NO_ACCESS_KEY, UNFINISHED_SIGNUP_KEY, firebaseErrorMessage, type Translate } from './auth-messages';
 
@@ -518,6 +519,22 @@ export const AuthState = signalStore(
                 return claims.done;
             };
 
+            /**
+             * Once per device and account, in the background: the device a signed-in
+             * person is on counts as proved for PIN sign-in, so turning on "Ask for a code
+             * on a new device" asks no code here (specs/sign-in-pin-spec.md). A locked app
+             * account is refused, and not asked again.
+             */
+            const rememberDeviceOnce = (uid: string) => {
+                if (deviceRemembered(uid)) return;
+                signIn().rememberThisDevice().then(
+                    () => markDeviceRemembered(uid),
+                    (err) => {
+                        if (readSignInError(err).reason === 'app-managed') markDeviceRemembered(uid);
+                    },
+                );
+            };
+
             const readRecord = (seq: number, user: User) => {
                 let timedOut = false;
                 let last: RecordAnswer | undefined;
@@ -547,6 +564,7 @@ export const AuthState = signalStore(
                     const isAdmin = data.role === constant.fixedRoles[0].userType || false;
                     const currentUser = { ...data, isAdmin } as IAuth;
                     await claimsOnce(user, data.id, data.role, isAdmin);
+                    rememberDeviceOnce(user.uid);
                     // A later answer may have landed while the claims were checked.
                     if (shared.value.seq !== seq || n < applied) return;
                     applied = n;

@@ -3,6 +3,12 @@
 **Status: agreed by Gunjan 2026-10-25 (all of it, with the decisions below). Build order F30, F32, F31 part 2, F31 part 1.**
 Branch `claude/sign-in-f30-f32-3e413c`, cut from `dev` at `c8353c49`.
 
+## Built (2026-10-25, branch `claude/sign-in-f30-f32-3e413c`)
+
+- F30 `731b8868`, F32 `d5970dc0`, F31 part 2 `d51bc10a`, F31 part 1 server `0c5b09ab`, then the browser side, docs and review fixes.
+- Changes from the proposal found while building: `setPin` and `checkPhoneSignIn` are now deployed with or without the `sms` feature (email accounts have PINs too); every PIN sign-in remembers its device whether the setting is on or not, and a signed-in device reports itself once (`rememberThisDevice`), so turning the new-device code on later asks for no code on devices in use; on a site using passwords, an account with a password gets no email-and-PIN sign-in (`pin-sign-in-off`).
+- Still to check on a real project (no emulator): that `providersToUnlink: ['password']` takes the password off, and that `arccms_session` survives the hourly token refresh.
+
 ## Decisions so far (Gunjan, 2026-10-25)
 
 - **Updates never break a running app.** Every piece is off until an app or admin turns it on; what it needs (the PIN reset template, a person's device list) is made on first use; the starter file is not edited; an upgrade test covers a site as it is today.

@@ -22,7 +22,7 @@ import { RESEND_SECONDS, SentCodes } from '../sent-codes';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
-import { phoneCountrySettings, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
+import { emailPinOn, phoneCountrySettings, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
 import { classifyIdentifier, DEFAULT_COUNTRY_CODE, formatPhone, hasCountryCode, identifierProblem, withoutTrunk } from '../../../../shared/utils/identifier.util';
 import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../../../shared/data/countries';
 import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
@@ -59,11 +59,17 @@ interface Flow {
         <!-- Email -->
         <div class="info-row">
             <label>{{ 'member.methods.email' | transloco }}</label>
-            @if (flow()?.kind !== 'email') {
+            @if (changingPin() && pinRow() === 'email') {
+                <ng-container *ngTemplateOutlet="pinTpl" />
+            } @else if (flow()?.kind !== 'email') {
                 <div class="info-value">
                     <span [class.text-muted]="!user()?.email">{{ user()?.email || ('member.methods.not_added' | transloco) }}</span>
                     @if (user()?.email && user()?.emailVerified) {
                         <span class="verified-badge"><i class="fas fa-check-circle me-1"></i>{{ 'member.methods.verified' | transloco }}</span>
+                    }
+                    <!-- Email PIN sign-in on: the PIN is the email's when there is no number (specs/sign-in-pin-spec.md). -->
+                    @if (emailPin() && user()?.email && !user()?.phone) {
+                        <button class="btn btn-sm btn-link" (click)="startPinChange('email')" [disabled]="!!flow()">{{ 'member.methods.change_pin' | transloco }}</button>
                     }
                     <button class="btn btn-sm btn-outline-secondary" (click)="start('email')" [disabled]="!!flow()">
                         {{ (user()?.email ? 'member.methods.change' : 'member.methods.add') | transloco }}
@@ -78,11 +84,11 @@ interface Flow {
         @if (phoneEnabled() || user()?.phone) {
             <div class="info-row">
                 <label>{{ 'member.methods.phone' | transloco }}</label>
-                @if (flow()?.kind !== 'phone' && !changingPin()) {
+                @if (flow()?.kind !== 'phone' && !(changingPin() && pinRow() === 'phone')) {
                     <div class="info-value">
                         <span [class.text-muted]="!user()?.phone">{{ user()?.phone ? phoneShown() : ('member.methods.not_added' | transloco) }}</span>
                         @if (user()?.phone) {
-                            <button class="btn btn-sm btn-link" (click)="startPinChange()" [disabled]="!!flow()">{{ 'member.methods.change_pin' | transloco }}</button>
+                            <button class="btn btn-sm btn-link" (click)="startPinChange('phone')" [disabled]="!!flow()">{{ 'member.methods.change_pin' | transloco }}</button>
                         }
                         @if (phoneEnabled()) {
                             <button class="btn btn-sm btn-outline-secondary" (click)="start('phone')" [disabled]="!!flow()">
@@ -91,18 +97,7 @@ interface Flow {
                         }
                     </div>
                 } @else if (changingPin()) {
-                    <div class="edit-form">
-                        <div class="form-label small">{{ 'member.methods.new_pin_heading' | transloco }}</div>
-                        <arc-code-input [label]="'member.methods.new_pin' | transloco" [masked]="true" [oneTimeCode]="false" [disabled]="busy()"
-                            (changed)="secret.set($event)" />
-                        @if (error()) { <div class="text-danger small mt-2">{{ error() }}</div> }
-                        <div class="edit-actions">
-                            <button class="btn btn-sm btn-primary" (click)="savePin()" [disabled]="busy()">
-                                {{ 'member.methods.save_pin' | transloco }} @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
-                            </button>
-                            <button class="btn btn-sm btn-light" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
-                        </div>
-                    </div>
+                    <ng-container *ngTemplateOutlet="pinTpl" />
                 } @else {
                     <ng-container *ngTemplateOutlet="flowTpl" />
                 }
@@ -121,6 +116,21 @@ interface Flow {
                 </div>
             </div>
         }
+
+        <ng-template #pinTpl>
+            <div class="edit-form">
+                <div class="form-label small">{{ 'member.methods.new_pin_heading' | transloco }}</div>
+                <arc-code-input [label]="'member.methods.new_pin' | transloco" [masked]="true" [oneTimeCode]="false" [disabled]="busy()"
+                    (changed)="secret.set($event)" />
+                @if (error()) { <div class="text-danger small mt-2">{{ error() }}</div> }
+                <div class="edit-actions">
+                    <button class="btn btn-sm btn-primary" (click)="savePin()" [disabled]="busy()">
+                        {{ 'member.methods.save_pin' | transloco }} @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
+                    </button>
+                    <button class="btn btn-sm btn-light" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
+                </div>
+            </div>
+        </ng-template>
 
         <ng-template #flowTpl>
             @let f = flow()!;
@@ -240,6 +250,10 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
 
     readonly flow = signal<Flow | null>(null);
     readonly changingPin = signal(false);
+    /** Which row the PIN is changed from: the number's, or the email's when the site signs email in with a PIN. */
+    readonly pinRow = signal<'email' | 'phone'>('phone');
+    /** Email accounts sign in with a PIN on this site (Settings, User Settings, or the app). */
+    readonly emailPin = signal(false);
     readonly busy = signal(false);
     readonly error = signal('');
     readonly message = signal('');
@@ -281,6 +295,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
             this.countriesListed.set(countries.listed);
             this.phoneCountry.set(startingCountry(countries.countries, countries.country, rememberedCountry()));
             this.googleEnabled.set(s.googleSignIn === true);
+            this.emailPin.set(emailPinOn(s));
         }).catch(() => undefined);
     }
 
@@ -289,8 +304,9 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         this.flow.set({ kind, step: 'enter', typed: '', check: null });
     }
 
-    startPinChange(): void {
+    startPinChange(row: 'email' | 'phone' = 'phone'): void {
         this.reset();
+        this.pinRow.set(row);
         this.changingPin.set(true);
     }
 
@@ -537,9 +553,10 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
             return;
         }
         await this.run(async () => {
-            await this.signIn.setPin(this.secret());
+            const { passwordRemoved } = await this.signIn.setPin(this.secret());
             this.reset();
-            this.message.set(this.t('member.methods.pin_changed'));
+            // An email account's password goes when it chooses a PIN (specs/sign-in-pin-spec.md).
+            this.message.set(this.t(passwordRemoved ? 'member.methods.pin_saved_password_removed' : 'member.methods.pin_changed'));
         });
     }
 

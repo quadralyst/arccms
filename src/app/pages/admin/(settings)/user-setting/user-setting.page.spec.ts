@@ -8,6 +8,8 @@ import UserSettingPageComponent from './user-setting.page';
 import { UserSettingService } from './user-setting.service';
 import { Firestore } from '@angular/fire/firestore';
 import { PhoneSignInCheckService } from './phone-sign-in-check.service';
+import { signal } from '@angular/core';
+import { EmailConfigStatusService } from '../../../../../shared/services/email-config-status.service';
 
 const SA = '449144539409-compute@developer.gserviceaccount.com';
 const NOT_READY = {
@@ -21,6 +23,7 @@ describe('UserSettingPageComponent', () => {
     let fixture: ComponentFixture<UserSettingPageComponent>;
     let mockUserSettingService: any;
     let mockPhoneCheck: { check: ReturnType<typeof vi.fn> };
+    const emailStatus = { isEmailConfigured: signal(true) };
 
     beforeEach(async () => {
         mockUserSettingService = {
@@ -47,6 +50,7 @@ describe('UserSettingPageComponent', () => {
                 provideRouter([]),
                 { provide: UserSettingService, useValue: mockUserSettingService },
                 { provide: PhoneSignInCheckService, useValue: mockPhoneCheck },
+                { provide: EmailConfigStatusService, useValue: emailStatus },
                 { provide: Firestore, useValue: {} },
             ],
         }).compileComponents();
@@ -247,4 +251,40 @@ describe('UserSettingPageComponent', () => {
             });
         });
     });
+
+    describe('email sign-in with a PIN, and the new-device code (specs/sign-in-pin-spec.md)', () => {
+        beforeEach(() => {
+            emailStatus.isEmailConfigured.set(true);
+        });
+
+        it('turns email PIN sign-in on after the sign-in token check passes', async () => {
+            await component.changeEmailSignIn('pin');
+            expect(mockPhoneCheck.check).toHaveBeenCalled();
+            expect(mockUserSettingService.saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ emailSignIn: 'pin' }));
+            expect(component.emailPin()).toBe(true);
+        });
+
+        it('keeps it off when the server cannot sign people in, or email is not set up', async () => {
+            mockPhoneCheck.check.mockResolvedValueOnce(NOT_READY);
+            await component.changeEmailSignIn('pin');
+            expect(mockUserSettingService.saveSettings).not.toHaveBeenCalled();
+            emailStatus.isEmailConfigured.set(false);
+            await component.changeEmailSignIn('pin');
+            expect(mockUserSettingService.saveSettings).not.toHaveBeenCalled();
+            expect(component.emailPin()).toBe(false);
+        });
+
+        it('goes back to passwords without a check', async () => {
+            await component.changeEmailSignIn('password');
+            expect(mockPhoneCheck.check).not.toHaveBeenCalled();
+            expect(mockUserSettingService.saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ emailSignIn: 'password' }));
+        });
+
+        it('saves the new-device code switch', async () => {
+            await component.toggleNewDeviceCode(true);
+            expect(mockUserSettingService.saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ newDeviceCode: true }));
+            expect(component.newDeviceCode()).toBe(true);
+        });
+    });
 });
+

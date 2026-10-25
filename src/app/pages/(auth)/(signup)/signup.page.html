@@ -210,7 +210,7 @@
                     </div>
                     }
 
-                    <!-- PIN Slide: a registered phone number -->
+                    <!-- PIN Slide: a registered phone number, or an email that signs in with a PIN -->
                     @if (currentStep() === 'pin') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
@@ -225,7 +225,7 @@
                                 <h5 class="card-title login-title mb-3">{{ 'member.auth.welcome_back_greeting' | transloco }}</h5>
                                 @let signingIn = parts('member.auth.signing_in_as');
                                 <p class="login-subtitle m-0">
-                                    {{ signingIn[0] }}<strong>{{ phoneDisplay() }}</strong>{{ signingIn[1] }}
+                                    {{ signingIn[0] }}<strong>{{ sentTo() }}</strong>{{ signingIn[1] }}
                                 </p>
                                 <p class="login-subtitle">{{ 'member.auth.enter_pin' | transloco }}</p>
 
@@ -246,7 +246,7 @@
                                 <div class="d-flex justify-content-between mt-3">
                                     <a (click)="changeIdentifier()" class="change-email cursor text-decoration-none"
                                         style="cursor: pointer;">
-                                        <i class="bi bi-arrow-left"></i>&nbsp;{{ 'member.auth.change_number' | transloco }}
+                                        <i class="bi bi-arrow-left"></i>&nbsp;{{ (channel() === 'phone' ? 'member.auth.change_number' : 'member.auth.change_email') | transloco }}
                                     </a>
                                     <a (click)="forgotPin()" class="forgot-password cursor" style="cursor: pointer;">{{ 'member.auth.forgot_pin' | transloco }}</a>
                                 </div>
@@ -353,7 +353,7 @@
                     </div>
                     }
 
-                    <!-- Signup Slide: name, and a password (email) or a PIN (phone) -->
+                    <!-- Signup Slide: name, and a password (email) or a PIN (phone, or email with email PIN sign-in on) -->
                     @if (currentStep() === 'signup') {
                     <div class="auth-form-container">
                         <div class="auth-logo">
@@ -389,7 +389,7 @@
                                     }
                                 </div>
 
-                                @if (channel() === 'phone') {
+                                @if (channel() === 'phone' || emailPin()) {
                                 <div class="mb-2 text-start">
                                     <label class="form-label">{{ 'member.auth.choose_pin' | transloco }}</label>
                                     <arc-code-input [label]="'member.auth.new_pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
@@ -504,6 +504,54 @@
                                     <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="copyright">
+                        &copy; {{ currentYear }} {{ brandName() }}
+                        @if (instanceLabel) {
+                        <div class="instance-label" [title]="'member.auth.instance_label_title' | transloco">{{ instanceLabel }}</div>
+                        }
+                    </div>
+                    }
+
+                    <!-- Choose PIN Slide: signed in with a password while the site uses email PINs -->
+                    @if (currentStep() === 'choosePin') {
+                    <div class="auth-form-container">
+                        <div class="auth-logo">
+                            <div class="auth-logo-line">
+                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="request-container request-height">
+                        <div class="card request-card border-0">
+                            <div class="card-body customPadding">
+                                <h5 class="card-title login-title mb-3">{{ getStepTitle() }}</h5>
+                                <p class="login-subtitle">{{ getStepDescription() }}</p>
+
+                                <div class="pin-field mt-4">
+                                    <arc-code-input [label]="'member.auth.new_pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
+                                        [disabled]="working()" (changed)="newPin.set($event)"></arc-code-input>
+                                    <button type="button" class="btn btn-link btn-sm pin-toggle"
+                                        (click)="showPin.set(!showPin())">
+                                        {{ (showPin() ? 'member.auth.hide_pin' : 'member.auth.show_pin') | transloco }}
+                                    </button>
+                                    @if (errorMessage()) {
+                                    <div class="alert alert-danger pin-error" role="alert">{{ errorMessage() }}</div>
+                                    }
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100 mt-4" [disabled]="working()">
+                                    {{ 'member.auth.save_pin_continue' | transloco }}
+                                    <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
+                                        role="status"></span>
+                                </button>
+                                @if (pinSkipAllowed()) {
+                                <div class="mt-3 text-center">
+                                    <a (click)="skipChoosingPin()" class="forgot-password cursor" style="cursor: pointer;">{{ 'member.auth.not_now' | transloco }}</a>
+                                </div>
+                                }
                             </div>
                         </div>
                     </div>

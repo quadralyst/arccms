@@ -38,7 +38,7 @@ describe('AuthState shared record (recordReady)', () => {
         getCurrentUserByUid: vi.fn(),
         logout: vi.fn(() => of(undefined)),
     };
-    const signIn = { ensureRecordClaim: vi.fn(async () => false) };
+    const signIn = { ensureRecordClaim: vi.fn(async () => false), rememberThisDevice: vi.fn(async () => ({ remembered: true })) };
     const router = { navigate: vi.fn(async () => true), createUrlTree: vi.fn((commands: unknown[]) => ({ urlTree: commands })), parseUrl: vi.fn() };
     const getIdToken = vi.fn(async () => 'token');
     const user = { uid: 'uid-1', getIdToken };
@@ -46,6 +46,7 @@ describe('AuthState shared record (recordReady)', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        localStorage.removeItem('arc-device-remembered:uid-1');
         read = new Subject<Answer>();
         TestBed.resetTestingModule();
         TestBed.configureTestingModule({
@@ -108,6 +109,9 @@ describe('AuthState shared record (recordReady)', () => {
         // The claim check runs once for the sign-in, not once per answer or per guard.
         expect(signIn.ensureRecordClaim).toHaveBeenCalledTimes(1);
         expect(signIn.ensureRecordClaim).toHaveBeenCalledWith('doc-1', 'user');
+        // This device is reported once for PIN sign-in (specs/sign-in-pin-spec.md), and kept.
+        expect(signIn.rememberThisDevice).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => expect(localStorage.getItem('arc-device-remembered:uid-1')).toBe('1'));
         // initAuthStateListener answers once per sign-in change, as before.
         expect(emitted).toHaveLength(1);
         expect(await auth.recordReady()).toMatchObject({ name: 'Anna B' });

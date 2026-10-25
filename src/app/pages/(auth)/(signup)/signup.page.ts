@@ -3,9 +3,13 @@
  *
  * One flow for email and phone; only the channel differs:
  * 1. Request - "Phone number or email" (pasted text is cleaned up at once), or Google
- * 2. Registered: email → password (login), phone → 6-digit PIN (pin)
+ * 2. Registered: email → password (login), phone → 6-digit PIN (pin). With email PIN
+ *    sign-in on, an email account with a PIN gets the PIN too, and one with a password
+ *    is asked to choose a PIN after it (choosePin); the server says which each account
+ *    has (specs/sign-in-pin-spec.md). With "Ask for a code on a new device" on, a PIN on
+ *    a device not proved yet comes after a code (verify, purpose `device`).
  * 3. New: a code by email or SMS (verify), then name and a password or PIN (signup)
- * Forgot PIN (or a registered number with no PIN yet): SMS code (verify), then a new PIN (newPin).
+ * Forgot PIN (or an account with no PIN yet): a code by SMS or email (verify), then a new PIN (newPin).
  */
 
 import { RouteMeta } from '@analogjs/router';
@@ -39,7 +43,7 @@ import type { TranslationKey } from '../../../core/i18n/translation-keys';
 import { AuthService } from '../auth.service';
 import { ConstantVariables } from '../../../../shared/constants/common-constants';
 import { readStoredSignInSettings, UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
-import { IUserSettings, phoneCountrySettings, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
+import { emailPinOn, IUserSettings, phoneCountrySettings, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
 import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { LegalNoticeComponent } from '../../../../shared/components/legal-notice/legal-notice.component';
@@ -53,7 +57,7 @@ import {
 import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../../../shared/data/countries';
 import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
 import { PhoneCountryComponent } from '../../../../shared/components/phone-country/phone-country.component';
-import { readSignInError, SignInService, type CheckedCode, type CodeReply } from '../sign-in.service';
+import { readSignInError, SignInService, type CheckedCode, type CodeReply, type EmailAccount } from '../sign-in.service';
 import { RESEND_SECONDS, SentCodes, sentCodeKey } from '../sent-codes';
 import { trackKeyboard } from '../../../core/layout/keyboard-viewport';
 import { environment } from '../../../../environments/environment';
@@ -71,7 +75,10 @@ export const routeMeta: RouteMeta = {
   data: { titleKey: 'member.titles.sign_in' },
 };
 
-type SignupStep = 'request' | 'login' | 'pin' | 'verify' | 'signup' | 'newPin' | 'newPassword' | 'disabled';
+type SignupStep = 'request' | 'login' | 'pin' | 'verify' | 'signup' | 'newPin' | 'newPassword' | 'choosePin' | 'disabled';
+
+/** Where this browser keeps that a person skipped "Choose a PIN" once (specs/sign-in-pin-spec.md). */
+const PIN_OFFER_SKIPPED = 'arc-pin-offer-skipped:';
 type Channel = 'email' | 'phone';
 
 /**
@@ -182,6 +189,18 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   /** Which sign-in methods the site offers besides email (Settings, Users). */
   phoneEnabled = signal(false);
   googleEnabled = signal(false);
+  /** New email accounts sign in with a code, then a PIN (Settings, Users, or the app's choice). */
+  emailPin = signal(false);
+  /**
+   * The registered email may have a PIN: the server offered one after the password
+   * (`offerPin`). Then the password step's Forgot password is Forgot PIN, and a
+   * password sign-in is followed by "Choose a PIN".
+   */
+  offerPin = signal(false);
+  /** "Choose a PIN" was shown on this page already: the next move goes on. */
+  private pinOffered = false;
+  /** This browser saw the person skip "Choose a PIN" once: no "Not now" the second time. */
+  readonly pinSkipAllowed = signal(true);
 
   /** Email or phone: decided at the request step. */
   channel = signal<Channel>('email');
@@ -205,10 +224,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   /** The chip shows beside a number typed without its own code (PC-D1). */
   chipShown = computed(() => this.phoneEnabled() && looksLikePhone(this.identifierValue()) && !hasCountryCode(this.identifierValue()));
   phoneDisplay = computed(() => formatPhone(this.phone(), this.countryCode()));
-  /** What the SMS code is for: a new account, or a new PIN. */
-  phonePurpose = signal<'signup' | 'reset'>('signup');
-  /** What the email code is for: a new account, or a new password (Forgot password). */
-  emailPurpose = signal<'signup' | 'reset'>('signup');
+  /** What the SMS code is for: a new account, a new PIN, or this device before the PIN. */
+  phonePurpose = signal<'signup' | 'reset' | 'device'>('signup');
+  /** What the email code is for: a new account, a new password (Forgot password), this device before the PIN, or a new PIN. */
+  emailPurpose = signal<'signup' | 'reset' | 'device' | 'pin-reset'>('signup');
   /** The PIN typed on the sign-up and new-PIN steps. */
   newPin = signal('');
   /** The PIN locked after too many wrong tries. */
@@ -416,9 +435,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         : startingCountry(countries.countries, countries.country, rememberedCountry()),
     );
     this.googleEnabled.set(settings.googleSignIn === true);
+    this.emailPin.set(emailPinOn(settings));
     this.updateValidators(this.currentStep());
     // Start the sign-in functions while the person types (each takes seconds to start).
-    this.signIn.warmUp({ phone: this.phoneEnabled(), google: this.googleEnabled() });
+    this.signIn.warmUp({ phone: this.phoneEnabled(), google: this.googleEnabled(), emailPin: this.emailPin() });
   }
 
   /**
@@ -527,20 +547,27 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   }
 
   getStepTitle(): string {
-    const phone = this.channel() === 'phone';
     const titles: Record<SignupStep, TranslationKey> = {
       request: 'member.auth.step_title_welcome',
       login: 'member.auth.step_title_welcome_back',
       pin: 'member.auth.step_title_welcome_back',
-      verify: phone
-        ? (this.phonePurpose() === 'reset' ? 'member.auth.step_title_set_pin' : 'member.auth.step_title_verify_number')
-        : (this.emailPurpose() === 'reset' ? 'member.auth.step_title_reset_password' : 'member.auth.step_title_verify_email'),
+      verify: this.verifyTitle(),
       signup: 'member.auth.create_account',
       newPin: 'member.auth.step_title_new_pin',
       newPassword: 'member.auth.step_title_new_password',
+      choosePin: 'member.auth.step_title_choose_pin',
       disabled: 'member.auth.step_title_closed',
     };
     return this.t(titles[this.currentStep()]);
+  }
+
+  /** The code step's title, for what the code is for. */
+  private verifyTitle(): TranslationKey {
+    const purpose = this.channel() === 'phone' ? this.phonePurpose() : this.emailPurpose();
+    if (purpose === 'device') return 'member.auth.step_title_new_device';
+    if (purpose === 'reset' && this.channel() === 'email') return 'member.auth.step_title_reset_password';
+    if (purpose === 'reset' || purpose === 'pin-reset') return 'member.auth.step_title_set_pin';
+    return this.channel() === 'phone' ? 'member.auth.step_title_verify_number' : 'member.auth.step_title_verify_email';
   }
 
   getStepDescription(): string {
@@ -552,6 +579,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       signup: 'member.auth.step_desc_complete',
       newPin: 'member.auth.step_desc_new_pin',
       newPassword: 'member.auth.step_desc_new_password',
+      choosePin: 'member.auth.step_desc_choose_pin',
       disabled: 'member.auth.step_desc_closed',
     };
     return this.t(titles[this.currentStep()]);
@@ -594,7 +622,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         break;
       case 'signup':
         controls['name'].setValidators([Validators.required, Validators.minLength(2)]);
-        if (this.channel() === 'email') {
+        if (this.channel() === 'email' && !this.emailPin()) {
           controls['password'].setValidators([Validators.required, this.passwordValidator]);
           controls['confirmPassword'].setValidators([Validators.required]);
         }
@@ -621,6 +649,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         break;
       case 'newPin':
         this.saveNewPin();
+        break;
+      case 'choosePin':
+        void this.saveChosenPin();
         break;
       case 'newPassword':
         void this.saveNewPassword();
@@ -701,14 +732,32 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       // E4 decides whether sign-up needs a code; when it does, the check emails a new
       // address its code in the same call, unless this page still has one that works
       // (specs/sign-in-speed-spec.md, SP-D6, SP-D8).
-      const mustVerify = await this.shouldVerifySignup();
-      const sendCode = mustVerify && !this.sentCodes.fresh(sentCodeKey('email', 'signup', email));
-      const { status, checked } = await this.emailStatus(email, sendCode);
+      // With email PIN sign-in on, a new address always gets a code: it is the only proof.
+      const mustVerify = this.emailPin() || await this.shouldVerifySignup();
+      const sendCode = mustVerify && !(['signup', 'device', 'pin-reset'] as const).some((p) => this.sentCodes.fresh(sentCodeKey('email', p, email)));
+      const { status, checked, account } = await this.emailStatus(email, sendCode);
 
       // `unfinished`: a recent sign-up whose last step never answered; the
       // password step finishes it (auth.store login).
       if (status === 'registered' || status === 'unfinished') {
-        this.goToStep('login');
+        // What this account has, from the server (specs/sign-in-pin-spec.md): a server
+        // deployed before email PINs says nothing, which is the password.
+        const how = account?.signInWith ?? 'password';
+        this.offerPin.set(how === 'password' && !!account?.offerPin);
+        if (how === 'pin' && account?.deviceCode) {
+          this.emailPurpose.set('device');
+          this.goToStep('verify');
+          await this.sendOtp(false, checked);
+        } else if (how === 'pin') {
+          this.pinLocked.set(false);
+          this.goToStep('pin');
+        } else if (how === 'code') {
+          this.emailPurpose.set('pin-reset');
+          this.goToStep('verify');
+          await this.sendOtp(false, checked);
+        } else {
+          this.goToStep('login');
+        }
       } else if (status === 'no-access') {
         this.errorMessage.set(this.t(NO_ACCESS_KEY));
       } else {
@@ -750,11 +799,11 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private async emailStatus(
     email: string,
     sendCode: boolean,
-  ): Promise<{ status: 'registered' | 'new' | 'no-access' | 'unfinished'; checked?: CheckedCode }> {
+  ): Promise<{ status: 'registered' | 'new' | 'no-access' | 'unfinished'; checked?: CheckedCode; account?: EmailAccount }> {
     try {
       const name = this.registrationForm.get('name')?.value || undefined;
       const reply = await this.signIn.checkEmail(email, { sendCode, name });
-      return { status: reply.status, checked: reply };
+      return { status: reply.status, checked: reply, account: reply };
     } catch {
       const res = await (await this.authStore.checkItemNumberExist(email)).toPromise();
       return { status: res && res.length ? 'registered' : 'new' };
@@ -769,9 +818,16 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     try {
       // When the next screen is the code screen, the check sends the code in the same
       // call, unless this page still has one for the number that works (SP-D5, SP-D8).
-      const sendCode = !this.sentCodes.fresh(sentCodeKey('phone', 'signup', typed)) && !this.sentCodes.fresh(sentCodeKey('phone', 'reset', typed));
+      const sendCode = !(['signup', 'reset', 'device'] as const).some((p) => this.sentCodes.fresh(sentCodeKey('phone', p, typed)));
       const account = await this.signIn.checkPhone(typed, { sendCode });
       this.phone.set(account.phone);
+      if (account.exists && account.hasPin && account.deviceCode) {
+        // A device not proved yet: a code first, then the PIN (specs/sign-in-pin-spec.md).
+        this.phonePurpose.set('device');
+        this.goToStep('verify');
+        await this.sendOtp(false, account);
+        return;
+      }
       if (account.exists && account.hasPin) {
         this.pinLocked.set(false);
         this.goToStep('pin');
@@ -852,13 +908,17 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       if (checked?.codeError) throw checked.codeError;
       const reply: CodeReply & { testCode?: string; testCodeInLogs?: boolean } = checked?.code ?? (phone
         ? await this.signIn.requestPhoneCode(this.phone(), this.phonePurpose())
-        : this.emailPurpose() === 'reset'
-          ? await this.signIn.requestPasswordReset(this.email)
-          : await this.signIn.requestSignupCode(this.email, this.registrationForm.get('name')?.value || undefined));
+        : await this.requestEmailCode());
       this.otpNotice.set('');
       if (!phone && this.emailPurpose() === 'reset' && reply.sent === false) {
         this.stopCountdown();
         return 'not-sent';
+      }
+      if (!phone && reply.sent === false) {
+        // No email engine to send it (only reachable with email PIN sign-in, which needs one).
+        this.stopCountdown();
+        this.otpError.set(this.t('member.auth.server_error.email_failed'));
+        return 'failed';
       }
       this.testCode.set(reply.testCode ?? '');
       this.testCodeInLogs.set((phone && !!reply.testMode && !reply.testCode) || !!reply.testCodeInLogs);
@@ -892,6 +952,14 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.otpError.set(failed.message);
       return 'failed';
     }
+  }
+
+  /** Ask for the email code this step needs. */
+  private requestEmailCode(): Promise<CodeReply & { testCode?: string; testCodeInLogs?: boolean }> {
+    const purpose = this.emailPurpose();
+    if (purpose === 'reset') return this.signIn.requestPasswordReset(this.email);
+    if (purpose === 'device' || purpose === 'pin-reset') return this.signIn.requestEmailPinCode(this.email, purpose);
+    return this.signIn.requestSignupCode(this.email, this.registrationForm.get('name')?.value || undefined);
   }
 
   private stopCountdown(): void {
@@ -942,7 +1010,17 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       if (this.channel() === 'phone') {
         await this.signIn.verifyPhoneCode(this.phone(), otp, this.phonePurpose());
         this.sentCodes.forget(this.codeKey());
-        this.goToStep(this.phonePurpose() === 'reset' ? 'newPin' : 'signup');
+        const purpose = this.phonePurpose();
+        this.goToStep(purpose === 'reset' ? 'newPin' : purpose === 'device' ? 'pin' : 'signup');
+        return;
+      }
+      const emailPurpose = this.emailPurpose();
+      if (emailPurpose === 'device' || emailPurpose === 'pin-reset') {
+        // The ticket goes with the PIN that follows (SignInService).
+        await this.signIn.verifyEmailPinCode(this.email, otp, emailPurpose);
+        this.sentCodes.forget(this.codeKey());
+        this.pinLocked.set(false);
+        this.goToStep(emailPurpose === 'device' ? 'pin' : 'newPin');
         return;
       }
       if (this.emailPurpose() === 'reset') {
@@ -975,8 +1053,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   }
 
   register() {
-    if (this.channel() === 'phone') {
-      void this.registerPhone();
+    if (this.channel() === 'phone' || this.emailPin()) {
+      void this.registerWithPin();
       return;
     }
     // The name may have changed since the password was typed: check it against the name now.
@@ -1010,8 +1088,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.authStore.signup(formData);
   }
 
-  /** New number: name and PIN create the account on the server, which signs us in. */
-  private async registerPhone(): Promise<void> {
+  /** New number, or a new email with email PIN sign-in on: name and PIN create the account on the server, which signs us in. */
+  private async registerWithPin(): Promise<void> {
     const nameControl = this.registrationForm.get('name');
     if (nameControl?.invalid) {
       nameControl.markAsTouched();
@@ -1021,16 +1099,25 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.errorMessage.set(this.t('member.auth.choose_pin'));
       return;
     }
-    await this.finishPhoneSignIn(() => this.signIn.completePhoneSignup(this.phone(), nameControl?.value, this.newPin()));
+    const failed = await this.finishPhoneSignIn(() => this.channel() === 'phone'
+      ? this.signIn.completePhoneSignup(this.phone(), nameControl?.value, this.newPin())
+      : this.signIn.completeEmailSignup(this.email, nameControl?.value, this.newPin()));
+    // The code ran out while the name and PIN were typed: back to it, to ask for another.
+    if (failed?.reason === 'code-expired') {
+      this.goToStep('verify');
+      this.otpError.set(failed.message);
+    }
   }
 
-  /** Forgot PIN, or a number that never had one. */
+  /** Forgot PIN, or an account that never had one. */
   async saveNewPin(): Promise<void> {
     if (this.newPin().length !== 6) {
       this.errorMessage.set(this.t('member.auth.choose_pin'));
       return;
     }
-    await this.finishPhoneSignIn(() => this.signIn.resetPin(this.phone(), this.newPin()));
+    await this.finishPhoneSignIn(() => this.channel() === 'phone'
+      ? this.signIn.resetPin(this.phone(), this.newPin())
+      : this.signIn.resetEmailPin(this.email, this.newPin()));
   }
 
   /** The PIN boxes: sign in on the last digit, or on the Verify button. */
@@ -1041,10 +1128,21 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.errorMessage.set(this.t('member.auth.enter_pin'));
       return;
     }
-    const failed = await this.finishPhoneSignIn(() => this.signIn.signInWithPin(this.phone(), value));
+    const failed = await this.finishPhoneSignIn(() => this.channel() === 'phone'
+      ? this.signIn.signInWithPin(this.phone(), value)
+      : this.signIn.signInWithEmailPin(this.email, value));
     if (failed?.reason === 'locked') this.pinLocked.set(true);
     if (failed?.reason === 'no-pin') this.forgotPin();
+    if (failed?.reason === 'new-device') this.confirmDevice();
     if (failed) this.pinBoxes()?.reset();
+  }
+
+  /** A PIN on a device not proved yet (the device code ran out, or another tab): a code first. */
+  private confirmDevice(): void {
+    if (this.channel() === 'phone') this.phonePurpose.set('device');
+    else this.emailPurpose.set('device');
+    this.goToStep('verify');
+    void this.sendOtp();
   }
 
   /** Run a phone sign-in call; the session it starts is picked up by the auth effect. */
@@ -1067,9 +1165,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     }
   }
 
-  /** Forgot PIN: a code by SMS, then a new PIN. */
+  /** Forgot PIN: a code by SMS or email, then a new PIN. */
   forgotPin(): void {
-    this.phonePurpose.set('reset');
+    if (this.channel() === 'phone') this.phonePurpose.set('reset');
+    else this.emailPurpose.set('pin-reset');
     this.goToStep('verify');
     void this.sendOtp();
   }
@@ -1097,6 +1196,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   async forgotPassword(): Promise<void> {
     const email = this.email;
     if (!email || this.working()) return;
+    // With email PIN sign-in on, an account that may have a PIN chooses one instead
+    // (specs/sign-in-pin-spec.md): the code, then a new PIN, and the password goes.
+    if (this.offerPin()) {
+      this.forgotPin();
+      return;
+    }
     this.errorMessage.set('');
     this.successMessage.set('');
     this.emailPurpose.set('reset');
@@ -1224,6 +1329,14 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     if (this.navigationInProgress) return;
 
     const user = this.authStore.currentUser();
+    // Signed in with a password while the site uses email PINs: choose a PIN first (specs/sign-in-pin-spec.md).
+    if (user && this.shouldOfferPin()) {
+      this.pinOffered = true;
+      this.stopLeaving();
+      this.pinSkipAllowed.set(!this.pinSkipped(user.uid));
+      this.goToStep('choosePin');
+      return;
+    }
     if (user) {
       this.navigationInProgress = true;
       if (this.pendingGoogleCredential) {
@@ -1247,6 +1360,49 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         () => this.navigationFailed(),
       );
     }
+  }
+
+  /** A password sign-in on this page, for an account the server offered a PIN, not offered yet. */
+  private shouldOfferPin(): boolean {
+    return this.offerPin() && !this.pinOffered && this.channel() === 'email' && (this.currentStep() === 'login' || this.currentStep() === 'newPassword');
+  }
+
+  private pinSkipped(uid: string): boolean {
+    try {
+      return localStorage.getItem(PIN_OFFER_SKIPPED + uid) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  /** "Choose a PIN" after the password: saved, the password goes (the server says so), then on to the page. */
+  async saveChosenPin(): Promise<void> {
+    if (this.working()) return;
+    if (this.newPin().length !== 6) {
+      this.errorMessage.set(this.t('member.auth.choose_pin'));
+      return;
+    }
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+    try {
+      await this.signIn.setPin(this.newPin());
+      this.toastService.success(this.t('member.auth.pin_chosen'));
+    } catch (err) {
+      this.errorMessage.set(readSignInError(err).message);
+      return;
+    } finally {
+      this.isLoading.set(false);
+    }
+    this.handleLoginSuccess();
+  }
+
+  /** "Not now", once on this device: the next password sign-in asks again, without it. */
+  skipChoosingPin(): void {
+    const uid = this.authStore.currentUser()?.uid;
+    try {
+      if (uid) localStorage.setItem(PIN_OFFER_SKIPPED + uid, '1');
+    } catch { /* nothing kept: offered with "Not now" again */ }
+    this.handleLoginSuccess();
   }
 
   private navigationFailed(): void {

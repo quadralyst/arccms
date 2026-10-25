@@ -71,3 +71,22 @@ describe('UserSettingModel', () => {
         });
     });
 });
+
+describe('email PIN sign-in and the new-device code: the app\'s choice, else the admin\'s (specs/sign-in-pin-spec.md)', () => {
+    it('follows the admin when the app fixed nothing', async () => {
+        const { emailPinOn, newDeviceCodeOn } = await import('./user-setting.model');
+        const none = { emailSignIn: null, newDeviceCode: null };
+        expect(emailPinOn({ emailSignIn: 'pin' }, none)).toBe(true);
+        expect(emailPinOn({}, none)).toBe(false);
+        expect(emailPinOn(null, none)).toBe(false);
+        expect(newDeviceCodeOn({ newDeviceCode: true }, none)).toBe(true);
+        expect(newDeviceCodeOn({}, none)).toBe(false);
+    });
+
+    it('takes the app\'s choice over the admin\'s', async () => {
+        const { emailPinOn, newDeviceCodeOn } = await import('./user-setting.model');
+        expect(emailPinOn({ emailSignIn: 'password' }, { emailSignIn: 'pin', newDeviceCode: null })).toBe(true);
+        expect(emailPinOn({ emailSignIn: 'pin' }, { emailSignIn: 'password', newDeviceCode: null })).toBe(false);
+        expect(newDeviceCodeOn({ newDeviceCode: true }, { emailSignIn: null, newDeviceCode: false })).toBe(false);
+    });
+});

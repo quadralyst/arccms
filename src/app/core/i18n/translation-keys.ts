@@ -1473,11 +1473,18 @@ export type TranslationKey =
     | 'admin.settings.user.assigned_note_end'
     | 'admin.settings.user.default_role'
     | 'admin.settings.user.default_role_hint'
+    | 'admin.settings.user.email_pin_needs_email'
+    | 'admin.settings.user.email_sign_in'
+    | 'admin.settings.user.email_sign_in_hint'
+    | 'admin.settings.user.email_sign_in_password'
+    | 'admin.settings.user.email_sign_in_pin'
     | 'admin.settings.user.enable'
     | 'admin.settings.user.enable_signups'
     | 'admin.settings.user.enable_signups_hint'
     | 'admin.settings.user.google_sign_in'
     | 'admin.settings.user.google_sign_in_hint'
+    | 'admin.settings.user.new_device_code'
+    | 'admin.settings.user.new_device_code_hint'
     | 'admin.settings.user.phone_check_failed'
     | 'admin.settings.user.phone_setup_api'
     | 'admin.settings.user.phone_setup_console'
@@ -1491,6 +1498,7 @@ export type TranslationKey =
     | 'admin.settings.user.phone_sign_in'
     | 'admin.settings.user.phone_sign_in_hint'
     | 'admin.settings.user.phone_sms_test_mode'
+    | 'admin.settings.user.set_by_app'
     | 'admin.settings.user.sign_in_methods'
     | 'admin.settings.user.sign_in_saved'
     | 'admin.settings.user.signups_disabled'
@@ -1717,6 +1725,7 @@ export type TranslationKey =
     | 'member.auth.new_password_label'
     | 'member.auth.new_pin_label'
     | 'member.auth.no_access'
+    | 'member.auth.not_now'
     | 'member.auth.opening'
     | 'member.auth.or'
     | 'member.auth.password_changed'
@@ -1729,6 +1738,7 @@ export type TranslationKey =
     | 'member.auth.password_required'
     | 'member.auth.password_update_failed'
     | 'member.auth.passwords_mismatch'
+    | 'member.auth.pin_chosen'
     | 'member.auth.pin_label'
     | 'member.auth.pin_next_time'
     | 'member.auth.profile_update_failed'
@@ -1740,6 +1750,7 @@ export type TranslationKey =
     | 'member.auth.reset_pin_with_code'
     | 'member.auth.save_password'
     | 'member.auth.save_pin'
+    | 'member.auth.save_pin_continue'
     | 'member.auth.send_code_failed'
     | 'member.auth.sending_code'
     | 'member.auth.server_error.account_blocked'
@@ -1754,6 +1765,7 @@ export type TranslationKey =
     | 'member.auth.server_error.email_managed'
     | 'member.auth.server_error.email_not_movable'
     | 'member.auth.server_error.fresh_code_required'
+    | 'member.auth.server_error.fresh_purpose'
     | 'member.auth.server_error.google_email_taken'
     | 'member.auth.server_error.google_off'
     | 'member.auth.server_error.host_account'
@@ -1761,6 +1773,7 @@ export type TranslationKey =
     | 'member.auth.server_error.invalid_number'
     | 'member.auth.server_error.locked'
     | 'member.auth.server_error.name_required'
+    | 'member.auth.server_error.new_device'
     | 'member.auth.server_error.no_access'
     | 'member.auth.server_error.no_account'
     | 'member.auth.server_error.no_contact'
@@ -1771,6 +1784,9 @@ export type TranslationKey =
     | 'member.auth.server_error.phone_off'
     | 'member.auth.server_error.pin_format'
     | 'member.auth.server_error.pin_required'
+    | 'member.auth.server_error.pin_sign_in'
+    | 'member.auth.server_error.pin_sign_in_off'
+    | 'member.auth.server_error.session_claims'
     | 'member.auth.server_error.sign_in_again'
     | 'member.auth.server_error.sign_in_managed'
     | 'member.auth.server_error.sign_in_not_ready'
@@ -1786,6 +1802,7 @@ export type TranslationKey =
     | 'member.auth.show_pin'
     | 'member.auth.signing_in_as'
     | 'member.auth.signing_up_as'
+    | 'member.auth.step_desc_choose_pin'
     | 'member.auth.step_desc_closed'
     | 'member.auth.step_desc_code_email'
     | 'member.auth.step_desc_code_phone'
@@ -1795,7 +1812,9 @@ export type TranslationKey =
     | 'member.auth.step_desc_sign_in'
     | 'member.auth.step_desc_start_email'
     | 'member.auth.step_desc_start_phone'
+    | 'member.auth.step_title_choose_pin'
     | 'member.auth.step_title_closed'
+    | 'member.auth.step_title_new_device'
     | 'member.auth.step_title_new_password'
     | 'member.auth.step_title_new_pin'
     | 'member.auth.step_title_reset_password'
@@ -1880,6 +1899,7 @@ export type TranslationKey =
     | 'member.methods.phone_placeholder_any'
     | 'member.methods.phone_saved'
     | 'member.methods.pin_changed'
+    | 'member.methods.pin_saved_password_removed'
     | 'member.methods.save_pin'
     | 'member.methods.send_code'
     | 'member.methods.sign_in_elsewhere'
@@ -3538,11 +3558,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.user.assigned_note_end',
     'admin.settings.user.default_role',
     'admin.settings.user.default_role_hint',
+    'admin.settings.user.email_pin_needs_email',
+    'admin.settings.user.email_sign_in',
+    'admin.settings.user.email_sign_in_hint',
+    'admin.settings.user.email_sign_in_password',
+    'admin.settings.user.email_sign_in_pin',
     'admin.settings.user.enable',
     'admin.settings.user.enable_signups',
     'admin.settings.user.enable_signups_hint',
     'admin.settings.user.google_sign_in',
     'admin.settings.user.google_sign_in_hint',
+    'admin.settings.user.new_device_code',
+    'admin.settings.user.new_device_code_hint',
     'admin.settings.user.phone_check_failed',
     'admin.settings.user.phone_setup_api',
     'admin.settings.user.phone_setup_console',
@@ -3556,6 +3583,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.user.phone_sign_in',
     'admin.settings.user.phone_sign_in_hint',
     'admin.settings.user.phone_sms_test_mode',
+    'admin.settings.user.set_by_app',
     'admin.settings.user.sign_in_methods',
     'admin.settings.user.sign_in_saved',
     'admin.settings.user.signups_disabled',
@@ -3782,6 +3810,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.new_password_label',
     'member.auth.new_pin_label',
     'member.auth.no_access',
+    'member.auth.not_now',
     'member.auth.opening',
     'member.auth.or',
     'member.auth.password_changed',
@@ -3794,6 +3823,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.password_required',
     'member.auth.password_update_failed',
     'member.auth.passwords_mismatch',
+    'member.auth.pin_chosen',
     'member.auth.pin_label',
     'member.auth.pin_next_time',
     'member.auth.profile_update_failed',
@@ -3805,6 +3835,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.reset_pin_with_code',
     'member.auth.save_password',
     'member.auth.save_pin',
+    'member.auth.save_pin_continue',
     'member.auth.send_code_failed',
     'member.auth.sending_code',
     'member.auth.server_error.account_blocked',
@@ -3819,6 +3850,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.email_managed',
     'member.auth.server_error.email_not_movable',
     'member.auth.server_error.fresh_code_required',
+    'member.auth.server_error.fresh_purpose',
     'member.auth.server_error.google_email_taken',
     'member.auth.server_error.google_off',
     'member.auth.server_error.host_account',
@@ -3826,6 +3858,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.invalid_number',
     'member.auth.server_error.locked',
     'member.auth.server_error.name_required',
+    'member.auth.server_error.new_device',
     'member.auth.server_error.no_access',
     'member.auth.server_error.no_account',
     'member.auth.server_error.no_contact',
@@ -3836,6 +3869,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.phone_off',
     'member.auth.server_error.pin_format',
     'member.auth.server_error.pin_required',
+    'member.auth.server_error.pin_sign_in',
+    'member.auth.server_error.pin_sign_in_off',
+    'member.auth.server_error.session_claims',
     'member.auth.server_error.sign_in_again',
     'member.auth.server_error.sign_in_managed',
     'member.auth.server_error.sign_in_not_ready',
@@ -3851,6 +3887,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.show_pin',
     'member.auth.signing_in_as',
     'member.auth.signing_up_as',
+    'member.auth.step_desc_choose_pin',
     'member.auth.step_desc_closed',
     'member.auth.step_desc_code_email',
     'member.auth.step_desc_code_phone',
@@ -3860,7 +3897,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.step_desc_sign_in',
     'member.auth.step_desc_start_email',
     'member.auth.step_desc_start_phone',
+    'member.auth.step_title_choose_pin',
     'member.auth.step_title_closed',
+    'member.auth.step_title_new_device',
     'member.auth.step_title_new_password',
     'member.auth.step_title_new_pin',
     'member.auth.step_title_reset_password',
@@ -3945,6 +3984,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.methods.phone_placeholder_any',
     'member.methods.phone_saved',
     'member.methods.pin_changed',
+    'member.methods.pin_saved_password_removed',
     'member.methods.save_pin',
     'member.methods.send_code',
     'member.methods.sign_in_elsewhere',

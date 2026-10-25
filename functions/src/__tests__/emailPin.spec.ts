@@ -57,7 +57,7 @@ import * as pin from '../auth/emailPin.js';
 import { checkEmailAccount } from '../auth/emailAccount.js';
 import { verifySignupOtp } from '../auth/signupOtp.js';
 import { requestPasswordReset } from '../auth/passwordReset.js';
-import { setPin as changePin } from '../auth/phoneAuth.js';
+import { setPin as changePin } from '../auth/setPin.js';
 import { AUTH_PINS, checkPin, setPin } from '../auth/accounts.js';
 import { AUTH_DEVICES } from '../auth/devices.js';
 import type { MemoryFirestore } from './helpers/memoryFirestore.js';
@@ -248,6 +248,16 @@ describe('signInWithEmailPin', () => {
         }
         await expect(call(pin.signInWithEmailPin, { email: EMAIL, pin: '111111' })).rejects.toMatchObject({ details: { reason: 'locked' } });
         await expect(checkPin('u1', '604175')).resolves.toEqual({ ok: false, reason: 'locked' });
+    });
+
+    it('with the site on passwords, opens no email-and-PIN door to an account with a password; a PIN-only account keeps its PIN', async () => {
+        settings({});
+        person('p1', { password: true, email: 'pw@example.com' });
+        await setPin('p1', '604175');
+        await expect(call(pin.signInWithEmailPin, { email: 'pw@example.com', pin: '604175' })).rejects.toMatchObject({ details: { reason: 'pin-sign-in-off' } });
+        await expect(call(pin.requestEmailPinCode, { email: 'pw@example.com', purpose: 'pin-reset' })).rejects.toMatchObject({ details: { reason: 'pin-sign-in-off' } });
+        expect(mem.read(AUTH_PINS, 'p1')?.['failedAttempts']).toBe(0);
+        await expect(call(pin.signInWithEmailPin, { email: EMAIL, pin: '604175' })).resolves.toEqual({ token: 'token-u1' });
     });
 
     it('refuses an unknown address, a blocked account and a login another app owns', async () => {

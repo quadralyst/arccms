@@ -19,6 +19,8 @@ import { isLockedAppAccount } from '../../../../core/app-accounts/app-account-lo
 import { newPasswordValidator, passwordProblemOf } from '../../../../../shared/utils/password-validator';
 import { passwordProblemText } from '../../../../../shared/utils/password-rule';
 import { SIGN_IN_STRENGTH } from '../../../../core/sign-in/sign-in-strength';
+import { UserSettingService } from '../../(settings)/user-setting/user-setting.service';
+import { emailPinOn } from '../../(settings)/user-setting/user-setting.model';
 
 export const routeMeta: RouteMeta = {
     title: 'Edit User',
@@ -43,6 +45,10 @@ export default class EditUserComponent extends BaseComponent {
 
     userStore = inject(UserStore);
     private functions = inject(Functions);
+    private userSettings = inject(UserSettingService);
+    /** The site signs email accounts in with a PIN: a member then has no password to set (specs/sign-in-pin-spec.md). */
+    private readonly emailPin = signal(false);
+    private lastItem: any = null;
     saving = signal(false);
     errorMessages: string[] = [];
     isPasswordUpdateEnabled: boolean = false;
@@ -103,13 +109,30 @@ export default class EditUserComponent extends BaseComponent {
      */
     emailRequired = signal(true);
 
-    private updateFormData(currentItem: any): void {
-        this.emailRequired.set(!!currentItem.email);
+    constructor() {
+        super();
+        this.userSettings.readSettings().then((settings) => {
+            this.emailPin.set(emailPinOn(settings));
+            if (this.lastItem) this.updatePasswordNote(this.lastItem);
+        }).catch(() => undefined);
+    }
+
+    /** Whether, and why not, an admin can set this person's password here (adminSetPassword refuses the same). */
+    private updatePasswordNote(currentItem: any): void {
         const shared = currentItem.authOwner === 'shared' || currentItem.authOwner === 'host';
         this.passwordElsewhere.set(isLockedAppAccount(currentItem)
             ? 'This account is managed by the app that made it, so its password is changed there.'
-            : shared ? "This person's sign-in is shared with another app, so their password is changed there." : '');
+            : shared ? "This person's sign-in is shared with another app, so their password is changed there."
+            : this.emailPin() && currentItem.role !== 'admin'
+                ? 'This site signs email accounts in with a PIN, so this person has no password. They choose a new PIN with Forgot PIN on the sign-in page.'
+                : '');
         this.canSetPassword.set(!!currentItem.email && !this.passwordElsewhere());
+    }
+
+    private updateFormData(currentItem: any): void {
+        this.lastItem = currentItem;
+        this.emailRequired.set(!!currentItem.email);
+        this.updatePasswordNote(currentItem);
         const check = this.globalService.emailValidator();
         this.editForm.controls['email'].setValidators(this.emailRequired()
             ? [Validators.required, check]

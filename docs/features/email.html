@@ -102,8 +102,9 @@
     <table>
       <thead><tr><th>Template type</th><th>Sent when</th><th>Category</th></tr></thead>
       <tbody>
-        <tr><td><code>signup_otp_email</code></td><td>Someone asks for a sign-up or email change code</td><td>transactional</td></tr>
+        <tr><td><code>signup_otp_email</code></td><td>Someone asks for a sign-up or email change code, a code for a new device, or a fresh code before a sensitive action</td><td>transactional</td></tr>
         <tr><td><code>password_reset_otp_email</code></td><td>Someone taps Forgot password (see <a href="sign-in.html#forgot-password">Forgot password</a>)</td><td>transactional</td></tr>
+        <tr><td><code>pin_reset_otp_email</code></td><td>An email account taps Forgot PIN, or chooses its first PIN, while the site signs email accounts in with a PIN (see <a href="sign-in.html#email-pin">Email with a PIN</a>)</td><td>transactional</td></tr>
         <tr><td><code>app.{key}</code>, <code>app.message</code></td><td>The app's own emails, from its templates or a body it built (see <a href="../app/app-email.html">Send email from your app</a>)</td><td>transactional</td></tr>
         <tr><td><code>signup_welcome_email</code></td><td>A user record is created</td><td>marketing</td></tr>
         <tr><td><code>notification_generic_email</code></td><td>An in-app notification is also sent by email (see <a href="notifications.html">Notifications</a>)</td><td>the notification type's</td></tr>

@@ -39,7 +39,11 @@ vi.mock('firebase-functions/v2/https', () => ({
 }));
 
 import { db } from '../init.js';
-import * as phone from '../auth/phoneAuth.js';
+import * as phoneAuth from '../auth/phoneAuth.js';
+import { setPin } from '../auth/setPin.js';
+
+/** The phone sign-in callables, and changing the PIN (setPin.ts, shared with email PIN sign-in). */
+const phone = { ...phoneAuth, setPin };
 import { phoneHash } from '../auth/phoneNumber.js';
 import type { MemoryFirestore } from './helpers/memoryFirestore.js';
 

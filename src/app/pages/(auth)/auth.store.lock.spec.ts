@@ -42,7 +42,7 @@ describe('AuthState with a locked app account', () => {
                 { provide: AuthService, useValue: authService },
                 { provide: ToastService, useValue: {} },
                 { provide: Auth, useValue: {} },
-                { provide: SignInService, useValue: { ensureRecordClaim: vi.fn(async () => false) } },
+                { provide: SignInService, useValue: { ensureRecordClaim: vi.fn(async () => false), rememberThisDevice: vi.fn(async () => ({ remembered: true })) } },
                 { provide: Router, useValue: { navigate: vi.fn() } },
             ],
         });

@@ -146,6 +146,15 @@ export async function sendEmailPinCode(
     return reply;
 }
 
+/**
+ * Whether this email account may sign in (or reset) with a PIN: the site signs email in
+ * with one, or the account has a PIN and no password. A site on passwords never opens an
+ * email-and-PIN door to an account that signs in with its password.
+ */
+async function pinSignInAllowed(settings: SignInSettings, uid: string, pin: boolean): Promise<boolean> {
+    return settings.emailPin || (pin && !(await hasPassword(uid)));
+}
+
 function readPurpose(raw: unknown): EmailPinPurpose {
     if (raw !== 'device' && raw !== 'pin-reset') throw new HttpsError('invalid-argument', 'Unknown request.');
     return raw;
@@ -158,9 +167,10 @@ export const requestEmailPinCode = onCall(async (request) => {
     const [settings, account] = await Promise.all([readSignInSettings(), emailPinAccount(email)]);
     const name = typeof account.data['name'] === 'string' ? account.data['name'] : undefined;
     const pin = await hasPin(account.uid);
-    // A device code only where a PIN signs in; a PIN reset where the site uses PINs or the account has one.
+    // A device code only where a PIN signs in; a PIN reset where the site uses PINs, or for an
+    // account with a PIN and no password (the table in specs/sign-in-pin-spec.md).
     if (purpose === 'device' && !pin) throw new HttpsError('failed-precondition', NO_PIN, { reason: 'no-pin' });
-    if (purpose === 'pin-reset' && !settings.emailPin && !pin) throw refuse('failed-precondition', 'pin-sign-in-off', 'Sign in with your password.');
+    if (!(await pinSignInAllowed(settings, account.uid, pin))) throw refuse('failed-precondition', 'pin-sign-in-off', 'Sign in with your password.');
     return sendEmailPinCode(request, email, purpose, name);
 });
 
@@ -216,6 +226,7 @@ export const signInWithEmailPin = onCall(async (request) => {
     ]);
     const pin = readPin(request.data?.pin);
     const uid = account.uid;
+    if (!settings.emailPin && (await hasPassword(uid))) throw refuse('failed-precondition', 'pin-sign-in-off', 'Sign in with your password.');
     const deviceKey = readDeviceKey(request.data?.deviceKey);
     // A device not proved yet gets no PIN tries at all: a code first.
     const ticket = request.data?.ticket;
@@ -235,7 +246,8 @@ export const resetEmailPin = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
     const email = normalizeEmailAddress(request.data?.email);
     const pin = readNewPin(request.data?.pin);
-    const account = await emailPinAccount(email);
+    const [settings, account] = await Promise.all([readSignInSettings(), emailPinAccount(email)]);
+    if (!(await pinSignInAllowed(settings, account.uid, await hasPin(account.uid)))) throw refuse('failed-precondition', 'pin-sign-in-off', 'Sign in with your password.');
     if (!(await verifiedEmailCode(email, 'pin-reset', request.data?.ticket, true))) {
         throw refuse('failed-precondition', 'code-expired', 'Your code has expired. Please ask for a new one.');
     }

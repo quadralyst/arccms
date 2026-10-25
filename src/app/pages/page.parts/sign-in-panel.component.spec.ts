@@ -116,7 +116,7 @@ describe('the sign-in page', () => {
         const html = page('signup.page.html');
         // Every brand block has the name line; beside a tile it is there for --arc-sign-in-logo: none.
         const blocks = html.split('<div class="auth-logo">').slice(1);
-        expect(blocks).toHaveLength(9);
+        expect(blocks).toHaveLength(10);
         for (const block of blocks) {
             expect(block).toMatch(/^[\s\S]{0,600}?<div class="auth-logo-line">\s*<h2 class="auth-logo-text"[^>]*>\{\{ brandName\(\) \}\}<\/h2>/);
         }

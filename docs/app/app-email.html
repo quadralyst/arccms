@@ -141,7 +141,7 @@ export const onClosingDone = onDocumentUpdated(arcDocument('businesses/{bid}/clo
     <p>Settings, Email, Features has <strong>App emails</strong>, on unless an admin switches it off. Off, every <code>sendAppEmail</code> writes a <code>skipped</code> log with <code>feature_disabled</code> and an <code>email.failed</code> event, and sends nothing. Turning email off as a whole (the switch at the top of Settings, Email) stops it too.</p>
 
     <h2 id="account-emails">Arc CMS's account emails in your languages</h2>
-    <p>The sign-up code and password reset code emails, and the code for adding an email to an account (which uses the sign-up template), go in the member's language: the sign-in page sends the language it shows (see <a href="member-languages.html">Member languages</a>). Arc CMS writes them in English, in Settings, where an admin edits them. Word them in your languages in <code>ACCOUNT_EMAIL_LANGUAGES</code>, in the same file:</p>
+    <p>The sign-up code, password reset code and PIN reset code emails, and the codes for adding an email to an account, for a new device and before a sensitive action (which use the sign-up template), go in the member's language: the sign-in page sends the language it shows (see <a href="member-languages.html">Member languages</a>). Arc CMS writes them in English, in Settings, where an admin edits them. Word them in your languages in <code>ACCOUNT_EMAIL_LANGUAGES</code>, in the same file:</p>
     <pre><code>export const ACCOUNT_EMAIL_LANGUAGES: AccountEmailLanguages = {
   signup_otp_email: {
     de: { subject: 'Ihr Bestätigungscode', body: '&lt;p&gt;Hallo ##NAME##,&lt;/p&gt;&lt;p&gt;Ihr Code: &lt;strong&gt;##OTP##&lt;/strong&gt;. Er gilt 10 Minuten.&lt;/p&gt;' },

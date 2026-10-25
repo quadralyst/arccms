@@ -11,11 +11,15 @@
  *                     contact (their address, lists and consent) here, the rest
  *                     in onUserDelete.ts (never a locked app account: its app
  *                     deletes it, with deleteAppAccount)
+ *   rememberThisDevice  remember the device a signed-in person is on for PIN sign-in,
+ *                     so "Ask for a code on a new device" asks nothing there
+ *                     (specs/sign-in-pin-spec.md); the page calls it once per device
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { clearArcClaims, setRecordClaims, USER_RECORD_CLAIM } from './claims.js';
 import { canSignIn, requireOwnRecord } from '../auth/accounts.js';
+import { readDeviceKey, rememberDevice } from '../auth/devices.js';
 import { refuseOtherSignIn } from '../auth/appAccountLock.js';
 import { eraseContact } from '../email-core/eraseContact.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
@@ -61,4 +65,17 @@ export const deleteMyAccount = onCall(async (request) => {
     await record.ref.delete();
     logger.info(`deleteMyAccount: ${record.ref.id} deleted by its owner.`);
     return { deleted: true };
+});
+
+/**
+ * A device already signed in is one its person proved, by whatever way they signed in:
+ * remembered, so turning on "Ask for a code on a new device" asks for no code on it.
+ */
+export const rememberThisDevice = onCall(async (request) => {
+    const record = await requireOwnRecord(request);
+    if (!canSignIn(record.data)) return { remembered: false };
+    const key = readDeviceKey(request.data?.deviceKey);
+    if (!key) return { remembered: false };
+    await rememberDevice(String(record.data['uid']), key);
+    return { remembered: true };
 });

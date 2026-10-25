@@ -645,6 +645,12 @@ describe('SignupComponent', () => {
             return c;
         }
 
+        /** The email request, read through the context sendOtp runs on (its purpose and signIn). */
+        function withEmailRequest<T extends Record<string, any>>(c: T): T {
+            (c as Record<string, any>)['requestEmailCode'] = function (this: unknown) { return (SignupComponent.prototype as any).requestEmailCode.call(this); };
+            return c;
+        }
+
         it('says a reset code is in SMS Logs, and shows no code (review F)', async () => {
             const c = ctx(undefined, { testMode: true }, 'reset');
             await sendOtp.call(c);
@@ -675,13 +681,13 @@ describe('SignupComponent', () => {
         });
 
         function emailCtx(reply: Record<string, unknown>) {
-            return {
+            return withEmailRequest({
                 ...ctx(),
                 channel: () => 'email',
                 email: 'new@example.com',
                 registrationForm: { get: () => ({ value: 'Asha' }) },
                 signIn: { requestSignupCode: vi.fn().mockResolvedValue({ sent: true, status: 'pending', ...reply }) },
-            };
+            });
         }
 
         it('shows the sign-up code the Simulated email provider did not send', async () => {
@@ -887,6 +893,8 @@ describe('SignupComponent', () => {
                 pinLocked: { set: vi.fn() },
                 pinBoxes: () => ({ reset: vi.fn(), value: () => '' }),
                 forgotPin: vi.fn(),
+                confirmDevice: vi.fn(),
+                channel: () => 'phone',
                 signIn: { signInWithPin: error ? vi.fn().mockRejectedValue(error) : vi.fn().mockResolvedValue(undefined) },
             };
             withLeaving(c);
@@ -951,6 +959,9 @@ describe('SignupComponent', () => {
                 shouldVerifySignup: vi.fn().mockResolvedValue(mustVerify),
                 sendOtp: vi.fn().mockResolvedValue(undefined),
                 goToStep: vi.fn(),
+                emailPin: () => false,
+                offerPin: { set: vi.fn() },
+                pinLocked: { set: vi.fn() },
             };
         }
 
@@ -1027,6 +1038,7 @@ describe('SignupComponent', () => {
                 navigationInProgress: inProgress,
                 authStore: { currentUser: () => ({ uid: 'u1', role }), isAdmin: () => isAdmin },
                 toastService: { success: vi.fn() },
+                shouldOfferPin: () => false,
                 router: {
                     url,
                     parseUrl: (u: string) => ({ queryParams: Object.fromEntries(new URL(u, 'http://site.test').searchParams) }),
@@ -1153,6 +1165,131 @@ describe('SignupComponent', () => {
             expect(src).toContain('environment.production');
             expect(src).toContain('arcConfig.databaseId');
             expect(html.match(/instance-label/g)?.length).toBe(html.match(/class="copyright"/g)?.length);
+        });
+    });
+
+    describe('email with a PIN, and a code on a new device (specs/sign-in-pin-spec.md)', () => {
+        const proto = SignupComponent.prototype as any;
+
+        function emailCheckCtx(account: Record<string, unknown>, opts: { emailPin?: boolean; mustVerify?: boolean } = {}) {
+            return {
+                t: english,
+                email: 'asha@example.com',
+                isLoading: { set: vi.fn() },
+                errorMessage: { set: vi.fn() },
+                otpVerified: false,
+                emailPurpose: { set: vi.fn() },
+                emailStatus: vi.fn().mockResolvedValue({ status: account['status'] ?? 'registered', checked: { code: { sent: true } }, account }),
+                sentCodes: new SentCodes(),
+                settings: () => ({ isSignupEnabled: true, defaultRole: 'user' }),
+                shouldVerifySignup: vi.fn().mockResolvedValue(opts.mustVerify ?? false),
+                sendOtp: vi.fn().mockResolvedValue('sent'),
+                goToStep: vi.fn(),
+                emailPin: () => opts.emailPin ?? true,
+                offerPin: { set: vi.fn() },
+                pinLocked: { set: vi.fn() },
+            };
+        }
+
+        it('an account with a PIN goes to the PIN', async () => {
+            const c = emailCheckCtx({ signInWith: 'pin' });
+            await proto.checkEmail.call(c);
+            expect(c.goToStep).toHaveBeenCalledWith('pin');
+            expect(c.sendOtp).not.toHaveBeenCalled();
+        });
+
+        it('on a device not proved yet, the code the check sent comes first, then the PIN', async () => {
+            const c = emailCheckCtx({ signInWith: 'pin', deviceCode: true });
+            await proto.checkEmail.call(c);
+            expect(c.emailPurpose.set).toHaveBeenLastCalledWith('device');
+            expect(c.goToStep).toHaveBeenCalledWith('verify');
+            expect(c.sendOtp).toHaveBeenCalledWith(false, { code: { sent: true } });
+        });
+
+        it('an account with neither gets a PIN reset code, then chooses a first PIN', async () => {
+            const c = emailCheckCtx({ signInWith: 'code' });
+            await proto.checkEmail.call(c);
+            expect(c.emailPurpose.set).toHaveBeenLastCalledWith('pin-reset');
+            expect(c.goToStep).toHaveBeenCalledWith('verify');
+        });
+
+        it('a password account goes to the password, with a PIN to be offered after; a server that says nothing means the password', async () => {
+            const c = emailCheckCtx({ signInWith: 'password', offerPin: true });
+            await proto.checkEmail.call(c);
+            expect(c.offerPin.set).toHaveBeenCalledWith(true);
+            expect(c.goToStep).toHaveBeenCalledWith('login');
+            const old = emailCheckCtx({});
+            await proto.checkEmail.call(old);
+            expect(old.offerPin.set).toHaveBeenCalledWith(false);
+            expect(old.goToStep).toHaveBeenCalledWith('login');
+        });
+
+        it('a new address always gets a code with email PIN sign-in on, even when sign-up codes are off', async () => {
+            const c = emailCheckCtx({ status: 'new' }, { emailPin: true, mustVerify: false });
+            await proto.checkEmail.call(c);
+            expect(c.emailStatus).toHaveBeenCalledWith('asha@example.com', true);
+            expect(c.goToStep).toHaveBeenCalledWith('verify');
+        });
+
+        it('the PIN of an email account signs in by email; a device not proved yet goes to a code', async () => {
+            const c: Record<string, any> = withLeaving({
+                t: english,
+                email: 'asha@example.com',
+                channel: () => 'email',
+                errorMessage: { set: vi.fn() },
+                pinLocked: { set: vi.fn() },
+                pinBoxes: () => ({ reset: vi.fn(), value: () => '' }),
+                forgotPin: vi.fn(),
+                confirmDevice: vi.fn(),
+                signIn: { signInWithEmailPin: vi.fn().mockRejectedValue({ code: 'functions/failed-precondition', message: 'Confirm this device with a code first.', details: { reason: 'new-device' } }) },
+            });
+            c['finishPhoneSignIn'] = proto.finishPhoneSignIn.bind(c);
+            await proto.signInWithPin.call(c, '604175');
+            expect(c['signIn'].signInWithEmailPin).toHaveBeenCalledWith('asha@example.com', '604175');
+            expect(c['confirmDevice']).toHaveBeenCalled();
+        });
+
+        it('a verified device code goes back to the PIN; a verified PIN reset code to a new PIN', async () => {
+            for (const [purpose, step] of [['device', 'pin'], ['pin-reset', 'newPin']] as const) {
+                const c = {
+                    t: english, email: 'asha@example.com', channel: () => 'email', emailPurpose: () => purpose,
+                    otpError: { set: vi.fn() }, sentCodes: new SentCodes(), codeKey: () => 'key',
+                    isLoading: Object.assign(() => false, { set: vi.fn() }), goToStep: vi.fn(), pinLocked: { set: vi.fn() },
+                    codeBoxes: () => ({ reset: vi.fn(), value: () => '' }),
+                    signIn: { verifyEmailPinCode: vi.fn().mockResolvedValue({ verified: true }) },
+                };
+                await proto.verifyOtp.call(c, '654321');
+                expect(c.signIn.verifyEmailPinCode).toHaveBeenCalledWith('asha@example.com', '654321', purpose);
+                expect(c.goToStep).toHaveBeenCalledWith(step);
+            }
+        });
+
+        it('after a password sign-in, an account offered a PIN chooses one before the page moves on', () => {
+            const c: Record<string, any> = withLeaving({
+                t: english,
+                navigationInProgress: false,
+                pinOffered: false,
+                offerPin: () => true,
+                channel: () => 'email',
+                currentStep: () => 'login',
+                pinSkipAllowed: { set: vi.fn() },
+                authStore: { currentUser: () => ({ uid: 'u1', role: 'user' }), isAdmin: () => false },
+                goToStep: vi.fn(),
+                router: { navigateByUrl: vi.fn() },
+            });
+            c['shouldOfferPin'] = proto.shouldOfferPin.bind(c);
+            c['pinSkipped'] = proto.pinSkipped.bind(c);
+            proto.handleLoginSuccess.call(c);
+            expect(c['goToStep']).toHaveBeenCalledWith('choosePin');
+            expect(c['router'].navigateByUrl).not.toHaveBeenCalled();
+            expect(c['pinSkipAllowed'].set).toHaveBeenCalledWith(true);
+        });
+
+        it('Forgot password is Forgot PIN for an account offered a PIN', async () => {
+            const c = { email: 'asha@example.com', working: () => false, offerPin: () => true, forgotPin: vi.fn(), emailPurpose: { set: vi.fn() } };
+            await proto.forgotPassword.call(c);
+            expect(c.forgotPin).toHaveBeenCalled();
+            expect(c.emailPurpose.set).not.toHaveBeenCalled();
         });
     });
 });

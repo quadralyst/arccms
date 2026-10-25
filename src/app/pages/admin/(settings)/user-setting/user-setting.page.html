@@ -149,6 +149,50 @@
                 </div>
             </div>
 
+            <!-- Email: a password, or a code and then a PIN (specs/sign-in-pin-spec.md) -->
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">
+                        <i class="fa-solid fa-envelope me-2"></i>
+                        {{ 'admin.settings.user.email_sign_in' | transloco }}
+                    </div>
+                    <div class="setting-description">
+                        {{ 'admin.settings.user.email_sign_in_hint' | transloco }}
+                        @if (fixed.emailSignIn) { <strong class="d-block mt-1">{{ 'admin.settings.user.set_by_app' | transloco }}</strong> }
+                        @else if (emailPin() && !emailConfigured()) { <span class="d-block mt-1 text-danger">{{ 'admin.settings.user.email_pin_needs_email' | transloco }}</span> }
+                    </div>
+                </div>
+                <div class="setting-control">
+                    <mat-form-field appearance="outline" class="role-select">
+                        <mat-select [value]="emailChoice()" (selectionChange)="changeEmailSignIn($event.value)"
+                            [disabled]="isSaving() || checkingPhone() || !!fixed.emailSignIn">
+                            <mat-option value="password">{{ 'admin.settings.user.email_sign_in_password' | transloco }}</mat-option>
+                            <mat-option value="pin">{{ 'admin.settings.user.email_sign_in_pin' | transloco }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            </div>
+            <!-- A code the first time a PIN is used on a device, email or phone -->
+            @if (emailPin() || (smsOn && userSettings?.phoneSignIn)) {
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">
+                        <i class="fa-solid fa-shield-halved me-2"></i>
+                        {{ 'admin.settings.user.new_device_code' | transloco }}
+                    </div>
+                    <div class="setting-description">
+                        {{ 'admin.settings.user.new_device_code_hint' | transloco }}
+                        @if (fixed.newDeviceCode !== null) { <strong class="d-block mt-1">{{ 'admin.settings.user.set_by_app' | transloco }}</strong> }
+                    </div>
+                </div>
+                <div class="setting-control">
+                    <mat-slide-toggle [checked]="newDeviceCode()" (change)="toggleNewDeviceCode($event.checked)"
+                        [disabled]="isSaving() || fixed.newDeviceCode !== null" color="primary">
+                    </mat-slide-toggle>
+                </div>
+            </div>
+            }
+
             <!-- Info Banner -->
             <div class="info-banner" [class.disabled-banner]="!userSettings?.isSignupEnabled">
                 @if (userSettings?.isSignupEnabled) {

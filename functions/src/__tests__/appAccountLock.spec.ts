@@ -50,6 +50,7 @@ vi.mock('../email-core/contacts', () => ({
 
 import { db } from '../init.js';
 import * as phone from '../auth/phoneAuth.js';
+import { setPin } from '../auth/setPin.js';
 import * as link from '../auth/linkIdentifiers.js';
 import { verifySignupOtp } from '../auth/signupOtp.js';
 import { ensureGoogleAccount } from '../auth/googleAccount.js';
@@ -89,7 +90,7 @@ const SELF_SERVICE_CALLS: Array<[string, unknown, Record<string, unknown>]> = [
     ['linkPhone', link.linkPhone, { phone: '+919876543210', pin: '402719' }],
     ['requestPhoneOtp (link)', phone.requestPhoneOtp, { phone: '+919876543210', purpose: 'link' }],
     ['verifyPhoneOtp (link)', phone.verifyPhoneOtp, { phone: '+919876543210', code: '123456', purpose: 'link' }],
-    ['setPin', phone.setPin, { pin: '402719' }],
+    ['setPin', setPin, { pin: '402719' }],
     ['verifySignupOtp (link)', verifySignupOtp, { email: 'new@example.com', code: '123456', purpose: 'link' }],
     ['claimFirstAdmin', claimFirstAdmin, {}],
 ];
@@ -232,7 +233,8 @@ describe('every callable that reads the caller\'s own record has been reviewed f
      */
     const REVIEWED: Record<string, string> = {
         'auth/linkIdentifiers.ts': 'guarded',
-        'auth/phoneAuth.ts': 'guarded: link codes and setPin; the sign-in steps find accounts by phone number',
+        'auth/phoneAuth.ts': 'guarded: link codes; the sign-in steps find accounts by phone number',
+        'auth/setPin.ts': 'guarded: requireOwnRecord',
         'auth/signupOtp.ts': 'guarded: link codes; sign-up codes are before sign-in',
         'auth/googleAccount.ts': 'guarded: refuses a locked account signed in with Google',
         'auth/emailAccount.ts': 'guarded: refuses a locked account signed in with a password',

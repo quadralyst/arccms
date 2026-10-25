@@ -667,6 +667,7 @@ describe('SignupComponent: a wrong PIN (F29)', () => {
         });
         render();
         await flush();
+        page.channel.set('phone');
         page.currentStep.set('pin');
         fixture.detectChanges();
 

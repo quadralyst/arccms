@@ -456,6 +456,14 @@ service cloud.firestore {
     match /app_phone_pin_tries/{id} {
       allow read, write: if false;
     }
+    // The devices a person proved for PIN sign-in, and fresh-code proofs waiting for an
+    // app's function (specs/sign-in-pin-spec.md): hashes, Cloud Functions only.
+    match /auth_devices/{uid} {
+      allow read, write: if false;
+    }
+    match /auth_fresh_proofs/{id} {
+      allow read, write: if false;
+    }
     match /_rate_limits/{key} {
       allow read, write: if false;
     }

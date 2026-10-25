@@ -27,6 +27,10 @@ vi.mock('@angular/fire/functions', () => ({
 }));
 
 import EditUserComponent from './edit.[userId].page';
+import { UserSettingService } from '../../(settings)/user-setting/user-setting.service';
+
+/** Settings, User Settings as this page reads it: passwords for email accounts unless a test says PIN. */
+const userSettings = { readSettings: vi.fn(async () => ({ isSignupEnabled: true, defaultRole: 'user' } as Record<string, unknown>)) };
 import { UserStore } from '../user.store';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import { GlobalService } from '../../../../../shared/services/global.service';
@@ -92,6 +96,7 @@ describe('EditUserComponent', () => {
                 { provide: Router, useValue: mockRouter },
                 { provide: ActivatedRoute, useValue: mockActivatedRoute },
                 { provide: Functions, useValue: {} },
+                { provide: UserSettingService, useValue: userSettings },
             ],
         })
             .overrideComponent(EditUserComponent, {
@@ -328,6 +333,15 @@ describe('EditUserComponent', () => {
             fill({ email: '' });
             expect(component.canSetPassword()).toBe(false);
             expect(component.passwordElsewhere()).toBe('');
+        });
+
+        it('says why not for a member while the site signs email accounts in with a PIN; an admin keeps one (specs/sign-in-pin-spec.md)', () => {
+            (component as unknown as { emailPin: { set: (v: boolean) => void } }).emailPin.set(true);
+            fill({ role: 'user' });
+            expect(component.canSetPassword()).toBe(false);
+            expect(component.passwordElsewhere()).toContain('signs email accounts in with a PIN');
+            fill({ role: 'admin' });
+            expect(component.canSetPassword()).toBe(true);
         });
     });
 

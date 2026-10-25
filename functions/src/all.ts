@@ -29,8 +29,12 @@ export * from './auth/signupOtp.js';
 // Sign-in with an email, Google, and moving an email or number between
 // accounts. Phone sign-in is the sms feature's.
 export * from './auth/emailAccount.js';
-// Email sign-in with a PIN, when the site or app chooses it (docs/app/sign-in.html#email-pin).
+// Email sign-in with a PIN, when the site or app chooses it (docs/app/sign-in.html#email-pin),
+// and what phone and email PIN sign-in share: changing the PIN, and the admin's check that
+// the server can sign people in. Deployed with or without the sms feature.
 export * from './auth/emailPin.js';
+export * from './auth/setPin.js';
+export * from './auth/phoneSignInCheck.js';
 export * from './auth/passwordReset.js';
 export * from './auth/linkIdentifiers.js';
 export * from './auth/googleAccount.js';

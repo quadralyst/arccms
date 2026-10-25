@@ -20,15 +20,35 @@ import { TranslocoService } from '@jsverse/transloco';
 import { genericErrorText } from './auth-messages';
 import { minPasswordLength } from '../../../shared/utils/password-rule';
 import { SIGN_IN_STRENGTH } from '../../core/sign-in/sign-in-strength';
+import { deviceKey } from '../../core/sign-in/device-key';
 
-export type PhoneOtpPurpose = 'signup' | 'reset' | 'link';
+export type PhoneOtpPurpose = 'signup' | 'reset' | 'link' | 'device';
 
 export interface PhoneAccount extends CheckedCode {
     phone: string;
     exists: boolean;
     hasPin: boolean;
     signupOpen: boolean;
+    /** This device was not proved yet: a code before the PIN ("Ask for a code on a new device"). */
+    deviceCode?: boolean;
 }
+
+/** What a registered email signs in with (functions/src/auth/emailPin.ts): its password, its PIN, or a code and then a first PIN. */
+export type EmailSignInWith = 'password' | 'pin' | 'code';
+
+/** The sign-in page's first question for an email, answered. */
+export interface EmailAccount extends CheckedCode {
+    status: 'registered' | 'new' | 'no-access' | 'unfinished';
+    signupOpen: boolean;
+    /** A registered address: what to ask for. Missing from a server deployed before email PINs: the password. */
+    signInWith?: EmailSignInWith;
+    deviceCode?: boolean;
+    /** Offer a PIN after the password: the site signs email accounts in with one. */
+    offerPin?: boolean;
+}
+
+/** The codes an email gets for PIN sign-in: the first PIN sign-in on a device, or Forgot PIN (or a first PIN). */
+export type EmailPinPurpose = 'device' | 'pin-reset';
 
 export type LinkStatus = 'available' | 'yours' | 'other' | 'blocked';
 
@@ -46,6 +66,8 @@ export interface LinkCheck {
  */
 export const SIGN_IN_FUNCTIONS = {
     email: ['checkEmailAccount', 'requestSignupOtp', 'verifySignupOtp', 'createAccountRecord'],
+    /** With email PIN sign-in on (Settings, User Settings). */
+    emailPin: ['completeEmailSignup', 'signInWithEmailPin', 'requestEmailPinCode', 'resetEmailPin'],
     phone: ['checkPhoneAccount', 'requestPhoneOtp', 'verifyPhoneOtp', 'completePhoneSignup', 'signInWithPin'],
     google: ['ensureGoogleAccount'],
 } as const;
@@ -148,12 +170,13 @@ export class SignInService {
      * after another through the steps. A warm-up call does nothing on the
      * server, and a failed one changes nothing.
      */
-    warmUp(methods: { phone: boolean; google: boolean }): void {
+    warmUp(methods: { phone: boolean; google: boolean; emailPin?: boolean }): void {
         const now = Date.now();
         if (now - this.lastWarmUp < WARM_UP_EVERY_MS) return;
         this.lastWarmUp = now;
         const names: string[] = [
             ...SIGN_IN_FUNCTIONS.email,
+            ...(methods.emailPin ? SIGN_IN_FUNCTIONS.emailPin : []),
             ...(methods.phone ? SIGN_IN_FUNCTIONS.phone : []),
             ...(methods.google ? SIGN_IN_FUNCTIONS.google : []),
         ];
@@ -203,15 +226,49 @@ export class SignInService {
      * or `unfinished`: a recent sign-up whose record was never made, which the
      * next password sign-in finishes.
      */
-    async checkEmail(
-        email: string,
-        options: { sendCode?: boolean; name?: string } = {},
-    ): Promise<{ status: 'registered' | 'new' | 'no-access' | 'unfinished'; signupOpen: boolean } & CheckedCode> {
-        // `sendCode`: a new address is emailed its sign-up code in the same call (SP-D6).
+    async checkEmail(email: string, options: { sendCode?: boolean; name?: string } = {}): Promise<EmailAccount> {
+        // `sendCode`: a new address is emailed its sign-up code in the same call (SP-D6), and a
+        // registered one the device or PIN reset code its next screen needs.
         const send = options.sendCode ? { sendCode: true, language: this.emailLanguage(), ...(options.name ? { name: options.name } : {}) } : {};
-        return this.withCodeError(await this.call<{ status: 'registered' | 'new' | 'no-access' | 'unfinished'; signupOpen: boolean } & CodeRefused>(
-            'checkEmailAccount', { email, ...send },
-        ));
+        return this.withCodeError(await this.call<EmailAccount & CodeRefused>('checkEmailAccount', { email, deviceKey: deviceKey(), ...send }));
+    }
+
+    // --- Email with a PIN (specs/sign-in-pin-spec.md) --------------------------
+
+    /** Email a device code or a PIN reset code. While testing, the code comes back only where reset codes may be shown. */
+    requestEmailPinCode(email: string, purpose: EmailPinPurpose): Promise<CodeReply & { testCode?: string; testCodeInLogs?: boolean }> {
+        return this.call('requestEmailPinCode', { email, purpose, language: this.emailLanguage() });
+    }
+
+    /** Check a device or PIN reset code; its ticket goes with the PIN that follows. */
+    async verifyEmailPinCode(email: string, code: string, purpose: EmailPinPurpose): Promise<{ verified: boolean }> {
+        const reply = await this.call<{ verified: boolean; ticket?: string }>('verifySignupOtp', { email, code, purpose });
+        this.rememberTicket(`email:${purpose}:${email.trim().toLowerCase()}`, reply);
+        return { verified: reply.verified };
+    }
+
+    /** A new address, after its sign-up code: name and PIN create the account, which signs in. */
+    async completeEmailSignup(email: string, name: string, pin: string): Promise<void> {
+        const key = `email:signup:${email.trim().toLowerCase()}`;
+        const { token } = await this.call<{ token: string }>('completeEmailSignup', { email, name, pin, ticket: this.tickets.get(key), deviceKey: deviceKey() });
+        this.tickets.delete(key);
+        await this.signInWithToken(token);
+    }
+
+    async signInWithEmailPin(email: string, pin: string): Promise<void> {
+        const key = `email:device:${email.trim().toLowerCase()}`;
+        const ticket = this.tickets.get(key);
+        const { token } = await this.call<{ token: string }>('signInWithEmailPin', { email, pin, deviceKey: deviceKey(), ...(ticket ? { ticket } : {}) });
+        this.tickets.delete(key);
+        await this.signInWithToken(token);
+    }
+
+    /** Forgot PIN, or a first PIN, after the PIN reset code. */
+    async resetEmailPin(email: string, pin: string): Promise<void> {
+        const key = `email:pin-reset:${email.trim().toLowerCase()}`;
+        const { token } = await this.call<{ token: string }>('resetEmailPin', { email, pin, ticket: this.tickets.get(key), deviceKey: deviceKey() });
+        this.tickets.delete(key);
+        await this.signInWithToken(token);
     }
 
     /**
@@ -306,7 +363,9 @@ export class SignInService {
 
     /** `sendCode`: when the next screen is the code screen, the code goes in the same call (SP-D5). */
     async checkPhone(phone: string, options: { sendCode?: boolean } = {}): Promise<PhoneAccount> {
-        return this.withCodeError(await this.call<PhoneAccount & CodeRefused>('checkPhoneAccount', { phone, ...(options.sendCode ? { sendCode: true } : {}) }));
+        return this.withCodeError(await this.call<PhoneAccount & CodeRefused>('checkPhoneAccount', {
+            phone, deviceKey: deviceKey(), ...(options.sendCode ? { sendCode: true } : {}),
+        }));
     }
 
     /**
@@ -328,25 +387,37 @@ export class SignInService {
 
     async completePhoneSignup(phone: string, name: string, pin: string): Promise<void> {
         const ticket = this.tickets.get(`phone:signup:${phone}`);
-        const { token } = await this.call<{ token: string }>('completePhoneSignup', { phone, name, pin, ticket });
+        const { token } = await this.call<{ token: string }>('completePhoneSignup', { phone, name, pin, ticket, deviceKey: deviceKey() });
         this.tickets.delete(`phone:signup:${phone}`);
         await this.signInWithToken(token);
     }
 
+    /** The PIN; on a device not proved yet, with the ticket from its device code. */
     async signInWithPin(phone: string, pin: string): Promise<void> {
-        const { token } = await this.call<{ token: string }>('signInWithPin', { phone, pin });
+        const ticket = this.tickets.get(`phone:device:${phone}`);
+        const { token } = await this.call<{ token: string }>('signInWithPin', { phone, pin, deviceKey: deviceKey(), ...(ticket ? { ticket } : {}) });
+        this.tickets.delete(`phone:device:${phone}`);
         await this.signInWithToken(token);
     }
 
     async resetPin(phone: string, pin: string): Promise<void> {
         const ticket = this.tickets.get(`phone:reset:${phone}`);
-        const { token } = await this.call<{ token: string }>('resetPin', { phone, pin, ticket });
+        const { token } = await this.call<{ token: string }>('resetPin', { phone, pin, ticket, deviceKey: deviceKey() });
         this.tickets.delete(`phone:reset:${phone}`);
         await this.signInWithToken(token);
     }
 
-    setPin(pin: string): Promise<{ saved: boolean }> {
-        return this.call('setPin', { pin });
+    /** Signed in: choose or change the PIN. `passwordRemoved`: an email account's password went with it (email PIN sign-in). */
+    async setPin(pin: string): Promise<{ saved: boolean; passwordRemoved?: boolean }> {
+        const result = await this.call<{ saved: boolean; passwordRemoved?: boolean }>('setPin', { pin, deviceKey: deviceKey() });
+        // The session still lists the password until it reloads.
+        if (result.passwordRemoved) await this.auth.currentUser?.reload().catch(() => undefined);
+        return result;
+    }
+
+    /** Signed in: remember this device for PIN sign-in, so "Ask for a code on a new device" asks nothing here. */
+    rememberThisDevice(): Promise<{ remembered: boolean }> {
+        return this.call('rememberThisDevice', { deviceKey: deviceKey() });
     }
 
     private signInWithToken(token: string): Promise<UserCredential> {

@@ -13,8 +13,9 @@
  *   signInWithPin        registered number: the PIN (with "Ask for a code on a new
  *                        device" on, only on a device proved with a code)
  *   resetPin             forgot PIN (or never set one): a new PIN after a code
- *   setPin               signed in: change the PIN
  *
+ * Changing the PIN while signed in is setPin.ts, deployed with or without phone
+ * sign-in, since email accounts have PINs too.
  * The three that sign someone in return a custom token.
  */
 import { onCall, HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
@@ -53,7 +54,6 @@ import {
     type PhoneOtpPurpose,
 } from './phoneOtp.js';
 import { forgetDevices, knownDevice, newDeviceRefusal, readDeviceKey, rememberDevice } from './devices.js';
-import { dropPasswordForPin } from './emailPinRules.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { codeOrRefusal, refuse } from './refusal.js';
 
@@ -296,19 +296,4 @@ export const resetPin = onCall(async (request) => {
     await Promise.all([owner.revokeRefreshTokens(uid), forgetDevices(uid)]);
     await rememberDevice(uid, readDeviceKey(request.data?.deviceKey));
     return { token: await issueSignInToken(uid) };
-});
-
-/**
- * Signed in: choose or change the sign-in PIN. Phone accounts, and email accounts
- * (specs/sign-in-pin-spec.md), whose password is then taken off when the site signs
- * email accounts in with a PIN (dropPasswordForPin). This device is remembered.
- */
-export const setPin = onCall(async (request) => {
-    const record = await requireOwnRecord(request);
-    if (!record.data['phone'] && !record.data['email']) throw refuse('failed-precondition', 'add-phone-first', 'Add a phone number or an email first.');
-    const uid = String(record.data['uid']);
-    const pin = readNewPin(request.data?.pin);
-    await storePin(uid, pin);
-    const [dropped] = await Promise.all([dropPasswordForPin(record), rememberDevice(uid, readDeviceKey(request.data?.deviceKey))]);
-    return { saved: true, ...(dropped ? { passwordRemoved: true } : {}) };
 });

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@angular/fire/functions', () => ({ Functions: class {}, httpsCallable: vi.fn() }));
 
 import { readSignInError, translateRefusal, SIGN_IN_FUNCTIONS, SignInService } from './sign-in.service';
+import { deviceKey } from '../../core/sign-in/device-key';
 import { english } from '../../../test/english';
 
 const ensureRecordClaim = SignInService.prototype.ensureRecordClaim;
@@ -139,7 +140,7 @@ describe('SignInService code tickets (review F)', () => {
         const c = service();
         await proto['verifyPhoneCode'].call(c, '+919876543210', '123456', 'reset');
         await proto['resetPin'].call(c, '+919876543210', '246810');
-        expect(c['call']).toHaveBeenLastCalledWith('resetPin', { phone: '+919876543210', pin: '246810', ticket: 'phone-ticket' });
+        expect(c['call']).toHaveBeenLastCalledWith('resetPin', { phone: '+919876543210', pin: '246810', ticket: 'phone-ticket', deviceKey: deviceKey() });
         expect(c['tickets'].size).toBe(0);
     });
 
@@ -147,7 +148,7 @@ describe('SignInService code tickets (review F)', () => {
         const c = service();
         await proto['verifyPhoneCode'].call(c, '+919876543210', '123456', 'reset');
         await proto['completePhoneSignup'].call(c, '+919876543210', 'Asha', '246810');
-        expect(c['call']).toHaveBeenLastCalledWith('completePhoneSignup', { phone: '+919876543210', name: 'Asha', pin: '246810', ticket: undefined });
+        expect(c['call']).toHaveBeenLastCalledWith('completePhoneSignup', { phone: '+919876543210', name: 'Asha', pin: '246810', ticket: undefined, deviceKey: deviceKey() });
     });
 
     it('sends the email ticket when creating the account for that address', async () => {
@@ -225,16 +226,16 @@ describe('a code the check sends (specs/sign-in-speed-spec.md, SP-D5 to SP-D9)',
         const c = page({ phone: '+919876543210', exists: false, hasPin: false, signupOpen: true });
         await proto['checkPhone'].call(c, '+919876543210', { sendCode: true });
         await proto['checkPhone'].call(c, '+919876543210');
-        expect(c.call).toHaveBeenNthCalledWith(1, 'checkPhoneAccount', { phone: '+919876543210', sendCode: true });
-        expect(c.call).toHaveBeenNthCalledWith(2, 'checkPhoneAccount', { phone: '+919876543210' });
+        expect(c.call).toHaveBeenNthCalledWith(1, 'checkPhoneAccount', { phone: '+919876543210', deviceKey: deviceKey(), sendCode: true });
+        expect(c.call).toHaveBeenNthCalledWith(2, 'checkPhoneAccount', { phone: '+919876543210', deviceKey: deviceKey() });
     });
 
     it('asks the email check to send with the name and the page\'s language', async () => {
         const c = page({ status: 'new', signupOpen: true }, 'hi');
         await proto['checkEmail'].call(c, 'a@example.com', { sendCode: true, name: 'Ada' });
         await proto['checkEmail'].call(c, 'a@example.com');
-        expect(c.call).toHaveBeenNthCalledWith(1, 'checkEmailAccount', { email: 'a@example.com', sendCode: true, language: 'hi', name: 'Ada' });
-        expect(c.call).toHaveBeenNthCalledWith(2, 'checkEmailAccount', { email: 'a@example.com' });
+        expect(c.call).toHaveBeenNthCalledWith(1, 'checkEmailAccount', { email: 'a@example.com', deviceKey: deviceKey(), sendCode: true, language: 'hi', name: 'Ada' });
+        expect(c.call).toHaveBeenNthCalledWith(2, 'checkEmailAccount', { email: 'a@example.com', deviceKey: deviceKey() });
     });
 
     it('turns a refused send into the error the request would have thrown, in the member\'s words', async () => {

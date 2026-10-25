@@ -236,4 +236,26 @@ describe('SignInMethodsComponent', () => {
             expect(c['notice']()).toBe('We sent the same code again.');
         });
     });
+
+    it('saves a PIN, and says so when the email account\'s password went with it (specs/sign-in-pin-spec.md)', async () => {
+        const c = ctx();
+        c['secret'].set('604175');
+        c['signIn'].setPin = vi.fn().mockResolvedValue({ saved: true, passwordRemoved: true });
+        await proto['savePin'].call(c);
+        expect(c['signIn'].setPin).toHaveBeenCalledWith('604175');
+        expect(c['message']()).toBe('PIN saved. Sign in with it from now on: your password no longer works.');
+        c['signIn'].setPin = vi.fn().mockResolvedValue({ saved: true });
+        c['secret'].set('604175');
+        await proto['savePin'].call(c);
+        expect(c['message']()).toBe(english('member.methods.pin_changed'));
+    });
+
+    it('changes the PIN from the email row when there is no number', () => {
+        const c = ctx();
+        c['pinRow'] = signal('phone');
+        proto['startPinChange'].call(c, 'email');
+        expect(c['pinRow']()).toBe('email');
+        expect(c['changingPin']()).toBe(true);
+    });
 });
+

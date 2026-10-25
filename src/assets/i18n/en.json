@@ -397,7 +397,15 @@
         "phone_sms_test_mode": "Codes are only logged, not sent: the SMS provider is the test one.",
         "google_sign_in": "Google",
         "google_sign_in_hint": "One tap with a Google account. Turn Google on in the Firebase console first (Authentication, Sign-in method).",
-        "sign_in_saved": "Sign-in methods saved"
+        "sign_in_saved": "Sign-in methods saved",
+        "email_sign_in": "Email accounts sign in with",
+        "email_sign_in_hint": "PIN: a code by email the first time on a device, then a 6-digit PIN, like phone sign-in. People keep what they have until they choose a PIN; admins keep their password.",
+        "email_sign_in_password": "Password",
+        "email_sign_in_pin": "6-digit PIN",
+        "email_pin_needs_email": "PIN sign-in sends its codes by email. Set up email first (Settings, Email).",
+        "new_device_code": "Ask for a code on a new device",
+        "new_device_code_hint": "A PIN signs in only on a device the person proved with a code by email or SMS, so a PIN someone saw is no use elsewhere. Phone users get one SMS per new device.",
+        "set_by_app": "Set by the app."
       },
       "message": {
         "title": "Global Message Banner",
@@ -2132,14 +2140,25 @@
         "sign_in_managed": "Your sign-in is managed by another app, so its email can't be changed here.",
         "host_account": "Reset your password in the app you signed up with.",
         "no_contact": "This account has no email address or phone number to send a code to.",
-        "fresh_code_required": "Please confirm with a fresh code first."
+        "fresh_code_required": "Please confirm with a fresh code first.",
+        "new_device": "Confirm this device with a code first.",
+        "pin_sign_in": "This account signs in with a PIN. Use Forgot PIN to choose a new one.",
+        "pin_sign_in_off": "Sign in with your password.",
+        "session_claims": "These claims can't go on a sign-in.",
+        "fresh_purpose": "That action can't be confirmed with a code."
       },
       "step_title_reset_password": "Reset your password",
       "step_title_new_password": "Choose a new password",
       "step_desc_new_password": "You will use it to sign in",
       "new_password_label": "New password",
       "save_password": "Save password and sign in",
-      "password_changed": "Password changed."
+      "password_changed": "Password changed.",
+      "step_title_choose_pin": "Choose Your PIN",
+      "step_desc_choose_pin": "Next time, sign in with this 6-digit PIN instead of your password. Your password stops working.",
+      "step_title_new_device": "Confirm Your Device",
+      "pin_chosen": "PIN saved. Use it to sign in next time.",
+      "not_now": "Not now",
+      "save_pin_continue": "Save PIN and continue"
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",
@@ -2263,7 +2282,8 @@
       "google_failed": "Google could not be connected. Please try again.",
       "google_connected": "Google connected.",
       "already_yours_email": "This email is already on your account.",
-      "already_yours_number": "This number is already on your account."
+      "already_yours_number": "This number is already on your account.",
+      "pin_saved_password_removed": "PIN saved. Sign in with it from now on: your password no longer works."
     },
     "not_found": {
       "oops": "Oops!",

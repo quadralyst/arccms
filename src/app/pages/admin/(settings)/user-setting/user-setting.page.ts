@@ -12,7 +12,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { roleGuard } from '../../../../guards/role.guard';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { UserSettingService } from './user-setting.service';
-import { AVAILABLE_ROLES, IUserSettings } from './user-setting.model';
+import { AVAILABLE_ROLES, emailPinOn, IUserSettings, newDeviceCodeOn } from './user-setting.model';
+import { SIGN_IN_FIXED } from '../../../../core/sign-in/sign-in-strength';
+import { EmailConfigStatusService } from '../../../../../shared/services/email-config-status.service';
 import { PhoneSignInCheck, PhoneSignInCheckService } from './phone-sign-in-check.service';
 import { isOn } from '../../../../core/features/features';
 import { MatButtonModule } from '@angular/material/button';
@@ -43,7 +45,14 @@ export const routeMeta: RouteMeta = {
 export default class UserSettingPageComponent extends BaseComponent implements OnInit {
     private userSettingService = inject(UserSettingService);
     private phoneCheckService = inject(PhoneSignInCheckService);
+    private emailStatus = inject(EmailConfigStatusService);
     private fb = inject(FormBuilder);
+    /** The sign-in choices the app fixed in src/custom/sign-in.ts: shown, not changeable here. */
+    readonly fixed = SIGN_IN_FIXED;
+    /** Email PIN sign-in sends its codes by email: without email set up it cannot work. */
+    readonly emailConfigured = this.emailStatus.isEmailConfigured;
+    /** What the email sign-in select shows: back to Password when turning PIN on is refused. */
+    readonly emailChoice = signal<'password' | 'pin'>('password');
 
     userSettingsForm!: FormGroup;
     isLoading = signal(true);
@@ -73,11 +82,12 @@ export default class UserSettingPageComponent extends BaseComponent implements O
         this.userSettingService.getSettings().subscribe({
             next: (settings) => {
                 this.userSettings = settings;
+                this.emailChoice.set(emailPinOn(settings) ? 'pin' : 'password');
                 this.isUserSettingEnabled.set(settings.isSignupEnabled);
                 this.userSettingsForm.patchValue(settings);
                 this.isLoading.set(false);
                 // Already on: say now if people cannot finish signing in, not after they try.
-                if (this.smsOn && settings.phoneSignIn) void this.runPhoneCheck();
+                if ((this.smsOn && settings.phoneSignIn) || emailPinOn(settings)) void this.runPhoneCheck();
             },
             error: (error) => {
                 console.error('Failed to load user settings:', error);
@@ -158,6 +168,55 @@ export default class UserSettingPageComponent extends BaseComponent implements O
         }
         if (!check) this.toastService.openCustomSnackbar(this.t('admin.settings.user.phone_check_failed'), 'warning', 'warning');
         await this.toggleMethod('phoneSignIn', true);
+    }
+
+    /** Whether email accounts sign in with a PIN: the app's choice, else this page's. */
+    emailPin(): boolean {
+        return emailPinOn(this.userSettings);
+    }
+
+    newDeviceCode(): boolean {
+        return newDeviceCodeOn(this.userSettings);
+    }
+
+    /**
+     * Password or PIN for email accounts. A PIN signs in with a token the server makes,
+     * as phone sign-in does, so turning it on runs the same check first, and it sends
+     * codes by email, so email must be set up. Accounts keep what they have: the switch
+     * only decides new sign-ups and whether password accounts are offered a PIN.
+     */
+    async changeEmailSignIn(value: 'password' | 'pin'): Promise<void> {
+        this.emailChoice.set(value);
+        if (value === 'pin') {
+            const refused = (key: 'admin.settings.user.email_pin_needs_email' | 'admin.settings.user.phone_setup_first') => {
+                this.toastService.openCustomSnackbar(this.t(key), 'error', 'error');
+                this.emailChoice.set('password');
+            };
+            if (!this.emailConfigured()) return refused('admin.settings.user.email_pin_needs_email');
+            const check = await this.runPhoneCheck();
+            if (check && !check.ready) return refused('admin.settings.user.phone_setup_first');
+            if (!check) this.toastService.openCustomSnackbar(this.t('admin.settings.user.phone_check_failed'), 'warning', 'warning');
+        }
+        await this.saveSignInChoice({ emailSignIn: value });
+        this.emailChoice.set(this.emailPin() ? 'pin' : 'password');
+    }
+
+    async toggleNewDeviceCode(enabled: boolean): Promise<void> {
+        await this.saveSignInChoice({ newDeviceCode: enabled });
+    }
+
+    private async saveSignInChoice(change: Pick<IUserSettings, 'emailSignIn' | 'newDeviceCode'>): Promise<void> {
+        this.isSaving.set(true);
+        try {
+            await this.userSettingService.saveSettings({ ...this.userSettingsForm.value, ...change });
+            this.userSettings = { ...(this.userSettings ?? this.userSettingsForm.value), ...change };
+            this.toastService.openCustomSnackbar(this.t('admin.settings.user.sign_in_saved'), 'success', 'check_circle');
+        } catch (error) {
+            console.error('Failed to update sign-in methods:', error);
+            this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
+        } finally {
+            this.isSaving.set(false);
+        }
     }
 
     /** Run the check; null when it could not run. */
