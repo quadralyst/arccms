@@ -132,6 +132,26 @@ export const onStaffSignInDeleted = onDocumentCreated(arcDocument('AppEvents/{id
 });</code></pre>
     <p>Both are safe to repeat. If the person signs in with your token before your app answers, Firebase makes a new sign-in with that uid. Arc CMS gives it back its own claims at sign-in, but not yours, so your app's access stays off until <code>restoreAppSignIn()</code> runs. Arc CMS's own deletions never emit <code>user.signInDeleted</code>: they delete the record first, and the event is only for a sign-in whose record is still there.</p>
 
+    <h2 id="session-claims">Claims for one sign-in</h2>
+    <p>Your own claims belong to the account: they are the same on every device. Some facts belong to one sign-in instead, such as which till, tablet or kiosk it was made for. Give those to <code>issueSignInToken()</code>, which puts them in that sign-in's token only:</p>
+    <pre><code>import { issueSignInToken, sessionClaims } from '../app-kit/index.js';
+
+// signing someone in on till 2
+return { token: await issueSignInToken(uid, { pos: 'pos-2' }) };
+
+// in any callable, later in that session
+const { pos } = sessionClaims(request); // 'pos-2', or undefined when the session has none</code></pre>
+    <p>Your rules read them with <code>sessionClaim(name)</code>:</p>
+    <pre><code>match /orders/{orderId} {
+  allow create: if sessionClaim('pos') != null &amp;&amp; request.resource.data.posId == sessionClaim('pos');
+}</code></pre>
+    <ul>
+      <li>They ride in the token under one claim of Arc CMS's own, <code>arccms_session</code>. No account can have that claim (<code>mergeAppClaims()</code> refuses every <code>arccms_</code> name), so an account claim <code>pos</code> never answers <code>sessionClaim('pos')</code>, and a session that has session claims began with your own sign-in token.</li>
+      <li>The same rules as <code>mergeAppClaims()</code>: no <code>arccms_</code> names, none of Firebase's reserved names, values any JSON, all of them together 1000 bytes or less as JSON. A refusal comes before the token is made. Leave them out, or pass <code>{}</code>, for a token with none.</li>
+      <li>They last for that session: through every hourly token refresh, until the person signs out, signs in again, or <code>revokeSessions()</code> ends it. To change them, sign the person in again with a new token.</li>
+      <li>They say which device a sign-in was made for, not that the session is still on it: a session copied off the device keeps them, as it keeps everything else. Every request carries them, so keep them to an id.</li>
+    </ul>
+
     <h2 id="sessions">Sessions</h2>
     <p><code>revokeSessions(uid)</code> signs the person out on every device: their refresh tokens are revoked, so each session ends at its next token refresh, within the hour. Use it when a member of staff leaves or a device is lost. They can sign in again as usual afterwards.</p>
 

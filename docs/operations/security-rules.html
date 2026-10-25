@@ -97,6 +97,7 @@
         <tr><td><code>isAdmin()</code></td><td>The <code>arccms_role</code> claim is <code>admin</code></td><td>Yes</td></tr>
         <tr><td><code>isEditor()</code></td><td>An admin, or the <code>arccms_role</code> claim is <code>editor</code> (content staff)</td><td>Yes</td></tr>
         <tr><td><code>signedInByApp()</code></td><td>The session came from an app's own sign-in token (<code>sign_in_provider</code> is <code>custom</code>). Core rules do not use it</td><td>Yes</td></tr>
+        <tr><td><code>sessionClaim(name)</code></td><td>A claim from the session's own sign-in token (<code>arccms_session</code>), or <code>null</code>. Core rules do not use it</td><td>Yes</td></tr>
         <tr><td><code>isAuthenticated()</code></td><td>The same as <code>isSignedIn()</code>, used by core</td><td></td></tr>
         <tr><td><code>arcRole()</code></td><td>Returns the <code>arccms_role</code> claim, or an empty string</td><td></td></tr>
       </tbody>

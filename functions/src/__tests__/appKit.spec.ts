@@ -43,7 +43,7 @@ vi.mock('../init.js', () => ({ owner: fb.owner, db: fb.db }));
 vi.mock('../users/claimLock.js', () => ({ withClaimLock: (_uid: string, work: () => Promise<unknown>) => work() }));
 
 import * as kit from '../app-kit/index.js';
-import { createAppAccount, deleteAppAccount, issueSignInToken, mergeAppClaims, restoreAppSignIn, revokeSessions, signedInByApp } from '../app-kit/index.js';
+import { createAppAccount, deleteAppAccount, issueSignInToken, mergeAppClaims, restoreAppSignIn, revokeSessions, sessionClaims, signedInByApp } from '../app-kit/index.js';
 import { mergeClaims, mergeUserClaims } from '../users/claims.js';
 
 beforeEach(() => {
@@ -175,6 +175,36 @@ describe('signedInByApp', () => {
     });
 });
 
+describe('session claims (F30, specs/sign-in-pin-spec.md)', () => {
+    it('ride in the token under arccms_session, for that one sign-in', async () => {
+        await issueSignInToken('u', { pos: 'pos-2', shift: { id: 7 } });
+        expect(fb.owner.createCustomToken).toHaveBeenCalledWith('u', { arccms_session: { pos: 'pos-2', shift: { id: 7 } } });
+    });
+
+    it('make a token with no claims of its own when left out or empty, as before', async () => {
+        await issueSignInToken('u');
+        await issueSignInToken('u', {});
+        expect(fb.owner.createCustomToken.mock.calls).toEqual([['u'], ['u']]);
+    });
+
+    it('refuse arccms_ names, Firebase\'s reserved names, a non-object and more than 1000 bytes, before signing', async () => {
+        await expect(issueSignInToken('u', { arccms_role: 'admin' })).rejects.toMatchObject({ code: 'invalid-argument' });
+        await expect(issueSignInToken('u', { sub: 'x' })).rejects.toThrow('reserved by Firebase');
+        await expect(issueSignInToken('u', ['pos'] as never)).rejects.toThrow('an object of names and values');
+        await expect(issueSignInToken('u', null as never)).rejects.toThrow('an object of names and values');
+        await expect(issueSignInToken('u', { notes: 'x'.repeat(1000) })).rejects.toThrow(/bytes; a sign-in token allows 1000/);
+        expect(fb.owner.createCustomToken).not.toHaveBeenCalled();
+    });
+
+    it('are read back from the caller\'s token by sessionClaims(), never from an account claim of the same name', () => {
+        const request = (token: Record<string, unknown>) => ({ auth: { uid: 'u', token } }) as never;
+        expect(sessionClaims(request({ arccms_session: { pos: 'pos-2' }, pos: 'pos-9' }))).toEqual({ pos: 'pos-2' });
+        expect(sessionClaims(request({ pos: 'pos-9' }))).toEqual({});
+        expect(sessionClaims(request({ arccms_session: 'pos-2' }))).toEqual({});
+        expect(sessionClaims({ auth: undefined } as never)).toEqual({});
+    });
+});
+
 describe('mergeAppClaims', () => {
     it('merges, never replaces, and removes an app claim with null', async () => {
         fb.state.claims['u'] = { arccms_role: 'user', arccms_uid: 'rec-1', site: 's-1' };
@@ -243,7 +273,7 @@ describe('revokeSessions', () => {
 describe('the app kit\'s exports', () => {
     const DOCUMENTED = [
         'APP_ACCOUNT', 'createAppAccount', 'deleteAppAccount', 'isArcAdmin', 'issueSignInToken', 'mergeAppClaims', 'restoreAppSignIn',
-        'revokeSessions', 'signedInByApp',
+        'revokeSessions', 'sessionClaims', 'signedInByApp',
         'APP_PINS', 'callerKey', 'consumeRateLimit', 'createPhonePinCheck', 'createPinStore', 'hashedKey', 'isValidPin', 'isWeakPin',
         'pinTooEasy', 'signInStrength',
         'sendAppEmail', 'captureAppEmails', 'escapeEmailHtml', 'MAX_APP_EMAIL_RECIPIENTS', 'MAX_ATTACHMENTS', 'MAX_ATTACHMENT_BYTES',

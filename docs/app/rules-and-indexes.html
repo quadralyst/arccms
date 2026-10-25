@@ -63,6 +63,7 @@ match /Lessons/{lessonId} {
         <tr><td><code>isEditor()</code></td><td>An admin, or the <code>arccms_role</code> claim is <code>editor</code></td></tr>
         <tr><td><code>ownsUserRecord(userDocId)</code></td><td>The person owns <code>users/{userDocId}</code>: the <code>arccms_uid</code> claim equals it. No document is read</td></tr>
         <tr><td><code>signedInByApp()</code></td><td>The session came from your app's own sign-in token (<code>signInWithCustomToken</code>), not Google, a password or a phone code. Add it to a rule that trusts your own claims on <a href="app-accounts.html#locked">app accounts</a></td></tr>
+        <tr><td><code>sessionClaim(name)</code></td><td>A claim your app put on this one sign-in with <code>issueSignInToken(uid, sessionClaims)</code>, such as which device it was made for, or <code>null</code>. An account claim of the same name never answers here. See <a href="app-accounts.html#session-claims">Claims for one sign-in</a></td></tr>
       </tbody>
     </table>
     <p>The claims are explained in <a href="../concepts/roles-and-claims.html">Roles and claims</a>, and where per-person data belongs in <a href="account-contract.html">Follow the account contract</a>.</p>

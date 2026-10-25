@@ -17,7 +17,7 @@
  * Claims are always merged, never replaced, so claims set by anything else survive,
  * and merges on one account run one at a time (claimLock.ts).
  */
-import { HttpsError } from 'firebase-functions/v2/https';
+import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import { owner } from '../init.js';
 import { withClaimLock } from './claimLock.js';
 
@@ -147,6 +147,37 @@ export async function mergeAppClaims(uid: string, patch: Record<string, unknown>
             throw new HttpsError('invalid-argument', `These claims would take ${bytes} bytes; Firebase allows ${MAX_CLAIMS_BYTES} for all of an account's claims.`);
         }
     });
+}
+
+// ---------------------------------------------------------------------------
+// Claims for one sign-in (specs/sign-in-pin-spec.md, F30)
+// ---------------------------------------------------------------------------
+
+/**
+ * The one claim an app's session claims ride in, inside a sign-in token from
+ * issueSignInToken(uid, sessionClaims). Arc CMS never puts it on an account, and
+ * mergeAppClaims() refuses every `arccms_` name, so a session claim and an account
+ * claim of the same name can never be mistaken for each other, and its presence
+ * alone says the session began with the app's own token.
+ */
+export const SESSION_CLAIM = 'arccms_session';
+
+/** Problems with an app's session claims: the same name rules as mergeAppClaims(), and the size limit. */
+export function sessionClaimProblems(claims: unknown): string[] {
+    if (!claims || typeof claims !== 'object' || Array.isArray(claims)) return ['Session claims are an object of names and values.'];
+    const problems = appClaimProblems(claims as Record<string, unknown>);
+    if (problems.length) return problems;
+    const bytes = Buffer.byteLength(JSON.stringify({ [SESSION_CLAIM]: claims }), 'utf8');
+    return bytes > MAX_CLAIMS_BYTES ? [`These session claims would take ${bytes} bytes; a sign-in token allows ${MAX_CLAIMS_BYTES}.`] : [];
+}
+
+/**
+ * The session claims the caller's sign-in token carried (issueSignInToken), or `{}`
+ * when it carried none: a sign-in made some other way, or a token without them.
+ */
+export function sessionClaims(request: Pick<CallableRequest, 'auth'>): Record<string, unknown> {
+    const value = (request.auth?.token as Record<string, unknown> | undefined)?.[SESSION_CLAIM];
+    return value && typeof value === 'object' && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
 }
 
 /**

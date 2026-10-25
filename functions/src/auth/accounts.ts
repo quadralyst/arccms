@@ -19,7 +19,7 @@ import { promisify } from 'node:util';
 import { db, owner } from '../init.js';
 import { phoneHash } from './phoneNumber.js';
 import { KNOWN_ROLES } from '../users/syncUserRole.js';
-import { setRecordClaims } from '../users/claims.js';
+import { SESSION_CLAIM, sessionClaimProblems, setRecordClaims } from '../users/claims.js';
 import { SIGN_IN_NOT_READY, alertSigningProblem, signingProblem } from './signInSetup.js';
 import { isBlank } from '../shared/blank.js';
 import { refuseLockedAppAccount } from '../users/lockedAppAccount.js';
@@ -187,13 +187,23 @@ export function applyNewAccountClaims(uid: string, userDocId: string, role: stri
 /**
  * A custom token the browser exchanges for a session (`signInWithCustomToken`).
  *
+ * `sessionClaims` are an app's claims for this one sign-in (F30, docs/app/app-accounts.html#session-claims),
+ * such as which device it was made for. They ride in the token under `arccms_session`,
+ * reach `request.auth.token.arccms_session` for this session only, and are refused
+ * before signing with the same rules as mergeAppClaims(). Leave them out (or `{}`) for none.
+ *
  * Signing it needs Google Cloud setup (signInSetup.ts). When that is missing the person
  * is told phone sign-in is not ready, and the admins are told how to fix it, instead of
  * the person getting "Something went wrong" and the cause sitting in the logs.
  */
-export async function issueSignInToken(uid: string): Promise<string> {
+export async function issueSignInToken(uid: string, sessionClaims?: Record<string, unknown>): Promise<string> {
+    const withClaims = sessionClaims !== undefined && !(isPlainObject(sessionClaims) && !Object.keys(sessionClaims).length);
+    if (withClaims) {
+        const problems = sessionClaimProblems(sessionClaims);
+        if (problems.length) throw new HttpsError('invalid-argument', problems.join(' '));
+    }
     try {
-        return await owner.createCustomToken(uid);
+        return await (withClaims ? owner.createCustomToken(uid, { [SESSION_CLAIM]: sessionClaims }) : owner.createCustomToken(uid));
     } catch (error) {
         const problem = signingProblem(error);
         if (!problem) throw error;
@@ -201,6 +211,10 @@ export async function issueSignInToken(uid: string): Promise<string> {
         await alertSigningProblem(problem);
         throw new HttpsError('failed-precondition', SIGN_IN_NOT_READY, { reason: 'sign-in-not-ready' });
     }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
 // ---------------------------------------------------------------------------

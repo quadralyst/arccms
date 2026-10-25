@@ -10,10 +10,11 @@ export { createAppAccount, deleteAppAccount, restoreAppSignIn, APP_ACCOUNT } fro
 export type { AppAccount, CreateAppAccountInput } from './accounts.js';
 
 // Claims and sessions
-export { isArcAdmin, mergeAppClaims, revokeSessions } from '../users/claims.js';
+export { isArcAdmin, mergeAppClaims, revokeSessions, sessionClaims } from '../users/claims.js';
 
-// Signing a person in: a custom token for signInWithCustomToken in the browser,
-// and whether a callable's caller signed in with it
+// Signing a person in: a custom token for signInWithCustomToken in the browser (with
+// claims for that one sign-in, read back with sessionClaims()), and whether a
+// callable's caller signed in with it
 export { issueSignInToken } from '../auth/accounts.js';
 export { signedInByApp } from '../auth/appAccountLock.js';
 
