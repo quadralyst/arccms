@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { resolveSignInStrength } from './sign-in-strength';
+import { resolveFixedSignIn, resolveSignInStrength } from './sign-in-strength';
 import * as server from '../../../functions/src/shared/sign-in-strength';
 import { CUSTOM_SIGN_IN } from '../../custom/sign-in';
 
@@ -32,5 +32,22 @@ describe('resolveSignInStrength', () => {
         const body = (path: string) => readFileSync(resolve(__dirname, path), 'utf8').replace(/^\/\*\*[\s\S]*?\*\/\s*/, '');
         expect(body('../../../functions/src/shared/sign-in-strength.ts')).toBe(body('./sign-in-strength.ts'));
         expect(server.resolveSignInStrength({ strength: 'simple' })).toBe('simple');
+    });
+});
+
+describe('resolveFixedSignIn (F31)', () => {
+    it('leaves both choices to the admin when the app fixed none, as Arc CMS ships it', () => {
+        expect(resolveFixedSignIn(undefined)).toEqual({ emailSignIn: null, newDeviceCode: null });
+        expect(resolveFixedSignIn(CUSTOM_SIGN_IN)).toEqual({ emailSignIn: null, newDeviceCode: null });
+    });
+
+    it('takes what the app fixed', () => {
+        expect(resolveFixedSignIn({ emailSignIn: 'pin', newDeviceCode: true })).toEqual({ emailSignIn: 'pin', newDeviceCode: true });
+        expect(resolveFixedSignIn({ emailSignIn: 'password', newDeviceCode: false })).toEqual({ emailSignIn: 'password', newDeviceCode: false });
+    });
+
+    it('stops the build on anything else, saying what to write', () => {
+        expect(() => resolveFixedSignIn({ emailSignIn: 'PIN' } as never)).toThrow(/emailSignIn: 'pin' or 'password'/);
+        expect(() => resolveFixedSignIn({ newDeviceCode: 'on' } as never)).toThrow(/newDeviceCode: true or false/);
     });
 });

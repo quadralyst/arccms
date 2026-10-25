@@ -43,7 +43,7 @@ vi.mock('../users/claims', () => ({ setRecordClaims: m.setRecordClaims }));
 vi.mock('firebase-admin/firestore', () => ({ Timestamp: { now: vi.fn(() => 'now') } }));
 // The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
 const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
-vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value, fixedSignIn: () => ({ emailSignIn: null, newDeviceCode: null }) }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: (...args: any[]) => args[args.length - 1],
     HttpsError: class HttpsError extends Error { constructor(public code: string, msg: string, public details?: unknown) { super(msg); } },

@@ -46,11 +46,13 @@ function generateCode(): string {
 /**
  * What a code is for: `signup` (the sign-up page), `link` (adding or changing
  * the email of the signed-in account, which records whose request it was) or
- * `reset` (Forgot password, passwordReset.ts) or `fresh` (a fresh code before a
- * sensitive action, freshCode.ts, which like `link` records whose request it was).
- * Records written before this existed have no purpose and are sign-up codes.
+ * `reset` (Forgot password, passwordReset.ts), `fresh` (a fresh code before a
+ * sensitive action, freshCode.ts, which like `link` records whose request it was),
+ * `device` (a PIN account's first sign-in on a device) or `pin-reset` (Forgot PIN,
+ * or a first PIN, for an email account; emailPin.ts). Records written before this
+ * existed have no purpose and are sign-up codes.
  */
-export type EmailOtpPurpose = 'signup' | 'link' | 'reset' | 'fresh';
+export type EmailOtpPurpose = 'signup' | 'link' | 'reset' | 'fresh' | 'device' | 'pin-reset';
 
 /** The template each purpose's email uses: a reset code has its own words. */
 export const EMAIL_OTP_TEMPLATE: Record<EmailOtpPurpose, string> = {
@@ -58,6 +60,8 @@ export const EMAIL_OTP_TEMPLATE: Record<EmailOtpPurpose, string> = {
   link: 'signup_otp_email',
   reset: 'password_reset_otp_email',
   fresh: 'signup_otp_email',
+  device: 'signup_otp_email',
+  'pin-reset': 'pin_reset_otp_email',
 };
 
 /** How long a verified code stays usable for the step that follows it. */
@@ -277,8 +281,8 @@ export async function issueEmailOtp(
 /** The code for the page to show while testing, or that it is only in Email Logs. */
 function testCodeFor(purpose: EmailOtpPurpose, code: string, settings: EmailSettingsData): { testCode?: string; testCodeInLogs?: boolean } {
   if (purpose === 'signup') return { testCode: code };
-  // A fresh code stands between a signed-in session and a sensitive action: as a reset code.
-  if (purpose === 'reset' || purpose === 'fresh') return resetCodesShownIn(settings) ? { testCode: code } : { testCodeInLogs: true };
+  // A fresh, device or PIN reset code lets its holder past a check, as a reset code does.
+  if (purpose !== 'link') return resetCodesShownIn(settings) ? { testCode: code } : { testCodeInLogs: true };
   return {};
 }
 
@@ -331,7 +335,7 @@ export const verifySignupOtp = onCall(async (request) => {
     throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
   }
   const asked = request.data?.purpose;
-  const purpose: EmailOtpPurpose = asked === 'link' || asked === 'reset' ? asked : 'signup';
+  const purpose: EmailOtpPurpose = asked === 'link' || asked === 'reset' || asked === 'device' || asked === 'pin-reset' ? asked : 'signup';
   // A link code is for the signed-in account's own record (never a locked app account).
   if (purpose === 'link') await requireOwnRecord(request);
 
@@ -403,11 +407,25 @@ export async function consumeVerifiedSignupCode(email: string, ticket: unknown):
  * the code can set the new password. `consume` uses it up.
  */
 export async function verifiedResetCode(email: string, ticket: unknown, consume: boolean): Promise<boolean> {
+  return verifiedEmailCode(email, 'reset', ticket, consume);
+}
+
+/**
+ * Whether this address has a verified code for `purpose` (one whose code is a ticket's,
+ * not an account's) and `ticket` is the one its verification handed out, within 30
+ * minutes. `consume` uses it up.
+ */
+export async function verifiedEmailCode(
+  email: string,
+  purpose: 'reset' | 'device' | 'pin-reset',
+  ticket: unknown,
+  consume: boolean,
+): Promise<boolean> {
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(normalizeEmail(email)));
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const data = snap.data();
-    if (!snap.exists || !data || data['verified'] !== true || !matchesPurpose(data, 'reset', undefined)) return false;
+    if (!snap.exists || !data || data['verified'] !== true || !matchesPurpose(data, purpose, undefined)) return false;
     if (!ticketMatches(ticket, data['ticketHash'])) return false;
     const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
     if (Date.now() - verifiedAt > EMAIL_VERIFIED_WINDOW_MS) return false;

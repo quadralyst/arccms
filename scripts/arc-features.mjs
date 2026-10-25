@@ -6,8 +6,8 @@
  *                                           whose features are all on, which all.ts
  *                                           re-exports: `forms.ts` needs forms,
  *                                           `search+content.ts` needs both
- *   functions/src/sign-in.gen.ts            the password and PIN strength the app chose
- *                                           in src/custom/sign-in.ts
+ *   functions/src/sign-in.gen.ts            the password and PIN strength, and the sign-in
+ *                                           choices the app fixed, in src/custom/sign-in.ts
  *                                           (specs/sign-in-strength-spec.md)
  *
  * The functions cannot import src/custom/features.ts (they compile only
@@ -49,24 +49,36 @@ export function renderFeatureFiles(enabled, files = featureFiles()) {
     return { enabledFile, exportsFile };
 }
 
-/** The strength file's content. */
-export function renderSignInFile(strength) {
+/** The sign-in file's content: the strength, and the choices the app fixed (null: the admin's). */
+export function renderSignInFile(strength, fixed = { emailSignIn: null, newDeviceCode: null }) {
     return '// Generated from src/custom/sign-in.ts by scripts/arc-features.mjs. Do not edit.\n'
-        + "import type { SignInStrength } from './shared/sign-in-strength.js';\n\n"
-        + `export const SIGN_IN_STRENGTH: SignInStrength = ${JSON.stringify(strength)};\n`;
+        + "import type { FixedSignIn, SignInStrength } from './shared/sign-in-strength.js';\n\n"
+        + `export const SIGN_IN_STRENGTH: SignInStrength = ${JSON.stringify(strength)};\n`
+        + `export const SIGN_IN_FIXED: FixedSignIn = ${JSON.stringify({ emailSignIn: fixed.emailSignIn, newDeviceCode: fixed.newDeviceCode })};\n`;
+}
+
+/** The app's sign-in choice from src/custom/sign-in.ts, and the rule that reads it; null without the file (an older app). */
+async function loadSignInChoice({ strengthPath, customPath }) {
+    if (!existsSync(customPath)) return null;
+    try {
+        const rule = await import(pathToFileURL(strengthPath).href);
+        const custom = await import(pathToFileURL(customPath).href);
+        return { rule, choice: custom.CUSTOM_SIGN_IN };
+    } catch (error) {
+        throw new Error(`arc-features: could not load src/custom/sign-in.ts (Node 22.18 or later is needed): ${error.message}`);
+    }
 }
 
 /** The strength this app chose; a copy without the file (an older app) is strict. A wrong value throws. */
 export async function signInStrength({ strengthPath = STRENGTH, customPath = SIGN_IN } = {}) {
-    if (!existsSync(customPath)) return 'strict';
-    let rule, custom;
-    try {
-        rule = await import(pathToFileURL(strengthPath).href);
-        custom = await import(pathToFileURL(customPath).href);
-    } catch (error) {
-        throw new Error(`arc-features: could not load src/custom/sign-in.ts (Node 22.18 or later is needed): ${error.message}`);
-    }
-    return rule.resolveSignInStrength(custom.CUSTOM_SIGN_IN);
+    const loaded = await loadSignInChoice({ strengthPath, customPath });
+    return loaded ? loaded.rule.resolveSignInStrength(loaded.choice) : 'strict';
+}
+
+/** The sign-in choices this app fixed (email PIN sign-in, the new-device code); none without the file. A wrong value throws. */
+export async function fixedSignIn({ strengthPath = STRENGTH, customPath = SIGN_IN } = {}) {
+    const loaded = await loadSignInChoice({ strengthPath, customPath });
+    return loaded ? loaded.rule.resolveFixedSignIn(loaded.choice) : { emailSignIn: null, newDeviceCode: null };
 }
 
 function writeIfChanged(path, content) {
@@ -100,7 +112,7 @@ async function main() {
     const changed = [writeIfChanged(ENABLED_OUT, enabledFile), writeIfChanged(EXPORTS_OUT, exportsFile)].some(Boolean);
     if (changed) console.log(`arc-features: functions build with ${[...enabled].join(', ') || 'no optional features'}`);
     const strength = await signInStrength();
-    if (writeIfChanged(SIGN_IN_OUT, renderSignInFile(strength))) console.log(`arc-features: ${strength} passwords and PINs`);
+    if (writeIfChanged(SIGN_IN_OUT, renderSignInFile(strength, await fixedSignIn()))) console.log(`arc-features: ${strength} passwords and PINs`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -31,7 +31,7 @@ vi.mock('../init', () => ({ db: m.db, owner: m.owner }));
 vi.mock('../search/auth', () => ({ requireAdmin: m.requireAdmin }));
 // The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
 const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
-vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value, fixedSignIn: () => ({ emailSignIn: null, newDeviceCode: null }) }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: (...args: any[]) => args[args.length - 1],
     HttpsError: class HttpsError extends Error {
@@ -39,7 +39,7 @@ vi.mock('firebase-functions/v2/https', () => ({
     },
 }));
 
-import { adminSetPassword, SHARED_ACCOUNT, NO_EMAIL, NO_ACCOUNT } from '../users/adminSetPassword.js';
+import { adminSetPassword, SHARED_ACCOUNT, NO_EMAIL, NO_ACCOUNT, PIN_SIGN_IN } from '../users/adminSetPassword.js';
 import { PASSWORD_PROBLEM_TEXT } from '../shared/password-rule.js';
 import { APP_MANAGED } from '../users/lockedAppAccount.js';
 
@@ -72,6 +72,16 @@ describe('adminSetPassword', () => {
         const doc = vi.mocked(m.db.collection).mock.results[0].value.doc.mock.results[0].value;
         expect(doc.set).not.toHaveBeenCalled();
         expect(doc.update).not.toHaveBeenCalled();
+    });
+
+    it('sets no password for a member while the site signs email accounts in with a PIN; an admin still gets one (F31)', async () => {
+        // This mock keys documents by id alone: 'users' stands for Settings/users.
+        m.records.set('users', { emailSignIn: 'pin' });
+        await expect(call({ id: 'doc-1', password: GOOD })).rejects.toMatchObject({ message: PIN_SIGN_IN, details: { reason: 'pin-sign-in' } });
+        m.records.set('doc-2', { uid: 'uid-2', name: 'Boss', email: 'boss@example.com', role: 'admin' });
+        m.accounts.set('uid-2', { uid: 'uid-2', email: 'boss@example.com' });
+        expect(await call({ id: 'doc-2', password: GOOD })).toEqual({ updated: true });
+        expect(m.owner.updateUser).toHaveBeenCalledTimes(1);
     });
 
     it('is for admins only', async () => {

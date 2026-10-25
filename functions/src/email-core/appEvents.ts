@@ -20,7 +20,7 @@ import { readAppMergeFields } from '../app-audience/mergeFields.js';
  * (NOT_FOR_RULES, kept equal by a test).
  */
 export const RULE_EMAIL_EXCLUDED_TEMPLATES: readonly string[] = [
-  'signup_otp_email', 'password_reset_otp_email', 'waitlist_verify_otp_email', 'notification_generic_email', 'admin_digest_email',
+  'signup_otp_email', 'password_reset_otp_email', 'pin_reset_otp_email', 'waitlist_verify_otp_email', 'notification_generic_email', 'admin_digest_email',
 ];
 
 /** Whether a rule may send this template: not one of the above, and not an app's own (`app.{key}`, filled with its feature's data). */

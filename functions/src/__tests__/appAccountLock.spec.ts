@@ -236,6 +236,7 @@ describe('every callable that reads the caller\'s own record has been reviewed f
         'auth/signupOtp.ts': 'guarded: link codes; sign-up codes are before sign-in',
         'auth/googleAccount.ts': 'guarded: refuses a locked account signed in with Google',
         'auth/emailAccount.ts': 'guarded: refuses a locked account signed in with a password',
+        'auth/freshCode.ts': 'guarded: requireOwnRecord in both callables',
         'users/accountCallables.ts': 'guarded: deleteMyAccount; refreshMyClaims must work for every account',
         'users/syncUserRole.ts': 'guarded: claimFirstAdmin; syncAllUserRoles is admin only',
         'dodo-payments/consumeCredits.ts': 'spends credits the app gave; not a change to the account',

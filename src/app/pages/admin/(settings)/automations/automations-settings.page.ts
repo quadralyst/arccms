@@ -53,7 +53,7 @@ const EVENT_LABEL_KEYS: Record<string, string> = {
  * nobody asked for). They are not offered in rules.
  */
 export const NOT_FOR_RULES: readonly string[] = [
-    'signup_otp_email', 'password_reset_otp_email', 'waitlist_verify_otp_email', 'notification_generic_email', 'admin_digest_email',
+    'signup_otp_email', 'password_reset_otp_email', 'pin_reset_otp_email', 'waitlist_verify_otp_email', 'notification_generic_email', 'admin_digest_email',
 ];
 
 /** An app's own template (`app.{key}`, specs/app-email-spec.md): filled with its feature's data, so never offered either. */

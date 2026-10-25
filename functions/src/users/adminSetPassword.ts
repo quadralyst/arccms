@@ -8,7 +8,8 @@
  *
  * Refused for an account Arc CMS does not own (a sign-in shared with another
  * app: that app changes it), a locked app account (its app manages it), an
- * account with no email, which a password could not sign in to, and a record
+ * account that signs in with a PIN while the site uses email PINs (not an admin),
+ * an account with no email, which a password could not sign in to, and a record
  * whose sign-in account is gone.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
@@ -17,10 +18,13 @@ import { requireAdmin } from '../search/auth.js';
 import { arccmsOwnsAuthAccount } from './authOwner.js';
 import { APP_MANAGED, isLockedAppAccount } from './lockedAppAccount.js';
 import { refuse, refuseWeakPassword } from '../auth/refusal.js';
+import { keepsPassword } from '../auth/emailPinRules.js';
+import { readSignInSettings } from '../auth/accounts.js';
 
 export const SHARED_ACCOUNT = "This person's sign-in is shared with another app, so their password is changed there.";
 export const NO_ACCOUNT = 'This person has no sign-in account, so there is no password to set.';
 export const NO_EMAIL = 'This person has no email to sign in with, so a password would not work.';
+export const PIN_SIGN_IN = 'This site signs email accounts in with a PIN, so this person has no password to set.';
 
 export const adminSetPassword = onCall(async (request) => {
     await requireAdmin(request);
@@ -33,6 +37,8 @@ export const adminSetPassword = onCall(async (request) => {
     if (!snap.exists || !record) throw new HttpsError('not-found', 'That user no longer exists.');
     if (!arccmsOwnsAuthAccount(record)) throw refuse('failed-precondition', 'shared-account', SHARED_ACCOUNT);
     if (isLockedAppAccount(record)) throw refuse('permission-denied', 'app-managed', APP_MANAGED);
+    // A PIN account gets no password from here: it would be a second way in (specs/sign-in-pin-spec.md).
+    if (!keepsPassword(record) && (await readSignInSettings()).emailPin) throw refuse('failed-precondition', 'pin-sign-in', PIN_SIGN_IN);
     const uid = typeof record['uid'] === 'string' ? record['uid'] : '';
     if (!uid) throw refuse('failed-precondition', 'no-account', NO_ACCOUNT);
 

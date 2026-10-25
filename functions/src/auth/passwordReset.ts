@@ -21,11 +21,15 @@ import { isWarmUp, WARM } from './warmUp.js';
 import { refuse, refuseWeakPassword } from './refusal.js';
 import { AUTH_OWNER } from '../users/authOwner.js';
 import { APP_MANAGED, isLockedAppAccount } from '../users/lockedAppAccount.js';
+import { HOST_ACCOUNT, keepsPassword } from './emailPinRules.js';
+
+/** What someone whose account signs in with a PIN is told on Forgot password. */
+export const PIN_ACCOUNT = 'This account signs in with a PIN. Use Forgot PIN to choose a new one.';
 
 const HOUR = 60 * 60 * 1000;
 
 /** What a host app's user is told: their login is that app's to reset. */
-export const HOST_ACCOUNT = 'Reset your password in the app you signed up with.';
+export { HOST_ACCOUNT };
 
 /** The account a reset changes. */
 interface ResetTarget {
@@ -49,6 +53,9 @@ export async function resetTarget(email: string): Promise<ResetTarget> {
             throw refuse('permission-denied', 'account-blocked', 'This account is blocked. Please contact the site administrator.');
         }
         if (record.data['authOwner'] === AUTH_OWNER.HOST) throw refuse('failed-precondition', 'host-account', HOST_ACCOUNT);
+        // While the site signs email accounts in with a PIN, Forgot password becomes Forgot PIN
+        // for every account that may have one (specs/sign-in-pin-spec.md); an admin keeps a password.
+        if (!keepsPassword(record.data) && (await readSignInSettings()).emailPin) throw refuse('failed-precondition', 'pin-sign-in', PIN_ACCOUNT);
         const uid = String(record.data['uid'] ?? '');
         if (!uid) throw refuse('not-found', 'no-email-account', 'No account uses this email.');
         const name = typeof record.data['name'] === 'string' ? record.data['name'] : undefined;

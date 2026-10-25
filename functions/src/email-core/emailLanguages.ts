@@ -28,7 +28,7 @@ export interface AppEmailTemplate {
 }
 
 /** Core's account emails an app may word in its languages (ACCOUNT_EMAIL_LANGUAGES). */
-export const ACCOUNT_EMAIL_TYPES = ['signup_otp_email', 'password_reset_otp_email'] as const;
+export const ACCOUNT_EMAIL_TYPES = ['signup_otp_email', 'password_reset_otp_email', 'pin_reset_otp_email'] as const;
 export type AccountEmailType = (typeof ACCOUNT_EMAIL_TYPES)[number];
 
 /** The app's wording of core's account emails, by template and language. English is the template in Settings. */
@@ -94,7 +94,7 @@ export function emailTemplateProblems(templates: unknown, accountLanguages: unkn
     for (const [type, langs] of Object.entries(accountLanguages)) {
       const where = `ACCOUNT_EMAIL_LANGUAGES '${type}'`;
       if (!(ACCOUNT_EMAIL_TYPES as readonly string[]).includes(type)) {
-        problems.push(`${where}: only ${ACCOUNT_EMAIL_TYPES.join(' and ')} take languages.`);
+        problems.push(`${where}: only ${ACCOUNT_EMAIL_TYPES.slice(0, -1).join(', ')} and ${ACCOUNT_EMAIL_TYPES.at(-1)} take languages.`);
         continue;
       }
       for (const [lang, version] of Object.entries((langs as Record<string, unknown>) ?? {})) {

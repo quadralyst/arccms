@@ -348,6 +348,8 @@ describe('onUserDelete Cloud Function', () => {
             expect(deleted.sort()).toEqual(['app_phone_pin_tries/parent__u-9', 'app_pins/kiosk__u-9', 'app_pins/staff__u-9', 'auth_fresh_proofs/u-9__pos-setup']);
             // The phone sign-in PIN goes too, by its own id.
             expect(mockCollection).toHaveBeenCalledWith('auth_pins');
+            // And the devices proved for PIN sign-in, by the same id.
+            expect(mockCollection).toHaveBeenCalledWith('auth_devices');
             expect(mockDoc).toHaveBeenCalledWith('u-9');
         });
 

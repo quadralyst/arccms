@@ -42,7 +42,7 @@ describe('the checks on functions/src/custom/email-templates.ts', () => {
       "APP_EMAIL_TEMPLATES 'Bad-Key': give it a title, its name in the admin.",
       "APP_EMAIL_TEMPLATES 'Bad-Key': 'english' is not a language code such as 'de' or 'pt-br'.",
       "APP_EMAIL_TEMPLATES 'Bad-Key', english: give it a subject.",
-      "ACCOUNT_EMAIL_LANGUAGES 'welcome_email': only signup_otp_email and password_reset_otp_email take languages.",
+      "ACCOUNT_EMAIL_LANGUAGES 'welcome_email': only signup_otp_email, password_reset_otp_email and pin_reset_otp_email take languages.",
       "ACCOUNT_EMAIL_LANGUAGES 'signup_otp_email', en: English is the template in Settings; an admin edits it in Email, Composer.",
     ]);
     expect(() => assertEmailTemplates([{ key: 'x', title: 'X', languages: {} }], {})).toThrow(/functions\/src\/custom\/email-templates\.ts:\n {2}- /);

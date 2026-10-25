@@ -28,6 +28,8 @@ import { consumeVerifiedSignupCode, requestedLanguage, requestedName, sendSignup
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuseOtherSignIn } from './appAccountLock.js';
 import { codeOrRefusal, refuse } from './refusal.js';
+import { emailPinStatus, sendEmailPinCode } from './emailPin.js';
+import { readDeviceKey } from './devices.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -50,21 +52,36 @@ export function isUnfinishedSignup(creationTime: string | undefined, now = Date.
  * new address while signups are open is also emailed its sign-up code, so the
  * page makes one call instead of two; the send's reply comes back as `code`, or
  * its refusal as `codeRefused` (specs/sign-in-speed-spec.md, SP-D6, SP-D7).
+ *
+ * A registered address also says what to ask for (`signInWith`: `password`, `pin`, or
+ * `code` for a first PIN), whether this device needs a code first (`deviceCode`) and
+ * whether to offer a PIN after the password (`offerPin`), from the account itself and
+ * the site's email PIN setting (specs/sign-in-pin-spec.md); with `sendCode` it sends
+ * the `device` or `pin-reset` code that comes next, the same way.
  */
 export const checkEmailAccount = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
     const email = normalizeEmailAddress(request.data?.email);
     // The caller's limit, the settings and the record together; nothing is answered until the limit passes (SP-D4).
-    const [, { signupOpen }, record] = await Promise.all([
+    const [, settings, record] = await Promise.all([
         consumeRateLimit(`check-ip-${callerKey(request)}`, 100, HOUR, 'Too many attempts. Please try again later.'),
         readSignInSettings(),
         findUserByEmail(email),
     ]);
 
+    const { signupOpen } = settings;
     let status: EmailAccountStatus = 'new';
     if (record) {
         status = 'registered';
-        await db.collection('email_lookup').doc(computeEmailHash(email)).set({ exists: true });
+        const [pinStatus] = await Promise.all([
+            emailPinStatus(record, settings, readDeviceKey(request.data?.deviceKey)),
+            db.collection('email_lookup').doc(computeEmailHash(email)).set({ exists: true }),
+        ]);
+        const { codePurpose, ...how } = pinStatus;
+        const reply = { status, signupOpen, ...how };
+        if (request.data?.sendCode !== true || !codePurpose) return reply;
+        const name = typeof record.data['name'] === 'string' ? record.data['name'] : undefined;
+        return { ...reply, ...(await codeOrRefusal(() => sendEmailPinCode(request, email, codePurpose, name))) };
     } else {
         const account = await owner.getUserByEmail(email).catch(() => null);
         if (account) {

@@ -59,6 +59,7 @@ describe('ensureDefaultTemplates', () => {
       'password_reset_otp_email',
       'payment_failed_email',
       'payment_succeeded_email',
+      'pin_reset_otp_email',
       'signup_otp_email',
       'signup_welcome_email',
       'subscription_lifecycle_email',

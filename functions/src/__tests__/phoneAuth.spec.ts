@@ -28,7 +28,7 @@ vi.mock('firebase-admin/firestore', async () => {
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 // The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
 const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
-vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value, fixedSignIn: () => ({ emailSignIn: null, newDeviceCode: null }) }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: vi.fn((handler: unknown) => handler),
     HttpsError: class extends Error {
@@ -677,5 +677,62 @@ describe('an app that chose simple PINs (specs/sign-in-strength-spec.md)', () =>
         expect(pinTooEasy('246810', 'strict')).toBe(false);
         strength.value = 'strict';
         expect(pinTooEasy('123456')).toBe(true);
+    });
+});
+
+describe('a code on a new device (specs/sign-in-pin-spec.md)', () => {
+    const KEY = 'd'.repeat(43);
+    const OTHER = 'e'.repeat(43);
+
+    beforeEach(async () => {
+        await signUp('246810');
+        ageLastCode();
+        mem.seed('Settings', 'users', { isSignupEnabled: true, phoneSignIn: true, newDeviceCode: true });
+    });
+
+    it('remembers the device a number signed up on: no code there', async () => {
+        mem.store.clear();
+        mem.seed('Settings', 'users', { isSignupEnabled: true, phoneSignIn: true, newDeviceCode: true });
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        const { ticket } = await call(phone.verifyPhoneOtp, { phone: NUMBER, code: lastCode(), purpose: 'signup' });
+        await call(phone.completePhoneSignup, { phone: NUMBER, name: 'Asha Rao', pin: '246810', ticket, deviceKey: KEY });
+        await expect(call(phone.checkPhoneAccount, { phone: NUMBER, deviceKey: KEY })).resolves.toEqual({ phone: E164, exists: true, hasPin: true, signupOpen: true });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810', deviceKey: KEY })).resolves.toEqual({ token: 'token-uid-asha' });
+    });
+
+    it('on another device the check says so and sends the code; no PIN try until it is verified', async () => {
+        const reply = await call(phone.checkPhoneAccount, { phone: NUMBER, deviceKey: OTHER, sendCode: true });
+        expect(reply).toMatchObject({ exists: true, hasPin: true, deviceCode: true, code: { sent: true, testMode: true } });
+        // A device code is shown only where reset codes may be: here it is in SMS Logs.
+        expect(reply.code.testCode).toBeUndefined();
+        expect(mem.read('phone_otps', phoneHash(E164))?.['purpose']).toBe('device');
+
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810', deviceKey: OTHER })).rejects.toMatchObject({ details: { reason: 'new-device' } });
+        expect(mem.read('auth_pins', 'uid-asha')?.['failedAttempts']).toBe(0);
+        const { ticket } = await call(phone.verifyPhoneOtp, { phone: NUMBER, code: lastCode(), purpose: 'device' });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810', deviceKey: OTHER, ticket })).resolves.toEqual({ token: 'token-uid-asha' });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810', deviceKey: OTHER })).resolves.toEqual({ token: 'token-uid-asha' });
+    });
+
+    it('Forgot PIN forgets every device but the one it was done on', async () => {
+        const { rememberDevice } = await import('../auth/devices.js');
+        await rememberDevice('uid-asha', OTHER);
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'reset' });
+        const { ticket } = await call(phone.verifyPhoneOtp, { phone: NUMBER, code: lastCode(), purpose: 'reset' });
+        await call(phone.resetPin, { phone: NUMBER, pin: '135792', ticket, deviceKey: KEY });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '135792', deviceKey: OTHER })).rejects.toMatchObject({ details: { reason: 'new-device' } });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '135792', deviceKey: KEY })).resolves.toEqual({ token: 'token-uid-asha' });
+    });
+
+    it('a device code needs an account', async () => {
+        await expect(call(phone.requestPhoneOtp, { phone: '98765 00000', purpose: 'device' })).rejects.toMatchObject({ details: { reason: 'no-account' } });
+    });
+
+    it('with the setting off, nothing changes, and the devices used are remembered for when it is turned on', async () => {
+        mem.seed('Settings', 'users', { isSignupEnabled: true, phoneSignIn: true });
+        await expect(call(phone.checkPhoneAccount, { phone: NUMBER, deviceKey: OTHER })).resolves.toEqual({ phone: E164, exists: true, hasPin: true, signupOpen: true });
+        await call(phone.signInWithPin, { phone: NUMBER, pin: '246810', deviceKey: OTHER });
+        mem.seed('Settings', 'users', { isSignupEnabled: true, phoneSignIn: true, newDeviceCode: true });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810', deviceKey: OTHER })).resolves.toEqual({ token: 'token-uid-asha' });
     });
 });

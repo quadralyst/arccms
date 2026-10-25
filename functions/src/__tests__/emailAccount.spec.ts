@@ -45,7 +45,7 @@ beforeEach(() => {
 describe('checkEmailAccount', () => {
     it('finds a record whose lookup entry was never written, and writes it', async () => {
         mem.seed('users', 'u1', { uid: 'u1', email: 'admin@example.com' });
-        await expect(call(' Admin@Example.com ')).resolves.toEqual({ status: 'registered', signupOpen: true });
+        await expect(call(' Admin@Example.com ')).resolves.toEqual({ status: 'registered', signupOpen: true, signInWith: 'password' });
         expect(mem.read('email_lookup', computeEmailHash('admin@example.com'))).toEqual({ exists: true });
     });
 
@@ -89,7 +89,7 @@ describe('checkEmailAccount with sendCode (specs/sign-in-speed-spec.md, SP-D6)',
     it('sends nothing without sendCode, for a registered address, or while signups are closed', async () => {
         await expect(call('new@example.com')).resolves.toEqual({ status: 'new', signupOpen: true });
         mem.seed('users', 'u1', { uid: 'u1', email: 'admin@example.com' });
-        await expect(call('admin@example.com', { sendCode: true })).resolves.toEqual({ status: 'registered', signupOpen: true });
+        await expect(call('admin@example.com', { sendCode: true })).resolves.toEqual({ status: 'registered', signupOpen: true, signInWith: 'password' });
         mem.seed('Settings', 'users', { isSignupEnabled: false });
         await expect(call('other@example.com', { sendCode: true })).resolves.toEqual({ status: 'new', signupOpen: false });
         expect(sendSignupCode).not.toHaveBeenCalled();

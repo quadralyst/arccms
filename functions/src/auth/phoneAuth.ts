@@ -4,13 +4,14 @@
  *
  *   checkPhoneAccount    is this number registered, and does it have a PIN?
  *                        With `sendCode`, it also sends the code the next step needs
- *   requestPhoneOtp      send a code (signup, reset or link); with the Test
+ *   requestPhoneOtp      send a code (signup, reset, link or device); with the Test
  *                        provider no SMS is sent, and the reply carries a
- *                        sign-up code, and a reset code when an admin allows
- *                        it (link codes: SMS Logs only)
+ *                        sign-up code, and a reset or device code when an admin
+ *                        allows it (link codes: SMS Logs only)
  *   verifyPhoneOtp       check the code; the reply's ticket goes to the next step
  *   completePhoneSignup  new number: name and PIN, creates the account
- *   signInWithPin        registered number: the PIN
+ *   signInWithPin        registered number: the PIN (with "Ask for a code on a new
+ *                        device" on, only on a device proved with a code)
  *   resetPin             forgot PIN (or never set one): a new PIN after a code
  *   setPin               signed in: change the PIN
  *
@@ -42,7 +43,17 @@ import {
     requirePhoneSignIn,
     setPin as storePin,
 } from './accounts.js';
-import { consumeVerifiedPhoneOtp, phoneCodeAskedAgain, isPhoneOtpPurpose, issuePhoneOtp, verifyPhoneOtp as checkPhoneOtp, type PhoneOtpPurpose } from './phoneOtp.js';
+import {
+    consumeVerifiedPhoneOtp,
+    phoneCodeAskedAgain,
+    isPhoneOtpPurpose,
+    issuePhoneOtp,
+    verifiedPhoneCode,
+    verifyPhoneOtp as checkPhoneOtp,
+    type PhoneOtpPurpose,
+} from './phoneOtp.js';
+import { forgetDevices, knownDevice, newDeviceRefusal, readDeviceKey, rememberDevice } from './devices.js';
+import { dropPasswordForPin } from './emailPinRules.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { codeOrRefusal, refuse } from './refusal.js';
 
@@ -97,16 +108,19 @@ export const checkPhoneAccount = onCall(async (request) => {
         phoneContext(request),
     ]);
     const account = await findUserByPhone(phone);
-    const purpose: PhoneOtpPurpose | null = account ? 'reset' : signIn.signupOpen ? 'signup' : null;
-    const sendCode = request.data?.sendCode === true && !!purpose;
-    // The PIN and the number's earlier code together; the code is only sent when there is no PIN.
-    const [pin, asked] = await Promise.all([
-        account ? hasPin(String(account.data['uid'])) : Promise.resolve(false),
-        sendCode ? phoneCodeAskedAgain(phone, purpose!) : Promise.resolve(null),
+    const uid = account ? String(account.data['uid']) : '';
+    // The PIN, and whether this device was proved before, together.
+    const [pin, known] = await Promise.all([
+        account ? hasPin(uid) : Promise.resolve(false),
+        account && signIn.newDeviceCode ? knownDevice(uid, readDeviceKey(request.data?.deviceKey)) : Promise.resolve(true),
     ]);
-    const reply = { phone, exists: !!account, hasPin: pin, signupOpen: signIn.signupOpen };
-    if (!sendCode || pin) return reply;
-    return { ...reply, ...(await codeOrRefusal(() => sendPhoneCode(request, { phone, purpose: purpose!, sms, asked }))) };
+    // With a PIN on a device not proved yet, the code comes first (specs/sign-in-pin-spec.md).
+    const deviceCode = pin && !known;
+    const purpose: PhoneOtpPurpose | null = account ? (pin ? (deviceCode ? 'device' : null) : 'reset') : signIn.signupOpen ? 'signup' : null;
+    const reply = { phone, exists: !!account, hasPin: pin, signupOpen: signIn.signupOpen, ...(deviceCode ? { deviceCode } : {}) };
+    if (request.data?.sendCode !== true || !purpose) return reply;
+    const asked = await phoneCodeAskedAgain(phone, purpose);
+    return { ...reply, ...(await codeOrRefusal(() => sendPhoneCode(request, { phone, purpose, sms, asked }))) };
 });
 
 export const requestPhoneOtp = onCall(async (request) => {
@@ -126,7 +140,7 @@ export const requestPhoneOtp = onCall(async (request) => {
         const [account, earlier] = await Promise.all([findUserByPhone(phone), phoneCodeAskedAgain(phone, purpose)]);
         if (purpose === 'signup' && account) throw refuse('already-exists', 'number-taken', 'This number already has an account.');
         if (purpose === 'signup' && !signIn.signupOpen) throw refuse('failed-precondition', 'signup-closed', "New accounts can't be created on this site right now.");
-        if (purpose === 'reset' && !account) throw refuse('not-found', 'no-account', 'No account uses this number.');
+        if ((purpose === 'reset' || purpose === 'device') && !account) throw refuse('not-found', 'no-account', 'No account uses this number.');
         asked = earlier;
     }
     return sendPhoneCode(request, { phone, purpose, sms, uid, asked });
@@ -179,7 +193,7 @@ function codeReply(
     extra: Record<string, unknown>,
 ) {
     if (!testMode) return { sent: true, phone, ...extra };
-    const shown = purpose === 'signup' || (purpose === 'reset' && sms.showResetCodes);
+    const shown = purpose === 'signup' || ((purpose === 'reset' || purpose === 'device') && sms.showResetCodes);
     return { sent: true, phone, testMode: true, ...(shown && code ? { testCode: code } : {}), ...extra };
 }
 
@@ -223,11 +237,12 @@ export const completePhoneSignup = onCall(async (request) => {
         await owner.deleteUser(uid).catch(() => undefined);
         throw err;
     }
-    // The PIN, the claims and the token together: the token carries no claims, they are
-    // read when the browser signs in with it, after this answers (specs/sign-in-speed-spec.md, SP-D15).
-    const [, , token] = await Promise.all([
+    // The PIN, the claims, this device and the token together: the token carries no claims, they
+    // are read when the browser signs in with it, after this answers (specs/sign-in-speed-spec.md, SP-D15).
+    const [, , , token] = await Promise.all([
         storePin(uid, pin),
         applyNewAccountClaims(uid, ref.id, signIn.defaultRole),
+        rememberDevice(uid, readDeviceKey(request.data?.deviceKey)),
         issueSignInToken(uid),
     ]);
     logger.info(`completePhoneSignup: account created for ${maskPhone(phone)}.`);
@@ -237,7 +252,7 @@ export const completePhoneSignup = onCall(async (request) => {
 export const signInWithPin = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
     // The caller's limit is counted while the settings are read (SP-D4).
-    const [, { phone }] = await Promise.all([
+    const [, { signIn, phone }] = await Promise.all([
         consumeRateLimit(`pin-ip-${callerKey(request)}`, 30, HOUR, TOO_MANY),
         phoneContext(request),
     ]);
@@ -247,9 +262,21 @@ export const signInWithPin = onCall(async (request) => {
     if (!canSignIn(account.data)) throw refuse('permission-denied', 'account-blocked', 'This account is blocked. Please contact the site administrator.');
 
     const uid = String(account.data['uid']);
+    const deviceKey = readDeviceKey(request.data?.deviceKey);
+    // A device not proved yet gets no PIN tries at all: a code first (specs/sign-in-pin-spec.md).
+    const ticket = request.data?.ticket;
+    const byCode = signIn.newDeviceCode && !(await knownDevice(uid, deviceKey));
+    if (byCode && !(await verifiedPhoneCode(phone, 'device', ticket, false))) throw newDeviceRefusal();
     const result = await checkPin(uid, pin);
-    if (result.ok) return { token: await issueSignInToken(uid) };
-    throw pinRefusal(result);
+    if (!result.ok) throw pinRefusal(result);
+    // Every device a PIN signs in on is remembered, the setting on or not, so turning it on
+    // later asks no code on the devices people already use.
+    const [, , token] = await Promise.all([
+        byCode ? verifiedPhoneCode(phone, 'device', ticket, true) : Promise.resolve(true),
+        rememberDevice(uid, deviceKey),
+        issueSignInToken(uid),
+    ]);
+    return { token };
 });
 
 export const resetPin = onCall(async (request) => {
@@ -264,14 +291,24 @@ export const resetPin = onCall(async (request) => {
     const uid = String(account.data['uid']);
     await storePin(uid, pin);
     // A reset is how someone who lost control of their PIN gets it back, so end
-    // every other session: whoever used the old PIN is signed out within the hour.
-    await owner.revokeRefreshTokens(uid);
+    // every other session and forget every device: whoever used the old PIN is
+    // signed out within the hour, and needs a code to try a PIN again.
+    await Promise.all([owner.revokeRefreshTokens(uid), forgetDevices(uid)]);
+    await rememberDevice(uid, readDeviceKey(request.data?.deviceKey));
     return { token: await issueSignInToken(uid) };
 });
 
+/**
+ * Signed in: choose or change the sign-in PIN. Phone accounts, and email accounts
+ * (specs/sign-in-pin-spec.md), whose password is then taken off when the site signs
+ * email accounts in with a PIN (dropPasswordForPin). This device is remembered.
+ */
 export const setPin = onCall(async (request) => {
     const record = await requireOwnRecord(request);
-    if (!record.data['phone']) throw refuse('failed-precondition', 'add-phone-first', 'Add a phone number first.');
-    await storePin(String(record.data['uid']), readNewPin(request.data?.pin));
-    return { saved: true };
+    if (!record.data['phone'] && !record.data['email']) throw refuse('failed-precondition', 'add-phone-first', 'Add a phone number or an email first.');
+    const uid = String(record.data['uid']);
+    const pin = readNewPin(request.data?.pin);
+    await storePin(uid, pin);
+    const [dropped] = await Promise.all([dropPasswordForPin(record), rememberDevice(uid, readDeviceKey(request.data?.deviceKey))]);
+    return { saved: true, ...(dropped ? { passwordRemoved: true } : {}) };
 });

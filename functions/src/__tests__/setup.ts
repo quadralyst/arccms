@@ -29,7 +29,7 @@ vi.mock('../custom/email-templates.js', (actual) => starter('functions/src/custo
  * chooses in src/custom/sign-in.ts. A spec about the simple rule mocks
  * '../sign-in-choice.js' itself.
  */
-vi.mock('../sign-in.gen.js', () => ({ SIGN_IN_STRENGTH: 'strict' }));
+vi.mock('../sign-in.gen.js', () => ({ SIGN_IN_STRENGTH: 'strict', SIGN_IN_FIXED: { emailSignIn: null, newDeviceCode: null } }));
 
 vi.mock('../enabled-features.gen.js', () => ({
   ENABLED_FEATURES: ['content', 'search', 'seo', 'forms', 'audience', 'email-marketing', 'sms', 'payments', 'data', 'pwa'],

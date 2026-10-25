@@ -37,7 +37,7 @@ const PURPOSE = /^[a-z][a-z0-9_-]{1,40}$/;
 /** The purpose an app names (`pos-setup`), or the refusal. */
 export function readFreshPurpose(raw: unknown): string {
     if (typeof raw !== 'string' || !PURPOSE.test(raw) || raw.includes('__')) {
-        throw new HttpsError('invalid-argument', 'A fresh code purpose is lower case letters, digits, - and _, starting with a letter, 2 to 41 characters.');
+        throw new HttpsError('invalid-argument', 'A fresh code purpose is lower case letters, digits, - and _, starting with a letter, 2 to 41 characters.', { reason: 'fresh-purpose' });
     }
     return raw;
 }

@@ -24,7 +24,7 @@ import { SIGN_IN_NOT_READY, alertSigningProblem, signingProblem } from './signIn
 import { isBlank } from '../shared/blank.js';
 import { refuseLockedAppAccount } from '../users/lockedAppAccount.js';
 import { refuse } from './refusal.js';
-import { signInStrength } from '../sign-in-choice.js';
+import { fixedSignIn, signInStrength } from '../sign-in-choice.js';
 import type { SignInStrength } from '../shared/sign-in-strength.js';
 
 const scryptAsync = promisify(scrypt) as (pin: string, salt: Buffer, keylen: number) => Promise<Buffer>;
@@ -50,15 +50,25 @@ export interface SignInSettings {
     googleSignIn: boolean;
     /** `Settings/users.defaultRole` for self sign-ups; `user` when unset or unknown. */
     defaultRole: string;
+    /**
+     * New email accounts sign in with a code the first time and then a PIN, and
+     * password accounts are offered one (specs/sign-in-pin-spec.md): the app's choice in
+     * src/custom/sign-in.ts, else `Settings/users.emailSignIn` (`pin`); off by default.
+     */
+    emailPin: boolean;
+    /** A code by email or SMS the first time a PIN is used on a device: the app's choice, else `Settings/users.newDeviceCode`. */
+    newDeviceCode: boolean;
 }
 
-export function resolveSignInSettings(data: Record<string, unknown> | undefined): SignInSettings {
+export function resolveSignInSettings(data: Record<string, unknown> | undefined, fixed = fixedSignIn()): SignInSettings {
     const role = data?.['defaultRole'];
     return {
         signupOpen: data?.['isSignupEnabled'] !== false,
         phoneSignIn: data?.['phoneSignIn'] === true,
         googleSignIn: data?.['googleSignIn'] === true,
         defaultRole: typeof role === 'string' && KNOWN_ROLES.includes(role) ? role : 'user',
+        emailPin: (fixed.emailSignIn ?? data?.['emailSignIn']) === 'pin',
+        newDeviceCode: (fixed.newDeviceCode ?? data?.['newDeviceCode']) === true,
     };
 }
 
@@ -219,7 +229,7 @@ export function checkSessionClaims(sessionClaims: unknown): boolean {
     const empty = !!sessionClaims && typeof sessionClaims === 'object' && !Array.isArray(sessionClaims) && !Object.keys(sessionClaims).length;
     if (empty) return false;
     const problems = sessionClaimProblems(sessionClaims);
-    if (problems.length) throw new HttpsError('invalid-argument', problems.join(' '));
+    if (problems.length) throw new HttpsError('invalid-argument', problems.join(' '), { reason: 'session-claims' });
     return true;
 }
 

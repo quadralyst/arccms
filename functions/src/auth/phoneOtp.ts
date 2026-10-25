@@ -6,8 +6,9 @@
  * still works sends the same code (codeSeal.ts). A code is for one
  * purpose: `signup` (a new number), `reset` (a new PIN for a number that has an
  * account), `link` (adding the number to the signed-in account, which also
- * records whose request it was) or `fresh` (a fresh code before a sensitive
- * action, freshCode.ts, also the signed-in account's). Verifying marks it verified and hands the
+ * records whose request it was), `device` (the first PIN sign-in on a device,
+ * with "Ask for a code on a new device" on) or `fresh` (a fresh code before a
+ * sensitive action, freshCode.ts, also the signed-in account's). Verifying marks it verified and hands the
  * browser a ticket (otpTicket.ts); the step that acts on it (create the
  * account, set the PIN, link the number) consumes it within 30 minutes, with
  * that ticket, or for `link` by the same signed-in account.
@@ -26,8 +27,8 @@ import { refuse } from './refusal.js';
 import { codeAskedAgain, codeSealKey, refuseWithinWait, reusableCode, sealCode } from './codeSeal.js';
 
 export const PHONE_OTPS = 'phone_otps';
-/** The purposes the public phone callables accept. */
-export const PHONE_OTP_PURPOSES = ['signup', 'reset', 'link'] as const;
+/** The purposes the public phone callables accept; `device` is a PIN account's first sign-in on a device. */
+export const PHONE_OTP_PURPOSES = ['signup', 'reset', 'link', 'device'] as const;
 /** Every purpose, with `fresh`, which only freshCode.ts asks for. */
 export type PhoneOtpPurpose = (typeof PHONE_OTP_PURPOSES)[number] | 'fresh';
 
@@ -185,6 +186,25 @@ export async function consumeVerifiedPhoneOtp(
         const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
         if (Date.now() - verifiedAt > VERIFIED_WINDOW_MS) return false;
         tx.delete(ref);
+        return true;
+    });
+}
+
+/**
+ * Whether this number has a verified code for `purpose` and `ticket` is the one its
+ * verification handed out, within 30 minutes, without using it up unless `consume`:
+ * a device code stays good while the person gets their PIN right.
+ */
+export async function verifiedPhoneCode(e164: string, purpose: 'device', ticket: unknown, consume: boolean): Promise<boolean> {
+    const ref = db.collection(PHONE_OTPS).doc(phoneHash(e164));
+    return db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const data = snap.data();
+        if (!snap.exists || !data || data['verified'] !== true || data['purpose'] !== purpose) return false;
+        if (!ticketMatches(ticket, data['ticketHash'])) return false;
+        const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
+        if (Date.now() - verifiedAt > VERIFIED_WINDOW_MS) return false;
+        if (consume) tx.delete(ref);
         return true;
     });
 }
