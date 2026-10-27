@@ -16,7 +16,7 @@ import { OmitCommonFields } from '../../../shared/models/base-model';
 import { QueryParams, WhereCondition } from '../../../shared/models';
 import { ToastService } from '../../../shared/services/toast.service';
 import { IAuth } from './auth.model';
-import { isLockedAppAccount } from '../../core/app-accounts/app-account-lock';
+import { isLockedAppAccount, type LockFields } from '../../core/app-accounts/app-account-lock';
 import { AuthService } from './auth.service';
 import { readSignInError, SignInService } from './sign-in.service';
 import { deviceRemembered, markDeviceRemembered } from '../../core/sign-in/device-key';
@@ -523,10 +523,12 @@ export const AuthState = signalStore(
              * Once per device and account, in the background: the device a signed-in
              * person is on counts as proved for PIN sign-in, so turning on "Ask for a code
              * on a new device" asks no code here (specs/sign-in-pin-spec.md). A locked app
-             * account is refused, and not asked again.
+             * account is never asked: the server would refuse it, and a refused request
+             * shows as an error in the browser console (F37). If the lock reaches the
+             * record only later, the server refuses, and this device is not asked again.
              */
-            const rememberDeviceOnce = (uid: string) => {
-                if (deviceRemembered(uid)) return;
+            const rememberDeviceOnce = (uid: string, record: LockFields) => {
+                if (isLockedAppAccount(record) || deviceRemembered(uid)) return;
                 signIn().rememberThisDevice().then(
                     () => markDeviceRemembered(uid),
                     (err) => {
@@ -564,7 +566,7 @@ export const AuthState = signalStore(
                     const isAdmin = data.role === constant.fixedRoles[0].userType || false;
                     const currentUser = { ...data, isAdmin } as IAuth;
                     await claimsOnce(user, data.id, data.role, isAdmin);
-                    rememberDeviceOnce(user.uid);
+                    rememberDeviceOnce(user.uid, data);
                     // A later answer may have landed while the claims were checked.
                     if (shared.value.seq !== seq || n < applied) return;
                     applied = n;

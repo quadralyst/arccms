@@ -117,6 +117,24 @@ describe('AuthState shared record (recordReady)', () => {
         expect(await auth.recordReady()).toMatchObject({ name: 'Anna B' });
     });
 
+    it('never asks to remember the device of a locked app account, so no request fails (F37)', async () => {
+        const auth = store();
+        listener.fire(user);
+        read.next({ data: { ...record, by: 'app' }, fromCache: false });
+        expect(await auth.recordReady()).toMatchObject({ id: 'doc-1' });
+        await vi.waitFor(() => expect(signIn.ensureRecordClaim).toHaveBeenCalledTimes(1));
+        expect(signIn.rememberThisDevice).not.toHaveBeenCalled();
+        expect(localStorage.getItem('arc-device-remembered:uid-1')).toBeNull();
+    });
+
+    it('still remembers the device of an app account its app lets change itself', async () => {
+        const auth = store();
+        listener.fire(user);
+        read.next({ data: { ...record, by: 'app', selfService: true }, fromCache: false });
+        await auth.recordReady();
+        await vi.waitFor(() => expect(signIn.rememberThisDevice).toHaveBeenCalledTimes(1));
+    });
+
     it('waits for the server on a first sign-in on this device (nothing cached)', async () => {
         const auth = store();
         listener.fire(user);
