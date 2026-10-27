@@ -68,12 +68,16 @@ export const SIGN_IN_FUNCTIONS = {
     email: ['checkEmailAccount', 'requestSignupOtp', 'verifySignupOtp', 'createAccountRecord'],
     /** With email PIN sign-in on (Settings, User Settings). */
     emailPin: ['completeEmailSignup', 'signInWithEmailPin', 'requestEmailPinCode', 'resetEmailPin'],
-    phone: ['checkPhoneAccount', 'requestPhoneOtp', 'verifyPhoneOtp', 'completePhoneSignup', 'signInWithPin'],
+    phone: ['checkPhoneAccount', 'requestPhoneOtp', 'verifyPhoneOtp', 'completePhoneSignup', 'signInWithPin', 'resetPin'],
     google: ['ensureGoogleAccount'],
 } as const;
 
-/** A function stays started for several minutes after a call, so waking it more often is wasted. */
-const WARM_UP_EVERY_MS = 5 * 60 * 1000;
+/**
+ * A function stays started for about 15 minutes after a call (not guaranteed), so
+ * waking one more often than this is wasted; a page left open longer wakes it again
+ * at its next step.
+ */
+export const WARM_UP_EVERY_MS = 5 * 60 * 1000;
 
 /** A callable's error, as the page shows it. */
 export interface SignInError {
@@ -162,7 +166,8 @@ export class SignInService {
      */
     private readonly tickets = new Map<string, string>();
 
-    private lastWarmUp = 0;
+    /** When each function was last woken, by name. */
+    private readonly warmedAt = new Map<string, number>();
 
     /**
      * Start the functions this page's sign-in methods use, without waiting:
@@ -171,16 +176,25 @@ export class SignInService {
      * server, and a failed one changes nothing.
      */
     warmUp(methods: { phone: boolean; google: boolean; emailPin?: boolean }): void {
-        const now = Date.now();
-        if (now - this.lastWarmUp < WARM_UP_EVERY_MS) return;
-        this.lastWarmUp = now;
-        const names: string[] = [
+        this.warm([
             ...SIGN_IN_FUNCTIONS.email,
             ...(methods.emailPin ? SIGN_IN_FUNCTIONS.emailPin : []),
             ...(methods.phone ? SIGN_IN_FUNCTIONS.phone : []),
             ...(methods.google ? SIGN_IN_FUNCTIONS.google : []),
-        ];
-        for (const name of names) {
+        ]);
+    }
+
+    /**
+     * Wake these functions (`custom-<name>` for the app's own), each at most once every
+     * WARM_UP_EVERY_MS, and only online: a warm-up offline is not counted, so the next
+     * one goes. Never waits, never throws.
+     */
+    warm(names: readonly string[]): void {
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+        const now = Date.now();
+        for (const name of new Set(names)) {
+            if (now - (this.warmedAt.get(name) ?? -Infinity) < WARM_UP_EVERY_MS) continue;
+            this.warmedAt.set(name, now);
             this.call(name, { warmUp: true }).catch(() => undefined);
         }
     }

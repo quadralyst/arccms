@@ -12,8 +12,10 @@ import { readNewPin } from './phoneAuth.js';
 import { readDeviceKey, rememberDevice } from './devices.js';
 import { dropPasswordForPin } from './emailPinRules.js';
 import { refuse } from './refusal.js';
+import { isWarmUp, WARM } from './warmUp.js';
 
 export const setPin = onCall(async (request) => {
+    if (isWarmUp(request)) return WARM;
     const record = await requireOwnRecord(request);
     if (!record.data['phone'] && !record.data['email']) throw refuse('failed-precondition', 'add-phone-first', 'Add a phone number or an email first.');
     const uid = String(record.data['uid']);

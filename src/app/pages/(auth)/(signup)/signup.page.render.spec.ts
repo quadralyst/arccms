@@ -40,6 +40,9 @@ import { SiteStylesService } from '../../../core/site/site-styles';
 import { translocoTestingModule } from '../../../../test/transloco-test-providers';
 import { english } from '../../../../test/english';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
+import { WaitLineComponent } from '../../../../shared/components/wait-line/wait-line.component';
+import { SLOW_AFTER_MS, STALLED_AFTER_MS } from '../../../../shared/utils/wait-stage';
+import { CUSTOM_SIGN_IN_PAGE } from '../../../../custom/sign-in-page';
 
 const OPEN: IUserSettings = { isSignupEnabled: true, defaultRole: 'user', phoneSignIn: true, phoneCountries: ['IN'], phoneCountry: 'IN' };
 
@@ -89,6 +92,7 @@ beforeEach(async () => {
     currentUser = signal<unknown>(null);
     signIn = {
         warmUp: vi.fn(),
+        warm: vi.fn(),
         checkEmail: vi.fn().mockResolvedValue({ status: 'new' }),
         checkPhone: vi.fn().mockResolvedValue({ phone: '+919876543210', exists: false, hasPin: false, signupOpen: true }),
         requestSignupCode: vi.fn().mockResolvedValue({}),
@@ -117,9 +121,9 @@ beforeEach(async () => {
         ],
     });
     // The page's own children (language picker, brand panel, country chip) are not
-    // under test here; the code boxes are real, since a later step needs their bindings.
+    // under test here; the code boxes and the waiting line are real, since steps need their bindings.
     TestBed.overrideComponent(SignupComponent, {
-        set: { imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, CodeInputComponent], schemas: [CUSTOM_ELEMENTS_SCHEMA] },
+        set: { imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, CodeInputComponent, WaitLineComponent], schemas: [CUSTOM_ELEMENTS_SCHEMA] },
     });
     await TestBed.compileComponents();
     navigateByUrl = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true) as never;
@@ -682,7 +686,160 @@ describe('SignupComponent: a wrong PIN (F29)', () => {
         // The boxes, the link, then the error: siblings, in that order, nothing between.
         expect([...field.children].map((el) => el.tagName.toLowerCase() === 'arc-code-input' ? 'boxes' : el.classList.contains('pin-toggle') ? 'link' : 'error'))
             .toEqual(['boxes', 'link', 'error']);
+        // The line that says the PIN is being checked comes just after, empty now (F33).
+        expect(field.nextElementSibling!.tagName.toLowerCase()).toBe('arc-wait-line');
+        expect(field.nextElementSibling!.textContent!.trim()).toBe('');
         expect(toggle.nextElementSibling).toBe(error);
         expect(toggle.disabled).toBe(false);
+    });
+});
+
+describe('SignupComponent: saying it is working (F33)', () => {
+    const waitLine = () => (fixture.nativeElement.querySelector('.pin-field + arc-wait-line') as HTMLElement).textContent!.trim();
+    const boxesDisabled = () => [...fixture.nativeElement.querySelectorAll('.pin-field .code-box')].every((box) => (box as HTMLInputElement).disabled);
+
+    async function onPinStep(): Promise<ReturnType<typeof later<void>>> {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        page.channel.set('phone');
+        page.currentStep.set('pin');
+        fixture.detectChanges();
+        const answer = later<void>();
+        signIn['signInWithPin'] = vi.fn(() => answer.promise);
+        return answer;
+    }
+
+    it('says "Checking…" after the last PIN digit, then "Still checking…", then that no answer has come, the boxes still till the answer', async () => {
+        const answer = await onPinStep();
+        vi.useFakeTimers();
+        void page.signInWithPin('123456');
+        fixture.detectChanges();
+        expect(waitLine()).toBe(english('member.wait.checking'));
+        expect(boxesDisabled()).toBe(true);
+
+        vi.advanceTimersByTime(SLOW_AFTER_MS);
+        fixture.detectChanges();
+        expect(waitLine()).toBe(english('member.wait.still_checking'));
+
+        vi.advanceTimersByTime(STALLED_AFTER_MS - SLOW_AFTER_MS);
+        fixture.detectChanges();
+        expect(waitLine()).toBe(english('member.wait.no_answer'));
+        expect(boxesDisabled()).toBe(true);
+
+        // A wrong PIN at last: the line goes, the error says why, the boxes work again.
+        answer.reject({ code: 'functions/permission-denied', message: 'Wrong PIN. 3 left.', details: { reason: 'wrong-pin', left: 3 } });
+        await vi.runAllTimersAsync();
+        fixture.detectChanges();
+        expect(waitLine()).toBe('');
+        expect(page.errorMessage()).toBe('Wrong PIN. 3 left.');
+        expect(boxesDisabled()).toBe(false);
+    });
+
+    it('says "Opening…" once the PIN went through, while the next page loads', async () => {
+        const answer = await onPinStep();
+        void page.signInWithPin('123456');
+        answer.resolve();
+        await flush();
+        fixture.detectChanges();
+        expect(waitLine()).toBe(english('member.auth.opening'));
+    });
+
+    it('says nothing while Google\'s own window is open', async () => {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        const popup = later<void>();
+        signIn['signInWithGoogle'] = vi.fn(() => popup.promise);
+        void page.continueWithGoogle();
+        fixture.detectChanges();
+        expect(page.working()).toBe(true);
+        expect(page.checking()).toBe(false);
+    });
+
+    it('wakes the functions a step calls as it opens, in case the page was open longer than they stay started', async () => {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        page.channel.set('phone');
+        page.goToStep('pin');
+        expect(signIn['warm']).toHaveBeenLastCalledWith(['signInWithPin', 'requestPhoneOtp']);
+        page.channel.set('email');
+        page.goToStep('pin');
+        expect(signIn['warm']).toHaveBeenLastCalledWith(['signInWithEmailPin', 'requestEmailPinCode']);
+        page.goToStep('newPassword');
+        expect(signIn['warm']).toHaveBeenLastCalledWith(['resetPassword']);
+    });
+});
+
+describe('SignupComponent: the app\'s hooks (src/custom/sign-in-page.ts, F33)', () => {
+    afterEach(() => {
+        delete CUSTOM_SIGN_IN_PAGE.opened;
+        delete CUSTOM_SIGN_IN_PAGE.signingUp;
+    });
+
+    it('tells the app once the form shows to someone not signed in, and its warm wakes the app\'s own functions', async () => {
+        const opened = vi.fn(({ warm }) => warm(['openShop']));
+        CUSTOM_SIGN_IN_PAGE.opened = opened;
+        render();
+        authReady.resolve();
+        record.resolve(null);
+        await flush();
+        expect(opened).toHaveBeenCalledTimes(1);
+        expect(signIn['warm']).toHaveBeenCalledWith(['custom-openShop']);
+    });
+
+    it('does not tell the app the page opened when the person is signed in and forwarded', async () => {
+        const opened = vi.fn();
+        CUSTOM_SIGN_IN_PAGE.opened = opened;
+        auth.currentUser = { uid: 'u1' };
+        currentUser.set({ id: 'u1', role: 'user' });
+        render();
+        authReady.resolve();
+        record.resolve({ id: 'u1', role: 'user' });
+        await flush();
+        expect(opened).not.toHaveBeenCalled();
+    });
+
+    it('tells the app once when a new account is under way, with its channel', async () => {
+        const signingUp = vi.fn(({ warm }) => warm(['createWorkspace']));
+        CUSTOM_SIGN_IN_PAGE.signingUp = signingUp;
+        settingsRead.resolve(OPEN);
+        render();
+        typed('new@person.com');
+        page.handleSubmit();
+        await flush();
+        expect(page.currentStep()).toBe('verify');
+        page.goToStep('signup');
+        expect(signingUp).toHaveBeenCalledTimes(1);
+        expect(signingUp.mock.calls[0][0].channel).toBe('email');
+        expect(signIn['warm']).toHaveBeenCalledWith(['custom-createWorkspace']);
+    });
+
+    it('does not tell the app a sign-up is under way for a code that signs a known account in', async () => {
+        const signingUp = vi.fn();
+        CUSTOM_SIGN_IN_PAGE.signingUp = signingUp;
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        page.channel.set('phone');
+        page.phonePurpose.set('device');
+        page.goToStep('verify');
+        page.goToStep('pin');
+        expect(signingUp).not.toHaveBeenCalled();
+    });
+
+    it('keeps the page working when the app\'s hook throws', async () => {
+        const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        CUSTOM_SIGN_IN_PAGE.signingUp = () => { throw new Error('app bug'); };
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        page.channel.set('phone');
+        page.phonePurpose.set('signup');
+        expect(() => page.goToStep('verify')).not.toThrow();
+        expect(page.currentStep()).toBe('verify');
+        expect(error).toHaveBeenCalled();
+        error.mockRestore();
     });
 });

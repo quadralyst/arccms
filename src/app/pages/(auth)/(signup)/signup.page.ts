@@ -57,6 +57,7 @@ import {
 import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../../../shared/data/countries';
 import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
 import { PhoneCountryComponent } from '../../../../shared/components/phone-country/phone-country.component';
+import { WaitLineComponent } from '../../../../shared/components/wait-line/wait-line.component';
 import { readSignInError, SignInService, type CheckedCode, type CodeReply, type EmailAccount } from '../sign-in.service';
 import { RESEND_SECONDS, SentCodes, sentCodeKey } from '../sent-codes';
 import { trackKeyboard } from '../../../core/layout/keyboard-viewport';
@@ -69,6 +70,8 @@ import { SiteBrandService } from '../../../core/brand/site-brand';
 import { SIGN_IN_IMAGE } from '../../../core/brand/app-brand-files';
 import { MemberLanguagePickerComponent } from '../../../../shared/components/member-language-picker/member-language-picker.component';
 import { readSignedIn } from '../../../core/site/signed-in-hint';
+import { runPageHook, type SignInPageMoment } from '../../../core/sign-in/page-hooks';
+import { CUSTOM_SIGN_IN_PAGE } from '../../../../custom/sign-in-page';
 
 export const routeMeta: RouteMeta = {
   title: 'Sign in',
@@ -107,7 +110,7 @@ export function instanceLabelFor(devServer: boolean, production: boolean, projec
 @Component({
   selector: 'arc-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, LegalNoticeComponent, CodeInputComponent, SignInPanelComponent, MemberLanguagePickerComponent, PhoneCountryComponent],
+  imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, LegalNoticeComponent, CodeInputComponent, SignInPanelComponent, MemberLanguagePickerComponent, PhoneCountryComponent, WaitLineComponent],
   templateUrl: './signup.page.html',
   styleUrls: ['./signup.page.scss'],
 })
@@ -183,6 +186,16 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   readonly continueHeld = signal(false);
   /** Continue and the box are busy: a step is running, or a tap waits for the settings. */
   readonly busy = computed(() => this.working() || this.continueHeld());
+  /** Google's own window is open: the person is busy there, not the server. */
+  private readonly inGoogle = signal(false);
+  /**
+   * The page waits on the server: the line under the step's button or boxes says
+   * "Checking…" at once, "Still checking…" after 4 s and "No answer yet" after 12 s
+   * (docs/app/sign-in.html#waiting).
+   */
+  readonly checking = computed(() => this.busy() && !this.inGoogle());
+  /** Once a sign-in went through, the wait is for the next page: "Opening…". */
+  readonly waitWords = computed(() => (this.leaving() ? 'member.auth.opening' : ''));
   /** The read under way; true once the settings are in, false when they could not be read. */
   private settingsLoad: Promise<boolean> | null = null;
 
@@ -382,7 +395,50 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private stopOpening(): void {
     this.openingSettled = true;
     clearTimeout(this.openingTimer);
-    if (!this.navigationInProgress) this.opening.set(false);
+    if (this.navigationInProgress) return;
+    this.opening.set(false);
+    if (!this.toldOpened) {
+      this.toldOpened = true;
+      runPageHook(CUSTOM_SIGN_IN_PAGE.opened, this.pageMoment());
+    }
+  }
+
+  /** The app's hooks were told the page opened, or that a sign-up is under way (src/custom/sign-in-page.ts). */
+  private toldOpened = false;
+  private toldSigningUp = false;
+
+  /** What the app's hooks are given: a way to start its own functions, and the channel once known. */
+  private pageMoment(): SignInPageMoment {
+    const channel = this.currentStep() === 'request' ? undefined : this.channel();
+    return {
+      warm: (names) => this.signIn.warm(names.map((name) => `custom-${name}`)),
+      ...(channel ? { channel } : {}),
+    };
+  }
+
+  /**
+   * The functions a step calls, woken as it opens: the page may have been open longer
+   * than they stay started since it woke them (SignInService.warmUp).
+   */
+  private stepFunctions(step: SignupStep): string[] {
+    const phone = this.channel() === 'phone';
+    switch (step) {
+      case 'pin': return phone ? ['signInWithPin', 'requestPhoneOtp'] : ['signInWithEmailPin', 'requestEmailPinCode'];
+      case 'verify': return phone ? ['verifyPhoneOtp', 'requestPhoneOtp'] : ['verifySignupOtp'];
+      case 'signup': return phone ? ['completePhoneSignup'] : this.emailPin() ? ['completeEmailSignup'] : ['createAccountRecord'];
+      case 'newPin': return phone ? ['resetPin'] : ['resetEmailPin'];
+      case 'newPassword': return ['resetPassword'];
+      case 'login': return this.offerPin() ? ['requestPasswordReset', 'setPin'] : ['requestPasswordReset'];
+      case 'choosePin': return ['setPin'];
+      default: return [];
+    }
+  }
+
+  /** A new account's code screen, or its details: a sign-up is under way. */
+  private signingUp(step: SignupStep): boolean {
+    if (step === 'signup') return true;
+    if (step !== 'verify') return false;
+    return this.channel() === 'phone' ? this.phonePurpose() === 'signup' : this.emailPurpose() === 'signup';
   }
 
   /**
@@ -597,6 +653,13 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.otpError.set('');
     this.newPin.set('');
     this.updateValidators(step);
+    if (isPlatformBrowser(this.platformId)) {
+      this.signIn.warm(this.stepFunctions(step));
+      if (!this.toldSigningUp && this.signingUp(step)) {
+        this.toldSigningUp = true;
+        runPageHook(CUSTOM_SIGN_IN_PAGE.signingUp, this.pageMoment());
+      }
+    }
     // The details step opens on its first field, the name; code and PIN boxes take
     // the cursor themselves (specs/sign-in-strength-spec.md, SS-D12).
     if (step === 'signup') afterNextRender(() => this.nameBox()?.nativeElement.focus(), { injector: this.injector });
@@ -1269,6 +1332,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     if (this.working()) return;
     this.isLoading.set(true);
     this.errorMessage.set('');
+    this.inGoogle.set(true);
     try {
       await this.signIn.signInWithGoogle();
       this.authActionPending = true;
@@ -1279,6 +1343,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.authActionPending = false;
       await this.handleGoogleError(err);
     } finally {
+      this.inGoogle.set(false);
       this.isLoading.set(false);
     }
   }

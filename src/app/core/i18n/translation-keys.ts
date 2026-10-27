@@ -1977,6 +1977,9 @@ export type TranslationKey =
     | 'member.unauthorized.go_home'
     | 'member.unauthorized.heading'
     | 'member.unauthorized.sign_in'
+    | 'member.wait.checking'
+    | 'member.wait.no_answer'
+    | 'member.wait.still_checking'
     | 'user.account.access_restricted'
     | 'user.account.active'
     | 'user.account.available_credits'
@@ -4062,6 +4065,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.unauthorized.go_home',
     'member.unauthorized.heading',
     'member.unauthorized.sign_in',
+    'member.wait.checking',
+    'member.wait.no_answer',
+    'member.wait.still_checking',
     'user.account.access_restricted',
     'user.account.active',
     'user.account.available_credits',

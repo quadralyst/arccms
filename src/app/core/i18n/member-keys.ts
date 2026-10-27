@@ -46,6 +46,9 @@ export const MEMBER_SCREEN_FILES = [
     // The time zone row on the profile page, and the clock an app can show (docs/app/clock-and-zones.html)
     'src/shared/components/zone-picker/zone-picker.component.ts',
     'src/shared/components/arc-clock/arc-clock.component.ts',
+    // The line that says a page is waiting on the server (sign-in, and an app's own screens)
+    'src/shared/components/wait-line/wait-line.component.ts',
+    'src/shared/utils/wait-stage.ts',
 ] as const;
 
 export function isMemberKey(key: string): boolean {

@@ -102,6 +102,7 @@
                                         <span [hidden]="!busy()" class="spinner-border spinner-border-sm ms-2"
                                             role="status"></span>
                                     </button>
+                                    <arc-wait-line [waiting]="checking()" [words]="waitWords()" />
                                 </div>
 
                                 @if (googleEnabled()) {
@@ -194,6 +195,7 @@
                                     <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
+                                <arc-wait-line [waiting]="checking()" [words]="waitWords()" />
 
                                 <div class="mt-3 text-center">
                                     <a (click)="forgotPassword()" class="forgot-password cursor"
@@ -242,6 +244,8 @@
                                     <div class="alert alert-danger pin-error" role="alert">{{ errorMessage() }}</div>
                                     }
                                 </div>
+                                <!-- Checking the PIN: under Show PIN, where the error comes (docs/app/sign-in.html#waiting) -->
+                                <arc-wait-line [waiting]="checking()" [words]="waitWords()" />
 
                                 <div class="d-flex justify-content-between mt-3">
                                     <a (click)="changeIdentifier()" class="change-email cursor text-decoration-none"
@@ -308,6 +312,7 @@
                                 <p class="small text-muted text-center mt-2">{{ (channel() === 'email' ? 'member.auth.test_code_in_email_logs' : 'member.auth.test_code_in_logs') | transloco }}</p>
                                 }
 
+                                <arc-wait-line [waiting]="checking()" [words]="waitWords()" />
                                 @if (otpNotice()) {
                                 <p class="small text-muted text-center mt-2 otp-notice">{{ otpNotice() }}</p>
                                 }
@@ -460,6 +465,7 @@
                                     <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
+                                <arc-wait-line [waiting]="checking()" [words]="waitWords()" />
                                 <arc-legal-notice></arc-legal-notice>
                             </div>
                         </div>
@@ -504,6 +510,7 @@
                                     <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
+                                <arc-wait-line [waiting]="checking()" [words]="waitWords()" />
                             </div>
                         </div>
                     </div>
@@ -547,6 +554,7 @@
                                     <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
+                                <arc-wait-line [waiting]="checking()" [words]="waitWords()" />
                                 @if (pinSkipAllowed()) {
                                 <div class="mt-3 text-center">
                                     <a (click)="skipChoosingPin()" class="forgot-password cursor" style="cursor: pointer;">{{ 'member.auth.not_now' | transloco }}</a>
@@ -606,6 +614,7 @@
                                     <span [hidden]="!working()" class="spinner-border spinner-border-sm ms-2"
                                         role="status"></span>
                                 </button>
+                                <arc-wait-line [waiting]="checking()" [words]="waitWords()" />
                             </div>
                         </div>
                     </div>

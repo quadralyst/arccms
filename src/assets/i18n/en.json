@@ -2160,6 +2160,11 @@
       "not_now": "Not now",
       "save_pin_continue": "Save PIN and continue"
     },
+    "wait": {
+      "checking": "Checking…",
+      "still_checking": "Still checking…",
+      "no_answer": "No answer yet. Check your connection."
+    },
     "errors": {
       "generic": "Something went wrong. Please try again.",
       "sign_in_again": "Please sign in again.",

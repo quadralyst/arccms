@@ -127,7 +127,14 @@ export const onLessonDone = onDocumentCreated(
     <ul>
       <li>Import a large library inside the function that uses it: <code>const { google } = await import('googleapis');</code>. A test fails if <code>googleapis</code> or <code>cheerio</code> is imported at the top of a file; types can still be imported with <code>import type</code>.</li>
       <li>To parse HTML, use <code>loadHtml()</code> from <code>functions/src/shared/lazy-cheerio.ts</code> in place of <code>cheerio.load()</code>. It loads cheerio the first time it is called.</li>
-      <li>For a callable a page is about to use, the page can start it early with a call that does nothing: <code>isWarmUp()</code> and <code>WARM</code> in <code>functions/src/auth/warmUp.ts</code>, as the sign-in page does (<a href="../features/sign-in.html">Sign-in</a>).</li>
+      <li>For a callable a page is about to use, the page can start it early with a call that does nothing, as the sign-in page does. Answer it first thing, with <code>isWarmUp()</code> and <code>WARM</code> from the app kit:
+        <pre><code>import { isWarmUp, WARM } from '../app-kit/index.js';
+
+export const createWorkspace = onCall(async (request) =&gt; {
+    if (isWarmUp(request)) return WARM;
+    // ... the checks and the work
+});</code></pre>
+        From the sign-in page, wake it with a hook in <code>src/custom/sign-in-page.ts</code> (see <a href="sign-in.html#page-hooks">Start your own functions from the sign-in page</a>); from your own pages, call <code>warm(['custom-createWorkspace'])</code> on <code>SignInService</code> (<code>src/app/pages/(auth)/sign-in.service.ts</code>) as the screen that needs it opens.</li>
     </ul>
     <p>Do not give a function a <code>region</code> of its own: every function runs in the install's region, next to its database (<code>functions/src/region.ts</code>, see <a href="../operations/deploy.html#regions">Regions</a>), and a test fails on a function that sets one.</p>
     <p>Keeping a function always running (<code>minInstances</code>) removes cold starts, but is billed all the time, for each function; Arc CMS does not do it.</p>

@@ -11,6 +11,7 @@ import { isWarmUp, WARM } from '../auth/warmUp.js';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SIGN_IN_SERVICE = resolve(SRC, '../../src/app/pages/(auth)/sign-in.service.ts');
+const SIGN_IN_PAGE = resolve(SRC, '../../src/app/pages/(auth)/(signup)/signup.page.ts');
 
 /** The names in SIGN_IN_FUNCTIONS, read from the page's service. */
 function warmedNames(): string[] {
@@ -18,6 +19,16 @@ function warmedNames(): string[] {
     const block = source.match(/export const SIGN_IN_FUNCTIONS = \{([\s\S]*?)\} as const;/);
     expect(block, 'SIGN_IN_FUNCTIONS in sign-in.service.ts').toBeTruthy();
     return [...block![1].matchAll(/'(\w+)'/g)].map((m) => m[1]);
+}
+
+/** The names the page wakes as each step opens (stepFunctions in signup.page.ts, F33). */
+function stepNames(): string[] {
+    const source = readFileSync(SIGN_IN_PAGE, 'utf-8');
+    const block = source.match(/private stepFunctions\(step: SignupStep\): string\[\] \{([\s\S]*?)\n  \}/);
+    expect(block, 'stepFunctions in signup.page.ts').toBeTruthy();
+    // The names in the arrays each case returns, not the steps they are for.
+    const returned = [...block![1].matchAll(/return ([^;]*);/g)].map((m) => m[1]).join(' ');
+    return [...new Set([...returned.matchAll(/'(\w+)'/g)].map((m) => m[1]))];
 }
 
 function authSources(): string {
@@ -37,7 +48,8 @@ describe('warm-up calls', () => {
     });
 
     it('every function the sign-in page warms answers a warm-up call first', () => {
-        const names = warmedNames();
+        const names = [...new Set([...warmedNames(), ...stepNames()])];
+        expect(stepNames()).toEqual(expect.arrayContaining(['signInWithPin', 'resetPin', 'resetPassword', 'setPin']));
         expect(names.length).toBeGreaterThanOrEqual(10);
         const sources = authSources();
         const missing = names.filter((name) => !new RegExp(

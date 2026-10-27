@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@angular/fire/functions', () => ({ Functions: class {}, httpsCallable: vi.fn() }));
 
-import { readSignInError, translateRefusal, SIGN_IN_FUNCTIONS, SignInService } from './sign-in.service';
+import { readSignInError, translateRefusal, SIGN_IN_FUNCTIONS, SignInService, WARM_UP_EVERY_MS } from './sign-in.service';
 import { deviceKey } from '../../core/sign-in/device-key';
 import { english } from '../../../test/english';
 
@@ -161,33 +161,74 @@ describe('SignInService code tickets (review F)', () => {
 
 describe('SignInService.warmUp', () => {
     const warmUp = SignInService.prototype.warmUp;
+    const warm = SignInService.prototype.warm;
 
-    function ctx() {
-        return { lastWarmUp: 0, call: vi.fn(async () => ({ warm: true })) };
+    function ctx(call = vi.fn(async (..._args: unknown[]) => ({ warm: true }))) {
+        return { warmedAt: new Map<string, number>(), call, warm };
     }
+    const names = (c: ReturnType<typeof ctx>) => c.call.mock.calls.map(([name]) => name);
+
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+    });
 
     it('wakes the email functions with a warm-up call, and phone and Google only when they are on', () => {
         const c = ctx();
         warmUp.call(c as never, { phone: false, google: false });
-        expect(c.call.mock.calls.map(([name]) => name)).toEqual([...SIGN_IN_FUNCTIONS.email]);
+        expect(names(c)).toEqual([...SIGN_IN_FUNCTIONS.email]);
         for (const [, data] of c.call.mock.calls as unknown as [string, unknown][]) expect(data).toEqual({ warmUp: true });
 
         const all = ctx();
         warmUp.call(all as never, { phone: true, google: true });
-        expect(all.call.mock.calls.map(([name]) => name)).toEqual([
+        expect(names(all)).toEqual([
             ...SIGN_IN_FUNCTIONS.email, ...SIGN_IN_FUNCTIONS.phone, ...SIGN_IN_FUNCTIONS.google,
         ]);
     });
 
-    it('does not wake them again within a few minutes', () => {
+    it('wakes the PIN functions when email PIN sign-in is on, Forgot PIN included', () => {
+        const c = ctx();
+        warmUp.call(c as never, { phone: true, google: false, emailPin: true });
+        expect(names(c)).toEqual(expect.arrayContaining(['signInWithEmailPin', 'requestEmailPinCode', 'resetEmailPin', 'signInWithPin', 'resetPin']));
+    });
+
+    it('does not wake a function again within a few minutes, but wakes one it has not woken yet', () => {
         const c = ctx();
         warmUp.call(c as never, { phone: false, google: false });
-        warmUp.call(c as never, { phone: true, google: true });
-        expect(c.call).toHaveBeenCalledTimes(SIGN_IN_FUNCTIONS.email.length);
+        warmUp.call(c as never, { phone: true, google: false });
+        expect(names(c)).toEqual([...SIGN_IN_FUNCTIONS.email, ...SIGN_IN_FUNCTIONS.phone]);
+    });
+
+    it('wakes a function again once WARM_UP_EVERY_MS has gone by (a page left open)', () => {
+        vi.useFakeTimers();
+        const c = ctx();
+        warm.call(c as never, ['signInWithPin']);
+        vi.advanceTimersByTime(WARM_UP_EVERY_MS - 1);
+        warm.call(c as never, ['signInWithPin']);
+        expect(c.call).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(1);
+        warm.call(c as never, ['signInWithPin']);
+        expect(c.call).toHaveBeenCalledTimes(2);
+    });
+
+    it('sends nothing offline, and does not count it, so the next try online goes', () => {
+        vi.stubGlobal('navigator', { onLine: false });
+        const c = ctx();
+        warm.call(c as never, ['signInWithPin']);
+        expect(c.call).not.toHaveBeenCalled();
+        vi.stubGlobal('navigator', { onLine: true });
+        warm.call(c as never, ['signInWithPin']);
+        expect(c.call).toHaveBeenCalledTimes(1);
+    });
+
+    it('wakes each name once, even when it is asked for twice', () => {
+        const c = ctx();
+        warm.call(c as never, ['custom-a', 'custom-a', 'custom-b']);
+        expect(names(c)).toEqual(['custom-a', 'custom-b']);
     });
 
     it('ignores a failed warm-up call', async () => {
-        const c = { lastWarmUp: 0, call: vi.fn(async () => { throw new Error('offline'); }) };
+        const c = ctx(vi.fn(async () => { throw new Error('offline'); }));
         expect(() => warmUp.call(c as never, { phone: false, google: false })).not.toThrow();
         await Promise.resolve();
     });

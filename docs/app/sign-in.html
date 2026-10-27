@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Set up sign-in | Arc CMS docs</title>
   <meta name="description" content="Choose your app's sign-in methods, send people back to the page that asked them to sign in, set each role's home page, and sign in from another app.">
-  <meta name="docs:sources" content="src/custom/home.ts, src/app/core/home/home.ts, src/app/pages/user/user.guards.ts, src/app/pages/(auth)/sign-in.service.ts, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/admin/(settings)/user-setting, src/app/core/config/arc-functions.ts, functions/src/auth, functions/src/users/accountCallables.ts, src/custom/sign-in.ts, src/app/core/sign-in, src/shared/utils/sign-in-strength.ts, functions/src/shared/sign-in-strength.ts, functions/src/sign-in-choice.ts">
+  <meta name="docs:sources" content="src/custom/home.ts, src/app/core/home/home.ts, src/app/pages/user/user.guards.ts, src/app/pages/(auth)/sign-in.service.ts, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/admin/(settings)/user-setting, src/app/core/config/arc-functions.ts, functions/src/auth, functions/src/users/accountCallables.ts, src/custom/sign-in.ts, src/app/core/sign-in, src/shared/utils/sign-in-strength.ts, functions/src/shared/sign-in-strength.ts, functions/src/sign-in-choice.ts, src/custom/sign-in-page.ts, src/shared/components/wait-line, src/shared/utils/wait-stage.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/sign-in.html">
@@ -69,6 +69,27 @@ export const CUSTOM_SIGN_IN: SignInChoice = {
 };</code></pre>
     <p>Like the strength, it is read at build time by the website and the functions (<code>functions/src/sign-in.gen.ts</code>), and a value that is not one stops the build with what to write. After changing it, deploy the website and the sign-in functions. How each works in detail, and what the page shows for each kind of account, is in <a href="../features/sign-in.html#email-pin">Email with a PIN</a> and <a href="../features/sign-in.html#new-device-code">A code on a new device</a>. For actions a PIN is not enough for, see <a href="fresh-code.html">Ask for a fresh code</a>.</p>
     <div class="trap"><p>Updating Arc CMS changes nothing until one of these is chosen. When it is, nobody is locked out: the page asks each account for what it has, and devices people already sign in on are remembered, so they get no code there.</p></div>
+
+    <h2 id="waiting">While the page waits on the server</h2>
+    <p>Each step of a sign-in asks a Cloud Function, which answers in under a second when it is running and in a few seconds when it has to start first. So that nobody takes the page for frozen and types again, the line under the step's button or code boxes says <strong>Checking…</strong> with a spinner as soon as the step is sent, <strong>Still checking…</strong> after 4 seconds, and after 12 seconds that no answer has come yet and to check the connection. The boxes and buttons stay still until the answer. Once a sign-in went through, the line says <strong>Opening…</strong> while the next page loads. The words are <code>member.wait.*</code>, in every language the app declares (see <a href="member-languages.html">Member languages</a>).</p>
+    <p>Your own screens can say the same with the line the page uses, <code>&lt;arc-wait-line&gt;</code> (<code>src/shared/components/wait-line/wait-line.component.ts</code>), given whether the screen waits:</p>
+    <pre><code>&lt;button (click)="save()" [disabled]="saving()"&gt;Save&lt;/button&gt;
+&lt;arc-wait-line [waiting]="saving()" /&gt;</code></pre>
+    <p>For your own words or layout, <code>waitStage(() =&gt; this.saving())</code> in <code>src/shared/utils/wait-stage.ts</code> gives the stage as a signal: <code>working</code>, <code>slow</code>, <code>stalled</code> or <code>idle</code>.</p>
+    <p>The page also starts the functions it will call while the person is still typing, so most steps never wait for a function to start: see <a href="../features/sign-in.html#keeping-it-quick">Keeping it quick</a>.</p>
+
+    <h2 id="page-hooks">Start your own functions from the sign-in page</h2>
+    <p>Right after signing up or in, your app may call functions of its own, such as one that makes the person's workspace. Each takes a few seconds to start on its first call. Start them while the person is still on the sign-in page, in <code>src/custom/sign-in-page.ts</code>:</p>
+    <pre><code>// src/custom/sign-in-page.ts
+import type { SignInPageHooks } from '../app/core/sign-in/page-hooks';
+
+export const CUSTOM_SIGN_IN_PAGE: SignInPageHooks = {
+    // The form has opened for someone who is not signed in.
+    opened: ({ warm }) =&gt; warm(['loadWorkspace']),
+    // A new account is under way: its code was sent, or its details are being asked.
+    signingUp: ({ warm }) =&gt; warm(['createWorkspace']),
+};</code></pre>
+    <p>Each hook is called once per visit to the page. <code>warm</code> takes the names your functions are exported with in <code>functions/src/custom/index.ts</code>: it calls each <code>custom-</code> function with <code>{ warmUp: true }</code>, at most once every 5 minutes and only online, and never waits or fails. Each of those functions answers such a call first thing with <code>isWarmUp()</code> and <code>WARM</code> from the app kit (see <a href="functions.html#cold-starts">Keep cold starts short</a>). <code>channel</code> says <code>'email'</code> or <code>'phone'</code> once the page knows. A hook must return at once; one that throws is logged and the page goes on.</p>
 
     <h2>In your members' language</h2>
     <p>The sign-in page, with its codes, PINs and error messages, follows the member language: the one chosen on this device, else the browser's when the app declares it. When the app declares member languages, a picker at the top right lets people choose, and the brand panel follows it too (see <a href="member-languages.html#sign-in-page">The sign-in page</a>). The code emails follow it once you word them in your languages (see <a href="app-email.html#account-emails">Arc CMS's account emails in your languages</a>); until then they are in English. See <a href="member-languages.html">Member languages</a> for adding one, and for what stays in English.</p>

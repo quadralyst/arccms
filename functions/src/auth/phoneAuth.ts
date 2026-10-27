@@ -280,6 +280,7 @@ export const signInWithPin = onCall(async (request) => {
 });
 
 export const resetPin = onCall(async (request) => {
+    if (isWarmUp(request)) return WARM;
     const { phone } = await phoneContext(request);
     const pin = readNewPin(request.data?.pin);
     const account = await findUserByPhone(phone);

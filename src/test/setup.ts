@@ -37,6 +37,7 @@ vi.mock('../custom/notices', (actual) => starter('src/custom/notices.ts', actual
 vi.mock('../custom/pwa', (actual) => starter('src/custom/pwa.ts', actual));
 vi.mock('../custom/routes', (actual) => starter('src/custom/routes.ts', actual));
 vi.mock('../custom/sign-in', (actual) => starter('src/custom/sign-in.ts', actual));
+vi.mock('../custom/sign-in-page', (actual) => starter('src/custom/sign-in-page.ts', actual));
 vi.mock('../custom/user-dashboard', (actual) => starter('src/custom/user-dashboard.ts', actual));
 // The app's brand files (src/custom/logo.*, sign-in-image.*): none in a core spec, like a fresh install.
 vi.mock('../app/core/brand/app-brand-files', async (actual) => {

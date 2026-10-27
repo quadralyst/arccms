@@ -35,6 +35,7 @@ export const CUSTOM_STARTERS = [
     { file: 'src/custom/pwa.ts', exports: { CUSTOM_PWA: {} } },
     { file: 'src/custom/routes.ts', exports: { CUSTOM_ROUTES: [] } },
     { file: 'src/custom/sign-in.ts', exports: { CUSTOM_SIGN_IN: {} } },
+    { file: 'src/custom/sign-in-page.ts', exports: { CUSTOM_SIGN_IN_PAGE: {} } },
     { file: 'src/custom/user-dashboard.ts', exports: { CUSTOM_USER_DASHBOARD: null } },
     { file: 'functions/src/custom/index.ts', exports: {} },
     { file: 'functions/src/custom/search-sources.ts', exports: { SEARCH_COLLECTIONS: [], CUSTOM_SEARCH_SOURCES: [] } },
@@ -71,6 +72,7 @@ export const SHIPPED_FILES = {
     'src/custom/pwa.ts': '0c9032e2aa1b94eb',
     'src/custom/routes.ts': 'bb7388f7df4aae16',
     'src/custom/sign-in.ts': '5f916ed4918bab96',
+    'src/custom/sign-in-page.ts': '99a406ddce02d276',
     'src/custom/styles.css': '049c0e18bde8bd11',
     'src/custom/user-dashboard.ts': '3bc2d0bdeb9f01a4',
 };
