@@ -2145,7 +2145,8 @@
         "pin_sign_in": "This account signs in with a PIN. Use Forgot PIN to choose a new one.",
         "pin_sign_in_off": "Sign in with your password.",
         "session_claims": "These claims can't go on a sign-in.",
-        "fresh_purpose": "That action can't be confirmed with a code."
+        "fresh_purpose": "That action can't be confirmed with a code.",
+        "locked_here": "Too many wrong PINs here. Try again after {{ time }}."
       },
       "step_title_reset_password": "Reset your password",
       "step_title_new_password": "Choose a new password",

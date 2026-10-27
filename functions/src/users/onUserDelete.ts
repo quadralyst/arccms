@@ -10,7 +10,8 @@
  * 2. Remove the hashed email from the `email_lookup` collection (first-run / signup check)
  * 3. Phone sign-in: the number's index entry and the PIN; an app's PINs (`app_pins`) and its
  *    gates' counts of wrong phone PINs (`app_phone_pin_tries`), in every namespace; fresh-code
- *    proofs not yet used (`auth_fresh_proofs`); the devices proved for PIN sign-in (`auth_devices`)
+ *    proofs not yet used (`auth_fresh_proofs`); the devices proved for PIN sign-in (`auth_devices`);
+ *    wrong sign-in PINs at an app's screens (`app_member_pin_tries`)
  * 4. Everything stored under the record: every subcollection of users/{docId}, at any
  *    depth (Firestore keeps subcollections when a document is deleted), and the
  *    per-user Storage folder `{prefix}users/{docId}/` plus the profile photos in
@@ -44,6 +45,8 @@ const APP_PINS = 'app_pins';
 const PHONE_PIN_TRIES = 'app_phone_pin_tries';
 /** Fresh-code proofs not yet used (functions/src/auth/freshCode.ts). */
 const FRESH_PROOFS = 'auth_fresh_proofs';
+/** Wrong sign-in PINs at an app's screens, per rate key (functions/src/app-kit/memberPin.ts). */
+const MEMBER_PIN_TRIES = 'app_member_pin_tries';
 /** The devices a person proved for PIN sign-in (functions/src/auth/devices.ts), id the Auth uid. */
 const AUTH_DEVICES = 'auth_devices';
 
@@ -144,7 +147,7 @@ export const onUserDeleted = onDocumentDeleted(
             tasks.push(step('the devices', () => db.collection(AUTH_DEVICES).doc(uid).delete()));
             // An app's own PINs for this person, and its gates' counts of wrong phone PINs,
             // in every namespace (docs/app/pin.html).
-            for (const [name, collection] of [['app PINs', APP_PINS], ['phone PIN tries', PHONE_PIN_TRIES], ['fresh-code proofs', FRESH_PROOFS]] as const) {
+            for (const [name, collection] of [['app PINs', APP_PINS], ['phone PIN tries', PHONE_PIN_TRIES], ['fresh-code proofs', FRESH_PROOFS], ['member PIN tries', MEMBER_PIN_TRIES]] as const) {
                 tasks.push(step(name, async () => {
                     const snap = await db.collection(collection).where('uid', '==', uid).get();
                     await Promise.all(snap.docs.map((d) => d.ref.delete()));

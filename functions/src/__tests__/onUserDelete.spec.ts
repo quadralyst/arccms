@@ -326,11 +326,12 @@ describe('onUserDelete Cloud Function', () => {
             expect(payload).not.toContain('contactEmail');
         });
 
-        it('deletes the person\'s app PINs, phone PIN gate counts and fresh-code proofs in every namespace, and only theirs (docs/app/pin.html)', async () => {
+        it('deletes the person\'s app PINs, phone PIN gate counts, member PIN tries and fresh-code proofs in every namespace, and only theirs (docs/app/pin.html)', async () => {
             const handler = await getHandler();
             const deleted: string[] = [];
             const held: Record<string, string[]> = {
                 app_pins: ['kiosk__u-9', 'staff__u-9'], app_phone_pin_tries: ['parent__u-9'], auth_fresh_proofs: ['u-9__pos-setup'],
+                app_member_pin_tries: ['u-9__till'],
             };
             mockCollection.mockImplementation(((name: string) => ({
                 doc: mockDoc,
@@ -345,7 +346,9 @@ describe('onUserDelete Cloud Function', () => {
             } finally {
                 mockCollection.mockImplementation(() => ({ doc: mockDoc, where: mockWhere }));
             }
-            expect(deleted.sort()).toEqual(['app_phone_pin_tries/parent__u-9', 'app_pins/kiosk__u-9', 'app_pins/staff__u-9', 'auth_fresh_proofs/u-9__pos-setup']);
+            expect(deleted.sort()).toEqual([
+                'app_member_pin_tries/u-9__till', 'app_phone_pin_tries/parent__u-9', 'app_pins/kiosk__u-9', 'app_pins/staff__u-9', 'auth_fresh_proofs/u-9__pos-setup',
+            ]);
             // The phone sign-in PIN goes too, by its own id.
             expect(mockCollection).toHaveBeenCalledWith('auth_pins');
             // And the devices proved for PIN sign-in, by the same id.

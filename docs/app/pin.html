@@ -153,8 +153,9 @@ export const serveAs = onCall(async (request) =&gt; {
     <table>
       <thead><tr><th>Refusal (<code>details.reason</code>)</th><th>When</th></tr></thead>
       <tbody>
-        <tr><td><code>wrong</code>, with <code>remaining</code></td><td>The PIN is wrong. It counts as a wrong sign-in try.</td></tr>
-        <tr><td><code>locked</code></td><td>Five wrong PINs in a row, here or on the sign-in page. The person sets a new PIN with Forgot PIN on the sign-in page.</td></tr>
+        <tr><td><code>wrong</code>, with <code>remaining</code></td><td>The PIN is wrong. <code>remaining</code> is the tries left on this rate key before the person is locked here.</td></tr>
+        <tr><td><code>locked-here</code>, with <code>retryAfter</code></td><td>Five wrong PINs in a row for this person on this rate key: they are locked here for 5 minutes, then 15, then an hour each time after. They can still sign in everywhere else. Even a right PIN is refused here until the wait is over.</td></tr>
+        <tr><td><code>locked</code></td><td>The account lock: five wrong PINs in a row on the sign-in page, or 20 wrong tries in a day at app screens, on every rate key together. The person sets a new PIN with Forgot PIN on the sign-in page.</td></tr>
         <tr><td><code>no-pin</code></td><td>The person has no sign-in PIN (they sign in with a password, Google, or are an app account).</td></tr>
         <tr><td><code>pin-format</code></td><td>Not 6 digits. Costs no try.</td></tr>
         <tr><td><code>no-account</code>, <code>account-blocked</code></td><td>No person has that uid, or an admin blocked the account.</td></tr>
@@ -162,12 +163,13 @@ export const serveAs = onCall(async (request) =&gt; {
       </tbody>
     </table>
     <ul>
-      <li><strong>One count.</strong> The PIN is the one in <code>auth_pins</code>, with sign-in's own count: a wrong try here is a wrong sign-in try, the fifth wrong one in a row locks the person's PIN sign-in everywhere, and a right one resets the count. Your app cannot raise the limit; it may stop earlier with its own count.</li>
-      <li><strong>The rate key</strong> is what wrong tries are counted against: the caller's address unless you pass a key from <code>hashedKey()</code> or <code>callerKey()</code>. A mistake in the call (bad session claims, a blank key, a PIN that is not 6 digits) costs nobody a try.</li>
+      <li><strong>Tries count, and the lock stays where they were made.</strong> The PIN is the one in <code>auth_pins</code>, so a PIN cannot be guessed here instead of on the sign-in page. But a wrong try here locks the person on this rate key only: someone at the counter who taps the owner's name and types five wrong PINs stops the owner on that device for a few minutes, not on every device. Tries at app screens reach the account lock only at 20 in a day, on every rate key together, so slow guessing over many devices still ends.</li>
+      <li><strong>What resets.</strong> A right PIN resets the count on the rate key it was typed on; a day with no wrong tries there resets it too. The sign-in page's own count is apart: a right PIN here leaves it as it is. A new PIN (Forgot PIN) resets every count and lifts every lock. Your app cannot raise the limits; it may stop earlier with its own count.</li>
+      <li><strong>The rate key</strong> is where wrong tries are counted and a person is locked: the caller's address unless you pass a key from <code>hashedKey()</code> or <code>callerKey()</code>. Pass one per device or screen, so a lock stays on it. A mistake in the call (bad session claims, a blank key, a PIN that is not 6 digits) costs nobody a try. The counts are in <code>app_member_pin_tries</code>, closed to every browser and deleted with the account.</li>
       <li><strong>The device</strong> it is used on counts as proved for that person once they are signed in there, as any device a person signs in on does (see <a href="../features/sign-in.html#new-device-code">A code on a new device</a>).</li>
       <li><strong>Session claims</strong> go on the new sign-in, as <code>issueSignInToken(uid, sessionClaims)</code> puts them (<a href="app-accounts.html#session-claims">Claims for one sign-in</a>). Pass the device's on again, or the person's session on that device has none.</li>
     </ul>
-    <div class="trap"><p>This is a business decision, and its trade-offs are yours: the PIN is typed where others can see it, and anyone watching learns the person's sign-in PIN. With "Ask for a code on a new device" on (<a href="sign-in.html#email-pin">Set up sign-in</a>), that PIN alone does not sign them in anywhere else. And a colleague who taps someone's name and types five wrong PINs locks that person's own sign-in until they use Forgot PIN. Your callable hands a sign-in to whoever types a right PIN, so allow it only where you mean to, such as on devices your app set up.</p></div>
+    <div class="trap"><p>This is a business decision, and its trade-offs are yours: the PIN is typed where others can see it, and anyone watching learns the person's sign-in PIN. With "Ask for a code on a new device" on (<a href="sign-in.html#email-pin">Set up sign-in</a>), that PIN alone does not sign them in anywhere else. And a colleague who taps someone's name and types five wrong PINs locks that person out on that device for a while, and twenty in a day lock their own sign-in until they use Forgot PIN. Your callable hands a sign-in to whoever types a right PIN, so allow it only where you mean to, such as on devices your app set up.</p></div>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

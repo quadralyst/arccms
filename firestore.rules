@@ -464,6 +464,10 @@ service cloud.firestore {
     match /auth_fresh_proofs/{id} {
       allow read, write: if false;
     }
+    // Wrong sign-in PINs at an app's screens, per person and rate key (docs/app/pin.html#member-pin).
+    match /app_member_pin_tries/{id} {
+      allow read, write: if false;
+    }
     match /_rate_limits/{key} {
       allow read, write: if false;
     }

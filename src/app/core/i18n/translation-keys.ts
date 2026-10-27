@@ -1772,6 +1772,7 @@ export type TranslationKey =
     | 'member.auth.server_error.invalid_email'
     | 'member.auth.server_error.invalid_number'
     | 'member.auth.server_error.locked'
+    | 'member.auth.server_error.locked_here'
     | 'member.auth.server_error.name_required'
     | 'member.auth.server_error.new_device'
     | 'member.auth.server_error.no_access'
@@ -3860,6 +3861,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.invalid_email',
     'member.auth.server_error.invalid_number',
     'member.auth.server_error.locked',
+    'member.auth.server_error.locked_here',
     'member.auth.server_error.name_required',
     'member.auth.server_error.new_device',
     'member.auth.server_error.no_access',

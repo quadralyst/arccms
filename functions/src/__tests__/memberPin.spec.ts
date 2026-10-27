@@ -1,7 +1,8 @@
 /**
  * An app signs a member in with their own sign-in PIN (F32, docs/app/pin.html#member-pin),
- * on an in-memory Firestore: the real hashing, lockout and rate-limit code. Tries count
- * in auth_pins, the same count as the sign-in page.
+ * on an in-memory Firestore: the real hashing, lockout and rate-limit code. Wrong tries
+ * lock the person on the rate key they were made on, and reach the account lock only at
+ * 20 in a day (F36).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -24,7 +25,7 @@ vi.mock('firebase-functions/v2/https', () => ({
 
 import { db } from '../init.js';
 import { hashedKey, signInWithMemberPin } from '../app-kit/index.js';
-import { MEMBER_PIN_WRONG_PER_HOUR } from '../app-kit/memberPin.js';
+import { MEMBER_PIN_TRIES, MEMBER_PIN_TRIES_HERE, MEMBER_PIN_TRIES_PER_DAY, MEMBER_PIN_WRONG_PER_HOUR } from '../app-kit/memberPin.js';
 import { AUTH_PINS, RATE_LIMITS, checkPin, setPin } from '../auth/accounts.js';
 
 const mem = db as unknown as {
@@ -55,28 +56,104 @@ describe('signInWithMemberPin', () => {
         expect(owner.createCustomToken).toHaveBeenLastCalledWith('u1', { arccms_session: { pos: 'pos-2' } });
     });
 
-    it('counts a wrong PIN as a wrong sign-in try: the same count as the sign-in page, and it locks there too', async () => {
+    it('locks a person on the rate key after 5 wrong tries, not their sign-in elsewhere (F36)', async () => {
         person('u1');
         await setPin('u1', GOOD);
+        const till = { rateKey: hashedKey('till', 'pos-2') };
         for (const remaining of [4, 3, 2, 1]) {
-            await expect(signInWithMemberPin(request(), 'u1', WRONG)).rejects.toMatchObject({ code: 'permission-denied', details: { reason: 'wrong', remaining } });
+            await expect(signInWithMemberPin(request(), 'u1', WRONG, till)).rejects.toMatchObject({ code: 'permission-denied', details: { reason: 'wrong', remaining } });
         }
-        expect(mem.read(AUTH_PINS, 'u1')?.['failedAttempts']).toBe(4);
-        await expect(signInWithMemberPin(request(), 'u1', WRONG)).rejects.toMatchObject({ code: 'resource-exhausted', details: { reason: 'locked' } });
-        // Locked for sign-in itself, and the right PIN no longer opens it here
-        await expect(checkPin('u1', GOOD)).resolves.toEqual({ ok: false, reason: 'locked' });
-        await expect(signInWithMemberPin(request(), 'u1', GOOD)).rejects.toMatchObject({ details: { reason: 'locked' } });
-        // Forgot PIN on the sign-in page sets a new PIN, which unlocks it here too
-        await setPin('u1', '135792');
-        await expect(signInWithMemberPin(request(), 'u1', '135792')).resolves.toEqual({ token: 'token-for-u1' });
+        await expect(signInWithMemberPin(request(), 'u1', WRONG, till)).rejects.toMatchObject({
+            code: 'resource-exhausted', message: 'Too many wrong PINs here. Try again in 5 minutes.', details: { reason: 'locked-here', retryAfter: 300 },
+        });
+        // Locked here, the right PIN too, and nothing more is counted
+        await expect(signInWithMemberPin(request(), 'u1', GOOD, till)).rejects.toMatchObject({ details: { reason: 'locked-here' } });
+        // Not locked anywhere else: the sign-in page and another device still take the PIN
+        expect(mem.read(AUTH_PINS, 'u1')?.['failedAttempts']).toBe(0);
+        await expect(checkPin('u1', GOOD)).resolves.toEqual({ ok: true });
+        await expect(signInWithMemberPin(request(), 'u1', GOOD, { rateKey: hashedKey('till', 'pos-3') })).resolves.toEqual({ token: 'token-for-u1' });
     });
 
-    it('a right PIN resets the count of earlier wrong ones, for the sign-in page too', async () => {
+    it('waits longer after each lock on the same rate key: 5 minutes, then 15, then an hour', async () => {
         person('u1');
         await setPin('u1', GOOD);
-        await expect(signInWithMemberPin(request(), 'u1', WRONG)).rejects.toMatchObject({ details: { reason: 'wrong' } });
-        await signInWithMemberPin(request(), 'u1', GOOD);
+        const till = { rateKey: hashedKey('till', 'pos-2') };
+        vi.useFakeTimers({ toFake: ['Date'] });
+        try {
+            // Three locks are 15 wrong tries; a fourth round would reach the day's 20 and lock the account.
+            for (const wait of [300, 900, 3600]) {
+                for (let i = 0; i < MEMBER_PIN_TRIES_HERE - 1; i++) await signInWithMemberPin(request(), 'u1', WRONG, till).catch(() => undefined);
+                await expect(signInWithMemberPin(request(), 'u1', WRONG, till)).rejects.toMatchObject({ details: { reason: 'locked-here', retryAfter: wait } });
+                vi.setSystemTime(Date.now() + wait * 1000 + 1000);
+            }
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('a right PIN resets the count on its rate key, and only there', async () => {
+        person('u1');
+        await setPin('u1', GOOD);
+        const till = { rateKey: hashedKey('till', 'pos-2') };
+        const other = { rateKey: hashedKey('till', 'pos-3') };
+        for (let i = 0; i < 3; i++) await signInWithMemberPin(request(), 'u1', WRONG, till).catch(() => undefined);
+        await signInWithMemberPin(request(), 'u1', WRONG, other).catch(() => undefined);
+        await signInWithMemberPin(request(), 'u1', GOOD, till);
+        await expect(signInWithMemberPin(request(), 'u1', WRONG, till)).rejects.toMatchObject({ details: { reason: 'wrong', remaining: 4 } });
+        await expect(signInWithMemberPin(request(), 'u1', WRONG, other)).rejects.toMatchObject({ details: { reason: 'wrong', remaining: 3 } });
+        // The sign-in page's own count is the sign-in page's
         expect(mem.read(AUTH_PINS, 'u1')?.['failedAttempts']).toBe(0);
+    });
+
+    it('locks the account only at 20 wrong tries in a day across every rate key, so slow guessing still ends', async () => {
+        person('u1');
+        await setPin('u1', GOOD);
+        let device = 0;
+        for (let i = 1; i < MEMBER_PIN_TRIES_PER_DAY; i++) {
+            if (i % (MEMBER_PIN_TRIES_HERE - 1) === 1) device++; // move on before any one device locks
+            await expect(signInWithMemberPin(request(), 'u1', WRONG, { rateKey: hashedKey('till', `pos-${device}`) })).rejects.toMatchObject({ details: { reason: 'wrong' } });
+        }
+        await expect(signInWithMemberPin(request(), 'u1', WRONG, { rateKey: hashedKey('till', 'pos-new') })).rejects.toMatchObject({ details: { reason: 'locked' } });
+        // The account lock: the sign-in page and every device refuse, until Forgot PIN
+        await expect(checkPin('u1', GOOD)).resolves.toEqual({ ok: false, reason: 'locked' });
+        await expect(signInWithMemberPin(request(), 'u1', GOOD, { rateKey: hashedKey('till', 'pos-other') })).rejects.toMatchObject({ details: { reason: 'locked' } });
+        await setPin('u1', '135792');
+        await expect(signInWithMemberPin(request(), 'u1', '135792', { rateKey: hashedKey('till', 'pos-1') })).resolves.toEqual({ token: 'token-for-u1' });
+        expect(mem.read(AUTH_PINS, 'u1')?.['appFailed']).toBeUndefined();
+    });
+
+    it('starts the day\'s total again after a day', async () => {
+        person('u1');
+        await setPin('u1', GOOD);
+        vi.useFakeTimers({ toFake: ['Date'] });
+        try {
+            for (let i = 0; i < MEMBER_PIN_TRIES_PER_DAY - 1; i++) {
+                await signInWithMemberPin(request(), 'u1', WRONG, { rateKey: hashedKey('till', `pos-${i}`) }).catch(() => undefined);
+            }
+            vi.setSystemTime(Date.now() + 25 * 60 * 60 * 1000);
+            await expect(signInWithMemberPin(request(), 'u1', WRONG, { rateKey: hashedKey('till', 'pos-next') })).rejects.toMatchObject({ details: { reason: 'wrong' } });
+            expect(mem.read(AUTH_PINS, 'u1')?.['appFailed']).toBe(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('a new PIN (Forgot PIN) lifts a lock here at once', async () => {
+        person('u1');
+        await setPin('u1', GOOD);
+        const till = { rateKey: hashedKey('till', 'pos-2') };
+        for (let i = 0; i < MEMBER_PIN_TRIES_HERE; i++) await signInWithMemberPin(request(), 'u1', WRONG, till).catch(() => undefined);
+        await expect(signInWithMemberPin(request(), 'u1', GOOD, till)).rejects.toMatchObject({ details: { reason: 'locked-here' } });
+        await setPin('u1', '135792');
+        await expect(signInWithMemberPin(request(), 'u1', '135792', till)).resolves.toEqual({ token: 'token-for-u1' });
+    });
+
+    it('refuses with the account lock the sign-in page set, without counting anything here', async () => {
+        person('u1');
+        await setPin('u1', GOOD);
+        for (let i = 0; i < 5; i++) await checkPin('u1', WRONG);
+        await expect(signInWithMemberPin(request(), 'u1', GOOD)).rejects.toMatchObject({ code: 'resource-exhausted', details: { reason: 'locked' } });
+        expect(mem.all(MEMBER_PIN_TRIES)).toEqual([]);
     });
 
     it('refuses a PIN that is not 6 digits without costing a try', async () => {
