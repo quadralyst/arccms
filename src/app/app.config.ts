@@ -10,7 +10,7 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideClientHydration, withEventReplay, withIncrementalHydration } from '@angular/platform-browser';
-import { provideAnimations } from '@angular/platform-browser/animations';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { TitleStrategy, withComponentInputBinding } from '@angular/router';
 import { BrandTitleStrategy } from './core/brand/brand-title.strategy';
 import { provideFileRouter, requestContextInterceptor, withExtraRoutes } from '@analogjs/router';
@@ -20,27 +20,26 @@ import { siteFilesInterceptor } from './core/site/site-files.interceptor';
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { provideAuth, getAuth } from '@angular/fire/auth';
 import { provideFirestore } from '@angular/fire/firestore';
-import { provideStorage } from '@angular/fire/storage';
 import { provideFunctions } from '@angular/fire/functions';
 
 import { provideTransloco } from '@jsverse/transloco';
-import { MatPaginatorIntl } from '@angular/material/paginator';
 
 import { routes } from './app.routes';
 import { environment } from '../environments/environment';
-import { arcFirestore, arcFunctions, arcStorage } from './core/config/arc-firebase';
+import { arcFirestore, arcFunctions } from './core/config/arc-firebase';
 import { ADMIN_LANGUAGE_CODES, DEFAULT_ADMIN_LANGUAGE } from './core/i18n/admin-languages';
 import { AdminTranslationLoader } from './core/i18n/translation.loader';
 import { loadStartupLocaleData, provideAdminLocale } from './core/i18n/admin-locale.provider';
 import { LanguageAreaService, MEMBER_LANGUAGE_LIST } from './core/i18n/member-language.service';
-import { TranslatedPaginatorIntl } from './core/i18n/paginator-intl';
 import { PwaService } from './core/pwa/pwa.service';
 import { AnalyticsService } from './core/analytics/analytics.service';
 
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideAnimations(),
+    // The animation engine loads with the first screen that animates, not in the first
+    // script every page loads (F34): a sign-in page or a POS screen has none.
+    provideAnimationsAsync(),
     provideBrowserGlobalErrorListeners(),
     provideFileRouter(withExtraRoutes(routes), withComponentInputBinding()),
     // Every tab: the page's name, then the site's (core/brand/brand-title.strategy.ts)
@@ -54,7 +53,7 @@ export const appConfig: ApplicationConfig = {
     // Firebase Core Providers
     provideFirebaseApp(() => initializeApp(environment.firebaseConfig)),
     provideFirestore((injector) => arcFirestore(injector)),
-    provideStorage((injector) => arcStorage(injector)),
+    // Storage is not provided here: ArcStorage (core/config/arc-storage.ts) loads it when first used.
     provideFunctions((injector) => arcFunctions(injector)),
 
     // Firebase Auth Provider
@@ -82,8 +81,8 @@ export const appConfig: ApplicationConfig = {
     // Member languages: their locale data before the first render, and the language per area.
     provideAppInitializer(() => loadStartupLocaleData()),
     provideAppInitializer(() => { inject(LanguageAreaService); }),
-    // Material's paginator ships its own English; see paginator-intl.ts.
-    { provide: MatPaginatorIntl, useClass: TranslatedPaginatorIntl },
+    // Material's paginator ships its own English: the admin layout translates it
+    // (core/i18n/paginator-intl.ts), so Angular Material stays out of the first script.
 
     // The installable app: service worker, update bar, install counts (docs/features/pwa.html).
     // Does nothing unless src/custom/pwa.ts turns it on.

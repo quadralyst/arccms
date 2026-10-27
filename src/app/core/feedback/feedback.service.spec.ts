@@ -26,7 +26,7 @@ vi.mock('../config/arc-config', () => ({ withStoragePrefix: (path: string) => `a
 
 import { Auth } from '@angular/fire/auth';
 import { Firestore } from '@angular/fire/firestore';
-import { Storage } from '@angular/fire/storage';
+import { ArcStorage } from '../config/arc-storage';
 import { PwaService } from '../pwa/pwa.service';
 import { FeedbackService } from './feedback.service';
 
@@ -36,7 +36,7 @@ function setup() {
             { provide: PLATFORM_ID, useValue: 'browser' },
             { provide: Auth, useValue: { currentUser: { uid: 'u1' } } },
             { provide: Firestore, useValue: {} },
-            { provide: Storage, useValue: {} },
+            { provide: ArcStorage, useValue: { get: async () => ({}) } },
             { provide: PwaService, useValue: { installed: signal(true) } },
         ],
     });

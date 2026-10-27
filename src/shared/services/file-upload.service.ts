@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
-import { deleteObject, getDownloadURL, ref, Storage, uploadBytesResumable } from '@angular/fire/storage';
+import { deleteObject, getDownloadURL, ref, uploadBytesResumable } from '@angular/fire/storage';
+import { ArcStorage } from '../../app/core/config/arc-storage';
 import { deleteDoc, doc, Firestore, getDoc } from '@angular/fire/firestore';
 import { fitLongestSide, IMAGE_SIZES, ImageSize, imageSizeLimits } from '../utils/image-sizes';
 import { CropRect, roundCropRect } from '../utils/image-crop';
@@ -130,13 +131,13 @@ export const FILE_THUMBNAIL_SIZE = 400;
 })
 export class FileUploadService {
     private firestore = inject(Firestore);
-    private storage = inject(Storage);
+    private arcStorage = inject(ArcStorage);
 
     constructor() { }
 
     async deleteMediaItem(mediaId: string): Promise<void> {
         const db = this.firestore;
-        const storage = this.storage;
+        const storage = await this.arcStorage.get();
 
         try {
             const docRef = doc(db, 'media', mediaId);
@@ -271,8 +272,8 @@ export class FileUploadService {
     }
 
     /** Uploads one blob and resolves to its download URL, reporting progress as 0–100. */
-    private uploadBlob(path: string, blob: Blob, contentType: string, onProgress: (pct: number) => void, extra: { contentDisposition?: string } = {}): Promise<string> {
-        const storageRef = ref(this.storage, path);
+    private async uploadBlob(path: string, blob: Blob, contentType: string, onProgress: (pct: number) => void, extra: { contentDisposition?: string } = {}): Promise<string> {
+        const storageRef = ref(await this.arcStorage.get(), path);
         const uploadTask = uploadBytesResumable(storageRef, blob, { contentType, ...extra });
 
         return new Promise((resolve, reject) => {
@@ -382,7 +383,7 @@ export class FileUploadService {
     async removeStored(paths: (string | undefined)[]): Promise<void> {
         for (const path of new Set(paths.filter((p): p is string => !!p))) {
             try {
-                await deleteObject(ref(this.storage, path));
+                await deleteObject(ref(await this.arcStorage.get(), path));
             } catch (error: any) {
                 if (error?.code !== 'storage/object-not-found') console.warn(`Could not remove ${path}:`, error);
             }
@@ -551,7 +552,7 @@ export class FileUploadService {
      */
     async uploadFileInDb(base64Image: any, progressCallback: (progress: number) => void): Promise<{ downloadURL: string, name: string, uploadTime: Date }> {
         try {
-            const storage = this.storage;
+            const storage = await this.arcStorage.get();
             const uniquename = this.generateUniqueImageName();
 
             const storageRef = ref(storage, withStoragePrefix(`mediaImages/${uniquename}.jpg`));

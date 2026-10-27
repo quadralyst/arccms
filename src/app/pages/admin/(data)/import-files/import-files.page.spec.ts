@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { Firestore } from '@angular/fire/firestore';
-import { Storage } from '@angular/fire/storage';
+import { ArcStorage } from '../../../../core/config/arc-storage';
 import ImportFilesPageComponent from './import-files.page';
 import { ImportFilesService } from './import-files.service';
 
@@ -35,7 +35,7 @@ describe('ImportFilesPageComponent', () => {
             providers: [
                 provideRouter([]),
                 { provide: Firestore, useValue: {} },
-                { provide: Storage, useValue: {} },
+                { provide: ArcStorage, useValue: { get: async () => ({}) } },
                 { provide: ImportFilesService, useValue: mockImportFilesService },
             ],
         }).compileComponents();

@@ -2,8 +2,8 @@ import { computed, inject, Injectable, Injector, PLATFORM_ID, runInInjectionCont
 import { isPlatformBrowser } from '@angular/common';
 import { Auth, onIdTokenChanged } from '@angular/fire/auth';
 import { Firestore, collection, doc, getDoc, serverTimestamp, setDoc } from '@angular/fire/firestore';
-import { Storage, ref, uploadBytes } from '@angular/fire/storage';
 import { withStoragePrefix } from '../config/arc-config';
+import { ArcStorage } from '../config/arc-storage';
 import { detectPlatform } from '../pwa/pwa-platform';
 import { PwaService } from '../pwa/pwa.service';
 import { captureScreen } from './screenshot';
@@ -123,6 +123,15 @@ export class FeedbackService {
         this.panelOpen.set(false);
     }
 
+    /**
+     * Uploads one file to the bucket. Firebase Storage's code is fetched the first time:
+     * the panel is on every page, so it is not in the first script (F34).
+     */
+    private async upload(path: string, data: Blob, contentType: string): Promise<void> {
+        const [storage, { ref, uploadBytes }] = await Promise.all([this.injector.get(ArcStorage).get(), import('@angular/fire/storage')]);
+        await runInInjectionContext(this.injector, () => uploadBytes(ref(storage, path), data, { contentType }));
+    }
+
     /** Uploads the files to the sender's own folder, then saves the feedback. */
     async send(draft: FeedbackDraft): Promise<void> {
         const userDocId = this.userDocId();
@@ -131,7 +140,6 @@ export class FeedbackService {
         if (!userDocId || !uid) throw new Error('Sign in to send feedback.');
 
         const firestore = this.injector.get(Firestore);
-        const storage = this.injector.get(Storage);
         const run = <T>(fn: () => T) => runInInjectionContext(this.injector, fn);
 
         const item = run(() => doc(collection(firestore, FEEDBACK_COLLECTION)));
@@ -142,7 +150,7 @@ export class FeedbackService {
             // The screenshot is extra: if it will not upload, the words still go.
             const path = `${folder}screenshot.jpg`;
             try {
-                await run(() => uploadBytes(ref(storage, path), draft.screenshot!, { contentType: 'image/jpeg' }));
+                await this.upload(path, draft.screenshot, 'image/jpeg');
                 files['screenshotPath'] = path;
             } catch (err) {
                 console.warn('Feedback: sending without the screenshot.', err);
@@ -150,7 +158,7 @@ export class FeedbackService {
         }
         if (draft.voice) {
             const path = `${folder}voice.${audioExtension(draft.voice.type)}`;
-            await run(() => uploadBytes(ref(storage, path), draft.voice!.blob, { contentType: draft.voice!.type.split(';')[0] }));
+            await this.upload(path, draft.voice.blob, draft.voice.type.split(';')[0]);
             files['voicePath'] = path;
             files['voiceSeconds'] = draft.voice.seconds;
         }

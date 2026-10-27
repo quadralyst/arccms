@@ -18,9 +18,11 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe('arc-config guard (frontend)', () => {
-    it('only arc-firebase.ts opens Firestore or Storage, or sets up or clears the offline cache', () => {
+    it('only arc-firebase.ts opens Firestore and only arc-storage-bucket.ts Storage, or sets up or clears the offline cache', () => {
+        // The bucket has its own file, loaded when first used, so Storage stays out of the first script (F34).
+        const own = [join('core', 'config', 'arc-firebase.ts'), join('core', 'config', 'arc-storage-bucket.ts')];
         const offenders = sourceFiles(SRC)
-            .filter((path) => !path.endsWith(join('core', 'config', 'arc-firebase.ts')))
+            .filter((path) => !own.some((file) => path.endsWith(file)))
             .filter((path) => /\b(getFirestore|getStorage|initializeFirestore|persistentLocalCache|clearIndexedDbPersistence|enableIndexedDbPersistence|enableMultiTabIndexedDbPersistence)\s*\(/.test(readFileSync(path, 'utf8')))
             .map((path) => relative(SRC, path));
         expect(offenders).toEqual([]);

@@ -3,7 +3,8 @@ import {
     Firestore, QueryConstraint, QueryDocumentSnapshot, Timestamp, collection, deleteDoc, doc, getDoc, getDocs,
     limit, orderBy, query, setDoc, startAfter, updateDoc, where,
 } from '@angular/fire/firestore';
-import { Storage, deleteObject, getDownloadURL, ref } from '@angular/fire/storage';
+import { deleteObject, getDownloadURL, ref } from '@angular/fire/storage';
+import { ArcStorage } from '../../../core/config/arc-storage';
 import { withStoragePrefix } from '../../../core/config/arc-config';
 import { FEEDBACK_COLLECTION, FEEDBACK_SETTINGS } from '../../../core/feedback/feedback.service';
 
@@ -108,7 +109,7 @@ function toItem(snap: QueryDocumentSnapshot): FeedbackItem {
 @Injectable({ providedIn: 'root' })
 export class FeedbackAdminService {
     private firestore = inject(Firestore);
-    private storage = inject(Storage);
+    private arcStorage = inject(ArcStorage);
     private injector = inject(Injector);
 
     readonly items = signal<FeedbackItem[]>([]);
@@ -148,9 +149,10 @@ export class FeedbackAdminService {
 
     /** Deletes the files, then the feedback. */
     async remove(item: FeedbackItem): Promise<void> {
+        const storage = item.screenshotPath || item.voicePath ? await this.arcStorage.get() : null;
         for (const path of [item.screenshotPath, item.voicePath]) {
-            if (!path) continue;
-            await this.run(() => deleteObject(ref(this.storage, path))).catch(() => undefined); // already gone
+            if (!path || !storage) continue;
+            await this.run(() => deleteObject(ref(storage, path))).catch(() => undefined); // already gone
         }
         await this.run(() => deleteDoc(doc(this.firestore, FEEDBACK_COLLECTION, item.id)));
         this.items.set(this.items().filter((i) => i.id !== item.id));
@@ -167,8 +169,9 @@ export class FeedbackAdminService {
     }
 
     private async withLinks(item: FeedbackItem): Promise<FeedbackItem> {
+        const storage = item.screenshotPath || item.voicePath ? await this.arcStorage.get().catch(() => null) : null;
         const link = (path?: string) =>
-            path ? this.run(() => getDownloadURL(ref(this.storage, path))).catch(() => undefined) : Promise.resolve(undefined);
+            path && storage ? this.run(() => getDownloadURL(ref(storage, path))).catch(() => undefined) : Promise.resolve(undefined);
         const [screenshotUrl, voiceUrl] = await Promise.all([link(item.screenshotPath), link(item.voicePath)]);
         return { ...item, screenshotUrl, voiceUrl };
     }

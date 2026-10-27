@@ -16,7 +16,8 @@ import {
     updateDoc,
 } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
-import { deleteObject, ref, Storage, updateMetadata } from '@angular/fire/storage';
+import { deleteObject, ref, updateMetadata } from '@angular/fire/storage';
+import { ArcStorage } from '../../../core/config/arc-storage';
 import { firstValueFrom } from 'rxjs';
 import { arcCallable } from '../../../core/config/arc-functions';
 import { DbService } from '../../../../shared/services/db.service';
@@ -45,7 +46,7 @@ export interface MediaFileDetails {
 @Injectable({ providedIn: 'root' })
 export class MediaFilesService extends DbService<IMediaFile> {
     private db = inject(Firestore);
-    private bucket = inject(Storage);
+    private arcStorage = inject(ArcStorage);
     private platform = inject(PLATFORM_ID);
     private functions = inject(Functions);
     private fileUpload = inject(FileUploadService);
@@ -185,8 +186,9 @@ export class MediaFilesService extends DbService<IMediaFile> {
         const allowed = allowedFileOf(file.name);
         if (changes['title'] && changes['title'] !== file.title && allowed && file.path) {
             try {
+                const bucket = await this.arcStorage.get();
                 await runInInjectionContext(this.injector, () =>
-                    updateMetadata(ref(this.bucket, file.path), { contentDisposition: contentDispositionFor(allowed, changes['title']) }));
+                    updateMetadata(ref(bucket, file.path), { contentDisposition: contentDispositionFor(allowed, changes['title']) }));
             } catch (error) {
                 console.warn('Could not update the download name:', error);
             }
@@ -199,6 +201,7 @@ export class MediaFilesService extends DbService<IMediaFile> {
      * Images taken from a PDF are their own uploads and stay.
      */
     async deleteFile(id: string): Promise<void> {
+        const bucket = await this.arcStorage.get();
         await runInInjectionContext(this.injector, async () => {
             const snap = await getDoc(doc(this.db, 'mediaFiles', id));
             if (!snap.exists()) throw new Error('That file is no longer in the library.');
@@ -206,7 +209,7 @@ export class MediaFilesService extends DbService<IMediaFile> {
             for (const path of [data.path, data.thumbnail?.path]) {
                 if (!path) continue;
                 try {
-                    await deleteObject(ref(this.bucket, path));
+                    await deleteObject(ref(bucket, path));
                 } catch (error: any) {
                     if (error?.code !== 'storage/object-not-found') throw error;
                 }

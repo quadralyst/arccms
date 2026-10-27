@@ -19,7 +19,7 @@
     <p>The button shows only to signed-in people with an Arc CMS record, and never on admin pages.</p>
 
     <h2>Turn it on or off</h2>
-    <p>The feedback button is core and belongs to no switchable feature. It has its own switch: Admin, <strong>Feedback</strong>, the switch at the top. It is <strong>off</strong> by default. A change takes effect on each person's next page load, with no deploy.</p>
+    <p>The feedback button is core and belongs to no switchable feature. It has its own switch: Admin, <strong>Feedback</strong>, the switch at the top. It is <strong>off</strong> by default. A change takes effect on each person's next page load, with no deploy. The button and its panel load once the page is idle (<code>@defer</code> in <code>src/app/app.ts</code>), and Firebase Storage only when a screenshot or voice note is sent, so neither is in the script every page loads first.</p>
     <p>When it is off, the button is hidden and the security rules refuse new feedback too, so a script cannot keep sending it. The inbox and what was already sent stay.</p>
 
     <h2>Set it up</h2>

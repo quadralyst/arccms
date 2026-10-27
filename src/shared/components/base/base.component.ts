@@ -1,6 +1,6 @@
 import { Location } from '@angular/common';
 import { Component, inject, signal, ViewChild } from '@angular/core';
-import { AbstractControl, FormControl, FormGroup } from '@angular/forms';
+import type { AbstractControl, FormControl, FormGroup } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, NavigationExtras, ParamMap, Router } from '@angular/router';
 import { Subscription } from 'rxjs';

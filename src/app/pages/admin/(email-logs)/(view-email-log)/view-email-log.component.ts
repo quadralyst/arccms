@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { ArcTime } from '../../../../core/time/arc-time.service';
 import { ChangeDetectionStrategy, Component, computed, effect, EventEmitter, inject, Injector, Input, Output, runInInjectionContext, signal, untracked, OnChanges, SimpleChanges } from '@angular/core';
-import { Storage, getDownloadURL, ref } from '@angular/fire/storage';
+import { getDownloadURL, ref } from '@angular/fire/storage';
+import { ArcStorage } from '../../../../core/config/arc-storage';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -24,7 +25,7 @@ export default class ViewEmailLogComponent implements OnChanges {
     readonly emailLogStore = inject(EmailLogStore);
     private readonly sanitizer = inject(DomSanitizer);
     private readonly arcTime = inject(ArcTime);
-    private readonly storage = inject(Storage);
+    private readonly arcStorage = inject(ArcStorage);
     private readonly injector = inject(Injector);
 
     log = computed<IEmailLog | null>(() => this.emailLogStore.currentItem() as IEmailLog | null);
@@ -96,7 +97,8 @@ export default class ViewEmailLogComponent implements OnChanges {
     private async resolveLink(path: string): Promise<void> {
         let url: string;
         try {
-            url = await runInInjectionContext(this.injector, () => getDownloadURL(ref(this.storage, path)));
+            const storage = await this.arcStorage.get();
+            url = await runInInjectionContext(this.injector, () => getDownloadURL(ref(storage, path)));
         } catch (err) {
             console.warn('Could not find the attachment', path, err);
             url = 'missing';

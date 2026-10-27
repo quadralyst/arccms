@@ -28,7 +28,10 @@ import { StaleCodeBarComponent } from './core/version/stale-code-bar.component';
     <arc-site-usage-banner />
     <arc-pwa-update-bar />
     <arc-stale-code-bar />
-    <arc-feedback />
+    <!-- The feedback button and panel load once the page is idle, not in the first script (F34). -->
+    @defer (on idle) {
+      <arc-feedback />
+    }
   `,
   styles: [
     `

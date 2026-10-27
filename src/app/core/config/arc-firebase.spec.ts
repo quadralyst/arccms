@@ -21,7 +21,8 @@ import {
 } from '@angular/fire/firestore';
 import { getStorage } from '@angular/fire/storage';
 import { getFunctions } from '@angular/fire/functions';
-import { arcFirestore, arcFunctions, arcStorage, clearOfflineCache, OfflineWritesPendingError } from './arc-firebase';
+import { arcFirestore, arcFunctions, clearOfflineCache, OfflineWritesPendingError } from './arc-firebase';
+import { arcStorage } from './arc-storage-bucket';
 import { resolveArcConfig } from './arc-config';
 
 const app = { name: '[DEFAULT]' };

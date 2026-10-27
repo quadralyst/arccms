@@ -16,6 +16,7 @@ import SideNavbarComponent from '../../shared/components/side-navbar/side-navbar
 import { CommonModule } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { useAdminOverlay } from '../core/brand/admin-overlay';
+import { useTranslatedPaginator } from '../core/i18n/paginator-intl';
 import { SiteBrandService } from '../core/brand/site-brand';
 
 @Component({
@@ -100,6 +101,8 @@ export default class AdminComponent extends BaseComponent {
         super();
         // The dialog layer takes the admin's colours while the admin is open.
         useAdminOverlay();
+        // The tables' paginators in the admin's language (kept out of the first script, F34).
+        useTranslatedPaginator();
         this.breakpointObserver.observe('(max-width: 768px)').subscribe((state) => {
             this.drawerMode.set(state.matches ? 'over' : 'side');
         });

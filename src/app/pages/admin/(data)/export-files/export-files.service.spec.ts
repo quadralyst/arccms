@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Firestore } from '@angular/fire/firestore';
-import { Storage } from '@angular/fire/storage';
+import { ArcStorage } from '../../../../core/config/arc-storage';
 import { ExportFilesService } from './export-files.service';
 
 vi.mock('@angular/fire/storage', () => ({
@@ -67,7 +67,7 @@ describe('ExportFilesService', () => {
             providers: [
                 ExportFilesService,
                 { provide: Firestore, useValue: {} },
-                { provide: Storage, useValue: {} },
+                { provide: ArcStorage, useValue: { get: async () => ({}) } },
             ],
         }).compileComponents();
 

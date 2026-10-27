@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Firestore } from '@angular/fire/firestore';
-import { Storage } from '@angular/fire/storage';
+import { ArcStorage } from '../../../../core/config/arc-storage';
 import { ImportFilesService, FileWithPath } from './import-files.service';
 import { FileUploadService } from '../../../../../shared/services/file-upload.service';
 // Paths go through the install's upload folder (arc-install.ts), whatever it is.
@@ -43,7 +43,7 @@ describe('ImportFilesService', () => {
             providers: [
                 ImportFilesService,
                 { provide: Firestore, useValue: {} },
-                { provide: Storage, useValue: {} },
+                { provide: ArcStorage, useValue: { get: async () => ({}) } },
                 { provide: FileUploadService, useValue: { uploadDocument } },
             ],
         }).compileComponents();

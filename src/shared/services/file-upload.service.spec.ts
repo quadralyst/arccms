@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 
 // Import the types for providing to DI
 import { Firestore } from '@angular/fire/firestore';
-import { Storage } from '@angular/fire/storage';
+import { ArcStorage } from '../../app/core/config/arc-storage';
 
 vi.mock('@angular/fire/storage', () => ({
     Storage: class { },
@@ -47,7 +47,7 @@ describe('FileUploadService', () => {
             providers: [
                 FileUploadService,
                 { provide: Firestore, useValue: mockFirestore },
-                { provide: Storage, useValue: mockStorage },
+                { provide: ArcStorage, useValue: { get: async () => mockStorage } },
             ]
         });
         service = TestBed.inject(FileUploadService);

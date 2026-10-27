@@ -1,6 +1,6 @@
 import { Location } from '@angular/common';
 import { Injectable, inject, signal } from '@angular/core';
-import { AbstractControl, FormGroup, ValidatorFn } from '@angular/forms';
+import type { AbstractControl, FormGroup, ValidatorFn } from '@angular/forms';
 import { environment } from '../../environments/environment';
 
 @Injectable({

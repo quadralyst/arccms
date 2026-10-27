@@ -3,14 +3,14 @@ import { collection, Firestore, getDocs, orderBy, query } from '@angular/fire/fi
 import {
     getBlob,
     ref,
-    Storage,
 } from '@angular/fire/storage';
+import { ArcStorage } from '../../../../core/config/arc-storage';
 import JSZip from 'jszip';
 import { FileExportProgress, MediaDocInfo } from '../data-constants';
 
 @Injectable({ providedIn: 'root' })
 export class ExportFilesService {
-    private storage = inject(Storage);
+    private arcStorage = inject(ArcStorage);
     private db = inject(Firestore);
 
     /**
@@ -63,7 +63,7 @@ export class ExportFilesService {
         const path = item.storagePath || this.extractStoragePath(item.downloadURL);
 
         if (path) {
-            const fileRef = ref(this.storage, path);
+            const fileRef = ref(await this.arcStorage.get(), path);
             return getBlob(fileRef);
         }
 

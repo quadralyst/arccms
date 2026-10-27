@@ -3,7 +3,7 @@ import { PLATFORM_ID } from '@angular/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Firestore } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
-import { Storage } from '@angular/fire/storage';
+import { ArcStorage } from '../../../core/config/arc-storage';
 
 const getDoc = vi.fn();
 const updateDoc = vi.fn();
@@ -72,7 +72,7 @@ describe('MediaFilesService', () => {
             providers: [
                 MediaFilesService,
                 { provide: Firestore, useValue: {} },
-                { provide: Storage, useValue: {} },
+                { provide: ArcStorage, useValue: { get: async () => ({}) } },
                 { provide: Functions, useValue: {} },
                 { provide: PLATFORM_ID, useValue: 'browser' },
                 { provide: FileUploadService, useValue: fileUpload },

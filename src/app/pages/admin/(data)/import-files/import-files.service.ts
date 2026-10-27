@@ -3,10 +3,10 @@ import { collection, doc, Firestore, setDoc } from '@angular/fire/firestore';
 import {
     getDownloadURL,
     ref,
-    Storage,
     uploadBytesResumable,
 } from '@angular/fire/storage';
 import { withStoragePrefix } from '../../../../core/config/arc-config';
+import { ArcStorage } from '../../../../core/config/arc-storage';
 import { FileUploadService } from '../../../../../shared/services/file-upload.service';
 import { isLibraryDocument } from '../../../../../shared/utils/media-files';
 import { FileImportProgress, UploadResult } from '../data-constants';
@@ -26,7 +26,7 @@ export interface DocumentToImport {
 
 @Injectable({ providedIn: 'root' })
 export class ImportFilesService {
-    private storage = inject(Storage);
+    private arcStorage = inject(ArcStorage);
     private db = inject(Firestore);
     private fileUpload = inject(FileUploadService);
 
@@ -39,7 +39,7 @@ export class ImportFilesService {
         progressCallback: (progress: number) => void,
     ): Promise<{ downloadURL: string; fullPath: string }> {
         const fullPath = withStoragePrefix(storagePath);
-        const storageRef = ref(this.storage, fullPath);
+        const storageRef = ref(await this.arcStorage.get(), fullPath);
         const uploadTask = uploadBytesResumable(storageRef, file);
 
         return new Promise((resolve, reject) => {
