@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Deploy only what changed | Arc CMS docs</title>
   <meta name="description" content="Deploy one or a few Cloud Functions, only the rules, only the indexes or only the website, and know which part to deploy for the files you changed.">
-  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, functions/src/index.ts, functions/src/all.ts, functions/src/function-names.ts, functions/src/custom/index.ts, firebase.json">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, functions/src/index.ts, functions/src/load-functions.ts, functions/src/keep-warm.ts, functions/src/all.ts, functions/src/function-names.ts, functions/src/custom/index.ts, firebase.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/targeted-deploys.html">
@@ -81,7 +81,7 @@ npm run seed:dev</code></pre>
     <p>It does not offer the choice when:</p>
     <ul>
       <li>this checkout has no recorded functions deploy for the project (the first time, or after deploying from another computer);</li>
-      <li>a dependency, TypeScript setting or <code>.env</code> file changed, which affects every function: it says so, and "All functions" is the one to pick;</li>
+      <li>a dependency, TypeScript setting or <code>.env</code> file changed, or the code every function starts from (<code>functions/src/index.ts</code>, <code>region.ts</code>, <code>load-functions.ts</code>, <code>keep-warm.ts</code>, or <code>scripts/arc-function-map.mjs</code>), which affects every function: it says so, and "All functions" is the one to pick;</li>
       <li>no function changed.</li>
     </ul>
     <p>It also names functions that were removed from the code since the last deploy: only "All functions" deletes them from the project.</p>

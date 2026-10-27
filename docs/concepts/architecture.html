@@ -49,7 +49,7 @@
 
     <h2>How the functions are grouped</h2>
     <ul>
-      <li><code>functions/src/index.ts</code> exports one group, <code>arccms</code>, made of everything in <code>functions/src/all.ts</code>. So every function deploys as <code>arccms-</code> plus its name, such as <code>arccms-search</code>, and belongs to the <code>arccms</code> codebase in <code>firebase.json</code>.</li>
+      <li><code>functions/src/index.ts</code> exports one group, <code>arccms</code>, made of everything in <code>functions/src/all.ts</code>. So every function deploys as <code>arccms-</code> plus its name, such as <code>arccms-search</code>, and belongs to the <code>arccms</code> codebase in <code>firebase.json</code>. Each deployed function loads only its own file as it starts (see <a href="../app/functions.html#cold-starts">Keep cold starts short</a>).</li>
       <li>A switchable feature's functions live in <code>functions/src/features/</code> and are built in only when the feature is on in <code>src/custom/features.ts</code>. See <a href="../reference/feature-ids.html">Feature ids</a>.</li>
       <li>Your app's functions, from <code>functions/src/custom/</code>, form the <code>custom</code> group and deploy as <code>arccms-custom-</code> plus their name.</li>
       <li>The browser calls a function by its plain name through <code>arcCallable()</code> in <code>src/app/core/config/arc-functions.ts</code>, the one place that adds the prefix.</li>

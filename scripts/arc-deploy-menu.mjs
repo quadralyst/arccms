@@ -225,8 +225,15 @@ export const GENERATED_FROM = {
     'src/custom/sign-in.ts': ['sign-in.gen.ts'],
 };
 
-/** Changes outside the source that affect every function. */
-const ALL_FUNCTIONS = [/^functions\/package(-lock)?\.json$/, /^functions\/tsconfig.*\.json$/, /^functions\/\.env/];
+/**
+ * Changes that affect every function: outside the source, and the entry every function
+ * starts from (index.ts and what it runs first: the region, which file to load, and the
+ * instances kept running), which no function's own file imports.
+ */
+const ALL_FUNCTIONS = [
+    /^functions\/package(-lock)?\.json$/, /^functions\/tsconfig.*\.json$/, /^functions\/\.env/,
+    /^functions\/src\/(index|region|load-functions|keep-warm)\.ts$/, /^scripts\/arc-function-map\.mjs$/,
+];
 
 /**
  * The functions to deploy for these changed files (repo-relative paths).

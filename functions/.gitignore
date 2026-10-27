@@ -1,6 +1,8 @@
 # Compiled JavaScript files
 lib/**/*.js
 lib/**/*.js.map
+# Written by scripts/arc-function-map.mjs after each build
+lib/function-map.json
 
 # TypeScript v1 declaration files
 typings/

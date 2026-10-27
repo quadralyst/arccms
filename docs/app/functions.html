@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Write your own Cloud Functions | Arc CMS docs</title>
   <meta name="description" content="Add your app's callables and Firestore triggers in functions/src/custom, call them from the browser, read the right database, and test and deploy them.">
-  <meta name="docs:sources" content="functions/src/custom, functions/src/all.ts, functions/src/index.ts, functions/src/function-names.ts, functions/src/init.ts, functions/src/arc-config.ts, functions/src/users/claims.ts, functions/src/email-core/appEvents.ts, functions/src/email-core/appEmail.ts, functions/scripts/check-callable-access.sh, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, src/app/core/config/arc-functions.ts, functions/src/__tests__/arcConfigGuard.spec.ts, functions/src/auth/warmUp.ts, functions/src/shared/lazy-cheerio.ts">
+  <meta name="docs:sources" content="functions/src/custom, functions/src/all.ts, functions/src/index.ts, functions/src/load-functions.ts, functions/src/keep-warm.ts, scripts/arc-function-map.mjs, functions/src/function-names.ts, functions/src/init.ts, functions/src/arc-config.ts, functions/src/users/claims.ts, functions/src/email-core/appEvents.ts, functions/src/email-core/appEmail.ts, functions/scripts/check-callable-access.sh, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, src/app/core/config/arc-functions.ts, functions/src/__tests__/arcConfigGuard.spec.ts, functions/src/auth/warmUp.ts, functions/src/shared/lazy-cheerio.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/functions.html">
@@ -123,10 +123,17 @@ export const onLessonDone = onDocumentCreated(
     <div class="trap"><p>Do not add your keys to <code>functions/.env</code>. It is a core file, so <code>npm run check:core</code> reports your change, and an Arc CMS update can conflict with it.</p></div>
 
     <h2 id="cold-starts">Keep cold starts short</h2>
-    <p>A function that has not run for a while starts from cold, and every function loads the whole functions codebase as it starts: core, the app's features and your functions. A slow library imported at the top of any file therefore slows the start of every function, sign-in included, and not only the one that uses it.</p>
+    <p>A function that has not run for a while starts from cold: Google starts an instance, and the instance loads the functions' code before it answers. All functions deploy from one build, but an instance loads only the file that defines its own function, with what that file imports:</p>
     <ul>
-      <li>Import a large library inside the function that uses it: <code>const { google } = await import('googleapis');</code>. A test fails if <code>googleapis</code> or <code>cheerio</code> is imported at the top of a file; types can still be imported with <code>import type</code>.</li>
-      <li>To parse HTML, use <code>loadHtml()</code> from <code>functions/src/shared/lazy-cheerio.ts</code> in place of <code>cheerio.load()</code>. It loads cheerio the first time it is called.</li>
+      <li>After every functions build (<code>npm run build --prefix functions</code>, which every deploy runs), <code>scripts/arc-function-map.mjs</code> writes <code>functions/lib/function-map.json</code>: each function and the file that defines it. It follows the re-exports from <code>functions/src/all.ts</code> through the features' files and your <code>functions/src/custom/index.ts</code> down to those files. A build by <code>tsc</code> alone, such as a watching build in <code>functions/</code>, leaves the map of the build before, so deploy after <code>npm run build</code>, as <code>npm run deploy</code> does.</li>
+      <li>As an instance starts, <code>functions/src/index.ts</code> reads the function Firebase started it for (<code>FUNCTION_TARGET</code>) and loads only that file (<code>functions/src/load-functions.ts</code>). A deploy, the scripts that read the build and the tests load every function, as before, and so does an instance whose function the map does not name.</li>
+    </ul>
+    <p>Write your functions so this works for them too:</p>
+    <ul>
+      <li><strong>Keep <code>functions/src/custom/index.ts</code> to re-exports</strong>, one file per area: <code>export * from './lessons.js';</code>. Each function then loads only its own file. A function defined in the index itself, or in a file that also holds code, loads that whole file and everything it imports.</li>
+      <li><strong>Import what only one function needs inside that function's file</strong>, not in a shared file every function imports.</li>
+      <li><strong>Import a large library inside the function that uses it</strong>: <code>const { google } = await import('googleapis');</code>. A test fails if <code>googleapis</code> or <code>cheerio</code> is imported at the top of a file; types can still be imported with <code>import type</code>. To parse HTML, use <code>loadHtml()</code> from <code>functions/src/shared/lazy-cheerio.ts</code> in place of <code>cheerio.load()</code>.</li>
+      <li><strong>Do no work at the top of a file</strong>, such as reading the database or a settings document: it runs on every cold start of every function that loads the file. Read inside the function.</li>
       <li>For a callable a page is about to use, the page can start it early with a call that does nothing, as the sign-in page does. Answer it first thing, with <code>isWarmUp()</code> and <code>WARM</code> from the app kit:
         <pre><code>import { isWarmUp, WARM } from '../app-kit/index.js';
 
@@ -136,8 +143,18 @@ export const createWorkspace = onCall(async (request) =&gt; {
 });</code></pre>
         From the sign-in page, wake it with a hook in <code>src/custom/sign-in-page.ts</code> (see <a href="sign-in.html#page-hooks">Start your own functions from the sign-in page</a>); from your own pages, call <code>warm(['custom-createWorkspace'])</code> on <code>SignInService</code> (<code>src/app/pages/(auth)/sign-in.service.ts</code>) as the screen that needs it opens.</li>
     </ul>
+    <p>What stays is Firebase's own libraries (the Admin SDK and firebase-functions), which every function loads: about 0.25 s of the 0.3 s a function takes to load on a fast laptop, and more on Google's servers.</p>
     <p>Do not give a function a <code>region</code> of its own: every function runs in the install's region, next to its database (<code>functions/src/region.ts</code>, see <a href="../operations/deploy.html#regions">Regions</a>), and a test fails on a function that sets one.</p>
-    <p>Keeping a function always running (<code>minInstances</code>) removes cold starts, but is billed all the time, for each function; Arc CMS does not do it.</p>
+
+    <h2 id="keep-warm">Keep a function running on a live project</h2>
+    <p>Google keeps an idle instance for some minutes, not a set time, so the first call of the day still starts cold. To keep instances of chosen functions running all the time on one project, list them in that project's <code class="new">functions/.env.YOUR_PROJECT</code>:</p>
+    <pre><code>ARC_KEEP_WARM=signInWithPin,custom-pinSignIn</code></pre>
+    <ul>
+      <li>Names are the ones the browser calls with <code>arcCallable</code>: Arc CMS's own as they are, your functions with <code>custom-</code> in front. Add <code>:2</code> or more to a name for more than one instance, up to 10.</li>
+      <li>It is read when the functions are deployed (<code>functions/src/keep-warm.ts</code>), from the environment first and then from the project's file, since Firebase reads what to deploy without the file's values. Deploy the named functions after changing it; a function taken off the list goes back to none running at its next deploy.</li>
+      <li>A name the build does not have is said in the deploy's output; a name or count that cannot be read stops the deploy, saying what to write.</li>
+    </ul>
+    <div class="trap"><p>Google bills a kept instance every second, at a lower rate while it is idle: roughly 5 to 10 US dollars a month for each, at the default size. Check Google's Cloud Run prices before turning it on, and set it only on the live project, for the one or two functions people wait on, such as the PIN sign-in.</p></div>
 
     <h2>What public-callables.txt is for</h2>
     <p>Firebase makes a callable publicly invocable when it creates it. If that step fails, for example in a deploy that timed out, every browser call to the function fails with HTTP 403, and a later deploy does not fix it. <code>functions/scripts/check-callable-access.sh</code> calls each callable and reports the blocked ones with the command that fixes them.</p>

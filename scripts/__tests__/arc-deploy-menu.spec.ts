@@ -177,6 +177,12 @@ describe('only the functions changed since the last deploy', () => {
         expect(affectedFunctions({ graph, changed: ['functions/.env.acme-dev'], deployable, previous: deployable }).all).toBe(true);
     });
 
+    it('says "all" when the entry every function starts from changes (F35)', () => {
+        for (const path of ['functions/src/index.ts', 'functions/src/region.ts', 'functions/src/load-functions.ts', 'functions/src/keep-warm.ts', 'scripts/arc-function-map.mjs']) {
+            expect(affectedFunctions({ graph, changed: [path], deployable, previous: deployable }).all, path).toBe(true);
+        }
+    });
+
     it('lists committed and uncommitted changes, and nothing to compare with an unknown commit', () => {
         const run = (args: string[]) => {
             if (args[0] === 'cat-file') return args[2].startsWith('abc') ? '' : null;

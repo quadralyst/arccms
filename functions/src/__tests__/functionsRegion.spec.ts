@@ -38,7 +38,9 @@ describe('the functions region', () => {
     it('is set for every function before any is defined', () => {
         const index = readFileSync(join(SRC, 'index.ts'), 'utf8');
         expect(index.indexOf("import './region.js';")).toBeGreaterThan(-1);
-        expect(index.indexOf("import './region.js';")).toBeLessThan(index.indexOf("from './all.js'"));
+        // The functions are loaded after it (load-functions.ts imports all.js or one file).
+        expect(index.indexOf("import './region.js';")).toBeLessThan(index.indexOf("from './load-functions.js'"));
+        expect(index).toContain('await loadFunctions(');
         expect(readFileSync(join(SRC, 'region.ts'), 'utf8')).toContain('setGlobalOptions({ region: arcFunctionsRegionParam })');
     });
 

@@ -24,6 +24,7 @@
 
     <h2>Which functions are deployed</h2>
     <p>Core functions are listed in <code>functions/src/all.ts</code> and always deploy. A switchable feature's functions are listed in <code>functions/src/features/</code>, one file per feature. Before every functions build, <code>scripts/arc-features.mjs</code> reads <code>src/custom/features.ts</code> and writes a generated list of the feature files whose features are on, which <code>functions/src/all.ts</code> exports.</p>
+    <p>After every functions build, <code>scripts/arc-function-map.mjs</code> writes <code>functions/lib/function-map.json</code>, which names the file that defines each function. An instance started for one function loads only that file (<code>functions/src/load-functions.ts</code>); a deploy loads every function to read what to deploy. See <a href="../app/functions.html#cold-starts">Keep cold starts short</a>.</p>
     <ul>
       <li>A full functions deploy with a feature off deletes that feature's functions.</li>
       <li><code>functions/src/features/search+content.ts</code> deploys only when both search and content are on.</li>
