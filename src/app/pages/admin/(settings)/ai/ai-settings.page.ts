@@ -167,7 +167,7 @@ export function usd(n: number): string {
                             </div>
                         </div>
                     }
-                    <div class="d-flex gap-2 mb-4 add-provider">
+                    <div class="d-flex flex-wrap gap-2 mb-4 add-provider">
                         <select class="form-select form-select-sm w-auto" [attr.aria-label]="'admin.settings.ai.add_provider' | transloco" [ngModel]="newPreset()" (ngModelChange)="newPreset.set($event)">
                             @for (p of setup()?.presets ?? []; track p.id) { <option [value]="p.id">{{ p.label }}</option> }
                         </select>
@@ -410,7 +410,10 @@ export function usd(n: number): string {
         h4 { font-size: 1rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
         .budget { max-width: 220px; }
         .price { width: 6.5rem; }
-        .model-row .conn { max-width: 12rem; }
+        /* Long option texts must not push a select past a phone's width. */
+        .form-select.w-auto { max-width: 100%; }
+        .model-row .conn { flex: 0 1 12rem; min-width: 0; }
+        .model-row input { min-width: 0; }
         .stat { border: 1px solid var(--bs-border-color); border-radius: 0.5rem; padding: 0.5rem 0.75rem; height: 100%; }
         .progress { height: 0.4rem; }
         pre.kept { white-space: pre-wrap; max-height: 16rem; overflow: auto; background: var(--bs-light); padding: 0.5rem; border-radius: 0.25rem; }
