@@ -199,12 +199,25 @@ describe('totals and the budget', () => {
         await addToTotals(call({ costUsd: 0.35 }), at);
         await addToTotals(call({ costUsd: 0.01 }), at);
         expect(h.notified.map((n) => n.payload['title'])).toEqual(['AI budget at 80%']);
-        expect(await checkBudget(settings, at)).toEqual({ ok: true });
+        expect(await checkBudget(settings, at)).toMatchObject({ ok: true, spent: expect.closeTo(0.86, 5) });
         await addToTotals(call({ costUsd: 0.2 }), at);
         await addToTotals(call({ costUsd: 0.2 }), at);
         expect(h.notified.map((n) => n.type)).toEqual(['admin_ai_budget', 'admin_ai_budget']);
         expect(h.notified[1].payload['title']).toBe('AI budget spent');
         expect(await checkBudget(settings, at)).toMatchObject({ ok: false });
+    });
+});
+
+describe('the budget alert', () => {
+    it('is not even checked for a call that cannot take the month past 80%', async () => {
+        h.docs.set('Settings/ai', { budget: { monthlyUsd: 1 } });
+        h.docs.set('AiUsage/2026-10', { costUsd: 0.9 });
+        const at = new Date('2026-10-28T10:00:00Z');
+        await addToTotals(call({ costUsd: 0.01 }), at, { spentBefore: 0.1, monthlyUsd: 1 });
+        expect(h.notified).toEqual([]);
+        // Near 80%: checked, and the month (0.92 of 1 USD) gets the 80% alert.
+        await addToTotals(call({ costUsd: 0.01 }), at, { spentBefore: 0.8, monthlyUsd: 1 });
+        expect(h.notified.map((n) => n.payload['title'])).toEqual(['AI budget at 80%']);
     });
 });
 
@@ -229,6 +242,18 @@ describe('keys', () => {
         const connection = (h.docs.get('Settings/ai')!['connections'] as Record<string, Data>)['qwen'];
         expect(connection).toMatchObject({ keyPreview: '••••1234', keySetBy: 'admin@example.com' });
         expect(JSON.stringify(h.docs.get('Settings/ai'))).not.toContain('sk-abcdefgh1234');
+    });
+
+    it('reads a key again once Settings shows it was set again, and always for a test', async () => {
+        await setAiKey(admin({ connection: 'qwen', key: 'sk-firstfirst1' }));
+        const first = resolveAiSettings(h.docs.get('Settings/ai')).connections['qwen'];
+        expect(await readKey(first)).toEqual({ ok: true, key: 'sk-firstfirst1' });
+        // Another instance sets a new key: this one's copy is older than Settings says.
+        h.docs.set('AiKeys/qwen', { ...h.docs.get('AiKeys/qwen'), key: 'sk-secondsecond', setAtIso: '2026-10-28T12:00:00.000Z' });
+        expect(await readKey(first)).toEqual({ ok: true, key: 'sk-firstfirst1' });
+        expect(await readKey({ ...first, keySetAt: '2026-10-28T12:00:00.000Z' })).toEqual({ ok: true, key: 'sk-secondsecond' });
+        h.docs.set('AiKeys/qwen', { ...h.docs.get('AiKeys/qwen'), key: 'sk-thirdthird3' });
+        expect(await readKey({ ...first, keySetAt: '2026-10-28T12:00:00.000Z' }, Date.now(), { fresh: true })).toEqual({ ok: true, key: 'sk-thirdthird3' });
     });
 
     it('stops sending a key once the connection\'s address changes', async () => {
@@ -273,13 +298,13 @@ describe('aiSetupInfo', () => {
 });
 
 describe('records', () => {
-    it('keep 60 days, and the content only when asked, with its files beside it', async () => {
+    it('keep the content only when asked, in a document of its own, with its files beside it', async () => {
         const now = new Date('2026-10-28T10:00:00Z');
         const bare = await writeAiCall(call(), null, now);
         const doc = h.docs.get(`AiCalls/${bare}`)!;
         expect(doc).toMatchObject({ purpose: 'menu-scan', outcome: 'ok', costUsd: 0.5 });
-        expect(doc).not.toHaveProperty('content');
-        expect((doc['expiresAt'] as { toMillis: () => number }).toMillis() - now.getTime()).toBe(60 * 24 * 3600 * 1000);
+        expect(doc).not.toHaveProperty('hasContent');
+        expect(h.docs.has(`AiCalls/${bare}/content/main`)).toBe(false);
 
         const kept = await writeAiCall(call(), {
             instruction: 'Read the menu.',
@@ -289,7 +314,9 @@ describe('records', () => {
             ],
             answer: '{"items":[]}',
         }, now);
-        const content = h.docs.get(`AiCalls/${kept}`)!['content'] as { instruction: string; parts: Array<Record<string, unknown>>; answer: string };
+        expect(h.docs.get(`AiCalls/${kept}`)).toMatchObject({ hasContent: true });
+        expect(h.docs.get(`AiCalls/${kept}`)).not.toHaveProperty('content');
+        const content = h.docs.get(`AiCalls/${kept}/content/main`) as { instruction: string; parts: Array<Record<string, unknown>>; answer: string };
         expect(content.instruction).toBe('Read the menu.');
         // One budget for all the text: the instruction took its share first, so the answer has none left.
         expect((content.parts[0]['text'] as string).length).toBe(MAX_KEPT_CHARS - 'Read the menu.'.length);
@@ -302,11 +329,13 @@ describe('the daily cleanup', () => {
     it('deletes records after 60 days with their files, old totals and spent counters', async () => {
         const now = new Date('2026-10-28T10:00:00Z');
         const ts = (iso: string) => ({ toMillis: () => Date.parse(iso) });
-        h.docs.set('AiCalls/old', { createdAt: ts('2026-08-01T00:00:00Z'), content: { answer: 'x' } });
+        h.docs.set('AiCalls/old', { createdAt: ts('2026-08-01T00:00:00Z'), hasContent: true });
+        h.docs.set('AiCalls/old/content/main', { answer: 'x' });
         h.docs.set('AiCalls/old2', { createdAt: ts('2026-08-20T00:00:00Z') });
         h.docs.set('AiCalls/new', { createdAt: ts('2026-10-01T00:00:00Z') });
         expect(await purgeAiCalls(now)).toBe(2);
         expect([...h.docs.keys()].filter((k) => k.startsWith('AiCalls/'))).toEqual(['AiCalls/new']);
+        expect(h.docs.has('AiCalls/old/content/main')).toBe(false);
         expect(h.deletedPrefixes).toEqual(['ai-calls/old/']);
 
         h.docs.set('AiUsage/2024-10', { calls: 1 });

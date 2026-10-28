@@ -17,6 +17,8 @@ export interface AiKnownModel {
     schema: AiSchemaSupport;
     priceIn?: number;
     priceOut?: number;
+    /** The tiers Arc suggests this model for, in Settings, AI's "Use recommended models". */
+    recommend?: Array<'cheap' | 'fast' | 'thorough'>;
 }
 
 export interface AiPreset {
@@ -40,7 +42,7 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         baseUrl: 'https://{workspace}.eu-central-1.maas.aliyuncs.com/compatible-mode/v1',
         processesIn: 'Germany (Frankfurt), Alibaba Cloud\'s EU deployment',
         models: {
-            'qwen3-vl-plus': { reads: ['pictures'], schema: 'json', priceIn: 0.2, priceOut: 1.6 },
+            'qwen3-vl-plus': { reads: ['pictures'], schema: 'json', priceIn: 0.2, priceOut: 1.6, recommend: ['cheap', 'fast', 'thorough'] },
         },
     },
     openrouter: {
@@ -49,7 +51,14 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         baseUrl: 'https://openrouter.ai/api/v1',
         processesIn: 'Wherever OpenRouter sends the model: its host\'s country',
         reportsCost: true,
-        models: {},
+        // OpenRouter reports each call's cost, so these need no price. Checked on OpenRouter's
+        // model list on PRICES_CHECKED_ON: all three read pictures; the Qwen 3.7 Flash host
+        // promises JSON but not a schema.
+        models: {
+            'qwen/qwen3.8-flash': { reads: ['pictures'], schema: 'strict', recommend: ['fast', 'thorough'] },
+            'qwen/qwen3-vl-30b-a3b-instruct': { reads: ['pictures'], schema: 'strict', recommend: ['thorough'] },
+            'qwen/qwen3.7-flash': { reads: ['pictures'], schema: 'json', recommend: ['cheap'] },
+        },
     },
     huggingface: {
         label: 'Hugging Face',
@@ -90,8 +99,8 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         kind: 'vertex',
         processesIn: 'The location chosen for it',
         models: {
-            'gemini-3.8-flash': { reads: ['pictures', 'pdfs'], schema: 'strict' },
-            'gemini-3.5-flash-lite': { reads: ['pictures', 'pdfs'], schema: 'strict' },
+            'gemini-3.8-flash': { reads: ['pictures', 'pdfs'], schema: 'strict', recommend: ['fast', 'thorough'] },
+            'gemini-3.5-flash-lite': { reads: ['pictures', 'pdfs'], schema: 'strict', recommend: ['cheap'] },
             'gemini-4-argon': { reads: ['pictures', 'pdfs'], schema: 'strict' },
         },
     },

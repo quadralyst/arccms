@@ -126,7 +126,7 @@ describe('purposeProblems', () => {
             'Menu Scan': base,
             'arc-mine': base,
             'no-label': { instruction: 'x' },
-            limits: { ...base, input: { pictures: { max: 0, maxMb: 50 } }, tier: 'huge', perKeyPerDay: 0, timeoutSeconds: 1 },
+            limits: { ...base, input: { pictures: { max: 0, maxMb: 50 } }, tier: 'huge', perKeyPerDay: 0, timeoutSeconds: 1, thinking: 'lots' },
             'bad-test': { ...base, output: { schema: MENU }, testAnswer: { sections: 'none' } },
             'bad-schema': { ...base, output: { schema: { type: 'array' } } },
         });
@@ -137,8 +137,9 @@ describe('purposeProblems', () => {
             'purpose "limits": tier must be one of cheap, fast, thorough',
             'purpose "limits": perKeyPerDay must be a whole number of 1 or more',
             'purpose "limits": timeoutSeconds must be a whole number from 5 to 540',
+            'purpose "limits": thinking must be \'low\' or \'high\'',
             'purpose "limits": input.pictures.max must be a whole number from 1 to 20',
-            'purpose "limits": input.pictures.maxMb must be more than 0 and at most 20',
+            'purpose "limits": input.pictures.maxMb must be more than 0 and at most 15',
             'purpose "bad-test": testAnswer.sections should be array',
             'purpose "bad-schema": output.schema is an array without items',
         ]));

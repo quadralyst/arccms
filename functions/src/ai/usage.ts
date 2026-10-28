@@ -28,8 +28,12 @@ function counts(record: AiCallRecord): Record<string, unknown> {
     };
 }
 
-/** Add a call to its month's totals. Never throws: the app's answer must not be lost over its totals. */
-export async function addToTotals(record: AiCallRecord, at = new Date()): Promise<void> {
+/**
+ * Add a call to its month's totals. Never throws: the app's answer must not be lost over its
+ * totals. `spentBefore` (from the budget check) skips the alert's transaction for a call that
+ * cannot have taken the month past 80% of `budget`, so most calls write the month once.
+ */
+export async function addToTotals(record: AiCallRecord, at = new Date(), budget?: { spentBefore: number; monthlyUsd: number }): Promise<void> {
     try {
         const day = await currentSiteDay(at);
         const month = db.collection(AI_USAGE).doc(day.month);
@@ -55,7 +59,8 @@ export async function addToTotals(record: AiCallRecord, at = new Date()): Promis
                 ...counts(record),
             }, { merge: true });
         }
-        if (record.costUsd > 0) await alertOnBudget(day.month);
+        const mayCross = !budget || budget.spentBefore + record.costUsd >= budget.monthlyUsd * 0.8;
+        if (record.costUsd > 0 && mayCross) await alertOnBudget(day.month);
     } catch (err) {
         console.error(`askAi: a ${record.purpose} call was not added to the totals`, err);
     }

@@ -48,6 +48,7 @@ describe('generateBody', () => {
             required: ['total'],
         });
         expect(vertexSchema({ enum: [1, 2] })).toEqual({});
+        expect((generateBody({ ...request, thinking: 'low' }) as Record<string, any>)['generationConfig'].thinkingConfig).toEqual({ thinkingLevel: 'low' });
     });
 });
 

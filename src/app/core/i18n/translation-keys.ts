@@ -903,13 +903,35 @@ export type TranslationKey =
     | 'admin.settings.about.site_name_hint'
     | 'admin.settings.about.site_name_placeholder'
     | 'admin.settings.ai.add_model'
-    | 'admin.settings.ai.add_provider'
-    | 'admin.settings.ai.add_provider_first'
     | 'admin.settings.ai.address'
+    | 'admin.settings.ai.address_change_note'
+    | 'admin.settings.ai.advice_address'
+    | 'admin.settings.ai.advice_busy'
+    | 'admin.settings.ai.advice_credit'
+    | 'admin.settings.ai.advice_key'
+    | 'admin.settings.ai.advice_key_again'
+    | 'admin.settings.ai.advice_model'
+    | 'admin.settings.ai.advice_other'
+    | 'admin.settings.ai.advice_reach'
+    | 'admin.settings.ai.advice_save'
+    | 'admin.settings.ai.advice_server'
+    | 'admin.settings.ai.advice_slow'
+    | 'admin.settings.ai.advice_tokens'
+    | 'admin.settings.ai.advice_vertex'
     | 'admin.settings.ai.all_outcomes'
     | 'admin.settings.ai.all_purposes'
     | 'admin.settings.ai.allowance'
+    | 'admin.settings.ai.allowance_hint'
     | 'admin.settings.ai.answer'
+    | 'admin.settings.ai.answered'
+    | 'admin.settings.ai.blurb_alibaba_eu'
+    | 'admin.settings.ai.blurb_deepseek'
+    | 'admin.settings.ai.blurb_huggingface'
+    | 'admin.settings.ai.blurb_openai'
+    | 'admin.settings.ai.blurb_openai_eu'
+    | 'admin.settings.ai.blurb_openrouter'
+    | 'admin.settings.ai.blurb_other'
+    | 'admin.settings.ai.blurb_vertex'
     | 'admin.settings.ai.budget'
     | 'admin.settings.ai.budget_hint'
     | 'admin.settings.ai.by_day'
@@ -917,17 +939,66 @@ export type TranslationKey =
     | 'admin.settings.ai.by_model'
     | 'admin.settings.ai.by_purpose'
     | 'admin.settings.ai.calls'
+    | 'admin.settings.ai.calls_failed'
     | 'admin.settings.ai.calls_hint'
+    | 'admin.settings.ai.cancel'
+    | 'admin.settings.ai.check_budget'
+    | 'admin.settings.ai.check_budget_hint'
+    | 'admin.settings.ai.check_live'
+    | 'admin.settings.ai.check_live_hint'
+    | 'admin.settings.ai.check_models'
+    | 'admin.settings.ai.check_models_hint'
+    | 'admin.settings.ai.check_provider'
+    | 'admin.settings.ai.check_provider_hint'
+    | 'admin.settings.ai.choose_another'
+    | 'admin.settings.ai.connect_a_provider'
+    | 'admin.settings.ai.connect_and_test'
+    | 'admin.settings.ai.connect_button'
+    | 'admin.settings.ai.connect_failed'
+    | 'admin.settings.ai.connect_first'
+    | 'admin.settings.ai.connect_title'
+    | 'admin.settings.ai.connected_notice'
+    | 'admin.settings.ai.connecting'
+    | 'admin.settings.ai.connection_test'
+    | 'admin.settings.ai.content_failed'
     | 'admin.settings.ai.cost'
+    | 'admin.settings.ai.csv_failed'
+    | 'admin.settings.ai.csv_truncated'
     | 'admin.settings.ai.day'
+    | 'admin.settings.ai.details'
     | 'admin.settings.ai.download'
+    | 'admin.settings.ai.easiest'
+    | 'admin.settings.ai.edit'
     | 'admin.settings.ai.failed'
     | 'admin.settings.ai.failed_count'
     | 'admin.settings.ai.file_gone'
     | 'admin.settings.ai.filter_outcome'
     | 'admin.settings.ai.filter_purpose'
+    | 'admin.settings.ai.get_started'
     | 'admin.settings.ai.gives_data'
     | 'admin.settings.ai.gives_text'
+    | 'admin.settings.ai.guide_alibaba_1'
+    | 'admin.settings.ai.guide_alibaba_2'
+    | 'admin.settings.ai.guide_alibaba_3'
+    | 'admin.settings.ai.guide_deepseek_1'
+    | 'admin.settings.ai.guide_deepseek_2'
+    | 'admin.settings.ai.guide_huggingface_1'
+    | 'admin.settings.ai.guide_huggingface_2'
+    | 'admin.settings.ai.guide_huggingface_3'
+    | 'admin.settings.ai.guide_openai_1'
+    | 'admin.settings.ai.guide_openai_2'
+    | 'admin.settings.ai.guide_openai_3'
+    | 'admin.settings.ai.guide_openai_eu_1'
+    | 'admin.settings.ai.guide_openrouter_1'
+    | 'admin.settings.ai.guide_openrouter_2'
+    | 'admin.settings.ai.guide_openrouter_3'
+    | 'admin.settings.ai.guide_openrouter_4'
+    | 'admin.settings.ai.guide_other_1'
+    | 'admin.settings.ai.guide_other_2'
+    | 'admin.settings.ai.guide_vertex_1'
+    | 'admin.settings.ai.guide_vertex_2'
+    | 'admin.settings.ai.guide_vertex_3'
+    | 'admin.settings.ai.hide_key'
     | 'admin.settings.ai.in_out'
     | 'admin.settings.ai.input_size'
     | 'admin.settings.ai.instruction'
@@ -936,59 +1007,85 @@ export type TranslationKey =
     | 'admin.settings.ai.keep_content_hint'
     | 'admin.settings.ai.key'
     | 'admin.settings.ai.key_column'
-    | 'admin.settings.ai.key_failed'
-    | 'admin.settings.ai.key_paste'
-    | 'admin.settings.ai.key_replace'
-    | 'admin.settings.ai.key_saved'
+    | 'admin.settings.ai.key_placeholder'
+    | 'admin.settings.ai.key_prefix_warning'
+    | 'admin.settings.ai.key_safe'
     | 'admin.settings.ai.key_set'
     | 'admin.settings.ai.key_units'
     | 'admin.settings.ai.last_ok'
+    | 'admin.settings.ai.live_not_ready'
     | 'admin.settings.ai.load_failed'
+    | 'admin.settings.ai.loading'
+    | 'admin.settings.ai.loading_content'
     | 'admin.settings.ai.location'
     | 'admin.settings.ai.location_hint'
+    | 'admin.settings.ai.missing_address'
+    | 'admin.settings.ai.missing_key'
+    | 'admin.settings.ai.missing_model'
+    | 'admin.settings.ai.missing_provider'
+    | 'admin.settings.ai.missing_workspace'
     | 'admin.settings.ai.mode'
     | 'admin.settings.ai.mode_live'
     | 'admin.settings.ai.mode_test'
     | 'admin.settings.ai.model'
     | 'admin.settings.ai.model_details'
     | 'admin.settings.ai.model_details_hint'
+    | 'admin.settings.ai.model_name_hint'
+    | 'admin.settings.ai.model_placeholder'
     | 'admin.settings.ai.models'
     | 'admin.settings.ai.models_hint'
+    | 'admin.settings.ai.models_set_notice'
     | 'admin.settings.ai.month'
     | 'admin.settings.ai.move_up'
     | 'admin.settings.ai.name'
     | 'admin.settings.ai.no_calls'
     | 'admin.settings.ai.no_key'
+    | 'admin.settings.ai.no_key_needed'
     | 'admin.settings.ai.no_price'
+    | 'admin.settings.ai.no_providers'
     | 'admin.settings.ai.no_purposes'
     | 'admin.settings.ai.no_usage'
     | 'admin.settings.ai.of_budget'
     | 'admin.settings.ai.on'
+    | 'admin.settings.ai.only_test_usage'
     | 'admin.settings.ai.open'
+    | 'admin.settings.ai.open_page'
     | 'admin.settings.ai.pictures'
     | 'admin.settings.ai.price_in'
     | 'admin.settings.ai.price_out'
+    | 'admin.settings.ai.price_reported'
     | 'admin.settings.ai.processes_in'
     | 'admin.settings.ai.provider'
     | 'admin.settings.ai.providers'
     | 'admin.settings.ai.providers_hint'
     | 'admin.settings.ai.purpose'
     | 'admin.settings.ai.reads'
+    | 'admin.settings.ai.recommended_for'
     | 'admin.settings.ai.refresh'
     | 'admin.settings.ai.remove'
-    | 'admin.settings.ai.remove_key'
-    | 'admin.settings.ai.remove_key_confirm'
-    | 'admin.settings.ai.remove_provider'
-    | 'admin.settings.ai.remove_provider_confirm'
+    | 'admin.settings.ai.remove_confirm'
+    | 'admin.settings.ai.remove_yes'
+    | 'admin.settings.ai.removed_notice'
+    | 'admin.settings.ai.replace_key'
+    | 'admin.settings.ai.replace_title'
     | 'admin.settings.ai.save'
-    | 'admin.settings.ai.save_before_key'
+    | 'admin.settings.ai.save_and_test'
     | 'admin.settings.ai.save_failed'
-    | 'admin.settings.ai.save_first'
-    | 'admin.settings.ai.save_key'
     | 'admin.settings.ai.saved'
+    | 'admin.settings.ai.set_key'
     | 'admin.settings.ai.shape'
     | 'admin.settings.ai.shape_json'
     | 'admin.settings.ai.shape_strict'
+    | 'admin.settings.ai.show_key'
+    | 'admin.settings.ai.status_error'
+    | 'admin.settings.ai.status_nokey'
+    | 'admin.settings.ai.status_untested'
+    | 'admin.settings.ai.status_working'
+    | 'admin.settings.ai.step_choose'
+    | 'admin.settings.ai.step_get_key'
+    | 'admin.settings.ai.step_google'
+    | 'admin.settings.ai.step_location'
+    | 'admin.settings.ai.step_paste'
     | 'admin.settings.ai.tab_calls'
     | 'admin.settings.ai.tab_purposes'
     | 'admin.settings.ai.tab_setup'
@@ -997,13 +1094,15 @@ export type TranslationKey =
     | 'admin.settings.ai.takes_pdfs'
     | 'admin.settings.ai.takes_pictures'
     | 'admin.settings.ai.takes_text'
-    | 'admin.settings.ai.test'
     | 'admin.settings.ai.test_badge'
     | 'admin.settings.ai.test_calls'
-    | 'admin.settings.ai.test_failed'
     | 'admin.settings.ai.test_model'
+    | 'admin.settings.ai.test_needs_model'
     | 'admin.settings.ai.test_note'
     | 'admin.settings.ai.test_ok'
+    | 'admin.settings.ai.test_ok_unpriced'
+    | 'admin.settings.ai.test_with'
+    | 'admin.settings.ai.testing'
     | 'admin.settings.ai.tier_cheap'
     | 'admin.settings.ai.tier_cheap_hint'
     | 'admin.settings.ai.tier_fast'
@@ -1014,7 +1113,12 @@ export type TranslationKey =
     | 'admin.settings.ai.tokens'
     | 'admin.settings.ai.tokens_in'
     | 'admin.settings.ai.tokens_out'
+    | 'admin.settings.ai.unpriced_badge'
+    | 'admin.settings.ai.unpriced_warning'
+    | 'admin.settings.ai.unsaved'
+    | 'admin.settings.ai.usage_failed'
     | 'admin.settings.ai.use_own'
+    | 'admin.settings.ai.use_recommended'
     | 'admin.settings.ai.use_tier'
     | 'admin.settings.ai.where'
     | 'admin.settings.ai.which_models'
@@ -3111,13 +3215,35 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.about.site_name_hint',
     'admin.settings.about.site_name_placeholder',
     'admin.settings.ai.add_model',
-    'admin.settings.ai.add_provider',
-    'admin.settings.ai.add_provider_first',
     'admin.settings.ai.address',
+    'admin.settings.ai.address_change_note',
+    'admin.settings.ai.advice_address',
+    'admin.settings.ai.advice_busy',
+    'admin.settings.ai.advice_credit',
+    'admin.settings.ai.advice_key',
+    'admin.settings.ai.advice_key_again',
+    'admin.settings.ai.advice_model',
+    'admin.settings.ai.advice_other',
+    'admin.settings.ai.advice_reach',
+    'admin.settings.ai.advice_save',
+    'admin.settings.ai.advice_server',
+    'admin.settings.ai.advice_slow',
+    'admin.settings.ai.advice_tokens',
+    'admin.settings.ai.advice_vertex',
     'admin.settings.ai.all_outcomes',
     'admin.settings.ai.all_purposes',
     'admin.settings.ai.allowance',
+    'admin.settings.ai.allowance_hint',
     'admin.settings.ai.answer',
+    'admin.settings.ai.answered',
+    'admin.settings.ai.blurb_alibaba_eu',
+    'admin.settings.ai.blurb_deepseek',
+    'admin.settings.ai.blurb_huggingface',
+    'admin.settings.ai.blurb_openai',
+    'admin.settings.ai.blurb_openai_eu',
+    'admin.settings.ai.blurb_openrouter',
+    'admin.settings.ai.blurb_other',
+    'admin.settings.ai.blurb_vertex',
     'admin.settings.ai.budget',
     'admin.settings.ai.budget_hint',
     'admin.settings.ai.by_day',
@@ -3125,17 +3251,66 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.by_model',
     'admin.settings.ai.by_purpose',
     'admin.settings.ai.calls',
+    'admin.settings.ai.calls_failed',
     'admin.settings.ai.calls_hint',
+    'admin.settings.ai.cancel',
+    'admin.settings.ai.check_budget',
+    'admin.settings.ai.check_budget_hint',
+    'admin.settings.ai.check_live',
+    'admin.settings.ai.check_live_hint',
+    'admin.settings.ai.check_models',
+    'admin.settings.ai.check_models_hint',
+    'admin.settings.ai.check_provider',
+    'admin.settings.ai.check_provider_hint',
+    'admin.settings.ai.choose_another',
+    'admin.settings.ai.connect_a_provider',
+    'admin.settings.ai.connect_and_test',
+    'admin.settings.ai.connect_button',
+    'admin.settings.ai.connect_failed',
+    'admin.settings.ai.connect_first',
+    'admin.settings.ai.connect_title',
+    'admin.settings.ai.connected_notice',
+    'admin.settings.ai.connecting',
+    'admin.settings.ai.connection_test',
+    'admin.settings.ai.content_failed',
     'admin.settings.ai.cost',
+    'admin.settings.ai.csv_failed',
+    'admin.settings.ai.csv_truncated',
     'admin.settings.ai.day',
+    'admin.settings.ai.details',
     'admin.settings.ai.download',
+    'admin.settings.ai.easiest',
+    'admin.settings.ai.edit',
     'admin.settings.ai.failed',
     'admin.settings.ai.failed_count',
     'admin.settings.ai.file_gone',
     'admin.settings.ai.filter_outcome',
     'admin.settings.ai.filter_purpose',
+    'admin.settings.ai.get_started',
     'admin.settings.ai.gives_data',
     'admin.settings.ai.gives_text',
+    'admin.settings.ai.guide_alibaba_1',
+    'admin.settings.ai.guide_alibaba_2',
+    'admin.settings.ai.guide_alibaba_3',
+    'admin.settings.ai.guide_deepseek_1',
+    'admin.settings.ai.guide_deepseek_2',
+    'admin.settings.ai.guide_huggingface_1',
+    'admin.settings.ai.guide_huggingface_2',
+    'admin.settings.ai.guide_huggingface_3',
+    'admin.settings.ai.guide_openai_1',
+    'admin.settings.ai.guide_openai_2',
+    'admin.settings.ai.guide_openai_3',
+    'admin.settings.ai.guide_openai_eu_1',
+    'admin.settings.ai.guide_openrouter_1',
+    'admin.settings.ai.guide_openrouter_2',
+    'admin.settings.ai.guide_openrouter_3',
+    'admin.settings.ai.guide_openrouter_4',
+    'admin.settings.ai.guide_other_1',
+    'admin.settings.ai.guide_other_2',
+    'admin.settings.ai.guide_vertex_1',
+    'admin.settings.ai.guide_vertex_2',
+    'admin.settings.ai.guide_vertex_3',
+    'admin.settings.ai.hide_key',
     'admin.settings.ai.in_out',
     'admin.settings.ai.input_size',
     'admin.settings.ai.instruction',
@@ -3144,59 +3319,85 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.keep_content_hint',
     'admin.settings.ai.key',
     'admin.settings.ai.key_column',
-    'admin.settings.ai.key_failed',
-    'admin.settings.ai.key_paste',
-    'admin.settings.ai.key_replace',
-    'admin.settings.ai.key_saved',
+    'admin.settings.ai.key_placeholder',
+    'admin.settings.ai.key_prefix_warning',
+    'admin.settings.ai.key_safe',
     'admin.settings.ai.key_set',
     'admin.settings.ai.key_units',
     'admin.settings.ai.last_ok',
+    'admin.settings.ai.live_not_ready',
     'admin.settings.ai.load_failed',
+    'admin.settings.ai.loading',
+    'admin.settings.ai.loading_content',
     'admin.settings.ai.location',
     'admin.settings.ai.location_hint',
+    'admin.settings.ai.missing_address',
+    'admin.settings.ai.missing_key',
+    'admin.settings.ai.missing_model',
+    'admin.settings.ai.missing_provider',
+    'admin.settings.ai.missing_workspace',
     'admin.settings.ai.mode',
     'admin.settings.ai.mode_live',
     'admin.settings.ai.mode_test',
     'admin.settings.ai.model',
     'admin.settings.ai.model_details',
     'admin.settings.ai.model_details_hint',
+    'admin.settings.ai.model_name_hint',
+    'admin.settings.ai.model_placeholder',
     'admin.settings.ai.models',
     'admin.settings.ai.models_hint',
+    'admin.settings.ai.models_set_notice',
     'admin.settings.ai.month',
     'admin.settings.ai.move_up',
     'admin.settings.ai.name',
     'admin.settings.ai.no_calls',
     'admin.settings.ai.no_key',
+    'admin.settings.ai.no_key_needed',
     'admin.settings.ai.no_price',
+    'admin.settings.ai.no_providers',
     'admin.settings.ai.no_purposes',
     'admin.settings.ai.no_usage',
     'admin.settings.ai.of_budget',
     'admin.settings.ai.on',
+    'admin.settings.ai.only_test_usage',
     'admin.settings.ai.open',
+    'admin.settings.ai.open_page',
     'admin.settings.ai.pictures',
     'admin.settings.ai.price_in',
     'admin.settings.ai.price_out',
+    'admin.settings.ai.price_reported',
     'admin.settings.ai.processes_in',
     'admin.settings.ai.provider',
     'admin.settings.ai.providers',
     'admin.settings.ai.providers_hint',
     'admin.settings.ai.purpose',
     'admin.settings.ai.reads',
+    'admin.settings.ai.recommended_for',
     'admin.settings.ai.refresh',
     'admin.settings.ai.remove',
-    'admin.settings.ai.remove_key',
-    'admin.settings.ai.remove_key_confirm',
-    'admin.settings.ai.remove_provider',
-    'admin.settings.ai.remove_provider_confirm',
+    'admin.settings.ai.remove_confirm',
+    'admin.settings.ai.remove_yes',
+    'admin.settings.ai.removed_notice',
+    'admin.settings.ai.replace_key',
+    'admin.settings.ai.replace_title',
     'admin.settings.ai.save',
-    'admin.settings.ai.save_before_key',
+    'admin.settings.ai.save_and_test',
     'admin.settings.ai.save_failed',
-    'admin.settings.ai.save_first',
-    'admin.settings.ai.save_key',
     'admin.settings.ai.saved',
+    'admin.settings.ai.set_key',
     'admin.settings.ai.shape',
     'admin.settings.ai.shape_json',
     'admin.settings.ai.shape_strict',
+    'admin.settings.ai.show_key',
+    'admin.settings.ai.status_error',
+    'admin.settings.ai.status_nokey',
+    'admin.settings.ai.status_untested',
+    'admin.settings.ai.status_working',
+    'admin.settings.ai.step_choose',
+    'admin.settings.ai.step_get_key',
+    'admin.settings.ai.step_google',
+    'admin.settings.ai.step_location',
+    'admin.settings.ai.step_paste',
     'admin.settings.ai.tab_calls',
     'admin.settings.ai.tab_purposes',
     'admin.settings.ai.tab_setup',
@@ -3205,13 +3406,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.takes_pdfs',
     'admin.settings.ai.takes_pictures',
     'admin.settings.ai.takes_text',
-    'admin.settings.ai.test',
     'admin.settings.ai.test_badge',
     'admin.settings.ai.test_calls',
-    'admin.settings.ai.test_failed',
     'admin.settings.ai.test_model',
+    'admin.settings.ai.test_needs_model',
     'admin.settings.ai.test_note',
     'admin.settings.ai.test_ok',
+    'admin.settings.ai.test_ok_unpriced',
+    'admin.settings.ai.test_with',
+    'admin.settings.ai.testing',
     'admin.settings.ai.tier_cheap',
     'admin.settings.ai.tier_cheap_hint',
     'admin.settings.ai.tier_fast',
@@ -3222,7 +3425,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.tokens',
     'admin.settings.ai.tokens_in',
     'admin.settings.ai.tokens_out',
+    'admin.settings.ai.unpriced_badge',
+    'admin.settings.ai.unpriced_warning',
+    'admin.settings.ai.unsaved',
+    'admin.settings.ai.usage_failed',
     'admin.settings.ai.use_own',
+    'admin.settings.ai.use_recommended',
     'admin.settings.ai.use_tier',
     'admin.settings.ai.where',
     'admin.settings.ai.which_models',

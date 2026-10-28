@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { deleteField } from '@angular/fire/firestore';
-import { aiFormFrom, aiSettingsData, callRowFrom, callsCsv, connectionId, emptyAiForm, monthUsageFrom } from './ai-settings.service';
+import { aiFormFrom, aiSettingsData, callContentFrom, callRowFrom, callsCsv, connectionId, emptyAiForm, monthUsageFrom, removalData } from './ai-settings.service';
 
 describe('aiFormFrom', () => {
     it('starts in test mode with nothing set up and a 20 USD budget', () => {
@@ -59,6 +59,33 @@ describe('aiSettingsData', () => {
     });
 });
 
+describe('saving parts', () => {
+    const before = aiFormFrom({
+        connections: { qwen: { preset: 'alibaba-eu', workspace: 'ws1', keyPreview: '••••1234', lastOkAt: '2026-10-28T09:00:00Z' }, or: { preset: 'openrouter' } },
+        tiers: { fast: [{ connection: 'or', model: 'x' }, { connection: 'qwen', model: 'qwen3-vl-plus' }] },
+        purposes: { a: { models: [{ connection: 'or', model: 'x' }] }, b: { models: [] } },
+        models: { 'or/x': { priceIn: 1 }, 'qwen/qwen3-vl-plus': { priceIn: 2 } },
+    });
+
+    it('removes a provider and writes nothing else', () => {
+        const after = { tiers: { cheap: [], fast: [{ connection: 'qwen', model: 'qwen3-vl-plus' }], thorough: [] }, purposes: { a: { ...before.purposes['a'], models: [] }, b: before.purposes['b'] } };
+        const data = removalData('or', after, before) as Record<string, any>;
+        expect(Object.keys(data).sort()).toEqual(['connections', 'models', 'purposes', 'tiers']);
+        expect(data['connections']['or']).toEqual(deleteField());
+        expect(Object.keys(data['purposes'])).toEqual(['a']);
+        expect(Object.keys(data['models'])).toEqual(['or/x']);
+        expect(data).not.toHaveProperty('mode');
+    });
+
+    it('clears the key of a provider whose workspace changed', () => {
+        const form = { ...before, connections: before.connections.map((c) => (c.id === 'qwen' ? { ...c, workspace: 'ws2' } : c)) };
+        const data = aiSettingsData(form, before) as { connections: Record<string, Record<string, unknown>> };
+        expect(data.connections['qwen']['keyPreview']).toEqual(deleteField());
+        expect(data.connections['qwen']['lastOkAt']).toEqual(deleteField());
+        expect(data.connections['or']).not.toHaveProperty('keyPreview');
+    });
+});
+
 describe('connectionId', () => {
     it('is made from the label and never taken twice', () => {
         expect(connectionId('Alibaba Cloud Model Studio, Frankfurt (EU)', [])).toBe('alibaba-cloud-model-studio-fra');
@@ -89,13 +116,15 @@ describe('calls', () => {
         purpose: 'menu-scan', outcome: 'ok', connection: 'qwen', model: 'qwen3-vl-plus', tokensIn: 1000, tokensOut: 200, costUsd: 0.00052,
         costFrom: 'price-list', ms: 1200, ref: '=HYPERLINK("x")', limitKey: 'b1', units: 2, input: { chars: 10, files: 1, bytes: 2048 },
         attempts: [{ connection: 'qwen', model: 'qwen3-vl-plus', outcome: 'ok', ms: 1200 }],
-        content: { instruction: 'Read.', parts: [{ kind: 'picture', mimeType: 'image/jpeg', size: 3, path: 'ai-calls/c1/1-a.jpeg' }], answer: '{}' },
+        hasContent: true,
     });
 
-    it('reads a record, with its kept content', () => {
-        expect(row).toMatchObject({ id: 'c1', purpose: 'menu-scan', units: 2, input: { files: 1 }, content: { instruction: 'Read.', answer: '{}' } });
-        expect(row.content?.parts[0]).toMatchObject({ kind: 'picture', path: 'ai-calls/c1/1-a.jpeg' });
-        expect(callRowFrom('c2', { purpose: 'x' }).content).toBeNull();
+    it('reads a record, and its kept content apart', () => {
+        expect(row).toMatchObject({ id: 'c1', purpose: 'menu-scan', units: 2, input: { files: 1 }, hasContent: true });
+        expect(callRowFrom('c2', { purpose: 'x' }).hasContent).toBe(false);
+        const content = callContentFrom({ instruction: 'Read.', parts: [{ kind: 'picture', mimeType: 'image/jpeg', size: 3, path: 'ai-calls/c1/1-a.jpeg' }], answer: '{}' });
+        expect(content).toMatchObject({ instruction: 'Read.', answer: '{}', parts: [{ kind: 'picture', path: 'ai-calls/c1/1-a.jpeg' }] });
+        expect(callContentFrom(undefined)).toBeNull();
     });
 
     it('makes a CSV a spreadsheet will not run as formulas', () => {

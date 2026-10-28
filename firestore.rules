@@ -501,6 +501,11 @@ service cloud.firestore {
     match /AiCalls/{callId} {
       allow read: if isAdmin();
       allow write: if false;
+      // What was sent and answered, for a purpose that keeps it: read when a call is opened.
+      match /content/{doc} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
     }
     match /AiUsage/{month} {
       allow read: if isAdmin();

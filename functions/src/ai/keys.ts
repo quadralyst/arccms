@@ -17,7 +17,7 @@ const CACHE_MS = 60_000;
 export const MIN_KEY_LENGTH = 8;
 export const MAX_KEY_LENGTH = 400;
 
-const cache = new Map<string, { at: number; key: string | null; baseUrl: string }>();
+const cache = new Map<string, { at: number; key: string | null; baseUrl: string; setAtIso: string }>();
 
 /** What the admin page shows of a key: dots and its last 4 characters. */
 export function keyPreview(key: string): string {
@@ -34,15 +34,27 @@ export function cleanKey(value: unknown): string | null {
 
 export type KeyRead = { ok: true; key: string } | { ok: false; detail: string };
 
-/** The key of a connection, when it was set for the address the connection has now. */
-export async function readKey(connection: AiConnection, now = Date.now()): Promise<KeyRead> {
+/**
+ * The key of a connection, when it was set for the address the connection has now. The copy
+ * kept in memory is read again when Settings, AI says the key was set at another moment (a
+ * new key, or none), so another instance never goes on sending an old key; `fresh` reads it
+ * again whatever (the admin's Test).
+ */
+export async function readKey(connection: AiConnection, now = Date.now(), options: { fresh?: boolean } = {}): Promise<KeyRead> {
     let entry = cache.get(connection.id);
-    if (!entry || now - entry.at >= CACHE_MS) {
+    const stale = !entry || options.fresh || now - entry.at >= CACHE_MS || entry.setAtIso !== (connection.keySetAt ?? '');
+    if (stale) {
         const snap = await db.collection(AI_KEYS).doc(connection.id).get();
         const data = snap.exists ? snap.data() ?? {} : {};
-        entry = { at: now, key: typeof data['key'] === 'string' ? data['key'] : null, baseUrl: typeof data['baseUrl'] === 'string' ? data['baseUrl'] : '' };
+        entry = {
+            at: now,
+            key: typeof data['key'] === 'string' ? data['key'] : null,
+            baseUrl: typeof data['baseUrl'] === 'string' ? data['baseUrl'] : '',
+            setAtIso: typeof data['setAtIso'] === 'string' ? data['setAtIso'] : '',
+        };
         cache.set(connection.id, entry);
     }
+    entry = entry!;
     if (!entry.key) return { ok: false, detail: `connection ${connection.id} has no key: set one in Settings, AI` };
     if (entry.baseUrl !== connectionBaseUrl(connection)) {
         return { ok: false, detail: `the key of connection ${connection.id} was set for another address: set it again in Settings, AI` };
@@ -50,9 +62,9 @@ export async function readKey(connection: AiConnection, now = Date.now()): Promi
     return { ok: true, key: entry.key };
 }
 
-/** Store a key for a connection at its present address. */
-export async function storeKey(connection: AiConnection, key: string, setBy: string): Promise<void> {
-    await db.collection(AI_KEYS).doc(connection.id).set({ key, baseUrl: connectionBaseUrl(connection), setAt: Timestamp.now(), setBy });
+/** Store a key for a connection at its present address; `setAtIso` is the moment Settings, AI shows for it. */
+export async function storeKey(connection: AiConnection, key: string, setBy: string, setAtIso: string): Promise<void> {
+    await db.collection(AI_KEYS).doc(connection.id).set({ key, baseUrl: connectionBaseUrl(connection), setAt: Timestamp.now(), setAtIso, setBy });
     cache.delete(connection.id);
 }
 

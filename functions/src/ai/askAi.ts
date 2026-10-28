@@ -191,13 +191,16 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
     let inputSize = { chars: 0, files: 0, bytes: 0 };
     let parts: PreparedPart[] = [];
     let allowance: { release: () => Promise<void> } | null = null;
+    let spentBefore: number | null = null;
 
     const finish = async (outcome: { ok: true; data?: unknown; text?: string; answerText: string } | { ok: false; reason: AiFailureReason; detail?: string; wait?: number; scope?: 'key' | 'budget'; answerText?: string }): Promise<AskAiResult> => {
         const ms = Date.now() - started;
         // A failure gives its units back only when nothing was billed: an answer that was
         // blocked or did not fit was paid for, so it counts, or one key could spend the
         // month's budget without ever reaching its allowance.
-        if (!outcome.ok && allowance && usage.tokensIn + usage.tokensOut === 0) await allowance.release();
+        // A timed-out request was most likely still answered, and billed, by the provider.
+        const maybeBilled = usage.tokensIn + usage.tokensOut > 0 || attempts.some((a) => a.outcome === 'timeout');
+        if (!outcome.ok && allowance && !maybeBilled) await allowance.release();
         const record: AiCallRecord = {
             purpose: c.purposeId,
             tier,
@@ -216,8 +219,10 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
             ...(outcome.ok ? {} : { scope: outcome.scope, detail: outcome.detail?.slice(0, 500) }),
         };
         const content = ps.keepContent ? { instruction: c.purpose.instruction, parts, answer: outcome.answerText ?? null } : null;
-        const recordId = await writeAiCall(record, content);
-        await addToTotals(record, new Date(started));
+        const [recordId] = await Promise.all([
+            writeAiCall(record, content),
+            addToTotals(record, new Date(started), spentBefore === null ? undefined : { spentBefore, monthlyUsd: settings.budget.monthlyUsd }),
+        ]);
         const resultUsage: AiUsage = { model: record.model, connection: record.connection, ...usage, ms, test };
         if (outcome.ok) return { ok: true, ...(schema ? { data: outcome.data } : { text: outcome.text }), usage: resultUsage, recordId };
         return { ok: false, reason: outcome.reason, ...(outcome.scope ? { scope: outcome.scope } : {}), ...(outcome.wait ? { wait: outcome.wait } : {}), ...(outcome.detail ? { detail: outcome.detail } : {}), usage: resultUsage, recordId };
@@ -245,6 +250,7 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
         if (!test) {
             const budget = await checkBudget(settings);
             if (!budget.ok) return finish({ ok: false, reason: 'limit', scope: 'budget', wait: budget.wait, detail: `the month's budget of ${settings.budget.monthlyUsd} USD is spent` });
+            spentBefore = budget.spent;
         }
 
         const prepared = await prepareInput(c.purposeId, c.purpose, input.input);
@@ -298,6 +304,7 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
                     schemaSupport: info.schema,
                     maxOutputTokens: c.purpose.maxOutputTokens,
                     temperature: c.purpose.temperature,
+                    thinking: c.purpose.thinking,
                     timeoutMs: left,
                 });
             }

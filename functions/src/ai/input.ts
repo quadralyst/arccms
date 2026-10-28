@@ -14,8 +14,11 @@ export type PreparedPart =
     | { kind: 'text'; text: string }
     | { kind: 'picture' | 'pdf'; mimeType: string; bytes: Buffer; name: string | null; storagePath: string | null };
 
-/** At most this much in one request, all parts together: what providers take inline. */
-export const MAX_REQUEST_BYTES = 20 * 1024 * 1024;
+/**
+ * At most this much in one request, all files together. Files go inline as base64, a third
+ * larger, so 15 MB of files is about the 20 MB that providers take in one request.
+ */
+export const MAX_REQUEST_BYTES = 15 * 1024 * 1024;
 
 const PICTURE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const PDF_TYPE = 'application/pdf';
@@ -148,12 +151,12 @@ export async function prepareInput(purposeId: string, purpose: AiPurpose, input:
             }
             counts.bytes += size;
             if (size > maxBytes) return refuse('too-large', `${f.source.storagePath} is ${(size / 1024 / 1024).toFixed(1)} MB; ${purposeId} takes at most ${limit.maxMb} MB`);
-            if (counts.bytes > MAX_REQUEST_BYTES) return refuse('too-large', 'the files come to more than 20 MB together');
+            if (counts.bytes > MAX_REQUEST_BYTES) return refuse('too-large', 'the files come to more than 15 MB together');
             [bytes] = await file.download();
         } else {
             counts.bytes += bytes.length;
             if (bytes.length > maxBytes) return refuse('too-large', `part ${f.index + 1} is ${(bytes.length / 1024 / 1024).toFixed(1)} MB; ${purposeId} takes at most ${limit.maxMb} MB`);
-            if (counts.bytes > MAX_REQUEST_BYTES) return refuse('too-large', 'the files come to more than 20 MB together');
+            if (counts.bytes > MAX_REQUEST_BYTES) return refuse('too-large', 'the files come to more than 15 MB together');
         }
         const real = sniffType(bytes);
         const fits = kind === 'pdf' ? real === PDF_TYPE : real !== null && PICTURE_TYPES.includes(real);

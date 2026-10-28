@@ -18,6 +18,8 @@ export interface ConnectorRequest {
     schemaSupport: AiSchemaSupport;
     maxOutputTokens?: number;
     temperature?: number;
+    /** How much a model that thinks first may think, where the provider lets Arc say. */
+    thinking?: 'low' | 'high';
     timeoutMs: number;
 }
 

@@ -45,6 +45,7 @@ export const AI_PURPOSES: AiPurposes = {
     instruction: 'Read this supplier receipt. Give every line with its quantity and price, and the total as printed. Leave the date null when it cannot be read.',
     output: { schema: RECEIPT },
     tier: 'thorough',
+    thinking: 'low',
     perKeyPerDay: 20,
     testAnswer: { supplier: 'Test Supplier', date: '2026-10-01', currency: 'CHF', lines: [{ name: 'Flour 25 kg', quantity: 2, price: 38.5 }], total: 77 },
   },
@@ -53,7 +54,7 @@ export const AI_PURPOSES: AiPurposes = {
     <pre><code>import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { askAi } from '../app-kit/index.js';
 
-export const readReceipt = onCall({ timeoutSeconds: 120 }, async (request) =&gt; {
+export const readReceipt = onCall({ timeoutSeconds: 120, memory: '1GiB' }, async (request) =&gt; {
   const { businessId, path } = request.data;
   // Your check: the caller works for this business, and the file is theirs.
   await assertStaff(request, businessId);
@@ -76,13 +77,14 @@ export const readReceipt = onCall({ timeoutSeconds: 120 }, async (request) =&gt;
       <thead><tr><th>Field</th><th>What it says</th></tr></thead>
       <tbody>
         <tr><td><code>label</code>, <code>description</code></td><td>What admins see in Settings, AI</td></tr>
-        <tr><td><code>input</code></td><td>What a call may send. Text is always allowed, up to <code>text.maxChars</code> (default 20,000 characters). <code>pictures</code> (JPEG, PNG, WebP) and <code>pdfs</code> each take <code>{ max, maxMb }</code>: how many, and the largest, at most 20 MB. A call with a kind the purpose does not take throws.</td></tr>
+        <tr><td><code>input</code></td><td>What a call may send. Text is always allowed, up to <code>text.maxChars</code> (default 20,000 characters). <code>pictures</code> (JPEG, PNG, WebP) and <code>pdfs</code> each take <code>{ max, maxMb }</code>: how many, and the largest, at most 15 MB. All the files of one call come to at most 15 MB: they go inline as base64, a third larger, and providers take about 20 MB in one request. A call with a kind the purpose does not take throws.</td></tr>
         <tr><td><code>instruction</code></td><td>The prompt. It stays on the server: Settings, AI does not show it, except on a call kept by <strong>Keep what is sent and answered</strong>.</td></tr>
         <tr><td><code>output</code></td><td><code>'text'</code> (the default), or <code>{ schema }</code>: the answer is data of that shape, checked by Arc CMS</td></tr>
         <tr><td><code>tier</code></td><td><code>cheap</code>, <code>fast</code> (the default) or <code>thorough</code>: which of the admin's model lists answers, unless the admin gives the purpose its own</td></tr>
         <tr><td><code>perKeyPerDay</code></td><td>How many units one key may use a day. With it, every call needs a <code>limitKey</code>. The admin can change the number; a purpose without it has no allowance.</td></tr>
         <tr><td><code>testAnswer</code></td><td>The answer in test mode: the data or text itself, a function of the input, or <code>aiTestFailure(reason)</code>. A fixed answer is checked against the schema when the functions load.</td></tr>
-        <tr><td><code>maxOutputTokens</code>, <code>temperature</code>, <code>timeoutSeconds</code></td><td>Optional. <code>timeoutSeconds</code> (5 to 540, default 60) is for the whole call, fallbacks included. Give your own function a longer <code>timeoutSeconds</code> than the purpose.</td></tr>
+        <tr><td><code>thinking</code></td><td>Optional, for a model that thinks before it answers: <code>'low'</code> for quick reading and sorting (faster, fewer billed tokens), <code>'high'</code> for hard reasoning. Sent to OpenRouter, OpenAI and Gemini; other providers ignore it. A model that thinks past <code>maxOutputTokens</code> gives no answer (<code>unreadable</code>), and its tokens are still billed.</td></tr>
+        <tr><td><code>maxOutputTokens</code>, <code>temperature</code>, <code>timeoutSeconds</code></td><td>Optional. <code>timeoutSeconds</code> (5 to 540, default 60) is for the whole call, fallbacks included. Give your own function a longer <code>timeoutSeconds</code> than the purpose, and memory for the files: about seven times their size, so <code>memory: '1GiB'</code> for photos of several MB.</td></tr>
       </tbody>
     </table>
     <p>The schema is the part of JSON schema models take: <code>type</code> (one or a list, such as <code>['number', 'null']</code>), <code>properties</code>, <code>required</code>, <code>additionalProperties: false</code>, <code>items</code>, <code>enum</code>, <code>minItems</code>, <code>maxItems</code>. Other keywords, such as <code>description</code>, are passed to the model and not checked.</p>
@@ -114,7 +116,7 @@ export const readReceipt = onCall({ timeoutSeconds: 120 }, async (request) =&gt;
         <tr><td><code>off</code></td><td>The <code>ai</code> feature is off, the admin switched the purpose off, or no model is set up for it</td><td>Hide the button, or say the feature is not available</td></tr>
       </tbody>
     </table>
-    <p>A developer's mistake throws instead: an unknown purpose, a kind of file the purpose does not take, a missing <code>limitKey</code> for a purpose with an allowance, or a wrong type. A call that fails before a provider answers gives its units back. One the provider answered, even with a block or an answer that did not fit, was paid for, so its units count.</p>
+    <p>A developer's mistake throws instead: an unknown purpose, a kind of file the purpose does not take, a missing <code>limitKey</code> for a purpose with an allowance, or a wrong type. A call that fails before a provider answers gives its units back. One the provider answered, even with a block or an answer that did not fit, was paid for, so its units count; so does one that timed out, since the provider most likely finished and billed it.</p>
 
     <h2>Which model answers</h2>
     <p>Each tier, and any purpose the admin gives its own list, is a list of up to 5 models. The first answers. The next tries only when the one before is busy or down, refuses its key, has gone (a model Google or another provider retired), or used up its share of the time. Never after a safety block, an input that is too large or an answer that does not fit: another model would not do better. A model that cannot read what you send, such as a picture to a text-only model, is skipped. Because every answer is checked, a cheap model that promises only JSON is safe to use: it gets your schema in its instruction, and an answer of the wrong shape comes back as <code>unreadable</code>.</p>
@@ -152,9 +154,10 @@ try {
       <li><strong>Every call is recorded</strong> in <code>AiCalls</code> for 60 days: the purpose, each model tried and how it went, the tokens in and out (thinking included in out), the cost in USD, the time, your <code>ref</code> and <code>limitKey</code>. Not what was sent or answered, unless the admin switches on <strong>Keep what is sent and answered</strong> for the purpose: then the text and the answer are on the record and each file is copied beside it in Storage, for 60 days. Turn it on while testing; it may hold personal data.</li>
       <li><strong>The cost</strong> is the provider's own figure when it reports one (OpenRouter does), else tokens times the price in Settings, AI. Arc CMS ships the prices it has checked; a model without a price is counted as free until the admin sets one. It is an estimate: the provider's invoice is the true figure.</li>
       <li><strong>The month's totals</strong> by day, purpose, model and key are kept 24 months. <code>aiUsage({ limitKey, purpose?, month? })</code> gives one key's totals, for example to show a business its use or pass the cost on.</li>
-      <li><strong>The monthly budget</strong> (20 USD on a new install) stops live calls when it is spent, with <code>limit</code> and <code>scope: 'budget'</code>; a budget of 0 stops every live call. Admins get a notification and an email at 80% and at 100%.</li>
+      <li><strong>The monthly budget</strong> (20 USD on a new install) stops live calls when it is spent, with <code>limit</code> and <code>scope: 'budget'</code>; a budget of 0 stops every live call. It is checked before each call, so calls running at the same moment can pass it by about one call's cost each. A model with no price is counted as 0 USD, so the budget cannot stop it: Settings, AI warns about each one until a price is set. A timed-out call is recorded with no tokens, though the provider may have billed it. Admins get a notification and an email at 80% and at 100%.</li>
       <li><strong>A day</strong> for the allowance and the totals is the site's day, in the time zone of Settings, Localization.</li>
-      <li><strong>Deleting an account</strong> does not delete the records of its calls: they go after 60 days. Use an id, such as a business id, as <code>limitKey</code> and <code>ref</code>, never a name or an email address.</li>
+      <li><strong>Deleting an account</strong> does not delete the records of its calls: they go after 60 days, and the month's totals per key, which hold the <code>limitKey</code>, after 24 months. Use an id, such as a business id, as <code>limitKey</code> and <code>ref</code>, never a name or an email address.</li>
+      <li><strong>What Arc CMS adds to your Google Cloud bill</strong> is small next to the model's: about three Firestore reads and three to four writes for each live call, one daily cleanup job, and Storage for files kept with a purpose's content.</li>
     </ul>
 
     <h2>Deploy</h2>

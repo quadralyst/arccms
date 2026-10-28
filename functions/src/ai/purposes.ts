@@ -10,7 +10,7 @@ import { AI_TIERS, isAiTestFailure, type AiPurpose, type AiPurposes, type AiTier
 
 const PURPOSE_ID = /^[a-z][a-z0-9-]{1,39}$/;
 export const DEFAULT_TEXT_CHARS = 20_000;
-export const MAX_FILE_MB = 20;
+export const MAX_FILE_MB = 15;
 export const MAX_FILES = 20;
 export const DEFAULT_TIMEOUT_SECONDS = 60;
 
@@ -33,6 +33,7 @@ export function purposeProblems(purposes: unknown): string[] {
         if (p.perKeyPerDay !== undefined && (!Number.isInteger(p.perKeyPerDay) || p.perKeyPerDay < 1)) problems.push(`${at}: perKeyPerDay must be a whole number of 1 or more`);
         if (p.maxOutputTokens !== undefined && (!Number.isInteger(p.maxOutputTokens) || p.maxOutputTokens < 1)) problems.push(`${at}: maxOutputTokens must be a whole number of 1 or more`);
         if (p.temperature !== undefined && (typeof p.temperature !== 'number' || p.temperature < 0 || p.temperature > 2)) problems.push(`${at}: temperature must be from 0 to 2`);
+        if (p.thinking !== undefined && p.thinking !== 'low' && p.thinking !== 'high') problems.push(`${at}: thinking must be 'low' or 'high'`);
         if (p.timeoutSeconds !== undefined && (!Number.isInteger(p.timeoutSeconds) || p.timeoutSeconds < 5 || p.timeoutSeconds > 540)) problems.push(`${at}: timeoutSeconds must be a whole number from 5 to 540`);
         const input = p.input ?? {};
         if (input.text !== undefined && (!Number.isInteger(input.text.maxChars) || input.text.maxChars < 1)) problems.push(`${at}: input.text.maxChars must be a whole number of 1 or more`);

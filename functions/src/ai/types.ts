@@ -72,6 +72,12 @@ export interface AiPurpose {
     maxOutputTokens?: number;
     /** 0 to 2. Default: the model's own. */
     temperature?: number;
+    /**
+     * For a model that thinks before it answers: `low` for quick reading and sorting (faster,
+     * fewer billed tokens), `high` for hard reasoning. Default: the model's own. Sent to
+     * OpenRouter, OpenAI and Gemini; other providers ignore it.
+     */
+    thinking?: 'low' | 'high';
     /** How long the whole call may take, all fallbacks together, 5 to 540. Default 60. */
     timeoutSeconds?: number;
 }

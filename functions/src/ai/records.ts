@@ -94,9 +94,14 @@ async function keepFiles(id: string, parts: PreparedPart[], take: (t: string) =>
     }));
 }
 
+/** Where a record's kept content is: a document of its own, so listing records never loads it. */
+export function contentDoc(id: string) {
+    return db.collection(AI_CALLS).doc(id).collection('content').doc('main');
+}
+
 /**
- * Write the record. Never throws: the app's answer must not be lost over its record, so a
- * failure is logged and the id comes back null.
+ * Write the record, and its content apart when the purpose keeps it. Never throws: the app's
+ * answer must not be lost over its record, so a failure is logged and the id comes back null.
  */
 export async function writeAiCall(record: AiCallRecord, content: KeptContent | null, now = new Date()): Promise<string | null> {
     const ref = db.collection(AI_CALLS).doc();
@@ -104,9 +109,10 @@ export async function writeAiCall(record: AiCallRecord, content: KeptContent | n
         const doc: Record<string, unknown> = {
             ...record,
             createdAt: Timestamp.fromDate(now),
-            expiresAt: Timestamp.fromDate(new Date(now.getTime() + KEEP_DAYS * 24 * 60 * 60 * 1000)),
+            ...(content ? { hasContent: true } : {}),
         };
         for (const k of Object.keys(doc)) if (doc[k] === undefined) delete doc[k];
+        await ref.set(doc);
         if (content) {
             const take = charBudget();
             const instruction = take(content.instruction);
@@ -119,16 +125,13 @@ export async function writeAiCall(record: AiCallRecord, content: KeptContent | n
                 again(instruction);
                 parts = content.parts.map((p) => (p.kind === 'text' ? { kind: 'text', text: again(p.text) } : { kind: p.kind, mimeType: p.mimeType, size: p.bytes.length, path: null, from: p.storagePath }));
             }
-            doc['content'] = { instruction, parts, answer: content.answer === null ? null : take(content.answer) };
-        }
-        try {
-            await ref.set(doc);
-        } catch (err) {
-            if (!content) throw err;
-            // The record matters more than its content: keep it without.
-            console.error(`askAi: record ${ref.id} kept without its content`, err);
-            delete doc['content'];
-            await ref.set({ ...doc, contentDropped: true });
+            try {
+                await contentDoc(ref.id).set({ instruction, parts, answer: content.answer === null ? null : take(content.answer) });
+            } catch (err) {
+                // The record matters more than its content: it stays, marked.
+                console.error(`askAi: the content of record ${ref.id} was not kept`, err);
+                await ref.update({ contentDropped: true });
+            }
         }
         return ref.id;
     } catch (err) {

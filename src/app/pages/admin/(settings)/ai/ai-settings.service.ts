@@ -8,7 +8,7 @@ import {
     Firestore, collection, deleteField, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, where, Timestamp,
 } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
-import { getDownloadURL, ref } from '@angular/fire/storage';
+import { getBlob, ref } from '@angular/fire/storage';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { ArcStorage } from '../../../../core/config/arc-storage';
 
@@ -24,7 +24,7 @@ export interface AiPresetInfo {
     needsWorkspace: boolean;
     needsAddress: boolean;
     reportsCost: boolean;
-    models: Array<{ model: string; reads: AiReads[]; schema: 'strict' | 'json'; priceIn?: number; priceOut?: number }>;
+    models: Array<{ model: string; reads: AiReads[]; schema: 'strict' | 'json'; priceIn?: number; priceOut?: number; recommend?: AiTier[] }>;
 }
 
 export interface AiPurposeInfo {
@@ -94,6 +94,17 @@ export interface AiSettingsForm {
 
 export const DEFAULT_MONTHLY_USD = 20;
 
+/** What a provider test answers. `costFrom` 'none': no price is known, so the cost was not counted. */
+export interface AiTestResult {
+    ok: boolean;
+    ms: number;
+    reply?: string;
+    failure?: string;
+    detail?: string;
+    costUsd?: number;
+    costFrom?: 'provider' | 'price-list' | 'none';
+}
+
 export function emptyAiForm(): AiSettingsForm {
     return { mode: 'test', connections: [], tiers: { cheap: [], fast: [], thorough: [] }, purposes: {}, models: {}, monthlyUsd: DEFAULT_MONTHLY_USD };
 }
@@ -149,7 +160,12 @@ export function aiFormFrom(data: Record<string, unknown> | undefined): AiSetting
 export function aiSettingsData(form: AiSettingsForm, loaded: AiSettingsForm): Record<string, unknown> {
     const connections: Record<string, unknown> = {};
     for (const c of form.connections) {
-        connections[c.id] = { preset: c.preset, label: c.label.trim(), workspace: c.workspace.trim(), baseUrl: c.baseUrl.trim(), location: c.location.trim(), processesIn: c.processesIn.trim() };
+        connections[c.id] = connectionFields(c);
+        // A new address or workspace means the key no longer goes out (AI-D8): the card says Key needed.
+        const before = loaded.connections.find((l) => l.id === c.id);
+        if (before && addressChanged(before, c)) {
+            Object.assign(connections[c.id] as Record<string, unknown>, { keyPreview: deleteField(), keySetAt: deleteField(), keySetBy: deleteField(), lastOkAt: deleteField() });
+        }
         // New here: nothing the server noted about an older connection of the same id carries over.
         if (!loaded.connections.some((l) => l.id === c.id)) {
             Object.assign(connections[c.id] as Record<string, unknown>, { keyPreview: deleteField(), keySetAt: deleteField(), keySetBy: deleteField(), lastOkAt: deleteField(), lastError: deleteField(), lastErrorAt: deleteField() });
@@ -169,6 +185,46 @@ export function aiSettingsData(form: AiSettingsForm, loaded: AiSettingsForm): Re
     }
     for (const key of Object.keys(loaded.models)) if (!(key in form.models)) models[key] = deleteField();
     return { mode: form.mode, connections, tiers: form.tiers, purposes, models, budget: { monthlyUsd: form.monthlyUsd } };
+}
+
+/**
+ * What removing a provider writes, and nothing else: the provider gone, the tiers and purpose
+ * lists without its models, its model details deleted.
+ */
+export function removalData(id: string, after: Pick<AiSettingsForm, 'tiers' | 'purposes'>, before: AiSettingsForm): Record<string, unknown> {
+    const purposes: Record<string, unknown> = {};
+    for (const [pid, p] of Object.entries(after.purposes)) {
+        if (JSON.stringify(p.models) !== JSON.stringify(before.purposes[pid]?.models ?? [])) purposes[pid] = { models: p.models };
+    }
+    const models = Object.fromEntries(Object.keys(before.models).filter((k) => k.startsWith(`${id}/`)).map((k) => [k, deleteField()]));
+    return { connections: { [id]: deleteField() }, tiers: after.tiers, ...(Object.keys(purposes).length ? { purposes } : {}), ...(Object.keys(models).length ? { models } : {}) };
+}
+
+/** Whether a connection's address changed: its key, set for the old one, is no longer sent. */
+export function addressChanged(before: AiConnectionForm, after: AiConnectionForm): boolean {
+    return before.workspace.trim() !== after.workspace.trim() || before.baseUrl.trim() !== after.baseUrl.trim();
+}
+
+/** One connection's own fields, as save writes them. */
+function connectionFields(c: AiConnectionForm): Record<string, unknown> {
+    return { preset: c.preset, label: c.label.trim(), workspace: c.workspace.trim(), baseUrl: c.baseUrl.trim(), location: c.location.trim(), processesIn: c.processesIn.trim() };
+}
+
+/** What saving one new connection writes: its fields, and nothing an older one of the same id left behind. */
+export function connectionData(c: AiConnectionForm): Record<string, unknown> {
+    return {
+        connections: {
+            [c.id]: { ...connectionFields(c), keyPreview: deleteField(), keySetAt: deleteField(), keySetBy: deleteField(), lastOkAt: deleteField(), lastError: deleteField(), lastErrorAt: deleteField() },
+        },
+    };
+}
+
+/**
+ * Each tier's models as a provider recommends them, in its order: what "Use recommended
+ * models" puts in the tiers. Empty when Arc knows no models of the provider.
+ */
+export function recommendedTiers(connectionId: string, preset: AiPresetInfo): Record<AiTier, AiModelRef[]> {
+    return Object.fromEntries(AI_TIERS.map((t) => [t, preset.models.filter((m) => m.recommend?.includes(t)).map((m) => ({ connection: connectionId, model: m.model }))])) as Record<AiTier, AiModelRef[]>;
 }
 
 /** A new connection's id from its label: lower case letters, digits and -, unique among `taken`. */
@@ -238,14 +294,23 @@ export interface AiCallRow {
     units: number;
     input: { chars: number; files: number; bytes: number };
     attempts: Array<{ connection: string; model: string; outcome: string; ms: number; detail?: string }>;
-    content: { instruction: string; parts: Array<{ kind: string; text?: string; mimeType?: string; size?: number; path?: string | null }>; answer: string | null } | null;
+    /** The purpose kept what was sent and answered; it is read when the call is opened. */
+    hasContent: boolean;
 }
+
+export interface AiCallContent {
+    instruction: string;
+    parts: Array<{ kind: string; text?: string; mimeType?: string; size?: number; path?: string | null }>;
+    answer: string | null;
+}
+
+/** The most records the CSV download reads. */
+export const CSV_MAX_ROWS = 20_000;
 
 export function callRowFrom(id: string, d: Record<string, unknown>): AiCallRow {
     const created = d['createdAt'] as { toDate?: () => Date } | undefined;
     const num = (k: string) => (typeof d[k] === 'number' ? (d[k] as number) : 0);
     const input = obj(d['input']);
-    const content = d['content'] ? obj(d['content']) : null;
     return {
         id,
         createdAt: created?.toDate ? created.toDate() : null,
@@ -261,11 +326,16 @@ export function callRowFrom(id: string, d: Record<string, unknown>): AiCallRow {
         ref: strOrNull(d['ref']), limitKey: strOrNull(d['limitKey']), units: num('units') || 1,
         input: { chars: Number(input['chars'] ?? 0), files: Number(input['files'] ?? 0), bytes: Number(input['bytes'] ?? 0) },
         attempts: Array.isArray(d['attempts']) ? (d['attempts'] as Array<Record<string, unknown>>).map((a) => ({ connection: str(a['connection']), model: str(a['model']), outcome: str(a['outcome']), ms: Number(a['ms'] ?? 0), ...(a['detail'] ? { detail: str(a['detail']) } : {}) })) : [],
-        content: content ? {
-            instruction: str(content['instruction']),
-            parts: Array.isArray(content['parts']) ? (content['parts'] as Array<Record<string, unknown>>).map((p) => ({ kind: str(p['kind']), text: typeof p['text'] === 'string' ? p['text'] : undefined, mimeType: typeof p['mimeType'] === 'string' ? p['mimeType'] : undefined, size: typeof p['size'] === 'number' ? p['size'] : undefined, path: typeof p['path'] === 'string' ? p['path'] : null })) : [],
-            answer: typeof content['answer'] === 'string' ? content['answer'] : null,
-        } : null,
+        hasContent: d['hasContent'] === true,
+    };
+}
+
+export function callContentFrom(d: Record<string, unknown> | undefined): AiCallContent | null {
+    if (!d) return null;
+    return {
+        instruction: str(d['instruction']),
+        parts: Array.isArray(d['parts']) ? (d['parts'] as Array<Record<string, unknown>>).map((p) => ({ kind: str(p['kind']), text: typeof p['text'] === 'string' ? p['text'] : undefined, mimeType: typeof p['mimeType'] === 'string' ? p['mimeType'] : undefined, size: typeof p['size'] === 'number' ? p['size'] : undefined, path: typeof p['path'] === 'string' ? p['path'] : null })) : [],
+        answer: typeof d['answer'] === 'string' ? d['answer'] : null,
     };
 }
 
@@ -312,6 +382,16 @@ export class AiSettingsService {
         await this.inCtx(() => setDoc(doc(this.firestore, 'Settings', 'ai'), { ...data, updatedAt: serverTimestamp() }, { merge: true }));
     }
 
+    /** Saves one new connection alone, so connecting it commits none of the page's other changes. */
+    async saveConnection(c: AiConnectionForm): Promise<void> {
+        await this.inCtx(() => setDoc(doc(this.firestore, 'Settings', 'ai'), { ...connectionData(c), updatedAt: serverTimestamp() }, { merge: true }));
+    }
+
+    /** Saves only these fields of Settings, AI: a button that changes one thing commits nothing else. */
+    async savePart(data: Record<string, unknown>): Promise<void> {
+        await this.inCtx(() => setDoc(doc(this.firestore, 'Settings', 'ai'), { ...data, updatedAt: serverTimestamp() }, { merge: true }));
+    }
+
     async setKey(connection: string, key: string): Promise<{ keyPreview: string; keySetAt: string; keySetBy: string }> {
         const result = await this.inCtx(() => arcCallable(this.functions, 'setAiKey')({ connection, key }));
         return result.data as { keyPreview: string; keySetAt: string; keySetBy: string };
@@ -321,9 +401,9 @@ export class AiSettingsService {
         await this.inCtx(() => arcCallable(this.functions, 'removeAiKey')({ connection }));
     }
 
-    async test(connection: string, model: string): Promise<{ ok: boolean; ms: number; reply?: string; failure?: string; detail?: string; costUsd?: number }> {
+    async test(connection: string, model: string): Promise<AiTestResult> {
         const result = await this.inCtx(() => arcCallable(this.functions, 'testAiConnection', { timeout: 70_000 })({ connection, model }));
-        return result.data as { ok: boolean; ms: number; reply?: string; failure?: string; detail?: string; costUsd?: number };
+        return result.data as AiTestResult;
     }
 
     async usage(month: string): Promise<AiMonthUsage> {
@@ -339,16 +419,26 @@ export class AiSettingsService {
         return snap.docs.map((d) => callRowFrom(d.id, d.data()));
     }
 
-    /** Every record kept (the last 60 days), for the CSV download. */
-    async allCalls(): Promise<AiCallRow[]> {
+    /** The records kept (the last 60 days), newest first, at most CSV_MAX_ROWS, for the CSV download. */
+    async allCalls(): Promise<{ rows: AiCallRow[]; truncated: boolean }> {
         const since = Timestamp.fromDate(new Date(Date.now() - 61 * 24 * 3600 * 1000));
-        const snap = await this.inCtx(() => getDocs(query(collection(this.firestore, 'AiCalls'), where('createdAt', '>=', since), orderBy('createdAt', 'desc'), limit(20_000))));
-        return snap.docs.map((d) => callRowFrom(d.id, d.data()));
+        const snap = await this.inCtx(() => getDocs(query(collection(this.firestore, 'AiCalls'), where('createdAt', '>=', since), orderBy('createdAt', 'desc'), limit(CSV_MAX_ROWS))));
+        return { rows: snap.docs.map((d) => callRowFrom(d.id, d.data())), truncated: snap.size >= CSV_MAX_ROWS };
     }
 
-    /** A kept file's link, for an admin (storage.rules). */
+    /** What a call sent and was answered, when its purpose kept it. */
+    async callContent(id: string): Promise<AiCallContent | null> {
+        const snap = await this.inCtx(() => getDoc(doc(this.firestore, 'AiCalls', id, 'content', 'main')));
+        return callContentFrom(snap.data());
+    }
+
+    /**
+     * A kept file as a link that lives only in this page (an object URL), not a lasting
+     * download link anyone holding it could open (storage.rules lets admins read it).
+     */
     async fileUrl(path: string): Promise<string> {
         const storage = await this.arcStorage.get();
-        return this.inCtx(() => getDownloadURL(ref(storage, path)));
+        const blob = await this.inCtx(() => getBlob(ref(storage, path)));
+        return URL.createObjectURL(blob);
     }
 }

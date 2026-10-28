@@ -30,7 +30,8 @@ export const testAiConnection = onCall({ timeoutSeconds: 60 }, async (request) =
 
     const started = Date.now();
     let result: ConnectorResult;
-    const key = preset.kind === 'openai' ? await readKey(connection) : { ok: true as const, key: null };
+    // Read the key again: one set a moment ago on another instance must be the one tested.
+    const key = preset.kind === 'openai' ? await readKey(connection, Date.now(), { fresh: true }) : { ok: true as const, key: null };
     if (!key.ok) result = { ok: false, failure: 'off', detail: key.detail };
     else {
         result = await connectorFor(preset.kind)({ connection, key: key.key }, {
@@ -41,6 +42,7 @@ export const testAiConnection = onCall({ timeoutSeconds: 60 }, async (request) =
             schemaSupport: modelInfo(settings, { connection: connection.id, model }).schema,
             // Room for a model that thinks first: 20 tokens could all go on thinking.
             maxOutputTokens: 1024,
+            thinking: 'low',
             timeoutMs: TIMEOUT_MS,
         });
     }
@@ -73,6 +75,6 @@ export const testAiConnection = onCall({ timeoutSeconds: 60 }, async (request) =
     await noteConnection(settings, connection.id, result.ok ? null : result.detail);
     forgetAiSettings();
     return result.ok
-        ? { ok: true, ms, reply: result.text.trim().slice(0, 80), tokensIn: usage.tokensIn, tokensOut: usage.tokensOut, costUsd }
+        ? { ok: true, ms, reply: result.text.trim().slice(0, 80), tokensIn: usage.tokensIn, tokensOut: usage.tokensOut, costUsd, costFrom: record.costFrom }
         : { ok: false, ms, failure: result.failure, detail: result.detail.slice(0, 300) };
 });

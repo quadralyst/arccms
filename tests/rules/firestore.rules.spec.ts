@@ -281,7 +281,7 @@ describe('phone and email sign-in fields (item 1: Google and phone sign-in)', ()
     });
 
     it('lets admins read AI records and totals, and nobody write them', async () => {
-        for (const path of [['AiCalls', 'c1'], ['AiUsage', '2026-10'], ['AiUsage', '2026-10', 'keys', 'menu-scan__k'], ['AiUsage', '2026-10', 'days', '28__menu-scan__k']]) {
+        for (const path of [['AiCalls', 'c1'], ['AiCalls', 'c1', 'content', 'main'], ['AiUsage', '2026-10'], ['AiUsage', '2026-10', 'keys', 'menu-scan__k'], ['AiUsage', '2026-10', 'days', '28__menu-scan__k']]) {
             await assertSucceeds(getDoc(doc(admin(), path.join('/'))));
             await assertFails(getDoc(doc(alice(), path.join('/'))));
             await assertFails(setDoc(doc(admin(), path.join('/')), { a: 1 }));

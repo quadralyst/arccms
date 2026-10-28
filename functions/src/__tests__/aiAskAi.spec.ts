@@ -71,7 +71,7 @@ vi.mock('../ai/usage.js', () => ({
 }));
 vi.mock('../ai/limits.js', () => ({
     consumeAllowance: async () => (h.consumed++, h.allowance.ok ? { ok: true, release: async () => void h.released++ } : { ok: false, wait: h.allowance.wait }),
-    checkBudget: async () => h.budget,
+    checkBudget: async () => (h.budget.ok ? { ok: true, spent: 0 } : h.budget),
 }));
 vi.mock('../ai/keys.js', () => ({
     readKey: async (c: { id: string }) => (h.keys[c.id] ? { ok: true, key: h.keys[c.id] } : { ok: false, detail: `connection ${c.id} has no key` }),
@@ -303,10 +303,11 @@ describe('live calls', () => {
         expect(h.records[0].content).toMatchObject({ answer: 'Sorry, I cannot read this.' });
     });
 
-    it('passes a timeout on', async () => {
+    it('passes a timeout on, and keeps its units: the provider most likely billed it', async () => {
         live();
         answers({ ok: false, failure: 'timeout', detail: 'no answer within 60 seconds' }, { ok: false, failure: 'timeout', detail: 'no answer within 58 seconds' });
         expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1' })).toMatchObject({ ok: false, reason: 'timeout' });
+        expect(h.released).toBe(0);
     });
 
     it('keeps the question and answer only when the purpose\'s switch is on', async () => {

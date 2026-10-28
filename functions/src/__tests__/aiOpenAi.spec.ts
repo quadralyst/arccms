@@ -47,6 +47,16 @@ describe('chatBody', () => {
         expect(chatBody({ ...request, schema: null })).not.toHaveProperty('response_format');
     });
 
+    it('asks OpenRouter for little thinking and for hosts that keep the schema; OpenAI for its effort', () => {
+        const router = chatBody({ ...request, schemaSupport: 'strict', thinking: 'low' }, { openRouter: true });
+        expect(router['reasoning']).toEqual({ effort: 'low' });
+        expect(router['provider']).toEqual({ require_parameters: true });
+        const openai = chatBody({ ...request, thinking: 'high' }, { completionTokens: true });
+        expect(openai['reasoning_effort']).toBe('high');
+        expect(openai).not.toHaveProperty('provider');
+        expect(chatBody({ ...request, thinking: 'low' })).not.toHaveProperty('reasoning');
+    });
+
     it('uses max_completion_tokens for OpenAI, and can leave temperature out', () => {
         const body = chatBody({ ...request, maxOutputTokens: 300, temperature: 0.2 }, { completionTokens: true, noTemperature: true });
         expect(body['max_completion_tokens']).toBe(300);

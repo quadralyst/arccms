@@ -17,6 +17,8 @@ export interface ChatOptions {
     completionTokens?: boolean;
     /** Leave temperature out: the model refused it. */
     noTemperature?: boolean;
+    /** OpenRouter: route only to hosts that honour every parameter sent, so a strict schema is kept. */
+    openRouter?: boolean;
 }
 
 export function chatBody(request: ConnectorRequest, options: ChatOptions = {}): Record<string, unknown> {
@@ -42,6 +44,11 @@ export function chatBody(request: ConnectorRequest, options: ChatOptions = {}): 
     if (request.maxOutputTokens) body[options.completionTokens ? 'max_completion_tokens' : 'max_tokens'] = request.maxOutputTokens;
     if (request.temperature !== undefined && !options.noTemperature) body['temperature'] = request.temperature;
     if (options.askCost) body['usage'] = { include: true };
+    if (request.thinking) {
+        if (options.openRouter) body['reasoning'] = { effort: request.thinking };
+        else if (options.completionTokens) body['reasoning_effort'] = request.thinking;
+    }
+    if (options.openRouter && request.schema && request.schemaSupport === 'strict') body['provider'] = { require_parameters: true };
     return body;
 }
 
@@ -67,7 +74,7 @@ function waitFrom(headers: Headers): number | undefined {
 function errorText(body: unknown): string {
     const err = (body as { error?: unknown })?.error;
     const raw = typeof err === 'string' ? err : typeof (err as { message?: unknown })?.message === 'string' ? (err as { message: string }).message : JSON.stringify(body ?? '');
-    return raw.replace(/(sk|key|Bearer)[-_ ]?[A-Za-z0-9_-]{12,}/gi, '[key]').slice(0, 300);
+    return raw.replace(/(sk|hf|key|Bearer)[-_ ]?[A-Za-z0-9_-]{12,}/gi, '[key]').slice(0, 300);
 }
 
 function errorCode(body: unknown): string {
@@ -127,6 +134,7 @@ export const openAiConnector: Connector = async ({ connection, key }, request) =
         const options: ChatOptions = {
             askCost: findPreset(connection.preset)?.reportsCost === true,
             completionTokens: connection.preset === 'openai' || connection.preset === 'openai-eu',
+            openRouter: connection.preset === 'openrouter',
         };
         const send = async (o: ChatOptions) => {
             const response = await fetch(`${base}/chat/completions`, {

@@ -17,7 +17,7 @@
     <table>
       <thead><tr><th>Part</th><th>Where</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td>Settings, AI</td><td>Admin, Settings, AI (<code>/admin/settings/ai</code>)</td><td>Four tabs: <strong>Setup</strong> (mode, providers and keys, the models of each tier, model details and prices, the monthly budget), <strong>Purposes</strong> (each of the app's uses and its choices), <strong>Usage</strong> (the month's totals and a CSV of the calls) and <strong>Calls</strong> (the last 100, with what each one did)</td></tr>
+        <tr><td>Settings, AI</td><td>Admin, Settings, AI (<code>/admin/settings/ai</code>)</td><td>Four tabs: <strong>Setup</strong> (a Get started checklist, the mode, providers connected step by step, the models of each tier, model details and prices, the monthly budget), <strong>Purposes</strong> (each of the app's uses and its choices), <strong>Usage</strong> (the month's totals and a CSV of the calls) and <strong>Calls</strong> (the last 100, with what each one did)</td></tr>
         <tr><td>Purposes</td><td>The app's code, <code>functions/src/custom/ai.ts</code></td><td>Each use: what it takes, the instruction, the shape of the answer, its tier and its test answer</td></tr>
         <tr><td><code>askAi</code></td><td>The app kit</td><td>What the app's functions call. See <a href="../app/ai.html">Use AI in your app</a>.</td></tr>
       </tbody>
@@ -32,16 +32,17 @@
     <p>With it off, Settings, AI and its card are gone and the URL shows the not-found page; the functions <code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code> and <code>cleanUpAi</code> are not built; and <code>askAi</code> answers <code>off</code> without throwing, so the same app code runs in a project with AI and one without. Records, totals and keys stay in Firestore. How the switch works for every feature: <a href="../reference/feature-ids.html">Feature ids</a>.</p>
 
     <h2>Set it up</h2>
+    <p>Settings, AI starts with a <strong>Get started</strong> checklist: connect a provider, choose models, check the monthly budget, switch to Live. Each step ticks itself when it is done. A new site is in <strong>Test</strong> mode: nothing is sent and nothing is spent, and every call gets its purpose's sample answer.</p>
     <ol class="steps">
-      <li><p>Open Admin, Settings, AI. A new site is in <strong>Test</strong> mode: nothing is sent and nothing is spent, and every call gets its purpose's test answer.</p></li>
-      <li><p>Under <strong>Providers</strong>, pick one and click <strong>Add provider</strong>. Each card says where that provider processes data. For Alibaba Cloud Model Studio, enter your workspace id; for an other address, its OpenAI-style address (<code>https://.../v1</code>) and where it processes data; for Google Vertex AI, a location if you want another than the one shown (see <a href="../app/ai.html#vertex">Gemini on Vertex AI</a>, which needs no key).</p></li>
-      <li><p>Click <strong>Save</strong>, then paste the key and click <strong>Save key</strong> (the page must have no unsaved changes, since the key is tied to the saved address). The key goes to the server and is never shown again: the card shows <code>••••</code> and its last 4 characters, who set it and when. To rotate a key, paste the new one: it works within a minute, with no deploy. <strong>Remove key</strong> takes it away.</p></li>
-      <li><p>Type a model, such as <code>qwen3-vl-plus</code>, and click <strong>Test</strong>. It makes one tiny live call, even in test mode, and says how long the answer took and what it cost, or why there was none.</p></li>
-      <li><p>Under <strong>Models</strong>, list the models of each tier: <strong>Cheap</strong> for tags and short texts, <strong>Fast</strong> for most uses, <strong>Thorough</strong> for hard reading. The first in a list answers; the next only when it is busy, down or gone.</p></li>
-      <li><p>Under <strong>Model details</strong>, check what each model reads (pictures, PDFs), whether the provider holds the answer to the schema or promises JSON only, and its price in USD per million tokens. Arc CMS fills in what it knows; a model without a price is counted as free.</p></li>
-      <li><p>Set the <strong>Monthly budget</strong> (20 USD on a new site; 0 stops every live call), save, and switch the mode to <strong>Live</strong>.</p></li>
+      <li><p>Click <strong>Connect a provider</strong> and choose one. Each says in a line what it is and where it processes data; OpenRouter, marked <strong>Easiest to start</strong>, is first. Google Vertex AI needs no key (see <a href="../app/ai.html#vertex">Gemini on Vertex AI</a>).</p></li>
+      <li><p>Follow the numbered steps the panel shows for that provider, with <strong>Open</strong> links to its pages: where to sign in, how to create a key, what the key starts with, and where to add credit. Alibaba Cloud also asks for its workspace ID; an other address asks for the address and where it processes data.</p></li>
+      <li><p>Paste the key. The panel warns when a key does not start as that provider's keys do. Click <strong>Connect and test</strong>: the provider is saved on its own, the key goes to the server, and one tiny live call tests it, even in test mode. It says how long the answer took and what it cost, or, in plain words, what to fix (a wrong key, no credit, a model the provider does not have) with the provider's own message under <strong>Details</strong>. The key is never shown again: the card shows <code>••••</code> and its last 4 characters, who set it and when.</p></li>
+      <li><p>Click <strong>Use these models</strong>, for a provider Arc CMS knows models of, to fill the tiers with its recommended models and save. Or list the models of each tier yourself: <strong>Cheap</strong> for tags and short texts, <strong>Fast</strong> for most uses, <strong>Thorough</strong> for hard reading. The first in a list answers; the next only when it is busy, down or gone.</p></li>
+      <li><p>Under <strong>Advanced: what each model reads and costs</strong>, check what a model you typed reads (pictures, PDFs), whether the provider holds the answer to the schema or promises JSON only, and its price in USD per million tokens. Arc CMS fills in what it knows; a model without a price is counted as free, and a provider that reports each call's cost (OpenRouter) needs none.</p></li>
+      <li><p>Check the <strong>Monthly budget</strong> (20 USD on a new site; 0 stops every live call). The checklist warns about each model in use that has no price, since the budget cannot count it. Switch the mode to <strong>Live</strong> and click <strong>Save</strong>. The page says when there are changes not saved yet, and warns when Live is chosen before a provider works.</p></li>
     </ol>
-    <div class="warn"><p>Where a provider processes data is your choice and your client's: a provider's own service in China, for example, sends what you ask to China. The same open models are offered by other hosts too. Read <a href="../app/ai.html#vertex">Gemini on Vertex AI</a> for Google's regions.</p></div>
+    <p>Each provider card says how it stands: <strong>Working</strong>, <strong>Not working</strong> (with what to do), <strong>Not tested</strong> or <strong>Key needed</strong>. <strong>Replace key</strong> rotates a key the same way, with no deploy; it works within a minute. <strong>Edit</strong> changes its name or address (a new address or workspace means setting the key again). <strong>Remove</strong> asks for a confirmation in the page, then removes the provider and its key from every model list and saves just that. <strong>Use these models</strong> also saves only the tiers: any other change on the page waits for <strong>Save</strong>.</p>
+    <div class="warn"><p>Where a provider processes data is your choice and your client's: a provider's own service in China, for example, sends what you ask to China. OpenRouter and Hugging Face pass each call to the company that runs the model; block the ones you do not want in your account settings there. Read <a href="../app/ai.html#vertex">Gemini on Vertex AI</a> for Google's regions.</p></div>
 
     <h2>Use it</h2>
     <h3>Purposes</h3>
@@ -53,9 +54,9 @@
       <li><strong>Keep what is sent and answered</strong>: off by default. On, each call's text, files and answer are kept with its record for 60 days and admins can read them on the Calls tab. They may hold personal data: turn it on while testing.</li>
     </ul>
     <h3>Usage</h3>
-    <p>For a month: the cost against the budget, the calls and failures, the tokens in and out, the test calls, and the same by purpose, model, key (the 20 that cost most) and day. <strong>Download calls</strong> gives a CSV of every call kept, the last 60 days. The cost is the provider's own figure when it reports one, else tokens times the price: an estimate, since the provider's invoice is the true figure.</p>
+    <p>For a month: the cost against the budget, the calls and failures, the tokens in and out, the test calls, and the same by purpose, model, key (the 20 that cost most) and day. <strong>Download calls</strong> gives a CSV of the calls kept, the last 60 days, the newest 20,000 at most; the page says when it held more. The cost is the provider's own figure when it reports one, else tokens times the price: an estimate, since the provider's invoice is the true figure.</p>
     <h3>Calls</h3>
-    <p>The last 100 calls with the time, purpose, outcome, model, tokens, cost and how long it took. Click one for each model tried and how it went, the size of what was sent, the key and reference, and, when the purpose keeps it, the instruction, the text, the files and the answer.</p>
+    <p>The last 100 calls with the time, purpose, outcome, model, tokens, cost and how long it took. Click one for each model tried and how it went, the size of what was sent, the key and reference, and, when the purpose keeps it, the instruction, the text, the files and the answer, loaded only then. A kept file opens in a new tab, from a link that works only on this page.</p>
     <h3>The budget</h3>
     <p>At 80% and at 100% of the month's budget, admins get a notification and an email (type <strong>AI budget (admin)</strong>). At 100% live calls answer <code>limit</code> until the month turns or the budget is raised. A month and a day are the site's, in the time zone of Settings, Localization.</p>
 
@@ -68,7 +69,7 @@
       <tbody>
         <tr><td><code>Settings/ai</code></td><td><code>mode</code>; <code>connections</code> (each provider, with its key's preview and its last success or error); <code>tiers</code>; <code>purposes</code> (on, models, allowance, keep content); <code>models</code> (what each reads, its schema support and prices); <code>budget.monthlyUsd</code></td></tr>
         <tr><td><code>AiKeys</code></td><td>Each provider's key, with the address it was set for. When the address changes, the key is not sent until it is set again.</td></tr>
-        <tr><td><code>AiCalls</code></td><td>One record per call, kept 60 days, with <code>content</code> only when the purpose keeps it</td></tr>
+        <tr><td><code>AiCalls</code></td><td>One record per call, kept 60 days. When the purpose keeps content, it is in <code>AiCalls/{record}/content/main</code>, read only when a call is opened</td></tr>
         <tr><td><code>AiUsage/{yyyy-mm}</code></td><td>The month's totals by day, purpose and model, with <code>keys</code> (per key) and <code>days</code> (the allowance counters) under it. Kept 24 months.</td></tr>
         <tr><td>Storage <code>ai-calls/{record}/</code></td><td>The files of a call whose purpose keeps content, under the upload folder</td></tr>
       </tbody>
@@ -98,7 +99,8 @@
     <table>
       <thead><tr><th>You see</th><th>Why, and what to do</th></tr></thead>
       <tbody>
-        <tr><td>Every answer is the same sample</td><td>Test mode. Switch the mode to Live.</td></tr>
+        <tr><td>Every answer is the same sample</td><td>Test mode. Switch the mode to Live and save.</td></tr>
+        <tr><td>A provider card says "Not working"</td><td>It says what to do. Open <strong>Details</strong> for the provider's own message, fix it at the provider, and click <strong>Test</strong> again.</td></tr>
         <tr><td>Calls answer <code>off</code>, "no model is set for the fast tier"</td><td>Put a model in that tier, or in the purpose's own list.</td></tr>
         <tr><td>"no model in the list reads pictures"</td><td>Tick Pictures for a model that reads them under Model details, or add one that does.</td></tr>
         <tr><td>"has no key" or "was set for another address" on a provider</td><td>Set the key again. A key stops being sent when the provider's address or workspace changes.</td></tr>
@@ -106,7 +108,8 @@
         <tr><td>"Vertex AI refused the project's service account"</td><td>Switch on the Vertex AI API and give the service account the Vertex AI User role (<a href="../app/ai.html#vertex">Gemini on Vertex AI</a>).</td></tr>
         <tr><td>"the model is not there"</td><td>The provider retired the model, or it is not offered in that location. Put its successor in the list.</td></tr>
         <tr><td>Calls answer <code>limit</code> with scope <code>budget</code></td><td>The month's budget is spent. Raise it, or wait for the month to turn.</td></tr>
-        <tr><td>Cost shows $0 for live calls</td><td>The model has no price. Set one under Model details.</td></tr>
+        <tr><td>Cost shows $0 for live calls, or the checklist warns "These models have no price"</td><td>The model has no price, so the budget cannot count or stop it. Set its prices under Advanced, or use a provider that reports each call's cost (OpenRouter).</td></tr>
+        <tr><td>"The model used all its tokens thinking"</td><td>A model that thinks first spent its allowance on thinking. Ask the developer to set <code>thinking: 'low'</code> or a larger <code>maxOutputTokens</code> on the purpose, or choose a model that thinks less.</td></tr>
       </tbody>
     </table>
   </main>

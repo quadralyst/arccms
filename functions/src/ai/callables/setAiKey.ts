@@ -22,8 +22,8 @@ export const setAiKey = onCall(async (request) => {
     if (findPreset(connection.preset)?.kind !== 'openai') throw new HttpsError('failed-precondition', 'This connection uses the project\'s own Google account and needs no key.');
     if (!connectionBaseUrl(connection)) throw new HttpsError('failed-precondition', 'Fill in the connection\'s address (or workspace) first, then set its key.');
     const setBy = String(request.auth?.token?.['email'] ?? request.auth?.uid ?? 'an admin');
-    await storeKey(connection, key, setBy);
     const now = new Date().toISOString();
+    await storeKey(connection, key, setBy, now);
     await db.collection('Settings').doc(AI_SETTINGS_DOC).update({
         [`connections.${connection.id}.keyPreview`]: keyPreview(key),
         [`connections.${connection.id}.keySetAt`]: now,

@@ -1,7 +1,8 @@
 /**
- * Settings, AI (docs/app/ai.html): test mode says what it means; a provider shows where it
- * processes data and only its key's preview; a key can be set only once the provider is
- * saved; purposes come from the app's code; usage and calls load when their tab opens.
+ * Settings, AI (docs/features/ai.html): a checklist says what is left; a provider card says
+ * where it processes data, how it stands and only its key's preview; a provider is removed
+ * after a confirmation in the page, never the browser's; "Use these models" fills the tiers;
+ * purposes come from the app's code; usage and calls load when their tab opens.
  */
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
@@ -11,10 +12,17 @@ import { aiFormFrom, AiSettingsService, monthUsageFrom, type AiSetupInfo } from 
 import { translocoTestingModule } from '../../../../../test/transloco-test-providers';
 
 const SETUP: AiSetupInfo = {
-    purposes: [{ id: 'menu-scan', label: 'Menu scan', description: 'Reads a menu photo.', tier: 'thorough', output: 'data', maxChars: 2000, pictures: { max: 5, maxMb: 10 }, pdfs: null, perKeyPerDay: 20, timeoutSeconds: 60 }],
+    purposes: [{ id: 'menu-scan', label: 'Menu scan', description: 'Reads a menu photo.', tier: 'thorough', output: 'data', maxChars: 20000, pictures: { max: 5, maxMb: 10 }, pdfs: null, perKeyPerDay: 20, timeoutSeconds: 60 }],
     presets: [
-        { id: 'alibaba-eu', label: 'Alibaba Cloud Model Studio, Frankfurt (EU)', kind: 'openai', processesIn: 'Germany (Frankfurt)', needsWorkspace: true, needsAddress: false, reportsCost: false, models: [{ model: 'qwen3-vl-plus', reads: ['pictures'], schema: 'json', priceIn: 0.2, priceOut: 1.6 }] },
-        { id: 'openrouter', label: 'OpenRouter', kind: 'openai', processesIn: 'Its host', needsWorkspace: false, needsAddress: false, reportsCost: true, models: [] },
+        { id: 'alibaba-eu', label: 'Alibaba Cloud Model Studio, Frankfurt (EU)', kind: 'openai', processesIn: 'Germany (Frankfurt)', needsWorkspace: true, needsAddress: false, reportsCost: false, models: [{ model: 'qwen3-vl-plus', reads: ['pictures'], schema: 'json', priceIn: 0.2, priceOut: 1.6, recommend: ['cheap', 'fast', 'thorough'] }] },
+        {
+            id: 'openrouter', label: 'OpenRouter', kind: 'openai', processesIn: 'Its host', needsWorkspace: false, needsAddress: false, reportsCost: true,
+            models: [
+                { model: 'qwen/qwen3.8-flash', reads: ['pictures'], schema: 'strict', recommend: ['fast', 'thorough'] },
+                { model: 'qwen/qwen3.7-flash', reads: ['pictures'], schema: 'json', recommend: ['cheap'] },
+            ],
+        },
+        { id: 'vertex', label: 'Google Vertex AI (Gemini)', kind: 'vertex', processesIn: 'The location', needsWorkspace: false, needsAddress: false, reportsCost: false, models: [] },
     ],
     pricesCheckedOn: '2026-10-28',
     defaultVertexLocation: 'eu',
@@ -25,6 +33,9 @@ async function render(stored: Record<string, unknown> = {}) {
         setup: vi.fn(async () => SETUP),
         load: vi.fn(async () => aiFormFrom(stored)),
         save: vi.fn(async () => undefined),
+        savePart: vi.fn(async () => undefined),
+        callContent: vi.fn(async () => ({ instruction: 'Read.', parts: [], answer: 'Tea 4.50' })),
+        saveConnection: vi.fn(async () => undefined),
         setKey: vi.fn(async () => ({ keyPreview: '••••9876', keySetAt: '2026-10-28T10:00:00Z', keySetBy: 'admin@example.com' })),
         removeKey: vi.fn(async () => undefined),
         test: vi.fn(async () => ({ ok: true, ms: 800, reply: 'OK', costUsd: 0.00001 })),
@@ -48,60 +59,142 @@ async function render(stored: Record<string, unknown> = {}) {
     return { page: fixture.nativeElement as HTMLElement, component: fixture.componentInstance, service, settle };
 }
 
+const working = { preset: 'openrouter', label: 'OpenRouter', keyPreview: '••••1234', keySetBy: 'a@example.com', keySetAt: '2026-10-01T00:00:00Z', lastOkAt: '2026-10-28T09:00:00Z' };
+
 describe('AiSettingsPage', () => {
-    it('says what test mode means', async () => {
+    it('says what test mode means, and lists what is left to do', async () => {
         const { page } = await render();
         expect(page.querySelector('.test-note')?.textContent).toContain('nothing is spent');
         expect(page.querySelector<HTMLSelectElement>('#aiMode')?.value).toBe('test');
+        const steps = [...page.querySelectorAll('.checklist .check')];
+        expect(steps.map((s) => s.classList.contains('done'))).toEqual([false, false, true, false]);
+        expect(page.querySelector('.no-providers')?.textContent).toContain('No provider is connected yet.');
     });
 
-    it('shows a saved provider with where it processes data and only its key preview', async () => {
-        const { page } = await render({ connections: { qwen: { preset: 'alibaba-eu', label: 'Qwen', workspace: 'ws1', keyPreview: '••••1234', keySetBy: 'a@example.com', keySetAt: '2026-10-01T00:00:00Z' } } });
-        const card = page.querySelector('.connection[data-id="qwen"]')!;
-        expect(card.textContent).toContain('Processes data in: Germany (Frankfurt)');
-        expect(card.textContent).toContain('Key ••••1234, set by a@example.com');
-        expect(card.querySelector('input[type="password"]')).not.toBeNull();
-        expect(card.querySelector<HTMLInputElement>('input[type="password"]')!.value).toBe('');
+    it('ticks the checklist as the provider works, the models are set and Live is saved', async () => {
+        const { page } = await render({ mode: 'live', connections: { or: working }, tiers: { thorough: [{ connection: 'or', model: 'qwen/qwen3.8-flash' }] } });
+        expect([...page.querySelectorAll('.checklist .check')].every((s) => s.classList.contains('done'))).toBe(true);
+        expect(page.querySelector('.live-warning')).toBeNull();
     });
 
-    it('asks to save a new provider before its key', async () => {
+    it('warns when Live is chosen before a provider works', async () => {
         const { page, component, settle } = await render();
-        component.newPreset.set('alibaba-eu');
-        component.addConnection();
-        await settle();
-        const card = page.querySelector('.connection')!;
-        expect(card.querySelector('input[type="password"]')).toBeNull();
-        expect(card.textContent).toContain('Save the page, then set its key.');
-    });
-
-    it('saves the key on its own and shows the new preview', async () => {
-        const { page, component, service, settle } = await render({ connections: { qwen: { preset: 'alibaba-eu', workspace: 'ws1' } } });
-        component.setKeyDraft('qwen', '  sk-new-key-9876 ');
-        await component.saveKey(component.form().connections[0]);
-        await settle();
-        expect(service.save).not.toHaveBeenCalled();
-        expect(service.setKey).toHaveBeenCalledWith('qwen', 'sk-new-key-9876');
-        expect(page.querySelector('.connection')!.textContent).toContain('••••9876');
-        expect(component.keyDrafts()['qwen']).toBe('');
-    });
-
-    it('asks to save the page before a key while other changes are unsaved, saving nothing itself', async () => {
-        const { component, service } = await render({ connections: { qwen: { preset: 'alibaba-eu', workspace: 'ws1' } } });
         component.patch({ mode: 'live' });
-        component.setKeyDraft('qwen', 'sk-new-key-9876');
-        await component.saveKey(component.form().connections[0]);
-        expect(service.save).not.toHaveBeenCalled();
-        expect(service.setKey).not.toHaveBeenCalled();
-        expect(component.saveMessage()).toBe('Save the page first, then save the key.');
+        await settle();
+        expect(page.querySelector('.live-warning')?.textContent).toContain('Live calls need a working provider and models');
     });
 
-    it('keeps the budget when its field is emptied', async () => {
-        const { component } = await render({ budget: { monthlyUsd: 35 } });
+    it('shows a provider with where it processes data, how it stands and only its key preview', async () => {
+        const { page } = await render({ connections: { or: working, nokey: { preset: 'openrouter', label: 'Spare' }, broken: { ...working, label: 'Broken', lastError: 'the provider refused the key (401): Invalid' } } });
+        const card = page.querySelector('.connection[data-id="or"]')!;
+        expect(card.textContent).toContain('Processes data in: Its host');
+        expect(card.textContent).toContain('Key ••••1234, set by a@example.com');
+        expect(card.querySelector('.status')?.textContent).toContain('Working');
+        expect(card.querySelector('input[type="password"]')).toBeNull();
+        expect(card.textContent).not.toContain('(OpenRouter)');
+        expect(page.querySelector('.connection[data-id="nokey"] .status')?.textContent).toContain('Key needed');
+        const broken = page.querySelector('.connection[data-id="broken"]')!;
+        expect(broken.querySelector('.status')?.textContent).toContain('Not working');
+        expect(broken.querySelector('.card-error')?.textContent).toContain('did not accept the key');
+    });
+
+    it('removes a provider after a confirmation in the page, from every list that named it, and saves', async () => {
+        const { page, component, service, settle } = await render({
+            connections: { qwen: { preset: 'alibaba-eu' }, router: { preset: 'openrouter', keyPreview: '••••0000' } },
+            tiers: { fast: [{ connection: 'router', model: 'x' }, { connection: 'qwen', model: 'qwen3-vl-plus' }] },
+            purposes: { 'menu-scan': { models: [{ connection: 'router', model: 'x' }] } },
+        });
+        const confirm = vi.spyOn(window, 'confirm');
+        page.querySelector<HTMLButtonElement>('.connection[data-id="router"] .remove')!.click();
+        await settle();
+        expect(confirm).not.toHaveBeenCalled();
+        page.querySelector<HTMLButtonElement>('.connection[data-id="router"] .confirm-yes')!.click();
+        await settle();
+        await settle();
+        expect(service.removeKey).toHaveBeenCalledWith('router');
+        expect(service.savePart).toHaveBeenCalledWith(expect.objectContaining({ tiers: { cheap: [], fast: [{ connection: 'qwen', model: 'qwen3-vl-plus' }], thorough: [] } }));
+        expect(service.save).not.toHaveBeenCalled();
+        expect(component.form().connections.map((c) => c.id)).toEqual(['qwen']);
+        expect(component.form().tiers.fast).toEqual([{ connection: 'qwen', model: 'qwen3-vl-plus' }]);
+        expect(component.form().purposes['menu-scan'].models).toEqual([]);
+        expect(page.querySelector('.notice')?.textContent).toContain('were removed');
+    });
+
+    it('offers the provider\'s recommended models and sets them in one click, saving only the tiers', async () => {
+        const { page, component, service, settle } = await render({ connections: { or: working } });
+        component.patch({ mode: 'live' });
+        await settle();
+        expect(page.querySelector('.recommend')?.textContent).toContain('qwen/qwen3.8-flash');
+        page.querySelector<HTMLButtonElement>('.use-recommended')!.click();
+        await settle();
+        await settle();
+        expect(component.form().tiers).toEqual({
+            cheap: [{ connection: 'or', model: 'qwen/qwen3.7-flash' }],
+            fast: [{ connection: 'or', model: 'qwen/qwen3.8-flash' }],
+            thorough: [{ connection: 'or', model: 'qwen/qwen3.8-flash' }],
+        });
+        expect(service.savePart).toHaveBeenCalledWith({ tiers: component.form().tiers });
+        expect(service.save).not.toHaveBeenCalled();
+        expect(component.loaded()?.mode).toBe('test');
+        expect(component.unsaved()).toBe(true);
+        expect(page.querySelector('.recommend')).toBeNull();
+    });
+
+    it('tests a provider with a model it knows and says what the test cost', async () => {
+        const { page, service, settle } = await render({ connections: { or: working } });
+        page.querySelector<HTMLButtonElement>('.connection[data-id="or"] .test')!.click();
+        await settle();
+        await settle();
+        expect(service.test).toHaveBeenCalledWith('or', 'qwen/qwen3.8-flash');
+        expect(page.querySelector('.connection[data-id="or"]')!.textContent).toContain('This test cost $0.0000');
+    });
+
+    it('warns that the budget cannot count a model with no price, and does not for one whose provider reports cost', async () => {
+        const { page, component, settle } = await render({
+            connections: { or: working, qwen: { preset: 'alibaba-eu', workspace: 'w', keyPreview: '••••2222', lastOkAt: '2026-10-28T09:00:00Z' }, g: { preset: 'vertex' } },
+            tiers: { fast: [{ connection: 'or', model: 'qwen/qwen3.8-flash' }, { connection: 'qwen', model: 'qwen3-vl-plus' }], thorough: [{ connection: 'g', model: 'gemini-3.8-flash' }] },
+        });
+        expect(component.unpricedNames()).toBe('gemini-3.8-flash');
+        const step = page.querySelectorAll('.checklist .check')[2];
+        expect(step.classList.contains('done')).toBe(false);
+        expect(step.querySelector('.unpriced-warning')?.textContent).toContain('gemini-3.8-flash');
+        component.setPrice('g/gemini-3.8-flash', 'priceIn', 0.5);
+        component.setPrice('g/gemini-3.8-flash', 'priceOut', 3);
+        await settle();
+        expect(page.querySelectorAll('.checklist .check')[2].classList.contains('done')).toBe(true);
+    });
+
+    it('marks a provider Key needed once a changed workspace is saved', async () => {
+        const { page, component, settle } = await render({ connections: { qwen: { preset: 'alibaba-eu', workspace: 'w1', keyPreview: '••••2222', lastOkAt: '2026-10-28T09:00:00Z' } } });
+        component.patchConnection('qwen', { workspace: 'w2' });
+        await component.save();
+        await settle();
+        expect(page.querySelector('.connection[data-id="qwen"] .status')?.textContent).toContain('Key needed');
+    });
+
+    it('loads a call\'s kept content only when it is opened', async () => {
+        const { page, component, service, settle } = await render();
+        service.recentCalls.mockResolvedValue([{ id: 'c1', createdAt: null, purpose: 'menu-scan', test: false, outcome: 'ok', connection: null, model: null, tokensIn: 1, tokensOut: 1, tokensThinking: 0, costUsd: 0, costFrom: 'none', ms: 10, ref: null, limitKey: null, units: 1, input: { chars: 1, files: 0, bytes: 0 }, attempts: [], hasContent: true }] as never);
+        component.openTab('calls');
+        await settle();
+        await settle();
+        expect(service.callContent).not.toHaveBeenCalled();
+        await component.toggleCall('c1');
+        await settle();
+        expect(service.callContent).toHaveBeenCalledWith('c1');
+        expect(page.querySelector('.call-details')?.textContent).toContain('Tea 4.50');
+    });
+
+    it('says there are unsaved changes, and keeps the budget when its field is emptied', async () => {
+        const { page, component, settle } = await render({ budget: { monthlyUsd: 35 } });
+        expect(page.querySelector('.unsaved')).toBeNull();
         component.setBudget('');
         component.setBudget(null);
         expect(component.form().monthlyUsd).toBe(35);
         component.setBudget(0);
+        await settle();
         expect(component.form().monthlyUsd).toBe(0);
+        expect(page.querySelector('.unsaved')?.textContent).toContain('not saved yet');
     });
 
     it('lists the app\'s purposes with what they take, an allowance and the keep content switch', async () => {
@@ -110,8 +203,10 @@ describe('AiSettingsPage', () => {
         await settle();
         const card = page.querySelector('.purpose[data-id="menu-scan"]')!;
         expect(card.textContent).toContain('Menu scan');
+        expect(card.textContent).toContain('text up to 20,000 characters');
         expect(card.textContent).toContain('up to 5 pictures of 10 MB');
         expect(card.textContent).toContain('Answers with data in a fixed shape');
+        expect(card.querySelector<HTMLSelectElement>('#aiUse-menu-scan')!.selectedOptions[0].textContent).toContain('Thorough tier');
         expect(card.querySelector<HTMLInputElement>('#aiKeep-menu-scan')!.checked).toBe(false);
         expect(card.querySelector<HTMLInputElement>('#aiAllow-menu-scan')!.placeholder).toBe('20');
     });
@@ -134,17 +229,11 @@ describe('AiSettingsPage', () => {
         expect(page.querySelector('.usage-table')?.textContent).toContain('Menu scan');
     });
 
-    it('removes a provider from every list that named it', async () => {
-        const { component } = await render({
-            connections: { qwen: { preset: 'alibaba-eu' }, router: { preset: 'openrouter', keyPreview: '••••0000' } },
-            tiers: { fast: [{ connection: 'router', model: 'x' }, { connection: 'qwen', model: 'qwen3-vl-plus' }] },
-            purposes: { 'menu-scan': { models: [{ connection: 'router', model: 'x' }] } },
-        });
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
-        await component.removeConnection(component.form().connections.find((c) => c.id === 'router')!);
-        expect(component.form().connections.map((c) => c.id)).toEqual(['qwen']);
-        expect(component.form().tiers.fast).toEqual([{ connection: 'qwen', model: 'qwen3-vl-plus' }]);
-        expect(component.form().purposes['menu-scan'].models).toEqual([]);
+    it('names calls by their purpose\'s label', async () => {
+        const { component } = await render();
+        expect(component.purposeLabel('menu-scan')).toBe('Menu scan');
+        expect(component.purposeLabel('arc-connection-test')).toBe('Provider test');
+        expect(component.purposeLabel('gone')).toBe('gone');
     });
 });
 

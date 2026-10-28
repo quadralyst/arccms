@@ -65,6 +65,7 @@ export function generateBody(request: ConnectorRequest): Record<string, unknown>
     }
     if (request.maxOutputTokens) generationConfig['maxOutputTokens'] = request.maxOutputTokens;
     if (request.temperature !== undefined) generationConfig['temperature'] = request.temperature;
+    if (request.thinking) generationConfig['thinkingConfig'] = { thinkingLevel: request.thinking };
     return {
         systemInstruction: { parts: [{ text: request.instruction }] },
         contents: [{ role: 'user', parts: parts.length ? parts : [{ text: '' }] }],

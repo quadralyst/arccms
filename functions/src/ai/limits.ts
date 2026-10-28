@@ -86,9 +86,9 @@ export async function consumeAllowance(purpose: string, limitKey: string, units:
 }
 
 /** Whether the month's budget has room, from the month's cost so far. */
-export async function checkBudget(settings: AiSettings, now = new Date()): Promise<{ ok: true } | { ok: false; wait: number }> {
+export async function checkBudget(settings: AiSettings, now = new Date()): Promise<{ ok: true; spent: number } | { ok: false; wait: number }> {
     const day = await currentSiteDay(now);
     const snap = await db.collection(AI_USAGE).doc(day.month).get();
     const spent = Number(snap.data()?.['costUsd'] ?? 0);
-    return spent < settings.budget.monthlyUsd ? { ok: true } : { ok: false, wait: day.secondsLeftThisMonth };
+    return spent < settings.budget.monthlyUsd ? { ok: true, spent } : { ok: false, wait: day.secondsLeftThisMonth };
 }
