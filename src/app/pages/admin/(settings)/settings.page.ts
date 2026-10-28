@@ -322,6 +322,14 @@ export default class SettingsPageComponent extends BaseComponent {
             description: 'Text messages for phone sign-in',
         },
         {
+            id: 'ai',
+            label: 'AI',
+            icon: 'fa-solid fa-wand-magic-sparkles',
+            route: '/admin/settings/ai',
+            feature: 'ai',
+            description: "Models, keys and costs of your app's AI",
+        },
+        {
             id: 'message',
             label: 'Global Messages',
             icon: 'fa-solid fa-comment',

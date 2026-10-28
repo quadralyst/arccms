@@ -120,6 +120,11 @@ export const routes: Routes = [
               import('./pages/admin/(settings)/sms/sms-settings.page').then((m) => m.SmsSettingsPage),
           },
           {
+            path: 'ai',
+            loadComponent: () =>
+              import('./pages/admin/(settings)/ai/ai-settings.page').then((m) => m.AiSettingsPage),
+          },
+          {
             path: 'message',
             loadComponent: () =>
               import('./pages/admin/(settings)/message/message.page').then((m) => m.default),

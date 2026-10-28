@@ -902,6 +902,123 @@ export type TranslationKey =
     | 'admin.settings.about.site_name'
     | 'admin.settings.about.site_name_hint'
     | 'admin.settings.about.site_name_placeholder'
+    | 'admin.settings.ai.add_model'
+    | 'admin.settings.ai.add_provider'
+    | 'admin.settings.ai.add_provider_first'
+    | 'admin.settings.ai.address'
+    | 'admin.settings.ai.all_outcomes'
+    | 'admin.settings.ai.all_purposes'
+    | 'admin.settings.ai.allowance'
+    | 'admin.settings.ai.answer'
+    | 'admin.settings.ai.budget'
+    | 'admin.settings.ai.budget_hint'
+    | 'admin.settings.ai.by_day'
+    | 'admin.settings.ai.by_key'
+    | 'admin.settings.ai.by_model'
+    | 'admin.settings.ai.by_purpose'
+    | 'admin.settings.ai.calls'
+    | 'admin.settings.ai.calls_hint'
+    | 'admin.settings.ai.cost'
+    | 'admin.settings.ai.day'
+    | 'admin.settings.ai.download'
+    | 'admin.settings.ai.failed'
+    | 'admin.settings.ai.failed_count'
+    | 'admin.settings.ai.file_gone'
+    | 'admin.settings.ai.filter_outcome'
+    | 'admin.settings.ai.filter_purpose'
+    | 'admin.settings.ai.gives_data'
+    | 'admin.settings.ai.gives_text'
+    | 'admin.settings.ai.in_out'
+    | 'admin.settings.ai.input_size'
+    | 'admin.settings.ai.instruction'
+    | 'admin.settings.ai.intro'
+    | 'admin.settings.ai.keep_content'
+    | 'admin.settings.ai.keep_content_hint'
+    | 'admin.settings.ai.key'
+    | 'admin.settings.ai.key_column'
+    | 'admin.settings.ai.key_failed'
+    | 'admin.settings.ai.key_paste'
+    | 'admin.settings.ai.key_replace'
+    | 'admin.settings.ai.key_saved'
+    | 'admin.settings.ai.key_set'
+    | 'admin.settings.ai.key_units'
+    | 'admin.settings.ai.last_ok'
+    | 'admin.settings.ai.load_failed'
+    | 'admin.settings.ai.location'
+    | 'admin.settings.ai.location_hint'
+    | 'admin.settings.ai.mode'
+    | 'admin.settings.ai.mode_live'
+    | 'admin.settings.ai.mode_test'
+    | 'admin.settings.ai.model'
+    | 'admin.settings.ai.model_details'
+    | 'admin.settings.ai.model_details_hint'
+    | 'admin.settings.ai.models'
+    | 'admin.settings.ai.models_hint'
+    | 'admin.settings.ai.month'
+    | 'admin.settings.ai.move_up'
+    | 'admin.settings.ai.name'
+    | 'admin.settings.ai.no_calls'
+    | 'admin.settings.ai.no_key'
+    | 'admin.settings.ai.no_limit'
+    | 'admin.settings.ai.no_price'
+    | 'admin.settings.ai.no_purposes'
+    | 'admin.settings.ai.no_usage'
+    | 'admin.settings.ai.of_budget'
+    | 'admin.settings.ai.on'
+    | 'admin.settings.ai.open'
+    | 'admin.settings.ai.pictures'
+    | 'admin.settings.ai.price_in'
+    | 'admin.settings.ai.price_out'
+    | 'admin.settings.ai.processes_in'
+    | 'admin.settings.ai.provider'
+    | 'admin.settings.ai.providers'
+    | 'admin.settings.ai.providers_hint'
+    | 'admin.settings.ai.purpose'
+    | 'admin.settings.ai.reads'
+    | 'admin.settings.ai.refresh'
+    | 'admin.settings.ai.remove'
+    | 'admin.settings.ai.remove_key'
+    | 'admin.settings.ai.remove_key_confirm'
+    | 'admin.settings.ai.remove_provider'
+    | 'admin.settings.ai.remove_provider_confirm'
+    | 'admin.settings.ai.save'
+    | 'admin.settings.ai.save_failed'
+    | 'admin.settings.ai.save_first'
+    | 'admin.settings.ai.save_key'
+    | 'admin.settings.ai.saved'
+    | 'admin.settings.ai.shape'
+    | 'admin.settings.ai.shape_json'
+    | 'admin.settings.ai.shape_strict'
+    | 'admin.settings.ai.tab_calls'
+    | 'admin.settings.ai.tab_purposes'
+    | 'admin.settings.ai.tab_setup'
+    | 'admin.settings.ai.tab_usage'
+    | 'admin.settings.ai.takes'
+    | 'admin.settings.ai.takes_pdfs'
+    | 'admin.settings.ai.takes_pictures'
+    | 'admin.settings.ai.takes_text'
+    | 'admin.settings.ai.test'
+    | 'admin.settings.ai.test_badge'
+    | 'admin.settings.ai.test_calls'
+    | 'admin.settings.ai.test_failed'
+    | 'admin.settings.ai.test_model'
+    | 'admin.settings.ai.test_note'
+    | 'admin.settings.ai.test_ok'
+    | 'admin.settings.ai.tier_cheap'
+    | 'admin.settings.ai.tier_cheap_hint'
+    | 'admin.settings.ai.tier_fast'
+    | 'admin.settings.ai.tier_fast_hint'
+    | 'admin.settings.ai.tier_thorough'
+    | 'admin.settings.ai.tier_thorough_hint'
+    | 'admin.settings.ai.title'
+    | 'admin.settings.ai.tokens'
+    | 'admin.settings.ai.tokens_in'
+    | 'admin.settings.ai.tokens_out'
+    | 'admin.settings.ai.use_own'
+    | 'admin.settings.ai.use_tier'
+    | 'admin.settings.ai.where'
+    | 'admin.settings.ai.which_models'
+    | 'admin.settings.ai.workspace'
     | 'admin.settings.analytics.client_id'
     | 'admin.settings.analytics.client_id_placeholder'
     | 'admin.settings.analytics.client_id_required'
@@ -1159,6 +1276,8 @@ export type TranslationKey =
     | 'admin.settings.enable_to_configure'
     | 'admin.settings.hub.about.description'
     | 'admin.settings.hub.about.label'
+    | 'admin.settings.hub.ai.description'
+    | 'admin.settings.hub.ai.label'
     | 'admin.settings.hub.analytics.description'
     | 'admin.settings.hub.analytics.label'
     | 'admin.settings.hub.app-audience.description'
@@ -2991,6 +3110,123 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.about.site_name',
     'admin.settings.about.site_name_hint',
     'admin.settings.about.site_name_placeholder',
+    'admin.settings.ai.add_model',
+    'admin.settings.ai.add_provider',
+    'admin.settings.ai.add_provider_first',
+    'admin.settings.ai.address',
+    'admin.settings.ai.all_outcomes',
+    'admin.settings.ai.all_purposes',
+    'admin.settings.ai.allowance',
+    'admin.settings.ai.answer',
+    'admin.settings.ai.budget',
+    'admin.settings.ai.budget_hint',
+    'admin.settings.ai.by_day',
+    'admin.settings.ai.by_key',
+    'admin.settings.ai.by_model',
+    'admin.settings.ai.by_purpose',
+    'admin.settings.ai.calls',
+    'admin.settings.ai.calls_hint',
+    'admin.settings.ai.cost',
+    'admin.settings.ai.day',
+    'admin.settings.ai.download',
+    'admin.settings.ai.failed',
+    'admin.settings.ai.failed_count',
+    'admin.settings.ai.file_gone',
+    'admin.settings.ai.filter_outcome',
+    'admin.settings.ai.filter_purpose',
+    'admin.settings.ai.gives_data',
+    'admin.settings.ai.gives_text',
+    'admin.settings.ai.in_out',
+    'admin.settings.ai.input_size',
+    'admin.settings.ai.instruction',
+    'admin.settings.ai.intro',
+    'admin.settings.ai.keep_content',
+    'admin.settings.ai.keep_content_hint',
+    'admin.settings.ai.key',
+    'admin.settings.ai.key_column',
+    'admin.settings.ai.key_failed',
+    'admin.settings.ai.key_paste',
+    'admin.settings.ai.key_replace',
+    'admin.settings.ai.key_saved',
+    'admin.settings.ai.key_set',
+    'admin.settings.ai.key_units',
+    'admin.settings.ai.last_ok',
+    'admin.settings.ai.load_failed',
+    'admin.settings.ai.location',
+    'admin.settings.ai.location_hint',
+    'admin.settings.ai.mode',
+    'admin.settings.ai.mode_live',
+    'admin.settings.ai.mode_test',
+    'admin.settings.ai.model',
+    'admin.settings.ai.model_details',
+    'admin.settings.ai.model_details_hint',
+    'admin.settings.ai.models',
+    'admin.settings.ai.models_hint',
+    'admin.settings.ai.month',
+    'admin.settings.ai.move_up',
+    'admin.settings.ai.name',
+    'admin.settings.ai.no_calls',
+    'admin.settings.ai.no_key',
+    'admin.settings.ai.no_limit',
+    'admin.settings.ai.no_price',
+    'admin.settings.ai.no_purposes',
+    'admin.settings.ai.no_usage',
+    'admin.settings.ai.of_budget',
+    'admin.settings.ai.on',
+    'admin.settings.ai.open',
+    'admin.settings.ai.pictures',
+    'admin.settings.ai.price_in',
+    'admin.settings.ai.price_out',
+    'admin.settings.ai.processes_in',
+    'admin.settings.ai.provider',
+    'admin.settings.ai.providers',
+    'admin.settings.ai.providers_hint',
+    'admin.settings.ai.purpose',
+    'admin.settings.ai.reads',
+    'admin.settings.ai.refresh',
+    'admin.settings.ai.remove',
+    'admin.settings.ai.remove_key',
+    'admin.settings.ai.remove_key_confirm',
+    'admin.settings.ai.remove_provider',
+    'admin.settings.ai.remove_provider_confirm',
+    'admin.settings.ai.save',
+    'admin.settings.ai.save_failed',
+    'admin.settings.ai.save_first',
+    'admin.settings.ai.save_key',
+    'admin.settings.ai.saved',
+    'admin.settings.ai.shape',
+    'admin.settings.ai.shape_json',
+    'admin.settings.ai.shape_strict',
+    'admin.settings.ai.tab_calls',
+    'admin.settings.ai.tab_purposes',
+    'admin.settings.ai.tab_setup',
+    'admin.settings.ai.tab_usage',
+    'admin.settings.ai.takes',
+    'admin.settings.ai.takes_pdfs',
+    'admin.settings.ai.takes_pictures',
+    'admin.settings.ai.takes_text',
+    'admin.settings.ai.test',
+    'admin.settings.ai.test_badge',
+    'admin.settings.ai.test_calls',
+    'admin.settings.ai.test_failed',
+    'admin.settings.ai.test_model',
+    'admin.settings.ai.test_note',
+    'admin.settings.ai.test_ok',
+    'admin.settings.ai.tier_cheap',
+    'admin.settings.ai.tier_cheap_hint',
+    'admin.settings.ai.tier_fast',
+    'admin.settings.ai.tier_fast_hint',
+    'admin.settings.ai.tier_thorough',
+    'admin.settings.ai.tier_thorough_hint',
+    'admin.settings.ai.title',
+    'admin.settings.ai.tokens',
+    'admin.settings.ai.tokens_in',
+    'admin.settings.ai.tokens_out',
+    'admin.settings.ai.use_own',
+    'admin.settings.ai.use_tier',
+    'admin.settings.ai.where',
+    'admin.settings.ai.which_models',
+    'admin.settings.ai.workspace',
     'admin.settings.analytics.client_id',
     'admin.settings.analytics.client_id_placeholder',
     'admin.settings.analytics.client_id_required',
@@ -3248,6 +3484,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.enable_to_configure',
     'admin.settings.hub.about.description',
     'admin.settings.hub.about.label',
+    'admin.settings.hub.ai.description',
+    'admin.settings.hub.ai.label',
     'admin.settings.hub.analytics.description',
     'admin.settings.hub.analytics.label',
     'admin.settings.hub.app-audience.description',

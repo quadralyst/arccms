@@ -121,14 +121,14 @@ import { forgetAiSettings, resolveAiSettings } from '../ai/settings.js';
 import { monthsBefore, purgeAiCalls, purgeAiUsage, purgeOrphanKeys } from '../ai/callables/cleanUpAi.js';
 import { setAiKey as setAiKeyFn } from '../ai/callables/setAiKey.js';
 import { removeAiKey as removeAiKeyFn } from '../ai/callables/removeAiKey.js';
-import { listAiPurposes as listAiPurposesFn } from '../ai/callables/listAiPurposes.js';
+import { aiSetupInfo as aiSetupInfoFn } from '../ai/callables/aiSetupInfo.js';
 import { writeAiCall, MAX_KEPT_CHARS, type AiCallRecord } from '../ai/records.js';
 
 // The onCall mock hands back the handler itself.
 const handler = (fn: unknown) => fn as (request: never) => Promise<any>;
 const setAiKey = handler(setAiKeyFn);
 const removeAiKey = handler(removeAiKeyFn);
-const listAiPurposes = handler(listAiPurposesFn);
+const aiSetupInfo = handler(aiSetupInfoFn);
 
 const admin = (data: Data) => ({ auth: { uid: 'a1', token: { admin: true, email: 'admin@example.com' } }, data }) as never;
 const member = (data: Data) => ({ auth: { uid: 'm1', token: {} }, data }) as never;
@@ -250,12 +250,14 @@ describe('keys', () => {
     });
 });
 
-describe('listAiPurposes', () => {
-    it('shows admins what each purpose takes, never its instruction or test answer', async () => {
-        const { purposes } = await listAiPurposes(admin({}));
+describe('aiSetupInfo', () => {
+    it('shows admins what each purpose takes, never its instruction or test answer, and the providers', async () => {
+        const { purposes, presets } = await aiSetupInfo(admin({}));
+        expect(presets.find((p: { id: string }) => p.id === 'alibaba-eu')).toMatchObject({ needsWorkspace: true, needsAddress: false, kind: 'openai', models: [{ model: 'qwen3-vl-plus', reads: ['pictures'], priceIn: 0.2, priceOut: 1.6 }] });
+        expect(presets.find((p: { id: string }) => p.id === 'other')).toMatchObject({ needsAddress: true });
         expect(purposes).toEqual([{ id: 'menu-scan', label: 'Menu scan', description: '', tier: 'fast', output: 'text', maxChars: 20000, pictures: { max: 5, maxMb: 10 }, pdfs: null, perKeyPerDay: 20, timeoutSeconds: 60 }]);
         expect(JSON.stringify(purposes)).not.toContain('SECRET');
-        await expect(listAiPurposes(member({}))).rejects.toThrow('Admin access required.');
+        await expect(aiSetupInfo(member({}))).rejects.toThrow('Admin access required.');
     });
 });
 

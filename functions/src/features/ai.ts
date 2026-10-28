@@ -3,5 +3,5 @@
 export * from '../ai/callables/setAiKey.js';
 export * from '../ai/callables/removeAiKey.js';
 export * from '../ai/callables/testAiConnection.js';
-export * from '../ai/callables/listAiPurposes.js';
+export * from '../ai/callables/aiSetupInfo.js';
 export * from '../ai/callables/cleanUpAi.js';
