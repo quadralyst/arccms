@@ -5,11 +5,21 @@
  * as data URLs.
  */
 import { findPreset } from '../presets.js';
+import { parseJsonAnswer, strictSchema, withoutAddedNulls } from '../schema.js';
 import { connectionBaseUrl } from '../settings.js';
 import type { Connector, ConnectorRequest, ConnectorResult, AttemptUsage } from './types.js';
 
 /** The request body, as the provider gets it. */
-export function chatBody(request: ConnectorRequest, options: { askCost?: boolean } = {}): Record<string, unknown> {
+export interface ChatOptions {
+    /** OpenRouter: ask for the call's cost. OpenAI refuses a field it does not know, so only there. */
+    askCost?: boolean;
+    /** OpenAI itself: `max_completion_tokens`, which its reasoning models need in place of `max_tokens`. */
+    completionTokens?: boolean;
+    /** Leave temperature out: the model refused it. */
+    noTemperature?: boolean;
+}
+
+export function chatBody(request: ConnectorRequest, options: ChatOptions = {}): Record<string, unknown> {
     const content: Array<Record<string, unknown>> = request.parts.map((part) => {
         if (part.kind === 'text') return { type: 'text', text: part.text };
         const url = `data:${part.mimeType};base64,${part.bytes.toString('base64')}`;
@@ -26,12 +36,11 @@ export function chatBody(request: ConnectorRequest, options: { askCost?: boolean
     };
     if (request.schema) {
         body['response_format'] = request.schemaSupport === 'strict'
-            ? { type: 'json_schema', json_schema: { name: 'answer', schema: request.schema, strict: true } }
+            ? { type: 'json_schema', json_schema: { name: 'answer', schema: strictSchema(request.schema), strict: true } }
             : { type: 'json_object' };
     }
-    if (request.maxOutputTokens) body['max_tokens'] = request.maxOutputTokens;
-    if (request.temperature !== undefined) body['temperature'] = request.temperature;
-    // OpenRouter adds the call's cost to usage when asked. Only there: OpenAI refuses a field it does not know.
+    if (request.maxOutputTokens) body[options.completionTokens ? 'max_completion_tokens' : 'max_tokens'] = request.maxOutputTokens;
+    if (request.temperature !== undefined && !options.noTemperature) body['temperature'] = request.temperature;
     if (options.askCost) body['usage'] = { include: true };
     return body;
 }
@@ -102,6 +111,12 @@ export function readResponse(status: number, headers: Headers, body: unknown): C
     return { ok: false, failure: 'unreadable', detail: `the provider refused the request (${status}): ${detail}` };
 }
 
+/** A strict answer as the purpose's schema has it, without the nulls strictSchema() allowed. */
+function fromStrict(result: Extract<ConnectorResult, { ok: true }>, request: ConnectorRequest): ConnectorResult {
+    const data = parseJsonAnswer(result.text);
+    return data === undefined ? result : { ...result, text: JSON.stringify(withoutAddedNulls(data, request.schema!)) };
+}
+
 export const openAiConnector: Connector = async ({ connection, key }, request) => {
     const base = connectionBaseUrl(connection);
     if (!base) return { ok: false, failure: 'off', detail: `connection ${connection.id} has no address it may call` };
@@ -109,21 +124,34 @@ export const openAiConnector: Connector = async ({ connection, key }, request) =
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), request.timeoutMs);
     try {
-        const response = await fetch(`${base}/chat/completions`, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-            body: JSON.stringify(chatBody(request, { askCost: findPreset(connection.preset)?.reportsCost === true })),
-            signal: controller.signal,
-            redirect: 'error',
-        });
-        let body: unknown = null;
-        const raw = await response.text();
-        try {
-            body = raw ? JSON.parse(raw) : null;
-        } catch {
-            body = { error: raw.slice(0, 300) };
+        const options: ChatOptions = {
+            askCost: findPreset(connection.preset)?.reportsCost === true,
+            completionTokens: connection.preset === 'openai' || connection.preset === 'openai-eu',
+        };
+        const send = async (o: ChatOptions) => {
+            const response = await fetch(`${base}/chat/completions`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+                body: JSON.stringify(chatBody(request, o)),
+                signal: controller.signal,
+                redirect: 'error',
+            });
+            const raw = await response.text();
+            let body: unknown = null;
+            try {
+                body = raw ? JSON.parse(raw) : null;
+            } catch {
+                body = { error: raw.slice(0, 300) };
+            }
+            return { response, body };
+        };
+        let { response, body } = await send(options);
+        // Reasoning models take no temperature: ask once more without it.
+        if (response.status === 400 && request.temperature !== undefined && /temperature/i.test(errorText(body))) {
+            ({ response, body } = await send({ ...options, noTemperature: true }));
         }
-        return readResponse(response.status, response.headers, body);
+        const result = readResponse(response.status, response.headers, body);
+        return result.ok && request.schema && request.schemaSupport === 'strict' ? fromStrict(result, request) : result;
     } catch (err) {
         if ((err as { name?: string }).name === 'AbortError') return { ok: false, failure: 'timeout', detail: `no answer within ${Math.round(request.timeoutMs / 1000)} seconds` };
         return { ok: false, failure: 'unavailable', detail: `the provider could not be reached: ${String((err as Error).message ?? err).slice(0, 200)}` };

@@ -74,15 +74,34 @@ describe('AiSettingsPage', () => {
         expect(card.textContent).toContain('Save the page, then set its key.');
     });
 
-    it('saves the page, then the key, and shows the new preview', async () => {
+    it('saves the key on its own and shows the new preview', async () => {
         const { page, component, service, settle } = await render({ connections: { qwen: { preset: 'alibaba-eu', workspace: 'ws1' } } });
         component.setKeyDraft('qwen', '  sk-new-key-9876 ');
         await component.saveKey(component.form().connections[0]);
         await settle();
-        expect(service.save).toHaveBeenCalled();
+        expect(service.save).not.toHaveBeenCalled();
         expect(service.setKey).toHaveBeenCalledWith('qwen', 'sk-new-key-9876');
         expect(page.querySelector('.connection')!.textContent).toContain('••••9876');
         expect(component.keyDrafts()['qwen']).toBe('');
+    });
+
+    it('asks to save the page before a key while other changes are unsaved, saving nothing itself', async () => {
+        const { component, service } = await render({ connections: { qwen: { preset: 'alibaba-eu', workspace: 'ws1' } } });
+        component.patch({ mode: 'live' });
+        component.setKeyDraft('qwen', 'sk-new-key-9876');
+        await component.saveKey(component.form().connections[0]);
+        expect(service.save).not.toHaveBeenCalled();
+        expect(service.setKey).not.toHaveBeenCalled();
+        expect(component.saveMessage()).toBe('Save the page first, then save the key.');
+    });
+
+    it('keeps the budget when its field is emptied', async () => {
+        const { component } = await render({ budget: { monthlyUsd: 35 } });
+        component.setBudget('');
+        component.setBudget(null);
+        expect(component.form().monthlyUsd).toBe(35);
+        component.setBudget(0);
+        expect(component.form().monthlyUsd).toBe(0);
     });
 
     it('lists the app\'s purposes with what they take, an allowance and the keep content switch', async () => {
@@ -95,6 +114,14 @@ describe('AiSettingsPage', () => {
         expect(card.textContent).toContain('Answers with data in a fixed shape');
         expect(card.querySelector<HTMLInputElement>('#aiKeep-menu-scan')!.checked).toBe(false);
         expect(card.querySelector<HTMLInputElement>('#aiAllow-menu-scan')!.placeholder).toBe('20');
+    });
+
+    it('offers no allowance field for a purpose with none in the code', async () => {
+        const { page, component, settle } = await render();
+        component.setup.update((s) => s && { ...s, purposes: [{ ...s.purposes[0], perKeyPerDay: null }] });
+        component.openTab('purposes');
+        await settle();
+        expect(page.querySelector('#aiAllow-menu-scan')).toBeNull();
     });
 
     it('loads the month\'s usage when its tab opens', async () => {

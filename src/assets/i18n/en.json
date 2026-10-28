@@ -983,7 +983,7 @@
         "price_out": "Price out",
         "no_price": "no price",
         "budget": "Monthly budget",
-        "budget_hint": "Admins are told at 80% and at 100%. At 100% live calls stop until next month or until you raise it.",
+        "budget_hint": "Admins are told at 80% and at 100%. At 100% live calls stop until next month or until you raise it. 0 stops every live call.",
         "no_purposes": "Your app has no AI purposes yet. They are declared in functions/src/custom/ai.ts.",
         "on": "On",
         "takes": "Takes",
@@ -996,7 +996,6 @@
         "use_tier": "The {{ tier }} tier's",
         "use_own": "Its own list",
         "allowance": "Allowance per key a day",
-        "no_limit": "No limit",
         "keep_content": "Keep what is sent and answered",
         "keep_content_hint": "Each call's text, files and answer are kept with its record for 60 days, and admins can read them. They may hold personal data: turn this on while testing.",
         "save": "Save",
@@ -1035,7 +1034,8 @@
         "instruction": "Instruction",
         "open": "Open",
         "answer": "Answer",
-        "file_gone": "The file is no longer kept."
+        "file_gone": "The file is no longer kept.",
+        "save_before_key": "Save the page first, then save the key."
       }
     },
     "contents": {

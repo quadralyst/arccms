@@ -1,8 +1,8 @@
 /**
  * The per-key daily allowance and the monthly budget (specs/ai-spec.md, AI-D14). A day and
  * a month are the site's (Settings, Localization's time zone), so "20 a day" ends at the
- * site's midnight. Allowances are counted before the call and given back when it fails, so
- * a failed call uses none.
+ * site's midnight. Allowances are counted before the call and given back when it fails
+ * before a provider answered: one that answered was paid for, so it counts.
  */
 import { createHash } from 'node:crypto';
 import { FieldValue } from 'firebase-admin/firestore';

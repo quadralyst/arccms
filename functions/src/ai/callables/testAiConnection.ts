@@ -39,7 +39,8 @@ export const testAiConnection = onCall({ timeoutSeconds: 60 }, async (request) =
             parts: [{ kind: 'text', text: 'Are you there?' }],
             schema: null,
             schemaSupport: modelInfo(settings, { connection: connection.id, model }).schema,
-            maxOutputTokens: 20,
+            // Room for a model that thinks first: 20 tokens could all go on thinking.
+            maxOutputTokens: 1024,
             timeoutMs: TIMEOUT_MS,
         });
     }

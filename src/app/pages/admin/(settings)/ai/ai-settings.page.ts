@@ -264,13 +264,16 @@ export function usd(n: number): string {
                                     <ng-container *ngTemplateOutlet="modelList; context: { $implicit: purpose(p.id).models, set: purposeSetter(p.id) }" />
                                 }
 
-                                <div class="row g-2 mt-1">
-                                    <div class="col-sm-6">
-                                        <label class="form-label small" [for]="'aiAllow-' + p.id">{{ 'admin.settings.ai.allowance' | transloco }}</label>
-                                        <input type="number" min="1" step="1" class="form-control form-control-sm" [id]="'aiAllow-' + p.id"
-                                            [placeholder]="p.perKeyPerDay ?? ('admin.settings.ai.no_limit' | transloco)" [ngModel]="purpose(p.id).perKeyPerDay" (ngModelChange)="setAllowance(p.id, $event)" />
+                                <!-- Only a purpose whose calls carry a key can have an allowance per key. -->
+                                @if (p.perKeyPerDay !== null) {
+                                    <div class="row g-2 mt-1">
+                                        <div class="col-sm-6">
+                                            <label class="form-label small" [for]="'aiAllow-' + p.id">{{ 'admin.settings.ai.allowance' | transloco }}</label>
+                                            <input type="number" min="1" step="1" class="form-control form-control-sm" [id]="'aiAllow-' + p.id"
+                                                [placeholder]="p.perKeyPerDay" [ngModel]="purpose(p.id).perKeyPerDay" (ngModelChange)="setAllowance(p.id, $event)" />
+                                        </div>
                                     </div>
-                                </div>
+                                }
                                 <div class="form-check form-switch mt-3">
                                     <input type="checkbox" class="form-check-input" role="switch" [id]="'aiKeep-' + p.id" [ngModel]="purpose(p.id).keepContent" (ngModelChange)="patchPurpose(p.id, { keepContent: $event })" />
                                     <label class="form-check-label" [for]="'aiKeep-' + p.id">{{ 'admin.settings.ai.keep_content' | transloco }}</label>
@@ -446,6 +449,11 @@ export class AiSettingsPage implements OnInit {
     readonly callOutcome = signal('');
     readonly openCall = signal<string | null>(null);
 
+    /** Whether the form differs from what is saved. */
+    readonly unsaved = computed(() => {
+        const loaded = this.loaded();
+        return !loaded || JSON.stringify(this.form()) !== JSON.stringify(loaded);
+    });
     readonly callPurposes = computed(() => [...new Set(this.calls().map((c) => c.purpose))].sort());
     readonly shownCalls = computed(() => this.calls().filter((c) =>
         (!this.callPurpose() || c.purpose === this.callPurpose())
@@ -552,8 +560,13 @@ export class AiSettingsPage implements OnInit {
         if (!key) return;
         this.busy.set(true);
         try {
-            // The key is tied to the address the server has, so the address is saved first.
-            if (!(await this.save())) return;
+            // The key is tied to the address the server has, so the page must be saved first,
+            // and saving it here would commit other changes the admin has not chosen to save.
+            if (this.unsaved()) {
+                this.saveMessage.set(this.t('admin.settings.ai.save_before_key'));
+                this.saveFailed.set(true);
+                return;
+            }
             const result = await this.service.setKey(c.id, key);
             this.patchConnection(c.id, { ...result, lastError: null });
             this.loaded.update((l) => l && ({ ...l, connections: l.connections.map((x) => (x.id === c.id ? { ...x, ...result } : x)) }));
@@ -697,7 +710,9 @@ export class AiSettingsPage implements OnInit {
         this.patch({ models: { ...this.form().models, [key]: { ...(this.form().models[key] ?? {}), ...change } } });
     }
 
+    /** An emptied field keeps the budget: 0 would stop every live call. */
     setBudget(value: unknown): void {
+        if (value === null || value === '') return;
         const n = Number(value);
         if (Number.isFinite(n) && n >= 0) this.patch({ monthlyUsd: n });
     }

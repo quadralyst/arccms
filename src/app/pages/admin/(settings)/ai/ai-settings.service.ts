@@ -150,6 +150,10 @@ export function aiSettingsData(form: AiSettingsForm, loaded: AiSettingsForm): Re
     const connections: Record<string, unknown> = {};
     for (const c of form.connections) {
         connections[c.id] = { preset: c.preset, label: c.label.trim(), workspace: c.workspace.trim(), baseUrl: c.baseUrl.trim(), location: c.location.trim(), processesIn: c.processesIn.trim() };
+        // New here: nothing the server noted about an older connection of the same id carries over.
+        if (!loaded.connections.some((l) => l.id === c.id)) {
+            Object.assign(connections[c.id] as Record<string, unknown>, { keyPreview: deleteField(), keySetAt: deleteField(), keySetBy: deleteField(), lastOkAt: deleteField(), lastError: deleteField(), lastErrorAt: deleteField() });
+        }
     }
     for (const c of loaded.connections) if (!form.connections.some((f) => f.id === c.id)) connections[c.id] = deleteField();
     const purposes: Record<string, unknown> = {};

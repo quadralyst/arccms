@@ -192,9 +192,12 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
     let parts: PreparedPart[] = [];
     let allowance: { release: () => Promise<void> } | null = null;
 
-    const finish = async (outcome: { ok: true; data?: unknown; text?: string; answerText: string } | { ok: false; reason: AiFailureReason; detail?: string; wait?: number; scope?: 'key' | 'budget' }): Promise<AskAiResult> => {
+    const finish = async (outcome: { ok: true; data?: unknown; text?: string; answerText: string } | { ok: false; reason: AiFailureReason; detail?: string; wait?: number; scope?: 'key' | 'budget'; answerText?: string }): Promise<AskAiResult> => {
         const ms = Date.now() - started;
-        if (!outcome.ok && allowance) await allowance.release();
+        // A failure gives its units back only when nothing was billed: an answer that was
+        // blocked or did not fit was paid for, so it counts, or one key could spend the
+        // month's budget without ever reaching its allowance.
+        if (!outcome.ok && allowance && usage.tokensIn + usage.tokensOut === 0) await allowance.release();
         const record: AiCallRecord = {
             purpose: c.purposeId,
             tier,
@@ -212,7 +215,7 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
             outcome: outcome.ok ? 'ok' : outcome.reason,
             ...(outcome.ok ? {} : { scope: outcome.scope, detail: outcome.detail?.slice(0, 500) }),
         };
-        const content = ps.keepContent ? { instruction: c.purpose.instruction, parts, answer: outcome.ok ? outcome.answerText : null } : null;
+        const content = ps.keepContent ? { instruction: c.purpose.instruction, parts, answer: outcome.answerText ?? null } : null;
         const recordId = await writeAiCall(record, content);
         await addToTotals(record, new Date(started));
         const resultUsage: AiUsage = { model: record.model, connection: record.connection, ...usage, ms, test };
@@ -222,94 +225,110 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
 
     if (!ps.enabled) return finish({ ok: false, reason: 'off', detail: `${c.purposeId} is switched off in Settings, AI` });
 
-    const perDay = ps.perKeyPerDay ?? c.purpose.perKeyPerDay ?? null;
+    // The admin's number replaces the app's; a purpose without one in the code has no
+    // allowance, since its calls carry no key (Settings, AI offers the field only with one).
+    const perDay = c.purpose.perKeyPerDay === undefined ? null : ps.perKeyPerDay ?? c.purpose.perKeyPerDay;
     if (perDay !== null && c.limitKey) {
         const use = await consumeAllowance(c.purposeId, c.limitKey, c.units, perDay);
         if (!use.ok) return finish({ ok: false, reason: 'limit', scope: 'key', wait: use.wait, detail: `${c.limitKey} has used its ${perDay} for today` });
         allowance = use;
     }
-    if (!test) {
-        const budget = await checkBudget(settings);
-        if (!budget.ok) return finish({ ok: false, reason: 'limit', scope: 'budget', wait: budget.wait, detail: `the month's budget of ${settings.budget.monthlyUsd} USD is spent` });
+    try {
+        return await answer();
+    } catch (err) {
+        // A mistake thrown after the units were counted must not keep them.
+        await allowance?.release();
+        throw err;
     }
 
-    const prepared = await prepareInput(c.purposeId, c.purpose, input.input);
-    inputSize = { chars: prepared.chars, files: prepared.files, bytes: prepared.bytes };
-    if (!prepared.ok) return finish({ ok: false, reason: prepared.reason, detail: prepared.detail });
-    parts = prepared.parts;
+    async function answer(): Promise<AskAiResult> {
+        if (!test) {
+            const budget = await checkBudget(settings);
+            if (!budget.ok) return finish({ ok: false, reason: 'limit', scope: 'budget', wait: budget.wait, detail: `the month's budget of ${settings.budget.monthlyUsd} USD is spent` });
+        }
 
-    if (test) {
-        const result = testResult(c.purpose.testAnswer, c.purpose, schema, testInput(parts, c));
-        if ('testFailure' in result) return finish({ ok: false, reason: result.testFailure, wait: result.wait, detail: result.detail, ...(result.testFailure === 'limit' ? { scope: 'key' as const } : {}) });
-        if (!result.ok) return finish({ ok: false, reason: 'unreadable', detail: result.detail });
-        const read = readAnswer(result.text, schema);
-        if (!read.ok) return finish({ ok: false, reason: 'unreadable', detail: `the test answer: ${read.detail}` });
-        return finish({ ok: true, data: read.data, text: read.text, answerText: result.text });
-    }
+        const prepared = await prepareInput(c.purposeId, c.purpose, input.input);
+        inputSize = { chars: prepared.chars, files: prepared.files, bytes: prepared.bytes };
+        if (!prepared.ok) return finish({ ok: false, reason: prepared.reason, detail: prepared.detail });
+        parts = prepared.parts;
 
-    const list = ps.models.length ? ps.models : settings.tiers[tier];
-    if (!list.length) return finish({ ok: false, reason: 'off', detail: `no model is set for the ${tier} tier in Settings, AI` });
-    const needs = purposeReads(c.purpose).filter((k) => parts.some((p) => (k === 'pictures' ? p.kind === 'picture' : p.kind === 'pdf')));
-    const deadline = started + (c.purpose.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS) * 1000;
-    let lastFailure: { failure: AttemptFailure; detail: string; wait?: number } | null = null;
-
-    for (const ref of list) {
-        const connection = settings.connections[ref.connection];
-        const preset = connection ? findPreset(connection.preset) : undefined;
-        const info = modelInfo(settings, ref);
-        if (!connection || !preset) continue;
-        const missing = needs.filter((k) => !info.reads.includes(k));
-        if (missing.length) {
-            attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: `reads no ${missing.join(' or ')}` });
-            continue;
-        }
-        const left = deadline - Date.now();
-        if (left < MIN_ATTEMPT_MS) {
-            lastFailure = { failure: 'timeout', detail: 'no time was left for another model' };
-            break;
-        }
-        last = ref;
-        const attemptStarted = Date.now();
-        let result: ConnectorResult;
-        const key = preset.kind === 'openai' ? await readKey(connection) : { ok: true as const, key: null };
-        if (!key.ok) result = { ok: false, failure: 'off', detail: key.detail };
-        else {
-            result = await connectorFor(preset.kind)({ connection, key: key.key }, {
-                model: ref.model,
-                instruction: instructionFor(c.purpose, schema, info.schema),
-                parts,
-                schema,
-                schemaSupport: info.schema,
-                maxOutputTokens: c.purpose.maxOutputTokens,
-                temperature: c.purpose.temperature,
-                timeoutMs: left,
-            });
-        }
-        const ms = Date.now() - attemptStarted;
-        if (result.usage) {
-            usage.tokensIn += result.usage.tokensIn;
-            usage.tokensOut += result.usage.tokensOut;
-            usage.tokensThinking += result.usage.tokensThinking;
-            const spent = cost(settings, ref, result.usage);
-            usage.costUsd += spent.usd;
-            if (spent.from !== 'none') costFrom = costFrom === 'provider' || spent.from === 'provider' ? 'provider' : 'price-list';
-        }
-        if (result.ok) {
-            attempts.push({ connection: ref.connection, model: ref.model, outcome: 'ok', ms });
-            await noteConnection(settings, ref.connection, null);
+        if (test) {
+            const result = testResult(c.purpose.testAnswer, c.purpose, schema, testInput(parts, c));
+            if ('testFailure' in result) return finish({ ok: false, reason: result.testFailure, wait: result.wait, detail: result.detail, ...(result.testFailure === 'limit' ? { scope: 'key' as const } : {}) });
+            if (!result.ok) return finish({ ok: false, reason: 'unreadable', detail: result.detail });
             const read = readAnswer(result.text, schema);
-            if (!read.ok) return finish({ ok: false, reason: 'unreadable', detail: read.detail });
+            if (!read.ok) return finish({ ok: false, reason: 'unreadable', detail: `the test answer: ${read.detail}` });
             return finish({ ok: true, data: read.data, text: read.text, answerText: result.text });
         }
-        attempts.push({ connection: ref.connection, model: ref.model, outcome: result.failure, ms, detail: result.detail.slice(0, 300) });
-        if (result.failure === 'key-refused' || result.failure === 'retired' || result.failure === 'off') await noteConnection(settings, ref.connection, result.detail);
-        lastFailure = { failure: result.failure, detail: result.detail, wait: result.wait };
-        if (!FALLBACK_FAILURES.includes(result.failure)) break;
-    }
 
-    if (!lastFailure) {
-        const detail = attempts.length ? `no model in the list reads ${needs.join(' or ')}` : `no model is set for the ${tier} tier in Settings, AI`;
-        return finish({ ok: false, reason: 'off', detail });
+        const list = ps.models.length ? ps.models : settings.tiers[tier];
+        if (!list.length) return finish({ ok: false, reason: 'off', detail: `no model is set for the ${tier} tier in Settings, AI` });
+        const needs = purposeReads(c.purpose).filter((k) => parts.some((p) => (k === 'pictures' ? p.kind === 'picture' : p.kind === 'pdf')));
+        const deadline = started + (c.purpose.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS) * 1000;
+        let lastFailure: { failure: AttemptFailure; detail: string; wait?: number } | null = null;
+        // A busy or slow model tells the app more than a later one with no key: try again soon.
+        let busy: { failure: AttemptFailure; detail: string; wait?: number } | null = null;
+
+        for (const ref of list) {
+            const connection = settings.connections[ref.connection];
+            const preset = connection ? findPreset(connection.preset) : undefined;
+            const info = modelInfo(settings, ref);
+            if (!connection || !preset) continue;
+            const missing = needs.filter((k) => !info.reads.includes(k));
+            if (missing.length) {
+                attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: `reads no ${missing.join(' or ')}` });
+                continue;
+            }
+            const left = deadline - Date.now();
+            if (left < MIN_ATTEMPT_MS) {
+                lastFailure = { failure: 'timeout', detail: 'no time was left for another model' };
+                break;
+            }
+            last = ref;
+            const attemptStarted = Date.now();
+            let result: ConnectorResult;
+            const key = preset.kind === 'openai' ? await readKey(connection) : { ok: true as const, key: null };
+            if (!key.ok) result = { ok: false, failure: 'off', detail: key.detail };
+            else {
+                result = await connectorFor(preset.kind)({ connection, key: key.key }, {
+                    model: ref.model,
+                    instruction: instructionFor(c.purpose, schema, info.schema),
+                    parts,
+                    schema,
+                    schemaSupport: info.schema,
+                    maxOutputTokens: c.purpose.maxOutputTokens,
+                    temperature: c.purpose.temperature,
+                    timeoutMs: left,
+                });
+            }
+            const ms = Date.now() - attemptStarted;
+            if (result.usage) {
+                usage.tokensIn += result.usage.tokensIn;
+                usage.tokensOut += result.usage.tokensOut;
+                usage.tokensThinking += result.usage.tokensThinking;
+                const spent = cost(settings, ref, result.usage);
+                usage.costUsd += spent.usd;
+                if (spent.from !== 'none') costFrom = costFrom === 'provider' || spent.from === 'provider' ? 'provider' : 'price-list';
+            }
+            if (result.ok) {
+                attempts.push({ connection: ref.connection, model: ref.model, outcome: 'ok', ms });
+                await noteConnection(settings, ref.connection, null);
+                const read = readAnswer(result.text, schema);
+                if (!read.ok) return finish({ ok: false, reason: 'unreadable', detail: read.detail, answerText: result.text });
+                return finish({ ok: true, data: read.data, text: read.text, answerText: result.text });
+            }
+            attempts.push({ connection: ref.connection, model: ref.model, outcome: result.failure, ms, detail: result.detail.slice(0, 300) });
+            if (result.failure === 'key-refused' || result.failure === 'retired' || result.failure === 'off') await noteConnection(settings, ref.connection, result.detail);
+            lastFailure = { failure: result.failure, detail: result.detail, wait: result.wait };
+            if (result.failure === 'unavailable' || result.failure === 'timeout') busy = lastFailure;
+            if (!FALLBACK_FAILURES.includes(result.failure)) break;
+        }
+
+        if (!lastFailure) {
+            const detail = attempts.length ? `no model in the list reads ${needs.join(' or ')}` : `no model is set for the ${tier} tier in Settings, AI`;
+            return finish({ ok: false, reason: 'off', detail });
+        }
+        const final = lastFailure.failure === 'off' && busy ? busy : lastFailure;
+        return finish({ ok: false, reason: finalReason(final.failure), detail: final.detail, wait: final.wait });
     }
-    return finish({ ok: false, reason: finalReason(lastFailure.failure), detail: lastFailure.detail, wait: lastFailure.wait });
 }

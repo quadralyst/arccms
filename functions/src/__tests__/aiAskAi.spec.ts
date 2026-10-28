@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
     totals: [] as Array<Record<string, unknown>>,
     allowance: { ok: true } as { ok: boolean; wait?: number },
     released: 0,
+    consumed: 0,
     budget: { ok: true } as { ok: boolean; wait?: number },
     keys: {} as Record<string, string>,
     files: new Map<string, Buffer>(),
@@ -69,7 +70,7 @@ vi.mock('../ai/usage.js', () => ({
     noteConnection: async () => undefined,
 }));
 vi.mock('../ai/limits.js', () => ({
-    consumeAllowance: async () => (h.allowance.ok ? { ok: true, release: async () => void h.released++ } : { ok: false, wait: h.allowance.wait }),
+    consumeAllowance: async () => (h.consumed++, h.allowance.ok ? { ok: true, release: async () => void h.released++ } : { ok: false, wait: h.allowance.wait }),
     checkBudget: async () => h.budget,
 }));
 vi.mock('../ai/keys.js', () => ({
@@ -107,6 +108,7 @@ beforeEach(() => {
     h.totals = [];
     h.allowance = { ok: true };
     h.released = 0;
+    h.consumed = 0;
     h.budget = { ok: true };
     h.keys = {};
     h.files = new Map([['app/menus/b1/p1.jpg', JPEG]]);
@@ -259,6 +261,46 @@ describe('live calls', () => {
         expect(send).toHaveBeenCalledTimes(1);
         // It was answered, so it was paid for.
         expect(h.records[0].record['tokensIn']).toBe(1000);
+    });
+
+    it('keeps the units of an answer that was paid for, and gives back those of one that was not', async () => {
+        live();
+        answers({ ok: true, text: '{"items":"none"}', usage });
+        expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1' })).toMatchObject({ ok: false, reason: 'unreadable' });
+        expect(h.released).toBe(0);
+        answers({ ok: false, failure: 'blocked', detail: 'blocked', usage });
+        expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1' })).toMatchObject({ ok: false, reason: 'blocked' });
+        expect(h.released).toBe(0);
+        answers({ ok: false, failure: 'unavailable', detail: '503' }, { ok: false, failure: 'unavailable', detail: '503' });
+        expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1' })).toMatchObject({ ok: false, reason: 'unavailable' });
+        expect(h.released).toBe(1);
+    });
+
+    it('gives the units back when a mistake throws after they were counted', async () => {
+        await expect(askAi({ purpose: 'menu-scan', limitKey: 'b1', input: { storagePath: 'app/menus/scan.heic' } })).rejects.toThrow('of an unknown type');
+        expect(h.consumed).toBe(1);
+        expect(h.released).toBe(1);
+    });
+
+    it('counts no allowance for a purpose that has none in the code, whatever the admin typed', async () => {
+        live({ purposes: { summary: { perKeyPerDay: 3 } }, tiers: { fast: [{ connection: 'qwen', model: 'qwen3-vl-plus' }] } });
+        answers({ ok: true, text: 'Short.', usage });
+        expect(await askAi({ purpose: 'summary', input: 'notes', limitKey: 'b1' })).toMatchObject({ ok: true });
+        expect(h.consumed).toBe(0);
+    });
+
+    it('says unavailable, not off, when a busy model came before one with no key', async () => {
+        live();
+        delete h.keys['router'];
+        answers({ ok: false, failure: 'unavailable', detail: '429', wait: 15 });
+        expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1' })).toMatchObject({ ok: false, reason: 'unavailable', wait: 15 });
+    });
+
+    it('keeps an answer that did not fit, when the purpose keeps content, so the admin can see why', async () => {
+        live({ purposes: { 'menu-scan': { keepContent: true } } });
+        answers({ ok: true, text: 'Sorry, I cannot read this.', usage });
+        expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1' })).toMatchObject({ ok: false, reason: 'unreadable' });
+        expect(h.records[0].content).toMatchObject({ answer: 'Sorry, I cannot read this.' });
     });
 
     it('passes a timeout on', async () => {

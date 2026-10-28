@@ -220,6 +220,8 @@ export function safeBaseUrl(value: string): boolean {
     }
     if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) return false;
     const host = url.hostname.toLowerCase();
+    // A trailing dot is the same host (metadata.google.internal.), so it is refused rather than let past the names below.
+    if (host.endsWith('.')) return false;
     if (!host.includes('.') || host.endsWith('.local') || host.endsWith('.internal') || host === 'metadata.google.internal') return false;
     // No address literals: a private, local or metadata address could be reached that way.
     if (/^[0-9.]+$/.test(host) || host.startsWith('[') || host.includes(':')) return false;

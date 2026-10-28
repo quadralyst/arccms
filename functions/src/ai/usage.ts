@@ -112,6 +112,9 @@ export async function noteConnection(settings: AiSettings, connectionId: string,
     if (!error && !c.lastError && c.lastOkAt && now.getTime() - Date.parse(c.lastOkAt) < 3_600_000) return;
     if (error && c.lastError === error.slice(0, 300)) return;
     try {
+        // The settings may be 15 seconds old: a connection deleted since must not come back as a note.
+        const fresh = (await db.collection('Settings').doc('ai').get()).data();
+        if (!(fresh?.['connections'] ?? {})[connectionId]) return;
         const update: Record<string, unknown> = error
             ? { [`connections.${connectionId}.lastError`]: error.slice(0, 300), [`connections.${connectionId}.lastErrorAt`]: iso }
             : { [`connections.${connectionId}.lastOkAt`]: iso, [`connections.${connectionId}.lastError`]: null };

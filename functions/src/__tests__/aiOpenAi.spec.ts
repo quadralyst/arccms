@@ -40,11 +40,18 @@ describe('chatBody', () => {
 
     it('holds a strict model to the schema, and asks OpenRouter for the cost', () => {
         const body = chatBody({ ...request, schemaSupport: 'strict', maxOutputTokens: 500, temperature: 0 }, { askCost: true });
-        expect(body['response_format']).toEqual({ type: 'json_schema', json_schema: { name: 'answer', schema: request.schema, strict: true } });
+        expect(body['response_format']).toMatchObject({ type: 'json_schema', json_schema: { name: 'answer', strict: true, schema: { additionalProperties: false, required: ['a'] } } });
         expect(body['max_tokens']).toBe(500);
         expect(body['temperature']).toBe(0);
         expect(body['usage']).toEqual({ include: true });
         expect(chatBody({ ...request, schema: null })).not.toHaveProperty('response_format');
+    });
+
+    it('uses max_completion_tokens for OpenAI, and can leave temperature out', () => {
+        const body = chatBody({ ...request, maxOutputTokens: 300, temperature: 0.2 }, { completionTokens: true, noTemperature: true });
+        expect(body['max_completion_tokens']).toBe(300);
+        expect(body).not.toHaveProperty('max_tokens');
+        expect(body).not.toHaveProperty('temperature');
     });
 });
 
@@ -87,7 +94,7 @@ describe('readResponse', () => {
 });
 
 describe('openAiConnector', () => {
-    const settings = resolveAiSettings({ connections: { qwen: { preset: 'alibaba-eu', workspace: 'ws1' }, router: { preset: 'openrouter' } } });
+    const settings = resolveAiSettings({ connections: { qwen: { preset: 'alibaba-eu', workspace: 'ws1' }, router: { preset: 'openrouter' }, oai: { preset: 'openai' } } });
     afterEach(() => vi.unstubAllGlobals());
 
     it('posts to the connection\'s address with the key', async () => {
@@ -107,6 +114,25 @@ describe('openAiConnector', () => {
         vi.stubGlobal('fetch', fetchMock);
         await openAiConnector({ connection: settings.connections['router'], key: 'sk-or-123456' }, { ...request, schema: null });
         expect(JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body))['usage']).toEqual({ include: true });
+    });
+
+    it('asks again without temperature when a model refuses it', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "Unsupported value: 'temperature' does not support 0.2 with this model." } }), { status: 400 }))
+            .mockResolvedValueOnce(new Response(JSON.stringify(ok('fine')), { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+        const result = await openAiConnector({ connection: settings.connections['oai'], key: 'sk-test-123456' }, { ...request, schema: null, temperature: 0.2, maxOutputTokens: 100 });
+        expect(result).toMatchObject({ ok: true, text: 'fine' });
+        const second = JSON.parse(String((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body));
+        expect(second).not.toHaveProperty('temperature');
+        expect(second['max_completion_tokens']).toBe(100);
+    });
+
+    it('gives a strict answer back in the purpose\'s own shape', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(ok('{"a":null}')), { status: 200 })));
+        const schema = { type: 'object' as const, properties: { a: { type: 'string' as const }, b: { type: 'string' as const } }, required: ['b'] };
+        const result = await openAiConnector({ connection: settings.connections['oai'], key: 'sk-test-123456' }, { ...request, schema, schemaSupport: 'strict' });
+        expect(result).toMatchObject({ ok: true, text: '{}' });
     });
 
     it('stops waiting at the call\'s time', async () => {

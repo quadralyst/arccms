@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../init', () => ({ db: {}, storage: {}, owner: {} }));
 
-import { answerProblems, emptyAnswer, parseJsonAnswer, schemaProblems, type JsonSchema } from '../ai/schema.js';
+import { answerProblems, emptyAnswer, parseJsonAnswer, schemaProblems, strictSchema, withoutAddedNulls, type JsonSchema } from '../ai/schema.js';
 import { purposeProblems } from '../ai/purposes.js';
 import { connectionBaseUrl, connectionProcessesIn, defaultVertexLocation, modelInfo, resolveAiSettings, safeBaseUrl } from '../ai/settings.js';
 import { aiTestFailure } from '../ai/types.js';
@@ -56,6 +56,39 @@ describe('answerProblems', () => {
         expect(answerProblems({}, MENU)).toEqual(['answer.sections is missing', 'answer.currency is missing']);
         expect(answerProblems(3.5, { type: 'integer' })).toEqual(['answer should be integer']);
         expect(answerProblems([1], { type: 'array', items: { type: 'number' }, minItems: 2 })).toEqual(['answer should have at least 2 items']);
+    });
+});
+
+describe('own keys only', () => {
+    it('does not take an Object property such as toString for a required or known key', () => {
+        const closed: JsonSchema = { type: 'object', properties: { a: { type: 'string' } }, required: ['toString'], additionalProperties: false };
+        expect(answerProblems({ a: 'x' }, { ...closed, required: ['a'] })).toEqual([]);
+        expect(answerProblems({ a: 'x', constructor: 'y' }, { ...closed, required: ['a'] })).toEqual(['answer.constructor is not expected']);
+        expect(answerProblems({ a: 'x' }, { type: 'object', properties: { a: { type: 'string' }, toString: { type: 'string' } as JsonSchema }, required: ['toString'] } as JsonSchema)).toEqual(['answer.toString is missing']);
+    });
+});
+
+describe('strict mode', () => {
+    const schema: JsonSchema = { type: 'object', properties: { name: { type: 'string' }, note: { type: 'string' }, lines: { type: 'array', items: { type: 'object', properties: { qty: { type: 'number' } } } } }, required: ['name'] };
+
+    it('closes every object and makes the optional properties required and nullable', () => {
+        expect(strictSchema(schema)).toEqual({
+            type: 'object',
+            properties: {
+                name: { type: 'string' },
+                note: { type: ['string', 'null'] },
+                lines: { type: ['array', 'null'], items: { type: 'object', properties: { qty: { type: ['number', 'null'] } }, required: ['qty'], additionalProperties: false } },
+            },
+            required: ['name', 'note', 'lines'],
+            additionalProperties: false,
+        });
+    });
+
+    it('takes the nulls it added out again, so the purpose\'s own schema passes', () => {
+        const strict = { name: 'A', note: null, lines: [{ qty: null }, { qty: 2 }] };
+        const back = withoutAddedNulls(strict, schema);
+        expect(back).toEqual({ name: 'A', lines: [{}, { qty: 2 }] });
+        expect(answerProblems(back, schema)).toEqual([]);
     });
 });
 
@@ -171,7 +204,7 @@ describe('models and addresses', () => {
 
     it('calls only https addresses with a public host name', () => {
         expect(safeBaseUrl('https://api.example.com/v1')).toBe(true);
-        for (const bad of ['http://api.example.com/v1', 'https://169.254.169.254/v1', 'https://[::1]/v1', 'https://localhost/v1', 'https://metadata.google.internal/v1', 'https://user:pw@api.example.com', 'https://api.example.com/v1?x=1', 'not a url', 'https://10.0.0.1:8443/v1']) {
+        for (const bad of ['https://metadata.google.internal./v1', 'https://localhost./v1', 'http://api.example.com/v1', 'https://169.254.169.254/v1', 'https://[::1]/v1', 'https://localhost/v1', 'https://metadata.google.internal/v1', 'https://user:pw@api.example.com', 'https://api.example.com/v1?x=1', 'not a url', 'https://10.0.0.1:8443/v1']) {
             expect(safeBaseUrl(bad), bad).toBe(false);
         }
     });

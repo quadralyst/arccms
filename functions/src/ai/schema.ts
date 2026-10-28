@@ -85,9 +85,10 @@ export function answerProblems(value: unknown, schema: JsonSchema, path = 'answe
         }
         if (typeMatches(v, 'object')) {
             const obj = v as Record<string, unknown>;
-            for (const k of s.required ?? []) if (!(k in obj)) add(`${at}.${k} is missing`);
+            // Own keys only: `toString` or `constructor` must not count as present or as a property's schema.
+            for (const k of s.required ?? []) if (!Object.hasOwn(obj, k)) add(`${at}.${k} is missing`);
             for (const [k, sub] of Object.entries(obj)) {
-                const subSchema = s.properties?.[k];
+                const subSchema = s.properties && Object.hasOwn(s.properties, k) ? s.properties[k] : undefined;
                 if (subSchema) walk(sub, subSchema, `${at}.${k}`);
                 else if (s.additionalProperties === false) add(`${at}.${k} is not expected`);
             }
@@ -160,4 +161,46 @@ export function parseJsonAnswer(text: string): unknown {
     } catch {
         return undefined;
     }
+}
+
+/**
+ * The schema in the form OpenAI's strict mode takes: every object closed and every property
+ * required, the ones the purpose leaves optional allowed to be null. readStrictAnswer() takes
+ * those nulls out again, so the answer is checked against the purpose's own schema.
+ */
+export function strictSchema(schema: JsonSchema): JsonSchema {
+    const out: JsonSchema = { ...schema };
+    if (schema.properties) {
+        const required = new Set(schema.required ?? []);
+        out.properties = Object.fromEntries(Object.entries(schema.properties).map(([k, sub]) => {
+            const strict = strictSchema(sub);
+            if (required.has(k)) return [k, strict];
+            const types = strict.type === undefined ? [] : Array.isArray(strict.type) ? strict.type : [strict.type];
+            if (!types.length || types.includes('null')) return [k, strict];
+            return [k, { ...strict, type: [...types, 'null'] as JsonType[] }];
+        }));
+        out.required = Object.keys(schema.properties);
+        out.additionalProperties = false;
+    }
+    if (schema.items) out.items = strictSchema(schema.items);
+    return out;
+}
+
+/** An answer to strictSchema() as the purpose's schema has it: the nulls strict mode added are left out. */
+export function withoutAddedNulls(value: unknown, schema: JsonSchema): unknown {
+    if (Array.isArray(value)) return schema.items ? value.map((v) => withoutAddedNulls(v, schema.items as JsonSchema)) : value;
+    if (typeof value !== 'object' || value === null || !schema.properties) return value;
+    const required = new Set(schema.required ?? []);
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        const sub = Object.hasOwn(schema.properties, k) ? schema.properties[k] : undefined;
+        if (!sub) {
+            out[k] = v;
+            continue;
+        }
+        const types = sub.type === undefined ? [] : Array.isArray(sub.type) ? sub.type : [sub.type];
+        if (v === null && !required.has(k) && !types.includes('null')) continue;
+        out[k] = withoutAddedNulls(v, sub);
+    }
+    return out;
 }

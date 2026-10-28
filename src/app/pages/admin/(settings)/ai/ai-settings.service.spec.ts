@@ -42,6 +42,14 @@ describe('aiSettingsData', () => {
         expect(JSON.stringify(data)).not.toContain('1234');
     });
 
+    it('clears what the server noted about an older connection of the same id', () => {
+        const added = { ...loaded, connections: [...loaded.connections, { ...loaded.connections[0], id: 'fresh', keyPreview: null }] };
+        const data = aiSettingsData(added, loaded) as { connections: Record<string, Record<string, unknown>> };
+        expect(data.connections['fresh']['lastError']).toEqual(deleteField());
+        expect(data.connections['fresh']['keyPreview']).toEqual(deleteField());
+        expect(data.connections['qwen']).not.toHaveProperty('lastError');
+    });
+
     it('deletes a connection and model taken away, and an allowance cleared', () => {
         const form = { ...loaded, connections: loaded.connections.filter((c) => c.id !== 'old'), models: {}, purposes: { 'menu-scan': { enabled: true, models: [], perKeyPerDay: null, keepContent: false } } };
         const data = aiSettingsData(form, loaded) as { connections: Record<string, unknown>; models: Record<string, unknown>; purposes: Record<string, Record<string, unknown>> };

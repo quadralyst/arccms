@@ -115,7 +115,7 @@ vi.mock('../search/auth.js', () => ({
 vi.mock('../custom/ai.js', () => ({ AI_PURPOSES: { 'menu-scan': { label: 'Menu scan', instruction: 'SECRET PROMPT', testAnswer: 'x', perKeyPerDay: 20, input: { pictures: { max: 5, maxMb: 10 } } } } }));
 
 import { siteDay, consumeAllowance, checkBudget } from '../ai/limits.js';
-import { addToTotals, aiUsage, modelField } from '../ai/usage.js';
+import { addToTotals, aiUsage, modelField, noteConnection } from '../ai/usage.js';
 import { keyPreview, cleanKey, readKey, forgetKeys } from '../ai/keys.js';
 import { forgetAiSettings, resolveAiSettings } from '../ai/settings.js';
 import { monthsBefore, purgeAiCalls, purgeAiUsage, purgeOrphanKeys } from '../ai/callables/cleanUpAi.js';
@@ -247,6 +247,17 @@ describe('keys', () => {
         h.docs.set('AiKeys/old', { key: 'sk-old-12345678' });
         expect(await purgeOrphanKeys()).toBe(1);
         expect(h.docs.has('AiKeys/old')).toBe(false);
+    });
+});
+
+describe('noteConnection', () => {
+    it('notes an error on a provider, and never brings back one the admin deleted', async () => {
+        h.docs.set('Settings/ai', { connections: { qwen: { preset: 'alibaba-eu' } } });
+        const cached = resolveAiSettings({ connections: { qwen: { preset: 'alibaba-eu' }, gone: { preset: 'openrouter' } } });
+        await noteConnection(cached, 'qwen', 'the provider refused the key (401)');
+        expect((h.docs.get('Settings/ai')!['connections'] as Record<string, Data>)['qwen']['lastError']).toBe('the provider refused the key (401)');
+        await noteConnection(cached, 'gone', 'the model is not there');
+        expect((h.docs.get('Settings/ai')!['connections'] as Record<string, Data>)['gone']).toBeUndefined();
     });
 });
 

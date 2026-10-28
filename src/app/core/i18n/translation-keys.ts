@@ -959,7 +959,6 @@ export type TranslationKey =
     | 'admin.settings.ai.name'
     | 'admin.settings.ai.no_calls'
     | 'admin.settings.ai.no_key'
-    | 'admin.settings.ai.no_limit'
     | 'admin.settings.ai.no_price'
     | 'admin.settings.ai.no_purposes'
     | 'admin.settings.ai.no_usage'
@@ -982,6 +981,7 @@ export type TranslationKey =
     | 'admin.settings.ai.remove_provider'
     | 'admin.settings.ai.remove_provider_confirm'
     | 'admin.settings.ai.save'
+    | 'admin.settings.ai.save_before_key'
     | 'admin.settings.ai.save_failed'
     | 'admin.settings.ai.save_first'
     | 'admin.settings.ai.save_key'
@@ -3167,7 +3167,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.name',
     'admin.settings.ai.no_calls',
     'admin.settings.ai.no_key',
-    'admin.settings.ai.no_limit',
     'admin.settings.ai.no_price',
     'admin.settings.ai.no_purposes',
     'admin.settings.ai.no_usage',
@@ -3190,6 +3189,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.remove_provider',
     'admin.settings.ai.remove_provider_confirm',
     'admin.settings.ai.save',
+    'admin.settings.ai.save_before_key',
     'admin.settings.ai.save_failed',
     'admin.settings.ai.save_first',
     'admin.settings.ai.save_key',

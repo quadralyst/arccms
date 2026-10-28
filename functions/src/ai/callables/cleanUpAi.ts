@@ -34,7 +34,7 @@ export async function purgeAiCalls(now = new Date()): Promise<number> {
     for (;;) {
         const snap = await db.collection(AI_CALLS).where('createdAt', '<', cutoff).limit(BATCH).get();
         if (snap.empty) break;
-        await Promise.all(snap.docs.filter((d) => d.data()['content']).map((d) => bucket().deleteFiles({ prefix: aiCallFolder(d.id) }).catch((err) => console.error(`cleanUpAi: files of ${d.id} not deleted`, err))));
+        await Promise.all(snap.docs.filter((d) => d.data()['content'] || d.data()['contentDropped']).map((d) => bucket().deleteFiles({ prefix: aiCallFolder(d.id) }).catch((err) => console.error(`cleanUpAi: files of ${d.id} not deleted`, err))));
         const batch = db.batch();
         snap.docs.forEach((d) => batch.delete(d.ref));
         await batch.commit();
