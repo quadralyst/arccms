@@ -279,6 +279,7 @@ describe('the app kit\'s exports', () => {
         'pinTooEasy', 'signInStrength',
         'sendAppEmail', 'captureAppEmails', 'escapeEmailHtml', 'MAX_APP_EMAIL_RECIPIENTS', 'MAX_ATTACHMENTS', 'MAX_ATTACHMENT_BYTES',
         'APP_EMAIL_EVENTS',
+        'askAi', 'captureAiAsks', 'aiUsage', 'aiTestFailure', 'AI_FAILURE_REASONS', 'AI_TIERS',
     ];
 
     it('are exactly the documented ones', () => {

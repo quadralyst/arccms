@@ -108,6 +108,11 @@ export const DEFAULT_NOTIFICATION_TYPES: Record<string, NotificationTypeConfig> 
     category: 'transactional', defaultChannels: { inApp: true, email: true },
     userConfigurable: false, enabled: true,
   },
+  admin_ai_budget: {
+    label: 'AI budget (admin)', description: "The month's AI spending reached 80% or all of its budget.",
+    category: 'transactional', defaultChannels: { inApp: true, email: true },
+    userConfigurable: false, enabled: true,
+  },
   admin_webhook_failure: {
     label: 'Webhook failure (admin)', description: 'A provider webhook failed to process.',
     category: 'transactional', defaultChannels: { inApp: true, email: true },

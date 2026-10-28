@@ -496,6 +496,28 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // AI (docs/app/ai.html). Every call's record, kept 60 days, and the month's
+    // totals with their per-key counts: admins read, only the functions write.
+    match /AiCalls/{callId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /AiUsage/{month} {
+      allow read: if isAdmin();
+      allow write: if false;
+      match /{part}/{id} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+    // The providers' keys. Nobody reads or writes them from a browser, not even
+    // an admin: the admin-only callables set and remove them, and Settings, AI
+    // shows only a preview (Settings is readable by every admin, so a key can
+    // never live there).
+    match /AiKeys/{connectionId} {
+      allow read, write: if false;
+    }
+
     // App install counters by day (trackPwaEvent, docs/features/pwa.html). Admin read.
     match /PwaStats/{day} {
       allow read: if isAdmin();

@@ -44,6 +44,7 @@ export const FEATURE_URLS: Record<FeatureId, readonly string[]> = {
     contact: ['admin/messages/**'],
     // admin/analytics-setting is the file router's second URL for the settings page.
     analytics: ['admin/settings/analytics', 'admin/analytics-setting/**'],
+    ai: ['admin/settings/ai'],
 };
 
 /**

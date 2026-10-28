@@ -48,3 +48,12 @@ export { APP_EMAIL_EVENTS } from '../email-core/appEmailOutcome.js';
 export type { AppEmailEvent } from '../email-core/appEmailOutcome.js';
 export type { AppEmailTemplate, AccountEmailLanguages, EmailLanguageVersion } from '../email-core/emailLanguages.js';
 export type { AppTagValue } from '../email-core/queueEmail.js';
+
+// Asking a language model: the app's purposes (functions/src/custom/ai.ts), text, pictures and
+// PDFs in, text or checked data out, with models, keys, limits and records set in Settings, AI,
+// and a capture for its unit tests (specs/ai-spec.md, docs/app/ai.html)
+export { askAi, captureAiAsks } from '../ai/askAi.js';
+export type { CapturedAiAsk } from '../ai/askAi.js';
+export { aiUsage } from '../ai/usage.js';
+export { aiTestFailure, AI_FAILURE_REASONS, AI_TIERS } from '../ai/types.js';
+export type { AiPurpose, AiPurposes, AiInputPart, AskAiInput, AskAiResult, AiUsage, AiFailureReason, AiTier, AiTestInput, AiTestAnswer, JsonSchema } from '../ai/types.js';

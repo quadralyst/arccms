@@ -18,6 +18,7 @@ async function starter(file: string, actual: () => Promise<unknown>) {
 vi.mock('../custom/index.js', (actual) => starter('functions/src/custom/index.ts', actual));
 vi.mock('../custom/search-sources.js', (actual) => starter('functions/src/custom/search-sources.ts', actual));
 vi.mock('../custom/email-templates.js', (actual) => starter('functions/src/custom/email-templates.ts', actual));
+vi.mock('../custom/ai.js', (actual) => starter('functions/src/custom/ai.ts', actual));
 
 /**
  * Core function specs run with every feature on (specs/feature-flags-spec.md),
@@ -32,7 +33,7 @@ vi.mock('../custom/email-templates.js', (actual) => starter('functions/src/custo
 vi.mock('../sign-in.gen.js', () => ({ SIGN_IN_STRENGTH: 'strict', SIGN_IN_FIXED: { emailSignIn: null, newDeviceCode: null } }));
 
 vi.mock('../enabled-features.gen.js', () => ({
-  ENABLED_FEATURES: ['content', 'search', 'seo', 'forms', 'audience', 'email-marketing', 'sms', 'payments', 'data', 'pwa'],
+  ENABLED_FEATURES: ['content', 'search', 'seo', 'forms', 'audience', 'email-marketing', 'sms', 'payments', 'data', 'pwa', 'ai'],
 }));
 
 // Mock firebase-admin/app

@@ -160,6 +160,36 @@ describe('email log files (specs/app-email-spec.md, AE-D8)', () => {
     });
 });
 
+describe('AI record files (docs/app/ai.html)', () => {
+    const editor = () => env.authenticatedContext('editor-uid', { arccms_role: 'editor' }).storage();
+    const jpeg = { contentType: 'image/jpeg' };
+
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await uploadBytes(ref(ctx.storage(), 'ai-calls/c1/1-menu.jpeg'), png, jpeg);
+            await uploadBytes(ref(ctx.storage(), 'arccms/ai-calls/c1/1-menu.jpeg'), png, jpeg);
+        });
+    });
+
+    it('are never public, at the bucket root or under the upload folder', async () => {
+        await assertFails(getBytes(ref(anon(), 'ai-calls/c1/1-menu.jpeg')));
+        await assertFails(getBytes(ref(anon(), 'arccms/ai-calls/c1/1-menu.jpeg')));
+        await assertFails(getBytes(ref(alice(), 'ai-calls/c1/1-menu.jpeg')));
+        await assertFails(getBytes(ref(editor(), 'arccms/ai-calls/c1/1-menu.jpeg')));
+    });
+
+    it('are read by admins', async () => {
+        await assertSucceeds(getBytes(ref(admin(), 'ai-calls/c1/1-menu.jpeg')));
+        await assertSucceeds(getBytes(ref(admin(), 'arccms/ai-calls/c1/1-menu.jpeg')));
+    });
+
+    it('are written by the functions only, never from a browser', async () => {
+        await assertFails(uploadBytes(ref(admin(), 'ai-calls/c1/2-new.jpeg'), png, jpeg));
+        await assertFails(uploadBytes(ref(editor(), 'arccms/ai-calls/c2/1-x.jpeg'), png, jpeg));
+        await assertFails(deleteObject(ref(admin(), 'ai-calls/c1/1-menu.jpeg')));
+    });
+});
+
 describe('library files (docs/features/media.html, Files)', () => {
     const editor = () => env.authenticatedContext('editor-uid', { arccms_role: 'editor' }).storage();
     const pdf = { contentType: 'application/pdf' };

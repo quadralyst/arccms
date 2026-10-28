@@ -64,20 +64,23 @@ service firebase.storage {
     // Public read, because images are served on public pages and SSR, except
     // the per-user folders: `users/{userDocId}/...` at the bucket root or under
     // one upload folder (`arccms/users/...`, the install's storagePrefix), and
-    // the files of email logs (`email-logs/...`, below). A folder named `users`
-    // or `email-logs` in the first two levels is therefore never public.
+    // the files of email logs (`email-logs/...`) and of AI records (`ai-calls/...`,
+    // below). A folder named `users`, `email-logs` or `ai-calls` in the first two
+    // levels is therefore never public.
     match /{fileName} {
       allow read: if true;
       allow write: if isEditor();
     }
     match /{first}/{second}/{rest=**} {
       allow read: if first != 'users' && second != 'users'
-        && first != 'email-logs' && second != 'email-logs';
+        && first != 'email-logs' && second != 'email-logs'
+        && first != 'ai-calls' && second != 'ai-calls';
       // Library files have their own rules below. Without this exclusion a
       // staff write there would pass here whatever its type, since a request
-      // is allowed when any rule allows it. Email log files are the functions' only.
+      // is allowed when any rule allows it. Email log and AI record files are the functions' only.
       allow write: if isEditor() && first != 'mediaFiles' && second != 'mediaFiles'
-        && first != 'email-logs' && second != 'email-logs';
+        && first != 'email-logs' && second != 'email-logs'
+        && first != 'ai-calls' && second != 'ai-calls';
     }
 
     // The files an email carried (an app's attachments, specs/app-email-spec.md),
@@ -87,6 +90,16 @@ service firebase.storage {
       allow read: if isAdmin();
     }
     match /{prefix}/email-logs/{logId}/{fileName} {
+      allow read: if isAdmin();
+    }
+
+    // The pictures and documents of an AI call, kept beside its record when the
+    // purpose keeps content (docs/app/ai.html): admins read them, only the
+    // functions write them, and the daily cleanup deletes them after 60 days.
+    match /ai-calls/{recordId}/{fileName} {
+      allow read: if isAdmin();
+    }
+    match /{prefix}/ai-calls/{recordId}/{fileName} {
       allow read: if isAdmin();
     }
 
