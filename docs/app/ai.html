@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Use AI in your app | Arc CMS docs</title>
+  <meta name="description" content="Ask a language model from your own Cloud Functions with askAi: declare purposes, send text, pictures and PDFs, get text or checked data back, test without spending, and read the cost of every call.">
+  <meta name="docs:sources" content="functions/src/ai, functions/src/custom/ai.ts, functions/src/app-kit/index.ts, functions/src/features/ai.ts, src/app/pages/admin/(settings)/ai, firestore.rules, storage.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/ai.html">
+  <main>
+    <h1>Use AI in your app</h1>
+    <p class="lead">Your own Cloud Functions can ask a language model to read, write, translate, summarise or sort, with <code>askAi</code> from the app kit. You declare each use as a purpose in <code>functions/src/custom/ai.ts</code>: what it takes, the instruction, and the shape of the answer. Admins choose the providers and models, set the keys, and see what every call cost in Settings, AI. Arc CMS checks the answer against your shape, keeps a record of each call, and stops at the limits you set.</p>
+    <p>Arc CMS has no AI feature of its own: every use is your app's. It needs the <code>ai</code> feature, which is off until you turn it on (see <a href="../features/ai.html">AI</a> for the admin side).</p>
+
+    <h2 id="example">An example: reading a receipt</h2>
+    <p>A shop photographs its supplier receipts, and the app reads each one into lines and a total for the owner to check. First the purpose, in <code>functions/src/custom/ai.ts</code>:</p>
+    <pre><code>import type { AiPurposes, JsonSchema } from '../app-kit/index.js';
+
+const RECEIPT: JsonSchema = {
+  type: 'object',
+  properties: {
+    supplier: { type: 'string' },
+    date: { type: ['string', 'null'], description: 'yyyy-mm-dd' },
+    currency: { enum: ['CHF', 'EUR'] },
+    lines: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { name: { type: 'string' }, quantity: { type: 'number' }, price: { type: 'number' } },
+        required: ['name', 'quantity', 'price'],
+      },
+    },
+    total: { type: 'number' },
+  },
+  required: ['supplier', 'date', 'currency', 'lines', 'total'],
+};
+
+export const AI_PURPOSES: AiPurposes = {
+  'receipt-read': {
+    label: 'Receipt reading',
+    description: 'Reads a photographed receipt into its lines and total.',
+    input: { pictures: { max: 3, maxMb: 10 }, pdfs: { max: 1, maxMb: 10 } },
+    instruction: 'Read this supplier receipt. Give every line with its quantity and price, and the total as printed. Leave the date null when it cannot be read.',
+    output: { schema: RECEIPT },
+    tier: 'thorough',
+    perKeyPerDay: 20,
+    testAnswer: { supplier: 'Test Supplier', date: '2026-10-01', currency: 'CHF', lines: [{ name: 'Flour 25 kg', quantity: 2, price: 38.5 }], total: 77 },
+  },
+};</code></pre>
+    <p>Then your own callable, in your functions, reads the photo the person uploaded:</p>
+    <pre><code>import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { askAi } from '../app-kit/index.js';
+
+export const readReceipt = onCall({ timeoutSeconds: 120 }, async (request) =&gt; {
+  const { businessId, path } = request.data;
+  // Your check: the caller works for this business, and the file is theirs.
+  await assertStaff(request, businessId);
+  if (!path.startsWith(`app/receipts/${businessId}/`)) throw new HttpsError('permission-denied', 'Not your file.');
+
+  const r = await askAi({
+    purpose: 'receipt-read',
+    input: [{ storagePath: path }, 'Prices are in Swiss francs.'],
+    limitKey: businessId,
+    ref: `businesses/${businessId}/receipts/${request.data.receiptId}`,
+  });
+  if (!r.ok) return { reason: r.reason, wait: r.wait ?? null };
+  return { receipt: r.data };
+});</code></pre>
+    <p>The answer is data in your shape, or a named reason. Your page shows the lines for the owner to check before anything is saved.</p>
+
+    <h2 id="purposes">Declare your purposes</h2>
+    <p><code>AI_PURPOSES</code> maps each purpose's id (lower case letters, digits and <code>-</code>, not starting with <code>arc-</code>) to what it is. A mistake in the file stops the functions from loading, so the deploy fails with the reason.</p>
+    <table>
+      <thead><tr><th>Field</th><th>What it says</th></tr></thead>
+      <tbody>
+        <tr><td><code>label</code>, <code>description</code></td><td>What admins see in Settings, AI</td></tr>
+        <tr><td><code>input</code></td><td>What a call may send. Text is always allowed, up to <code>text.maxChars</code> (default 20,000 characters). <code>pictures</code> (JPEG, PNG, WebP) and <code>pdfs</code> each take <code>{ max, maxMb }</code>: how many, and the largest, at most 20 MB. A call with a kind the purpose does not take throws.</td></tr>
+        <tr><td><code>instruction</code></td><td>The prompt. It stays on the server: admins never see it.</td></tr>
+        <tr><td><code>output</code></td><td><code>'text'</code> (the default), or <code>{ schema }</code>: the answer is data of that shape, checked by Arc CMS</td></tr>
+        <tr><td><code>tier</code></td><td><code>cheap</code>, <code>fast</code> (the default) or <code>thorough</code>: which of the admin's model lists answers, unless the admin gives the purpose its own</td></tr>
+        <tr><td><code>perKeyPerDay</code></td><td>How many units one key may use a day. With it, every call needs a <code>limitKey</code>. The admin can change the number.</td></tr>
+        <tr><td><code>testAnswer</code></td><td>The answer in test mode: the data or text itself, a function of the input, or <code>aiTestFailure(reason)</code>. A fixed answer is checked against the schema when the functions load.</td></tr>
+        <tr><td><code>maxOutputTokens</code>, <code>temperature</code>, <code>timeoutSeconds</code></td><td>Optional. <code>timeoutSeconds</code> (5 to 540, default 60) is for the whole call, fallbacks included. Give your own function a longer <code>timeoutSeconds</code> than the purpose.</td></tr>
+      </tbody>
+    </table>
+    <p>The schema is the part of JSON schema models take: <code>type</code> (one or a list, such as <code>['number', 'null']</code>), <code>properties</code>, <code>required</code>, <code>additionalProperties: false</code>, <code>items</code>, <code>enum</code>, <code>minItems</code>, <code>maxItems</code>. Other keywords, such as <code>description</code>, are passed to the model and not checked.</p>
+
+    <h2>What askAi takes</h2>
+    <table>
+      <thead><tr><th>Field</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>purpose</code></td><td>One of your purposes' ids</td></tr>
+        <tr><td><code>input</code></td><td>One part or a list, in the order the model reads them: a string, <code>{ text }</code>, <code>{ storagePath, mimeType? }</code> (a file in the project's bucket) or <code>{ bytes, mimeType, name? }</code>. Give <code>mimeType</code> when a path does not end in <code>.jpg</code>, <code>.png</code>, <code>.webp</code> or <code>.pdf</code>.</td></tr>
+        <tr><td><code>limitKey</code></td><td>Whose allowance the call uses, such as a business id: 1 to 200 characters without <code>/</code> or spaces</td></tr>
+        <tr><td><code>units</code></td><td>How much of the allowance it uses, such as the number of pages. Default 1.</td></tr>
+        <tr><td><code>ref</code></td><td>Your own reference, kept on the record</td></tr>
+      </tbody>
+    </table>
+    <div class="warn"><p>Arc CMS reads <code>storagePath</code> with the functions' rights, which can read every file. It takes only paths inside the project's bucket, without <code>..</code>, but it cannot know which files the caller may read: check that yourself before you pass a path from a browser, as the example does.</p></div>
+
+    <h2 id="reasons">What comes back</h2>
+    <p><code>{ ok: true, data, usage, recordId }</code> for a purpose with a schema, <code>{ ok: true, text, usage, recordId }</code> for text. <code>usage</code> holds the model that answered, the tokens, the cost in USD and the time. Otherwise <code>{ ok: false, reason, usage, recordId }</code>, with <code>wait</code> (seconds) when trying later can help and <code>detail</code> for your logs:</p>
+    <table>
+      <thead><tr><th>Reason</th><th>What happened</th><th>What to show</th></tr></thead>
+      <tbody>
+        <tr><td><code>unreadable</code></td><td>No usable answer: the file was missing or not what it said, or the answer did not fit the schema</td><td>"This could not be read. Try another photo."</td></tr>
+        <tr><td><code>blocked</code></td><td>The provider's safety rules blocked the question or the answer</td><td>"This could not be read." Do not retry the same input.</td></tr>
+        <tr><td><code>too-large</code></td><td>More text, files or MB than the purpose takes, or more than the model reads</td><td>"Too large: use fewer or smaller pictures."</td></tr>
+        <tr><td><code>limit</code></td><td><code>scope: 'key'</code>: the key used its allowance today. <code>scope: 'budget'</code>: the month's budget is spent.</td><td>"You have read 20 pages today. More tomorrow." with <code>wait</code></td></tr>
+        <tr><td><code>unavailable</code></td><td>Every model in the list was busy, down, gone or refused its key</td><td>"Busy right now. Try again in a minute."</td></tr>
+        <tr><td><code>timeout</code></td><td>No answer within the purpose's time</td><td>"That took too long. Try again."</td></tr>
+        <tr><td><code>off</code></td><td>The <code>ai</code> feature is off, the admin switched the purpose off, or no model is set up for it</td><td>Hide the button, or say the feature is not available</td></tr>
+      </tbody>
+    </table>
+    <p>A developer's mistake throws instead: an unknown purpose, a kind of file the purpose does not take, a missing <code>limitKey</code> for a purpose with an allowance, or a wrong type. A call that fails gives its units back, so a failed read never uses the allowance.</p>
+
+    <h2>Which model answers</h2>
+    <p>Each tier, and any purpose the admin gives its own list, is a list of up to 5 models. The first answers. The next tries only when the one before is busy or down, refuses its key, has gone (a model Google or another provider retired), or used up its share of the time. Never after a safety block, an input that is too large or an answer that does not fit: another model would not do better. A model that cannot read what you send, such as a picture to a text-only model, is skipped. Because every answer is checked, a cheap model that promises only JSON is safe to use: it gets your schema in its instruction, and an answer of the wrong shape comes back as <code>unreadable</code>.</p>
+    <p>Providers Arc CMS offers: Alibaba Cloud Model Studio in Frankfurt (EU), OpenRouter, Hugging Face, OpenAI, OpenAI's EU projects, DeepSeek, any other address that speaks the OpenAI Chat Completions format, and Google Vertex AI for Gemini. Where each processes data is on its card in Settings, AI: choose with your client.</p>
+
+    <h2 id="vertex">Gemini on Vertex AI</h2>
+    <p>A Vertex provider needs no key: it calls Gemini in your own Google Cloud project with the functions' service account. Set it up once:</p>
+    <ol class="steps">
+      <li><p>In Google Cloud, switch on the <strong>Vertex AI API</strong> for the project.</p></li>
+      <li><p>Give the functions' service account (by default <code>PROJECT_NUMBER-compute@developer.gserviceaccount.com</code>) the <strong>Vertex AI User</strong> role.</p></li>
+      <li><p>Add the provider in Settings, AI. Its location starts at the multi-region of your functions region (<code>eu</code> for a <code>europe-*</code> region, <code>us</code> for <code>us-*</code>), never <code>global</code> unless you type it.</p></li>
+    </ol>
+    <p>Google's data residency guarantees name the <code>eu</code> multi-region and some single regions, such as Frankfurt (<code>europe-west3</code>) and the Netherlands (<code>europe-west4</code>); the <code>eu</code> multi-region covers EU member states only, not Switzerland or the United Kingdom. Zurich (<code>europe-west6</code>) serves Vertex AI but is not among the guaranteed regions. The <code>global</code> location may process anywhere in the world. Check Google's current table for your model before you promise a client where their data stays.</p>
+
+    <h2 id="test-it">Test it</h2>
+    <p>A new install is in test mode: no provider is called and nothing is spent. Each call gets its purpose's <code>testAnswer</code>, or an answer built from the schema (empty texts, zeros, empty lists), or "Test answer for" and the label, and is still recorded and counted against the allowance, so you can see your limit screen. To see your screen for a failure, return one from the test answer:</p>
+    <pre><code>import { aiTestFailure } from '../app-kit/index.js';
+
+testAnswer: (input) =&gt; (input.files.length &gt; 2 ? aiTestFailure('too-large') : SAMPLE_RECEIPT),</code></pre>
+    <p>In your unit tests, <code>captureAiAsks()</code> records each call instead of touching Firestore, Storage or a provider, after checking the input exactly as for real. Storage files are recorded by path, not read:</p>
+    <pre><code>import { captureAiAsks } from '../../app-kit/index.js';
+
+const ai = captureAiAsks({ answers: { 'receipt-read': SAMPLE_RECEIPT } });
+try {
+  const result = await readReceipt(callAs(staff, { businessId: 'b1', path: 'app/receipts/b1/r1.jpg' }));
+  expect(ai.asks[0]).toMatchObject({ purpose: 'receipt-read', limitKey: 'b1' });
+  expect(result.receipt.total).toBe(77);
+} finally {
+  ai.stop();
+}</code></pre>
+    <p>To try a real model, an admin sets a key and clicks <strong>Test</strong> on the provider: one tiny live call, even in test mode, that costs a fraction of a cent and is recorded as purpose <code>arc-connection-test</code>. Switch the mode to Live when the app is ready.</p>
+
+    <h2 id="costs">Costs, limits and records</h2>
+    <ul>
+      <li><strong>Every call is recorded</strong> in <code>AiCalls</code> for 60 days: the purpose, each model tried and how it went, the tokens in and out (thinking included in out), the cost in USD, the time, your <code>ref</code> and <code>limitKey</code>. Not what was sent or answered, unless the admin switches on <strong>Keep what is sent and answered</strong> for the purpose: then the text and the answer are on the record and each file is copied beside it in Storage, for 60 days. Turn it on while testing; it may hold personal data.</li>
+      <li><strong>The cost</strong> is the provider's own figure when it reports one (OpenRouter does), else tokens times the price in Settings, AI. Arc CMS ships the prices it has checked; a model without a price is counted as free until the admin sets one. It is an estimate: the provider's invoice is the true figure.</li>
+      <li><strong>The month's totals</strong> by day, purpose, model and key are kept 24 months. <code>aiUsage({ limitKey, purpose?, month? })</code> gives one key's totals, for example to show a business its use or pass the cost on.</li>
+      <li><strong>The monthly budget</strong> (20 USD on a new install) stops live calls when it is spent, with <code>limit</code> and <code>scope: 'budget'</code>. Admins get a notification and an email at 80% and at 100%.</li>
+      <li><strong>A day</strong> for the allowance and the totals is the site's day, in the time zone of Settings, Localization.</li>
+      <li><strong>Deleting an account</strong> does not delete the records of its calls: they go after 60 days. Use an id, such as a business id, as <code>limitKey</code> and <code>ref</code>, never a name or an email address.</li>
+    </ul>
+
+    <h2>Deploy</h2>
+    <ol class="steps">
+      <li><p>Turn the feature on in <code>src/custom/features.ts</code>: <code>on: ['ai']</code>.</p></li>
+      <li><p>Deploy the functions and the rules (<code>npm run deploy</code>). The feature's own functions (<code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code>, <code>cleanUpAi</code>) deploy with it; <code>askAi</code> runs inside your functions.</p></li>
+      <li><p>Deploy the website, so admins get Settings, AI.</p></li>
+      <li><p>In Settings, AI, add a provider, save, set its key, test it, put its model in a tier, and switch to Live.</p></li>
+    </ol>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

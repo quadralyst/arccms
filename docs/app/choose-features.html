@@ -16,7 +16,7 @@
     <h2>Choose</h2>
     <ol class="steps">
       <li>
-        <p>Open <code>src/custom/features.ts</code>. As shipped, it is empty, which means every feature is on except the installable app:</p>
+        <p>Open <code>src/custom/features.ts</code>. As shipped, it is empty, which means every feature is on except the installable app and AI:</p>
         <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {};</code></pre>
       </li>
       <li>
@@ -52,6 +52,7 @@ export const CUSTOM_FEATURES: FeatureChoice = {
         <tr><td><code>data</code></td><td>On</td><td></td><td>The Data menu: import and export</td></tr>
         <tr><td><code>contact</code></td><td>On</td><td></td><td>The Messages inbox, contact forms on published pages and their functions</td></tr>
         <tr><td><code>pwa</code></td><td>Off</td><td></td><td>The installable app: manifest, service worker, install prompt and install stats</td></tr>
+        <tr><td><code>ai</code></td><td>Off</td><td></td><td>Your app's AI uses through <code>askAi</code>, and Settings, AI: see <a href="ai.html">Use AI in your app</a></td></tr>
         <tr><td><code>analytics</code></td><td>On</td><td></td><td>Google Analytics in the browser, the dashboard's analytics section and Analytics settings, and their functions. To keep it but wait for consent, see <a href="../features/analytics.html">Analytics</a></td></tr>
       </tbody>
     </table>

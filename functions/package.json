@@ -19,7 +19,6 @@
   "type": "module",
   "main": "lib/index.js",
   "dependencies": {
-    "@google-cloud/vertexai": "^1.10.0",
     "cheerio": "^1.2.0",
     "dodopayments": "^2.32.0",
     "firebase-admin": "^13.4.0",

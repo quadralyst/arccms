@@ -364,6 +364,19 @@
       </tbody>
     </table>
 
+    <h2>AI</h2>
+    <p>Owned by <a href="../features/ai.html">AI</a>. Deployed only when the <code>ai</code> feature is on, which it is not by default. <code>askAi</code> is not a function: it runs inside the app's own functions (<a href="../app/ai.html">Use AI in your app</a>).</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>aiSetupInfo</code></td><td>Callable</td><td>Admin, Settings, AI</td><td>Returns the app's purposes, without their instructions, and the providers Arc CMS offers with the models it knows.</td></tr>
+        <tr><td><code>setAiKey</code></td><td>Callable</td><td>Admin</td><td>Stores a provider's key in <code>AiKeys</code>, tied to its present address, and writes only its preview to <code>Settings/ai</code>.</td></tr>
+        <tr><td><code>removeAiKey</code></td><td>Callable</td><td>Admin</td><td>Deletes a provider's key and its preview.</td></tr>
+        <tr><td><code>testAiConnection</code></td><td>Callable</td><td>Admin</td><td>Makes one tiny live call to a provider and model, even in test mode, and records it as <code>arc-connection-test</code>.</td></tr>
+        <tr><td><code>cleanUpAi</code></td><td>Scheduled, daily 03:15 UTC</td><td>Cloud Scheduler</td><td>Deletes records older than 60 days with their files, totals older than 24 months, spent allowance counters, and keys whose provider is gone.</td></tr>
+      </tbody>
+    </table>
+
     <h2>Installable app</h2>
     <p>Owned by <a href="../features/pwa.html">Installable app (PWA)</a>. Deployed only when the <code>pwa</code> feature is on, which it is not by default.</p>
     <table>

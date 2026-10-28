@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI | Arc CMS docs</title>
+  <meta name="description" content="Settings, AI: test or live, the providers and their keys, the models of each tier, each purpose's choices, the monthly budget, and the usage and record of every call.">
+  <meta name="docs:sources" content="functions/src/ai, functions/src/features/ai.ts, functions/src/custom/ai.ts, src/app/pages/admin/(settings)/ai, src/app/core/features/feature-registry.ts, src/app/core/features/feature-routes.ts, firestore.rules, storage.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/ai.html">
+  <main>
+    <h1>AI</h1>
+    <p class="lead">AI lets an app's own Cloud Functions ask a language model to read, write, translate, summarise or sort. The app declares what each use is; admins choose the providers and models, set the keys, cap the spending and see what every call cost.</p>
+
+    <h2>What it is</h2>
+    <table>
+      <thead><tr><th>Part</th><th>Where</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td>Settings, AI</td><td>Admin, Settings, AI (<code>/admin/settings/ai</code>)</td><td>Four tabs: <strong>Setup</strong> (mode, providers and keys, the models of each tier, model details and prices, the monthly budget), <strong>Purposes</strong> (each of the app's uses and its choices), <strong>Usage</strong> (the month's totals and a CSV of the calls) and <strong>Calls</strong> (the last 100, with what each one did)</td></tr>
+        <tr><td>Purposes</td><td>The app's code, <code>functions/src/custom/ai.ts</code></td><td>Each use: what it takes, the instruction, the shape of the answer, its tier and its test answer</td></tr>
+        <tr><td><code>askAi</code></td><td>The app kit</td><td>What the app's functions call. See <a href="../app/ai.html">Use AI in your app</a>.</td></tr>
+      </tbody>
+    </table>
+    <p>Arc CMS has no AI use of its own. A site without an app that declares purposes has nothing to set up here.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>AI is a switchable feature, id <code>ai</code>, <strong>off by default</strong> and needing no other feature. To turn it on, list it in <code>src/custom/features.ts</code>:</p>
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    on: ['ai'],
+};</code></pre>
+    <p>With it off, Settings, AI and its card are gone and the URL shows the not-found page; the functions <code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code> and <code>cleanUpAi</code> are not built; and <code>askAi</code> answers <code>off</code> without throwing, so the same app code runs in a project with AI and one without. Records, totals and keys stay in Firestore. How the switch works for every feature: <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+
+    <h2>Set it up</h2>
+    <ol class="steps">
+      <li><p>Open Admin, Settings, AI. A new site is in <strong>Test</strong> mode: nothing is sent and nothing is spent, and every call gets its purpose's test answer.</p></li>
+      <li><p>Under <strong>Providers</strong>, pick one and click <strong>Add provider</strong>. Each card says where that provider processes data. For Alibaba Cloud Model Studio, enter your workspace id; for an other address, its OpenAI-style address (<code>https://.../v1</code>) and where it processes data; for Google Vertex AI, a location if you want another than the one shown (see <a href="../app/ai.html#vertex">Gemini on Vertex AI</a>, which needs no key).</p></li>
+      <li><p>Click <strong>Save</strong>, then paste the key and click <strong>Save key</strong>. The key goes to the server and is never shown again: the card shows <code>••••</code> and its last 4 characters, who set it and when. To rotate a key, paste the new one: it works within a minute, with no deploy. <strong>Remove key</strong> takes it away.</p></li>
+      <li><p>Type a model, such as <code>qwen3-vl-plus</code>, and click <strong>Test</strong>. It makes one tiny live call, even in test mode, and says how long the answer took and what it cost, or why there was none.</p></li>
+      <li><p>Under <strong>Models</strong>, list the models of each tier: <strong>Cheap</strong> for tags and short texts, <strong>Fast</strong> for most uses, <strong>Thorough</strong> for hard reading. The first in a list answers; the next only when it is busy, down or gone.</p></li>
+      <li><p>Under <strong>Model details</strong>, check what each model reads (pictures, PDFs), whether the provider holds the answer to the schema or promises JSON only, and its price in USD per million tokens. Arc CMS fills in what it knows; a model without a price is counted as free.</p></li>
+      <li><p>Set the <strong>Monthly budget</strong> (20 USD on a new site), save, and switch the mode to <strong>Live</strong>.</p></li>
+    </ol>
+    <div class="warn"><p>Where a provider processes data is your choice and your client's: a provider's own service in China, for example, sends what you ask to China. The same open models are offered by other hosts too. Read <a href="../app/ai.html#vertex">Gemini on Vertex AI</a> for Google's regions.</p></div>
+
+    <h2>Use it</h2>
+    <h3>Purposes</h3>
+    <p>Each of the app's purposes shows what it takes and gives, with:</p>
+    <ul>
+      <li><strong>On</strong>: off makes every call for it answer <code>off</code>.</li>
+      <li><strong>Models</strong>: the tier's list, or one of its own.</li>
+      <li><strong>Allowance per key a day</strong>: empty uses the app's number, if any.</li>
+      <li><strong>Keep what is sent and answered</strong>: off by default. On, each call's text, files and answer are kept with its record for 60 days and admins can read them on the Calls tab. They may hold personal data: turn it on while testing.</li>
+    </ul>
+    <h3>Usage</h3>
+    <p>For a month: the cost against the budget, the calls and failures, the tokens in and out, the test calls, and the same by purpose, model, key (the 20 that cost most) and day. <strong>Download calls</strong> gives a CSV of every call kept, the last 60 days. The cost is the provider's own figure when it reports one, else tokens times the price: an estimate, since the provider's invoice is the true figure.</p>
+    <h3>Calls</h3>
+    <p>The last 100 calls with the time, purpose, outcome, model, tokens, cost and how long it took. Click one for each model tried and how it went, the size of what was sent, the key and reference, and, when the purpose keeps it, the instruction, the text, the files and the answer.</p>
+    <h3>The budget</h3>
+    <p>At 80% and at 100% of the month's budget, admins get a notification and an email (type <strong>AI budget (admin)</strong>). At 100% live calls answer <code>limit</code> until the month turns or the budget is raised. A month and a day are the site's, in the time zone of Settings, Localization.</p>
+
+    <h2>Extend it</h2>
+    <p>Purposes are the app's: declare them in <code>functions/src/custom/ai.ts</code> and call <code>askAi</code> from your functions (<a href="../app/ai.html">Use AI in your app</a>). Any provider that speaks the OpenAI Chat Completions format works as an other address. A provider with its own format, streaming answers, conversations, tools the model may call and embeddings are changes to core, not to an app: raise them as feature requests.</p>
+
+    <h2>What it stores</h2>
+    <table>
+      <thead><tr><th>Where</th><th>Holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>Settings/ai</code></td><td><code>mode</code>; <code>connections</code> (each provider, with its key's preview and its last success or error); <code>tiers</code>; <code>purposes</code> (on, models, allowance, keep content); <code>models</code> (what each reads, its schema support and prices); <code>budget.monthlyUsd</code></td></tr>
+        <tr><td><code>AiKeys</code></td><td>Each provider's key, with the address it was set for. When the address changes, the key is not sent until it is set again.</td></tr>
+        <tr><td><code>AiCalls</code></td><td>One record per call, kept 60 days, with <code>content</code> only when the purpose keeps it</td></tr>
+        <tr><td><code>AiUsage/{yyyy-mm}</code></td><td>The month's totals by day, purpose and model, with <code>keys</code> (per key) and <code>days</code> (the allowance counters) under it. Kept 24 months.</td></tr>
+        <tr><td>Storage <code>ai-calls/{record}/</code></td><td>The files of a call whose purpose keeps content, under the upload folder</td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead><tr><th>Function</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>aiSetupInfo</code></td><td>The app's purposes (never their instructions) and the providers, for Settings, AI (admin)</td></tr>
+        <tr><td><code>setAiKey</code>, <code>removeAiKey</code></td><td>Set or remove a provider's key (admin)</td></tr>
+        <tr><td><code>testAiConnection</code></td><td>One tiny live call to a provider and model (admin)</td></tr>
+        <tr><td><code>cleanUpAi</code></td><td>Every day: records after 60 days with their files, totals after 24 months, spent allowance counters, and keys whose provider is gone</td></tr>
+      </tbody>
+    </table>
+    <p>All are deployed as <code>arccms-&lt;name&gt;</code>. See <a href="../reference/cloud-functions.html">Cloud Functions</a> and <a href="../reference/data-model.html">Data model</a>.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Who</th><th>Can</th></tr></thead>
+      <tbody>
+        <tr><td>Admin</td><td>Read and write <code>Settings/ai</code>; read <code>AiCalls</code>, <code>AiUsage</code> and the kept files; set, remove and test keys</td></tr>
+        <tr><td>The app's functions</td><td>Call <code>askAi</code>, which no browser can call directly</td></tr>
+        <tr><td>Nobody from a browser</td><td>Read or write <code>AiKeys</code>, not even an admin; write <code>AiCalls</code>, <code>AiUsage</code> or the kept files</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>You see</th><th>Why, and what to do</th></tr></thead>
+      <tbody>
+        <tr><td>Every answer is the same sample</td><td>Test mode. Switch the mode to Live.</td></tr>
+        <tr><td>Calls answer <code>off</code>, "no model is set for the fast tier"</td><td>Put a model in that tier, or in the purpose's own list.</td></tr>
+        <tr><td>"no model in the list reads pictures"</td><td>Tick Pictures for a model that reads them under Model details, or add one that does.</td></tr>
+        <tr><td>"has no key" or "was set for another address" on a provider</td><td>Set the key again. A key stops being sent when the provider's address or workspace changes.</td></tr>
+        <tr><td>"the provider refused the key"</td><td>The key is wrong, revoked or for another region. Paste a new one.</td></tr>
+        <tr><td>"Vertex AI refused the project's service account"</td><td>Switch on the Vertex AI API and give the service account the Vertex AI User role (<a href="../app/ai.html#vertex">Gemini on Vertex AI</a>).</td></tr>
+        <tr><td>"the model is not there"</td><td>The provider retired the model, or it is not offered in that location. Put its successor in the list.</td></tr>
+        <tr><td>Calls answer <code>limit</code> with scope <code>budget</code></td><td>The month's budget is spent. Raise it, or wait for the month to turn.</td></tr>
+        <tr><td>Cost shows $0 for live calls</td><td>The model has no price. Set one under Model details.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

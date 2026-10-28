@@ -5,7 +5,8 @@
  * they run. Keys go to the server and come back only as a preview.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
-import { DecimalPipe, DatePipe, NgTemplateOutlet } from '@angular/common';
+import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
+import { ArcTimePipe } from '../../../../core/time/arc-time.pipe';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { injectT } from '../../../../core/i18n/inject-t';
@@ -35,7 +36,7 @@ export function usd(n: number): string {
 @Component({
     selector: 'arc-ai-settings',
     standalone: true,
-    imports: [FormsModule, TranslocoPipe, DecimalPipe, DatePipe, NgTemplateOutlet],
+    imports: [FormsModule, TranslocoPipe, DecimalPipe, ArcTimePipe, NgTemplateOutlet],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="settings-section">
@@ -120,7 +121,7 @@ export function usd(n: number): string {
                                     <div class="key-row mb-2">
                                         <div class="small mb-1">
                                             @if (c.keyPreview) {
-                                                <i class="fa-solid fa-key me-1"></i>{{ 'admin.settings.ai.key_set' | transloco: { preview: c.keyPreview, by: c.keySetBy ?? '', on: (c.keySetAt | date: 'mediumDate') ?? '' } }}
+                                                <i class="fa-solid fa-key me-1"></i>{{ 'admin.settings.ai.key_set' | transloco: { preview: c.keyPreview, by: c.keySetBy ?? '', on: (c.keySetAt | arcTime: 'date') } }}
                                                 <button type="button" class="btn btn-link btn-sm p-0 ms-2 remove-key" (click)="removeKey(c)">{{ 'admin.settings.ai.remove_key' | transloco }}</button>
                                             } @else {
                                                 <i class="fa-solid fa-key me-1 text-muted"></i><span class="text-muted">{{ 'admin.settings.ai.no_key' | transloco }}</span>
@@ -144,7 +145,7 @@ export function usd(n: number): string {
                                 @if (c.lastError) {
                                     <div class="small text-danger mb-2"><i class="fa-solid fa-circle-exclamation me-1"></i>{{ c.lastError }}</div>
                                 } @else if (c.lastOkAt) {
-                                    <div class="small text-success mb-2"><i class="fa-solid fa-circle-check me-1"></i>{{ 'admin.settings.ai.last_ok' | transloco: { on: (c.lastOkAt | date: 'medium') ?? '' } }}</div>
+                                    <div class="small text-success mb-2"><i class="fa-solid fa-circle-check me-1"></i>{{ 'admin.settings.ai.last_ok' | transloco: { on: (c.lastOkAt | arcTime: 'dateTime') } }}</div>
                                 }
 
                                 @if (isSaved(c.id)) {
@@ -337,7 +338,7 @@ export function usd(n: number): string {
                         @for (c of shownCalls(); track c.id) {
                             <button type="button" class="list-group-item list-group-item-action call" [class.active-call]="openCall() === c.id" (click)="toggleCall(c.id)">
                                 <div class="d-flex flex-wrap gap-2 align-items-center small">
-                                    <span class="text-muted">{{ c.createdAt | date: 'short' }}</span>
+                                    <span class="text-muted">{{ c.createdAt | arcTime: 'dateTime' }}</span>
                                     <strong>{{ c.purpose }}</strong>
                                     <span class="badge" [class.text-bg-success]="c.outcome === 'ok'" [class.text-bg-danger]="c.outcome !== 'ok'">{{ c.outcome }}</span>
                                     @if (c.test) { <span class="badge text-bg-info">{{ 'admin.settings.ai.test_badge' | transloco }}</span> }
