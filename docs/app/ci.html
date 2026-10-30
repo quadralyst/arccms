@@ -26,7 +26,7 @@
         <tr><td><code>src/environments/arc-install.ts</code></td><td>Yes</td><td>Committed. <code>arc:configure</code> rewrites it with the projects the job configured, which is all the build needs. Never commit it from CI.</td></tr>
       </tbody>
     </table>
-    <p><code>.arc-deploy-state.json</code> is ignored too, and CI does not need it: it remembers the guided deploy's choices, and that the cleanup policy for old function images is set, so without it each CI deploy with functions sets that policy again, which takes a few seconds (see <a href="../operations/deploy.html#old-function-images">Old function images</a>).</p>
+    <p><code>.arc-deploy-state.json</code> is ignored too, and CI does not need it: it remembers the guided deploy's choices, and that the cleanup policy for old function images is set, so without it each CI deploy with functions sets that policy again, which takes a few seconds (see <a href="../operations/deploy.html#old-function-images">Old function images</a>). The app's redirects, <code class="new">src/custom/site/redirects.json</code>, are committed with the rest of the custom space, so a CI deploy of the website includes them with nothing to recreate (see <a href="../website/redirects.html">Redirect old addresses</a>).</p>
 
     <h2>Recreate them with flags</h2>
     <p>Run <code>arc:configure</code> once per project the job deploys, with the same settings you gave it on your machine. Copy them from your own <code>arccms.config.json</code>: each key has a flag (see <a href="../reference/config-keys.html">Config keys</a>).</p>

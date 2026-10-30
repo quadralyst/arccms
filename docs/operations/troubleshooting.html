@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Troubleshooting | Arc CMS docs</title>
   <meta name="description" content="Known problems with Arc CMS in development, deploys, sign-in, email, search and features, with the cause and the fix for each.">
-  <meta name="docs:sources" content="vite.config.ts, src/app/app.config.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, scripts/arc-deploy.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-configure.mjs, functions/scripts/check-callable-access.sh, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, functions/src/email-core/queueEmail.ts, functions/src/custom/search-sources.ts, src/shared/components/row-actions/row-actions.component.ts, firebase.json">
+  <meta name="docs:sources" content="vite.config.ts, scripts/arc-redirects.mjs, src/app/app.config.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, scripts/arc-deploy.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-configure.mjs, functions/scripts/check-callable-access.sh, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, functions/src/email-core/queueEmail.ts, functions/src/custom/search-sources.ts, src/shared/components/row-actions/row-actions.component.ts, firebase.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/troubleshooting.html">
@@ -64,6 +64,16 @@
     <table>
       <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
       <tbody>
+        <tr>
+          <td>"src/custom/site/redirects.json has a problem", or "is not valid JSON", from a deploy, <code>npm run build</code> or <code>npm run dev</code></td>
+          <td>A redirect of the app's own is wrong: the message names it by number and source. Nothing was built or deployed</td>
+          <td>Fix that entry, or remove the file to have no redirects (see <a href="../website/redirects.html#what-is-refused">What is refused</a>)</td>
+        </tr>
+        <tr>
+          <td>An old address shows the browser app or a 404 instead of redirecting</td>
+          <td>The redirect is not live: the website was deployed with plain <code>firebase deploy</code>, or not since the redirect was added. Or an earlier redirect matches the address first</td>
+          <td>Deploy the website with <code>npm run deploy</code>, and put specific redirects before wide patterns (see <a href="../website/redirects.html">Redirect old addresses</a>)</td>
+        </tr>
         <tr>
           <td>"Your database is in ..., but the functions run in ..." during a deploy, or every sign-in step takes seconds</td>
           <td>The functions run far from the database, so each database call crosses that distance</td>

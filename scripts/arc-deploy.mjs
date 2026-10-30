@@ -59,6 +59,11 @@
  *   never drop to the browser app between the deploy and the republish. Every
  *   other target goes through `firebase deploy` as before (`--except hosting`).
  *   When that fails, the website is not deployed, and the deploy says so;
+ * - puts the app's own redirects (src/custom/site/redirects.json, scripts/arc-redirects.mjs)
+ *   first in the Hosting config of that channel deploy, whichever config the project
+ *   uses (firebase.<projectId>.json or firebase.json): the live release copies the
+ *   channel's config, so they go live with the build. A bad redirects file stops the
+ *   deploy before anything is built;
  * - for a project marked production (arc:configure --production=yes), needs
  *   --confirm-production=<its project id>, or on a terminal the id typed back;
  *   off a terminal without it, nothing is deployed (productionGuard).
@@ -67,7 +72,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -82,6 +87,7 @@ import {
 } from './arc-artifact-cleanup.mjs';
 import { enabledFeatures } from './arc-features.mjs';
 import { channelDeployArgs, hostingSiteOf, releaseWebsite, withoutHosting } from './arc-hosting-release.mjs';
+import { APP_REDIRECTS, readAppRedirects, writeWebsiteConfig } from './arc-redirects.mjs';
 import {
     DEFAULT_FUNCTIONS_REGION, countArccms, databaseLocation, lookupDatabaseLocation, regionDecision, regionWarning,
 } from './arc-region.mjs';
@@ -567,6 +573,16 @@ export async function runDeploy(args, options = {}) {
     // The website goes its own way, keeping the published pages; the rest through `firebase deploy`.
     const firebaseConfig = generatedConfig ?? readJsonFile(resolve(ROOT, 'firebase.json'));
     const website = deploysWebsite(args) && !!firebaseConfig?.hosting;
+    // The app's redirects, checked before anything is built or deployed.
+    let redirects = [];
+    if (website) {
+        try {
+            redirects = readAppRedirects(ROOT);
+        } catch (error) {
+            console.error(`${error.message}\nNothing was deployed.`);
+            return { status: 1, created: [] };
+        }
+    }
     const mainArgs = website ? withoutHosting(args) : args;
     const firebaseArgs = mainArgs ? deployArgs(mainArgs, generated, projectId) : null;
     const builds = buildsFor({ website, functions: deploysFunctions(args), functionsBuilt: !!options.built });
@@ -683,7 +699,7 @@ export async function runDeploy(args, options = {}) {
         status = status || 1;
     }
 
-    if (website && status === 0) status = await deployWebsite(projectId, generated ? generatedConfigPath(projectId) : null, firebaseConfig);
+    if (website && status === 0) status = await deployWebsite(projectId, generated ? generatedConfigPath(projectId) : null, firebaseConfig, redirects);
     else if (website) console.error(websiteSkippedMessage(projectId));
 
     if (status === 0 && projectId && deploysFunctions(args) && args.includes('--probe')) {
@@ -735,11 +751,21 @@ function readJsonFile(path) {
 /**
  * The website, keeping the published pages: the build to the deploy channel,
  * then one live release of the build and the published files. Returns the exit status.
+ * With app redirects, the channel deploy uses a copy of the project's config with them
+ * first (writeWebsiteConfig), removed once the channel has it.
  */
-async function deployWebsite(projectId, configPath, firebaseConfig) {
-    const channelArgs = channelDeployArgs({ projectId, configPath: configPath ? relative(process.cwd(), configPath) || configPath : null });
+async function deployWebsite(projectId, configPath, firebaseConfig, redirects = []) {
+    const websiteConfig = writeWebsiteConfig(projectId, firebaseConfig, redirects, ROOT);
+    if (websiteConfig) console.log(`> ${redirects.length} redirect(s) from ${APP_REDIRECTS}, ahead of Arc CMS's own`);
+    const used = websiteConfig ?? configPath;
+    const channelArgs = channelDeployArgs({ projectId, configPath: used ? relative(process.cwd(), used) || used : null });
     console.log(`> firebase ${channelArgs.join(' ')}`);
-    const channel = await run('firebase', channelArgs);
+    let channel;
+    try {
+        channel = await run('firebase', channelArgs);
+    } finally {
+        if (websiteConfig) rmSync(websiteConfig, { force: true });
+    }
     if (channel.status !== 0) {
         console.error('\nThe website build could not be uploaded; the live site is unchanged.');
         return channel.status || 1;

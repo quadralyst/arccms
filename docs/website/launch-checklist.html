@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Launch checklist | Arc CMS docs</title>
   <meta name="description" content="Everything to check before your Arc CMS website goes live: accounts, email, forms, legal pages, search engines, analytics, rules and the domain.">
-  <meta name="docs:sources" content="src/app/pages/admin/(settings), src/app/pages/admin/users, src/app/pages/admin/(email-brand), src/shared/constants/legal-notice.ts, public/_site, functions/src/pages/deployHomePage.ts, functions/src/email-core/handleUnsubscribe.ts, functions/src/email-core/handleEmailPreferences.ts, functions/src/pages/generateSitemap.ts, functions/src/pages/generateRobotsTxt.ts, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, index.html, src/app/app.config.ts, functions/src/shared/html-document.ts, firestore.rules, storage.rules, src/app/pages/page.parts/site-usage-banner.component.ts, functions/src/publishQueue/processPublishQueue.ts">
+  <meta name="docs:sources" content="src/app/pages/admin/(settings), src/app/pages/admin/users, src/app/pages/admin/(email-brand), src/shared/constants/legal-notice.ts, public/_site, functions/src/pages/deployHomePage.ts, functions/src/email-core/handleUnsubscribe.ts, functions/src/email-core/handleEmailPreferences.ts, functions/src/pages/generateSitemap.ts, functions/src/pages/generateRobotsTxt.ts, scripts/arc-deploy.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-redirects.mjs, index.html, src/app/app.config.ts, functions/src/shared/html-document.ts, firestore.rules, storage.rules, src/app/pages/page.parts/site-usage-banner.component.ts, functions/src/publishQueue/processPublishQueue.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/launch-checklist.html">
@@ -68,6 +68,7 @@
         <tr><td>[ ] Crawler choices are saved and applied.</td><td>Settings, <strong>Discoverability</strong>, <strong>Save and apply to site</strong></td></tr>
         <tr><td>[ ] <code>/robots.txt</code> and <code>/sitemap.xml</code> open on the live site and list addresses on your domain.</td><td>Your browser</td></tr>
         <tr><td>[ ] Each published page has a meta description, and the main pages score 80 or more in the Checks tab.</td><td>The editor's SEO and Checks tabs</td></tr>
+        <tr><td>[ ] Replacing a live site: every old address that is in search results or linked from elsewhere redirects (301) to its new page, and a few tried on the production project answer 301 with the right location.</td><td><code class="new">src/custom/site/redirects.json</code>; <a href="redirects.html">Redirect old addresses</a></td></tr>
         <tr><td>[ ] The site is added to Google Search Console and Bing Webmaster Tools, with the sitemap submitted.</td><td>Links on the Discoverability screen</td></tr>
         <tr><td>[ ] The search index is complete and a search on the live site finds your pages.</td><td>Settings, <strong>Search</strong>, <strong>Rebuild everything</strong></td></tr>
       </tbody>

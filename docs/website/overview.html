@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Build a website | Arc CMS docs</title>
   <meta name="description" content="The steps, in order, to build a content website with sign-up forms on Arc CMS, and what to prepare before you start.">
-  <meta name="docs:sources" content="src/shared/components/side-navbar/side-navbar.component.ts, src/app/pages/(onboarding)/onboarding-defaults.ts, src/custom/features.ts, src/custom/README.md, public/_site, scripts/arc-site.mjs, functions/src/pages/deployHomePage.ts, src/shared/constants/legal-notice.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/index.page.ts, scripts/check-core.mjs, scripts/vite-arc-site.ts, scripts/arc-deploy-menu.mjs">
+  <meta name="docs:sources" content="src/shared/components/side-navbar/side-navbar.component.ts, src/app/pages/(onboarding)/onboarding-defaults.ts, src/custom/features.ts, src/custom/README.md, public/_site, scripts/arc-site.mjs, functions/src/pages/deployHomePage.ts, src/shared/constants/legal-notice.ts, src/app/pages/page.parts/header.component.ts, src/app/pages/index.page.ts, scripts/check-core.mjs, scripts/vite-arc-site.ts, scripts/arc-deploy-menu.mjs, scripts/arc-redirects.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/overview.html">
@@ -84,6 +84,7 @@
         <tr><td><code class="new">src/custom/site/site.css</code></td><td>Styles for every public page and the sign-in page</td></tr>
         <tr><td><code class="new">src/custom/site/strings/</code></td><td>The translations of your header, footer and templates</td></tr>
         <tr><td><code class="new">src/custom/site/assets/</code></td><td>Images, scripts and fonts, served at <code>/site/...</code> and linked with their version, so a change reaches every visitor</td></tr>
+        <tr><td><code class="new">src/custom/site/redirects.json</code></td><td>The old addresses of the site you are replacing and the new pages they go to (<a href="redirects.html">Redirect old addresses</a>)</td></tr>
         <tr><td><code>src/custom/features.ts</code></td><td>The features you switch off</td></tr>
       </tbody>
     </table>
@@ -104,12 +105,12 @@
         <tr><td><code>favicon.ico</code>, <code>403.html</code>, <code>404.html</code></td><td>The root: <code>/favicon.ico</code>, <code>/403.html</code>, <code>/404.html</code>. Without a <code>favicon.ico</code> here, an app with a PWA icon gets its tab icon made from that (see <a href="../features/pwa.html#tab-icon">The tab icon</a>); with one, this file is the tab icon. <code>/403.html</code> is the plain page the hosting serves; the no-permission page inside the app is Arc CMS's own and follows the person's language</td></tr>
       </tbody>
     </table>
-    <p>Folder and page names use lowercase letters, digits, <code>-</code> and <code>_</code>, and start with a letter or digit, such as <code>case-studies</code> or <code>terms</code>. A language is its code, such as <code>hi</code> or <code>pt-br</code>. A template folder holds only those three files, plus layouts named <code>detail-{name}.html</code> (see <a href="../features/templates.html#layouts">Layouts</a>). Anything else, such as <code>robots.txt</code>, <code>pages/About.html</code> or <code>templates/articles/card.html</code>, is not served: <code>npm run dev</code> and <code>npm run build</code> name each such file in a warning. A <code>README.md</code> is allowed and stays quiet.</p>
-    <p>Run the site locally with <code>npm run dev</code> while you build; it reads and writes your real Firebase project (see <a href="../getting-started/run-locally.html">Run it locally</a>). A change to any of these files shows in <code>npm run dev</code> at once: the page reloads by itself for the header, footer and sign-in panel; reload it yourself for the rest. A strings file that is not valid JSON stops <code>npm run dev</code> and <code>npm run build</code> with a message; while <code>npm run dev</code> runs, it keeps the last good copy.</p>
+    <p>Folder and page names use lowercase letters, digits, <code>-</code> and <code>_</code>, and start with a letter or digit, such as <code>case-studies</code> or <code>terms</code>. A language is its code, such as <code>hi</code> or <code>pt-br</code>. A template folder holds only those three files, plus layouts named <code>detail-{name}.html</code> (see <a href="../features/templates.html#layouts">Layouts</a>). Anything else, such as <code>robots.txt</code>, <code>pages/About.html</code> or <code>templates/articles/card.html</code>, is not served: <code>npm run dev</code> and <code>npm run build</code> name each such file in a warning. A <code>README.md</code> is allowed and stays quiet, and so is <code>redirects.json</code>, which is never served: the website deploy puts its redirects in the Hosting config (see <a href="redirects.html">Redirect old addresses</a>).</p>
+    <p>Run the site locally with <code>npm run dev</code> while you build; it reads and writes your real Firebase project (see <a href="../getting-started/run-locally.html">Run it locally</a>). A change to any of these files shows in <code>npm run dev</code> at once: the page reloads by itself for the header, footer and sign-in panel; reload it yourself for the rest. A strings file that is not valid JSON, or a redirects file with a mistake, stops <code>npm run dev</code> and <code>npm run build</code> with a message; while <code>npm run dev</code> runs, it keeps the last good copy.</p>
     <p>On the live site, publishing an item puts its page there straight away. A change to a file reaches the live site only when you deploy the website with <code>npm run deploy</code>, which then publishes every page again so they all use the new files (see <a href="../operations/deploy.html">Deploy</a>).</p>
 
     <h2>Next</h2>
-    <p>Start with <a href="plan-content.html">Plan your content</a>, or follow the worked example, <a href="convert-a-site.html">Turn an HTML site into an Arc CMS site</a>.</p>
+    <p>Start with <a href="plan-content.html">Plan your content</a>, or follow the worked example, <a href="convert-a-site.html">Turn an HTML site into an Arc CMS site</a>. Replacing a site that is live already? Keep its old addresses working with <a href="redirects.html">Redirect old addresses</a>.</p>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

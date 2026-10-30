@@ -290,6 +290,7 @@ a { color: var(--brand); }
 
     <h2>9. Put it live</h2>
     <ol class="steps">
+      <li><p>If the old site is live, list its addresses that change, such as <code>/blog/first-post.html</code>, with their new pages in <code class="new">src/custom/site/redirects.json</code>, so links and search results keep working (see <a href="redirects.html">Redirect old addresses</a>).</p></li>
       <li><p>Deploy the website: <code>npm run deploy</code> and choose <strong>Website</strong> (see <a href="../operations/deploy.html">Deploy</a>). It puts your files on the live site, keeps the pages already published, and then publishes every page again, your posts included.</p></li>
       <li><p>Open the live site: <code>/</code> shows the newest posts as cards, <code>/blog</code> the list, and each post its own page with its title and description in the page's head.</p></li>
       <li><p>From now on, publishing a post updates its page, the list, the home page's cards, the sitemap and the feeds. A change to your files reaches the live site with the next website deploy.</p></li>

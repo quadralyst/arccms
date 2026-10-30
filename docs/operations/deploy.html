@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Deploy | Arc CMS docs</title>
   <meta name="description" content="Deploy Arc CMS to a Firebase project with npm run deploy: the guided questions, the flags for scripts and CI, deleted functions, the callable check and the static pages.">
-  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-hosting-release.mjs, functions/src/shared/site-files.ts, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-sign-in-setup.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-built-functions.mjs, scripts/arc-callables.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, firebase.json, package.json">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-hosting-release.mjs, scripts/arc-redirects.mjs, functions/src/shared/site-files.ts, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-sign-in-setup.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-built-functions.mjs, scripts/arc-callables.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, firebase.json, package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/deploy.html">
@@ -79,11 +79,12 @@ npm run deploy -- --only hosting --project default</code></pre>
       <li>when a deploy that includes the website fails before the website step, does not deploy the website, says so and prints the commands that deploy it alone and publish its pages;</li>
       <li>fails when a function still never reported success, and prints the command that redeploys it;</li>
       <li>stops with a plain message when you ask for hosting on a project with no website, or for storage rules on a bucket shared with another app;</li>
+      <li>in a deploy that includes the website, checks the app's redirects in <code class="new">src/custom/site/redirects.json</code> before anything is built, stops with a message when one is wrong, and puts them first in the website's Hosting config (see <a href="../website/redirects.html">Redirect old addresses</a>);</li>
       <li>records a whole deploy of a part (all functions, <code>firestore</code>, <code>storage</code>, <code>hosting</code>) for the guided deploy's "only what changed";</li>
       <li>with the <code>sms</code> feature on, checks once per project, with <code>gcloud</code>, that phone sign-in can sign people in (the IAM Service Account Credentials API and the Token Creator role for the functions' service account), and in a terminal offers to set up what is missing. A yes or a no is remembered in <code>.arc-deploy-state.json</code>; without <code>gcloud</code> it says so once. It never stops the deploy. See <a href="../features/sign-in.html#google-cloud-setup-for-phone-sign-in">Google Cloud setup for phone sign-in</a>.</li>
     </ul>
 
-    <div class="trap"><p>Plain <code>firebase deploy</code> skips all of this. It ships the functions exactly as they were last built, so new functions are silently missing, and it uses <code>firebase.json</code>, so a project set up with its own database, bucket or website gets the wrong ones. Always deploy through <code>npm run deploy</code>.</p></div>
+    <div class="trap"><p>Plain <code>firebase deploy</code> skips all of this. It ships the functions exactly as they were last built, so new functions are silently missing, and it uses <code>firebase.json</code>, so a project set up with its own database, bucket or website gets the wrong ones, and the app's own redirects are left out. Always deploy through <code>npm run deploy</code>.</p></div>
 
     <h3>deploy:dev and deploy:prod</h3>
     <p>Two scripts deploy everything to the <code>default</code> or <code>production</code> alias in one go:</p>
@@ -173,7 +174,7 @@ npm run arc:configure -- --project=default --artifact-cleanup-days=none</code></
     </table>
 
     <h3 id="publish-the-static-pages">Publish the pages again</h3>
-    <p>Published pages are static files that Cloud Functions write to Hosting; none of them is in the build. Every website deploy through <code>npm run deploy</code> keeps them: it uploads the build to a preview channel named <code>arc-deploy</code> first, then releases one live version holding the build and every published page, so visitors and search engines never see a page drop out. With the <code>seo</code> feature off, it leaves out robots.txt, the sitemap, llms.txt, llms-full.txt, the IndexNow key file and the feeds, so one website deploy removes the ones an earlier publish wrote. Every other part (functions, rules, indexes) goes through <code>firebase deploy</code> as before.</p>
+    <p>Published pages are static files that Cloud Functions write to Hosting; none of them is in the build. Every website deploy through <code>npm run deploy</code> keeps them: it uploads the build to a preview channel named <code>arc-deploy</code> first, with the project's Hosting config and the app's own redirects, then releases one live version holding the build, that config and every published page, so visitors and search engines never see a page drop out. With the <code>seo</code> feature off, it leaves out robots.txt, the sitemap, llms.txt, llms-full.txt, the IndexNow key file and the feeds, so one website deploy removes the ones an earlier publish wrote. Every other part (functions, rules, indexes) goes through <code>firebase deploy</code> as before.</p>
     <p>Kept pages still show the old templates, header and footer, so after a website deploy every page is published again from the new files. Who does that:</p>
     <table>
       <thead><tr><th>What you run or do</th><th>What is published again</th></tr></thead>

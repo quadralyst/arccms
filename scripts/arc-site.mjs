@@ -17,6 +17,8 @@
  *   src/custom/site/favicon.ico, 403.html, 404.html /favicon.ico, /403.html, /404.html
  *   CUSTOM_NOTICES (src/custom/notices.ts)          /_site/notices.json (the app's sign-up and contact notices)
  *   the tab icon made from the app's icon           /favicon.ico, /favicon-32x32.png, /favicon.svg (scripts/vite-tab-icon.ts)
+ *   src/custom/site/redirects.json                  not served: the website deploy puts the redirects in
+ *                                                   the Hosting config (scripts/arc-redirects.mjs)
  *
  * An app file replaces the core file served at the same path; strings files are
  * merged key by key instead. Everything is assembled into one folder
@@ -76,6 +78,8 @@ const APP_RULES = [
 
 /** Files in src/custom/site that are never served and never warned about. */
 const QUIET = /(^|\/)(README\.md|\.gitkeep|\.DS_Store)$/;
+/** The app's redirects (scripts/arc-redirects.mjs): read by the deploy, never served. */
+const NOT_SERVED = /^redirects\.json$/;
 
 /** Where an app file is served, or null when it is not a site file. */
 export function servedPath(appRelative) {
@@ -110,7 +114,7 @@ export function siteSources(root = process.cwd()) {
     }
     const ignored = [];
     for (const path of walk(resolve(root, APP_SITE))) {
-        if (QUIET.test(path)) continue;
+        if (QUIET.test(path) || NOT_SERVED.test(path)) continue;
         const served = servedPath(path);
         if (!served) {
             ignored.push(`${APP_SITE}/${path}`);

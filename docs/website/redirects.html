@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redirect old addresses | Arc CMS docs</title>
+  <meta name="description" content="Send the addresses of the site you are replacing to their new pages with 301 or 302 redirects, listed in src/custom/site/redirects.json.">
+  <meta name="docs:sources" content="scripts/arc-redirects.mjs, scripts/arc-deploy.mjs, scripts/arc-hosting-release.mjs, scripts/vite-arc-site.ts, scripts/arc-site.mjs, firebase.json">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="website/redirects.html">
+  <main>
+    <h1>Redirect old addresses</h1>
+    <p class="lead">When Arc CMS replaces an existing site, the old addresses are in search results, bookmarks and other people's links. List each one with its new page in <code class="new">src/custom/site/redirects.json</code>, and Firebase Hosting sends visitors and search engines on with a 301 (moved for good) or 302 (moved for now).</p>
+
+    <h2>Write the file</h2>
+    <p>The file is a list of redirects in Firebase Hosting's own format. It is part of the custom space, so you never edit <code>firebase.json</code>, which is a core file. Without the file there are no redirects of your own.</p>
+    <pre><code>[
+  { "source": "/services-web-designing.html", "destination": "/services/web-designing", "type": 301 },
+  { "source": "/news/:post*", "destination": "/blog/:post", "type": 301 },
+  { "source": "/old-shop/**", "destination": "https://shop.example.com", "type": 302 },
+  { "regex": "^/blog/(?P&lt;slug&gt;[^/]+)\\.html$", "destination": "/blog/:slug", "type": 301 }
+]</code></pre>
+    <table>
+      <thead><tr><th>Field</th><th>What it holds</th></tr></thead>
+      <tbody>
+        <tr><td><code>source</code></td><td>The old address, starting with <code>/</code>. It can be a pattern: <code>*</code> matches within one part of the path, <code>**</code> any number of parts, <code>:name</code> captures one part and <code>:name*</code> the rest of the path, for use in <code>destination</code></td></tr>
+        <tr><td><code>regex</code></td><td>Instead of <code>source</code>: a regular expression in RE2 syntax. A named group, <code>(?P&lt;slug&gt;...)</code>, is used in <code>destination</code> as <code>:slug</code>; an unnamed one as <code>:1</code>, <code>:2</code></td></tr>
+        <tr><td><code>destination</code></td><td>The new address: a path on this site starting with <code>/</code>, or a full <code>https://</code> or <code>http://</code> URL</td></tr>
+        <tr><td><code>type</code></td><td><code>301</code> for a page that moved for good, which search engines follow and pass the old page's standing to; <code>302</code> for a move that is for now. Without it, Hosting sends 301</td></tr>
+      </tbody>
+    </table>
+
+    <h2>How Hosting uses them</h2>
+    <ul>
+      <li><strong>Yours come first.</strong> The deploy puts your redirects ahead of Arc CMS's own (<code>/p/{name}</code> to <code>/pages/{name}</code>), in the order you wrote them, and Hosting answers with the first one that matches. So list the specific ones before the wide patterns, and know that a redirect of yours can take over an address Arc CMS's own would otherwise send elsewhere, such as an old <code>/p/about.html</code>.</li>
+      <li><strong>A redirect wins over a file.</strong> Hosting checks redirects before it looks for a file, so a redirect whose <code>source</code> matches a published page hides that page. Redirect only addresses your new site does not use.</li>
+      <li><strong>They are live with the website.</strong> The redirects change only when you deploy the website (<code>npm run deploy</code>, choosing the website or everything, <code>deploy:dev</code>, <code>deploy:prod</code> or CI). Publishing a page does not change them.</li>
+    </ul>
+
+    <h2>What is refused</h2>
+    <p><code>npm run dev</code>, <code>npm run build</code> and every website deploy check the file, and stop with a message that names each bad redirect by its number and its <code>source</code>. A deploy stops before anything is built or deployed. The checks:</p>
+    <ul>
+      <li>the file must be valid JSON and hold a list;</li>
+      <li>each redirect has a <code>source</code> or a <code>regex</code>, not both, and a <code>destination</code> that is a path or an http(s) URL;</li>
+      <li><code>type</code>, when given, is <code>301</code> or <code>302</code>; any other field is refused, so a misspelt one never goes unnoticed;</li>
+      <li>no <code>source</code> or <code>regex</code> appears twice, since Hosting would only ever use the first, and no redirect sends an address to itself;</li>
+      <li>no redirect catches an address Arc CMS needs: <code>/admin</code>, <code>/assets/</code>, <code>/_site/</code>, <code>/site/</code>, <code>/_arc/</code>, <code>/__/</code>, <code>/unsubscribe</code> and <code>/email-preferences</code>. A pattern as wide as <code>**</code> or <code>/:page</code> catches <code>/admin</code> and is refused too.</li>
+    </ul>
+
+    <h2>Try them</h2>
+    <p><code>npm run dev</code> checks the file but does not follow the redirects: only Firebase Hosting does. Deploy the website to your development project and ask for an old address. The answer should be <code>301</code> or <code>302</code> with the new address as its location:</p>
+    <pre><code>curl -I https://your-dev-project.web.app/services-web-designing.html</code></pre>
+
+    <h2>Where they go</h2>
+    <p>A website deploy uploads the build with the project's Hosting config, from its <code>firebase.{projectId}.json</code> when <code>npm run arc:configure</code> wrote one, else from <code>firebase.json</code> (see <a href="../getting-started/configure.html">Configure a project</a>). With redirects of your own, the deploy writes a copy of that config with your redirects first, <code>firebase.{projectId}.website.json</code>, uploads the build to the <code>arc-deploy</code> preview channel with it, and removes the copy. The live release takes the channel's config, so your redirects go live with the build (see <a href="../operations/deploy.html#publish-the-static-pages">Publish the pages again</a>). The other parts of a deploy, such as functions and rules, do not use them.</p>
+    <div class="trap"><p>Plain <code>firebase deploy</code> or <code>firebase hosting:channel:deploy</code> reads only <code>firebase.json</code>, so it leaves your redirects out. Deploy the website with <code>npm run deploy</code>.</p></div>
+
+    <h2>Next</h2>
+    <p>Before the domain moves, go through the <a href="launch-checklist.html">Launch checklist</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

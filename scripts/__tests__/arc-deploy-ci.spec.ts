@@ -56,10 +56,13 @@ export const environment = {
 
         // Stand-ins: every call is logged; the CLI answers as it does with --json.
         const log = join(root, 'calls.log');
+        // The config a call was given (--config, else firebase.json), as the CLI read it then.
         write('bin/firebase', `#!/usr/bin/env node
-const { appendFileSync } = require('node:fs');
+const { appendFileSync, existsSync, readFileSync } = require('node:fs');
 const args = process.argv.slice(2);
-appendFileSync(${JSON.stringify(log)}, JSON.stringify({ cmd: 'firebase', args }) + '\\n');
+const configFile = args.includes('--config') ? args[args.indexOf('--config') + 1] : 'firebase.json';
+const config = existsSync(configFile) ? JSON.parse(readFileSync(configFile, 'utf8')) : null;
+appendFileSync(${JSON.stringify(log)}, JSON.stringify({ cmd: 'firebase', args, config }) + '\\n');
 const answer = (result) => process.stdout.write(JSON.stringify({ status: 'success', result }));
 if (args[0] === 'firestore:databases:get') answer({ locationId: 'asia-south1' });
 else if (args[0] === 'functions:list') answer([]);
@@ -352,6 +355,73 @@ globalThis.setInterval = (fn, ms, ...rest) => real(fn, Math.min(ms, 50), ...rest
             const deploy = ci('arc-deploy.mjs', '--project', 'staging', '--non-interactive', '--only', 'firestore');
             expect(deploy.status, deploy.output).toBe(0);
             expect(setpolicies()).toEqual([]);
+        }, 60_000);
+    });
+
+    describe('the app\'s own redirects (src/custom/site/redirects.json)', () => {
+        const REDIRECTS = [
+            { source: '/services-web-designing.html', destination: '/services/web-designing', type: 301 },
+            { regex: '^/blog/(?P<slug>[^/]+)\\.html$', destination: '/blog/:slug', type: 302 },
+        ];
+        const channelCall = () => calls().find((c) => c.cmd === 'firebase' && c.args[0] === 'hosting:channel:deploy');
+
+        it('go first in the channel deploy\'s Hosting config, built from the generated config, then the file is removed', () => {
+            expect(recreate('--functions-region=asia-south1', '--site=acme-site').status).toBe(0);
+            write('src/custom/site/redirects.json', JSON.stringify(REDIRECTS));
+            const deploy = ci('arc-deploy.mjs', '--only', 'hosting', '--project', 'staging', '--non-interactive');
+            expect(deploy.status, deploy.output).toBe(0);
+            expect(deploy.output).toContain('2 redirect(s) from src/custom/site/redirects.json');
+
+            const channel = channelCall();
+            expect(channel.args).toContain(`firebase.${PROJECT}.website.json`);
+            // The project's own settings stay: its site, its functions region on the rewrites.
+            expect(channel.config.hosting.site).toBe('acme-site');
+            expect(channel.config.hosting.rewrites.find((r: { function?: object }) => r.function).function.region).toBe('asia-south1');
+            // The app's first, in its order, then Arc CMS's own.
+            expect(channel.config.hosting.redirects).toEqual([...REDIRECTS, { source: '/p/:page', destination: '/pages/:page', type: 301 }]);
+            // The release takes the channel's version, config and all.
+            expect(calls().some((c) => c.cmd === 'fetch' && c.method === 'POST' && c.url.includes('/releases'))).toBe(true);
+            expect(existsSync(join(root, `firebase.${PROJECT}.website.json`))).toBe(false);
+            // The generated config itself is left as firebase.json makes it.
+            expect(JSON.parse(readFileSync(join(root, `firebase.${PROJECT}.json`), 'utf8')).hosting.redirects).toHaveLength(1);
+        }, 60_000);
+
+        it('reach a project with no generated config, built from firebase.json', () => {
+            write('.firebaserc', JSON.stringify({ projects: { staging: PROJECT } }));
+            write('src/custom/site/redirects.json', JSON.stringify(REDIRECTS));
+            const deploy = ci('arc-deploy.mjs', '--only', 'hosting', '--project', 'staging', '--non-interactive');
+            expect(deploy.status, deploy.output).toBe(0);
+            expect(existsSync(join(root, `firebase.${PROJECT}.json`))).toBe(false);
+            const channel = channelCall();
+            expect(channel.args).toEqual(['hosting:channel:deploy', 'arc-deploy', '--expires', '1h', '--no-authorized-domains', '--config', `firebase.${PROJECT}.website.json`, '--project', PROJECT]);
+            const committed = JSON.parse(readFileSync(join(root, 'firebase.json'), 'utf8'));
+            expect(channel.config).toEqual({ ...committed, hosting: { ...committed.hosting, redirects: [...REDIRECTS, ...committed.hosting.redirects] } });
+        }, 60_000);
+
+        it('without the file, the channel deploy uses the project\'s config as it is', () => {
+            write('.firebaserc', JSON.stringify({ projects: { staging: PROJECT } }));
+            const deploy = ci('arc-deploy.mjs', '--only', 'hosting', '--project', 'staging', '--non-interactive');
+            expect(deploy.status, deploy.output).toBe(0);
+            const channel = channelCall();
+            expect(channel.args).not.toContain('--config');
+            expect(channel.config.hosting.redirects).toEqual([{ source: '/p/:page', destination: '/pages/:page', type: 301 }]);
+        }, 60_000);
+
+        it('a bad file stops the deploy before anything is built, naming the entry', () => {
+            write('.firebaserc', JSON.stringify({ projects: { staging: PROJECT } }));
+            write('src/custom/site/redirects.json', JSON.stringify([{ source: '/old.html', destination: 'new-page', type: 308 }]));
+            const deploy = ci('arc-deploy.mjs', '--only', 'hosting', '--project', 'staging', '--non-interactive');
+            expect(deploy.status).toBe(1);
+            expect(deploy.output).toContain('Redirect 1 ("/old.html"): "destination" must be');
+            expect(deploy.output).toContain('"type" must be 301');
+            expect(deploy.output).toContain('Nothing was deployed.');
+            expect(calls()).toEqual([]);
+
+            write('src/custom/site/redirects.json', '[{ "source": "/old.html", }]');
+            const broken = ci('arc-deploy.mjs', '--only', 'hosting', '--project', 'staging', '--non-interactive');
+            expect(broken.status).toBe(1);
+            expect(broken.output).toContain('src/custom/site/redirects.json is not valid JSON');
+            expect(calls()).toEqual([]);
         }, 60_000);
     });
 

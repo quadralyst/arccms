@@ -49,6 +49,7 @@ window.ARC_DOCS_NAV = [
       { path: "website/search.html", title: "Add search" },
       { path: "website/forms.html", title: "Collect sign-ups" },
       { path: "website/choose-features.html", title: "Choose your website's features" },
+      { path: "website/redirects.html", title: "Redirect old addresses" },
       { path: "website/launch-checklist.html", title: "Launch checklist" }
     ]
   },
