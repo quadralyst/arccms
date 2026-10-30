@@ -6,7 +6,8 @@
  *     <arc-wait-line [waiting]="saving()" />
  *
  * `words` says something else for the whole wait, such as "Opening…" once a sign-in
- * went through. Said politely to a screen reader.
+ * went through. Said politely to a screen reader. Under a button that shows its own
+ * spinner while it waits, pass `[spinner]="false"`: one waiting sign per wait.
  */
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
@@ -20,7 +21,9 @@ import { WAIT_WORDS, waitStage } from '../../utils/wait-stage';
     template: `
         <p class="wait-line" role="status" [class.stalled]="stage() === 'stalled'">
             @if (key(); as words) {
+            @if (spinner()) {
             <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            }
             <span>{{ words | transloco }}</span>
             }
         </p>
@@ -43,6 +46,8 @@ export class WaitLineComponent {
     readonly waiting = input(false);
     /** A key to say for the whole wait instead of the stage's words. */
     readonly words = input('');
+    /** A small spinner beside the words; off where the busy button has its own. */
+    readonly spinner = input(true);
 
     readonly stage = waitStage(() => this.waiting());
     readonly key = computed(() => {
