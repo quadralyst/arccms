@@ -40,6 +40,10 @@
  * - before a deploy that includes functions, checks that they run next to the
  *   database (scripts/arc-region.mjs): with none deployed yet they go where the
  *   database is; deployed elsewhere, it warns and deploys anyway;
+ * - before a deploy that includes functions, sets the cleanup policy of their
+ *   container images (scripts/arc-artifact-cleanup.mjs), so the Firebase CLI never
+ *   stops at its own question about it; on a first deploy, as soon as the deploy
+ *   creates the image repository;
  * - before a deploy that includes functions with the sms feature, checks once per
  *   project that phone sign-in can sign people in (scripts/arc-sign-in-setup.mjs),
  *   and on a terminal offers to set it up; never stops the deploy;
@@ -73,6 +77,9 @@ import { deployedParts, gitHead, readState, recordDeploy, writeState } from './a
 import { builtArccms, isCloudFunction } from './arc-built-functions.mjs';
 import { main as configure, normalizeConfig, refreshFirebaseConfig } from './arc-configure.mjs';
 import { checkSignInSetup, smsBuilt } from './arc-sign-in-setup.mjs';
+import {
+    applyPolicy, cleanupSetting, cliFoundNoPolicy, ensureCleanupPolicy, forgetPolicy, reportPolicy, watchForRepository,
+} from './arc-artifact-cleanup.mjs';
 import { enabledFeatures } from './arc-features.mjs';
 import { channelDeployArgs, hostingSiteOf, releaseWebsite, withoutHosting } from './arc-hosting-release.mjs';
 import {
@@ -419,13 +426,31 @@ export function websiteSkippedMessage(projectId) {
         + `and publish its pages:\n  npm run deploy -- --only hosting --project ${projectId}\n  npm run seed -- ${projectId}`;
 }
 
+/**
+ * What the deploy adds when the Firebase CLI asks about the image cleanup policy after
+ * all: its question does not show through the wrapper, only a bare `>` (found 2026-10-30).
+ */
+export const CLEANUP_PROMPT_HINT = '\nThe Firebase CLI is asking how many days to keep the functions\' container images. '
+    + 'Type a number and press Enter; after the deploy, Arc CMS sets the project\'s artifactCleanupDays (1 unless set).\n';
+
+/** Whether the CLI can ask its own questions in this deploy: a terminal, and neither --force nor --non-interactive. */
+export function cliMayAsk(args, isTTY = !!process.stdin.isTTY) {
+    return isTTY && !args.includes('--force') && !args.includes('--non-interactive');
+}
+
 /** Runs a command with its output streamed live and also collected. */
 function run(cmd, args) {
     return new Promise((resolvePromise) => {
         const child = spawn(cmd, args, { stdio: ['inherit', 'pipe', 'pipe'], shell: process.platform === 'win32' });
         let output = '';
-        child.stdout.on('data', (chunk) => { process.stdout.write(chunk); output += chunk; });
-        child.stderr.on('data', (chunk) => { process.stderr.write(chunk); output += chunk; });
+        const hint = cmd === 'firebase' && cliMayAsk(args);
+        const collect = (stream) => (chunk) => {
+            stream.write(chunk);
+            if (hint && !cliFoundNoPolicy(output) && cliFoundNoPolicy(output + chunk)) process.stdout.write(CLEANUP_PROMPT_HINT);
+            output += chunk;
+        };
+        child.stdout.on('data', collect(process.stdout));
+        child.stderr.on('data', collect(process.stderr));
         child.on('close', (code) => resolvePromise({ status: code ?? 1, output }));
         child.on('error', (err) => resolvePromise({ status: 1, output: String(err) }));
     });
@@ -585,10 +610,27 @@ export async function runDeploy(args, options = {}) {
             toDelete = removed;
         }
     }
+    // The image cleanup policy, so the CLI does not stop to ask (arc-artifact-cleanup.mjs).
+    // Read after the region check: a first deploy may just have chosen the region.
+    let cleanup = null;
+    let cleanupWatch = null;
+    if (deploysFunctions(args) && !args.includes('--dry-run')) {
+        cleanup = { region: functionsRegionOf(projectId), setting: cleanupSetting(projectConfig(projectId)), deps: options.cleanupDeps ?? cleanupDeps() };
+        const first = await ensureCleanupPolicy(projectId, cleanup);
+        if (first === 'missing' || first === 'failed') cleanupWatch = watchForRepository(projectId, cleanup);
+    }
     let deploy = { status: 0, output: '' };
     if (firebaseArgs) {
         console.log(`> firebase ${firebaseArgs.join(' ')}`);
         deploy = await run('firebase', firebaseArgs);
+    }
+    // A first deploy has created the repository by now; the retries below find the policy set.
+    if (cleanupWatch) await cleanupWatch.stop();
+    else if (cleanup && cliFoundNoPolicy(deploy.output)) {
+        // The remembered policy is gone (removed by hand, or the repository recreated): set it again.
+        try { cleanup.deps.save(forgetPolicy(cleanup.deps.readState(), projectId)); } catch { /* a remembered policy is a convenience */ }
+        const again = await applyPolicy(projectId, cleanup);
+        reportPolicy(again.result, projectId, cleanup, again.output);
     }
     let status = deploy.status;
     const created = new Set(createdFunctions(deploy.output));
@@ -666,6 +708,11 @@ export async function runDeploy(args, options = {}) {
         }
     }
     return { status, created: [...created].sort() };
+}
+
+/** The image cleanup policy's state and log, as a deploy uses them. */
+function cleanupDeps() {
+    return { readState, save: writeState, log: console.log };
 }
 
 /** Whether the seo feature is on (src/custom/features.ts); when that cannot be read, its files are kept. */

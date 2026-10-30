@@ -148,6 +148,17 @@ describe('arc-configure', () => {
         it('rejects unknown flags', () => {
             expect(() => configure.parseFlags(['--databse=arccms'])).toThrow(/Unknown argument/);
         });
+
+        it('takes --artifact-cleanup-days as whole days from 1, or none', () => {
+            expect(configure.parseFlags(['--artifact-cleanup-days=7']).updates).toEqual({ artifactCleanupDays: '7' });
+            const errors = (days: unknown) => configure.validateConfig(configure.normalizeConfig({ artifactCleanupDays: days }));
+            expect(errors('1')).toEqual([]);
+            expect(errors('30')).toEqual([]);
+            expect(errors('none')).toEqual([]);
+            for (const bad of ['0', '-1', '1.5', 'never', '10000']) {
+                expect(errors(bad)).toEqual([`artifact-cleanup-days must be a whole number of days from 1 to 9999, or none, not "${bad}".`]);
+            }
+        });
     });
 
     describe('backend profile', () => {
@@ -429,6 +440,15 @@ const firebaseConfig = {
             // In an app, arc-install.ts gets the entry as before.
             expect(configure.main(['--project=prod'], paths, () => {}, { arcCmsItself: false })).toBe(0);
             expect(readFileSync(paths.install, 'utf8')).toContain('"acme-prod": {');
+        });
+
+        it('stores --artifact-cleanup-days for the deploy only, not in the files the website or functions read', () => {
+            expect(run('--project=prod', '--artifact-cleanup-days=none')).toBe(0);
+            expect(JSON.parse(readFileSync(paths.config, 'utf8')).projects['acme-prod']).toEqual({ artifactCleanupDays: 'none' });
+            expect(readFileSync(paths.install, 'utf8')).not.toContain('artifactCleanup');
+            expect(readFileSync(envFor('acme-prod'), 'utf8')).not.toContain('CLEANUP');
+            expect(run('--project=prod', '--artifact-cleanup-days=0')).toBe(1);
+            expect(log.join('\n')).toContain('artifact-cleanup-days must be a whole number of days');
         });
 
         it('stores --build-mode per project, writes it to the generated file, and says when it does not apply yet', () => {

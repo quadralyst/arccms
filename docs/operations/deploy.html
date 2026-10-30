@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Deploy | Arc CMS docs</title>
   <meta name="description" content="Deploy Arc CMS to a Firebase project with npm run deploy: the guided questions, the flags for scripts and CI, deleted functions, the callable check and the static pages.">
-  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-hosting-release.mjs, functions/src/shared/site-files.ts, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-sign-in-setup.mjs, scripts/arc-built-functions.mjs, scripts/arc-callables.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, firebase.json, package.json">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-hosting-release.mjs, functions/src/shared/site-files.ts, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-sign-in-setup.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-built-functions.mjs, scripts/arc-callables.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, firebase.json, package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/deploy.html">
@@ -74,6 +74,7 @@ npm run deploy -- --only hosting --project default</code></pre>
     <p>Either way, the deploy also:</p>
     <ul>
       <li>builds the functions (<code>npm run build --prefix functions</code>) before any deploy that includes them;</li>
+      <li>before any deploy that includes functions, sets the cleanup policy that deletes their old container images, so the Firebase CLI never stops to ask about it (see <a href="#old-function-images">Old function images</a>);</li>
       <li>waits 65 seconds and deploys again, up to two times, any function the Firebase CLI started but never reported as done (Google limits how many functions can change per minute). When the error says Google is still setting up Eventarc, as on a project's first deploy, it waits 5 minutes instead (see <a href="#first-deploy-to-a-new-project">A first deploy to a new project</a>);</li>
       <li>when a deploy that includes the website fails before the website step, does not deploy the website, says so and prints the commands that deploy it alone and publish its pages;</li>
       <li>fails when a function still never reported success, and prints the command that redeploys it;</li>
@@ -116,6 +117,22 @@ npm run deploy:prod</code></pre>
       <li><strong><code>onSignInDeleted</code></strong>, the one first generation function, can fail with "Build failed: Build error details not available". Its build looked for the project's image repository (<code>gcf-artifacts</code>) a few seconds before Cloud Functions created it for the other functions. The retry a minute later builds it.</li>
     </ul>
     <p>Neither needs a setting changed. When the functions fail, the website is not deployed in the same run; the deploy says so and prints how to deploy it alone.</p>
+    <p>The image repository does not exist before that first deploy either, so its cleanup policy cannot be set ahead of it. The deploy says "does not exist yet (a first deploy)", looks for the repository every 15 seconds while the functions are created, and sets the policy as soon as it appears, well before the Firebase CLI checks for one at the end (see <a href="#old-function-images">Old function images</a>). If no function was built, it says so and the next deploy sets it.</p>
+
+    <h2 id="old-function-images">Old function images</h2>
+    <p>Every functions deploy builds a container image of each function and stores it in the Artifact Registry repository <code>gcf-artifacts</code>, in the functions region. Old images are never used again, but they stay and are billed for their storage. A cleanup policy on the repository deletes them after a number of days. Without one, the Firebase CLI stops each functions deploy to ask how many days to keep them (inside <code>npm run deploy</code> its question did not show, only a bare <code>&gt;</code>), and off a terminal it fails the deploy after the functions are live.</p>
+    <p>So before every deploy that includes functions, the deploy sets the policy itself, for the project's <code>artifactCleanupDays</code> (1 day unless set, see <a href="../reference/config-keys.html">Config keys</a>):</p>
+    <pre><code>firebase functions:artifacts:setpolicy --location &lt;functions region&gt; --days 1 --force --project &lt;project id&gt;</code></pre>
+    <ul>
+      <li>It is remembered in <code>.arc-deploy-state.json</code>, so later deploys skip it until the days or the functions region change.</li>
+      <li>On a project's first deploy, it is set while the deploy runs (see <a href="#first-deploy-to-a-new-project">A first deploy to a new project</a>).</li>
+      <li>If it cannot be set (most often a missing permission: the deploying account needs Artifact Registry Administrator or Owner), the deploy says why, prints the command above and goes on. The next deploy tries again.</li>
+      <li>If the policy was removed since it was remembered, the Firebase CLI finds none: <code>deploy:dev</code> and <code>deploy:prod</code> (with <code>--force</code>) let it set 1 day, a terminal shows a line saying what its question is, and either way the deploy then sets the project's own days again.</li>
+    </ul>
+    <p>To keep more days, or every image (<code>none</code>, which tells the Firebase CLI not to ask again):</p>
+    <pre><code>npm run arc:configure -- --project=default --artifact-cleanup-days=7
+npm run arc:configure -- --project=default --artifact-cleanup-days=none</code></pre>
+    <p>The next deploy with functions applies it. One day is the Firebase CLI's own default.</p>
 
     <h2>Functions that are deleted</h2>
     <p>A deploy of all the functions (<code>--only functions</code>, <code>--only functions:arccms</code>, or no <code>--only</code>) makes the project match the build, so it deletes the Arc CMS functions the build no longer has: those of a feature turned off in <code>src/custom/features.ts</code>, a search collection removed from <code>functions/src/custom/search-sources.ts</code>, or a function that was renamed.</p>

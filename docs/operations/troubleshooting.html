@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Troubleshooting | Arc CMS docs</title>
   <meta name="description" content="Known problems with Arc CMS in development, deploys, sign-in, email, search and features, with the cause and the fix for each.">
-  <meta name="docs:sources" content="vite.config.ts, src/app/app.config.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, scripts/arc-deploy.mjs, scripts/arc-configure.mjs, functions/scripts/check-callable-access.sh, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, functions/src/email-core/queueEmail.ts, functions/src/custom/search-sources.ts, src/shared/components/row-actions/row-actions.component.ts, firebase.json">
+  <meta name="docs:sources" content="vite.config.ts, src/app/app.config.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, scripts/arc-deploy.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-configure.mjs, functions/scripts/check-callable-access.sh, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, functions/src/email-core/queueEmail.ts, functions/src/custom/search-sources.ts, src/shared/components/row-actions/row-actions.component.ts, firebase.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/troubleshooting.html">
@@ -88,6 +88,11 @@
           <td>On a project's first deploy, <code>onSignInDeleted</code> fails with "Build failed: Build error details not available", and its build log says <code>Repository "gcf-artifacts" not found</code></td>
           <td>Its build started a few seconds before Cloud Functions created the project's image repository</td>
           <td>Nothing to change: the deploy's retry builds it. If a deploy ended before the retry, deploy it alone: <code>npm run deploy -- --only functions:arccms:arccms.onSignInDeleted</code></td>
+        </tr>
+        <tr>
+          <td>A functions deploy stops at a bare <code>&gt;</code>, or fails with "Functions successfully deployed but could not set up cleanup policy"</td>
+          <td>The Firebase CLI found no cleanup policy for the functions' old container images and asks how many days to keep them; off a terminal it fails instead</td>
+          <td>Deploy with <code>npm run deploy</code>, which sets the policy first (see <a href="deploy.html#old-function-images">Old function images</a>). At the bare <code>&gt;</code>, type <code>1</code> and press Enter. When the deploy says "Could not set the cleanup policy", run the command it prints, with Artifact Registry Administrator or Owner</td>
         </tr>
         <tr>
           <td>New functions are missing after a deploy, or the old code is still live</td>

@@ -39,6 +39,10 @@
  *                     this project uses them (ARC_PROJECT, npm run deploy)
  *   --web-app=<appId>   which web app to fetch, when the project has several
  *   --production=yes|no   deploying asks for the project id to be typed back
+ *   --artifact-cleanup-days=<days>|none   how many days the functions' container images
+ *                     are kept before Artifact Registry deletes them (default 1); none
+ *                     keeps them all. Every deploy with functions sets it
+ *                     (scripts/arc-artifact-cleanup.mjs)
  *   --build-mode=production|development   how a build for this project runs: like
  *                     production (no debug tools or instance label), or in development
  *                     mode. Default: production for a project marked --production=yes,
@@ -95,6 +99,7 @@ const FLAG_KEYS = {
     'analytics-consent': 'analyticsConsent',
     production: 'production',
     'build-mode': 'buildMode',
+    'artifact-cleanup-days': 'artifactCleanupDays',
 };
 
 /** How a build for a project runs (`--build-mode`). */
@@ -295,6 +300,9 @@ export function validateConfig(config, projectId = '') {
     }
     if (config.functionsRegion && !/^[a-z]+-[a-z]+[0-9]+$/.test(config.functionsRegion)) {
         errors.push(`functions-region "${config.functionsRegion}" is not a region, such as asia-south1 or us-central1.`);
+    }
+    if (config.artifactCleanupDays && !/^(none|[1-9][0-9]{0,3})$/.test(config.artifactCleanupDays)) {
+        errors.push(`artifact-cleanup-days must be a whole number of days from 1 to 9999, or none, not "${config.artifactCleanupDays}".`);
     }
     if (config.databaseId && !/^(\(default\)|[a-z][a-z0-9-]{2,62})$/.test(config.databaseId)) {
         errors.push(`databaseId "${config.databaseId}" is not a valid Firestore database id (lowercase letters, digits and hyphens, 3 to 63 characters, starting with a letter).`);

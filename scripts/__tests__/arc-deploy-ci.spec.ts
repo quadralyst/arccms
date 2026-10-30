@@ -15,7 +15,7 @@ const REPO = resolve(__dirname, '../..');
 const PROJECT = 'acme-staging';
 
 /** Questions the deploy can ask; none may show in a CI run. */
-const PROMPTS = [/\[y\/N\]/i, /\(Y\/n\)/i, /Type the project id/, /Choose 1-/];
+const PROMPTS = [/\[y\/N\]/i, /\(Y\/n\)/i, /Type the project id/, /Choose 1-/, /How many days/];
 
 describe('a CI deploy from a clean checkout', () => {
     let root: string;
@@ -63,6 +63,7 @@ appendFileSync(${JSON.stringify(log)}, JSON.stringify({ cmd: 'firebase', args })
 const answer = (result) => process.stdout.write(JSON.stringify({ status: 'success', result }));
 if (args[0] === 'firestore:databases:get') answer({ locationId: 'asia-south1' });
 else if (args[0] === 'functions:list') answer([]);
+else if (args[0] === 'functions:artifacts:setpolicy') process.stdout.write('✔  Successfully set up cleanup policy\\n');
 else process.stdout.write('Deploy complete!\\n');
 `, 0o755);
         write('bin/npm', `#!/usr/bin/env node
@@ -89,7 +90,8 @@ globalThis.fetch = async (url, init = {}) => {
 
     /** Runs a script the way CI does: no terminal, nothing typed, the stand-ins first on the PATH. */
     function ci(script: string, ...args: string[]) {
-        const preload = ['--import', join(root, 'fetch-stub.mjs'), ...(existsSync(join(root, 'timer-stub.mjs')) ? ['--import', join(root, 'timer-stub.mjs')] : [])];
+        const preload = ['--import', join(root, 'fetch-stub.mjs'), ...['timer-stub.mjs', 'interval-stub.mjs']
+            .filter((stub) => existsSync(join(root, stub))).flatMap((stub) => ['--import', join(root, stub)])];
         const result = spawnSync(process.execPath, [...preload, join(root, 'scripts', script), ...args], {
             cwd: root, input: '', encoding: 'utf8', timeout: 60_000,
             env: { PATH: `${join(root, 'bin')}:${process.env['PATH']}`, HOME: join(root, 'home'), CI: 'true' },
@@ -129,6 +131,10 @@ globalThis.fetch = async (url, init = {}) => {
         expect(build.install).toContain('functionsRegion: "asia-south1"');
         const firebase = log.filter((c) => c.cmd === 'firebase').map((c) => c.args.join(' '));
         expect(firebase).toContain(`deploy --config firebase.${PROJECT}.json --project staging --non-interactive --force --except hosting`);
+        // The image cleanup policy goes to the region just chosen, before the deploy.
+        const policy = firebase.indexOf(`functions:artifacts:setpolicy --location asia-south1 --days 1 --force --project ${PROJECT}`);
+        expect(policy).toBeGreaterThan(-1);
+        expect(policy).toBeLessThan(firebase.findIndex((args) => args.startsWith('deploy ')));
         expect(firebase.some((args) => args.startsWith('hosting:channel:deploy'))).toBe(true);
         expect(log.some((c) => c.cmd === 'fetch' && c.method === 'POST' && c.url.includes('/releases'))).toBe(true);
     }, 60_000);
@@ -229,6 +235,123 @@ globalThis.setTimeout = (fn, ms, ...rest) => {
             expect(deploy.output).toContain('The website was not deployed');
             expect(deploy.output).toContain('npm run deploy -- --only hosting --project acme-staging');
             expect(calls().some((c) => c.cmd === 'firebase' && c.args[0] === 'hosting:channel:deploy')).toBe(false);
+        }, 60_000);
+    });
+
+    describe('the cleanup policy of the functions\' container images (found 2026-10-30)', () => {
+        /**
+         * The Firebase CLI as it handles the image repository: `gcf-artifacts` exists only
+         * once a deploy has built a function, setpolicy says so (and exits 0) until then,
+         * and a deploy that finds no policy warns, then sets one with --force, or else
+         * fails off a terminal after the functions are live (the real CLI asks on one).
+         * A functions deploy takes as long as functions take to create, up to 5 seconds here,
+         * and ends once a policy is set, as the CLI checks only at the end.
+         */
+        function artifactCli() {
+            const log = join(root, 'calls.log');
+            const repo = join(root, 'repo-exists');
+            const policy = join(root, 'policy');
+            write('bin/firebase', `#!/usr/bin/env node
+const { appendFileSync, existsSync, readFileSync, writeFileSync } = require('node:fs');
+const args = process.argv.slice(2);
+appendFileSync(${JSON.stringify(log)}, JSON.stringify({ cmd: 'firebase', args }) + '\\n');
+const answer = (result) => process.stdout.write(JSON.stringify({ status: 'success', result }));
+const out = (line) => process.stdout.write(line + '\\n');
+const repo = ${JSON.stringify(repo)}, policy = ${JSON.stringify(policy)};
+if (args[0] === 'firestore:databases:get') answer({ locationId: 'asia-south1' });
+else if (args[0] === 'functions:list') answer([]);
+else if (args[0] === 'functions:artifacts:setpolicy') {
+    if (!existsSync(repo)) {
+        out("i  Repository 'projects/acme-staging/locations/asia-south1/repositories/gcf-artifacts' does not exist in Artifact Registry.");
+    } else {
+        writeFileSync(policy, args.includes('--none') ? 'none' : args[args.indexOf('--days') + 1]);
+        out('✔  Successfully set up cleanup policy');
+    }
+} else if (args[0] === 'deploy' && (!args.includes('--only') || args[args.indexOf('--only') + 1].includes('functions'))) {
+    writeFileSync(repo, '');
+    const until = Date.now() + 5000;
+    while (!existsSync(policy) && Date.now() < until) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+    if (!existsSync(policy)) {
+        out('⚠  functions: No cleanup policy detected for repositories in asia-south1. This may result in a small monthly bill as container images accumulate over time.');
+        if (args.includes('--force')) writeFileSync(policy, '1');
+        else {
+            process.stderr.write('Error: Functions successfully deployed but could not set up cleanup policy in location asia-south1.\\n');
+            process.exit(1);
+        }
+    }
+    out('Deploy complete!');
+} else out('Deploy complete!');
+`, 0o755);
+            // A first deploy looks for the repository every 15 seconds; here every 50 ms.
+            write('interval-stub.mjs', `const real = globalThis.setInterval;
+globalThis.setInterval = (fn, ms, ...rest) => real(fn, Math.min(ms, 50), ...rest);
+`);
+            return { policy: () => (existsSync(policy) ? readFileSync(policy, 'utf8') : null) };
+        }
+        const setpolicies = () => calls().filter((c) => c.cmd === 'firebase' && c.args[0] === 'functions:artifacts:setpolicy').map((c) => c.args.join(' '));
+        const remembered = () => JSON.parse(readFileSync(join(root, '.arc-deploy-state.json'), 'utf8')).artifactCleanup;
+
+        it('a first deploy without --force sets the policy while the functions are created, so the CLI never asks or fails', () => {
+            expect(recreate('--functions-region=asia-south1').status).toBe(0);
+            const cli = artifactCli();
+            const deploy = ci('arc-deploy.mjs', '--project', 'staging', '--non-interactive');
+            expect(deploy.status, deploy.output).toBe(0);
+            expect(deploy.output).not.toContain('No cleanup policy detected');
+            for (const prompt of PROMPTS) expect(deploy.output).not.toMatch(prompt);
+            expect(deploy.output).toContain('does not exist yet (a first deploy)');
+            expect(deploy.output).toContain("Cleanup policy for the functions' container images in asia-south1: images kept 1 day.");
+            expect(cli.policy()).toBe('1');
+            expect(setpolicies().length).toBeGreaterThanOrEqual(2);
+            expect(setpolicies()[0]).toBe(`functions:artifacts:setpolicy --location asia-south1 --days 1 --force --project ${PROJECT}`);
+            expect(remembered()).toEqual({ [PROJECT]: 'asia-south1:1' });
+
+            // The next deploy remembers it and does not ask Google again.
+            const before = setpolicies().length;
+            const again = ci('arc-deploy.mjs', '--project', 'staging', '--non-interactive', '--only', 'functions');
+            expect(again.status, again.output).toBe(0);
+            expect(setpolicies()).toHaveLength(before);
+        }, 60_000);
+
+        it('a later deploy sets the policy before the deploy starts, with the days the project asks for', () => {
+            expect(recreate('--functions-region=asia-south1', '--artifact-cleanup-days=5').status).toBe(0);
+            const cli = artifactCli();
+            write('repo-exists', '');
+            const deploy = ci('arc-deploy.mjs', '--project', 'staging', '--non-interactive', '--only', 'functions');
+            expect(deploy.status, deploy.output).toBe(0);
+            expect(setpolicies()).toEqual([`functions:artifacts:setpolicy --location asia-south1 --days 5 --force --project ${PROJECT}`]);
+            expect(cli.policy()).toBe('5');
+            expect(remembered()).toEqual({ [PROJECT]: 'asia-south1:5' });
+        }, 60_000);
+
+        it('opts out with none, which the CLI respects too', () => {
+            expect(recreate('--functions-region=asia-south1', '--artifact-cleanup-days=none').status).toBe(0);
+            const cli = artifactCli();
+            write('repo-exists', '');
+            const deploy = ci('arc-deploy.mjs', '--project', 'staging', '--non-interactive', '--only', 'functions');
+            expect(deploy.status, deploy.output).toBe(0);
+            expect(setpolicies()).toEqual([`functions:artifacts:setpolicy --location asia-south1 --none --force --project ${PROJECT}`]);
+            expect(cli.policy()).toBe('none');
+        }, 60_000);
+
+        it('a policy removed since it was remembered is set again after the deploy', () => {
+            expect(recreate('--functions-region=asia-south1').status).toBe(0);
+            const cli = artifactCli();
+            write('repo-exists', '');
+            write('.arc-deploy-state.json', JSON.stringify({ artifactCleanup: { [PROJECT]: 'asia-south1:1' } }));
+            const deploy = ci('arc-deploy.mjs', '--project', 'staging', '--non-interactive', '--force', '--only', 'functions');
+            expect(deploy.status, deploy.output).toBe(0);
+            expect(deploy.output).toContain('No cleanup policy detected');
+            expect(setpolicies()).toEqual([`functions:artifacts:setpolicy --location asia-south1 --days 1 --force --project ${PROJECT}`]);
+            expect(cli.policy()).toBe('1');
+            expect(remembered()).toEqual({ [PROJECT]: 'asia-south1:1' });
+        }, 60_000);
+
+        it('a deploy without functions leaves the policy alone', () => {
+            expect(recreate('--functions-region=asia-south1').status).toBe(0);
+            artifactCli();
+            const deploy = ci('arc-deploy.mjs', '--project', 'staging', '--non-interactive', '--only', 'firestore');
+            expect(deploy.status, deploy.output).toBe(0);
+            expect(setpolicies()).toEqual([]);
         }, 60_000);
     });
 

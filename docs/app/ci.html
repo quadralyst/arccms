@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Deploy from CI | Arc CMS docs</title>
   <meta name="description" content="Deploy an app from CI, such as GitHub Actions: the files git ignores and how to recreate them with flags, the service account's permissions, Java for the rules tests, a working workflow, and the production guard.">
-  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-configure.mjs, scripts/arc-region.mjs, scripts/arc-install-config.mjs, scripts/arc-admin-script.mjs, functions/scripts/call-seed.cjs, package.json, .gitignore">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-configure.mjs, scripts/arc-region.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-install-config.mjs, scripts/arc-admin-script.mjs, functions/scripts/call-seed.cjs, package.json, .gitignore">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/ci.html">
@@ -26,7 +26,7 @@
         <tr><td><code>src/environments/arc-install.ts</code></td><td>Yes</td><td>Committed. <code>arc:configure</code> rewrites it with the projects the job configured, which is all the build needs. Never commit it from CI.</td></tr>
       </tbody>
     </table>
-    <p><code>.arc-deploy-state.json</code> is ignored too, and CI does not need it: it only remembers the guided deploy's choices.</p>
+    <p><code>.arc-deploy-state.json</code> is ignored too, and CI does not need it: it remembers the guided deploy's choices, and that the cleanup policy for old function images is set, so without it each CI deploy with functions sets that policy again, which takes a few seconds (see <a href="../operations/deploy.html#old-function-images">Old function images</a>).</p>
 
     <h2>Recreate them with flags</h2>
     <p>Run <code>arc:configure</code> once per project the job deploys, with the same settings you gave it on your machine. Copy them from your own <code>arccms.config.json</code>: each key has a flag (see <a href="../reference/config-keys.html">Config keys</a>).</p>
@@ -34,7 +34,7 @@
 npm run arc:configure -- --project=staging \
   --web-config=src/environments/firebase-web.your-staging-project-id.ts \
   --functions-region=asia-south1</code></pre>
-    <p><code>--web-config</code> reads the web settings back from the committed file (an environment file, JSON or the Firebase console's snippet all work), so nothing has to be fetched. Add <code>--database</code>, <code>--site</code>, <code>--bucket</code>, <code>--prefix</code> or <code>--build-mode</code> when the project uses them.</p>
+    <p><code>--web-config</code> reads the web settings back from the committed file (an environment file, JSON or the Firebase console's snippet all work), so nothing has to be fetched. Add <code>--database</code>, <code>--site</code>, <code>--bucket</code>, <code>--prefix</code>, <code>--build-mode</code> or <code>--artifact-cleanup-days</code> when the project uses them.</p>
     <div class="warn"><p><strong>Always pass <code>--functions-region</code>.</strong> On a first deploy, when the database is outside <code>us-central1</code>, the deploy sets the functions next to the database and saves that in <code>arccms.config.json</code>, which CI then throws away. Without the flag, the next run would put the functions in <code>us-central1</code> again. Use the region the first deploy printed, or the one in your own config (see <a href="../operations/deploy.html#regions">Regions</a>).</p></div>
     <p>Another way is to keep your whole <code>arccms.config.json</code> in a CI secret or variable, write it to the file, and run <code>npm run arc:configure -- --project=staging</code> with no other flags to write the rest. Its values are not secret: the web settings are public, and the rest names databases and buckets.</p>
 
@@ -44,6 +44,7 @@ npm run arc:configure -- --project=staging \
       <li><strong>Simplest:</strong> Firebase Admin (<code>roles/firebase.admin</code>) and Service Account User (<code>roles/iam.serviceAccountUser</code>) on the project. Firebase Admin covers Hosting, the rules, the Firestore indexes, the functions and the data the static pages are published from. Service Account User lets the deploy run the functions as the project's default compute account.</li>
       <li><strong>The region check</strong> runs <code>firebase firestore:databases:get</code>, which needs the <code>datastore.databases.get</code> permission. Firebase Admin has it; with narrower roles, add Cloud Datastore Viewer (<code>roles/datastore.viewer</code>). Without it the deploy cannot see where the database is, and it deploys to the region in <code>arccms.config.json</code> without a check.</li>
       <li><strong>Narrower roles,</strong> if your organisation asks for them: Cloud Functions Admin, Firebase Hosting Admin, Firebase Rules Admin, Cloud Datastore Index Admin, Cloud Datastore User (the static pages), Service Account User and Cloud Datastore Viewer. A missing permission makes the Firebase CLI stop and name it; add that one.</li>
+      <li><strong>The cleanup policy for old function images</strong> needs the <code>artifactregistry.repositories.update</code> and <code>artifactregistry.versions.delete</code> permissions. Without them the deploy says it could not set the policy and goes on; add Artifact Registry Administrator (<code>roles/artifactregistry.admin</code>), or set the policy once from your own machine with the command it prints.</li>
       <li><strong>A first deploy to a new project</strong> turns on the Google Cloud services the functions need (listed in <a href="../operations/deploy.html#first-deploy-to-a-new-project">A first deploy to a new project</a>), which needs the <code>serviceusage.services.enable</code> permission. Add Service Usage Admin (<code>roles/serviceusage.serviceUsageAdmin</code>) when the CLI stops and names it, or run that first deploy once from your own machine.</li>
       <li>With the <code>sms</code> feature, the deploy also checks phone sign-in's Google Cloud setup with <code>gcloud</code>. Off a terminal it never asks, and without <code>gcloud</code> it says so and goes on.</li>
     </ul>
