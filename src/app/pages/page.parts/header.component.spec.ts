@@ -2,9 +2,17 @@
  * Tests for HeaderComponent
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+
+// A plain header, so the spec tests the component and not the site's own
+// header.html: an app's header can hold card blocks, which need the content
+// stores (they are tested in site-card-blocks.spec.ts).
+vi.mock('virtual:arc-site', async (importOriginal) => ({
+    ...(await importOriginal<Record<string, unknown>>()),
+    header: '<nav class="navbar"><a class="navbar-brand" href="/">Site</a></nav>',
+}));
+
 import { HeaderComponent } from './header.component';
 
 describe('HeaderComponent', () => {
@@ -14,8 +22,6 @@ describe('HeaderComponent', () => {
     beforeEach(async () => {
         await TestBed.configureTestingModule({
             imports: [HeaderComponent],
-            // An app's header can hold card blocks (<arc-content-partials>), which read the route.
-            providers: [provideRouter([])],
         }).compileComponents();
 
         fixture = TestBed.createComponent(HeaderComponent);
