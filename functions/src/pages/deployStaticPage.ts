@@ -115,7 +115,9 @@ export async function generateAndDeployStaticPage(
         batch.add(filePath, processedHtml);
         return;
     }
-    await deployFileToHosting(siteId, filePath, processedHtml, 'static_pages', pageSlug);
+    // static_pages/{slug} only records this page's deploys (and holds its DeploymentLogs):
+    // nothing else writes it, so the first release creates it.
+    await deployFileToHosting(siteId, filePath, processedHtml, 'static_pages', pageSlug, { createStatusDoc: true });
 }
 
 /**

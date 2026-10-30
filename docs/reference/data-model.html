@@ -184,6 +184,7 @@
         <tbody>
           <tr><td><code>form_otps</code></td><td>Email codes for forms that verify members, id <code>{formId}_{emailHash}</code>.</td><td><a href="../features/forms.html">Signup forms</a></td><td><code>waitlistId</code>, <code>emailHash</code>, <code>codeHash</code>, <code>expiresAt</code>, <code>attempts</code>, <code>verified</code></td></tr>
           <tr><td><code>CountedBuyers</code></td><td>A marker per payment or subscription, so a buyer adds to a product's <code>purchaseCount</code> once.</td><td><a href="../features/payments.html">Payments</a></td><td><code>productId</code>, <code>countedAt</code></td></tr>
+          <tr><td><code>static_pages</code></td><td>The deploy status of each hand-written page (<code>/pages/{name}</code>), id the page's name, created by its first release. Its <code>DeploymentLogs</code> subcollection holds the steps of each release. Nothing else reads it.</td><td><a href="../website/static-pages.html">Static pages</a></td><td><code>deployStatus</code>, <code>deployedAt</code>, <code>deployedUrl</code>, <code>deployError</code>, <code>deployErrorCode</code></td></tr>
           <tr><td><code>AppAudience</code></td><td>Arc CMS's own state for each of the host app's users, id the SHA-256 of the person's unique key, so no app identifier is stored in the clear.</td><td><a href="../features/app-audience.html">App audience</a></td><td><code>consent</code>, <code>consentChangedAt</code>, <code>deleted</code></td></tr>
         </tbody>
       </table>
