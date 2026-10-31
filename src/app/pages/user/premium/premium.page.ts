@@ -43,11 +43,11 @@ import { PageHeaderComponent } from '../../../../shared/components/page-header/p
     styles: [`
         .premium { max-width: 900px; margin: 0 auto; padding: 24px; }
         .hero { text-align: center; padding: 24px 0; }
-        .hero > i { font-size: 2.4rem; color: #1b98e0; }
+        .hero > i { font-size: 2.4rem; color: var(--arc-member-accent, #1b98e0); }
         .hero h1 { margin: 8px 0 4px; }
         .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
         .feature { padding: 20px; text-align: center; border: 1px solid #e3e8ee; }
-        .feature i { font-size: 1.5rem; color: #1b98e0; }
+        .feature i { font-size: 1.5rem; color: var(--arc-member-accent, #1b98e0); }
         .feature h3 { font-size: 1rem; margin: 8px 0 4px; }
     `],
 })
