@@ -5,6 +5,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { filter } from 'rxjs';
 import { FeedbackService, MAX_MESSAGE_LENGTH } from '../../../app/core/feedback/feedback.service';
 import { FullScreenService } from '../../../app/core/layout/full-screen.service';
+import { APP_VERSION } from '../../../app/core/version/app-version';
 import { canRecordVoice, MAX_VOICE_SECONDS, VoiceRecorder, type VoiceNote } from '../../../app/core/feedback/voice-recorder';
 
 type Stage = 'compose' | 'sending' | 'sent';
@@ -118,6 +119,10 @@ export function clock(seconds: number): string {
                         </button>
                     </footer>
                 }
+                @if (versionText) {
+                    <!-- The build they are on, sent with the feedback too (docs/app/version.html). -->
+                    <p class="fb-version">{{ 'common.feedback.version' | transloco: { version: versionText } }}</p>
+                }
             </section>
         }
     `,
@@ -192,6 +197,7 @@ export function clock(seconds: number): string {
         .fb-thanks i { color: #198754; margin-right: 0.375rem; }
         /* Its own look, whatever a site stylesheet does to footer elements. */
         .fb-actions { display: flex; justify-content: flex-end; gap: 0.5rem; background: none; color: inherit; padding: 0; text-align: right; }
+        .fb-version { margin: 0; font-size: 0.75rem; color: var(--bs-secondary-color, #6c757d); user-select: all; }
     `],
 })
 export class FeedbackComponent {
@@ -201,6 +207,8 @@ export class FeedbackComponent {
 
     readonly maxLength = MAX_MESSAGE_LENGTH;
     readonly maxVoice = MAX_VOICE_SECONDS;
+    /** The build's version, "v1.2.0.25 android", or '' for none (docs/app/version.html). */
+    versionText = APP_VERSION.text;
     readonly voiceSupported = canRecordVoice();
     readonly clock = clock;
 

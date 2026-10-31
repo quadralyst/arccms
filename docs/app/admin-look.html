@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Brand the admin | Arc CMS docs</title>
   <meta name="description" content="Give the admin your app's colours, name and logo, and every browser tab your site's name, from the custom space and Settings, About.">
-  <meta name="docs:sources" content="src/admin-theme.css, src/styles.css, src/shared/components/side-navbar/side-navbar.component.html, src/shared/components/side-navbar/side-navbar.component.scss, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/brand/site-brand.ts, src/app/core/brand/app-brand-files.ts, src/app/core/brand/brand-title.strategy.ts, src/custom/brand.ts, scripts/vite-app-title.ts, index.html, src/app/pages/admin/(settings)/about/about-settings.page.ts, src/app/pages/(onboarding)/onboarding.page.scss">
+  <meta name="docs:sources" content="src/admin-theme.css, src/styles.css, src/shared/components/side-navbar/side-navbar.component.html, src/shared/components/side-navbar/side-navbar.component.scss, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/brand/site-brand.ts, src/app/core/version/app-version.ts, src/app/core/brand/app-brand-files.ts, src/app/core/brand/brand-title.strategy.ts, src/custom/brand.ts, scripts/vite-app-title.ts, index.html, src/app/pages/admin/(settings)/about/about-settings.page.ts, src/app/pages/(onboarding)/onboarding.page.scss">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/admin-look.html">
@@ -52,6 +52,13 @@ export const CUSTOM_BRAND: CustomBrand = {
     name: 'Acme Studio',
 };</code></pre>
     <p>Nothing shows until Settings, About has loaded, so Arc CMS's name never flashes before yours.</p>
+
+    <h3 id="version">The version under Logout</h3>
+    <p>When the app has a version, the open side panel shows it under Logout, such as <code>v1.2.0.25 web</code> (<a href="version.html">Version and build number</a>). An app that shows it somewhere of its own can turn this one off:</p>
+    <pre><code>export const CUSTOM_BRAND: CustomBrand = {
+    name: 'Acme Studio',
+    showVersion: false,
+};</code></pre>
 
     <h3 id="logo-shapes">Logo shapes</h3>
     <p>The panel looks at the logo's shape when it loads; an SVG's shape is read from its <code>viewBox</code>, else its <code>width</code> and <code>height</code>. A wordmark, at least twice as wide as it is tall, shows alone in the open panel (up to 150 pixels wide and 40 high), since it already carries the name. A square mark shows at 40 by 40 pixels beside the name. A name too long for the panel is cut short, so the button that collapses the panel always stays beside it. In the collapsed panel, 65 pixels wide, a square mark shows below that button and a wordmark does not. Search engines also read this logo (see <a href="../website/seo.html">Get found by search engines and AI</a>) and prefer a square one of at least 112 by 112 pixels.</p>

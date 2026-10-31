@@ -565,12 +565,19 @@ service cloud.firestore {
         && (!('installed' in v) || v.installed is bool);
     }
 
+    // The build the person is on (docs/app/version.html): "v1.2.0.25 android" and the
+    // commit it was made from. Sent only by a build that has a version.
+    function isFeedbackVersion(v) {
+      return v is map && v.keys().hasOnly(['text', 'commit'])
+        && isShortText(v, 'text', 100) && isShortText(v, 'commit', 24);
+    }
+
     function isValidNewFeedback(feedbackId) {
       let d = request.resource.data;
       return isSignedIn()
         && feedbackOn()
         && request.auth.token.get('arccms_uid', '') != ''
-        && d.keys().hasOnly(['uid', 'userDocId', 'message', 'screenshotPath', 'voicePath', 'voiceSeconds', 'page', 'device', 'status', 'createdAt'])
+        && d.keys().hasOnly(['uid', 'userDocId', 'message', 'screenshotPath', 'voicePath', 'voiceSeconds', 'page', 'device', 'version', 'status', 'createdAt'])
         && d.keys().hasAll(['uid', 'userDocId', 'message', 'page', 'device', 'status', 'createdAt'])
         && d.uid == request.auth.uid
         && d.userDocId == request.auth.token.arccms_uid
@@ -579,6 +586,7 @@ service cloud.firestore {
         && d.message is string && d.message.size() <= 5000
         && (d.message.size() > 0 || 'voicePath' in d)
         && isFeedbackPage(d.page) && isFeedbackDevice(d.device)
+        && (!('version' in d) || isFeedbackVersion(d.version))
         && (!('screenshotPath' in d) || isFeedbackFile(d.screenshotPath, feedbackId, ['screenshot.jpg']))
         && (!('voicePath' in d) || isFeedbackFile(d.voicePath, feedbackId, ['voice.mp4', 'voice.webm', 'voice.ogg']))
         && (!('voiceSeconds' in d) || (d.voiceSeconds is number && d.voiceSeconds <= 180));

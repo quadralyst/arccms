@@ -798,6 +798,7 @@ export type TranslationKey =
     | 'admin.nav.tags'
     | 'admin.nav.transactions'
     | 'admin.nav.users'
+    | 'admin.nav.version'
     | 'admin.products.active'
     | 'admin.products.add_tier'
     | 'admin.products.code'
@@ -1593,6 +1594,7 @@ export type TranslationKey =
     | 'common.feedback.taking_screenshot'
     | 'common.feedback.thanks'
     | 'common.feedback.title'
+    | 'common.feedback.version'
     | 'common.filters.all'
     | 'common.filters.clear'
     | 'common.filters.filtered'
@@ -2887,6 +2889,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.nav.tags',
     'admin.nav.transactions',
     'admin.nav.users',
+    'admin.nav.version',
     'admin.products.active',
     'admin.products.add_tier',
     'admin.products.code',
@@ -3682,6 +3685,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.feedback.taking_screenshot',
     'common.feedback.thanks',
     'common.feedback.title',
+    'common.feedback.version',
     'common.filters.all',
     'common.filters.clear',
     'common.filters.filtered',

@@ -21,6 +21,12 @@ export interface CustomBrand {
      * of the page's generic name. The site's name is still added after it.
      */
     titles?: Record<string, string>;
+    /**
+     * Whether the build's version shows under Logout in the admin's side panel
+     * (docs/app/version.html). On unless this is false: an app that shows it somewhere
+     * of its own can turn this one off.
+     */
+    showVersion?: boolean;
 }
 
 export interface SiteBrand {

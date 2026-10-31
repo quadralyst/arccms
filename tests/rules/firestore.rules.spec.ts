@@ -409,6 +409,15 @@ describe('feedback (docs/features/feedback.html)', () => {
         await assertSucceeds(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ device: { platform: 'android', installed: true, userAgent: 'UA' } })));
     });
 
+    it('takes the build the person is on, and nothing else in it (specs/app-version-spec.md AV-D10)', async () => {
+        await assertSucceeds(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({ version: { text: 'v1.2.0.25 android', commit: '533b6d02+changes' } })));
+        await assertSucceeds(setDoc(doc(sender(), 'Feedback', 'f2'), feedback({ version: { text: 'v1.2.0', commit: '' } })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f3'), feedback({ version: 'v1.2.0' })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f3'), feedback({ version: { text: 'x'.repeat(101) } })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f3'), feedback({ version: { text: 'v1.2.0', commit: 'x'.repeat(25) } })));
+        await assertFails(setDoc(doc(sender(), 'Feedback', 'f3'), feedback({ version: { text: 'v1.2.0', admin: true } })));
+    });
+
 
     it('lets a signed-in person send their own, with files from their own folder', async () => {
         await assertSucceeds(setDoc(doc(sender(), 'Feedback', 'f1'), feedback({

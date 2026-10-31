@@ -188,6 +188,15 @@
     font-size: 14px;
 }
 
+/* The build's version under Logout, lined up with the menu's words (docs/app/version.html). */
+.app-version {
+    padding: 0 16px 10px 38px;
+    font-size: 0.7rem;
+    color: color-mix(in srgb, var(--arc-admin-panel-color) 70%, transparent);
+    overflow-wrap: anywhere;
+    user-select: all;
+}
+
 .icon-size-large {
     font-size: 20px;
     margin: 0 auto;

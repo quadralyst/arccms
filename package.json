@@ -17,7 +17,7 @@
     "docs:index": "node scripts/docs-index.mjs",
     "docs:affected": "node scripts/docs-affected.mjs",
     "docs:lint": "node scripts/docs-lint.mjs",
-    "build": "NODE_OPTIONS=\"--max-old-space-size=8192 $NODE_OPTIONS\" vite build && cp dist/client/index.html dist/analog/public/__shell.html",
+    "build": "node scripts/arc-website-build.mjs",
     "build:project": "node scripts/arc-build.mjs",
     "test": "vitest",
     "typecheck": "node scripts/typecheck.mjs",

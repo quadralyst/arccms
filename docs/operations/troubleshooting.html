@@ -43,6 +43,11 @@
           <td>Give the build a bigger heap, which wins over the script's 8 GB: <code>NODE_OPTIONS=--max-old-space-size=12288 npm run build</code>, and the same in front of <code>npm run deploy</code>. The machine needs that much free memory</td>
         </tr>
         <tr>
+          <td><code>npm run dev</code> or <code>npm run build</code> stops with a message that starts "custom/package.json:"</td>
+          <td>The app's version is not three whole numbers, its build number is not a whole number, or its build label is too long or has a line break</td>
+          <td>Fix the field the message names (see <a href="../app/version.html#mistakes">Version and build number</a>)</td>
+        </tr>
+        <tr>
           <td><code>npm run dev</code> or <code>npm run build</code> stops with a message that starts "src/custom/features.ts:"</td>
           <td>An unknown feature name, a feature in both lists, or a feature on while one it needs is off</td>
           <td>Change the file as the message says (see <a href="../reference/feature-ids.html">Feature ids</a>)</td>

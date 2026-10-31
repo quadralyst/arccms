@@ -156,6 +156,8 @@ npm run arc:configure -- --project=default --artifact-cleanup-days=none</code></
       <li><p>The rules, last (<code>npm run deploy -- --only firestore:rules --project &lt;alias&gt;</code>, and <code>storage</code> if they changed).</p></li>
     </ol>
     <p>If the rules go out first, the refused reads and writes fail at once. To recover, deploy the previous rules again from git.</p>
+    <p>The other way round, when the rules start to accept something the new website sends, such as a new field on a feedback report, the rules go first: the old rules would refuse what the new website writes.</p>
+    <p>Every deploy of the website builds it with the next build number when the app has a version; add <code>--no-bump</code> to deploy without one, or <code>--label=&lt;text&gt;</code> to label it (see <a href="../app/version.html">Version and build number</a>).</p>
 
     <h2>After the deploy</h2>
 

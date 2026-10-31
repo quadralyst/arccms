@@ -29,6 +29,8 @@ import { insertCustomNav, withoutFeaturesOff, type MenuItem } from '../../../app
 import { applyNavChanges } from '../../../app/core/nav/nav-changes';
 import { ADMIN_LOCKS, adminContentGroup, coreAdminItems } from '../../../app/core/nav/admin-menu';
 import { SiteBrandService } from '../../../app/core/brand/site-brand';
+import { CUSTOM_BRAND } from '../../../custom/brand';
+import { APP_VERSION, panelVersion } from '../../../app/core/version/app-version';
 
 /**
  * Whether a logo is a wordmark rather than a mark: at least twice as wide as it is tall.
@@ -106,6 +108,8 @@ export default class NavbarComponent extends BaseComponent {
     /** The site's name and logo (core/brand/site-brand.ts); nothing until they are in, so Arc CMS's never flashes. */
     private readonly siteBrand = inject(SiteBrandService);
     readonly brand = this.siteBrand.brand;
+    /** The build's version, under Logout (docs/app/version.html); '' for none. */
+    versionText = panelVersion(APP_VERSION, CUSTOM_BRAND);
     /** The logo to show: the site's, or Arc CMS's small one when the site has set neither. */
     readonly panelLogo = computed(() => {
         const brand = this.brand();
@@ -259,6 +263,13 @@ export default class NavbarComponent extends BaseComponent {
         const key = this.drawerMode === 'over' ? 'admin.nav.close_menu'
             : this.isExpanded ? 'admin.nav.collapse_menu' : 'admin.nav.expand_menu';
         return this.transloco.translate(key);
+    }
+
+    /** What a screen reader says for the version under Logout: "Version v1.2.0.25". */
+    versionLabel(): string {
+        this.activeLang();
+        this.translationsLoaded();
+        return this.transloco.translate('admin.nav.version', { version: this.versionText });
     }
 
     ngOnInit() {

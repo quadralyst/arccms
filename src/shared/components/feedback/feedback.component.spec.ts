@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { computed, signal } from '@angular/core';
+import { ChangeDetectorRef, computed, signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { translocoTestingModule } from '../../../test/transloco-test-providers';
 import { FeedbackService } from '../../../app/core/feedback/feedback.service';
@@ -115,6 +115,18 @@ describe('FeedbackComponent', () => {
         fixture.detectChanges();
         expect(service.send).toHaveBeenCalledWith({ message: 'The lesson froze', screenshot: null, voice: null });
         expect(el.textContent).toContain('Thank you!');
+    });
+
+    it('shows the build\'s version at the foot, and nothing for a build with none (specs/app-version-spec.md AV-D10)', async () => {
+        panelOpen.set(true);
+        const fixture = await render();
+        const el = fixture.nativeElement as HTMLElement;
+        expect(el.querySelector('.fb-version')).toBeNull();
+        fixture.componentInstance.versionText = 'v1.2.0.25 android';
+        // The panel is OnPush: a plain field changed by hand needs a mark to be drawn again.
+        fixture.componentRef.injector.get(ChangeDetectorRef).markForCheck();
+        fixture.detectChanges();
+        expect(el.querySelector('.fb-version')!.textContent!.trim()).toBe('Version v1.2.0.25 android');
     });
 
     it('shows the screenshot and lets it be removed', async () => {

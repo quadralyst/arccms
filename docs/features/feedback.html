@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Feedback button | Arc CMS docs</title>
   <meta name="description" content="Let signed-in people send a message, a voice note and a screenshot from any page, and read it all in one admin inbox.">
-  <meta name="docs:sources" content="src/app/core/feedback, src/shared/components/feedback, src/app/core/layout/full-screen.service.ts, src/app/pages/admin/(feedback), functions/src/feedback, firestore.rules, storage.rules, firestore.indexes.json">
+  <meta name="docs:sources" content="src/app/core/feedback, src/app/core/version/app-version.ts, src/shared/components/feedback, src/app/core/layout/full-screen.service.ts, src/app/pages/admin/(feedback), functions/src/feedback, firestore.rules, storage.rules, firestore.indexes.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/feedback.html">
@@ -31,6 +31,7 @@
     <div class="trap"><p>Voice notes need <code>https</code> (or <code>localhost</code>). On a plain <code>http</code> address the record button is not shown and people can only type.</p></div>
 
     <h2>Use it</h2>
+    <p>When the app has a version, it shows at the foot of the panel, such as "Version v1.2.0.25 android", and is sent with the feedback (<a href="../app/version.html">Version and build number</a>).</p>
     <h3>Voice notes</h3>
     <p>A voice note can be up to 2 minutes; recording stops by itself. The browser asks for the microphone the first time. Where the microphone is blocked, the panel says how to allow it, or to type instead. Where a browser cannot record at all, there is no record button.</p>
     <table>
@@ -46,7 +47,7 @@
     <div class="trap"><p>A game canvas (Phaser, WebGL) comes out blank unless the game keeps its drawing: set <code>preserveDrawingBuffer: true</code> in the renderer settings (in Phaser, <code>render: { preserveDrawingBuffer: true }</code>).</p></div>
 
     <h3>The inbox</h3>
-    <p>Admin, <strong>Feedback</strong> (<code>/admin/feedback</code>) lists feedback newest first, filtered <strong>New</strong>, <strong>Done</strong> or <strong>All</strong>. Each item shows who sent it and when, the message, the voice note, the screenshot (open it full size), the page and the device. <strong>Mark done</strong> moves it out of New, <strong>Mark as new</strong> moves it back, and <strong>Delete</strong> removes it with its files.</p>
+    <p>Admin, <strong>Feedback</strong> (<code>/admin/feedback</code>) lists feedback newest first, filtered <strong>New</strong>, <strong>Done</strong> or <strong>All</strong>. Each item shows who sent it and when, the message, the voice note, the screenshot (open it full size), the page, the device and, when the app has one, the build it was sent from with its commit (<code>v1.2.0.25 android · 533b6d02</code>, see <a href="../app/version.html">Version and build number</a>). <strong>Mark done</strong> moves it out of New, <strong>Mark as new</strong> moves it back, and <strong>Delete</strong> removes it with its files.</p>
     <p>Each new item rings the admin bell (notification type <code>admin_new_feedback</code>), for up to 10 items an hour from one person. Past that the feedback is still saved, without a notification. See <a href="notifications.html">Notifications</a>.</p>
 
     <h2>Extend it</h2>
@@ -70,7 +71,7 @@ inject(FeedbackService).openPanel();</code></pre>
     <table>
       <thead><tr><th>Where</th><th>What</th></tr></thead>
       <tbody>
-        <tr><td><code>Feedback/{id}</code></td><td><code>uid</code>, <code>userDocId</code>, <code>message</code> (up to 5,000 characters), <code>screenshotPath</code>, <code>voicePath</code>, <code>voiceSeconds</code>, <code>page</code>, <code>device</code>, <code>status</code> (<code>new</code> or <code>done</code>), <code>createdAt</code>, and <code>sender</code> (name, email, phone), which only the server adds.</td></tr>
+        <tr><td><code>Feedback/{id}</code></td><td><code>uid</code>, <code>userDocId</code>, <code>message</code> (up to 5,000 characters), <code>screenshotPath</code>, <code>voicePath</code>, <code>voiceSeconds</code>, <code>page</code>, <code>device</code>, <code>version</code> (the build's <code>text</code> and <code>commit</code>, only from an app with a version), <code>status</code> (<code>new</code> or <code>done</code>), <code>createdAt</code>, and <code>sender</code> (name, email, phone), which only the server adds.</td></tr>
         <tr><td>Storage <code>users/{userDocId}/feedback/{id}/</code></td><td><code>screenshot.jpg</code> (JPEG, under 5 MB) and <code>voice.mp4</code>, <code>voice.webm</code> or <code>voice.ogg</code> (audio, under 10 MB), in the sender's own folder, under the install's upload folder if it has one.</td></tr>
         <tr><td><code>Settings/feedback</code></td><td><code>{ enabled }</code>: the switch.</td></tr>
       </tbody>
@@ -82,7 +83,7 @@ inject(FeedbackService).openPanel();</code></pre>
     <table>
       <thead><tr><th>Action</th><th>Who</th></tr></thead>
       <tbody>
-        <tr><td>Send feedback</td><td>A signed-in person with an Arc CMS record, while the switch is on. The rules check that it is theirs, new, points only at those two files in their own folder, and describes the page and device with the known fields only.</td></tr>
+        <tr><td>Send feedback</td><td>A signed-in person with an Arc CMS record, while the switch is on. The rules check that it is theirs, new, points only at those two files in their own folder, and describes the page, the device and the build with the known fields only.</td></tr>
         <tr><td>Upload the screenshot and voice note</td><td>The sender, into their own folder, as new files only (never over an existing file).</td></tr>
         <tr><td>Read, mark done, delete feedback</td><td>Admins</td></tr>
         <tr><td>Read the files</td><td>The sender and admins</td></tr>

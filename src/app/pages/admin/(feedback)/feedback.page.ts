@@ -77,6 +77,9 @@ import { describeBrowser, FeedbackAdminService, type FeedbackFilter, type Feedba
                                     <span><i class="fa-solid fa-link"></i> <a [href]="item.page?.path" target="_blank" rel="noopener">{{ item.page?.path }}</a></span>
                                 }
                                 <span><i class="fa-solid fa-mobile-screen"></i> {{ device(item) }}</span>
+                                @if (item.version?.text) {
+                                    <span><i class="fa-solid fa-code-branch"></i> {{ version(item) }}</span>
+                                }
                             </div>
                             <div class="fb-actions">
                                 @if (item.status === 'new') {
@@ -158,6 +161,11 @@ export default class FeedbackInboxPage implements OnInit {
     async remove(item: FeedbackItem): Promise<void> {
         if (!confirm(this.t('admin.feedback.delete_confirm'))) return;
         await this.inbox.remove(item);
+    }
+
+    /** "v1.2.0.25 android · 533b6d02": the build, then the commit it was made from (docs/app/version.html). */
+    version(item: FeedbackItem): string {
+        return [item.version?.text, item.version?.commit].filter(Boolean).join(' · ');
     }
 
     device(item: FeedbackItem): string {

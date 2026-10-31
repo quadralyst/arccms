@@ -492,6 +492,22 @@ export function websiteBuildEnv(projectId, env = process.env) {
     return { ...rest, ARC_PROJECT: projectId };
 }
 
+/**
+ * The website build's own options, taken off the deploy's arguments so Firebase never sees
+ * them (docs/app/version.html): `--no-bump` and `--label=<text>`, handed to `npm run build`
+ * as ARC_NO_BUMP and ARC_BUILD_LABEL.
+ */
+export function splitBuildFlags(args) {
+    const env = {};
+    const rest = [];
+    for (const arg of args) {
+        if (arg === '--no-bump') env.ARC_NO_BUMP = '1';
+        else if (arg.startsWith('--label=')) env.ARC_BUILD_LABEL = arg.slice('--label='.length);
+        else rest.push(arg);
+    }
+    return { rest, env };
+}
+
 /** The `--confirm-production=<project id>` value, or null when it is not given. */
 export function confirmProductionArg(args) {
     const arg = args.find((a) => a.startsWith('--confirm-production='));
@@ -525,7 +541,8 @@ export function productionGuard(args, projectId, { marked = false, isTTY = false
  * deploy's "only what changed" (arc-deploy-state.mjs) unless `options.record`
  * is false (the menu records its own, with the function names).
  */
-export async function runDeploy(args, options = {}) {
+export async function runDeploy(allArgs, options = {}) {
+    const { rest: args, env: buildFlags } = splitBuildFlags(allArgs);
     const projectId = deployProject(args, readFirebaseAliases());
     if (!projectId) {
         console.error('No Firebase project: pass --project=<alias or id>, run firebase use, or add a "default" alias to .firebaserc.');
@@ -590,7 +607,7 @@ export async function runDeploy(args, options = {}) {
     if (builds.includes('website')) {
         console.log(`> npm run build (the website, with ${projectId}'s settings)`);
         const build = spawnSync('npm', ['run', 'build'], {
-            cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32', env: websiteBuildEnv(projectId),
+            cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32', env: { ...websiteBuildEnv(projectId), ...buildFlags },
         });
         if (build.status !== 0) {
             console.error('\nThe website build failed, so nothing was deployed.');

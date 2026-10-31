@@ -6,6 +6,7 @@ import { withStoragePrefix } from '../config/arc-config';
 import { ArcStorage } from '../config/arc-storage';
 import { detectPlatform } from '../pwa/pwa-platform';
 import { PwaService } from '../pwa/pwa.service';
+import { APP_VERSION, type AppVersion } from '../version/app-version';
 import { captureScreen } from './screenshot';
 import { audioExtension, type VoiceNote } from './voice-recorder';
 
@@ -39,6 +40,15 @@ export function describeContext(installed: boolean) {
             language: cut(navigator.language, 40),
         },
     };
+}
+
+/**
+ * The build the person is on (docs/app/version.html), for the person reading the
+ * feedback; nothing for a build with no version. The rules take these keys only
+ * (firestore.rules, isFeedbackVersion).
+ */
+export function versionContext(version: AppVersion = APP_VERSION): { version?: { text: string; commit: string } } {
+    return version.text ? { version: { text: version.text.slice(0, 100), commit: version.commit.slice(0, 24) } } : {};
 }
 
 /**
@@ -169,6 +179,7 @@ export class FeedbackService {
             message: draft.message.trim().slice(0, MAX_MESSAGE_LENGTH),
             ...files,
             ...describeContext(this.injector.get(PwaService).installed()),
+            ...versionContext(),
             status: 'new',
             createdAt: serverTimestamp(),
         }));
