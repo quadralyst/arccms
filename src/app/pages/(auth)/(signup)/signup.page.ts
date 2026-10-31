@@ -64,7 +64,7 @@ import { trackKeyboard } from '../../../core/layout/keyboard-viewport';
 import { environment } from '../../../../environments/environment';
 import { arcConfig } from '../../../core/config/arc-config';
 import { homeFor, safeRedirect } from '../../../core/home/home';
-import { useSiteStyles } from '../../../core/site/site-styles';
+import { signInSheet, useSiteStyles } from '../../../core/site/site-styles';
 import { SignInPanelComponent } from '../../page.parts/sign-in-panel.component';
 import { SiteBrandService } from '../../../core/brand/site-brand';
 import { SIGN_IN_IMAGE } from '../../../core/brand/app-brand-files';
@@ -275,9 +275,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   constructor() {
     super();
-    // The site's styles (src/custom/site/site.css). The tab is the title strategy's
-    // (core/brand/brand-title.strategy.ts): "Sign in", then the site's name once it is in.
-    useSiteStyles(['site']);
+    // The site's styles: src/custom/site/sign-in.css when the app has one, else its
+    // site.css. The tab is the title strategy's (core/brand/brand-title.strategy.ts):
+    // "Sign in", then the site's name once it is in.
+    useSiteStyles([signInSheet()]);
     // In the browser only: a server render may read another database than the browser's.
     if (isPlatformBrowser(this.platformId)) {
       this.siteBrand.load().catch(() => undefined);

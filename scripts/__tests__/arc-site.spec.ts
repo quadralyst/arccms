@@ -52,6 +52,7 @@ describe('servedPath', () => {
         ['pages/terms.html', '_site/pages/terms.html'],
         ['strings/hi.json', '_site/strings/hi.json'],
         ['site.css', 'assets/css/site.css'],
+        ['sign-in.css', 'assets/css/sign-in.css'],
         ['assets/img/hero.webp', 'site/img/hero.webp'],
         ['assets/home.js', 'site/home.js'],
         ['favicon.ico', 'favicon.ico'],
@@ -147,6 +148,15 @@ describe('siteContents', () => {
         app('assets/img/hero.webp', 'IMG-2');
         const second = siteContents(root);
         expect(second.manifest.files['site/home.css']).not.toBe(first.manifest.files['site/home.css']);
+    });
+
+    it('serves the sign-in page\'s own stylesheet only when the app has one, versioned', () => {
+        expect(siteContents(root).manifest.files['assets/css/sign-in.css']).toBeUndefined();
+        app('assets/img/hero.webp', 'IMG');
+        app('sign-in.css', ':root{--arc-sign-in-accent:#4a90e2} .x{background:url(/site/img/hero.webp)}');
+        const { manifest } = siteContents(root);
+        expect(manifest.files['assets/css/sign-in.css']).toMatch(/^[0-9a-f]{16}$/);
+        expect(readSiteFile(root, 'assets/css/sign-in.css')).toContain(`url(/site/img/hero.webp?v=${manifest.files['site/img/hero.webp']})`);
     });
 
     it('leaves Arc CMS\'s own stylesheets as they are', () => {

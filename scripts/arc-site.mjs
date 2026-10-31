@@ -13,6 +13,7 @@
  *   src/custom/site/pages/{name}.html               /_site/pages/{name}.html
  *   src/custom/site/strings/{lang}.json             /_site/strings/{lang}.json, merged over core's
  *   src/custom/site/site.css                        /assets/css/site.css
+ *   src/custom/site/sign-in.css                     /assets/css/sign-in.css (the sign-in page's own, in place of site.css)
  *   src/custom/site/assets/...                      /site/...
  *   src/custom/site/favicon.ico, 403.html, 404.html /favicon.ico, /403.html, /404.html
  *   CUSTOM_NOTICES (src/custom/notices.ts)          /_site/notices.json (the app's sign-up and contact notices)
@@ -50,7 +51,7 @@ export const MANIFEST_PATH = '_site/site.json';
  * Served files that keep their name across builds but must reach browsers when
  * they change (Hosting lets browsers keep CSS for a year): linked with `?v={hash}`.
  */
-export const VERSIONED = ['assets/css/main.css', 'assets/css/site.css', 'assets/js/arc-site.js'];
+export const VERSIONED = ['assets/css/main.css', 'assets/css/site.css', 'assets/css/sign-in.css', 'assets/js/arc-site.js'];
 
 /** The three files a template folder can have. */
 export const TEMPLATE_FILES = ['partials', 'list', 'detail'];
@@ -71,7 +72,7 @@ const APP_RULES = [
     [new RegExp(`^templates/${NAME}/(${TEMPLATE_FILES.join('|')}|detail-${NAME})\\.html$`), (p) => `_site/${p}`],
     [new RegExp(`^pages/${NAME}\\.html$`), (p) => `_site/${p}`],
     [new RegExp(`^strings/${LANG}\\.json$`), (p) => `_site/${p}`],
-    [/^site\.css$/, () => 'assets/css/site.css'],
+    [/^(site|sign-in)\.css$/, (p) => `assets/css/${p}`],
     [/^assets\/.+/, (p) => `site/${p.slice('assets/'.length)}`],
     [/^(favicon\.ico|403\.html|404\.html)$/, (p) => p],
 ];

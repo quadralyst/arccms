@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { SiteStylesService } from './site-styles';
+import { SiteStylesService, signInSheet } from './site-styles';
 import { siteManifest } from './site';
 
 describe('SiteStylesService', () => {
@@ -43,6 +43,13 @@ describe('SiteStylesService', () => {
         a();
         a();
         expect(link('site')!.disabled).toBe(false);
+    });
+
+    it('gives the sign-in page the app\'s sign-in.css when it has one, else its site.css', () => {
+        expect(signInSheet({ 'assets/css/site.css': 'a' })).toBe('site');
+        expect(signInSheet({ 'assets/css/site.css': 'a', 'assets/css/sign-in.css': 'b' })).toBe('sign-in');
+        service.use(['sign-in']);
+        expect(link('sign-in')!.getAttribute('href')).toMatch(/^\/assets\/css\/sign-in\.css(\?v=\w+)?$/);
     });
 
     it('reuses a link already in a prerendered page', () => {

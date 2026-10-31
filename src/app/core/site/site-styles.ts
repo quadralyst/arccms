@@ -4,6 +4,8 @@
  *
  * `main.css` (Arc CMS's site styles) and `site.css` (the app's,
  * src/custom/site/site.css) style the header, footer, templates and sign-in page.
+ * An app whose site.css is a whole theme can give the sign-in page a stylesheet of
+ * its own, src/custom/site/sign-in.css (`sign-in`), loaded there in place of site.css.
  * Loaded for good, they would also style the admin area and the member area,
  * which share class names such as `.navbar` and `.nav-link`. So each is one
  * `<link>` that the website's components switch on while they are shown and that
@@ -15,12 +17,18 @@ import { DOCUMENT } from '@angular/common';
 import { DestroyRef, Injectable, inject } from '@angular/core';
 import { siteManifest } from './site';
 
-export type SiteSheet = 'main' | 'site';
+export type SiteSheet = 'main' | 'site' | 'sign-in';
 
 const FILES: Record<SiteSheet, string> = {
     main: 'assets/css/main.css',
     site: 'assets/css/site.css',
+    'sign-in': 'assets/css/sign-in.css',
 };
+
+/** The sign-in page's sheet: the app's sign-in.css when it has one, else its site.css. */
+export function signInSheet(files: Record<string, string> = siteManifest().files): SiteSheet {
+    return files[FILES['sign-in']] ? 'sign-in' : 'site';
+}
 
 @Injectable({ providedIn: 'root' })
 export class SiteStylesService {

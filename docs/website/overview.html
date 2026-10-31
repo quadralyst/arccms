@@ -82,6 +82,7 @@
         <tr><td><code class="new">src/custom/site/pages/</code></td><td>Hand-written static pages, for text that never changes (About, Contact and the policies are standard pages edited in the admin)</td></tr>
         <tr><td><code class="new">src/custom/site/sign-in.html</code></td><td>The brand panel of the sign-in page</td></tr>
         <tr><td><code class="new">src/custom/site/site.css</code></td><td>Styles for every public page and the sign-in page</td></tr>
+        <tr><td><code class="new">src/custom/site/sign-in.css</code></td><td>The sign-in page's own styles, in place of <code>site.css</code> there, for a site whose <code>site.css</code> is a whole theme (<a href="sign-in-page.html#own-stylesheet">A stylesheet of its own</a>)</td></tr>
         <tr><td><code class="new">src/custom/site/strings/</code></td><td>The translations of your header, footer and templates</td></tr>
         <tr><td><code class="new">src/custom/site/assets/</code></td><td>Images, scripts and fonts, served at <code>/site/...</code> and linked with their version, so a change reaches every visitor</td></tr>
         <tr><td><code class="new">src/custom/site/redirects.json</code></td><td>The old addresses of the site you are replacing and the new pages they go to (<a href="redirects.html">Redirect old addresses</a>)</td></tr>
@@ -100,7 +101,7 @@
         <tr><td><code>templates/{folder}/partials.html</code>, <code>list.html</code>, <code>detail.html</code>, <code>detail-{name}.html</code></td><td><code>/_site/templates/{folder}/</code></td></tr>
         <tr><td><code>pages/{name}.html</code></td><td><code>/_site/pages/</code>, and published at <code>/p/{name}</code></td></tr>
         <tr><td><code>strings/{lang}.json</code></td><td><code>/_site/strings/</code></td></tr>
-        <tr><td><code>site.css</code></td><td><code>/assets/css/site.css</code></td></tr>
+        <tr><td><code>site.css</code>, <code>sign-in.css</code></td><td><code>/assets/css/</code>, under the same name</td></tr>
         <tr><td><code>assets/</code> and anything inside it</td><td><code>/site/</code>, so <code>assets/images/logo.png</code> is <code>/site/images/logo.png</code></td></tr>
         <tr><td><code>favicon.ico</code>, <code>403.html</code>, <code>404.html</code></td><td>The root: <code>/favicon.ico</code>, <code>/403.html</code>, <code>/404.html</code>. Without a <code>favicon.ico</code> here, an app with a PWA icon gets its tab icon made from that (see <a href="../features/pwa.html#tab-icon">The tab icon</a>); with one, this file is the tab icon. <code>/403.html</code> is the plain page the hosting serves; the no-permission page inside the app is Arc CMS's own and follows the person's language</td></tr>
       </tbody>

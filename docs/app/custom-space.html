@@ -95,7 +95,7 @@
     </table>
 
     <h2>Styles and translations</h2>
-    <p>Put global styles in <code>src/custom/styles.css</code>. Styles for one page belong in that page's component. Styles for the public website (header, footer, templates) go in <code class="new">src/custom/site/site.css</code>, and so does the sign-in page's look, set through its <code>--arc-sign-in-*</code> variables (see <a href="../website/sign-in-page.html#look">Brand the sign-in page</a>); the words of the website's templates go in <code class="new">src/custom/site/strings/</code> (see <a href="../website/languages.html">Publish in more than one language</a>).</p>
+    <p>Put global styles in <code>src/custom/styles.css</code>. Styles for one page belong in that page's component. Styles for the public website (header, footer, templates) go in <code class="new">src/custom/site/site.css</code>, and so does the sign-in page's look, set through its <code>--arc-sign-in-*</code> variables (see <a href="../website/sign-in-page.html#look">Brand the sign-in page</a>), unless the sign-in page has a stylesheet of its own, <code class="new">src/custom/site/sign-in.css</code>; the words of the website's templates go in <code class="new">src/custom/site/strings/</code> (see <a href="../website/languages.html">Publish in more than one language</a>).</p>
     <p>Add the app's words to <code>src/custom/i18n/en.json</code> under a <code>custom</code> key. A key that already exists in core is reworded for the whole admin:</p>
     <pre><code>{
   "custom": { "nav": { "lessons": "Lessons" } },
