@@ -96,8 +96,25 @@ describe('checking the redirects', () => {
         expect(caught({ source: '/{admin,old}' })[0]).toContain('/admin');
         expect(caught({ regex: '.*' })[0]).toContain('/admin');
         expect(caught({ regex: '^/(?P<area>admin|old)$' })[0]).toContain('/admin');
+        // Every old .html page at once would also take the site's own templates and pages.
+        expect(caught({ source: '**/*.html' })[0]).toContain('would also catch /_site/');
+        expect(caught({ source: '/**/*.html' })[0]).toContain('/_site/');
+        expect(caught({ regex: '^/(.*)\\.html$' })[0]).toContain('/_site/');
+        expect(caught({ regex: '^/(?P<path>.+)\\.json$' })[0]).toContain('/_site/');
+        expect(caught({ source: '**/*.@(css|js)' })[0]).toContain('/assets/');
+        expect(caught({ source: '**/home.html' })[0]).toContain('/_site/');
+        expect(caught({ source: '**/list.html' })[0]).toContain('/_site/');
+        // The search engine files.
+        expect(caught({ source: '/sitemap.xml' })[0]).toContain('/sitemap.xml');
+        expect(caught({ source: '**/*.xml' })[0]).toContain('/sitemap.xml');
+        expect(caught({ source: '/robots.txt' })[0]).toContain('/robots.txt');
+        expect(caught({ source: '/:file.txt' })[0]).toContain('/robots.txt');
+        expect(caught({ source: '/llms.txt' })[0]).toContain('/llms.txt');
         // Narrow ones are fine, also next to those addresses.
         expect(caught({ source: '/admin-old.html' })).toEqual([]);
+        expect(caught({ source: '/:page.html' })).toEqual([]);
+        expect(caught({ source: '/blog/**/*.html' })).toEqual([]);
+        expect(caught({ source: '/sitemap-posts.xml' })).toEqual([]);
         expect(caught({ source: '/old-site/**' })).toEqual([]);
         expect(caught({ regex: '^/old/(.*)$' })).toEqual([]);
     });

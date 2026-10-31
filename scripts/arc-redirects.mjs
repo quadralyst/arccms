@@ -34,19 +34,31 @@ export const REDIRECT_TYPES = [301, 302];
 const FIELDS = ['source', 'regex', 'destination', 'type'];
 
 /**
- * Addresses Arc CMS needs for itself, with a sample request under each. A redirect
- * that matches one would break the admin, the site's own files or a function, so it
- * is refused. Firebase's own /__/ addresses never redirect at all.
+ * Addresses Arc CMS needs for itself, with sample requests under each: one of every
+ * kind of file served there, so a pattern for every .html address is caught by the
+ * templates it would take. A redirect that matches one would break the admin, the
+ * site's own files, its search engine files or a function, so it is refused.
+ * Firebase's own /__/ addresses never redirect at all.
  */
 export const RESERVED_PATHS = [
     { path: '/admin', samples: ['/admin', '/admin/dashboard'] },
-    { path: '/assets/', samples: ['/assets/css/main.css'] },
-    { path: '/_site/', samples: ['/_site/site.json'] },
-    { path: '/site/', samples: ['/site/images/logo.png'] },
+    { path: '/assets/', samples: ['/assets/css/main.css', '/assets/css/site.css', '/assets/js/arc-site.js'] },
+    {
+        path: '/_site/',
+        samples: [
+            '/_site/site.json', '/_site/header.html', '/_site/footer.html', '/_site/home.html', '/_site/sign-in.html',
+            '/_site/templates/default/detail.html', '/_site/templates/default/list.html', '/_site/templates/default/partials.html',
+            '/_site/pages/terms.html', '/_site/strings/en.json',
+        ],
+    },
+    { path: '/site/', samples: ['/site/images/logo.png', '/site/home.css', '/site/home.js'] },
     { path: '/_arc/', samples: ['/_arc/version.json'] },
     { path: '/__/', samples: ['/__/auth/handler'] },
     { path: '/unsubscribe', samples: ['/unsubscribe'] },
     { path: '/email-preferences', samples: ['/email-preferences'] },
+    { path: '/sitemap.xml', samples: ['/sitemap.xml'] },
+    { path: '/robots.txt', samples: ['/robots.txt'] },
+    { path: '/llms.txt', samples: ['/llms.txt'] },
 ];
 
 const escapeRegex = (text) => text.replace(/[.+^${}()|[\]\\]/g, '\\$&');

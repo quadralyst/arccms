@@ -45,7 +45,7 @@
       <li>each redirect has a <code>source</code> or a <code>regex</code>, not both, and a <code>destination</code> that is a path or an http(s) URL;</li>
       <li><code>type</code>, when given, is <code>301</code> or <code>302</code>; any other field is refused, so a misspelt one never goes unnoticed;</li>
       <li>no <code>source</code> or <code>regex</code> appears twice, since Hosting would only ever use the first, and no redirect sends an address to itself;</li>
-      <li>no redirect catches an address Arc CMS needs: <code>/admin</code>, <code>/assets/</code>, <code>/_site/</code>, <code>/site/</code>, <code>/_arc/</code>, <code>/__/</code>, <code>/unsubscribe</code> and <code>/email-preferences</code>. A pattern as wide as <code>**</code> or <code>/:page</code> catches <code>/admin</code> and is refused too.</li>
+      <li>no redirect catches an address Arc CMS needs: <code>/admin</code>, <code>/assets/</code>, <code>/_site/</code>, <code>/site/</code>, <code>/_arc/</code>, <code>/__/</code>, <code>/unsubscribe</code>, <code>/email-preferences</code>, and the search engine files <code>/sitemap.xml</code>, <code>/robots.txt</code> and <code>/llms.txt</code>. A pattern as wide as <code>**</code> or <code>/:page</code> catches <code>/admin</code> and is refused too, and so is one for every old <code>.html</code> address (<code>**/*.html</code>, <code>^/(.*)\.html$</code>): it would also take the site's own templates and pages under <code>/_site/</code>. Limit it to the old site's folders or to one level, such as <code>/blog/**/*.html</code> or <code>/:page.html</code>.</li>
     </ul>
 
     <h2>Try them</h2>
