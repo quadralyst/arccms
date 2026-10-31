@@ -51,6 +51,8 @@
     height: 40px;
     object-fit: contain;
     flex-shrink: 0;
+    // An app's logo made to read on its panel, such as white on a dark one (docs/app/admin-look.html)
+    filter: var(--arc-admin-panel-logo-filter, none);
 }
 
 // Arc CMS's own small logo, drawn as it always was
