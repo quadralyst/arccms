@@ -76,6 +76,10 @@
                 <i class="{{item.isOpen ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'}} menu-arrow-icon fs-6"></i>
                 }
             </a>
+            @if (item.id === 'logout' && versionText && isExpanded) {
+            <!-- The build's version (docs/app/version.html), for support to ask about. -->
+            <div class="app-version" role="note" [attr.aria-label]="versionLabel()">{{ versionText }}</div>
+            }
             }
 
             @if (item.subItems && item.isOpen) {

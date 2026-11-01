@@ -40,6 +40,10 @@
  * - before a deploy that includes functions, checks that they run next to the
  *   database (scripts/arc-region.mjs): with none deployed yet they go where the
  *   database is; deployed elsewhere, it warns and deploys anyway;
+ * - before a deploy that includes functions, sets the cleanup policy of their
+ *   container images (scripts/arc-artifact-cleanup.mjs), so the Firebase CLI never
+ *   stops at its own question about it; on a first deploy, as soon as the deploy
+ *   creates the image repository;
  * - before a deploy that includes functions with the sms feature, checks once per
  *   project that phone sign-in can sign people in (scripts/arc-sign-in-setup.mjs),
  *   and on a terminal offers to set it up; never stops the deploy;
@@ -55,6 +59,11 @@
  *   never drop to the browser app between the deploy and the republish. Every
  *   other target goes through `firebase deploy` as before (`--except hosting`).
  *   When that fails, the website is not deployed, and the deploy says so;
+ * - puts the app's own redirects (src/custom/site/redirects.json, scripts/arc-redirects.mjs)
+ *   first in the Hosting config of that channel deploy, whichever config the project
+ *   uses (firebase.<projectId>.json or firebase.json): the live release copies the
+ *   channel's config, so they go live with the build. A bad redirects file stops the
+ *   deploy before anything is built;
  * - for a project marked production (arc:configure --production=yes), needs
  *   --confirm-production=<its project id>, or on a terminal the id typed back;
  *   off a terminal without it, nothing is deployed (productionGuard).
@@ -63,7 +72,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -73,8 +82,12 @@ import { deployedParts, gitHead, readState, recordDeploy, writeState } from './a
 import { builtArccms, isCloudFunction } from './arc-built-functions.mjs';
 import { main as configure, normalizeConfig, refreshFirebaseConfig } from './arc-configure.mjs';
 import { checkSignInSetup, smsBuilt } from './arc-sign-in-setup.mjs';
+import {
+    applyPolicy, cleanupSetting, cliFoundNoPolicy, ensureCleanupPolicy, forgetPolicy, reportPolicy, watchForRepository,
+} from './arc-artifact-cleanup.mjs';
 import { enabledFeatures } from './arc-features.mjs';
 import { channelDeployArgs, hostingSiteOf, releaseWebsite, withoutHosting } from './arc-hosting-release.mjs';
+import { APP_REDIRECTS, readAppRedirects, writeWebsiteConfig } from './arc-redirects.mjs';
 import {
     DEFAULT_FUNCTIONS_REGION, countArccms, databaseLocation, lookupDatabaseLocation, regionDecision, regionWarning,
 } from './arc-region.mjs';
@@ -419,13 +432,31 @@ export function websiteSkippedMessage(projectId) {
         + `and publish its pages:\n  npm run deploy -- --only hosting --project ${projectId}\n  npm run seed -- ${projectId}`;
 }
 
+/**
+ * What the deploy adds when the Firebase CLI asks about the image cleanup policy after
+ * all: its question does not show through the wrapper, only a bare `>` (found 2026-10-30).
+ */
+export const CLEANUP_PROMPT_HINT = '\nThe Firebase CLI is asking how many days to keep the functions\' container images. '
+    + 'Type a number and press Enter; after the deploy, Arc CMS sets the project\'s artifactCleanupDays (1 unless set).\n';
+
+/** Whether the CLI can ask its own questions in this deploy: a terminal, and neither --force nor --non-interactive. */
+export function cliMayAsk(args, isTTY = !!process.stdin.isTTY) {
+    return isTTY && !args.includes('--force') && !args.includes('--non-interactive');
+}
+
 /** Runs a command with its output streamed live and also collected. */
 function run(cmd, args) {
     return new Promise((resolvePromise) => {
         const child = spawn(cmd, args, { stdio: ['inherit', 'pipe', 'pipe'], shell: process.platform === 'win32' });
         let output = '';
-        child.stdout.on('data', (chunk) => { process.stdout.write(chunk); output += chunk; });
-        child.stderr.on('data', (chunk) => { process.stderr.write(chunk); output += chunk; });
+        const hint = cmd === 'firebase' && cliMayAsk(args);
+        const collect = (stream) => (chunk) => {
+            stream.write(chunk);
+            if (hint && !cliFoundNoPolicy(output) && cliFoundNoPolicy(output + chunk)) process.stdout.write(CLEANUP_PROMPT_HINT);
+            output += chunk;
+        };
+        child.stdout.on('data', collect(process.stdout));
+        child.stderr.on('data', collect(process.stderr));
         child.on('close', (code) => resolvePromise({ status: code ?? 1, output }));
         child.on('error', (err) => resolvePromise({ status: 1, output: String(err) }));
     });
@@ -461,6 +492,22 @@ export function websiteBuildEnv(projectId, env = process.env) {
     return { ...rest, ARC_PROJECT: projectId };
 }
 
+/**
+ * The website build's own options, taken off the deploy's arguments so Firebase never sees
+ * them (docs/app/version.html): `--no-bump` and `--label=<text>`, handed to `npm run build`
+ * as ARC_NO_BUMP and ARC_BUILD_LABEL.
+ */
+export function splitBuildFlags(args) {
+    const env = {};
+    const rest = [];
+    for (const arg of args) {
+        if (arg === '--no-bump') env.ARC_NO_BUMP = '1';
+        else if (arg.startsWith('--label=')) env.ARC_BUILD_LABEL = arg.slice('--label='.length);
+        else rest.push(arg);
+    }
+    return { rest, env };
+}
+
 /** The `--confirm-production=<project id>` value, or null when it is not given. */
 export function confirmProductionArg(args) {
     const arg = args.find((a) => a.startsWith('--confirm-production='));
@@ -494,7 +541,8 @@ export function productionGuard(args, projectId, { marked = false, isTTY = false
  * deploy's "only what changed" (arc-deploy-state.mjs) unless `options.record`
  * is false (the menu records its own, with the function names).
  */
-export async function runDeploy(args, options = {}) {
+export async function runDeploy(allArgs, options = {}) {
+    const { rest: args, env: buildFlags } = splitBuildFlags(allArgs);
     const projectId = deployProject(args, readFirebaseAliases());
     if (!projectId) {
         console.error('No Firebase project: pass --project=<alias or id>, run firebase use, or add a "default" alias to .firebaserc.');
@@ -542,6 +590,16 @@ export async function runDeploy(args, options = {}) {
     // The website goes its own way, keeping the published pages; the rest through `firebase deploy`.
     const firebaseConfig = generatedConfig ?? readJsonFile(resolve(ROOT, 'firebase.json'));
     const website = deploysWebsite(args) && !!firebaseConfig?.hosting;
+    // The app's redirects, checked before anything is built or deployed.
+    let redirects = [];
+    if (website) {
+        try {
+            redirects = readAppRedirects(ROOT);
+        } catch (error) {
+            console.error(`${error.message}\nNothing was deployed.`);
+            return { status: 1, created: [] };
+        }
+    }
     const mainArgs = website ? withoutHosting(args) : args;
     const firebaseArgs = mainArgs ? deployArgs(mainArgs, generated, projectId) : null;
     const builds = buildsFor({ website, functions: deploysFunctions(args), functionsBuilt: !!options.built });
@@ -549,7 +607,7 @@ export async function runDeploy(args, options = {}) {
     if (builds.includes('website')) {
         console.log(`> npm run build (the website, with ${projectId}'s settings)`);
         const build = spawnSync('npm', ['run', 'build'], {
-            cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32', env: websiteBuildEnv(projectId),
+            cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32', env: { ...websiteBuildEnv(projectId), ...buildFlags },
         });
         if (build.status !== 0) {
             console.error('\nThe website build failed, so nothing was deployed.');
@@ -585,10 +643,27 @@ export async function runDeploy(args, options = {}) {
             toDelete = removed;
         }
     }
+    // The image cleanup policy, so the CLI does not stop to ask (arc-artifact-cleanup.mjs).
+    // Read after the region check: a first deploy may just have chosen the region.
+    let cleanup = null;
+    let cleanupWatch = null;
+    if (deploysFunctions(args) && !args.includes('--dry-run')) {
+        cleanup = { region: functionsRegionOf(projectId), setting: cleanupSetting(projectConfig(projectId)), deps: options.cleanupDeps ?? cleanupDeps() };
+        const first = await ensureCleanupPolicy(projectId, cleanup);
+        if (first === 'missing' || first === 'failed') cleanupWatch = watchForRepository(projectId, cleanup);
+    }
     let deploy = { status: 0, output: '' };
     if (firebaseArgs) {
         console.log(`> firebase ${firebaseArgs.join(' ')}`);
         deploy = await run('firebase', firebaseArgs);
+    }
+    // A first deploy has created the repository by now; the retries below find the policy set.
+    if (cleanupWatch) await cleanupWatch.stop();
+    else if (cleanup && cliFoundNoPolicy(deploy.output)) {
+        // The remembered policy is gone (removed by hand, or the repository recreated): set it again.
+        try { cleanup.deps.save(forgetPolicy(cleanup.deps.readState(), projectId)); } catch { /* a remembered policy is a convenience */ }
+        const again = await applyPolicy(projectId, cleanup);
+        reportPolicy(again.result, projectId, cleanup, again.output);
     }
     let status = deploy.status;
     const created = new Set(createdFunctions(deploy.output));
@@ -641,7 +716,7 @@ export async function runDeploy(args, options = {}) {
         status = status || 1;
     }
 
-    if (website && status === 0) status = await deployWebsite(projectId, generated ? generatedConfigPath(projectId) : null, firebaseConfig);
+    if (website && status === 0) status = await deployWebsite(projectId, generated ? generatedConfigPath(projectId) : null, firebaseConfig, redirects);
     else if (website) console.error(websiteSkippedMessage(projectId));
 
     if (status === 0 && projectId && deploysFunctions(args) && args.includes('--probe')) {
@@ -668,6 +743,11 @@ export async function runDeploy(args, options = {}) {
     return { status, created: [...created].sort() };
 }
 
+/** The image cleanup policy's state and log, as a deploy uses them. */
+function cleanupDeps() {
+    return { readState, save: writeState, log: console.log };
+}
+
 /** Whether the seo feature is on (src/custom/features.ts); when that cannot be read, its files are kept. */
 async function seoOn() {
     try {
@@ -688,11 +768,21 @@ function readJsonFile(path) {
 /**
  * The website, keeping the published pages: the build to the deploy channel,
  * then one live release of the build and the published files. Returns the exit status.
+ * With app redirects, the channel deploy uses a copy of the project's config with them
+ * first (writeWebsiteConfig), removed once the channel has it.
  */
-async function deployWebsite(projectId, configPath, firebaseConfig) {
-    const channelArgs = channelDeployArgs({ projectId, configPath: configPath ? relative(process.cwd(), configPath) || configPath : null });
+async function deployWebsite(projectId, configPath, firebaseConfig, redirects = []) {
+    const websiteConfig = writeWebsiteConfig(projectId, firebaseConfig, redirects, ROOT);
+    if (websiteConfig) console.log(`> ${redirects.length} redirect(s) from ${APP_REDIRECTS}, ahead of Arc CMS's own`);
+    const used = websiteConfig ?? configPath;
+    const channelArgs = channelDeployArgs({ projectId, configPath: used ? relative(process.cwd(), used) || used : null });
     console.log(`> firebase ${channelArgs.join(' ')}`);
-    const channel = await run('firebase', channelArgs);
+    let channel;
+    try {
+        channel = await run('firebase', channelArgs);
+    } finally {
+        if (websiteConfig) rmSync(websiteConfig, { force: true });
+    }
     if (channel.status !== 0) {
         console.error('\nThe website build could not be uploaded; the live site is unchanged.');
         return channel.status || 1;

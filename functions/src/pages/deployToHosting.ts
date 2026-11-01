@@ -153,15 +153,42 @@ async function writeDeploymentLog(
     }
 }
 
+/** Firestore's "No document to update" (gRPC 5, NOT_FOUND). */
+function isNotFound(error: any): boolean {
+    return error?.code === 5 || error?.code === 'not-found' || /\bNOT_FOUND\b/.test(String(error?.message ?? ''));
+}
+
+/**
+ * Stamps the deploy status on the release's document. With `create`, the
+ * document is made when it does not exist (a merge write): for a status-only
+ * record such as static_pages/{slug}, which nothing else writes. Otherwise a
+ * missing document (a content item deleted while its page was released, a list
+ * page's placeholder) has nothing to stamp, and that is said, not thrown: it
+ * used to make a release that went out read as failed (found 2026-10-30).
+ * Resolves with whether the status was written.
+ */
 async function updateDeployStatus(
     collectionName: string,
     docId: string,
     fields: Record<string, any>,
-): Promise<void> {
+    create = false,
+): Promise<boolean> {
     // A site-wide release belongs to no single document — there is nothing to
     // stamp, and `doc('')` would throw where the deploy itself succeeded.
-    if (!collectionName || !docId) return;
-    await db.collection(collectionName).doc(docId).update(fields);
+    if (!collectionName || !docId) return false;
+    const ref = db.collection(collectionName).doc(docId);
+    if (create) {
+        await ref.set(fields, { merge: true });
+        return true;
+    }
+    try {
+        await ref.update(fields);
+        return true;
+    } catch (error) {
+        if (!isNotFound(error)) throw error;
+        console.log(`No ${collectionName}/${docId} to record the deploy status on (deployStatus ${fields.deployStatus}); nothing else is affected.`);
+        return false;
+    }
 }
 
 // ─── Deploy Batch ───────────────────────────────────────────────────────────
@@ -254,6 +281,12 @@ export interface DeployBatchOptions {
     busyRetries?: number;
     /** Called with the reason when the release does not go out, before it returns false. */
     onFailure?: (failure: DeployFailure) => void;
+    /**
+     * Create the status document when it does not exist yet, for a document that
+     * only records deploys (static_pages/{slug}). Without it, a missing document
+     * is left missing: a content item must not come back as a stub.
+     */
+    createStatusDoc?: boolean;
 }
 
 /**
@@ -274,6 +307,8 @@ export interface DeployBatchOptions {
  * Updates deploy status fields on the content document. A site-wide release
  * (no collection or document) has neither, so a failure is logged instead.
  * Resolves with whether the release went out: a failed release is recorded, not thrown.
+ * Step 10 (the status) comes after the release: when it fails, the release still
+ * went out, so it is logged as a status error and the call still resolves true.
  */
 export async function deployBatchToHosting(
     siteId: string,
@@ -291,14 +326,18 @@ export async function deployBatchToHosting(
     if (!siteId) {
         // Hosting is off for this install (ARC_HOSTING_SITE=none, CO5). Say so on
         // the content, so the editor reports it instead of waiting for a release.
-        await updateDeployStatus(collectionName, docId, {
-            deployStatus: 'skipped',
-            deployedAt: new Date(),
-            deployError: 'Publishing to the website is turned off for this install (ARC_HOSTING_SITE=none). '
-                + 'The content is saved; no page was released.',
-            deployErrorCode: 'HOSTING_OFF',
-            deployDurationMs: 0,
-        });
+        try {
+            await updateDeployStatus(collectionName, docId, {
+                deployStatus: 'skipped',
+                deployedAt: new Date(),
+                deployError: 'Publishing to the website is turned off for this install (ARC_HOSTING_SITE=none). '
+                    + 'The content is saved; no page was released.',
+                deployErrorCode: 'HOSTING_OFF',
+                deployDurationMs: 0,
+            }, options.createStatusDoc);
+        } catch (error: any) {
+            console.error(`Could not record the skipped release on ${collectionName}/${docId}: ${error?.message ?? error}`);
+        }
         console.log(`Hosting is off; skipped releasing ${batch.size} file(s) (${filePath}).`);
         return false;
     }
@@ -418,19 +457,6 @@ export async function deployBatchToHosting(
                 console.warn(`${error.message} Waiting for it once more (${filePath}).`);
             }
         }
-
-        // Step 10: Update Firestore status
-        const deployDurationMs = Date.now() - startedAt.getTime();
-        await updateDeployStatus(collectionName, docId, {
-            deployStatus: 'deployed',
-            deployedAt: new Date(),
-            deployedUrl: filePath.replace(/\.html$/, ''),
-            deployError: '',
-            deployErrorCode: '',
-            deployDurationMs,
-        });
-        addStep(steps, 10, 'Update Firestore status', 'success');
-
     } catch (err: any) {
         errorMessage = err.message || 'Unknown error';
         errorCode = err.code || 'DEPLOY_UNKNOWN';
@@ -447,9 +473,31 @@ export async function deployBatchToHosting(
                 deployError: `Hosting deployment failed at Step ${failedStepNum}/10.\n${errorMessage}\nFile: ${filePath} | DocId: ${docId}\nTimestamp: ${new Date().toISOString()}`,
                 deployErrorCode: errorCode,
                 deployDurationMs,
-            });
+            }, options.createStatusDoc);
         } catch {
             // Swallow — can't update status
+        }
+    }
+
+    // Step 10: Update Firestore status. Outside the release's try: the files are
+    // live by now, so a failure here is a status that was not recorded, not a
+    // failed release.
+    if (!errorMessage) {
+        try {
+            const recorded = await updateDeployStatus(collectionName, docId, {
+                deployStatus: 'deployed',
+                deployedAt: new Date(),
+                deployedUrl: filePath.replace(/\.html$/, ''),
+                deployError: '',
+                deployErrorCode: '',
+                deployDurationMs: Date.now() - startedAt.getTime(),
+            }, options.createStatusDoc);
+            addStep(steps, 10, 'Update Firestore status', recorded ? 'success' : 'skipped',
+                recorded ? undefined : 'No document to record it on');
+        } catch (err: any) {
+            const message = err?.message || 'Unknown error';
+            console.error(`Released ${batch.size} file(s) (${filePath}), but could not record the deploy status on ${collectionName}/${docId}: ${message}`);
+            addStep(steps, 10, 'Update Firestore status', 'failed', 'The release went out', message);
         }
     }
 
@@ -482,12 +530,14 @@ export async function deployFileToHosting(
     htmlContent: string,
     collectionName: string,
     docId: string,
+    options: DeployBatchOptions = {},
 ): Promise<void> {
     await deployBatchToHosting(
         siteId,
         new HostingBatch().add(filePath, htmlContent),
         collectionName,
         docId,
+        options,
     );
 }
 

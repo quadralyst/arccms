@@ -140,7 +140,8 @@
       "sending": "Sending...",
       "thanks": "Thank you! We got your feedback.",
       "send_failed": "Could not send. Check your connection and try again.",
-      "taking_screenshot": "Taking a screenshot..."
+      "taking_screenshot": "Taking a screenshot...",
+      "version": "Version {{ version }}"
     },
     "version": {
       "not_loaded": "This page could not load. A newer version of the site is out.",
@@ -206,7 +207,8 @@
       "open_menu": "Open menu",
       "close_menu": "Close menu",
       "collapse_menu": "Collapse menu",
-      "expand_menu": "Expand menu"
+      "expand_menu": "Expand menu",
+      "version": "Version {{ version }}"
     },
     "settings": {
       "localization": {

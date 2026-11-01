@@ -28,7 +28,7 @@ import { Auth } from '@angular/fire/auth';
 import { Firestore } from '@angular/fire/firestore';
 import { ArcStorage } from '../config/arc-storage';
 import { PwaService } from '../pwa/pwa.service';
-import { FeedbackService } from './feedback.service';
+import { FeedbackService, versionContext } from './feedback.service';
 
 function setup() {
     TestBed.configureTestingModule({
@@ -93,6 +93,8 @@ describe('FeedbackService', () => {
         const [, saved] = fs.setDoc.mock.calls[0] as any;
         expect(saved).not.toHaveProperty('screenshotPath');
         expect(saved).not.toHaveProperty('voicePath');
+        // No version in the tests, as in a build with none: nothing is sent for it.
+        expect(saved).not.toHaveProperty('version');
     });
 
     it('still sends the words when the screenshot will not upload', async () => {
@@ -109,5 +111,16 @@ describe('FeedbackService', () => {
         service.userDocId.set(null);
         await expect(service.send({ message: 'Hi', screenshot: null, voice: null })).rejects.toThrow();
         expect(fs.setDoc).not.toHaveBeenCalled();
+    });
+});
+
+describe('versionContext (specs/app-version-spec.md AV-D10)', () => {
+    it('sends the build and its commit', () => {
+        expect(versionContext({ text: 'v1.2.0.25 android', version: '1.2.0', build: 25, label: 'android', commit: '533b6d02' }))
+            .toEqual({ version: { text: 'v1.2.0.25 android', commit: '533b6d02' } });
+    });
+
+    it('sends nothing for a build with no version', () => {
+        expect(versionContext({ text: '', version: '', build: null, label: '', commit: '533b6d02' })).toEqual({});
     });
 });

@@ -51,7 +51,7 @@ vi.mock('../init', () => ({
     },
 }));
 
-import { deployFileToHosting, removeFileFromHosting } from '../pages/deployToHosting.js';
+import { HostingBatch, deployBatchToHosting, deployFileToHosting, removeFileFromHosting } from '../pages/deployToHosting.js';
 import { GoogleAuth } from 'google-auth-library';
 
 // ─── Test Helpers ───────────────────────────────────────────────────────────
@@ -354,6 +354,66 @@ describe('deployFileToHosting', () => {
     });
 });
 
+describe('the deploy status, recorded after the release (found 2026-10-30)', () => {
+    /** What Firestore throws for update() on a document that does not exist. */
+    const notFound = () => Object.assign(new Error('5 NOT_FOUND: No document to update: projects/p/databases/(default)/documents/static_pages/cookie-policy'), { code: 5 });
+    let errors: ReturnType<typeof vi.spyOn>;
+    beforeEach(() => {
+        vi.resetAllMocks();
+        restoreMockImplementations();
+        process.env.GCLOUD_PROJECT = 'test-project';
+        errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+    });
+    afterEach(() => vi.restoreAllMocks());
+    const release = (collection: string, docId: string, options = {}) =>
+        deployBatchToHosting('my-site', new HostingBatch().add('/pages/cookie-policy/index.html', TEST_CONTENT), collection, docId, options);
+
+    it('a page released when its status document does not exist yet is not a failed release', async () => {
+        setupHappyPathFetch();
+        mockDocUpdate.mockRejectedValueOnce(notFound());
+        const onFailure = vi.fn();
+        expect(await release('arc_articles', 'gone', { onFailure })).toBe(true);
+        expect(onFailure).not.toHaveBeenCalled();
+        expect(errors.mock.calls.join('\n')).not.toContain('failed');
+        // Never stamped failed afterwards, and the log says the release went out.
+        expect(mockDocUpdate).toHaveBeenCalledTimes(1);
+        expect(mockDocUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ deployStatus: 'failed' }));
+        expect(mockSubCollectionAdd).toHaveBeenCalledWith(expect.objectContaining({ status: 'success', error: null }));
+        expect(mockSubCollectionAdd.mock.calls[0][0].steps.at(-1)).toMatchObject({ step: 10, status: 'skipped', detail: 'No document to record it on' });
+    });
+
+    it('with createStatusDoc (a static page), creates the status document with a merge write', async () => {
+        setupHappyPathFetch();
+        expect(await release('static_pages', 'cookie-policy', { createStatusDoc: true })).toBe(true);
+        expect(mockDocUpdate).not.toHaveBeenCalled();
+        expect(mockDocSet).toHaveBeenCalledWith(
+            expect.objectContaining({ deployStatus: 'deployed', deployedUrl: '/pages/cookie-policy/index' }), { merge: true });
+    });
+
+    it('a status write that fails for another reason is reported as that, and the release still counts', async () => {
+        setupHappyPathFetch();
+        mockDocUpdate.mockRejectedValueOnce(new Error('DEADLINE_EXCEEDED'));
+        const onFailure = vi.fn();
+        expect(await release('arc_articles', 'doc1', { onFailure })).toBe(true);
+        expect(onFailure).not.toHaveBeenCalled();
+        const said = errors.mock.calls.join('\n');
+        expect(said).toContain('Released 1 file(s) (/pages/cookie-policy/index.html), but could not record the deploy status on arc_articles/doc1: DEADLINE_EXCEEDED');
+        expect(said).not.toContain('Hosting release of');
+        const log = mockSubCollectionAdd.mock.calls[0][0];
+        expect(log.status).toBe('success');
+        expect(log.steps.at(-1)).toMatchObject({ step: 10, status: 'failed', error: 'DEADLINE_EXCEEDED' });
+    });
+
+    it('a release that fails is still a failure, recorded on a static page through the same merge write', async () => {
+        mockGetClient.mockRejectedValueOnce(new Error('Auth broken'));
+        const onFailure = vi.fn();
+        expect(await release('static_pages', 'cookie-policy', { onFailure, createStatusDoc: true })).toBe(false);
+        expect(onFailure).toHaveBeenCalled();
+        expect(mockDocSet).toHaveBeenCalledWith(expect.objectContaining({ deployStatus: 'failed' }), { merge: true });
+    });
+});
+
 describe('hosting turned off (ARC_HOSTING_SITE=none, CO5)', () => {
     beforeEach(() => {
         vi.resetAllMocks();
@@ -371,6 +431,11 @@ describe('hosting turned off (ARC_HOSTING_SITE=none, CO5)', () => {
             deployStatus: 'skipped',
             deployErrorCode: 'HOSTING_OFF',
         }));
+    });
+
+    it('a content item with no document to stamp is no error', async () => {
+        mockDocUpdate.mockRejectedValueOnce(Object.assign(new Error('5 NOT_FOUND: No document to update'), { code: 5 }));
+        await expect(deployFileToHosting('', '/test.html', TEST_CONTENT, 'arc_articles', 'gone')).resolves.toBeUndefined();
     });
 
     it('does not remove files either', async () => {

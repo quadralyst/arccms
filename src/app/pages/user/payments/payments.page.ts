@@ -613,9 +613,9 @@ interface ActivityItem {
         .md { display: flex; flex-direction: column; }
         .md .k { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; color: #6c757d; }
         .md .v { font-size: 0.95rem; color: #212529; }
-        .premium-card { margin-top: 16px; border: 1px solid #1b98e0; background: #eaf6fd; }
+        .premium-card { margin-top: 16px; border: 1px solid var(--arc-member-accent, #1b98e0); background: color-mix(in srgb, var(--arc-member-accent, #1b98e0) 9%, #fff); }
         .pc-body { display: flex; align-items: center; gap: 16px; padding: 8px; }
-        .pc-icon { font-size: 1.6rem; color: #1b98e0; }
+        .pc-icon { font-size: 1.6rem; color: var(--arc-member-accent, #1b98e0); }
         .pc-body h3 { margin: 0; font-size: 1.05rem; }
         .pc-body > a { margin-left: auto; }
         .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-top: 24px; }

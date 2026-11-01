@@ -28,7 +28,7 @@
     <p>An app can fill the whole panel with an image instead: put it at <code class="new">src/custom/sign-in-image.webp</code> (or <code>.jpg</code>, <code>.jpeg</code>, <code>.png</code>, <code>.svg</code>). It covers the panel, cropped to fill it and centred, and the panel's text is not shown, so put any words in the image. Pick one that still reads when its edges are cropped: the panel is half the screen wide and the full height. The file is found when the app is built, so a new image needs a deploy.</p>
 
     <h2 id="look">Colours, font and the whole look</h2>
-    <p>The page loads <code class="new">src/custom/site/site.css</code>, your website's stylesheet. Its look comes from the variables below: set the ones you want in that file and leave out the rest. Each one you leave out keeps Arc CMS's own look, so a site that sets none sees no change. Every step of the page reads them, from the first one (phone number or email) through the password, PIN and code steps to creating an account, and the code boxes and the language picker too. You never need Arc CMS's class names, which can change.</p>
+    <p>The page loads <code class="new">src/custom/site/site.css</code>, your website's stylesheet, or a stylesheet of its own when you write one (see <a href="#own-stylesheet">A stylesheet of its own</a>). Its look comes from the variables below: set the ones you want in that file and leave out the rest. Each one you leave out keeps Arc CMS's own look, so a site that sets none sees no change. Every step of the page reads them, from the first one (phone number or email) through the password, PIN and code steps to creating an account, and the code boxes and the language picker too. You never need Arc CMS's class names, which can change.</p>
     <p>Colours and the font only:</p>
     <pre><code>:root {
     --arc-sign-in-panel-background: linear-gradient(135deg, #e8590c, #f59f00);
@@ -158,6 +158,19 @@
     </table>
     <p>To see each step while you work, run <code>npm run dev</code>, open <code>/signup</code> and, in the browser's console, type <code>ng.getComponent(document.querySelector('arc-signup')).currentStep.set('verify')</code> with any step: <code>request</code>, <code>login</code>, <code>pin</code>, <code>verify</code>, <code>signup</code>, <code>newPin</code>, <code>newPassword</code>, <code>choosePin</code> or <code>disabled</code>.</p>
     <div class="note"><p>Your website's stylesheets are on only while a page of the website or the sign-in page is shown. The admin area and the member area never get them, so a rule in <code>site.css</code> cannot change how they look.</p></div>
+
+    <h2 id="own-stylesheet">A stylesheet of its own</h2>
+    <p>When your <code>site.css</code> brings a whole theme, such as a bought template with its own Bootstrap and rules for every <code>input</code>, <code>button</code> and heading, those rules reach the sign-in page too: fields shrink, the show-password button drops below its field and the brand panel's heading takes the theme's colour. Give the page a stylesheet of its own instead: <code class="new">src/custom/site/sign-in.css</code>. When it exists, the sign-in page loads it in place of <code>site.css</code>, so none of the theme reaches the form; your website's pages still load <code>site.css</code> as before.</p>
+    <p>Put the <code>--arc-sign-in-*</code> variables in it, any web font with <code>@import</code>, and the styles of your brand panel (<code class="new">src/custom/site/sign-in.html</code>). Images in it are linked with their version, as in <code>site.css</code>. It is served at <code>/assets/css/sign-in.css</code> and linked with its version, so a change reaches every visitor; it is found when the app is built, so adding or removing it needs a deploy.</p>
+    <pre><code>@import url('https://fonts.googleapis.com/css?family=Raleway:400,700|Open+Sans:400,600&amp;display=swap');
+
+:root {
+    --arc-sign-in-font: 'Open Sans', sans-serif;
+    --arc-sign-in-panel-background: linear-gradient(135deg, #1f2b3a, #4a90e2);
+    --arc-sign-in-button-background: #4a90e2;
+}
+
+arc-sign-in-panel h1 { font-family: 'Raleway', sans-serif; }</code></pre>
 
     <h2>Next</h2>
     <p>Set up images: <a href="media.html">Manage media</a>.</p>

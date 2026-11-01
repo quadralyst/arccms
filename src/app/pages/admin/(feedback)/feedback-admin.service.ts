@@ -20,6 +20,8 @@ export interface FeedbackItem {
     voiceSeconds?: number;
     page?: { path?: string; title?: string };
     device?: { platform?: string; userAgent?: string; screen?: string; viewport?: string; installed?: boolean; language?: string };
+    /** The build they were on (docs/app/version.html); missing from a build with no version. */
+    version?: { text?: string; commit?: string };
     sender?: { name?: string; email?: string; phone?: string };
     status: FeedbackStatus;
     createdAt: Date | null;

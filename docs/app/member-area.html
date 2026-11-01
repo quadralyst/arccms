@@ -91,6 +91,23 @@ export const CUSTOM_NAV_CHANGES: NavChanges = {
     </ul>
     <div class="trap"><p>The menu only shows links. A page you add needs its own route guard: hiding Premium does not stop anyone opening <code>/user/premium</code>, and adding a link does not let anyone in.</p></div>
 
+    <h2 id="colours">Colours</h2>
+    <p>The member area's side panel, the person's initial, the current menu item and the Premium accents are Arc CMS's navy and blue until you change them. Set these on <code>:root</code> in <code>src/custom/styles.css</code>, beside the admin's colours (see <a href="admin-look.html">Brand the admin</a>):</p>
+    <pre><code>:root {
+    --arc-member-panel-background: linear-gradient(180deg, #1f2a38, #1b1b1b);
+    --arc-member-accent: #4a90e2;
+}</code></pre>
+    <table>
+      <thead><tr><th>Variable</th><th>Sets</th><th>Arc CMS's</th></tr></thead>
+      <tbody>
+        <tr><td><code>--arc-member-panel-background</code></td><td>The side panel, any CSS background. Its menu words stay light, so pick a dark one</td><td><code>#0d1b2a</code></td></tr>
+        <tr><td><code>--arc-member-panel-color</code></td><td>The panel's text, the outline of its buttons and its focus ring</td><td><code>#e0e6ed</code></td></tr>
+        <tr><td><code>--arc-member-accent</code></td><td>The current menu item, the person's initial, the plan badge, and the icons and border on the Premium and Payments pages</td><td><code>#1b98e0</code></td></tr>
+        <tr><td><code>--arc-member-menu-hover-background</code></td><td>The menu item under the pointer</td><td>A faint veil of white</td></tr>
+      </tbody>
+    </table>
+    <p>Each one you leave out keeps Arc CMS's colour. The member pages' buttons and links, such as on Profile, follow the admin's <code>--arc-admin-*</code> colours.</p>
+
     <h2>Choose where people land after signing in</h2>
     <p>By default, admins land on <code>/admin/dashboard</code> and everyone else on <code>/user/dashboard</code>. To send members to one of your pages instead, set their home in <code>src/custom/home.ts</code>:</p>
     <pre><code>import type { HomePages } from '../app/core/home/home';

@@ -100,33 +100,34 @@ import { SiteBrandService } from '../../core/brand/site-brand';
             </main>
         </div>
     `,
+    // Colours from --arc-member-* (docs/app/member-area.html#colours), each falling back to Arc CMS's own.
     styles: [`
         .shell { display: flex; min-height: 100vh; align-items: stretch; }
-        .sidebar { width: 240px; flex-shrink: 0; background: #0d1b2a; color: #e0e6ed; display: flex; flex-direction: column; padding: 20px 16px; position: sticky; top: 0; height: 100vh; height: 100dvh; transition: width 0.3s ease; }
+        .sidebar { width: 240px; flex-shrink: 0; background: var(--arc-member-panel-background, #0d1b2a); color: var(--arc-member-panel-color, #e0e6ed); display: flex; flex-direction: column; padding: 20px 16px; position: sticky; top: 0; height: 100vh; height: 100dvh; transition: width 0.3s ease; }
         .top { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
         .brand { color: #fff; font-weight: 700; font-size: 1.2rem; text-decoration: none; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .menu-toggle { flex-shrink: 0; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; }
         .menu-toggle:hover { background: #ffffff12; }
-        .menu-toggle:focus-visible { outline: 2px solid #e0e6ed; outline-offset: 1px; }
+        .menu-toggle:focus-visible { outline: 2px solid var(--arc-member-panel-color, #e0e6ed); outline-offset: 1px; }
         .body { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #ffffff33 transparent; }
         .userbox { display: flex; align-items: center; gap: 10px; margin: 20px 0; }
-        .avatar { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: #1b98e0; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+        .avatar { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: var(--arc-member-accent, #1b98e0); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
         .who { display: flex; flex-direction: column; }
         .who .name { font-size: 0.9rem; }
         .badge { font-size: 0.68rem; padding: 1px 8px; border-radius: 10px; width: fit-content; margin-top: 2px; }
-        .badge.pro { background: #1b98e0; color: #fff; text-transform: capitalize; }
+        .badge.pro { background: var(--arc-member-accent, #1b98e0); color: #fff; text-transform: capitalize; }
         .badge.free { background: #33415522; color: #adb5bd; }
         .menu { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
         .menu a { color: #cdd6e0; text-decoration: none; padding: 10px 12px; border-radius: 8px; font-size: 0.92rem; display: flex; align-items: center; gap: 10px; }
         .menu a i { width: 18px; text-align: center; opacity: 0.85; }
-        .menu a:hover { background: #ffffff12; }
+        .menu a:hover { background: var(--arc-member-menu-hover-background, #ffffff12); }
         .menu .group { color: #8a99a8; padding: 10px 12px 4px; font-size: 0.8rem; display: flex; align-items: center; gap: 10px; }
         .menu .sub { padding-left: 28px; }
         .menu hr { border-color: #ffffff22; margin: 6px 0; }
-        .menu a.active { background: #1b98e0; color: #fff; }
+        .menu a.active { background: var(--arc-member-accent, #1b98e0); color: #fff; }
         .foot { flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding-top: 16px; }
         /* Light on the dark panel */
-        .sign-out { --mat-button-outlined-label-text-color: #e0e6ed; --mat-button-outlined-outline-color: #ffffff40; }
+        .sign-out { --mat-button-outlined-label-text-color: var(--arc-member-panel-color, #e0e6ed); --mat-button-outlined-outline-color: #ffffff40; }
         .sign-out i { display: none; }
         .foot .credits { font-size: 0.85rem; color: #adb5bd; }
         .content { flex: 1; min-width: 0; background: #f6f8fa; }

@@ -101,8 +101,9 @@ describe('vite.config.ts build memory settings', () => {
         expect(vite).toContain('...oneBuildAtATime(analog({');
     });
 
-    it('gives npm run build an 8 GB heap, and a NODE_OPTIONS the caller sets still wins', () => {
+    it('runs npm run build through the website build, which gives Vite an 8 GB heap (tested in arc-version.spec.ts)', () => {
         const build: string = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).scripts.build;
-        expect(build).toMatch(/^NODE_OPTIONS="--max-old-space-size=8192 \$NODE_OPTIONS" vite build && /);
+        expect(build).toBe('node scripts/arc-website-build.mjs');
+        expect(readFileSync(join(ROOT, 'scripts/arc-website-build.mjs'), 'utf8')).toContain('--max-old-space-size=8192 ${env.NODE_OPTIONS');
     });
 });

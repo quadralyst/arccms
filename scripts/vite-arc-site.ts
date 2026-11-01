@@ -5,6 +5,9 @@
  *   and makes that Vite's public folder, so `npm run dev` serves and `npm run build`
  *   ships the app's files wherever it has them, core's everywhere else.
  * - Re-assembles when a file in either changes while the dev server runs.
+ * - Checks the app's redirects (src/custom/site/redirects.json, scripts/arc-redirects.mjs),
+ *   so a mistake there stops `npm run build` and `npm run dev` before a deploy finds it.
+ *   The dev server does not follow them: only Firebase Hosting does.
  * - Provides `virtual:arc-site`: the header, the footer, the sign-in panel and
  *   the manifest, for the browser app.
  * - In `npm run dev`, serves the live site's manifest at /__arc/live-site.json, so
@@ -18,6 +21,7 @@ import { resolve } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Plugin, ViteDevServer } from 'vite';
 import { assembleSite, isSiteSource, siteModule } from './arc-site.mjs';
+import { readAppRedirects } from './arc-redirects.mjs';
 import type { SiteNotices } from '../src/shared/utils/notice-text';
 
 const VIRTUAL = 'virtual:arc-site';
@@ -93,6 +97,7 @@ export function arcSite(
             // At config time, before Vite reads its public folder.
             const { dir, ignored } = assembleSite(root, undefined, { notices, extra });
             warnIgnored(ignored, console.warn);
+            readAppRedirects(root);
             return { publicDir: dir };
         },
         resolveId(id) {
@@ -108,6 +113,7 @@ export function arcSite(
             const onChange = (file: string) => {
                 if (!isSiteSource(root, file)) return;
                 try {
+                    readAppRedirects(root);
                     const { changed, ignored } = assembleSite(root, undefined, { notices, extra });
                     warnIgnored(ignored, (message) => server.config.logger.warn(message));
                     if (!changed.some((path) => MODULE_PATHS.includes(path))) return;

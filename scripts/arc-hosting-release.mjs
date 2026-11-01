@@ -10,11 +10,13 @@
  * So the website goes live in two steps, with one switch for visitors:
  *
  *   1. `firebase hosting:channel:deploy arc-deploy`: the CLI uploads the build to
- *      a preview channel, with the Hosting config (headers, rewrites) from the
- *      install's firebase.json. The live site is untouched.
+ *      a preview channel, with the Hosting config (headers, redirects, rewrites)
+ *      from the install's firebase.json, and the app's own redirects first when it
+ *      has any (scripts/arc-redirects.mjs). The live site is untouched.
  *   2. A new live version made of that build plus the live site's published files,
- *      by hash, so nothing is uploaded twice. Then it is released: visitors go
- *      from the old site to the new one in one step, published pages included.
+ *      by hash, so nothing is uploaded twice, with the channel version's Hosting
+ *      config. Then it is released: visitors go from the old site to the new one
+ *      in one step, published pages and redirects included.
  *
  * If step 2 fails, the live site is still the old one, whole.
  */

@@ -736,6 +736,38 @@ describe('SignupComponent: saying it is working (F33)', () => {
         expect(boxesDisabled()).toBe(false);
     });
 
+    /** Spinners a person can see: not hidden themselves or inside something hidden. */
+    const visibleSpinners = () => [...fixture.nativeElement.querySelectorAll('.spinner-border')]
+        .filter((el) => !(el as HTMLElement).closest('[hidden]')).length;
+
+    it('shows one spinner for one wait: the busy button\'s, with the words under it and no second spinner (F38)', async () => {
+        const answer = await onPinStep();
+        expect(visibleSpinners()).toBe(0);
+        void page.signInWithPin('123456');
+        fixture.detectChanges();
+        expect(waitLine()).toBe(english('member.wait.checking'));
+        expect(visibleSpinners()).toBe(1);
+        expect(fixture.nativeElement.querySelector('.pin-field + arc-wait-line .spinner-border')).toBeNull();
+        answer.reject({ code: 'functions/permission-denied', message: 'Wrong PIN.', details: { reason: 'wrong-pin', left: 3 } });
+        await flush();
+        fixture.detectChanges();
+        expect(visibleSpinners()).toBe(0);
+    });
+
+    it('shows one spinner while Continue checks an email (F38)', async () => {
+        settingsRead.resolve(OPEN);
+        signIn['checkEmail'].mockReturnValue(new Promise(() => undefined));
+        render();
+        await flush();
+        typed('new@person.com');
+        page.handleSubmit();
+        await flush();
+        fixture.detectChanges();
+        expect(page.checking()).toBe(true);
+        expect(visibleSpinners()).toBe(1);
+        expect((fixture.nativeElement.querySelector('arc-wait-line') as HTMLElement).textContent!.trim()).toBe(english('member.wait.checking'));
+    });
+
     it('says "Opening…" once the PIN went through, while the next page loads', async () => {
         const answer = await onPinStep();
         void page.signInWithPin('123456');

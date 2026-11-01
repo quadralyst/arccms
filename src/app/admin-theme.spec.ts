@@ -103,6 +103,8 @@ describe('the admin\'s colours', () => {
         expect(nav).toMatch(/\.nav-link:hover \{[^}]*background: var\(--arc-admin-menu-hover-background\);/);
         expect(nav).toMatch(/\.nav-link\.active \{[^}]*background: var\(--arc-admin-menu-active-background\);/);
         expect(nav).toMatch(/\.active-menu \{[^}]*background: var\(--arc-admin-menu-active-background\);/);
+        // The panel's logo takes the app's filter, none unless it sets one.
+        expect(nav).toMatch(/\.logo \{[^}]*filter: var\(--arc-admin-panel-logo-filter, none\);/);
 
         const styles = read('src/styles.css');
         expect(styles).toMatch(/\.arc-onboarding \.btn-primary \{\s*background: var\(--arc-admin-button-background\) !important;/);

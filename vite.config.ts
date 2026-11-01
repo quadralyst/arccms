@@ -25,6 +25,7 @@ import { ENVIRONMENT_FILE, defaultEnvironment, environmentFor, environmentSwap, 
 import { routeCode } from './scripts/vite-route-code';
 import { pwaWorkbox } from './scripts/pwa-workbox';
 import { makeTabIcon, tabIcon } from './scripts/vite-tab-icon';
+import { appVersion } from './scripts/arc-version.mjs';
 
 // The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
@@ -37,6 +38,9 @@ resolveClock(CUSTOM_CLOCK);
 // goes nowhere allowed or an unknown placeholder stops here, before a visitor sees it.
 const noticeErrors = noticeProblems(CUSTOM_NOTICES);
 if (noticeErrors.length) throw new Error(`The app's notices need fixing (docs/app/sign-up-notice.html):\n  ${noticeErrors.join('\n  ')}`);
+// The app's version and build number (custom/package.json, docs/app/version.html): a version
+// or label that is not right stops here too. The site reads it as APP_VERSION.
+const builtVersion = appVersion();
 
 // The install's PWA settings (src/custom/pwa.ts over the core defaults, docs/features/pwa.html),
 // on when the features ask for it.
@@ -155,6 +159,10 @@ export default defineConfig(async ({ mode }) => {
   return {
     build: {
       target: ['es2020'],
+    },
+    define: {
+      // APP_VERSION (src/app/core/version/app-version.ts), fixed for this build.
+      __ARC_APP_VERSION__: JSON.stringify(builtVersion),
     },
     server: {
       /**

@@ -550,6 +550,54 @@ describe('NavbarComponent: the button at the top of the panel', () => {
     });
 });
 
+describe('NavbarComponent: the version under Logout (specs/app-version-spec.md AV-D9)', () => {
+    async function render(expanded: boolean, versionText: string) {
+        await TestBed.configureTestingModule({
+            imports: [NavbarComponent, NoopAnimationsModule],
+            providers: [
+                { provide: AuthState, useValue: { currentUser: signal({ name: 'Asha', role: 'admin', photo: '' }), logout: vi.fn() } },
+                { provide: ContentTypesStore, useValue: { items: signal([]), getAll: vi.fn() } },
+                { provide: WaitlistAdminStore, useValue: { items: signal([]), subscribe: vi.fn() } },
+                { provide: MatDialog, useValue: { open: vi.fn() } },
+                {
+                    provide: Router,
+                    useValue: {
+                        events: of(), navigate: vi.fn(), isActive: vi.fn(),
+                        createUrlTree: vi.fn().mockReturnValue({}), serializeUrl: vi.fn().mockReturnValue(''), url: '/',
+                    },
+                },
+                { provide: ActivatedRoute, useValue: {} },
+                { provide: SiteIdentityService, useValue: identityStub({ name: 'Acme' }) },
+            ],
+        }).compileComponents();
+        const fixture = TestBed.createComponent(NavbarComponent);
+        fixture.componentInstance.isExpanded = expanded;
+        fixture.componentInstance.versionText = versionText;
+        fixture.detectChanges();
+        return fixture;
+    }
+
+    const version = (fixture: any) => fixture.nativeElement.querySelector('.app-version') as HTMLElement | null;
+
+    it('shows right under Logout, named for a screen reader', async () => {
+        const fixture = await render(true, 'v1.2.0.25 android');
+        const line = version(fixture)!;
+        expect(line.textContent!.trim()).toBe('v1.2.0.25 android');
+        expect(line.getAttribute('aria-label')).toBe('Version v1.2.0.25 android');
+        const links = [...fixture.nativeElement.querySelectorAll('.sidebar-menu .nav-link')] as HTMLElement[];
+        const logout = links.find((a) => a.textContent!.includes('Logout'))!;
+        expect(logout.nextElementSibling).toBe(line);
+    });
+
+    it('is not there with no version (no custom/package.json, or showVersion: false)', async () => {
+        expect(version(await render(true, ''))).toBeNull();
+    });
+
+    it('hides while the panel is collapsed', async () => {
+        expect(version(await render(false, 'v1.2.0.25'))).toBeNull();
+    });
+});
+
 /**
  * The app's changes to the admin menu (CUSTOM_NAV_CHANGES in src/custom/nav-changes.ts), read
  * back from the rendered menu with a real router, so each link's address is the one a

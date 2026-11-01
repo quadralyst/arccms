@@ -49,6 +49,7 @@ window.ARC_DOCS_NAV = [
       { path: "website/search.html", title: "Add search" },
       { path: "website/forms.html", title: "Collect sign-ups" },
       { path: "website/choose-features.html", title: "Choose your website's features" },
+      { path: "website/redirects.html", title: "Redirect old addresses" },
       { path: "website/launch-checklist.html", title: "Launch checklist" }
     ]
   },
@@ -61,6 +62,7 @@ window.ARC_DOCS_NAV = [
       { path: "app/pages-and-routes.html", title: "Add pages and routes" },
       { path: "app/admin-menu.html", title: "Change the admin menu" },
       { path: "app/admin-look.html", title: "Brand the admin" },
+      { path: "app/version.html", title: "Version and build number" },
       { path: "app/member-area.html", title: "Build the member area" },
       { path: "app/functions.html", title: "Write your own Cloud Functions" },
       { path: "app/app-email.html", title: "Send email from your app" },

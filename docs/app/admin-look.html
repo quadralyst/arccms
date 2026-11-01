@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Brand the admin | Arc CMS docs</title>
   <meta name="description" content="Give the admin your app's colours, name and logo, and every browser tab your site's name, from the custom space and Settings, About.">
-  <meta name="docs:sources" content="src/admin-theme.css, src/styles.css, src/shared/components/side-navbar/side-navbar.component.html, src/shared/components/side-navbar/side-navbar.component.scss, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/brand/site-brand.ts, src/app/core/brand/app-brand-files.ts, src/app/core/brand/brand-title.strategy.ts, src/custom/brand.ts, scripts/vite-app-title.ts, index.html, src/app/pages/admin/(settings)/about/about-settings.page.ts, src/app/pages/(onboarding)/onboarding.page.scss">
+  <meta name="docs:sources" content="src/admin-theme.css, src/styles.css, src/shared/components/side-navbar/side-navbar.component.html, src/shared/components/side-navbar/side-navbar.component.scss, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/brand/site-brand.ts, src/app/core/version/app-version.ts, src/app/core/brand/app-brand-files.ts, src/app/core/brand/brand-title.strategy.ts, src/custom/brand.ts, scripts/vite-app-title.ts, index.html, src/app/pages/admin/(settings)/about/about-settings.page.ts, src/app/pages/(onboarding)/onboarding.page.scss">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/admin-look.html">
@@ -31,12 +31,13 @@
         <tr><td><code>--arc-admin-button-hover-background</code></td><td>The main button under the pointer</td><td>The same as the button</td></tr>
         <tr><td><code>--arc-admin-panel-background</code></td><td>The side panel, and the setup wizard's panel, any CSS background</td><td>Arc CMS's blue gradients</td></tr>
         <tr><td><code>--arc-admin-panel-color</code></td><td>The side panel's text; its lines and the menu's dimmer text follow it</td><td><code>#fff</code></td></tr>
+        <tr><td><code>--arc-admin-panel-logo-filter</code></td><td>A CSS filter on the logo at the top of the side panel, for a logo that does not read on your panel: <code>brightness(0) invert(1)</code> shows it all white on a dark panel</td><td><code>none</code></td></tr>
         <tr><td><code>--arc-admin-menu-active-background</code></td><td>The side panel's current item</td><td>A light veil of white</td></tr>
         <tr><td><code>--arc-admin-menu-hover-background</code></td><td>The side panel's item under the pointer</td><td>The same as the current item</td></tr>
       </tbody>
     </table>
     <p>Lighter tints and shadows are mixed from the two accents, so two colours and a panel are usually all you set. They reach every admin page, the setup wizard and the dialogs, menus and toasts opened while they are on screen, including the Bootstrap and Material parts (links, toggles, checkboxes, tabs, spinners). The body of the content editor is the exception: it shows the website's own look, so its links keep the website's colour (see <a href="../website/templates.html#in-the-editor">Your template in the editor</a>). Colours that mean something stay as they are: red for danger, green for success, the teal-blue of an information note, and a picture's own colours.</p>
-    <div class="note"><p>Set the variables on <code>:root</code>, not on a class: the gradient and the button follow the accents only where the accents are set. The admin's colours never reach the website or the sign-in page, which have their own (see <a href="../website/sign-in-page.html">Brand the sign-in page</a>).</p></div>
+    <div class="note"><p>Set the variables on <code>:root</code>, not on a class: the gradient and the button follow the accents only where the accents are set. The admin's colours never reach the website or the sign-in page, which have their own (see <a href="../website/sign-in-page.html">Brand the sign-in page</a>). The member area's buttons and links follow them; its side panel has colours of its own (see <a href="member-area.html#colours">Build the member area</a>).</p></div>
 
     <h2 id="name-and-logo">Name and logo</h2>
     <p>The top of the side panel, the sign-in page, the member area, every browser tab and the <code>og:site_name</code> of content pages show the same name and logo. Each is taken from the first of these that has one:</p>
@@ -51,6 +52,13 @@ export const CUSTOM_BRAND: CustomBrand = {
     name: 'Acme Studio',
 };</code></pre>
     <p>Nothing shows until Settings, About has loaded, so Arc CMS's name never flashes before yours.</p>
+
+    <h3 id="version">The version under Logout</h3>
+    <p>When the app has a version, the open side panel shows it under Logout, such as <code>v1.2.0.25 web</code> (<a href="version.html">Version and build number</a>). An app that shows it somewhere of its own can turn this one off:</p>
+    <pre><code>export const CUSTOM_BRAND: CustomBrand = {
+    name: 'Acme Studio',
+    showVersion: false,
+};</code></pre>
 
     <h3 id="logo-shapes">Logo shapes</h3>
     <p>The panel looks at the logo's shape when it loads; an SVG's shape is read from its <code>viewBox</code>, else its <code>width</code> and <code>height</code>. A wordmark, at least twice as wide as it is tall, shows alone in the open panel (up to 150 pixels wide and 40 high), since it already carries the name. A square mark shows at 40 by 40 pixels beside the name. A name too long for the panel is cut short, so the button that collapses the panel always stays beside it. In the collapsed panel, 65 pixels wide, a square mark shows below that button and a wordmark does not. Search engines also read this logo (see <a href="../website/seo.html">Get found by search engines and AI</a>) and prefer a square one of at least 112 by 112 pixels.</p>

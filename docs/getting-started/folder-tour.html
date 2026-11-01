@@ -72,6 +72,7 @@
       <li><code>.firebaserc</code>: your Firebase project aliases, written by <code>firebase use --add</code>.</li>
       <li><code>arccms.config.json</code>: the install settings of each Firebase project (copy <code>arccms.config.example.json</code> to start). See <a href="configure.html">Configure a project</a>.</li>
       <li><code>firebase.{projectId}.json</code> and <code>functions/.env.{projectId}</code>: generated from <code>arccms.config.json</code> by <code>npm run arc:configure</code> and by the guided deploy.</li>
+      <li><code>firebase.{projectId}.website.json</code>: written by a website deploy when the app has redirects of its own (the project's config with them first) and removed once the build is uploaded. See <a href="../website/redirects.html">Redirect old addresses</a>.</li>
       <li><code>.arc-build/</code>: the combined rules and indexes, built before every deploy.</li>
       <li><code>.arc-deploy-state.json</code>: what the guided deploy remembers about your last deploys.</li>
       <li><code>functions/src/*.gen.ts</code>: the list of features the functions build includes, generated from <code>src/custom/features.ts</code> before every functions build.</li>

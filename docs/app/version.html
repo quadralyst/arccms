@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Version and build number | Arc CMS docs</title>
+  <meta name="description" content="Give your app a version and build number, such as v1.2.0.25 android: set the version in custom/package.json and every build counts. It shows under Logout and in feedback.">
+  <meta name="docs:sources" content="scripts/arc-version.mjs, scripts/arc-website-build.mjs, scripts/arc-build.mjs, scripts/arc-deploy.mjs, vite.config.ts, src/app/core/version/app-version.ts, src/app/core/brand/site-brand.ts, src/shared/components/side-navbar/side-navbar.component.html, src/shared/components/feedback/feedback.component.ts, src/app/core/feedback/feedback.service.ts, src/app/pages/admin/(feedback)/feedback.page.ts">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/version.html">
+  <main>
+    <h1>Version and build number</h1>
+    <p class="lead">When someone reports a problem, the first question is which build they are on. Give your app a version, and every build says so: <code>v1.2.0.25 android</code> is version <code>1.2.0</code>, build <code>25</code>, built for Android. It shows under Logout in the admin's side panel, at the foot of the feedback panel, and it is saved with every feedback report, so nobody has to read it out.</p>
+
+    <h2 id="the-file">Set the version</h2>
+    <p>The version lives in <code class="new">custom/package.json</code>, in the app's own folder at the root (<a href="scripts-and-data.html">Run scripts and keep data</a>). Arc CMS never ships this file, so an app that has none has no version anywhere, and nothing is counted. Create it, or add the fields to the one you have:</p>
+    <pre><code>{
+  "name": "acme-tools",
+  "private": true,
+  "version": "1.2.0",
+  "build": 24,
+  "buildLabel": "web"
+}</code></pre>
+    <table>
+      <thead><tr><th>Field</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>version</code></td><td>Yours to set, when you cut a release: three whole numbers, such as <code>1.2.0</code>, with a suffix npm allows if you want one (<code>1.2.0-beta.1</code>). Anything else stops <code>npm run dev</code> and <code>npm run build</code> with a message.</td></tr>
+        <tr><td><code>build</code></td><td>The last build number. <code>npm run build</code> counts it for you (below); you only touch it to start again.</td></tr>
+        <tr><td><code>buildLabel</code></td><td>Optional: any text that says what the build is for, such as <code>web</code>, <code>android</code> or <code>iOS beta</code>, up to 40 characters. <code>--label</code> replaces it for one build.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="counting">How builds are counted</h2>
+    <p>Every <code>npm run build</code>, and so every deploy of the website, takes the next number: one more than <code>build</code>. Once the build has succeeded, it writes the number back to <code class="new">custom/package.json</code> and says so:</p>
+    <pre><code>&gt; Building v1.2.0.25 web
+...
+This is build v1.2.0.25 web. custom/package.json now says "build": 25: commit it with your next change.</code></pre>
+    <ul>
+      <li><strong>A failed build</strong> leaves the file as it was, so its number is used by the next build.</li>
+      <li><strong>No <code>build</code>, or <code>0</code>:</strong> the next build is 1. To start again, set it to 0.</li>
+      <li><strong><code>-1</code>:</strong> the next build is 0, the lowest a build can be. A lower number counts as <code>-1</code>, with a warning.</li>
+      <li><strong>Anything that is not a whole number</strong>, such as <code>"24"</code> or <code>2.5</code>, stops the build before anything is built, instead of starting again from 1 and reusing numbers that already went out.</li>
+      <li><strong>The dev server</strong> never counts: it shows the version with no number, <code>v1.2.0 web</code>. Restart it to see a new version.</li>
+      <li><strong>One counter for every label:</strong> build 25 for Android and build 26 for iOS, so the number alone always names one build.</li>
+    </ul>
+
+    <h3 id="commit">Commit the file</h3>
+    <p><code class="new">custom/package.json</code> changes with every build, and it belongs in git: it survives a fresh clone and a new machine, and <code>git log</code> shows which change made each build. Commit it with your next change. Two branches that both build take the same number, and git shows a conflict on that one line when they meet: keep the higher number.</p>
+    <p>To be sure which code a build ran, each feedback report also carries the commit it was built from (<a href="#feedback">below</a>).</p>
+    <div class="trap"><p>A deploy from CI counts in a checkout it throws away, so every run repeats the same number unless the job commits the file back. See <a href="ci.html">Deploy from CI</a>.</p></div>
+
+    <h2 id="options">Skip the count, or label one build</h2>
+    <table>
+      <thead><tr><th>Option</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>npm run build -- --no-bump</code></td><td>Builds with no number (<code>v1.2.0 web</code>) and leaves <code class="new">custom/package.json</code> alone: for a build you only want to try. <code>ARC_NO_BUMP=1</code> does the same.</td></tr>
+        <tr><td><code>npm run build -- --label=android</code></td><td>This build's label in place of <code>buildLabel</code>; <code>--label=</code> with nothing builds with no label. <code>ARC_BUILD_LABEL=android</code> does the same. Quote a label with spaces: <code>--label="iOS beta"</code>.</td></tr>
+      </tbody>
+    </table>
+    <p>Both work without the <code>--</code> too (<code>npm run build --no-bump</code>), and <code>npm run deploy</code> and <code>npm run build:project</code> pass them on to the website build: <code>npm run deploy -- --only hosting --no-bump</code>.</p>
+
+    <h2 id="where-it-shows">Where it shows</h2>
+    <ul>
+      <li><strong>Under Logout</strong> in the admin's side panel, small and muted, while the panel is open. A screen reader reads "Version v1.2.0.25 web". To turn it off there, set <code>showVersion: false</code> in <code>src/custom/brand.ts</code> (<a href="admin-look.html">Brand the admin</a>).</li>
+      <li><strong>At the foot of the feedback panel</strong>, so the person sees what they are reporting from (<a href="../features/feedback.html">Feedback button</a>).</li>
+      <li><strong>Anywhere you like</strong>, from <code>APP_VERSION</code>:</li>
+    </ul>
+    <pre><code>import { APP_VERSION } from '../app/core/version/app-version';
+
+// APP_VERSION.text      'v1.2.0.25 android', 'v1.2.0' with no number, '' with no version
+// APP_VERSION.version   '1.2.0'
+// APP_VERSION.build     25, or null
+// APP_VERSION.label     'android'
+// APP_VERSION.commit    '533b6d02', or '533b6d02+changes'</code></pre>
+    <p>It is fixed when the site is built; nothing is read at run time.</p>
+
+    <h2 id="feedback">In feedback reports</h2>
+    <p>Each report saves <code>version.text</code> and <code>version.commit</code>, and the admin's Feedback page shows them beside the device: <code>v1.2.0.25 android · 533b6d02</code>. The commit is the git commit the build was made from, with <code>+changes</code> when other files had changes not yet committed (the build's own change to <code class="new">custom/package.json</code> does not count). Only the people reading feedback see it. A build with no version sends neither.</p>
+    <div class="trap"><p>The security rules refuse a report with a field they do not know. When you update to an Arc CMS that sends the version, deploy the rules before the website, or every report from the new website is refused until the rules catch up.</p></div>
+
+    <h2 id="capacitor">Android and iOS with Capacitor</h2>
+    <p>Arc CMS knows nothing about Capacitor; your app's own scripts do. Put them in <code class="new">custom/package.json</code>, beside the version, so each platform's build carries its label:</p>
+    <pre><code>"scripts": {
+  "build:android": "cd .. &amp;&amp; npm run build -- --label=android &amp;&amp; npx cap sync android",
+  "build:ios": "cd .. &amp;&amp; npm run build -- --label=ios &amp;&amp; npx cap sync ios"
+}</code></pre>
+    <p>Run one from the root with <code>npm --prefix custom run build:android</code>, or from <code>custom/</code>. Each is a build of its own, so it takes its own number.</p>
+    <div class="trap"><p>Google Play and the App Store keep build numbers of their own (<code>versionCode</code> on Android, the bundle version on iOS), and refuse an upload whose number is not higher than the last one. Ours can be reset, so do not copy it into a store build after a reset.</p></div>
+
+    <h2 id="mistakes">Mistakes stop the build</h2>
+    <table>
+      <thead><tr><th>You see</th><th>Why</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>custom/package.json: "version" must be three whole numbers</code></td><td>The version is not like <code>1.2.0</code>.</td><td>Write three numbers with dots.</td></tr>
+        <tr><td><code>custom/package.json: "build" must be a whole number</code></td><td>The build is text, a fraction or something else.</td><td>Set it to the last build number, or 0 to start again from 1.</td></tr>
+        <tr><td><code>--label has a control character</code> or <code>is 41 characters</code></td><td>A label with a line break or a tab, or longer than 40 characters.</td><td>Use a shorter, plain label.</td></tr>
+        <tr><td><code>npm run build does not know ...</code></td><td>An option the build does not take.</td><td>Use <code>--no-bump</code> or <code>--label=&lt;text&gt;</code>.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Next</h2>
+    <ul>
+      <li><a href="../features/feedback.html">Feedback button</a></li>
+      <li><a href="admin-look.html">Brand the admin</a></li>
+      <li><a href="../operations/deploy.html">Deploy</a></li>
+    </ul>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

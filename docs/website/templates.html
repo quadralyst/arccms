@@ -114,7 +114,7 @@
       <tbody>
         <tr><td>A <code>&lt;style&gt;</code> block in the template</td><td>Pages built from that file. A partial's block stays in the home page, where the cards are.</td><td>Styles for one layout</td></tr>
         <tr><td>A linked file, such as <code>&lt;link rel="stylesheet" href="/site/blog.css"&gt;</code> for <code class="new">src/custom/site/assets/blog.css</code></td><td>Every template that links it</td><td>Styles shared by a few templates, kept by the browser between pages</td></tr>
-        <tr><td><code class="new">src/custom/site/site.css</code></td><td>Every published page (content, home and static pages), and the app's website pages and sign-in page</td><td>Site-wide styles, the header and the footer</td></tr>
+        <tr><td><code class="new">src/custom/site/site.css</code></td><td>Every published page (content, home and static pages), and the app's website pages and sign-in page (the sign-in page loads <code class="new">src/custom/site/sign-in.css</code> instead when there is one, see <a href="sign-in-page.html">Brand the sign-in page</a>)</td><td>Site-wide styles, the header and the footer</td></tr>
       </tbody>
     </table>
 

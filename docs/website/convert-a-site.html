@@ -40,7 +40,7 @@
       <tbody>
         <tr><td>The navigation bar</td><td><code class="new">src/custom/site/header.html</code></td><td>HTML fragment, on every page</td></tr>
         <tr><td>The footer</td><td><code class="new">src/custom/site/footer.html</code></td><td>HTML fragment, on every page</td></tr>
-        <tr><td>Styles every page shares</td><td><code class="new">src/custom/site/site.css</code></td><td>Loaded on every website page and the sign-in page</td></tr>
+        <tr><td>Styles every page shares</td><td><code class="new">src/custom/site/site.css</code></td><td>Loaded on every website page and the sign-in page; a theme that styles every field and button can leave the sign-in page alone with <code class="new">src/custom/site/sign-in.css</code> (<a href="sign-in-page.html#own-stylesheet">A stylesheet of its own</a>)</td></tr>
         <tr><td>The home page</td><td><code class="new">src/custom/site/home.html</code></td><td>A whole HTML document</td></tr>
         <tr><td>The home page's own styles, the script</td><td><code class="new">src/custom/site/assets/home.css</code>, <code class="new">src/custom/site/assets/main.js</code></td><td>Files, served at <code>/site/home.css</code> and <code>/site/main.js</code></td></tr>
         <tr><td>The blog list</td><td><code class="new">src/custom/site/templates/blog/list.html</code></td><td>Template fragment</td></tr>
@@ -290,6 +290,7 @@ a { color: var(--brand); }
 
     <h2>9. Put it live</h2>
     <ol class="steps">
+      <li><p>If the old site is live, list its addresses that change, such as <code>/blog/first-post.html</code>, with their new pages in <code class="new">src/custom/site/redirects.json</code>, so links and search results keep working (see <a href="redirects.html">Redirect old addresses</a>).</p></li>
       <li><p>Deploy the website: <code>npm run deploy</code> and choose <strong>Website</strong> (see <a href="../operations/deploy.html">Deploy</a>). It puts your files on the live site, keeps the pages already published, and then publishes every page again, your posts included.</p></li>
       <li><p>Open the live site: <code>/</code> shows the newest posts as cards, <code>/blog</code> the list, and each post its own page with its title and description in the page's head.</p></li>
       <li><p>From now on, publishing a post updates its page, the list, the home page's cards, the sitemap and the feeds. A change to your files reaches the live site with the next website deploy.</p></li>

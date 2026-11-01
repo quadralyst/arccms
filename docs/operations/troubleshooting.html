@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Troubleshooting | Arc CMS docs</title>
   <meta name="description" content="Known problems with Arc CMS in development, deploys, sign-in, email, search and features, with the cause and the fix for each.">
-  <meta name="docs:sources" content="vite.config.ts, src/app/app.config.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, scripts/arc-deploy.mjs, scripts/arc-configure.mjs, functions/scripts/check-callable-access.sh, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, functions/src/email-core/queueEmail.ts, functions/src/custom/search-sources.ts, src/shared/components/row-actions/row-actions.component.ts, firebase.json">
+  <meta name="docs:sources" content="vite.config.ts, scripts/arc-redirects.mjs, src/app/app.config.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, scripts/arc-deploy.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-configure.mjs, functions/scripts/check-callable-access.sh, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, functions/src/email-core/queueEmail.ts, functions/src/custom/search-sources.ts, src/shared/components/row-actions/row-actions.component.ts, firebase.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/troubleshooting.html">
@@ -43,6 +43,11 @@
           <td>Give the build a bigger heap, which wins over the script's 8 GB: <code>NODE_OPTIONS=--max-old-space-size=12288 npm run build</code>, and the same in front of <code>npm run deploy</code>. The machine needs that much free memory</td>
         </tr>
         <tr>
+          <td><code>npm run dev</code> or <code>npm run build</code> stops with a message that starts "custom/package.json:"</td>
+          <td>The app's version is not three whole numbers, its build number is not a whole number, or its build label is too long or has a line break</td>
+          <td>Fix the field the message names (see <a href="../app/version.html#mistakes">Version and build number</a>)</td>
+        </tr>
+        <tr>
           <td><code>npm run dev</code> or <code>npm run build</code> stops with a message that starts "src/custom/features.ts:"</td>
           <td>An unknown feature name, a feature in both lists, or a feature on while one it needs is off</td>
           <td>Change the file as the message says (see <a href="../reference/feature-ids.html">Feature ids</a>)</td>
@@ -64,6 +69,16 @@
     <table>
       <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
       <tbody>
+        <tr>
+          <td>"src/custom/site/redirects.json has a problem", or "is not valid JSON", from a deploy, <code>npm run build</code> or <code>npm run dev</code></td>
+          <td>A redirect of the app's own is wrong: the message names it by number and source. Nothing was built or deployed</td>
+          <td>Fix that entry, or remove the file to have no redirects (see <a href="../website/redirects.html#what-is-refused">What is refused</a>)</td>
+        </tr>
+        <tr>
+          <td>An old address shows the browser app or a 404 instead of redirecting</td>
+          <td>The redirect is not live: the website was deployed with plain <code>firebase deploy</code>, or not since the redirect was added. Or an earlier redirect matches the address first</td>
+          <td>Deploy the website with <code>npm run deploy</code>, and put specific redirects before wide patterns (see <a href="../website/redirects.html">Redirect old addresses</a>)</td>
+        </tr>
         <tr>
           <td>"Your database is in ..., but the functions run in ..." during a deploy, or every sign-in step takes seconds</td>
           <td>The functions run far from the database, so each database call crosses that distance</td>
@@ -88,6 +103,11 @@
           <td>On a project's first deploy, <code>onSignInDeleted</code> fails with "Build failed: Build error details not available", and its build log says <code>Repository "gcf-artifacts" not found</code></td>
           <td>Its build started a few seconds before Cloud Functions created the project's image repository</td>
           <td>Nothing to change: the deploy's retry builds it. If a deploy ended before the retry, deploy it alone: <code>npm run deploy -- --only functions:arccms:arccms.onSignInDeleted</code></td>
+        </tr>
+        <tr>
+          <td>A functions deploy stops at a bare <code>&gt;</code>, or fails with "Functions successfully deployed but could not set up cleanup policy"</td>
+          <td>The Firebase CLI found no cleanup policy for the functions' old container images and asks how many days to keep them; off a terminal it fails instead</td>
+          <td>Deploy with <code>npm run deploy</code>, which sets the policy first (see <a href="deploy.html#old-function-images">Old function images</a>). At the bare <code>&gt;</code>, type <code>1</code> and press Enter. When the deploy says "Could not set the cleanup policy", run the command it prints, with Artifact Registry Administrator or Owner</td>
         </tr>
         <tr>
           <td>New functions are missing after a deploy, or the old code is still live</td>

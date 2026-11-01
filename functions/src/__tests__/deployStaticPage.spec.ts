@@ -237,6 +237,8 @@ describe('deployStaticPage', () => {
                 expect.any(String),
                 'static_pages',
                 'privacy-policy',
+                // static_pages/{slug} records only deploys: the first release creates it (found 2026-10-30).
+                { createStatusDoc: true },
             );
         });
 
@@ -368,6 +370,7 @@ describe('deployStaticPage', () => {
                 expect.any(String),
                 expect.any(String),
                 expect.any(String),
+                expect.any(Object),
             );
         });
     });

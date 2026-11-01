@@ -169,8 +169,8 @@ describe('the sign-in page', () => {
         expect(page('signup.page.ts')).toContain('readonly signInImage = SIGN_IN_IMAGE;');
     });
 
-    it('switches the site\'s stylesheet on', () => {
-        expect(page('signup.page.ts')).toContain("useSiteStyles(['site'])");
+    it('switches the site\'s stylesheet on: its sign-in.css when it has one, else site.css', () => {
+        expect(page('signup.page.ts')).toContain('useSiteStyles([signInSheet()])');
     });
 
     it('ships a neutral brand panel, translatable, that never advertises Arc CMS', () => {
