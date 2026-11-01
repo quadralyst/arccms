@@ -146,7 +146,7 @@ describe('AiSettingsPage', () => {
         await settle();
         await settle();
         expect(service.test).toHaveBeenCalledWith('or', 'qwen/qwen3.8-flash');
-        expect(page.querySelector('.connection[data-id="or"]')!.textContent).toContain('This test cost $0.0000');
+        expect(page.querySelector('.connection[data-id="or"]')!.textContent).toContain('This test cost < $0.0001');
     });
 
     it('warns that the budget cannot count a model with no price, and does not for one whose provider reports cost', async () => {
@@ -241,6 +241,7 @@ describe('usd', () => {
     it('shows fractions of a cent for small sums', () => {
         expect(usd(0)).toBe('$0');
         expect(usd(0.00052)).toBe('$0.0005');
+        expect(usd(0.000021)).toBe('< $0.0001');
         expect(usd(12.345)).toBe('$12.35');
     });
 });

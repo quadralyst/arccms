@@ -38,6 +38,8 @@ export function recentMonths(now = new Date(), count = 12): string[] {
 /** A cost as people read it: cents and fractions of a cent for small sums. */
 export function usd(n: number): string {
     if (!n) return '$0';
+    // A short test or text call costs a few millionths of a dollar: say it cost something.
+    if (n < 0.0001) return '< $0.0001';
     if (n < 0.01) return `$${n.toFixed(4)}`;
     return `$${n.toFixed(2)}`;
 }
