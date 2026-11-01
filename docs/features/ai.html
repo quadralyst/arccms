@@ -25,14 +25,15 @@
     <p>Arc CMS has no AI use of its own. A site without an app that declares purposes has nothing to set up here.</p>
 
     <h2>Turn it on or off</h2>
-    <p>AI is a switchable feature, id <code>ai</code>, <strong>off by default</strong> and needing no other feature. To turn it on, list it in <code>src/custom/features.ts</code>:</p>
+    <p>AI is a switchable feature, id <code>ai</code>, <strong>on by default</strong> and needing no other feature. A site that has no use for it, such as a plain website, turns it off in <code>src/custom/features.ts</code>:</p>
     <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
-    on: ['ai'],
+    off: ['ai'],
 };</code></pre>
+    <p>On, it adds five small functions to every deploy, one of them a daily cleanup job, and Settings, AI to the admin. Nothing is sent to a provider and nothing is spent until an admin connects one and switches to Live.</p>
     <p>With it off, Settings, AI and its card are gone and the URL shows the not-found page; the functions <code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code> and <code>cleanUpAi</code> are not built; and <code>askAi</code> answers <code>off</code> without throwing, so the same app code runs in a project with AI and one without. Records, totals and keys stay in Firestore. How the switch works for every feature: <a href="../reference/feature-ids.html">Feature ids</a>.</p>
 
     <h2>Set it up</h2>
-    <p>Settings, AI starts with a <strong>Get started</strong> checklist: connect a provider, choose models, check the monthly budget, switch to Live. Each step ticks itself when it is done. A new site is in <strong>Test</strong> mode: nothing is sent and nothing is spent, and every call gets its purpose's sample answer.</p>
+    <p>Settings, AI starts with a <strong>Get started</strong> checklist: connect a provider, choose models, check the monthly budget, switch to Live. Each step ticks itself when it is done. While the app declares no purposes and no provider is added, the page says instead that nothing on the site uses AI yet, so there is nothing to set up or pay for. A new site is in <strong>Test</strong> mode: nothing is sent and nothing is spent, and every call gets its purpose's sample answer.</p>
     <ol class="steps">
       <li><p>Click <strong>Connect a provider</strong> and choose one. Each says in a line what it is and where it processes data; OpenRouter, marked <strong>Easiest to start</strong>, is first. Google Vertex AI needs no key (see <a href="../app/ai.html#vertex">Gemini on Vertex AI</a>).</p></li>
       <li><p>Follow the numbered steps the panel shows for that provider, with <strong>Open</strong> links to its pages: where to sign in, how to create a key, what the key starts with, and where to add credit. Alibaba Cloud also asks for its workspace ID; an other address asks for the address and where it processes data.</p></li>

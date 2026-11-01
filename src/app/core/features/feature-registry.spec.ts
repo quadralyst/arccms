@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FEATURE_IDS, FEATURE_INFO, FeatureChoiceError, resolveFeatures, type FeatureChoice, type FeatureId } from './feature-registry';
 import { resolvePwaConfig } from '../pwa/pwa-config';
 
-const DEFAULT_ON = FEATURE_IDS.filter((id) => id !== 'pwa' && id !== 'ai');
+const DEFAULT_ON = FEATURE_IDS.filter((id) => id !== 'pwa');
 const sorted = (ids: Iterable<FeatureId>) => [...ids].sort();
 const problem = (choice: unknown) => {
     try {
@@ -30,13 +30,14 @@ describe('feature registry', () => {
         for (const id of FEATURE_IDS) visit(id, []);
     });
 
-    it('has only the PWA and AI off by default', () => {
-        expect(FEATURE_IDS.filter((id) => !FEATURE_INFO[id].defaultOn)).toEqual(['pwa', 'ai']);
+    it('has only the PWA off by default', () => {
+        expect(FEATURE_IDS.filter((id) => !FEATURE_INFO[id].defaultOn)).toEqual(['pwa']);
     });
 });
 
 describe('resolveFeatures', () => {
-    it('turns every feature on except the PWA and AI for an empty choice', () => {
+    it('turns every feature on except the PWA for an empty choice, AI included', () => {
+        expect(resolveFeatures({}).has('ai')).toBe(true);
         expect(sorted(resolveFeatures({}))).toEqual(sorted(DEFAULT_ON));
         expect(sorted(resolveFeatures(undefined))).toEqual(sorted(DEFAULT_ON));
     });
@@ -45,8 +46,8 @@ describe('resolveFeatures', () => {
         expect(resolveFeatures({ on: ['pwa'] }).has('pwa')).toBe(true);
     });
 
-    it('turns AI on when the app asks', () => {
-        expect(resolveFeatures({ on: ['ai'] }).has('ai')).toBe(true);
+    it('turns AI off when the app asks', () => {
+        expect(resolveFeatures({ off: ['ai'] }).has('ai')).toBe(false);
     });
 
     it('accepts a default-on feature in "on" as a no-op', () => {

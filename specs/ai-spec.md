@@ -18,7 +18,7 @@ in the admin area. Arc itself has no AI feature of its own: every use is the app
    when the purpose's switch is on.
 7. Per-key daily allowances, a monthly budget with alerts, monthly totals kept 24 months.
 8. Test mode, on by default, that spends nothing; a capture helper for unit tests.
-9. A feature, `ai`, off by default.
+9. A feature, `ai`, on by default (changed 2026-11-01, see AI-D18).
 10. Settings, AI in the admin; docs page `docs/app/ai.html`.
 
 **Out of scope (later briefs):** streaming answers; conversations with history; tools the
@@ -49,7 +49,7 @@ into pictures); Claude and open models through Vertex; any AI use of Arc's own.
 | AI-D15 | Totals | `AiUsage/{yyyy-mm}`: calls, failures, tokens and cost for the month, by day, purpose and model. `AiUsage/{yyyy-mm}/keys/{purpose}__{key}` per key. The app kit's `aiUsage({ limitKey, purpose?, month? })` reads a key's totals, for example to show or pass on a business's cost. |
 | AI-D16 | Test mode | Settings, AI, Mode: Test (the default for a fresh install) or Live. In test mode nothing is sent to a provider: the answer is the purpose's `testAnswer` (a value, a function of the input, or `aiTestFailure(reason)`), else built from the schema (empty texts, zeros, empty lists), else "Test answer for {label}". Records are written, marked test. The admin's provider Test is a live call even in test mode, and is billed. `captureAiAsks()` in the app kit does the same for unit tests without touching Firestore or Storage. |
 | AI-D17 | Safety | Each provider's own defaults; a provider's block comes back as `blocked`. No admin setting. |
-| AI-D18 | The feature | `ai`, off by default like `pwa`; on with `on: ['ai']` in `src/custom/features.ts`. Off: the AI functions are not deployed, Settings, AI and its card are hidden, and `askAi` answers `off` without throwing, so the same app code runs in a project with AI and one without. |
+| AI-D18 | The feature | `ai`, on by default (Gunjan, 2026-11-01; first built off by default like `pwa`); off with `off: ['ai']` in `src/custom/features.ts`. Off: the AI functions are not deployed, Settings, AI and its card are hidden, and `askAi` answers `off` without throwing, so the same app code runs in a project with AI and one without. |
 | AI-D19 | Security | `AiKeys`: no browser access. `AiCalls`, `AiUsage`: admins read, nobody writes from a browser. Storage `ai-calls/`: admins read, nobody writes. `askAi` reads Storage paths with admin rights, so it takes paths only in the install's bucket, never `..` or another bucket; the app checks the caller may read what it passes (docs). Other addresses must be `https` with a host name, not an address literal, a local name or a trailing dot; names are not resolved (only admins set them, and redirects are refused). No tools, so a picture's hidden instructions can only change the answer, which the schema check bounds. |
 
 ---

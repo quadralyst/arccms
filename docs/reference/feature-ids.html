@@ -17,7 +17,7 @@
     on: ['pwa'],
     off: ['sms', 'payments'],
 };</code></pre>
-    <p>An empty choice means every feature is on except <code>pwa</code> and <code>ai</code>. The choice is checked when <code>npm run dev</code> or <code>npm run build</code> starts and before every functions build: an unknown id, an id in both lists, or a feature whose need is off stops it with a message that says what to change. How to choose is on <a href="../website/choose-features.html">Choose your website's features</a> and <a href="../app/choose-features.html">Choose your app's features</a>.</p>
+    <p>An empty choice means every feature is on except <code>pwa</code>. The choice is checked when <code>npm run dev</code> or <code>npm run build</code> starts and before every functions build: an unknown id, an id in both lists, or a feature whose need is off stops it with a message that says what to change. How to choose is on <a href="../website/choose-features.html">Choose your website's features</a> and <a href="../app/choose-features.html">Choose your app's features</a>.</p>
 
     <h2>The ids</h2>
     <table>
@@ -35,7 +35,7 @@
         <tr><td><code>pwa</code></td><td>Off</td><td>None</td><td>Turned on with <code>on: ['pwa']</code>. While off there is no web manifest, no app icons and no service worker, and the install tracking function <code>trackPwaEvent</code> is not deployed. See <a href="../features/pwa.html">Installable app (PWA)</a>.</td></tr>
         <tr><td><code>contact</code></td><td>On</td><td>None</td><td>The Messages menu item and page, and contact forms on published pages (they are removed from the page). Functions: <code>submitContactMessage</code>, <code>onContactMessageCreated</code>. See <a href="../features/contact.html">Contact form</a>.</td></tr>
         <tr><td><code>analytics</code></td><td>On</td><td>None</td><td>Google Analytics: no tracking code loads in the browser at all, and the admin dashboard's analytics section and the Analytics settings page go. Functions: <code>connectGoogleAnalytics</code>, <code>selectAnalyticsProperty</code>, <code>refreshAnalyticsData</code>, <code>disconnectGoogleAnalytics</code>, <code>testAnalyticsConnection</code>. See <a href="../features/analytics.html">Analytics</a>.</td></tr>
-        <tr><td><code>ai</code></td><td>Off</td><td>None</td><td>Turned on with <code>on: ['ai']</code>. While off there is no Settings, AI, and <code>askAi</code> in the app's functions answers <code>off</code>. Functions: <code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code>, <code>cleanUpAi</code>. See <a href="../features/ai.html">AI</a>.</td></tr>
+        <tr><td><code>ai</code></td><td>On</td><td>None</td><td>Turned off with <code>off: ['ai']</code>. While off there is no Settings, AI, and <code>askAi</code> in the app's functions answers <code>off</code>. Functions: <code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code>, <code>cleanUpAi</code>. See <a href="../features/ai.html">AI</a>.</td></tr>
       </tbody>
     </table>
 

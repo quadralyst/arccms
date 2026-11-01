@@ -28,9 +28,9 @@ const SETUP: AiSetupInfo = {
     defaultVertexLocation: 'eu',
 };
 
-async function render(stored: Record<string, unknown> = {}) {
+async function render(stored: Record<string, unknown> = {}, setup: AiSetupInfo = SETUP) {
     const service = {
-        setup: vi.fn(async () => SETUP),
+        setup: vi.fn(async () => setup),
         load: vi.fn(async () => aiFormFrom(stored)),
         save: vi.fn(async () => undefined),
         savePart: vi.fn(async () => undefined),
@@ -69,6 +69,19 @@ describe('AiSettingsPage', () => {
         const steps = [...page.querySelectorAll('.checklist .check')];
         expect(steps.map((s) => s.classList.contains('done'))).toEqual([false, false, true, false]);
         expect(page.querySelector('.no-providers')?.textContent).toContain('No provider is connected yet.');
+    });
+
+    it('tells the admin there is nothing to set up while the app has no purposes and no provider', async () => {
+        const { page } = await render({}, { ...SETUP, purposes: [] });
+        expect(page.querySelector('.nothing-uses-ai')?.textContent).toContain('Nothing on this site uses AI yet');
+        expect(page.querySelector('.checklist')).toBeNull();
+        expect(page.querySelector('.no-providers')).not.toBeNull();
+    });
+
+    it('keeps the checklist once a provider is added, even with no purposes', async () => {
+        const { page } = await render({ connections: { or: working } }, { ...SETUP, purposes: [] });
+        expect(page.querySelector('.nothing-uses-ai')).toBeNull();
+        expect(page.querySelector('.checklist')).not.toBeNull();
     });
 
     it('ticks the checklist as the provider works, the models are set and Live is saved', async () => {

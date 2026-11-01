@@ -88,6 +88,12 @@ export function usd(n: number): string {
 
                 @switch (tab()) {
                     @case ('setup') {
+                        @if (nothingUsesAi()) {
+                        <div class="alert alert-info mb-4 nothing-uses-ai" role="status">
+                            <strong>{{ 'admin.settings.ai.nothing_uses_ai_title' | transloco }}</strong>
+                            <div class="small">{{ 'admin.settings.ai.nothing_uses_ai' | transloco }}</div>
+                        </div>
+                        } @else {
                         <div class="checklist card mb-4">
                             <div class="card-body">
                                 <h4 class="mt-0">{{ 'admin.settings.ai.get_started' | transloco }}</h4>
@@ -118,6 +124,7 @@ export function usd(n: number): string {
                                 </ol>
                             </div>
                         </div>
+                        }
 
                         <h4>{{ 'admin.settings.ai.providers' | transloco }}</h4>
                         <p class="text-muted small">{{ 'admin.settings.ai.providers_hint' | transloco }}</p>
@@ -591,6 +598,14 @@ export class AiSettingsPage implements OnInit {
         return [...needed].every((t) => f.tiers[t].length > 0);
     });
     readonly savedLive = computed(() => this.loaded()?.mode === 'live');
+    /**
+     * AI is on in every install, but only an app's own purposes use it. With none and no
+     * provider, a first-time admin is told there is nothing to set up, not handed a checklist.
+     */
+    readonly nothingUsesAi = computed(() => {
+        const setup = this.setup();
+        return !!setup && !setup.purposes.length && !this.form().connections.length;
+    });
     /** The providers Arc knows models of, with the tiers it recommends them for. */
     readonly recommendations = computed(() => this.form().connections.flatMap((c) => {
         const preset = this.preset(c.preset);

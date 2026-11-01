@@ -1077,6 +1077,8 @@
         "saved": "Saved.",
         "save_failed": "Not saved: {{ error }}",
         "unsaved": "You have changes that are not saved yet.",
+        "nothing_uses_ai_title": "Nothing on this site uses AI yet",
+        "nothing_uses_ai": "There is nothing to set up or pay for. When your app's developer adds a feature that uses AI, come back here and connect a provider.",
         "no_purposes": "Your app has no AI purposes yet. Its developer adds them in functions/src/custom/ai.ts.",
         "on": "On",
         "takes": "Takes",

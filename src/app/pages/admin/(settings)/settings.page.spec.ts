@@ -35,8 +35,8 @@ describe('SettingsPageComponent', () => {
         expect(component).toBeTruthy();
     });
 
-    it('should have fifteen setting categories', () => {
-        expect(component.settingCategories().length).toBe(15);
+    it('should have sixteen setting categories, AI included (on by default)', () => {
+        expect(component.settingCategories().length).toBe(16);
     });
 
     it('should have about as first category', () => {
@@ -78,33 +78,39 @@ describe('SettingsPageComponent', () => {
         expect(categories[4].route).toBe('/admin/settings/payments');
         expect(categories[5].route).toBe('/admin/settings/user');
         expect(categories[6].route).toBe('/admin/settings/sms');
-        expect(categories[7].route).toBe('/admin/settings/message');
-        expect(categories[8].route).toBe('/admin/settings/site-usage');
-        expect(categories[9].route).toBe('/admin/settings/localization');
-        expect(categories[10].route).toBe('/admin/settings/search');
-        expect(categories[11].route).toBe('/admin/settings/discoverability');
-        expect(categories[12].route).toBe('/admin/settings/app-audience');
-        expect(categories[13].route).toBe('/admin/settings/automations');
-        expect(categories[14].route).toBe('/admin/settings/misc');
+        expect(categories[7].route).toBe('/admin/settings/ai');
+        expect(categories[8].route).toBe('/admin/settings/message');
+        expect(categories[9].route).toBe('/admin/settings/site-usage');
+        expect(categories[10].route).toBe('/admin/settings/localization');
+        expect(categories[11].route).toBe('/admin/settings/search');
+        expect(categories[12].route).toBe('/admin/settings/discoverability');
+        expect(categories[13].route).toBe('/admin/settings/app-audience');
+        expect(categories[14].route).toBe('/admin/settings/automations');
+        expect(categories[15].route).toBe('/admin/settings/misc');
     });
 
     it('should have SMS right after user settings (phone sign-in)', () => {
         expect(component.settingCategories()[6].id).toBe('sms');
     });
 
-    it('should have discoverability as twelfth category (D3)', () => {
-        expect(component.settingCategories()[11].id).toBe('discoverability');
-        expect(component.settingCategories()[11].label).toBe('Discoverability');
+    it('should have AI right after SMS', () => {
+        expect(component.settingCategories()[7].id).toBe('ai');
+        expect(component.settingCategories()[7].feature).toBe('ai');
     });
 
-    it('should have search as eleventh category', () => {
-        expect(component.settingCategories()[10].id).toBe('search');
-        expect(component.settingCategories()[10].label).toBe('Search');
+    it('should have discoverability as thirteenth category (D3)', () => {
+        expect(component.settingCategories()[12].id).toBe('discoverability');
+        expect(component.settingCategories()[12].label).toBe('Discoverability');
     });
 
-    it('should have localization as tenth category', () => {
-        expect(component.settingCategories()[9].id).toBe('localization');
-        expect(component.settingCategories()[9].label).toBe('Localization');
+    it('should have search as twelfth category', () => {
+        expect(component.settingCategories()[11].id).toBe('search');
+        expect(component.settingCategories()[11].label).toBe('Search');
+    });
+
+    it('should have localization as eleventh category', () => {
+        expect(component.settingCategories()[10].id).toBe('localization');
+        expect(component.settingCategories()[10].label).toBe('Localization');
     });
 
     it('gives every tab the feature of its page, or none for core (specs/feature-flags-spec.md 8)', () => {

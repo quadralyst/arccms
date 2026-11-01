@@ -1046,6 +1046,8 @@ export type TranslationKey =
     | 'admin.settings.ai.no_providers'
     | 'admin.settings.ai.no_purposes'
     | 'admin.settings.ai.no_usage'
+    | 'admin.settings.ai.nothing_uses_ai'
+    | 'admin.settings.ai.nothing_uses_ai_title'
     | 'admin.settings.ai.of_budget'
     | 'admin.settings.ai.on'
     | 'admin.settings.ai.only_test_usage'
@@ -3360,6 +3362,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.no_providers',
     'admin.settings.ai.no_purposes',
     'admin.settings.ai.no_usage',
+    'admin.settings.ai.nothing_uses_ai',
+    'admin.settings.ai.nothing_uses_ai_title',
     'admin.settings.ai.of_budget',
     'admin.settings.ai.on',
     'admin.settings.ai.only_test_usage',

@@ -25,7 +25,7 @@
         <tr><td><code>sms</code></td><td>Switch off unless you want phone number sign-in</td></tr>
         <tr><td><code>data</code></td><td>Optional: bulk import and export of your data from the admin</td></tr>
         <tr><td><code>pwa</code></td><td>Off by default; a website rarely wants to be installable</td></tr>
-        <tr><td><code>ai</code></td><td>Off by default; it is for an app's own AI uses, and a website has none</td></tr>
+        <tr><td><code>ai</code></td><td>Switch off: it is for an app's own AI uses, and a website has none</td></tr>
         <tr><td><code>analytics</code></td><td>Keep for visit numbers on the dashboard; switch off if you use no Google Analytics. To track only visitors who accept cookies, see <a href="../features/analytics.html">Analytics</a></td></tr>
       </tbody>
     </table>
@@ -33,11 +33,11 @@
 
     <h2>Switch features off</h2>
     <ol class="steps">
-      <li><p>Open <code>src/custom/features.ts</code>. As shipped it is empty, which means every feature except <code>pwa</code> and <code>ai</code> is on.</p></li>
+      <li><p>Open <code>src/custom/features.ts</code>. As shipped it is empty, which means every feature except <code>pwa</code> is on.</p></li>
       <li>
         <p>List the features your site does not have under <code>off</code>:</p>
         <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
-    off: ['payments', 'sms'],
+    off: ['payments', 'sms', 'ai'],
 };</code></pre>
       </li>
       <li><p>Save. A running <code>npm run dev</code> restarts on its own. Check the admin: the Products and Transactions menu items are gone, and the Email + SMS menu is now called Email.</p></li>

@@ -50,11 +50,11 @@ export const FEATURE_INFO: Record<FeatureId, FeatureInfo> = {
     contact: { label: 'Contact form', defaultOn: true, needs: [] },
     // Google Analytics: tracking in the browser and the dashboard's numbers (docs/features/analytics.html).
     analytics: { label: 'Analytics', defaultOn: true, needs: [] },
-    // An app's own AI uses through askAi (docs/app/ai.html). Arc has none of its own, so it waits to be asked for.
-    ai: { label: 'AI', defaultOn: false, needs: [] },
+    // An app's own AI uses through askAi (docs/app/ai.html). On, so any app can use it; a site with no AI turns it off.
+    ai: { label: 'AI', defaultOn: true, needs: [] },
 };
 
-/** What `src/custom/features.ts` exports. Empty: every feature on except the PWA and AI. */
+/** What `src/custom/features.ts` exports. Empty: every feature on except the PWA. */
 export interface FeatureChoice {
     /** Features that are off by default and this app wants (`pwa`, `ai`). */
     on?: readonly FeatureId[];

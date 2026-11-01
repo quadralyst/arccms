@@ -12,7 +12,7 @@
   <main>
     <h1>Use AI in your app</h1>
     <p class="lead">Your own Cloud Functions can ask a language model to read, write, translate, summarise or sort, with <code>askAi</code> from the app kit. You declare each use as a purpose in <code>functions/src/custom/ai.ts</code>: what it takes, the instruction, and the shape of the answer. Admins choose the providers and models, set the keys, and see what every call cost in Settings, AI. Arc CMS checks the answer against your shape, keeps a record of each call, and stops at the limits you set.</p>
-    <p>Arc CMS has no AI feature of its own: every use is your app's. It needs the <code>ai</code> feature, which is off until you turn it on (see <a href="../features/ai.html">AI</a> for the admin side).</p>
+    <p>Arc CMS has no AI feature of its own: every use is your app's. It needs the <code>ai</code> feature, which is on unless your app turns it off (see <a href="../features/ai.html">AI</a> for the admin side).</p>
 
     <h2 id="example">An example: reading a receipt</h2>
     <p>A shop photographs its supplier receipts, and the app reads each one into lines and a total for the owner to check. First the purpose, in <code>functions/src/custom/ai.ts</code>:</p>
@@ -162,7 +162,7 @@ try {
 
     <h2>Deploy</h2>
     <ol class="steps">
-      <li><p>Turn the feature on in <code>src/custom/features.ts</code>: <code>on: ['ai']</code>.</p></li>
+      <li><p>Check that <code>src/custom/features.ts</code> does not turn the feature off (<code>off: ['ai']</code>). It is on by default.</p></li>
       <li><p>Deploy the functions and the rules (<code>npm run deploy</code>). The feature's own functions (<code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code>, <code>cleanUpAi</code>) deploy with it; <code>askAi</code> runs inside your functions.</p></li>
       <li><p>Deploy the website, so admins get Settings, AI.</p></li>
       <li><p>In Settings, AI, add a provider, save, set its key, test it, put its model in a tier, and switch to Live.</p></li>
