@@ -180,3 +180,24 @@ When picked up:
   email domain.
 - Document what is collected and when: every event, user properties, the uid, and that
   the choice is stored per device.
+
+---
+
+## AI
+
+### 7. AI for every kind of output (SPEC DRAFT 2026-11-02, specs/ai-media-spec.md)
+Grow the F38 AI feature so `askAi` also makes pictures, speech, other audio and video,
+with the same keys, records, costs, allowances and budget: cost per unit (tokens,
+pictures, characters, seconds), files saved to Storage, background jobs for video,
+per-connection pacing, a key header per provider, an opt-in cache, named voices, new
+providers (Anthropic, Gemini API, Mistral, Groq, xAI, Sarvam, ElevenLabs, MiniMax, Google
+Text-to-Speech, OpenAI, Gemini and Alibaba Qwen pictures, Gemini Omni Flash, Kling and
+HeyGen video), cached-input prices, balances, and a "Create with AI" tab in the Media
+Manager. Five phases, AM1 to AM5. No live provider calls in the build: each connector is
+marked not tested live and finalized on its first real use in a later project.
+
+Later providers, built from their docs and marked not tested live, like the first wave: video from Google Veo
+on Vertex, ByteDance Seedance, Alibaba Wan, Vidu and Runway; pictures from ByteDance
+Seedream, Z.ai (`glm-image`, `cogView-4`), Tencent Hunyuan and Kling; speech from StepFun.
+Not usable today: OpenAI speech (retires 2027-01-06), Alibaba Qwen speech (no Indian
+languages), MiniMax and Alibaba music (closed to new users, invitation only).
