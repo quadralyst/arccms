@@ -182,9 +182,9 @@ describe('test mode', () => {
 });
 
 describe('live', () => {
-    it('answers off while no connector makes the kind, as in AM1 for every provider', async () => {
-        live();
-        expect(await askAi({ purpose: 'cover', input: 'A cat', limitKey: 'k' })).toMatchObject({ ok: false, reason: 'off', detail: expect.stringContaining('Arc cannot make image with OpenAI yet') });
+    it('answers off while no connector makes the kind, such as pictures on OpenRouter', async () => {
+        live({ connections: { or: { preset: 'openrouter' } }, lists: { image: [{ connection: 'or', model: 'pic' }] }, models: { 'or/pic': { makes: 'image', unit: 'pictures' } } });
+        expect(await askAi({ purpose: 'cover', input: 'A cat', limitKey: 'k' })).toMatchObject({ ok: false, reason: 'off', detail: expect.stringContaining('Arc cannot make image with OpenRouter yet') });
     });
 
     it('saves what a model made at the call\'s path, prices it per picture and keeps it for the cache', async () => {

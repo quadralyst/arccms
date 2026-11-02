@@ -177,6 +177,13 @@ export interface AiPurpose {
      * providers. Left out: one voice, `default`, which the admin maps in Settings, AI.
      */
     voices?: Record<string, AiVoiceMap>;
+    /**
+     * Pictures only: offer this purpose in the Media Manager's "Create with AI" tab (AM-D24),
+     * so a picker can open on it with the app's house style (its `instruction`). Its models
+     * and allowance apply there, but not its `saveTo`: pictures made in the tab stay in
+     * `ai-files/` until one is saved to the library.
+     */
+    mediaManager?: boolean;
     /** A sound's or music's defaults, for `makes: 'audio'`. */
     audio?: AiAudioSettings;
     /** A video's defaults, for `makes: 'video'`. */
@@ -302,6 +309,8 @@ export type AskAiResult =
         files?: AiFile[];
         /** The answer came from Arc's own cache: no provider was called (AM-D16). */
         cached?: boolean;
+        /** Pictures: the settings the model was asked with, fitted to it, such as the nearest shape (AM-D19). */
+        image?: AiImageSettings;
         usage: AiUsage;
         recordId: string | null;
     }

@@ -480,9 +480,10 @@ export function usd(n: number): string {
                                             <label class="form-check-label" [for]="'aiOn-' + p.id">{{ 'admin.settings.ai.on' | transloco }}</label>
                                         </div>
                                     </div>
-                                    @if (p.arc) {
+                                    @if (p.fixed) {
                                         <div class="small text-muted mt-2 arc-note">{{ 'admin.settings.ai.arc_voice_sample_note' | transloco }}</div>
                                     } @else {
+                                    @if (p.arc) { <div class="small text-muted mt-2 arc-note">{{ 'admin.settings.ai.arc_media_image_note' | transloco }}</div> }
                                     <div class="small mt-2">{{ takes(p) }}</div>
                                     @if (isFile(p)) {
                                         <div class="small mb-2 files-go">
@@ -908,7 +909,10 @@ export class AiSettingsPage implements OnInit, OnDestroy {
         // Prices in another currency count 0 until the admin gives its USD value (AM-D5).
         if (this.needsRate(c)) return true;
         const priced = (f: AiPriceField) => this.price(m, f) !== undefined;
-        return this.unitOf(m) === 'tokens' ? !priced('priceIn') || !priced('priceOut') : !priced('price');
+        // A picture model may be priced by quality or resolution instead of one price (AM-D5).
+        const image = this.known(m.connection, m.model)?.image;
+        const byPicture = !!(image?.priceByQuality && Object.keys(image.priceByQuality).length) || !!(image?.priceByResolution && Object.keys(image.priceByResolution).length);
+        return this.unitOf(m) === 'tokens' ? !priced('priceIn') || !priced('priceOut') : !priced('price') && !byPicture;
     }));
     readonly unpricedNames = computed(() => this.unpricedModels().map((m) => m.model).join(', '));
     /** Every model a tier, file list or purpose names, once, for its details. */
@@ -926,7 +930,8 @@ export class AiSettingsPage implements OnInit, OnDestroy {
      */
     readonly shownLists = computed(() => {
         const f = this.form();
-        const kinds = new Set(this.appPurposes().map((p) => this.kindOf(p)));
+        // Arc's Media image counts too, so a picture model is ready for the Media Manager (AM-D21).
+        const kinds = new Set((this.setup()?.purposes ?? []).filter((p) => !p.fixed).map((p) => this.kindOf(p)));
         return AI_FILE_KINDS.filter((k) => f.lists[k].length || kinds.has(k) || f.connections.some((c) => this.modelChoices(c.id, k).length));
     });
     /** The app's own purposes: Arc's (such as the voice sample) need no models set up. */
@@ -1343,7 +1348,8 @@ export class AiSettingsPage implements OnInit, OnDestroy {
      * makes no speech, nor replaces another provider's list.
      */
     private listsToFill(connectionId: string, preset: AiPresetInfo, form: AiSettingsForm = this.form()): Record<AiFileKind, AiModelRef[]> {
-        const kinds = new Set(this.appPurposes().map((p) => this.kindOf(p)));
+        // Arc's Media image counts too, so a picture model is ready for the Media Manager (AM-D21).
+        const kinds = new Set((this.setup()?.purposes ?? []).filter((p) => !p.fixed).map((p) => this.kindOf(p)));
         const rec = recommendedLists(connectionId, preset);
         return Object.fromEntries(AI_FILE_KINDS.map((k) => [k, kinds.has(k) && !form.lists[k].length ? rec[k] : []])) as Record<AiFileKind, AiModelRef[]>;
     }

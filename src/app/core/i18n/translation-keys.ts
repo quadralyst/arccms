@@ -573,6 +573,68 @@ export type TranslationKey =
     | 'admin.feedback.someone'
     | 'admin.feedback.subtitle'
     | 'admin.feedback.title'
+    | 'admin.media.ai.aspect'
+    | 'admin.media.ai.budget_left'
+    | 'admin.media.ai.cancel'
+    | 'admin.media.ai.count'
+    | 'admin.media.ai.edit_with_ai'
+    | 'admin.media.ai.editing'
+    | 'admin.media.ai.empty'
+    | 'admin.media.ai.empty_edit'
+    | 'admin.media.ai.estimate'
+    | 'admin.media.ai.estimate_about'
+    | 'admin.media.ai.estimate_none'
+    | 'admin.media.ai.estimate_test'
+    | 'admin.media.ai.failed'
+    | 'admin.media.ai.generate'
+    | 'admin.media.ai.generate_again'
+    | 'admin.media.ai.generate_edit'
+    | 'admin.media.ai.house_style'
+    | 'admin.media.ai.info_failed'
+    | 'admin.media.ai.kept_note'
+    | 'admin.media.ai.leave_edit'
+    | 'admin.media.ai.left_today'
+    | 'admin.media.ai.loading'
+    | 'admin.media.ai.made_cost'
+    | 'admin.media.ai.made_with_ai'
+    | 'admin.media.ai.model'
+    | 'admin.media.ai.more'
+    | 'admin.media.ai.nearest'
+    | 'admin.media.ai.negative'
+    | 'admin.media.ai.negative_hint'
+    | 'admin.media.ai.no_allowance'
+    | 'admin.media.ai.no_budget'
+    | 'admin.media.ai.no_edit_model'
+    | 'admin.media.ai.no_model'
+    | 'admin.media.ai.off'
+    | 'admin.media.ai.prompt'
+    | 'admin.media.ai.prompt_edit'
+    | 'admin.media.ai.prompt_edit_hint'
+    | 'admin.media.ai.prompt_hint'
+    | 'admin.media.ai.quality'
+    | 'admin.media.ai.quality_high'
+    | 'admin.media.ai.quality_low'
+    | 'admin.media.ai.quality_medium'
+    | 'admin.media.ai.read_failed'
+    | 'admin.media.ai.reason_blocked'
+    | 'admin.media.ai.reason_limit'
+    | 'admin.media.ai.reason_off'
+    | 'admin.media.ai.reason_timeout'
+    | 'admin.media.ai.reason_too_large'
+    | 'admin.media.ai.reason_unavailable'
+    | 'admin.media.ai.reason_unreadable'
+    | 'admin.media.ai.resolution'
+    | 'admin.media.ai.resolution_high'
+    | 'admin.media.ai.resolution_standard'
+    | 'admin.media.ai.save'
+    | 'admin.media.ai.save_failed'
+    | 'admin.media.ai.saved'
+    | 'admin.media.ai.seed'
+    | 'admin.media.ai.seed_hint'
+    | 'admin.media.ai.test_note'
+    | 'admin.media.ai.untested'
+    | 'admin.media.ai.use'
+    | 'admin.media.ai.working'
     | 'admin.media.api_hint'
     | 'admin.media.api_not_configured'
     | 'admin.media.configure_api'
@@ -932,6 +994,7 @@ export type TranslationKey =
     | 'admin.settings.ai.amount_seconds'
     | 'admin.settings.ai.answer'
     | 'admin.settings.ai.answered'
+    | 'admin.settings.ai.arc_media_image_note'
     | 'admin.settings.ai.arc_purpose'
     | 'admin.settings.ai.arc_voice_sample_note'
     | 'admin.settings.ai.at_once'
@@ -3008,6 +3071,68 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.feedback.someone',
     'admin.feedback.subtitle',
     'admin.feedback.title',
+    'admin.media.ai.aspect',
+    'admin.media.ai.budget_left',
+    'admin.media.ai.cancel',
+    'admin.media.ai.count',
+    'admin.media.ai.edit_with_ai',
+    'admin.media.ai.editing',
+    'admin.media.ai.empty',
+    'admin.media.ai.empty_edit',
+    'admin.media.ai.estimate',
+    'admin.media.ai.estimate_about',
+    'admin.media.ai.estimate_none',
+    'admin.media.ai.estimate_test',
+    'admin.media.ai.failed',
+    'admin.media.ai.generate',
+    'admin.media.ai.generate_again',
+    'admin.media.ai.generate_edit',
+    'admin.media.ai.house_style',
+    'admin.media.ai.info_failed',
+    'admin.media.ai.kept_note',
+    'admin.media.ai.leave_edit',
+    'admin.media.ai.left_today',
+    'admin.media.ai.loading',
+    'admin.media.ai.made_cost',
+    'admin.media.ai.made_with_ai',
+    'admin.media.ai.model',
+    'admin.media.ai.more',
+    'admin.media.ai.nearest',
+    'admin.media.ai.negative',
+    'admin.media.ai.negative_hint',
+    'admin.media.ai.no_allowance',
+    'admin.media.ai.no_budget',
+    'admin.media.ai.no_edit_model',
+    'admin.media.ai.no_model',
+    'admin.media.ai.off',
+    'admin.media.ai.prompt',
+    'admin.media.ai.prompt_edit',
+    'admin.media.ai.prompt_edit_hint',
+    'admin.media.ai.prompt_hint',
+    'admin.media.ai.quality',
+    'admin.media.ai.quality_high',
+    'admin.media.ai.quality_low',
+    'admin.media.ai.quality_medium',
+    'admin.media.ai.read_failed',
+    'admin.media.ai.reason_blocked',
+    'admin.media.ai.reason_limit',
+    'admin.media.ai.reason_off',
+    'admin.media.ai.reason_timeout',
+    'admin.media.ai.reason_too_large',
+    'admin.media.ai.reason_unavailable',
+    'admin.media.ai.reason_unreadable',
+    'admin.media.ai.resolution',
+    'admin.media.ai.resolution_high',
+    'admin.media.ai.resolution_standard',
+    'admin.media.ai.save',
+    'admin.media.ai.save_failed',
+    'admin.media.ai.saved',
+    'admin.media.ai.seed',
+    'admin.media.ai.seed_hint',
+    'admin.media.ai.test_note',
+    'admin.media.ai.untested',
+    'admin.media.ai.use',
+    'admin.media.ai.working',
     'admin.media.api_hint',
     'admin.media.api_not_configured',
     'admin.media.configure_api',
@@ -3367,6 +3492,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.amount_seconds',
     'admin.settings.ai.answer',
     'admin.settings.ai.answered',
+    'admin.settings.ai.arc_media_image_note',
     'admin.settings.ai.arc_purpose',
     'admin.settings.ai.arc_voice_sample_note',
     'admin.settings.ai.at_once',

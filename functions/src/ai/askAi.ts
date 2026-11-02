@@ -25,7 +25,8 @@ import { findPreset, presetNeedsKey, type AiSpeechAbilities } from './presets.js
 import { fileSettingsProblems, findPurpose, isFileKind, MAX_PICTURES, purposeCacheDays, purposeKind, purposeReads, purposeSchema, purposeTier, purposeVoiceNames, DEFAULT_TIMEOUT_SECONDS } from './purposes.js';
 import { newAiCallId, writeAiCall, type AiCallRecord, type AttemptRecord } from './records.js';
 import { answerProblems, emptyAnswer, parseJsonAnswer, type JsonSchema } from './schema.js';
-import { connectionLimits, modelInfo, purposeSettings, readAiSettings, type AiModelRef } from './settings.js';
+import { connectionLimits, modelInfo, pacingKey, purposeSettings, readAiSettings, type AiModelRef } from './settings.js';
+import { fittedImage, imageSkip, picturePrice } from './images.js';
 import { standInFiles } from './standins.js';
 import { voiceIdFor } from './voices.js';
 import { addToTotals, alertOutOfCredit, noteConnection } from './usage.js';
@@ -72,6 +73,8 @@ export interface ArcAskOptions {
     only?: AiModelRef;
     /** Speech: this provider voice id, in place of the purpose's named voice. */
     voiceId?: string;
+    /** Save the files in `ai-files/`, never the purpose's `saveTo` (the Media Manager, AM-D24). */
+    ignoreSaveTo?: boolean;
 }
 
 function checked(input: AskAiInput, arc: boolean): Checked {
@@ -136,6 +139,7 @@ function callSettings(purposeId: string, purpose: AiPurpose, kind: AiKind, input
         if (image.count !== undefined && (!Number.isInteger(image.count) || image.count < 1 || image.count > MAX_PICTURES)) fail(`image.count must be a whole number from 1 to ${MAX_PICTURES}.`);
         if (image.aspect !== undefined && !AI_ASPECTS.includes(image.aspect)) fail(`image.aspect must be one of ${AI_ASPECTS.join(', ')}.`);
         if (image.seed !== undefined && !Number.isInteger(image.seed)) fail('image.seed must be a whole number.');
+        if (image.negativePrompt !== undefined && (typeof image.negativePrompt !== 'string' || image.negativePrompt.length > 1000)) fail('image.negativePrompt must be text of at most 1,000 characters.');
         return { image };
     }
     if (kind === 'speech') {
@@ -365,9 +369,13 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
     let last: AiModelRef | null = null;
     /** Speech: the provider voice id of the model that answered, or the last one tried. */
     let lastVoiceId: string | null = null;
+    /** Pictures: the settings the model that answered, or the last one tried, was asked with (AM-D19). */
+    let lastImage: AiImageSettings | null = null;
+    /** Where this call's files go: the purpose's folder, unless Arc's caller keeps them in ai-files/. */
+    const saveTo = arc?.ignoreSaveTo ? undefined : c.purpose.saveTo;
     let inputSize = { chars: 0, files: 0, bytes: 0 };
     let parts: PreparedPart[] = [];
-    let allowance: { release: () => Promise<void> } | null = null;
+    let allowance: { release: (units?: number) => Promise<void> } | null = null;
     let spentBefore: number | null = null;
 
     type Outcome =
@@ -403,6 +411,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
             ...(outcome.ok && outcome.files ? { files: outcome.files, filePaths: outcome.files.map((f) => f.path) } : {}),
             ...(cached ? { cached: true, cachedFrom: outcome.ok ? outcome.cachedFrom ?? null : null } : {}),
             ...(c.kind === 'speech' ? { voice: c.voice, voiceId: lastVoiceId } : {}),
+            ...(c.kind === 'image' && lastImage ? { image: lastImage } : {}),
         };
         const content = ps.keepContent ? { instruction: c.purpose.instruction ?? '', parts, answer: outcome.answerText ?? null } : null;
         const [writtenId] = await Promise.all([
@@ -416,6 +425,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                 ok: true,
                 ...(fileKind ? { files: outcome.files ?? [] } : schema ? { data: outcome.data } : { text: outcome.text }),
                 ...(cached ? { cached: true } : {}),
+                ...(c.kind === 'image' && record.image ? { image: record.image } : {}),
                 usage: resultUsage,
                 recordId: writtenId,
             };
@@ -488,7 +498,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
 
     /** A cache hit's files, copied from the cache to where this call wants them, as a fresh answer would be. */
     async function hitFiles(hit: CacheEntry): Promise<AiFile[]> {
-        const paths = filePaths({ recordId, purpose: c.purposeId, month: fileMonth(started), test: false, saveTo: c.purpose.saveTo, saveAs: c.saveAs ?? undefined, files: hit.files });
+        const paths = filePaths({ recordId, purpose: c.purposeId, month: fileMonth(started), test: false, saveTo, saveAs: saveTo ? c.saveAs ?? undefined : undefined, files: hit.files });
         await Promise.all(hit.paths.map((p, i) => copyFile(p, paths[i])));
         return hit.files.map((f, i) => ({ ...f, path: paths[i] }));
     }
@@ -550,6 +560,14 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                 continue;
             }
             const voiceId = voiceOf(ref);
+            const image = c.kind === 'image' ? fittedImage(c.settings.image, info.image) : undefined;
+            if (c.kind === 'image') {
+                const skip = imageSkip(c.settings.image, info.image, parts.some((p) => p.kind === 'picture'));
+                if (skip) {
+                    attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: skip });
+                    continue;
+                }
+            }
             if (c.kind === 'speech') {
                 const skip = speechSkip(info.speech, voiceId, preset.label);
                 if (skip) {
@@ -564,8 +582,9 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
             }
             last = ref;
             lastVoiceId = voiceId;
+            lastImage = image ?? null;
             const attemptStarted = Date.now();
-            const place = await waitForPlace(connection.id, connectionLimits(connection), deadline, { leaveMs: MIN_ATTEMPT_MS });
+            const place = await waitForPlace(pacingKey(connection, fileKind ?? undefined), connectionLimits(connection, fileKind ?? undefined), deadline, { leaveMs: MIN_ATTEMPT_MS });
             let result: ConnectorResult | FileResult;
             if (!place.ok) {
                 result = { ok: false, failure: 'unavailable', detail: `connection ${connection.id} is at its limit of requests (Settings, AI)`, wait: place.wait };
@@ -576,7 +595,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                     if (!key.ok) result = { ok: false, failure: 'off', detail: key.detail };
                     else {
                         const send = () => (makeFiles
-                            ? makeFiles({ connection, key: key.key }, { kind: fileKind!, model: ref.model, prompt: filePrompt(c.purpose, parts), parts: parts.filter((p) => p.kind !== 'text'), ...c.settings, ...(voiceId ? { voice: voiceId } : {}), timeoutMs: deadline - Date.now() })
+                            ? makeFiles({ connection, key: key.key }, { kind: fileKind!, model: ref.model, prompt: filePrompt(c.purpose, parts), parts: parts.filter((p) => p.kind !== 'text'), ...c.settings, ...(image ? { image } : {}), ...(voiceId ? { voice: voiceId } : {}), timeoutMs: deadline - Date.now() })
                             : talk!({ connection, key: key.key }, {
                                 model: ref.model,
                                 instruction: instructionFor(c.purpose, schema, info.schema),
@@ -591,7 +610,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                         result = await send();
                         // A provider's "too many requests" with a short wait: once more on the same model (AM-D15).
                         if (!result.ok && result.rateLimited && result.wait !== undefined && result.wait <= MAX_RETRY_WAIT_S && Date.now() + result.wait * 1000 + MIN_ATTEMPT_MS < deadline) {
-                            addSpent(info, ref, result.usage, []);
+                            addSpent(info, ref, result.usage, [], image);
                             attempts.push({ connection: ref.connection, model: ref.model, outcome: 'unavailable', ms: Date.now() - attemptStarted, detail: result.detail.slice(0, 300) });
                             await sleep(result.wait * 1000);
                             result = await send();
@@ -602,7 +621,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                 }
             }
             const ms = Date.now() - attemptStarted;
-            addSpent(info, ref, result.usage, result.ok && 'files' in result ? result.files : []);
+            addSpent(info, ref, result.usage, result.ok && 'files' in result ? result.files : [], image);
             if (result.ok) {
                 attempts.push({ connection: ref.connection, model: ref.model, outcome: 'ok', ms });
                 // A file made by a provider that also answers text (Vertex, Sarvam) says nothing
@@ -610,7 +629,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                 if (!fileKind || !connectorFor(preset.kind)) await noteConnection(settings, ref.connection, null);
                 if ('files' in result) {
                     if (!result.files.length) return finish({ ok: false, reason: 'unreadable', detail: 'the provider answered with no file' });
-                    const paths = filePaths({ recordId, purpose: c.purposeId, month: fileMonth(started), test: false, saveTo: c.purpose.saveTo, saveAs: c.saveAs ?? undefined, files: result.files });
+                    const paths = filePaths({ recordId, purpose: c.purposeId, month: fileMonth(started), test: false, saveTo, saveAs: saveTo ? c.saveAs ?? undefined : undefined, files: result.files });
                     let files: AiFile[];
                     try {
                         files = await saveFiles(paths, result.files, { recordId, purpose: c.purposeId, test: false });
@@ -619,6 +638,9 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                         console.error(`askAi: the files of a ${c.purposeId} call were not saved`, err);
                         return finish({ ok: false, reason: 'unavailable', detail: `the file was made but could not be saved: ${String((err as Error).message ?? err).slice(0, 200)}` });
                     }
+                    // Pictures counted as asked: those a provider did not make are given back (AM-D23).
+                    const asked = c.purpose.allowanceIn === 'pictures' ? allowanceAmount(c, 0) : 0;
+                    if (allowance && asked > files.length) await allowance.release(asked - files.length);
                     const hash = hashes.find((h) => h.ref.connection === ref.connection && h.ref.model === ref.model)?.hash;
                     if (hash) await storeCached({ hash, files, recordId, connection: ref.connection, model: ref.model, purpose: c.purposeId, days: cacheDays });
                     return finish({ ok: true, answerText: null, files });
@@ -669,7 +691,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
     }
 
     /** Add one attempt's tokens, amount and cost to the call's. */
-    function addSpent(info: ReturnType<typeof modelInfo>, ref: AiModelRef, usage: AttemptUsage | undefined, files: MadeFile[]): void {
+    function addSpent(info: ReturnType<typeof modelInfo>, ref: AiModelRef, usage: AttemptUsage | undefined, files: MadeFile[], image?: AiImageSettings): void {
         if (!usage && !files.length) return;
         const u: AttemptUsage = usage ?? { tokensIn: 0, tokensOut: 0, tokensThinking: 0 };
         spent.tokensIn += u.tokensIn;
@@ -681,7 +703,8 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
         const counted = info.unit === 'pictures' ? files.length
             : info.unit === 'characters' ? inputSize.chars
                 : info.unit === 'seconds' ? files.reduce((n, f) => n + (f.seconds ?? 0), 0) : 0;
-        const cost = attemptCost(info, u, counted);
+        // A picture's price may change with its quality or resolution (AM-D5).
+        const cost = attemptCost(image ? { ...info, price: picturePrice(info.image, info.price, image) } : info, u, counted);
         spent.costUsd += cost.usd;
         if (spent.unit !== cost.unit) spent.amount = 0;
         spent.unit = cost.unit;

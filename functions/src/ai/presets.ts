@@ -13,12 +13,12 @@
  * `docsReadOn` and has never answered a real call; the first project that uses it tests it
  * and sets the flag (AM-D34).
  */
-import type { AiKind, AiUnit } from './types.js';
+import type { AiAspect, AiFileKind, AiKind, AiUnit } from './types.js';
 
 /** How Arc talks to a provider for text; `elevenlabs` and `minimax` make files only, so far. */
 export type AiConnectorKind = 'openai' | 'vertex' | 'anthropic' | 'gemini' | 'elevenlabs' | 'minimax';
 /** How Arc asks a provider for files (AM-D7). */
-export type AiFileConnectorKind = 'elevenlabs' | 'sarvam' | 'minimax' | 'vertex';
+export type AiFileConnectorKind = 'elevenlabs' | 'sarvam' | 'minimax' | 'vertex' | 'openai' | 'gemini' | 'dashscope';
 export type AiSchemaSupport = 'strict' | 'json';
 export type AiReads = 'pictures' | 'pdfs';
 export type AiCurrency = 'USD' | 'INR';
@@ -36,6 +36,44 @@ export interface AiSpeechAbilities {
     languages?: string[];
     /** Speaks only voices whose id holds this type, such as `Chirp3-HD` in `en-US-Chirp3-HD-Kore` (Google prices by type). */
     voiceType?: string;
+}
+
+export type AiQuality = 'low' | 'medium' | 'high';
+export type AiResolution = 'standard' | 'high';
+
+/**
+ * What a picture model makes and takes (AM-D19, section 4.2). A setting it lacks is hidden
+ * in the Media Manager; a call that needs one (a seed, an edit) skips the model (AM-D4).
+ */
+export interface AiImageAbilities {
+    /** The shapes it makes; another shape is made at the nearest of these. */
+    aspects: AiAspect[];
+    /** `high` (about 4 MP) only where the model makes it; else `standard` is used. */
+    resolutions: AiResolution[];
+    /** Left out: it takes no quality, and the control is hidden. */
+    qualities?: AiQuality[];
+    /** The most pictures one call makes; Arc asks for at most 4. */
+    maxCount: number;
+    seed?: boolean;
+    negativePrompt?: boolean;
+    /** Changes a picture sent with the prompt (AM-D26). Such a model also reads pictures. */
+    edit?: boolean;
+    /** The file types it makes, the first its default. */
+    formats: Array<'png' | 'jpeg' | 'webp'>;
+    /** USD (or the preset's currency) per picture by quality, where the price changes with it. */
+    priceByQuality?: Partial<Record<AiQuality, number>>;
+    /** Per picture by resolution, where the price changes with it. */
+    priceByResolution?: Partial<Record<AiResolution, number>>;
+    /**
+     * A model priced only at its standard size whose price grows with the pixels: `high` costs
+     * this many times as much (about 4 MP over 1 MP), so the budget never counts too little.
+     */
+    highFactor?: number;
+    /**
+     * A model billed by tokens: about how many output tokens one picture takes, by quality, so
+     * the estimate before a call can say "about" (AM-D6).
+     */
+    tokensPerPicture?: Partial<Record<AiQuality, number>>;
 }
 
 /** The higher price a model charges for a prompt above `tokens` (AM-D31). */
@@ -67,6 +105,8 @@ export interface AiKnownModel {
     price?: number;
     /** Speech: what the model takes. */
     speech?: AiSpeechAbilities;
+    /** Pictures: what the model makes and takes. */
+    image?: AiImageAbilities;
     /** false: this model was built from the docs and never called for real, on a preset that was (AM-D34). */
     testedLive?: boolean;
     /**
@@ -108,6 +148,13 @@ export interface AiPreset {
     /** The most requests a minute and at once on the provider's entry plan (AM-D15). */
     perMinute?: number;
     atOnce?: number;
+    /** Limits a provider sets apart for one kind, such as MiniMax's 10 pictures a minute (AM-D15). */
+    kindLimits?: Partial<Record<AiFileKind, { perMinute?: number; atOnce?: number }>>;
+    /**
+     * The hosts its answers may name for a file to fetch (AM-D28), each a name or a `.suffix`.
+     * The key is never sent there.
+     */
+    downloadHosts?: string[];
     /** How its own key reads the balance, when it can (AM-D32). */
     balance?: AiBalanceReader;
     /** Where the admin sees the account's balance and bills. */
@@ -121,6 +168,30 @@ const SPEECH: Pick<AiKnownModel, 'makes' | 'unit' | 'reads' | 'schema'> = { make
 function googleTts(voiceType: string, price: number): AiKnownModel {
     return { ...SPEECH, speech: { maxBytes: 5000, formats: ['mp3', 'wav', 'opus'], voiceType }, price, testedLive: false };
 }
+/** What every picture model is: it makes pictures, and a model that edits reads one. */
+function picture(image: AiImageAbilities, extra: Partial<AiKnownModel> = {}): AiKnownModel {
+    return { makes: 'image', unit: 'pictures', reads: image.edit ? ['pictures'] : [], schema: 'json', image, ...extra };
+}
+/** OpenAI's gpt-image models (AM3), all taking custom sizes (gpt-image-1-mini and 1.5 shut down on 2026-12-01, so Arc offers neither). */
+const GPT_IMAGE_ASPECTS: AiAspect[] = ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', '21:9'];
+const OPENAI_IMAGE_MODELS: Record<string, AiKnownModel> = {
+    // Per picture at 1024 square, the dearest standard size (its pages give less for 3:2 and 2:3); a high
+    // picture, about 4 MP, is counted at four times that, since OpenAI prices its pictures by their tokens.
+    'gpt-image-2': picture({ aspects: GPT_IMAGE_ASPECTS, resolutions: ['standard', 'high'], qualities: ['low', 'medium', 'high'], maxCount: 4, edit: true, formats: ['png', 'jpeg', 'webp'], priceByQuality: { low: 0.006, medium: 0.053, high: 0.211 }, highFactor: 4 }, { testedLive: false, recommend: ['default'] }),
+    // Token prices only (picture tokens out $30 per million, picture tokens in $8, the higher of text and picture input).
+    // The typical tokens a picture takes are OpenAI's published figures for a 1536 by 1024 picture, the larger.
+    'gpt-image-2.5-flare': picture({ aspects: GPT_IMAGE_ASPECTS, resolutions: ['standard', 'high'], qualities: ['low', 'medium', 'high'], maxCount: 4, edit: true, formats: ['png', 'jpeg', 'webp'], tokensPerPicture: { low: 408, medium: 1584, high: 6240 } }, { unit: 'tokens', priceIn: 8, priceOut: 30, testedLive: false }),
+    // OpenAI's own choice for edits.
+    'gpt-image-2.5-sunburst': picture({ aspects: GPT_IMAGE_ASPECTS, resolutions: ['standard', 'high'], qualities: ['low', 'medium', 'high'], maxCount: 4, edit: true, formats: ['png', 'jpeg', 'webp'], tokensPerPicture: { low: 408, medium: 1584, high: 6240 } }, { unit: 'tokens', priceIn: 8, priceOut: 30, testedLive: false }),
+};
+/** Google's Gemini picture models (AM3), the same on the Gemini API and on Vertex: 1K standard, 2K high. */
+const GEMINI_IMAGE_ASPECTS: AiAspect[] = ['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16', '21:9'];
+const GEMINI_IMAGE_MODELS: Record<string, AiKnownModel> = {
+    'gemini-nano-banana-2.1': picture({ aspects: GEMINI_IMAGE_ASPECTS, resolutions: ['standard', 'high'], maxCount: 4, edit: true, formats: ['png'], priceByResolution: { standard: 0.0336, high: 0.0504 } }, { testedLive: false, recommend: ['default'] }),
+    'gemini-3.1-flash-image': picture({ aspects: GEMINI_IMAGE_ASPECTS, resolutions: ['standard', 'high'], maxCount: 4, edit: true, formats: ['png'], priceByResolution: { standard: 0.067, high: 0.101 } }, { testedLive: false }),
+    'gemini-3.1-flash-lite-image': picture({ aspects: GEMINI_IMAGE_ASPECTS, resolutions: ['standard'], maxCount: 4, edit: true, formats: ['png'], priceByResolution: { standard: 0.034 } }, { testedLive: false }),
+};
+
 /** The languages Sarvam speaks, as its `target_language_code` takes them. */
 export const SARVAM_LANGUAGES = ['bn-IN', 'en-IN', 'gu-IN', 'hi-IN', 'kn-IN', 'ml-IN', 'mr-IN', 'od-IN', 'pa-IN', 'ta-IN', 'te-IN'];
 
@@ -138,7 +209,17 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         billingUrl: 'https://modelstudio.console.alibabacloud.com/',
         models: {
             'qwen3-vl-plus': { reads: ['pictures'], schema: 'json', priceIn: 0.2, priceOut: 1.6, recommend: ['cheap', 'fast', 'thorough'] },
+            // Pictures (AM3) through DashScope's own address in Frankfurt (Global scope). Singapore's
+            // prices, the higher; Frankfurt's are a little less.
+            'qwen-image-2.1-turbo': picture({ aspects: ['1:1', '4:3', '3:4', '16:9', '9:16'], resolutions: ['standard'], maxCount: 4, seed: true, edit: true, formats: ['png'] }, { price: 0.016, testedLive: false, recommend: ['default'] }),
+            // The 3.0 series takes a negative prompt; 2.1 does not.
+            'qwen-image-3.0': picture({ aspects: ['1:1', '4:3', '3:4', '16:9', '9:16'], resolutions: ['standard'], maxCount: 4, seed: true, negativePrompt: true, edit: true, formats: ['png'] }, { price: 0.03, testedLive: false }),
+            'qwen-image-3.0-pro': picture({ aspects: ['1:1', '4:3', '3:4', '16:9', '9:16'], resolutions: ['standard'], maxCount: 4, seed: true, negativePrompt: true, edit: true, formats: ['png'], priceByResolution: { standard: 0.04 } }, { testedLive: false }),
         },
+        files: 'dashscope',
+        // DashScope answers a picture's signed address, kept 24 hours, on Alibaba Cloud's storage
+        // (dashscope-result-*.oss-*.aliyuncs.com in its docs).
+        downloadHosts: ['.aliyuncs.com'],
     },
     openrouter: {
         label: 'OpenRouter',
@@ -174,7 +255,9 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         processesIn: 'OpenAI\'s worldwide data centres',
         pricesCheckedOn: PRICES_CHECKED_ON,
         billingUrl: 'https://platform.openai.com/settings/organization/billing',
-        models: {},
+        // Its own images endpoints (AM3), on OpenAI's own presets only.
+        files: 'openai',
+        models: { ...OPENAI_IMAGE_MODELS },
     },
     'openai-eu': {
         label: 'OpenAI, EU project',
@@ -183,7 +266,8 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         processesIn: 'The EU, for a key of an OpenAI project created in its EU region',
         pricesCheckedOn: PRICES_CHECKED_ON,
         billingUrl: 'https://platform.openai.com/settings/organization/billing',
-        models: {},
+        files: 'openai',
+        models: { ...OPENAI_IMAGE_MODELS },
     },
     deepseek: {
         label: 'DeepSeek',
@@ -219,6 +303,8 @@ export const AI_PRESETS: Record<string, AiPreset> = {
             'tts-wavenet': googleTts('Wavenet', 0.004),
             'tts-standard': googleTts('Standard', 0.004),
             'tts-studio': googleTts('Studio', 0.16),
+            // Pictures (AM3) through generateContent at Vertex's global address, where Google serves them.
+            ...GEMINI_IMAGE_MODELS,
         },
         files: 'vertex',
     },
@@ -255,7 +341,9 @@ export const AI_PRESETS: Record<string, AiPreset> = {
             'gemini-3.5-flash-lite': { reads: ['pictures', 'pdfs'], schema: 'strict', priceIn: 0.3, priceOut: 2.5, priceCachedIn: 0.03, recommend: ['cheap'] },
             'gemini-3.8-flash': { reads: ['pictures', 'pdfs'], schema: 'strict', priceIn: 1.5, priceOut: 7.5, priceCachedIn: 0.15, recommend: ['fast'] },
             'gemini-4-argon': { reads: ['pictures', 'pdfs'], schema: 'strict', priceIn: 4, priceOut: 20, priceCachedIn: 0.2, recommend: ['thorough'] },
+            ...GEMINI_IMAGE_MODELS,
         },
+        files: 'gemini',
     },
     mistral: {
         label: 'Mistral',
@@ -368,8 +456,9 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         pricesCheckedOn: DOCS_READ_ON,
         testedLive: false,
         docsReadOn: DOCS_READ_ON,
-        // Speech requests a minute on the entry plan.
+        // Speech requests a minute on the entry plan; pictures have their own, lower limit.
         perMinute: 60,
+        kindLimits: { image: { perMinute: 10 } },
         billingUrl: 'https://platform.minimax.io/user-center/payment/balance',
         models: {
             // $1.00 and $0.60 per 10,000 characters; fewer than 10,000 characters a request.
@@ -377,6 +466,8 @@ export const AI_PRESETS: Record<string, AiPreset> = {
             'speech-2.8-turbo': { ...SPEECH, price: 0.06, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] } },
             'speech-2.6-hd': { ...SPEECH, price: 0.1, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] } },
             'speech-2.6-turbo': { ...SPEECH, price: 0.06, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] } },
+            // Pictures (AM3), answered as base64 so nothing is fetched from another host.
+            'image-01': picture({ aspects: ['1:1', '16:9', '4:3', '3:2', '2:3', '3:4', '9:16', '21:9'], resolutions: ['standard'], maxCount: 4, seed: true, formats: ['jpeg'] }, { price: 0.0035, recommend: ['default'] }),
         },
     },
 };

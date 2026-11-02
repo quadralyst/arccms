@@ -1,6 +1,6 @@
 # AI for every kind of output: Build Spec (AM, follows F38)
 
-**Status:** AM1 built on `feat/ai-media-am1` (worktree `../arccms-ai-media`), 2026-11-02, not merged; AM2 built on `feat/ai-media-am2` (from AM1), 2026-11-02, not merged; AM3 to AM5 not built. Spec drafted 2026-11-02; updated the same day with Gunjan's answers, and the remaining questions settled as assumptions (section 8). Nothing built. No provider is called live during the build: every new connector is written from the provider's docs, tested against a fake server, and marked "not tested live" until its first real use (AM-D34). Builds on the F38 AI
+**Status:** AM1 built on `feat/ai-media-am1` (worktree `../arccms-ai-media`), 2026-11-02, not merged; AM2 built on `feat/ai-media-am2` (from AM1), 2026-11-02, not merged; AM3 built on `feat/ai-media-am3` (from AM2), 2026-11-02, not merged; AM4 and AM5 not built. Spec drafted 2026-11-02; updated the same day with Gunjan's answers, and the remaining questions settled as assumptions (section 8). Nothing built. No provider is called live during the build: every new connector is written from the provider's docs, tested against a fake server, and marked "not tested live" until its first real use (AM-D34). Builds on the F38 AI
 feature (`specs/ai-spec.md`, decisions AI-D1 to AI-D19), on `dev` at eb1e2bca.
 **Brief:** Arc CMS becomes the one place an app makes every AI call: text, data, pictures,
 speech, other audio and video, from all the popular providers, so the keys, logs, costs,
@@ -419,3 +419,35 @@ later without reworking the design:
      and a file made by a provider that also answers text does not mark it working; a
      sample is said in the admin's language, else English, else the voice's first;
      "Use recommended models" fills only empty lists of kinds the app makes.
+7. **AM3 choices** (2026-11-02, from the providers' docs re-read for the phase):
+   - OpenAI: `gpt-image-2` recommended, with `gpt-image-2.5-flare` and `-sunburst` (token prices
+     only, so their cost comes from the answer's tokens and their estimate says "about").
+     `gpt-image-1-mini` is left out: OpenAI shuts it down on 2026-12-01 with `gpt-image-1.5`.
+     Edits are sent as JSON with `images` (the reference's shape; its examples use multipart).
+   - Gemini on the Gemini API goes through the Interactions API (the only shape its picture guide
+     shows); on Vertex through `generateContent` with `imageConfig` (Google marks it deprecated
+     for `responseFormat.image`, but the newer field takes JPEG only) at the `global` address,
+     since `gemini-nano-banana-2.1` is served only there. One picture a request, sent at once.
+   - Alibaba: Qwen-Image 2.1 Turbo (recommended), 3.0 and 3.0 Pro, sync only; `wan2.6-t2i` is
+     left out, since Frankfurt runs it only as a background job. Pictures come from Frankfurt's
+     Global scope (its EU scope lists none). Singapore's prices ship, the higher. Result
+     addresses are fetched from any `aliyuncs.com` host, never with the key; Frankfurt's
+     result host is not in the docs.
+   - MiniMax `image-01`, base64 back, its own 10 a minute (`kindLimits`, counted in
+     `AiPacing/{connection}~image` unless the admin sets the connection's limits).
+   - The tab's estimate line reads "Cost: $0.21. Pictures left today: 16. $12.40 of this
+     month's $20.00 left." (no plural forms). An edit starts at the picture's own shape. The
+     admin's one price for a picture model replaces Arc's prices by quality or resolution.
+   - Picture models are added to the image list by "Use recommended models" even when no app
+     purpose makes pictures, since Arc's Media image uses that list.
+   - From the AM3 review: the tab asks for an estimate only when its settings change (a new
+     answer object never starts another request); `gpt-image-2` at high resolution counts four
+     times its standard price (`highFactor`); Qwen-Image 3.0 Pro offers standard only (PNG at 4 MP
+     could pass `readAiFile`'s 7 MB); a picker's automatic crop is skipped when the picture is
+     already the ratio's shape, and a cropped copy keeps the note and title; an app purpose with
+     `mediaManager` and no `deleteAfterDays` has its tab pictures deleted with Media image's days;
+     Edit with AI reads only paths in the library's `mediaImages/` folder; Generate is off when the
+     cost is more than the budget has left; pictures asked for and not made are given back to the
+     allowance; the note records the fitted settings; a provider's file is read with a byte cap
+     and every hop passes the public-host check; an admin's own pacing numbers put every kind on
+     one counter.

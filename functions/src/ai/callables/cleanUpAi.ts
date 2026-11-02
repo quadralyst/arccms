@@ -17,7 +17,7 @@ import { refreshBalance } from '../balances.js';
 import { purgeAiCache } from '../cache.js';
 import { purgeAiFiles } from '../files.js';
 import { findPreset } from '../presets.js';
-import { aiPurposes, isFileKind, purposeKind } from '../purposes.js';
+import { aiPurposes, isFileKind, purposeKind, MEDIA_IMAGE_PURPOSE } from '../purposes.js';
 
 export const KEEP_TOTALS_MONTHS = 24;
 const BATCH = 300;
@@ -84,6 +84,12 @@ export async function fileDaysByPurpose(): Promise<Record<string, number>> {
         if (!isFileKind(purposeKind(p))) continue;
         const d = purposeSettings(settings, id).deleteAfterDays ?? p.deleteAfterDays;
         if (d) days[id] = d;
+    }
+    // An app purpose offered in the Media Manager keeps its tab's pictures in ai-files/ (never
+    // its saveTo): without days of its own, they go when Media image's would (AM-D20).
+    const media = days[MEDIA_IMAGE_PURPOSE];
+    for (const [id, p] of Object.entries(aiPurposes())) {
+        if (p.mediaManager === true && days[id] === undefined && media) days[id] = media;
     }
     return days;
 }

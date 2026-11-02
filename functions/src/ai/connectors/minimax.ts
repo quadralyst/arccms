@@ -2,11 +2,12 @@
  * MiniMax speech (specs/ai-media-spec.md, AM-D7, section 6.2): `POST /v1/t2a_v2` at
  * `api.minimax.io`, which answers the audio as hex in JSON, and the voice list, `POST
  * /v1/get_voice`. MiniMax answers HTTP 200 for most failures and says what went wrong in
- * `base_resp.status_code`, so that is what is read. Pictures and video (AM3, AM4) will use
- * the same connection. Written from MiniMax's docs as read on 2026-11-02 and not tested live
+ * `base_resp.status_code`, so that is what is read. Pictures (AM3) come from `POST
+ * /v1/image_generation` as base64, and video (AM4) uses the same connection. Written from MiniMax's docs as read on 2026-11-02 and not tested live
  * (AM-D34).
  */
 import { speechMime, audioSeconds } from '../audio.js';
+import { madePicture } from '../images.js';
 import { connectionAuth, connectionBaseUrl } from '../settings.js';
 import type { AiVoice } from '../types.js';
 import { languageCode, sendRequest, shortMessage } from './http.js';
@@ -134,4 +135,57 @@ export const miniMaxVoices: VoiceLister = async ({ connection, key }, { timeoutM
     return { ok: true, voices: voices.filter((v): v is AiVoice => v !== null) };
 };
 
-export const miniMaxProvider: FileProvider = { make: miniMaxSpeech, voices: miniMaxVoices };
+/** The request body for pictures: base64 back, so nothing is fetched from another host. */
+export function miniMaxImageBody(model: string, prompt: string, image: { aspect?: string; count?: number; seed?: number } = {}): Record<string, unknown> {
+    return {
+        model,
+        prompt,
+        aspect_ratio: image.aspect ?? '1:1',
+        n: Math.min(4, Math.max(1, image.count ?? 1)),
+        ...(image.seed !== undefined ? { seed: image.seed } : {}),
+        response_format: 'base64',
+        prompt_optimizer: false,
+    };
+}
+
+/** One HTTP answer to image_generation in the connectors' words. */
+export function readMiniMaxImages(status: number, json: Record<string, unknown> | null): FileResult {
+    const resp = baseResp(json);
+    if (status === 401 || status === 403) return { ok: false, failure: 'key-refused', detail: `MiniMax refused the key (${status}): ${resp.message}` };
+    if (status === 429) return { ok: false, failure: 'unavailable', detail: `MiniMax is busy (429): ${resp.message}`, rateLimited: true };
+    if (status >= 500) return { ok: false, failure: 'unavailable', detail: `MiniMax answered ${status}: ${resp.message}` };
+    if (status !== 200 || !json) return { ok: false, failure: 'unreadable', detail: `MiniMax refused the request (${status}): ${resp.message}` };
+    const failed = readMiniMaxStatus(resp.code, resp.message);
+    if (failed) return failed;
+    const data = (json['data'] ?? {}) as Record<string, unknown>;
+    const list = Array.isArray(data['image_base64']) ? (data['image_base64'] as unknown[]) : [];
+    const files = list.filter((b): b is string => typeof b === 'string' && !!b).map((b) => madePicture(Buffer.from(b, 'base64'), 'image/jpeg')).filter((f) => f.bytes.length > 0);
+    const meta = (json['metadata'] ?? {}) as Record<string, unknown>;
+    if (!files.length) {
+        // A picture its checks refused is counted as failed, with no reason given.
+        return Number(meta['failed_count']) > 0 ? { ok: false, failure: 'blocked', detail: 'MiniMax made no picture: its checks refused it' } : { ok: false, failure: 'unreadable', detail: 'MiniMax answered with no picture' };
+    }
+    return { ok: true, files, usage: { tokensIn: 0, tokensOut: 0, tokensThinking: 0 }, requestId: typeof json['id'] === 'string' ? json['id'] : undefined };
+}
+
+export const miniMaxImages: FileConnector = async ({ connection, key }, request) => {
+    const base = connectionBaseUrl(connection);
+    if (!base) return { ok: false, failure: 'off', detail: `connection ${connection.id} has no address it may call` };
+    if (!key) return { ok: false, failure: 'off', detail: `connection ${connection.id} has no key` };
+    const auth = connectionAuth(connection);
+    const answer = await sendRequest(`${base}/image_generation`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', [auth.header]: `${auth.prefix}${key}` },
+        body: JSON.stringify(miniMaxImageBody(request.model, request.prompt, request.image)),
+    }, request.timeoutMs, SERVICE);
+    if (!answer.ok) return answer;
+    return readMiniMaxImages(answer.status, answer.json);
+};
+
+/** Each kind MiniMax makes, by the call's kind. */
+const miniMaxMake: FileConnector = async (context, request) => {
+    if (request.kind === 'image') return miniMaxImages(context, request);
+    return miniMaxSpeech(context, request);
+};
+
+export const miniMaxProvider: FileProvider = { make: miniMaxMake, voices: miniMaxVoices };

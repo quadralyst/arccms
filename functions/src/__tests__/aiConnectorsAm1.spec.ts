@@ -47,7 +47,7 @@ describe('presets added in AM1', () => {
     it('are marked not tested live, with the day their docs were read and their prices', () => {
         for (const id of ['anthropic', 'gemini-api', 'mistral', 'mistral-eu', 'groq', 'xai', 'sarvam']) {
             expect(AI_PRESETS[id]).toMatchObject({ testedLive: false, docsReadOn: '2026-11-02', pricesCheckedOn: '2026-11-02' });
-            for (const m of Object.values(AI_PRESETS[id].models)) expect(m.priceIn ?? m.price).toBeGreaterThan(0);
+            for (const m of Object.values(AI_PRESETS[id].models)) expect(m.priceIn ?? m.price ?? m.image?.priceByResolution?.standard).toBeGreaterThan(0);
         }
         expect(AI_PRESETS['sarvam']).toMatchObject({ currency: 'INR', perMinute: 60 });
         expect(AI_PRESETS['openrouter'].testedLive).toBeUndefined();
@@ -156,6 +156,9 @@ describe('the OpenAI-style connector, for AM1', () => {
         expect(readResponse(429, new Headers({ 'retry-after': '3' }), { error: { message: 'slow down' } })).toMatchObject({ failure: 'unavailable', rateLimited: true, wait: 3 });
         expect(readResponse(402, new Headers(), { error: { message: 'no credit' } })).toMatchObject({ failure: 'unavailable', outOfCredit: true });
         expect(readResponse(403, new Headers(), { error: { message: 'quota', code: 'insufficient_quota_error' } })).toMatchObject({ failure: 'key-refused' });
+        // OpenAI's billing codes come as a 429, and mean no credit, never busy.
+        expect(readResponse(429, new Headers({ 'retry-after': '5' }), { error: { type: 'insufficient_quota', code: 'credit_balance_exhausted', message: 'out' } })).toMatchObject({ outOfCredit: true });
+        expect(readResponse(429, new Headers(), { error: { type: 'requests', code: 'project_spend_limit_exceeded', message: 'limit' } })).toMatchObject({ outOfCredit: true });
         expect(readResponse(498, new Headers(), { error: { message: 'capacity' } })).toMatchObject({ failure: 'unavailable' });
     });
 });

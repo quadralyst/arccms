@@ -379,6 +379,7 @@
         <tr><td><code>refreshAiBalance</code></td><td>Callable</td><td>Admin, Settings, AI</td><td>Reads one provider's balance with its key, for providers whose key can (DeepSeek, an OpenRouter key's own limit, an ElevenLabs plan's characters left), stores it on the connection and alerts admins below the low mark.</td></tr>
         <tr><td><code>aiVoices</code></td><td>Callable</td><td>Admin, Settings, AI</td><td>A speech provider's voices from its list call (Sarvam AI's from its docs), kept in memory 10 minutes. A list read with the key counts as the provider's last success.</td></tr>
         <tr><td><code>aiVoiceSample</code></td><td>Callable</td><td>Admin, Settings, AI</td><td>Makes a one-sentence sample of a voice with one speech model, as Arc CMS's purpose <code>arc-voice-sample</code>, cached a year; a silent stand-in in test mode.</td></tr>
+        <tr><td><code>generateMediaImages</code></td><td>Callable</td><td>Admin, Media Manager</td><td>Makes Create with AI's pictures as Arc CMS's purpose <code>arc-media-image</code> (or an app purpose with <code>mediaManager: true</code>), kept in <code>ai-files/</code>; with <code>estimate: true</code>, the models, the estimate and what is left today and this month. 300 seconds.</td></tr>
       </tbody>
     </table>
 

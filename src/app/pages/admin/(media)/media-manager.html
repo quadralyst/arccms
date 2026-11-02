@@ -86,6 +86,13 @@
                             [size]="selectedSize" (sizeChange)="onPdfSizeChange($event)" [multiple]="isMultiSelect"
                             [resume]="pdfResume" (inserted)="insertFromPdf($event)"></arc-media-pdf-tab>
                     </div>
+                    } @else if(isAiTab){
+                    <!-- Create with AI (AM-D21): its own Save or Use on each picture, so no side panel. -->
+                    <div class="media-content-area crop-stage ai-stage">
+                        <arc-media-ai-tab [preset]="aiPreset" [editOf]="aiEditSource" [cropRatio]="_DIALOG_DATA.cropRatio" [size]="_DIALOG_DATA.size"
+                            [uploadSettings]="uploadSettings" [insertable]="_DIALOG_DATA.isDialogOpen"
+                            (saved)="onAiSaved($event)" (editClosed)="leaveAiEdit()"></arc-media-ai-tab>
+                    </div>
                     } @else if(isCropping && selectedMediaUrl){
                     <!-- The crop step takes the grid's place: the side panel is too
                          narrow to place a frame with any precision. -->
@@ -376,7 +383,7 @@
                     }
                     }
                 </div>
-                @if(_DIALOG_DATA.isDialogOpen && isMultiSelect && !isPdfTab){
+                @if(_DIALOG_DATA.isDialogOpen && isMultiSelect && !isPdfTab && !isAiTab){
                 <!-- A phone, picking several: the details are below the images, so
                      Insert stays at hand in a bar at the bottom (media-manager.scss). -->
                 <div class="phone-insert-bar">
@@ -385,7 +392,7 @@
                     </button>
                 </div>
                 }
-                @if(!isPdfTab){
+                @if(!isPdfTab && !isAiTab){
                 <div class="side-preview" [class.details-open]="showDetails">
                     <div class="preview-header">
                         <!-- A phone: the details cover the images, and this goes back to them. -->
@@ -522,6 +529,23 @@
                     @if(!selectedMediaUrl.urls) {
                     <arc-media-details [item]="selectedMediaUrl" [showAlt]="true" [fallbackTitle]="selectedMediaUrl.name || ''"
                         (changed)="onImageDetailsChanged($event)"></arc-media-details>
+                    }
+                    @if(selectedMediaUrl.ai; as made) {
+                    <!-- The "Made with AI" note (AM-D25). -->
+                    <div class="ai-made-note small">
+                        <div class="fw-semibold"><i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i>{{ 'admin.media.ai.made_with_ai' | transloco }}</div>
+                        <div class="ai-made-prompt">{{ made.prompt }}</div>
+                        <div class="text-muted">{{ made.connection }} · {{ made.model }}@if(made.settings.aspect) { · {{ made.settings.aspect }} }@if(made.settings.quality) { · {{ 'admin.media.ai.quality_' + made.settings.quality | transloco }} }</div>
+                        <div class="text-muted">{{ 'admin.media.ai.made_cost' | transloco: { usd: '$' + (made.costUsd || 0).toFixed(3) } }}@if(made.createdAt) { · {{ made.createdAt | arcTime: 'date' }} }</div>
+                        @if(aiAvailable) {
+                        <button type="button" class="btn btn-link btn-sm p-0 ai-again" (click)="generateAgain(made)">{{ 'admin.media.ai.generate_again' | transloco }}</button>
+                        }
+                    </div>
+                    }
+                    @if(aiAvailable && !selectedMediaUrl.urls && selectedMediaUrl.variants && !isMultiSelect && !isCropping) {
+                    <button type="button" class="btn btn-outline-secondary btn-sm ai-edit-btn" (click)="editWithAi(selectedMediaUrl)">
+                        <i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i>{{ 'admin.media.ai.edit_with_ai' | transloco }}
+                    </button>
                     }
                     @if(canCrop(selectedMediaUrl) && !isCropping && !pdfSource) {
                     <div class="crop-buttons">

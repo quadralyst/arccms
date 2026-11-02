@@ -83,6 +83,17 @@ export function errorText(body: unknown): string {
     return raw.replace(/(sk|hf|key|Bearer)[-_ ]?[A-Za-z0-9_-]{12,}/gi, '[key]').slice(0, 300);
 }
 
+/**
+ * Whether OpenAI's answer says the account has no credit (a 429 with `insufficient_quota`
+ * and one of its billing codes), not that it is busy: retrying will not help.
+ */
+export function outOfCreditError(body: unknown): boolean {
+    const err = (body as { error?: Record<string, unknown> })?.error;
+    const type = String(err?.['type'] ?? '').toLowerCase();
+    const code = String(err?.['code'] ?? '').toLowerCase();
+    return type === 'insufficient_quota' || /^(insufficient_quota|credit_balance_exhausted|organization_spend_limit_exceeded|project_spend_limit_exceeded|organization_usage_limit_exceeded|billing_hard_limit_reached)$/.test(code);
+}
+
 function errorCode(body: unknown): string {
     const err = (body as { error?: Record<string, unknown> })?.error;
     return String(err?.['code'] ?? err?.['type'] ?? '').toLowerCase();
@@ -115,7 +126,7 @@ export function readResponse(status: number, headers: Headers, body: unknown): C
         if (BLOCK_WORDS.test(detail) || BLOCK_WORDS.test(code)) return { ok: false, failure: 'blocked', detail };
         return { ok: false, failure: 'key-refused', detail: `the provider refused the key (${status}): ${detail}` };
     }
-    if (status === 402 || code === 'insufficient_quota' || code === 'insufficient_quota_error') return { ok: false, failure: 'unavailable', detail: `the provider account has no credit (${status}): ${detail}`, outOfCredit: true };
+    if (status === 402 || code === 'insufficient_quota_error' || outOfCreditError(body)) return { ok: false, failure: 'unavailable', detail: `the provider account has no credit (${status}): ${detail}`, outOfCredit: true };
     if (status === 404 || MODEL_GONE_WORDS.test(detail) || code === 'model_not_found') return { ok: false, failure: 'retired', detail: `the model is not there (${status}): ${detail}` };
     if (status === 413 || TOO_LARGE_WORDS.test(detail) || code.includes('context_length')) return { ok: false, failure: 'too-large', detail };
     if (status === 429) return { ok: false, failure: 'unavailable', detail: `429: ${detail}`, wait: waitFrom(headers), rateLimited: true };

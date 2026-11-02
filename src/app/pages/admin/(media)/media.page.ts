@@ -55,6 +55,8 @@ import { PdfImageSaved, PdfImageSource, PdfImageTakerComponent } from './pdf-ima
 import { MediaPdfTabComponent } from './media-pdf-tab/media-pdf-tab.component';
 import { PdfPickerMemory, PdfPlace } from './pdf-picker-memory.service';
 import { localPdfSource } from './local-pdf-source';
+import { MediaAiTabComponent, type MediaAiEditSource, type MediaAiSaved } from './media-ai-tab/media-ai-tab.component';
+import { MEDIA_IMAGE_PURPOSE, MediaAiService, type MediaAiNote, type MediaAiPreset } from './media-ai.service';
 
 export const routeMeta: RouteMeta = {
     title: 'Media Manager',
@@ -78,6 +80,8 @@ export interface SelectableMedia {
     /** An Unsplash photo's original size, which its crop is measured in. */
     width?: number;
     height?: number;
+    /** A library picture made in Create with AI: what made it (AM-D25). */
+    ai?: MediaAiNote;
 }
 
 /** Shape of a menu item in the media manager tab bar */
@@ -136,6 +140,12 @@ export interface MediaDialogData {
      * admin can still pick another.
      */
     cropRatio?: CropRatio;
+    /**
+     * Create with AI (docs/features/media.html; specs/ai-media-spec.md, AM-D24): what the tab
+     * starts with, such as `{ purpose: 'cover-picture', prompt: articleTitle }` with
+     * `initialTab: 'ai'`. The admin can change every one before Generate.
+     */
+    ai?: MediaAiPreset;
 }
 
 /** What the dialog hands back when the admin confirms a selection. */
@@ -180,6 +190,13 @@ export function pdfImageToSelectable(saved: PdfImageSaved): SelectableMedia {
     };
 }
 
+/** Whether a picture is already a crop ratio's shape, within 2%. */
+export function sameShape(width: number | undefined, height: number | undefined, ratio: string): boolean {
+    const [w, h] = ratio.split(':').map(Number);
+    if (!width || !height || !w || !h) return false;
+    return Math.abs(width / height / (w / h) - 1) < 0.02;
+}
+
 /** A library file as the picker hands it back. */
 export function mediaFileRef(file: IMediaFile): MediaFileRef {
     const ref: MediaFileRef = { id: file.id, url: file.downloadURL, title: file.title, type: file.type, bytes: file.bytes };
@@ -204,7 +221,7 @@ export function mediaFileRef(file: IMediaFile): MediaFileRef {
         MatCardModule,
         MatDialogClose,
         MatProgressSpinnerModule, TranslocoPipe, IconBrowserComponent, ImageCropperComponent,
-        MediaFilesTabComponent, MediaFilePanelComponent, MediaDetailsComponent, PdfImageTakerComponent, MediaPdfTabComponent],
+        MediaFilesTabComponent, MediaFilePanelComponent, MediaDetailsComponent, PdfImageTakerComponent, MediaPdfTabComponent, MediaAiTabComponent],
     templateUrl: './media-manager.html',
     styleUrls: ['./media-manager.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -225,6 +242,7 @@ export default class MediaManagerComponent extends BaseComponent {
     fileUploadService = inject(FileUploadService);
     private mediaFilesService = inject(MediaFilesService);
     private pdfMemory = inject(PdfPickerMemory);
+    private mediaAi = inject(MediaAiService);
     private firestore = inject(Firestore);
     private injector = inject(Injector);
     private host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -290,6 +308,13 @@ export default class MediaManagerComponent extends BaseComponent {
     /** The PDF and page From a PDF opens on: the remembered one (PI-D8), else none. */
     pdfResume: PdfPlace | null = null;
 
+    // Create with AI (AM-D21): offered once Settings, AI is known to have a picture model.
+    aiAvailable = false;
+    /** What the tab starts with: the caller's preset, or Generate again's settings. */
+    aiPreset: MediaAiPreset | null = this._DIALOG_DATA.ai ?? null;
+    /** The library picture Edit with AI changes, while the tab is open for it (AM-D26). */
+    aiEditSource: MediaAiEditSource | null = null;
+
     // My Uploads search (MF-D23): every upload's details, loaded on the first search.
     librarySearch = '';
     private allImages: LibraryImage[] | null = null;
@@ -333,6 +358,8 @@ export default class MediaManagerComponent extends BaseComponent {
         return menu.filter(item => {
             // From a PDF is for pickers; the Media page has Files > Take an image (PI-D1).
             if (item.value === 'pdf') return allowImages && data.isDialogOpen;
+            // Create with AI only with a picture model set up (AM-D21).
+            if (item.value === 'ai') return allowImages && this.aiAvailable;
             return item.kind === 'icon' ? allowIcons : item.kind === 'file' ? allowFiles : allowImages;
         });
     }
@@ -367,6 +394,71 @@ export default class MediaManagerComponent extends BaseComponent {
 
         this.selectedMenu(initial);
         this.pdfResume = resume;
+        void this.checkAi();
+    }
+
+    /** Offers Create with AI when a picture model is set; a picker asked to open on it goes there then. */
+    private async checkAi(): Promise<void> {
+        if (!this.menuItems.some((item) => item.kind === 'image')) return;
+        const available = await this.mediaAi.available(this._DIALOG_DATA.ai?.purpose ?? MEDIA_IMAGE_PURPOSE);
+        if (this.destroyed || !available) return;
+        this.aiAvailable = true;
+        const ai = this.menuItems.find((item) => item.value === 'ai');
+        if (ai && this._DIALOG_DATA.initialTab === 'ai' && this.selectedItem?.value !== 'ai' && !this.isSavingCrop) this.selectedMenu(ai);
+        this.ref.detectChanges();
+    }
+
+    get isAiTab(): boolean {
+        return this.selectedItem?.value === 'ai';
+    }
+
+    /** Edit with AI on a library picture (AM-D26): the tab opens to change it. */
+    editWithAi(media: SelectableMedia | null): void {
+        const ai = this.menuItems.find((item) => item.value === 'ai');
+        if (!ai || !media || media.urls || !media.variants) return;
+        this.selectedMenu(ai);
+        this.aiPreset = null;
+        const xl = media.variants.xl;
+        this.aiEditSource = { id: media.id, url: media.variants.s?.url ?? media.url ?? '', title: media.title || media.name || '', ...(xl?.width && xl?.height ? { width: xl.width, height: xl.height } : {}) };
+        this.ref.detectChanges();
+    }
+
+    /** Generate again from a "Made with AI" note (AM-D25): the tab opens with its settings. */
+    generateAgain(note: MediaAiNote): void {
+        const ai = this.menuItems.find((item) => item.value === 'ai');
+        if (!ai) return;
+        this.selectedMenu(ai);
+        this.aiEditSource = null;
+        this.aiPreset = {
+            ...(note.purpose && note.purpose !== MEDIA_IMAGE_PURPOSE ? { purpose: note.purpose } : {}),
+            prompt: note.prompt,
+            ...(note.negativePrompt ? { negativePrompt: note.negativePrompt } : {}),
+            model: `${note.connection}/${note.model}`,
+            ...note.settings,
+        };
+        this.ref.detectChanges();
+    }
+
+    leaveAiEdit(): void {
+        this.aiEditSource = null;
+        this.ref.detectChanges();
+    }
+
+    /**
+     * A picture saved from Create with AI. In a picker, My Uploads opens with it selected, so
+     * the crop and size steps and Insert work as for any upload; with the caller's ratio, the
+     * crop step opens at once. The Media page stays in the tab.
+     */
+    onAiSaved(saved: MediaAiSaved): void {
+        this.allImages = null;
+        if (!this._DIALOG_DATA.isDialogOpen) return;
+        const uploads = this.menuItems.find((item) => item.value === 'upload');
+        if (uploads) this.selectedMenu(uploads);
+        const media: SelectableMedia = { ...pdfImageToSelectable(saved), ai: saved.media.ai };
+        this.selectMedia(media);
+        // Cropped only when the picture is not already the caller's shape (the tab asks for it).
+        const ratio = this._DIALOG_DATA.cropRatio;
+        if (ratio && ratio !== 'free' && ratio !== 'original' && !this.isMultiSelect && !sameShape(saved.media.width, saved.media.height, ratio)) this.startCrop();
     }
 
     ngOnDestroy(): void {
@@ -430,6 +522,7 @@ export default class MediaManagerComponent extends BaseComponent {
         this.pdfSource = null;
         this.pdfOpened = null;
         this.pdfResume = null;
+        this.aiEditSource = null;
         this.closeCrop();
         this.detailsOpen = false;
         this.selectedItem = event;
@@ -850,7 +943,9 @@ export default class MediaManagerComponent extends BaseComponent {
                     this.ref.detectChanges();
                 },
             );
-            const ids = await firstValueFrom(this.mediaStore.addBatch([saved]));
+            // A picture made with AI keeps its note and title on the cropped copy (AM-D25).
+            const copy = media.ai ? { ...saved, ai: media.ai, ...(media.title ? { title: media.title } : {}) } : saved;
+            const ids = await firstValueFrom(this.mediaStore.addBatch([copy]));
             this.isSavingCrop = false;
             if (this.destroyed) return;
             this.closeCrop();
@@ -865,6 +960,7 @@ export default class MediaManagerComponent extends BaseComponent {
                 name: saved.name,
                 uploadTime: saved.uploadTime,
                 variants: saved.variants,
+                ...(media.ai ? { ai: media.ai, title: media.title } : {}),
             });
             this.notify.success('admin.media.crop.saved');
         } catch (error) {

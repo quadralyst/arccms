@@ -1733,3 +1733,26 @@ footer {
 .pdf-stage {
     overflow-y: auto;
 }
+
+// Create with AI (AM-D21): the tab scrolls within the dialog like From a PDF.
+.ai-stage {
+    overflow-y: auto;
+}
+
+// The "Made with AI" note on a library picture (AM-D25).
+.ai-made-note {
+    margin: 0.75rem 0;
+    padding: 0.5rem 0.625rem;
+    border-left: 3px solid var(--bs-primary, #0d6efd);
+    background: var(--bs-tertiary-bg, #f8f9fa);
+    border-radius: 0.25rem;
+
+    .ai-made-prompt {
+        overflow-wrap: anywhere;
+        margin: 0.25rem 0;
+    }
+}
+
+.ai-edit-btn {
+    margin: 0 0 0.75rem;
+}

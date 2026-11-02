@@ -312,6 +312,8 @@ export function modelInfo(settings: AiSettings, ref: AiModelRef): AiModelInfo {
         recommend: known?.recommend,
         // What a speech model takes is Arc's knowledge only: a model the admin describes has no caps.
         speech: known?.speech,
+        // The admin's one price for a picture replaces Arc's prices by quality or resolution.
+        image: known?.image && admin.price !== undefined ? { ...known.image, priceByQuality: undefined, priceByResolution: undefined, highFactor: undefined } : known?.image,
         currency,
         usdRate: currency === 'USD' ? 1 : connection?.usdRate ?? null,
         testedLive: preset?.testedLive !== false && known?.testedLive !== false,
@@ -327,10 +329,19 @@ export function connectionAuth(connection: AiConnection): AiKeyHeader {
 }
 
 /** The connection's limits: the admin's (0: none at all), else the preset's entry-plan numbers (AM-D15). */
-export function connectionLimits(connection: AiConnection): { perMinute: number | null; atOnce: number | null } {
+export function connectionLimits(connection: AiConnection, kind?: AiFileKind): { perMinute: number | null; atOnce: number | null } {
     const preset = findPreset(connection.preset);
     const limit = (admin: number | null, own: number | undefined) => (admin === 0 ? null : admin ?? own ?? null);
-    return { perMinute: limit(connection.perMinute, preset?.perMinute), atOnce: limit(connection.atOnce, preset?.atOnce) };
+    // A limit the provider sets for one kind, unless the admin set either of the connection's
+    // own, which then apply to every kind on one counter (pacingKey agrees).
+    const own = kind && connection.perMinute === null && connection.atOnce === null ? preset?.kindLimits?.[kind] : undefined;
+    return { perMinute: limit(connection.perMinute, own?.perMinute ?? preset?.perMinute), atOnce: limit(connection.atOnce, own?.atOnce ?? preset?.atOnce) };
+}
+
+/** Where a connection's requests of a kind are counted: apart for a kind with its own limit (AM-D15). */
+export function pacingKey(connection: AiConnection, kind?: AiFileKind): string {
+    const preset = findPreset(connection.preset);
+    return kind && preset?.kindLimits?.[kind] && connection.perMinute === null && connection.atOnce === null ? `${connection.id}~${kind}` : connection.id;
 }
 
 /**

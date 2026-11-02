@@ -1,0 +1,157 @@
+<div class="ai-tab">
+    <div class="ai-controls">
+        @if (info()?.test) {
+        <div class="alert alert-info py-2 px-3 small mb-2 ai-test-note" role="status">
+            <i class="fa-solid fa-flask me-1" aria-hidden="true"></i>{{ 'admin.media.ai.test_note' | transloco }}
+        </div>
+        }
+        @if (editOf(); as source) {
+        <div class="ai-edit-source mb-2">
+            <img [src]="source.url" [alt]="source.title" />
+            <div class="small flex-grow-1">
+                <strong>{{ 'admin.media.ai.editing' | transloco }}</strong>
+                <div class="text-muted text-truncate">{{ source.title }}</div>
+            </div>
+            <button type="button" class="btn btn-link btn-sm leave-edit" (click)="leaveEdit()" [disabled]="busy()">{{ 'admin.media.ai.leave_edit' | transloco }}</button>
+        </div>
+        }
+        @if (info()?.purpose?.house) {
+        <div class="small text-muted mb-1 ai-house">{{ 'admin.media.ai.house_style' | transloco: { purpose: info()!.purpose.label } }}</div>
+        }
+
+        <label class="form-label small mb-1" for="aiPrompt">{{ (editing() ? 'admin.media.ai.prompt_edit' : 'admin.media.ai.prompt') | transloco }}</label>
+        <textarea id="aiPrompt" class="form-control form-control-sm mb-1" rows="3" [maxlength]="maxPrompt"
+            [placeholder]="(editing() ? 'admin.media.ai.prompt_edit_hint' : 'admin.media.ai.prompt_hint') | transloco"
+            [ngModel]="prompt()" (ngModelChange)="prompt.set($event)" [disabled]="busy()"></textarea>
+        <div class="small text-muted text-end mb-2 prompt-count">{{ prompt().length }} / {{ maxPrompt }}</div>
+
+        @if (models().length > 1) {
+        <label class="form-label small mb-1" for="aiModel">{{ 'admin.media.ai.model' | transloco }}</label>
+        <select id="aiModel" class="form-select form-select-sm mb-2" [ngModel]="model() ? model()!.connection + '/' + model()!.model : ''" (ngModelChange)="chooseModel($event)" [disabled]="busy()">
+            @for (m of models(); track m.connection + '/' + m.model) {
+            <option [value]="m.connection + '/' + m.model">{{ modelLabel(m) }}@if (!m.testedLive) { ({{ 'admin.media.ai.untested' | transloco }}) }</option>
+            }
+        </select>
+        } @else if (model(); as m) {
+        <div class="small mb-2 ai-one-model">{{ 'admin.media.ai.model' | transloco }}: {{ modelLabel(m) }}@if (!m.testedLive) { <span class="text-warning-emphasis">({{ 'admin.media.ai.untested' | transloco }})</span> }</div>
+        }
+
+        <div class="ai-row">
+            <div>
+                <label class="form-label small mb-1" for="aiAspect">{{ 'admin.media.ai.aspect' | transloco }}</label>
+                <select id="aiAspect" class="form-select form-select-sm" [ngModel]="aspect()" (ngModelChange)="aspect.set($event)" [disabled]="busy()">
+                    @for (a of shownAspects(); track a) { <option [value]="a">{{ a }}</option> }
+                    @if (!shownAspects().includes(aspect())) { <option [value]="aspect()">{{ aspect() }} ({{ 'admin.media.ai.nearest' | transloco }})</option> }
+                </select>
+            </div>
+            @if (offersHigh()) {
+            <div>
+                <label class="form-label small mb-1" for="aiResolution">{{ 'admin.media.ai.resolution' | transloco }}</label>
+                <select id="aiResolution" class="form-select form-select-sm" [ngModel]="resolution()" (ngModelChange)="resolution.set($event)" [disabled]="busy()">
+                    <option value="standard">{{ 'admin.media.ai.resolution_standard' | transloco }}</option>
+                    <option value="high">{{ 'admin.media.ai.resolution_high' | transloco }}</option>
+                </select>
+            </div>
+            }
+            @if (qualities().length) {
+            <div>
+                <label class="form-label small mb-1" for="aiQuality">{{ 'admin.media.ai.quality' | transloco }}</label>
+                <select id="aiQuality" class="form-select form-select-sm" [ngModel]="image().quality" (ngModelChange)="quality.set($event)" [disabled]="busy()">
+                    @for (q of qualities(); track q) { <option [value]="q">{{ 'admin.media.ai.quality_' + q | transloco }}</option> }
+                </select>
+            </div>
+            }
+            <div>
+                <label class="form-label small mb-1" for="aiCount">{{ 'admin.media.ai.count' | transloco }}</label>
+                <select id="aiCount" class="form-select form-select-sm" [ngModel]="image().count" (ngModelChange)="count.set(+$event)" [disabled]="busy()">
+                    @for (n of shownCounts(); track n) { <option [ngValue]="n">{{ n }}</option> }
+                </select>
+            </div>
+        </div>
+
+        @if (takesSeed() || takesNegative()) {
+        <button type="button" class="btn btn-link btn-sm px-0 more-toggle" (click)="moreOpen.set(!moreOpen())" [attr.aria-expanded]="moreOpen()">
+            {{ 'admin.media.ai.more' | transloco }} <i class="fa-solid" [class.fa-chevron-down]="!moreOpen()" [class.fa-chevron-up]="moreOpen()" aria-hidden="true"></i>
+        </button>
+        @if (moreOpen()) {
+        <div class="ai-more">
+            @if (takesNegative()) {
+            <label class="form-label small mb-1" for="aiNegative">{{ 'admin.media.ai.negative' | transloco }}</label>
+            <input id="aiNegative" type="text" maxlength="1000" class="form-control form-control-sm mb-2" [placeholder]="'admin.media.ai.negative_hint' | transloco"
+                [ngModel]="negativePrompt()" (ngModelChange)="negativePrompt.set($event)" [disabled]="busy()" />
+            }
+            @if (takesSeed()) {
+            <label class="form-label small mb-1" for="aiSeed">{{ 'admin.media.ai.seed' | transloco }}</label>
+            <input id="aiSeed" type="number" step="1" class="form-control form-control-sm mb-2" [placeholder]="'admin.media.ai.seed_hint' | transloco"
+                [ngModel]="seed()" (ngModelChange)="setSeed($event)" [disabled]="busy()" />
+            }
+        </div>
+        }
+        }
+
+        <div class="ai-action">
+            @if (infoState() === 'loading') {
+            <div class="small text-muted mb-2 ai-loading" role="status"><i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'admin.media.ai.loading' | transloco }}</div>
+            } @else if (infoState() === 'failed') {
+            <div class="small text-danger mb-2" role="alert">{{ 'admin.media.ai.info_failed' | transloco }}</div>
+            } @else if (blockedBy()) {
+            <div class="small text-warning-emphasis mb-2 ai-blocked" role="status">{{ blockedBy() }}</div>
+            } @else {
+            <div class="small text-muted mb-2 ai-estimate" role="status">{{ estimateLine() }}</div>
+            }
+            @if (busy()) {
+            <button type="button" class="btn btn-outline-secondary w-100 ai-cancel" (click)="cancel()">{{ 'admin.media.ai.cancel' | transloco }}</button>
+            } @else {
+            <button type="button" class="btn btn-primary w-100 ai-generate" (click)="generate()" [disabled]="!canGenerate()">
+                <i class="fa-solid fa-wand-magic-sparkles me-1" aria-hidden="true"></i>
+                {{ (pictures().length ? 'admin.media.ai.generate_again' : editing() ? 'admin.media.ai.generate_edit' : 'admin.media.ai.generate') | transloco }}
+            </button>
+            }
+        </div>
+    </div>
+
+    <div class="ai-results" aria-live="polite">
+        @if (error()) {
+        <div class="alert alert-danger py-2 px-3 small ai-error" role="alert">{{ error() }}</div>
+        }
+        @if (busy()) {
+        <div class="small text-muted mb-2 ai-busy" role="status"><i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'admin.media.ai.working' | transloco }}</div>
+        }
+        @if (!pictures().length && !busy() && !error()) {
+        <div class="ai-empty text-muted small">
+            <i class="fa-solid fa-wand-magic-sparkles fs-3 mb-2" aria-hidden="true"></i>
+            <div>{{ (editing() ? 'admin.media.ai.empty_edit' : 'admin.media.ai.empty') | transloco }}</div>
+        </div>
+        }
+        <div class="ai-grid">
+            @for (n of placeholders(); track n) {
+            <div class="ai-tile ai-placeholder" aria-hidden="true"></div>
+            }
+            @for (p of pictures(); track p.file.path) {
+            <figure class="ai-tile" [attr.data-path]="p.file.path">
+                @if (p.url) {
+                <img [src]="p.url" [alt]="p.made.prompt" [style.aspect-ratio]="p.file.width && p.file.height ? p.file.width + ' / ' + p.file.height : null" />
+                } @else if (p.failed) {
+                <div class="ai-tile-note small text-danger">{{ 'admin.media.ai.read_failed' | transloco }}</div>
+                } @else {
+                <div class="ai-tile-note small text-muted"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i></div>
+                }
+                <figcaption>
+                    @if (p.file.width && p.file.height) { <span class="small text-muted">{{ p.file.width }} × {{ p.file.height }}</span> }
+                    @if (p.savedId) {
+                    <span class="small text-success ai-saved"><i class="fa-solid fa-check me-1" aria-hidden="true"></i>{{ 'admin.media.ai.saved' | transloco }}</span>
+                    } @else {
+                    <button type="button" class="btn btn-sm btn-primary ai-save" (click)="save(p)" [disabled]="!p.blob || p.saving">
+                        @if (p.saving) { <i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i> }
+                        {{ (insertable() ? 'admin.media.ai.use' : 'admin.media.ai.save') | transloco }}
+                    </button>
+                    }
+                </figcaption>
+            </figure>
+            }
+        </div>
+        @if (pictures().length) {
+        <div class="small text-muted mt-2">{{ 'admin.media.ai.kept_note' | transloco }}</div>
+        }
+    </div>
+</div>

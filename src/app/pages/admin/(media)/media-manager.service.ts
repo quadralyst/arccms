@@ -162,6 +162,8 @@ export interface LibraryImage {
     notes?: string;
     uploadTime?: Date;
     variants?: IMediaManager['variants'];
+    /** Made in Create with AI (AM-D25). */
+    ai?: IMediaManager['ai'];
 }
 
 /** A `media` document as the library shows it. */
@@ -176,5 +178,6 @@ export function toLibraryImage(id: string, data: Record<string, any>): LibraryIm
         uploadTime: data['uploadTime']?.toDate?.() ?? data['uploadTime'],
         // Absent on uploads from before sizes existed.
         variants: data['variants'],
+        ...(data['ai'] ? { ai: { ...data['ai'], createdAt: data['ai'].createdAt?.toDate?.() ?? data['ai'].createdAt } } : {}),
     };
 }

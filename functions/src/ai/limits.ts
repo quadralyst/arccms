@@ -59,7 +59,8 @@ export function keyId(limitKey: string): string {
     return createHash('sha256').update(limitKey).digest('hex').slice(0, 24);
 }
 
-export type AllowanceUse = { ok: true; release: () => Promise<void> } | { ok: false; wait: number };
+/** `release()` gives back every unit counted; `release(n)` gives back n of them. */
+export type AllowanceUse = { ok: true; release: (units?: number) => Promise<void> } | { ok: false; wait: number };
 
 /** Count `units` against a key's allowance for a purpose today, or say how long until it renews. */
 export async function consumeAllowance(purpose: string, limitKey: string, units: number, perDay: number, now = new Date()): Promise<AllowanceUse> {
@@ -75,9 +76,9 @@ export async function consumeAllowance(purpose: string, limitKey: string, units:
     if (!allowed) return { ok: false, wait: day.secondsLeftToday };
     return {
         ok: true,
-        release: async () => {
+        release: async (back = units) => {
             try {
-                await ref.update({ units: FieldValue.increment(-units) });
+                await ref.update({ units: FieldValue.increment(-Math.min(units, Math.max(0, back))) });
             } catch (err) {
                 console.error(`askAi: ${units} units of ${purpose} were not given back`, err);
             }
@@ -91,4 +92,18 @@ export async function checkBudget(settings: AiSettings, now = new Date()): Promi
     const snap = await db.collection(AI_USAGE).doc(day.month).get();
     const spent = Number(snap.data()?.['costUsd'] ?? 0);
     return spent < settings.budget.monthlyUsd ? { ok: true, spent } : { ok: false, wait: day.secondsLeftThisMonth };
+}
+
+/** How much of a key's allowance for a purpose is used today, for a "left today" line. */
+export async function allowanceUsed(purpose: string, limitKey: string, now = new Date()): Promise<number> {
+    const day = await currentSiteDay(now);
+    const snap = await db.collection(AI_USAGE).doc(day.month).collection('days').doc(`${day.day}__${purpose}__${keyId(limitKey)}`).get();
+    return Math.max(0, Number(snap.data()?.['units'] ?? 0));
+}
+
+/** The month's cost so far, for a "left this month" line. */
+export async function monthSpent(now = new Date()): Promise<number> {
+    const day = await currentSiteDay(now);
+    const snap = await db.collection(AI_USAGE).doc(day.month).get();
+    return Number(snap.data()?.['costUsd'] ?? 0);
 }

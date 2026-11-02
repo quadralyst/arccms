@@ -9,3 +9,4 @@ export * from '../ai/callables/readAiFile.js';
 export * from '../ai/callables/refreshAiBalance.js';
 export * from '../ai/callables/aiVoices.js';
 export * from '../ai/callables/aiVoiceSample.js';
+export * from '../ai/callables/generateMediaImages.js';

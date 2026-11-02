@@ -10,7 +10,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { arcStorageBucket, arcStoragePrefix } from '../arc-config.js';
 import { db, storage } from '../init.js';
 import type { PreparedPart } from './input.js';
-import type { AiFailureReason, AiFile, AiKind, AiTier, AiUnit } from './types.js';
+import type { AiFailureReason, AiFile, AiImageSettings, AiKind, AiTier, AiUnit } from './types.js';
 
 export const AI_CALLS = 'AiCalls';
 export const AI_CALL_FILES_FOLDER = 'ai-calls';
@@ -67,6 +67,8 @@ export interface AiCallRecord {
     /** Speech: the voice asked for by name, and the provider's id of the one that spoke (AM-D17). */
     voice?: string | null;
     voiceId?: string | null;
+    /** Pictures: the settings the model was asked with, after fitting them to it (AM-D19). */
+    image?: AiImageSettings;
 }
 
 export interface KeptContent {

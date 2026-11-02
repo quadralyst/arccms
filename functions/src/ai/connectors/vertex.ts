@@ -126,7 +126,7 @@ export function readGenerateResponse(status: number, body: unknown, service = 'V
 }
 
 /** The project to call Vertex in: the functions' own. */
-async function projectId(): Promise<string> {
+export async function projectId(): Promise<string> {
     return process.env['GCLOUD_PROJECT'] || process.env['GOOGLE_CLOUD_PROJECT'] || (await googleAuth().getProjectId());
 }
 

@@ -4,6 +4,7 @@
  * answer read once, as JSON or as bytes. A request that could not be sent or timed out comes
  * back in the connectors' own words.
  */
+import { safeBaseUrl } from '../settings.js';
 import type { AttemptFailure } from './types.js';
 
 export type HttpAnswer = { ok: true; status: number; headers: Headers; bytes: Buffer; json: Record<string, unknown> | null } | { ok: false; failure: AttemptFailure; detail: string };
@@ -54,4 +55,66 @@ export function httpsUrl(value: unknown): string | null {
     } catch {
         return null;
     }
+}
+
+/** The most a download from a provider's file address may be: a video's worth. */
+export const MAX_DOWNLOAD_BYTES = 200 * 1024 * 1024;
+
+/**
+ * Fetch a file a provider made from the address in its answer (AM-D28): https only, a host
+ * the preset lists for its downloads (by suffix, such as `.aliyuncs.com`), never with the key,
+ * and every redirect checked the same way, at most three. Answers the bytes, or a failure in
+ * the connectors' words.
+ */
+export async function downloadFile(address: unknown, hosts: readonly string[], timeoutMs: number, service: string, maxBytes = MAX_DOWNLOAD_BYTES): Promise<{ ok: true; bytes: Buffer; contentType: string } | { ok: false; failure: AttemptFailure; detail: string }> {
+    let url = httpsUrl(address);
+    // A listed host, and a public one by the same rules as an admin's address (AI-D19), on every hop.
+    const allowed = (u: string) => {
+        const parsed = new URL(u);
+        const host = parsed.hostname.toLowerCase();
+        return safeBaseUrl(`${parsed.protocol}//${parsed.host}`) && hosts.some((h) => host === h.replace(/^\./, '') || (h.startsWith('.') && host.endsWith(h)));
+    };
+    const deadline = Date.now() + timeoutMs;
+    for (let hop = 0; hop < 4; hop++) {
+        if (!url || !allowed(url)) return { ok: false, failure: 'unreadable', detail: `${service} gave a file address Arc does not fetch from` };
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), Math.max(1, deadline - Date.now()));
+        try {
+            const response = await fetch(url, { signal: controller.signal, redirect: 'manual' });
+            if (response.status >= 300 && response.status < 400) {
+                const next = response.headers.get('location');
+                url = next ? httpsUrl(new URL(next, url).toString()) : null;
+                continue;
+            }
+            if (response.status !== 200) return { ok: false, failure: response.status >= 500 ? 'unavailable' : 'unreadable', detail: `${service}'s file could not be fetched (${response.status})` };
+            const length = Number(response.headers.get('content-length'));
+            if (Number.isFinite(length) && length > maxBytes) return { ok: false, failure: 'too-large', detail: `${service}'s file is larger than Arc fetches (${Math.round(length / 1048576)} MB)` };
+            // Read in parts and stop at the cap, so an answer with no length cannot fill the memory.
+            const parts: Buffer[] = [];
+            let size = 0;
+            const reader = response.body?.getReader();
+            if (reader) {
+                for (;;) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    size += value.length;
+                    if (size > maxBytes) {
+                        await reader.cancel().catch(() => undefined);
+                        return { ok: false, failure: 'too-large', detail: `${service}'s file is larger than Arc fetches` };
+                    }
+                    parts.push(Buffer.from(value));
+                }
+            } else {
+                parts.push(Buffer.from(await response.arrayBuffer()));
+                if (parts[0].length > maxBytes) return { ok: false, failure: 'too-large', detail: `${service}'s file is larger than Arc fetches` };
+            }
+            return { ok: true, bytes: Buffer.concat(parts), contentType: response.headers.get('content-type') ?? '' };
+        } catch (err) {
+            if ((err as { name?: string }).name === 'AbortError') return { ok: false, failure: 'timeout', detail: `${service}'s file did not come within the call's time` };
+            return { ok: false, failure: 'unavailable', detail: `${service}'s file could not be fetched: ${String((err as Error).message ?? err).slice(0, 160)}` };
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+    return { ok: false, failure: 'unreadable', detail: `${service}'s file address redirected too many times` };
 }

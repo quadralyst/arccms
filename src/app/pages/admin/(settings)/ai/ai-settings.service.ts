@@ -56,8 +56,25 @@ export interface AiPresetModel {
     recommend?: Array<AiTier | 'default'>;
     /** Speech: the most characters (or bytes, for Google) a request, and the formats it makes. */
     speech?: { maxChars?: number; maxBytes?: number; formats: string[]; languages?: string[] };
+    /** Pictures: what it makes and takes, and its prices by quality or resolution (AM-D19). */
+    image?: AiImageAbilities;
     /** false: this model has never been called for real (AM-D34). */
     testedLive?: boolean;
+}
+
+/** What a picture model makes and takes (AM-D19), as the server's presets say. */
+export interface AiImageAbilities {
+    aspects: string[];
+    resolutions: Array<'standard' | 'high'>;
+    qualities?: Array<'low' | 'medium' | 'high'>;
+    maxCount: number;
+    seed?: boolean;
+    negativePrompt?: boolean;
+    edit?: boolean;
+    formats: string[];
+    priceByQuality?: Partial<Record<'low' | 'medium' | 'high', number>>;
+    priceByResolution?: Partial<Record<'standard' | 'high', number>>;
+    tokensPerPicture?: Partial<Record<'low' | 'medium' | 'high', number>>;
 }
 
 /** One voice of a provider (AM-D18). */
@@ -79,6 +96,8 @@ export interface AiPresetInfo {
     /** Its connector makes files, and for speech lists voices (AM-D18). */
     files?: string | null;
     makesSpeech?: boolean;
+    /** It has a model that makes pictures (AM3). */
+    makesImages?: boolean;
     /** false: Arc makes only files with it, so Test reads its voices instead (AM-D18). */
     makesText?: boolean;
     processesIn: string;
@@ -129,6 +148,10 @@ export interface AiPurposeInfo {
     fallback?: boolean;
     /** One of Arc's own purposes, such as the voice sample (AM-D18). */
     arc?: boolean;
+    /** Arc's own purpose that takes no settings: the voice sample. */
+    fixed?: boolean;
+    /** Offered in the Media Manager's Create with AI tab (AM-D24). */
+    mediaManager?: boolean;
     /** A speech purpose's named voices, with the app's voice ids by provider (AM-D17). */
     voices?: Array<{ name: string; ids: Record<string, string> }>;
 }

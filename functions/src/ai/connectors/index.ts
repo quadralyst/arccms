@@ -16,13 +16,16 @@ const CONNECTORS: Partial<Record<AiConnectorKind, Connector>> = {
 /**
  * The connectors that make files (specs/ai-media-spec.md, AM-D7), loaded only when a call
  * needs one (AM-D30), so a function that asks only text pays no cold start for them. Speech
- * since AM2; pictures, video and other audio arrive in AM3 to AM5.
+ * since AM2, pictures since AM3; video and other audio arrive in AM4 and AM5.
  */
-const FILE_PROVIDERS: Record<AiFileConnectorKind, () => Promise<FileProvider>> = {
+const FILE_PROVIDERS: Partial<Record<AiFileConnectorKind, () => Promise<FileProvider>>> = {
     elevenlabs: async () => (await import('./elevenlabs.js')).elevenLabsProvider,
     sarvam: async () => (await import('./sarvam.js')).sarvamProvider,
     minimax: async () => (await import('./minimax.js')).miniMaxProvider,
-    vertex: async () => (await import('./googleTts.js')).googleTtsProvider,
+    vertex: async () => (await import('./vertexFiles.js')).vertexFileProvider,
+    openai: async () => (await import('./openaiImages.js')).openAiFileProvider,
+    gemini: async () => ({ make: (await import('./geminiImages.js')).geminiApiImages }),
+    dashscope: async () => (await import('./dashscope.js')).dashScopeProvider,
 };
 
 let replaced: Partial<Record<AiConnectorKind, Connector>> = {};
@@ -46,7 +49,8 @@ export function fileConnectorFor(preset: Pick<AiPreset, 'kind' | 'files'>): File
 /** The voice list of a preset's provider, or undefined when it has none. */
 export async function voiceListerFor(preset: Pick<AiPreset, 'files'>): Promise<VoiceLister | undefined> {
     if (!preset.files) return undefined;
-    return replacedVoices[preset.files] ?? (await FILE_PROVIDERS[preset.files]()).voices;
+    const load = FILE_PROVIDERS[preset.files];
+    return replacedVoices[preset.files] ?? (load ? (await load()).voices : undefined);
 }
 
 /** For tests: answer with these connectors instead, until called again with {}. */

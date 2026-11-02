@@ -32,6 +32,13 @@ export class ConstantVariables {
             kind: 'image',
         },
         {
+            // Shown only when the ai feature is on and a picture model is set (AM-D21).
+            name: 'Create with AI',
+            value: 'ai',
+            icon: 'wand-magic-sparkles',
+            kind: 'image',
+        },
+        {
             // Image pickers only (PI-D1); the Media page has Files > Take an image.
             name: 'From a PDF',
             value: 'pdf',

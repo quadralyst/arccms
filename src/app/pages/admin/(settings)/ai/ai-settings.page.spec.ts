@@ -516,7 +516,7 @@ const SPEECH: AiSetupInfo = {
     purposes: [
         { id: 'read', label: 'Read aloud', description: '', tier: 'fast', output: 'text', maxChars: 2000, pictures: null, pdfs: null, perKeyPerDay: null, limitKeyLabel: null, timeoutSeconds: 60, makes: 'speech', allowanceIn: 'calls', saveTo: null, deleteAfterDays: null, cacheDays: 365, fallback: true, arc: false,
             voices: [{ name: 'narrator', ids: { elevenlabs: 'EL_APP' } }, { name: 'guest', ids: {} }] },
-        { id: 'arc-voice-sample', label: 'Voice sample', description: 'Plays a sentence in a voice.', tier: 'fast', output: 'text', maxChars: 300, pictures: null, pdfs: null, perKeyPerDay: null, limitKeyLabel: null, timeoutSeconds: 60, makes: 'speech', allowanceIn: 'calls', saveTo: null, deleteAfterDays: 7, cacheDays: 365, fallback: true, arc: true, voices: [] },
+        { id: 'arc-voice-sample', label: 'Voice sample', description: 'Plays a sentence in a voice.', tier: 'fast', output: 'text', maxChars: 300, pictures: null, pdfs: null, perKeyPerDay: null, limitKeyLabel: null, timeoutSeconds: 60, makes: 'speech', allowanceIn: 'calls', saveTo: null, deleteAfterDays: 7, cacheDays: 365, fallback: true, arc: true, fixed: true, voices: [] },
     ],
     presets: [
         { id: 'elevenlabs', label: 'ElevenLabs', kind: 'elevenlabs', processesIn: 'The US', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, testedLive: false, docsReadOn: '2026-11-02', files: 'elevenlabs', makesSpeech: true, makesText: false, readsBalance: true,

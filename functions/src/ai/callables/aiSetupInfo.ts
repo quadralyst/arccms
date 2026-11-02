@@ -8,7 +8,8 @@ import { onCall } from 'firebase-functions/v2/https';
 import { requireAdmin } from '../../search/auth.js';
 import { connectorFor } from '../connectors/index.js';
 import { AI_PRESETS, BEARER, PRICES_CHECKED_ON, presetNeedsKey } from '../presets.js';
-import { aiPurposes, DEFAULT_TEXT_CHARS, DEFAULT_TIMEOUT_SECONDS, isArcPurpose, isFileKind, purposeCacheDays, purposeKind, purposeTier, purposeVoiceNames } from '../purposes.js';
+import { VOICE_SAMPLE_PURPOSE } from './aiVoiceSample.js';
+import { aiPurposes, MEDIA_IMAGE_PURPOSE, DEFAULT_TEXT_CHARS, DEFAULT_TIMEOUT_SECONDS, isArcPurpose, isFileKind, purposeCacheDays, purposeKind, purposeTier, purposeVoiceNames } from '../purposes.js';
 import { defaultVertexLocation } from '../settings.js';
 
 export const aiSetupInfo = onCall(async (request) => {
@@ -35,6 +36,9 @@ export const aiSetupInfo = onCall(async (request) => {
             timeoutSeconds: p.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS,
             // Arc's own purposes, marked so in the page (AM-D18, AM-D20).
             arc: isArcPurpose(id),
+            // Arc's voice sample is asked with the one model and voice chosen, so the admin sets nothing on it.
+            fixed: id === VOICE_SAMPLE_PURPOSE,
+            mediaManager: p.mediaManager === true || id === MEDIA_IMAGE_PURPOSE,
             // A speech purpose's named voices with the app's voice ids by provider (AM-D17); Arc's
             // voice sample is played by the voice chosen, so it has none to show.
             voices: purposeKind(p) === 'speech' && !isArcPurpose(id) ? purposeVoiceNames(p).map((name) => ({ name, ids: { ...(p.voices?.[name] ?? {}) } })) : [],
@@ -61,6 +65,7 @@ export const aiSetupInfo = onCall(async (request) => {
             files: p.files ?? null,
             makesText: connectorFor(p.kind) !== undefined,
             makesSpeech: Object.values(p.models).some((m) => m.makes === 'speech'),
+            makesImages: Object.values(p.models).some((m) => m.makes === 'image'),
             models: Object.entries(p.models).map(([model, m]) => ({ model, makes: m.makes ?? 'text', unit: m.unit ?? 'tokens', ...m })),
         })),
         pricesCheckedOn: PRICES_CHECKED_ON,

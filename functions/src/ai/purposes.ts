@@ -33,7 +33,24 @@ export const ARC_PURPOSES: AiPurposes = {
         deleteAfterDays: 7,
         timeoutSeconds: 60,
     },
+    'arc-media-image': {
+        label: 'Media image',
+        description: 'Makes pictures in the Media Manager\'s Create with AI tab, and changes a library picture with Edit with AI.',
+        makes: 'image',
+        // The admin's prompt, and one library picture for Edit with AI (AM-D26).
+        input: { text: { maxChars: 2000 }, pictures: { max: 1, maxMb: 15 } },
+        // WebP keeps each picture well under what a callable may answer (AM-D22).
+        image: { format: 'webp', count: 1 },
+        perKeyPerDay: 20,
+        allowanceIn: 'pictures',
+        limitKeyLabel: 'admin',
+        deleteAfterDays: 7,
+        timeoutSeconds: 300,
+    },
 };
+
+/** Arc's own purpose for the Media Manager (AM-D20). */
+export const MEDIA_IMAGE_PURPOSE = 'arc-media-image';
 
 /** The voice problems of a speech purpose (AM-D17). */
 function voiceProblems(at: string, p: AiPurpose, kind: AiKind): string[] {
@@ -134,6 +151,7 @@ export function purposeProblems(purposes: unknown): string[] {
             if (!file) problems.push(`${at}: cache is for a purpose that makes files`);
             else if (typeof p.cache !== 'boolean' && (!Number.isInteger(days) || (days as number) < 1 || (days as number) > 3650)) problems.push(`${at}: cache must be true, false or { days } with 1 to 3650 days`);
         }
+        if (p.mediaManager !== undefined && (typeof p.mediaManager !== 'boolean' || (p.mediaManager && kind !== 'image'))) problems.push(`${at}: mediaManager is for a purpose that makes pictures, true or false`);
         if (p.fallback !== undefined && typeof p.fallback !== 'boolean') problems.push(`${at}: fallback must be true or false`);
         if (p.allowanceIn !== undefined && !AI_ALLOWANCE_UNITS.includes(p.allowanceIn)) problems.push(`${at}: allowanceIn must be one of ${AI_ALLOWANCE_UNITS.join(', ')}`);
         if (p.allowanceIn === 'pictures' && kind !== 'image') problems.push(`${at}: allowanceIn 'pictures' is for a purpose that makes pictures`);

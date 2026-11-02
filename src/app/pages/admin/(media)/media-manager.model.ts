@@ -1,6 +1,7 @@
 import { IBaseModel, OmitCommonFields } from '../../../../shared/models/base-model';
 import { ImageVariant } from '../../../../shared/services/file-upload.service';
 import { ImageSize } from '../../../../shared/utils/image-sizes';
+import type { MediaAiNote } from './media-ai.service';
 
 export interface IMediaManager extends IBaseModel {
     /** Never written by the uploader; kept optional for any document that has it. */
@@ -18,6 +19,8 @@ export interface IMediaManager extends IBaseModel {
     height?: number;
     /** Every stored size (see shared/utils/image-sizes.ts). Absent on GIFs and older uploads. */
     variants?: Record<ImageSize, ImageVariant>;
+    /** Made in Create with AI: the prompt, model, settings and cost (AM-D25). */
+    ai?: MediaAiNote;
 }
 
 export type MediaManagerFormData = OmitCommonFields<IMediaManager>;
