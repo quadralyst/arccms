@@ -17,7 +17,7 @@ import { BaseComponent } from '../../../../../shared/components/base/base.compon
 import { UserStore } from '../user.store';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { roleGuard } from '../../../../guards/role.guard';
-import { newPasswordValidator, passwordProblemOf } from '../../../../../shared/utils/password-validator';
+import { newPasswordValidator, passwordProblemOf, sameAsValidator } from '../../../../../shared/utils/password-validator';
 import { passwordProblemText } from '../../../../../shared/utils/password-rule';
 import { SIGN_IN_STRENGTH } from '../../../../core/sign-in/sign-in-strength';
 
@@ -54,6 +54,8 @@ export default class AddUserComponent extends BaseComponent {
         email: new FormControl('', [Validators.required, this.globalService.emailValidator()]),
         // The rule every new password meets (F22); the server checks it too.
         password: new FormControl('', [Validators.required, newPasswordValidator(() => ({ email: this.addForm?.value.email, name: this.addForm?.value.name }))]),
+        // Typed twice, so a typo never sets a password nobody knows.
+        confirmPassword: new FormControl('', [Validators.required, sameAsValidator(() => this.addForm?.get('password')?.value)]),
     });
 
     // Getter methods for form controls
@@ -71,8 +73,13 @@ export default class AddUserComponent extends BaseComponent {
     get password() {
         return this.addForm.get('password');
     }
+    get confirmPassword() {
+        return this.addForm.get('confirmPassword');
+    }
 
     ngOnInit(): void {
+        // A change to the password checks the copy again.
+        this.password?.valueChanges.subscribe(() => this.confirmPassword?.updateValueAndValidity({ emitEvent: false }));
         this.addForm.valueChanges.subscribe((value) => {
             this.alreadyExist = this.userStore.items().find((user) => user.email === value.email);
             this.clearErrorMessages(this.addForm);

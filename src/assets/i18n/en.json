@@ -74,7 +74,8 @@
       "required": "{{ field }} is required.",
       "minlength": "{{ field }} must be at least {{ length }} characters long.",
       "maxlength": "{{ field }} cannot be more than {{ length }} characters long.",
-      "generic": "{{ field }} has an error: {{ error }}"
+      "generic": "{{ field }} has an error: {{ error }}",
+      "mismatch": "{{ field }} does not match."
     },
     "status": {
       "featured": "Featured",
@@ -2476,7 +2477,10 @@
       "name_placeholder": "Your full name",
       "name_required": "Please enter your name",
       "choose_pin": "Choose a 6-digit PIN",
-      "new_pin_label": "New PIN",
+      "your_new_pin": "Your new PIN",
+      "pin_again": "Type it again",
+      "pin_again_needed": "Type your new PIN again.",
+      "pins_mismatch": "Those two did not match. Start again.",
       "pin_next_time": "You will use it to sign in next time.",
       "password_error": {
         "short": "Use at least {{ min }} characters.",
@@ -2585,6 +2589,7 @@
       "step_title_new_password": "Choose a new password",
       "step_desc_new_password": "You will use it to sign in",
       "new_password_label": "New password",
+      "password_again_label": "Type the new password again",
       "save_password": "Save password and sign in",
       "password_changed": "Password changed.",
       "step_title_choose_pin": "Choose Your PIN",
@@ -2688,8 +2693,6 @@
       "add": "Add",
       "phone": "Phone number",
       "change_pin": "Change PIN",
-      "new_pin_heading": "New 6-digit PIN",
-      "new_pin": "New PIN",
       "save_pin": "Save PIN",
       "google": "Google",
       "connected": "Connected",
@@ -2711,7 +2714,6 @@
       "blocked_email": "This email is used by an account that cannot be moved here.",
       "new_code": "A new code is on its way",
       "enter_code": "Please enter the 6-digit code.",
-      "choose_pin": "Choose a 6-digit PIN.",
       "email_moved": "Email moved to this account.",
       "email_saved": "Email saved.",
       "phone_moved": "Phone number moved to this account.",

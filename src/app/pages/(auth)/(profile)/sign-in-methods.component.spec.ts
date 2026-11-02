@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { signal } from '@angular/core';
 import { SignInMethodsComponent } from './sign-in-methods.component';
 import { english } from '../../../../test/english';
@@ -21,6 +21,9 @@ function ctx(check: Record<string, unknown> = { status: 'available' }, countryCo
         error: signal(''),
         message: signal(''),
         secret: signal(''),
+        secretAgain: signal(''),
+        // The two rows of a new PIN: what check() finds in them (the rows themselves are new-pin-input.component.spec.ts).
+        newPinField: () => newPin,
         testCodeInLogs: signal(false),
         notice: signal(''),
         resendIn: signal(0),
@@ -40,9 +43,19 @@ function ctx(check: Record<string, unknown> = { status: 'available' }, countryCo
             linkEmail: vi.fn().mockResolvedValue({ moved: false }),
         },
     };
-    for (const name of ['run', 'requestCode', 'finish', 'reset', 'typedPhone', 'phoneError']) c[name] = (proto as any)[name].bind(c);
+    for (const name of ['run', 'requestCode', 'finish', 'reset', 'typedPhone', 'phoneError', 'readNewPin', 'pinRefused']) c[name] = (proto as any)[name].bind(c);
     return c;
 }
+
+/** The new-PIN rows in the stand-in: both hold `pin`, or `again` differs. */
+let newPin: { check: ReturnType<typeof vi.fn>; restart: ReturnType<typeof vi.fn> };
+function rowsHold(pin: string, again = pin): void {
+    newPin = {
+        check: vi.fn(() => (again === pin ? { pin } : { problem: 'member.auth.pins_mismatch' })),
+        restart: vi.fn(),
+    };
+}
+beforeEach(() => rowsHold(''));
 
 describe('SignInMethodsComponent', () => {
     it('sends the code straight away for a free number', async () => {
@@ -145,7 +158,13 @@ describe('SignInMethodsComponent', () => {
         await proto['verifyCode'].call(c, '123456');
         expect(c['flow']().step).toBe('secret');
 
-        c['secret'].set('246810');
+        // Typed twice: two that differ link nothing.
+        rowsHold('246810', '246801');
+        await proto['finish'].call(c);
+        expect(c['signIn'].linkPhone).not.toHaveBeenCalled();
+        expect(c['error']()).toBe(english('member.auth.pins_mismatch'));
+
+        rowsHold('246810');
         await proto['finish'].call(c);
         expect(c['signIn'].linkPhone).toHaveBeenCalledWith('+919876543210', '246810');
         expect(c['message']()).toBe('Phone number saved.');
@@ -177,10 +196,25 @@ describe('SignInMethodsComponent', () => {
         c['flow'].set({ kind: 'email', step: 'secret', typed: '', check: { kind: 'email', value: 'asha.rao@example.com', status: 'available', needsPassword: true } });
         for (const [password, problem] of [['short', 'short'], ['Password123!', 'common'], ['Asha@2024', 'personal']]) {
             c['secret'].set(password);
+            c['secretAgain'].set(password);
             await proto['finish'].call(c);
             expect(c['error']()).toBe(english(`member.auth.password_error.${problem}`));
         }
         expect(c['signIn'].linkEmail).not.toHaveBeenCalled();
+    });
+
+    it('links an email with a first password only once it is typed the same twice', async () => {
+        const c = ctx({ kind: 'email', value: 'asha.rao@example.com', status: 'available', needsPassword: true });
+        c['flow'].set({ kind: 'email', step: 'secret', typed: '', check: { kind: 'email', value: 'asha.rao@example.com', status: 'available', needsPassword: true } });
+        c['secret'].set('river-lamp-2024');
+        c['secretAgain'].set('river-lamp-2042');
+        await proto['finish'].call(c);
+        expect(c['signIn'].linkEmail).not.toHaveBeenCalled();
+        expect(c['error']()).toBe(english('member.auth.passwords_mismatch'));
+
+        c['secretAgain'].set('river-lamp-2024');
+        await proto['finish'].call(c);
+        expect(c['signIn'].linkEmail).toHaveBeenCalledWith('asha.rao@example.com', 'river-lamp-2024');
     });
 
     describe('a code already asked for (specs/sign-in-codes-spec.md)', () => {
@@ -239,15 +273,30 @@ describe('SignInMethodsComponent', () => {
 
     it('saves a PIN, and says so when the email account\'s password went with it (specs/sign-in-pin-spec.md)', async () => {
         const c = ctx();
-        c['secret'].set('604175');
+        rowsHold('604175');
         c['signIn'].setPin = vi.fn().mockResolvedValue({ saved: true, passwordRemoved: true });
         await proto['savePin'].call(c);
         expect(c['signIn'].setPin).toHaveBeenCalledWith('604175');
         expect(c['message']()).toBe('PIN saved. Sign in with it from now on: your password no longer works.');
         c['signIn'].setPin = vi.fn().mockResolvedValue({ saved: true });
-        c['secret'].set('604175');
+        rowsHold('604175');
         await proto['savePin'].call(c);
         expect(c['message']()).toBe(english('member.methods.pin_changed'));
+    });
+
+    it('saves no PIN when the two rows differ, and empties both when the server finds it too easy', async () => {
+        const c = ctx();
+        c['signIn'].setPin = vi.fn().mockResolvedValue({ saved: true });
+        rowsHold('604175', '604157');
+        await proto['savePin'].call(c);
+        expect(c['signIn'].setPin).not.toHaveBeenCalled();
+        expect(c['error']()).toBe(english('member.auth.pins_mismatch'));
+
+        rowsHold('111111');
+        c['signIn'].setPin = vi.fn().mockRejectedValue({ code: 'functions/invalid-argument', message: 'Too easy.', details: { reason: 'weak-pin' } });
+        await proto['savePin'].call(c);
+        expect(c['error']()).toBe('Too easy.');
+        expect(newPin.restart).toHaveBeenCalled();
     });
 
     it('changes the PIN from the email row when there is no number', () => {

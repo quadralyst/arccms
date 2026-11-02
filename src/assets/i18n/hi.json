@@ -66,7 +66,8 @@
       "required": "{{ field }} आवश्यक है।",
       "minlength": "{{ field }} कम से कम {{ length }} अक्षरों का होना चाहिए।",
       "maxlength": "{{ field }} {{ length }} अक्षरों से अधिक नहीं हो सकता।",
-      "generic": "{{ field }} में त्रुटि है: {{ error }}"
+      "generic": "{{ field }} में त्रुटि है: {{ error }}",
+      "mismatch": "{{ field }} मेल नहीं खाता।"
     },
     "status": {
       "featured": "विशेष",
@@ -2468,7 +2469,10 @@
       "name_placeholder": "आपका पूरा नाम",
       "name_required": "कृपया अपना नाम दर्ज करें",
       "choose_pin": "6 अंकों का PIN चुनें",
-      "new_pin_label": "नया PIN",
+      "your_new_pin": "आपका नया PIN",
+      "pin_again": "इसे फिर से लिखें",
+      "pin_again_needed": "अपना नया PIN फिर से लिखें।",
+      "pins_mismatch": "दोनों मेल नहीं खाए। फिर से शुरू करें।",
       "pin_next_time": "अगली बार साइन इन करने के लिए आप इसका उपयोग करेंगे।",
       "password_error": {
         "short": "कम से कम {{ min }} अक्षर रखें।",
@@ -2577,6 +2581,7 @@
       "step_title_new_password": "नया पासवर्ड चुनें",
       "step_desc_new_password": "साइन इन करने के लिए आप इसका उपयोग करेंगे",
       "new_password_label": "नया पासवर्ड",
+      "password_again_label": "नया पासवर्ड फिर से लिखें",
       "save_password": "पासवर्ड सहेजें और साइन इन करें",
       "password_changed": "पासवर्ड बदल गया।",
       "step_title_choose_pin": "अपना PIN चुनें",
@@ -2680,8 +2685,6 @@
       "add": "जोड़ें",
       "phone": "फ़ोन नंबर",
       "change_pin": "PIN बदलें",
-      "new_pin_heading": "नया 6 अंकों का PIN",
-      "new_pin": "नया PIN",
       "save_pin": "PIN सहेजें",
       "google": "Google",
       "connected": "जुड़ा हुआ",
@@ -2703,7 +2706,6 @@
       "blocked_email": "यह ईमेल ऐसे खाते में उपयोग हो रहा है जिसे यहाँ नहीं लाया जा सकता।",
       "new_code": "नया कोड आ रहा है",
       "enter_code": "कृपया 6 अंकों का कोड दर्ज करें।",
-      "choose_pin": "6 अंकों का PIN चुनें।",
       "email_moved": "ईमेल इस खाते में लाया गया।",
       "email_saved": "ईमेल सहेजा गया।",
       "phone_moved": "फ़ोन नंबर इस खाते में लाया गया।",

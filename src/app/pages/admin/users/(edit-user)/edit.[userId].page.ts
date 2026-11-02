@@ -16,7 +16,7 @@ import { UserStore } from '../user.store';
 import { roleGuard } from '../../../../guards/role.guard';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { isLockedAppAccount } from '../../../../core/app-accounts/app-account-lock';
-import { newPasswordValidator, passwordProblemOf } from '../../../../../shared/utils/password-validator';
+import { newPasswordValidator, passwordProblemOf, sameAsValidator } from '../../../../../shared/utils/password-validator';
 import { passwordProblemText } from '../../../../../shared/utils/password-rule';
 import { SIGN_IN_STRENGTH } from '../../../../core/sign-in/sign-in-strength';
 import { UserSettingService } from '../../(settings)/user-setting/user-setting.service';
@@ -66,6 +66,8 @@ export default class EditUserComponent extends BaseComponent {
         name: new FormControl('', [Validators.required]),
         email: new FormControl('', [Validators.required, this.globalService.emailValidator()]),
         password: new FormControl('', []),
+        // The new password typed twice, while Update Password is on.
+        confirmPassword: new FormControl('', []),
     });
 
     // Getter methods for form controls
@@ -77,6 +79,9 @@ export default class EditUserComponent extends BaseComponent {
     }
     get password() {
         return this.editForm.get('password');
+    }
+    get confirmPassword() {
+        return this.editForm.get('confirmPassword');
     }
     /** Why the new password was refused. */
     passwordError(): string {
@@ -145,6 +150,8 @@ export default class EditUserComponent extends BaseComponent {
     }
 
     ngOnInit(): void {
+        // A change to the new password checks the copy again.
+        this.password?.valueChanges.subscribe(() => this.confirmPassword?.updateValueAndValidity({ emitEvent: false }));
         this.editForm.valueChanges.subscribe((value) => {
             const items = this.userStore.items();
             // An empty email is no one's: never a duplicate (many accounts have none).
@@ -219,6 +226,9 @@ export default class EditUserComponent extends BaseComponent {
             ? [Validators.required, newPasswordValidator(() => ({ email: this.editForm.value.email, name: this.editForm.value.name }))]
             : [];
         this.updateValidators(['password'], validators);
+        this.updateValidators(['confirmPassword'], this.isPasswordUpdateEnabled
+            ? [Validators.required, sameAsValidator(() => this.password?.value)]
+            : []);
     }
 
     private updateValidators(controls: string[], validators: ValidatorFn[]): void {

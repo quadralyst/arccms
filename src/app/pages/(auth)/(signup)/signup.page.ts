@@ -48,6 +48,7 @@ import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.serv
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { LegalNoticeComponent } from '../../../../shared/components/legal-notice/legal-notice.component';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
+import { NewPinInputComponent } from '../../../../shared/components/new-pin-input/new-pin-input.component';
 import { newPasswordValidator, passwordProblemOf } from '../../../../shared/utils/password-validator';
 import { minPasswordLength } from '../../../../shared/utils/password-rule';
 import { SIGN_IN_STRENGTH } from '../../../core/sign-in/sign-in-strength';
@@ -110,7 +111,7 @@ export function instanceLabelFor(devServer: boolean, production: boolean, projec
 @Component({
   selector: 'arc-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, LegalNoticeComponent, CodeInputComponent, SignInPanelComponent, MemberLanguagePickerComponent, PhoneCountryComponent, WaitLineComponent],
+  imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, LegalNoticeComponent, CodeInputComponent, NewPinInputComponent, SignInPanelComponent, MemberLanguagePickerComponent, PhoneCountryComponent, WaitLineComponent],
   templateUrl: './signup.page.html',
   styleUrls: ['./signup.page.scss'],
 })
@@ -162,6 +163,19 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   /** A quiet line under the code boxes: a code was sent a moment ago (SC-D2). */
   otpNotice = signal('');
   resendCountdown = signal(0);
+  /**
+   * The server's "please wait" for the number on the first step: the seconds left,
+   * counting down, with Continue greyed out until 0 (F41). It belongs to what was
+   * typed, so another number or address ends it.
+   */
+  readonly requestWait = signal(0);
+  private requestWaitFor = '';
+  private requestWaitTimer: ReturnType<typeof setInterval> | undefined;
+  /** The wait in words, the number going down with it. */
+  readonly requestWaitMessage = computed(() => {
+    const wait = this.requestWait();
+    return wait > 0 ? this.t('member.auth.server_error.wait', { wait }) : '';
+  });
   showLoginPassword = signal(false);
   showPassword = signal(false);
   showConfirmPassword = signal(false);
@@ -241,8 +255,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   phonePurpose = signal<'signup' | 'reset' | 'device'>('signup');
   /** What the email code is for: a new account, a new password (Forgot password), this device before the PIN, or a new PIN. */
   emailPurpose = signal<'signup' | 'reset' | 'device' | 'pin-reset'>('signup');
-  /** The PIN typed on the sign-up and new-PIN steps. */
-  newPin = signal('');
   /** The PIN locked after too many wrong tries. */
   pinLocked = signal(false);
   /** Test SMS provider or Simulated email provider: the code that was not sent, shown under the boxes. */
@@ -258,6 +270,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   private codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
   private pinBoxes = viewChild<CodeInputComponent>('pinBoxes');
+  /** The new PIN, typed twice, on the sign-up, new-PIN and Choose PIN steps (one at a time). */
+  private newPinField = viewChild<NewPinInputComponent>('newPinField');
   private nameBox = viewChild<ElementRef<HTMLInputElement>>('nameBox');
   private injector = inject(Injector);
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -526,7 +540,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       },
       { validators: this.passwordMatchValidator }
     );
-    this.registrationForm.get('identifier')!.valueChanges.subscribe((value) => this.identifierValue.set(String(value ?? '')));
+    this.registrationForm.get('identifier')!.valueChanges.subscribe((value) => {
+      this.identifierValue.set(String(value ?? ''));
+      if (this.requestWait() > 0 && this.waitKey(value) !== this.requestWaitFor) this.stopRequestWait();
+    });
   }
 
   passwordMatchValidator(g: FormGroup) {
@@ -652,7 +669,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.errorMessage.set('');
     this.successMessage.set('');
     this.otpError.set('');
-    this.newPin.set('');
     this.updateValidators(step);
     if (isPlatformBrowser(this.platformId)) {
       this.signIn.warm(this.stepFunctions(step));
@@ -693,6 +709,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         break;
       case 'newPassword':
         controls['password'].setValidators([Validators.required, this.passwordValidator]);
+        controls['confirmPassword'].setValidators([Validators.required]);
         break;
     }
 
@@ -765,7 +782,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   /** Step 1: decide between email and phone, and between signing in and signing up. */
   async checkIdentifier(): Promise<void> {
-    if (this.busy()) return;
+    if (this.busy() || this.requestWait() > 0) return;
     // Whether a number is allowed, and from where, is in the settings.
     if (!(await this.settingsIn())) return;
     const control = this.registrationForm.get('identifier');
@@ -905,7 +922,11 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.goToStep('verify');
       await this.sendOtp(false, account);
     } catch (err) {
-      this.errorMessage.set(readSignInError(err).message);
+      const failed = readSignInError(err);
+      const wait = Number(failed.details?.['wait']);
+      // The number's last code was used under a minute ago: the check waits too (F41).
+      if (failed.reason === 'wait' && wait > 0) this.startRequestWait(wait);
+      else this.errorMessage.set(failed.message);
     } finally {
       this.isLoading.set(false);
     }
@@ -1045,6 +1066,29 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     }, 1000);
   }
 
+  /** The first step's wait: counts down each second, and at 0 the message goes and Continue is back. */
+  private startRequestWait(seconds: number): void {
+    clearInterval(this.requestWaitTimer);
+    this.errorMessage.set('');
+    this.requestWaitFor = this.waitKey(this.registrationForm.get('identifier')?.value);
+    this.requestWait.set(Math.ceil(seconds));
+    this.requestWaitTimer = setInterval(() => {
+      const left = this.requestWait() - 1;
+      if (left > 0) this.requestWait.set(left);
+      else this.stopRequestWait();
+    }, 1000);
+  }
+
+  /** What a wait is for: the number as read, so tidying how it is written keeps the wait. */
+  private waitKey(value: unknown): string {
+    return this.phoneNumber(value) ?? String(value ?? '').trim().toLowerCase();
+  }
+
+  private stopRequestWait(): void {
+    clearInterval(this.requestWaitTimer);
+    this.requestWait.set(0);
+  }
+
   resendOtp() {
     if (this.resendCountdown() > 0) return;
     this.otpError.set('');
@@ -1159,13 +1203,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       nameControl.markAsTouched();
       return;
     }
-    if (this.newPin().length !== 6) {
-      this.errorMessage.set(this.t('member.auth.choose_pin'));
-      return;
-    }
+    const pin = this.readNewPin();
+    if (!pin) return;
     const failed = await this.finishPhoneSignIn(() => this.channel() === 'phone'
-      ? this.signIn.completePhoneSignup(this.phone(), nameControl?.value, this.newPin())
-      : this.signIn.completeEmailSignup(this.email, nameControl?.value, this.newPin()));
+      ? this.signIn.completePhoneSignup(this.phone(), nameControl?.value, pin)
+      : this.signIn.completeEmailSignup(this.email, nameControl?.value, pin));
+    this.restartIfRefused(failed);
     // The code ran out while the name and PIN were typed: back to it, to ask for another.
     if (failed?.reason === 'code-expired') {
       this.goToStep('verify');
@@ -1173,15 +1216,35 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     }
   }
 
-  /** Forgot PIN, or an account that never had one. */
-  async saveNewPin(): Promise<void> {
-    if (this.newPin().length !== 6) {
-      this.errorMessage.set(this.t('member.auth.choose_pin'));
-      return;
+  /**
+   * The new PIN, once both rows hold the same 6 digits. Otherwise the step says what
+   * is missing; two that differ save nothing and both rows empty (F40).
+   */
+  private readNewPin(): string | null {
+    const field = this.newPinField();
+    if (!field) return null;
+    const read = field.check();
+    if ('problem' in read) {
+      this.errorMessage.set(this.t(read.problem));
+      return null;
     }
-    await this.finishPhoneSignIn(() => this.channel() === 'phone'
-      ? this.signIn.resetPin(this.phone(), this.newPin())
-      : this.signIn.resetEmailPin(this.email, this.newPin()));
+    return read.pin;
+  }
+
+  /** A PIN the server refused (too easy to guess): another one, typed twice again. */
+  private restartIfRefused(failed: { reason?: string } | null): void {
+    if (failed?.reason === 'weak-pin' || failed?.reason === 'pin-format') this.newPinField()?.restart();
+  }
+
+  /** Forgot PIN, or an account that never had one: the new PIN, typed twice. */
+  async saveNewPin(): Promise<void> {
+    if (this.working()) return;
+    const pin = this.readNewPin();
+    if (!pin) return;
+    const failed = await this.finishPhoneSignIn(() => this.channel() === 'phone'
+      ? this.signIn.resetPin(this.phone(), pin)
+      : this.signIn.resetEmailPin(this.email, pin));
+    this.restartIfRefused(failed);
   }
 
   /** The PIN boxes: sign in on the last digit, or on the Verify button. */
@@ -1306,6 +1369,11 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       return;
     }
     const password = String(control?.value ?? '');
+    // Typed twice: two that differ save nothing.
+    if (this.hasPasswordMismatch() || String(this.registrationForm.get('confirmPassword')?.value ?? '') !== password) {
+      this.registrationForm.get('confirmPassword')?.markAsTouched();
+      return;
+    }
     this.isLoading.set(true);
     this.errorMessage.set('');
     try {
@@ -1444,17 +1512,17 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   /** "Choose a PIN" after the password: saved, the password goes (the server says so), then on to the page. */
   async saveChosenPin(): Promise<void> {
     if (this.working()) return;
-    if (this.newPin().length !== 6) {
-      this.errorMessage.set(this.t('member.auth.choose_pin'));
-      return;
-    }
+    const pin = this.readNewPin();
+    if (!pin) return;
     this.isLoading.set(true);
     this.errorMessage.set('');
     try {
-      await this.signIn.setPin(this.newPin());
+      await this.signIn.setPin(pin);
       this.toastService.success(this.t('member.auth.pin_chosen'));
     } catch (err) {
-      this.errorMessage.set(readSignInError(err).message);
+      const failed = readSignInError(err);
+      this.errorMessage.set(failed.message);
+      this.restartIfRefused(failed);
       return;
     } finally {
       this.isLoading.set(false);
@@ -1503,6 +1571,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   ngOnDestroy() {
     clearInterval(this.countdownInterval);
+    clearInterval(this.requestWaitTimer);
     clearTimeout(this.openingTimer);
     clearTimeout(this.leavingTimer);
   }

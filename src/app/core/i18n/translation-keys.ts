@@ -2090,6 +2090,7 @@ export type TranslationKey =
     | 'common.validation.generic'
     | 'common.validation.maxlength'
     | 'common.validation.minlength'
+    | 'common.validation.mismatch'
     | 'common.validation.required'
     | 'common.version.not_loaded'
     | 'common.version.reload'
@@ -2150,11 +2151,11 @@ export type TranslationKey =
     | 'member.auth.name_placeholder'
     | 'member.auth.name_required'
     | 'member.auth.new_password_label'
-    | 'member.auth.new_pin_label'
     | 'member.auth.no_access'
     | 'member.auth.not_now'
     | 'member.auth.opening'
     | 'member.auth.or'
+    | 'member.auth.password_again_label'
     | 'member.auth.password_changed'
     | 'member.auth.password_error.common'
     | 'member.auth.password_error.personal'
@@ -2165,9 +2166,12 @@ export type TranslationKey =
     | 'member.auth.password_required'
     | 'member.auth.password_update_failed'
     | 'member.auth.passwords_mismatch'
+    | 'member.auth.pin_again'
+    | 'member.auth.pin_again_needed'
     | 'member.auth.pin_chosen'
     | 'member.auth.pin_label'
     | 'member.auth.pin_next_time'
+    | 'member.auth.pins_mismatch'
     | 'member.auth.profile_update_failed'
     | 'member.auth.redirecting'
     | 'member.auth.resend'
@@ -2259,6 +2263,7 @@ export type TranslationKey =
     | 'member.auth.unfinished_signup'
     | 'member.auth.verify'
     | 'member.auth.welcome_back_greeting'
+    | 'member.auth.your_new_pin'
     | 'member.cookie_banner.accept_all'
     | 'member.cookie_banner.learn_more'
     | 'member.cookie_banner.reject_all'
@@ -2297,7 +2302,6 @@ export type TranslationKey =
     | 'member.methods.change'
     | 'member.methods.change_pin'
     | 'member.methods.choose_password_email'
-    | 'member.methods.choose_pin'
     | 'member.methods.choose_pin_number'
     | 'member.methods.code_sent_to'
     | 'member.methods.connect'
@@ -2316,8 +2320,6 @@ export type TranslationKey =
     | 'member.methods.move_email'
     | 'member.methods.move_number'
     | 'member.methods.new_code'
-    | 'member.methods.new_pin'
-    | 'member.methods.new_pin_heading'
     | 'member.methods.not_added'
     | 'member.methods.not_connected'
     | 'member.methods.password_placeholder'
@@ -4606,6 +4608,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.validation.generic',
     'common.validation.maxlength',
     'common.validation.minlength',
+    'common.validation.mismatch',
     'common.validation.required',
     'common.version.not_loaded',
     'common.version.reload',
@@ -4666,11 +4669,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.name_placeholder',
     'member.auth.name_required',
     'member.auth.new_password_label',
-    'member.auth.new_pin_label',
     'member.auth.no_access',
     'member.auth.not_now',
     'member.auth.opening',
     'member.auth.or',
+    'member.auth.password_again_label',
     'member.auth.password_changed',
     'member.auth.password_error.common',
     'member.auth.password_error.personal',
@@ -4681,9 +4684,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.password_required',
     'member.auth.password_update_failed',
     'member.auth.passwords_mismatch',
+    'member.auth.pin_again',
+    'member.auth.pin_again_needed',
     'member.auth.pin_chosen',
     'member.auth.pin_label',
     'member.auth.pin_next_time',
+    'member.auth.pins_mismatch',
     'member.auth.profile_update_failed',
     'member.auth.redirecting',
     'member.auth.resend',
@@ -4775,6 +4781,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.unfinished_signup',
     'member.auth.verify',
     'member.auth.welcome_back_greeting',
+    'member.auth.your_new_pin',
     'member.cookie_banner.accept_all',
     'member.cookie_banner.learn_more',
     'member.cookie_banner.reject_all',
@@ -4813,7 +4820,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.methods.change',
     'member.methods.change_pin',
     'member.methods.choose_password_email',
-    'member.methods.choose_pin',
     'member.methods.choose_pin_number',
     'member.methods.code_sent_to',
     'member.methods.connect',
@@ -4832,8 +4838,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.methods.move_email',
     'member.methods.move_number',
     'member.methods.new_code',
-    'member.methods.new_pin',
-    'member.methods.new_pin_heading',
     'member.methods.not_added',
     'member.methods.not_connected',
     'member.methods.password_placeholder',

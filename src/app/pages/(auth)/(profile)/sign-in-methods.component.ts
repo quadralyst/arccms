@@ -20,6 +20,7 @@ import { AuthState } from '../auth.store';
 import { readSignInError, SignInService, type LinkCheck } from '../sign-in.service';
 import { RESEND_SECONDS, SentCodes } from '../sent-codes';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
+import { NewPinInputComponent } from '../../../../shared/components/new-pin-input/new-pin-input.component';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
 import { emailPinOn, phoneCountrySettings, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
@@ -45,7 +46,7 @@ interface Flow {
 @Component({
     selector: 'arc-sign-in-methods',
     standalone: true,
-    imports: [FormsModule, NgTemplateOutlet, TranslocoPipe, CodeInputComponent, PhoneCountryComponent],
+    imports: [FormsModule, NgTemplateOutlet, TranslocoPipe, CodeInputComponent, NewPinInputComponent, PhoneCountryComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="card-title-row">
@@ -119,9 +120,8 @@ interface Flow {
 
         <ng-template #pinTpl>
             <div class="edit-form">
-                <div class="form-label small">{{ 'member.methods.new_pin_heading' | transloco }}</div>
-                <arc-code-input [label]="'member.methods.new_pin' | transloco" [masked]="true" [oneTimeCode]="false" [disabled]="busy()"
-                    (changed)="secret.set($event)" />
+                <!-- Typed twice, as every new PIN -->
+                <arc-new-pin #newPinField [disabled]="busy()" (firstDone)="error.set('')" (completed)="savePin()" />
                 @if (error()) { <div class="text-danger small mt-2">{{ error() }}</div> }
                 <div class="edit-actions">
                     <button class="btn btn-sm btn-primary" (click)="savePin()" [disabled]="busy()">
@@ -170,12 +170,15 @@ interface Flow {
                     @case ('secret') {
                         @if (f.kind === 'phone') {
                             <div class="form-label small">{{ 'member.methods.choose_pin_number' | transloco }}</div>
-                            <arc-code-input [label]="'member.methods.new_pin' | transloco" [masked]="true" [oneTimeCode]="false" [disabled]="busy()"
-                                (changed)="secret.set($event)" />
+                            <arc-new-pin #newPinField [disabled]="busy()" (firstDone)="error.set('')" (completed)="finish()" />
                         } @else {
                             <div class="form-label small">{{ 'member.methods.choose_password_email' | transloco }}</div>
                             <input class="form-control" type="password" autocomplete="new-password" [placeholder]="'member.methods.password_placeholder' | transloco: passwordMin"
                                 [ngModel]="secret()" (ngModelChange)="secret.set($event)" (keydown.enter)="finish()" />
+                            <!-- Typed twice, as every new password -->
+                            <input class="form-control mt-2 password-again" type="password" autocomplete="new-password"
+                                [placeholder]="'member.auth.password_again_label' | transloco" [attr.aria-label]="'member.auth.password_again_label' | transloco"
+                                [ngModel]="secretAgain()" (ngModelChange)="secretAgain.set($event)" (keydown.enter)="finish()" />
                         }
                     }
                 }
@@ -259,6 +262,8 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
     readonly message = signal('');
     /** The PIN or password being chosen. */
     readonly secret = signal('');
+    /** The new password typed a second time, to catch a typo. */
+    readonly secretAgain = signal('');
     /**
      * Test SMS provider or Simulated email provider: nothing went out, and the
      * code is only in SMS Logs or Email Logs, for admins (review F).
@@ -273,6 +278,8 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
     private countdown?: ReturnType<typeof setInterval>;
 
     private readonly codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
+    /** The new PIN, typed twice: Change PIN, or the PIN for a number added (one at a time). */
+    private readonly newPinField = viewChild<NewPinInputComponent>('newPinField');
 
     /** "Enter the 6-digit code sent to {value}", split so the value can be bold (L-D15). */
     codeSentParts(): [string, string] {
@@ -320,6 +327,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         this.error.set('');
         this.message.set('');
         this.secret.set('');
+        this.secretAgain.set('');
         this.testCodeInLogs.set(false);
         this.busy.set(false);
         // The codes asked for stay remembered: starting again with the same value carries on.
@@ -516,20 +524,25 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         const f = this.flow();
         const check = f?.check;
         if (!f || !check) return;
-        const secret = this.secret();
+        let secret = this.secret();
         if (f.step === 'secret') {
-            if (check.kind === 'phone' && !/^\d{6}$/.test(secret)) {
-                this.error.set(this.t('member.methods.choose_pin'));
-                return;
-            }
-            // A new password: not too easy to guess, nor their own name or email (F22),
-            // under the app's strength (src/custom/sign-in.ts).
-            const problem = check.kind === 'email'
-                ? passwordProblem(secret, { email: check.value, name: this.authStore.currentUser()?.name }, SIGN_IN_STRENGTH)
-                : null;
-            if (problem) {
-                this.error.set(this.t(`member.auth.password_error.${problem}` as TranslationKey, this.passwordMin));
-                return;
+            if (check.kind === 'phone') {
+                // The PIN, typed twice: two that differ save nothing.
+                const pin = this.readNewPin();
+                if (!pin) return;
+                secret = pin;
+            } else {
+                // A new password: not too easy to guess, nor their own name or email (F22),
+                // under the app's strength (src/custom/sign-in.ts), and typed twice.
+                const problem = passwordProblem(secret, { email: check.value, name: this.authStore.currentUser()?.name }, SIGN_IN_STRENGTH);
+                if (problem) {
+                    this.error.set(this.t(`member.auth.password_error.${problem}` as TranslationKey, this.passwordMin));
+                    return;
+                }
+                if (this.secretAgain() !== secret) {
+                    this.error.set(this.t('member.auth.passwords_mismatch'));
+                    return;
+                }
             }
         }
 
@@ -544,20 +557,42 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
             this.message.set(this.t(result.moved
                 ? (email ? 'member.methods.email_moved' : 'member.methods.phone_moved')
                 : (email ? 'member.methods.email_saved' : 'member.methods.phone_saved')));
-        });
+        }, check.kind === 'phone' && f.step === 'secret' ? (err) => this.pinRefused(err) : undefined);
     }
 
+    /** Change PIN: the new PIN, typed twice. */
     async savePin(): Promise<void> {
-        if (!/^\d{6}$/.test(this.secret())) {
-            this.error.set(this.t('member.methods.choose_pin'));
-            return;
-        }
+        if (this.busy()) return;
+        const pin = this.readNewPin();
+        if (!pin) return;
         await this.run(async () => {
-            const { passwordRemoved } = await this.signIn.setPin(this.secret());
+            const { passwordRemoved } = await this.signIn.setPin(pin);
             this.reset();
             // An email account's password goes when it chooses a PIN (specs/sign-in-pin-spec.md).
             this.message.set(this.t(passwordRemoved ? 'member.methods.pin_saved_password_removed' : 'member.methods.pin_changed'));
-        });
+        }, (err) => this.pinRefused(err));
+    }
+
+    /**
+     * The new PIN, once both rows hold the same 6 digits. Otherwise the row says what is
+     * missing; two that differ save nothing and both rows empty.
+     */
+    private readNewPin(): string | null {
+        const field = this.newPinField();
+        if (!field) return null;
+        const read = field.check();
+        if ('problem' in read) {
+            this.error.set(this.t(read.problem));
+            return null;
+        }
+        return read.pin;
+    }
+
+    /** A refused PIN's message; one too easy to guess empties both rows, for another typed twice. */
+    private pinRefused(err: unknown): string {
+        const failed = readSignInError(err);
+        if (failed.reason === 'weak-pin' || failed.reason === 'pin-format') this.newPinField()?.restart();
+        return failed.message;
     }
 
     async connectGoogle(): Promise<void> {
