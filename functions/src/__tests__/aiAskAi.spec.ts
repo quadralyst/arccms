@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
     allowance: { ok: true } as { ok: boolean; wait?: number },
     released: 0,
     consumed: 0,
+    perDays: [] as number[],
     budget: { ok: true } as { ok: boolean; wait?: number },
     keys: {} as Record<string, string>,
     files: new Map<string, Buffer>(),
@@ -70,7 +71,7 @@ vi.mock('../ai/usage.js', () => ({
     noteConnection: async () => undefined,
 }));
 vi.mock('../ai/limits.js', () => ({
-    consumeAllowance: async () => (h.consumed++, h.allowance.ok ? { ok: true, release: async () => void h.released++ } : { ok: false, wait: h.allowance.wait }),
+    consumeAllowance: async (_purpose: string, _key: string, _units: number, perDay: number) => (h.consumed++, h.perDays.push(perDay), h.allowance.ok ? { ok: true, release: async () => void h.released++ } : { ok: false, wait: h.allowance.wait }),
     checkBudget: async () => (h.budget.ok ? { ok: true, spent: 0 } : h.budget),
 }));
 vi.mock('../ai/keys.js', () => ({
@@ -109,6 +110,7 @@ beforeEach(() => {
     h.allowance = { ok: true };
     h.released = 0;
     h.consumed = 0;
+    h.perDays = [];
     h.budget = { ok: true };
     h.keys = {};
     h.files = new Map([['app/menus/b1/p1.jpg', JPEG]]);
@@ -124,6 +126,9 @@ describe('a developer\'s mistakes throw', () => {
         await expect(askAi({ purpose: 'summary', input: [{ storagePath: '../secret.pdf' }] })).rejects.toThrow('without /, . or .. parts');
         await expect(askAi({ purpose: 'summary', input: [{ storagePath: 'gs://other-bucket/x.pdf' }] })).rejects.toThrow('not in the project\'s bucket');
         await expect(askAi({ purpose: 'summary', units: 0 })).rejects.toThrow('units must be a whole number');
+        await expect(askAi({ purpose: 'menu-scan', limitKey: 'b1', perDay: -1 })).rejects.toThrow('perDay must be a whole number from 0');
+        await expect(askAi({ purpose: 'menu-scan', limitKey: 'b1', perDay: 2.5 })).rejects.toThrow('perDay must be a whole number from 0');
+        await expect(askAi({ purpose: 'summary', perDay: 5 })).rejects.toThrow('pass its limitKey too');
         await expect(askAi({ purpose: 'summary', input: [42 as unknown as string] })).rejects.toThrow('input part 1 must be');
     });
 });
@@ -168,8 +173,8 @@ describe('captureAiAsks', () => {
             expect(await askAi({ purpose: 'summary', input: ['Notes', { storagePath: 'app/docs/x.pdf' }] })).toMatchObject({ ok: true, text: 'A short summary.', recordId: null });
             expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1', input: { bytes: JPEG, mimeType: 'image/jpeg', name: 'p1.jpg' } })).toMatchObject({ ok: true, data: { items: [{ name: 'Tea', price: 4.5 }] } });
             expect(ai.asks).toEqual([
-                { purpose: 'summary', text: ['Notes'], files: [{ mimeType: 'application/pdf', bytes: 0, name: null, storagePath: 'app/docs/x.pdf' }], limitKey: null, units: 1, ref: null },
-                { purpose: 'menu-scan', text: [], files: [{ mimeType: 'image/jpeg', bytes: JPEG.length, name: 'p1.jpg', storagePath: null }], limitKey: 'b1', units: 1, ref: null },
+                { purpose: 'summary', text: ['Notes'], files: [{ mimeType: 'application/pdf', bytes: 0, name: null, storagePath: 'app/docs/x.pdf' }], limitKey: null, units: 1, perDay: null, ref: null },
+                { purpose: 'menu-scan', text: [], files: [{ mimeType: 'image/jpeg', bytes: JPEG.length, name: 'p1.jpg', storagePath: null }], limitKey: 'b1', units: 1, perDay: null, ref: null },
             ]);
             expect(h.records).toEqual([]);
         } finally {
@@ -280,6 +285,23 @@ describe('live calls', () => {
         await expect(askAi({ purpose: 'menu-scan', limitKey: 'b1', input: { storagePath: 'app/menus/scan.heic' } })).rejects.toThrow('of an unknown type');
         expect(h.consumed).toBe(1);
         expect(h.released).toBe(1);
+    });
+
+    it('counts a key against the purpose\'s number, the admin\'s in its place, and the call\'s own before both', async () => {
+        live();
+        answers({ ok: true, text: '{"items":[]}', usage }, { ok: true, text: '{"items":[]}', usage }, { ok: true, text: '{"items":[]}', usage });
+        await askAi({ purpose: 'menu-scan', limitKey: 'b1' });
+        live({ purposes: { 'menu-scan': { perKeyPerDay: 5 } } });
+        await askAi({ purpose: 'menu-scan', limitKey: 'b1' });
+        await askAi({ purpose: 'menu-scan', limitKey: 'b2', perDay: 50 });
+        expect(h.perDays).toEqual([20, 5, 50]);
+    });
+
+    it('gives a key with a call\'s own number of 0 no calls, and a purpose with none an allowance', async () => {
+        h.allowance = { ok: false, wait: 600 };
+        expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1', perDay: 0 })).toMatchObject({ ok: false, reason: 'limit', scope: 'key', detail: 'b1 has no allowance today' });
+        expect(await askAi({ purpose: 'summary', limitKey: 'b1', perDay: 3 })).toMatchObject({ ok: false, reason: 'limit', scope: 'key' });
+        expect(h.perDays).toEqual([0, 3]);
     });
 
     it('counts no allowance for a purpose that has none in the code, whatever the admin typed', async () => {

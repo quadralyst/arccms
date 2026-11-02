@@ -31,6 +31,7 @@ export function purposeProblems(purposes: unknown): string[] {
         if (typeof p.instruction !== 'string' || !p.instruction.trim()) problems.push(`${at} needs an instruction`);
         if (p.tier !== undefined && !AI_TIERS.includes(p.tier)) problems.push(`${at}: tier must be one of ${AI_TIERS.join(', ')}`);
         if (p.perKeyPerDay !== undefined && (!Number.isInteger(p.perKeyPerDay) || p.perKeyPerDay < 1)) problems.push(`${at}: perKeyPerDay must be a whole number of 1 or more`);
+        if (p.limitKeyLabel !== undefined && (typeof p.limitKeyLabel !== 'string' || !p.limitKeyLabel.trim() || p.limitKeyLabel.length > 40)) problems.push(`${at}: limitKeyLabel must be a word or two, at most 40 characters, such as 'merchant'`);
         if (p.maxOutputTokens !== undefined && (!Number.isInteger(p.maxOutputTokens) || p.maxOutputTokens < 1)) problems.push(`${at}: maxOutputTokens must be a whole number of 1 or more`);
         if (p.temperature !== undefined && (typeof p.temperature !== 'number' || p.temperature < 0 || p.temperature > 2)) problems.push(`${at}: temperature must be from 0 to 2`);
         if (p.thinking !== undefined && p.thinking !== 'low' && p.thinking !== 'high') problems.push(`${at}: thinking must be 'low' or 'high'`);

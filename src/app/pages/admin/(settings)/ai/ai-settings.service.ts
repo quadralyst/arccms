@@ -37,6 +37,8 @@ export interface AiPurposeInfo {
     pictures: { max: number; maxMb: number } | null;
     pdfs: { max: number; maxMb: number } | null;
     perKeyPerDay: number | null;
+    /** What a limitKey is, in a word, such as "merchant"; null: not named. */
+    limitKeyLabel: string | null;
     timeoutSeconds: number;
 }
 

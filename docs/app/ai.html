@@ -47,6 +47,7 @@ export const AI_PURPOSES: AiPurposes = {
     tier: 'thorough',
     thinking: 'low',
     perKeyPerDay: 20,
+    limitKeyLabel: 'business',
     testAnswer: { supplier: 'Test Supplier', date: '2026-10-01', currency: 'CHF', lines: [{ name: 'Flour 25 kg', quantity: 2, price: 38.5 }], total: 77 },
   },
 };</code></pre>
@@ -81,7 +82,8 @@ export const readReceipt = onCall({ timeoutSeconds: 120, memory: '1GiB' }, async
         <tr><td><code>instruction</code></td><td>The prompt. It stays on the server: Settings, AI does not show it, except on a call kept by <strong>Keep what is sent and answered</strong>.</td></tr>
         <tr><td><code>output</code></td><td><code>'text'</code> (the default), or <code>{ schema }</code>: the answer is data of that shape, checked by Arc CMS</td></tr>
         <tr><td><code>tier</code></td><td><code>cheap</code>, <code>fast</code> (the default) or <code>thorough</code>: which of the admin's model lists answers, unless the admin gives the purpose its own</td></tr>
-        <tr><td><code>perKeyPerDay</code></td><td>How many units one key may use a day. With it, every call needs a <code>limitKey</code>. The admin can change the number; a purpose without it has no allowance.</td></tr>
+        <tr><td><code>perKeyPerDay</code></td><td>How many units one key may use a day. With it, every call needs a <code>limitKey</code>. The admin can change the number; a purpose without it has no allowance. Each key has its own count: pass a business id and each business gets this many.</td></tr>
+        <tr><td><code>limitKeyLabel</code></td><td>Optional: what a <code>limitKey</code> is, in a word, such as <code>'merchant'</code>. Settings, AI then says "Daily allowance for each merchant" and "merchant b1" on the usage and call rows. Default: "user or business".</td></tr>
         <tr><td><code>testAnswer</code></td><td>The answer in test mode: the data or text itself, a function of the input, or <code>aiTestFailure(reason)</code>. A fixed answer is checked against the schema when the functions load.</td></tr>
         <tr><td><code>thinking</code></td><td>Optional, for a model that thinks before it answers: <code>'low'</code> for quick reading and sorting (faster, fewer billed tokens), <code>'high'</code> for hard reasoning. Sent to OpenRouter, OpenAI and Gemini; other providers ignore it. A model that thinks past <code>maxOutputTokens</code> gives no answer (<code>unreadable</code>), and its tokens are still billed.</td></tr>
         <tr><td><code>maxOutputTokens</code>, <code>temperature</code>, <code>timeoutSeconds</code></td><td>Optional. <code>timeoutSeconds</code> (5 to 540, default 60) is for the whole call, fallbacks included. Give your own function a longer <code>timeoutSeconds</code> than the purpose, and memory for the files: about seven times their size, so <code>memory: '1GiB'</code> for photos of several MB.</td></tr>
@@ -97,10 +99,23 @@ export const readReceipt = onCall({ timeoutSeconds: 120, memory: '1GiB' }, async
         <tr><td><code>input</code></td><td>One part or a list, in the order the model reads them: a string, <code>{ text }</code>, <code>{ storagePath, mimeType? }</code> (a file in the project's bucket) or <code>{ bytes, mimeType, name? }</code>. Give <code>mimeType</code> when a path does not end in <code>.jpg</code>, <code>.png</code>, <code>.webp</code> or <code>.pdf</code>.</td></tr>
         <tr><td><code>limitKey</code></td><td>Whose allowance the call uses, such as a business id: 1 to 200 characters without <code>/</code> or spaces</td></tr>
         <tr><td><code>units</code></td><td>How much of the allowance it uses, such as the number of pages. Default 1.</td></tr>
+        <tr><td><code>perDay</code></td><td>Optional: this key's own allowance today, such as from its plan. A whole number from 0, used in place of the admin's and the purpose's. Needs a <code>limitKey</code>. See <a href="#plans">Allowances by plan</a>.</td></tr>
         <tr><td><code>ref</code></td><td>Your own reference, kept on the record</td></tr>
       </tbody>
     </table>
     <div class="warn"><p>Arc CMS reads <code>storagePath</code> with the functions' rights, which can read every file. It takes only paths inside the project's bucket, without <code>..</code>, but it cannot know which files the caller may read: check that yourself before you pass a path from a browser, as the example does.</p></div>
+
+    <h3 id="plans">Allowances by plan</h3>
+    <p>Every key gets the purpose's <code>perKeyPerDay</code>, or the admin's number in its place. When your keys have plans, pass each one's number with the call; a key without one still gets the shared number. Keep <code>perKeyPerDay</code> on the purpose too: without it, a call that passes no number has no limit.</p>
+    <pre><code>const plan = await planOf(businessId); // your own data
+const r = await askAi({
+  purpose: 'receipt-read',
+  input: [{ storagePath: path }],
+  limitKey: businessId,
+  units: pages,
+  perDay: plan.receiptPagesPerDay, // such as 5 on Free, 50 on Pro
+});</code></pre>
+    <p>The count for the day is the same whatever number is passed, so a business that moves to a larger plan at noon keeps what it used in the morning. A <code>perDay</code> of 0 gives that key no calls. Take the key and its plan from the signed-in account on the server, never from what the browser sends, or anyone could name another business or a larger number.</p>
 
     <h2 id="reasons">What comes back</h2>
     <p><code>{ ok: true, data, usage, recordId }</code> for a purpose with a schema, <code>{ ok: true, text, usage, recordId }</code> for text. <code>usage</code> holds the model that answered, the tokens, the cost in USD and the time. Otherwise <code>{ ok: false, reason, usage, recordId }</code>, with <code>wait</code> (seconds) when trying later can help and <code>detail</code> for your logs:</p>

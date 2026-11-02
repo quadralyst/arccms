@@ -12,7 +12,7 @@ import { aiFormFrom, AiSettingsService, monthUsageFrom, type AiSetupInfo } from 
 import { translocoTestingModule } from '../../../../../test/transloco-test-providers';
 
 const SETUP: AiSetupInfo = {
-    purposes: [{ id: 'menu-scan', label: 'Menu scan', description: 'Reads a menu photo.', tier: 'thorough', output: 'data', maxChars: 20000, pictures: { max: 5, maxMb: 10 }, pdfs: null, perKeyPerDay: 20, timeoutSeconds: 60 }],
+    purposes: [{ id: 'menu-scan', label: 'Menu scan', description: 'Reads a menu photo.', tier: 'thorough', output: 'data', maxChars: 20000, pictures: { max: 5, maxMb: 10 }, pdfs: null, perKeyPerDay: 20, limitKeyLabel: null, timeoutSeconds: 60 }],
     presets: [
         { id: 'alibaba-eu', label: 'Alibaba Cloud Model Studio, Frankfurt (EU)', kind: 'openai', processesIn: 'Germany (Frankfurt)', needsWorkspace: true, needsAddress: false, reportsCost: false, models: [{ model: 'qwen3-vl-plus', reads: ['pictures'], schema: 'json', priceIn: 0.2, priceOut: 1.6, recommend: ['cheap', 'fast', 'thorough'] }] },
         {
@@ -222,6 +222,18 @@ describe('AiSettingsPage', () => {
         expect(card.querySelector<HTMLSelectElement>('#aiUse-menu-scan')!.selectedOptions[0].textContent).toContain('Thorough tier');
         expect(card.querySelector<HTMLInputElement>('#aiKeep-menu-scan')!.checked).toBe(false);
         expect(card.querySelector<HTMLInputElement>('#aiAllow-menu-scan')!.placeholder).toBe('20');
+        expect(card.querySelector('label[for="aiAllow-menu-scan"]')!.textContent).toContain('Daily allowance for each user or business');
+    });
+
+    it('names the allowance by what the app calls its keys, here and on the usage and call rows', async () => {
+        const { page, component, settle } = await render();
+        component.setup.update((s) => s && { ...s, purposes: [{ ...s.purposes[0], limitKeyLabel: 'merchant' }] });
+        component.openTab('purposes');
+        await settle();
+        expect(page.querySelector('label[for="aiAllow-menu-scan"]')!.textContent).toContain('Daily allowance for each merchant');
+        expect(page.querySelector('.purpose[data-id="menu-scan"]')!.textContent).toContain('A number your app gives one merchant, such as from their plan, comes first.');
+        expect(component.keyName('menu-scan', 'b1')).toBe('merchant b1');
+        expect(component.keyName('other', 'b1')).toBe('b1');
     });
 
     it('offers no allowance field for a purpose with none in the code', async () => {

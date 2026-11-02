@@ -66,6 +66,8 @@ export interface AiPurpose {
     tier?: AiTier;
     /** How many units one key may use a day, unless the admin changes it. No limit when left out. */
     perKeyPerDay?: number;
+    /** What a `limitKey` is, in a word, such as `merchant`, for Settings, AI. Default: user or business. */
+    limitKeyLabel?: string;
     /** The answer in test mode. Default: one built from the schema, or a short text. */
     testAnswer?: AiTestAnswer;
     /** The most tokens the answer may take. Default: the model's own limit. */
@@ -102,6 +104,11 @@ export interface AskAiInput {
     limitKey?: string;
     /** How much of the allowance it uses, such as the number of pages. Default 1. */
     units?: number;
+    /**
+     * This key's own allowance today, such as from its plan: a whole number from 0, in place of
+     * the admin's and the purpose's. Needs a `limitKey`.
+     */
+    perDay?: number;
     /** The app's own reference, kept on the record, such as `businesses/b1/scans/s4`. */
     ref?: string;
 }

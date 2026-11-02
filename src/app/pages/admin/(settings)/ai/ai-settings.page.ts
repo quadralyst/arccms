@@ -359,10 +359,10 @@ export function usd(n: number): string {
                                     @if (p.perKeyPerDay !== null) {
                                         <div class="row g-2 mt-1">
                                             <div class="col-sm-6">
-                                                <label class="form-label small mb-1" [for]="'aiAllow-' + p.id">{{ 'admin.settings.ai.allowance' | transloco }}</label>
+                                                <label class="form-label small mb-1" [for]="'aiAllow-' + p.id">{{ 'admin.settings.ai.allowance' | transloco: { who: who(p) } }}</label>
                                                 <input type="number" min="1" step="1" class="form-control form-control-sm" [id]="'aiAllow-' + p.id"
                                                     [placeholder]="p.perKeyPerDay" [ngModel]="purpose(p.id).perKeyPerDay" (ngModelChange)="setAllowance(p.id, $event)" />
-                                                <small class="text-muted">{{ 'admin.settings.ai.allowance_hint' | transloco: { n: p.perKeyPerDay } }}</small>
+                                                <small class="text-muted">{{ 'admin.settings.ai.allowance_hint' | transloco: { n: p.perKeyPerDay, who: who(p) } }}</small>
                                             </div>
                                         </div>
                                     }
@@ -451,7 +451,7 @@ export function usd(n: number): string {
                                     <div class="call-details border rounded p-2 mb-2 small">
                                         @if (c.detail) { <div class="text-danger mb-1">{{ c.detail }}</div> }
                                         <div>{{ 'admin.settings.ai.input_size' | transloco: { chars: (c.input.chars | number), files: c.input.files, kb: (c.input.bytes / 1024 | number: '1.0-0') } }}</div>
-                                        @if (c.limitKey) { <div>{{ 'admin.settings.ai.key_units' | transloco: { key: c.limitKey, units: c.units } }}</div> }
+                                        @if (c.limitKey) { <div>{{ 'admin.settings.ai.key_units' | transloco: { key: keyName(c.purpose, c.limitKey), units: c.units } }}</div> }
                                         @if (c.ref) { <div><code>{{ c.ref }}</code></div> }
                                         @for (a of c.attempts; track $index) {
                                             <div>{{ $index + 1 }}. {{ connectionLabel(a.connection) }}, {{ a.model }}: {{ a.outcome }} ({{ a.ms / 1000 | number: '1.1-1' }} s){{ a.detail ? ', ' + a.detail : '' }}</div>
@@ -879,6 +879,17 @@ export class AiSettingsPage implements OnInit {
         return this.setup()?.purposes.find((p) => p.id === id)?.label ?? id;
     }
 
+    /** What a purpose's limitKey is, in a word: the app's, else "user or business". */
+    who(p: AiPurposeInfo): string {
+        return p.limitKeyLabel ?? this.t('admin.settings.ai.allowance_who');
+    }
+
+    /** A limitKey as admins read it, such as "merchant b1" when the purpose names its keys. */
+    keyName(purposeId: string, limitKey: string): string {
+        const label = this.setup()?.purposes.find((p) => p.id === purposeId)?.limitKeyLabel;
+        return label ? `${label} ${limitKey}` : limitKey;
+    }
+
     patchPurpose(id: string, change: Partial<AiPurposeForm>): void {
         this.patch({ purposes: { ...this.form().purposes, [id]: { ...this.purpose(id), ...change } } });
     }
@@ -999,7 +1010,7 @@ export class AiSettingsPage implements OnInit {
         return [
             { title: 'admin.settings.ai.by_purpose', first: 'admin.settings.ai.purpose', rows: u.byPurpose.map((r) => ({ ...r, name: this.purposeLabel(r.id) })) },
             { title: 'admin.settings.ai.by_model', first: 'admin.settings.ai.model', rows: u.byModel.map((r) => ({ ...r, name: `${this.connectionLabel(r.connection)}: ${r.model}` })) },
-            { title: 'admin.settings.ai.by_key', first: 'admin.settings.ai.key_column', rows: u.keys.map((r) => ({ ...r, name: `${r.limitKey} (${this.purposeLabel(r.purpose)})` })) },
+            { title: 'admin.settings.ai.by_key', first: 'admin.settings.ai.key_column', rows: u.keys.map((r) => ({ ...r, name: `${this.keyName(r.purpose, r.limitKey)} (${this.purposeLabel(r.purpose)})` })) },
             { title: 'admin.settings.ai.by_day', first: 'admin.settings.ai.day', rows: u.byDay.map((r) => ({ ...r, name: `${u.month}-${r.day}` })) },
         ];
     }

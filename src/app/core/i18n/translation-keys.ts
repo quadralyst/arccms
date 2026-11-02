@@ -923,6 +923,7 @@ export type TranslationKey =
     | 'admin.settings.ai.all_purposes'
     | 'admin.settings.ai.allowance'
     | 'admin.settings.ai.allowance_hint'
+    | 'admin.settings.ai.allowance_who'
     | 'admin.settings.ai.answer'
     | 'admin.settings.ai.answered'
     | 'admin.settings.ai.blurb_alibaba_eu'
@@ -3239,6 +3240,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.all_purposes',
     'admin.settings.ai.allowance',
     'admin.settings.ai.allowance_hint',
+    'admin.settings.ai.allowance_who',
     'admin.settings.ai.answer',
     'admin.settings.ai.answered',
     'admin.settings.ai.blurb_alibaba_eu',

@@ -24,6 +24,7 @@ import { isAiTestFailure, type AiFailureReason, type AiPurpose, type AiTestAnswe
 
 const LIMIT_KEY = /^[^/\s]{1,200}$/;
 const MAX_UNITS = 1000;
+const MAX_PER_DAY = 1_000_000;
 /** Less than this left of the call's time, and no other model is tried. */
 const MIN_ATTEMPT_MS = 2_000;
 
@@ -36,6 +37,8 @@ interface Checked {
     purpose: AiPurpose;
     limitKey: string | null;
     units: number;
+    /** The call's own allowance for its key, or null. */
+    perDay: number | null;
     ref: string | null;
 }
 
@@ -53,12 +56,18 @@ function checked(input: AskAiInput): Checked {
     if (purpose.perKeyPerDay !== undefined && !limitKey) fail(`purpose "${purposeId}" has a per-key allowance, so every call needs a limitKey.`);
     const units = input.units ?? 1;
     if (!Number.isInteger(units) || units < 1 || units > MAX_UNITS) fail(`units must be a whole number from 1 to ${MAX_UNITS}.`);
+    let perDay: number | null = null;
+    if (input.perDay !== undefined && input.perDay !== null) {
+        if (!Number.isInteger(input.perDay) || input.perDay < 0 || input.perDay > MAX_PER_DAY) fail(`perDay must be a whole number from 0 to ${MAX_PER_DAY}.`);
+        if (!limitKey) fail('perDay is the allowance of one key, so pass its limitKey too.');
+        perDay = input.perDay;
+    }
     let ref: string | null = null;
     if (input.ref !== undefined && input.ref !== null) {
         if (typeof input.ref !== 'string' || input.ref.length > 300) fail('ref must be text of at most 300 characters.');
         ref = input.ref;
     }
-    return { purposeId, purpose, limitKey, units, ref };
+    return { purposeId, purpose, limitKey, units, perDay, ref };
 }
 
 /** The instruction a model gets: the purpose's, and for a model that promises only JSON, the shape to answer in. */
@@ -116,6 +125,7 @@ export interface CapturedAiAsk {
     files: Array<{ mimeType: string; bytes: number; name: string | null; storagePath: string | null }>;
     limitKey: string | null;
     units: number;
+    perDay: number | null;
     ref: string | null;
 }
 
@@ -156,6 +166,7 @@ async function askCaptured(c: Checked, input: AskAiInput, sink: NonNullable<type
         files: prepared.parts.flatMap((p) => (p.kind === 'text' ? [] : [{ mimeType: p.mimeType, bytes: p.bytes.length, name: p.name, storagePath: p.storagePath }])),
         limitKey: c.limitKey,
         units: c.units,
+        perDay: c.perDay,
         ref: c.ref,
     });
     const schema = purposeSchema(c.purpose);
@@ -230,12 +241,13 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
 
     if (!ps.enabled) return finish({ ok: false, reason: 'off', detail: `${c.purposeId} is switched off in Settings, AI` });
 
-    // The admin's number replaces the app's; a purpose without one in the code has no
-    // allowance, since its calls carry no key (Settings, AI offers the field only with one).
-    const perDay = c.purpose.perKeyPerDay === undefined ? null : ps.perKeyPerDay ?? c.purpose.perKeyPerDay;
+    // The call's own number for its key comes first, such as from the key's plan. Else the
+    // admin's number replaces the app's; a purpose without one in the code has no allowance,
+    // since its calls carry no key (Settings, AI offers the field only with one).
+    const perDay = c.perDay ?? (c.purpose.perKeyPerDay === undefined ? null : ps.perKeyPerDay ?? c.purpose.perKeyPerDay);
     if (perDay !== null && c.limitKey) {
         const use = await consumeAllowance(c.purposeId, c.limitKey, c.units, perDay);
-        if (!use.ok) return finish({ ok: false, reason: 'limit', scope: 'key', wait: use.wait, detail: `${c.limitKey} has used its ${perDay} for today` });
+        if (!use.ok) return finish({ ok: false, reason: 'limit', scope: 'key', wait: use.wait, detail: perDay === 0 ? `${c.limitKey} has no allowance today` : `${c.limitKey} has used its ${perDay} for today` });
         allowance = use;
     }
     try {

@@ -112,7 +112,7 @@ vi.mock('../search/auth.js', () => ({
         if (request.auth?.token?.['admin'] !== true) throw Object.assign(new Error('Admin access required.'), { code: 'permission-denied' });
     },
 }));
-vi.mock('../custom/ai.js', () => ({ AI_PURPOSES: { 'menu-scan': { label: 'Menu scan', instruction: 'SECRET PROMPT', testAnswer: 'x', perKeyPerDay: 20, input: { pictures: { max: 5, maxMb: 10 } } } } }));
+vi.mock('../custom/ai.js', () => ({ AI_PURPOSES: { 'menu-scan': { label: 'Menu scan', instruction: 'SECRET PROMPT', testAnswer: 'x', perKeyPerDay: 20, limitKeyLabel: ' merchant ', input: { pictures: { max: 5, maxMb: 10 } } } } }));
 
 import { siteDay, consumeAllowance, checkBudget } from '../ai/limits.js';
 import { addToTotals, aiUsage, modelField, noteConnection } from '../ai/usage.js';
@@ -291,7 +291,7 @@ describe('aiSetupInfo', () => {
         const { purposes, presets } = await aiSetupInfo(admin({}));
         expect(presets.find((p: { id: string }) => p.id === 'alibaba-eu')).toMatchObject({ needsWorkspace: true, needsAddress: false, kind: 'openai', models: [{ model: 'qwen3-vl-plus', reads: ['pictures'], priceIn: 0.2, priceOut: 1.6 }] });
         expect(presets.find((p: { id: string }) => p.id === 'other')).toMatchObject({ needsAddress: true });
-        expect(purposes).toEqual([{ id: 'menu-scan', label: 'Menu scan', description: '', tier: 'fast', output: 'text', maxChars: 20000, pictures: { max: 5, maxMb: 10 }, pdfs: null, perKeyPerDay: 20, timeoutSeconds: 60 }]);
+        expect(purposes).toEqual([{ id: 'menu-scan', label: 'Menu scan', description: '', tier: 'fast', output: 'text', maxChars: 20000, pictures: { max: 5, maxMb: 10 }, pdfs: null, perKeyPerDay: 20, limitKeyLabel: 'merchant', timeoutSeconds: 60 }]);
         expect(JSON.stringify(purposes)).not.toContain('SECRET');
         await expect(aiSetupInfo(member({}))).rejects.toThrow('Admin access required.');
     });

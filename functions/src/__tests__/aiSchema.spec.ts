@@ -117,7 +117,7 @@ describe('purposeProblems', () => {
 
     it('accepts a purpose with its input, schema and test answer', () => {
         expect(purposeProblems({ 'menu-scan': { ...base, input: { pictures: { max: 5, maxMb: 10 } }, output: { schema: MENU }, testAnswer: { sections: [], currency: 'EUR' } } })).toEqual([]);
-        expect(purposeProblems({ 'menu-scan': { ...base, output: { schema: MENU }, testAnswer: () => ({}), tier: 'cheap', perKeyPerDay: 20 } })).toEqual([]);
+        expect(purposeProblems({ 'menu-scan': { ...base, output: { schema: MENU }, testAnswer: () => ({}), tier: 'cheap', perKeyPerDay: 20, limitKeyLabel: 'merchant' } })).toEqual([]);
         expect(purposeProblems({ 'menu-scan': { ...base, output: { schema: MENU }, testAnswer: aiTestFailure('blocked') } })).toEqual([]);
     });
 
@@ -126,7 +126,7 @@ describe('purposeProblems', () => {
             'Menu Scan': base,
             'arc-mine': base,
             'no-label': { instruction: 'x' },
-            limits: { ...base, input: { pictures: { max: 0, maxMb: 50 } }, tier: 'huge', perKeyPerDay: 0, timeoutSeconds: 1, thinking: 'lots' },
+            limits: { ...base, input: { pictures: { max: 0, maxMb: 50 } }, tier: 'huge', perKeyPerDay: 0, limitKeyLabel: ' ', timeoutSeconds: 1, thinking: 'lots' },
             'bad-test': { ...base, output: { schema: MENU }, testAnswer: { sections: 'none' } },
             'bad-schema': { ...base, output: { schema: { type: 'array' } } },
         });
@@ -136,6 +136,7 @@ describe('purposeProblems', () => {
             'purpose "no-label" needs a label',
             'purpose "limits": tier must be one of cheap, fast, thorough',
             'purpose "limits": perKeyPerDay must be a whole number of 1 or more',
+            'purpose "limits": limitKeyLabel must be a word or two, at most 40 characters, such as \'merchant\'',
             'purpose "limits": timeoutSeconds must be a whole number from 5 to 540',
             'purpose "limits": thinking must be \'low\' or \'high\'',
             'purpose "limits": input.pictures.max must be a whole number from 1 to 20',

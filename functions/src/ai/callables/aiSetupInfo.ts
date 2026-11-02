@@ -23,6 +23,7 @@ export const aiSetupInfo = onCall(async (request) => {
             pictures: p.input?.pictures ?? null,
             pdfs: p.input?.pdfs ?? null,
             perKeyPerDay: p.perKeyPerDay ?? null,
+            limitKeyLabel: p.limitKeyLabel?.trim() || null,
             timeoutSeconds: p.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS,
         })),
         presets: Object.entries(AI_PRESETS).map(([id, p]) => ({
