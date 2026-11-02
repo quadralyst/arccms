@@ -31,6 +31,9 @@ vi.mock('../custom/ai.js', () => ({
     AI_PURPOSES: {
         cover: { label: 'Cover', makes: 'image', instruction: 'Flat colours.', image: { aspect: '16:9', quality: 'high' }, saveTo: 'app/covers' },
         counted: { label: 'Counted', makes: 'image', perKeyPerDay: 20, allowanceIn: 'pictures' },
+        sfx: { label: 'Sound', makes: 'audio', audio: { type: 'sound', seconds: 5, loop: true } },
+        plainsfx: { label: 'Plain sound', makes: 'audio', perKeyPerDay: 600, allowanceIn: 'seconds' },
+        song: { label: 'Song', makes: 'audio', audio: { type: 'music', seconds: 60, instrumental: true }, timeoutSeconds: 120 },
         seeded: { label: 'Seeded', makes: 'image', image: { seed: 42 } },
         edit: { label: 'Edit', makes: 'image', input: { pictures: { max: 1, maxMb: 5 } } },
     },
@@ -93,13 +96,13 @@ const PNG = greyPng(8, 8);
 const made = (n = 1): FileResult => ({ ok: true, files: Array.from({ length: n }, () => ({ bytes: PNG, mimeType: 'image/png', width: 8, height: 8 })), usage: { tokensIn: 0, tokensOut: 0, tokensThinking: 0 } });
 
 function live(lists: Array<{ connection: string; model: string }>, extra: Record<string, unknown> = {}) {
-    h.settings = { mode: 'live', connections: { oa: { preset: 'openai' }, gem: { preset: 'gemini-api' }, mm: { preset: 'minimax' }, mm2: { preset: 'minimax', perMinute: 30 } }, lists: { image: lists }, ...extra };
+    h.settings = { mode: 'live', connections: { oa: { preset: 'openai' }, gem: { preset: 'gemini-api' }, mm: { preset: 'minimax' }, mm2: { preset: 'minimax', perMinute: 30 }, el: { preset: 'elevenlabs' } }, lists: { image: lists, audio: [{ connection: 'el', model: 'music_v2_5' }, { connection: 'el', model: 'eleven_text_to_sound_v3' }] }, ...extra };
 }
 
-function painters(answers: Partial<Record<'openai' | 'gemini' | 'minimax', FileResult>> = {}): FileRequest[] {
+function painters(answers: Partial<Record<'openai' | 'gemini' | 'minimax' | 'elevenlabs', FileResult>> = {}): FileRequest[] {
     const asked: FileRequest[] = [];
-    const make = (k: 'openai' | 'gemini' | 'minimax'): FileConnector => async (_c, r) => (asked.push({ ...r, model: `${k}:${r.model}` }), answers[k] ?? made(r.image?.count ?? 1));
-    replaceFileConnectorsForTest({ openai: make('openai'), gemini: make('gemini'), minimax: make('minimax') });
+    const make = (k: 'openai' | 'gemini' | 'minimax' | 'elevenlabs'): FileConnector => async (_c, r) => (asked.push({ ...r, model: `${k}:${r.model}` }), answers[k] ?? (r.kind === 'audio' ? { ok: true, files: [{ bytes: Buffer.from('ID3'), mimeType: 'audio/mpeg', seconds: r.audio?.seconds }], usage: { tokensIn: 0, tokensOut: 0, tokensThinking: 0 } } : made(r.image?.count ?? 1)));
+    replaceFileConnectorsForTest({ openai: make('openai'), gemini: make('gemini'), minimax: make('minimax'), elevenlabs: make('elevenlabs') });
     return asked;
 }
 
@@ -201,3 +204,50 @@ describe('askAi for pictures', () => {
         await expect(askAi({ purpose: 'cover', input: 'x', image: { negativePrompt: 'n'.repeat(1001) } })).rejects.toThrow('at most 1,000 characters');
     });
 });
+
+describe('askAi for sound effects and music (AM5)', () => {
+    it('gives a sound purpose the sound model, fitted, and prices its seconds', async () => {
+        live([]);
+        const asked = painters();
+        const r = await askAi({ purpose: 'sfx', input: 'Rain on a tin roof' });
+        expect(asked.map((a) => a.model)).toEqual(['elevenlabs:eleven_text_to_sound_v3']);
+        expect(asked[0].audio).toEqual({ type: 'sound', seconds: 5, format: 'mp3', loop: true });
+        expect(h.records[0].record['attempts']).toEqual([expect.objectContaining({ model: 'music_v2_5', outcome: 'skipped', detail: 'makes music, not sound effects' }), expect.objectContaining({ outcome: 'ok' })]);
+        expect((r as { usage: { costUsd: number; amount: number } }).usage).toMatchObject({ amount: 5, unit: 'seconds' });
+        expect((r as { usage: { costUsd: number } }).usage.costUsd).toBeCloseTo(0.01, 9);
+    });
+
+    it('gives music the music model, instrumental, and refuses a piece the purpose\'s time cannot cover', async () => {
+        live([]);
+        const asked = painters();
+        await askAi({ purpose: 'song', input: 'A calm piano piece' });
+        expect(asked[0]).toMatchObject({ model: 'elevenlabs:music_v2_5', audio: { type: 'music', seconds: 60, instrumental: true } });
+        expect(await askAi({ purpose: 'song', input: 'x', audio: { seconds: 200 } })).toMatchObject({ ok: false, reason: 'off', detail: expect.stringContaining('cannot cover 200 seconds of music') });
+    });
+
+    it('skips music when the time left after a slow model cannot cover it, before it is sent', async () => {
+        live([], { lists: { audio: [{ connection: 'gem', model: 'slow-audio' }, { connection: 'el', model: 'music_v2_5' }] }, models: { 'gem/slow-audio': { makes: 'audio', unit: 'seconds' } } });
+        const asked = painters({ gemini: { ok: false, failure: 'unavailable', detail: 'busy' } });
+        const at = Date.now();
+        vi.spyOn(Date, 'now').mockImplementation(() => (asked.length ? at + 60_000 : at));
+        const r = await askAi({ purpose: 'song', input: 'x' });
+        vi.restoreAllMocks();
+        expect(asked.map((a) => a.model)).toEqual(['gemini:slow-audio']);
+        expect(h.records[0].record['attempts']).toEqual([expect.objectContaining({ outcome: 'unavailable' }), expect.objectContaining({ model: 'music_v2_5', outcome: 'skipped', detail: 'too little of the call\'s time is left for 60 seconds of music' })]);
+        expect(r.ok).toBe(false);
+    });
+
+    it('makes a purpose with no type a sound, counts its 10 seconds, and gives back seconds not made', async () => {
+        live([]);
+        const asked = painters({ elevenlabs: { ok: true, files: [{ bytes: Buffer.from('ID3'), mimeType: 'audio/mpeg', seconds: 30 }], usage: { tokensIn: 0, tokensOut: 0, tokensThinking: 0 } } });
+        await askAi({ purpose: 'plainsfx', input: 'x', limitKey: 'k' });
+        expect(asked[0].audio).toMatchObject({ type: 'sound', seconds: 10 });
+        expect(h.consumed).toEqual([10]);
+        h.consumed = [];
+        h.released = [];
+        await askAi({ purpose: 'plainsfx', input: 'x', limitKey: 'k', audio: { seconds: 90 } });
+        expect(h.consumed).toEqual([90]);
+        expect(h.released).toEqual([60]);
+    });
+});
+

@@ -7,6 +7,7 @@
  * file's real length or a fallback to another model can change it.
  */
 import { fittedImage, picturePrice, tokensPerPicture } from './images.js';
+import { audioSkip, DEFAULT_AUDIO_SECONDS, fittedAudio } from './audios.js';
 import { DEFAULT_VIDEO_SECONDS, fittedVideo, secondPrice } from './videos.js';
 import { findPurpose, isFileKind, purposeKind, purposeTier } from './purposes.js';
 import { modelInfo, purposeSettings, readAiSettings, type AiModelInfo, type AiModelRef, type AiSettings } from './settings.js';
@@ -16,7 +17,6 @@ import type { AiAudioSettings, AiImageSettings, AiKind, AiPurpose, AiSpeechSetti
 const TYPICAL_OUT_TOKENS = 1000;
 /** About four characters a token, across the languages Arc's sites use. */
 const CHARS_PER_TOKEN = 4;
-const DEFAULT_AUDIO_SECONDS = 10;
 
 export interface AiEstimate {
     /** USD; 0 when the model has no price (`priced: false`). */
@@ -70,7 +70,7 @@ export function estimateFor(info: AiModelInfo, kind: AiKind, settings: EstimateS
         return priced(each === undefined ? undefined : each * seconds, seconds, 'seconds', false);
     }
     if (info.unit === 'seconds') {
-        const seconds = settings.audio?.seconds ?? DEFAULT_AUDIO_SECONDS;
+        const seconds = fittedAudio(settings.audio, info.audio).seconds ?? DEFAULT_AUDIO_SECONDS;
         return priced(info.price === undefined ? undefined : seconds * info.price, seconds, 'seconds', false);
     }
     if (info.unit === 'pictures') return priced(info.price, 1, 'pictures', false);
@@ -87,8 +87,10 @@ export function purposeModels(settings: AiSettings, purposeId: string, purpose: 
     const list = ps.models.length ? ps.models : isFileKind(kind) ? settings.lists[kind] : settings.tiers[purposeTier(purpose)];
     const wanted = isFileKind(kind) ? kind : 'text';
     const makes = list.filter((ref) => {
-        const m = modelInfo(settings, ref).makes;
-        return m === wanted || (wanted === 'text' && m === 'data');
+        const info = modelInfo(settings, ref);
+        // A sound purpose never asks a music model, nor the other way round.
+        if (kind === 'audio' && audioSkip({ ...purpose.audio, type: purpose.audio?.type ?? 'sound' }, info.audio, purpose.timeoutSeconds ?? 60)) return false;
+        return info.makes === wanted || (wanted === 'text' && info.makes === 'data');
     });
     return purpose.fallback === false ? makes.slice(0, 1) : makes;
 }

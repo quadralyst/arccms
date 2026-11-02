@@ -81,9 +81,14 @@ export interface AiVoice {
 
 /** Settings for other audio: a sound or music. */
 export interface AiAudioSettings {
-    /** How long, 0.5 to 600. */
+    /** What it is: a sound effect or music (AM5). Left out: whichever the model makes. */
+    type?: 'sound' | 'music';
+    /** How long, 0.5 to 600; each model makes its own range (sound effects up to 30, music 3 to 300). */
     seconds?: number;
+    /** A sound that loops smoothly, where the model makes one. */
     loop?: boolean;
+    /** Music only: no vocals. */
+    instrumental?: boolean;
     format?: 'mp3' | 'wav';
 }
 

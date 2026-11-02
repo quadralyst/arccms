@@ -125,6 +125,9 @@ export function fileSettingsProblems(at: string, p: AiPurpose, kind: AiKind): st
     if (audio && kind === 'audio') {
         if (audio.seconds !== undefined && (typeof audio.seconds !== 'number' || audio.seconds < 0.5 || audio.seconds > 600)) problems.push(`${at}: audio.seconds must be from 0.5 to 600`);
         if (audio.format !== undefined && !['mp3', 'wav'].includes(audio.format)) problems.push(`${at}: audio.format must be 'mp3' or 'wav'`);
+        if (audio.type !== undefined && audio.type !== 'sound' && audio.type !== 'music') problems.push(`${at}: audio.type must be 'sound' or 'music'`);
+        if (audio.loop !== undefined && typeof audio.loop !== 'boolean') problems.push(`${at}: audio.loop must be true or false`);
+        if (audio.instrumental !== undefined && (typeof audio.instrumental !== 'boolean' || audio.type === 'sound')) problems.push(`${at}: audio.instrumental is for music, true or false`);
     }
     const video = p.video;
     if (video && kind === 'video') {

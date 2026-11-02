@@ -29,7 +29,8 @@ import { connectionLimits, modelInfo, pacingKey, purposeSettings, readAiSettings
 import { fittedImage, imageSkip, picturePrice } from './images.js';
 import { checkedStoragePath } from './input.js';
 import { createJob, jobMinutes, markJobLost } from './jobs.js';
-import { fittedVideo, videoSkip } from './videos.js';
+import { audioSkip, DEFAULT_AUDIO_SECONDS, fittedAudio, MUSIC_MARGIN_SECONDS } from './audios.js';
+import { DEFAULT_VIDEO_SECONDS, fittedVideo, videoSkip } from './videos.js';
 import { standInFiles } from './standins.js';
 import { voiceIdFor } from './voices.js';
 import { addToTotals, alertOutOfCredit, noteConnection } from './usage.js';
@@ -177,7 +178,8 @@ function callSettings(purposeId: string, purpose: AiPurpose, kind: AiKind, input
         return { speech };
     }
     if (kind === 'audio') {
-        const audio = { ...purpose.audio, ...input.audio };
+        // Whether it is a sound or music is the purpose's alone; left out, a sound effect.
+        const audio = { ...purpose.audio, ...input.audio, type: purpose.audio?.type ?? 'sound' };
         if (audio.seconds !== undefined && (typeof audio.seconds !== 'number' || audio.seconds < 0.5 || audio.seconds > 600)) fail('audio.seconds must be from 0.5 to 600.');
         return { audio };
     }
@@ -196,7 +198,7 @@ function allowanceAmount(c: Checked, chars: number): number {
     switch (c.purpose.allowanceIn ?? 'calls') {
         case 'pictures': return c.settings.image?.count ?? 1;
         case 'characters': return Math.max(1, chars);
-        case 'seconds': return Math.max(1, Math.ceil(c.settings.audio?.seconds ?? c.settings.video?.seconds ?? 1));
+        case 'seconds': return Math.max(1, Math.ceil(c.settings.audio ? c.settings.audio.seconds ?? DEFAULT_AUDIO_SECONDS : c.settings.video?.seconds ?? DEFAULT_VIDEO_SECONDS));
         default: return c.units;
     }
 }
@@ -643,6 +645,14 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
             const voiceId = voiceOf(ref);
             const image = c.kind === 'image' ? fittedImage(c.settings.image, info.image) : undefined;
             const video = c.kind === 'video' ? fittedVideo(c.settings.video, info.video) : undefined;
+            const audio = c.kind === 'audio' ? fittedAudio(c.settings.audio, info.audio) : undefined;
+            if (c.kind === 'audio') {
+                const skip = audioSkip(c.settings.audio, info.audio, c.purpose.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS);
+                if (skip) {
+                    attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: skip });
+                    continue;
+                }
+            }
             const avatarId = avatarOf(ref);
             if (c.kind === 'video') {
                 const skip = videoSkip(c.settings.video, info.video, parts.some((p) => p.kind === 'picture'))
@@ -675,7 +685,14 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
             lastVoiceId = voiceId;
             lastImage = image ?? null;
             const attemptStarted = Date.now();
-            const place = await waitForPlace(pacingKey(connection, fileKind ?? undefined), connectionLimits(connection, fileKind ?? undefined), deadline, { leaveMs: MIN_ATTEMPT_MS });
+            // Music is made while the call waits: a model whose piece the time left cannot cover is
+            // skipped before anything is sent or billed.
+            const needMs = audio && info.audio?.type === 'music' ? ((audio.seconds ?? DEFAULT_AUDIO_SECONDS) + MUSIC_MARGIN_SECONDS) * 1000 : MIN_ATTEMPT_MS;
+            if (needMs > MIN_ATTEMPT_MS && deadline - Date.now() < needMs) {
+                attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: `too little of the call's time is left for ${audio?.seconds ?? DEFAULT_AUDIO_SECONDS} seconds of music` });
+                continue;
+            }
+            const place = await waitForPlace(pacingKey(connection, fileKind ?? undefined), connectionLimits(connection, fileKind ?? undefined), deadline, { leaveMs: needMs });
             let result: ConnectorResult | FileResult | JobStarted;
             if (!place.ok) {
                 result = { ok: false, failure: 'unavailable', detail: `connection ${connection.id} is at its limit of requests (Settings, AI)`, wait: place.wait };
@@ -686,7 +703,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                     if (!key.ok) result = { ok: false, failure: 'off', detail: key.detail };
                     else {
                         const send = () => (makeFiles
-                            ? makeFiles({ connection, key: key.key }, { kind: fileKind!, model: ref.model, prompt: filePrompt(c.purpose, parts), parts: parts.filter((p) => p.kind !== 'text'), ...c.settings, ...(image ? { image } : {}), ...(video ? { video } : {}), ...(voiceId ? { voice: voiceId } : {}), ...(avatarId ? { avatar: avatarId } : {}), ...(speechFile ? { speechFile } : {}), jobKey: recordId, timeoutMs: deadline - Date.now() })
+                            ? makeFiles({ connection, key: key.key }, { kind: fileKind!, model: ref.model, prompt: filePrompt(c.purpose, parts), parts: parts.filter((p) => p.kind !== 'text'), ...c.settings, ...(image ? { image } : {}), ...(video ? { video } : {}), ...(audio ? { audio } : {}), ...(voiceId ? { voice: voiceId } : {}), ...(avatarId ? { avatar: avatarId } : {}), ...(speechFile ? { speechFile } : {}), jobKey: recordId, timeoutMs: deadline - Date.now() })
                             : talk!({ connection, key: key.key }, {
                                 model: ref.model,
                                 instruction: instructionFor(c.purpose, schema, info.schema),
@@ -737,6 +754,12 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                     // Pictures counted as asked: those a provider did not make are given back (AM-D23).
                     const asked = c.purpose.allowanceIn === 'pictures' ? allowanceAmount(c, 0) : 0;
                     if (allowance && asked > files.length) await allowance.release(asked - files.length);
+                    // Seconds counted as asked: those not made (a model's shorter range) are given back.
+                    if (allowance && c.purpose.allowanceIn === 'seconds' && c.kind === 'audio') {
+                        const made = Math.ceil(files.reduce((n, f) => n + (f.seconds ?? 0), 0));
+                        const counted = allowanceAmount(c, 0);
+                        if (made > 0 && counted > made) await allowance.release(counted - made);
+                    }
                     const hash = hashes.find((h) => h.ref.connection === ref.connection && h.ref.model === ref.model)?.hash;
                     if (hash) await storeCached({ hash, files, recordId, connection: ref.connection, model: ref.model, purpose: c.purposeId, days: cacheDays });
                     return finish({ ok: true, answerText: null, files });

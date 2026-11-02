@@ -1,5 +1,6 @@
 /**
- * ElevenLabs speech (specs/ai-media-spec.md, AM-D7, section 6.2): `POST
+ * ElevenLabs speech (specs/ai-media-spec.md, AM-D7, section 6.2), and since AM5 sound effects
+ * and music (section 6.5): `POST
  * /v1/text-to-speech/{voice}`, which answers the audio itself, and the voice list, `GET
  * /v2/voices`, with each voice's own sample. The key goes in `xi-api-key`. ElevenLabs limits
  * requests at once, not a minute, so a 429 is "busy". Written from ElevenLabs' docs as read on
@@ -42,7 +43,8 @@ function errorOf(json: Record<string, unknown> | null, bytes: Buffer): { status:
     const detail = json?.['detail'];
     if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
         const d = detail as Record<string, unknown>;
-        return { status: String(d['status'] ?? d['code'] ?? '').toLowerCase(), message: shortMessage(d['message'] ?? d) };
+        // `code` is ElevenLabs' current field and `status` its older one: both are read.
+        return { status: [d['code'], d['status']].filter((v) => typeof v === 'string' && v).join(' ').toLowerCase(), message: shortMessage(d['message'] ?? d) };
     }
     return { status: '', message: shortMessage(detail ?? (json ? json : bytes.toString('utf8', 0, 300))) };
 }
@@ -53,6 +55,8 @@ export function readElevenLabsError(status: number, json: Record<string, unknown
     if (code === 'quota_exceeded' || /quota|credits?|insufficient/i.test(code) || status === 402) {
         return { ok: false, failure: 'off', detail: `ElevenLabs says the account has no characters left (${status}): ${message}`, outOfCredit: true };
     }
+    // A plan that does not include this (music needs a paid plan) is not a refused key.
+    if (/subscription_required|feature_not_available|model_access_denied/.test(code)) return { ok: false, failure: 'off', detail: `ElevenLabs' plan does not include this (${code}): ${message}` };
     if (status === 401 || status === 403 || code.includes('api_key') || code === 'unauthorized') return { ok: false, failure: 'key-refused', detail: `ElevenLabs refused the key (${status}): ${message}` };
     if (status === 429) return { ok: false, failure: 'unavailable', detail: `ElevenLabs is busy (${code || 429}): ${message}`, rateLimited: true, wait: headers ? waitFrom(headers) : undefined };
     if (status >= 500) return { ok: false, failure: 'unavailable', detail: `ElevenLabs answered ${status}: ${message}` };
@@ -143,4 +147,81 @@ export const elevenLabsVoices: VoiceLister = async ({ connection, key }, { timeo
     return { ok: true, voices } satisfies VoicesResult;
 };
 
-export const elevenLabsProvider: FileProvider = { make: elevenLabsSpeech, voices: elevenLabsVoices };
+// ---------------------------------------------------------------- other audio (AM5)
+// Sound effects (`POST /v1/sound-generation`, up to 30 seconds) and music (`POST /v1/music`,
+// answered in the same request, up to 5 minutes here). Both answer the audio itself. Music
+// that names an artist or uses known lyrics is refused with `bad_prompt` and a suggested prompt,
+// which the detail passes on.
+
+/** Sound effects take MP3 or WAV (48 kHz, not for a loop); music takes MP3 only. */
+export function elevenLabsAudioFormat(music: boolean, format: 'mp3' | 'wav' = 'mp3', loop = false): string {
+    if (!music && format === 'wav' && !loop) return 'wav_48000';
+    return 'mp3_44100_128';
+}
+
+/** The request body for a sound effect, or for music. */
+export function elevenLabsAudioBody(model: string, prompt: string, audio: { seconds?: number; loop?: boolean; instrumental?: boolean } = {}, extra: Record<string, unknown> = {}): Record<string, unknown> {
+    if (/^music_/.test(model)) {
+        return {
+            prompt,
+            model_id: model,
+            ...(audio.seconds ? { music_length_ms: Math.round(Math.min(300, Math.max(3, audio.seconds)) * 1000) } : {}),
+            ...(audio.instrumental ? { force_instrumental: true } : {}),
+        };
+    }
+    return {
+        text: prompt,
+        model_id: model,
+        ...(audio.seconds ? { duration_seconds: Math.min(30, Math.max(0.5, audio.seconds)) } : {}),
+        ...(audio.loop ? { loop: true } : {}),
+        ...(typeof extra['prompt_influence'] === 'number' ? { prompt_influence: Math.min(1, Math.max(0, extra['prompt_influence'] as number)) } : {}),
+    };
+}
+
+export const elevenLabsAudio: FileConnector = async ({ connection, key }, request) => {
+    const base = connectionBaseUrl(connection);
+    if (!base) return { ok: false, failure: 'off', detail: `connection ${connection.id} has no address it may call` };
+    if (!key) return { ok: false, failure: 'off', detail: `connection ${connection.id} has no key` };
+    const music = /^music_/.test(request.model);
+    const audio = request.audio ?? {};
+    const format = elevenLabsAudioFormat(music, audio.format, audio.loop);
+    const auth = connectionAuth(connection);
+    const answer = await sendRequest(`${base}/${music ? 'music' : 'sound-generation'}?output_format=${format}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'audio/*', [auth.header]: `${auth.prefix}${key}` },
+        body: JSON.stringify(elevenLabsAudioBody(request.model, request.prompt, audio, request.providerOptions ?? {})),
+    }, request.timeoutMs, SERVICE);
+    if (!answer.ok) return answer;
+    const requestId = answer.headers.get('request-id') ?? undefined;
+    if (answer.status < 200 || answer.status >= 300) {
+        const suggestion = readSuggestion(answer.json);
+        const failed = readElevenLabsError(answer.status, answer.json, answer.bytes, answer.headers);
+        const { status: code, message } = errorOf(answer.json, answer.bytes);
+        if (/bad_prompt|bad_composition_plan/.test(code)) {
+            return { ok: false, failure: 'blocked', detail: `ElevenLabs would not make this (${message})${suggestion ? `; it suggests: ${suggestion}` : ''}`, requestId };
+        }
+        return { ...failed, requestId } as FileResult;
+    }
+    if (answer.json || !answer.bytes.length) return { ok: false, failure: 'unreadable', detail: 'ElevenLabs answered with no audio', requestId };
+    const mimeType = format.startsWith('wav') ? 'audio/wav' : 'audio/mpeg';
+    const seconds = audioSeconds(answer.bytes, mimeType) ?? audio.seconds;
+    return {
+        ok: true,
+        files: [{ bytes: answer.bytes, mimeType, ...(seconds ? { seconds } : {}) }],
+        usage: { tokensIn: 0, tokensOut: 0, tokensThinking: 0, ...(seconds ? { amount: seconds } : {}) },
+        requestId,
+    };
+};
+
+/** The prompt ElevenLabs suggests in place of a refused one, when it gives one. */
+function readSuggestion(json: Record<string, unknown> | null): string | null {
+    const detail = (json?.['detail'] ?? {}) as Record<string, unknown>;
+    const data = (detail['data'] ?? {}) as Record<string, unknown>;
+    const s = data['prompt_suggestion'];
+    return typeof s === 'string' && s.trim() ? shortMessage(s) : null;
+}
+
+/** Speech, or a sound or music, by the call's kind. */
+const elevenLabsMake: FileConnector = async (context, request) => (request.kind === 'audio' ? elevenLabsAudio(context, request) : elevenLabsSpeech(context, request));
+
+export const elevenLabsProvider: FileProvider = { make: elevenLabsMake, voices: elevenLabsVoices };

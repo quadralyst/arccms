@@ -1,6 +1,6 @@
 # AI for every kind of output: Build Spec (AM, follows F38)
 
-**Status:** AM1 built on `feat/ai-media-am1` (worktree `../arccms-ai-media`), 2026-11-02, not merged; AM2 built on `feat/ai-media-am2` (from AM1), 2026-11-02, not merged; AM3 built on `feat/ai-media-am3` (from AM2), 2026-11-02, not merged; AM4 built on `feat/ai-media-am4` (from AM3), 2026-11-03, not merged; AM5 not built. Spec drafted 2026-11-02; updated the same day with Gunjan's answers, and the remaining questions settled as assumptions (section 8). Nothing built. No provider is called live during the build: every new connector is written from the provider's docs, tested against a fake server, and marked "not tested live" until its first real use (AM-D34). Builds on the F38 AI
+**Status:** AM1 built on `feat/ai-media-am1` (worktree `../arccms-ai-media`), 2026-11-02, not merged; AM2 built on `feat/ai-media-am2` (from AM1), 2026-11-02, not merged; AM3 built on `feat/ai-media-am3` (from AM2), 2026-11-02, not merged; AM4 built on `feat/ai-media-am4` (from AM3), 2026-11-03, not merged; AM5 built on `feat/ai-media-am5` (from AM4), 2026-11-03, not merged. Spec drafted 2026-11-02; updated the same day with Gunjan's answers, and the remaining questions settled as assumptions (section 8). Nothing built. No provider is called live during the build: every new connector is written from the provider's docs, tested against a fake server, and marked "not tested live" until its first real use (AM-D34). Builds on the F38 AI
 feature (`specs/ai-spec.md`, decisions AI-D1 to AI-D19), on `dev` at eb1e2bca.
 **Brief:** Arc CMS becomes the one place an app makes every AI call: text, data, pictures,
 speech, other audio and video, from all the popular providers, so the keys, logs, costs,
@@ -345,7 +345,7 @@ Seedance, Wan and Veo).
 | Provider | Connector | Address | Unit and price | Supports | Notes |
 |----------|-----------|---------|----------------|----------|-------|
 | ElevenLabs sound effects | `elevenlabs` | `/v1/sound-generation` | seconds: $0.12 a minute | 0.5 to 30 seconds, `loop`, `prompt_influence` | ElevenLabs' FAQ also says "billed per generation"; Arc ships the per-minute figure, not tested live (AM-D34). |
-| ElevenLabs music | `elevenlabs` | `/v1/music` (audio back in the same request) | seconds: $0.15 a minute | 3 seconds to 10 minutes, instrumental only, `music_v1` to `music_v2_5` | No job needed (AM5). |
+| ElevenLabs music | `elevenlabs` | `/v1/music` (audio back in the same request) | seconds: $0.15 a minute | 3 seconds to 5 minutes (the shorter of its pages' limits), with or without vocals, `music_v2_5` | No job needed (AM5). |
 
 ## 7. Phases
 
@@ -358,7 +358,7 @@ ends with a critical review of that phase's work.
 | AM2 | Speech: `elevenlabs` (with its balance), `sarvam`, `minimax`, Google Cloud Text-to-Speech (on the `vertex` connection); named voices, `aiVoices`, Play with samples and `arc-voice-sample`; Settings, AI voices on connections and purposes | Connector tests per provider against a fake server; voice mapping and skip tests; voice lists and Play checked in the browser with the fake answers |
 | AM3 | Pictures: OpenAI images (`gpt-image-2` family), Gemini image models on the Gemini API and on Vertex, Alibaba Qwen-Image (`dashscope`), MiniMax pictures; `arc-media-image`, `generateMediaImages`, the Media Manager AI tab, the "Made with AI" note, `MediaDialogData.ai`; then, as a second step in the same phase, Edit with AI | Page specs for the tab (controls per model, estimate, limits, test mode, phone width); connector tests per provider against a fake server; tab checked in the browser in test mode on the Media page and in a picker |
 | AM4 | Video with jobs: `AiJobs`, `checkAiJobs`, `onJobDone`, `readers`, `aiJob`; Gemini Omni Flash first, then Kling (with its balance) and MiniMax H3; then, as a second step in the same phase, presenter videos through HeyGen (AM-D33: avatars, `aiAvatars`, script or audio, its wallet balance) | Job tests (pending, done, failed, timeout, retry of `onJobDone`, test-mode job); connector tests per provider against a fake server, presenter videos included |
-| AM5 | Other audio: ElevenLabs sound effects (0.5 to 30 seconds) and music (3 seconds to 10 minutes; ElevenLabs answers music in the same request, so it needs no job, but a long piece needs a purpose `timeoutSeconds` near the 540 limit, and Arc refuses a `seconds` its time cannot cover) | Connector tests against a fake server |
+| AM5 | Other audio: ElevenLabs sound effects (0.5 to 30 seconds) and music (3 seconds to 5 minutes; ElevenLabs answers music in the same request, so it needs no job, but a long piece needs a purpose `timeoutSeconds` near the 540 limit, and Arc refuses a `seconds` its time cannot cover) | Connector tests against a fake server |
 
 No phase calls a provider live (AM-D34). Docs in every phase: `docs/app/ai.html` (each kind, files, jobs, voices, cache, pacing, and which connectors are not tested live yet),
 `docs/features/ai.html` (Settings, AI), `docs/features/media.html` (the AI tab, AM3),
@@ -474,4 +474,24 @@ later without reworking the design:
      higher of its own figures, $0.0805, $0.12 and $0.0167 a second for Avatar IV, V and III.
    - `AskAiResult`'s `pending` variant names the other fields as always empty, so code written
      before jobs type-checks; the docs tell apps to check `r.ok === true` before `r.files`.
+9. **AM5 choices** (2026-11-03, from ElevenLabs' docs re-read for the phase):
+   - `eleven_text_to_sound_v3` is sent explicitly (v2 is deprecated, gone 2027-03-01) and
+     `music_v2_5` recommended (`music_v1` goes 2027-01-31). Music is capped at 5 minutes, the
+     shorter of ElevenLabs' pages; its API takes no WAV, so music is MP3 only.
+   - `audio.type` (`sound` or `music`) on a purpose keeps a sound purpose from a music model and
+     back; `instrumental` asks for no vocals. A loop goes only to a sound model.
+   - Music is made in the call: a piece whose length plus 30 seconds is more than the purpose's
+     `timeoutSeconds` skips the model with the time to set, rather than timing out after it is
+     billed. No job is used.
+   - Prices: $0.12 and $0.15 a minute ($0.002 and $0.0025 a second), counted by the seconds
+     made (the file's own length when it can be read, else the length asked). ElevenLabs' pages
+     also say "billed per generation"; settled on first real use (AM-D34).
+   - `bad_prompt` (music naming an artist or known lyrics) is `blocked`, with ElevenLabs'
+     suggested prompt in the detail; a plan without music (`subscription_required`) is `off`,
+     never a refused key. Both `detail.code` and the older `detail.status` are read.
+   - From the AM5 review: a purpose's `audio.type` is its own (a call cannot change it) and is
+     `sound` when left out; music also skips a model when the time left after a slower model
+     cannot cover it; `allowanceIn: 'seconds'` counts 10 seconds when none are asked and gives
+     back seconds not made; the estimate uses a model of the purpose's type; `music_v2_5` is
+     recommended, so "Use recommended models" fills the Audio list with both.
 

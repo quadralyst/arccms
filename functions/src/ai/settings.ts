@@ -320,6 +320,7 @@ export function modelInfo(settings: AiSettings, ref: AiModelRef): AiModelInfo {
         // The same for a video model's prices by resolution and sound.
         video: known?.video && admin.price !== undefined ? { ...known.video, priceByResolution: undefined, priceWithSound: undefined } : known?.video,
         job: known?.job ?? (admin.makes ?? known?.makes) === 'video',
+        audio: known?.audio,
         currency,
         usdRate: currency === 'USD' ? 1 : connection?.usdRate ?? null,
         testedLive: preset?.testedLive !== false && known?.testedLive !== false,

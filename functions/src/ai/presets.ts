@@ -100,6 +100,17 @@ export interface AiVideoAbilities {
     tokensPerSecond?: number;
 }
 
+/** What a sound or music model makes and takes (AM5). */
+export interface AiAudioAbilities {
+    type: 'sound' | 'music';
+    /** The shortest and longest piece, in seconds. */
+    seconds: { min: number; max: number };
+    loop?: boolean;
+    instrumental?: boolean;
+    /** The file types it makes, the first its default. */
+    formats: Array<'mp3' | 'wav'>;
+}
+
 /** The higher price a model charges for a prompt above `tokens` (AM-D31). */
 export interface AiPriceAbove {
     tokens: number;
@@ -133,6 +144,8 @@ export interface AiKnownModel {
     image?: AiImageAbilities;
     /** Video: what the model makes and takes. */
     video?: AiVideoAbilities;
+    /** Other audio: what the model makes and takes. */
+    audio?: AiAudioAbilities;
     /** Answers through a long job (AM-D12): every video model. */
     job?: boolean;
     /** false: this model was built from the docs and never called for real, on a preset that was (AM-D34). */
@@ -485,6 +498,12 @@ export const AI_PRESETS: Record<string, AiPreset> = {
             'eleven_v3': { ...SPEECH, price: 0.08, speech: { maxChars: 5000, formats: ['mp3', 'wav', 'opus'] } },
             'eleven_multilingual_v2': { ...SPEECH, price: 0.08, speech: { maxChars: 10_000, formats: ['mp3', 'wav', 'opus'] } },
             'eleven_flash_v2_5': { ...SPEECH, price: 0.04, speech: { maxChars: 40_000, formats: ['mp3', 'wav', 'opus'] } },
+            // Other audio (AM5), answered in the same request: $0.12 and $0.15 a minute. ElevenLabs'
+            // pages also say "billed per generation"; the figure a minute ships, not tested live.
+            'eleven_text_to_sound_v3': { makes: 'audio', unit: 'seconds', reads: [], schema: 'json', price: 0.002, audio: { type: 'sound', seconds: { min: 0.5, max: 30 }, loop: true, formats: ['mp3', 'wav'] }, recommend: ['default'] },
+            // Up to 5 minutes, the shorter of its pages' limits; music needs a paid plan.
+            'music_v2_5': { makes: 'audio', unit: 'seconds', reads: [], schema: 'json', price: 0.0025, audio: { type: 'music', seconds: { min: 3, max: 300 }, instrumental: true, formats: ['mp3'] }, recommend: ['default'] },
+            'music_v2': { makes: 'audio', unit: 'seconds', reads: [], schema: 'json', price: 0.0025, audio: { type: 'music', seconds: { min: 3, max: 300 }, instrumental: true, formats: ['mp3'] } },
         },
     },
     minimax: {
