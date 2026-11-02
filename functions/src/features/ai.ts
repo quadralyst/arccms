@@ -5,3 +5,5 @@ export * from '../ai/callables/removeAiKey.js';
 export * from '../ai/callables/testAiConnection.js';
 export * from '../ai/callables/aiSetupInfo.js';
 export * from '../ai/callables/cleanUpAi.js';
+export * from '../ai/callables/readAiFile.js';
+export * from '../ai/callables/refreshAiBalance.js';

@@ -1,40 +1,61 @@
 /**
- * An app asks a language model (specs/ai-spec.md, docs/app/ai.html).
+ * An app asks AI (specs/ai-spec.md, specs/ai-media-spec.md, docs/app/ai.html).
  *
  * `askAi` is the app kit's way for an app's Cloud Functions to use AI: one of its purposes
- * (functions/src/custom/ai.ts) with text, pictures and PDFs, answered with text or with data
- * checked against the purpose's schema. Settings, AI decides which models answer, in order;
- * the per-key allowance and the monthly budget are checked first; every call leaves a record
- * (records.ts) and adds to the month's totals (usage.ts). In test mode nothing is sent and
- * nothing is spent. A developer's mistake throws; everything else comes back as a reason.
+ * (functions/src/custom/ai.ts), answered with text, with data checked against the purpose's
+ * schema, or with files saved to Storage (pictures, speech, other audio, video). Settings,
+ * AI decides which models answer, in order; Arc's own cache, the per-key allowance and the
+ * monthly budget are checked first; every call leaves a record (records.ts) and adds to the
+ * month's totals (usage.ts). In test mode nothing is sent and nothing is spent: a file kind
+ * gets a small stand-in file. A developer's mistake throws; everything else comes back as a
+ * reason.
  */
 import { isFeatureOn } from '../feature-flags.js';
-import { connectorFor } from './connectors/index.js';
-import { FALLBACK_FAILURES, type AttemptFailure, type AttemptUsage, type ConnectorResult } from './connectors/types.js';
+import { findCached, cacheHash, storeCached, type CacheEntry } from './cache.js';
+import { connectorFor, fileConnectorFor } from './connectors/index.js';
+import { FALLBACK_FAILURES, type AttemptFailure, type AttemptUsage, type ConnectorResult, type FileResult, type MadeFile } from './connectors/types.js';
+import { attemptCost, type CostFrom } from './cost.js';
+import { copyFile, filePaths, saveFiles } from './files.js';
 import { prepareInput, type PreparedPart } from './input.js';
 import { readKey } from './keys.js';
 import { consumeAllowance, checkBudget } from './limits.js';
-import { findPreset } from './presets.js';
-import { findPurpose, purposeReads, purposeSchema, purposeTier, DEFAULT_TIMEOUT_SECONDS } from './purposes.js';
-import { writeAiCall, type AiCallRecord, type AttemptRecord } from './records.js';
+import { waitForPlace } from './pacing.js';
+import { storagePathProblem } from './paths.js';
+import { findPreset, presetNeedsKey } from './presets.js';
+import { fileSettingsProblems, findPurpose, isFileKind, MAX_PICTURES, purposeCacheDays, purposeKind, purposeReads, purposeSchema, purposeTier, DEFAULT_TIMEOUT_SECONDS } from './purposes.js';
+import { newAiCallId, writeAiCall, type AiCallRecord, type AttemptRecord } from './records.js';
 import { answerProblems, emptyAnswer, parseJsonAnswer, type JsonSchema } from './schema.js';
-import { modelInfo, purposeSettings, readAiSettings, type AiModelRef, type AiSettings } from './settings.js';
-import { addToTotals, noteConnection } from './usage.js';
-import { isAiTestFailure, type AiFailureReason, type AiPurpose, type AiTestAnswer, type AiTestInput, type AiUsage, type AskAiInput, type AskAiResult } from './types.js';
+import { connectionLimits, modelInfo, purposeSettings, readAiSettings, type AiModelRef } from './settings.js';
+import { standInFiles } from './standins.js';
+import { addToTotals, alertOutOfCredit, noteConnection } from './usage.js';
+import { AI_ASPECTS, isAiTestFailure, type AiFailureReason, type AiFile, type AiFileKind, type AiImageSettings, type AiKind, type AiPurpose, type AiTestAnswer, type AiTestInput, type AiUnit, type AiUsage, type AskAiInput, type AskAiResult } from './types.js';
 
 const LIMIT_KEY = /^[^/\s]{1,200}$/;
 const MAX_UNITS = 1000;
 const MAX_PER_DAY = 1_000_000;
 /** Less than this left of the call's time, and no other model is tried. */
 const MIN_ATTEMPT_MS = 2_000;
+/** The longest a provider's "try again in" is waited for on the same model (AM-D15). */
+const MAX_RETRY_WAIT_S = 20;
 
 function fail(message: string): never {
     throw new Error(`askAi: ${message}`);
 }
 
+/** A file kind's settings for one call: the purpose's, with the call's over them (AM-D19). */
+export interface CallSettings {
+    image?: AiImageSettings;
+    speech?: AiPurpose['speech'];
+    audio?: AiPurpose['audio'];
+    video?: AiPurpose['video'];
+}
+
 interface Checked {
     purposeId: string;
     purpose: AiPurpose;
+    kind: AiKind;
+    settings: CallSettings;
+    saveAs: string | null;
     limitKey: string | null;
     units: number;
     /** The call's own allowance for its key, or null. */
@@ -67,13 +88,79 @@ function checked(input: AskAiInput): Checked {
         if (typeof input.ref !== 'string' || input.ref.length > 300) fail('ref must be text of at most 300 characters.');
         ref = input.ref;
     }
-    return { purposeId, purpose, limitKey, units, perDay, ref };
+    const kind = purposeKind(purpose);
+    const settings = callSettings(purposeId, purpose, kind, input);
+    let saveAs: string | null = null;
+    if (input.saveAs !== undefined && input.saveAs !== null) {
+        if (!isFileKind(kind)) fail(`saveAs is for a purpose that makes files; ${purposeId} makes ${kind}.`);
+        if (!purpose.saveTo) fail(`saveAs needs the purpose's saveTo folder; add saveTo to ${purposeId} in functions/src/custom/ai.ts.`);
+        const problem = storagePathProblem(input.saveAs, 'saveAs');
+        if (problem) fail(`${problem}.`);
+        const folder = purpose.saveTo.replace(/\/+$/, '');
+        if (!input.saveAs.startsWith(`${folder}/`)) fail(`saveAs "${input.saveAs}" must be inside ${purposeId}'s folder, ${folder}/.`);
+        saveAs = input.saveAs;
+    }
+    return { purposeId, purpose, kind, settings, saveAs, limitKey, units, perDay, ref };
+}
+
+/** The call's settings for its kind over the purpose's; a setting for another kind is a mistake. */
+function callSettings(purposeId: string, purpose: AiPurpose, kind: AiKind, input: AskAiInput): CallSettings {
+    for (const k of ['image', 'speech', 'audio', 'video'] as const) {
+        if (input[k] !== undefined && k !== kind) fail(`${k} settings are for a purpose that makes ${k}; ${purposeId} makes ${kind}.`);
+        if (input[k] !== undefined && (typeof input[k] !== 'object' || input[k] === null)) fail(`${k} must be an object of settings.`);
+    }
+    if (isFileKind(kind) && input[kind] !== undefined) {
+        // The call's own settings get the same checks as the purpose's.
+        const problem = fileSettingsProblems('the call', { label: purposeId, [kind]: input[kind] } as AiPurpose, kind)[0];
+        if (problem) fail(`${problem}.`);
+    }
+    if (kind === 'image') {
+        const image = { ...purpose.image, ...input.image };
+        if (image.count !== undefined && (!Number.isInteger(image.count) || image.count < 1 || image.count > MAX_PICTURES)) fail(`image.count must be a whole number from 1 to ${MAX_PICTURES}.`);
+        if (image.aspect !== undefined && !AI_ASPECTS.includes(image.aspect)) fail(`image.aspect must be one of ${AI_ASPECTS.join(', ')}.`);
+        if (image.seed !== undefined && !Number.isInteger(image.seed)) fail('image.seed must be a whole number.');
+        return { image };
+    }
+    if (kind === 'speech') {
+        const speech = { ...purpose.speech, ...input.speech };
+        if (speech.speed !== undefined && (typeof speech.speed !== 'number' || speech.speed < 0.5 || speech.speed > 2)) fail('speech.speed must be from 0.5 to 2.');
+        return { speech };
+    }
+    if (kind === 'audio') {
+        const audio = { ...purpose.audio, ...input.audio };
+        if (audio.seconds !== undefined && (typeof audio.seconds !== 'number' || audio.seconds < 0.5 || audio.seconds > 600)) fail('audio.seconds must be from 0.5 to 600.');
+        return { audio };
+    }
+    if (kind === 'video') {
+        const video = { ...purpose.video, ...input.video };
+        if (video.seconds !== undefined && (typeof video.seconds !== 'number' || video.seconds < 1 || video.seconds > 60)) fail('video.seconds must be from 1 to 60.');
+        return { video };
+    }
+    return {};
+}
+
+/** The amount a call's allowance counts (AM-D23): its units, or what it asks to be made. */
+function allowanceAmount(c: Checked, chars: number): number {
+    switch (c.purpose.allowanceIn ?? 'calls') {
+        case 'pictures': return c.settings.image?.count ?? 1;
+        case 'characters': return Math.max(1, chars);
+        case 'seconds': return Math.max(1, Math.ceil(c.settings.audio?.seconds ?? c.settings.video?.seconds ?? 1));
+        default: return c.units;
+    }
 }
 
 /** The instruction a model gets: the purpose's, and for a model that promises only JSON, the shape to answer in. */
 export function instructionFor(purpose: AiPurpose, schema: JsonSchema | null, support: 'strict' | 'json'): string {
-    if (!schema || support === 'strict') return purpose.instruction;
-    return `${purpose.instruction}\n\nAnswer with JSON only, no other text, in exactly this shape (a JSON schema):\n${JSON.stringify(schema)}`;
+    const instruction = purpose.instruction ?? '';
+    if (!schema || support === 'strict') return instruction;
+    return `${instruction}\n\nAnswer with JSON only, no other text, in exactly this shape (a JSON schema):\n${JSON.stringify(schema)}`;
+}
+
+/** A file kind's prompt: the call's text, then the purpose's instruction (its house style), AM-D24. */
+export function filePrompt(purpose: AiPurpose, parts: PreparedPart[]): string {
+    const text = parts.flatMap((p) => (p.kind === 'text' ? [p.text] : [])).join('\n').trim();
+    const style = purpose.instruction?.trim();
+    return style ? (text ? `${text}\n\n${style}` : style) : text;
 }
 
 /** What the test answer stands for, as a model's text would. */
@@ -109,13 +196,6 @@ function finalReason(failure: AttemptFailure): AiFailureReason {
     return failure;
 }
 
-function cost(settings: AiSettings, ref: AiModelRef, usage: AttemptUsage): { usd: number; from: AiCallRecord['costFrom'] } {
-    if (typeof usage.costUsd === 'number' && Number.isFinite(usage.costUsd)) return { usd: usage.costUsd, from: 'provider' };
-    const info = modelInfo(settings, ref);
-    if (info.priceIn === undefined || info.priceOut === undefined) return { usd: 0, from: 'none' };
-    return { usd: (usage.tokensIn * info.priceIn + usage.tokensOut * info.priceOut) / 1_000_000, from: 'price-list' };
-}
-
 // ---------------------------------------------------------------- capture (unit tests)
 
 /** A call as captureAiAsks records it. */
@@ -130,6 +210,20 @@ export interface CapturedAiAsk {
 }
 
 let captured: { asks: CapturedAiAsk[]; answers: Record<string, AiTestAnswer> } | null = null;
+
+/** A file kind's test answer: only a failure means anything; anything else gets the stand-ins. */
+function testFileFailure(answer: AiTestAnswer, input: AiTestInput): { testFailure: AiFailureReason; wait?: number; detail?: string } | null {
+    const value: unknown = typeof answer === 'function' ? (answer as (i: AiTestInput) => unknown)(input) : answer;
+    return isAiTestFailure(value) ? { testFailure: value.aiTestFailure, wait: value.wait, detail: value.detail ?? 'a test answer' } : null;
+}
+
+function fileOf(path: string, f: MadeFile): AiFile {
+    const file: AiFile = { path, mimeType: f.mimeType, bytes: f.bytes.length };
+    if (f.width) file.width = f.width;
+    if (f.height) file.height = f.height;
+    if (f.seconds) file.seconds = f.seconds;
+    return file;
+}
 
 /**
  * For an app's unit tests: while it runs, askAi checks its input exactly as for real and
@@ -152,13 +246,26 @@ export function captureAiAsks(options: { answers?: Record<string, AiTestAnswer> 
     };
 }
 
-function noUsage(test: boolean, ms = 0): AiUsage {
-    return { model: null, connection: null, tokensIn: 0, tokensOut: 0, tokensThinking: 0, costUsd: 0, ms, test };
+function noUsage(test: boolean, kind: AiKind = 'text', ms = 0): AiUsage {
+    return { model: null, connection: null, tokensIn: 0, tokensOut: 0, tokensThinking: 0, tokensCached: 0, tokensCacheWrite: 0, kind, amount: 0, unit: 'tokens', costUsd: 0, ms, test };
+}
+
+/** The unit a kind is usually billed in, until a model says otherwise. */
+function kindUnit(kind: AiKind): AiUnit {
+    if (kind === 'image') return 'pictures';
+    if (kind === 'speech') return 'characters';
+    if (kind === 'audio' || kind === 'video') return 'seconds';
+    return 'tokens';
+}
+
+/** The UTC month a file's folder is named after. */
+function fileMonth(at: number): string {
+    return new Date(at).toISOString().slice(0, 7);
 }
 
 async function askCaptured(c: Checked, input: AskAiInput, sink: NonNullable<typeof captured>): Promise<AskAiResult> {
     const prepared = await prepareInput(c.purposeId, c.purpose, input.input, { readStorage: false });
-    const usage = noUsage(true);
+    const usage = noUsage(true, c.kind);
     if (!prepared.ok) return { ok: false, reason: prepared.reason, detail: prepared.detail, usage, recordId: null };
     sink.asks.push({
         purpose: c.purposeId,
@@ -169,8 +276,16 @@ async function askCaptured(c: Checked, input: AskAiInput, sink: NonNullable<type
         perDay: c.perDay,
         ref: c.ref,
     });
-    const schema = purposeSchema(c.purpose);
     const answer = c.purposeId in sink.answers ? sink.answers[c.purposeId] : c.purpose.testAnswer;
+    if (isFileKind(c.kind)) {
+        // Nothing is written: the stand-ins' paths say where a test call would have put them.
+        const failure = testFileFailure(answer, testInput(prepared.parts, c));
+        if (failure) return { ok: false, reason: failure.testFailure, wait: failure.wait, detail: failure.detail, ...(failure.testFailure === 'limit' ? { scope: 'key' as const } : {}), usage, recordId: null };
+        const made = standInFiles(c.kind, { image: c.settings.image, audioSeconds: c.settings.audio?.seconds, chars: prepared.chars });
+        const paths = filePaths({ recordId: 'captured', purpose: c.purposeId, month: fileMonth(Date.now()), test: true, files: made });
+        return { ok: true, files: made.map((f, i) => fileOf(paths[i], f)), usage, recordId: null };
+    }
+    const schema = purposeSchema(c.purpose);
     const result = testResult(answer, c.purpose, schema, testInput(prepared.parts, c));
     if ('testFailure' in result) return { ok: false, reason: result.testFailure, wait: result.wait, detail: result.detail, ...(result.testFailure === 'limit' ? { scope: 'key' as const } : {}), usage, recordId: null };
     if (!result.ok) return { ok: false, reason: 'unreadable', detail: result.detail, usage, recordId: null };
@@ -181,12 +296,26 @@ async function askCaptured(c: Checked, input: AskAiInput, sink: NonNullable<type
 
 // ---------------------------------------------------------------- askAi
 
-/** Ask a model, as one of the app's purposes says. See docs/app/ai.html. */
+/** What the attempts so far billed, added up. */
+interface Spent {
+    tokensIn: number;
+    tokensOut: number;
+    tokensThinking: number;
+    tokensCached: number;
+    tokensCacheWrite: number;
+    costUsd: number;
+    amount: number;
+    unit: AiUnit;
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Ask AI, as one of the app's purposes says. See docs/app/ai.html. */
 export async function askAi(input: AskAiInput): Promise<AskAiResult> {
     const started = Date.now();
     const c = checked(input);
     if (!isFeatureOn('ai')) {
-        return { ok: false, reason: 'off', detail: 'the ai feature is off: add it to on in src/custom/features.ts', usage: noUsage(false), recordId: null };
+        return { ok: false, reason: 'off', detail: 'the ai feature is off: add it to on in src/custom/features.ts', usage: noUsage(false, c.kind), recordId: null };
     }
     if (captured) return askCaptured(c, input, captured);
 
@@ -195,25 +324,33 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
     const test = settings.mode === 'test';
     const tier = purposeTier(c.purpose);
     const schema = purposeSchema(c.purpose);
+    const fileKind: AiFileKind | null = isFileKind(c.kind) ? c.kind : null;
+    const recordId = newAiCallId();
     const attempts: AttemptRecord[] = [];
-    const usage = { tokensIn: 0, tokensOut: 0, tokensThinking: 0, costUsd: 0 };
-    let costFrom: AiCallRecord['costFrom'] = 'none';
+    const spent: Spent = { tokensIn: 0, tokensOut: 0, tokensThinking: 0, tokensCached: 0, tokensCacheWrite: 0, costUsd: 0, amount: 0, unit: kindUnit(c.kind) };
+    let costFrom: CostFrom = 'none';
     let last: AiModelRef | null = null;
     let inputSize = { chars: 0, files: 0, bytes: 0 };
     let parts: PreparedPart[] = [];
     let allowance: { release: () => Promise<void> } | null = null;
     let spentBefore: number | null = null;
 
-    const finish = async (outcome: { ok: true; data?: unknown; text?: string; answerText: string } | { ok: false; reason: AiFailureReason; detail?: string; wait?: number; scope?: 'key' | 'budget'; answerText?: string }): Promise<AskAiResult> => {
+    type Outcome =
+        | { ok: true; data?: unknown; text?: string; answerText: string | null; files?: AiFile[]; cachedFrom?: string | null }
+        | { ok: false; reason: AiFailureReason; detail?: string; wait?: number; scope?: 'key' | 'budget'; answerText?: string };
+
+    const finish = async (outcome: Outcome): Promise<AskAiResult> => {
         const ms = Date.now() - started;
         // A failure gives its units back only when nothing was billed: an answer that was
         // blocked or did not fit was paid for, so it counts, or one key could spend the
         // month's budget without ever reaching its allowance.
         // A timed-out request was most likely still answered, and billed, by the provider.
-        const maybeBilled = usage.tokensIn + usage.tokensOut > 0 || attempts.some((a) => a.outcome === 'timeout');
+        const maybeBilled = spent.tokensIn + spent.tokensOut > 0 || spent.amount > 0 || attempts.some((a) => a.outcome === 'timeout');
         if (!outcome.ok && allowance && !maybeBilled) await allowance.release();
+        const cached = outcome.ok && outcome.cachedFrom !== undefined;
         const record: AiCallRecord = {
             purpose: c.purposeId,
+            kind: c.kind,
             tier,
             test,
             ref: c.ref,
@@ -223,30 +360,71 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
             attempts,
             connection: last?.connection ?? null,
             model: last?.model ?? null,
-            ...usage,
+            ...spent,
             costFrom,
             ms,
             outcome: outcome.ok ? 'ok' : outcome.reason,
             ...(outcome.ok ? {} : { scope: outcome.scope, detail: outcome.detail?.slice(0, 500) }),
+            ...(outcome.ok && outcome.files ? { files: outcome.files, filePaths: outcome.files.map((f) => f.path) } : {}),
+            ...(cached ? { cached: true, cachedFrom: outcome.ok ? outcome.cachedFrom ?? null : null } : {}),
         };
-        const content = ps.keepContent ? { instruction: c.purpose.instruction, parts, answer: outcome.answerText ?? null } : null;
-        const [recordId] = await Promise.all([
-            writeAiCall(record, content),
+        const content = ps.keepContent ? { instruction: c.purpose.instruction ?? '', parts, answer: outcome.answerText ?? null } : null;
+        const [writtenId] = await Promise.all([
+            writeAiCall(record, content, new Date(started), recordId),
             addToTotals(record, new Date(started), spentBefore === null ? undefined : { spentBefore, monthlyUsd: settings.budget.monthlyUsd }),
         ]);
-        const resultUsage: AiUsage = { model: record.model, connection: record.connection, ...usage, ms, test };
-        if (outcome.ok) return { ok: true, ...(schema ? { data: outcome.data } : { text: outcome.text }), usage: resultUsage, recordId };
-        return { ok: false, reason: outcome.reason, ...(outcome.scope ? { scope: outcome.scope } : {}), ...(outcome.wait ? { wait: outcome.wait } : {}), ...(outcome.detail ? { detail: outcome.detail } : {}), usage: resultUsage, recordId };
+        const { tokensIn, tokensOut, tokensThinking, tokensCached, tokensCacheWrite, costUsd, amount, unit } = spent;
+        const resultUsage: AiUsage = { model: record.model, connection: record.connection, tokensIn, tokensOut, tokensThinking, tokensCached, tokensCacheWrite, kind: c.kind, amount, unit, costUsd, ms, test };
+        if (outcome.ok) {
+            return {
+                ok: true,
+                ...(fileKind ? { files: outcome.files ?? [] } : schema ? { data: outcome.data } : { text: outcome.text }),
+                ...(cached ? { cached: true } : {}),
+                usage: resultUsage,
+                recordId: writtenId,
+            };
+        }
+        return { ok: false, reason: outcome.reason, ...(outcome.scope ? { scope: outcome.scope } : {}), ...(outcome.wait ? { wait: outcome.wait } : {}), ...(outcome.detail ? { detail: outcome.detail } : {}), usage: resultUsage, recordId: writtenId };
     };
 
     if (!ps.enabled) return finish({ ok: false, reason: 'off', detail: `${c.purposeId} is switched off in Settings, AI` });
+
+    const prepared = await prepareInput(c.purposeId, c.purpose, input.input);
+    inputSize = { chars: prepared.chars, files: prepared.files, bytes: prepared.bytes };
+    if (!prepared.ok) return finish({ ok: false, reason: prepared.reason, detail: prepared.detail });
+    parts = prepared.parts;
+    if (fileKind && !filePrompt(c.purpose, parts)) return finish({ ok: false, reason: 'unreadable', detail: 'there is no text to make anything of: pass a prompt' });
+
+    // The models that may answer: the purpose's own list, else the tier's (text and data) or
+    // the kind's (files), each one that makes this kind.
+    const fullList = ps.models.length ? ps.models : fileKind ? settings.lists[fileKind] : settings.tiers[tier];
+    const wanted = fileKind ?? 'text';
+    const list = fullList.filter((ref) => modelInfo(settings, ref).makes === wanted || (wanted === 'text' && modelInfo(settings, ref).makes === 'data'));
+    const instruction = fileKind ? filePrompt(c.purpose, []) : (c.purpose.instruction ?? '');
+
+    // Arc's own cache, before anything is counted: a hit counts against nothing (AM-D16).
+    const cacheDays = fileKind && !test && ps.cache !== false ? purposeCacheDays(c.purpose) : 0;
+    // With fallback off, only the first model's files are the purpose's.
+    const cacheList = c.purpose.fallback === false ? list.slice(0, 1) : list;
+    const hashes = cacheDays ? cacheList.map((ref) => ({ ref, hash: cacheHash(c.purposeId, ref, c.settings, instruction, parts) })) : [];
+    if (cacheDays) {
+        const hit = await findCached(hashes).catch((err: unknown) => (console.error('askAi: the cache could not be read', err), null));
+        // A hit whose files cannot be copied is a miss: the call goes on as if there were none.
+        const files = hit ? await hitFiles(hit).catch((err: unknown) => (console.error('askAi: a cached file could not be used', err), null)) : null;
+        if (hit && files) {
+            last = { connection: hit.connection, model: hit.model };
+            attempts.push({ connection: hit.connection, model: hit.model, outcome: 'cached', ms: 0 });
+            return finish({ ok: true, answerText: null, files, cachedFrom: hit.recordId });
+        }
+    }
 
     // The call's own number for its key comes first, such as from the key's plan. Else the
     // admin's number replaces the app's; a purpose without one in the code has no allowance,
     // since its calls carry no key (Settings, AI offers the field only with one).
     const perDay = c.perDay ?? (c.purpose.perKeyPerDay === undefined ? null : ps.perKeyPerDay ?? c.purpose.perKeyPerDay);
     if (perDay !== null && c.limitKey) {
-        const use = await consumeAllowance(c.purposeId, c.limitKey, c.units, perDay);
+        const amount = allowanceAmount(c, prepared.chars);
+        const use = await consumeAllowance(c.purposeId, c.limitKey, amount, perDay);
         if (!use.ok) return finish({ ok: false, reason: 'limit', scope: 'key', wait: use.wait, detail: perDay === 0 ? `${c.limitKey} has no allowance today` : `${c.limitKey} has used its ${perDay} for today` });
         allowance = use;
     }
@@ -258,6 +436,13 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
         throw err;
     }
 
+    /** A cache hit's files, copied from the cache to where this call wants them, as a fresh answer would be. */
+    async function hitFiles(hit: CacheEntry): Promise<AiFile[]> {
+        const paths = filePaths({ recordId, purpose: c.purposeId, month: fileMonth(started), test: false, saveTo: c.purpose.saveTo, saveAs: c.saveAs ?? undefined, files: hit.files });
+        await Promise.all(hit.paths.map((p, i) => copyFile(p, paths[i])));
+        return hit.files.map((f, i) => ({ ...f, path: paths[i] }));
+    }
+
     async function answer(): Promise<AskAiResult> {
         if (!test) {
             const budget = await checkBudget(settings);
@@ -265,12 +450,19 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
             spentBefore = budget.spent;
         }
 
-        const prepared = await prepareInput(c.purposeId, c.purpose, input.input);
-        inputSize = { chars: prepared.chars, files: prepared.files, bytes: prepared.bytes };
-        if (!prepared.ok) return finish({ ok: false, reason: prepared.reason, detail: prepared.detail });
-        parts = prepared.parts;
-
         if (test) {
+            if (fileKind) {
+                const failure = testFileFailure(c.purpose.testAnswer, testInput(parts, c));
+                if (failure) return finish({ ok: false, reason: failure.testFailure, wait: failure.wait, detail: failure.detail, ...(failure.testFailure === 'limit' ? { scope: 'key' as const } : {}) });
+                const made = standInFiles(fileKind, { image: c.settings.image, audioSeconds: c.settings.audio?.seconds, chars: inputSize.chars });
+                const paths = filePaths({ recordId, purpose: c.purposeId, month: fileMonth(started), test: true, files: made });
+                try {
+                    const files = await saveFiles(paths, made, { recordId, purpose: c.purposeId, test: true });
+                    return finish({ ok: true, answerText: null, files });
+                } catch (err) {
+                    return finish({ ok: false, reason: 'unavailable', detail: `the test file could not be saved: ${String((err as Error).message ?? err).slice(0, 200)}` });
+                }
+            }
             const result = testResult(c.purpose.testAnswer, c.purpose, schema, testInput(parts, c));
             if ('testFailure' in result) return finish({ ok: false, reason: result.testFailure, wait: result.wait, detail: result.detail, ...(result.testFailure === 'limit' ? { scope: 'key' as const } : {}) });
             if (!result.ok) return finish({ ok: false, reason: 'unreadable', detail: result.detail });
@@ -279,15 +471,19 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
             return finish({ ok: true, data: read.data, text: read.text, answerText: result.text });
         }
 
-        const list = ps.models.length ? ps.models : settings.tiers[tier];
-        if (!list.length) return finish({ ok: false, reason: 'off', detail: `no model is set for the ${tier} tier in Settings, AI` });
+        if (!list.length) {
+            const where = ps.models.length ? `${c.purposeId}'s own list` : fileKind ? `the ${fileKind} list` : `the ${tier} tier`;
+            return finish({ ok: false, reason: 'off', detail: fullList.length ? `no model in ${where} makes ${wanted}` : `no model is set for ${where} in Settings, AI` });
+        }
         const needs = purposeReads(c.purpose).filter((k) => parts.some((p) => (k === 'pictures' ? p.kind === 'picture' : p.kind === 'pdf')));
         const deadline = started + (c.purpose.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS) * 1000;
         let lastFailure: { failure: AttemptFailure; detail: string; wait?: number } | null = null;
         // A busy or slow model tells the app more than a later one with no key: try again soon.
         let busy: { failure: AttemptFailure; detail: string; wait?: number } | null = null;
+        let tried = 0;
 
         for (const ref of list) {
+            if (c.purpose.fallback === false && tried > 0) break;
             const connection = settings.connections[ref.connection];
             const preset = connection ? findPreset(connection.preset) : undefined;
             const info = modelInfo(settings, ref);
@@ -297,57 +493,113 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
                 attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: `reads no ${missing.join(' or ')}` });
                 continue;
             }
-            const left = deadline - Date.now();
-            if (left < MIN_ATTEMPT_MS) {
+            const makeFiles = fileKind ? fileConnectorFor(preset.kind) : undefined;
+            if (fileKind && !makeFiles) {
+                attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: `Arc cannot make ${fileKind} with ${preset.label} yet` });
+                continue;
+            }
+            if (deadline - Date.now() < MIN_ATTEMPT_MS) {
                 lastFailure = { failure: 'timeout', detail: 'no time was left for another model' };
                 break;
             }
             last = ref;
+            tried++;
             const attemptStarted = Date.now();
-            let result: ConnectorResult;
-            const key = preset.kind === 'openai' ? await readKey(connection) : { ok: true as const, key: null };
-            if (!key.ok) result = { ok: false, failure: 'off', detail: key.detail };
-            else {
-                result = await connectorFor(preset.kind)({ connection, key: key.key }, {
-                    model: ref.model,
-                    instruction: instructionFor(c.purpose, schema, info.schema),
-                    parts,
-                    schema,
-                    schemaSupport: info.schema,
-                    maxOutputTokens: c.purpose.maxOutputTokens,
-                    temperature: c.purpose.temperature,
-                    thinking: c.purpose.thinking,
-                    timeoutMs: left,
-                });
+            const place = await waitForPlace(connection.id, connectionLimits(connection), deadline, { leaveMs: MIN_ATTEMPT_MS });
+            let result: ConnectorResult | FileResult;
+            if (!place.ok) {
+                result = { ok: false, failure: 'unavailable', detail: `connection ${connection.id} is at its limit of requests (Settings, AI)`, wait: place.wait };
+            } else {
+                try {
+                    // A key that cannot be read is that connection's problem: the next model may answer.
+                    const key = presetNeedsKey(preset) ? await readKey(connection).catch((err: unknown) => ({ ok: false as const, detail: `the key of connection ${connection.id} could not be read: ${String((err as Error).message ?? err).slice(0, 160)}` })) : { ok: true as const, key: null };
+                    if (!key.ok) result = { ok: false, failure: 'off', detail: key.detail };
+                    else {
+                        const send = () => (makeFiles
+                            ? makeFiles({ connection, key: key.key }, { kind: fileKind!, model: ref.model, prompt: filePrompt(c.purpose, parts), parts: parts.filter((p) => p.kind !== 'text'), ...c.settings, timeoutMs: deadline - Date.now() })
+                            : connectorFor(preset.kind)({ connection, key: key.key }, {
+                                model: ref.model,
+                                instruction: instructionFor(c.purpose, schema, info.schema),
+                                parts,
+                                schema,
+                                schemaSupport: info.schema,
+                                maxOutputTokens: c.purpose.maxOutputTokens,
+                                temperature: c.purpose.temperature,
+                                thinking: c.purpose.thinking,
+                                timeoutMs: deadline - Date.now(),
+                            }));
+                        result = await send();
+                        // A provider's "too many requests" with a short wait: once more on the same model (AM-D15).
+                        if (!result.ok && result.rateLimited && result.wait !== undefined && result.wait <= MAX_RETRY_WAIT_S && Date.now() + result.wait * 1000 + MIN_ATTEMPT_MS < deadline) {
+                            addSpent(info, ref, result.usage, []);
+                            attempts.push({ connection: ref.connection, model: ref.model, outcome: 'unavailable', ms: Date.now() - attemptStarted, detail: result.detail.slice(0, 300) });
+                            await sleep(result.wait * 1000);
+                            result = await send();
+                        }
+                    }
+                } finally {
+                    await place.release();
+                }
             }
             const ms = Date.now() - attemptStarted;
-            if (result.usage) {
-                usage.tokensIn += result.usage.tokensIn;
-                usage.tokensOut += result.usage.tokensOut;
-                usage.tokensThinking += result.usage.tokensThinking;
-                const spent = cost(settings, ref, result.usage);
-                usage.costUsd += spent.usd;
-                if (spent.from !== 'none') costFrom = costFrom === 'provider' || spent.from === 'provider' ? 'provider' : 'price-list';
-            }
+            addSpent(info, ref, result.usage, result.ok && 'files' in result ? result.files : []);
             if (result.ok) {
                 attempts.push({ connection: ref.connection, model: ref.model, outcome: 'ok', ms });
                 await noteConnection(settings, ref.connection, null);
+                if ('files' in result) {
+                    if (!result.files.length) return finish({ ok: false, reason: 'unreadable', detail: 'the provider answered with no file' });
+                    const paths = filePaths({ recordId, purpose: c.purposeId, month: fileMonth(started), test: false, saveTo: c.purpose.saveTo, saveAs: c.saveAs ?? undefined, files: result.files });
+                    let files: AiFile[];
+                    try {
+                        files = await saveFiles(paths, result.files, { recordId, purpose: c.purposeId, test: false });
+                    } catch (err) {
+                        // Billed but not saved: the call fails, keeps its units and is recorded with its cost.
+                        console.error(`askAi: the files of a ${c.purposeId} call were not saved`, err);
+                        return finish({ ok: false, reason: 'unavailable', detail: `the file was made but could not be saved: ${String((err as Error).message ?? err).slice(0, 200)}` });
+                    }
+                    const hash = hashes.find((h) => h.ref.connection === ref.connection && h.ref.model === ref.model)?.hash;
+                    if (hash) await storeCached({ hash, files, recordId, connection: ref.connection, model: ref.model, purpose: c.purposeId, days: cacheDays });
+                    return finish({ ok: true, answerText: null, files });
+                }
                 const read = readAnswer(result.text, schema);
                 if (!read.ok) return finish({ ok: false, reason: 'unreadable', detail: read.detail, answerText: result.text });
                 return finish({ ok: true, data: read.data, text: read.text, answerText: result.text });
             }
             attempts.push({ connection: ref.connection, model: ref.model, outcome: result.failure, ms, detail: result.detail.slice(0, 300) });
-            if (result.failure === 'key-refused' || result.failure === 'retired' || result.failure === 'off') await noteConnection(settings, ref.connection, result.detail);
+            if (result.failure === 'key-refused' || result.failure === 'retired' || result.failure === 'off' || result.outOfCredit) await noteConnection(settings, ref.connection, result.detail);
+            if (result.outOfCredit) await alertOutOfCredit(connection.id, connection.label, result.detail);
             lastFailure = { failure: result.failure, detail: result.detail, wait: result.wait };
             if (result.failure === 'unavailable' || result.failure === 'timeout') busy = lastFailure;
             if (!FALLBACK_FAILURES.includes(result.failure)) break;
         }
 
         if (!lastFailure) {
-            const detail = attempts.length ? `no model in the list reads ${needs.join(' or ')}` : `no model is set for the ${tier} tier in Settings, AI`;
-            return finish({ ok: false, reason: 'off', detail });
+            const detail = attempts.length ? attempts.map((a) => a.detail).filter(Boolean)[0] ?? `no model in the list can answer` : `no model is set in Settings, AI`;
+            return finish({ ok: false, reason: 'off', detail: needs.length && attempts.every((a) => a.outcome === 'skipped' && a.detail?.startsWith('reads no')) ? `no model in the list reads ${needs.join(' or ')}` : detail });
         }
         const final = lastFailure.failure === 'off' && busy ? busy : lastFailure;
         return finish({ ok: false, reason: finalReason(final.failure), detail: final.detail, wait: final.wait });
+    }
+
+    /** Add one attempt's tokens, amount and cost to the call's. */
+    function addSpent(info: ReturnType<typeof modelInfo>, ref: AiModelRef, usage: AttemptUsage | undefined, files: MadeFile[]): void {
+        if (!usage && !files.length) return;
+        const u: AttemptUsage = usage ?? { tokensIn: 0, tokensOut: 0, tokensThinking: 0 };
+        spent.tokensIn += u.tokensIn;
+        spent.tokensOut += u.tokensOut;
+        spent.tokensThinking += u.tokensThinking;
+        spent.tokensCached += u.tokensCached ?? 0;
+        spent.tokensCacheWrite += u.tokensCacheWrite ?? 0;
+        // What Arc counts itself, for a model billed by what it made or read.
+        const counted = info.unit === 'pictures' ? files.length
+            : info.unit === 'characters' ? inputSize.chars
+                : info.unit === 'seconds' ? files.reduce((n, f) => n + (f.seconds ?? 0), 0) : 0;
+        const cost = attemptCost(info, u, counted);
+        spent.costUsd += cost.usd;
+        if (spent.unit !== cost.unit) spent.amount = 0;
+        spent.unit = cost.unit;
+        spent.amount += cost.amount;
+        if (cost.from !== 'none') costFrom = costFrom === 'provider' || cost.from === 'provider' ? 'provider' : 'price-list';
+        void ref;
     }
 }

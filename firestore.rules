@@ -522,6 +522,14 @@ service cloud.firestore {
     match /AiKeys/{connectionId} {
       allow read, write: if false;
     }
+    // Arc's own cache of files a model made, and each connection's pacing counter
+    // (specs/ai-media-spec.md, AM-D15, AM-D16): only the functions read and write them.
+    match /AiCache/{hash} {
+      allow read, write: if false;
+    }
+    match /AiPacing/{connectionId} {
+      allow read, write: if false;
+    }
 
     // App install counters by day (trackPwaEvent, docs/features/pwa.html). Admin read.
     match /PwaStats/{day} {

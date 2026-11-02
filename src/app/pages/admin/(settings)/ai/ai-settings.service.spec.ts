@@ -5,7 +5,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { deleteField } from '@angular/fire/firestore';
-import { aiFormFrom, aiSettingsData, callContentFrom, callRowFrom, callsCsv, connectionId, emptyAiForm, monthUsageFrom, removalData } from './ai-settings.service';
+import {
+    addressChanged, aiFormFrom, aiSettingsData, base64Blob, blankConnection, callContentFrom, callRowFrom, callsCsv, connectionId, emptyAiForm, monthUsageFrom,
+    naturalUnit, presetNeedsKey, removalData, safeHeaderName,
+} from './ai-settings.service';
 
 describe('aiFormFrom', () => {
     it('starts in test mode with nothing set up and a 20 USD budget', () => {
@@ -24,9 +27,28 @@ describe('aiFormFrom', () => {
         });
         expect(form.connections[0]).toMatchObject({ id: 'qwen', label: 'Qwen EU', keyPreview: '••••1234', keySetBy: 'a@example.com' });
         expect(form.tiers.thorough).toEqual([{ connection: 'qwen', model: 'qwen3-vl-plus' }]);
-        expect(form.purposes['menu-scan']).toEqual({ enabled: false, models: [], perKeyPerDay: 20, keepContent: true });
+        expect(form.purposes['menu-scan']).toEqual({ enabled: false, models: [], perKeyPerDay: 20, keepContent: true, cache: null, deleteAfterDays: null });
         expect(form.models['qwen/qwen3-vl-plus']).toEqual({ reads: ['pictures'], priceIn: 0.3 });
         expect(form.monthlyUsd).toBe(50);
+    });
+
+    it('reads the header, limits, rate and balance of a connection, the file lists and what purposes and models say of files', () => {
+        const form = aiFormFrom({
+            connections: {
+                o: { preset: 'other', header: 'X-Api-Key', perMinute: 60, atOnce: 3.5, usdRate: 0.012, balance: 4.5, balanceUnit: 'USD', balanceAt: '2026-11-02T10:00:00Z', lowBalance: 2 },
+                b: { preset: 'other', header: 'Authorization' },
+            },
+            lists: { image: [{ connection: 'o', model: 'pic-1' }], speech: 'nonsense' },
+            purposes: { cover: { cache: false, deleteAfterDays: 30 }, bad: { cache: 'yes', deleteAfterDays: 9999 } },
+            models: { 'o/pic-1': { makes: 'image', unit: 'pictures', price: 0.04, priceCachedIn: 0.1, priceCacheWrite: 1 }, 'o/x': { makes: 'smell', unit: 'boxes' } },
+        });
+        expect(form.connections.find((c) => c.id === 'o')).toMatchObject({ header: 'x-api-key', perMinute: 60, atOnce: null, usdRate: 0.012, balance: 4.5, balanceUnit: 'USD', balanceAt: '2026-11-02T10:00:00Z', lowBalance: 2 });
+        expect(form.connections.find((c) => c.id === 'b')?.header).toBe('');
+        expect(form.lists).toEqual({ image: [{ connection: 'o', model: 'pic-1' }], speech: [], audio: [], video: [] });
+        expect(form.purposes['cover']).toMatchObject({ cache: false, deleteAfterDays: 30 });
+        expect(form.purposes['bad']).toMatchObject({ cache: null, deleteAfterDays: null });
+        expect(form.models['o/pic-1']).toEqual({ makes: 'image', unit: 'pictures', price: 0.04, priceCachedIn: 0.1, priceCacheWrite: 1 });
+        expect(form.models['o/x']).toEqual({});
     });
 });
 
@@ -38,8 +60,42 @@ describe('aiSettingsData', () => {
 
     it('never writes what only the server writes, such as the key preview', () => {
         const data = aiSettingsData(loaded, loaded) as { connections: Record<string, Record<string, unknown>> };
-        expect(data.connections['qwen']).toEqual({ preset: 'alibaba-eu', label: '', workspace: 'ws1', baseUrl: '', location: '', processesIn: '' });
+        expect(data.connections['qwen']).toEqual({
+            preset: 'alibaba-eu', label: '', workspace: 'ws1', baseUrl: '', location: '', processesIn: '',
+            header: deleteField(), perMinute: deleteField(), atOnce: deleteField(), usdRate: deleteField(), lowBalance: deleteField(),
+        });
         expect(JSON.stringify(data)).not.toContain('1234');
+    });
+
+    it('round-trips the new fields: header (Other only), limits, rate, low mark, lists, purpose file settings and model prices', () => {
+        const stored = {
+            connections: {
+                o: { preset: 'other', baseUrl: 'https://api.example.com/v1', header: 'api-key', perMinute: 60, atOnce: 3, lowBalance: 5, balance: 9, balanceUnit: 'USD', balanceAt: '2026-11-02T10:00:00Z' },
+                s: { preset: 'sarvam', header: 'api-key', usdRate: 0.012 },
+            },
+            lists: { image: [{ connection: 'o', model: 'pic-1' }], speech: [], audio: [], video: [{ connection: 'o', model: 'vid-1' }] },
+            purposes: { cover: { enabled: true, models: [], keepContent: false, cache: false, deleteAfterDays: 30 } },
+            models: { 'o/pic-1': { makes: 'image', unit: 'pictures', price: 0.04 }, 's/sarvam-105b': { priceIn: 15, priceOut: 60, priceCachedIn: 5, priceCacheWrite: 7 } },
+        };
+        const form = aiFormFrom(stored);
+        const data = aiSettingsData(form, form) as Record<string, any>;
+        expect(data['connections']['o']).toMatchObject({ header: 'api-key', perMinute: 60, atOnce: 3, lowBalance: 5, usdRate: deleteField() });
+        // The balance is the functions' to write, and a preset with its own header writes none.
+        expect(data['connections']['o']).not.toHaveProperty('balance');
+        expect(data['connections']['o']).not.toHaveProperty('balanceAt');
+        expect(data['connections']['s']).toMatchObject({ header: deleteField(), usdRate: 0.012 });
+        expect(data['lists']).toEqual(stored.lists);
+        expect(data['purposes']['cover']).toMatchObject({ cache: false, deleteAfterDays: 30 });
+        expect(data['models']['o/pic-1']).toMatchObject({ makes: 'image', unit: 'pictures', price: 0.04, priceIn: deleteField() });
+        expect(data['models']['s/sarvam-105b']).toMatchObject({ priceCachedIn: 5, priceCacheWrite: 7, makes: deleteField(), price: deleteField() });
+        // What save wrote reads back as the same form.
+        expect(aiFormFrom({ ...stored, lists: data['lists'] })).toEqual(form);
+    });
+
+    it('writes a cache switched back on and an emptied days field as the purpose\'s own', () => {
+        const form = { ...emptyAiForm(), purposes: { cover: { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null } } };
+        const data = aiSettingsData(form, emptyAiForm()) as Record<string, any>;
+        expect(data['purposes']['cover']).toMatchObject({ cache: deleteField(), deleteAfterDays: deleteField() });
     });
 
     it('clears what the server noted about an older connection of the same id', () => {
@@ -77,12 +133,54 @@ describe('saving parts', () => {
         expect(data).not.toHaveProperty('mode');
     });
 
+    it('clears the key of an Other provider whose key header changed, as for a new address', () => {
+        const other = aiFormFrom({ connections: { o: { preset: 'other', baseUrl: 'https://api.example.com/v1', keyPreview: '••••1234', lastOkAt: '2026-10-28T09:00:00Z' } } });
+        const same = { ...other, connections: other.connections.map((c) => ({ ...c, header: 'authorization' })) };
+        expect((aiSettingsData(same, other) as any).connections['o']).not.toHaveProperty('keyPreview');
+        const form = { ...other, connections: other.connections.map((c) => ({ ...c, header: 'x-api-key' })) };
+        const data = aiSettingsData(form, other) as { connections: Record<string, Record<string, unknown>> };
+        expect(data.connections['o']['keyPreview']).toEqual(deleteField());
+        expect(data.connections['o']['lastOkAt']).toEqual(deleteField());
+        expect(data.connections['o']['header']).toBe('x-api-key');
+        expect(addressChanged(other.connections[0], form.connections[0])).toBe(true);
+    });
+
+    it('takes a removed provider\'s models out of the file lists too', () => {
+        const withLists = { ...before, lists: { image: [{ connection: 'or', model: 'pic' }, { connection: 'qwen', model: 'p2' }], speech: [], audio: [], video: [] } };
+        const after = { tiers: before.tiers, purposes: before.purposes, lists: { ...withLists.lists, image: [{ connection: 'qwen', model: 'p2' }] } };
+        expect((removalData('or', after, withLists) as any).lists.image).toEqual([{ connection: 'qwen', model: 'p2' }]);
+        expect(removalData('or', { ...after, lists: withLists.lists }, withLists)).not.toHaveProperty('lists');
+    });
+
     it('clears the key of a provider whose workspace changed', () => {
         const form = { ...before, connections: before.connections.map((c) => (c.id === 'qwen' ? { ...c, workspace: 'ws2' } : c)) };
         const data = aiSettingsData(form, before) as { connections: Record<string, Record<string, unknown>> };
         expect(data.connections['qwen']['keyPreview']).toEqual(deleteField());
         expect(data.connections['qwen']['lastOkAt']).toEqual(deleteField());
         expect(data.connections['or']).not.toHaveProperty('keyPreview');
+    });
+});
+
+describe('key headers and kinds', () => {
+    it('takes a header of lower-case letters, digits and -, never one that changes the request', () => {
+        expect(safeHeaderName('x-api-key')).toBe(true);
+        expect(safeHeaderName('api-subscription-key')).toBe(true);
+        expect(safeHeaderName('X-Api-Key')).toBe(false);
+        expect(safeHeaderName('my key')).toBe(false);
+        expect(safeHeaderName('host')).toBe(false);
+        expect(safeHeaderName('content-type')).toBe(false);
+        expect(safeHeaderName('x-forwarded-for')).toBe(false);
+    });
+
+    it('needs a key for every provider but Vertex, and bills each kind by its usual unit', () => {
+        expect(presetNeedsKey({ kind: 'anthropic' })).toBe(true);
+        expect(presetNeedsKey({ kind: 'vertex' })).toBe(false);
+        expect(presetNeedsKey({ kind: 'openai', needsKey: false })).toBe(false);
+        expect(['text', 'image', 'speech', 'audio', 'video'].map((k) => naturalUnit(k as never))).toEqual(['tokens', 'pictures', 'characters', 'seconds', 'seconds']);
+    });
+
+    it('starts a connection with nothing set', () => {
+        expect(blankConnection({ id: 'a', preset: 'other', label: 'A' })).toMatchObject({ header: '', perMinute: null, usdRate: null, balance: null, keyPreview: null });
     });
 });
 
@@ -108,6 +206,17 @@ describe('monthUsageFrom', () => {
         expect(u.byDay.map((d) => d.day)).toEqual(['03', '28']);
         expect(u.keys[0]).toMatchObject({ limitKey: 'biz1', units: 4, costUsd: 0.5 });
     });
+
+    it('reads totals by kind, cache hits apart from calls, cached tokens and amounts in each unit', () => {
+        const u = monthUsageFrom('2026-11', {
+            calls: 4, cacheHits: 3, tokensIn: 100, tokensCached: 40, pictures: 2, characters: 1200,
+            byKind: { text: { calls: 2, costUsd: 0.01, tokensCached: 40 }, image: { calls: 2, costUsd: 0.08, pictures: 2, cacheHits: 3 } },
+        }, []);
+        expect(u).toMatchObject({ calls: 4, cacheHits: 3, tokensCached: 40, pictures: 2, characters: 1200, seconds: 0 });
+        expect(u.byKind.map((k) => k.kind)).toEqual(['image', 'text']);
+        expect(u.byKind[0]).toMatchObject({ calls: 2, cacheHits: 3, pictures: 2 });
+        expect(monthUsageFrom('2026-11', undefined, []).byKind).toEqual([]);
+    });
 });
 
 describe('calls', () => {
@@ -125,6 +234,17 @@ describe('calls', () => {
         const content = callContentFrom({ instruction: 'Read.', parts: [{ kind: 'picture', mimeType: 'image/jpeg', size: 3, path: 'ai-calls/c1/1-a.jpeg' }], answer: '{}' });
         expect(content).toMatchObject({ instruction: 'Read.', answer: '{}', parts: [{ kind: 'picture', path: 'ai-calls/c1/1-a.jpeg' }] });
         expect(callContentFrom(undefined)).toBeNull();
+        expect(row).toMatchObject({ kind: 'text', unit: 'tokens', files: [], cached: false, cachedFrom: null });
+    });
+
+    it('reads a file call: its kind, amount, files and whether it came from the cache', () => {
+        const r = callRowFrom('c3', {
+            purpose: 'cover', kind: 'image', amount: 2, unit: 'pictures', tokensCached: 5, cached: true, cachedFrom: 'c0',
+            files: [{ path: 'ai-files/cover/2026-11/a-1.png', mimeType: 'image/png', bytes: 2048, width: 1024, height: 768 }, { mimeType: 'x' }],
+        });
+        expect(r).toMatchObject({ kind: 'image', amount: 2, unit: 'pictures', tokensCached: 5, cached: true, cachedFrom: 'c0' });
+        expect(r.files).toEqual([{ path: 'ai-files/cover/2026-11/a-1.png', mimeType: 'image/png', bytes: 2048, width: 1024, height: 768 }]);
+        expect(callsCsv([r]).trim().split('\n')[1]).toMatch(/,image,2,pictures,yes,5$/);
     });
 
     it('makes a CSV a spreadsheet will not run as formulas', () => {
@@ -133,5 +253,15 @@ describe('calls', () => {
         expect(head.split(',')[0]).toBe('time (UTC)');
         expect(line).toContain('2026-10-28T10:00:00.000Z,menu-scan,no,ok,,qwen,qwen3-vl-plus,1000,200,0,0.000520,price-list,1200,b1,2,');
         expect(line).toContain('"\'=HYPERLINK(""x"")"');
+        expect(head).toContain(',kind,amount,unit,cached,cached tokens');
+    });
+});
+
+describe('base64Blob', () => {
+    it('turns readAiFile\'s base64 into a Blob of its type', async () => {
+        const blob = base64Blob(btoa('hello'), 'audio/mpeg');
+        expect(blob.type).toBe('audio/mpeg');
+        expect(blob.size).toBe(5);
+        expect(base64Blob('', '').type).toBe('application/octet-stream');
     });
 });

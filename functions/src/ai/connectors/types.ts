@@ -1,12 +1,15 @@
 /**
- * What every connector takes and returns (specs/ai-spec.md, AI-D5, AI-D6). askAi chooses
- * the model, checks the answer and keeps the record; a connector only sends one request to
- * one provider and says what came back, in these words.
+ * What every connector takes and returns (specs/ai-spec.md, AI-D5, AI-D6;
+ * specs/ai-media-spec.md, AM-D7). askAi chooses the model, checks the answer and keeps the
+ * record; a connector only sends one request to one provider and says what came back, in
+ * these words. A text connector answers text; a file connector answers files' bytes, which
+ * askAi saves to Storage.
  */
 import type { JsonSchema } from '../schema.js';
 import type { PreparedPart } from '../input.js';
 import type { AiConnection } from '../settings.js';
 import type { AiSchemaSupport } from '../presets.js';
+import type { AiAudioSettings, AiFileKind, AiImageSettings, AiSpeechSettings, AiVideoSettings } from '../types.js';
 
 export interface ConnectorRequest {
     model: string;
@@ -30,16 +33,36 @@ export interface ConnectorRequest {
 export type AttemptFailure = 'blocked' | 'too-large' | 'unavailable' | 'timeout' | 'retired' | 'key-refused' | 'unreadable' | 'off';
 
 export interface AttemptUsage {
+    /** Every input token, cached and cache writes included. */
     tokensIn: number;
     tokensOut: number;
     tokensThinking: number;
+    /** Input tokens read from the provider's cache, part of tokensIn (AM-D31). */
+    tokensCached?: number;
+    /** Input tokens written to the provider's cache, part of tokensIn (AM-D31). */
+    tokensCacheWrite?: number;
+    /** For a model billed by pictures, characters or seconds: the amount the provider reports. */
+    amount?: number;
     /** USD, when the provider reports what it charged. */
     costUsd?: number;
 }
 
+/** What a failed attempt adds: how long to wait, and whether the provider said why. */
+interface FailureInfo {
+    failure: AttemptFailure;
+    detail: string;
+    wait?: number;
+    usage?: AttemptUsage;
+    requestId?: string;
+    /** The provider answered 429: too many requests (AM-D15). */
+    rateLimited?: boolean;
+    /** The provider says the account has no credit left (AM-D32). */
+    outOfCredit?: boolean;
+}
+
 export type ConnectorResult =
     | { ok: true; text: string; usage: AttemptUsage; requestId?: string }
-    | { ok: false; failure: AttemptFailure; detail: string; wait?: number; usage?: AttemptUsage; requestId?: string };
+    | ({ ok: false } & FailureInfo);
 
 export interface ConnectorContext {
     connection: AiConnection;
@@ -48,6 +71,38 @@ export interface ConnectorContext {
 }
 
 export type Connector = (context: ConnectorContext, request: ConnectorRequest) => Promise<ConnectorResult>;
+
+/** What a file connector is asked to make (AM-D19): the prompt, any input pictures, the settings. */
+export interface FileRequest {
+    kind: AiFileKind;
+    model: string;
+    /** The call's text with the purpose's instruction (its house style) after it. */
+    prompt: string;
+    /** Input pictures, for an edit or a video's first frame. */
+    parts: PreparedPart[];
+    image?: AiImageSettings;
+    speech?: AiSpeechSettings;
+    audio?: AiAudioSettings;
+    video?: AiVideoSettings;
+    /** The purpose's extra fields for this provider, never the model, text or output. */
+    providerOptions?: Record<string, unknown>;
+    timeoutMs: number;
+}
+
+/** One file a model made, before Arc saves it. */
+export interface MadeFile {
+    bytes: Buffer;
+    mimeType: string;
+    width?: number;
+    height?: number;
+    seconds?: number;
+}
+
+export type FileResult =
+    | { ok: true; files: MadeFile[]; usage: AttemptUsage; requestId?: string }
+    | ({ ok: false } & FailureInfo);
+
+export type FileConnector = (context: ConnectorContext, request: FileRequest) => Promise<FileResult>;
 
 /** Failures after which the next model in the list tries. */
 export const FALLBACK_FAILURES: readonly AttemptFailure[] = ['unavailable', 'timeout', 'retired', 'key-refused', 'off'];

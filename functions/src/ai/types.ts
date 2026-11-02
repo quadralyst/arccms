@@ -10,6 +10,81 @@ export type { JsonSchema } from './schema.js';
 export const AI_TIERS = ['cheap', 'fast', 'thorough'] as const;
 export type AiTier = (typeof AI_TIERS)[number];
 
+/**
+ * What a purpose makes (specs/ai-media-spec.md, AM-D1). `text` and `data` are answers;
+ * the others are files saved to Storage.
+ */
+export const AI_KINDS = ['text', 'data', 'image', 'speech', 'audio', 'video'] as const;
+export type AiKind = (typeof AI_KINDS)[number];
+/** The kinds whose answer is a file. */
+export const AI_FILE_KINDS = ['image', 'speech', 'audio', 'video'] as const;
+export type AiFileKind = (typeof AI_FILE_KINDS)[number];
+
+/** What a model bills by (AM-D5). */
+export const AI_UNITS = ['tokens', 'pictures', 'characters', 'seconds'] as const;
+export type AiUnit = (typeof AI_UNITS)[number];
+
+/** What a per-key allowance counts (AM-D23): calls (with their `units`), or the billed amount. */
+export const AI_ALLOWANCE_UNITS = ['calls', 'pictures', 'characters', 'seconds'] as const;
+export type AiAllowanceUnit = (typeof AI_ALLOWANCE_UNITS)[number];
+
+/** Picture shapes in Arc's own words; each connector maps them to what its model takes (AM-D19). */
+export const AI_ASPECTS = ['1:1', '4:3', '3:4', '3:2', '2:3', '16:9', '9:16', '21:9'] as const;
+export type AiAspect = (typeof AI_ASPECTS)[number];
+
+/** Settings for a picture: the purpose's defaults, and what a call may change. */
+export interface AiImageSettings {
+    aspect?: AiAspect;
+    /** `standard` is about 1 MP, `high` about 4 MP. */
+    resolution?: 'standard' | 'high';
+    quality?: 'low' | 'medium' | 'high';
+    /** 1 to 4. */
+    count?: number;
+    seed?: number;
+    negativePrompt?: string;
+    format?: 'png' | 'jpeg' | 'webp';
+}
+
+/** Settings for speech. */
+export interface AiSpeechSettings {
+    /** BCP 47, such as `en-US` or `hi-IN`. */
+    language?: string;
+    /** 0.5 to 2. */
+    speed?: number;
+    format?: 'mp3' | 'wav' | 'opus';
+    /** An instruction for models that take one, such as "calm and warm". */
+    style?: string;
+}
+
+/** Settings for other audio: a sound or music. */
+export interface AiAudioSettings {
+    /** How long, 0.5 to 600. */
+    seconds?: number;
+    loop?: boolean;
+    format?: 'mp3' | 'wav';
+}
+
+/** Settings for a video. */
+export interface AiVideoSettings {
+    seconds?: number;
+    aspect?: AiAspect;
+    resolution?: '480p' | '720p' | '1080p' | '4k';
+    sound?: boolean;
+    seed?: number;
+    negativePrompt?: string;
+}
+
+/** A file a model made, saved in the install's bucket (AM-D9). */
+export interface AiFile {
+    /** The path in the bucket, such as `ai-files/cover/2026-11/abc-1.png`. */
+    path: string;
+    mimeType: string;
+    bytes: number;
+    width?: number;
+    height?: number;
+    seconds?: number;
+}
+
 /** Why a call gave no answer (AI-D9). */
 export const AI_FAILURE_REASONS = ['unreadable', 'blocked', 'too-large', 'limit', 'unavailable', 'timeout', 'off'] as const;
 export type AiFailureReason = (typeof AI_FAILURE_REASONS)[number];
@@ -58,8 +133,44 @@ export interface AiPurpose {
         pictures?: AiFileLimit;
         pdfs?: AiFileLimit;
     };
-    /** The instruction (prompt) the model follows. */
-    instruction: string;
+    /**
+     * What the purpose makes (AM-D1). Default: `data` when `output` has a schema, else `text`.
+     * `image`, `speech`, `audio` and `video` answer with files saved to Storage.
+     */
+    makes?: AiKind;
+    /**
+     * The instruction (prompt) the model follows. Needed for text and data; for a file kind
+     * it is optional, such as a house style added after the call's own prompt.
+     */
+    instruction?: string;
+    /** A picture's defaults, for `makes: 'image'`. */
+    image?: AiImageSettings;
+    /** Speech's defaults, for `makes: 'speech'`. */
+    speech?: AiSpeechSettings;
+    /** A sound's or music's defaults, for `makes: 'audio'`. */
+    audio?: AiAudioSettings;
+    /** A video's defaults, for `makes: 'video'`. */
+    video?: AiVideoSettings;
+    /**
+     * A file kind only: the folder in the bucket its files are saved in, such as
+     * `app/article-audio`, where the app's own rules serve them. Default: Arc's private
+     * `ai-files/` folder, which only admins read (AM-D9).
+     */
+    saveTo?: string;
+    /** A file kind only: delete files left in `ai-files/` this many days after they were made (AM-D10). */
+    deleteAfterDays?: number;
+    /**
+     * A file kind only: the same input gives the same file, with no new call and no charge
+     * (AM-D16). `true` keeps a file for 365 days; `{ days }` for that many.
+     */
+    cache?: boolean | { days: number };
+    /** `false`: only the first model of the list answers, never a fallback (AM-D4). Default true. */
+    fallback?: boolean;
+    /**
+     * What the per-key allowance counts (AM-D23): `calls` (the default, `units` a call), or
+     * the billed amount, `pictures`, `characters` or `seconds`.
+     */
+    allowanceIn?: AiAllowanceUnit;
     /** The answer: text, or data of this shape (checked by Arc). Default: text. */
     output?: 'text' | { schema: JsonSchema };
     /** Which tier's models answer, unless the admin sets models for the purpose. Default: fast. */
@@ -111,6 +222,19 @@ export interface AskAiInput {
     perDay?: number;
     /** The app's own reference, kept on the record, such as `businesses/b1/scans/s4`. */
     ref?: string;
+    /**
+     * A file kind: the full path to save the (first) file at, inside the purpose's `saveTo`
+     * folder, such as `app/article-audio/a1/p3.mp3` (AM-D9). More files get `-2`, `-3`.
+     */
+    saveAs?: string;
+    /** A picture's settings for this call, over the purpose's. */
+    image?: AiImageSettings;
+    /** Speech settings for this call, over the purpose's. */
+    speech?: Pick<AiSpeechSettings, 'language' | 'speed'>;
+    /** A sound's or music's length for this call. */
+    audio?: Pick<AiAudioSettings, 'seconds'>;
+    /** A video's settings for this call, over the purpose's. */
+    video?: AiVideoSettings;
 }
 
 /** Tokens and cost of a call. */
@@ -122,6 +246,15 @@ export interface AiUsage {
     tokensOut: number;
     /** Thinking tokens, when the provider counts them apart (included in its bill). */
     tokensThinking: number;
+    /** Input tokens read from the provider's cache, part of tokensIn (AM-D31). */
+    tokensCached: number;
+    /** Input tokens written to the provider's cache, part of tokensIn (AM-D31). */
+    tokensCacheWrite: number;
+    /** What the purpose makes. */
+    kind: AiKind;
+    /** How much was billed, in `unit`: tokens in and out, pictures, characters or seconds. */
+    amount: number;
+    unit: AiUnit;
     /** USD. 0 in test mode and for a model with no price. */
     costUsd: number;
     ms: number;
@@ -129,7 +262,17 @@ export interface AiUsage {
 }
 
 export type AskAiResult =
-    | { ok: true; data?: unknown; text?: string; usage: AiUsage; recordId: string | null }
+    | {
+        ok: true;
+        data?: unknown;
+        text?: string;
+        /** The files made, for a file kind. */
+        files?: AiFile[];
+        /** The answer came from Arc's own cache: no provider was called (AM-D16). */
+        cached?: boolean;
+        usage: AiUsage;
+        recordId: string | null;
+    }
     | {
         ok: false;
         reason: AiFailureReason;

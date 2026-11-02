@@ -6,7 +6,7 @@
  */
 import { findPreset } from '../presets.js';
 import { parseJsonAnswer, strictSchema, withoutAddedNulls } from '../schema.js';
-import { connectionBaseUrl } from '../settings.js';
+import { connectionAuth, connectionBaseUrl } from '../settings.js';
 import type { Connector, ConnectorRequest, ConnectorResult, AttemptUsage } from './types.js';
 
 /** The request body, as the provider gets it. */
@@ -55,13 +55,19 @@ export function chatBody(request: ConnectorRequest, options: ChatOptions = {}): 
 function usageOf(data: Record<string, unknown>): AttemptUsage {
     const u = (data['usage'] ?? {}) as Record<string, unknown>;
     const details = (u['completion_tokens_details'] ?? {}) as Record<string, unknown>;
+    const promptDetails = (u['prompt_tokens_details'] ?? {}) as Record<string, unknown>;
     const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0);
     const usage: AttemptUsage = { tokensIn: n(u['prompt_tokens']), tokensOut: n(u['completion_tokens']), tokensThinking: n(details['reasoning_tokens']) };
+    // Cached tokens are part of prompt_tokens (AM-D31); cache writes, where billed, too.
+    const cached = n(promptDetails['cached_tokens']) || n(u['prompt_cache_hit_tokens']);
+    const written = n(promptDetails['cache_write_tokens']) || n(u['cache_write_tokens']);
+    if (cached) usage.tokensCached = Math.min(cached, usage.tokensIn);
+    if (written) usage.tokensCacheWrite = Math.min(written, usage.tokensIn - (usage.tokensCached ?? 0));
     if (typeof u['cost'] === 'number' && Number.isFinite(u['cost'])) usage.costUsd = u['cost'];
     return usage;
 }
 
-function waitFrom(headers: Headers): number | undefined {
+export function waitFrom(headers: Headers): number | undefined {
     const raw = headers.get('retry-after');
     if (!raw) return undefined;
     const seconds = Number(raw);
@@ -71,7 +77,7 @@ function waitFrom(headers: Headers): number | undefined {
 }
 
 /** The provider's error message, short, without anything that looks like a key. */
-function errorText(body: unknown): string {
+export function errorText(body: unknown): string {
     const err = (body as { error?: unknown })?.error;
     const raw = typeof err === 'string' ? err : typeof (err as { message?: unknown })?.message === 'string' ? (err as { message: string }).message : JSON.stringify(body ?? '');
     return raw.replace(/(sk|hf|key|Bearer)[-_ ]?[A-Za-z0-9_-]{12,}/gi, '[key]').slice(0, 300);
@@ -109,10 +115,12 @@ export function readResponse(status: number, headers: Headers, body: unknown): C
         if (BLOCK_WORDS.test(detail) || BLOCK_WORDS.test(code)) return { ok: false, failure: 'blocked', detail };
         return { ok: false, failure: 'key-refused', detail: `the provider refused the key (${status}): ${detail}` };
     }
-    if (status === 402) return { ok: false, failure: 'unavailable', detail: `the provider account has no credit (402): ${detail}` };
+    if (status === 402 || code === 'insufficient_quota' || code === 'insufficient_quota_error') return { ok: false, failure: 'unavailable', detail: `the provider account has no credit (${status}): ${detail}`, outOfCredit: true };
     if (status === 404 || MODEL_GONE_WORDS.test(detail) || code === 'model_not_found') return { ok: false, failure: 'retired', detail: `the model is not there (${status}): ${detail}` };
     if (status === 413 || TOO_LARGE_WORDS.test(detail) || code.includes('context_length')) return { ok: false, failure: 'too-large', detail };
-    if (status === 429 || status === 408 || status >= 500) return { ok: false, failure: 'unavailable', detail: `${status}: ${detail}`, wait: waitFrom(headers) };
+    if (status === 429) return { ok: false, failure: 'unavailable', detail: `429: ${detail}`, wait: waitFrom(headers), rateLimited: true };
+    // 498 is Groq's "capacity exceeded".
+    if (status === 408 || status === 498 || status >= 500) return { ok: false, failure: 'unavailable', detail: `${status}: ${detail}`, wait: waitFrom(headers) };
     if (BLOCK_WORDS.test(detail) || BLOCK_WORDS.test(code)) return { ok: false, failure: 'blocked', detail };
     // Another 4xx: the request itself, which no other model would take either.
     return { ok: false, failure: 'unreadable', detail: `the provider refused the request (${status}): ${detail}` };
@@ -128,6 +136,7 @@ export const openAiConnector: Connector = async ({ connection, key }, request) =
     const base = connectionBaseUrl(connection);
     if (!base) return { ok: false, failure: 'off', detail: `connection ${connection.id} has no address it may call` };
     if (!key) return { ok: false, failure: 'off', detail: `connection ${connection.id} has no key` };
+    const auth = connectionAuth(connection);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), request.timeoutMs);
     try {
@@ -139,7 +148,7 @@ export const openAiConnector: Connector = async ({ connection, key }, request) =
         const send = async (o: ChatOptions) => {
             const response = await fetch(`${base}/chat/completions`, {
                 method: 'POST',
-                headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+                headers: { 'content-type': 'application/json', [auth.header]: `${auth.prefix}${key}` },
                 body: JSON.stringify(chatBody(request, o)),
                 signal: controller.signal,
                 redirect: 'error',

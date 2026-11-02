@@ -3,21 +3,21 @@
  * can read or write, not even an admin's. Admins set, replace and remove a key in Settings,
  * AI through admin-only callables; the page sees only its preview on the connection.
  *
- * A key is stored with the address it was set for. When the connection's address changes,
- * the key is not sent until it is set again, so changing an address cannot carry a key to
- * another server. Keys are read when a call needs one and kept in memory for a minute, so
+ * A key is stored with the address and the header it was set for (specs/ai-media-spec.md,
+ * AM-D8). When the connection's address or header changes, the key is not sent until it is
+ * set again, so changing either cannot carry a key to another server or another header. Keys are read when a call needs one and kept in memory for a minute, so
  * a new key works within a minute, with no deploy.
  */
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
-import { connectionBaseUrl, type AiConnection } from './settings.js';
+import { connectionAuth, connectionBaseUrl, type AiConnection } from './settings.js';
 
 export const AI_KEYS = 'AiKeys';
 const CACHE_MS = 60_000;
 export const MIN_KEY_LENGTH = 8;
 export const MAX_KEY_LENGTH = 400;
 
-const cache = new Map<string, { at: number; key: string | null; baseUrl: string; setAtIso: string }>();
+const cache = new Map<string, { at: number; key: string | null; baseUrl: string; header: string; setAtIso: string }>();
 
 /** What the admin page shows of a key: dots and its last 4 characters. */
 export function keyPreview(key: string): string {
@@ -50,6 +50,8 @@ export async function readKey(connection: AiConnection, now = Date.now(), option
             at: now,
             key: typeof data['key'] === 'string' ? data['key'] : null,
             baseUrl: typeof data['baseUrl'] === 'string' ? data['baseUrl'] : '',
+            // Keys set before headers were stored went in Authorization.
+            header: typeof data['header'] === 'string' && data['header'] ? data['header'] : 'authorization',
             setAtIso: typeof data['setAtIso'] === 'string' ? data['setAtIso'] : '',
         };
         cache.set(connection.id, entry);
@@ -59,12 +61,15 @@ export async function readKey(connection: AiConnection, now = Date.now(), option
     if (entry.baseUrl !== connectionBaseUrl(connection)) {
         return { ok: false, detail: `the key of connection ${connection.id} was set for another address: set it again in Settings, AI` };
     }
+    if (entry.header !== connectionAuth(connection).header) {
+        return { ok: false, detail: `the key of connection ${connection.id} was set for another header: set it again in Settings, AI` };
+    }
     return { ok: true, key: entry.key };
 }
 
-/** Store a key for a connection at its present address; `setAtIso` is the moment Settings, AI shows for it. */
+/** Store a key for a connection at its present address and header; `setAtIso` is the moment Settings, AI shows for it. */
 export async function storeKey(connection: AiConnection, key: string, setBy: string, setAtIso: string): Promise<void> {
-    await db.collection(AI_KEYS).doc(connection.id).set({ key, baseUrl: connectionBaseUrl(connection), setAt: Timestamp.now(), setAtIso, setBy });
+    await db.collection(AI_KEYS).doc(connection.id).set({ key, baseUrl: connectionBaseUrl(connection), header: connectionAuth(connection).header, setAt: Timestamp.now(), setAtIso, setBy });
     cache.delete(connection.id);
 }
 

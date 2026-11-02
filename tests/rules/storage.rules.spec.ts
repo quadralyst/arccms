@@ -190,6 +190,36 @@ describe('AI record files (docs/app/ai.html)', () => {
     });
 });
 
+describe('Files AI made (specs/ai-media-spec.md, AM-D9)', () => {
+    const editor = () => env.authenticatedContext('editor-uid', { arccms_role: 'editor' }).storage();
+    const pngType = { contentType: 'image/png' };
+    const paths = ['ai-files/cover/2026-11/r1-1.png', 'arccms/ai-files/cover/2026-11/r1-1.png', 'ai-files/_test/cover/2026-11/r2-1.png'];
+
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            for (const p of paths) await uploadBytes(ref(ctx.storage(), p), png, pngType);
+        });
+    });
+
+    it('are never public, at the bucket root or under the upload folder', async () => {
+        for (const p of paths) {
+            await assertFails(getBytes(ref(anon(), p)));
+            await assertFails(getBytes(ref(alice(), p)));
+            await assertFails(getBytes(ref(editor(), p)));
+        }
+    });
+
+    it('are read by admins', async () => {
+        for (const p of paths) await assertSucceeds(getBytes(ref(admin(), p)));
+    });
+
+    it('are written by the functions only, never from a browser', async () => {
+        await assertFails(uploadBytes(ref(admin(), 'ai-files/cover/2026-11/new.png'), png, pngType));
+        await assertFails(uploadBytes(ref(editor(), 'arccms/ai-files/cover/2026-11/new.png'), png, pngType));
+        await assertFails(deleteObject(ref(admin(), paths[0])));
+    });
+});
+
 describe('library files (docs/features/media.html, Files)', () => {
     const editor = () => env.authenticatedContext('editor-uid', { arccms_role: 'editor' }).storage();
     const pdf = { contentType: 'application/pdf' };

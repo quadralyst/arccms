@@ -134,7 +134,7 @@ const admin = (data: Data) => ({ auth: { uid: 'a1', token: { admin: true, email:
 const member = (data: Data) => ({ auth: { uid: 'm1', token: {} }, data }) as never;
 
 const call = (over: Partial<AiCallRecord> = {}): AiCallRecord => ({
-    purpose: 'menu-scan', tier: 'thorough', test: false, ref: null, limitKey: 'b1', units: 2, input: { chars: 0, files: 1, bytes: 10 },
+    purpose: 'menu-scan', kind: 'data', tier: 'thorough', test: false, ref: null, limitKey: 'b1', units: 2, input: { chars: 0, files: 1, bytes: 10 }, tokensCached: 0, tokensCacheWrite: 0, amount: 1100, unit: 'tokens',
     attempts: [], connection: 'qwen', model: 'qwen3.7-flash', tokensIn: 1000, tokensOut: 100, tokensThinking: 0, costUsd: 0.5, costFrom: 'price-list', ms: 900, outcome: 'ok', ...over,
 });
 
@@ -264,6 +264,19 @@ describe('keys', () => {
         expect(await readKey(moved)).toMatchObject({ ok: false, detail: expect.stringContaining('set for another address') });
     });
 
+    it('stops sending a key once the header it was set for changes (specs/ai-media-spec.md, AM-D8)', async () => {
+        await setAiKey(admin({ connection: 'qwen', key: 'sk-abcdefgh1234' }));
+        expect(h.docs.get('AiKeys/qwen')).toMatchObject({ header: 'authorization' });
+        const before = resolveAiSettings(h.docs.get('Settings/ai')).connections['qwen'];
+        forgetKeys();
+        h.docs.set('AiKeys/qwen', { ...h.docs.get('AiKeys/qwen'), header: 'x-api-key' });
+        expect(await readKey(before, Date.now(), { fresh: true })).toMatchObject({ ok: false, detail: expect.stringContaining('set for another header') });
+        // A key stored before headers were kept went in Authorization, and still works.
+        const { header: _gone, ...old } = h.docs.get('AiKeys/qwen') as Data;
+        h.docs.set('AiKeys/qwen', old);
+        expect(await readKey(before, Date.now(), { fresh: true })).toEqual({ ok: true, key: 'sk-abcdefgh1234' });
+    });
+
     it('removes a key and its preview, and the cleanup removes a key whose connection is gone', async () => {
         await setAiKey(admin({ connection: 'qwen', key: 'sk-abcdefgh1234' }));
         await removeAiKey(admin({ connection: 'qwen' }));
@@ -291,7 +304,10 @@ describe('aiSetupInfo', () => {
         const { purposes, presets } = await aiSetupInfo(admin({}));
         expect(presets.find((p: { id: string }) => p.id === 'alibaba-eu')).toMatchObject({ needsWorkspace: true, needsAddress: false, kind: 'openai', models: [{ model: 'qwen3-vl-plus', reads: ['pictures'], priceIn: 0.2, priceOut: 1.6 }] });
         expect(presets.find((p: { id: string }) => p.id === 'other')).toMatchObject({ needsAddress: true });
-        expect(purposes).toEqual([{ id: 'menu-scan', label: 'Menu scan', description: '', tier: 'fast', output: 'text', maxChars: 20000, pictures: { max: 5, maxMb: 10 }, pdfs: null, perKeyPerDay: 20, limitKeyLabel: 'merchant', timeoutSeconds: 60 }]);
+        expect(purposes).toEqual([{ id: 'menu-scan', label: 'Menu scan', description: '', tier: 'fast', output: 'text', maxChars: 20000, pictures: { max: 5, maxMb: 10 }, pdfs: null, perKeyPerDay: 20, limitKeyLabel: 'merchant', timeoutSeconds: 60, makes: 'text', allowanceIn: 'calls', saveTo: null, deleteAfterDays: null, cacheDays: 0, fallback: true }]);
+        expect(presets.find((p: { id: string }) => p.id === 'sarvam')).toMatchObject({ needsKey: true, keyHeader: 'api-subscription-key', currency: 'INR', testedLive: false, docsReadOn: '2026-11-02', perMinute: 60 });
+        expect(presets.find((p: { id: string }) => p.id === 'deepseek')).toMatchObject({ readsBalance: true, testedLive: true });
+        expect(presets.find((p: { id: string }) => p.id === 'vertex')).toMatchObject({ needsKey: false, label: 'Google Cloud (Vertex AI)' });
         expect(JSON.stringify(purposes)).not.toContain('SECRET');
         await expect(aiSetupInfo(member({}))).rejects.toThrow('Admin access required.');
     });

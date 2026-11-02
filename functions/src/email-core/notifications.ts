@@ -113,6 +113,16 @@ export const DEFAULT_NOTIFICATION_TYPES: Record<string, NotificationTypeConfig> 
     category: 'transactional', defaultChannels: { inApp: true, email: true },
     userConfigurable: false, enabled: true,
   },
+  admin_ai_balance: {
+    label: 'AI balance low (admin)', description: "An AI provider's balance fell below the low mark set in Settings, AI.",
+    category: 'transactional', defaultChannels: { inApp: true, email: true },
+    userConfigurable: false, enabled: true,
+  },
+  admin_ai_credit: {
+    label: 'AI credit gone (admin)', description: 'An AI provider says its account has no credit left.',
+    category: 'transactional', defaultChannels: { inApp: true, email: true },
+    userConfigurable: false, enabled: true,
+  },
   admin_webhook_failure: {
     label: 'Webhook failure (admin)', description: 'A provider webhook failed to process.',
     category: 'transactional', defaultChannels: { inApp: true, email: true },

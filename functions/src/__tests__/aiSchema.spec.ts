@@ -172,7 +172,7 @@ describe('resolveAiSettings', () => {
         expect(Object.keys(s.connections)).toEqual(['qwen']);
         expect(s.connections['qwen'].label).toBe('Alibaba Cloud Model Studio, Frankfurt (EU)');
         expect(s.tiers.fast).toEqual([{ connection: 'qwen', model: 'qwen3-vl-plus' }]);
-        expect(s.purposes['menu-scan']).toEqual({ enabled: false, models: [{ connection: 'qwen', model: 'qwen3-vl-plus' }], perKeyPerDay: null, keepContent: true });
+        expect(s.purposes['menu-scan']).toEqual({ enabled: false, models: [{ connection: 'qwen', model: 'qwen3-vl-plus' }], perKeyPerDay: null, keepContent: true, cache: null, deleteAfterDays: null });
         expect(s.models['qwen/other']).toEqual({ reads: ['pictures'], schema: undefined, priceIn: undefined, priceOut: 2 });
         expect(s.budget.monthlyUsd).toBe(20);
     });
@@ -190,8 +190,8 @@ describe('models and addresses', () => {
     });
 
     it('knows the preset models, with the admin\'s word first', () => {
-        expect(modelInfo(s, { connection: 'qwen', model: 'qwen3-vl-plus' })).toEqual({ reads: ['pictures'], schema: 'json', priceIn: 0.3, priceOut: 1.6 });
-        expect(modelInfo(s, { connection: 'mine', model: 'anything' })).toEqual({ reads: [], schema: 'json', priceIn: undefined, priceOut: undefined });
+        expect(modelInfo(s, { connection: 'qwen', model: 'qwen3-vl-plus' })).toMatchObject({ makes: 'text', unit: 'tokens', reads: ['pictures'], schema: 'json', priceIn: 0.3, priceOut: 1.6, currency: 'USD', usdRate: 1, testedLive: true });
+        expect(modelInfo(s, { connection: 'mine', model: 'anything' })).toMatchObject({ makes: 'text', unit: 'tokens', reads: [], schema: 'json', priceIn: undefined, priceOut: undefined });
         expect(modelInfo(s, { connection: 'g', model: 'gemini-3.8-flash' }).schema).toBe('strict');
     });
 

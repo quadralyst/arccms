@@ -906,6 +906,7 @@ export type TranslationKey =
     | 'admin.settings.ai.add_model'
     | 'admin.settings.ai.address'
     | 'admin.settings.ai.address_change_note'
+    | 'admin.settings.ai.address_header_change_note'
     | 'admin.settings.ai.advice_address'
     | 'admin.settings.ai.advice_busy'
     | 'admin.settings.ai.advice_credit'
@@ -924,22 +925,46 @@ export type TranslationKey =
     | 'admin.settings.ai.allowance'
     | 'admin.settings.ai.allowance_hint'
     | 'admin.settings.ai.allowance_who'
+    | 'admin.settings.ai.amount'
+    | 'admin.settings.ai.amount_characters'
+    | 'admin.settings.ai.amount_pictures'
+    | 'admin.settings.ai.amount_seconds'
     | 'admin.settings.ai.answer'
     | 'admin.settings.ai.answered'
+    | 'admin.settings.ai.at_once'
+    | 'admin.settings.ai.balance'
+    | 'admin.settings.ai.balance_failed'
+    | 'admin.settings.ai.balance_no_limit'
+    | 'admin.settings.ai.balance_not_read'
+    | 'admin.settings.ai.billing'
+    | 'admin.settings.ai.bills_by'
     | 'admin.settings.ai.blurb_alibaba_eu'
+    | 'admin.settings.ai.blurb_anthropic'
     | 'admin.settings.ai.blurb_deepseek'
+    | 'admin.settings.ai.blurb_gemini_api'
+    | 'admin.settings.ai.blurb_groq'
     | 'admin.settings.ai.blurb_huggingface'
+    | 'admin.settings.ai.blurb_mistral'
+    | 'admin.settings.ai.blurb_mistral_eu'
     | 'admin.settings.ai.blurb_openai'
     | 'admin.settings.ai.blurb_openai_eu'
     | 'admin.settings.ai.blurb_openrouter'
     | 'admin.settings.ai.blurb_other'
+    | 'admin.settings.ai.blurb_sarvam'
     | 'admin.settings.ai.blurb_vertex'
+    | 'admin.settings.ai.blurb_xai'
     | 'admin.settings.ai.budget'
     | 'admin.settings.ai.budget_hint'
     | 'admin.settings.ai.by_day'
     | 'admin.settings.ai.by_key'
+    | 'admin.settings.ai.by_kind'
     | 'admin.settings.ai.by_model'
     | 'admin.settings.ai.by_purpose'
+    | 'admin.settings.ai.cache'
+    | 'admin.settings.ai.cache_hint'
+    | 'admin.settings.ai.cache_hits'
+    | 'admin.settings.ai.cached_from'
+    | 'admin.settings.ai.call_cached_tokens'
     | 'admin.settings.ai.calls'
     | 'admin.settings.ai.calls_failed'
     | 'admin.settings.ai.calls_hint'
@@ -967,18 +992,28 @@ export type TranslationKey =
     | 'admin.settings.ai.csv_failed'
     | 'admin.settings.ai.csv_truncated'
     | 'admin.settings.ai.day'
+    | 'admin.settings.ai.delete_after'
+    | 'admin.settings.ai.delete_after_hint_app'
+    | 'admin.settings.ai.delete_after_hint_none'
     | 'admin.settings.ai.details'
     | 'admin.settings.ai.download'
     | 'admin.settings.ai.easiest'
     | 'admin.settings.ai.edit'
     | 'admin.settings.ai.failed'
     | 'admin.settings.ai.failed_count'
+    | 'admin.settings.ai.file_failed'
     | 'admin.settings.ai.file_gone'
+    | 'admin.settings.ai.file_moved'
+    | 'admin.settings.ai.files_made'
+    | 'admin.settings.ai.files_to_app'
+    | 'admin.settings.ai.files_to_arc'
     | 'admin.settings.ai.filter_outcome'
     | 'admin.settings.ai.filter_purpose'
+    | 'admin.settings.ai.from_cache'
     | 'admin.settings.ai.get_started'
     | 'admin.settings.ai.gives_data'
     | 'admin.settings.ai.gives_text'
+    | 'admin.settings.ai.guide_add_credit'
     | 'admin.settings.ai.guide_alibaba_1'
     | 'admin.settings.ai.guide_alibaba_2'
     | 'admin.settings.ai.guide_alibaba_3'
@@ -987,6 +1022,7 @@ export type TranslationKey =
     | 'admin.settings.ai.guide_huggingface_1'
     | 'admin.settings.ai.guide_huggingface_2'
     | 'admin.settings.ai.guide_huggingface_3'
+    | 'admin.settings.ai.guide_key_page'
     | 'admin.settings.ai.guide_openai_1'
     | 'admin.settings.ai.guide_openai_2'
     | 'admin.settings.ai.guide_openai_3'
@@ -997,9 +1033,11 @@ export type TranslationKey =
     | 'admin.settings.ai.guide_openrouter_4'
     | 'admin.settings.ai.guide_other_1'
     | 'admin.settings.ai.guide_other_2'
+    | 'admin.settings.ai.guide_sarvam_rate'
     | 'admin.settings.ai.guide_vertex_1'
     | 'admin.settings.ai.guide_vertex_2'
     | 'admin.settings.ai.guide_vertex_3'
+    | 'admin.settings.ai.header_invalid'
     | 'admin.settings.ai.hide_key'
     | 'admin.settings.ai.in_out'
     | 'admin.settings.ai.input_size'
@@ -1009,18 +1047,38 @@ export type TranslationKey =
     | 'admin.settings.ai.keep_content_hint'
     | 'admin.settings.ai.key'
     | 'admin.settings.ai.key_column'
+    | 'admin.settings.ai.key_header'
+    | 'admin.settings.ai.key_header_custom'
+    | 'admin.settings.ai.key_header_name'
     | 'admin.settings.ai.key_placeholder'
     | 'admin.settings.ai.key_prefix_warning'
     | 'admin.settings.ai.key_safe'
     | 'admin.settings.ai.key_set'
     | 'admin.settings.ai.key_units'
+    | 'admin.settings.ai.kind'
+    | 'admin.settings.ai.kind_audio'
+    | 'admin.settings.ai.kind_data'
+    | 'admin.settings.ai.kind_image'
+    | 'admin.settings.ai.kind_speech'
+    | 'admin.settings.ai.kind_text'
+    | 'admin.settings.ai.kind_video'
     | 'admin.settings.ai.last_ok'
+    | 'admin.settings.ai.limits_hint'
+    | 'admin.settings.ai.list_audio'
+    | 'admin.settings.ai.list_image'
+    | 'admin.settings.ai.list_speech'
+    | 'admin.settings.ai.list_video'
+    | 'admin.settings.ai.lists_hint'
+    | 'admin.settings.ai.lists_title'
     | 'admin.settings.ai.live_not_ready'
     | 'admin.settings.ai.load_failed'
     | 'admin.settings.ai.loading'
     | 'admin.settings.ai.loading_content'
     | 'admin.settings.ai.location'
     | 'admin.settings.ai.location_hint'
+    | 'admin.settings.ai.low_balance'
+    | 'admin.settings.ai.low_balance_hint'
+    | 'admin.settings.ai.makes'
     | 'admin.settings.ai.missing_address'
     | 'admin.settings.ai.missing_key'
     | 'admin.settings.ai.missing_model'
@@ -1043,10 +1101,13 @@ export type TranslationKey =
     | 'admin.settings.ai.no_calls'
     | 'admin.settings.ai.no_key'
     | 'admin.settings.ai.no_key_needed'
+    | 'admin.settings.ai.no_limit'
     | 'admin.settings.ai.no_price'
     | 'admin.settings.ai.no_providers'
     | 'admin.settings.ai.no_purposes'
     | 'admin.settings.ai.no_usage'
+    | 'admin.settings.ai.not_tested_live'
+    | 'admin.settings.ai.not_tested_live_hint'
     | 'admin.settings.ai.nothing_uses_ai'
     | 'admin.settings.ai.nothing_uses_ai_title'
     | 'admin.settings.ai.of_budget'
@@ -1054,15 +1115,25 @@ export type TranslationKey =
     | 'admin.settings.ai.only_test_usage'
     | 'admin.settings.ai.open'
     | 'admin.settings.ai.open_page'
+    | 'admin.settings.ai.per_minute'
     | 'admin.settings.ai.pictures'
+    | 'admin.settings.ai.price_cache_write'
+    | 'admin.settings.ai.price_cached_in'
     | 'admin.settings.ai.price_in'
     | 'admin.settings.ai.price_out'
+    | 'admin.settings.ai.price_per_characters'
+    | 'admin.settings.ai.price_per_pictures'
+    | 'admin.settings.ai.price_per_seconds'
     | 'admin.settings.ai.price_reported'
+    | 'admin.settings.ai.prices'
+    | 'admin.settings.ai.prices_checked'
+    | 'admin.settings.ai.prices_in_currency'
     | 'admin.settings.ai.processes_in'
     | 'admin.settings.ai.provider'
     | 'admin.settings.ai.providers'
     | 'admin.settings.ai.providers_hint'
     | 'admin.settings.ai.purpose'
+    | 'admin.settings.ai.rate_missing'
     | 'admin.settings.ai.reads'
     | 'admin.settings.ai.recommended_for'
     | 'admin.settings.ai.refresh'
@@ -1115,12 +1186,21 @@ export type TranslationKey =
     | 'admin.settings.ai.tier_thorough_hint'
     | 'admin.settings.ai.title'
     | 'admin.settings.ai.tokens'
+    | 'admin.settings.ai.tokens_cached'
+    | 'admin.settings.ai.tokens_cached_count'
     | 'admin.settings.ai.tokens_in'
     | 'admin.settings.ai.tokens_out'
+    | 'admin.settings.ai.unit_calls'
+    | 'admin.settings.ai.unit_characters'
+    | 'admin.settings.ai.unit_pictures'
+    | 'admin.settings.ai.unit_seconds'
+    | 'admin.settings.ai.unit_tokens'
     | 'admin.settings.ai.unpriced_badge'
     | 'admin.settings.ai.unpriced_warning'
     | 'admin.settings.ai.unsaved'
     | 'admin.settings.ai.usage_failed'
+    | 'admin.settings.ai.usd_rate'
+    | 'admin.settings.ai.usd_rate_hint'
     | 'admin.settings.ai.use_own'
     | 'admin.settings.ai.use_recommended'
     | 'admin.settings.ai.use_tier'
@@ -3223,6 +3303,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.add_model',
     'admin.settings.ai.address',
     'admin.settings.ai.address_change_note',
+    'admin.settings.ai.address_header_change_note',
     'admin.settings.ai.advice_address',
     'admin.settings.ai.advice_busy',
     'admin.settings.ai.advice_credit',
@@ -3241,22 +3322,46 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.allowance',
     'admin.settings.ai.allowance_hint',
     'admin.settings.ai.allowance_who',
+    'admin.settings.ai.amount',
+    'admin.settings.ai.amount_characters',
+    'admin.settings.ai.amount_pictures',
+    'admin.settings.ai.amount_seconds',
     'admin.settings.ai.answer',
     'admin.settings.ai.answered',
+    'admin.settings.ai.at_once',
+    'admin.settings.ai.balance',
+    'admin.settings.ai.balance_failed',
+    'admin.settings.ai.balance_no_limit',
+    'admin.settings.ai.balance_not_read',
+    'admin.settings.ai.billing',
+    'admin.settings.ai.bills_by',
     'admin.settings.ai.blurb_alibaba_eu',
+    'admin.settings.ai.blurb_anthropic',
     'admin.settings.ai.blurb_deepseek',
+    'admin.settings.ai.blurb_gemini_api',
+    'admin.settings.ai.blurb_groq',
     'admin.settings.ai.blurb_huggingface',
+    'admin.settings.ai.blurb_mistral',
+    'admin.settings.ai.blurb_mistral_eu',
     'admin.settings.ai.blurb_openai',
     'admin.settings.ai.blurb_openai_eu',
     'admin.settings.ai.blurb_openrouter',
     'admin.settings.ai.blurb_other',
+    'admin.settings.ai.blurb_sarvam',
     'admin.settings.ai.blurb_vertex',
+    'admin.settings.ai.blurb_xai',
     'admin.settings.ai.budget',
     'admin.settings.ai.budget_hint',
     'admin.settings.ai.by_day',
     'admin.settings.ai.by_key',
+    'admin.settings.ai.by_kind',
     'admin.settings.ai.by_model',
     'admin.settings.ai.by_purpose',
+    'admin.settings.ai.cache',
+    'admin.settings.ai.cache_hint',
+    'admin.settings.ai.cache_hits',
+    'admin.settings.ai.cached_from',
+    'admin.settings.ai.call_cached_tokens',
     'admin.settings.ai.calls',
     'admin.settings.ai.calls_failed',
     'admin.settings.ai.calls_hint',
@@ -3284,18 +3389,28 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.csv_failed',
     'admin.settings.ai.csv_truncated',
     'admin.settings.ai.day',
+    'admin.settings.ai.delete_after',
+    'admin.settings.ai.delete_after_hint_app',
+    'admin.settings.ai.delete_after_hint_none',
     'admin.settings.ai.details',
     'admin.settings.ai.download',
     'admin.settings.ai.easiest',
     'admin.settings.ai.edit',
     'admin.settings.ai.failed',
     'admin.settings.ai.failed_count',
+    'admin.settings.ai.file_failed',
     'admin.settings.ai.file_gone',
+    'admin.settings.ai.file_moved',
+    'admin.settings.ai.files_made',
+    'admin.settings.ai.files_to_app',
+    'admin.settings.ai.files_to_arc',
     'admin.settings.ai.filter_outcome',
     'admin.settings.ai.filter_purpose',
+    'admin.settings.ai.from_cache',
     'admin.settings.ai.get_started',
     'admin.settings.ai.gives_data',
     'admin.settings.ai.gives_text',
+    'admin.settings.ai.guide_add_credit',
     'admin.settings.ai.guide_alibaba_1',
     'admin.settings.ai.guide_alibaba_2',
     'admin.settings.ai.guide_alibaba_3',
@@ -3304,6 +3419,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.guide_huggingface_1',
     'admin.settings.ai.guide_huggingface_2',
     'admin.settings.ai.guide_huggingface_3',
+    'admin.settings.ai.guide_key_page',
     'admin.settings.ai.guide_openai_1',
     'admin.settings.ai.guide_openai_2',
     'admin.settings.ai.guide_openai_3',
@@ -3314,9 +3430,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.guide_openrouter_4',
     'admin.settings.ai.guide_other_1',
     'admin.settings.ai.guide_other_2',
+    'admin.settings.ai.guide_sarvam_rate',
     'admin.settings.ai.guide_vertex_1',
     'admin.settings.ai.guide_vertex_2',
     'admin.settings.ai.guide_vertex_3',
+    'admin.settings.ai.header_invalid',
     'admin.settings.ai.hide_key',
     'admin.settings.ai.in_out',
     'admin.settings.ai.input_size',
@@ -3326,18 +3444,38 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.keep_content_hint',
     'admin.settings.ai.key',
     'admin.settings.ai.key_column',
+    'admin.settings.ai.key_header',
+    'admin.settings.ai.key_header_custom',
+    'admin.settings.ai.key_header_name',
     'admin.settings.ai.key_placeholder',
     'admin.settings.ai.key_prefix_warning',
     'admin.settings.ai.key_safe',
     'admin.settings.ai.key_set',
     'admin.settings.ai.key_units',
+    'admin.settings.ai.kind',
+    'admin.settings.ai.kind_audio',
+    'admin.settings.ai.kind_data',
+    'admin.settings.ai.kind_image',
+    'admin.settings.ai.kind_speech',
+    'admin.settings.ai.kind_text',
+    'admin.settings.ai.kind_video',
     'admin.settings.ai.last_ok',
+    'admin.settings.ai.limits_hint',
+    'admin.settings.ai.list_audio',
+    'admin.settings.ai.list_image',
+    'admin.settings.ai.list_speech',
+    'admin.settings.ai.list_video',
+    'admin.settings.ai.lists_hint',
+    'admin.settings.ai.lists_title',
     'admin.settings.ai.live_not_ready',
     'admin.settings.ai.load_failed',
     'admin.settings.ai.loading',
     'admin.settings.ai.loading_content',
     'admin.settings.ai.location',
     'admin.settings.ai.location_hint',
+    'admin.settings.ai.low_balance',
+    'admin.settings.ai.low_balance_hint',
+    'admin.settings.ai.makes',
     'admin.settings.ai.missing_address',
     'admin.settings.ai.missing_key',
     'admin.settings.ai.missing_model',
@@ -3360,10 +3498,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.no_calls',
     'admin.settings.ai.no_key',
     'admin.settings.ai.no_key_needed',
+    'admin.settings.ai.no_limit',
     'admin.settings.ai.no_price',
     'admin.settings.ai.no_providers',
     'admin.settings.ai.no_purposes',
     'admin.settings.ai.no_usage',
+    'admin.settings.ai.not_tested_live',
+    'admin.settings.ai.not_tested_live_hint',
     'admin.settings.ai.nothing_uses_ai',
     'admin.settings.ai.nothing_uses_ai_title',
     'admin.settings.ai.of_budget',
@@ -3371,15 +3512,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.only_test_usage',
     'admin.settings.ai.open',
     'admin.settings.ai.open_page',
+    'admin.settings.ai.per_minute',
     'admin.settings.ai.pictures',
+    'admin.settings.ai.price_cache_write',
+    'admin.settings.ai.price_cached_in',
     'admin.settings.ai.price_in',
     'admin.settings.ai.price_out',
+    'admin.settings.ai.price_per_characters',
+    'admin.settings.ai.price_per_pictures',
+    'admin.settings.ai.price_per_seconds',
     'admin.settings.ai.price_reported',
+    'admin.settings.ai.prices',
+    'admin.settings.ai.prices_checked',
+    'admin.settings.ai.prices_in_currency',
     'admin.settings.ai.processes_in',
     'admin.settings.ai.provider',
     'admin.settings.ai.providers',
     'admin.settings.ai.providers_hint',
     'admin.settings.ai.purpose',
+    'admin.settings.ai.rate_missing',
     'admin.settings.ai.reads',
     'admin.settings.ai.recommended_for',
     'admin.settings.ai.refresh',
@@ -3432,12 +3583,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.tier_thorough_hint',
     'admin.settings.ai.title',
     'admin.settings.ai.tokens',
+    'admin.settings.ai.tokens_cached',
+    'admin.settings.ai.tokens_cached_count',
     'admin.settings.ai.tokens_in',
     'admin.settings.ai.tokens_out',
+    'admin.settings.ai.unit_calls',
+    'admin.settings.ai.unit_characters',
+    'admin.settings.ai.unit_pictures',
+    'admin.settings.ai.unit_seconds',
+    'admin.settings.ai.unit_tokens',
     'admin.settings.ai.unpriced_badge',
     'admin.settings.ai.unpriced_warning',
     'admin.settings.ai.unsaved',
     'admin.settings.ai.usage_failed',
+    'admin.settings.ai.usd_rate',
+    'admin.settings.ai.usd_rate_hint',
     'admin.settings.ai.use_own',
     'admin.settings.ai.use_recommended',
     'admin.settings.ai.use_tier',

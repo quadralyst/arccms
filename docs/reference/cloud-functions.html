@@ -374,7 +374,9 @@
         <tr><td><code>setAiKey</code></td><td>Callable</td><td>Admin</td><td>Stores a provider's key in <code>AiKeys</code>, tied to its present address, and writes only its preview to <code>Settings/ai</code>.</td></tr>
         <tr><td><code>removeAiKey</code></td><td>Callable</td><td>Admin</td><td>Deletes a provider's key and its preview.</td></tr>
         <tr><td><code>testAiConnection</code></td><td>Callable</td><td>Admin</td><td>Makes one tiny live call to a provider and model, even in test mode, and records it as <code>arc-connection-test</code>.</td></tr>
-        <tr><td><code>cleanUpAi</code></td><td>Scheduled, daily 03:15 UTC</td><td>Cloud Scheduler</td><td>Deletes records older than 60 days with their files, totals older than 24 months, spent allowance counters, and keys whose provider is gone.</td></tr>
+        <tr><td><code>cleanUpAi</code></td><td>Scheduled, daily 03:15 UTC</td><td>Cloud Scheduler</td><td>Deletes records older than 60 days with their files, totals older than 24 months, spent allowance counters, and keys whose provider is gone; deletes files left in <code>ai-files/</code> past their purpose's days, test files after a day, and cache entries past their days; reads each provider's balance where its key can.</td></tr>
+        <tr><td><code>readAiFile</code></td><td>Callable</td><td>Admin, Settings, AI</td><td>Returns one file from <code>ai-files/</code> or <code>ai-calls/</code> as base64, up to 7 MB, so the Calls tab can show a picture or play a sound.</td></tr>
+        <tr><td><code>refreshAiBalance</code></td><td>Callable</td><td>Admin, Settings, AI</td><td>Reads one provider's balance with its key, for providers whose key can (DeepSeek, an OpenRouter key's own limit), stores it on the connection and alerts admins below the low mark.</td></tr>
       </tbody>
     </table>
 

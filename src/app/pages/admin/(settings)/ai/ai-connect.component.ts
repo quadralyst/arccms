@@ -9,7 +9,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, OnInit, ou
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { failureAdvice, PROVIDER_GUIDES, type ProviderGuide } from './ai-provider-guide';
-import { AiConnectionForm, AiPresetInfo, AiSettingsService, connectionId } from './ai-settings.service';
+import { AiConnectionForm, AiPresetInfo, AiSettingsService, blankConnection, connectionId, KEY_HEADERS, presetNeedsKey, safeHeaderName } from './ai-settings.service';
 
 /** What a finished connect hands back to the page. */
 export interface AiConnected {
@@ -44,6 +44,7 @@ type Phase = 'idle' | 'saving' | 'testing' | 'done' | 'failed';
                                     <strong>{{ p.label }}</strong>
                                     @if (guideFor(p.id)?.easiest) { <span class="badge text-bg-success ms-1">{{ 'admin.settings.ai.easiest' | transloco }}</span> }
                                     @if (p.kind === 'vertex') { <span class="badge text-bg-secondary ms-1">{{ 'admin.settings.ai.no_key_needed' | transloco }}</span> }
+                                    @if (p.testedLive === false) { <span class="badge text-bg-light border ms-1 untested-live">{{ 'admin.settings.ai.not_tested_live' | transloco }}</span> }
                                     <span class="d-block small text-muted">{{ 'admin.settings.ai.blurb_' + slug(p.id) | transloco }}</span>
                                     <span class="d-block small"><i class="fa-solid fa-location-dot me-1"></i>{{ 'admin.settings.ai.processes_in' | transloco: { place: p.processesIn } }}</span>
                                 </span>
@@ -60,7 +61,7 @@ type Phase = 'idle' | 'saving' | 'testing' | 'done' | 'failed';
                     <ol class="guide small mb-3">
                         @for (s of guide()?.steps ?? []; track s.key) {
                             <li>
-                                {{ 'admin.settings.ai.' + s.key | transloco }}
+                                {{ 'admin.settings.ai.' + s.key | transloco: { name: p.label } }}
                                 @if (s.url) { <a [href]="s.url" target="_blank" rel="noopener" class="ms-1 text-nowrap">{{ 'admin.settings.ai.open_page' | transloco }} <i class="fa-solid fa-arrow-up-right-from-square small"></i></a> }
                             </li>
                         }
@@ -83,6 +84,19 @@ type Phase = 'idle' | 'saving' | 'testing' | 'done' | 'failed';
                                 <label class="form-label small mb-1" for="aiConnectWhere">{{ 'admin.settings.ai.where' | transloco }}</label>
                                 <input id="aiConnectWhere" class="form-control" [ngModel]="where()" (ngModelChange)="where.set($event)" />
                             </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small mb-1" for="aiConnectHeader">{{ 'admin.settings.ai.key_header' | transloco }}</label>
+                                <select id="aiConnectHeader" class="form-select" [ngModel]="headerChoice()" (ngModelChange)="headerChoice.set($event)">
+                                    @for (h of keyHeaders; track h) { <option [value]="h">{{ h || 'Authorization: Bearer' }}</option> }
+                                    <option value="custom">{{ 'admin.settings.ai.key_header_custom' | transloco }}</option>
+                                </select>
+                            </div>
+                            @if (headerChoice() === 'custom') {
+                                <div class="col-sm-6">
+                                    <label class="form-label small mb-1" for="aiConnectHeaderName">{{ 'admin.settings.ai.key_header_name' | transloco }}</label>
+                                    <input id="aiConnectHeaderName" class="form-control" autocomplete="off" spellcheck="false" placeholder="x-my-key" [ngModel]="customHeader()" (ngModelChange)="customHeader.set($event)" />
+                                </div>
+                            }
                         }
                         @if (p.kind === 'vertex' && !existing()) {
                             <div class="col-sm-6">
@@ -91,7 +105,7 @@ type Phase = 'idle' | 'saving' | 'testing' | 'done' | 'failed';
                                 <small class="text-muted">{{ 'admin.settings.ai.location_hint' | transloco }}</small>
                             </div>
                         }
-                        @if (p.kind === 'openai') {
+                        @if (needsKey(p)) {
                             <div class="col-12">
                                 <label class="form-label small mb-1" for="aiConnectKey">{{ 'admin.settings.ai.key' | transloco }}</label>
                                 <div class="input-group">
@@ -166,6 +180,10 @@ export class AiConnectComponent implements OnInit {
     readonly key = signal('');
     readonly showKey = signal(false);
     readonly model = signal('');
+    /** Other only: the header its key goes in (AM-D8); 'custom' takes the name typed. */
+    readonly headerChoice = signal<string>('');
+    readonly customHeader = signal('');
+    readonly keyHeaders = KEY_HEADERS;
     readonly phase = signal<Phase>('idle');
     readonly advice = signal('advice_other');
     readonly detail = signal('');
@@ -183,6 +201,8 @@ export class AiConnectComponent implements OnInit {
     readonly preset = computed(() => this.presets().find((p) => p.id === this.presetId()));
     readonly guide = computed<ProviderGuide | undefined>(() => PROVIDER_GUIDES[this.presetId()]);
     readonly busy = computed(() => this.phase() === 'saving' || this.phase() === 'testing');
+    /** The header Other's key goes in, as saved: '' is Authorization (Bearer). */
+    readonly header = computed(() => (this.headerChoice() === 'custom' ? this.customHeader().trim().toLowerCase() : this.headerChoice()));
     readonly prefixWarning = computed(() => {
         const prefix = this.guide()?.keyPrefix;
         const k = this.key().trim();
@@ -194,11 +214,17 @@ export class AiConnectComponent implements OnInit {
         if (!p) return 'admin.settings.ai.missing_provider';
         if (!this.existing() && p.needsWorkspace && !this.workspace().trim()) return 'admin.settings.ai.missing_workspace';
         if (!this.existing() && p.needsAddress && !/^https:\/\/\S+$/.test(this.baseUrl().trim())) return 'admin.settings.ai.missing_address';
-        if (p.kind === 'openai' && this.key().trim().length < 8) return 'admin.settings.ai.missing_key';
+        if (!this.existing() && p.needsAddress && this.header() && !safeHeaderName(this.header())) return 'admin.settings.ai.header_invalid';
+        if (!this.existing() && p.needsAddress && this.headerChoice() === 'custom' && !this.header()) return 'admin.settings.ai.header_invalid';
+        if (this.needsKey(p) && this.key().trim().length < 8) return 'admin.settings.ai.missing_key';
         if (!this.model().trim()) return 'admin.settings.ai.missing_model';
         return '';
     });
     readonly ready = computed(() => this.missing() === '');
+
+    needsKey(p: AiPresetInfo): boolean {
+        return presetNeedsKey(p);
+    }
 
     guideFor(id: string): ProviderGuide | undefined {
         return PROVIDER_GUIDES[id];
@@ -229,24 +255,20 @@ export class AiConnectComponent implements OnInit {
         const existing = this.existing();
         this.phase.set('saving');
         this.detail.set('');
-        const fields = { workspace: this.workspace().trim(), baseUrl: this.baseUrl().trim(), location: this.location().trim(), processesIn: this.where().trim() };
+        const fields = { workspace: this.workspace().trim(), baseUrl: this.baseUrl().trim(), location: this.location().trim(), processesIn: this.where().trim(), header: p.needsAddress ? this.header() : '' };
         let base = existing ?? this.savedConnection;
         try {
             // New, or saved by a try whose workspace or address the admin has since corrected: save it (again).
             const changed = !existing && base && (Object.keys(fields) as Array<keyof typeof fields>).some((k) => base![k] !== fields[k]);
             if (!base || changed) {
-                base = {
-                    id: base?.id ?? connectionId(p.label, this.takenIds()),
-                    preset: p.id, label: base?.label ?? p.label, ...fields,
-                    keyPreview: null, keySetAt: null, keySetBy: null, lastOkAt: null, lastError: null,
-                };
+                base = blankConnection({ id: base?.id ?? connectionId(p.label, this.takenIds()), preset: p.id, label: base?.label ?? p.label, ...fields });
                 await this.service.saveConnection(base);
                 this.savedConnection = base;
                 this.keySent = '';
                 this.saved.emit(base);
             }
             const key = this.key().trim();
-            if (p.kind === 'openai' && key !== this.keySent) {
+            if (this.needsKey(p) && key !== this.keySent) {
                 base = { ...base, ...(await this.service.setKey(base.id, key)), lastError: null };
                 if (!existing) this.savedConnection = base;
                 this.keySent = key;

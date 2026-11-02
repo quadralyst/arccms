@@ -1,7 +1,9 @@
 /**
  * Every day: AI records older than 60 days with their files, monthly totals older than 24
  * months, the allowance counters of months that are over, and keys whose connection is gone
- * (specs/ai-spec.md, AI-D12).
+ * (specs/ai-spec.md, AI-D12); files left in `ai-files/` past their purpose's days, test files
+ * after a day, cache entries past their days, and each connection's balance where its key
+ * can read one (specs/ai-media-spec.md, AM-D10, AM-D16, AM-D32).
  */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -10,7 +12,12 @@ import { db, storage } from '../../init.js';
 import { AI_KEYS } from '../keys.js';
 import { AI_USAGE, currentSiteDay } from '../limits.js';
 import { AI_CALLS, aiCallFolder, contentDoc, KEEP_DAYS } from '../records.js';
-import { readAiSettings, forgetAiSettings } from '../settings.js';
+import { readAiSettings, forgetAiSettings, purposeSettings } from '../settings.js';
+import { refreshBalance } from '../balances.js';
+import { purgeAiCache } from '../cache.js';
+import { purgeAiFiles } from '../files.js';
+import { findPreset } from '../presets.js';
+import { aiPurposes, isFileKind, purposeKind } from '../purposes.js';
 
 export const KEEP_TOTALS_MONTHS = 24;
 const BATCH = 300;
@@ -69,9 +76,38 @@ export async function purgeOrphanKeys(): Promise<number> {
     return orphans.length;
 }
 
+/** Each file purpose's days before its files in `ai-files/` go: the admin's, else the purpose's. */
+export async function fileDaysByPurpose(): Promise<Record<string, number>> {
+    const settings = await readAiSettings();
+    const days: Record<string, number> = {};
+    for (const [id, p] of Object.entries(aiPurposes())) {
+        if (!isFileKind(purposeKind(p))) continue;
+        const d = purposeSettings(settings, id).deleteAfterDays ?? p.deleteAfterDays;
+        if (d) days[id] = d;
+    }
+    return days;
+}
+
+/** Read every connection's balance that its key can read; one failing never stops the others. */
+export async function refreshBalances(): Promise<number> {
+    forgetAiSettings();
+    const settings = await readAiSettings();
+    let read = 0;
+    for (const connection of Object.values(settings.connections)) {
+        if (!findPreset(connection.preset)?.balance || !connection.keyPreview) continue;
+        const r = await refreshBalance(connection).catch((err: unknown) => ({ ok: false as const, detail: String(err) }));
+        if (r.ok) read++;
+        else console.log(`cleanUpAi: the balance of ${connection.id} was not read: ${r.detail}`);
+    }
+    return read;
+}
+
 export const cleanUpAi = onSchedule({ schedule: 'every day 03:15', timeZone: 'UTC' }, async () => {
     const records = await purgeAiCalls();
     await purgeAiUsage();
     const keys = await purgeOrphanKeys();
-    console.log(`cleanUpAi: ${records} records and ${keys} unused keys deleted`);
+    const files = await purgeAiFiles(await fileDaysByPurpose()).catch((err: unknown) => (console.error('cleanUpAi: files not purged', err), 0));
+    const cached = await purgeAiCache().catch((err: unknown) => (console.error('cleanUpAi: cache not purged', err), 0));
+    const balances = await refreshBalances().catch((err: unknown) => (console.error('cleanUpAi: balances not read', err), 0));
+    console.log(`cleanUpAi: ${records} records, ${keys} unused keys, ${files} files and ${cached} cache entries deleted; ${balances} balances read`);
 });

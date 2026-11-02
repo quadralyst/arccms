@@ -84,9 +84,10 @@
         <tr><td><code>avatars/{uid}/...</code></td><td>Anyone</td><td>That signed-in person: images under 5 MB</td></tr>
         <tr><td><code>email-logs/{logId}/...</code>, at the bucket root or under the upload folder</td><td>Admins. Never public</td><td>Nobody from a browser: Cloud Functions write the files an app's email carries</td></tr>
         <tr><td><code>ai-calls/{recordId}/...</code>, at the bucket root or under the upload folder</td><td>Admins. Never public</td><td>Nobody from a browser: Cloud Functions keep the files of an AI call whose purpose keeps content</td></tr>
+        <tr><td><code>ai-files/...</code>, at the bucket root or under the upload folder</td><td>Admins. Never public</td><td>Nobody from a browser: Cloud Functions save the files AI made, until the app moves them to its own folder</td></tr>
       </tbody>
     </table>
-    <p>Any folder named <code>users</code>, <code>email-logs</code> or <code>ai-calls</code> in the first two levels of a path is never public.</p>
+    <p>Any folder named <code>users</code>, <code>email-logs</code>, <code>ai-calls</code> or <code>ai-files</code> in the first two levels of a path is never public.</p>
 
     <h2>The helper functions</h2>
     <p>The top of <code>firestore.rules</code> defines these, and <code>storage.rules</code> the same names with the same meaning. App rules may call the five marked stable; keep their names and meaning when you change core.</p>

@@ -10,7 +10,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { arcStorageBucket, arcStoragePrefix } from '../arc-config.js';
 import { db, storage } from '../init.js';
 import type { PreparedPart } from './input.js';
-import type { AiFailureReason, AiTier } from './types.js';
+import type { AiFailureReason, AiFile, AiKind, AiTier, AiUnit } from './types.js';
 
 export const AI_CALLS = 'AiCalls';
 export const AI_CALL_FILES_FOLDER = 'ai-calls';
@@ -31,6 +31,8 @@ export interface AttemptRecord {
 
 export interface AiCallRecord {
     purpose: string;
+    /** What the purpose makes (specs/ai-media-spec.md, AM-D27). */
+    kind: AiKind;
     tier: AiTier;
     test: boolean;
     ref: string | null;
@@ -43,6 +45,12 @@ export interface AiCallRecord {
     tokensIn: number;
     tokensOut: number;
     tokensThinking: number;
+    /** Input tokens read from, and written to, the provider's cache (AM-D31). */
+    tokensCached: number;
+    tokensCacheWrite: number;
+    /** What was billed, in `unit` (AM-D27). */
+    amount: number;
+    unit: AiUnit;
     costUsd: number;
     /** Where the cost came from: the provider's own figure, the price list, or none (no price, a test). */
     costFrom: 'provider' | 'price-list' | 'none';
@@ -50,6 +58,12 @@ export interface AiCallRecord {
     outcome: 'ok' | AiFailureReason;
     scope?: 'key' | 'budget';
     detail?: string;
+    /** The files a file kind made, and their paths apart, so moveAiFile can find the record. */
+    files?: AiFile[];
+    filePaths?: string[];
+    /** Answered from Arc's own cache (AM-D16), with the record of the call that made the files. */
+    cached?: boolean;
+    cachedFrom?: string | null;
 }
 
 export interface KeptContent {
@@ -94,6 +108,11 @@ async function keepFiles(id: string, parts: PreparedPart[], take: (t: string) =>
     }));
 }
 
+/** A new record's id, for a call that must name its files before the record is written. */
+export function newAiCallId(): string {
+    return db.collection(AI_CALLS).doc().id;
+}
+
 /** Where a record's kept content is: a document of its own, so listing records never loads it. */
 export function contentDoc(id: string) {
     return db.collection(AI_CALLS).doc(id).collection('content').doc('main');
@@ -103,8 +122,8 @@ export function contentDoc(id: string) {
  * Write the record, and its content apart when the purpose keeps it. Never throws: the app's
  * answer must not be lost over its record, so a failure is logged and the id comes back null.
  */
-export async function writeAiCall(record: AiCallRecord, content: KeptContent | null, now = new Date()): Promise<string | null> {
-    const ref = db.collection(AI_CALLS).doc();
+export async function writeAiCall(record: AiCallRecord, content: KeptContent | null, now = new Date(), id?: string): Promise<string | null> {
+    const ref = id ? db.collection(AI_CALLS).doc(id) : db.collection(AI_CALLS).doc();
     try {
         const doc: Record<string, unknown> = {
             ...record,

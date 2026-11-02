@@ -61,6 +61,7 @@ vi.mock('../ai/settings.js', async (actual) => {
     return { ...real, readAiSettings: async () => real.resolveAiSettings(h.settings) };
 });
 vi.mock('../ai/records.js', () => ({
+    newAiCallId: () => 'new-id',
     writeAiCall: async (record: Record<string, unknown>, content: unknown) => {
         h.records.push({ record, content });
         return `rec-${h.records.length}`;
@@ -69,6 +70,7 @@ vi.mock('../ai/records.js', () => ({
 vi.mock('../ai/usage.js', () => ({
     addToTotals: async (record: Record<string, unknown>) => void h.totals.push(record),
     noteConnection: async () => undefined,
+    alertOutOfCredit: async () => undefined,
 }));
 vi.mock('../ai/limits.js', () => ({
     consumeAllowance: async (_purpose: string, _key: string, _units: number, perDay: number) => (h.consumed++, h.perDays.push(perDay), h.allowance.ok ? { ok: true, release: async () => void h.released++ } : { ok: false, wait: h.allowance.wait }),
@@ -192,8 +194,9 @@ describe('too-large and unreadable input', () => {
         expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1', input: { bytes: big, mimeType: 'image/jpeg' } })).toMatchObject({ ok: false, reason: 'too-large' });
         expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1', input: { bytes: PDF, mimeType: 'image/jpeg' } })).toMatchObject({ ok: false, reason: 'unreadable', detail: 'part 1 is not a JPEG, PNG or WebP picture' });
         expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1', input: { storagePath: 'app/menus/gone.jpg' } })).toMatchObject({ ok: false, reason: 'unreadable', detail: 'app/menus/gone.jpg was not found' });
-        // A refused call gives its allowance back.
-        expect(h.released).toBe(5);
+        // The input is checked before the allowance is counted, so a refused call uses none.
+        expect(h.consumed).toBe(0);
+        expect(h.released).toBe(0);
     });
 });
 
@@ -281,8 +284,18 @@ describe('live calls', () => {
         expect(h.released).toBe(1);
     });
 
-    it('gives the units back when a mistake throws after they were counted', async () => {
+    it('counts nothing for a mistake in the input, which throws before the allowance', async () => {
         await expect(askAi({ purpose: 'menu-scan', limitKey: 'b1', input: { storagePath: 'app/menus/scan.heic' } })).rejects.toThrow('of an unknown type');
+        expect(h.consumed).toBe(0);
+        expect(h.released).toBe(0);
+    });
+
+    it('gives the units back when a mistake throws after they were counted', async () => {
+        live();
+        replaceConnectorsForTest({ openai: (async () => {
+            throw new Error('a connector bug');
+        }) as Connector });
+        await expect(askAi({ purpose: 'menu-scan', limitKey: 'b1' })).rejects.toThrow('a connector bug');
         expect(h.consumed).toBe(1);
         expect(h.released).toBe(1);
     });

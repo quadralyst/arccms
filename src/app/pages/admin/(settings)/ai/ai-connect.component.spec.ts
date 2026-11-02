@@ -15,6 +15,8 @@ const PRESETS: AiPresetInfo[] = [
     { id: 'alibaba-eu', label: 'Alibaba Cloud Model Studio, Frankfurt (EU)', kind: 'openai', processesIn: 'Germany (Frankfurt)', needsWorkspace: true, needsAddress: false, reportsCost: false, models: [{ model: 'qwen3-vl-plus', reads: ['pictures'], schema: 'json', recommend: ['fast'] }] },
     { id: 'openrouter', label: 'OpenRouter', kind: 'openai', processesIn: 'Its host', needsWorkspace: false, needsAddress: false, reportsCost: true, models: [{ model: 'qwen/qwen3.8-flash', reads: ['pictures'], schema: 'strict', recommend: ['fast', 'thorough'] }] },
     { id: 'vertex', label: 'Google Vertex AI (Gemini)', kind: 'vertex', processesIn: 'The location', needsWorkspace: false, needsAddress: false, reportsCost: false, models: [] },
+    { id: 'anthropic', label: 'Anthropic (Claude)', kind: 'anthropic', processesIn: 'Worldwide', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, testedLive: false, docsReadOn: '2026-11-02', models: [{ model: 'claude-sonnet-5-5', reads: ['pictures'], schema: 'strict', recommend: ['fast'] }] },
+    { id: 'other', label: 'Other OpenAI-style address', kind: 'openai', processesIn: 'Where the admin says', needsWorkspace: false, needsAddress: true, reportsCost: false, models: [] },
 ];
 
 async function render(options: { existing?: AiConnectionForm; test?: () => Promise<unknown> } = {}) {
@@ -136,6 +138,44 @@ describe('AiConnectComponent', () => {
     });
 });
 
+describe('AiConnectComponent, AM1 providers', () => {
+    it('marks a provider not tested live, and asks for its key and its guide whatever its connector', async () => {
+        const { page, component, service, settle } = await render();
+        const anthropic = [...page.querySelectorAll('.preset')].find((e) => e.textContent?.includes('Anthropic'))!;
+        expect(anthropic.querySelector('.untested-live')?.textContent).toContain('Not tested live yet');
+        component.choose('anthropic');
+        await settle();
+        expect(page.querySelector('#aiConnectKey')).not.toBeNull();
+        expect(page.querySelector('ol.guide li')?.textContent).toContain('Sign in to Anthropic (Claude)');
+        expect(page.textContent).toContain('Paste the key.');
+        component.key.set('sk-ant-api03-abcdefgh');
+        await component.connect();
+        expect(service.setKey).toHaveBeenCalledWith('anthropic-claude', 'sk-ant-api03-abcdefgh');
+    });
+
+    it('saves Other with the key header chosen before the key is set, and refuses a header the server would not take', async () => {
+        const { page, component, service, settle } = await render();
+        component.choose('other');
+        component.baseUrl.set('https://api.example.com/v1');
+        component.model.set('m1');
+        component.key.set('secret-key-123');
+        await settle();
+        expect([...page.querySelectorAll<HTMLOptionElement>('#aiConnectHeader option')].map((o) => o.value)).toEqual(['', 'api-key', 'x-api-key', 'custom']);
+        component.headerChoice.set('custom');
+        component.customHeader.set('Cookie');
+        await settle();
+        expect(page.querySelector('#aiConnectHeaderName')).not.toBeNull();
+        expect(component.missing()).toBe('admin.settings.ai.header_invalid');
+        expect(page.querySelector<HTMLButtonElement>('.connect-button')!.disabled).toBe(true);
+        component.customHeader.set('X-My-Key');
+        await settle();
+        expect(component.ready()).toBe(true);
+        await component.connect();
+        expect(service.saveConnection).toHaveBeenCalledWith(expect.objectContaining({ preset: 'other', header: 'x-my-key', baseUrl: 'https://api.example.com/v1' }));
+        expect(service.saveConnection.mock.invocationCallOrder[0]).toBeLessThan(service.setKey.mock.invocationCallOrder[0]);
+    });
+});
+
 describe('failureAdvice', () => {
     it('turns a provider\'s answer into what to do', () => {
         expect(failureAdvice('key-refused')).toBe('advice_key');
@@ -145,6 +185,7 @@ describe('failureAdvice', () => {
         expect(failureAdvice('unavailable', '429: Rate limit')).toBe('advice_busy');
         expect(failureAdvice('timeout')).toBe('advice_slow');
         expect(failureAdvice(undefined, 'the key of connection or was set for another address')).toBe('advice_key_again');
+        expect(failureAdvice(undefined, 'the key of connection or was set for another header: set it again in Settings, AI')).toBe('advice_key_again');
         expect(failureAdvice(undefined, 'the provider refused the key (401): x')).toBe('advice_key');
         expect(failureAdvice(undefined, 'something odd')).toBe('advice_other');
     });

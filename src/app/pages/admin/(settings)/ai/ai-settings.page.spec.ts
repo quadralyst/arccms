@@ -43,6 +43,8 @@ async function render(stored: Record<string, unknown> = {}, setup: AiSetupInfo =
         recentCalls: vi.fn(async () => []),
         allCalls: vi.fn(async () => []),
         fileUrl: vi.fn(),
+        refreshBalance: vi.fn(async () => ({ ok: true, balance: 7.25, unit: 'USD' }) as { ok: true; balance: number | null; unit: string } | { ok: false; detail: string }),
+        aiFileUrl: vi.fn(async (path: string) => ({ url: `blob:test/${path}`, contentType: path.endsWith('.png') ? 'image/png' : 'audio/mpeg' })),
     };
     await TestBed.configureTestingModule({
         imports: [AiSettingsPage, translocoTestingModule()],
@@ -187,7 +189,7 @@ describe('AiSettingsPage', () => {
 
     it('loads a call\'s kept content only when it is opened', async () => {
         const { page, component, service, settle } = await render();
-        service.recentCalls.mockResolvedValue([{ id: 'c1', createdAt: null, purpose: 'menu-scan', test: false, outcome: 'ok', connection: null, model: null, tokensIn: 1, tokensOut: 1, tokensThinking: 0, costUsd: 0, costFrom: 'none', ms: 10, ref: null, limitKey: null, units: 1, input: { chars: 1, files: 0, bytes: 0 }, attempts: [], hasContent: true }] as never);
+        service.recentCalls.mockResolvedValue([{ id: 'c1', createdAt: null, purpose: 'menu-scan', test: false, outcome: 'ok', connection: null, model: null, tokensIn: 1, tokensOut: 1, tokensThinking: 0, costUsd: 0, costFrom: 'none', ms: 10, ref: null, limitKey: null, units: 1, input: { chars: 1, files: 0, bytes: 0 }, attempts: [], hasContent: true, kind: 'data', tokensCached: 0, tokensCacheWrite: 0, amount: 0, unit: 'tokens', files: [], cached: false, cachedFrom: null }] as never);
         component.openTab('calls');
         await settle();
         await settle();
@@ -259,6 +261,252 @@ describe('AiSettingsPage', () => {
         expect(component.purposeLabel('menu-scan')).toBe('Menu scan');
         expect(component.purposeLabel('arc-connection-test')).toBe('Provider test');
         expect(component.purposeLabel('gone')).toBe('gone');
+    });
+});
+
+/** Settings, AI with the presets and purposes of AM1: not tested live, Other's header, INR prices, balances, models that make pictures. */
+const MEDIA: AiSetupInfo = {
+    ...SETUP,
+    purposes: [
+        SETUP.purposes[0],
+        { id: 'cover', label: 'Cover picture', description: '', tier: 'fast', output: 'text', maxChars: 2000, pictures: null, pdfs: null, perKeyPerDay: 10, limitKeyLabel: null, timeoutSeconds: 60, makes: 'image', allowanceIn: 'pictures', saveTo: null, deleteAfterDays: 90, cacheDays: 365, fallback: true },
+        { id: 'voice', label: 'Read aloud', description: '', tier: 'fast', output: 'text', maxChars: 2000, pictures: null, pdfs: null, perKeyPerDay: null, limitKeyLabel: null, timeoutSeconds: 60, makes: 'speech', allowanceIn: 'characters', saveTo: 'app/voice', deleteAfterDays: null, cacheDays: 0, fallback: true },
+    ],
+    presets: [
+        ...SETUP.presets.map((p) => (p.id === 'openrouter' ? { ...p, readsBalance: true } : p)),
+        { id: 'other', label: 'Other OpenAI-style address', kind: 'openai', processesIn: 'Where the admin says', needsWorkspace: false, needsAddress: true, reportsCost: false, models: [] },
+        { id: 'sarvam', label: 'Sarvam AI', kind: 'openai', processesIn: 'India', needsWorkspace: false, needsAddress: false, reportsCost: false, currency: 'INR', testedLive: false, docsReadOn: '2026-11-02', pricesCheckedOn: '2026-11-02', perMinute: 60, billingUrl: 'https://dashboard.example.com/', models: [{ model: 'sarvam-105b', reads: [], schema: 'json', priceIn: 15, priceOut: 60, recommend: ['fast'] }] },
+        {
+            id: 'pix', label: 'Pictures Inc', kind: 'openai', processesIn: 'USA', needsWorkspace: false, needsAddress: false, reportsCost: false, models: [
+                { model: 'chat-1', reads: [], schema: 'json', priceIn: 1, priceOut: 2 },
+                { model: 'pic-1', makes: 'image', unit: 'pictures', reads: [], schema: 'json', price: 0.04 },
+            ],
+        },
+    ],
+};
+
+describe('AiSettingsPage, files and AM1 settings', () => {
+    it('marks a provider and its models Not tested live yet, with when its docs were read', async () => {
+        const { page } = await render({ connections: { s: { preset: 'sarvam', keyPreview: '••••1111' } }, tiers: { fast: [{ connection: 's', model: 'sarvam-105b' }] } }, MEDIA);
+        const card = page.querySelector('.connection[data-id="s"]')!;
+        expect(card.querySelector('.untested-live')?.textContent).toContain('Not tested live yet');
+        expect(card.querySelector('.untested-live-hint')?.textContent).toContain('Built from the provider\'s docs on 2026-11-02');
+        expect(page.querySelector('.tier[data-tier="fast"] .model-row .untested-live')).not.toBeNull();
+        expect(page.querySelector('.connection[data-id="s"] .billing-line a')?.getAttribute('href')).toBe('https://dashboard.example.com/');
+    });
+
+    it('warns that INR prices count 0 until the USD rate is set, and counts the model as unpriced', async () => {
+        const { page, component, settle } = await render({ connections: { s: { preset: 'sarvam', keyPreview: '••••1111' } }, tiers: { fast: [{ connection: 's', model: 'sarvam-105b' }] } }, MEDIA);
+        expect(page.querySelector('.connection[data-id="s"] .rate-warning')?.textContent).toContain('set the USD value of 1 INR');
+        expect(component.unpricedNames()).toBe('sarvam-105b');
+        component.toggleDetails('s');
+        await settle();
+        expect(page.querySelector('label[for="aiRate-s"]')?.textContent).toContain('USD for 1 INR');
+        expect(page.querySelector<HTMLInputElement>('#aiPerMin-s')!.placeholder).toBe('60');
+        expect(page.querySelector<HTMLInputElement>('#aiAtOnce-s')!.placeholder).toBe('No limit');
+        component.setAmount('s', 'usdRate', 0.012);
+        component.setLimit('s', 'atOnce', '4');
+        component.setLimit('s', 'perMinute', 2.5);
+        await settle();
+        expect(page.querySelector('.rate-warning')).toBeNull();
+        expect(component.unpricedNames()).toBe('');
+        expect(component.form().connections[0]).toMatchObject({ usdRate: 0.012, atOnce: 4, perMinute: null });
+    });
+
+    it('shows a balance the key can read, refreshes it, and links others to billing', async () => {
+        const { page, service, settle } = await render({ connections: { or: { ...working, balance: 3, balanceUnit: 'USD key limit', balanceAt: '2026-11-01T10:00:00Z', lowBalance: 5 } } }, MEDIA);
+        const line = page.querySelector('.connection[data-id="or"] .balance-line')!;
+        expect(line.textContent).toContain('Balance: 3 USD key limit');
+        expect(line.classList.contains('text-danger')).toBe(true);
+        line.querySelector<HTMLButtonElement>('.refresh-balance')!.click();
+        await settle();
+        await settle();
+        expect(service.refreshBalance).toHaveBeenCalledWith('or');
+        expect(page.querySelector('.connection[data-id="or"] .balance-line')?.textContent).toContain('Balance: 7.25 USD');
+        service.refreshBalance.mockResolvedValueOnce({ ok: false, detail: 'the provider refused the key (401)' });
+        page.querySelector<HTMLButtonElement>('.connection[data-id="or"] .refresh-balance')!.click();
+        await settle();
+        await settle();
+        expect(page.querySelector('.connection[data-id="or"]')?.textContent).toContain('The balance could not be read: the provider refused the key (401)');
+    });
+
+    it('lets Other choose its key header, refuses a bad custom one, and asks for the key again once a new header is saved', async () => {
+        const { page, component, service, settle } = await render({ connections: { o: { preset: 'other', baseUrl: 'https://api.example.com/v1', keyPreview: '••••2222', lastOkAt: '2026-10-28T09:00:00Z' } } }, MEDIA);
+        component.toggleDetails('o');
+        await settle();
+        const select = page.querySelector<HTMLSelectElement>('#aiHeader-o')!;
+        expect([...select.options].map((o) => o.value)).toEqual(['', 'api-key', 'x-api-key', 'custom']);
+        component.setHeaderChoice(component.form().connections[0], 'custom');
+        await settle();
+        expect(page.querySelector('.header-invalid')).not.toBeNull();
+        expect(page.querySelector<HTMLButtonElement>('.save')!.disabled).toBe(true);
+        component.patchConnection('o', { header: 'Host' });
+        await settle();
+        expect(component.formProblem()).toBe('admin.settings.ai.header_invalid');
+        component.patchConnection('o', { header: 'x-my-key' });
+        await settle();
+        expect(component.formProblem()).toBe('');
+        expect(await component.save()).toBe(true);
+        await settle();
+        expect(service.save).toHaveBeenCalled();
+        expect(page.querySelector('.connection[data-id="o"] .status')?.textContent).toContain('Key needed');
+    });
+
+    it('shows a file list only when a model or purpose makes that kind, and saves it with the page', async () => {
+        const { page, component, service, settle } = await render({ connections: { p: { preset: 'pix', keyPreview: '••••3333' } } }, { ...MEDIA, purposes: [] });
+        expect([...page.querySelectorAll('.kind-list')].map((e) => e.getAttribute('data-kind'))).toEqual(['image']);
+        expect(page.querySelector('.kind-list')?.textContent).toContain('Picture models');
+        page.querySelector<HTMLButtonElement>('.kind-list[data-kind="image"] .add-model')!.click();
+        await settle();
+        expect(component.form().lists.image).toEqual([{ connection: 'p', model: 'pic-1' }]);
+        expect(page.querySelector('.kind-list .model')?.getAttribute('list')).toBe('aiModels-p-image');
+        await component.save();
+        expect(service.save.mock.calls[0][0].lists.image).toEqual([{ connection: 'p', model: 'pic-1' }]);
+        const { page: plain } = await (TestBed.resetTestingModule(), render({ connections: { or: working } }, { ...MEDIA, purposes: [] }));
+        expect(plain.querySelector('.kind-list')).toBeNull();
+    });
+
+    it('offers each list and purpose only the models that make its kind', async () => {
+        const { page, component } = await render({ connections: { p: { preset: 'pix' } } }, MEDIA);
+        expect(component.modelChoices('p', 'text')).toEqual(['chat-1']);
+        expect(component.modelChoices('p', 'image')).toEqual(['pic-1']);
+        expect(component.modelChoices('p', 'speech')).toEqual([]);
+        expect([...page.querySelectorAll('#aiModels-p-image option')].map((o) => o.getAttribute('value'))).toEqual(['pic-1']);
+        expect([...page.querySelectorAll('#aiModels-p-text option')].map((o) => o.getAttribute('value'))).toEqual(['chat-1']);
+        component.patchModel('p/my-voice', { makes: 'speech', unit: 'characters' });
+        expect(component.modelChoices('p', 'speech')).toEqual(['my-voice']);
+    });
+
+    it('starts a picture purpose\'s own list from the picture list, and names the kind\'s list in its choice', async () => {
+        const { page, component, settle } = await render({ connections: { p: { preset: 'pix' } }, lists: { image: [{ connection: 'p', model: 'pic-1' }] } }, MEDIA);
+        component.openTab('purposes');
+        await settle();
+        const card = page.querySelector('.purpose[data-id="cover"]')!;
+        expect(card.querySelector<HTMLSelectElement>('#aiUse-cover')!.selectedOptions[0].textContent).toContain('Picture models');
+        component.useOwnModels(MEDIA.purposes[1], true);
+        await settle();
+        expect(component.purpose('cover').models).toEqual([{ connection: 'p', model: 'pic-1' }]);
+        expect(page.querySelector('.purpose[data-id="cover"] .model')?.getAttribute('list')).toBe('aiModels-p-image');
+    });
+
+    it('shows a file purpose\'s kind, where its files go, its allowance unit, the days and the cache switch', async () => {
+        const { page, component, settle } = await render({}, MEDIA);
+        component.openTab('purposes');
+        await settle();
+        const cover = page.querySelector('.purpose[data-id="cover"]')!;
+        expect(cover.querySelector('.kind-badge')?.textContent).toContain('Pictures');
+        expect(cover.querySelector('.files-go')?.textContent).toContain('Arc\'s private AI folder');
+        expect(cover.querySelector('label[for="aiAllow-cover"]')?.textContent).toContain('(pictures)');
+        expect(cover.querySelector<HTMLInputElement>('#aiDelete-cover')!.placeholder).toBe('90');
+        expect(cover.textContent).toContain('keep your app\'s 90 days');
+        expect(cover.querySelector<HTMLInputElement>('#aiCache-cover')!.checked).toBe(true);
+        expect(cover.textContent).toContain('for 365 days');
+        component.patchPurpose('cover', { cache: false });
+        component.setDeleteAfter('cover', '30');
+        await settle();
+        expect(page.querySelector<HTMLInputElement>('#aiCache-cover')!.checked).toBe(false);
+        expect(component.purpose('cover')).toMatchObject({ cache: false, deleteAfterDays: 30 });
+        component.setDeleteAfter('cover', 5000);
+        expect(component.purpose('cover').deleteAfterDays).toBeNull();
+        const voice = page.querySelector('.purpose[data-id="voice"]')!;
+        expect(voice.querySelector('.files-go')?.textContent).toContain('Files go to app/voice.');
+        expect(voice.querySelector('#aiDelete-voice')).toBeNull();
+        expect(voice.querySelector('#aiCache-voice')).toBeNull();
+        expect(page.querySelector('label[for="aiAllow-menu-scan"]')?.textContent).toContain('(calls)');
+        expect(page.querySelector('.purpose[data-id="menu-scan"] .kind-badge')?.textContent).toContain('Data');
+    });
+
+    it('prices a model by its unit, warns when it has none, and describes an unknown model by the list it is in', async () => {
+        const { page, component, service, settle } = await render({
+            connections: { p: { preset: 'pix', keyPreview: '••••3333' } },
+            lists: { image: [{ connection: 'p', model: 'pic-1' }, { connection: 'p', model: 'pic-new' }] },
+        }, MEDIA);
+        expect(component.unpricedNames()).toBe('pic-new');
+        component.showAdvanced.set(true);
+        await settle();
+        const row = page.querySelector('.model-details tr[data-key="p/pic-new"]')!;
+        expect(row.querySelector<HTMLSelectElement>('.makes-select')!.value).toBe('image');
+        expect(row.querySelector<HTMLSelectElement>('.unit-select')!.value).toBe('pictures');
+        expect([...row.querySelectorAll('.price')].map((i) => i.getAttribute('data-field'))).toEqual(['price']);
+        expect(row.textContent).toContain('Per picture');
+        component.setPrice('p/pic-new', 'price', 0.05);
+        await settle();
+        expect(component.unpricedNames()).toBe('');
+        await component.save();
+        expect(service.save.mock.calls[0][0].models['p/pic-new']).toEqual({ makes: 'image', unit: 'pictures', price: 0.05 });
+        expect(service.save.mock.calls[0][0].models['p/pic-1']).toBeUndefined();
+    });
+
+    it('shows four token prices, cached input and cache write among them, for a text model', async () => {
+        const { page, component, settle } = await render({ connections: { p: { preset: 'pix' } }, tiers: { fast: [{ connection: 'p', model: 'chat-1' }] } }, MEDIA);
+        component.showAdvanced.set(true);
+        await settle();
+        const row = page.querySelector('.model-details tr[data-key="p/chat-1"]')!;
+        expect([...row.querySelectorAll('.price')].map((i) => i.getAttribute('data-field'))).toEqual(['priceIn', 'priceOut', 'priceCachedIn', 'priceCacheWrite']);
+        expect(row.textContent).toContain('Cached input');
+        component.setMakes({ connection: 'p', model: 'chat-1', key: 'p/chat-1' }, 'speech');
+        expect(component.form().models['p/chat-1']).toEqual({ makes: 'speech' });
+        component.setMakes({ connection: 'p', model: 'mine', key: 'p/mine' }, 'video');
+        expect(component.form().models['p/mine']).toEqual({ makes: 'video', unit: 'seconds' });
+    });
+
+    it('shows usage by kind, and cache hits and cached tokens beside the calls, never added to them', async () => {
+        const { page, component, service, settle } = await render({}, MEDIA);
+        service.usage.mockResolvedValueOnce(monthUsageFrom('2026-11', {
+            calls: 3, cacheHits: 4, tokensIn: 100, tokensCached: 40, pictures: 2, costUsd: 0.1,
+            byPurpose: { cover: { calls: 2, cacheHits: 4, pictures: 2, costUsd: 0.08 } },
+            byKind: { image: { calls: 2, cacheHits: 4, pictures: 2, costUsd: 0.08 }, text: { calls: 1, tokensCached: 40, costUsd: 0.02 } },
+        }, []));
+        component.openTab('usage');
+        await settle();
+        await settle();
+        const totals = page.querySelector('.totals')!;
+        expect(totals.querySelector('.cache-hits')?.textContent).toContain('Served from cache: 4');
+        expect(totals.textContent).toContain('40 of them cached');
+        expect(totals.querySelector('.amounts')?.textContent).toContain('2 pictures');
+        const kinds = page.querySelector('.usage-table[data-table="admin.settings.ai.by_kind"]')!;
+        expect(kinds.textContent).toContain('Pictures');
+        expect(kinds.textContent).toContain('From cache');
+        expect(kinds.textContent).toContain('Cached input');
+        const imageRow = [...kinds.querySelectorAll('tbody tr')].find((r) => r.textContent?.includes('Pictures'))!;
+        expect([...imageRow.querySelectorAll('td')].map((td) => td.textContent?.trim()).slice(0, 3)).toEqual(['Pictures', '2', '4']);
+    });
+
+    it('marks a call\'s kind and a cached call, and shows and plays its files, saying when one was moved', async () => {
+        const { page, component, service, settle } = await render({}, MEDIA);
+        const call = {
+            id: 'f1', createdAt: null, purpose: 'cover', kind: 'image', test: false, outcome: 'ok', connection: 'p', model: 'pic-1', tokensIn: 0, tokensOut: 0, tokensThinking: 0,
+            tokensCached: 0, tokensCacheWrite: 0, amount: 2, unit: 'pictures', costUsd: 0, costFrom: 'none', ms: 10, ref: null, limitKey: null, units: 1,
+            input: { chars: 10, files: 0, bytes: 0 }, attempts: [], hasContent: false, cached: true, cachedFrom: 'f0',
+            files: [{ path: 'ai-files/cover/2026-11/a-1.png', mimeType: 'image/png', bytes: 2048 }, { path: 'ai-files/cover/2026-11/a-2.mp3', mimeType: 'audio/mpeg', bytes: 4096 }, { path: 'ai-files/cover/2026-11/gone.png', mimeType: 'image/png', bytes: 1 }],
+        };
+        service.recentCalls.mockResolvedValue([call] as never);
+        service.aiFileUrl.mockImplementation(async (path: string) => {
+            if (path.includes('gone')) throw Object.assign(new Error('That file was moved or deleted.'), { code: 'functions/not-found' });
+            return { url: `blob:test/${path}`, contentType: path.endsWith('.png') ? 'image/png' : 'audio/mpeg' };
+        });
+        const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+        component.openTab('calls');
+        await settle();
+        await settle();
+        const row = page.querySelector('.call')!;
+        expect(row.querySelector('.kind-badge')?.textContent).toContain('Pictures');
+        expect(row.querySelector('.from-cache')?.textContent).toContain('From cache');
+        expect(row.textContent).toContain('2 pictures');
+        await component.toggleCall('f1');
+        await settle();
+        await settle();
+        expect(service.aiFileUrl).toHaveBeenCalledTimes(3);
+        const details = page.querySelector('.call-details')!;
+        expect(details.querySelector('.cached-from')?.textContent).toContain('call f0');
+        expect(details.querySelector<HTMLImageElement>('img.made-picture')?.getAttribute('src')).toBe('blob:test/ai-files/cover/2026-11/a-1.png');
+        expect(details.querySelector('audio.made-audio')).not.toBeNull();
+        expect(details.querySelector('.made-file[data-path$="gone.png"] .file-gone')?.textContent).toContain('Moved or deleted');
+        await component.toggleCall('f1');
+        expect(revoke).toHaveBeenCalledWith('blob:test/ai-files/cover/2026-11/a-1.png');
+        expect(revoke).toHaveBeenCalledWith('blob:test/ai-files/cover/2026-11/a-2.mp3');
+        expect(component.fileViews()).toEqual({});
+        revoke.mockRestore();
     });
 });
 

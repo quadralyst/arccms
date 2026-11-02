@@ -295,6 +295,14 @@ describe('phone and email sign-in fields (item 1: Google and phone sign-in)', ()
         await assertFails(getDoc(doc(anon(), 'AiKeys', 'qwen')));
     });
 
+    it('keeps the AI cache and pacing counters from every browser, admins included', async () => {
+        for (const [c, id] of [['AiCache', 'abc'], ['AiPacing', 'sarvam']]) {
+            await assertFails(getDoc(doc(admin(), c, id)));
+            await assertFails(setDoc(doc(admin(), c, id), { a: 1 }));
+            await assertFails(getDoc(doc(alice(), c, id)));
+        }
+    });
+
     it('keeps Settings/ai admin only', async () => {
         await assertFails(getDoc(doc(alice(), 'Settings', 'ai')));
         await assertFails(getDoc(doc(anon(), 'Settings', 'ai')));

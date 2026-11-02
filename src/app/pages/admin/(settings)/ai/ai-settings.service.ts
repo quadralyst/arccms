@@ -1,7 +1,9 @@
 /**
  * Settings, AI (docs/app/ai.html): `Settings/ai` (admin only), the keys through admin-only
  * callables, the month's totals (`AiUsage`) and the records of calls (`AiCalls`). Keys never
- * reach the page: a connection shows only the preview the server wrote.
+ * reach the page: a connection shows only the preview the server wrote. A connection's
+ * balance is written by the functions only (specs/ai-media-spec.md, AM-D32); files a model
+ * made are read through `readAiFile` (AM-D27).
  */
 import { inject, Injectable, Injector, runInInjectionContext } from '@angular/core';
 import {
@@ -15,16 +17,68 @@ import { ArcStorage } from '../../../../core/config/arc-storage';
 export const AI_TIERS = ['cheap', 'fast', 'thorough'] as const;
 export type AiTier = (typeof AI_TIERS)[number];
 export type AiReads = 'pictures' | 'pdfs';
+/** What a purpose makes (AM-D1); `text` and `data` are answers, the rest files. */
+export const AI_KINDS = ['text', 'data', 'image', 'speech', 'audio', 'video'] as const;
+export type AiKind = (typeof AI_KINDS)[number];
+/** What a model makes: text covers data. */
+export const AI_MODEL_KINDS = ['text', 'image', 'speech', 'audio', 'video'] as const;
+export type AiModelKind = (typeof AI_MODEL_KINDS)[number];
+export const AI_FILE_KINDS = ['image', 'speech', 'audio', 'video'] as const;
+export type AiFileKind = (typeof AI_FILE_KINDS)[number];
+/** What a model bills by (AM-D5). */
+export const AI_UNITS = ['tokens', 'pictures', 'characters', 'seconds'] as const;
+export type AiUnit = (typeof AI_UNITS)[number];
+export type AiAllowanceUnit = 'calls' | 'pictures' | 'characters' | 'seconds';
+
+export function isFileKind(kind: string): kind is AiFileKind {
+    return (AI_FILE_KINDS as readonly string[]).includes(kind);
+}
+
+/** The unit a kind of model usually bills by, for a model Arc does not know. */
+export function naturalUnit(kind: AiModelKind): AiUnit {
+    return kind === 'image' ? 'pictures' : kind === 'speech' ? 'characters' : kind === 'audio' || kind === 'video' ? 'seconds' : 'tokens';
+}
+
+export interface AiPresetModel {
+    model: string;
+    makes?: AiModelKind;
+    unit?: AiUnit;
+    reads: AiReads[];
+    schema: 'strict' | 'json';
+    priceIn?: number;
+    priceOut?: number;
+    priceCachedIn?: number;
+    priceCacheWrite?: number;
+    priceAbove?: { tokens: number; priceIn: number; priceOut: number; priceCachedIn?: number; priceCacheWrite?: number };
+    /** For a unit other than tokens: per picture, per 1,000 characters, or per second. */
+    price?: number;
+    recommend?: AiTier[];
+}
 
 export interface AiPresetInfo {
     id: string;
     label: string;
-    kind: 'openai' | 'vertex';
+    kind: 'openai' | 'vertex' | 'anthropic' | 'gemini';
     processesIn: string;
     needsWorkspace: boolean;
     needsAddress: boolean;
     reportsCost: boolean;
-    models: Array<{ model: string; reads: AiReads[]; schema: 'strict' | 'json'; priceIn?: number; priceOut?: number; recommend?: AiTier[] }>;
+    /** Every kind but Vertex needs a key. Left out by an older server: worked out from `kind`. */
+    needsKey?: boolean;
+    keyHeader?: string;
+    /** The currency of its prices; another than USD needs the admin's USD rate (AM-D5). */
+    currency?: 'USD' | 'INR';
+    pricesCheckedOn?: string;
+    /** false: built from the provider's docs on `docsReadOn`, never called for real (AM-D34). */
+    testedLive?: boolean;
+    docsReadOn?: string | null;
+    /** The entry plan's limits, used when the admin sets none (AM-D15). */
+    perMinute?: number | null;
+    atOnce?: number | null;
+    /** Its own key can read the balance (AM-D32). */
+    readsBalance?: boolean;
+    billingUrl?: string | null;
+    models: AiPresetModel[];
 }
 
 export interface AiPurposeInfo {
@@ -40,6 +94,32 @@ export interface AiPurposeInfo {
     /** What a limitKey is, in a word, such as "merchant"; null: not named. */
     limitKeyLabel: string | null;
     timeoutSeconds: number;
+    /** What it makes; left out by an older server: text or data, from `output`. */
+    makes?: AiKind;
+    /** What the per-key allowance counts (AM-D23). */
+    allowanceIn?: AiAllowanceUnit;
+    /** A file kind: the app's folder for its files; null: Arc's private `ai-files/`. */
+    saveTo?: string | null;
+    /** The app's days before files left in `ai-files/` are deleted; null: kept. */
+    deleteAfterDays?: number | null;
+    /** How long the purpose's cache keeps a file; 0: no cache (AM-D16). */
+    cacheDays?: number;
+    fallback?: boolean;
+}
+
+/** Whether a preset's connections need a key: every kind but Vertex, which uses the functions' own account. */
+export function presetNeedsKey(p: Pick<AiPresetInfo, 'kind' | 'needsKey'>): boolean {
+    return p.needsKey ?? p.kind !== 'vertex';
+}
+
+/** What a purpose makes, from what the server says. */
+export function purposeKind(p: AiPurposeInfo): AiKind {
+    return p.makes ?? (p.output === 'data' ? 'data' : 'text');
+}
+
+/** The kind of model a purpose needs: text for text and data, else its file kind. */
+export function modelKindFor(kind: AiKind): AiModelKind {
+    return kind === 'data' ? 'text' : kind;
 }
 
 export interface AiSetupInfo {
@@ -63,6 +143,44 @@ export interface AiConnectionForm {
     keySetBy: string | null;
     lastOkAt: string | null;
     lastError: string | null;
+    /** Other only: the header the key goes in (AM-D8); '' is `Authorization: Bearer`. */
+    header: string;
+    /** The admin's limits (AM-D15); null: the preset's, or no limit. */
+    perMinute: number | null;
+    atOnce: number | null;
+    /** USD for one unit of the provider's currency (AM-D5); null: not set, its prices count 0. */
+    usdRate: number | null;
+    /** Written by the functions only (AM-D32); shown, never saved from here. */
+    balance: number | null;
+    balanceUnit: string | null;
+    balanceAt: string | null;
+    /** Below this, admins are told once; null: no alert. */
+    lowBalance: number | null;
+}
+
+/** A connection with nothing set yet beyond what is given. */
+export function blankConnection(c: Pick<AiConnectionForm, 'id' | 'preset' | 'label'> & Partial<AiConnectionForm>): AiConnectionForm {
+    return {
+        workspace: '', baseUrl: '', location: '', processesIn: '', keyPreview: null, keySetAt: null, keySetBy: null, lastOkAt: null, lastError: null,
+        header: '', perMinute: null, atOnce: null, usdRate: null, balance: null, balanceUnit: null, balanceAt: null, lowBalance: null,
+        ...c,
+    };
+}
+
+/** The headers Other offers for its key, besides a custom one: '' is `Authorization: Bearer`. */
+export const KEY_HEADERS = ['', 'api-key', 'x-api-key'] as const;
+/** Headers a key may never go in, as the server refuses them (functions/src/ai/settings.ts). */
+const FORBIDDEN_HEADERS = /^(host|cookie|set-cookie|connection|content-.*|transfer-encoding|te|upgrade|proxy-.*|x-forwarded-.*|forwarded|origin|referer|user-agent|accept.*)$/;
+
+/** A header name Other may use: lower-case letters, digits and -, not one the server refuses. */
+export function safeHeaderName(value: string): boolean {
+    return /^[a-z][a-z0-9-]{0,39}$/.test(value) && !FORBIDDEN_HEADERS.test(value);
+}
+
+/** A stored header as the form keeps it: lower case, and '' for Authorization (Bearer). */
+function formHeader(value: unknown): string {
+    const h = str(value).trim().toLowerCase();
+    return h === 'authorization' ? '' : h;
 }
 
 export interface AiModelRef {
@@ -75,19 +193,39 @@ export interface AiPurposeForm {
     models: AiModelRef[];
     perKeyPerDay: number | null;
     keepContent: boolean;
+    /** The admin's off switch for the purpose's cache (AM-D16): false is off; null: the purpose's. */
+    cache: boolean | null;
+    /** The admin's days before files in `ai-files/` are deleted; null: the purpose's. */
+    deleteAfterDays: number | null;
 }
 
+export function blankPurpose(): AiPurposeForm {
+    return { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null };
+}
+
+export type AiPriceField = 'priceIn' | 'priceOut' | 'priceCachedIn' | 'priceCacheWrite' | 'price';
+export const AI_PRICE_FIELDS: readonly AiPriceField[] = ['priceIn', 'priceOut', 'priceCachedIn', 'priceCacheWrite', 'price'];
+
 export interface AiModelForm {
+    makes?: AiModelKind;
+    unit?: AiUnit;
     reads?: AiReads[];
     schema?: 'strict' | 'json';
     priceIn?: number;
     priceOut?: number;
+    /** Per million tokens read from, and written to, the provider's cache (AM-D31). */
+    priceCachedIn?: number;
+    priceCacheWrite?: number;
+    /** For a unit other than tokens: per picture, per 1,000 characters, or per second. */
+    price?: number;
 }
 
 export interface AiSettingsForm {
     mode: 'test' | 'live';
     connections: AiConnectionForm[];
     tiers: Record<AiTier, AiModelRef[]>;
+    /** The default models of each file kind, in order (AM-D4). */
+    lists: Record<AiFileKind, AiModelRef[]>;
     purposes: Record<string, AiPurposeForm>;
     /** By `{connection}/{model}`. */
     models: Record<string, AiModelForm>;
@@ -108,12 +246,14 @@ export interface AiTestResult {
 }
 
 export function emptyAiForm(): AiSettingsForm {
-    return { mode: 'test', connections: [], tiers: { cheap: [], fast: [], thorough: [] }, purposes: {}, models: {}, monthlyUsd: DEFAULT_MONTHLY_USD };
+    return { mode: 'test', connections: [], tiers: { cheap: [], fast: [], thorough: [] }, lists: { image: [], speech: [], audio: [], video: [] }, purposes: {}, models: {}, monthlyUsd: DEFAULT_MONTHLY_USD };
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 const strOrNull = (v: unknown) => (typeof v === 'string' && v ? v : null);
 const obj = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+const wholeOrNull = (v: unknown, min: number, max: number) => (Number.isInteger(v) && (v as number) >= min && (v as number) <= max ? (v as number) : null);
+const numberOrNull = (v: unknown, min: number, max: number) => (typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : null);
 const refs = (v: unknown): AiModelRef[] => (Array.isArray(v) ? v.map(obj).map((r) => ({ connection: str(r['connection']), model: str(r['model']) })).filter((r) => r.connection && r.model) : []);
 
 /** The form from the stored document; the server checks it again on every call. */
@@ -127,10 +267,17 @@ export function aiFormFrom(data: Record<string, unknown> | undefined): AiSetting
             id, preset: str(c['preset']), label: str(c['label']), workspace: str(c['workspace']), baseUrl: str(c['baseUrl']),
             location: str(c['location']), processesIn: str(c['processesIn']), keyPreview: strOrNull(c['keyPreview']),
             keySetAt: strOrNull(c['keySetAt']), keySetBy: strOrNull(c['keySetBy']), lastOkAt: strOrNull(c['lastOkAt']), lastError: strOrNull(c['lastError']),
+            header: formHeader(c['header']),
+            perMinute: wholeOrNull(c['perMinute'], 0, 100_000), atOnce: wholeOrNull(c['atOnce'], 0, 1000),
+            usdRate: numberOrNull(c['usdRate'], 0, 1000),
+            balance: numberOrNull(c['balance'], -1e12, 1e12), balanceUnit: strOrNull(c['balanceUnit']), balanceAt: strOrNull(c['balanceAt']),
+            lowBalance: numberOrNull(c['lowBalance'], 0, 1e12),
         };
     }).sort((a, b) => a.id.localeCompare(b.id));
     const tiers = obj(d['tiers']);
     for (const t of AI_TIERS) form.tiers[t] = refs(tiers[t]);
+    const lists = obj(d['lists']);
+    for (const k of AI_FILE_KINDS) form.lists[k] = refs(lists[k]);
     for (const [id, raw] of Object.entries(obj(d['purposes']))) {
         const p = obj(raw);
         form.purposes[id] = {
@@ -138,15 +285,22 @@ export function aiFormFrom(data: Record<string, unknown> | undefined): AiSetting
             models: refs(p['models']),
             perKeyPerDay: Number.isInteger(p['perKeyPerDay']) && (p['perKeyPerDay'] as number) >= 1 ? (p['perKeyPerDay'] as number) : null,
             keepContent: p['keepContent'] === true,
+            cache: typeof p['cache'] === 'boolean' ? p['cache'] : null,
+            deleteAfterDays: wholeOrNull(p['deleteAfterDays'], 1, 3650),
         };
     }
     for (const [key, raw] of Object.entries(obj(d['models']))) {
         const m = obj(raw);
         form.models[key] = {
+            ...((AI_MODEL_KINDS as readonly unknown[]).includes(m['makes']) ? { makes: m['makes'] as AiModelKind } : {}),
+            ...((AI_UNITS as readonly unknown[]).includes(m['unit']) ? { unit: m['unit'] as AiUnit } : {}),
             ...(Array.isArray(m['reads']) ? { reads: (m['reads'] as unknown[]).filter((r): r is AiReads => r === 'pictures' || r === 'pdfs') } : {}),
             ...(m['schema'] === 'strict' || m['schema'] === 'json' ? { schema: m['schema'] } : {}),
             ...(typeof m['priceIn'] === 'number' ? { priceIn: m['priceIn'] } : {}),
             ...(typeof m['priceOut'] === 'number' ? { priceOut: m['priceOut'] } : {}),
+            ...(typeof m['priceCachedIn'] === 'number' ? { priceCachedIn: m['priceCachedIn'] } : {}),
+            ...(typeof m['priceCacheWrite'] === 'number' ? { priceCacheWrite: m['priceCacheWrite'] } : {}),
+            ...(typeof m['price'] === 'number' ? { price: m['price'] } : {}),
         };
     }
     const budget = obj(d['budget'])['monthlyUsd'];
@@ -163,7 +317,7 @@ export function aiSettingsData(form: AiSettingsForm, loaded: AiSettingsForm): Re
     const connections: Record<string, unknown> = {};
     for (const c of form.connections) {
         connections[c.id] = connectionFields(c);
-        // A new address or workspace means the key no longer goes out (AI-D8): the card says Key needed.
+        // A new address, workspace or key header means the key no longer goes out (AI-D8, AM-D8): the card says Key needed.
         const before = loaded.connections.find((l) => l.id === c.id);
         if (before && addressChanged(before, c)) {
             Object.assign(connections[c.id] as Record<string, unknown>, { keyPreview: deleteField(), keySetAt: deleteField(), keySetBy: deleteField(), lastOkAt: deleteField() });
@@ -176,40 +330,54 @@ export function aiSettingsData(form: AiSettingsForm, loaded: AiSettingsForm): Re
     for (const c of loaded.connections) if (!form.connections.some((f) => f.id === c.id)) connections[c.id] = deleteField();
     const purposes: Record<string, unknown> = {};
     for (const [id, p] of Object.entries(form.purposes)) {
-        purposes[id] = { enabled: p.enabled, models: p.models, perKeyPerDay: p.perKeyPerDay ?? deleteField(), keepContent: p.keepContent };
+        purposes[id] = {
+            enabled: p.enabled, models: p.models, perKeyPerDay: p.perKeyPerDay ?? deleteField(), keepContent: p.keepContent,
+            cache: p.cache ?? deleteField(), deleteAfterDays: p.deleteAfterDays ?? deleteField(),
+        };
     }
     const models: Record<string, unknown> = {};
     for (const [key, m] of Object.entries(form.models)) {
         models[key] = {
+            makes: m.makes ?? deleteField(), unit: m.unit ?? deleteField(),
             reads: m.reads ?? deleteField(), schema: m.schema ?? deleteField(),
-            priceIn: m.priceIn ?? deleteField(), priceOut: m.priceOut ?? deleteField(),
+            ...Object.fromEntries(AI_PRICE_FIELDS.map((f) => [f, m[f] ?? deleteField()])),
         };
     }
     for (const key of Object.keys(loaded.models)) if (!(key in form.models)) models[key] = deleteField();
-    return { mode: form.mode, connections, tiers: form.tiers, purposes, models, budget: { monthlyUsd: form.monthlyUsd } };
+    return { mode: form.mode, connections, tiers: form.tiers, lists: form.lists, purposes, models, budget: { monthlyUsd: form.monthlyUsd } };
 }
 
 /**
- * What removing a provider writes, and nothing else: the provider gone, the tiers and purpose
- * lists without its models, its model details deleted.
+ * What removing a provider writes, and nothing else: the provider gone, the tiers, file lists
+ * and purpose lists without its models, its model details deleted.
  */
-export function removalData(id: string, after: Pick<AiSettingsForm, 'tiers' | 'purposes'>, before: AiSettingsForm): Record<string, unknown> {
+export function removalData(id: string, after: Pick<AiSettingsForm, 'tiers' | 'purposes'> & Partial<Pick<AiSettingsForm, 'lists'>>, before: AiSettingsForm): Record<string, unknown> {
     const purposes: Record<string, unknown> = {};
     for (const [pid, p] of Object.entries(after.purposes)) {
         if (JSON.stringify(p.models) !== JSON.stringify(before.purposes[pid]?.models ?? [])) purposes[pid] = { models: p.models };
     }
     const models = Object.fromEntries(Object.keys(before.models).filter((k) => k.startsWith(`${id}/`)).map((k) => [k, deleteField()]));
-    return { connections: { [id]: deleteField() }, tiers: after.tiers, ...(Object.keys(purposes).length ? { purposes } : {}), ...(Object.keys(models).length ? { models } : {}) };
+    const lists = after.lists && JSON.stringify(after.lists) !== JSON.stringify(before.lists) ? { lists: after.lists } : {};
+    return { connections: { [id]: deleteField() }, tiers: after.tiers, ...lists, ...(Object.keys(purposes).length ? { purposes } : {}), ...(Object.keys(models).length ? { models } : {}) };
 }
 
-/** Whether a connection's address changed: its key, set for the old one, is no longer sent. */
+/**
+ * Whether what a connection's key was set for changed: its address, or for Other the header
+ * it goes in (AM-D8). The key, set for the old one, is then no longer sent.
+ */
 export function addressChanged(before: AiConnectionForm, after: AiConnectionForm): boolean {
-    return before.workspace.trim() !== after.workspace.trim() || before.baseUrl.trim() !== after.baseUrl.trim();
+    return before.workspace.trim() !== after.workspace.trim() || before.baseUrl.trim() !== after.baseUrl.trim()
+        || formHeader(before.header ?? '') !== formHeader(after.header ?? '');
 }
 
-/** One connection's own fields, as save writes them. */
+/** One connection's own fields, as save writes them. The header is Other's only. */
 function connectionFields(c: AiConnectionForm): Record<string, unknown> {
-    return { preset: c.preset, label: c.label.trim(), workspace: c.workspace.trim(), baseUrl: c.baseUrl.trim(), location: c.location.trim(), processesIn: c.processesIn.trim() };
+    const header = c.preset === 'other' ? formHeader(c.header ?? '') : '';
+    return {
+        preset: c.preset, label: c.label.trim(), workspace: c.workspace.trim(), baseUrl: c.baseUrl.trim(), location: c.location.trim(), processesIn: c.processesIn.trim(),
+        header: header || deleteField(),
+        perMinute: c.perMinute ?? deleteField(), atOnce: c.atOnce ?? deleteField(), usdRate: c.usdRate ?? deleteField(), lowBalance: c.lowBalance ?? deleteField(),
+    };
 }
 
 /** What saving one new connection writes: its fields, and nothing an older one of the same id left behind. */
@@ -244,12 +412,22 @@ export interface AiTotals {
     tokensOut: number;
     tokensThinking: number;
     costUsd: number;
+    /** Answered from Arc's own cache (AM-D16): kept apart, never in `calls`. */
+    cacheHits: number;
+    /** Input tokens read from, and written to, the provider's cache (AM-D31). */
+    tokensCached: number;
+    tokensCacheWrite: number;
+    /** What file kinds billed, in each unit (AM-D27). */
+    pictures: number;
+    characters: number;
+    seconds: number;
 }
 
 export interface AiMonthUsage extends AiTotals {
     month: string;
     testCalls: number;
     byPurpose: Array<{ id: string } & AiTotals>;
+    byKind: Array<{ kind: string } & AiTotals>;
     byModel: Array<{ connection: string; model: string } & AiTotals>;
     byDay: Array<{ day: string } & AiTotals>;
     keys: Array<{ purpose: string; limitKey: string; units: number } & AiTotals>;
@@ -258,7 +436,10 @@ export interface AiMonthUsage extends AiTotals {
 function totals(raw: unknown): AiTotals {
     const t = obj(raw);
     const n = (k: string) => (typeof t[k] === 'number' ? (t[k] as number) : 0);
-    return { calls: n('calls'), failed: n('failed'), tokensIn: n('tokensIn'), tokensOut: n('tokensOut'), tokensThinking: n('tokensThinking'), costUsd: n('costUsd') };
+    return {
+        calls: n('calls'), failed: n('failed'), tokensIn: n('tokensIn'), tokensOut: n('tokensOut'), tokensThinking: n('tokensThinking'), costUsd: n('costUsd'),
+        cacheHits: n('cacheHits'), tokensCached: n('tokensCached'), tokensCacheWrite: n('tokensCacheWrite'), pictures: n('pictures'), characters: n('characters'), seconds: n('seconds'),
+    };
 }
 
 export function monthUsageFrom(month: string, data: Record<string, unknown> | undefined, keys: Array<Record<string, unknown>>): AiMonthUsage {
@@ -269,6 +450,7 @@ export function monthUsageFrom(month: string, data: Record<string, unknown> | un
         ...totals(d),
         testCalls: typeof d['testCalls'] === 'number' ? (d['testCalls'] as number) : 0,
         byPurpose: Object.entries(obj(d['byPurpose'])).map(([id, t]) => ({ id, ...totals(t) })).sort(byCost),
+        byKind: Object.entries(obj(d['byKind'])).map(([kind, t]) => ({ kind, ...totals(t) })).sort(byCost),
         byModel: Object.values(obj(d['byModel'])).map((t) => ({ connection: str(obj(t)['connection']), model: str(obj(t)['model']), ...totals(t) })).sort(byCost),
         byDay: Object.entries(obj(d['byDay'])).map(([day, t]) => ({ day, ...totals(t) })).sort((a, b) => a.day.localeCompare(b.day)),
         keys: keys.map((k) => ({ purpose: str(k['purpose']), limitKey: str(k['limitKey']), units: typeof k['units'] === 'number' ? (k['units'] as number) : 0, ...totals(k) })),
@@ -279,6 +461,8 @@ export interface AiCallRow {
     id: string;
     createdAt: Date | null;
     purpose: string;
+    /** What the purpose makes; text for records written before kinds. */
+    kind: string;
     test: boolean;
     outcome: string;
     scope?: string;
@@ -288,6 +472,11 @@ export interface AiCallRow {
     tokensIn: number;
     tokensOut: number;
     tokensThinking: number;
+    tokensCached: number;
+    tokensCacheWrite: number;
+    /** What was billed, in `unit`. */
+    amount: number;
+    unit: string;
     costUsd: number;
     costFrom: string;
     ms: number;
@@ -298,6 +487,20 @@ export interface AiCallRow {
     attempts: Array<{ connection: string; model: string; outcome: string; ms: number; detail?: string }>;
     /** The purpose kept what was sent and answered; it is read when the call is opened. */
     hasContent: boolean;
+    /** The files a file kind made (AM-D27), read through readAiFile when the call is opened. */
+    files: AiCallFile[];
+    /** Answered from Arc's own cache (AM-D16), with the record of the call that made the files. */
+    cached: boolean;
+    cachedFrom: string | null;
+}
+
+export interface AiCallFile {
+    path: string;
+    mimeType: string;
+    bytes: number;
+    width?: number;
+    height?: number;
+    seconds?: number;
 }
 
 export interface AiCallContent {
@@ -317,6 +520,7 @@ export function callRowFrom(id: string, d: Record<string, unknown>): AiCallRow {
         id,
         createdAt: created?.toDate ? created.toDate() : null,
         purpose: str(d['purpose']),
+        kind: str(d['kind']) || 'text',
         test: d['test'] === true,
         outcome: str(d['outcome']),
         ...(d['scope'] ? { scope: str(d['scope']) } : {}),
@@ -324,11 +528,23 @@ export function callRowFrom(id: string, d: Record<string, unknown>): AiCallRow {
         connection: strOrNull(d['connection']),
         model: strOrNull(d['model']),
         tokensIn: num('tokensIn'), tokensOut: num('tokensOut'), tokensThinking: num('tokensThinking'),
+        tokensCached: num('tokensCached'), tokensCacheWrite: num('tokensCacheWrite'),
+        amount: num('amount'), unit: str(d['unit']) || 'tokens',
         costUsd: num('costUsd'), costFrom: str(d['costFrom']), ms: num('ms'),
         ref: strOrNull(d['ref']), limitKey: strOrNull(d['limitKey']), units: num('units') || 1,
         input: { chars: Number(input['chars'] ?? 0), files: Number(input['files'] ?? 0), bytes: Number(input['bytes'] ?? 0) },
         attempts: Array.isArray(d['attempts']) ? (d['attempts'] as Array<Record<string, unknown>>).map((a) => ({ connection: str(a['connection']), model: str(a['model']), outcome: str(a['outcome']), ms: Number(a['ms'] ?? 0), ...(a['detail'] ? { detail: str(a['detail']) } : {}) })) : [],
         hasContent: d['hasContent'] === true,
+        files: Array.isArray(d['files'])
+            ? (d['files'] as unknown[]).map(obj).filter((f) => typeof f['path'] === 'string' && f['path']).map((f) => ({
+                path: str(f['path']), mimeType: str(f['mimeType']), bytes: Number(f['bytes'] ?? 0),
+                ...(typeof f['width'] === 'number' ? { width: f['width'] } : {}),
+                ...(typeof f['height'] === 'number' ? { height: f['height'] } : {}),
+                ...(typeof f['seconds'] === 'number' ? { seconds: f['seconds'] } : {}),
+            }))
+            : [],
+        cached: d['cached'] === true,
+        cachedFrom: strOrNull(d['cachedFrom']),
     };
 }
 
@@ -350,10 +566,11 @@ const csvCell = (v: unknown) => {
 
 /** The calls as CSV, one row each, for a spreadsheet. */
 export function callsCsv(rows: AiCallRow[]): string {
-    const head = ['time (UTC)', 'purpose', 'test', 'outcome', 'detail', 'connection', 'model', 'tokens in', 'tokens out', 'thinking tokens', 'cost USD', 'cost from', 'ms', 'key', 'units', 'ref'];
+    const head = ['time (UTC)', 'purpose', 'test', 'outcome', 'detail', 'connection', 'model', 'tokens in', 'tokens out', 'thinking tokens', 'cost USD', 'cost from', 'ms', 'key', 'units', 'ref', 'kind', 'amount', 'unit', 'cached', 'cached tokens'];
     const lines = rows.map((r) => [
         r.createdAt?.toISOString() ?? '', r.purpose, r.test ? 'yes' : 'no', r.outcome, r.detail ?? '', r.connection ?? '', r.model ?? '',
         r.tokensIn, r.tokensOut, r.tokensThinking, r.costUsd.toFixed(6), r.costFrom, r.ms, r.limitKey ?? '', r.units, r.ref ?? '',
+        r.kind, r.amount, r.unit, r.cached ? 'yes' : 'no', r.tokensCached,
     ].map(csvCell).join(','));
     return [head.join(','), ...lines].join('\n') + '\n';
 }
@@ -403,6 +620,12 @@ export class AiSettingsService {
         await this.inCtx(() => arcCallable(this.functions, 'removeAiKey')({ connection }));
     }
 
+    /** Reads a connection's balance now, with its own key (AM-D32). */
+    async refreshBalance(connection: string): Promise<{ ok: true; balance: number | null; unit: string } | { ok: false; detail: string }> {
+        const result = await this.inCtx(() => arcCallable(this.functions, 'refreshAiBalance', { timeout: 40_000 })({ connection }));
+        return result.data as { ok: true; balance: number | null; unit: string } | { ok: false; detail: string };
+    }
+
     async test(connection: string, model: string): Promise<AiTestResult> {
         const result = await this.inCtx(() => arcCallable(this.functions, 'testAiConnection', { timeout: 70_000 })({ connection, model }));
         return result.data as AiTestResult;
@@ -443,4 +666,23 @@ export class AiSettingsService {
         const blob = await this.inCtx(() => getBlob(ref(storage, path)));
         return URL.createObjectURL(blob);
     }
+
+    /**
+     * A file a model made, read through the admin-only readAiFile (so the bucket's CORS setup
+     * does not matter), as an object URL the caller revokes when it is closed. A file moved or
+     * deleted throws the callable's not-found.
+     */
+    async aiFileUrl(path: string): Promise<{ url: string; contentType: string }> {
+        const result = await this.inCtx(() => arcCallable(this.functions, 'readAiFile', { timeout: 70_000 })({ path }));
+        const { data, contentType } = result.data as { data: string; contentType: string; bytes: number };
+        return { url: URL.createObjectURL(base64Blob(data, contentType)), contentType };
+    }
+}
+
+/** Base64 from a callable as a Blob of its type. */
+export function base64Blob(data: string, contentType: string): Blob {
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: contentType || 'application/octet-stream' });
 }

@@ -11,7 +11,7 @@
 <body data-root="../" data-page="features/ai.html">
   <main>
     <h1>AI</h1>
-    <p class="lead">AI lets an app's own Cloud Functions ask a language model to read, write, translate, summarise or sort. The app declares what each use is; admins choose the providers and models, set the keys, cap the spending and see what every call cost.</p>
+    <p class="lead">AI lets an app's own Cloud Functions ask a language model to read, write, translate, summarise or sort, or ask a model to make a picture, speech, a sound or a video. The app declares what each use is; admins choose the providers and models, set the keys, cap the spending and see what every call cost.</p>
 
     <h2>What it is</h2>
     <table>
@@ -29,8 +29,8 @@
     <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
     off: ['ai'],
 };</code></pre>
-    <p>On, it adds five small functions to every deploy, one of them a daily cleanup job, and Settings, AI to the admin. Nothing is sent to a provider and nothing is spent until an admin connects one and switches to Live.</p>
-    <p>With it off, Settings, AI and its card are gone and the URL shows the not-found page; the functions <code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code> and <code>cleanUpAi</code> are not built; and <code>askAi</code> answers <code>off</code> without throwing, so the same app code runs in a project with AI and one without. Records, totals and keys stay in Firestore. How the switch works for every feature: <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+    <p>On, it adds seven small functions to every deploy, one of them a daily cleanup job, and Settings, AI to the admin. Nothing is sent to a provider and nothing is spent until an admin connects one and switches to Live.</p>
+    <p>With it off, Settings, AI and its card are gone and the URL shows the not-found page; the functions <code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code>, <code>cleanUpAi</code>, <code>readAiFile</code> and <code>refreshAiBalance</code> are not built; and <code>askAi</code> answers <code>off</code> without throwing, so the same app code runs in a project with AI and one without. Records, totals and keys stay in Firestore. How the switch works for every feature: <a href="../reference/feature-ids.html">Feature ids</a>.</p>
 
     <h2>Set it up</h2>
     <p>Settings, AI starts with a <strong>Get started</strong> checklist: connect a provider, choose models, check the monthly budget, switch to Live. Each step ticks itself when it is done. While the app declares no purposes and no provider is added, the page says instead that nothing on the site uses AI yet, so there is nothing to set up or pay for. A new site is in <strong>Test</strong> mode: nothing is sent and nothing is spent, and every call gets its purpose's sample answer.</p>
@@ -39,25 +39,28 @@
       <li><p>Follow the numbered steps the panel shows for that provider, with <strong>Open</strong> links to its pages: where to sign in, how to create a key, what the key starts with, and where to add credit. Alibaba Cloud also asks for its workspace ID; an other address asks for the address and where it processes data.</p></li>
       <li><p>Paste the key. The panel warns when a key does not start as that provider's keys do. Click <strong>Connect and test</strong>: the provider is saved on its own, the key goes to the server, and one tiny live call tests it, even in test mode. It says how long the answer took and what it cost, or, in plain words, what to fix (a wrong key, no credit, a model the provider does not have) with the provider's own message under <strong>Details</strong>. The key is never shown again: the card shows <code>••••</code> and its last 4 characters, who set it and when.</p></li>
       <li><p>Click <strong>Use these models</strong>, for a provider Arc CMS knows models of, to fill the tiers with its recommended models and save. Or list the models of each tier yourself: <strong>Cheap</strong> for tags and short texts, <strong>Fast</strong> for most uses, <strong>Thorough</strong> for hard reading. The first in a list answers; the next only when it is busy, down or gone.</p></li>
-      <li><p>Under <strong>Advanced: what each model reads and costs</strong>, check what a model you typed reads (pictures, PDFs), whether the provider holds the answer to the schema or promises JSON only, and its price in USD per million tokens. Arc CMS fills in what it knows; a model without a price is counted as free, and a provider that reports each call's cost (OpenRouter) needs none.</p></li>
+      <li><p>Under <strong>Advanced: what each model reads and costs</strong>, check what a model you typed <strong>Makes</strong> (text, data, pictures, speech, audio or video), what it reads (pictures, PDFs), whether the provider holds the answer to the schema or promises JSON only, what it <strong>Bills by</strong> and its prices: per million tokens in and out, with <strong>Cached input</strong> and <strong>Cache write</strong> where the provider bills them apart, or per picture, per 1,000 characters or per second. Arc CMS fills in what it knows, with the date it checked each provider's prices; a model without a price is counted as free, and a provider that reports each call's cost (OpenRouter) needs none.</p></li>
       <li><p>Check the <strong>Monthly budget</strong> (20 USD on a new site; 0 stops every live call). The checklist warns about each model in use that has no price, since the budget cannot count it. Switch the mode to <strong>Live</strong> and click <strong>Save</strong>. The page says when there are changes not saved yet, and warns when Live is chosen before a provider works.</p></li>
     </ol>
-    <p>Each provider card says how it stands: <strong>Working</strong>, <strong>Not working</strong> (with what to do), <strong>Not tested</strong> or <strong>Key needed</strong>. <strong>Replace key</strong> rotates a key the same way, with no deploy; it works within a minute. <strong>Edit</strong> changes its name or address (a new address or workspace means setting the key again). <strong>Remove</strong> asks for a confirmation in the page, then removes the provider and its key from every model list and saves just that. <strong>Use these models</strong> also saves only the tiers: any other change on the page waits for <strong>Save</strong>.</p>
+    <p>Each provider card says how it stands: <strong>Working</strong>, <strong>Not working</strong> (with what to do), <strong>Not tested</strong> or <strong>Key needed</strong>. <strong>Replace key</strong> rotates a key the same way, with no deploy; it works within a minute. <strong>Edit</strong> changes its name or address (a new address or workspace means setting the key again), its <strong>Requests a minute</strong> and <strong>At once</strong> (empty uses the numbers shown, the provider's entry plan; set your plan's, or 0 for no limit), and for a provider that prices in another currency, such as Sarvam AI in rupees, <strong>USD for 1 INR</strong>: until it is set, that provider's prices count as 0. An other address also takes its <strong>Key header</strong> (Authorization: Bearer, api-key, x-api-key or another name); changing it means setting the key again. A provider whose key can read its balance (DeepSeek, and what is left of an OpenRouter key's own limit) shows it, read every day and on <strong>Refresh</strong>, with an optional <strong>Alert below</strong>: admins are told once when it falls under it (type <code>AI balance low (admin)</code>). Others link to their <strong>Billing</strong> page. When a provider says its account has no credit, admins are told at once (type <code>AI credit gone (admin)</code>), and the next model in each list answers meanwhile.</p>
+    <p>A provider marked <strong>Not tested live yet</strong> (Anthropic, the Gemini API, Mistral, Mistral EU, Groq, xAI and Sarvam AI) was built from its documentation and has not answered a real call. Its <strong>Test</strong> is the first real call; if it fails in a way the message does not explain, report it.</p>
+    <p>Below the tiers, <strong>Models that make files</strong> holds a list each for <strong>Picture models</strong>, <strong>Speech models</strong>, <strong>Audio models</strong> and <strong>Video models</strong>, shown when a provider has such a model or one of the app's purposes makes that kind. They work like tiers. No provider makes files yet: they arrive in later releases, and until then such purposes answer with stand-in files in test mode. <strong>Remove</strong> asks for a confirmation in the page, then removes the provider and its key from every model list and saves just that. <strong>Use these models</strong> also saves only the tiers: any other change on the page waits for <strong>Save</strong>.</p>
     <div class="warn"><p>Where a provider processes data is your choice and your client's: a provider's own service in China, for example, sends what you ask to China. OpenRouter and Hugging Face pass each call to the company that runs the model; block the ones you do not want in your account settings there. Read <a href="../app/ai.html#vertex">Gemini on Vertex AI</a> for Google's regions.</p></div>
 
     <h2>Use it</h2>
     <h3>Purposes</h3>
-    <p>Each of the app's purposes shows what it takes and gives, with:</p>
+    <p>Each of the app's purposes shows its <strong>Kind</strong> (Text, Data, Pictures, Speech, Audio or Video) and what it takes and gives, with:</p>
     <ul>
       <li><strong>On</strong>: off makes every call for it answer <code>off</code>.</li>
       <li><strong>Models</strong>: the tier's list, or one of its own.</li>
       <li><strong>Daily allowance for each user or business</strong> (or what the app calls its keys, such as merchant), for a purpose whose app gives one: each one gets its own count. Empty uses the app's number. The app can give some their own number, such as from their plan, and that comes first.</li>
+      <li>For a purpose that makes files: where its files go (Arc CMS's private AI folder, which only admins open, or the app's own folder), <strong>Delete files after (days)</strong> for files in the AI folder, and <strong>Reuse files for the same input</strong> when the app gives it a cache: the same input gets the same file again with no new call and no cost. Switch it off to make every file afresh.</li>
       <li><strong>Keep what is sent and answered</strong>: off by default. On, each call's text, files and answer are kept with its record for 60 days and admins can read them on the Calls tab. They may hold personal data: turn it on while testing.</li>
     </ul>
     <h3>Usage</h3>
-    <p>For a month: the cost against the budget, the calls and failures, the tokens in and out, the test calls, and the same by purpose, model, user or business (the 20 that cost most) and day. <strong>Download calls</strong> gives a CSV of the calls kept, the last 60 days, the newest 20,000 at most; the page says when it held more. The cost is the provider's own figure when it reports one, else tokens times the price: an estimate, since the provider's invoice is the true figure.</p>
+    <p>For a month: the cost against the budget, the calls and failures, the tokens in and out (with how many were cached input), the test calls, how many were <strong>Served from cache</strong> (never counted as calls or cost), and the same by purpose, kind, model, user or business (the 20 that cost most) and day, with each model's amount in its unit (pictures, characters, seconds). <strong>Download calls</strong> gives a CSV of the calls kept, the last 60 days, the newest 20,000 at most; the page says when it held more. The cost is the provider's own figure when it reports one, else the amount times the price: an estimate, since the provider's invoice is the true figure.</p>
     <h3>Calls</h3>
-    <p>The last 100 calls with the time, purpose, outcome, model, tokens, cost and how long it took. Click one for each model tried and how it went, the size of what was sent, the key and reference, and, when the purpose keeps it, the instruction, the text, the files and the answer, loaded only then. A kept file opens in a new tab, from a link that works only on this page.</p>
+    <p>The last 100 calls with the time, purpose, kind, outcome, model, tokens or amount, cost and how long it took; a call answered from the cache is marked <strong>From cache</strong>. A call that made files shows them under <strong>Files made</strong>: pictures inline, sound and video with a player, or <strong>Moved or deleted</strong> when the file is gone. Click one for each model tried and how it went, the size of what was sent, the key and reference, and, when the purpose keeps it, the instruction, the text, the files and the answer, loaded only then. A kept file opens in a new tab, from a link that works only on this page.</p>
     <h3>The budget</h3>
     <p>At 80% and at 100% of the month's budget, admins get a notification and an email (type <strong>AI budget (admin)</strong>). At 100% live calls answer <code>limit</code> until the month turns or the budget is raised. A month and a day are the site's, in the time zone of Settings, Localization.</p>
 
@@ -68,11 +71,14 @@
     <table>
       <thead><tr><th>Where</th><th>Holds</th></tr></thead>
       <tbody>
-        <tr><td><code>Settings/ai</code></td><td><code>mode</code>; <code>connections</code> (each provider, with its key's preview and its last success or error); <code>tiers</code>; <code>purposes</code> (on, models, allowance, keep content); <code>models</code> (what each reads, its schema support and prices); <code>budget.monthlyUsd</code></td></tr>
-        <tr><td><code>AiKeys</code></td><td>Each provider's key, with the address it was set for. When the address changes, the key is not sent until it is set again.</td></tr>
+        <tr><td><code>Settings/ai</code></td><td><code>mode</code>; <code>connections</code> (each provider, with its key's preview, its last success or error, its key header for an other address, its limits, its currency rate, and its last balance with the low mark); <code>tiers</code>; <code>lists</code> (the picture, speech, audio and video models); <code>purposes</code> (on, models, allowance, keep content, cache, days before files go); <code>models</code> (what each makes, reads and bills, its schema support and prices); <code>budget.monthlyUsd</code></td></tr>
+        <tr><td><code>AiKeys</code></td><td>Each provider's key, with the address and header it was set for. When either changes, the key is not sent until it is set again.</td></tr>
+        <tr><td><code>AiCache</code></td><td>The cache of files a purpose with <code>cache</code> made: where they are and when the entry ends</td></tr>
+        <tr><td><code>AiPacing</code></td><td>Each provider's requests this minute and those running, for its limits</td></tr>
         <tr><td><code>AiCalls</code></td><td>One record per call, kept 60 days. When the purpose keeps content, it is in <code>AiCalls/{record}/content/main</code>, read only when a call is opened</td></tr>
         <tr><td><code>AiUsage/{yyyy-mm}</code></td><td>The month's totals by day, purpose and model, with <code>keys</code> (per key) and <code>days</code> (the allowance counters) under it. Kept 24 months.</td></tr>
         <tr><td>Storage <code>ai-calls/{record}/</code></td><td>The files of a call whose purpose keeps content, under the upload folder</td></tr>
+        <tr><td>Storage <code>ai-files/{purpose}/{month}/</code></td><td>Files AI made for a purpose without its own folder, until the app moves them; test stand-ins under <code>ai-files/_test/</code>, deleted after a day; the cache's own copies under <code>ai-files/_cache/</code>, deleted with their entry</td></tr>
       </tbody>
     </table>
     <table>
@@ -81,7 +87,9 @@
         <tr><td><code>aiSetupInfo</code></td><td>The app's purposes (never their instructions) and the providers, for Settings, AI (admin)</td></tr>
         <tr><td><code>setAiKey</code>, <code>removeAiKey</code></td><td>Set or remove a provider's key (admin)</td></tr>
         <tr><td><code>testAiConnection</code></td><td>One tiny live call to a provider and model (admin)</td></tr>
-        <tr><td><code>cleanUpAi</code></td><td>Every day: records after 60 days with their files, totals after 24 months, spent allowance counters, and keys whose provider is gone</td></tr>
+        <tr><td><code>cleanUpAi</code></td><td>Every day: records after 60 days with their files, totals after 24 months, spent allowance counters, and keys whose provider is gone; files in <code>ai-files/</code> past their purpose's days, test files after a day, cache entries past their days; and each balance a provider's key can read</td></tr>
+        <tr><td><code>readAiFile</code></td><td>One picture, sound or video of a call, for the Calls tab (admin)</td></tr>
+        <tr><td><code>refreshAiBalance</code></td><td>Reads one provider's balance now (admin)</td></tr>
       </tbody>
     </table>
     <p>All are deployed as <code>arccms-&lt;name&gt;</code>. See <a href="../reference/cloud-functions.html">Cloud Functions</a> and <a href="../reference/data-model.html">Data model</a>.</p>
@@ -90,9 +98,9 @@
     <table>
       <thead><tr><th>Who</th><th>Can</th></tr></thead>
       <tbody>
-        <tr><td>Admin</td><td>Read and write <code>Settings/ai</code>; read <code>AiCalls</code>, <code>AiUsage</code> and the kept files; set, remove and test keys</td></tr>
+        <tr><td>Admin</td><td>Read and write <code>Settings/ai</code>; read <code>AiCalls</code>, <code>AiUsage</code>, the kept files and the files in <code>ai-files/</code>; set, remove and test keys; refresh a balance</td></tr>
         <tr><td>The app's functions</td><td>Call <code>askAi</code>, which no browser can call directly</td></tr>
-        <tr><td>Nobody from a browser</td><td>Read or write <code>AiKeys</code>, not even an admin; write <code>AiCalls</code>, <code>AiUsage</code> or the kept files</td></tr>
+        <tr><td>Nobody from a browser</td><td>Read or write <code>AiKeys</code>, <code>AiCache</code> or <code>AiPacing</code>, not even an admin; write <code>AiCalls</code>, <code>AiUsage</code>, the kept files or <code>ai-files/</code></td></tr>
       </tbody>
     </table>
 
@@ -104,7 +112,10 @@
         <tr><td>A provider card says "Not working"</td><td>It says what to do. Open <strong>Details</strong> for the provider's own message, fix it at the provider, and click <strong>Test</strong> again.</td></tr>
         <tr><td>Calls answer <code>off</code>, "no model is set for the fast tier"</td><td>Put a model in that tier, or in the purpose's own list.</td></tr>
         <tr><td>"no model in the list reads pictures"</td><td>Tick Pictures for a model that reads them under Model details, or add one that does.</td></tr>
-        <tr><td>"has no key" or "was set for another address" on a provider</td><td>Set the key again. A key stops being sent when the provider's address or workspace changes.</td></tr>
+        <tr><td>"is at its limit of requests"</td><td>The provider's limit a minute, or at once, set on its card, is reached and the call's time ran out waiting. Raise the limit to your plan's, or give the purpose a longer time.</td></tr>
+        <tr><td>"no credit left" (notification <code>AI credit gone (admin)</code>)</td><td>The provider says the account is empty; the next model in each list answers meanwhile. Add credit with the provider.</td></tr>
+        <tr><td>"Arc cannot make image with ... yet"</td><td>No provider makes pictures, speech, audio or video yet: those come in later releases. Test mode still answers with stand-in files.</td></tr>
+        <tr><td>"has no key", "was set for another address" or "was set for another header" on a provider</td><td>Set the key again. A key stops being sent when the provider's address, workspace or key header changes.</td></tr>
         <tr><td>"the provider refused the key"</td><td>The key is wrong, revoked or for another region. Paste a new one.</td></tr>
         <tr><td>"Vertex AI refused the project's service account"</td><td>Switch on the Vertex AI API and give the service account the Vertex AI User role (<a href="../app/ai.html#vertex">Gemini on Vertex AI</a>).</td></tr>
         <tr><td>"the model is not there"</td><td>The provider retired the model, or it is not offered in that location. Put its successor in the list.</td></tr>

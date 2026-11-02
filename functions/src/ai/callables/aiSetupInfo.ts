@@ -6,8 +6,8 @@
  */
 import { onCall } from 'firebase-functions/v2/https';
 import { requireAdmin } from '../../search/auth.js';
-import { AI_PRESETS, PRICES_CHECKED_ON } from '../presets.js';
-import { aiPurposes, DEFAULT_TEXT_CHARS, DEFAULT_TIMEOUT_SECONDS, purposeTier } from '../purposes.js';
+import { AI_PRESETS, BEARER, PRICES_CHECKED_ON, presetNeedsKey } from '../presets.js';
+import { aiPurposes, DEFAULT_TEXT_CHARS, DEFAULT_TIMEOUT_SECONDS, isFileKind, purposeCacheDays, purposeKind, purposeTier } from '../purposes.js';
 import { defaultVertexLocation } from '../settings.js';
 
 export const aiSetupInfo = onCall(async (request) => {
@@ -19,6 +19,13 @@ export const aiSetupInfo = onCall(async (request) => {
             description: p.description ?? '',
             tier: purposeTier(p),
             output: p.output && p.output !== 'text' ? 'data' : 'text',
+            // What it makes, and for a file kind where its files go (specs/ai-media-spec.md, AM-D27).
+            makes: purposeKind(p),
+            allowanceIn: p.allowanceIn ?? 'calls',
+            saveTo: isFileKind(purposeKind(p)) ? p.saveTo ?? null : null,
+            deleteAfterDays: p.deleteAfterDays ?? null,
+            cacheDays: purposeCacheDays(p),
+            fallback: p.fallback !== false,
             maxChars: p.input?.text?.maxChars ?? DEFAULT_TEXT_CHARS,
             pictures: p.input?.pictures ?? null,
             pdfs: p.input?.pdfs ?? null,
@@ -34,7 +41,17 @@ export const aiSetupInfo = onCall(async (request) => {
             needsWorkspace: p.baseUrl?.includes('{workspace}') === true,
             needsAddress: p.kind === 'openai' && !p.baseUrl,
             reportsCost: p.reportsCost === true,
-            models: Object.entries(p.models).map(([model, m]) => ({ model, ...m })),
+            needsKey: presetNeedsKey(p),
+            keyHeader: (p.auth ?? BEARER).header,
+            currency: p.currency ?? 'USD',
+            pricesCheckedOn: p.pricesCheckedOn,
+            testedLive: p.testedLive !== false,
+            docsReadOn: p.docsReadOn ?? null,
+            perMinute: p.perMinute ?? null,
+            atOnce: p.atOnce ?? null,
+            readsBalance: p.balance !== undefined,
+            billingUrl: p.billingUrl ?? null,
+            models: Object.entries(p.models).map(([model, m]) => ({ model, makes: m.makes ?? 'text', unit: m.unit ?? 'tokens', ...m })),
         })),
         pricesCheckedOn: PRICES_CHECKED_ON,
         defaultVertexLocation: defaultVertexLocation(),

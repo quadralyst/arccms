@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Use AI in your app | Arc CMS docs</title>
-  <meta name="description" content="Ask a language model from your own Cloud Functions with askAi: declare purposes, send text, pictures and PDFs, get text or checked data back, test without spending, and read the cost of every call.">
+  <meta name="description" content="Use AI from your own Cloud Functions with askAi: declare purposes, send text, pictures and PDFs, get text, checked data or files back, test without spending, and read the cost of every call.">
   <meta name="docs:sources" content="functions/src/ai, functions/src/custom/ai.ts, functions/src/app-kit/index.ts, functions/src/features/ai.ts, src/app/pages/admin/(settings)/ai, firestore.rules, storage.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/ai.html">
   <main>
     <h1>Use AI in your app</h1>
-    <p class="lead">Your own Cloud Functions can ask a language model to read, write, translate, summarise or sort, with <code>askAi</code> from the app kit. You declare each use as a purpose in <code>functions/src/custom/ai.ts</code>: what it takes, the instruction, and the shape of the answer. Admins choose the providers and models, set the keys, and see what every call cost in Settings, AI. Arc CMS checks the answer against your shape, keeps a record of each call, and stops at the limits you set.</p>
+    <p class="lead">Your own Cloud Functions can ask a language model to read, write, translate, summarise or sort, or ask a model to make a picture, speech, a sound or a video, with <code>askAi</code> from the app kit. You declare each use as a purpose in <code>functions/src/custom/ai.ts</code>: what it makes, what it takes, the instruction, and the shape of the answer. Admins choose the providers and models, set the keys, and see what every call cost in Settings, AI. Arc CMS checks the answer against your shape, keeps a record of each call, and stops at the limits you set.</p>
     <p>Arc CMS has no AI feature of its own: every use is your app's. It needs the <code>ai</code> feature, which is on unless your app turns it off (see <a href="../features/ai.html">AI</a> for the admin side).</p>
 
     <h2 id="example">An example: reading a receipt</h2>
@@ -86,6 +86,10 @@ export const readReceipt = onCall({ timeoutSeconds: 120, memory: '1GiB' }, async
         <tr><td><code>limitKeyLabel</code></td><td>Optional: what a <code>limitKey</code> is, in a word, such as <code>'merchant'</code>. Settings, AI then says "Daily allowance for each merchant" and "merchant b1" on the usage and call rows. Default: "user or business".</td></tr>
         <tr><td><code>testAnswer</code></td><td>The answer in test mode: the data or text itself, a function of the input, or <code>aiTestFailure(reason)</code>. A fixed answer is checked against the schema when the functions load.</td></tr>
         <tr><td><code>thinking</code></td><td>Optional, for a model that thinks before it answers: <code>'low'</code> for quick reading and sorting (faster, fewer billed tokens), <code>'high'</code> for hard reasoning. Sent to OpenRouter, OpenAI and Gemini; other providers ignore it. A model that thinks past <code>maxOutputTokens</code> gives no answer (<code>unreadable</code>), and its tokens are still billed.</td></tr>
+        <tr><td><code>makes</code></td><td>Optional: <code>'text'</code> (the default), <code>'data'</code> (the default with a schema), or a kind that answers with files: <code>'image'</code>, <code>'speech'</code>, <code>'audio'</code> (a sound or music) or <code>'video'</code>. See <a href="#files">Make files</a>.</td></tr>
+        <tr><td><code>allowanceIn</code></td><td>Optional: what <code>perKeyPerDay</code> counts. <code>'calls'</code> (the default: <code>units</code> a call), or the amount: <code>'pictures'</code>, <code>'characters'</code> of the text sent, or <code>'seconds'</code> of audio or video asked for. So "20 pictures a day" needs no counting by you.</td></tr>
+        <tr><td><code>fallback</code></td><td>Optional: <code>false</code> lets only the first model of the list answer, such as for one voice throughout. Default <code>true</code>.</td></tr>
+        <tr><td><code>image</code>, <code>speech</code>, <code>audio</code>, <code>video</code>, <code>saveTo</code>, <code>deleteAfterDays</code>, <code>cache</code></td><td>For a purpose that makes files: its settings and where its files go. See <a href="#files">Make files</a>.</td></tr>
         <tr><td><code>maxOutputTokens</code>, <code>temperature</code>, <code>timeoutSeconds</code></td><td>Optional. <code>timeoutSeconds</code> (5 to 540, default 60) is for the whole call, fallbacks included. Give your own function a longer <code>timeoutSeconds</code> than the purpose, and memory for the files: about seven times their size, so <code>memory: '1GiB'</code> for photos of several MB.</td></tr>
       </tbody>
     </table>
@@ -101,6 +105,8 @@ export const readReceipt = onCall({ timeoutSeconds: 120, memory: '1GiB' }, async
         <tr><td><code>units</code></td><td>How much of the allowance it uses, such as the number of pages. Default 1.</td></tr>
         <tr><td><code>perDay</code></td><td>Optional: this key's own allowance today, such as from its plan. A whole number from 0, used in place of the admin's and the purpose's. Needs a <code>limitKey</code>. See <a href="#plans">Allowances by plan</a>.</td></tr>
         <tr><td><code>ref</code></td><td>Your own reference, kept on the record</td></tr>
+        <tr><td><code>saveAs</code></td><td>A file kind with <code>saveTo</code>: the path for the first file, inside that folder, such as <code>app/article-audio/a1/p3.mp3</code>. More files get <code>-2</code>, <code>-3</code>.</td></tr>
+        <tr><td><code>image</code>, <code>speech</code>, <code>audio</code>, <code>video</code></td><td>A file kind: this call's settings over the purpose's, such as <code>image: { count: 2 }</code>. Settings for another kind throw.</td></tr>
       </tbody>
     </table>
     <div class="warn"><p>Arc CMS reads <code>storagePath</code> with the functions' rights, which can read every file. It takes only paths inside the project's bucket, without <code>..</code>, but it cannot know which files the caller may read: check that yourself before you pass a path from a browser, as the example does.</p></div>
@@ -118,7 +124,7 @@ const r = await askAi({
     <p>The count for the day is the same whatever number is passed, so a business that moves to a larger plan at noon keeps what it used in the morning. A <code>perDay</code> of 0 gives that key no calls. Take the key and its plan from the signed-in account on the server, never from what the browser sends, or anyone could name another business or a larger number.</p>
 
     <h2 id="reasons">What comes back</h2>
-    <p><code>{ ok: true, data, usage, recordId }</code> for a purpose with a schema, <code>{ ok: true, text, usage, recordId }</code> for text. <code>usage</code> holds the model that answered, the tokens, the cost in USD and the time. Otherwise <code>{ ok: false, reason, usage, recordId }</code>, with <code>wait</code> (seconds) when trying later can help and <code>detail</code> for your logs:</p>
+    <p><code>{ ok: true, data, usage, recordId }</code> for a purpose with a schema, <code>{ ok: true, text, usage, recordId }</code> for text, <code>{ ok: true, files, usage, recordId }</code> for a file kind, with <code>cached: true</code> when the files came from the cache. <code>usage</code> holds the model that answered, the tokens, the cost in USD and the time. Otherwise <code>{ ok: false, reason, usage, recordId }</code>, with <code>wait</code> (seconds) when trying later can help and <code>detail</code> for your logs:</p>
     <table>
       <thead><tr><th>Reason</th><th>What happened</th><th>What to show</th></tr></thead>
       <tbody>
@@ -133,9 +139,48 @@ const r = await askAi({
     </table>
     <p>A developer's mistake throws instead: an unknown purpose, a kind of file the purpose does not take, a missing <code>limitKey</code> for a purpose with an allowance, or a wrong type. A call that fails before a provider answers gives its units back. One the provider answered, even with a block or an answer that did not fit, was paid for, so its units count; so does one that timed out, since the provider most likely finished and billed it.</p>
 
+    <h2 id="files">Make files</h2>
+    <p>A purpose with <code>makes: 'image'</code>, <code>'speech'</code>, <code>'audio'</code> or <code>'video'</code> answers with files, which Arc CMS saves to Storage and never hands back as bytes. Its <code>instruction</code> is optional: for a file kind it is a house style, added after the text the call sends.</p>
+    <pre><code>export const AI_PURPOSES: AiPurposes = {
+  'article-audio': {
+    label: 'Article audio',
+    makes: 'speech',
+    input: { text: { maxChars: 2000 } },
+    speech: { language: 'en-US', format: 'mp3' },
+    saveTo: 'app/article-audio',
+    cache: true,
+    perKeyPerDay: 50_000,
+    allowanceIn: 'characters',
+  },
+};
+
+const r = await askAi({
+  purpose: 'article-audio',
+  input: paragraph.text,
+  saveAs: `app/article-audio/${articleId}/${paragraph.id}.mp3`,
+  limitKey: siteId,
+});
+if (r.ok) save(r.files![0].path); // { path, mimeType, bytes, seconds }</code></pre>
+    <table>
+      <thead><tr><th>Field</th><th>What it says</th></tr></thead>
+      <tbody>
+        <tr><td><code>image</code></td><td><code>aspect</code> (<code>1:1</code>, <code>4:3</code>, <code>3:4</code>, <code>3:2</code>, <code>2:3</code>, <code>16:9</code>, <code>9:16</code>, <code>21:9</code>), <code>resolution</code> (<code>standard</code> about 1 MP, <code>high</code> about 4 MP), <code>quality</code> (<code>low</code>, <code>medium</code>, <code>high</code>), <code>count</code> 1 to 4, <code>seed</code>, <code>negativePrompt</code>, <code>format</code>. Each model takes what it can; the rest is not sent.</td></tr>
+        <tr><td><code>speech</code></td><td><code>language</code> (such as <code>en-US</code>), <code>speed</code> 0.5 to 2, <code>format</code> (<code>mp3</code>, <code>wav</code>, <code>opus</code>), <code>style</code> for a model that takes an instruction</td></tr>
+        <tr><td><code>audio</code></td><td><code>seconds</code> 0.5 to 600, <code>loop</code>, <code>format</code></td></tr>
+        <tr><td><code>video</code></td><td><code>seconds</code>, <code>aspect</code>, <code>resolution</code> (<code>480p</code> to <code>4k</code>), <code>sound</code>, <code>seed</code>, <code>negativePrompt</code></td></tr>
+        <tr><td><code>saveTo</code></td><td>The folder your files go in, such as <code>app/article-audio</code>, served by your own rules in <code class="new">storage.app.rules</code>. Not one of Arc CMS's folders (<code>ai-files</code>, <code>ai-calls</code>, <code>users</code>, <code>email-logs</code>, <code>mediaFiles</code>, <code>mediaImages</code>). Without it, files go to Arc CMS's private <code>ai-files/{purpose}/{month}/</code>, which only admins read.</td></tr>
+        <tr><td><code>deleteAfterDays</code></td><td>Files left in <code>ai-files/</code> are deleted this many days after they were made. Without it they stay until you move or delete them. Arc CMS never deletes a file in your <code>saveTo</code> folder.</td></tr>
+        <tr><td><code>cache</code></td><td><code>true</code> (365 days) or <code>{ days }</code>: the same text, settings and input files on the same model give the same file, with no new call. A hit counts against nothing: no budget, no allowance, no call in Usage. It still leaves a record marked cached. The cache keeps its own copy of each file in <code>ai-files/_cache/</code> and copies it to where each call wants it, so moving or deleting your file never takes it from the next call. The admin can switch the cache off.</td></tr>
+      </tbody>
+    </table>
+    <p>Move a file to where you keep it with <code>moveAiFile(from, to)</code> from the app kit: it moves the file and points the call's record at the new place. It moves only a file a call made, never onto a file that is already there, and never into Arc CMS's own folders. In test mode each call gets a small stand-in instead: a grey picture of the asked size, a second of silence for every 15 characters of speech (at most 10), the asked length of silence for audio, a 2-second grey video. Stand-ins always go to <code>ai-files/_test/</code>, never to your folder, and are deleted after a day.</p>
+    <p class="note">No provider makes files yet. The kinds, the files, the cache and test mode are ready, so you can build and test your screens now; live calls for a file kind answer <code>off</code> until the providers arrive: speech, then pictures, then video, then other audio.</p>
+
     <h2>Which model answers</h2>
     <p>Each tier, and any purpose the admin gives its own list, is a list of up to 5 models. The first answers. The next tries only when the one before is busy or down, refuses its key, has gone (a model Google or another provider retired), or used up its share of the time. Never after a safety block, an input that is too large or an answer that does not fit: another model would not do better. A model that cannot read what you send, such as a picture to a text-only model, is skipped. Because every answer is checked, a cheap model that promises only JSON is safe to use: it gets your schema in its instruction, and an answer of the wrong shape comes back as <code>unreadable</code>.</p>
-    <p>Providers Arc CMS offers: Alibaba Cloud Model Studio in Frankfurt (EU), OpenRouter, Hugging Face, OpenAI, OpenAI's EU projects, DeepSeek, any other address that speaks the OpenAI Chat Completions format, and Google Vertex AI for Gemini. Where each processes data is on its card in Settings, AI: choose with your client.</p>
+    <p>A file kind has one list for its kind (Picture models, Speech models, Audio models, Video models in Settings, AI) instead of a tier, and offers only models that make that kind. With <code>fallback: false</code> only the first model answers. A provider that says "too many requests" with a short wait gets one more try on the same model; a connection with a limit set in Settings, AI waits for a place rather than failing (see <a href="#costs">Costs, limits and records</a>).</p>
+    <p>Providers Arc CMS offers: Alibaba Cloud Model Studio in Frankfurt (EU), OpenRouter, Hugging Face, OpenAI, OpenAI's EU projects, DeepSeek, Anthropic, the Google Gemini API with a key, Mistral (and its EU address), Groq, xAI, Sarvam AI, any other address that speaks the OpenAI Chat Completions format, and Google Cloud (Vertex AI) for Gemini. Where each processes data is on its card in Settings, AI: choose with your client.</p>
+    <p class="note"><strong>Not tested live yet:</strong> Anthropic, the Gemini API, Mistral, Mistral EU, Groq, xAI and Sarvam AI were built from each provider's documentation as read on 2 November 2026 and tested against a fake server, never with a real call. Settings, AI marks them "Not tested live yet". The first project that uses one runs it for real, fixes what differs, and confirms its prices.</p>
 
     <h2 id="vertex">Gemini on Vertex AI</h2>
     <p>A Vertex provider needs no key: it calls Gemini in your own Google Cloud project with the functions' service account. Set it up once:</p>
@@ -167,10 +212,11 @@ try {
     <h2 id="costs">Costs, limits and records</h2>
     <ul>
       <li><strong>Every call is recorded</strong> in <code>AiCalls</code> for 60 days: the purpose, each model tried and how it went, the tokens in and out (thinking included in out), the cost in USD, the time, your <code>ref</code> and <code>limitKey</code>. Not what was sent or answered, unless the admin switches on <strong>Keep what is sent and answered</strong> for the purpose: then the text and the answer are on the record and each file is copied beside it in Storage, for 60 days. Turn it on while testing; it may hold personal data.</li>
-      <li><strong>The cost</strong> is the provider's own figure when it reports one (OpenRouter does), else tokens times the price in Settings, AI. Arc CMS ships the prices it has checked; a model without a price is counted as free until the admin sets one. It is an estimate: the provider's invoice is the true figure.</li>
+      <li><strong>The cost</strong> is the provider's own figure when it reports one (OpenRouter does), else the amount times the price in Settings, AI, by what the model bills: tokens (input, output, and the cheaper cached input and dearer cache writes apart, with a higher price above a prompt size where the provider has one), pictures, characters (per 1,000) or seconds. A provider that prices in another currency (Sarvam AI, in rupees) counts 0 until the admin sets its rate in USD. Arc CMS ships the prices it has checked; a model without a price is counted as free until the admin sets one. It is an estimate: the provider's invoice is the true figure.</li>
       <li><strong>The month's totals</strong> by day, purpose, model and key are kept 24 months. <code>aiUsage({ limitKey, purpose?, month? })</code> gives one key's totals, for example to show a business its use or pass the cost on.</li>
       <li><strong>The monthly budget</strong> (20 USD on a new install) stops live calls when it is spent, with <code>limit</code> and <code>scope: 'budget'</code>; a budget of 0 stops every live call. It is checked before each call, so calls running at the same moment can pass it by about one call's cost each. A model with no price is counted as 0 USD, so the budget cannot stop it: Settings, AI warns about each one until a price is set. A timed-out call is recorded with no tokens, though the provider may have billed it. Admins get a notification and an email at 80% and at 100%.</li>
       <li><strong>A day</strong> for the allowance and the totals is the site's day, in the time zone of Settings, Localization.</li>
+      <li><strong>Pacing:</strong> a connection can have at most so many requests a minute and so many at once, across every instance (Sarvam AI starts at 60 a minute, its pay-as-you-go limit; the admin sets the plan's numbers, or 0 for none). A call over a limit waits for a place while its time allows, then answers <code>unavailable</code> with <code>wait</code>.</li>
       <li><strong>Deleting an account</strong> does not delete the records of its calls: they go after 60 days, and the month's totals per key, which hold the <code>limitKey</code>, after 24 months. Use an id, such as a business id, as <code>limitKey</code> and <code>ref</code>, never a name or an email address.</li>
       <li><strong>What Arc CMS adds to your Google Cloud bill</strong> is small next to the model's: about three Firestore reads and three to four writes for each live call, one daily cleanup job, and Storage for files kept with a purpose's content.</li>
     </ul>

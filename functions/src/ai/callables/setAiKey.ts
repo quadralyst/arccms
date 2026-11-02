@@ -7,7 +7,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { db } from '../../init.js';
 import { requireAdmin } from '../../search/auth.js';
 import { cleanKey, keyPreview, storeKey } from '../keys.js';
-import { findPreset } from '../presets.js';
+import { findPreset, presetNeedsKey } from '../presets.js';
 import { AI_SETTINGS_DOC, connectionBaseUrl, forgetAiSettings, readAiSettings } from '../settings.js';
 
 export const setAiKey = onCall(async (request) => {
@@ -19,7 +19,8 @@ export const setAiKey = onCall(async (request) => {
     const settings = await readAiSettings();
     const connection = typeof connectionId === 'string' ? settings.connections[connectionId] : undefined;
     if (!connection) throw new HttpsError('not-found', 'Save the connection first, then set its key.');
-    if (findPreset(connection.preset)?.kind !== 'openai') throw new HttpsError('failed-precondition', 'This connection uses the project\'s own Google account and needs no key.');
+    const preset = findPreset(connection.preset);
+    if (!preset || !presetNeedsKey(preset)) throw new HttpsError('failed-precondition', 'This connection uses the project\'s own Google account and needs no key.');
     if (!connectionBaseUrl(connection)) throw new HttpsError('failed-precondition', 'Fill in the connection\'s address (or workspace) first, then set its key.');
     const setBy = String(request.auth?.token?.['email'] ?? request.auth?.uid ?? 'an admin');
     const now = new Date().toISOString();

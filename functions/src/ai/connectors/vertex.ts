@@ -80,11 +80,15 @@ function usageOf(data: Record<string, unknown>): AttemptUsage {
     const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0);
     const thinking = n(u['thoughtsTokenCount']);
     // Thinking is billed as output: tokensOut holds all of it, tokensThinking the part that was thinking.
-    return { tokensIn: n(u['promptTokenCount']), tokensOut: n(u['candidatesTokenCount']) + thinking, tokensThinking: thinking };
+    const usage: AttemptUsage = { tokensIn: n(u['promptTokenCount']), tokensOut: n(u['candidatesTokenCount']) + thinking, tokensThinking: thinking };
+    // Cached tokens are part of promptTokenCount (AM-D31).
+    const cached = n(u['cachedContentTokenCount']);
+    if (cached) usage.tokensCached = Math.min(cached, usage.tokensIn);
+    return usage;
 }
 
 /** One HTTP answer in the connector's words. */
-export function readGenerateResponse(status: number, body: unknown): ConnectorResult {
+export function readGenerateResponse(status: number, body: unknown, service = 'Vertex AI'): ConnectorResult {
     const data = (body ?? {}) as Record<string, unknown>;
     if (status >= 200 && status < 300) {
         const usage = usageOf(data);
@@ -107,10 +111,11 @@ export function readGenerateResponse(status: number, body: unknown): ConnectorRe
     if (status === 401 || status === 403 || code === 'PERMISSION_DENIED') {
         return { ok: false, failure: 'off', detail: `Vertex AI refused the project's service account (${status}): switch on the Vertex AI API and give it the Vertex AI User role. ${message}` };
     }
-    if (status === 429 || status >= 500 || code === 'RESOURCE_EXHAUSTED' || code === 'UNAVAILABLE') return { ok: false, failure: 'unavailable', detail: `${status}: ${message}` };
+    if (status === 429 || code === 'RESOURCE_EXHAUSTED') return { ok: false, failure: 'unavailable', detail: `${status}: ${message}`, rateLimited: true };
+    if (status >= 500 || code === 'UNAVAILABLE') return { ok: false, failure: 'unavailable', detail: `${status}: ${message}` };
     if (/token|too large|exceeds|size/i.test(message)) return { ok: false, failure: 'too-large', detail: message };
     if (/safety|blocked|prohibited/i.test(message)) return { ok: false, failure: 'blocked', detail: message };
-    return { ok: false, failure: 'unreadable', detail: `Vertex AI refused the request (${status}): ${message}` };
+    return { ok: false, failure: 'unreadable', detail: `${service} refused the request (${status}): ${message}` };
 }
 
 /** The project to call Vertex in: the functions' own. */

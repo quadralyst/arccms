@@ -9,7 +9,8 @@ import { requireAdmin } from '../../search/auth.js';
 import { connectorFor } from '../connectors/index.js';
 import type { ConnectorResult } from '../connectors/types.js';
 import { readKey } from '../keys.js';
-import { findPreset } from '../presets.js';
+import { attemptCost } from '../cost.js';
+import { findPreset, presetNeedsKey } from '../presets.js';
 import { writeAiCall, type AiCallRecord } from '../records.js';
 import { forgetAiSettings, modelInfo, readAiSettings } from '../settings.js';
 import { addToTotals, noteConnection } from '../usage.js';
@@ -27,11 +28,14 @@ export const testAiConnection = onCall({ timeoutSeconds: 60 }, async (request) =
     const connection = typeof connectionId === 'string' ? settings.connections[connectionId] : undefined;
     const preset = connection ? findPreset(connection.preset) : undefined;
     if (!connection || !preset) throw new HttpsError('not-found', 'Save the connection first, then test it.');
+    const makes = modelInfo(settings, { connection: connection.id, model }).makes;
+    // The test is a short text question: a model that makes files is tried by its first real use.
+    if (makes !== 'text' && makes !== 'data') throw new HttpsError('failed-precondition', `This model makes ${makes}; Test tries text models only.`);
 
     const started = Date.now();
     let result: ConnectorResult;
     // Read the key again: one set a moment ago on another instance must be the one tested.
-    const key = preset.kind === 'openai' ? await readKey(connection, Date.now(), { fresh: true }) : { ok: true as const, key: null };
+    const key = presetNeedsKey(preset) ? await readKey(connection, Date.now(), { fresh: true }) : { ok: true as const, key: null };
     if (!key.ok) result = { ok: false, failure: 'off', detail: key.detail };
     else {
         result = await connectorFor(preset.kind)({ connection, key: key.key }, {
@@ -49,9 +53,11 @@ export const testAiConnection = onCall({ timeoutSeconds: 60 }, async (request) =
     const ms = Date.now() - started;
     const usage = result.usage ?? { tokensIn: 0, tokensOut: 0, tokensThinking: 0 };
     const info = modelInfo(settings, { connection: connection.id, model });
-    const costUsd = usage.costUsd ?? (info.priceIn !== undefined && info.priceOut !== undefined ? (usage.tokensIn * info.priceIn + usage.tokensOut * info.priceOut) / 1_000_000 : 0);
+    const cost = attemptCost(info, usage);
+    const costUsd = cost.usd;
     const record: AiCallRecord = {
         purpose: CONNECTION_TEST_PURPOSE,
+        kind: 'text',
         tier: 'cheap',
         test: false,
         ref: null,
@@ -64,8 +70,12 @@ export const testAiConnection = onCall({ timeoutSeconds: 60 }, async (request) =
         tokensIn: usage.tokensIn,
         tokensOut: usage.tokensOut,
         tokensThinking: usage.tokensThinking,
+        tokensCached: usage.tokensCached ?? 0,
+        tokensCacheWrite: usage.tokensCacheWrite ?? 0,
+        amount: cost.amount,
+        unit: cost.unit,
         costUsd,
-        costFrom: usage.costUsd !== undefined ? 'provider' : info.priceIn !== undefined ? 'price-list' : 'none',
+        costFrom: cost.from,
         ms,
         outcome: result.ok ? 'ok' : result.failure === 'retired' || result.failure === 'key-refused' ? 'unavailable' : result.failure,
         ...(result.ok ? {} : { detail: result.detail.slice(0, 500) }),

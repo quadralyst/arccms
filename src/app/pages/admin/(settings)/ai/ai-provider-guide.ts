@@ -72,6 +72,53 @@ export const PROVIDER_GUIDES: Record<string, ProviderGuide> = {
     other: {
         steps: [{ key: 'guide_other_1' }, { key: 'guide_other_2' }],
     },
+    // Built from each provider's docs, not tested live (specs/ai-media-spec.md, AM-D34).
+    anthropic: {
+        keyPrefix: 'sk-ant-',
+        steps: [
+            { key: 'guide_key_page', url: 'https://console.anthropic.com/settings/keys' },
+            { key: 'guide_add_credit', url: 'https://console.anthropic.com/settings/billing' },
+        ],
+    },
+    'gemini-api': {
+        steps: [
+            { key: 'guide_key_page', url: 'https://aistudio.google.com/apikey' },
+            { key: 'guide_add_credit', url: 'https://aistudio.google.com/usage' },
+        ],
+    },
+    mistral: {
+        steps: [
+            { key: 'guide_key_page', url: 'https://console.mistral.ai/api-keys' },
+            { key: 'guide_add_credit', url: 'https://console.mistral.ai/billing' },
+        ],
+    },
+    'mistral-eu': {
+        steps: [
+            { key: 'guide_key_page', url: 'https://console.mistral.ai/api-keys' },
+            { key: 'guide_add_credit', url: 'https://console.mistral.ai/billing' },
+        ],
+    },
+    groq: {
+        keyPrefix: 'gsk_',
+        steps: [
+            { key: 'guide_key_page', url: 'https://console.groq.com/keys' },
+            { key: 'guide_add_credit', url: 'https://console.groq.com/settings/billing' },
+        ],
+    },
+    xai: {
+        keyPrefix: 'xai-',
+        steps: [
+            { key: 'guide_key_page', url: 'https://console.x.ai/' },
+            { key: 'guide_add_credit', url: 'https://console.x.ai/' },
+        ],
+    },
+    sarvam: {
+        steps: [
+            { key: 'guide_key_page', url: 'https://dashboard.sarvam.ai/' },
+            { key: 'guide_add_credit', url: 'https://dashboard.sarvam.ai/' },
+            { key: 'guide_sarvam_rate' },
+        ],
+    },
     vertex: {
         steps: [
             { key: 'guide_vertex_1', url: 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com' },
@@ -88,7 +135,7 @@ export const PROVIDER_GUIDES: Record<string, ProviderGuide> = {
  */
 export function failureAdvice(failure: string | undefined, detail = ''): string {
     if (/credit|402|insufficient|balance|billing/i.test(detail)) return 'advice_credit';
-    if (/another address/i.test(detail)) return 'advice_key_again';
+    if (/another (address|header)/i.test(detail)) return 'advice_key_again';
     if (/service account|Vertex AI API/i.test(detail)) return 'advice_vertex';
     if (failure === 'key-refused' || /refused the key|has no key|\b40[13]\b/i.test(detail)) return 'advice_key';
     if (failure === 'retired' || /not there|not a model|\b404\b/i.test(detail)) return 'advice_model';

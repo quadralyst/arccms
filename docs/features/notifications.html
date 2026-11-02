@@ -27,6 +27,8 @@
         <tr><td><code>admin_account_detached</code></td><td>Every admin</td><td>An account lost its only sign-in method to another account</td></tr>
         <tr><td><code>admin_sign_in_setup</code></td><td>Every admin</td><td>A phone sign-in failed because the Google Cloud setup is missing; at most once a day (see <a href="sign-in.html#google-cloud-setup-for-phone-sign-in">Sign-in methods</a>)</td></tr>
         <tr><td><code>admin_ai_budget</code></td><td>Every admin</td><td>The month's AI spending reaches 80% and then all of its budget; once each a month (see <a href="ai.html">AI</a>)</td></tr>
+        <tr><td><code>admin_ai_balance</code></td><td>Every admin</td><td>An AI provider's balance, read with its key, falls below the low mark set in Settings, AI; once until it rises again (see <a href="ai.html">AI</a>)</td></tr>
+        <tr><td><code>admin_ai_credit</code></td><td>Every admin</td><td>An AI provider says its account has no credit left; once a day for each provider (see <a href="ai.html">AI</a>)</td></tr>
         <tr><td><code>announcement</code></td><td>The users an admin picks: everyone, a role, or lists</td><td>An admin sends an announcement, with the Email marketing feature on (see <a href="email-marketing.html">Email marketing</a>)</td></tr>
         <tr><td>Any type</td><td>The event's user</td><td>A rule in <a href="automations.html">Automations</a> creates one</td></tr>
       </tbody>

@@ -55,5 +55,7 @@ export type { AppTagValue } from '../email-core/queueEmail.js';
 export { askAi, captureAiAsks } from '../ai/askAi.js';
 export type { CapturedAiAsk } from '../ai/askAi.js';
 export { aiUsage } from '../ai/usage.js';
-export { aiTestFailure, AI_FAILURE_REASONS, AI_TIERS } from '../ai/types.js';
-export type { AiPurpose, AiPurposes, AiInputPart, AskAiInput, AskAiResult, AiUsage, AiFailureReason, AiTier, AiTestInput, AiTestAnswer, JsonSchema } from '../ai/types.js';
+// Files a purpose made: moved to where the app keeps them (specs/ai-media-spec.md, AM-D10)
+export { moveAiFile } from '../ai/files.js';
+export { aiTestFailure, AI_FAILURE_REASONS, AI_TIERS, AI_KINDS, AI_UNITS } from '../ai/types.js';
+export type { AiPurpose, AiPurposes, AiInputPart, AskAiInput, AskAiResult, AiUsage, AiFailureReason, AiTier, AiTestInput, AiTestAnswer, AiKind, AiUnit, AiFile, AiImageSettings, AiSpeechSettings, AiAudioSettings, AiVideoSettings, AiAllowanceUnit, JsonSchema } from '../ai/types.js';

@@ -18,7 +18,7 @@ export function modelField(connection: string, model: string): string {
 }
 
 function counts(record: AiCallRecord): Record<string, unknown> {
-    return {
+    const out: Record<string, unknown> = {
         calls: FieldValue.increment(1),
         failed: FieldValue.increment(record.outcome === 'ok' ? 0 : 1),
         tokensIn: FieldValue.increment(record.tokensIn),
@@ -26,7 +26,15 @@ function counts(record: AiCallRecord): Record<string, unknown> {
         tokensThinking: FieldValue.increment(record.tokensThinking),
         costUsd: FieldValue.increment(record.costUsd),
     };
+    // Cached tokens and the billed amount of a file kind, only when there are some (AM-D27).
+    if (record.tokensCached) out['tokensCached'] = FieldValue.increment(record.tokensCached);
+    if (record.tokensCacheWrite) out['tokensCacheWrite'] = FieldValue.increment(record.tokensCacheWrite);
+    if (record.unit && record.unit !== 'tokens' && record.amount) out[record.unit] = FieldValue.increment(record.amount);
+    return out;
 }
+
+/** A hit in Arc's own cache: counted apart, never as a call (AM-D16). */
+const CACHE_HIT = { cacheHits: FieldValue.increment(1) };
 
 /**
  * Add a call to its month's totals. Never throws: the app's answer must not be lost over its
@@ -41,11 +49,16 @@ export async function addToTotals(record: AiCallRecord, at = new Date(), budget?
             await month.set({ month: day.month, testCalls: FieldValue.increment(1) }, { merge: true });
             return;
         }
+        if (record.cached) {
+            await month.set({ month: day.month, ...CACHE_HIT, byPurpose: { [record.purpose]: CACHE_HIT }, byKind: { [record.kind]: CACHE_HIT } }, { merge: true });
+            return;
+        }
         const update: Record<string, unknown> = {
             month: day.month,
             ...counts(record),
             byDay: { [day.day]: counts(record) },
             byPurpose: { [record.purpose]: counts(record) },
+            byKind: { [record.kind ?? 'text']: counts(record) },
         };
         if (record.connection && record.model) {
             update['byModel'] = { [modelField(record.connection, record.model)]: { connection: record.connection, model: record.model, ...counts(record) } };
@@ -86,6 +99,32 @@ export async function alertOnBudget(month: string, settings?: AiSettings): Promi
     await notifyAdmins('admin_ai_budget', due.level === '100'
         ? { title: 'AI budget spent', body: `AI calls cost ${spent} USD this month, the whole budget of ${budget} USD. Live calls stop until next month or until the budget is raised in Settings, AI.`, link: '/admin/settings/ai' }
         : { title: 'AI budget at 80%', body: `AI calls cost ${spent} USD this month, 80% of the budget of ${budget} USD.`, link: '/admin/settings/ai' });
+}
+
+/**
+ * Tell admins once a day per connection that its provider says the account has no credit
+ * (specs/ai-media-spec.md, AM-D32). Never throws.
+ */
+export async function alertOutOfCredit(connectionId: string, label: string, detail: string, at = new Date()): Promise<void> {
+    try {
+        const day = await currentSiteDay(at);
+        const ref = db.collection(AI_USAGE).doc(day.month);
+        const today = `${day.month}-${day.day}`;
+        const due = await db.runTransaction(async (tx) => {
+            const alerts = ((await tx.get(ref)).data()?.['creditAlerts'] ?? {}) as Record<string, string>;
+            if (alerts[connectionId] === today) return false;
+            tx.set(ref, { month: day.month, creditAlerts: { [connectionId]: today } }, { merge: true });
+            return true;
+        });
+        if (!due) return;
+        await notifyAdmins('admin_ai_credit', {
+            title: `${label}: no credit left`,
+            body: `${label} says its account has no credit left, so calls to it fail and the next model in each list answers. Add credit with the provider. (${detail.slice(0, 160)})`,
+            link: '/admin/settings/ai',
+        });
+    } catch (err) {
+        console.error(`askAi: admins were not told that connection ${connectionId} has no credit`, err);
+    }
 }
 
 /** One key's totals for a month (the site's month now when left out), for one purpose or all. */
