@@ -2276,6 +2276,10 @@
       "name_required": "Please enter your name",
       "choose_pin": "Choose a 6-digit PIN",
       "new_pin_label": "New PIN",
+      "your_new_pin": "Your new PIN",
+      "pin_again": "Type it again",
+      "pin_again_needed": "Type your new PIN again.",
+      "pins_mismatch": "Those two did not match. Start again.",
       "pin_next_time": "You will use it to sign in next time.",
       "password_error": {
         "short": "Use at least {{ min }} characters.",

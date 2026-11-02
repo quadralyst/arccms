@@ -875,3 +875,161 @@ describe('SignupComponent: the app\'s hooks (src/custom/sign-in-page.ts, F33)', 
         error.mockRestore();
     });
 });
+
+describe('SignupComponent: a new PIN after Forgot PIN, typed twice (F40)', () => {
+    const rows = () => [...fixture.nativeElement.querySelectorAll('.pin-field arc-code-input')] as HTMLElement[];
+    const digits = (row: HTMLElement) => [...row.querySelectorAll('.code-box')].map((box) => (box as HTMLInputElement).value).join('');
+    const boxes = (name: 'newPinBoxes' | 'pinAgainBoxes') => (page as unknown as Record<string, () => CodeInputComponent>)[name]();
+
+    async function onNewPin(): Promise<void> {
+        signIn['resetPin'] = vi.fn().mockResolvedValue(undefined);
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        page.channel.set('phone');
+        page.phone.set('+919876543210');
+        page.goToStep('newPin');
+        fixture.detectChanges();
+    }
+
+    it('asks for the new PIN, then for it again, under labels that say so', async () => {
+        await onNewPin();
+        expect(rows()).toHaveLength(2);
+        const labels = [...fixture.nativeElement.querySelectorAll('.pin-field .pin-label')].map((el) => (el as HTMLElement).textContent!.trim());
+        expect(labels).toEqual([english('member.auth.your_new_pin'), english('member.auth.pin_again')]);
+    });
+
+    it('saves nothing when the two differ: says so, and empties both rows to start again', async () => {
+        await onNewPin();
+        boxes('newPinBoxes').fill('482913');
+        boxes('pinAgainBoxes').fill('482931');
+        await flush();
+        fixture.detectChanges();
+        expect(signIn['resetPin']).not.toHaveBeenCalled();
+        expect(page.errorMessage()).toBe(english('member.auth.pins_mismatch'));
+        expect(shown()).toContain(english('member.auth.pins_mismatch'));
+        expect(rows().map(digits)).toEqual(['', '']);
+        expect(page.newPin()).toBe('');
+        expect(page.pinAgain()).toBe('');
+
+        // Save with nothing typed saves nothing either.
+        page.handleSubmit();
+        await flush();
+        expect(signIn['resetPin']).not.toHaveBeenCalled();
+    });
+
+    it('saves nothing with only the first row typed, and asks for it again', async () => {
+        await onNewPin();
+        boxes('newPinBoxes').fill('482913');
+        page.handleSubmit();
+        await flush();
+        expect(signIn['resetPin']).not.toHaveBeenCalled();
+        expect(page.errorMessage()).toBe(english('member.auth.pin_again_needed'));
+    });
+
+    it('saves the PIN and signs in once both rows match, on the last digit of the second', async () => {
+        await onNewPin();
+        boxes('newPinBoxes').fill('482913');
+        boxes('pinAgainBoxes').fill('482913');
+        await flush();
+        expect(signIn['resetPin']).toHaveBeenCalledTimes(1);
+        expect(signIn['resetPin']).toHaveBeenCalledWith('+919876543210', '482913');
+    });
+
+    it('empties both rows when the server finds the PIN too easy, so the next is typed twice too', async () => {
+        await onNewPin();
+        signIn['resetPin'].mockRejectedValue({
+            code: 'functions/invalid-argument', message: english('member.auth.server_error.weak_pin'), details: { reason: 'weak-pin' },
+        });
+        boxes('newPinBoxes').fill('482913');
+        boxes('pinAgainBoxes').fill('482913');
+        await flush();
+        fixture.detectChanges();
+        expect(page.errorMessage()).toBe(english('member.auth.server_error.weak_pin'));
+        expect(rows().map(digits)).toEqual(['', '']);
+    });
+});
+
+describe('SignupComponent: "please wait" on the first step counts down (F41)', () => {
+    // The check refuses a number whose last code was used under a minute ago.
+    const refuseFor = (wait: number) => signIn['checkPhone'].mockRejectedValue({
+        code: 'functions/resource-exhausted',
+        message: english('member.auth.server_error.wait', { wait }),
+        details: { reason: 'wait', wait },
+    });
+    const alertText = () => (fixture.nativeElement.querySelector('.alert-danger') as HTMLElement | null)?.textContent!.trim() ?? '';
+
+    async function refusedOnContinue(wait: number): Promise<void> {
+        refuseFor(wait);
+        settingsRead.resolve(OPEN);
+        render();
+        typed('98765 43210');
+        // Only the countdown's clock is faked: the page's other waits run as they do.
+        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+        page.handleSubmit();
+        await flush();
+        fixture.detectChanges();
+    }
+
+    it('counts the seconds down with Continue greyed out, then the message goes and Continue is back at 0', async () => {
+        await refusedOnContinue(3);
+        expect(page.currentStep()).toBe('request');
+        expect(alertText()).toBe(english('member.auth.server_error.wait', { wait: 3 }));
+        expect(button().disabled).toBe(true);
+
+        vi.advanceTimersByTime(1000);
+        fixture.detectChanges();
+        expect(alertText()).toBe(english('member.auth.server_error.wait', { wait: 2 }));
+        expect(button().disabled).toBe(true);
+
+        // A tap while it counts asks nothing of the server.
+        page.handleSubmit();
+        await flush();
+        expect(signIn['checkPhone']).toHaveBeenCalledTimes(1);
+
+        vi.advanceTimersByTime(1000);
+        fixture.detectChanges();
+        expect(alertText()).toBe(english('member.auth.server_error.wait', { wait: 1 }));
+
+        vi.advanceTimersByTime(1000);
+        fixture.detectChanges();
+        expect(page.requestWait()).toBe(0);
+        expect(fixture.nativeElement.querySelector('.alert-danger')).toBeNull();
+        expect(button().disabled).toBe(false);
+
+        // At 0 Continue works again.
+        signIn['checkPhone'].mockResolvedValue({ phone: '+919876543210', exists: false, hasPin: false, signupOpen: true });
+        page.handleSubmit();
+        await flush();
+        expect(signIn['checkPhone']).toHaveBeenCalledTimes(2);
+        expect(page.currentStep()).toBe('verify');
+    });
+
+    it('ends the wait when another number or address is typed, since it was for the first one', async () => {
+        await refusedOnContinue(40);
+        expect(button().disabled).toBe(true);
+        // The same number written another way is still the same number.
+        typed('+91 98765-43210');
+        fixture.detectChanges();
+        expect(page.requestWait()).toBe(40);
+        expect(button().disabled).toBe(true);
+        typed('98765 43211');
+        fixture.detectChanges();
+        expect(page.requestWait()).toBe(0);
+        expect(fixture.nativeElement.querySelector('.alert-danger')).toBeNull();
+        expect(button().disabled).toBe(false);
+    });
+
+    it('keeps any other refusal as a plain error, with Continue still there', async () => {
+        signIn['checkPhone'].mockRejectedValue({ code: 'functions/invalid-argument', message: 'Enter a valid mobile number.', details: { reason: 'invalid-number' } });
+        settingsRead.resolve(OPEN);
+        render();
+        typed('98765 43210');
+        page.handleSubmit();
+        await flush();
+        fixture.detectChanges();
+        expect(page.requestWait()).toBe(0);
+        expect(alertText()).toBe('Enter a valid mobile number.');
+        expect(button().disabled).toBe(false);
+    });
+});

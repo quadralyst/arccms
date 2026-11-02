@@ -91,13 +91,14 @@
                                     </div>
                                 </div>
 
-                                @if (errorMessage()) {
-                                <div class="alert alert-danger">{{ errorMessage() }}</div>
+                                @if (errorMessage() || requestWaitMessage()) {
+                                <!-- A "please wait" counts down to 0, then goes (F41) -->
+                                <div class="alert alert-danger" [class.request-wait]="!errorMessage()">{{ errorMessage() || requestWaitMessage() }}</div>
                                 }
 
                                 <div class="mb-3">
-                                    <!-- Busy while a tap waits for the sign-in settings, then it goes on by itself -->
-                                    <button type="submit" class="btn btn-primary w-100" [disabled]="busy()" [attr.aria-busy]="busy()">
+                                    <!-- Busy while a tap waits for the sign-in settings, then it goes on by itself; greyed out while a wait counts down -->
+                                    <button type="submit" class="btn btn-primary w-100" [disabled]="busy() || requestWait() > 0" [attr.aria-busy]="busy()">
                                         {{ 'member.auth.continue' | transloco }}
                                         <span [hidden]="!busy()" class="spinner-border spinner-border-sm ms-2"
                                             role="status"></span>
@@ -493,9 +494,15 @@
                                 <h5 class="card-title login-title mb-3">{{ getStepTitle() }}</h5>
                                 <p class="login-subtitle">{{ getStepDescription() }}</p>
 
+                                <!-- The new PIN twice, as an app's first PIN: one typo must not lock the person out (F40) -->
                                 <div class="pin-field mt-4">
-                                    <arc-code-input [label]="'member.auth.new_pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
-                                        [disabled]="working()" (changed)="newPin.set($event)"></arc-code-input>
+                                    <div class="form-label pin-label">{{ 'member.auth.your_new_pin' | transloco }}</div>
+                                    <arc-code-input #newPinBoxes [label]="'member.auth.your_new_pin' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
+                                        [disabled]="working()" (changed)="newPin.set($event)" (completed)="newPinTyped()"></arc-code-input>
+                                    <div class="form-label pin-label pin-label-again">{{ 'member.auth.pin_again' | transloco }}</div>
+                                    <arc-code-input #pinAgainBoxes [label]="'member.auth.pin_again' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
+                                        [autofocus]="false" [disabled]="working()"
+                                        (changed)="pinAgain.set($event)" (completed)="saveNewPin()"></arc-code-input>
                                     <button type="button" class="btn btn-link btn-sm pin-toggle"
                                         (click)="showPin.set(!showPin())">
                                         {{ (showPin() ? 'member.auth.hide_pin' : 'member.auth.show_pin') | transloco }}

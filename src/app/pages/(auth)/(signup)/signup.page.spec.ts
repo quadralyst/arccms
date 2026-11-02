@@ -537,6 +537,7 @@ describe('SignupComponent', () => {
             c['checkPhone'] = vi.fn();
             c['checkEmail'] = vi.fn();
             c['busy'] = () => false;
+            c['requestWait'] = () => 0;
             c['settingsIn'] = () => Promise.resolve(true);
             c['channel'] = { set: vi.fn() };
             await proto['checkIdentifier'].call(c);

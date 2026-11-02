@@ -1966,9 +1966,12 @@ export type TranslationKey =
     | 'member.auth.password_required'
     | 'member.auth.password_update_failed'
     | 'member.auth.passwords_mismatch'
+    | 'member.auth.pin_again'
+    | 'member.auth.pin_again_needed'
     | 'member.auth.pin_chosen'
     | 'member.auth.pin_label'
     | 'member.auth.pin_next_time'
+    | 'member.auth.pins_mismatch'
     | 'member.auth.profile_update_failed'
     | 'member.auth.redirecting'
     | 'member.auth.resend'
@@ -2060,6 +2063,7 @@ export type TranslationKey =
     | 'member.auth.unfinished_signup'
     | 'member.auth.verify'
     | 'member.auth.welcome_back_greeting'
+    | 'member.auth.your_new_pin'
     | 'member.cookie_banner.accept_all'
     | 'member.cookie_banner.learn_more'
     | 'member.cookie_banner.reject_all'
@@ -4283,9 +4287,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.password_required',
     'member.auth.password_update_failed',
     'member.auth.passwords_mismatch',
+    'member.auth.pin_again',
+    'member.auth.pin_again_needed',
     'member.auth.pin_chosen',
     'member.auth.pin_label',
     'member.auth.pin_next_time',
+    'member.auth.pins_mismatch',
     'member.auth.profile_update_failed',
     'member.auth.redirecting',
     'member.auth.resend',
@@ -4377,6 +4384,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.unfinished_signup',
     'member.auth.verify',
     'member.auth.welcome_back_greeting',
+    'member.auth.your_new_pin',
     'member.cookie_banner.accept_all',
     'member.cookie_banner.learn_more',
     'member.cookie_banner.reject_all',

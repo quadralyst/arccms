@@ -763,6 +763,16 @@ input:focus {
         position: relative;
         z-index: 1;
     }
+
+    // "Your new PIN" and "Type it again" over their rows on a reset (F40).
+    .pin-label {
+        margin: 0;
+        text-align: center;
+    }
+
+    .pin-label-again {
+        margin-top: 8px;
+    }
 }
 
 // The error opens downwards, pushing what is under it down smoothly instead of at once.
