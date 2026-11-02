@@ -120,6 +120,7 @@ type Phase = 'idle' | 'saving' | 'testing' | 'done' | 'failed';
                                 <small class="d-block text-muted mt-1">{{ 'admin.settings.ai.key_safe' | transloco }}</small>
                             </div>
                         }
+                        @if (p.makesText !== false) {
                         <div class="col-sm-6">
                             <label class="form-label small mb-1" for="aiConnectModel">{{ 'admin.settings.ai.test_model' | transloco }}</label>
                             <input id="aiConnectModel" class="form-control" [attr.list]="'aiConnectModels'" [ngModel]="model()" (ngModelChange)="model.set($event)"
@@ -127,6 +128,9 @@ type Phase = 'idle' | 'saving' | 'testing' | 'done' | 'failed';
                             <datalist id="aiConnectModels">@for (m of p.models; track m.model) { <option [value]="m.model"></option> }</datalist>
                             @if (!p.models.length) { <small class="text-muted">{{ 'admin.settings.ai.model_name_hint' | transloco }}</small> }
                         </div>
+                        } @else {
+                            <div class="col-sm-6 small text-muted align-self-end voices-check-hint">{{ 'admin.settings.ai.connect_checks_voices' | transloco }}</div>
+                        }
                     </div>
 
                     <button type="button" class="btn btn-primary connect-button" (click)="connect()" [disabled]="busy() || !ready()">
@@ -217,7 +221,7 @@ export class AiConnectComponent implements OnInit {
         if (!this.existing() && p.needsAddress && this.header() && !safeHeaderName(this.header())) return 'admin.settings.ai.header_invalid';
         if (!this.existing() && p.needsAddress && this.headerChoice() === 'custom' && !this.header()) return 'admin.settings.ai.header_invalid';
         if (this.needsKey(p) && this.key().trim().length < 8) return 'admin.settings.ai.missing_key';
-        if (!this.model().trim()) return 'admin.settings.ai.missing_model';
+        if (p.makesText !== false && !this.model().trim()) return 'admin.settings.ai.missing_model';
         return '';
     });
     readonly ready = computed(() => this.missing() === '');
@@ -280,6 +284,10 @@ export class AiConnectComponent implements OnInit {
             return;
         }
         this.phase.set('testing');
+        if (p.makesText === false) {
+            await this.checkByVoices(base, !!existing);
+            return;
+        }
         try {
             const r = await this.service.test(base.id, this.model().trim());
             if (r.ok) {
@@ -291,6 +299,23 @@ export class AiConnectComponent implements OnInit {
             }
             this.saved.emit({ ...base, lastError: r.detail ?? r.failure ?? null });
             this.fail(failureAdvice(r.failure, r.detail), r.detail ?? r.failure ?? '');
+        } catch (err: any) {
+            this.fail('advice_other', err?.message ?? '');
+        }
+    }
+
+    /** A provider Arc makes no text with (ElevenLabs, MiniMax): reading its voices checks the key, at no cost. */
+    private async checkByVoices(base: AiConnectionForm, replaced: boolean): Promise<void> {
+        try {
+            const r = await this.service.voices(base.id, true);
+            if (r.ok) {
+                this.phase.set('done');
+                this.key.set('');
+                this.connected.emit({ connection: { ...base, lastOkAt: new Date().toISOString(), lastError: null }, model: '', replaced });
+                return;
+            }
+            this.saved.emit({ ...base, lastError: r.detail });
+            this.fail(failureAdvice(undefined, r.detail), r.detail);
         } catch (err: any) {
             this.fail('advice_other', err?.message ?? '');
         }

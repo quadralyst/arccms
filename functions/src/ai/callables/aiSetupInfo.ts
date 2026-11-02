@@ -6,8 +6,9 @@
  */
 import { onCall } from 'firebase-functions/v2/https';
 import { requireAdmin } from '../../search/auth.js';
+import { connectorFor } from '../connectors/index.js';
 import { AI_PRESETS, BEARER, PRICES_CHECKED_ON, presetNeedsKey } from '../presets.js';
-import { aiPurposes, DEFAULT_TEXT_CHARS, DEFAULT_TIMEOUT_SECONDS, isFileKind, purposeCacheDays, purposeKind, purposeTier } from '../purposes.js';
+import { aiPurposes, DEFAULT_TEXT_CHARS, DEFAULT_TIMEOUT_SECONDS, isArcPurpose, isFileKind, purposeCacheDays, purposeKind, purposeTier, purposeVoiceNames } from '../purposes.js';
 import { defaultVertexLocation } from '../settings.js';
 
 export const aiSetupInfo = onCall(async (request) => {
@@ -32,6 +33,11 @@ export const aiSetupInfo = onCall(async (request) => {
             perKeyPerDay: p.perKeyPerDay ?? null,
             limitKeyLabel: p.limitKeyLabel?.trim() || null,
             timeoutSeconds: p.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS,
+            // Arc's own purposes, marked so in the page (AM-D18, AM-D20).
+            arc: isArcPurpose(id),
+            // A speech purpose's named voices with the app's voice ids by provider (AM-D17); Arc's
+            // voice sample is played by the voice chosen, so it has none to show.
+            voices: purposeKind(p) === 'speech' && !isArcPurpose(id) ? purposeVoiceNames(p).map((name) => ({ name, ids: { ...(p.voices?.[name] ?? {}) } })) : [],
         })),
         presets: Object.entries(AI_PRESETS).map(([id, p]) => ({
             id,
@@ -51,6 +57,10 @@ export const aiSetupInfo = onCall(async (request) => {
             atOnce: p.atOnce ?? null,
             readsBalance: p.balance !== undefined,
             billingUrl: p.billingUrl ?? null,
+            // Its connector makes files, and lists voices for speech (AM-D18).
+            files: p.files ?? null,
+            makesText: connectorFor(p.kind) !== undefined,
+            makesSpeech: Object.values(p.models).some((m) => m.makes === 'speech'),
             models: Object.entries(p.models).map(([model, m]) => ({ model, makes: m.makes ?? 'text', unit: m.unit ?? 'tokens', ...m })),
         })),
         pricesCheckedOn: PRICES_CHECKED_ON,

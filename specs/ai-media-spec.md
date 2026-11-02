@@ -1,6 +1,6 @@
 # AI for every kind of output: Build Spec (AM, follows F38)
 
-**Status:** AM1 built on `feat/ai-media-am1` (worktree `../arccms-ai-media`), 2026-11-02, not merged; AM2 to AM5 not built. Spec drafted 2026-11-02; updated the same day with Gunjan's answers, and the remaining questions settled as assumptions (section 8). Nothing built. No provider is called live during the build: every new connector is written from the provider's docs, tested against a fake server, and marked "not tested live" until its first real use (AM-D34). Builds on the F38 AI
+**Status:** AM1 built on `feat/ai-media-am1` (worktree `../arccms-ai-media`), 2026-11-02, not merged; AM2 built on `feat/ai-media-am2` (from AM1), 2026-11-02, not merged; AM3 to AM5 not built. Spec drafted 2026-11-02; updated the same day with Gunjan's answers, and the remaining questions settled as assumptions (section 8). Nothing built. No provider is called live during the build: every new connector is written from the provider's docs, tested against a fake server, and marked "not tested live" until its first real use (AM-D34). Builds on the F38 AI
 feature (`specs/ai-spec.md`, decisions AI-D1 to AI-D19), on `dev` at eb1e2bca.
 **Brief:** Arc CMS becomes the one place an app makes every AI call: text, data, pictures,
 speech, other audio and video, from all the popular providers, so the keys, logs, costs,
@@ -306,7 +306,7 @@ model's figures from the provider's page.
 | Provider | Connector | Address | Key header | Unit and price | Voices | Notes |
 |----------|-----------|---------|-----------|----------------|--------|-------|
 | ElevenLabs | `elevenlabs` | `https://api.elevenlabs.io/v1/text-to-speech/{voice}` (raw audio back) | `xi-api-key` | characters: `eleven_v4`, `eleven_v3`, `eleven_multilingual_v2` $0.08 per 1,000; `eleven_flash_v2_5` $0.04 | `GET /v2/voices` with `preview_url`, languages and labels | Most characters a request: v4 10,000, v3 5,000, multilingual v2 10,000, flash v2.5 40,000. `output_format` as a query (`mp3_44100_128` default). Limits are at once, not a minute (Starter 3, Creator 5, Pro 10). A `character-cost` header is shown in ElevenLabs' examples, not confirmed on a live answer. EU, India and other residency addresses are Enterprise only, with their own keys. |
-| Sarvam | `sarvam` | `https://api.sarvam.ai/text-to-speech` (base64 in JSON) | `api-subscription-key` | characters: `bulbul:v3` Rs 30 per 10,000, `bulbul:v4-flash` Rs 10 per 10,000 | fixed lists in Sarvam's docs (37 for v3, about 222 for v4 flash), no list call, no sample files | Up to 2,500 characters a request (v3, v4 flash). The language field is `language_code` (11 Indian languages, `hi-IN` and so on); `pace` 0.5 to 2. 60 requests a minute on pay as you go, per account across keys. |
+| Sarvam | `sarvam` | `https://api.sarvam.ai/text-to-speech` (base64 in JSON) | `api-subscription-key` | characters: `bulbul:v3` Rs 30 per 10,000, `bulbul:v4-flash` Rs 10 per 10,000 | fixed lists in Sarvam's docs (37 for v3, about 222 for v4 flash), no list call, no sample files | Up to 2,500 characters a request (v3, v4 flash). The language field is `language_code` (11 Indian languages, `hi-IN` and so on; v4 flash has no Malayalam or Odia yet); `pace` 0.5 to 2; `output_audio_codec` WAV (default) or MP3, never Opus on v3 and v4 flash. 60 requests a minute on pay as you go, per account across keys. |
 | Google Cloud Text-to-Speech | `vertex` (service account) | `https://texttospeech.googleapis.com/v1/text:synthesize`; EU `eu-texttospeech.googleapis.com` | none (service account) | characters per million: Standard and WaveNet $4, Neural2 $16, Chirp 3 HD $30, Studio $160, each with a monthly free amount; Gemini TTS voices bill tokens | `GET /v1/voices`, no sample files | Up to 5,000 bytes a request, not characters: about 1,600 characters of Devanagari. The Text-to-Speech API must be switched on in the project. |
 | MiniMax | `minimax` | `https://api.minimax.io/v1/t2a_v2` (hex audio, or an address kept 24 hours) | `Authorization: Bearer` | characters: HD models $1.00 per 10,000, turbo $0.60 | `POST /v1/get_voice` | About 40 languages, including Hindi and Tamil (Tamil perhaps only on its 2.6 models, not confirmed). Under 10,000 characters a request. 60 requests a minute. |
 
@@ -393,3 +393,29 @@ later without reworking the design:
    and Alibaba per-model prices as their pages give them. Settled on first real use.
 5. **MiniMax H3 sound.** Offered as video without sound (`sound` not supported in its
    entry) until a first real use shows otherwise.
+6. **AM2 choices** (2026-11-02, from the providers' docs re-read for the phase):
+   - Voice maps are keyed by preset, not by connection: two ElevenLabs connections share a voice name's id.
+   - A speech purpose without `voices` gets one voice, `default`, which the admin maps.
+   - `fallback: false` now limits the list to its first model before anything else, so a
+     skipped first model never lets the second speak (it used to count only models tried).
+   - Google Cloud Text-to-Speech is one model per voice type (`tts-chirp3-hd`, `tts-neural2`,
+     `tts-wavenet`, `tts-standard`, `tts-studio`), since Google prices by type; a voice of
+     another type is refused before a request. Gemini TTS voices (billed by tokens) are left
+     for later. Its speech models carry their own `testedLive: false` on a tested preset.
+   - ElevenLabs: `eleven_v4` recommended; WAV at 24 kHz (44.1 kHz WAV needs its Pro plan); no
+     `language_code` to Multilingual v2 and no speed to v3 and v4, which do not take them.
+   - MiniMax: `speech-2.8-hd` recommended; the 2.6 models kept; no `GroupId`, which its
+     current docs do not mention.
+   - Sarvam: `bulbul:v3` recommended, since Arc ships all 37 of its speakers but only the
+     first 40 of v4 flash's 222 (the admin can type any other id).
+   - ElevenLabs and MiniMax have no text connector, so they have no Test: connecting one
+     checks the key by reading its voice list, which is free and counts as the connection's
+     last success. Voice lists are read in test mode too, since they send nothing of the
+     site's and cost nothing.
+   - `arc-voice-sample` is Arc's first own purpose; an app cannot call an `arc-` purpose. It
+     takes no models: `aiVoiceSample` names the one model and voice id.
+   - From the AM2 review: a speech `too-large` from a provider lets the next speech model try;
+     a file call's `off` (a voice, an API for that kind) never marks the connection's card,
+     and a file made by a provider that also answers text does not mark it working; a
+     sample is said in the admin's language, else English, else the voice's first;
+     "Use recommended models" fills only empty lists of kinds the app makes.

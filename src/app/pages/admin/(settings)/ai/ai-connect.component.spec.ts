@@ -16,14 +16,16 @@ const PRESETS: AiPresetInfo[] = [
     { id: 'openrouter', label: 'OpenRouter', kind: 'openai', processesIn: 'Its host', needsWorkspace: false, needsAddress: false, reportsCost: true, models: [{ model: 'qwen/qwen3.8-flash', reads: ['pictures'], schema: 'strict', recommend: ['fast', 'thorough'] }] },
     { id: 'vertex', label: 'Google Vertex AI (Gemini)', kind: 'vertex', processesIn: 'The location', needsWorkspace: false, needsAddress: false, reportsCost: false, models: [] },
     { id: 'anthropic', label: 'Anthropic (Claude)', kind: 'anthropic', processesIn: 'Worldwide', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, testedLive: false, docsReadOn: '2026-11-02', models: [{ model: 'claude-sonnet-5-5', reads: ['pictures'], schema: 'strict', recommend: ['fast'] }] },
+    { id: 'elevenlabs', label: 'ElevenLabs', kind: 'elevenlabs', processesIn: 'The US', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, makesText: false, makesSpeech: true, files: 'elevenlabs', testedLive: false, docsReadOn: '2026-11-02', models: [{ model: 'eleven_v4', makes: 'speech', reads: [], schema: 'json', recommend: ['default'] }] },
     { id: 'other', label: 'Other OpenAI-style address', kind: 'openai', processesIn: 'Where the admin says', needsWorkspace: false, needsAddress: true, reportsCost: false, models: [] },
 ];
 
-async function render(options: { existing?: AiConnectionForm; test?: () => Promise<unknown> } = {}) {
+async function render(options: { existing?: AiConnectionForm; test?: () => Promise<unknown>; voices?: () => Promise<unknown> } = {}) {
     const service = {
         saveConnection: vi.fn(async () => undefined),
         setKey: vi.fn(async () => ({ keyPreview: '••••abcd', keySetAt: '2026-10-28T10:00:00Z', keySetBy: 'admin@example.com' })),
         test: vi.fn(options.test ?? (async () => ({ ok: true, ms: 900, reply: 'OK', costUsd: 0.00002 }))),
+        voices: vi.fn(options.voices ?? (async () => ({ ok: true, voices: [] }))),
     };
     await TestBed.configureTestingModule({
         imports: [AiConnectComponent, translocoTestingModule()],
@@ -135,6 +137,33 @@ describe('AiConnectComponent', () => {
         await component.connect();
         expect(service.setKey).not.toHaveBeenCalled();
         expect(service.test).toHaveBeenCalledWith('google-vertex-ai-gemini', 'gemini-3.8-flash');
+    });
+});
+
+describe('AiConnectComponent, a provider Arc makes only speech with (AM2)', () => {
+    it('asks for no test model, and checks the key by reading its voices', async () => {
+        const { page, component, service, connected, settle } = await render();
+        component.choose('elevenlabs');
+        component.key.set('sk_0123456789abcdef');
+        await settle();
+        expect(page.querySelector('#aiConnectModel')).toBeNull();
+        expect(page.querySelector('.voices-check-hint')?.textContent).toContain('reading this provider\'s voices');
+        expect(component.ready()).toBe(true);
+        await component.connect();
+        expect(service.test).not.toHaveBeenCalled();
+        expect(service.voices).toHaveBeenCalledWith('elevenlabs', true);
+        expect(connected[0]).toMatchObject({ model: '', connection: { id: 'elevenlabs', lastError: null } });
+    });
+
+    it('keeps the panel open with what to do when the voices cannot be read with the key', async () => {
+        const { component, connected, saved } = await render({ voices: async () => ({ ok: false, detail: 'ElevenLabs refused the key (401): Invalid API key' }) });
+        component.choose('elevenlabs');
+        component.key.set('sk_0123456789abcdef');
+        await component.connect();
+        expect(connected).toEqual([]);
+        expect(component.phase()).toBe('failed');
+        expect(component.advice()).toBe('advice_key');
+        expect(saved.at(-1)?.lastError).toContain('refused the key');
     });
 });
 

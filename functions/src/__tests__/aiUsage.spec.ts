@@ -304,7 +304,9 @@ describe('aiSetupInfo', () => {
         const { purposes, presets } = await aiSetupInfo(admin({}));
         expect(presets.find((p: { id: string }) => p.id === 'alibaba-eu')).toMatchObject({ needsWorkspace: true, needsAddress: false, kind: 'openai', models: [{ model: 'qwen3-vl-plus', reads: ['pictures'], priceIn: 0.2, priceOut: 1.6 }] });
         expect(presets.find((p: { id: string }) => p.id === 'other')).toMatchObject({ needsAddress: true });
-        expect(purposes).toEqual([{ id: 'menu-scan', label: 'Menu scan', description: '', tier: 'fast', output: 'text', maxChars: 20000, pictures: { max: 5, maxMb: 10 }, pdfs: null, perKeyPerDay: 20, limitKeyLabel: 'merchant', timeoutSeconds: 60, makes: 'text', allowanceIn: 'calls', saveTo: null, deleteAfterDays: null, cacheDays: 0, fallback: true }]);
+        expect(purposes).toEqual([{ id: 'menu-scan', label: 'Menu scan', description: '', tier: 'fast', output: 'text', maxChars: 20000, pictures: { max: 5, maxMb: 10 }, pdfs: null, perKeyPerDay: 20, limitKeyLabel: 'merchant', timeoutSeconds: 60, makes: 'text', allowanceIn: 'calls', saveTo: null, deleteAfterDays: null, cacheDays: 0, fallback: true, arc: false, voices: [] },
+            // Arc's own purpose comes after the app's, marked so (specs/ai-media-spec.md, AM-D18).
+            expect.objectContaining({ id: 'arc-voice-sample', makes: 'speech', arc: true, voices: [], cacheDays: 365 })]);
         expect(presets.find((p: { id: string }) => p.id === 'sarvam')).toMatchObject({ needsKey: true, keyHeader: 'api-subscription-key', currency: 'INR', testedLive: false, docsReadOn: '2026-11-02', perMinute: 60 });
         expect(presets.find((p: { id: string }) => p.id === 'deepseek')).toMatchObject({ readsBalance: true, testedLive: true });
         expect(presets.find((p: { id: string }) => p.id === 'vertex')).toMatchObject({ needsKey: false, label: 'Google Cloud (Vertex AI)' });

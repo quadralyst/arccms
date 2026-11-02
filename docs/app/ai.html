@@ -146,6 +146,7 @@ const r = await askAi({
     label: 'Article audio',
     makes: 'speech',
     input: { text: { maxChars: 2000 } },
+    voices: { narrator: { elevenlabs: 'ELEVENLABS_VOICE_ID', sarvam: 'priya', vertex: 'en-US-Chirp3-HD-Kore' } },
     speech: { language: 'en-US', format: 'mp3' },
     saveTo: 'app/article-audio',
     cache: true,
@@ -157,6 +158,7 @@ const r = await askAi({
 const r = await askAi({
   purpose: 'article-audio',
   input: paragraph.text,
+  voice: 'narrator',
   saveAs: `app/article-audio/${articleId}/${paragraph.id}.mp3`,
   limitKey: siteId,
 });
@@ -174,13 +176,40 @@ if (r.ok) save(r.files![0].path); // { path, mimeType, bytes, seconds }</code></
       </tbody>
     </table>
     <p>Move a file to where you keep it with <code>moveAiFile(from, to)</code> from the app kit: it moves the file and points the call's record at the new place. It moves only a file a call made, never onto a file that is already there, and never into Arc CMS's own folders. In test mode each call gets a small stand-in instead: a grey picture of the asked size, a second of silence for every 15 characters of speech (at most 10), the asked length of silence for audio, a 2-second grey video. Stand-ins always go to <code>ai-files/_test/</code>, never to your folder, and are deleted after a day.</p>
-    <p class="note">No provider makes files yet. The kinds, the files, the cache and test mode are ready, so you can build and test your screens now; live calls for a file kind answer <code>off</code> until the providers arrive: speech, then pictures, then video, then other audio.</p>
+    <p class="note">Speech is the first file kind with providers. Pictures, video and other audio are ready in the same way (their files, the cache and test mode), so you can build and test their screens now, but a live call for one of them answers <code>off</code> until its providers arrive.</p>
+
+    <h3 id="speech">Speech and voices</h3>
+    <p>A speech purpose names its voices, and a call asks for one by name, never by a provider's voice id, so your code stays the same whichever provider answers:</p>
+    <pre><code>voices: {
+  narrator: { elevenlabs: 'ELEVENLABS_VOICE_ID', sarvam: 'priya', vertex: 'en-US-Chirp3-HD-Kore' },
+  guest: { elevenlabs: 'ANOTHER_VOICE_ID' },
+},</code></pre>
+    <ul>
+      <li>Each voice maps a provider to its voice id. The keys are <code>elevenlabs</code>, <code>sarvam</code>, <code>minimax</code> and <code>vertex</code> (Google Cloud Text-to-Speech). The first voice is the default; a call passes <code>voice: 'guest'</code> for another.</li>
+      <li>The admin can change every mapping in Settings, AI, Purposes, choosing from each provider's voice list and playing a sample. Their choice wins over yours. A purpose with no <code>voices</code> gets one voice, <code>default</code>, for the admin to map.</li>
+      <li>A model whose provider has no id for the asked voice is skipped, so a list of several providers keeps the same voice only where each has one. Set <code>fallback: false</code> to have only the first model ever speak.</li>
+      <li>The <code>instruction</code> is never read aloud: speech says the call's text only.</li>
+      <li><strong>Long text is not split.</strong> Each model takes so much a request (Sarvam AI 2,500 characters, MiniMax under 10,000, ElevenLabs 5,000 to 40,000 by model, Google 5,000 bytes, which is about 1,600 characters of Devanagari). A longer text skips that model, and the call answers <code>too-large</code> when no model in the list takes it. Send a paragraph at a time.</li>
+      <li>A model is also skipped for a <code>format</code> it does not make (Sarvam AI and some others make no Opus) or a <code>language</code> it does not speak (Sarvam AI speaks 11 Indian languages, Indian English among them). Give speech a <code>language</code>: without one, Sarvam AI reads the text as Indian English, whatever its script.</li>
+      <li>A Google voice speaks only with the model of its type (<code>en-US-Chirp3-HD-Kore</code> with <code>tts-chirp3-hd</code>), since Google prices by type; a voice of another type skips the model.</li>
+      <li>Speech bills by the characters sent: Arc CMS uses the provider's own count when it gives one (ElevenLabs and MiniMax do), else counts the characters itself. The file's <code>seconds</code> comes from the provider or is read from the file. The record keeps the voice's name and the id that spoke, and the cache keys on the voice, so the same words in another voice are another file.</li>
+    </ul>
+    <table>
+      <thead><tr><th>Provider</th><th>Models</th><th>Voices</th><th>Price</th></tr></thead>
+      <tbody>
+        <tr><td>ElevenLabs</td><td><code>eleven_v4</code>, <code>eleven_v3</code>, <code>eleven_multilingual_v2</code>, <code>eleven_flash_v2_5</code></td><td>Its own list, with a sample of each</td><td>$0.08 per 1,000 characters, Flash $0.04</td></tr>
+        <tr><td>Sarvam AI (same connection as its chat models)</td><td><code>bulbul:v3</code>, <code>bulbul:v4-flash</code></td><td>Shipped with Arc CMS from Sarvam's docs: all 37 of v3, and the first 40 of v4 flash's 222 (type any other)</td><td>Rs 30 and Rs 10 per 10,000 characters</td></tr>
+        <tr><td>MiniMax</td><td><code>speech-2.8-hd</code>, <code>speech-2.8-turbo</code>, <code>speech-2.6-hd</code>, <code>speech-2.6-turbo</code></td><td>Its own list</td><td>$1.00 and $0.60 per 10,000 characters</td></tr>
+        <tr><td>Google Cloud Text-to-Speech (on the Vertex connection)</td><td>One per voice type: <code>tts-chirp3-hd</code>, <code>tts-neural2</code>, <code>tts-wavenet</code>, <code>tts-standard</code>, <code>tts-studio</code></td><td>Google's list; a model speaks only voices of its type</td><td>$30, $16, $4, $4 and $160 per million characters, after Google's monthly free amount, which Arc CMS does not count</td></tr>
+      </tbody>
+    </table>
+    <p>Google Cloud Text-to-Speech uses the functions' service account, like Gemini on Vertex: switch on the <strong>Cloud Text-to-Speech API</strong> in the project. A connection whose location is in Europe uses Google's EU address, <code>eu-texttospeech.googleapis.com</code>.</p>
 
     <h2>Which model answers</h2>
     <p>Each tier, and any purpose the admin gives its own list, is a list of up to 5 models. The first answers. The next tries only when the one before is busy or down, refuses its key, has gone (a model Google or another provider retired), or used up its share of the time. Never after a safety block, an input that is too large or an answer that does not fit: another model would not do better. A model that cannot read what you send, such as a picture to a text-only model, is skipped. Because every answer is checked, a cheap model that promises only JSON is safe to use: it gets your schema in its instruction, and an answer of the wrong shape comes back as <code>unreadable</code>.</p>
     <p>A file kind has one list for its kind (Picture models, Speech models, Audio models, Video models in Settings, AI) instead of a tier, and offers only models that make that kind. With <code>fallback: false</code> only the first model answers. A provider that says "too many requests" with a short wait gets one more try on the same model; a connection with a limit set in Settings, AI waits for a place rather than failing (see <a href="#costs">Costs, limits and records</a>).</p>
-    <p>Providers Arc CMS offers: Alibaba Cloud Model Studio in Frankfurt (EU), OpenRouter, Hugging Face, OpenAI, OpenAI's EU projects, DeepSeek, Anthropic, the Google Gemini API with a key, Mistral (and its EU address), Groq, xAI, Sarvam AI, any other address that speaks the OpenAI Chat Completions format, and Google Cloud (Vertex AI) for Gemini. Where each processes data is on its card in Settings, AI: choose with your client.</p>
-    <p class="note"><strong>Not tested live yet:</strong> Anthropic, the Gemini API, Mistral, Mistral EU, Groq, xAI and Sarvam AI were built from each provider's documentation as read on 2 November 2026 and tested against a fake server, never with a real call. Settings, AI marks them "Not tested live yet". The first project that uses one runs it for real, fixes what differs, and confirms its prices.</p>
+    <p>Providers Arc CMS offers: Alibaba Cloud Model Studio in Frankfurt (EU), OpenRouter, Hugging Face, OpenAI, OpenAI's EU projects, DeepSeek, Anthropic, the Google Gemini API with a key, Mistral (and its EU address), Groq, xAI, Sarvam AI (text and speech), any other address that speaks the OpenAI Chat Completions format, and Google Cloud (Vertex AI) for Gemini and for speech. For speech only: ElevenLabs and MiniMax. Where each processes data is on its card in Settings, AI: choose with your client.</p>
+    <p class="note"><strong>Not tested live yet:</strong> Anthropic, the Gemini API, Mistral, Mistral EU, Groq, xAI and Sarvam AI's chat, and all speech (ElevenLabs, Sarvam AI, MiniMax and Google Cloud Text-to-Speech), were built from each provider's documentation as read on 2 November 2026 and tested against a fake server, never with a real call. Settings, AI marks them "Not tested live yet". The first project that uses one runs it for real, fixes what differs, and confirms its prices. Among what the docs left open: whether ElevenLabs' <code>character-cost</code> header counts characters or credits (Flash bills half a credit a character, so credits would count it at half its cost), which HTTP status ElevenLabs gives when the characters run out, whether Sarvam AI says 402 or 429 for no credit, and whether MiniMax also gives an HTTP error status on a failure. Arc CMS reads each provider's own error code, so both readings work.</p>
 
     <h2 id="vertex">Gemini on Vertex AI</h2>
     <p>A Vertex provider needs no key: it calls Gemini in your own Google Cloud project with the functions' service account. Set it up once:</p>
@@ -216,7 +245,7 @@ try {
       <li><strong>The month's totals</strong> by day, purpose, model and key are kept 24 months. <code>aiUsage({ limitKey, purpose?, month? })</code> gives one key's totals, for example to show a business its use or pass the cost on.</li>
       <li><strong>The monthly budget</strong> (20 USD on a new install) stops live calls when it is spent, with <code>limit</code> and <code>scope: 'budget'</code>; a budget of 0 stops every live call. It is checked before each call, so calls running at the same moment can pass it by about one call's cost each. A model with no price is counted as 0 USD, so the budget cannot stop it: Settings, AI warns about each one until a price is set. A timed-out call is recorded with no tokens, though the provider may have billed it. Admins get a notification and an email at 80% and at 100%.</li>
       <li><strong>A day</strong> for the allowance and the totals is the site's day, in the time zone of Settings, Localization.</li>
-      <li><strong>Pacing:</strong> a connection can have at most so many requests a minute and so many at once, across every instance (Sarvam AI starts at 60 a minute, its pay-as-you-go limit; the admin sets the plan's numbers, or 0 for none). A call over a limit waits for a place while its time allows, then answers <code>unavailable</code> with <code>wait</code>.</li>
+      <li><strong>Pacing:</strong> a connection can have at most so many requests a minute and so many at once, across every instance (Sarvam AI and MiniMax start at 60 a minute, ElevenLabs at 3 at once, their entry plans' limits; the admin sets the plan's numbers, or 0 for none). A call over a limit waits for a place while its time allows, then answers <code>unavailable</code> with <code>wait</code>.</li>
       <li><strong>Deleting an account</strong> does not delete the records of its calls: they go after 60 days, and the month's totals per key, which hold the <code>limitKey</code>, after 24 months. Use an id, such as a business id, as <code>limitKey</code> and <code>ref</code>, never a name or an email address.</li>
       <li><strong>What Arc CMS adds to your Google Cloud bill</strong> is small next to the model's: about three Firestore reads and three to four writes for each live call, one daily cleanup job, and Storage for files kept with a purpose's content.</li>
     </ul>
@@ -224,7 +253,7 @@ try {
     <h2>Deploy</h2>
     <ol class="steps">
       <li><p>Check that <code>src/custom/features.ts</code> does not turn the feature off (<code>off: ['ai']</code>). It is on by default.</p></li>
-      <li><p>Deploy the functions and the rules (<code>npm run deploy</code>). The feature's own functions (<code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code>, <code>cleanUpAi</code>) deploy with it; <code>askAi</code> runs inside your functions.</p></li>
+      <li><p>Deploy the functions and the rules (<code>npm run deploy</code>). The feature's own functions (<code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code>, <code>cleanUpAi</code>, <code>readAiFile</code>, <code>refreshAiBalance</code>, <code>aiVoices</code>, <code>aiVoiceSample</code>) deploy with it; <code>askAi</code> runs inside your functions.</p></li>
       <li><p>Deploy the website, so admins get Settings, AI.</p></li>
       <li><p>In Settings, AI, add a provider, save, set its key, test it, put its model in a tier, and switch to Live.</p></li>
     </ol>

@@ -45,6 +45,8 @@ async function render(stored: Record<string, unknown> = {}, setup: AiSetupInfo =
         fileUrl: vi.fn(),
         refreshBalance: vi.fn(async () => ({ ok: true, balance: 7.25, unit: 'USD' }) as { ok: true; balance: number | null; unit: string } | { ok: false; detail: string }),
         aiFileUrl: vi.fn(async (path: string) => ({ url: `blob:test/${path}`, contentType: path.endsWith('.png') ? 'image/png' : 'audio/mpeg' })),
+        voices: vi.fn(async () => ({ ok: true, voices: [{ id: 'EL_ZED', name: 'Zed', languages: ['en-US'], gender: 'male', labels: [], previewUrl: 'https://cdn.example.com/zed.mp3', models: [] }] })),
+        voiceSample: vi.fn(),
     };
     await TestBed.configureTestingModule({
         imports: [AiSettingsPage, translocoTestingModule()],
@@ -135,7 +137,7 @@ describe('AiSettingsPage', () => {
         expect(page.querySelector('.notice')?.textContent).toContain('were removed');
     });
 
-    it('offers the provider\'s recommended models and sets them in one click, saving only the tiers', async () => {
+    it('offers the provider\'s recommended models and sets them in one click, saving only the tiers and file lists', async () => {
         const { page, component, service, settle } = await render({ connections: { or: working } });
         component.patch({ mode: 'live' });
         await settle();
@@ -148,7 +150,7 @@ describe('AiSettingsPage', () => {
             fast: [{ connection: 'or', model: 'qwen/qwen3.8-flash' }],
             thorough: [{ connection: 'or', model: 'qwen/qwen3.8-flash' }],
         });
-        expect(service.savePart).toHaveBeenCalledWith({ tiers: component.form().tiers });
+        expect(service.savePart).toHaveBeenCalledWith({ tiers: component.form().tiers, lists: component.form().lists });
         expect(service.save).not.toHaveBeenCalled();
         expect(component.loaded()?.mode).toBe('test');
         expect(component.unsaved()).toBe(true);
@@ -507,6 +509,111 @@ describe('AiSettingsPage, files and AM1 settings', () => {
         expect(revoke).toHaveBeenCalledWith('blob:test/ai-files/cover/2026-11/a-2.mp3');
         expect(component.fileViews()).toEqual({});
         revoke.mockRestore();
+    });
+});
+
+const SPEECH: AiSetupInfo = {
+    purposes: [
+        { id: 'read', label: 'Read aloud', description: '', tier: 'fast', output: 'text', maxChars: 2000, pictures: null, pdfs: null, perKeyPerDay: null, limitKeyLabel: null, timeoutSeconds: 60, makes: 'speech', allowanceIn: 'calls', saveTo: null, deleteAfterDays: null, cacheDays: 365, fallback: true, arc: false,
+            voices: [{ name: 'narrator', ids: { elevenlabs: 'EL_APP' } }, { name: 'guest', ids: {} }] },
+        { id: 'arc-voice-sample', label: 'Voice sample', description: 'Plays a sentence in a voice.', tier: 'fast', output: 'text', maxChars: 300, pictures: null, pdfs: null, perKeyPerDay: null, limitKeyLabel: null, timeoutSeconds: 60, makes: 'speech', allowanceIn: 'calls', saveTo: null, deleteAfterDays: 7, cacheDays: 365, fallback: true, arc: true, voices: [] },
+    ],
+    presets: [
+        { id: 'elevenlabs', label: 'ElevenLabs', kind: 'elevenlabs', processesIn: 'The US', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, testedLive: false, docsReadOn: '2026-11-02', files: 'elevenlabs', makesSpeech: true, makesText: false, readsBalance: true,
+            models: [{ model: 'eleven_v4', makes: 'speech', unit: 'characters', reads: [], schema: 'json', price: 0.08, recommend: ['default'], speech: { maxChars: 10000, formats: ['mp3'] } }] },
+        { id: 'openrouter', label: 'OpenRouter', kind: 'openai', processesIn: 'Its host', needsWorkspace: false, needsAddress: false, reportsCost: true, makesText: true, models: [{ model: 'qwen/qwen3.8-flash', reads: ['pictures'], schema: 'strict', recommend: ['fast'] }] },
+    ],
+    pricesCheckedOn: '2026-10-28',
+    defaultVertexLocation: 'eu',
+};
+const eleven = { preset: 'elevenlabs', label: 'ElevenLabs', keyPreview: '••••4321', keySetAt: '2026-11-02T10:00:00Z', lastOkAt: '2026-11-02T10:00:00Z' };
+
+describe('AiSettingsPage, speech and voices (AM2)', () => {
+    it('gives a speech provider Voices in place of Test, and lists its voices with Play', async () => {
+        const { page, service, settle } = await render({ connections: { eleven, or: working } }, SPEECH);
+        const card = page.querySelector('.connection[data-id="eleven"]')!;
+        expect(card.querySelector('.test')).toBeNull();
+        expect(page.querySelector('.connection[data-id="or"] .voices-button')).toBeNull();
+        card.querySelector<HTMLButtonElement>('.voices-button')!.click();
+        await settle();
+        await settle();
+        expect(service.voices).toHaveBeenCalledWith('eleven', false);
+        expect(card.querySelector('arc-ai-voices .voice')?.textContent).toContain('Zed');
+        expect(card.querySelector('arc-ai-voices .play')).not.toBeNull();
+    });
+
+    it('shows each named voice of a speech purpose per provider, the app\'s or the admin\'s, and saves the admin\'s', async () => {
+        const { page, component, settle } = await render({ connections: { eleven } }, SPEECH);
+        component.tab.set('purposes');
+        await settle();
+        const read = page.querySelector('.purpose[data-id="read"]')!;
+        const narrator = read.querySelector('.voice-name[data-voice="narrator"] .voice-map[data-preset="elevenlabs"]')!;
+        expect(narrator.textContent).toContain('EL_APP');
+        expect(narrator.textContent).toContain('from the app');
+        expect(read.querySelector('.voice-name[data-voice="guest"] .voice-missing')?.textContent).toContain('None chosen');
+        component.setVoice('read', 'guest', 'elevenlabs', 'EL_ZED');
+        component.setVoice('read', 'narrator', 'elevenlabs', '  EL_OWN ');
+        await settle();
+        expect(component.form().purposes['read'].voices).toEqual({ guest: { elevenlabs: 'EL_ZED' }, narrator: { elevenlabs: 'EL_OWN' } });
+        expect(read.querySelector('.voice-name[data-voice="narrator"]')?.textContent).toContain('chosen here');
+        // Taking the admin's back shows the app's again; a bad id is not kept.
+        component.setVoice('read', 'narrator', 'elevenlabs', null);
+        component.setVoice('read', 'guest', 'elevenlabs', '../bad');
+        await settle();
+        expect(component.form().purposes['read'].voices).toEqual({});
+    });
+
+    it('opens a voice list to choose from, or takes a typed id', async () => {
+        const { page, component, settle } = await render({ connections: { eleven } }, SPEECH);
+        component.tab.set('purposes');
+        await settle();
+        page.querySelector<HTMLButtonElement>('.purpose[data-id="read"] .voice-name[data-voice="guest"] .choose-voice')!.click();
+        await settle();
+        await settle();
+        page.querySelector<HTMLButtonElement>('.purpose[data-id="read"] arc-ai-voices .use')!.click();
+        await settle();
+        expect(component.form().purposes['read'].voices).toEqual({ guest: { elevenlabs: 'EL_ZED' } });
+        expect(page.querySelector('.purpose[data-id="read"] arc-ai-voices')).toBeNull();
+    });
+
+    it('marks a model not tested live on a provider that is, such as Google\'s speech on Vertex', async () => {
+        const vertex = { id: 'vertex', label: 'Google Cloud (Vertex AI)', kind: 'vertex' as const, processesIn: 'The location', needsWorkspace: false, needsAddress: false, reportsCost: false, makesSpeech: true, makesText: true, files: 'vertex',
+            models: [{ model: 'gemini-3.8-flash', reads: [], schema: 'strict' as const }, { model: 'tts-chirp3-hd', makes: 'speech' as const, unit: 'characters' as const, reads: [], schema: 'json' as const, price: 0.03, testedLive: false }] };
+        const { page } = await render({ connections: { g: { preset: 'vertex', lastOkAt: '2026-11-01T00:00:00Z' } }, lists: { speech: [{ connection: 'g', model: 'tts-chirp3-hd' }] }, tiers: { fast: [{ connection: 'g', model: 'gemini-3.8-flash' }] } }, { ...SPEECH, presets: [vertex] });
+        expect(page.querySelector('.connection[data-id="g"] .untested-live')).toBeNull();
+        expect(page.querySelector('.tier[data-tier="fast"] .untested-live')).toBeNull();
+        expect(page.querySelector('.kind-list[data-kind="speech"] .untested-live')).not.toBeNull();
+    });
+
+    it('marks Arc\'s own purpose and needs no models for it', async () => {
+        const { page, component, settle } = await render({ mode: 'live', connections: { or: working }, tiers: { fast: [{ connection: 'or', model: 'qwen/qwen3.8-flash' }] }, lists: { speech: [{ connection: 'or', model: 'x' }] } }, { ...SPEECH, purposes: [SPEECH.purposes[1]] });
+        // Only Arc's purpose: there is nothing of the app's to set up.
+        expect(component.appPurposes()).toEqual([]);
+        component.tab.set('purposes');
+        await settle();
+        const arc = page.querySelector('.purpose[data-id="arc-voice-sample"]')!;
+        expect(arc.querySelector('.arc-badge')?.textContent).toContain('Arc CMS');
+        expect(arc.querySelector('.arc-note')).not.toBeNull();
+        expect(arc.querySelector('select')).toBeNull();
+    });
+
+    it('never recommends a speech model to a site that makes no speech, nor over another provider\'s list', async () => {
+        const textOnly = { ...SPEECH, purposes: [] };
+        const { page } = await render({ connections: { eleven } }, textOnly);
+        expect(page.querySelector('.recommend')).toBeNull();
+        TestBed.resetTestingModule();
+        const filled = await render({ connections: { eleven }, lists: { speech: [{ connection: 'eleven', model: 'eleven_v3' }] } }, SPEECH);
+        expect(filled.page.querySelector('.recommend')).toBeNull();
+    });
+
+    it('recommends a provider\'s speech model for the speech list, and sets it with the tiers', async () => {
+        const { page, component, service, settle } = await render({ connections: { eleven } }, SPEECH);
+        expect(page.querySelector('.recommend')?.textContent).toContain('eleven_v4');
+        page.querySelector<HTMLButtonElement>('.use-recommended')!.click();
+        await settle();
+        await settle();
+        expect(component.form().lists.speech).toEqual([{ connection: 'eleven', model: 'eleven_v4' }]);
+        expect(service.savePart).toHaveBeenCalledWith(expect.objectContaining({ lists: expect.objectContaining({ speech: [{ connection: 'eleven', model: 'eleven_v4' }] }) }));
     });
 });
 

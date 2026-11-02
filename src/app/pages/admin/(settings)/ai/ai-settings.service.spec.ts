@@ -27,7 +27,7 @@ describe('aiFormFrom', () => {
         });
         expect(form.connections[0]).toMatchObject({ id: 'qwen', label: 'Qwen EU', keyPreview: '••••1234', keySetBy: 'a@example.com' });
         expect(form.tiers.thorough).toEqual([{ connection: 'qwen', model: 'qwen3-vl-plus' }]);
-        expect(form.purposes['menu-scan']).toEqual({ enabled: false, models: [], perKeyPerDay: 20, keepContent: true, cache: null, deleteAfterDays: null });
+        expect(form.purposes['menu-scan']).toEqual({ enabled: false, models: [], perKeyPerDay: 20, keepContent: true, cache: null, deleteAfterDays: null, voices: {} });
         expect(form.models['qwen/qwen3-vl-plus']).toEqual({ reads: ['pictures'], priceIn: 0.3 });
         expect(form.monthlyUsd).toBe(50);
     });
@@ -92,8 +92,17 @@ describe('aiSettingsData', () => {
         expect(aiFormFrom({ ...stored, lists: data['lists'] })).toEqual(form);
     });
 
+    it('reads and writes the admin\'s voices, deleting a voice or provider taken away (AM-D17)', () => {
+        const loaded = aiFormFrom({ purposes: { read: { voices: { narrator: { elevenlabs: 'EL1', sarvam: 'priya' }, guest: { sarvam: 'kavya' }, '1bad': { sarvam: 'x' }, odd: { openai: 'alloy', vertex: '../x' } } } } });
+        expect(loaded.purposes['read'].voices).toEqual({ narrator: { elevenlabs: 'EL1', sarvam: 'priya' }, guest: { sarvam: 'kavya' } });
+        const form = structuredClone(loaded);
+        form.purposes['read'].voices = { narrator: { elevenlabs: 'EL2' } };
+        const data = aiSettingsData(form, loaded) as Record<string, any>;
+        expect(data['purposes']['read']['voices']).toEqual({ narrator: { elevenlabs: 'EL2', sarvam: deleteField() }, guest: deleteField() });
+    });
+
     it('writes a cache switched back on and an emptied days field as the purpose\'s own', () => {
-        const form = { ...emptyAiForm(), purposes: { cover: { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null } } };
+        const form = { ...emptyAiForm(), purposes: { cover: { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null, voices: {} } } };
         const data = aiSettingsData(form, emptyAiForm()) as Record<string, any>;
         expect(data['purposes']['cover']).toMatchObject({ cache: deleteField(), deleteAfterDays: deleteField() });
     });

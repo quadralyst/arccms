@@ -19,6 +19,13 @@ function googleAuth(): GoogleAuth {
     return auth;
 }
 
+/** An access token of the functions' own service account, for another Google Cloud API on the same connection. */
+export async function googleAccessToken(): Promise<string> {
+    const token = await googleAuth().getAccessToken();
+    if (!token) throw new Error('the service account gave no access token');
+    return token;
+}
+
 /** Where Vertex answers for a location: the multi-region, regional or worldwide host. */
 export function vertexHost(location: string): string {
     if (location === 'global') return 'aiplatform.googleapis.com';

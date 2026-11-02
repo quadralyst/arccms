@@ -47,7 +47,7 @@ describe('presets added in AM1', () => {
     it('are marked not tested live, with the day their docs were read and their prices', () => {
         for (const id of ['anthropic', 'gemini-api', 'mistral', 'mistral-eu', 'groq', 'xai', 'sarvam']) {
             expect(AI_PRESETS[id]).toMatchObject({ testedLive: false, docsReadOn: '2026-11-02', pricesCheckedOn: '2026-11-02' });
-            for (const m of Object.values(AI_PRESETS[id].models)) expect(m.priceIn).toBeGreaterThan(0);
+            for (const m of Object.values(AI_PRESETS[id].models)) expect(m.priceIn ?? m.price).toBeGreaterThan(0);
         }
         expect(AI_PRESETS['sarvam']).toMatchObject({ currency: 'INR', perMinute: 60 });
         expect(AI_PRESETS['openrouter'].testedLive).toBeUndefined();

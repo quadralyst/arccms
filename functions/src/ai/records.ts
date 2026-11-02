@@ -64,6 +64,9 @@ export interface AiCallRecord {
     /** Answered from Arc's own cache (AM-D16), with the record of the call that made the files. */
     cached?: boolean;
     cachedFrom?: string | null;
+    /** Speech: the voice asked for by name, and the provider's id of the one that spoke (AM-D17). */
+    voice?: string | null;
+    voiceId?: string | null;
 }
 
 export interface KeptContent {

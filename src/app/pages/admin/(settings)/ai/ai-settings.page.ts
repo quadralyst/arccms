@@ -20,12 +20,13 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ArcTimePipe } from '../../../../core/time/arc-time.pipe';
 import { injectT } from '../../../../core/i18n/inject-t';
 import { AiConnectComponent, type AiConnected } from './ai-connect.component';
+import { AiVoicesComponent } from './ai-voices.component';
 import { failureAdvice } from './ai-provider-guide';
 import {
     AI_FILE_KINDS, AI_KINDS, AI_MODEL_KINDS, AI_TIERS, AI_UNITS, AiCallFile, AiCallRow, AiConnectionForm, AiFileKind, AiKind, AiModelKind, AiModelRef, AiMonthUsage,
     AiPresetInfo, AiPresetModel, AiPriceField, AiPurposeForm, AiPurposeInfo, AiReads, AiTotals, AiUnit,
     AiCallContent, AiSettingsForm, AiSettingsService, AiSetupInfo, AiTier, KEY_HEADERS, addressChanged, blankPurpose, callsCsv, emptyAiForm, isFileKind,
-    modelKindFor, naturalUnit, presetNeedsKey, purposeKind, recommendedTiers, removalData, safeHeaderName,
+    modelKindFor, naturalUnit, presetNeedsKey, purposeKind, recommendedLists, recommendedTiers, removalData, safeHeaderName, SPEECH_PRESETS, VOICE_ID,
 } from './ai-settings.service';
 
 type Tab = 'setup' | 'purposes' | 'usage' | 'calls';
@@ -61,7 +62,7 @@ export function usd(n: number): string {
 @Component({
     selector: 'arc-ai-settings',
     standalone: true,
-    imports: [FormsModule, TranslocoPipe, DecimalPipe, ArcTimePipe, NgTemplateOutlet, AiConnectComponent],
+    imports: [FormsModule, TranslocoPipe, DecimalPipe, ArcTimePipe, NgTemplateOutlet, AiConnectComponent, AiVoicesComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="settings-section">
@@ -215,10 +216,18 @@ export function usd(n: number): string {
                                                 <i class="fa-solid fa-key me-1"></i>{{ (c.keyPreview ? 'admin.settings.ai.replace_key' : 'admin.settings.ai.set_key') | transloco }}
                                             </button>
                                         }
-                                        <button type="button" class="btn btn-sm btn-outline-secondary test" (click)="test(c)" [disabled]="testing() === c.id || (needsKey(c) && !c.keyPreview)">
-                                            @if (testing() === c.id) { <i class="fas fa-spinner fa-spin me-1"></i> } @else { <i class="fa-solid fa-vial me-1"></i> }
-                                            {{ 'admin.settings.ai.test_with' | transloco: { model: testModel(c) } }}
-                                        </button>
+                                        @if (makesText(c)) {
+                                            <button type="button" class="btn btn-sm btn-outline-secondary test" (click)="test(c)" [disabled]="testing() === c.id || (needsKey(c) && !c.keyPreview)">
+                                                @if (testing() === c.id) { <i class="fas fa-spinner fa-spin me-1"></i> } @else { <i class="fa-solid fa-vial me-1"></i> }
+                                                {{ 'admin.settings.ai.test_with' | transloco: { model: testModel(c) } }}
+                                            </button>
+                                        }
+                                        @if (makesSpeech(c)) {
+                                            <button type="button" class="btn btn-sm btn-outline-secondary voices-button" (click)="toggleVoices(c.id)" [attr.aria-expanded]="voicesOpen() === c.id"
+                                                [disabled]="!isSaved(c.id) || (needsKey(c) && !c.keyPreview && preset(c.preset)?.files !== 'sarvam')">
+                                                <i class="fa-solid fa-microphone-lines me-1"></i>{{ 'admin.settings.ai.voices' | transloco }}
+                                            </button>
+                                        }
                                         <button type="button" class="btn btn-sm btn-outline-secondary" (click)="toggleDetails(c.id)">
                                             <i class="fa-solid fa-sliders me-1"></i>{{ 'admin.settings.ai.edit' | transloco }}
                                         </button>
@@ -228,6 +237,9 @@ export function usd(n: number): string {
                                     </div>
                                     @if (testResults()[c.id]; as r) {
                                         <div class="small mt-2" role="status" [class.text-success]="r.ok" [class.text-danger]="!r.ok">{{ r.text }}</div>
+                                    }
+                                    @if (voicesOpen() === c.id) {
+                                        <arc-ai-voices [connection]="c.id" [models]="modelChoices(c.id, 'speech')" />
                                     }
 
                                     @if (removing() === c.id) {
@@ -346,6 +358,9 @@ export function usd(n: number): string {
                                 @for (t of tiers; track t) {
                                     @if (r.tiers[t].length) { <div>{{ 'admin.settings.ai.tier_' + t | transloco }}: <code>{{ modelNames(r.tiers[t]) }}</code></div> }
                                 }
+                                @for (k of fileKinds; track k) {
+                                    @if (r.lists[k].length) { <div>{{ 'admin.settings.ai.list_' + k | transloco }}: <code>{{ modelNames(r.lists[k]) }}</code></div> }
+                                }
                                 <button type="button" class="btn btn-sm btn-success mt-2 use-recommended" (click)="useRecommended(r.connection.id)">{{ 'admin.settings.ai.use_recommended' | transloco }}</button>
                             </div>
                         }
@@ -389,7 +404,7 @@ export function usd(n: number): string {
                                                 <tr [attr.data-key]="m.key">
                                                     <td><code>{{ m.model }}</code>
                                                         <div class="small text-muted">{{ connectionLabel(m.connection) }}</div>
-                                                        @if (untested(m.connection)) { <span class="badge text-bg-light border untested-live">{{ 'admin.settings.ai.not_tested_live' | transloco }}</span> }
+                                                        @if (untested(m.connection, m.model)) { <span class="badge text-bg-light border untested-live">{{ 'admin.settings.ai.not_tested_live' | transloco }}</span> }
                                                         @if (pricesCheckedOn(m.connection)) { <div class="small text-muted">{{ 'admin.settings.ai.prices_checked' | transloco: { date: pricesCheckedOn(m.connection) } }}</div> }
                                                         @if (connectionCurrency(m.connection) !== 'USD') { <div class="small text-muted">{{ 'admin.settings.ai.prices_in_currency' | transloco: { currency: connectionCurrency(m.connection) } }}</div> }
                                                     </td>
@@ -447,7 +462,7 @@ export function usd(n: number): string {
                     }
 
                     @case ('purposes') {
-                        @if (!setup()?.purposes?.length) {
+                        @if (!appPurposes().length) {
                             <p class="text-muted no-purposes">{{ 'admin.settings.ai.no_purposes' | transloco }}</p>
                         }
                         @for (p of setup()?.purposes ?? []; track p.id) {
@@ -457,6 +472,7 @@ export function usd(n: number): string {
                                         <div>
                                             <strong>{{ p.label }}</strong>
                                             <span class="badge text-bg-light border ms-1 kind-badge">{{ kindLabel(kindOf(p)) }}</span>
+                                            @if (p.arc) { <span class="badge text-bg-primary ms-1 arc-badge">{{ 'admin.settings.ai.arc_purpose' | transloco }}</span> }
                                             @if (p.description) { <div class="small text-muted">{{ p.description }}</div> }
                                         </div>
                                         <div class="form-check form-switch">
@@ -464,6 +480,9 @@ export function usd(n: number): string {
                                             <label class="form-check-label" [for]="'aiOn-' + p.id">{{ 'admin.settings.ai.on' | transloco }}</label>
                                         </div>
                                     </div>
+                                    @if (p.arc) {
+                                        <div class="small text-muted mt-2 arc-note">{{ 'admin.settings.ai.arc_voice_sample_note' | transloco }}</div>
+                                    } @else {
                                     <div class="small mt-2">{{ takes(p) }}</div>
                                     @if (isFile(p)) {
                                         <div class="small mb-2 files-go">
@@ -485,6 +504,43 @@ export function usd(n: number): string {
                                     </select>
                                     @if (purpose(p.id).models.length) {
                                         <ng-container *ngTemplateOutlet="modelList; context: { $implicit: purpose(p.id).models, set: purposeSetter(p.id), kind: modelKindOf(p) }" />
+                                    }
+
+                                    @if (p.voices?.length) {
+                                        <div class="mt-3 purpose-voices">
+                                            <div class="fw-semibold small">{{ 'admin.settings.ai.purpose_voices' | transloco }}</div>
+                                            <small class="text-muted d-block mb-2">{{ 'admin.settings.ai.purpose_voices_hint' | transloco }}</small>
+                                            @if (!speechConnections().length) { <div class="small text-muted">{{ 'admin.settings.ai.purpose_voices_none' | transloco }}</div> }
+                                            @for (v of p.voices; track v.name; let first = $first) {
+                                                <div class="border rounded p-2 mb-2 voice-name" [attr.data-voice]="v.name">
+                                                    <div class="small"><strong>{{ v.name }}</strong>@if (first) { <span class="text-muted ms-1">({{ 'admin.settings.ai.voice_default' | transloco }})</span> }</div>
+                                                    @for (sc of speechConnections(); track sc.preset) {
+                                                        <div class="d-flex flex-wrap align-items-center gap-2 small mt-1 voice-map" [attr.data-preset]="sc.preset">
+                                                            <span class="voice-provider">{{ preset(sc.preset)?.label }}:</span>
+                                                            @if (voiceShown(p, v.name, sc.preset); as shown) {
+                                                                <code>{{ shown.id }}</code>
+                                                                <span class="text-muted">{{ (shown.from === 'admin' ? 'admin.settings.ai.voice_from_admin' : 'admin.settings.ai.voice_from_app') | transloco }}</span>
+                                                            } @else {
+                                                                <span class="text-warning-emphasis voice-missing"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ 'admin.settings.ai.voice_missing' | transloco }}</span>
+                                                            }
+                                                            <button type="button" class="btn btn-link btn-sm p-0 choose-voice" (click)="toggleChooser(p.id, v.name, sc.preset)">{{ 'admin.settings.ai.voice_choose' | transloco }}</button>
+                                                            @if (purpose(p.id).voices[v.name]?.[sc.preset]) {
+                                                                <button type="button" class="btn btn-link btn-sm p-0 voice-reset" (click)="setVoice(p.id, v.name, sc.preset, null)">{{ (v.ids[sc.preset] ? 'admin.settings.ai.voice_use_app' : 'admin.settings.ai.voice_clear') | transloco }}</button>
+                                                            }
+                                                        </div>
+                                                        @if (chooser() === p.id + '|' + v.name + '|' + sc.preset) {
+                                                            <div class="d-flex flex-wrap gap-2 mt-2 typed-voice">
+                                                                <input type="text" class="form-control form-control-sm w-auto" [attr.aria-label]="'admin.settings.ai.voice_type' | transloco"
+                                                                    [placeholder]="'admin.settings.ai.voice_type' | transloco" [ngModel]="typedVoice()" (ngModelChange)="typedVoice.set($event)" />
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" (click)="setVoice(p.id, v.name, sc.preset, typedVoice())" [disabled]="!typedVoiceOk()">{{ 'admin.settings.ai.voice_use' | transloco }}</button>
+                                                            </div>
+                                                            <arc-ai-voices mode="choose" [connection]="sc.connection" [models]="modelChoices(sc.connection, 'speech')" [chosen]="voiceShown(p, v.name, sc.preset)?.id ?? null"
+                                                                (picked)="setVoice(p.id, v.name, sc.preset, $event)" />
+                                                        }
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
                                     }
 
                                     <!-- Only a purpose whose calls carry a key can have an allowance per key. -->
@@ -522,6 +578,7 @@ export function usd(n: number): string {
                                         <label class="form-check-label" [for]="'aiKeep-' + p.id">{{ 'admin.settings.ai.keep_content' | transloco }}</label>
                                         <small class="d-block" [class.text-danger]="purpose(p.id).keepContent" [class.text-muted]="!purpose(p.id).keepContent">{{ 'admin.settings.ai.keep_content_hint' | transloco }}</small>
                                     </div>
+                                    }
                                 </div>
                             </div>
                         }
@@ -689,7 +746,7 @@ export function usd(n: number): string {
                         @for (c of form().connections; track c.id) { <option [value]="c.id">{{ c.label || c.id }}</option> }
                     </select>
                     <input class="form-control form-control-sm model" [attr.list]="'aiModels-' + r.connection + '-' + kind" [attr.aria-label]="'admin.settings.ai.model' | transloco" [ngModel]="r.model" (ngModelChange)="set(replaced(list, i, { connection: r.connection, model: $event.trim() }))" />
-                    @if (untested(r.connection)) { <span class="badge text-bg-light border align-self-center untested-live">{{ 'admin.settings.ai.not_tested_live' | transloco }}</span> }
+                    @if (untested(r.connection, r.model)) { <span class="badge text-bg-light border align-self-center untested-live">{{ 'admin.settings.ai.not_tested_live' | transloco }}</span> }
                     <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="i === 0" (click)="set(moved(list, i, -1))" [attr.aria-label]="'admin.settings.ai.move_up' | transloco"><i class="fa-solid fa-arrow-up"></i></button>
                     <button type="button" class="btn btn-sm btn-outline-secondary" (click)="set(without(list, i))" [attr.aria-label]="'admin.settings.ai.remove' | transloco"><i class="fa-solid fa-xmark"></i></button>
                 </div>
@@ -703,7 +760,7 @@ export function usd(n: number): string {
         @for (c of form().connections; track c.id) {
             @for (k of modelKinds; track k) {
                 <datalist [id]="'aiModels-' + c.id + '-' + k">
-                    @for (m of modelChoices(c.id, k); track m) { <option [value]="m" [attr.label]="untested(c.id) ? ('admin.settings.ai.not_tested_live' | transloco) : null"></option> }
+                    @for (m of modelChoices(c.id, k); track m) { <option [value]="m" [attr.label]="untested(c.id, m) ? ('admin.settings.ai.not_tested_live' | transloco) : null"></option> }
                 </datalist>
             }
         }
@@ -802,7 +859,7 @@ export class AiSettingsPage implements OnInit, OnDestroy {
     /** The checklist: every tier a purpose uses has a model (Fast when the app has no purposes). */
     readonly modelsReady = computed(() => {
         const f = this.form();
-        const purposes = this.setup()?.purposes ?? [];
+        const purposes = this.appPurposes();
         const own = (p: AiPurposeInfo) => !!f.purposes[p.id]?.models.length;
         const needed = new Set<AiTier>(purposes.filter((p) => !own(p) && !this.isFile(p)).map((p) => p.tier));
         const lists = new Set<AiFileKind>(purposes.filter((p) => !own(p) && this.isFile(p)).map((p) => this.kindOf(p) as AiFileKind));
@@ -816,17 +873,20 @@ export class AiSettingsPage implements OnInit, OnDestroy {
      */
     readonly nothingUsesAi = computed(() => {
         const setup = this.setup();
-        return !!setup && !setup.purposes.length && !this.form().connections.length;
+        return !!setup && !this.appPurposes().length && !this.form().connections.length;
     });
     /** The providers Arc knows models of, with the tiers it recommends them for. */
     readonly recommendations = computed(() => this.form().connections.flatMap((c) => {
         const preset = this.preset(c.preset);
         if (!preset || !this.isSaved(c.id)) return [];
         const tiers = recommendedTiers(c.id, preset);
-        if (!AI_TIERS.some((t) => tiers[t].length)) return [];
+        const lists = this.listsToFill(c.id, preset);
+        if (!AI_TIERS.some((t) => tiers[t].length) && !AI_FILE_KINDS.some((k) => lists[k].length)) return [];
         const f = this.form();
-        const already = AI_TIERS.every((t) => !tiers[t].length || JSON.stringify(f.tiers[t]) === JSON.stringify(tiers[t]));
-        return already ? [] : [{ connection: c, preset, tiers }];
+        // A list to fill is empty by definition: it alone is reason to show the card.
+        const already = AI_TIERS.every((t) => !tiers[t].length || JSON.stringify(f.tiers[t]) === JSON.stringify(tiers[t]))
+            && AI_FILE_KINDS.every((k) => !lists[k].length);
+        return already ? [] : [{ connection: c, preset, tiers, lists }];
     }));
     readonly callPurposes = computed(() => [...new Set(this.calls().map((c) => c.purpose))].sort());
     readonly shownCalls = computed(() => this.calls().filter((c) =>
@@ -866,9 +926,26 @@ export class AiSettingsPage implements OnInit, OnDestroy {
      */
     readonly shownLists = computed(() => {
         const f = this.form();
-        const kinds = new Set((this.setup()?.purposes ?? []).map((p) => this.kindOf(p)));
+        const kinds = new Set(this.appPurposes().map((p) => this.kindOf(p)));
         return AI_FILE_KINDS.filter((k) => f.lists[k].length || kinds.has(k) || f.connections.some((c) => this.modelChoices(c.id, k).length));
     });
+    /** The app's own purposes: Arc's (such as the voice sample) need no models set up. */
+    readonly appPurposes = computed(() => (this.setup()?.purposes ?? []).filter((p) => !p.arc));
+    /** One saved connection for each provider that speaks, whose voice list a purpose's voices are chosen from. */
+    readonly speechConnections = computed(() => {
+        const seen = new Map<string, { preset: string; connection: string }>();
+        for (const c of this.form().connections) {
+            if ((SPEECH_PRESETS as readonly string[]).includes(c.preset) && this.isSaved(c.id) && !seen.has(c.preset)) seen.set(c.preset, { preset: c.preset, connection: c.id });
+        }
+        return [...seen.values()];
+    });
+    readonly voicesOpen = signal<string | null>(null);
+    /** The purpose voice whose list is open: `{purpose}|{voice}|{preset}`. */
+    readonly chooser = signal<string | null>(null);
+    readonly typedVoice = signal('');
+    readonly typedVoiceOk = computed(() => VOICE_ID.test(this.typedVoice().trim()));
+    readonly fileKinds = AI_FILE_KINDS;
+
     /** What stops Save, as a translation key; '' when nothing does. */
     readonly formProblem = computed(() => (this.form().connections.some((c) => c.preset === 'other' && !this.headerOk(c)) ? 'admin.settings.ai.header_invalid' : ''));
 
@@ -919,9 +996,12 @@ export class AiSettingsPage implements OnInit, OnDestroy {
     }
 
     /** Whether a connection's provider was built from its docs and never called for real (AM-D34). */
-    untested(connectionId: string): boolean {
+    /** Built from the docs and never called for real (AM-D34): the provider, or with `model` that one model of it. */
+    untested(connectionId: string, model?: string): boolean {
         const c = this.form().connections.find((x) => x.id === connectionId);
-        return !!c && this.preset(c.preset)?.testedLive === false;
+        if (!c) return false;
+        const preset = this.preset(c.preset);
+        return preset?.testedLive === false || (!!model && preset?.models.find((m) => m.model === model)?.testedLive === false);
     }
 
     currency(c: AiConnectionForm): string {
@@ -1051,10 +1131,13 @@ export class AiSettingsPage implements OnInit, OnDestroy {
         this.replacing.set(null);
         const preset = this.preset(e.connection.preset);
         const rec = preset ? recommendedTiers(e.connection.id, preset) : null;
-        const hasRecommendations = !!rec && AI_TIERS.some((t) => rec[t].length > 0);
+        const recLists = preset ? this.listsToFill(e.connection.id, preset) : null;
+        const hasRecommendations = (!!rec && AI_TIERS.some((t) => rec[t].length > 0)) || (!!recLists && AI_FILE_KINDS.some((k) => recLists[k].length > 0));
+        const name = e.connection.label || preset?.label || e.connection.id;
         this.notice.set({
             ok: true,
-            text: this.t('admin.settings.ai.connected_notice', { name: e.connection.label || preset?.label || e.connection.id, model: e.model }),
+            // A provider checked by its voice list has no model to name.
+            text: e.model ? this.t('admin.settings.ai.connected_notice', { name, model: e.model }) : this.t('admin.settings.ai.connected_notice_voices', { name }),
             recommendFor: hasRecommendations && !this.modelsReady() ? e.connection.id : undefined,
         });
     }
@@ -1148,16 +1231,22 @@ export class AiSettingsPage implements OnInit, OnDestroy {
         const loaded = this.loaded();
         if (!loaded) return;
         const rec = recommendedTiers(c.id, preset);
-        // Built on the saved tiers, and only the tiers are saved: other changes stay unsaved until Save.
+        const recLists = this.listsToFill(c.id, preset, loaded);
+        // Built on the saved tiers and lists, and only those are saved: other changes stay unsaved until Save.
         const savedTiers = Object.fromEntries(AI_TIERS.map((t) => [t, rec[t].length ? rec[t] : loaded.tiers[t]])) as Record<AiTier, AiModelRef[]>;
+        const savedLists = Object.fromEntries(AI_FILE_KINDS.map((k) => [k, recLists[k].length ? recLists[k] : loaded.lists[k]])) as Record<AiFileKind, AiModelRef[]>;
         try {
-            await this.service.savePart({ tiers: savedTiers });
+            await this.service.savePart({ tiers: savedTiers, lists: savedLists });
         } catch (err: any) {
             this.notice.set({ ok: false, text: this.t('admin.settings.ai.save_failed', { error: err?.message ?? '' }) });
             return;
         }
-        this.form.update((f) => ({ ...f, tiers: Object.fromEntries(AI_TIERS.map((t) => [t, rec[t].length ? rec[t] : f.tiers[t]])) as Record<AiTier, AiModelRef[]> }));
-        this.loaded.set({ ...loaded, tiers: savedTiers });
+        this.form.update((f) => ({
+            ...f,
+            tiers: Object.fromEntries(AI_TIERS.map((t) => [t, rec[t].length ? rec[t] : f.tiers[t]])) as Record<AiTier, AiModelRef[]>,
+            lists: Object.fromEntries(AI_FILE_KINDS.map((k) => [k, recLists[k].length ? recLists[k] : f.lists[k]])) as Record<AiFileKind, AiModelRef[]>,
+        }));
+        this.loaded.set({ ...loaded, tiers: savedTiers, lists: savedLists });
         this.notice.set({ ok: true, text: this.t('admin.settings.ai.models_set_notice', { name: c.label || preset.label }) });
     }
 
@@ -1246,6 +1335,57 @@ export class AiSettingsPage implements OnInit, OnDestroy {
     keyName(purposeId: string, limitKey: string): string {
         const label = this.setup()?.purposes.find((p) => p.id === purposeId)?.limitKeyLabel;
         return label ? `${label} ${limitKey}` : limitKey;
+    }
+
+    /**
+     * The file lists a provider's recommended models would fill: only kinds one of the app's
+     * purposes makes, and only lists still empty, so a speech model never nags a site that
+     * makes no speech, nor replaces another provider's list.
+     */
+    private listsToFill(connectionId: string, preset: AiPresetInfo, form: AiSettingsForm = this.form()): Record<AiFileKind, AiModelRef[]> {
+        const kinds = new Set(this.appPurposes().map((p) => this.kindOf(p)));
+        const rec = recommendedLists(connectionId, preset);
+        return Object.fromEntries(AI_FILE_KINDS.map((k) => [k, kinds.has(k) && !form.lists[k].length ? rec[k] : []])) as Record<AiFileKind, AiModelRef[]>;
+    }
+
+    /** Arc makes text with this connection's provider (so Test can ask it a question). */
+    makesText(c: AiConnectionForm): boolean {
+        return this.preset(c.preset)?.makesText !== false;
+    }
+
+    makesSpeech(c: AiConnectionForm): boolean {
+        return this.preset(c.preset)?.makesSpeech === true;
+    }
+
+    toggleVoices(id: string): void {
+        this.voicesOpen.set(this.voicesOpen() === id ? null : id);
+    }
+
+    toggleChooser(purposeId: string, voice: string, preset: string): void {
+        const at = `${purposeId}|${voice}|${preset}`;
+        this.typedVoice.set('');
+        this.chooser.set(this.chooser() === at ? null : at);
+    }
+
+    /** The voice id a provider uses for a purpose's voice: the admin's, else the app's, else null (AM-D17). */
+    voiceShown(p: AiPurposeInfo, voice: string, preset: string): { id: string; from: 'admin' | 'app' } | null {
+        const own = this.purpose(p.id).voices[voice]?.[preset];
+        if (own) return { id: own, from: 'admin' };
+        const app = p.voices?.find((v) => v.name === voice)?.ids[preset];
+        return app ? { id: app, from: 'app' } : null;
+    }
+
+    /** Sets (or with null takes back) the admin's voice id; unsaved until Save, like the page's other changes. */
+    setVoice(purposeId: string, voice: string, preset: string, id: string | null): void {
+        const voices = structuredClone(this.purpose(purposeId).voices);
+        const value = id?.trim() ?? '';
+        if (value && VOICE_ID.test(value)) voices[voice] = { ...(voices[voice] ?? {}), [preset]: value };
+        else if (voices[voice]) {
+            delete voices[voice][preset];
+            if (!Object.keys(voices[voice]).length) delete voices[voice];
+        }
+        this.patchPurpose(purposeId, { voices });
+        this.chooser.set(null);
     }
 
     patchPurpose(id: string, change: Partial<AiPurposeForm>): void {

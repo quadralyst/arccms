@@ -9,7 +9,7 @@ import type { JsonSchema } from '../schema.js';
 import type { PreparedPart } from '../input.js';
 import type { AiConnection } from '../settings.js';
 import type { AiSchemaSupport } from '../presets.js';
-import type { AiAudioSettings, AiFileKind, AiImageSettings, AiSpeechSettings, AiVideoSettings } from '../types.js';
+import type { AiAudioSettings, AiFileKind, AiImageSettings, AiSpeechSettings, AiVideoSettings, AiVoice } from '../types.js';
 
 export interface ConnectorRequest {
     model: string;
@@ -82,6 +82,8 @@ export interface FileRequest {
     parts: PreparedPart[];
     image?: AiImageSettings;
     speech?: AiSpeechSettings;
+    /** Speech: the provider's voice id, from the purpose's named voice (AM-D17). */
+    voice?: string;
     audio?: AiAudioSettings;
     video?: AiVideoSettings;
     /** The purpose's extra fields for this provider, never the model, text or output. */
@@ -103,6 +105,17 @@ export type FileResult =
     | ({ ok: false } & FailureInfo);
 
 export type FileConnector = (context: ConnectorContext, request: FileRequest) => Promise<FileResult>;
+
+/** A provider's voices (AM-D18), or why they could not be read. */
+export type VoicesResult = { ok: true; voices: AiVoice[]; /** Shipped with Arc, no call made. */ fromDocs?: boolean } | { ok: false; detail: string; keyRefused?: boolean };
+
+export type VoiceLister = (context: ConnectorContext, options: { timeoutMs: number }) => Promise<VoicesResult>;
+
+/** What a provider's file connector offers: one function per kind it makes, and its voice list. */
+export interface FileProvider {
+    make: FileConnector;
+    voices?: VoiceLister;
+}
 
 /** Failures after which the next model in the list tries. */
 export const FALLBACK_FAILURES: readonly AttemptFailure[] = ['unavailable', 'timeout', 'retired', 'key-refused', 'off'];

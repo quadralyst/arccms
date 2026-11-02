@@ -31,6 +31,9 @@ export const testAiConnection = onCall({ timeoutSeconds: 60 }, async (request) =
     const makes = modelInfo(settings, { connection: connection.id, model }).makes;
     // The test is a short text question: a model that makes files is tried by its first real use.
     if (makes !== 'text' && makes !== 'data') throw new HttpsError('failed-precondition', `This model makes ${makes}; Test tries text models only.`);
+    const talk = connectorFor(preset.kind);
+    // A provider Arc only makes files with: its voice list checks the key at no cost.
+    if (!talk) throw new HttpsError('failed-precondition', `Arc makes no text with ${preset.label}; open its Voices to check the key.`);
 
     const started = Date.now();
     let result: ConnectorResult;
@@ -38,7 +41,7 @@ export const testAiConnection = onCall({ timeoutSeconds: 60 }, async (request) =
     const key = presetNeedsKey(preset) ? await readKey(connection, Date.now(), { fresh: true }) : { ok: true as const, key: null };
     if (!key.ok) result = { ok: false, failure: 'off', detail: key.detail };
     else {
-        result = await connectorFor(preset.kind)({ connection, key: key.key }, {
+        result = await talk({ connection, key: key.key }, {
             model,
             instruction: 'Reply with the word OK and nothing else.',
             parts: [{ kind: 'text', text: 'Are you there?' }],

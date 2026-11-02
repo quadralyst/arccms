@@ -175,8 +175,8 @@ describe('captureAiAsks', () => {
             expect(await askAi({ purpose: 'summary', input: ['Notes', { storagePath: 'app/docs/x.pdf' }] })).toMatchObject({ ok: true, text: 'A short summary.', recordId: null });
             expect(await askAi({ purpose: 'menu-scan', limitKey: 'b1', input: { bytes: JPEG, mimeType: 'image/jpeg', name: 'p1.jpg' } })).toMatchObject({ ok: true, data: { items: [{ name: 'Tea', price: 4.5 }] } });
             expect(ai.asks).toEqual([
-                { purpose: 'summary', text: ['Notes'], files: [{ mimeType: 'application/pdf', bytes: 0, name: null, storagePath: 'app/docs/x.pdf' }], limitKey: null, units: 1, perDay: null, ref: null },
-                { purpose: 'menu-scan', text: [], files: [{ mimeType: 'image/jpeg', bytes: JPEG.length, name: 'p1.jpg', storagePath: null }], limitKey: 'b1', units: 1, perDay: null, ref: null },
+                { purpose: 'summary', text: ['Notes'], files: [{ mimeType: 'application/pdf', bytes: 0, name: null, storagePath: 'app/docs/x.pdf' }], limitKey: null, units: 1, perDay: null, ref: null, voice: null },
+                { purpose: 'menu-scan', text: [], files: [{ mimeType: 'image/jpeg', bytes: JPEG.length, name: 'p1.jpg', storagePath: null }], limitKey: 'b1', units: 1, perDay: null, ref: null, voice: null },
             ]);
             expect(h.records).toEqual([]);
         } finally {

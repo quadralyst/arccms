@@ -15,12 +15,28 @@
  */
 import type { AiKind, AiUnit } from './types.js';
 
-export type AiConnectorKind = 'openai' | 'vertex' | 'anthropic' | 'gemini';
+/** How Arc talks to a provider for text; `elevenlabs` and `minimax` make files only, so far. */
+export type AiConnectorKind = 'openai' | 'vertex' | 'anthropic' | 'gemini' | 'elevenlabs' | 'minimax';
+/** How Arc asks a provider for files (AM-D7). */
+export type AiFileConnectorKind = 'elevenlabs' | 'sarvam' | 'minimax' | 'vertex';
 export type AiSchemaSupport = 'strict' | 'json';
 export type AiReads = 'pictures' | 'pdfs';
 export type AiCurrency = 'USD' | 'INR';
 /** How Arc reads a connection's balance with its own key (AM-D32). */
-export type AiBalanceReader = 'deepseek' | 'openrouter-key';
+export type AiBalanceReader = 'deepseek' | 'openrouter-key' | 'elevenlabs';
+
+/** What a speech model takes (AM-D19, section 8 item 1): its caps, formats and languages. */
+export interface AiSpeechAbilities {
+    /** The most characters a request; a longer text skips the model. */
+    maxChars?: number;
+    /** The most bytes of UTF-8 a request (Google counts bytes, not characters). */
+    maxBytes?: number;
+    formats: Array<'mp3' | 'wav' | 'opus'>;
+    /** BCP 47 tags; left out: the provider takes many, and Arc does not check. */
+    languages?: string[];
+    /** Speaks only voices whose id holds this type, such as `Chirp3-HD` in `en-US-Chirp3-HD-Kore` (Google prices by type). */
+    voiceType?: string;
+}
 
 /** The higher price a model charges for a prompt above `tokens` (AM-D31). */
 export interface AiPriceAbove {
@@ -49,8 +65,15 @@ export interface AiKnownModel {
     priceAbove?: AiPriceAbove;
     /** For a unit other than tokens: per picture, per 1,000 characters, or per second. */
     price?: number;
-    /** The tiers Arc suggests this model for, in Settings, AI's "Use recommended models". */
-    recommend?: Array<'cheap' | 'fast' | 'thorough'>;
+    /** Speech: what the model takes. */
+    speech?: AiSpeechAbilities;
+    /** false: this model was built from the docs and never called for real, on a preset that was (AM-D34). */
+    testedLive?: boolean;
+    /**
+     * The tiers Arc suggests this model for, in Settings, AI's "Use recommended models";
+     * `default` puts a model that makes files in its kind's list.
+     */
+    recommend?: Array<'cheap' | 'fast' | 'thorough' | 'default'>;
 }
 
 /** How a key goes in a request (AM-D8): `Authorization: Bearer <key>` unless the preset says. */
@@ -64,6 +87,8 @@ export const BEARER: AiKeyHeader = { header: 'authorization', prefix: 'Bearer ' 
 export interface AiPreset {
     label: string;
     kind: AiConnectorKind;
+    /** The connector that makes its files, when it makes any (AM-D7). */
+    files?: AiFileConnectorKind;
     /** The provider's address; `{workspace}` is filled from the connection's workspace. */
     baseUrl?: string;
     /** How the key is sent. Default: BEARER. */
@@ -89,6 +114,15 @@ export interface AiPreset {
     billingUrl?: string;
     models: Record<string, AiKnownModel>;
 }
+
+/** What every speech model is: it makes speech and bills by the characters sent (AM-D5). */
+const SPEECH: Pick<AiKnownModel, 'makes' | 'unit' | 'reads' | 'schema'> = { makes: 'speech', unit: 'characters', reads: [], schema: 'json' };
+/** Google Cloud Text-to-Speech: 5,000 bytes a request, not characters (about 1,600 of Devanagari). */
+function googleTts(voiceType: string, price: number): AiKnownModel {
+    return { ...SPEECH, speech: { maxBytes: 5000, formats: ['mp3', 'wav', 'opus'], voiceType }, price, testedLive: false };
+}
+/** The languages Sarvam speaks, as its `target_language_code` takes them. */
+export const SARVAM_LANGUAGES = ['bn-IN', 'en-IN', 'gu-IN', 'hi-IN', 'kn-IN', 'ml-IN', 'mr-IN', 'od-IN', 'pa-IN', 'ta-IN', 'te-IN'];
 
 /** The day F38's presets were checked; each preset now carries its own. */
 export const PRICES_CHECKED_ON = '2026-10-28';
@@ -178,7 +212,15 @@ export const AI_PRESETS: Record<string, AiPreset> = {
             'gemini-3.8-flash': { reads: ['pictures', 'pdfs'], schema: 'strict', recommend: ['fast', 'thorough'] },
             'gemini-3.5-flash-lite': { reads: ['pictures', 'pdfs'], schema: 'strict', recommend: ['cheap'] },
             'gemini-4-argon': { reads: ['pictures', 'pdfs'], schema: 'strict' },
+            // Cloud Text-to-Speech (AM2), one model per voice type, priced per 1,000 characters
+            // after the monthly free amount, which Arc does not count.
+            'tts-chirp3-hd': { ...googleTts('Chirp3-HD', 0.03), recommend: ['default'] },
+            'tts-neural2': googleTts('Neural2', 0.016),
+            'tts-wavenet': googleTts('Wavenet', 0.004),
+            'tts-standard': googleTts('Standard', 0.004),
+            'tts-studio': googleTts('Studio', 0.16),
         },
+        files: 'vertex',
     },
     // AM1 (specs/ai-media-spec.md, section 6.1): written from each provider's docs, not tested live.
     anthropic: {
@@ -286,8 +328,55 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         // Per account, across its keys, on pay as you go.
         perMinute: 60,
         billingUrl: 'https://dashboard.sarvam.ai/',
+        files: 'sarvam',
         models: {
             'sarvam-105b': { reads: [], schema: 'json', priceIn: 15, priceOut: 60, priceCachedIn: 5, recommend: ['cheap', 'fast', 'thorough'] },
+            // Speech (AM2): Rs 30 and Rs 10 per 10,000 characters.
+            'bulbul:v3': { ...SPEECH, price: 3, speech: { maxChars: 2500, formats: ['wav', 'mp3'], languages: SARVAM_LANGUAGES }, recommend: ['default'] },
+            // No Malayalam or Odia yet.
+            'bulbul:v4-flash': { ...SPEECH, price: 1, speech: { maxChars: 2500, formats: ['wav', 'mp3'], languages: SARVAM_LANGUAGES.filter((l) => l !== 'ml-IN' && l !== 'od-IN') } },
+        },
+    },
+    // AM2 (specs/ai-media-spec.md, section 6.2): speech, written from each provider's docs, not tested live.
+    elevenlabs: {
+        label: 'ElevenLabs',
+        kind: 'elevenlabs',
+        files: 'elevenlabs',
+        baseUrl: 'https://api.elevenlabs.io/v1',
+        auth: { header: 'xi-api-key', prefix: '' },
+        processesIn: 'ElevenLabs\' data centres in the US (EU and India residency is for Enterprise plans, with their own keys)',
+        pricesCheckedOn: DOCS_READ_ON,
+        testedLive: false,
+        docsReadOn: DOCS_READ_ON,
+        // Requests at once on the Starter plan; ElevenLabs sets no limit a minute.
+        atOnce: 3,
+        balance: 'elevenlabs',
+        billingUrl: 'https://elevenlabs.io/app/subscription',
+        models: {
+            'eleven_v4': { ...SPEECH, price: 0.08, speech: { maxChars: 10_000, formats: ['mp3', 'wav', 'opus'] }, recommend: ['default'] },
+            'eleven_v3': { ...SPEECH, price: 0.08, speech: { maxChars: 5000, formats: ['mp3', 'wav', 'opus'] } },
+            'eleven_multilingual_v2': { ...SPEECH, price: 0.08, speech: { maxChars: 10_000, formats: ['mp3', 'wav', 'opus'] } },
+            'eleven_flash_v2_5': { ...SPEECH, price: 0.04, speech: { maxChars: 40_000, formats: ['mp3', 'wav', 'opus'] } },
+        },
+    },
+    minimax: {
+        label: 'MiniMax',
+        kind: 'minimax',
+        files: 'minimax',
+        baseUrl: 'https://api.minimax.io/v1',
+        processesIn: 'MiniMax\'s international servers (api.minimax.io), outside mainland China',
+        pricesCheckedOn: DOCS_READ_ON,
+        testedLive: false,
+        docsReadOn: DOCS_READ_ON,
+        // Speech requests a minute on the entry plan.
+        perMinute: 60,
+        billingUrl: 'https://platform.minimax.io/user-center/payment/balance',
+        models: {
+            // $1.00 and $0.60 per 10,000 characters; fewer than 10,000 characters a request.
+            'speech-2.8-hd': { ...SPEECH, price: 0.1, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] }, recommend: ['default'] },
+            'speech-2.8-turbo': { ...SPEECH, price: 0.06, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] } },
+            'speech-2.6-hd': { ...SPEECH, price: 0.1, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] } },
+            'speech-2.6-turbo': { ...SPEECH, price: 0.06, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] } },
         },
     },
 };

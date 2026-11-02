@@ -119,6 +119,19 @@ export const PROVIDER_GUIDES: Record<string, ProviderGuide> = {
             { key: 'guide_sarvam_rate' },
         ],
     },
+    elevenlabs: {
+        keyPrefix: 'sk_',
+        steps: [
+            { key: 'guide_key_page', url: 'https://elevenlabs.io/app/settings/api-keys' },
+            { key: 'guide_elevenlabs_plan', url: 'https://elevenlabs.io/app/subscription' },
+        ],
+    },
+    minimax: {
+        steps: [
+            { key: 'guide_key_page', url: 'https://platform.minimax.io/user-center/basic-information/interface-key' },
+            { key: 'guide_add_credit', url: 'https://platform.minimax.io/user-center/payment/balance' },
+        ],
+    },
     vertex: {
         steps: [
             { key: 'guide_vertex_1', url: 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com' },
@@ -136,6 +149,7 @@ export const PROVIDER_GUIDES: Record<string, ProviderGuide> = {
 export function failureAdvice(failure: string | undefined, detail = ''): string {
     if (/credit|402|insufficient|balance|billing/i.test(detail)) return 'advice_credit';
     if (/another (address|header)/i.test(detail)) return 'advice_key_again';
+    if (/Text-to-Speech API/i.test(detail)) return 'advice_tts';
     if (/service account|Vertex AI API/i.test(detail)) return 'advice_vertex';
     if (failure === 'key-refused' || /refused the key|has no key|\b40[13]\b/i.test(detail)) return 'advice_key';
     if (failure === 'retired' || /not there|not a model|\b404\b/i.test(detail)) return 'advice_model';

@@ -56,6 +56,29 @@ export interface AiSpeechSettings {
     style?: string;
 }
 
+/**
+ * A named voice of a speech purpose (AM-D17): the voice id each provider uses for it, by
+ * preset id (`elevenlabs`, `sarvam`, `minimax`, `vertex` for Google Cloud Text-to-Speech).
+ * A provider left out is skipped for this voice until the admin chooses one in Settings, AI.
+ */
+export type AiVoiceMap = Record<string, string>;
+
+/** One voice of a provider, as its list gives it (AM-D18). */
+export interface AiVoice {
+    /** The provider's voice id, what a voice map holds. */
+    id: string;
+    name: string;
+    /** BCP 47 tags it speaks, where the provider says. */
+    languages: string[];
+    gender: 'female' | 'male' | 'neutral' | null;
+    /** A few words such as an accent, an age or a use. */
+    labels: string[];
+    /** The provider's own sample, an https address, when it has one. */
+    previewUrl: string | null;
+    /** The models it works with, when the provider says; empty: every model of the provider. */
+    models: string[];
+}
+
 /** Settings for other audio: a sound or music. */
 export interface AiAudioSettings {
     /** How long, 0.5 to 600. */
@@ -147,6 +170,13 @@ export interface AiPurpose {
     image?: AiImageSettings;
     /** Speech's defaults, for `makes: 'speech'`. */
     speech?: AiSpeechSettings;
+    /**
+     * Speech only: the voices a call may ask for by name, first one the default (AM-D17),
+     * such as `{ narrator: { elevenlabs: '<voice id>', sarvam: 'priya' } }`. A call passes
+     * `voice: 'narrator'`, never a provider's id, so the app's code stays the same across
+     * providers. Left out: one voice, `default`, which the admin maps in Settings, AI.
+     */
+    voices?: Record<string, AiVoiceMap>;
     /** A sound's or music's defaults, for `makes: 'audio'`. */
     audio?: AiAudioSettings;
     /** A video's defaults, for `makes: 'video'`. */
@@ -231,6 +261,8 @@ export interface AskAiInput {
     image?: AiImageSettings;
     /** Speech settings for this call, over the purpose's. */
     speech?: Pick<AiSpeechSettings, 'language' | 'speed'>;
+    /** Speech only: one of the purpose's named voices. Default: its first. */
+    voice?: string;
     /** A sound's or music's length for this call. */
     audio?: Pick<AiAudioSettings, 'seconds'>;
     /** A video's settings for this call, over the purpose's. */

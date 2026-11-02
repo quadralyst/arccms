@@ -919,6 +919,7 @@ export type TranslationKey =
     | 'admin.settings.ai.advice_server'
     | 'admin.settings.ai.advice_slow'
     | 'admin.settings.ai.advice_tokens'
+    | 'admin.settings.ai.advice_tts'
     | 'admin.settings.ai.advice_vertex'
     | 'admin.settings.ai.all_outcomes'
     | 'admin.settings.ai.all_purposes'
@@ -931,6 +932,8 @@ export type TranslationKey =
     | 'admin.settings.ai.amount_seconds'
     | 'admin.settings.ai.answer'
     | 'admin.settings.ai.answered'
+    | 'admin.settings.ai.arc_purpose'
+    | 'admin.settings.ai.arc_voice_sample_note'
     | 'admin.settings.ai.at_once'
     | 'admin.settings.ai.balance'
     | 'admin.settings.ai.balance_failed'
@@ -941,9 +944,11 @@ export type TranslationKey =
     | 'admin.settings.ai.blurb_alibaba_eu'
     | 'admin.settings.ai.blurb_anthropic'
     | 'admin.settings.ai.blurb_deepseek'
+    | 'admin.settings.ai.blurb_elevenlabs'
     | 'admin.settings.ai.blurb_gemini_api'
     | 'admin.settings.ai.blurb_groq'
     | 'admin.settings.ai.blurb_huggingface'
+    | 'admin.settings.ai.blurb_minimax'
     | 'admin.settings.ai.blurb_mistral'
     | 'admin.settings.ai.blurb_mistral_eu'
     | 'admin.settings.ai.blurb_openai'
@@ -981,10 +986,12 @@ export type TranslationKey =
     | 'admin.settings.ai.connect_a_provider'
     | 'admin.settings.ai.connect_and_test'
     | 'admin.settings.ai.connect_button'
+    | 'admin.settings.ai.connect_checks_voices'
     | 'admin.settings.ai.connect_failed'
     | 'admin.settings.ai.connect_first'
     | 'admin.settings.ai.connect_title'
     | 'admin.settings.ai.connected_notice'
+    | 'admin.settings.ai.connected_notice_voices'
     | 'admin.settings.ai.connecting'
     | 'admin.settings.ai.connection_test'
     | 'admin.settings.ai.content_failed'
@@ -1010,6 +1017,9 @@ export type TranslationKey =
     | 'admin.settings.ai.filter_outcome'
     | 'admin.settings.ai.filter_purpose'
     | 'admin.settings.ai.from_cache'
+    | 'admin.settings.ai.gender_female'
+    | 'admin.settings.ai.gender_male'
+    | 'admin.settings.ai.gender_neutral'
     | 'admin.settings.ai.get_started'
     | 'admin.settings.ai.gives_data'
     | 'admin.settings.ai.gives_text'
@@ -1019,6 +1029,7 @@ export type TranslationKey =
     | 'admin.settings.ai.guide_alibaba_3'
     | 'admin.settings.ai.guide_deepseek_1'
     | 'admin.settings.ai.guide_deepseek_2'
+    | 'admin.settings.ai.guide_elevenlabs_plan'
     | 'admin.settings.ai.guide_huggingface_1'
     | 'admin.settings.ai.guide_huggingface_2'
     | 'admin.settings.ai.guide_huggingface_3'
@@ -1133,6 +1144,9 @@ export type TranslationKey =
     | 'admin.settings.ai.providers'
     | 'admin.settings.ai.providers_hint'
     | 'admin.settings.ai.purpose'
+    | 'admin.settings.ai.purpose_voices'
+    | 'admin.settings.ai.purpose_voices_hint'
+    | 'admin.settings.ai.purpose_voices_none'
     | 'admin.settings.ai.rate_missing'
     | 'admin.settings.ai.reads'
     | 'admin.settings.ai.recommended_for'
@@ -1204,6 +1218,30 @@ export type TranslationKey =
     | 'admin.settings.ai.use_own'
     | 'admin.settings.ai.use_recommended'
     | 'admin.settings.ai.use_tier'
+    | 'admin.settings.ai.voice_choose'
+    | 'admin.settings.ai.voice_chosen'
+    | 'admin.settings.ai.voice_clear'
+    | 'admin.settings.ai.voice_default'
+    | 'admin.settings.ai.voice_from_admin'
+    | 'admin.settings.ai.voice_from_app'
+    | 'admin.settings.ai.voice_missing'
+    | 'admin.settings.ai.voice_no_model'
+    | 'admin.settings.ai.voice_play'
+    | 'admin.settings.ai.voice_play_failed'
+    | 'admin.settings.ai.voice_sample_cost'
+    | 'admin.settings.ai.voice_sample_failed'
+    | 'admin.settings.ai.voice_sample_test'
+    | 'admin.settings.ai.voice_stop'
+    | 'admin.settings.ai.voice_type'
+    | 'admin.settings.ai.voice_use'
+    | 'admin.settings.ai.voice_use_app'
+    | 'admin.settings.ai.voices'
+    | 'admin.settings.ai.voices_count'
+    | 'admin.settings.ai.voices_failed'
+    | 'admin.settings.ai.voices_loading'
+    | 'admin.settings.ai.voices_more'
+    | 'admin.settings.ai.voices_none'
+    | 'admin.settings.ai.voices_search'
     | 'admin.settings.ai.where'
     | 'admin.settings.ai.which_models'
     | 'admin.settings.ai.workspace'
@@ -3316,6 +3354,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.advice_server',
     'admin.settings.ai.advice_slow',
     'admin.settings.ai.advice_tokens',
+    'admin.settings.ai.advice_tts',
     'admin.settings.ai.advice_vertex',
     'admin.settings.ai.all_outcomes',
     'admin.settings.ai.all_purposes',
@@ -3328,6 +3367,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.amount_seconds',
     'admin.settings.ai.answer',
     'admin.settings.ai.answered',
+    'admin.settings.ai.arc_purpose',
+    'admin.settings.ai.arc_voice_sample_note',
     'admin.settings.ai.at_once',
     'admin.settings.ai.balance',
     'admin.settings.ai.balance_failed',
@@ -3338,9 +3379,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.blurb_alibaba_eu',
     'admin.settings.ai.blurb_anthropic',
     'admin.settings.ai.blurb_deepseek',
+    'admin.settings.ai.blurb_elevenlabs',
     'admin.settings.ai.blurb_gemini_api',
     'admin.settings.ai.blurb_groq',
     'admin.settings.ai.blurb_huggingface',
+    'admin.settings.ai.blurb_minimax',
     'admin.settings.ai.blurb_mistral',
     'admin.settings.ai.blurb_mistral_eu',
     'admin.settings.ai.blurb_openai',
@@ -3378,10 +3421,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.connect_a_provider',
     'admin.settings.ai.connect_and_test',
     'admin.settings.ai.connect_button',
+    'admin.settings.ai.connect_checks_voices',
     'admin.settings.ai.connect_failed',
     'admin.settings.ai.connect_first',
     'admin.settings.ai.connect_title',
     'admin.settings.ai.connected_notice',
+    'admin.settings.ai.connected_notice_voices',
     'admin.settings.ai.connecting',
     'admin.settings.ai.connection_test',
     'admin.settings.ai.content_failed',
@@ -3407,6 +3452,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.filter_outcome',
     'admin.settings.ai.filter_purpose',
     'admin.settings.ai.from_cache',
+    'admin.settings.ai.gender_female',
+    'admin.settings.ai.gender_male',
+    'admin.settings.ai.gender_neutral',
     'admin.settings.ai.get_started',
     'admin.settings.ai.gives_data',
     'admin.settings.ai.gives_text',
@@ -3416,6 +3464,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.guide_alibaba_3',
     'admin.settings.ai.guide_deepseek_1',
     'admin.settings.ai.guide_deepseek_2',
+    'admin.settings.ai.guide_elevenlabs_plan',
     'admin.settings.ai.guide_huggingface_1',
     'admin.settings.ai.guide_huggingface_2',
     'admin.settings.ai.guide_huggingface_3',
@@ -3530,6 +3579,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.providers',
     'admin.settings.ai.providers_hint',
     'admin.settings.ai.purpose',
+    'admin.settings.ai.purpose_voices',
+    'admin.settings.ai.purpose_voices_hint',
+    'admin.settings.ai.purpose_voices_none',
     'admin.settings.ai.rate_missing',
     'admin.settings.ai.reads',
     'admin.settings.ai.recommended_for',
@@ -3601,6 +3653,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.use_own',
     'admin.settings.ai.use_recommended',
     'admin.settings.ai.use_tier',
+    'admin.settings.ai.voice_choose',
+    'admin.settings.ai.voice_chosen',
+    'admin.settings.ai.voice_clear',
+    'admin.settings.ai.voice_default',
+    'admin.settings.ai.voice_from_admin',
+    'admin.settings.ai.voice_from_app',
+    'admin.settings.ai.voice_missing',
+    'admin.settings.ai.voice_no_model',
+    'admin.settings.ai.voice_play',
+    'admin.settings.ai.voice_play_failed',
+    'admin.settings.ai.voice_sample_cost',
+    'admin.settings.ai.voice_sample_failed',
+    'admin.settings.ai.voice_sample_test',
+    'admin.settings.ai.voice_stop',
+    'admin.settings.ai.voice_type',
+    'admin.settings.ai.voice_use',
+    'admin.settings.ai.voice_use_app',
+    'admin.settings.ai.voices',
+    'admin.settings.ai.voices_count',
+    'admin.settings.ai.voices_failed',
+    'admin.settings.ai.voices_loading',
+    'admin.settings.ai.voices_more',
+    'admin.settings.ai.voices_none',
+    'admin.settings.ai.voices_search',
     'admin.settings.ai.where',
     'admin.settings.ai.which_models',
     'admin.settings.ai.workspace',

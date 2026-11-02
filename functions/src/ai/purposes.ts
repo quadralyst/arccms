@@ -1,5 +1,6 @@
 import { AI_PURPOSES } from '../custom/ai.js';
 import { storagePathProblem } from './paths.js';
+import { DEFAULT_VOICE, SPEECH_PRESETS, VOICE_ID, VOICE_NAME } from './voices.js';
 import { answerProblems, schemaProblems, type JsonSchema } from './schema.js';
 import { AI_ALLOWANCE_UNITS, AI_ASPECTS, AI_FILE_KINDS, AI_KINDS, AI_TIERS, isAiTestFailure, type AiFileKind, type AiKind, type AiPurpose, type AiPurposes, type AiTier } from './types.js';
 
@@ -16,6 +17,47 @@ export const MAX_FILES = 20;
 export const DEFAULT_TIMEOUT_SECONDS = 60;
 export const DEFAULT_CACHE_DAYS = 365;
 export const MAX_PICTURES = 4;
+
+/**
+ * Arc's own purposes, which no app declares (AM-D18, AM-D20). askAi, the app kit's call,
+ * refuses an `arc-` id; only Arc's callables use them, through askAiForArc, which is not in
+ * the app kit.
+ */
+export const ARC_PURPOSES: AiPurposes = {
+    'arc-voice-sample': {
+        label: 'Voice sample',
+        description: 'Plays a sentence in a voice in Settings, AI, when its provider has no sample file of its own.',
+        makes: 'speech',
+        input: { text: { maxChars: 300 } },
+        cache: { days: 365 },
+        deleteAfterDays: 7,
+        timeoutSeconds: 60,
+    },
+};
+
+/** The voice problems of a speech purpose (AM-D17). */
+function voiceProblems(at: string, p: AiPurpose, kind: AiKind): string[] {
+    if (p.voices === undefined) return [];
+    if (kind !== 'speech') return [`${at}: voices are for a purpose that makes speech`];
+    if (typeof p.voices !== 'object' || p.voices === null || Array.isArray(p.voices)) return [`${at}: voices must be an object of named voices`];
+    const problems: string[] = [];
+    const names = Object.keys(p.voices);
+    if (!names.length) problems.push(`${at}: voices needs at least one named voice`);
+    if (names.length > 20) problems.push(`${at}: at most 20 voices`);
+    for (const name of names) {
+        if (!VOICE_NAME.test(name)) problems.push(`${at}: the voice name "${name}" must be letters, digits, _ and -, starting with a letter`);
+        const map = p.voices[name];
+        if (typeof map !== 'object' || map === null || Array.isArray(map)) {
+            problems.push(`${at}: voice "${name}" must be an object of voice ids by provider, such as { elevenlabs: '<voice id>' }`);
+            continue;
+        }
+        for (const [preset, id] of Object.entries(map)) {
+            if (!(SPEECH_PRESETS as readonly string[]).includes(preset)) problems.push(`${at}: voice "${name}" names "${preset}", which makes no speech; use ${SPEECH_PRESETS.join(', ')}`);
+            else if (typeof id !== 'string' || !VOICE_ID.test(id)) problems.push(`${at}: voice "${name}" has no usable ${preset} voice id`);
+        }
+    }
+    return problems;
+}
 
 /** What a purpose's file-kind settings may hold, with the check for each (AM-D19). */
 export function fileSettingsProblems(at: string, p: AiPurpose, kind: AiKind): string[] {
@@ -75,6 +117,7 @@ export function purposeProblems(purposes: unknown): string[] {
         if (p.makes === 'text' && p.output && p.output !== 'text') problems.push(`${at}: a purpose that makes text takes no schema; make it 'data'`);
         if (file && p.output !== undefined) problems.push(`${at}: a purpose that makes ${kind} answers with files, so it takes no output`);
         if (file) problems.push(...fileSettingsProblems(at, p, kind));
+        problems.push(...voiceProblems(at, p, kind));
         for (const k of ['image', 'speech', 'audio', 'video'] as const) {
             if (!file && p[k] !== undefined) problems.push(`${at}: ${k} settings belong to a purpose that makes ${k}`);
         }
@@ -136,14 +179,26 @@ export function assertPurposes(purposes: unknown): void {
 
 assertPurposes(AI_PURPOSES);
 
-/** The app's purposes. */
+/** The app's purposes, then Arc's own, for the admin page and the daily cleanup. */
 export function aiPurposes(): AiPurposes {
-    return AI_PURPOSES;
+    return { ...AI_PURPOSES, ...ARC_PURPOSES };
 }
 
-/** The purpose with this id, or undefined. */
-export function findPurpose(id: string): AiPurpose | undefined {
-    return Object.prototype.hasOwnProperty.call(AI_PURPOSES, id) ? AI_PURPOSES[id] : undefined;
+/** One of Arc's own purposes, which no app may call. */
+export function isArcPurpose(id: string): boolean {
+    return Object.prototype.hasOwnProperty.call(ARC_PURPOSES, id);
+}
+
+/** The app's purpose with this id, or undefined; with `arc`, Arc's own too. */
+export function findPurpose(id: string, options: { arc?: boolean } = {}): AiPurpose | undefined {
+    if (Object.prototype.hasOwnProperty.call(AI_PURPOSES, id)) return AI_PURPOSES[id];
+    return options.arc && isArcPurpose(id) ? ARC_PURPOSES[id] : undefined;
+}
+
+/** A speech purpose's voice names, its default first: its own, else one named `default` (AM-D17). */
+export function purposeVoiceNames(p: AiPurpose): string[] {
+    const names = p.voices ? Object.keys(p.voices) : [];
+    return names.length ? names : [DEFAULT_VOICE];
 }
 
 /** What a purpose makes: its `makes`, else data for a schema, else text (AM-D1). */

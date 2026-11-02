@@ -10,6 +10,7 @@
 import { db } from '../init.js';
 import { arcFunctionsRegion } from '../arc-config.js';
 import { AI_FILE_KINDS, AI_KINDS, AI_TIERS, AI_UNITS, type AiFileKind, type AiKind, type AiTier, type AiUnit } from './types.js';
+import { SPEECH_PRESETS, VOICE_ID, VOICE_NAME } from './voices.js';
 import { BEARER, findPreset, type AiCurrency, type AiKeyHeader, type AiKnownModel, type AiPriceAbove, type AiReads, type AiSchemaSupport } from './presets.js';
 
 export const AI_SETTINGS_DOC = 'ai';
@@ -70,6 +71,11 @@ export interface AiPurposeSettings {
     cache: boolean | null;
     /** The admin's days before files left in `ai-files/` are deleted (AM-D10); null: the purpose's. */
     deleteAfterDays: number | null;
+    /**
+     * A speech purpose: the admin's voice ids by voice name and preset, over the app's
+     * (AM-D17). An empty id takes the app's back.
+     */
+    voices: Record<string, Record<string, string>>;
 }
 
 /** What the admin says about a model: what it reads, its schema support and its prices. */
@@ -163,6 +169,20 @@ function modelRefs(value: unknown, connections: Record<string, AiConnection>): A
         .slice(0, 5);
 }
 
+/** The admin's voice maps: known names and presets, usable ids; anything else is dropped. */
+function voiceMaps(value: unknown): Record<string, Record<string, string>> {
+    const out: Record<string, Record<string, string>> = {};
+    for (const [name, raw] of Object.entries(obj(value)).slice(0, 20)) {
+        if (!VOICE_NAME.test(name)) continue;
+        const map: Record<string, string> = {};
+        for (const [preset, id] of Object.entries(obj(raw))) {
+            if ((SPEECH_PRESETS as readonly string[]).includes(preset) && typeof id === 'string' && VOICE_ID.test(id)) map[preset] = id;
+        }
+        if (Object.keys(map).length) out[name] = map;
+    }
+    return out;
+}
+
 /** Stored settings with every gap filled from the defaults. */
 export function resolveAiSettings(raw: Record<string, unknown> | undefined): AiSettings {
     const data = raw ?? {};
@@ -215,6 +235,7 @@ export function resolveAiSettings(raw: Record<string, unknown> | undefined): AiS
             keepContent: p['keepContent'] === true,
             cache: typeof p['cache'] === 'boolean' ? p['cache'] : null,
             deleteAfterDays: wholeOrNull(p['deleteAfterDays'], 1, 3650),
+            voices: voiceMaps(p['voices']),
         };
     }
     const models: Record<string, AiModelSettings> = {};
@@ -262,7 +283,7 @@ export function forgetAiSettings(): void {
 
 /** The settings for one purpose: the admin's, else on, the tier's models, the purpose's allowance, no content kept. */
 export function purposeSettings(settings: AiSettings, purposeId: string): AiPurposeSettings {
-    return settings.purposes[purposeId] ?? { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null };
+    return settings.purposes[purposeId] ?? { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null, voices: {} };
 }
 
 /**
@@ -289,9 +310,11 @@ export function modelInfo(settings: AiSettings, ref: AiModelRef): AiModelInfo {
         priceAbove: adminPriced ? undefined : (known?.priceAbove as AiPriceAbove | undefined),
         price: admin.price ?? known?.price,
         recommend: known?.recommend,
+        // What a speech model takes is Arc's knowledge only: a model the admin describes has no caps.
+        speech: known?.speech,
         currency,
         usdRate: currency === 'USD' ? 1 : connection?.usdRate ?? null,
-        testedLive: preset?.testedLive !== false,
+        testedLive: preset?.testedLive !== false && known?.testedLive !== false,
     };
 }
 

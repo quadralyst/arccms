@@ -1,6 +1,7 @@
 /**
  * A connection's balance, read with its own key (specs/ai-media-spec.md, AM-D32): DeepSeek's
- * account balance and what is left of an OpenRouter key's own limit. Read once a day by
+ * account balance, what is left of an OpenRouter key's own limit, and the characters left of
+ * an ElevenLabs plan this period. Read once a day by
  * cleanUpAi and when the admin clicks Refresh; stored on the connection in Settings/ai.
  * Below the admin's low mark, admins are told once, until the balance rises again.
  *
@@ -55,6 +56,14 @@ export function readOpenRouterKey(body: Record<string, unknown>): BalanceRead {
     return Number.isFinite(balance) ? { ok: true, balance, unit: 'USD key limit' } : { ok: false, detail: 'OpenRouter gave no key limit' };
 }
 
+/** ElevenLabs: `GET /v1/user/subscription`, the characters left of the plan's this period. */
+export function readElevenLabsSubscription(body: Record<string, unknown>): BalanceRead {
+    const used = Number(body['character_count']);
+    const limit = Number(body['character_limit']);
+    if (!Number.isFinite(used) || !Number.isFinite(limit)) return { ok: false, detail: 'ElevenLabs gave no character count' };
+    return { ok: true, balance: Math.max(0, limit - used), unit: 'characters' };
+}
+
 /** Read one connection's balance, when its preset can. */
 export async function readBalance(connection: AiConnection): Promise<BalanceRead> {
     const preset = findPreset(connection.preset);
@@ -67,6 +76,10 @@ export async function readBalance(connection: AiConnection): Promise<BalanceRead
         if (preset.balance === 'deepseek') {
             const { status, body } = await getJson(`${new URL(base).origin}/user/balance`, connection, key.key);
             return status === 200 ? readDeepSeekBalance(body) : { ok: false, detail: `DeepSeek answered ${status}` };
+        }
+        if (preset.balance === 'elevenlabs') {
+            const { status, body } = await getJson(`${base}/user/subscription`, connection, key.key);
+            return status === 200 ? readElevenLabsSubscription(body) : { ok: false, detail: `ElevenLabs answered ${status}` };
         }
         const { status, body } = await getJson(`${base}/key`, connection, key.key);
         return status === 200 ? readOpenRouterKey(body) : { ok: false, detail: `OpenRouter answered ${status}` };

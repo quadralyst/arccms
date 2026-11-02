@@ -21,12 +21,13 @@ import { readKey } from './keys.js';
 import { consumeAllowance, checkBudget } from './limits.js';
 import { waitForPlace } from './pacing.js';
 import { storagePathProblem } from './paths.js';
-import { findPreset, presetNeedsKey } from './presets.js';
-import { fileSettingsProblems, findPurpose, isFileKind, MAX_PICTURES, purposeCacheDays, purposeKind, purposeReads, purposeSchema, purposeTier, DEFAULT_TIMEOUT_SECONDS } from './purposes.js';
+import { findPreset, presetNeedsKey, type AiSpeechAbilities } from './presets.js';
+import { fileSettingsProblems, findPurpose, isFileKind, MAX_PICTURES, purposeCacheDays, purposeKind, purposeReads, purposeSchema, purposeTier, purposeVoiceNames, DEFAULT_TIMEOUT_SECONDS } from './purposes.js';
 import { newAiCallId, writeAiCall, type AiCallRecord, type AttemptRecord } from './records.js';
 import { answerProblems, emptyAnswer, parseJsonAnswer, type JsonSchema } from './schema.js';
 import { connectionLimits, modelInfo, purposeSettings, readAiSettings, type AiModelRef } from './settings.js';
 import { standInFiles } from './standins.js';
+import { voiceIdFor } from './voices.js';
 import { addToTotals, alertOutOfCredit, noteConnection } from './usage.js';
 import { AI_ASPECTS, isAiTestFailure, type AiFailureReason, type AiFile, type AiFileKind, type AiImageSettings, type AiKind, type AiPurpose, type AiTestAnswer, type AiTestInput, type AiUnit, type AiUsage, type AskAiInput, type AskAiResult } from './types.js';
 
@@ -55,6 +56,8 @@ interface Checked {
     purpose: AiPurpose;
     kind: AiKind;
     settings: CallSettings;
+    /** Speech: the voice asked for, by its name in the purpose (AM-D17). */
+    voice: string | null;
     saveAs: string | null;
     limitKey: string | null;
     units: number;
@@ -63,11 +66,19 @@ interface Checked {
     ref: string | null;
 }
 
-function checked(input: AskAiInput): Checked {
+/** What Arc's own callables add to a call, never an app (AM-D18). */
+export interface ArcAskOptions {
+    /** Only this model answers, in place of the purpose's list. */
+    only?: AiModelRef;
+    /** Speech: this provider voice id, in place of the purpose's named voice. */
+    voiceId?: string;
+}
+
+function checked(input: AskAiInput, arc: boolean): Checked {
     if (typeof input !== 'object' || input === null) fail('pass { purpose, input }.');
     const purposeId = input.purpose;
     if (typeof purposeId !== 'string') fail('purpose must be the id of one of the app\'s purposes.');
-    const purpose = findPurpose(purposeId);
+    const purpose = findPurpose(purposeId, { arc });
     if (!purpose) fail(`no purpose "${purposeId}" in functions/src/custom/ai.ts.`);
     let limitKey: string | null = null;
     if (input.limitKey !== undefined && input.limitKey !== null) {
@@ -90,6 +101,12 @@ function checked(input: AskAiInput): Checked {
     }
     const kind = purposeKind(purpose);
     const settings = callSettings(purposeId, purpose, kind, input);
+    let voice: string | null = null;
+    if (input.voice !== undefined && input.voice !== null) {
+        if (kind !== 'speech') fail(`voice is for a purpose that makes speech; ${purposeId} makes ${kind}.`);
+        if (typeof input.voice !== 'string' || !purposeVoiceNames(purpose).includes(input.voice)) fail(`voice must be one of ${purposeId}'s voices: ${purposeVoiceNames(purpose).join(', ')}.`);
+        voice = input.voice;
+    } else if (kind === 'speech') voice = purposeVoiceNames(purpose)[0];
     let saveAs: string | null = null;
     if (input.saveAs !== undefined && input.saveAs !== null) {
         if (!isFileKind(kind)) fail(`saveAs is for a purpose that makes files; ${purposeId} makes ${kind}.`);
@@ -100,7 +117,7 @@ function checked(input: AskAiInput): Checked {
         if (!input.saveAs.startsWith(`${folder}/`)) fail(`saveAs "${input.saveAs}" must be inside ${purposeId}'s folder, ${folder}/.`);
         saveAs = input.saveAs;
     }
-    return { purposeId, purpose, kind, settings, saveAs, limitKey, units, perDay, ref };
+    return { purposeId, purpose, kind, settings, voice, saveAs, limitKey, units, perDay, ref };
 }
 
 /** The call's settings for its kind over the purpose's; a setting for another kind is a mistake. */
@@ -156,9 +173,13 @@ export function instructionFor(purpose: AiPurpose, schema: JsonSchema | null, su
     return `${instruction}\n\nAnswer with JSON only, no other text, in exactly this shape (a JSON schema):\n${JSON.stringify(schema)}`;
 }
 
-/** A file kind's prompt: the call's text, then the purpose's instruction (its house style), AM-D24. */
+/**
+ * A file kind's prompt: the call's text, then the purpose's instruction (its house style),
+ * AM-D24. Speech is the text alone, since every word of it is read aloud.
+ */
 export function filePrompt(purpose: AiPurpose, parts: PreparedPart[]): string {
     const text = parts.flatMap((p) => (p.kind === 'text' ? [p.text] : [])).join('\n').trim();
+    if (purposeKind(purpose) === 'speech') return text;
     const style = purpose.instruction?.trim();
     return style ? (text ? `${text}\n\n${style}` : style) : text;
 }
@@ -207,6 +228,8 @@ export interface CapturedAiAsk {
     units: number;
     perDay: number | null;
     ref: string | null;
+    /** Speech: the voice asked for, by its name in the purpose. */
+    voice: string | null;
 }
 
 let captured: { asks: CapturedAiAsk[]; answers: Record<string, AiTestAnswer> } | null = null;
@@ -275,6 +298,7 @@ async function askCaptured(c: Checked, input: AskAiInput, sink: NonNullable<type
         units: c.units,
         perDay: c.perDay,
         ref: c.ref,
+        voice: c.voice,
     });
     const answer = c.purposeId in sink.answers ? sink.answers[c.purposeId] : c.purpose.testAnswer;
     if (isFileKind(c.kind)) {
@@ -312,8 +336,17 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Ask AI, as one of the app's purposes says. See docs/app/ai.html. */
 export async function askAi(input: AskAiInput): Promise<AskAiResult> {
+    return ask(input, null);
+}
+
+/** Ask AI for one of Arc's own purposes, such as a voice sample (not in the app kit). */
+export async function askAiForArc(input: AskAiInput, options: ArcAskOptions): Promise<AskAiResult> {
+    return ask(input, options);
+}
+
+async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiResult> {
     const started = Date.now();
-    const c = checked(input);
+    const c = checked(input, arc !== null);
     if (!isFeatureOn('ai')) {
         return { ok: false, reason: 'off', detail: 'the ai feature is off: add it to on in src/custom/features.ts', usage: noUsage(false, c.kind), recordId: null };
     }
@@ -330,6 +363,8 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
     const spent: Spent = { tokensIn: 0, tokensOut: 0, tokensThinking: 0, tokensCached: 0, tokensCacheWrite: 0, costUsd: 0, amount: 0, unit: kindUnit(c.kind) };
     let costFrom: CostFrom = 'none';
     let last: AiModelRef | null = null;
+    /** Speech: the provider voice id of the model that answered, or the last one tried. */
+    let lastVoiceId: string | null = null;
     let inputSize = { chars: 0, files: 0, bytes: 0 };
     let parts: PreparedPart[] = [];
     let allowance: { release: () => Promise<void> } | null = null;
@@ -367,6 +402,7 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
             ...(outcome.ok ? {} : { scope: outcome.scope, detail: outcome.detail?.slice(0, 500) }),
             ...(outcome.ok && outcome.files ? { files: outcome.files, filePaths: outcome.files.map((f) => f.path) } : {}),
             ...(cached ? { cached: true, cachedFrom: outcome.ok ? outcome.cachedFrom ?? null : null } : {}),
+            ...(c.kind === 'speech' ? { voice: c.voice, voiceId: lastVoiceId } : {}),
         };
         const content = ps.keepContent ? { instruction: c.purpose.instruction ?? '', parts, answer: outcome.answerText ?? null } : null;
         const [writtenId] = await Promise.all([
@@ -397,22 +433,36 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
 
     // The models that may answer: the purpose's own list, else the tier's (text and data) or
     // the kind's (files), each one that makes this kind.
-    const fullList = ps.models.length ? ps.models : fileKind ? settings.lists[fileKind] : settings.tiers[tier];
+    const fullList = arc?.only ? [arc.only] : ps.models.length ? ps.models : fileKind ? settings.lists[fileKind] : settings.tiers[tier];
     const wanted = fileKind ?? 'text';
-    const list = fullList.filter((ref) => modelInfo(settings, ref).makes === wanted || (wanted === 'text' && modelInfo(settings, ref).makes === 'data'));
+    const makesWanted = fullList.filter((ref) => modelInfo(settings, ref).makes === wanted || (wanted === 'text' && modelInfo(settings, ref).makes === 'data'));
+    // With fallback off, only the first model is the purpose's: no other ever answers, or
+    // answers from the cache, even when the first one is skipped (AM-D4).
+    const list = c.purpose.fallback === false ? makesWanted.slice(0, 1) : makesWanted;
     const instruction = fileKind ? filePrompt(c.purpose, []) : (c.purpose.instruction ?? '');
+    /** Speech: the voice id a model's provider uses for the call's voice, or null. */
+    const voiceOf = (ref: AiModelRef): string | null => {
+        if (c.kind !== 'speech') return null;
+        if (arc?.voiceId) return arc.voiceId;
+        const preset = settings.connections[ref.connection]?.preset ?? '';
+        return voiceIdFor(c.voice ?? '', preset, c.purpose.voices, ps.voices);
+    };
 
     // Arc's own cache, before anything is counted: a hit counts against nothing (AM-D16).
     const cacheDays = fileKind && !test && ps.cache !== false ? purposeCacheDays(c.purpose) : 0;
-    // With fallback off, only the first model's files are the purpose's.
-    const cacheList = c.purpose.fallback === false ? list.slice(0, 1) : list;
-    const hashes = cacheDays ? cacheList.map((ref) => ({ ref, hash: cacheHash(c.purposeId, ref, c.settings, instruction, parts) })) : [];
+    // The voice is part of the key: the same words in another voice are another file.
+    const hashes = cacheDays ? list.flatMap((ref) => {
+        const voice = voiceOf(ref);
+        if (c.kind === 'speech' && !voice) return [];
+        return [{ ref, hash: cacheHash(c.purposeId, ref, voice ? { ...c.settings, voice } : c.settings, instruction, parts) }];
+    }) : [];
     if (cacheDays) {
         const hit = await findCached(hashes).catch((err: unknown) => (console.error('askAi: the cache could not be read', err), null));
         // A hit whose files cannot be copied is a miss: the call goes on as if there were none.
         const files = hit ? await hitFiles(hit).catch((err: unknown) => (console.error('askAi: a cached file could not be used', err), null)) : null;
         if (hit && files) {
             last = { connection: hit.connection, model: hit.model };
+            lastVoiceId = voiceOf(last);
             attempts.push({ connection: hit.connection, model: hit.model, outcome: 'cached', ms: 0 });
             return finish({ ok: true, answerText: null, files, cachedFrom: hit.recordId });
         }
@@ -480,10 +530,10 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
         let lastFailure: { failure: AttemptFailure; detail: string; wait?: number } | null = null;
         // A busy or slow model tells the app more than a later one with no key: try again soon.
         let busy: { failure: AttemptFailure; detail: string; wait?: number } | null = null;
-        let tried = 0;
+        /** Models skipped because the text is longer than they take. */
+        let tooLong = 0;
 
         for (const ref of list) {
-            if (c.purpose.fallback === false && tried > 0) break;
             const connection = settings.connections[ref.connection];
             const preset = connection ? findPreset(connection.preset) : undefined;
             const info = modelInfo(settings, ref);
@@ -493,17 +543,27 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
                 attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: `reads no ${missing.join(' or ')}` });
                 continue;
             }
-            const makeFiles = fileKind ? fileConnectorFor(preset.kind) : undefined;
-            if (fileKind && !makeFiles) {
-                attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: `Arc cannot make ${fileKind} with ${preset.label} yet` });
+            const makeFiles = fileKind ? fileConnectorFor(preset) : undefined;
+            const talk = fileKind ? undefined : connectorFor(preset.kind);
+            if ((fileKind && !makeFiles) || (!fileKind && !talk)) {
+                attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: `Arc cannot make ${fileKind ?? 'text'} with ${preset.label} yet` });
                 continue;
+            }
+            const voiceId = voiceOf(ref);
+            if (c.kind === 'speech') {
+                const skip = speechSkip(info.speech, voiceId, preset.label);
+                if (skip) {
+                    if (skip.tooLong) tooLong++;
+                    attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: skip.detail });
+                    continue;
+                }
             }
             if (deadline - Date.now() < MIN_ATTEMPT_MS) {
                 lastFailure = { failure: 'timeout', detail: 'no time was left for another model' };
                 break;
             }
             last = ref;
-            tried++;
+            lastVoiceId = voiceId;
             const attemptStarted = Date.now();
             const place = await waitForPlace(connection.id, connectionLimits(connection), deadline, { leaveMs: MIN_ATTEMPT_MS });
             let result: ConnectorResult | FileResult;
@@ -516,8 +576,8 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
                     if (!key.ok) result = { ok: false, failure: 'off', detail: key.detail };
                     else {
                         const send = () => (makeFiles
-                            ? makeFiles({ connection, key: key.key }, { kind: fileKind!, model: ref.model, prompt: filePrompt(c.purpose, parts), parts: parts.filter((p) => p.kind !== 'text'), ...c.settings, timeoutMs: deadline - Date.now() })
-                            : connectorFor(preset.kind)({ connection, key: key.key }, {
+                            ? makeFiles({ connection, key: key.key }, { kind: fileKind!, model: ref.model, prompt: filePrompt(c.purpose, parts), parts: parts.filter((p) => p.kind !== 'text'), ...c.settings, ...(voiceId ? { voice: voiceId } : {}), timeoutMs: deadline - Date.now() })
+                            : talk!({ connection, key: key.key }, {
                                 model: ref.model,
                                 instruction: instructionFor(c.purpose, schema, info.schema),
                                 parts,
@@ -545,7 +605,9 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
             addSpent(info, ref, result.usage, result.ok && 'files' in result ? result.files : []);
             if (result.ok) {
                 attempts.push({ connection: ref.connection, model: ref.model, outcome: 'ok', ms });
-                await noteConnection(settings, ref.connection, null);
+                // A file made by a provider that also answers text (Vertex, Sarvam) says nothing
+                // of its text, so it does not mark the card working.
+                if (!fileKind || !connectorFor(preset.kind)) await noteConnection(settings, ref.connection, null);
                 if ('files' in result) {
                     if (!result.files.length) return finish({ ok: false, reason: 'unreadable', detail: 'the provider answered with no file' });
                     const paths = filePaths({ recordId, purpose: c.purposeId, month: fileMonth(started), test: false, saveTo: c.purpose.saveTo, saveAs: c.saveAs ?? undefined, files: result.files });
@@ -566,19 +628,44 @@ export async function askAi(input: AskAiInput): Promise<AskAiResult> {
                 return finish({ ok: true, data: read.data, text: read.text, answerText: result.text });
             }
             attempts.push({ connection: ref.connection, model: ref.model, outcome: result.failure, ms, detail: result.detail.slice(0, 300) });
-            if (result.failure === 'key-refused' || result.failure === 'retired' || result.failure === 'off' || result.outOfCredit) await noteConnection(settings, ref.connection, result.detail);
+            // A file kind's `off` is about this call (a voice, an API for that kind), not the
+            // connection: it must not mark a card that also answers text as not working.
+            if (result.failure === 'key-refused' || result.failure === 'retired' || (result.failure === 'off' && !fileKind) || result.outOfCredit) await noteConnection(settings, ref.connection, result.detail);
             if (result.outOfCredit) await alertOutOfCredit(connection.id, connection.label, result.detail);
             lastFailure = { failure: result.failure, detail: result.detail, wait: result.wait };
             if (result.failure === 'unavailable' || result.failure === 'timeout') busy = lastFailure;
-            if (!FALLBACK_FAILURES.includes(result.failure)) break;
+            // A provider whose real cap is below what Arc knows: another speech model may take the text.
+            if (!FALLBACK_FAILURES.includes(result.failure) && !(c.kind === 'speech' && result.failure === 'too-large')) break;
         }
 
         if (!lastFailure) {
-            const detail = attempts.length ? attempts.map((a) => a.detail).filter(Boolean)[0] ?? `no model in the list can answer` : `no model is set in Settings, AI`;
+            // Only when every model was too short for the text: another reason to skip says what to fix.
+            if (tooLong && tooLong === attempts.length) {
+                return finish({ ok: false, reason: 'too-large', detail: `the text (${inputSize.chars} characters) is longer than any model in the list takes in one request: send a paragraph at a time` });
+            }
+            // The first reason to skip that is not the text's length: that one has a fix in Settings, AI.
+            const reasons = attempts.map((a) => a.detail).filter((d): d is string => !!d);
+            const detail = attempts.length ? reasons.find((d) => !d.startsWith('takes at most')) ?? reasons[0] ?? `no model in the list can answer` : `no model is set in Settings, AI`;
             return finish({ ok: false, reason: 'off', detail: needs.length && attempts.every((a) => a.outcome === 'skipped' && a.detail?.startsWith('reads no')) ? `no model in the list reads ${needs.join(' or ')}` : detail });
         }
         const final = lastFailure.failure === 'off' && busy ? busy : lastFailure;
         return finish({ ok: false, reason: finalReason(final.failure), detail: final.detail, wait: final.wait });
+    }
+
+    /** Why a speech model cannot say this call's text, or null when it can (AM-D4, AM-D17, section 8 item 1). */
+    function speechSkip(abilities: AiSpeechAbilities | undefined, voiceId: string | null, provider: string): { detail: string; tooLong?: boolean } | null {
+        if (!voiceId) return { detail: `${provider} has no voice for "${c.voice}": choose one in Settings, AI, Purposes` };
+        if (abilities?.voiceType && !voiceId.includes(`-${abilities.voiceType}-`)) return { detail: `"${voiceId}" is not a ${abilities.voiceType} voice, which this model speaks with` };
+        const text = filePrompt(c.purpose, parts);
+        if (abilities?.maxChars && text.length > abilities.maxChars) return { detail: `takes at most ${abilities.maxChars} characters a request`, tooLong: true };
+        if (abilities?.maxBytes && Buffer.byteLength(text, 'utf8') > abilities.maxBytes) return { detail: `takes at most ${abilities.maxBytes} bytes of text a request`, tooLong: true };
+        const format = c.settings.speech?.format ?? 'mp3';
+        if (abilities && !abilities.formats.includes(format)) return { detail: `makes no ${format}` };
+        const language = c.settings.speech?.language;
+        // By the language alone, not the region: a provider that speaks en-IN reads en-US text too.
+        const primary = (tag: string) => tag.split('-')[0].toLowerCase().replace(/^or$/, 'od');
+        if (abilities?.languages && language && !abilities.languages.some((l) => primary(l) === primary(language))) return { detail: `speaks no ${language}` };
+        return null;
     }
 
     /** Add one attempt's tokens, amount and cost to the call's. */

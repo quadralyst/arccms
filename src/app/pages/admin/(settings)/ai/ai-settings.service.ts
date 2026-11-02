@@ -52,13 +52,35 @@ export interface AiPresetModel {
     priceAbove?: { tokens: number; priceIn: number; priceOut: number; priceCachedIn?: number; priceCacheWrite?: number };
     /** For a unit other than tokens: per picture, per 1,000 characters, or per second. */
     price?: number;
-    recommend?: AiTier[];
+    /** `default`: Arc suggests it for its kind's list (AM-D4). */
+    recommend?: Array<AiTier | 'default'>;
+    /** Speech: the most characters (or bytes, for Google) a request, and the formats it makes. */
+    speech?: { maxChars?: number; maxBytes?: number; formats: string[]; languages?: string[] };
+    /** false: this model has never been called for real (AM-D34). */
+    testedLive?: boolean;
+}
+
+/** One voice of a provider (AM-D18). */
+export interface AiVoice {
+    id: string;
+    name: string;
+    languages: string[];
+    gender: 'female' | 'male' | 'neutral' | null;
+    labels: string[];
+    previewUrl: string | null;
+    /** The models it works with; empty: every model of the provider. */
+    models: string[];
 }
 
 export interface AiPresetInfo {
     id: string;
     label: string;
-    kind: 'openai' | 'vertex' | 'anthropic' | 'gemini';
+    kind: 'openai' | 'vertex' | 'anthropic' | 'gemini' | 'elevenlabs' | 'minimax';
+    /** Its connector makes files, and for speech lists voices (AM-D18). */
+    files?: string | null;
+    makesSpeech?: boolean;
+    /** false: Arc makes only files with it, so Test reads its voices instead (AM-D18). */
+    makesText?: boolean;
     processesIn: string;
     needsWorkspace: boolean;
     needsAddress: boolean;
@@ -105,6 +127,10 @@ export interface AiPurposeInfo {
     /** How long the purpose's cache keeps a file; 0: no cache (AM-D16). */
     cacheDays?: number;
     fallback?: boolean;
+    /** One of Arc's own purposes, such as the voice sample (AM-D18). */
+    arc?: boolean;
+    /** A speech purpose's named voices, with the app's voice ids by provider (AM-D17). */
+    voices?: Array<{ name: string; ids: Record<string, string> }>;
 }
 
 /** Whether a preset's connections need a key: every kind but Vertex, which uses the functions' own account. */
@@ -197,10 +223,42 @@ export interface AiPurposeForm {
     cache: boolean | null;
     /** The admin's days before files in `ai-files/` are deleted; null: the purpose's. */
     deleteAfterDays: number | null;
+    /** A speech purpose: the admin's voice ids by voice name and preset, over the app's (AM-D17). */
+    voices: Record<string, Record<string, string>>;
 }
 
 export function blankPurpose(): AiPurposeForm {
-    return { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null };
+    return { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null, voices: {} };
+}
+
+/** The presets a voice map may name: those that make speech (AM-D17). */
+export const SPEECH_PRESETS = ['elevenlabs', 'sarvam', 'minimax', 'vertex'] as const;
+const VOICE_NAME = /^[A-Za-z][A-Za-z0-9_-]{0,39}$/;
+/** A provider's voice id, as the server takes it. */
+export const VOICE_ID = /^[A-Za-z0-9][A-Za-z0-9 ._:@()-]{0,119}$/;
+
+function voiceMapsFrom(v: unknown): Record<string, Record<string, string>> {
+    const out: Record<string, Record<string, string>> = {};
+    for (const [name, raw] of Object.entries(obj(v))) {
+        if (!VOICE_NAME.test(name)) continue;
+        const map = Object.fromEntries(Object.entries(obj(raw)).filter(([p, id]) => (SPEECH_PRESETS as readonly string[]).includes(p) && typeof id === 'string' && VOICE_ID.test(id))) as Record<string, string>;
+        if (Object.keys(map).length) out[name] = map;
+    }
+    return out;
+}
+
+/**
+ * The admin's voices as save writes them: merged, so a voice or provider taken away since
+ * `before` is deleted rather than left behind.
+ */
+function voiceMapsData(after: Record<string, Record<string, string>>, before: Record<string, Record<string, string>> | undefined): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const [name, map] of Object.entries(after)) out[name] = { ...map };
+    for (const [name, map] of Object.entries(before ?? {})) {
+        if (!after[name]) out[name] = deleteField();
+        else for (const preset of Object.keys(map)) if (!(preset in after[name])) (out[name] as Record<string, unknown>)[preset] = deleteField();
+    }
+    return out;
 }
 
 export type AiPriceField = 'priceIn' | 'priceOut' | 'priceCachedIn' | 'priceCacheWrite' | 'price';
@@ -287,6 +345,7 @@ export function aiFormFrom(data: Record<string, unknown> | undefined): AiSetting
             keepContent: p['keepContent'] === true,
             cache: typeof p['cache'] === 'boolean' ? p['cache'] : null,
             deleteAfterDays: wholeOrNull(p['deleteAfterDays'], 1, 3650),
+            voices: voiceMapsFrom(p['voices']),
         };
     }
     for (const [key, raw] of Object.entries(obj(d['models']))) {
@@ -333,6 +392,7 @@ export function aiSettingsData(form: AiSettingsForm, loaded: AiSettingsForm): Re
         purposes[id] = {
             enabled: p.enabled, models: p.models, perKeyPerDay: p.perKeyPerDay ?? deleteField(), keepContent: p.keepContent,
             cache: p.cache ?? deleteField(), deleteAfterDays: p.deleteAfterDays ?? deleteField(),
+            voices: voiceMapsData(p.voices ?? {}, loaded.purposes[id]?.voices),
         };
     }
     const models: Record<string, unknown> = {};
@@ -395,6 +455,11 @@ export function connectionData(c: AiConnectionForm): Record<string, unknown> {
  */
 export function recommendedTiers(connectionId: string, preset: AiPresetInfo): Record<AiTier, AiModelRef[]> {
     return Object.fromEntries(AI_TIERS.map((t) => [t, preset.models.filter((m) => m.recommend?.includes(t)).map((m) => ({ connection: connectionId, model: m.model }))])) as Record<AiTier, AiModelRef[]>;
+}
+
+/** Each file kind's models as a provider recommends them: what "Use recommended models" puts in the file lists. */
+export function recommendedLists(connectionId: string, preset: AiPresetInfo): Record<AiFileKind, AiModelRef[]> {
+    return Object.fromEntries(AI_FILE_KINDS.map((k) => [k, preset.models.filter((m) => m.makes === k && m.recommend?.includes('default')).map((m) => ({ connection: connectionId, model: m.model }))])) as Record<AiFileKind, AiModelRef[]>;
 }
 
 /** A new connection's id from its label: lower case letters, digits and -, unique among `taken`. */
@@ -624,6 +689,18 @@ export class AiSettingsService {
     async refreshBalance(connection: string): Promise<{ ok: true; balance: number | null; unit: string } | { ok: false; detail: string }> {
         const result = await this.inCtx(() => arcCallable(this.functions, 'refreshAiBalance', { timeout: 40_000 })({ connection }));
         return result.data as { ok: true; balance: number | null; unit: string } | { ok: false; detail: string };
+    }
+
+    /** A speech connection's voices (AM-D18); `fresh` reads the provider again rather than the server's copy. */
+    async voices(connection: string, fresh = false): Promise<{ ok: true; voices: AiVoice[] } | { ok: false; detail: string }> {
+        const result = await this.inCtx(() => arcCallable(this.functions, 'aiVoices', { timeout: 70_000 })({ connection, fresh }));
+        return result.data as { ok: true; voices: AiVoice[] } | { ok: false; detail: string };
+    }
+
+    /** A sample of a voice with no sample file of its own, made as Arc's purpose arc-voice-sample. */
+    async voiceSample(connection: string, model: string, voice: string, language?: string): Promise<{ ok: true; path: string; mimeType: string; cached: boolean; test: boolean; costUsd: number } | { ok: false; reason: string; detail: string }> {
+        const result = await this.inCtx(() => arcCallable(this.functions, 'aiVoiceSample', { timeout: 100_000 })({ connection, model, voice, ...(language ? { language } : {}) }));
+        return result.data as { ok: true; path: string; mimeType: string; cached: boolean; test: boolean; costUsd: number } | { ok: false; reason: string; detail: string };
     }
 
     async test(connection: string, model: string): Promise<AiTestResult> {
