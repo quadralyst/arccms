@@ -33,8 +33,8 @@ function counts(record: AiCallRecord): Record<string, unknown> {
     return out;
 }
 
-/** A hit in Arc's own cache: counted apart, never as a call (AM-D16). */
-const CACHE_HIT = { cacheHits: FieldValue.increment(1) };
+/** A hit in Arc's own cache: counted apart, never as a call (AM-D16). Made when used, not when the module loads. */
+const cacheHit = () => ({ cacheHits: FieldValue.increment(1) });
 
 /**
  * Add a call to its month's totals. Never throws: the app's answer must not be lost over its
@@ -50,7 +50,7 @@ export async function addToTotals(record: AiCallRecord, at = new Date(), budget?
             return;
         }
         if (record.cached) {
-            await month.set({ month: day.month, ...CACHE_HIT, byPurpose: { [record.purpose]: CACHE_HIT }, byKind: { [record.kind]: CACHE_HIT } }, { merge: true });
+            await month.set({ month: day.month, ...cacheHit(), byPurpose: { [record.purpose]: cacheHit() }, byKind: { [record.kind]: cacheHit() } }, { merge: true });
             return;
         }
         const update: Record<string, unknown> = {

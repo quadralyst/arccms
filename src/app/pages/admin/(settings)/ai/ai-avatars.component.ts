@@ -58,7 +58,7 @@ const SHOWN = 24;
     styles: [`
         .avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.5rem; }
         .avatar { border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 0.375rem; padding: 0.375rem; display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
-        .avatar.chosen { border-color: var(--bs-primary, #0d6efd); }
+        .avatar.chosen { border-color: var(--bs-primary); }
         .avatar img, .avatar-blank { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 0.25rem; background: var(--bs-tertiary-bg, #f8f9fa); }
         .avatar-blank { display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--bs-secondary-color, #6c757d); }
         .avatar-text { overflow-wrap: anywhere; }

@@ -280,6 +280,7 @@ describe('the app kit\'s exports', () => {
         'sendAppEmail', 'captureAppEmails', 'escapeEmailHtml', 'MAX_APP_EMAIL_RECIPIENTS', 'MAX_ATTACHMENTS', 'MAX_ATTACHMENT_BYTES',
         'APP_EMAIL_EVENTS',
         'askAi', 'captureAiAsks', 'aiUsage', 'aiTestFailure', 'AI_FAILURE_REASONS', 'AI_TIERS',
+        'AI_KINDS', 'AI_UNITS', 'aiJob', 'estimateAiCost', 'moveAiFile',
     ];
 
     it('are exactly the documented ones', () => {

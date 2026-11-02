@@ -77,8 +77,8 @@ describe('ConstantVariables', () => {
     });
 
     describe('Media Manager Menu', () => {
-        it('should have five menu items', () => {
-            expect(constants.mediaManagerMenu).toHaveLength(5);
+        it('should have six menu items', () => {
+            expect(constants.mediaManagerMenu).toHaveLength(6);
         });
 
         it('should have an icons menu item', () => {
@@ -92,6 +92,8 @@ describe('ConstantVariables', () => {
             // untagged tab would show up in a picker that has no use for it.
             expect(constants.mediaManagerMenu.map((m: any) => [m.value, m.kind])).toEqual([
                 ['upload', 'image'],
+                // Create with AI (AM-D21), shown only with a picture model set up.
+                ['ai', 'image'],
                 ['pdf', 'image'],
                 ['files', 'file'],
                 ['search', 'image'],
