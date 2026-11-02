@@ -52,6 +52,9 @@ export const CUSTOM_STARTERS = [
  */
 export const SHIPPED_FILES = {
     'custom/README.md': 'b75fe696180b271e',
+    // The app's version and build number (docs/app/version.html): 0.0.1, no build yet.
+    // Arc CMS's own builds never count, so it stays as shipped here.
+    'custom/package.json': '8e3b2836b7429a0f',
     'docs/custom/README.md': '155f5a1e1e588b44',
     'functions/src/custom/ai.ts': '454e15a999fac573',
     'functions/src/custom/email-templates.ts': 'a15388a8c3cc73ec',

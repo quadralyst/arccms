@@ -14,7 +14,7 @@
     <p class="lead">When someone reports a problem, the first question is which build they are on. Give your app a version, and every build says so: <code>v1.2.0.25 android</code> is version <code>1.2.0</code>, build <code>25</code>, built for Android. It shows under Logout in the admin's side panel, at the foot of the feedback panel, and it is saved with every feedback report, so nobody has to read it out.</p>
 
     <h2 id="the-file">Set the version</h2>
-    <p>The version lives in <code class="new">custom/package.json</code>, in the app's own folder at the root (<a href="scripts-and-data.html">Run scripts and keep data</a>). Arc CMS never ships this file, so an app that has none has no version anywhere, and nothing is counted. Create it, or add the fields to the one you have:</p>
+    <p>The version lives in <code>custom/package.json</code>, in the app's own folder at the root (<a href="scripts-and-data.html">Run scripts and keep data</a>). Arc CMS ships it with version <code>0.0.1</code> and no build yet, so every app has a version from the start and its first build is 1. From then on the file is the app's: Arc CMS never changes it again, and Arc CMS's own builds never count. Set your version and add the fields you need:</p>
     <pre><code>{
   "name": "acme-tools",
   "private": true,
@@ -30,9 +30,11 @@
         <tr><td><code>buildLabel</code></td><td>Optional: any text that says what the build is for, such as <code>web</code>, <code>android</code> or <code>iOS beta</code>, up to 40 characters. <code>--label</code> replaces it for one build.</td></tr>
       </tbody>
     </table>
+    <p>Delete <code>version</code>, or the file, and there is no version anywhere and nothing is counted.</p>
+    <div class="trap"><p>An app that made its own <code>custom/package.json</code> before Arc CMS shipped one gets a conflict on that file the first time it pulls the update. Keep the app's own file, with <code>version</code> and <code>build</code> added if it has none (see <a href="check-core-and-upgrade.html">Keep core untouched</a>).</p></div>
 
     <h2 id="counting">How builds are counted</h2>
-    <p>Every <code>npm run build</code>, and so every deploy of the website, takes the next number: one more than <code>build</code>. Once the build has succeeded, it writes the number back to <code class="new">custom/package.json</code> and says so:</p>
+    <p>Every <code>npm run build</code>, and so every deploy of the website, takes the next number: one more than <code>build</code>. Once the build has succeeded, it writes the number back to <code>custom/package.json</code> and says so:</p>
     <pre><code>&gt; Building v1.2.0.25 web
 ...
 This is build v1.2.0.25 web. custom/package.json now says "build": 25: commit it with your next change.</code></pre>
@@ -46,7 +48,7 @@ This is build v1.2.0.25 web. custom/package.json now says "build": 25: commit it
     </ul>
 
     <h3 id="commit">Commit the file</h3>
-    <p><code class="new">custom/package.json</code> changes with every build, and it belongs in git: it survives a fresh clone and a new machine, and <code>git log</code> shows which change made each build. Commit it with your next change. Two branches that both build take the same number, and git shows a conflict on that one line when they meet: keep the higher number.</p>
+    <p><code>custom/package.json</code> changes with every build, and it belongs in git: it survives a fresh clone and a new machine, and <code>git log</code> shows which change made each build. Commit it with your next change. Two branches that both build take the same number, and git shows a conflict on that one line when they meet: keep the higher number.</p>
     <p>To be sure which code a build ran, each feedback report also carries the commit it was built from (<a href="#feedback">below</a>).</p>
     <div class="trap"><p>A deploy from CI counts in a checkout it throws away, so every run repeats the same number unless the job commits the file back. See <a href="ci.html">Deploy from CI</a>.</p></div>
 
@@ -54,7 +56,7 @@ This is build v1.2.0.25 web. custom/package.json now says "build": 25: commit it
     <table>
       <thead><tr><th>Option</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td><code>npm run build -- --no-bump</code></td><td>Builds with no number (<code>v1.2.0 web</code>) and leaves <code class="new">custom/package.json</code> alone: for a build you only want to try. <code>ARC_NO_BUMP=1</code> does the same.</td></tr>
+        <tr><td><code>npm run build -- --no-bump</code></td><td>Builds with no number (<code>v1.2.0 web</code>) and leaves <code>custom/package.json</code> alone: for a build you only want to try. <code>ARC_NO_BUMP=1</code> does the same.</td></tr>
         <tr><td><code>npm run build -- --label=android</code></td><td>This build's label in place of <code>buildLabel</code>; <code>--label=</code> with nothing builds with no label. <code>ARC_BUILD_LABEL=android</code> does the same. Quote a label with spaces: <code>--label="iOS beta"</code>.</td></tr>
       </tbody>
     </table>
@@ -76,11 +78,11 @@ This is build v1.2.0.25 web. custom/package.json now says "build": 25: commit it
     <p>It is fixed when the site is built; nothing is read at run time.</p>
 
     <h2 id="feedback">In feedback reports</h2>
-    <p>Each report saves <code>version.text</code> and <code>version.commit</code>, and the admin's Feedback page shows them beside the device: <code>v1.2.0.25 android · 533b6d02</code>. The commit is the git commit the build was made from, with <code>+changes</code> when other files had changes not yet committed (the build's own change to <code class="new">custom/package.json</code> does not count). Only the people reading feedback see it. A build with no version sends neither.</p>
+    <p>Each report saves <code>version.text</code> and <code>version.commit</code>, and the admin's Feedback page shows them beside the device: <code>v1.2.0.25 android · 533b6d02</code>. The commit is the git commit the build was made from, with <code>+changes</code> when other files had changes not yet committed (the build's own change to <code>custom/package.json</code> does not count). Only the people reading feedback see it. A build with no version sends neither.</p>
     <div class="trap"><p>The security rules refuse a report with a field they do not know. When you update to an Arc CMS that sends the version, deploy the rules before the website, or every report from the new website is refused until the rules catch up.</p></div>
 
     <h2 id="capacitor">Android and iOS with Capacitor</h2>
-    <p>Arc CMS knows nothing about Capacitor; your app's own scripts do. Put them in <code class="new">custom/package.json</code>, beside the version, so each platform's build carries its label:</p>
+    <p>Arc CMS knows nothing about Capacitor; your app's own scripts do. Put them in <code>custom/package.json</code>, beside the version, so each platform's build carries its label:</p>
     <pre><code>"scripts": {
   "build:android": "cd .. &amp;&amp; npm run build -- --label=android &amp;&amp; npx cap sync android",
   "build:ios": "cd .. &amp;&amp; npm run build -- --label=ios &amp;&amp; npx cap sync ios"

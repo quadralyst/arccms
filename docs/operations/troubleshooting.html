@@ -139,6 +139,11 @@
           <td>The new rules went out before the functions or website code they depend on</td>
           <td>Deploy the functions and the website, or deploy the previous rules again from git (see <a href="deploy.html#when-the-order-matters">When the order matters</a>)</td>
         </tr>
+        <tr>
+          <td>A rules deploy warns "Unused function: ownsUserRecord", <code>signedInByApp</code> or <code>sessionClaim</code>, each with "Invalid variable name: request"</td>
+          <td>Core keeps these three helpers in <code>firestore.rules</code> for an app's own rules to call, and core itself calls none of them. The rules checker warns about a function nothing calls, and in one it cannot place <code>request</code> either</td>
+          <td>Nothing: the rules compile and are released as usual. In an app whose <code class="new">firestore.app.rules</code> calls one, its two warnings go away (see <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>)</td>
+        </tr>
       </tbody>
     </table>
 

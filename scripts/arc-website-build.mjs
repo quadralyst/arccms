@@ -10,7 +10,11 @@
  * With a version in custom/package.json, the build takes the next number (one more than
  * "build"), hands it to Vite as VITE_ARC_BUILD, and writes it back to custom/package.json
  * once the build has succeeded; a failed build leaves the file as it was. Without one,
- * the site is built with no version, as Arc CMS itself is.
+ * the site is built with no version.
+ *
+ * Arc CMS ships custom/package.json at 0.0.1 for every app to start from, and its own
+ * builds never count: the file is the app's, and Arc CMS never changes a file it ships
+ * there (scripts/custom-starters.mjs).
  *
  * The build gets an 8 GB heap; a NODE_OPTIONS the caller sets still wins, since Node takes
  * the last --max-old-space-size (specs/build-memory.md). The post-build step copies
@@ -21,6 +25,7 @@ import { copyFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { isArcCmsRepository } from './check-core.mjs';
 import { ROOT } from './arc-install-config.mjs';
 import { APP_PACKAGE, checkLabel, nextBuild, readAppPackage, versionOf, versionText, withBuild } from './arc-version.mjs';
 
@@ -52,8 +57,9 @@ export function buildOptions(argv, env = process.env) {
  * environment Vite runs with. Every problem with custom/package.json or the label stops
  * here, before anything is built.
  */
-export function planBuild({ root = ROOT, argv = [], env = process.env } = {}) {
+export function planBuild({ root = ROOT, argv = [], env = process.env, arcCms = isArcCmsRepository(root) } = {}) {
     const options = buildOptions(argv, env);
+    if (arcCms) options.bump = false;
     const found = readAppPackage(root);
     const version = versionOf(found?.pkg);
     const label = options.label !== undefined
@@ -65,7 +71,7 @@ export function planBuild({ root = ROOT, argv = [], env = process.env } = {}) {
     const viteEnv = { ...rest, NODE_OPTIONS: buildNodeOptions(env), ARC_BUILD_LABEL: label };
     if (next.build !== null) viteEnv.VITE_ARC_BUILD = String(next.build);
     return {
-        build: next.build, label, warning: next.warning, found,
+        build: next.build, label, warning: next.warning, found, arcCms,
         text: versionText({ version, build: next.build, label }), env: viteEnv,
     };
 }
@@ -77,16 +83,17 @@ function viteBin() {
 }
 
 /** Builds the website (see the top of this file); the exit status. */
-export function runWebsiteBuild({ root = ROOT, argv = [], env = process.env, run = spawnSync, log = console.log } = {}) {
+export function runWebsiteBuild({ root = ROOT, argv = [], env = process.env, run = spawnSync, log = console.log, arcCms } = {}) {
     let plan;
     try {
-        plan = planBuild({ root, argv, env });
+        plan = planBuild({ root, argv, env, ...(arcCms === undefined ? {} : { arcCms }) });
     } catch (error) {
         console.error(`${error.message}\nNothing was built.`);
         return 1;
     }
     if (plan.warning) console.warn(plan.warning);
-    if (plan.text) log(`> Building ${plan.text}${plan.build === null ? ' (no build number)' : ''}`);
+    const unnumbered = plan.arcCms ? ' (no build number: Arc CMS itself never counts)' : ' (no build number)';
+    if (plan.text) log(`> Building ${plan.text}${plan.build === null ? unnumbered : ''}`);
     const vite = run(process.execPath, [viteBin(), 'build'], { cwd: root, stdio: 'inherit', env: plan.env });
     if (vite.status !== 0) {
         if (plan.build !== null) log(`\nThe build failed, so ${APP_PACKAGE} still says "build": ${plan.found.pkg.build ?? 'nothing'}.`);

@@ -12,6 +12,8 @@ import { appVersion, buildCommit, buildFromEnv, checkLabel, nextBuild, readAppPa
 import { buildNodeOptions, buildOptions, planBuild, runWebsiteBuild } from '../arc-website-build.mjs';
 // @ts-expect-error: plain ESM script without type declarations
 import { splitBuildFlags } from '../arc-deploy.mjs';
+// @ts-expect-error: plain ESM script without type declarations
+import { isArcCmsRepository } from '../check-core.mjs';
 
 describe('nextBuild', () => {
     it('counts on from the last build', () => {
@@ -221,6 +223,14 @@ describe('with a custom/package.json', () => {
             expect(planBuild({ root, argv: [], env: {} })).toMatchObject({ build: null, text: '' });
         });
 
+        it('never counts in Arc CMS itself, which ships the file at 0.0.1 for apps', () => {
+            write({ name: 'app-custom', private: true, version: '0.0.1', build: 0 });
+            const plan = planBuild({ root, argv: [], env: {}, arcCms: true });
+            expect(plan).toMatchObject({ build: null, text: 'v0.0.1', arcCms: true });
+            expect(plan.env).not.toHaveProperty('VITE_ARC_BUILD');
+            expect(planBuild({ root, argv: [], env: {}, arcCms: false }).build).toBe(1);
+        });
+
         it('does not read a bad build at all with --no-bump', () => {
             write({ version: '1.2.0', build: 'oops' });
             expect(() => planBuild({ root, argv: [], env: {} })).toThrow(/"build" must be a whole number/);
@@ -272,6 +282,14 @@ describe('with a custom/package.json', () => {
             expect(existsSync(join(root, 'dist/analog/public/__shell.html'))).toBe(false);
         });
 
+        it('leaves the file as shipped when Arc CMS builds itself', () => {
+            write({ name: 'app-custom', private: true, version: '0.0.1', build: 0 });
+            const before = readFileSync(pkgPath(), 'utf8');
+            expect(runWebsiteBuild({ root, argv: [], env: {}, run: () => ({ status: 0 }), log, arcCms: true })).toBe(0);
+            expect(readFileSync(pkgPath(), 'utf8')).toBe(before);
+            expect(log).toHaveBeenCalledWith('> Building v0.0.1 (no build number: Arc CMS itself never counts)');
+        });
+
         it('leaves the file alone with --no-bump', () => {
             write({ version: '1.2.0', build: 24 });
             const before = readFileSync(pkgPath(), 'utf8');
@@ -287,6 +305,17 @@ describe('with a custom/package.json', () => {
             expect(runWebsiteBuild({ root, argv: ['--bump'], env: {}, run, log })).toBe(1);
             expect(run).not.toHaveBeenCalled();
         });
+    });
+});
+
+describe('the custom/package.json Arc CMS ships', () => {
+    const repo = join(__dirname, '../..');
+    // Only in Arc CMS itself: in an app the file is the app's, with its own numbers.
+    it.skipIf(!isArcCmsRepository(repo))('starts every app at 0.0.1 with no build yet, so its first build is 1', () => {
+        const shipped = readAppPackage(repo);
+        expect(shipped?.pkg).toMatchObject({ private: true, version: '0.0.1', build: 0 });
+        expect(versionOf(shipped?.pkg)).toBe('0.0.1');
+        expect(nextBuild(shipped?.pkg).build).toBe(1);
     });
 });
 

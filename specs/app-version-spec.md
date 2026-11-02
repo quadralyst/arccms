@@ -23,7 +23,7 @@ review. Deploy order once merged: rules, then the website (no function changes).
 ## 1. What is true today
 
 - `custom/` at the repo root is the app's own folder: never bundled, never edited by Arc CMS,
-  treated as the app's by `npm run check:core`. Arc CMS ships only its README.
+  treated as the app's by `npm run check:core`. Arc CMS shipped only its README.
 - `npm run build` is `NODE_OPTIONS="--max-old-space-size=8192 $NODE_OPTIONS" vite build && cp
   dist/client/index.html dist/analog/public/__shell.html`. `npm run deploy` and
   `npm run build:project` both run `npm run build`.
@@ -36,8 +36,11 @@ review. Deploy order once merged: rules, then the website (no function changes).
 
 - **AV-D1 The file.** The version lives in `custom/package.json`, committed: `"version"`
   (set by hand), `"build"` (counted by the build) and `"buildLabel"` (optional, any text).
-  Arc CMS does not ship this file: no file, or no `version` in it, means no version anywhere
-  and no counting. Arc CMS itself has none. (`buildLabel` rather than `build-label`: npm's own
+  **Changed 2026-10-31 (Gunjan):** Arc CMS ships it as a starter, `"version": "0.0.1"` and
+  `"build": 0`, so every app has a version from the start; Arc CMS's own builds never count
+  (`isArcCmsRepository`), so the shipped file never changes in Arc CMS. An app that made its
+  own file first gets a one-time add/add conflict on update and keeps its own. No file, or no
+  `version` in it, still means no version anywhere and no counting. (`buildLabel` rather than `build-label`: npm's own
   package.json fields are camelCase.)
 - **AV-D2 When it counts.** Every successful `npm run build` takes the next number and writes
   it back to `custom/package.json` after the build succeeds. A failed build keeps the file as
