@@ -199,6 +199,7 @@ describe('EditUserComponent', () => {
                 name: 'Updated Name',
                 email: 'updated@example.com',
                 password: '',
+                confirmPassword: '',
             });
             mockUserStore.update.mockClear();
         });
@@ -223,6 +224,7 @@ describe('EditUserComponent', () => {
             mockToastService.success.mockClear();
             component.showPasswordInput({ checked: true });
             component.editForm.get('password')?.setValue('Monsoon-Train-42');
+            component.editForm.get('confirmPassword')?.setValue('Monsoon-Train-42');
 
             component.onSubmit();
             await flush();
@@ -233,12 +235,27 @@ describe('EditUserComponent', () => {
             expect(mockToastService.success).toHaveBeenCalledWith('User updated. Share the new password with them.');
         });
 
+        it('sends no password while the two typed differ', async () => {
+            m.calls.length = 0;
+            component.showPasswordInput({ checked: true });
+            component.editForm.get('password')?.setValue('Monsoon-Train-42');
+            component.editForm.get('confirmPassword')?.setValue('Monsoon-Train-24');
+
+            component.onSubmit();
+            await flush();
+
+            expect(m.calls).toHaveLength(0);
+            expect(mockUserStore.update).not.toHaveBeenCalled();
+            expect(component.errorMessages.join(' ')).toMatch(/confirm ?password does not match\./i);
+        });
+
         it('saves nothing when the server refuses the password, and says why', async () => {
             m.calls.length = 0;
             m.result.value = Object.assign(new Error('That password is one of the most used, so it is easy to guess. Choose another.'), { code: 'functions/invalid-argument' });
             mockToastService.error.mockClear();
             component.showPasswordInput({ checked: true });
             component.editForm.get('password')?.setValue('Monsoon-Train-42');
+            component.editForm.get('confirmPassword')?.setValue('Monsoon-Train-42');
 
             component.onSubmit();
             await flush();
@@ -256,6 +273,7 @@ describe('EditUserComponent', () => {
             mockUserStore.update.mockReturnValueOnce(throwError(() => new Error('denied')));
             component.showPasswordInput({ checked: true });
             component.editForm.get('password')?.setValue('Monsoon-Train-42');
+            component.editForm.get('confirmPassword')?.setValue('Monsoon-Train-42');
 
             component.onSubmit();
             await flush();
@@ -285,6 +303,7 @@ describe('EditUserComponent', () => {
                 name: 'Test',
                 email: 'test@test.com',
                 password: '',
+                confirmPassword: '',
             });
 
             component.closeEdit();

@@ -80,6 +80,21 @@
                 </div>
             </div>
         </div>
+        <div class="row mb-4">
+            <div class="col-12">
+                <label for="confirmPassword" class="form-label">Type it again <span class="required">*</span></label>
+                <input type="password" formControlName="confirmPassword" class="form-control" id="confirmPassword"
+                    autocomplete="new-password" [class]="{
+                        'is-invalid': confirmPassword?.invalid && (confirmPassword?.dirty || confirmPassword?.touched),
+                        'is-valid': confirmPassword?.valid && (confirmPassword?.dirty || confirmPassword?.touched)
+                    }" />
+                @if(confirmPassword?.errors?.['required']) {
+                <div class="invalid-feedback">Type the password again.</div>
+                } @else {
+                <div class="invalid-feedback">The two passwords do not match.</div>
+                }
+            </div>
+        </div>
         }
 
         @if(errorMessages && errorMessages.length) {

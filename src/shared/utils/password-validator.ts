@@ -26,3 +26,16 @@ export function newPasswordValidator(owner: () => PasswordOwner = () => ({}), st
 export function passwordProblemOf(control: AbstractControl | null | undefined): PasswordProblem | null {
     return (control?.errors?.['password'] as PasswordProblem | undefined) ?? null;
 }
+
+/**
+ * `{ mismatch: true }` while a field differs from the one it repeats, such as a new
+ * password typed twice so a typo never locks anyone out; nothing for an empty field
+ * (`required` says that). The page re-checks it when the first field changes.
+ */
+export function sameAsValidator(other: () => unknown): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+        const value = String(control.value ?? '');
+        if (!value) return null;
+        return value === String(other() ?? '') ? null : { mismatch: true };
+    };
+}

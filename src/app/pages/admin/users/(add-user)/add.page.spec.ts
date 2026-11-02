@@ -128,6 +128,18 @@ describe('AddUserComponent', () => {
             }
         });
 
+        it('asks for the password twice, and is invalid while the two differ', () => {
+            component.addForm.get('password')?.setValue('Monsoon-Train-42');
+            expect(component.addForm.get('confirmPassword')?.errors?.['required']).toBeTruthy();
+            component.addForm.get('confirmPassword')?.setValue('Monsoon-Train-24');
+            expect(component.addForm.get('confirmPassword')?.errors?.['mismatch']).toBe(true);
+            component.addForm.get('confirmPassword')?.setValue('Monsoon-Train-42');
+            expect(component.addForm.get('confirmPassword')?.errors).toBeNull();
+            // Changing the first checks the copy again.
+            component.addForm.get('password')?.setValue('Monsoon-Train-43');
+            expect(component.addForm.get('confirmPassword')?.errors?.['mismatch']).toBe(true);
+        });
+
         it('should accept valid password', () => {
             component.addForm.get('password')?.setValue('validpassword123');
             expect(component.addForm.get('password')?.valid).toBe(true);
@@ -141,7 +153,7 @@ describe('AddUserComponent', () => {
             mockToastService.success.mockClear();
             mockToastService.error.mockClear();
         });
-        const fill = (email = 'newuser@example.com') => component.addForm.setValue({ name: 'New User', email, password: 'Monsoon-Train-42' });
+        const fill = (email = 'newuser@example.com') => component.addForm.setValue({ name: 'New User', email, password: 'Monsoon-Train-42', confirmPassword: 'Monsoon-Train-42' });
         const flush = () => new Promise((r) => setTimeout(r));
 
         it('should not submit invalid form', () => {
@@ -204,6 +216,7 @@ describe('AddUserComponent', () => {
                 name: 'Test',
                 email: 'test@test.com',
                 password: 'Monsoon-Train-42',
+                confirmPassword: 'Monsoon-Train-42',
             });
 
             component.closeAdd();

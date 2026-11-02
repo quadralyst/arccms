@@ -48,6 +48,7 @@ import { OnboardingSetupService } from '../../(onboarding)/onboarding-setup.serv
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { LegalNoticeComponent } from '../../../../shared/components/legal-notice/legal-notice.component';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
+import { NewPinInputComponent } from '../../../../shared/components/new-pin-input/new-pin-input.component';
 import { newPasswordValidator, passwordProblemOf } from '../../../../shared/utils/password-validator';
 import { minPasswordLength } from '../../../../shared/utils/password-rule';
 import { SIGN_IN_STRENGTH } from '../../../core/sign-in/sign-in-strength';
@@ -110,7 +111,7 @@ export function instanceLabelFor(devServer: boolean, production: boolean, projec
 @Component({
   selector: 'arc-signup',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, LegalNoticeComponent, CodeInputComponent, SignInPanelComponent, MemberLanguagePickerComponent, PhoneCountryComponent, WaitLineComponent],
+  imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, LegalNoticeComponent, CodeInputComponent, NewPinInputComponent, SignInPanelComponent, MemberLanguagePickerComponent, PhoneCountryComponent, WaitLineComponent],
   templateUrl: './signup.page.html',
   styleUrls: ['./signup.page.scss'],
 })
@@ -254,10 +255,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   phonePurpose = signal<'signup' | 'reset' | 'device'>('signup');
   /** What the email code is for: a new account, a new password (Forgot password), this device before the PIN, or a new PIN. */
   emailPurpose = signal<'signup' | 'reset' | 'device' | 'pin-reset'>('signup');
-  /** The PIN typed on the sign-up and new-PIN steps. */
-  newPin = signal('');
-  /** The new PIN typed a second time on a reset, to catch a typo before it is saved (F40). */
-  pinAgain = signal('');
   /** The PIN locked after too many wrong tries. */
   pinLocked = signal(false);
   /** Test SMS provider or Simulated email provider: the code that was not sent, shown under the boxes. */
@@ -273,8 +270,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
 
   private codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
   private pinBoxes = viewChild<CodeInputComponent>('pinBoxes');
-  private newPinBoxes = viewChild<CodeInputComponent>('newPinBoxes');
-  private pinAgainBoxes = viewChild<CodeInputComponent>('pinAgainBoxes');
+  /** The new PIN, typed twice, on the sign-up, new-PIN and Choose PIN steps (one at a time). */
+  private newPinField = viewChild<NewPinInputComponent>('newPinField');
   private nameBox = viewChild<ElementRef<HTMLInputElement>>('nameBox');
   private injector = inject(Injector);
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -672,8 +669,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     this.errorMessage.set('');
     this.successMessage.set('');
     this.otpError.set('');
-    this.newPin.set('');
-    this.pinAgain.set('');
     this.updateValidators(step);
     if (isPlatformBrowser(this.platformId)) {
       this.signIn.warm(this.stepFunctions(step));
@@ -714,6 +709,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         break;
       case 'newPassword':
         controls['password'].setValidators([Validators.required, this.passwordValidator]);
+        controls['confirmPassword'].setValidators([Validators.required]);
         break;
     }
 
@@ -1207,13 +1203,12 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       nameControl.markAsTouched();
       return;
     }
-    if (this.newPin().length !== 6) {
-      this.errorMessage.set(this.t('member.auth.choose_pin'));
-      return;
-    }
+    const pin = this.readNewPin();
+    if (!pin) return;
     const failed = await this.finishPhoneSignIn(() => this.channel() === 'phone'
-      ? this.signIn.completePhoneSignup(this.phone(), nameControl?.value, this.newPin())
-      : this.signIn.completeEmailSignup(this.email, nameControl?.value, this.newPin()));
+      ? this.signIn.completePhoneSignup(this.phone(), nameControl?.value, pin)
+      : this.signIn.completeEmailSignup(this.email, nameControl?.value, pin));
+    this.restartIfRefused(failed);
     // The code ran out while the name and PIN were typed: back to it, to ask for another.
     if (failed?.reason === 'code-expired') {
       this.goToStep('verify');
@@ -1221,46 +1216,35 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     }
   }
 
-  /** The new PIN's last digit: on to "Type it again". */
-  newPinTyped(): void {
-    this.errorMessage.set('');
-    this.pinAgainBoxes()?.focus(0);
+  /**
+   * The new PIN, once both rows hold the same 6 digits. Otherwise the step says what
+   * is missing; two that differ save nothing and both rows empty (F40).
+   */
+  private readNewPin(): string | null {
+    const field = this.newPinField();
+    if (!field) return null;
+    const read = field.check();
+    if ('problem' in read) {
+      this.errorMessage.set(this.t(read.problem));
+      return null;
+    }
+    return read.pin;
   }
 
-  /**
-   * Forgot PIN, or an account that never had one: the new PIN, typed twice. Two that
-   * differ save nothing; both rows empty and the cursor back in the first (F40).
-   */
+  /** A PIN the server refused (too easy to guess): another one, typed twice again. */
+  private restartIfRefused(failed: { reason?: string } | null): void {
+    if (failed?.reason === 'weak-pin' || failed?.reason === 'pin-format') this.newPinField()?.restart();
+  }
+
+  /** Forgot PIN, or an account that never had one: the new PIN, typed twice. */
   async saveNewPin(): Promise<void> {
     if (this.working()) return;
-    if (this.newPin().length !== 6) {
-      this.errorMessage.set(this.t('member.auth.choose_pin'));
-      return;
-    }
-    if (this.pinAgain().length !== 6) {
-      this.errorMessage.set(this.t('member.auth.pin_again_needed'));
-      this.pinAgainBoxes()?.focus(0);
-      return;
-    }
-    if (this.pinAgain() !== this.newPin()) {
-      this.startPinAgain();
-      this.errorMessage.set(this.t('member.auth.pins_mismatch'));
-      return;
-    }
+    const pin = this.readNewPin();
+    if (!pin) return;
     const failed = await this.finishPhoneSignIn(() => this.channel() === 'phone'
-      ? this.signIn.resetPin(this.phone(), this.newPin())
-      : this.signIn.resetEmailPin(this.email, this.newPin()));
-    // A PIN the server refused (too easy to guess): another one, typed twice again.
-    if (failed?.reason === 'weak-pin' || failed?.reason === 'pin-format') this.startPinAgain();
-  }
-
-  /** Both rows of the new PIN emptied, the cursor in the first. */
-  private startPinAgain(): void {
-    // The first row's reset runs last, so the cursor ends there.
-    this.pinAgainBoxes()?.reset();
-    this.newPinBoxes()?.reset();
-    this.newPin.set('');
-    this.pinAgain.set('');
+      ? this.signIn.resetPin(this.phone(), pin)
+      : this.signIn.resetEmailPin(this.email, pin));
+    this.restartIfRefused(failed);
   }
 
   /** The PIN boxes: sign in on the last digit, or on the Verify button. */
@@ -1385,6 +1369,11 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       return;
     }
     const password = String(control?.value ?? '');
+    // Typed twice: two that differ save nothing.
+    if (this.hasPasswordMismatch() || String(this.registrationForm.get('confirmPassword')?.value ?? '') !== password) {
+      this.registrationForm.get('confirmPassword')?.markAsTouched();
+      return;
+    }
     this.isLoading.set(true);
     this.errorMessage.set('');
     try {
@@ -1523,17 +1512,17 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   /** "Choose a PIN" after the password: saved, the password goes (the server says so), then on to the page. */
   async saveChosenPin(): Promise<void> {
     if (this.working()) return;
-    if (this.newPin().length !== 6) {
-      this.errorMessage.set(this.t('member.auth.choose_pin'));
-      return;
-    }
+    const pin = this.readNewPin();
+    if (!pin) return;
     this.isLoading.set(true);
     this.errorMessage.set('');
     try {
-      await this.signIn.setPin(this.newPin());
+      await this.signIn.setPin(pin);
       this.toastService.success(this.t('member.auth.pin_chosen'));
     } catch (err) {
-      this.errorMessage.set(readSignInError(err).message);
+      const failed = readSignInError(err);
+      this.errorMessage.set(failed.message);
+      this.restartIfRefused(failed);
       return;
     } finally {
       this.isLoading.set(false);

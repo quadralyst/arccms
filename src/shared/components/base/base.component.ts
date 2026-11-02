@@ -122,6 +122,10 @@ export class BaseComponent {
                         case 'maxlength':
                             errors.push(this.transloco.translate('common.validation.maxlength', { field, length }));
                             break;
+                        case 'mismatch':
+                            // A field that repeats another, such as a new password typed twice.
+                            errors.push(this.transloco.translate('common.validation.mismatch', { field }));
+                            break;
                         default:
                             errors.push(this.transloco.translate('common.validation.generic', { field, error: errorName }));
                     }

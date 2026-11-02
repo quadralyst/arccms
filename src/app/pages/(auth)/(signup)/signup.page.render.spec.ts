@@ -40,6 +40,8 @@ import { SiteStylesService } from '../../../core/site/site-styles';
 import { translocoTestingModule } from '../../../../test/transloco-test-providers';
 import { english } from '../../../../test/english';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
+import { NewPinInputComponent } from '../../../../shared/components/new-pin-input/new-pin-input.component';
+import { By } from '@angular/platform-browser';
 import { WaitLineComponent } from '../../../../shared/components/wait-line/wait-line.component';
 import { SLOW_AFTER_MS, STALLED_AFTER_MS } from '../../../../shared/utils/wait-stage';
 import { CUSTOM_SIGN_IN_PAGE } from '../../../../custom/sign-in-page';
@@ -81,6 +83,14 @@ const typed = (value: string) => page.registrationForm.get('identifier')!.setVal
 const shown = () => fixture.nativeElement.textContent as string;
 const form = () => fixture.nativeElement.querySelector('form') as HTMLFormElement | null;
 const opening = () => fixture.nativeElement.querySelector('.auth-opening') as HTMLElement | null;
+/** Type a new PIN in its two rows ("Your new PIN", "Type it again"), the second as `again`. */
+const typeNewPin = (pin: string, again = pin) => {
+    fixture.detectChanges();
+    const [first, second] = fixture.debugElement.query(By.directive(NewPinInputComponent))
+        .queryAll(By.directive(CodeInputComponent)).map((row) => row.componentInstance as CodeInputComponent);
+    first.fill(pin);
+    second.fill(again);
+};
 
 beforeEach(async () => {
     localStorage.removeItem(SIGN_IN_SETTINGS_CACHE_KEY);
@@ -123,7 +133,7 @@ beforeEach(async () => {
     // The page's own children (language picker, brand panel, country chip) are not
     // under test here; the code boxes and the waiting line are real, since steps need their bindings.
     TestBed.overrideComponent(SignupComponent, {
-        set: { imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, CodeInputComponent, WaitLineComponent], schemas: [CUSTOM_ELEMENTS_SCHEMA] },
+        set: { imports: [ReactiveFormsModule, CommonModule, RouterModule, TranslocoPipe, CodeInputComponent, NewPinInputComponent, WaitLineComponent], schemas: [CUSTOM_ELEMENTS_SCHEMA] },
     });
     await TestBed.compileComponents();
     navigateByUrl = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true) as never;
@@ -425,7 +435,7 @@ describe('SignupComponent: the first frame and the way out (F22)', () => {
         page.phone.set('+919876543210');
         page.goToStep('signup');
         page.registrationForm.get('name')!.setValue('Asha Rao');
-        page.newPin.set('135792');
+        typeNewPin('135792');
         fixture.detectChanges();
         expect(button().disabled).toBe(false);
 
@@ -448,6 +458,22 @@ describe('SignupComponent: the first frame and the way out (F22)', () => {
         expect(signIn['completePhoneSignup']).toHaveBeenCalledTimes(1);
     });
 
+    it('creates nothing when the two PINs differ, and says so', async () => {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        signIn['completePhoneSignup'] = vi.fn().mockResolvedValue(undefined);
+        page.channel.set('phone');
+        page.phone.set('+919876543210');
+        page.goToStep('signup');
+        page.registrationForm.get('name')!.setValue('Asha Rao');
+        typeNewPin('135792', '135729');
+        page.register();
+        await flush();
+        expect(signIn['completePhoneSignup']).not.toHaveBeenCalled();
+        expect(page.errorMessage()).toBe(english('member.auth.pins_mismatch'));
+    });
+
     it('gives Create Account back when the sign-up fails', async () => {
         settingsRead.resolve(OPEN);
         render();
@@ -457,7 +483,7 @@ describe('SignupComponent: the first frame and the way out (F22)', () => {
         page.phone.set('+919876543210');
         page.goToStep('signup');
         page.registrationForm.get('name')!.setValue('Asha Rao');
-        page.newPin.set('135792');
+        typeNewPin('135792');
         page.register();
         await flush();
         fixture.detectChanges();
@@ -591,12 +617,21 @@ describe('SignupComponent: Forgot password by an emailed code', () => {
         expect(shown()).toContain(english('member.auth.step_title_new_password'));
 
         page.registrationForm.get('password')!.setValue('12345678');
+        page.registrationForm.get('confirmPassword')!.setValue('12345678');
         await page.saveNewPassword();
         fixture.detectChanges();
         expect(shown()).toContain(english('member.auth.password_error.sequence'));
         expect(signIn['resetPassword']).not.toHaveBeenCalled();
 
+        // Typed twice: two that differ save nothing.
         page.registrationForm.get('password')!.setValue('river-lamp-2024');
+        page.registrationForm.get('confirmPassword')!.setValue('river-lamp-2042');
+        await page.saveNewPassword();
+        fixture.detectChanges();
+        expect(signIn['resetPassword']).not.toHaveBeenCalled();
+        expect(shown()).toContain(english('member.auth.passwords_mismatch'));
+
+        page.registrationForm.get('confirmPassword')!.setValue('river-lamp-2024');
         await page.saveNewPassword();
         expect(signIn['resetPassword']).toHaveBeenCalledWith('asha@example.com', 'river-lamp-2024');
         expect(login).toHaveBeenCalledWith({ email: 'asha@example.com', password: 'river-lamp-2024' });
@@ -608,6 +643,7 @@ describe('SignupComponent: Forgot password by an emailed code', () => {
         await page.verifyOtp('482913');
         signIn['resetPassword'].mockRejectedValue(refusal('code-expired', 'That code has expired. Please ask for a new one.'));
         page.registrationForm.get('password')!.setValue('river-lamp-2024');
+        page.registrationForm.get('confirmPassword')!.setValue('river-lamp-2024');
         await page.saveNewPassword();
         fixture.detectChanges();
         expect(page.currentStep()).toBe('verify');
@@ -656,7 +692,8 @@ describe('SignupComponent: the cursor on each step (SS1)', () => {
         page.phone.set('+919876543210');
         page.goToStep('signup');
         fixture.detectChanges();
-        expect(codeBoxes()).toHaveLength(6);
+        // The PIN and its second row.
+        expect(codeBoxes()).toHaveLength(12);
         expect(document.activeElement).toBe(nameBox());
     });
 });
@@ -879,7 +916,6 @@ describe('SignupComponent: the app\'s hooks (src/custom/sign-in-page.ts, F33)', 
 describe('SignupComponent: a new PIN after Forgot PIN, typed twice (F40)', () => {
     const rows = () => [...fixture.nativeElement.querySelectorAll('.pin-field arc-code-input')] as HTMLElement[];
     const digits = (row: HTMLElement) => [...row.querySelectorAll('.code-box')].map((box) => (box as HTMLInputElement).value).join('');
-    const boxes = (name: 'newPinBoxes' | 'pinAgainBoxes') => (page as unknown as Record<string, () => CodeInputComponent>)[name]();
 
     async function onNewPin(): Promise<void> {
         signIn['resetPin'] = vi.fn().mockResolvedValue(undefined);
@@ -895,22 +931,19 @@ describe('SignupComponent: a new PIN after Forgot PIN, typed twice (F40)', () =>
     it('asks for the new PIN, then for it again, under labels that say so', async () => {
         await onNewPin();
         expect(rows()).toHaveLength(2);
-        const labels = [...fixture.nativeElement.querySelectorAll('.pin-field .pin-label')].map((el) => (el as HTMLElement).textContent!.trim());
+        const labels = [...fixture.nativeElement.querySelectorAll('.pin-field .new-pin-label')].map((el) => (el as HTMLElement).textContent!.trim());
         expect(labels).toEqual([english('member.auth.your_new_pin'), english('member.auth.pin_again')]);
     });
 
     it('saves nothing when the two differ: says so, and empties both rows to start again', async () => {
         await onNewPin();
-        boxes('newPinBoxes').fill('482913');
-        boxes('pinAgainBoxes').fill('482931');
+        typeNewPin('482913', '482931');
         await flush();
         fixture.detectChanges();
         expect(signIn['resetPin']).not.toHaveBeenCalled();
         expect(page.errorMessage()).toBe(english('member.auth.pins_mismatch'));
         expect(shown()).toContain(english('member.auth.pins_mismatch'));
         expect(rows().map(digits)).toEqual(['', '']);
-        expect(page.newPin()).toBe('');
-        expect(page.pinAgain()).toBe('');
 
         // Save with nothing typed saves nothing either.
         page.handleSubmit();
@@ -920,7 +953,7 @@ describe('SignupComponent: a new PIN after Forgot PIN, typed twice (F40)', () =>
 
     it('saves nothing with only the first row typed, and asks for it again', async () => {
         await onNewPin();
-        boxes('newPinBoxes').fill('482913');
+        typeNewPin('482913', '');
         page.handleSubmit();
         await flush();
         expect(signIn['resetPin']).not.toHaveBeenCalled();
@@ -929,8 +962,7 @@ describe('SignupComponent: a new PIN after Forgot PIN, typed twice (F40)', () =>
 
     it('saves the PIN and signs in once both rows match, on the last digit of the second', async () => {
         await onNewPin();
-        boxes('newPinBoxes').fill('482913');
-        boxes('pinAgainBoxes').fill('482913');
+        typeNewPin('482913');
         await flush();
         expect(signIn['resetPin']).toHaveBeenCalledTimes(1);
         expect(signIn['resetPin']).toHaveBeenCalledWith('+919876543210', '482913');
@@ -941,12 +973,27 @@ describe('SignupComponent: a new PIN after Forgot PIN, typed twice (F40)', () =>
         signIn['resetPin'].mockRejectedValue({
             code: 'functions/invalid-argument', message: english('member.auth.server_error.weak_pin'), details: { reason: 'weak-pin' },
         });
-        boxes('newPinBoxes').fill('482913');
-        boxes('pinAgainBoxes').fill('482913');
+        typeNewPin('482913');
         await flush();
         fixture.detectChanges();
         expect(page.errorMessage()).toBe(english('member.auth.server_error.weak_pin'));
         expect(rows().map(digits)).toEqual(['', '']);
+    });
+
+    it('asks twice on Choose PIN too, and saves nothing when the two differ', async () => {
+        signIn['setPin'] = vi.fn().mockResolvedValue({});
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        page.goToStep('choosePin');
+        typeNewPin('482913', '482931');
+        await flush();
+        expect(signIn['setPin']).not.toHaveBeenCalled();
+        expect(page.errorMessage()).toBe(english('member.auth.pins_mismatch'));
+
+        typeNewPin('482913');
+        await flush();
+        expect(signIn['setPin']).toHaveBeenCalledWith('482913');
     });
 });
 

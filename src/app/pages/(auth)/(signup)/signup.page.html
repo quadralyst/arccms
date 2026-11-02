@@ -397,10 +397,8 @@
 
                                 @if (channel() === 'phone' || emailPin()) {
                                 <div class="mb-2 text-start">
-                                    <label class="form-label">{{ 'member.auth.choose_pin' | transloco }}</label>
-                                    <arc-code-input [label]="'member.auth.new_pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
-                                        [autofocus]="false" [disabled]="working()"
-                                        (changed)="newPin.set($event)"></arc-code-input>
+                                    <!-- Typed twice, so one typo never locks the person out; the rows say what they are -->
+                                    <arc-new-pin #newPinField [masked]="!showPin()" [autofocus]="false" [disabled]="working()"></arc-new-pin>
                                     <button type="button" class="btn btn-link btn-sm pin-toggle"
                                         (click)="showPin.set(!showPin())">
                                         {{ (showPin() ? 'member.auth.hide_pin' : 'member.auth.show_pin') | transloco }}
@@ -494,15 +492,10 @@
                                 <h5 class="card-title login-title mb-3">{{ getStepTitle() }}</h5>
                                 <p class="login-subtitle">{{ getStepDescription() }}</p>
 
-                                <!-- The new PIN twice, as an app's first PIN: one typo must not lock the person out (F40) -->
+                                <!-- The new PIN twice, as every new PIN: one typo must not lock the person out (F40) -->
                                 <div class="pin-field mt-4">
-                                    <div class="form-label pin-label">{{ 'member.auth.your_new_pin' | transloco }}</div>
-                                    <arc-code-input #newPinBoxes [label]="'member.auth.your_new_pin' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
-                                        [disabled]="working()" (changed)="newPin.set($event)" (completed)="newPinTyped()"></arc-code-input>
-                                    <div class="form-label pin-label pin-label-again">{{ 'member.auth.pin_again' | transloco }}</div>
-                                    <arc-code-input #pinAgainBoxes [label]="'member.auth.pin_again' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
-                                        [autofocus]="false" [disabled]="working()"
-                                        (changed)="pinAgain.set($event)" (completed)="saveNewPin()"></arc-code-input>
+                                    <arc-new-pin #newPinField [masked]="!showPin()" [disabled]="working()"
+                                        (firstDone)="errorMessage.set('')" (completed)="saveNewPin()"></arc-new-pin>
                                     <button type="button" class="btn btn-link btn-sm pin-toggle"
                                         (click)="showPin.set(!showPin())">
                                         {{ (showPin() ? 'member.auth.hide_pin' : 'member.auth.show_pin') | transloco }}
@@ -544,9 +537,10 @@
                                 <h5 class="card-title login-title mb-3">{{ getStepTitle() }}</h5>
                                 <p class="login-subtitle">{{ getStepDescription() }}</p>
 
+                                <!-- Typed twice, as every new PIN -->
                                 <div class="pin-field mt-4">
-                                    <arc-code-input [label]="'member.auth.new_pin_label' | transloco" [masked]="!showPin()" [oneTimeCode]="false"
-                                        [disabled]="working()" (changed)="newPin.set($event)"></arc-code-input>
+                                    <arc-new-pin #newPinField [masked]="!showPin()" [disabled]="working()"
+                                        (firstDone)="errorMessage.set('')" (completed)="saveChosenPin()"></arc-new-pin>
                                     <button type="button" class="btn btn-link btn-sm pin-toggle"
                                         (click)="showPin.set(!showPin())">
                                         {{ (showPin() ? 'member.auth.hide_pin' : 'member.auth.show_pin') | transloco }}
@@ -609,6 +603,26 @@
                                     </div>
                                     @if (isFieldInvalid('password')) {
                                     <div class="text-danger mt-2">{{ passwordErrorKey() | transloco: passwordMin }}</div>
+                                    }
+                                </div>
+
+                                <!-- Typed twice, as every new password -->
+                                <div class="mb-3">
+                                    <label for="newPasswordAgain" class="form-label visually-hidden">{{ 'member.auth.password_again_label' | transloco }}</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                        <input [type]="showConfirmPassword() ? 'text' : 'password'" formControlName="confirmPassword"
+                                            class="form-control p-2" id="newPasswordAgain"
+                                            [placeholder]="'member.auth.password_again_label' | transloco"
+                                            autocomplete="new-password"
+                                            [class.is-invalid]="hasPasswordMismatch()" [readOnly]="working()" />
+                                        <button type="button" class="btn btn-outline-secondary"
+                                            (click)="showConfirmPassword.set(!showConfirmPassword())">
+                                            <i class="fas" [ngClass]="showConfirmPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
+                                        </button>
+                                    </div>
+                                    @if (hasPasswordMismatch()) {
+                                    <div class="text-danger mt-2">{{ 'member.auth.passwords_mismatch' | transloco }}</div>
                                     }
                                 </div>
 
