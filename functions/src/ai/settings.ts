@@ -10,7 +10,7 @@
 import { db } from '../init.js';
 import { arcFunctionsRegion } from '../arc-config.js';
 import { AI_FILE_KINDS, AI_KINDS, AI_TIERS, AI_UNITS, type AiFileKind, type AiKind, type AiTier, type AiUnit } from './types.js';
-import { SPEECH_PRESETS, VOICE_ID, VOICE_NAME } from './voices.js';
+import { AVATAR_PRESETS, SPEECH_PRESETS, VOICE_ID, VOICE_NAME } from './voices.js';
 import { BEARER, findPreset, type AiCurrency, type AiKeyHeader, type AiKnownModel, type AiPriceAbove, type AiReads, type AiSchemaSupport } from './presets.js';
 
 export const AI_SETTINGS_DOC = 'ai';
@@ -76,6 +76,8 @@ export interface AiPurposeSettings {
      * (AM-D17). An empty id takes the app's back.
      */
     voices: Record<string, Record<string, string>>;
+    /** A presenter purpose: the admin's avatar ids by avatar name and preset, over the app's (AM-D33). */
+    avatars: Record<string, Record<string, string>>;
 }
 
 /** What the admin says about a model: what it reads, its schema support and its prices. */
@@ -170,13 +172,13 @@ function modelRefs(value: unknown, connections: Record<string, AiConnection>): A
 }
 
 /** The admin's voice maps: known names and presets, usable ids; anything else is dropped. */
-function voiceMaps(value: unknown): Record<string, Record<string, string>> {
+function voiceMaps(value: unknown, presets: readonly string[] = SPEECH_PRESETS): Record<string, Record<string, string>> {
     const out: Record<string, Record<string, string>> = {};
     for (const [name, raw] of Object.entries(obj(value)).slice(0, 20)) {
         if (!VOICE_NAME.test(name)) continue;
         const map: Record<string, string> = {};
         for (const [preset, id] of Object.entries(obj(raw))) {
-            if ((SPEECH_PRESETS as readonly string[]).includes(preset) && typeof id === 'string' && VOICE_ID.test(id)) map[preset] = id;
+            if (presets.includes(preset) && typeof id === 'string' && VOICE_ID.test(id)) map[preset] = id;
         }
         if (Object.keys(map).length) out[name] = map;
     }
@@ -236,6 +238,7 @@ export function resolveAiSettings(raw: Record<string, unknown> | undefined): AiS
             cache: typeof p['cache'] === 'boolean' ? p['cache'] : null,
             deleteAfterDays: wholeOrNull(p['deleteAfterDays'], 1, 3650),
             voices: voiceMaps(p['voices']),
+            avatars: voiceMaps(p['avatars'], AVATAR_PRESETS),
         };
     }
     const models: Record<string, AiModelSettings> = {};
@@ -283,7 +286,7 @@ export function forgetAiSettings(): void {
 
 /** The settings for one purpose: the admin's, else on, the tier's models, the purpose's allowance, no content kept. */
 export function purposeSettings(settings: AiSettings, purposeId: string): AiPurposeSettings {
-    return settings.purposes[purposeId] ?? { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null, voices: {} };
+    return settings.purposes[purposeId] ?? { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null, voices: {}, avatars: {} };
 }
 
 /**
@@ -314,6 +317,9 @@ export function modelInfo(settings: AiSettings, ref: AiModelRef): AiModelInfo {
         speech: known?.speech,
         // The admin's one price for a picture replaces Arc's prices by quality or resolution.
         image: known?.image && admin.price !== undefined ? { ...known.image, priceByQuality: undefined, priceByResolution: undefined, highFactor: undefined } : known?.image,
+        // The same for a video model's prices by resolution and sound.
+        video: known?.video && admin.price !== undefined ? { ...known.video, priceByResolution: undefined, priceWithSound: undefined } : known?.video,
+        job: known?.job ?? (admin.makes ?? known?.makes) === 'video',
         currency,
         usdRate: currency === 'USD' ? 1 : connection?.usdRate ?? null,
         testedLive: preset?.testedLive !== false && known?.testedLive !== false,

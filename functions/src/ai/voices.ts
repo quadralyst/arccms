@@ -24,3 +24,6 @@ export function voiceIdFor(name: string, preset: string, app: Record<string, Rec
     const code = app && Object.prototype.hasOwnProperty.call(app, name) ? app[name][preset] : undefined;
     return typeof code === 'string' && VOICE_ID.test(code) ? code : null;
 }
+
+/** The presets a presenter purpose's avatars are keyed by (AM-D33). */
+export const AVATAR_PRESETS = ['heygen'] as const;

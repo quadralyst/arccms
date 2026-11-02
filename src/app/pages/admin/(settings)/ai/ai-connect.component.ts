@@ -129,7 +129,7 @@ type Phase = 'idle' | 'saving' | 'testing' | 'done' | 'failed';
                             @if (!p.models.length) { <small class="text-muted">{{ 'admin.settings.ai.model_name_hint' | transloco }}</small> }
                         </div>
                         } @else {
-                            <div class="col-sm-6 small text-muted align-self-end voices-check-hint">{{ 'admin.settings.ai.connect_checks_voices' | transloco }}</div>
+                            <div class="col-sm-6 small text-muted align-self-end voices-check-hint">{{ (preset()?.makesPresenters ? 'admin.settings.ai.connect_checks_avatars' : preset()?.makesSpeech ? 'admin.settings.ai.connect_checks_voices' : 'admin.settings.ai.connect_checks_balance') | transloco }}</div>
                         }
                     </div>
 
@@ -285,7 +285,7 @@ export class AiConnectComponent implements OnInit {
         }
         this.phase.set('testing');
         if (p.makesText === false) {
-            await this.checkByVoices(base, !!existing);
+            await this.checkByList(base, !!existing, p);
             return;
         }
         try {
@@ -304,10 +304,15 @@ export class AiConnectComponent implements OnInit {
         }
     }
 
-    /** A provider Arc makes no text with (ElevenLabs, MiniMax): reading its voices checks the key, at no cost. */
-    private async checkByVoices(base: AiConnectionForm, replaced: boolean): Promise<void> {
+    /**
+     * A provider Arc makes no text with checks its key by a free read, at no cost: its voices
+     * (ElevenLabs, MiniMax), its avatars (HeyGen), or its balance (Kling).
+     */
+    private async checkByList(base: AiConnectionForm, replaced: boolean, p: AiPresetInfo): Promise<void> {
         try {
-            const r = await this.service.voices(base.id, true);
+            const r = p.makesPresenters ? await this.service.avatars(base.id, true)
+                : p.makesSpeech ? await this.service.voices(base.id, true)
+                    : await this.service.refreshBalance(base.id);
             if (r.ok) {
                 this.phase.set('done');
                 this.key.set('');

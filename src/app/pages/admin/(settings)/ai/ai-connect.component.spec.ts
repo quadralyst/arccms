@@ -17,6 +17,8 @@ const PRESETS: AiPresetInfo[] = [
     { id: 'vertex', label: 'Google Vertex AI (Gemini)', kind: 'vertex', processesIn: 'The location', needsWorkspace: false, needsAddress: false, reportsCost: false, models: [] },
     { id: 'anthropic', label: 'Anthropic (Claude)', kind: 'anthropic', processesIn: 'Worldwide', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, testedLive: false, docsReadOn: '2026-11-02', models: [{ model: 'claude-sonnet-5-5', reads: ['pictures'], schema: 'strict', recommend: ['fast'] }] },
     { id: 'elevenlabs', label: 'ElevenLabs', kind: 'elevenlabs', processesIn: 'The US', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, makesText: false, makesSpeech: true, files: 'elevenlabs', testedLive: false, docsReadOn: '2026-11-02', models: [{ model: 'eleven_v4', makes: 'speech', reads: [], schema: 'json', recommend: ['default'] }] },
+    { id: 'heygen', label: 'HeyGen (presenter videos)', kind: 'heygen', processesIn: 'The US', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, makesText: false, makesSpeech: false, makesVideo: true, makesPresenters: true, files: 'heygen', testedLive: false, models: [] },
+    { id: 'kling', label: 'Kling', kind: 'kling', processesIn: 'Singapore', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, makesText: false, makesSpeech: false, makesVideo: true, files: 'kling', readsBalance: true, testedLive: false, models: [] },
     { id: 'other', label: 'Other OpenAI-style address', kind: 'openai', processesIn: 'Where the admin says', needsWorkspace: false, needsAddress: true, reportsCost: false, models: [] },
 ];
 
@@ -26,6 +28,8 @@ async function render(options: { existing?: AiConnectionForm; test?: () => Promi
         setKey: vi.fn(async () => ({ keyPreview: '••••abcd', keySetAt: '2026-10-28T10:00:00Z', keySetBy: 'admin@example.com' })),
         test: vi.fn(options.test ?? (async () => ({ ok: true, ms: 900, reply: 'OK', costUsd: 0.00002 }))),
         voices: vi.fn(options.voices ?? (async () => ({ ok: true, voices: [] }))),
+        avatars: vi.fn(async () => ({ ok: true, avatars: [] })),
+        refreshBalance: vi.fn(async () => ({ ok: true, balance: 12, unit: 'units' })),
     };
     await TestBed.configureTestingModule({
         imports: [AiConnectComponent, translocoTestingModule()],
@@ -164,6 +168,29 @@ describe('AiConnectComponent, a provider Arc makes only speech with (AM2)', () =
         expect(component.phase()).toBe('failed');
         expect(component.advice()).toBe('advice_key');
         expect(saved.at(-1)?.lastError).toContain('refused the key');
+    });
+});
+
+describe('AiConnectComponent, video providers (AM4)', () => {
+    it('checks HeyGen\'s key by its avatars and Kling\'s by its balance, never with a paid call', async () => {
+        const first = await render();
+        first.component.choose('heygen');
+        first.component.key.set('hg_0123456789abcdef');
+        await first.settle();
+        expect(first.page.querySelector('.voices-check-hint')?.textContent).toContain('avatars');
+        await first.component.connect();
+        expect(first.service.avatars).toHaveBeenCalledWith('heygen-presenter-videos', true);
+        expect(first.service.test).not.toHaveBeenCalled();
+        expect(first.connected[0]).toMatchObject({ model: '', connection: { id: 'heygen-presenter-videos', lastError: null } });
+        TestBed.resetTestingModule();
+        const second = await render();
+        second.component.choose('kling');
+        second.component.key.set('kl_0123456789abcdef');
+        await second.settle();
+        expect(second.page.querySelector('.voices-check-hint')?.textContent).toContain('balance');
+        await second.component.connect();
+        expect(second.service.refreshBalance).toHaveBeenCalledWith('kling');
+        expect(second.service.voices).not.toHaveBeenCalled();
     });
 });
 

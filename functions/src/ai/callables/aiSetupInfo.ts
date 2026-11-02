@@ -9,7 +9,8 @@ import { requireAdmin } from '../../search/auth.js';
 import { connectorFor } from '../connectors/index.js';
 import { AI_PRESETS, BEARER, PRICES_CHECKED_ON, presetNeedsKey } from '../presets.js';
 import { VOICE_SAMPLE_PURPOSE } from './aiVoiceSample.js';
-import { aiPurposes, MEDIA_IMAGE_PURPOSE, DEFAULT_TEXT_CHARS, DEFAULT_TIMEOUT_SECONDS, isArcPurpose, isFileKind, purposeCacheDays, purposeKind, purposeTier, purposeVoiceNames } from '../purposes.js';
+import { jobMinutes } from '../jobs.js';
+import { aiPurposes, purposeAvatarNames, MEDIA_IMAGE_PURPOSE, DEFAULT_TEXT_CHARS, DEFAULT_TIMEOUT_SECONDS, isArcPurpose, isFileKind, purposeCacheDays, purposeKind, purposeTier, purposeVoiceNames } from '../purposes.js';
 import { defaultVertexLocation } from '../settings.js';
 
 export const aiSetupInfo = onCall(async (request) => {
@@ -42,6 +43,10 @@ export const aiSetupInfo = onCall(async (request) => {
             // A speech purpose's named voices with the app's voice ids by provider (AM-D17); Arc's
             // voice sample is played by the voice chosen, so it has none to show.
             voices: purposeKind(p) === 'speech' && !isArcPurpose(id) ? purposeVoiceNames(p).map((name) => ({ name, ids: { ...(p.voices?.[name] ?? {}) } })) : [],
+            // A presenter purpose's named avatars with the app's avatar ids by provider (AM-D33).
+            presenter: purposeKind(p) === 'video' && p.video?.presenter === true,
+            avatars: purposeKind(p) === 'video' && p.video?.presenter === true ? purposeAvatarNames(p).map((name) => ({ name, ids: { ...(p.avatars?.[name] ?? {}) } })) : [],
+            jobTimeoutMinutes: purposeKind(p) === 'video' ? jobMinutes(p) : null,
         })),
         presets: Object.entries(AI_PRESETS).map(([id, p]) => ({
             id,
@@ -66,6 +71,8 @@ export const aiSetupInfo = onCall(async (request) => {
             makesText: connectorFor(p.kind) !== undefined,
             makesSpeech: Object.values(p.models).some((m) => m.makes === 'speech'),
             makesImages: Object.values(p.models).some((m) => m.makes === 'image'),
+            makesVideo: Object.values(p.models).some((m) => m.makes === 'video'),
+            makesPresenters: Object.values(p.models).some((m) => m.video?.presenter === true),
             models: Object.entries(p.models).map(([model, m]) => ({ model, makes: m.makes ?? 'text', unit: m.unit ?? 'tokens', ...m })),
         })),
         pricesCheckedOn: PRICES_CHECKED_ON,

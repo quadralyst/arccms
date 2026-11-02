@@ -303,6 +303,22 @@ describe('phone and email sign-in fields (item 1: Google and phone sign-in)', ()
         }
     });
 
+    it('lets admins and a job\'s readers read a long AI job, and nobody write one', async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await setDoc(doc(ctx.firestore(), 'AiJobs', 'j1'), { status: 'pending', readers: ['user-alice'] });
+            await setDoc(doc(ctx.firestore(), 'AiJobs', 'j2'), { status: 'pending', readers: [] });
+        });
+        const reader = () => env.authenticatedContext('alice-auth', { arccms_uid: 'user-alice' }).firestore();
+        const other = () => env.authenticatedContext('bob-auth', { arccms_uid: 'user-bob' }).firestore();
+        await assertSucceeds(getDoc(doc(admin(), 'AiJobs', 'j1')));
+        await assertSucceeds(getDoc(doc(reader(), 'AiJobs', 'j1')));
+        await assertFails(getDoc(doc(reader(), 'AiJobs', 'j2')));
+        await assertFails(getDoc(doc(other(), 'AiJobs', 'j1')));
+        await assertFails(getDoc(doc(anon(), 'AiJobs', 'j1')));
+        await assertFails(setDoc(doc(admin(), 'AiJobs', 'j1'), { status: 'done' }));
+        await assertFails(setDoc(doc(reader(), 'AiJobs', 'j1'), { status: 'done' }));
+    });
+
     it('keeps Settings/ai admin only', async () => {
         await assertFails(getDoc(doc(alice(), 'Settings', 'ai')));
         await assertFails(getDoc(doc(anon(), 'Settings', 'ai')));

@@ -58,6 +58,9 @@ export interface AiPresetModel {
     speech?: { maxChars?: number; maxBytes?: number; formats: string[]; languages?: string[] };
     /** Pictures: what it makes and takes, and its prices by quality or resolution (AM-D19). */
     image?: AiImageAbilities;
+    /** Video: what it makes and takes (AM4); `job`: it answers through a long job. */
+    video?: { aspects: string[]; resolutions: string[]; seconds: { min: number; max: number }; sound: 'always' | 'never' | 'choice'; firstFrame?: boolean; presenter?: boolean; priceByResolution?: Record<string, number>; priceWithSound?: Record<string, number>; tokensPerSecond?: number };
+    job?: boolean;
     /** false: this model has never been called for real (AM-D34). */
     testedLive?: boolean;
 }
@@ -92,12 +95,15 @@ export interface AiVoice {
 export interface AiPresetInfo {
     id: string;
     label: string;
-    kind: 'openai' | 'vertex' | 'anthropic' | 'gemini' | 'elevenlabs' | 'minimax';
+    kind: 'openai' | 'vertex' | 'anthropic' | 'gemini' | 'elevenlabs' | 'minimax' | 'kling' | 'heygen';
     /** Its connector makes files, and for speech lists voices (AM-D18). */
     files?: string | null;
     makesSpeech?: boolean;
     /** It has a model that makes pictures (AM3). */
     makesImages?: boolean;
+    /** It has a model that makes video, and one that makes presenter videos (AM4). */
+    makesVideo?: boolean;
+    makesPresenters?: boolean;
     /** false: Arc makes only files with it, so Test reads its voices instead (AM-D18). */
     makesText?: boolean;
     processesIn: string;
@@ -154,6 +160,20 @@ export interface AiPurposeInfo {
     mediaManager?: boolean;
     /** A speech purpose's named voices, with the app's voice ids by provider (AM-D17). */
     voices?: Array<{ name: string; ids: Record<string, string> }>;
+    /** A presenter video purpose, and its named avatars with the app's ids by provider (AM-D33). */
+    presenter?: boolean;
+    avatars?: Array<{ name: string; ids: Record<string, string> }>;
+    /** A video purpose's time for a job, in minutes (AM-D12). */
+    jobTimeoutMinutes?: number | null;
+}
+
+/** One avatar (a "look") of a presenter provider (AM-D33). */
+export interface AiAvatar {
+    id: string;
+    name: string;
+    gender: 'female' | 'male' | null;
+    previewUrl: string | null;
+    voiceId: string | null;
 }
 
 /** Whether a preset's connections need a key: every kind but Vertex, which uses the functions' own account. */
@@ -248,10 +268,12 @@ export interface AiPurposeForm {
     deleteAfterDays: number | null;
     /** A speech purpose: the admin's voice ids by voice name and preset, over the app's (AM-D17). */
     voices: Record<string, Record<string, string>>;
+    /** A presenter purpose: the admin's avatar ids by avatar name and preset (AM-D33). */
+    avatars: Record<string, Record<string, string>>;
 }
 
 export function blankPurpose(): AiPurposeForm {
-    return { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null, voices: {} };
+    return { enabled: true, models: [], perKeyPerDay: null, keepContent: false, cache: null, deleteAfterDays: null, voices: {}, avatars: {} };
 }
 
 /** The presets a voice map may name: those that make speech (AM-D17). */
@@ -260,11 +282,14 @@ const VOICE_NAME = /^[A-Za-z][A-Za-z0-9_-]{0,39}$/;
 /** A provider's voice id, as the server takes it. */
 export const VOICE_ID = /^[A-Za-z0-9][A-Za-z0-9 ._:@()-]{0,119}$/;
 
-function voiceMapsFrom(v: unknown): Record<string, Record<string, string>> {
+/** The presets an avatar map may name: those that make presenter videos (AM-D33). */
+export const AVATAR_PRESETS = ['heygen'] as const;
+
+function voiceMapsFrom(v: unknown, presets: readonly string[] = SPEECH_PRESETS): Record<string, Record<string, string>> {
     const out: Record<string, Record<string, string>> = {};
     for (const [name, raw] of Object.entries(obj(v))) {
         if (!VOICE_NAME.test(name)) continue;
-        const map = Object.fromEntries(Object.entries(obj(raw)).filter(([p, id]) => (SPEECH_PRESETS as readonly string[]).includes(p) && typeof id === 'string' && VOICE_ID.test(id))) as Record<string, string>;
+        const map = Object.fromEntries(Object.entries(obj(raw)).filter(([p, id]) => presets.includes(p) && typeof id === 'string' && VOICE_ID.test(id))) as Record<string, string>;
         if (Object.keys(map).length) out[name] = map;
     }
     return out;
@@ -369,6 +394,7 @@ export function aiFormFrom(data: Record<string, unknown> | undefined): AiSetting
             cache: typeof p['cache'] === 'boolean' ? p['cache'] : null,
             deleteAfterDays: wholeOrNull(p['deleteAfterDays'], 1, 3650),
             voices: voiceMapsFrom(p['voices']),
+            avatars: voiceMapsFrom(p['avatars'], AVATAR_PRESETS),
         };
     }
     for (const [key, raw] of Object.entries(obj(d['models']))) {
@@ -416,6 +442,7 @@ export function aiSettingsData(form: AiSettingsForm, loaded: AiSettingsForm): Re
             enabled: p.enabled, models: p.models, perKeyPerDay: p.perKeyPerDay ?? deleteField(), keepContent: p.keepContent,
             cache: p.cache ?? deleteField(), deleteAfterDays: p.deleteAfterDays ?? deleteField(),
             voices: voiceMapsData(p.voices ?? {}, loaded.purposes[id]?.voices),
+            avatars: voiceMapsData(p.avatars ?? {}, loaded.purposes[id]?.avatars),
         };
     }
     const models: Record<string, unknown> = {};
@@ -715,6 +742,12 @@ export class AiSettingsService {
     }
 
     /** A speech connection's voices (AM-D18); `fresh` reads the provider again rather than the server's copy. */
+    /** A presenter connection's avatars (AM-D33). */
+    async avatars(connection: string, fresh = false): Promise<{ ok: true; avatars: AiAvatar[] } | { ok: false; detail: string }> {
+        const result = await this.inCtx(() => arcCallable(this.functions, 'aiAvatars', { timeout: 70_000 })({ connection, fresh }));
+        return result.data as { ok: true; avatars: AiAvatar[] } | { ok: false; detail: string };
+    }
+
     async voices(connection: string, fresh = false): Promise<{ ok: true; voices: AiVoice[] } | { ok: false; detail: string }> {
         const result = await this.inCtx(() => arcCallable(this.functions, 'aiVoices', { timeout: 70_000 })({ connection, fresh }));
         return result.data as { ok: true; voices: AiVoice[] } | { ok: false; detail: string };

@@ -13,24 +13,27 @@
 import { isFeatureOn } from '../feature-flags.js';
 import { findCached, cacheHash, storeCached, type CacheEntry } from './cache.js';
 import { connectorFor, fileConnectorFor } from './connectors/index.js';
-import { FALLBACK_FAILURES, type AttemptFailure, type AttemptUsage, type ConnectorResult, type FileResult, type MadeFile } from './connectors/types.js';
+import { FALLBACK_FAILURES, type AttemptFailure, type AttemptUsage, type ConnectorResult, type FileResult, type JobStarted, type MadeFile } from './connectors/types.js';
 import { attemptCost, type CostFrom } from './cost.js';
-import { copyFile, filePaths, saveFiles } from './files.js';
+import { copyFile, filePaths, readBucketFile, saveFiles } from './files.js';
 import { prepareInput, type PreparedPart } from './input.js';
 import { readKey } from './keys.js';
 import { consumeAllowance, checkBudget } from './limits.js';
 import { waitForPlace } from './pacing.js';
 import { storagePathProblem } from './paths.js';
 import { findPreset, presetNeedsKey, type AiSpeechAbilities } from './presets.js';
-import { fileSettingsProblems, findPurpose, isFileKind, MAX_PICTURES, purposeCacheDays, purposeKind, purposeReads, purposeSchema, purposeTier, purposeVoiceNames, DEFAULT_TIMEOUT_SECONDS } from './purposes.js';
+import { fileSettingsProblems, findPurpose, isFileKind, MAX_PICTURES, purposeAvatarNames, purposeCacheDays, purposeKind, purposeReads, purposeSchema, purposeTier, purposeVoiceNames, DEFAULT_TIMEOUT_SECONDS } from './purposes.js';
 import { newAiCallId, writeAiCall, type AiCallRecord, type AttemptRecord } from './records.js';
 import { answerProblems, emptyAnswer, parseJsonAnswer, type JsonSchema } from './schema.js';
 import { connectionLimits, modelInfo, pacingKey, purposeSettings, readAiSettings, type AiModelRef } from './settings.js';
 import { fittedImage, imageSkip, picturePrice } from './images.js';
+import { checkedStoragePath } from './input.js';
+import { createJob, jobMinutes, markJobLost } from './jobs.js';
+import { fittedVideo, videoSkip } from './videos.js';
 import { standInFiles } from './standins.js';
 import { voiceIdFor } from './voices.js';
 import { addToTotals, alertOutOfCredit, noteConnection } from './usage.js';
-import { AI_ASPECTS, isAiTestFailure, type AiFailureReason, type AiFile, type AiFileKind, type AiImageSettings, type AiKind, type AiPurpose, type AiTestAnswer, type AiTestInput, type AiUnit, type AiUsage, type AskAiInput, type AskAiResult } from './types.js';
+import { AI_ASPECTS, isAiTestFailure, type AiFailureReason, type AiFile, type AiFileKind, type AiImageSettings, type AiKind, type AiPurpose, type AiVideoSettings, type AiTestAnswer, type AiTestInput, type AiUnit, type AiUsage, type AskAiInput, type AskAiResult } from './types.js';
 
 const LIMIT_KEY = /^[^/\s]{1,200}$/;
 const MAX_UNITS = 1000;
@@ -39,6 +42,8 @@ const MAX_PER_DAY = 1_000_000;
 const MIN_ATTEMPT_MS = 2_000;
 /** The longest a provider's "try again in" is waited for on the same model (AM-D15). */
 const MAX_RETRY_WAIT_S = 20;
+/** The largest audio file a presenter speaks to (HeyGen takes 50 MB). */
+const MAX_SPEECH_FILE_BYTES = 50 * 1024 * 1024;
 
 function fail(message: string): never {
     throw new Error(`askAi: ${message}`);
@@ -59,6 +64,12 @@ interface Checked {
     settings: CallSettings;
     /** Speech: the voice asked for, by its name in the purpose (AM-D17). */
     voice: string | null;
+    /** Presenter video: the avatar asked for, by its name in the purpose (AM-D33). */
+    avatar: string | null;
+    /** Presenter video: the audio file the avatar speaks to, in place of the text. */
+    speechFile: string | null;
+    /** A long job: who may read it from a browser (AM-D13). */
+    readers: string[];
     saveAs: string | null;
     limitKey: string | null;
     units: number;
@@ -110,6 +121,24 @@ function checked(input: AskAiInput, arc: boolean): Checked {
         if (typeof input.voice !== 'string' || !purposeVoiceNames(purpose).includes(input.voice)) fail(`voice must be one of ${purposeId}'s voices: ${purposeVoiceNames(purpose).join(', ')}.`);
         voice = input.voice;
     } else if (kind === 'speech') voice = purposeVoiceNames(purpose)[0];
+    const presenter = kind === 'video' && purpose.video?.presenter === true;
+    let avatar: string | null = null;
+    if (input.avatar !== undefined && input.avatar !== null) {
+        if (!presenter) fail(`avatar is for a presenter video purpose (video: { presenter: true }); ${purposeId} is not one.`);
+        if (typeof input.avatar !== 'string' || !purposeAvatarNames(purpose).includes(input.avatar)) fail(`avatar must be one of ${purposeId}'s avatars: ${purposeAvatarNames(purpose).join(', ')}.`);
+        avatar = input.avatar;
+    } else if (presenter) avatar = purposeAvatarNames(purpose)[0];
+    let speechFile: string | null = null;
+    if (input.speechFile !== undefined && input.speechFile !== null) {
+        if (!presenter) fail(`speechFile is for a presenter video purpose; ${purposeId} is not one.`);
+        speechFile = checkedStoragePath((input.speechFile as { storagePath?: unknown }).storagePath);
+    }
+    let readers: string[] = [];
+    if (input.readers !== undefined && input.readers !== null) {
+        if (kind !== 'video') fail(`readers are for a long job, such as a video; ${purposeId} makes ${kind}.`);
+        if (!Array.isArray(input.readers) || input.readers.length > 10 || input.readers.some((r) => typeof r !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(r))) fail('readers must be up to 10 arccms_uid values.');
+        readers = [...new Set(input.readers)];
+    }
     let saveAs: string | null = null;
     if (input.saveAs !== undefined && input.saveAs !== null) {
         if (!isFileKind(kind)) fail(`saveAs is for a purpose that makes files; ${purposeId} makes ${kind}.`);
@@ -120,7 +149,7 @@ function checked(input: AskAiInput, arc: boolean): Checked {
         if (!input.saveAs.startsWith(`${folder}/`)) fail(`saveAs "${input.saveAs}" must be inside ${purposeId}'s folder, ${folder}/.`);
         saveAs = input.saveAs;
     }
-    return { purposeId, purpose, kind, settings, voice, saveAs, limitKey, units, perDay, ref };
+    return { purposeId, purpose, kind, settings, voice, avatar, speechFile, readers, saveAs, limitKey, units, perDay, ref };
 }
 
 /** The call's settings for its kind over the purpose's; a setting for another kind is a mistake. */
@@ -153,7 +182,9 @@ function callSettings(purposeId: string, purpose: AiPurpose, kind: AiKind, input
         return { audio };
     }
     if (kind === 'video') {
-        const video = { ...purpose.video, ...input.video };
+        // Whether a video is a presenter's is the purpose's alone.
+        const { presenter: _asked, ...rest } = { ...purpose.video, ...input.video } as AiVideoSettings;
+        const video: AiVideoSettings = purpose.video?.presenter ? { ...rest, presenter: true } : rest;
         if (video.seconds !== undefined && (typeof video.seconds !== 'number' || video.seconds < 1 || video.seconds > 60)) fail('video.seconds must be from 1 to 60.');
         return { video };
     }
@@ -234,6 +265,8 @@ export interface CapturedAiAsk {
     ref: string | null;
     /** Speech: the voice asked for, by its name in the purpose. */
     voice: string | null;
+    /** Presenter video: the avatar asked for, by its name in the purpose. */
+    avatar?: string | null;
 }
 
 let captured: { asks: CapturedAiAsk[]; answers: Record<string, AiTestAnswer> } | null = null;
@@ -303,12 +336,15 @@ async function askCaptured(c: Checked, input: AskAiInput, sink: NonNullable<type
         perDay: c.perDay,
         ref: c.ref,
         voice: c.voice,
+        ...(c.avatar ? { avatar: c.avatar } : {}),
     });
     const answer = c.purposeId in sink.answers ? sink.answers[c.purposeId] : c.purpose.testAnswer;
     if (isFileKind(c.kind)) {
         // Nothing is written: the stand-ins' paths say where a test call would have put them.
         const failure = testFileFailure(answer, testInput(prepared.parts, c));
         if (failure) return { ok: false, reason: failure.testFailure, wait: failure.wait, detail: failure.detail, ...(failure.testFailure === 'limit' ? { scope: 'key' as const } : {}), usage, recordId: null };
+        // A video is a long job: a capture answers pending, as test mode does until its check.
+        if (c.kind === 'video') return { ok: 'pending', jobId: 'captured', usage, recordId: null };
         const made = standInFiles(c.kind, { image: c.settings.image, audioSeconds: c.settings.audio?.seconds, chars: prepared.chars });
         const paths = filePaths({ recordId: 'captured', purpose: c.purposeId, month: fileMonth(Date.now()), test: true, files: made });
         return { ok: true, files: made.map((f, i) => fileOf(paths[i], f)), usage, recordId: null };
@@ -375,11 +411,12 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
     const saveTo = arc?.ignoreSaveTo ? undefined : c.purpose.saveTo;
     let inputSize = { chars: 0, files: 0, bytes: 0 };
     let parts: PreparedPart[] = [];
-    let allowance: { release: (units?: number) => Promise<void> } | null = null;
+    let allowance: { release: (units?: number) => Promise<void>; path: string; units: number } | null = null;
     let spentBefore: number | null = null;
 
     type Outcome =
         | { ok: true; data?: unknown; text?: string; answerText: string | null; files?: AiFile[]; cachedFrom?: string | null }
+        | { ok: 'pending'; answerText?: null }
         | { ok: false; reason: AiFailureReason; detail?: string; wait?: number; scope?: 'key' | 'budget'; answerText?: string };
 
     const finish = async (outcome: Outcome): Promise<AskAiResult> => {
@@ -390,7 +427,8 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
         // A timed-out request was most likely still answered, and billed, by the provider.
         const maybeBilled = spent.tokensIn + spent.tokensOut > 0 || spent.amount > 0 || attempts.some((a) => a.outcome === 'timeout');
         if (!outcome.ok && allowance && !maybeBilled) await allowance.release();
-        const cached = outcome.ok && outcome.cachedFrom !== undefined;
+        const pending = outcome.ok === 'pending';
+        const cached = outcome.ok === true && outcome.cachedFrom !== undefined;
         const record: AiCallRecord = {
             purpose: c.purposeId,
             kind: c.kind,
@@ -406,24 +444,28 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
             ...spent,
             costFrom,
             ms,
-            outcome: outcome.ok ? 'ok' : outcome.reason,
+            outcome: pending ? 'pending' : outcome.ok ? 'ok' : outcome.reason,
             ...(outcome.ok ? {} : { scope: outcome.scope, detail: outcome.detail?.slice(0, 500) }),
-            ...(outcome.ok && outcome.files ? { files: outcome.files, filePaths: outcome.files.map((f) => f.path) } : {}),
-            ...(cached ? { cached: true, cachedFrom: outcome.ok ? outcome.cachedFrom ?? null : null } : {}),
+            ...(outcome.ok === true && outcome.files ? { files: outcome.files, filePaths: outcome.files.map((f) => f.path) } : {}),
+            ...(cached ? { cached: true, cachedFrom: outcome.ok === true ? outcome.cachedFrom ?? null : null } : {}),
+            ...(pending ? { jobId: recordId } : {}),
+            ...(c.avatar ? { avatar: c.avatar } : {}),
             ...(c.kind === 'speech' ? { voice: c.voice, voiceId: lastVoiceId } : {}),
             ...(c.kind === 'image' && lastImage ? { image: lastImage } : {}),
         };
         const content = ps.keepContent ? { instruction: c.purpose.instruction ?? '', parts, answer: outcome.answerText ?? null } : null;
+        // A job is added to the month's totals when it ends, with its cost (AM-D14).
         const [writtenId] = await Promise.all([
             writeAiCall(record, content, new Date(started), recordId),
-            addToTotals(record, new Date(started), spentBefore === null ? undefined : { spentBefore, monthlyUsd: settings.budget.monthlyUsd }),
+            pending ? Promise.resolve() : addToTotals(record, new Date(started), spentBefore === null ? undefined : { spentBefore, monthlyUsd: settings.budget.monthlyUsd }),
         ]);
         const { tokensIn, tokensOut, tokensThinking, tokensCached, tokensCacheWrite, costUsd, amount, unit } = spent;
         const resultUsage: AiUsage = { model: record.model, connection: record.connection, tokensIn, tokensOut, tokensThinking, tokensCached, tokensCacheWrite, kind: c.kind, amount, unit, costUsd, ms, test };
+        if (outcome.ok === 'pending') return { ok: 'pending', jobId: recordId, usage: resultUsage, recordId: writtenId };
         if (outcome.ok) {
             return {
                 ok: true,
-                ...(fileKind ? { files: outcome.files ?? [] } : schema ? { data: outcome.data } : { text: outcome.text }),
+                ...(fileKind ? { files: (outcome as { files?: AiFile[] }).files ?? [] } : schema ? { data: (outcome as { data?: unknown }).data } : { text: (outcome as { text?: string }).text }),
                 ...(cached ? { cached: true } : {}),
                 ...(c.kind === 'image' && record.image ? { image: record.image } : {}),
                 usage: resultUsage,
@@ -439,7 +481,16 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
     inputSize = { chars: prepared.chars, files: prepared.files, bytes: prepared.bytes };
     if (!prepared.ok) return finish({ ok: false, reason: prepared.reason, detail: prepared.detail });
     parts = prepared.parts;
-    if (fileKind && !filePrompt(c.purpose, parts)) return finish({ ok: false, reason: 'unreadable', detail: 'there is no text to make anything of: pass a prompt' });
+    // A presenter speaking to an audio file needs no text; everything else does.
+    let speechFile: { bytes: Buffer; mimeType: string } | undefined;
+    if (c.speechFile) {
+        const read = await readBucketFile(c.speechFile, MAX_SPEECH_FILE_BYTES).catch(() => null);
+        if (!read) return finish({ ok: false, reason: 'unreadable', detail: `speechFile ${c.speechFile} is not in the bucket` });
+        if ('tooLarge' in read) return finish({ ok: false, reason: 'too-large', detail: `speechFile is ${Math.round(read.tooLarge / 1048576)} MB; at most 50 MB` });
+        if (!/^audio\/(mpeg|mp3|wav|x-wav|wave)$/.test(read.contentType)) return finish({ ok: false, reason: 'unreadable', detail: `speechFile must be an MP3 or WAV file, not ${read.contentType}` });
+        speechFile = { bytes: read.bytes, mimeType: read.contentType };
+    }
+    if (fileKind && !filePrompt(c.purpose, parts) && !speechFile) return finish({ ok: false, reason: 'unreadable', detail: 'there is no text to make anything of: pass a prompt' });
 
     // The models that may answer: the purpose's own list, else the tier's (text and data) or
     // the kind's (files), each one that makes this kind.
@@ -456,6 +507,34 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
         if (arc?.voiceId) return arc.voiceId;
         const preset = settings.connections[ref.connection]?.preset ?? '';
         return voiceIdFor(c.voice ?? '', preset, c.purpose.voices, ps.voices);
+    };
+
+    /** Presenter video: the avatar id a model's provider uses for the call's avatar, or null. */
+    const avatarOf = (ref: AiModelRef): string | null => {
+        if (!c.avatar) return null;
+        const preset = settings.connections[ref.connection]?.preset ?? '';
+        return voiceIdFor(c.avatar, preset, c.purpose.avatars, ps.avatars);
+    };
+    /** Starts a long job for this call and answers pending (AM-D12). */
+    const startJob = async (job: { connection: string | null; model: string | null; operation: string | null; video: AiVideoSettings | null }): Promise<AskAiResult> => {
+        // The record first, so a check that ends the job at once finds it, and never sees it overwritten.
+        const answer = await finish({ ok: 'pending' });
+        try {
+            await createJob(recordId, {
+                purpose: c.purposeId, kind: c.kind, recordId, ref: c.ref, limitKey: c.limitKey, readers: c.readers, test,
+                connection: job.connection, model: job.model, operation: job.operation, video: job.video,
+                saveTo: (test ? null : saveTo) ?? null, saveAs: test || !saveTo ? null : c.saveAs,
+                allowance: allowance ? { path: allowance.path, units: allowance.units } : null,
+                startedAt: new Date(started), timeoutAt: new Date(started + jobMinutes(c.purpose) * 60_000),
+            });
+        } catch (err) {
+            // Started at the provider but not kept: the record says so, and the call fails.
+            const detail = `the job was started but could not be kept: ${String((err as Error).message ?? err).slice(0, 160)}`;
+            console.error(`askAi: the job of a ${c.purposeId} call was not kept`, err);
+            await markJobLost(recordId, detail).catch(() => undefined);
+            return { ok: false, reason: 'unavailable', detail, usage: answer.usage, recordId: answer.recordId };
+        }
+        return answer;
     };
 
     // Arc's own cache, before anything is counted: a hit counts against nothing (AM-D16).
@@ -514,6 +593,8 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
             if (fileKind) {
                 const failure = testFileFailure(c.purpose.testAnswer, testInput(parts, c));
                 if (failure) return finish({ ok: false, reason: failure.testFailure, wait: failure.wait, detail: failure.detail, ...(failure.testFailure === 'limit' ? { scope: 'key' as const } : {}) });
+                // A video is a job in test mode too: the next background check finishes it (AM-D11).
+                if (fileKind === 'video') return startJob({ connection: null, model: null, operation: null, video: c.settings.video ?? null });
                 const made = standInFiles(fileKind, { image: c.settings.image, audioSeconds: c.settings.audio?.seconds, chars: inputSize.chars });
                 const paths = filePaths({ recordId, purpose: c.purposeId, month: fileMonth(started), test: true, files: made });
                 try {
@@ -561,6 +642,16 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
             }
             const voiceId = voiceOf(ref);
             const image = c.kind === 'image' ? fittedImage(c.settings.image, info.image) : undefined;
+            const video = c.kind === 'video' ? fittedVideo(c.settings.video, info.video) : undefined;
+            const avatarId = avatarOf(ref);
+            if (c.kind === 'video') {
+                const skip = videoSkip(c.settings.video, info.video, parts.some((p) => p.kind === 'picture'))
+                    ?? (c.avatar && !avatarId ? `${preset.label} has no avatar for "${c.avatar}": choose one in Settings, AI, Purposes` : null);
+                if (skip) {
+                    attempts.push({ connection: ref.connection, model: ref.model, outcome: 'skipped', ms: 0, detail: skip });
+                    continue;
+                }
+            }
             if (c.kind === 'image') {
                 const skip = imageSkip(c.settings.image, info.image, parts.some((p) => p.kind === 'picture'));
                 if (skip) {
@@ -585,7 +676,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
             lastImage = image ?? null;
             const attemptStarted = Date.now();
             const place = await waitForPlace(pacingKey(connection, fileKind ?? undefined), connectionLimits(connection, fileKind ?? undefined), deadline, { leaveMs: MIN_ATTEMPT_MS });
-            let result: ConnectorResult | FileResult;
+            let result: ConnectorResult | FileResult | JobStarted;
             if (!place.ok) {
                 result = { ok: false, failure: 'unavailable', detail: `connection ${connection.id} is at its limit of requests (Settings, AI)`, wait: place.wait };
             } else {
@@ -595,7 +686,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                     if (!key.ok) result = { ok: false, failure: 'off', detail: key.detail };
                     else {
                         const send = () => (makeFiles
-                            ? makeFiles({ connection, key: key.key }, { kind: fileKind!, model: ref.model, prompt: filePrompt(c.purpose, parts), parts: parts.filter((p) => p.kind !== 'text'), ...c.settings, ...(image ? { image } : {}), ...(voiceId ? { voice: voiceId } : {}), timeoutMs: deadline - Date.now() })
+                            ? makeFiles({ connection, key: key.key }, { kind: fileKind!, model: ref.model, prompt: filePrompt(c.purpose, parts), parts: parts.filter((p) => p.kind !== 'text'), ...c.settings, ...(image ? { image } : {}), ...(video ? { video } : {}), ...(voiceId ? { voice: voiceId } : {}), ...(avatarId ? { avatar: avatarId } : {}), ...(speechFile ? { speechFile } : {}), jobKey: recordId, timeoutMs: deadline - Date.now() })
                             : talk!({ connection, key: key.key }, {
                                 model: ref.model,
                                 instruction: instructionFor(c.purpose, schema, info.schema),
@@ -609,7 +700,7 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                             }));
                         result = await send();
                         // A provider's "too many requests" with a short wait: once more on the same model (AM-D15).
-                        if (!result.ok && result.rateLimited && result.wait !== undefined && result.wait <= MAX_RETRY_WAIT_S && Date.now() + result.wait * 1000 + MIN_ATTEMPT_MS < deadline) {
+                        if (result.ok === false && result.rateLimited && result.wait !== undefined && result.wait <= MAX_RETRY_WAIT_S && Date.now() + result.wait * 1000 + MIN_ATTEMPT_MS < deadline) {
                             addSpent(info, ref, result.usage, [], image);
                             attempts.push({ connection: ref.connection, model: ref.model, outcome: 'unavailable', ms: Date.now() - attemptStarted, detail: result.detail.slice(0, 300) });
                             await sleep(result.wait * 1000);
@@ -621,6 +712,11 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
                 }
             }
             const ms = Date.now() - attemptStarted;
+            if (result.ok === 'pending') {
+                // A long job started: it is priced and counted when it ends.
+                attempts.push({ connection: ref.connection, model: ref.model, outcome: 'pending', ms });
+                return startJob({ connection: ref.connection, model: ref.model, operation: result.operation, video: video ?? null });
+            }
             addSpent(info, ref, result.usage, result.ok && 'files' in result ? result.files : [], image);
             if (result.ok) {
                 attempts.push({ connection: ref.connection, model: ref.model, outcome: 'ok', ms });

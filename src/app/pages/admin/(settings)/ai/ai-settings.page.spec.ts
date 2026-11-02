@@ -47,6 +47,7 @@ async function render(stored: Record<string, unknown> = {}, setup: AiSetupInfo =
         aiFileUrl: vi.fn(async (path: string) => ({ url: `blob:test/${path}`, contentType: path.endsWith('.png') ? 'image/png' : 'audio/mpeg' })),
         voices: vi.fn(async () => ({ ok: true, voices: [{ id: 'EL_ZED', name: 'Zed', languages: ['en-US'], gender: 'male', labels: [], previewUrl: 'https://cdn.example.com/zed.mp3', models: [] }] })),
         voiceSample: vi.fn(),
+        avatars: vi.fn(async () => ({ ok: true, avatars: [{ id: 'look-zed', name: 'Zed', gender: 'male', previewUrl: 'https://files.heygen.ai/zed.jpg', voiceId: 'v1' }] })),
     };
     await TestBed.configureTestingModule({
         imports: [AiSettingsPage, translocoTestingModule()],
@@ -623,5 +624,50 @@ describe('usd', () => {
         expect(usd(0.00052)).toBe('$0.0005');
         expect(usd(0.000021)).toBe('< $0.0001');
         expect(usd(12.345)).toBe('$12.35');
+    });
+});
+
+const PRESENTER: AiSetupInfo = {
+    purposes: [
+        { id: 'host', label: 'Host video', description: '', tier: 'fast', output: 'text', maxChars: 5000, pictures: null, pdfs: null, perKeyPerDay: null, limitKeyLabel: null, timeoutSeconds: 60, makes: 'video', allowanceIn: 'calls', saveTo: null, deleteAfterDays: null, cacheDays: 0, fallback: true, arc: false,
+            voices: [], presenter: true, avatars: [{ name: 'host', ids: { heygen: 'look-app' } }, { name: 'guest', ids: {} }], jobTimeoutMinutes: 30 },
+    ],
+    presets: [
+        { id: 'heygen', label: 'HeyGen (presenter videos)', kind: 'heygen', processesIn: 'The US', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, testedLive: false, docsReadOn: '2026-11-02', files: 'heygen', makesText: false, makesSpeech: false, makesVideo: true, makesPresenters: true, readsBalance: true,
+            models: [{ model: 'avatar-iv', makes: 'video', unit: 'seconds', reads: [], schema: 'json', price: 0.0805, recommend: ['default'], job: true, testedLive: false }] },
+    ],
+    pricesCheckedOn: '2026-10-28',
+    defaultVertexLocation: 'eu',
+};
+
+describe('AiSettingsPage, presenter videos (AM4)', () => {
+    const stored = { mode: 'live', connections: { hg: { preset: 'heygen', keyPreview: '••••1234', lastOkAt: '2026-11-02T00:00:00Z' } }, lists: { video: [{ connection: 'hg', model: 'avatar-iv' }] } };
+
+    it('opens a presenter provider\'s avatars from its card', async () => {
+        const { page, component, settle, service } = await render(stored, PRESENTER);
+        const button = page.querySelector<HTMLButtonElement>('.connection[data-id="hg"] .avatars-button');
+        expect(button).not.toBeNull();
+        expect(page.querySelector('.connection[data-id="hg"] .voices-button')).toBeNull();
+        component.toggleAvatars('hg');
+        await settle();
+        await new Promise((r) => setTimeout(r));
+        await settle();
+        expect(service.avatars).toHaveBeenCalledWith('hg', false);
+        expect(page.querySelector('arc-ai-avatars .avatar strong')?.textContent).toBe('Zed');
+    });
+
+    it('maps each of a purpose\'s avatars, the admin\'s over the app\'s, and saves it with the page', async () => {
+        const { page, component, settle } = await render(stored, PRESENTER);
+        component.tab.set('purposes');
+        await settle();
+        const host = page.querySelector('.avatar-name[data-avatar="host"]')!;
+        expect(host.querySelector('code')?.textContent).toBe('look-app');
+        expect(page.querySelector('.avatar-name[data-avatar="guest"] .avatar-missing')).not.toBeNull();
+        component.setAvatar('host', 'guest', 'heygen', 'look-zed');
+        await settle();
+        expect(page.querySelector('.avatar-name[data-avatar="guest"] code')?.textContent).toBe('look-zed');
+        expect(component.form().purposes['host'].avatars).toEqual({ guest: { heygen: 'look-zed' } });
+        component.setAvatar('host', 'guest', 'heygen', null);
+        expect(component.form().purposes['host'].avatars).toEqual({});
     });
 });

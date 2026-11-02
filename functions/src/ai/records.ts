@@ -55,7 +55,8 @@ export interface AiCallRecord {
     /** Where the cost came from: the provider's own figure, the price list, or none (no price, a test). */
     costFrom: 'provider' | 'price-list' | 'none';
     ms: number;
-    outcome: 'ok' | AiFailureReason;
+    /** `pending`: a long job still running; its record is brought up to date when it ends (AM-D12). */
+    outcome: 'ok' | 'pending' | AiFailureReason;
     scope?: 'key' | 'budget';
     detail?: string;
     /** The files a file kind made, and their paths apart, so moveAiFile can find the record. */
@@ -69,6 +70,10 @@ export interface AiCallRecord {
     voiceId?: string | null;
     /** Pictures: the settings the model was asked with, after fitting them to it (AM-D19). */
     image?: AiImageSettings;
+    /** A long job's id: the same as the record's (AM-D12). */
+    jobId?: string;
+    /** Presenter video: the avatar asked for by name (AM-D33). */
+    avatar?: string | null;
 }
 
 export interface KeptContent {

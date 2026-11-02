@@ -998,6 +998,14 @@ export type TranslationKey =
     | 'admin.settings.ai.arc_purpose'
     | 'admin.settings.ai.arc_voice_sample_note'
     | 'admin.settings.ai.at_once'
+    | 'admin.settings.ai.avatar_missing'
+    | 'admin.settings.ai.avatar_type'
+    | 'admin.settings.ai.avatars'
+    | 'admin.settings.ai.avatars_count'
+    | 'admin.settings.ai.avatars_failed'
+    | 'admin.settings.ai.avatars_loading'
+    | 'admin.settings.ai.avatars_none'
+    | 'admin.settings.ai.avatars_search'
     | 'admin.settings.ai.balance'
     | 'admin.settings.ai.balance_failed'
     | 'admin.settings.ai.balance_no_limit'
@@ -1010,7 +1018,9 @@ export type TranslationKey =
     | 'admin.settings.ai.blurb_elevenlabs'
     | 'admin.settings.ai.blurb_gemini_api'
     | 'admin.settings.ai.blurb_groq'
+    | 'admin.settings.ai.blurb_heygen'
     | 'admin.settings.ai.blurb_huggingface'
+    | 'admin.settings.ai.blurb_kling'
     | 'admin.settings.ai.blurb_minimax'
     | 'admin.settings.ai.blurb_mistral'
     | 'admin.settings.ai.blurb_mistral_eu'
@@ -1049,6 +1059,8 @@ export type TranslationKey =
     | 'admin.settings.ai.connect_a_provider'
     | 'admin.settings.ai.connect_and_test'
     | 'admin.settings.ai.connect_button'
+    | 'admin.settings.ai.connect_checks_avatars'
+    | 'admin.settings.ai.connect_checks_balance'
     | 'admin.settings.ai.connect_checks_voices'
     | 'admin.settings.ai.connect_failed'
     | 'admin.settings.ai.connect_first'
@@ -1093,10 +1105,12 @@ export type TranslationKey =
     | 'admin.settings.ai.guide_deepseek_1'
     | 'admin.settings.ai.guide_deepseek_2'
     | 'admin.settings.ai.guide_elevenlabs_plan'
+    | 'admin.settings.ai.guide_heygen_wallet'
     | 'admin.settings.ai.guide_huggingface_1'
     | 'admin.settings.ai.guide_huggingface_2'
     | 'admin.settings.ai.guide_huggingface_3'
     | 'admin.settings.ai.guide_key_page'
+    | 'admin.settings.ai.guide_kling_units'
     | 'admin.settings.ai.guide_openai_1'
     | 'admin.settings.ai.guide_openai_2'
     | 'admin.settings.ai.guide_openai_3'
@@ -1117,6 +1131,7 @@ export type TranslationKey =
     | 'admin.settings.ai.input_size'
     | 'admin.settings.ai.instruction'
     | 'admin.settings.ai.intro'
+    | 'admin.settings.ai.job_running'
     | 'admin.settings.ai.keep_content'
     | 'admin.settings.ai.keep_content_hint'
     | 'admin.settings.ai.key'
@@ -1207,6 +1222,9 @@ export type TranslationKey =
     | 'admin.settings.ai.providers'
     | 'admin.settings.ai.providers_hint'
     | 'admin.settings.ai.purpose'
+    | 'admin.settings.ai.purpose_avatars'
+    | 'admin.settings.ai.purpose_avatars_hint'
+    | 'admin.settings.ai.purpose_avatars_none'
     | 'admin.settings.ai.purpose_voices'
     | 'admin.settings.ai.purpose_voices_hint'
     | 'admin.settings.ai.purpose_voices_none'
@@ -3496,6 +3514,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.arc_purpose',
     'admin.settings.ai.arc_voice_sample_note',
     'admin.settings.ai.at_once',
+    'admin.settings.ai.avatar_missing',
+    'admin.settings.ai.avatar_type',
+    'admin.settings.ai.avatars',
+    'admin.settings.ai.avatars_count',
+    'admin.settings.ai.avatars_failed',
+    'admin.settings.ai.avatars_loading',
+    'admin.settings.ai.avatars_none',
+    'admin.settings.ai.avatars_search',
     'admin.settings.ai.balance',
     'admin.settings.ai.balance_failed',
     'admin.settings.ai.balance_no_limit',
@@ -3508,7 +3534,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.blurb_elevenlabs',
     'admin.settings.ai.blurb_gemini_api',
     'admin.settings.ai.blurb_groq',
+    'admin.settings.ai.blurb_heygen',
     'admin.settings.ai.blurb_huggingface',
+    'admin.settings.ai.blurb_kling',
     'admin.settings.ai.blurb_minimax',
     'admin.settings.ai.blurb_mistral',
     'admin.settings.ai.blurb_mistral_eu',
@@ -3547,6 +3575,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.connect_a_provider',
     'admin.settings.ai.connect_and_test',
     'admin.settings.ai.connect_button',
+    'admin.settings.ai.connect_checks_avatars',
+    'admin.settings.ai.connect_checks_balance',
     'admin.settings.ai.connect_checks_voices',
     'admin.settings.ai.connect_failed',
     'admin.settings.ai.connect_first',
@@ -3591,10 +3621,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.guide_deepseek_1',
     'admin.settings.ai.guide_deepseek_2',
     'admin.settings.ai.guide_elevenlabs_plan',
+    'admin.settings.ai.guide_heygen_wallet',
     'admin.settings.ai.guide_huggingface_1',
     'admin.settings.ai.guide_huggingface_2',
     'admin.settings.ai.guide_huggingface_3',
     'admin.settings.ai.guide_key_page',
+    'admin.settings.ai.guide_kling_units',
     'admin.settings.ai.guide_openai_1',
     'admin.settings.ai.guide_openai_2',
     'admin.settings.ai.guide_openai_3',
@@ -3615,6 +3647,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.input_size',
     'admin.settings.ai.instruction',
     'admin.settings.ai.intro',
+    'admin.settings.ai.job_running',
     'admin.settings.ai.keep_content',
     'admin.settings.ai.keep_content_hint',
     'admin.settings.ai.key',
@@ -3705,6 +3738,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.providers',
     'admin.settings.ai.providers_hint',
     'admin.settings.ai.purpose',
+    'admin.settings.ai.purpose_avatars',
+    'admin.settings.ai.purpose_avatars_hint',
+    'admin.settings.ai.purpose_avatars_none',
     'admin.settings.ai.purpose_voices',
     'admin.settings.ai.purpose_voices_hint',
     'admin.settings.ai.purpose_voices_none',

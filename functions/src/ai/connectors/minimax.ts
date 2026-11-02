@@ -10,8 +10,8 @@ import { speechMime, audioSeconds } from '../audio.js';
 import { madePicture } from '../images.js';
 import { connectionAuth, connectionBaseUrl } from '../settings.js';
 import type { AiVoice } from '../types.js';
-import { languageCode, sendRequest, shortMessage } from './http.js';
-import type { FileConnector, FileProvider, FileResult, VoiceLister } from './types.js';
+import { httpsUrl, languageCode, sendRequest, shortMessage } from './http.js';
+import type { FileConnector, FileProvider, FileResult, JobChecker, VoiceLister } from './types.js';
 
 const SERVICE = 'MiniMax';
 
@@ -182,10 +182,102 @@ export const miniMaxImages: FileConnector = async ({ connection, key }, request)
     return readMiniMaxImages(answer.status, answer.json);
 };
 
+// ---------------------------------------------------------------- video (AM4)
+// MiniMax H3 lives on /v2 only: the start answers a task id, and the query answers the
+// video's address directly (no file id step, unlike its older Hailuo models on /v1).
+
+/** MiniMax's resolution for Arc's: the base H3 makes 768P and 2K, the others 480P and 768P. */
+export function miniMaxVideoResolution(model: string, resolution: string | undefined): string {
+    const base = model === 'MiniMax-H3';
+    if (base) return resolution === '1080p' || resolution === '4k' ? '2K' : '768P';
+    return resolution === '480p' ? '480P' : '768P';
+}
+
+/** v2's ratios; a first frame sets its own. */
+const RATIOS = ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'];
+
+export function miniMaxVideoBody(model: string, prompt: string, video: { seconds?: number; aspect?: string; resolution?: string } = {}, firstFrame?: { mimeType: string; bytes: Buffer }): Record<string, unknown> {
+    const min = model === 'MiniMax-H3-Max' ? 5 : 4;
+    const content: Array<Record<string, unknown>> = [{ type: 'text', text: prompt }];
+    if (firstFrame) content.push({ type: 'image_url', image_url: { url: `data:${firstFrame.mimeType};base64,${firstFrame.bytes.toString('base64')}` }, role: 'first_frame' });
+    return {
+        model,
+        content,
+        resolution: miniMaxVideoResolution(model, video.resolution),
+        duration: Math.min(15, Math.max(min, Math.round(video.seconds ?? 6))),
+        ratio: firstFrame ? 'adaptive' : RATIOS.includes(video.aspect ?? '') ? video.aspect : '16:9',
+    };
+}
+
+/** v2's error body, `{ type: 'error', error: { message: '... (1004)', http_code } }`, as a status code and message. */
+function v2Error(json: Record<string, unknown> | null): { code: number; message: string } {
+    const err = (json?.['error'] ?? {}) as Record<string, unknown>;
+    const message = shortMessage(err['message'] ?? '');
+    const code = Number(/\((\d{3,6})\)\s*$/.exec(String(err['message'] ?? ''))?.[1] ?? 0);
+    return { code, message };
+}
+
+/** A v2 answer that is not a success, in the connectors' words. */
+export function readMiniMaxV2Error(status: number, json: Record<string, unknown> | null): Exclude<FileResult, { ok: true }> {
+    const { code, message } = v2Error(json);
+    const known = code ? readMiniMaxStatus(code, message) : null;
+    if (known) return known;
+    if (status === 401) return { ok: false, failure: 'key-refused', detail: `MiniMax refused the key (401): ${message}` };
+    if (status === 402) return { ok: false, failure: 'off', detail: `MiniMax says the account has no balance left: ${message}`, outOfCredit: true };
+    if (status === 422) return { ok: false, failure: 'blocked', detail: `MiniMax would not make this video: ${message}` };
+    if (status === 429 || status === 529 || status >= 500) return { ok: false, failure: 'unavailable', detail: `MiniMax answered ${status}: ${message}`, rateLimited: status === 429 };
+    return { ok: false, failure: 'unreadable', detail: `MiniMax refused the request (${status}): ${message}` };
+}
+
+export const miniMaxVideoStart: FileConnector = async ({ connection, key }, request) => {
+    const base = connectionBaseUrl(connection);
+    if (!base) return { ok: false, failure: 'off', detail: `connection ${connection.id} has no address it may call` };
+    if (!key) return { ok: false, failure: 'off', detail: `connection ${connection.id} has no key` };
+    const frame = request.parts.find((p) => p.kind === 'picture');
+    const firstFrame = frame && frame.kind === 'picture' ? { mimeType: frame.mimeType, bytes: frame.bytes } : undefined;
+    const auth = connectionAuth(connection);
+    const answer = await sendRequest(`${new URL(base).origin}/v2/video_generation`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', [auth.header]: `${auth.prefix}${key}` },
+        body: JSON.stringify(miniMaxVideoBody(request.model, request.prompt, request.video, firstFrame)),
+    }, request.timeoutMs, SERVICE);
+    if (!answer.ok) return answer;
+    if (answer.status < 200 || answer.status >= 300) return readMiniMaxV2Error(answer.status, answer.json);
+    const id = answer.json?.['task_id'];
+    if ((typeof id !== 'string' && typeof id !== 'number') || !String(id)) return { ok: false, failure: 'unreadable', detail: 'MiniMax started no video task' };
+    return { ok: 'pending', operation: String(id) };
+};
+
+export const miniMaxVideoCheck: JobChecker = async ({ connection, key }, request) => {
+    const base = connectionBaseUrl(connection);
+    if (!base || !key) return { state: 'failed', failure: 'off', detail: `connection ${connection.id} has no address or key` };
+    const auth = connectionAuth(connection);
+    const answer = await sendRequest(`${new URL(base).origin}/v2/query/video_generation/${encodeURIComponent(request.operation)}`, { headers: { [auth.header]: `${auth.prefix}${key}` } }, request.timeoutMs, SERVICE);
+    if (!answer.ok) return { state: 'running' };
+    if (answer.status < 200 || answer.status >= 300) {
+        const failed = readMiniMaxV2Error(answer.status, answer.json);
+        return failed.failure === 'unavailable' ? { state: 'running' } : { state: 'failed', ...failed };
+    }
+    const task = (answer.json?.['task'] ?? {}) as Record<string, unknown>;
+    const status = String(task['status'] ?? '');
+    if (status === 'queued' || status === 'running' || status === '') return { state: 'running' };
+    if (status === 'failed' || status === 'cancelled') {
+        const err = (task['error'] ?? {}) as Record<string, unknown>;
+        const known = readMiniMaxStatus(Number(err['code'] ?? 0) || -1, shortMessage(err['message'] ?? status));
+        return { state: 'failed', ...(known ?? { ok: false, failure: 'unreadable', detail: `MiniMax's task ${status}` }) };
+    }
+    const url = httpsUrl(((task['content'] ?? {}) as Record<string, unknown>)['url']);
+    if (!url) return { state: 'failed', failure: 'unreadable', detail: 'MiniMax finished the task with no video' };
+    const usage = (task['usage'] ?? {}) as Record<string, unknown>;
+    const seconds = Number(usage['output_seconds'] ?? task['duration']);
+    return { state: 'done', files: [{ url, mimeType: 'video/mp4', ...(seconds > 0 ? { seconds } : {}) }], usage: { tokensIn: 0, tokensOut: 0, tokensThinking: 0, ...(seconds > 0 ? { amount: seconds } : {}) } };
+};
+
 /** Each kind MiniMax makes, by the call's kind. */
 const miniMaxMake: FileConnector = async (context, request) => {
     if (request.kind === 'image') return miniMaxImages(context, request);
+    if (request.kind === 'video') return miniMaxVideoStart(context, request);
     return miniMaxSpeech(context, request);
 };
 
-export const miniMaxProvider: FileProvider = { make: miniMaxMake, voices: miniMaxVoices };
+export const miniMaxProvider: FileProvider = { make: miniMaxMake, voices: miniMaxVoices, check: miniMaxVideoCheck };

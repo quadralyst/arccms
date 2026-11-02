@@ -60,7 +60,7 @@ export function keyId(limitKey: string): string {
 }
 
 /** `release()` gives back every unit counted; `release(n)` gives back n of them. */
-export type AllowanceUse = { ok: true; release: (units?: number) => Promise<void> } | { ok: false; wait: number };
+export type AllowanceUse = { ok: true; release: (units?: number) => Promise<void>; path: string; units: number } | { ok: false; wait: number };
 
 /** Count `units` against a key's allowance for a purpose today, or say how long until it renews. */
 export async function consumeAllowance(purpose: string, limitKey: string, units: number, perDay: number, now = new Date()): Promise<AllowanceUse> {
@@ -76,6 +76,8 @@ export async function consumeAllowance(purpose: string, limitKey: string, units:
     if (!allowed) return { ok: false, wait: day.secondsLeftToday };
     return {
         ok: true,
+        path: ref.path,
+        units,
         release: async (back = units) => {
             try {
                 await ref.update({ units: FieldValue.increment(-Math.min(units, Math.max(0, back))) });

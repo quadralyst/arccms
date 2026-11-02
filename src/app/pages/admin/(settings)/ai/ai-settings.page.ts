@@ -21,13 +21,13 @@ import { ArcTimePipe } from '../../../../core/time/arc-time.pipe';
 import { injectT } from '../../../../core/i18n/inject-t';
 import { AiConnectComponent, type AiConnected } from './ai-connect.component';
 import { AiVoicesComponent } from './ai-voices.component';
+import { AiAvatarsComponent } from './ai-avatars.component';
 import { failureAdvice } from './ai-provider-guide';
 import {
     AI_FILE_KINDS, AI_KINDS, AI_MODEL_KINDS, AI_TIERS, AI_UNITS, AiCallFile, AiCallRow, AiConnectionForm, AiFileKind, AiKind, AiModelKind, AiModelRef, AiMonthUsage,
     AiPresetInfo, AiPresetModel, AiPriceField, AiPurposeForm, AiPurposeInfo, AiReads, AiTotals, AiUnit,
     AiCallContent, AiSettingsForm, AiSettingsService, AiSetupInfo, AiTier, KEY_HEADERS, addressChanged, blankPurpose, callsCsv, emptyAiForm, isFileKind,
-    modelKindFor, naturalUnit, presetNeedsKey, purposeKind, recommendedLists, recommendedTiers, removalData, safeHeaderName, SPEECH_PRESETS, VOICE_ID,
-} from './ai-settings.service';
+    modelKindFor, naturalUnit, presetNeedsKey, purposeKind, recommendedLists, recommendedTiers, removalData, safeHeaderName, SPEECH_PRESETS, VOICE_ID, AVATAR_PRESETS } from './ai-settings.service';
 
 type Tab = 'setup' | 'purposes' | 'usage' | 'calls';
 /** How a provider stands, as its card says. */
@@ -62,7 +62,7 @@ export function usd(n: number): string {
 @Component({
     selector: 'arc-ai-settings',
     standalone: true,
-    imports: [FormsModule, TranslocoPipe, DecimalPipe, ArcTimePipe, NgTemplateOutlet, AiConnectComponent, AiVoicesComponent],
+    imports: [FormsModule, TranslocoPipe, DecimalPipe, ArcTimePipe, NgTemplateOutlet, AiConnectComponent, AiVoicesComponent, AiAvatarsComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="settings-section">
@@ -228,6 +228,12 @@ export function usd(n: number): string {
                                                 <i class="fa-solid fa-microphone-lines me-1"></i>{{ 'admin.settings.ai.voices' | transloco }}
                                             </button>
                                         }
+                                        @if (makesPresenters(c)) {
+                                            <button type="button" class="btn btn-sm btn-outline-secondary avatars-button" (click)="toggleAvatars(c.id)" [attr.aria-expanded]="avatarsOpen() === c.id"
+                                                [disabled]="!isSaved(c.id) || (needsKey(c) && !c.keyPreview)">
+                                                <i class="fa-solid fa-user-tie me-1"></i>{{ 'admin.settings.ai.avatars' | transloco }}
+                                            </button>
+                                        }
                                         <button type="button" class="btn btn-sm btn-outline-secondary" (click)="toggleDetails(c.id)">
                                             <i class="fa-solid fa-sliders me-1"></i>{{ 'admin.settings.ai.edit' | transloco }}
                                         </button>
@@ -240,6 +246,9 @@ export function usd(n: number): string {
                                     }
                                     @if (voicesOpen() === c.id) {
                                         <arc-ai-voices [connection]="c.id" [models]="modelChoices(c.id, 'speech')" />
+                                    }
+                                    @if (avatarsOpen() === c.id) {
+                                        <arc-ai-avatars [connection]="c.id" />
                                     }
 
                                     @if (removing() === c.id) {
@@ -544,6 +553,43 @@ export function usd(n: number): string {
                                         </div>
                                     }
 
+                                    @if (p.avatars?.length) {
+                                        <div class="mt-3 purpose-avatars">
+                                            <div class="fw-semibold small">{{ 'admin.settings.ai.purpose_avatars' | transloco }}</div>
+                                            <small class="text-muted d-block mb-2">{{ 'admin.settings.ai.purpose_avatars_hint' | transloco }}</small>
+                                            @if (!presenterConnections().length) { <div class="small text-muted">{{ 'admin.settings.ai.purpose_avatars_none' | transloco }}</div> }
+                                            @for (v of p.avatars; track v.name; let first = $first) {
+                                                <div class="border rounded p-2 mb-2 avatar-name" [attr.data-avatar]="v.name">
+                                                    <div class="small"><strong>{{ v.name }}</strong>@if (first) { <span class="text-muted ms-1">({{ 'admin.settings.ai.voice_default' | transloco }})</span> }</div>
+                                                    @for (sc of presenterConnections(); track sc.preset) {
+                                                        <div class="d-flex flex-wrap align-items-center gap-2 small mt-1 avatar-map" [attr.data-preset]="sc.preset">
+                                                            <span>{{ preset(sc.preset)?.label }}:</span>
+                                                            @if (avatarShown(p, v.name, sc.preset); as shown) {
+                                                                <code>{{ shown.id }}</code>
+                                                                <span class="text-muted">{{ (shown.from === 'admin' ? 'admin.settings.ai.voice_from_admin' : 'admin.settings.ai.voice_from_app') | transloco }}</span>
+                                                            } @else {
+                                                                <span class="text-warning-emphasis avatar-missing"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ 'admin.settings.ai.avatar_missing' | transloco }}</span>
+                                                            }
+                                                            <button type="button" class="btn btn-link btn-sm p-0 choose-avatar" (click)="toggleChooser(p.id, 'avatar:' + v.name, sc.preset)">{{ 'admin.settings.ai.voice_choose' | transloco }}</button>
+                                                            @if (purpose(p.id).avatars[v.name]?.[sc.preset]) {
+                                                                <button type="button" class="btn btn-link btn-sm p-0 avatar-reset" (click)="setAvatar(p.id, v.name, sc.preset, null)">{{ (v.ids[sc.preset] ? 'admin.settings.ai.voice_use_app' : 'admin.settings.ai.voice_clear') | transloco }}</button>
+                                                            }
+                                                        </div>
+                                                        @if (chooser() === p.id + '|avatar:' + v.name + '|' + sc.preset) {
+                                                            <div class="d-flex flex-wrap gap-2 mt-2 typed-avatar">
+                                                                <input type="text" class="form-control form-control-sm w-auto" [attr.aria-label]="'admin.settings.ai.avatar_type' | transloco"
+                                                                    [placeholder]="'admin.settings.ai.avatar_type' | transloco" [ngModel]="typedVoice()" (ngModelChange)="typedVoice.set($event)" />
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" (click)="setAvatar(p.id, v.name, sc.preset, typedVoice())" [disabled]="!typedVoiceOk()">{{ 'admin.settings.ai.voice_use' | transloco }}</button>
+                                                            </div>
+                                                            <arc-ai-avatars mode="choose" [connection]="sc.connection" [chosen]="avatarShown(p, v.name, sc.preset)?.id ?? null"
+                                                                (picked)="setAvatar(p.id, v.name, sc.preset, $event)" />
+                                                        }
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+
                                     <!-- Only a purpose whose calls carry a key can have an allowance per key. -->
                                     @if (p.perKeyPerDay !== null) {
                                         <div class="row g-2 mt-1">
@@ -667,7 +713,7 @@ export function usd(n: number): string {
                                         <strong>{{ purposeLabel(c.purpose) }}</strong>
                                         <span class="badge text-bg-light border kind-badge">{{ kindLabel(c.kind) }}</span>
                                         @if (c.cached) { <span class="badge text-bg-secondary from-cache">{{ 'admin.settings.ai.from_cache' | transloco }}</span> }
-                                        <span class="badge" [class.text-bg-success]="c.outcome === 'ok'" [class.text-bg-danger]="c.outcome !== 'ok'">{{ c.outcome === 'ok' ? ('admin.settings.ai.answered' | transloco) : c.outcome }}</span>
+                                        <span class="badge" [class.text-bg-success]="c.outcome === 'ok'" [class.text-bg-info]="c.outcome === 'pending'" [class.text-bg-danger]="c.outcome !== 'ok' && c.outcome !== 'pending'">{{ c.outcome === 'ok' ? ('admin.settings.ai.answered' | transloco) : c.outcome === 'pending' ? ('admin.settings.ai.job_running' | transloco) : c.outcome }}</span>
                                         @if (c.test) { <span class="badge text-bg-info">{{ 'admin.settings.ai.test_badge' | transloco }}</span> }
                                         <span class="text-muted">{{ c.model ?? '' }}</span>
                                         <span class="ms-auto">{{ c.unit !== 'tokens' && c.amount ? amountText(c.amount, c.unit) : (c.tokensIn | number) + ' / ' + (c.tokensOut | number) }} · {{ money(c.costUsd) }} · {{ c.ms / 1000 | number: '1.1-1' }} s</span>
@@ -892,7 +938,7 @@ export class AiSettingsPage implements OnInit, OnDestroy {
     readonly callPurposes = computed(() => [...new Set(this.calls().map((c) => c.purpose))].sort());
     readonly shownCalls = computed(() => this.calls().filter((c) =>
         (!this.callPurpose() || c.purpose === this.callPurpose())
-        && (!this.callOutcome() || (this.callOutcome() === 'ok' ? c.outcome === 'ok' : c.outcome !== 'ok'))));
+        && (!this.callOutcome() || (this.callOutcome() === 'ok' ? c.outcome === 'ok' : c.outcome !== 'ok' && c.outcome !== 'pending'))));
     readonly budgetShare = computed(() => {
         const u = this.usage();
         const b = this.form().monthlyUsd;
@@ -945,6 +991,15 @@ export class AiSettingsPage implements OnInit, OnDestroy {
         return [...seen.values()];
     });
     readonly voicesOpen = signal<string | null>(null);
+    readonly avatarsOpen = signal<string | null>(null);
+    /** One saved connection for each provider that makes presenter videos, whose avatars a purpose's are chosen from (AM-D33). */
+    readonly presenterConnections = computed(() => {
+        const seen = new Map<string, { preset: string; connection: string }>();
+        for (const c of this.form().connections) {
+            if ((AVATAR_PRESETS as readonly string[]).includes(c.preset) && this.isSaved(c.id) && !seen.has(c.preset)) seen.set(c.preset, { preset: c.preset, connection: c.id });
+        }
+        return [...seen.values()];
+    });
     /** The purpose voice whose list is open: `{purpose}|{voice}|{preset}`. */
     readonly chooser = signal<string | null>(null);
     readonly typedVoice = signal('');
@@ -1361,6 +1416,35 @@ export class AiSettingsPage implements OnInit, OnDestroy {
 
     makesSpeech(c: AiConnectionForm): boolean {
         return this.preset(c.preset)?.makesSpeech === true;
+    }
+
+    makesPresenters(c: AiConnectionForm): boolean {
+        return this.preset(c.preset)?.makesPresenters === true;
+    }
+
+    toggleAvatars(id: string): void {
+        this.avatarsOpen.set(this.avatarsOpen() === id ? null : id);
+    }
+
+    /** The avatar id a provider uses for a purpose's avatar: the admin's, else the app's, else null (AM-D33). */
+    avatarShown(p: AiPurposeInfo, avatar: string, preset: string): { id: string; from: 'admin' | 'app' } | null {
+        const own = this.purpose(p.id).avatars?.[avatar]?.[preset];
+        if (own) return { id: own, from: 'admin' };
+        const app = p.avatars?.find((v) => v.name === avatar)?.ids[preset];
+        return app ? { id: app, from: 'app' } : null;
+    }
+
+    /** Sets (or with null takes back) the admin's avatar id; unsaved until Save. */
+    setAvatar(purposeId: string, avatar: string, preset: string, id: string | null): void {
+        const avatars = structuredClone(this.purpose(purposeId).avatars ?? {});
+        const value = id?.trim() ?? '';
+        if (value && VOICE_ID.test(value)) avatars[avatar] = { ...(avatars[avatar] ?? {}), [preset]: value };
+        else if (avatars[avatar]) {
+            delete avatars[avatar][preset];
+            if (!Object.keys(avatars[avatar]).length) delete avatars[avatar];
+        }
+        this.patchPurpose(purposeId, { avatars });
+        this.chooser.set(null);
     }
 
     toggleVoices(id: string): void {

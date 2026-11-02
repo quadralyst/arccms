@@ -7,6 +7,7 @@
  * file's real length or a fallback to another model can change it.
  */
 import { fittedImage, picturePrice, tokensPerPicture } from './images.js';
+import { DEFAULT_VIDEO_SECONDS, fittedVideo, secondPrice } from './videos.js';
 import { findPurpose, isFileKind, purposeKind, purposeTier } from './purposes.js';
 import { modelInfo, purposeSettings, readAiSettings, type AiModelInfo, type AiModelRef, type AiSettings } from './settings.js';
 import type { AiAudioSettings, AiImageSettings, AiKind, AiPurpose, AiSpeechSettings, AiUnit, AiVideoSettings } from './types.js';
@@ -16,7 +17,6 @@ const TYPICAL_OUT_TOKENS = 1000;
 /** About four characters a token, across the languages Arc's sites use. */
 const CHARS_PER_TOKEN = 4;
 const DEFAULT_AUDIO_SECONDS = 10;
-const DEFAULT_VIDEO_SECONDS = 8;
 
 export interface AiEstimate {
     /** USD; 0 when the model has no price (`priced: false`). */
@@ -59,8 +59,18 @@ export function estimateFor(info: AiModelInfo, kind: AiKind, settings: EstimateS
         return priced(each === undefined ? undefined : each * count, count, 'pictures', false);
     }
     if (info.unit === 'characters') return priced(info.price === undefined ? undefined : (chars / 1000) * info.price, chars, 'characters', false);
+    if (kind === 'video') {
+        const video = fittedVideo(settings.video, info.video);
+        const seconds = video.seconds ?? DEFAULT_VIDEO_SECONDS;
+        if (info.unit === 'tokens') {
+            const out = info.video?.tokensPerSecond === undefined ? undefined : info.video.tokensPerSecond * seconds;
+            return priced(out === undefined || info.priceOut === undefined ? undefined : (out * info.priceOut) / 1_000_000, seconds, 'seconds', true);
+        }
+        const each = secondPrice(info.video, info.price, video);
+        return priced(each === undefined ? undefined : each * seconds, seconds, 'seconds', false);
+    }
     if (info.unit === 'seconds') {
-        const seconds = kind === 'video' ? settings.video?.seconds ?? DEFAULT_VIDEO_SECONDS : settings.audio?.seconds ?? DEFAULT_AUDIO_SECONDS;
+        const seconds = settings.audio?.seconds ?? DEFAULT_AUDIO_SECONDS;
         return priced(info.price === undefined ? undefined : seconds * info.price, seconds, 'seconds', false);
     }
     if (info.unit === 'pictures') return priced(info.price, 1, 'pictures', false);

@@ -530,6 +530,15 @@ service cloud.firestore {
     match /AiPacing/{connectionId} {
       allow read, write: if false;
     }
+    // Long jobs such as videos (specs/ai-media-spec.md, AM-D12, AM-D13): admins read every
+    // job, and each person a call named in readers (by arccms_uid) reads that job, so a page
+    // can listen for it to finish. Only the functions write them.
+    match /AiJobs/{jobId} {
+      allow read: if isAdmin()
+        || (request.auth != null && request.auth.token.arccms_uid is string
+            && resource.data.readers is list && request.auth.token.arccms_uid in resource.data.readers);
+      allow write: if false;
+    }
 
     // App install counters by day (trackPwaEvent, docs/features/pwa.html). Admin read.
     match /PwaStats/{day} {

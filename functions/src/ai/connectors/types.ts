@@ -88,6 +88,12 @@ export interface FileRequest {
     video?: AiVideoSettings;
     /** The purpose's extra fields for this provider, never the model, text or output. */
     providerOptions?: Record<string, unknown>;
+    /** Presenter videos: the provider's avatar id, from the purpose's named avatar (AM-D33). */
+    avatar?: string;
+    /** Presenter videos: the audio the avatar speaks to, in place of the text. */
+    speechFile?: { bytes: Buffer; mimeType: string };
+    /** A long job: a key the provider may use so a retried start never makes two (HeyGen). */
+    jobKey?: string;
     timeoutMs: number;
 }
 
@@ -104,7 +110,48 @@ export type FileResult =
     | { ok: true; files: MadeFile[]; usage: AttemptUsage; requestId?: string }
     | ({ ok: false } & FailureInfo);
 
-export type FileConnector = (context: ConnectorContext, request: FileRequest) => Promise<FileResult>;
+/** A long job was started (AM-D12): Arc keeps it and asks how it is doing every minute. */
+export interface JobStarted {
+    ok: 'pending';
+    /** The provider's id for it. */
+    operation: string;
+    usage?: AttemptUsage;
+    requestId?: string;
+}
+
+export type FileConnector = (context: ConnectorContext, request: FileRequest) => Promise<FileResult | JobStarted>;
+
+/** A file a finished job made: its bytes, or the provider's address for it, fetched by Arc. */
+export type JobFile = MadeFile | { url: string; mimeType: string; width?: number; height?: number; seconds?: number };
+
+/** How a job is doing. */
+export type JobCheckResult =
+    | { state: 'running' }
+    | { state: 'done'; files: JobFile[]; usage: AttemptUsage; requestId?: string }
+    | ({ state: 'failed' } & FailureInfo);
+
+export interface JobCheckRequest {
+    kind: AiFileKind;
+    model: string;
+    operation: string;
+    /** The settings the job was started with. */
+    video?: AiVideoSettings;
+    timeoutMs: number;
+}
+
+export type JobChecker = (context: ConnectorContext, request: JobCheckRequest) => Promise<JobCheckResult>;
+
+/** A presenter provider's avatars (AM-D33). */
+export interface AiAvatar {
+    id: string;
+    name: string;
+    gender: 'female' | 'male' | null;
+    previewUrl: string | null;
+    /** Its own voice, used when the purpose names none. */
+    voiceId: string | null;
+}
+export type AvatarsResult = { ok: true; avatars: AiAvatar[] } | { ok: false; detail: string; keyRefused?: boolean };
+export type AvatarLister = (context: ConnectorContext, options: { timeoutMs: number }) => Promise<AvatarsResult>;
 
 /** A provider's voices (AM-D18), or why they could not be read. */
 export type VoicesResult = { ok: true; voices: AiVoice[]; /** Shipped with Arc, no call made. */ fromDocs?: boolean } | { ok: false; detail: string; keyRefused?: boolean };
@@ -115,6 +162,9 @@ export type VoiceLister = (context: ConnectorContext, options: { timeoutMs: numb
 export interface FileProvider {
     make: FileConnector;
     voices?: VoiceLister;
+    /** For a provider whose files come from long jobs. */
+    check?: JobChecker;
+    avatars?: AvatarLister;
 }
 
 /** Failures after which the next model in the list tries. */

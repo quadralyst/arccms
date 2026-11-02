@@ -95,6 +95,8 @@ export interface AiVideoSettings {
     sound?: boolean;
     seed?: number;
     negativePrompt?: string;
+    /** A purpose's only: an avatar speaking the call's text, or to an audio file (AM-D33, HeyGen). */
+    presenter?: boolean;
 }
 
 /** A file a model made, saved in the install's bucket (AM-D9). */
@@ -170,6 +172,24 @@ export interface AiPurpose {
     image?: AiImageSettings;
     /** Speech's defaults, for `makes: 'speech'`. */
     speech?: AiSpeechSettings;
+    /**
+     * Presenter videos only (`video: { presenter: true }`, AM-D33): the avatars a call may ask
+     * for by name, first one the default, such as `{ host: { heygen: '<look id>' } }`. A call
+     * passes `avatar: 'host'`, never a provider's id. Left out: one avatar, `default`, which
+     * the admin chooses in Settings, AI.
+     */
+    avatars?: Record<string, AiVoiceMap>;
+    /**
+     * Video and other long jobs (AM-D12): how long a job may run before it fails with
+     * `timeout`, 5 to 120 minutes. Default 30.
+     */
+    jobTimeoutMinutes?: number;
+    /**
+     * A long job ended (AM-D13): run by Arc's background check with the outcome and the job,
+     * so the app writes the file's path to its own documents. A throw is logged and the hook
+     * runs again on the next checks, at most 3 times in all.
+     */
+    onJobDone?: (result: AiJobResult, job: AiJob) => Promise<void> | void;
     /**
      * Speech only: the voices a call may ask for by name, first one the default (AM-D17),
      * such as `{ narrator: { elevenlabs: '<voice id>', sarvam: 'priya' } }`. A call passes
@@ -273,8 +293,37 @@ export interface AskAiInput {
     /** A sound's or music's length for this call. */
     audio?: Pick<AiAudioSettings, 'seconds'>;
     /** A video's settings for this call, over the purpose's. */
-    video?: AiVideoSettings;
+    video?: Omit<AiVideoSettings, 'presenter'>;
+    /** Presenter videos: one of the purpose's named avatars. Default: its first. */
+    avatar?: string;
+    /** Presenter videos: an audio file in the bucket the avatar speaks to, in place of the text. */
+    speechFile?: { storagePath: string };
+    /** A long job: up to 10 `arccms_uid` values who may read the job from a browser (AM-D13). */
+    readers?: string[];
 }
+
+/** A long job's state (AM-D12), as aiJob() and a browser reading `AiJobs/{id}` see it. */
+export interface AiJob {
+    id: string;
+    purpose: string;
+    kind: AiKind;
+    status: 'pending' | 'done' | 'failed';
+    /** The call's record, which is brought up to date when the job ends. */
+    recordId: string;
+    ref: string | null;
+    limitKey: string | null;
+    readers: string[];
+    startedAt: Date;
+    endedAt: Date | null;
+    files: AiFile[];
+    reason: AiFailureReason | null;
+    detail: string | null;
+    costUsd: number;
+    test: boolean;
+}
+
+/** What onJobDone is given: the job's files, or why it failed. */
+export type AiJobResult = { ok: true; files: AiFile[]; costUsd: number } | { ok: false; reason: AiFailureReason; detail: string | null };
 
 /** Tokens and cost of a call. */
 export interface AiUsage {
@@ -313,6 +362,26 @@ export type AskAiResult =
         image?: AiImageSettings;
         usage: AiUsage;
         recordId: string | null;
+    }
+    | {
+        /**
+         * A long job, such as a video: it goes on in the background (AM-D12). A text or data
+         * purpose never gets it. The other fields are named, always empty, so code written for
+         * `if (r.ok)` or `if (r.ok !== true)` before jobs still type-checks.
+         */
+        ok: 'pending';
+        jobId: string;
+        usage: AiUsage;
+        recordId: string | null;
+        data?: undefined;
+        text?: undefined;
+        files?: undefined;
+        cached?: undefined;
+        image?: undefined;
+        reason?: undefined;
+        scope?: undefined;
+        wait?: undefined;
+        detail?: undefined;
     }
     | {
         ok: false;

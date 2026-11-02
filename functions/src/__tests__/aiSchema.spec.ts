@@ -172,7 +172,7 @@ describe('resolveAiSettings', () => {
         expect(Object.keys(s.connections)).toEqual(['qwen']);
         expect(s.connections['qwen'].label).toBe('Alibaba Cloud Model Studio, Frankfurt (EU)');
         expect(s.tiers.fast).toEqual([{ connection: 'qwen', model: 'qwen3-vl-plus' }]);
-        expect(s.purposes['menu-scan']).toEqual({ enabled: false, models: [{ connection: 'qwen', model: 'qwen3-vl-plus' }], perKeyPerDay: null, keepContent: true, cache: null, deleteAfterDays: null, voices: {} });
+        expect(s.purposes['menu-scan']).toEqual({ enabled: false, models: [{ connection: 'qwen', model: 'qwen3-vl-plus' }], perKeyPerDay: null, keepContent: true, cache: null, deleteAfterDays: null, voices: {}, avatars: {} });
         expect(s.models['qwen/other']).toEqual({ reads: ['pictures'], schema: undefined, priceIn: undefined, priceOut: 2 });
         expect(s.budget.monthlyUsd).toBe(20);
     });

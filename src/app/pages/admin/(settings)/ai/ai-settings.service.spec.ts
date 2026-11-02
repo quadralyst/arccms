@@ -27,7 +27,7 @@ describe('aiFormFrom', () => {
         });
         expect(form.connections[0]).toMatchObject({ id: 'qwen', label: 'Qwen EU', keyPreview: '••••1234', keySetBy: 'a@example.com' });
         expect(form.tiers.thorough).toEqual([{ connection: 'qwen', model: 'qwen3-vl-plus' }]);
-        expect(form.purposes['menu-scan']).toEqual({ enabled: false, models: [], perKeyPerDay: 20, keepContent: true, cache: null, deleteAfterDays: null, voices: {} });
+        expect(form.purposes['menu-scan']).toEqual({ enabled: false, models: [], perKeyPerDay: 20, keepContent: true, cache: null, deleteAfterDays: null, voices: {}, avatars: {} });
         expect(form.models['qwen/qwen3-vl-plus']).toEqual({ reads: ['pictures'], priceIn: 0.3 });
         expect(form.monthlyUsd).toBe(50);
     });

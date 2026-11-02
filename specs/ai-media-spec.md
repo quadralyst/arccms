@@ -1,6 +1,6 @@
 # AI for every kind of output: Build Spec (AM, follows F38)
 
-**Status:** AM1 built on `feat/ai-media-am1` (worktree `../arccms-ai-media`), 2026-11-02, not merged; AM2 built on `feat/ai-media-am2` (from AM1), 2026-11-02, not merged; AM3 built on `feat/ai-media-am3` (from AM2), 2026-11-02, not merged; AM4 and AM5 not built. Spec drafted 2026-11-02; updated the same day with Gunjan's answers, and the remaining questions settled as assumptions (section 8). Nothing built. No provider is called live during the build: every new connector is written from the provider's docs, tested against a fake server, and marked "not tested live" until its first real use (AM-D34). Builds on the F38 AI
+**Status:** AM1 built on `feat/ai-media-am1` (worktree `../arccms-ai-media`), 2026-11-02, not merged; AM2 built on `feat/ai-media-am2` (from AM1), 2026-11-02, not merged; AM3 built on `feat/ai-media-am3` (from AM2), 2026-11-02, not merged; AM4 built on `feat/ai-media-am4` (from AM3), 2026-11-03, not merged; AM5 not built. Spec drafted 2026-11-02; updated the same day with Gunjan's answers, and the remaining questions settled as assumptions (section 8). Nothing built. No provider is called live during the build: every new connector is written from the provider's docs, tested against a fake server, and marked "not tested live" until its first real use (AM-D34). Builds on the F38 AI
 feature (`specs/ai-spec.md`, decisions AI-D1 to AI-D19), on `dev` at eb1e2bca.
 **Brief:** Arc CMS becomes the one place an app makes every AI call: text, data, pictures,
 speech, other audio and video, from all the popular providers, so the keys, logs, costs,
@@ -451,3 +451,27 @@ later without reworking the design:
      allowance; the note records the fitted settings; a provider's file is read with a byte cap
      and every hop passes the public-host check; an admin's own pacing numbers put every kind on
      one counter.
+8. **AM4 choices** (2026-11-03, from the providers' docs re-read for the phase):
+   - The job's id is its call's record id. The record is written first (outcome `pending`,
+     with `jobId`), then `AiJobs/{id}`; a job that cannot be kept marks its record
+     `unavailable`. Times are written as dates; the job's fields never hold `undefined`.
+   - `checkAiJobs` reads every pending job (up to 500), asks the 25 longest waiting, holds each
+     with a token for 10 minutes (more than a check may run), and ends a job in a transaction
+     only while it still holds it, before touching the record, the totals or the allowance: a
+     check stopped part-way leaves the totals short rather than counted twice. `onJobDone` is
+     held the same way and should cope with running twice.
+   - A job past its time is asked once more; still running, it fails with `timeout` and keeps
+     its allowance (the provider may bill it). A key refused on a check keeps the job running
+     until its time, since a rotated key says nothing of the job.
+   - Gemini Omni Flash is started with `background: true`; one the start answers at once is
+     still a job, ended by the next check (its GET answers the video inline). 480p is its 360p.
+     No duration is sent: Google's docs give no format for it, and Omni bills tokens.
+   - Kling on its current API standard only (API key, `/text-to-video/{model}`, `/tasks`), its
+     `billing[]` used as the cost when in USD. Its balance is the units left of packs in use.
+   - MiniMax H3 on `/v2` (its `/v1` takes only Hailuo models), offered without sound.
+   - HeyGen v3: each look speaks in its own default voice (no voice is sent); its At once
+     limits starts, not renders, so a start over HeyGen's 10 renders answers busy. Prices: the
+     higher of its own figures, $0.0805, $0.12 and $0.0167 a second for Avatar IV, V and III.
+   - `AskAiResult`'s `pending` variant names the other fields as always empty, so code written
+     before jobs type-checks; the docs tell apps to check `r.ok === true` before `r.files`.
+

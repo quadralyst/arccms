@@ -9,6 +9,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { Timestamp } from 'firebase-admin/firestore';
 import { arcStorageBucket } from '../../arc-config.js';
 import { db, storage } from '../../init.js';
+import { AI_JOBS } from '../jobs.js';
 import { AI_KEYS } from '../keys.js';
 import { AI_USAGE, currentSiteDay } from '../limits.js';
 import { AI_CALLS, aiCallFolder, contentDoc, KEEP_DAYS } from '../records.js';
@@ -76,6 +77,14 @@ export async function purgeOrphanKeys(): Promise<number> {
     return orphans.length;
 }
 
+/** Delete long jobs that ended more than KEEP_DAYS ago, with their records' time (AM-D12). */
+export async function purgeAiJobs(now = new Date()): Promise<number> {
+    const cutoff = Timestamp.fromMillis(now.getTime() - KEEP_DAYS * 86_400_000);
+    const old = await db.collection(AI_JOBS).where('endedAt', '<', cutoff).limit(500).get();
+    await Promise.all(old.docs.map((d) => d.ref.delete()));
+    return old.size;
+}
+
 /** Each file purpose's days before its files in `ai-files/` go: the admin's, else the purpose's. */
 export async function fileDaysByPurpose(): Promise<Record<string, number>> {
     const settings = await readAiSettings();
@@ -112,6 +121,7 @@ export const cleanUpAi = onSchedule({ schedule: 'every day 03:15', timeZone: 'UT
     const records = await purgeAiCalls();
     await purgeAiUsage();
     const keys = await purgeOrphanKeys();
+    await purgeAiJobs().catch((err: unknown) => console.error('cleanUpAi: jobs not purged', err));
     const files = await purgeAiFiles(await fileDaysByPurpose()).catch((err: unknown) => (console.error('cleanUpAi: files not purged', err), 0));
     const cached = await purgeAiCache().catch((err: unknown) => (console.error('cleanUpAi: cache not purged', err), 0));
     const balances = await refreshBalances().catch((err: unknown) => (console.error('cleanUpAi: balances not read', err), 0));

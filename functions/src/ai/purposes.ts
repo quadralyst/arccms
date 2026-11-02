@@ -1,6 +1,6 @@
 import { AI_PURPOSES } from '../custom/ai.js';
 import { storagePathProblem } from './paths.js';
-import { DEFAULT_VOICE, SPEECH_PRESETS, VOICE_ID, VOICE_NAME } from './voices.js';
+import { AVATAR_PRESETS, DEFAULT_VOICE, SPEECH_PRESETS, VOICE_ID, VOICE_NAME } from './voices.js';
 import { answerProblems, schemaProblems, type JsonSchema } from './schema.js';
 import { AI_ALLOWANCE_UNITS, AI_ASPECTS, AI_FILE_KINDS, AI_KINDS, AI_TIERS, isAiTestFailure, type AiFileKind, type AiKind, type AiPurpose, type AiPurposes, type AiTier } from './types.js';
 
@@ -76,6 +76,30 @@ function voiceProblems(at: string, p: AiPurpose, kind: AiKind): string[] {
     return problems;
 }
 
+/** The avatar problems of a presenter purpose (AM-D33). */
+function avatarProblems(at: string, p: AiPurpose, kind: AiKind): string[] {
+    if (p.avatars === undefined) return [];
+    if (kind !== 'video' || p.video?.presenter !== true) return [`${at}: avatars are for a presenter video purpose, with video: { presenter: true }`];
+    if (typeof p.avatars !== 'object' || p.avatars === null || Array.isArray(p.avatars)) return [`${at}: avatars must be an object of named avatars`];
+    const problems: string[] = [];
+    const names = Object.keys(p.avatars);
+    if (!names.length) problems.push(`${at}: avatars needs at least one named avatar`);
+    if (names.length > 20) problems.push(`${at}: at most 20 avatars`);
+    for (const name of names) {
+        if (!VOICE_NAME.test(name)) problems.push(`${at}: the avatar name "${name}" must be letters, digits, _ and -, starting with a letter`);
+        const map = p.avatars[name];
+        if (typeof map !== 'object' || map === null || Array.isArray(map)) {
+            problems.push(`${at}: avatar "${name}" must be an object of avatar ids by provider, such as { heygen: '<look id>' }`);
+            continue;
+        }
+        for (const [preset, id] of Object.entries(map)) {
+            if (!(AVATAR_PRESETS as readonly string[]).includes(preset)) problems.push(`${at}: avatar "${name}" names "${preset}", which makes no presenter videos; use ${AVATAR_PRESETS.join(', ')}`);
+            else if (typeof id !== 'string' || !VOICE_ID.test(id)) problems.push(`${at}: avatar "${name}" has no usable ${preset} avatar id`);
+        }
+    }
+    return problems;
+}
+
 /** What a purpose's file-kind settings may hold, with the check for each (AM-D19). */
 export function fileSettingsProblems(at: string, p: AiPurpose, kind: AiKind): string[] {
     const problems: string[] = [];
@@ -107,6 +131,8 @@ export function fileSettingsProblems(at: string, p: AiPurpose, kind: AiKind): st
         if (video.seconds !== undefined && (typeof video.seconds !== 'number' || video.seconds < 1 || video.seconds > 60)) problems.push(`${at}: video.seconds must be from 1 to 60`);
         if (video.aspect !== undefined && !AI_ASPECTS.includes(video.aspect)) problems.push(`${at}: video.aspect must be one of ${AI_ASPECTS.join(', ')}`);
         if (video.resolution !== undefined && !['480p', '720p', '1080p', '4k'].includes(video.resolution)) problems.push(`${at}: video.resolution must be 480p, 720p, 1080p or 4k`);
+        if (video.presenter !== undefined && typeof video.presenter !== 'boolean') problems.push(`${at}: video.presenter must be true or false`);
+        if (video.sound !== undefined && typeof video.sound !== 'boolean') problems.push(`${at}: video.sound must be true or false`);
     }
     return problems;
 }
@@ -135,6 +161,9 @@ export function purposeProblems(purposes: unknown): string[] {
         if (file && p.output !== undefined) problems.push(`${at}: a purpose that makes ${kind} answers with files, so it takes no output`);
         if (file) problems.push(...fileSettingsProblems(at, p, kind));
         problems.push(...voiceProblems(at, p, kind));
+        problems.push(...avatarProblems(at, p, kind));
+        if (p.jobTimeoutMinutes !== undefined && (kind !== 'video' || !Number.isInteger(p.jobTimeoutMinutes) || p.jobTimeoutMinutes < 5 || p.jobTimeoutMinutes > 120)) problems.push(`${at}: jobTimeoutMinutes is for a purpose that makes video, a whole number from 5 to 120`);
+        if (p.onJobDone !== undefined && (kind !== 'video' || typeof p.onJobDone !== 'function')) problems.push(`${at}: onJobDone is for a purpose that makes video, a function`);
         for (const k of ['image', 'speech', 'audio', 'video'] as const) {
             if (!file && p[k] !== undefined) problems.push(`${at}: ${k} settings belong to a purpose that makes ${k}`);
         }
@@ -216,6 +245,12 @@ export function findPurpose(id: string, options: { arc?: boolean } = {}): AiPurp
 /** A speech purpose's voice names, its default first: its own, else one named `default` (AM-D17). */
 export function purposeVoiceNames(p: AiPurpose): string[] {
     const names = p.voices ? Object.keys(p.voices) : [];
+    return names.length ? names : [DEFAULT_VOICE];
+}
+
+/** A presenter purpose's avatar names, its default first: its own, else one named `default` (AM-D33). */
+export function purposeAvatarNames(p: AiPurpose): string[] {
+    const names = p.avatars ? Object.keys(p.avatars) : [];
     return names.length ? names : [DEFAULT_VOICE];
 }
 

@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
+    jobs: [] as Array<Record<string, unknown>>,
     settings: {} as Record<string, unknown>,
     records: [] as Array<{ record: Record<string, unknown>; id: string | undefined }>,
     totals: [] as Array<Record<string, unknown>>,
@@ -81,6 +82,8 @@ vi.mock('../ai/cache.js', async (actual) => {
     };
 });
 vi.mock('../ai/pacing.js', () => ({ waitForPlace: async () => (h.place.ok ? { ok: true, release: async () => undefined } : { ok: false, wait: h.place.wait }) }));
+
+vi.mock('../ai/jobs.js', async (actual) => ({ ...(await actual<typeof import('../ai/jobs.js')>()), createJob: async (_id: string, job: Record<string, unknown>) => void h.jobs.push(job) }));
 
 import { askAi, captureAiAsks } from '../ai/askAi.js';
 import { replaceConnectorsForTest, replaceFileConnectorsForTest } from '../ai/connectors/index.js';
@@ -162,7 +165,9 @@ describe('test mode', () => {
         const speech = await askAi({ purpose: 'voice', input: 'x'.repeat(45), limitKey: 'k' });
         expect((speech as { files: Array<{ mimeType: string; seconds: number }> }).files[0]).toMatchObject({ mimeType: 'audio/wav', seconds: 3 });
         expect(h.consumed).toEqual([45]);
-        expect((await askAi({ purpose: 'clip', input: 'A wave' }) as { files: Array<{ mimeType: string }> }).files[0].mimeType).toBe('video/mp4');
+        // A video is a long job, in test mode too: the background check finishes it (AM-D11).
+        expect(await askAi({ purpose: 'clip', input: 'A wave' })).toMatchObject({ ok: 'pending', jobId: 'rec1' });
+        expect(h.jobs[0]).toMatchObject({ purpose: 'clip', test: true, operation: null });
         expect(await askAi({ purpose: 'nope', input: 'x' })).toMatchObject({ ok: false, reason: 'blocked' });
         expect(await askAi({ purpose: 'clip' })).toMatchObject({ ok: false, reason: 'unreadable', detail: expect.stringContaining('no text') });
     });

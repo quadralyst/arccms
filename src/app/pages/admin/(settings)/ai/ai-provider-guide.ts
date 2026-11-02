@@ -132,6 +132,18 @@ export const PROVIDER_GUIDES: Record<string, ProviderGuide> = {
             { key: 'guide_add_credit', url: 'https://platform.minimax.io/user-center/payment/balance' },
         ],
     },
+    kling: {
+        steps: [
+            { key: 'guide_key_page', url: 'https://app.klingai.com/global/dev/api-key' },
+            { key: 'guide_kling_units', url: 'https://app.klingai.com/global/dev/console' },
+        ],
+    },
+    heygen: {
+        steps: [
+            { key: 'guide_key_page', url: 'https://app.heygen.com/settings?nav=API' },
+            { key: 'guide_heygen_wallet', url: 'https://app.heygen.com/settings?nav=API' },
+        ],
+    },
     vertex: {
         steps: [
             { key: 'guide_vertex_1', url: 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com' },

@@ -16,14 +16,14 @@
 import type { AiAspect, AiFileKind, AiKind, AiUnit } from './types.js';
 
 /** How Arc talks to a provider for text; `elevenlabs` and `minimax` make files only, so far. */
-export type AiConnectorKind = 'openai' | 'vertex' | 'anthropic' | 'gemini' | 'elevenlabs' | 'minimax';
+export type AiConnectorKind = 'openai' | 'vertex' | 'anthropic' | 'gemini' | 'elevenlabs' | 'minimax' | 'kling' | 'heygen';
 /** How Arc asks a provider for files (AM-D7). */
-export type AiFileConnectorKind = 'elevenlabs' | 'sarvam' | 'minimax' | 'vertex' | 'openai' | 'gemini' | 'dashscope';
+export type AiFileConnectorKind = 'elevenlabs' | 'sarvam' | 'minimax' | 'vertex' | 'openai' | 'gemini' | 'dashscope' | 'kling' | 'heygen';
 export type AiSchemaSupport = 'strict' | 'json';
 export type AiReads = 'pictures' | 'pdfs';
 export type AiCurrency = 'USD' | 'INR';
 /** How Arc reads a connection's balance with its own key (AM-D32). */
-export type AiBalanceReader = 'deepseek' | 'openrouter-key' | 'elevenlabs';
+export type AiBalanceReader = 'deepseek' | 'openrouter-key' | 'elevenlabs' | 'kling' | 'heygen';
 
 /** What a speech model takes (AM-D19, section 8 item 1): its caps, formats and languages. */
 export interface AiSpeechAbilities {
@@ -76,6 +76,30 @@ export interface AiImageAbilities {
     tokensPerPicture?: Partial<Record<AiQuality, number>>;
 }
 
+export type AiVideoResolution = '480p' | '720p' | '1080p' | '4k';
+
+/** What a video model makes and takes (AM-D19, section 6.4). */
+export interface AiVideoAbilities {
+    aspects: AiAspect[];
+    /** Arc's words; each connector maps them to the provider's nearest. */
+    resolutions: AiVideoResolution[];
+    /** The shortest and longest video, in seconds. */
+    seconds: { min: number; max: number };
+    /** `always`: every video has sound; `never`: none; `choice`: the call's `sound` decides. */
+    sound: 'always' | 'never' | 'choice';
+    /** Starts from a picture sent with the prompt. Such a model also reads pictures. */
+    firstFrame?: boolean;
+    seed?: boolean;
+    negativePrompt?: boolean;
+    /** An avatar speaking a script or an audio file (HeyGen, AM-D33). */
+    presenter?: boolean;
+    /** Per second by resolution, without sound; and with sound, where it costs more. */
+    priceByResolution?: Partial<Record<AiVideoResolution, number>>;
+    priceWithSound?: Partial<Record<AiVideoResolution, number>>;
+    /** A model billed by tokens: about how many output tokens a second takes, for the estimate. */
+    tokensPerSecond?: number;
+}
+
 /** The higher price a model charges for a prompt above `tokens` (AM-D31). */
 export interface AiPriceAbove {
     tokens: number;
@@ -107,6 +131,10 @@ export interface AiKnownModel {
     speech?: AiSpeechAbilities;
     /** Pictures: what the model makes and takes. */
     image?: AiImageAbilities;
+    /** Video: what the model makes and takes. */
+    video?: AiVideoAbilities;
+    /** Answers through a long job (AM-D12): every video model. */
+    job?: boolean;
     /** false: this model was built from the docs and never called for real, on a preset that was (AM-D34). */
     testedLive?: boolean;
     /**
@@ -191,6 +219,15 @@ const GEMINI_IMAGE_MODELS: Record<string, AiKnownModel> = {
     'gemini-3.1-flash-image': picture({ aspects: GEMINI_IMAGE_ASPECTS, resolutions: ['standard', 'high'], maxCount: 4, edit: true, formats: ['png'], priceByResolution: { standard: 0.067, high: 0.101 } }, { testedLive: false }),
     'gemini-3.1-flash-lite-image': picture({ aspects: GEMINI_IMAGE_ASPECTS, resolutions: ['standard'], maxCount: 4, edit: true, formats: ['png'], priceByResolution: { standard: 0.034 } }, { testedLive: false }),
 };
+
+/** What every video model is: a long job billed by the seconds made, unless it says otherwise. */
+function video(abilities: AiVideoAbilities, extra: Partial<AiKnownModel> = {}): AiKnownModel {
+    return { makes: 'video', unit: 'seconds', reads: abilities.firstFrame ? ['pictures'] : [], schema: 'json', video: abilities, job: true, testedLive: false, ...extra };
+}
+/** MiniMax H3 (AM4), on its v2 address: 768P is Arc's 720p and 2K its 1080p. Sound is not confirmed, so none is offered. */
+const MINIMAX_VIDEO_ASPECTS: AiAspect[] = ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'];
+/** HeyGen presenters (AM4): per second, the higher of HeyGen's own figures for each engine. */
+const HEYGEN_ABILITIES: AiVideoAbilities = { aspects: ['16:9', '9:16', '1:1'], resolutions: ['720p', '1080p'], seconds: { min: 1, max: 1800 }, sound: 'always', presenter: true };
 
 /** The languages Sarvam speaks, as its `target_language_code` takes them. */
 export const SARVAM_LANGUAGES = ['bn-IN', 'en-IN', 'gu-IN', 'hi-IN', 'kn-IN', 'ml-IN', 'mr-IN', 'od-IN', 'pa-IN', 'ta-IN', 'te-IN'];
@@ -342,6 +379,9 @@ export const AI_PRESETS: Record<string, AiPreset> = {
             'gemini-3.8-flash': { reads: ['pictures', 'pdfs'], schema: 'strict', priceIn: 1.5, priceOut: 7.5, priceCachedIn: 0.15, recommend: ['fast'] },
             'gemini-4-argon': { reads: ['pictures', 'pdfs'], schema: 'strict', priceIn: 4, priceOut: 20, priceCachedIn: 0.2, recommend: ['thorough'] },
             ...GEMINI_IMAGE_MODELS,
+            // Video (AM4): tokens, $17.50 per million out, about 5,792 a second at 720p ($0.10 a second).
+            // 480p is made at its 360p. Sound always; no negative prompt.
+            'gemini-omni-1.1-flash': video({ aspects: ['16:9', '9:16'], resolutions: ['480p', '720p', '1080p', '4k'], seconds: { min: 3, max: 10 }, sound: 'always', firstFrame: true, tokensPerSecond: 5792 }, { unit: 'tokens', priceIn: 1.5, priceOut: 17.5, recommend: ['default'] }),
         },
         files: 'gemini',
     },
@@ -459,6 +499,8 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         // Speech requests a minute on the entry plan; pictures have their own, lower limit.
         perMinute: 60,
         kindLimits: { image: { perMinute: 10 } },
+        // A finished video's address (cdn.hailuoai.com in MiniMax's docs).
+        downloadHosts: ['.hailuoai.com', '.minimax.io'],
         billingUrl: 'https://platform.minimax.io/user-center/payment/balance',
         models: {
             // $1.00 and $0.60 per 10,000 characters; fewer than 10,000 characters a request.
@@ -467,7 +509,54 @@ export const AI_PRESETS: Record<string, AiPreset> = {
             'speech-2.6-hd': { ...SPEECH, price: 0.1, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] } },
             'speech-2.6-turbo': { ...SPEECH, price: 0.06, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] } },
             // Pictures (AM3), answered as base64 so nothing is fetched from another host.
+            'MiniMax-H3': video({ aspects: MINIMAX_VIDEO_ASPECTS, resolutions: ['720p', '1080p'], seconds: { min: 4, max: 15 }, sound: 'never', firstFrame: true, priceByResolution: { '720p': 0.08, '1080p': 0.13 } }, { recommend: ['default'] }),
+            'MiniMax-H3-Highspeed': video({ aspects: MINIMAX_VIDEO_ASPECTS, resolutions: ['480p', '720p'], seconds: { min: 4, max: 15 }, sound: 'never', firstFrame: true, priceByResolution: { '480p': 0.04, '720p': 0.06 } }),
+            'MiniMax-H3-Lite': video({ aspects: MINIMAX_VIDEO_ASPECTS, resolutions: ['480p', '720p'], seconds: { min: 4, max: 15 }, sound: 'never', firstFrame: true, priceByResolution: { '480p': 0.025, '720p': 0.04 } }),
+            'MiniMax-H3-Max': video({ aspects: MINIMAX_VIDEO_ASPECTS, resolutions: ['480p', '720p'], seconds: { min: 5, max: 15 }, sound: 'never', firstFrame: true, priceByResolution: { '480p': 0.05, '720p': 0.08 } }),
             'image-01': picture({ aspects: ['1:1', '16:9', '4:3', '3:2', '2:3', '3:4', '9:16', '21:9'], resolutions: ['standard'], maxCount: 4, seed: true, formats: ['jpeg'] }, { price: 0.0035, recommend: ['default'] }),
+        },
+    },
+    // AM4 (specs/ai-media-spec.md, section 6.4): video, written from each provider's docs, not tested live.
+    kling: {
+        label: 'Kling',
+        kind: 'kling',
+        files: 'kling',
+        baseUrl: 'https://api-singapore.klingai.com',
+        processesIn: 'Kling\'s servers for clients outside China (Singapore)',
+        pricesCheckedOn: DOCS_READ_ON,
+        testedLive: false,
+        docsReadOn: DOCS_READ_ON,
+        balance: 'kling',
+        billingUrl: 'https://app.klingai.com/global/dev/console',
+        // A finished task's address, kept 30 days (s15-kling.klingai.com in Kling's docs).
+        downloadHosts: ['.klingai.com'],
+        models: {
+            // USD a second from prepaid units at $0.14; with sound costs more on 3.0, and 4.0 always has it.
+            'kling-3.0': video({ aspects: ['16:9', '9:16', '1:1'], resolutions: ['720p', '1080p', '4k'], seconds: { min: 3, max: 15 }, sound: 'choice', firstFrame: true, priceByResolution: { '720p': 0.084, '1080p': 0.112, '4k': 0.42 }, priceWithSound: { '720p': 0.126, '1080p': 0.168, '4k': 0.42 } }, { recommend: ['default'] }),
+            'kling-4.0': video({ aspects: ['21:9', '16:9', '9:16', '1:1'], resolutions: ['720p', '1080p'], seconds: { min: 3, max: 30 }, sound: 'always', firstFrame: true, priceByResolution: { '720p': 0.157, '1080p': 0.235 } }),
+        },
+    },
+    heygen: {
+        label: 'HeyGen (presenter videos)',
+        kind: 'heygen',
+        files: 'heygen',
+        baseUrl: 'https://api.heygen.com/v3',
+        auth: { header: 'x-api-key', prefix: '' },
+        processesIn: 'HeyGen\'s data centres in the US',
+        pricesCheckedOn: DOCS_READ_ON,
+        testedLive: false,
+        docsReadOn: DOCS_READ_ON,
+        // Starts sent together. HeyGen allows 10 renders at once on pay as you go and refuses more
+        // with 429 (busy), which this does not count: renders run on after their start.
+        atOnce: 10,
+        balance: 'heygen',
+        billingUrl: 'https://app.heygen.com/settings?nav=API',
+        downloadHosts: ['.heygen.ai', '.heygen.com'],
+        // HeyGen's pages disagree on the rate: the higher figure for each engine ships (AM-D34).
+        models: {
+            'avatar-iv': video(HEYGEN_ABILITIES, { price: 0.0805, recommend: ['default'] }),
+            'avatar-v': video(HEYGEN_ABILITIES, { price: 0.12 }),
+            'avatar-iii': video(HEYGEN_ABILITIES, { price: 0.0167 }),
         },
     },
 };

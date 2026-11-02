@@ -64,6 +64,27 @@ export function readElevenLabsSubscription(body: Record<string, unknown>): Balan
     return { ok: true, balance: Math.max(0, limit - used), unit: 'characters' };
 }
 
+/**
+ * Kling: `GET /account/costs`, the units left of every resource pack still in use (up to 12
+ * hours late, by Kling's docs). Kling shows no cash balance to the key.
+ */
+export function readKlingPacks(body: Record<string, unknown>): BalanceRead {
+    const data = (body['data'] ?? {}) as Record<string, unknown>;
+    const packs = Array.isArray(data['resource_pack_subscribe_infos']) ? (data['resource_pack_subscribe_infos'] as Array<Record<string, unknown>>) : null;
+    if (!packs) return { ok: false, detail: 'Kling gave no resource packs' };
+    const left = packs.filter((p) => p['status'] === 'online').reduce((n, p) => n + (Number(p['remaining_quantity']) || 0), 0);
+    return { ok: true, balance: left, unit: 'units' };
+}
+
+/** HeyGen: `GET /v3/users/me`, what is left of the API wallet. */
+export function readHeyGenWallet(body: Record<string, unknown>): BalanceRead {
+    const data = (body['data'] ?? {}) as Record<string, unknown>;
+    const wallet = (data['wallet'] ?? null) as Record<string, unknown> | null;
+    const left = Number(wallet?.['remaining_balance']);
+    if (!wallet || !Number.isFinite(left)) return { ok: false, detail: 'HeyGen gave no wallet balance' };
+    return { ok: true, balance: left, unit: String(wallet['currency'] ?? 'usd').toLowerCase() === 'credits' ? 'credits' : 'USD' };
+}
+
 /** Read one connection's balance, when its preset can. */
 export async function readBalance(connection: AiConnection): Promise<BalanceRead> {
     const preset = findPreset(connection.preset);
@@ -80,6 +101,15 @@ export async function readBalance(connection: AiConnection): Promise<BalanceRead
         if (preset.balance === 'elevenlabs') {
             const { status, body } = await getJson(`${base}/user/subscription`, connection, key.key);
             return status === 200 ? readElevenLabsSubscription(body) : { ok: false, detail: `ElevenLabs answered ${status}` };
+        }
+        if (preset.balance === 'kling') {
+            const end = Date.now();
+            const { status, body } = await getJson(`${base}/account/costs?start_time=${end - 365 * 86_400_000}&end_time=${end}`, connection, key.key);
+            return status === 200 ? readKlingPacks(body) : { ok: false, detail: `Kling answered ${status}` };
+        }
+        if (preset.balance === 'heygen') {
+            const { status, body } = await getJson(`${base}/users/me`, connection, key.key);
+            return status === 200 ? readHeyGenWallet(body) : { ok: false, detail: `HeyGen answered ${status}` };
         }
         const { status, body } = await getJson(`${base}/key`, connection, key.key);
         return status === 200 ? readOpenRouterKey(body) : { ok: false, detail: `OpenRouter answered ${status}` };

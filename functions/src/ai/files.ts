@@ -6,11 +6,15 @@
  * are deleted after a day. The app moves a file with `moveAiFile`, which keeps the call's
  * record pointing at it.
  */
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import { FieldValue } from 'firebase-admin/firestore';
 import { arcStorageBucket, arcStoragePrefix } from '../arc-config.js';
 import { db, storage } from '../init.js';
 import type { MadeFile } from './connectors/types.js';
 import { AI_FILES_FOLDER, aiFilesFolder, aiPurposeFolder, extensionFor, storagePathProblem } from './paths.js';
+import { safeBaseUrl } from './settings.js';
 import type { AiFile } from './types.js';
 
 export const AI_CACHE = 'AiCache';
@@ -138,4 +142,84 @@ export async function purgeAiFiles(daysByPurpose: Record<string, number>, now = 
         deleted += old.length;
     }
     return deleted;
+}
+
+/** The most a video Arc fetches from a provider may be. */
+export const MAX_STREAM_BYTES = 500 * 1024 * 1024;
+
+/**
+ * Stream a file a provider made, from the address in its answer, straight into the bucket
+ * (AM-D12, AM-D28): never held in memory, https only, a host the preset lists (and a public
+ * one) on every hop of at most three redirects, never with the key, and stopped at the cap.
+ */
+export async function streamToStorage(url: string, hosts: readonly string[], path: string, meta: { contentType: string; recordId: string; purpose: string }, timeoutMs: number, maxBytes = MAX_STREAM_BYTES): Promise<{ ok: true; bytes: number; contentType: string } | { ok: false; failure: 'unreadable' | 'unavailable' | 'timeout' | 'too-large'; detail: string }> {
+    const allowed = (u: string) => {
+        let parsed: URL;
+        try {
+            parsed = new URL(u);
+        } catch {
+            return false;
+        }
+        const host = parsed.hostname.toLowerCase();
+        return parsed.protocol === 'https:' && !parsed.username && !parsed.password && safeBaseUrl(`${parsed.protocol}//${parsed.host}`)
+            && hosts.some((h) => host === h.replace(/^\./, '') || (h.startsWith('.') && host.endsWith(h)));
+    };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(1, timeoutMs));
+    try {
+        let current = url;
+        for (let hop = 0; hop < 4; hop++) {
+            if (!allowed(current)) return { ok: false, failure: 'unreadable', detail: 'the provider gave a file address Arc does not fetch from' };
+            const response = await fetch(current, { signal: controller.signal, redirect: 'manual' });
+            if (response.status >= 300 && response.status < 400) {
+                const next = response.headers.get('location');
+                if (!next) return { ok: false, failure: 'unreadable', detail: 'the provider\'s file address redirected nowhere' };
+                current = new URL(next, current).toString();
+                continue;
+            }
+            if (response.status !== 200 || !response.body) return { ok: false, failure: response.status >= 500 ? 'unavailable' : 'unreadable', detail: `the provider's file could not be fetched (${response.status})` };
+            const length = Number(response.headers.get('content-length'));
+            if (Number.isFinite(length) && length > maxBytes) return { ok: false, failure: 'too-large', detail: `the provider's file is larger than Arc fetches (${Math.round(length / 1048576)} MB)` };
+            const contentType = (response.headers.get('content-type') || meta.contentType).split(';')[0].trim();
+            let size = 0;
+            const counter = new Transform({
+                transform(chunk: Buffer, _enc, done) {
+                    size += chunk.length;
+                    done(size > maxBytes ? new Error('too-large') : null, chunk);
+                },
+            });
+            const out = bucket().file(path).createWriteStream({ resumable: false, contentType, metadata: { metadata: { aiRecord: meta.recordId, aiPurpose: meta.purpose } } });
+            try {
+                await pipeline(Readable.fromWeb(response.body as unknown as WebReadableStream), counter, out);
+            } catch (err) {
+                await deleteFiles([path]);
+                if (String((err as Error).message) === 'too-large') return { ok: false, failure: 'too-large', detail: 'the provider\'s file is larger than Arc fetches' };
+                throw err;
+            }
+            return { ok: true, bytes: size, contentType };
+        }
+        return { ok: false, failure: 'unreadable', detail: 'the provider\'s file address redirected too many times' };
+    } catch (err) {
+        if ((err as { name?: string }).name === 'AbortError') return { ok: false, failure: 'timeout', detail: 'the provider\'s file did not come in time' };
+        return { ok: false, failure: 'unavailable', detail: `the provider's file could not be fetched: ${String((err as Error).message ?? err).slice(0, 160)}` };
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+/** A file in the bucket as bytes, with its type, refusing one larger than `maxBytes`. */
+export async function readBucketFile(path: string, maxBytes: number): Promise<{ bytes: Buffer; contentType: string } | { tooLarge: number } | null> {
+    const file = bucket().file(path);
+    let size: number;
+    let contentType: string;
+    try {
+        const [meta] = await file.getMetadata();
+        size = Number(meta.size ?? 0);
+        contentType = String(meta.contentType ?? 'application/octet-stream');
+    } catch {
+        return null;
+    }
+    if (size > maxBytes) return { tooLarge: size };
+    const [bytes] = await file.download();
+    return { bytes, contentType };
 }

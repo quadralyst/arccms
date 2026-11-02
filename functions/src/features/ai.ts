@@ -10,3 +10,5 @@ export * from '../ai/callables/refreshAiBalance.js';
 export * from '../ai/callables/aiVoices.js';
 export * from '../ai/callables/aiVoiceSample.js';
 export * from '../ai/callables/generateMediaImages.js';
+export * from '../ai/callables/checkAiJobs.js';
+export * from '../ai/callables/aiAvatars.js';

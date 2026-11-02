@@ -111,7 +111,7 @@ describe('OpenAI', () => {
         expect(calls[0].url).toBe('https://api.openai.com/v1/images/generations');
         expect(header(calls[0], 'authorization')).toBe('Bearer sk-test');
         expect(r).toMatchObject({ ok: true, usage: { tokensIn: 20, tokensOut: 2000 }, requestId: 'req-1' });
-        expect(r.ok && r.files.map((f) => [f.mimeType, f.width, f.height])).toEqual([['image/png', 16, 8], ['image/png', 16, 8]]);
+        expect(r.ok === true && r.files.map((f) => [f.mimeType, f.width, f.height])).toEqual([['image/png', 16, 8], ['image/png', 16, 8]]);
     });
 
     it('edits through /images/edits', async () => {
@@ -151,13 +151,13 @@ describe('Gemini on the Gemini API (Interactions)', () => {
         expect(header(calls[0], 'x-goog-api-key')).toBe('AIza-test');
         // The answer's own picture, never a thought's.
         expect(r).toMatchObject({ ok: true, usage: { tokensIn: 20, tokensOut: 2580 } });
-        expect(r.ok && r.files).toHaveLength(2);
+        expect(r.ok === true && r.files).toHaveLength(2);
     });
 
     it('keeps the pictures made when another request failed', async () => {
         fakeFetch(answer(), { status: 429, json: { error: { code: 'rate_limit_exceeded', message: 'slow' } } });
         const r = await geminiApiImages({ connection: c['gem'], key: 'k' }, pic('gemini-nano-banana-2.1', { image: { count: 2 } }));
-        expect(r.ok && r.files).toHaveLength(1);
+        expect(r.ok === true && r.files).toHaveLength(1);
     });
 
     it('reads a block whether it comes as an HTTP error or a failed interaction', async () => {
@@ -248,7 +248,7 @@ describe('MiniMax pictures', () => {
         const calls = fakeFetch({ json: { id: 'mm-1', data: { image_base64: [b64, b64] }, metadata: { success_count: 2, failed_count: 0 }, base_resp: { status_code: 0, status_msg: 'success' } } });
         const r = await miniMaxProvider.make({ connection: c['mm'], key: 'mm-key' }, pic('image-01', { image: { count: 2 } }));
         expect(calls[0].url).toBe('https://api.minimax.io/v1/image_generation');
-        expect(r.ok && r.files).toHaveLength(2);
+        expect(r.ok === true && r.files).toHaveLength(2);
     });
 
     it('reads a refused picture, a bad key and no balance', async () => {
