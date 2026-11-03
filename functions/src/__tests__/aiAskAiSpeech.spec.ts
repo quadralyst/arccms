@@ -38,6 +38,7 @@ vi.mock('../custom/ai.js', () => ({
         plain: { label: 'Plain', makes: 'speech' },
         single: { label: 'Single', makes: 'speech', voices: { one: { sarvam: 'priya', elevenlabs: 'EL_ONE' } }, fallback: false },
         opus: { label: 'Opus', makes: 'speech', voices: { one: { sarvam: 'priya', elevenlabs: 'EL_ONE' } }, speech: { format: 'opus' } },
+        rate: { label: 'Rate', makes: 'speech', voices: { one: { sarvam: 'priya', elevenlabs: 'EL_ONE' } }, speech: { language: 'hi-IN', sampleRate: 22050 }, cache: true },
         ask: { label: 'Ask', instruction: 'Answer.' },
     },
 }));
@@ -287,6 +288,33 @@ describe('what a speech model takes', () => {
         expect(asked.at(-1)!.model).toBe('sarvam:bulbul:v3');
     });
 
+    it('sends the sample rate asked, and skips a model that makes no such rate in the format asked', async () => {
+        live([SV, EL]);
+        const asked = speakers();
+        await askAi({ purpose: 'rate', input: 'Hi.' });
+        expect(asked.at(-1)).toMatchObject({ model: 'sarvam:bulbul:v3', speech: { language: 'hi-IN', sampleRate: 22050 } });
+        // The call's rate is over the purpose's. Sarvam makes 32 kHz; ElevenLabs' MP3 does not.
+        await askAi({ purpose: 'rate', input: 'Hi.', speech: { sampleRate: 32000 } });
+        expect(asked.at(-1)).toMatchObject({ model: 'sarvam:bulbul:v3', speech: { sampleRate: 32000 } });
+        live([EL, SV]);
+        await askAi({ purpose: 'rate', input: 'Hi.', speech: { sampleRate: 32000 } });
+        expect(asked.at(-1)!.model).toBe('sarvam:bulbul:v3');
+        expect((h.records.at(-1)!.record['attempts'] as Array<Record<string, unknown>>)[0]).toMatchObject({ connection: 'eleven', outcome: 'skipped', detail: 'makes no mp3 at 32000 Hz' });
+        // A rate no model makes: nothing is sent.
+        const before = asked.length;
+        expect(await askAi({ purpose: 'rate', input: 'Hi.', speech: { sampleRate: 11025 } })).toMatchObject({ ok: false, reason: 'off' });
+        expect(asked).toHaveLength(before);
+    });
+
+    it('checks the sample rate: a whole number of Hz from 8000 to 48000', async () => {
+        expect(purposeProblems({ talk: { label: 'A', makes: 'speech', voices: { n: { sarvam: 'priya' } }, speech: { sampleRate: 22050 } } })).toEqual([]);
+        expect(purposeProblems({ talk: { label: 'A', makes: 'speech', voices: { n: { sarvam: 'priya' } }, speech: { sampleRate: 22.05 } } })[0]).toContain('speech.sampleRate must be a whole number of Hz');
+        expect(purposeProblems({ talk: { label: 'A', makes: 'speech', voices: { n: { sarvam: 'priya' } }, speech: { sampleRate: 96000 } } })[0]).toContain('from 8000 to 48000');
+        live([SV]);
+        speakers();
+        await expect(askAi({ purpose: 'rate', input: 'Hi.', speech: { sampleRate: 4000 } })).rejects.toThrow(/speech\.sampleRate/);
+    });
+
     it('with fallback off, only the first model ever answers, even when it is skipped', async () => {
         live([GG, SV]);
         const asked = speakers();
@@ -305,6 +333,19 @@ describe('the cache and Arc\'s voice sample', () => {
         const [a, b] = h.cacheStored.map((e) => e['hash']);
         expect(a).toBeTruthy();
         expect(a).not.toBe(b);
+    });
+
+    it('keys a cached file by the sample rate: the same words at another rate are another file', async () => {
+        live([SV]);
+        speakers();
+        await askAi({ purpose: 'rate', input: 'Hi.' });
+        await askAi({ purpose: 'rate', input: 'Hi.', speech: { sampleRate: 16000 } });
+        await askAi({ purpose: 'rate', input: 'Hi.', speech: { sampleRate: 22050 } });
+        const [a, b, c] = h.cacheStored.map((e) => e['hash']);
+        expect(a).toBeTruthy();
+        expect(a).not.toBe(b);
+        // The purpose's own rate asked again is the same file.
+        expect(c).toBe(a);
     });
 
     it('makes a sample with the one model and voice id asked for, as Arc\'s own purpose', async () => {

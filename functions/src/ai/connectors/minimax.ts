@@ -22,14 +22,14 @@ const BOOST: Record<string, string> = {
     nl: 'Dutch', tr: 'Turkish', id: 'Indonesian', vi: 'Vietnamese', th: 'Thai', pl: 'Polish', uk: 'Ukrainian',
 };
 
-export function miniMaxSpeechBody(model: string, voice: string, text: string, speech: { language?: string; speed?: number; format?: 'mp3' | 'wav' | 'opus' } = {}): Record<string, unknown> {
+export function miniMaxSpeechBody(model: string, voice: string, text: string, speech: { language?: string; speed?: number; format?: 'mp3' | 'wav' | 'opus'; sampleRate?: number } = {}): Record<string, unknown> {
     const code = languageCode(speech.language);
     return {
         model,
         text,
         stream: false,
         voice_setting: { voice_id: voice, speed: speech.speed ?? 1, vol: 1, pitch: 0 },
-        audio_setting: { sample_rate: 32000, ...(speech.format === 'wav' || speech.format === 'opus' ? {} : { bitrate: 128000 }), format: speech.format ?? 'mp3', channel: 1 },
+        audio_setting: { sample_rate: speech.sampleRate ?? 32000, ...(speech.format === 'wav' || speech.format === 'opus' ? {} : { bitrate: 128000 }), format: speech.format ?? 'mp3', channel: 1 },
         language_boost: (code && BOOST[code]) || 'auto',
         output_format: 'hex',
     };

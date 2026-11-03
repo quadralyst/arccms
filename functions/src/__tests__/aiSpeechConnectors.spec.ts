@@ -14,8 +14,8 @@ import { mp3Seconds, wavSeconds } from '../ai/audio.js';
 import { readElevenLabsSubscription } from '../ai/balances.js';
 import { elevenLabsBody, elevenLabsFormat, elevenLabsSpeech, elevenLabsVoice, elevenLabsVoices } from '../ai/connectors/elevenlabs.js';
 import { googleTtsBody, googleTtsHost, googleTtsSpeech, googleTtsVoices } from '../ai/connectors/googleTts.js';
-import { miniMaxSpeech, miniMaxVoices, readMiniMaxStatus } from '../ai/connectors/minimax.js';
-import { sarvamLanguage, sarvamSpeech, sarvamVoices, speakerLanguages } from '../ai/connectors/sarvam.js';
+import { miniMaxSpeech, miniMaxSpeechBody, miniMaxVoices, readMiniMaxStatus } from '../ai/connectors/minimax.js';
+import { sarvamLanguage, sarvamSpeech, sarvamSpeechBody, sarvamVoices, speakerLanguages } from '../ai/connectors/sarvam.js';
 import type { FileRequest } from '../ai/connectors/types.js';
 import { AI_PRESETS } from '../ai/presets.js';
 import { resolveAiSettings } from '../ai/settings.js';
@@ -100,6 +100,19 @@ describe('ElevenLabs', () => {
         expect(elevenLabsFormat('opus')).toBe('opus_48000_128');
     });
 
+    it('asks for the sample rate through output_format, MP3 with the bitrate ElevenLabs pairs with it', async () => {
+        expect(elevenLabsFormat('mp3', 22050)).toBe('mp3_22050_32');
+        expect(elevenLabsFormat('mp3', 24000)).toBe('mp3_24000_48');
+        expect(elevenLabsFormat('mp3', 44100)).toBe('mp3_44100_128');
+        expect(elevenLabsFormat('wav', 16000)).toBe('wav_16000');
+        expect(elevenLabsFormat('opus', 48000)).toBe('opus_48000_128');
+        const calls = fakeFetch({ bytes: mp3(16_000) });
+        await elevenLabsSpeech({ connection: c['eleven'], key: 'k' }, speech('eleven_v4', 'VOICE1', { speech: { sampleRate: 22050 } }));
+        expect(calls[0].url).toBe('https://api.elevenlabs.io/v1/text-to-speech/VOICE1?output_format=mp3_22050_32');
+        // The rate is never a body field.
+        expect(sent(calls[0])).not.toHaveProperty('sample_rate');
+    });
+
     it('reads each failure in Arc\'s words, from detail.status or a validation list', async () => {
         const cases: Array<[number, unknown, Record<string, unknown>]> = [
             [401, { detail: { status: 'invalid_api_key', message: 'Invalid API key' } }, { failure: 'key-refused' }],
@@ -155,17 +168,29 @@ describe('ElevenLabs', () => {
 });
 
 describe('Sarvam', () => {
-    it('sends text, language_code, speaker, model and pace to /text-to-speech beside the chat address', async () => {
+    it('sends text, target_language_code, speaker, model and pace to /text-to-speech beside the chat address', async () => {
         const wav = silentWav(2);
         const calls = fakeFetch({ json: { request_id: 'sv-1', audios: [wav.toString('base64')] } });
         const r = await sarvamSpeech({ connection: c['sarvam'], key: 'sv-key-123' }, speech('bulbul:v3', 'priya', { speech: { language: 'hi-IN', speed: 1.25 } }));
         expect(calls[0].url).toBe('https://api.sarvam.ai/text-to-speech');
         expect(header(calls[0], 'api-subscription-key')).toBe('sv-key-123');
-        expect(sent(calls[0])).toEqual({ text: 'Hello there.', language_code: 'hi-IN', speaker: 'priya', model: 'bulbul:v3', pace: 1.25 });
+        // target_language_code, the field live apps get speech back with; never language_code.
+        expect(sent(calls[0])).toEqual({ text: 'Hello there.', target_language_code: 'hi-IN', speaker: 'priya', model: 'bulbul:v3', pace: 1.25 });
+        expect(sent(calls[0])).not.toHaveProperty('language_code');
         expect(r).toMatchObject({ ok: true, requestId: 'sv-1', files: [{ mimeType: 'audio/wav', seconds: 2 }] });
         fakeFetch({ json: { audios: [mp3(16_000).toString('base64')] } });
         const m = await sarvamSpeech({ connection: c['sarvam'], key: 'k' }, speech('bulbul:v3', 'priya', { speech: { language: 'en-US', format: 'mp3' } }));
         expect(m).toMatchObject({ ok: true, files: [{ mimeType: 'audio/mpeg' }] });
+    });
+
+    it('asks for the sample rate in speech_sample_rate, and leaves it to Sarvam when none is asked', async () => {
+        expect(sarvamSpeechBody('bulbul:v3', 'priya', 'Hi', 'hi-IN', { speed: 0.9, sampleRate: 22050, format: 'mp3' })).toEqual({
+            text: 'Hi', target_language_code: 'hi-IN', speaker: 'priya', model: 'bulbul:v3', pace: 0.9, speech_sample_rate: 22050, output_audio_codec: 'mp3',
+        });
+        expect(sarvamSpeechBody('bulbul:v3', 'priya', 'Hi', 'hi-IN')).not.toHaveProperty('speech_sample_rate');
+        const calls = fakeFetch({ json: { audios: [silentWav(1).toString('base64')] } });
+        await sarvamSpeech({ connection: c['sarvam'], key: 'k' }, speech('bulbul:v4-flash', 'ishita_hi_ads', { speech: { language: 'hi-IN', sampleRate: 16000 } }));
+        expect(sent(calls[0])).toMatchObject({ speech_sample_rate: 16000 });
     });
 
     it('maps Arc\'s language to Sarvam\'s and refuses one it does not speak', async () => {
@@ -222,6 +247,12 @@ describe('MiniMax', () => {
         expect((r as { files: Array<{ bytes: Buffer }> }).files[0].bytes.equals(audio)).toBe(true);
     });
 
+    it('asks for the sample rate in audio_setting, 32 kHz when none is asked', () => {
+        expect(miniMaxSpeechBody('speech-2.8-hd', 'V', 'Hi', { sampleRate: 22050 })).toMatchObject({ audio_setting: { sample_rate: 22050, bitrate: 128000, format: 'mp3' } });
+        expect(miniMaxSpeechBody('speech-2.8-hd', 'V', 'Hi', { format: 'wav', sampleRate: 16000 })).toMatchObject({ audio_setting: { sample_rate: 16000, format: 'wav' } });
+        expect(miniMaxSpeechBody('speech-2.8-hd', 'V', 'Hi')).toMatchObject({ audio_setting: { sample_rate: 32000 } });
+    });
+
     it('reads base_resp codes, since MiniMax answers 200 for most failures', () => {
         expect(readMiniMaxStatus(0, '')).toBeNull();
         expect(readMiniMaxStatus(1004, 'not authorized')).toMatchObject({ failure: 'key-refused' });
@@ -261,6 +292,8 @@ describe('Google Cloud Text-to-Speech', () => {
         expect(sent(calls[0])).toEqual({ input: { text: 'Hello there.' }, voice: { languageCode: 'hi-IN', name: 'hi-IN-Chirp3-HD-Kore' }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.1 } });
         expect(r).toMatchObject({ ok: true, files: [{ mimeType: 'audio/mpeg', seconds: 0.5 }] });
         expect(googleTtsBody('en-US-Neural2-A', 'Hi', { format: 'wav' })).toMatchObject({ audioConfig: { audioEncoding: 'LINEAR16' } });
+        expect(googleTtsBody('en-US-Neural2-A', 'Hi', { format: 'mp3', sampleRate: 22050 })).toMatchObject({ audioConfig: { audioEncoding: 'MP3', sampleRateHertz: 22050 } });
+        expect((googleTtsBody('en-US-Neural2-A', 'Hi') as { audioConfig: object }).audioConfig).not.toHaveProperty('sampleRateHertz');
     });
 
     it('refuses a voice of another type before anything is sent, since it would bill at that type\'s price', async () => {

@@ -38,9 +38,10 @@ export function voiceLanguage(voice: string): string | null {
 
 const ENCODING = { mp3: 'MP3', wav: 'LINEAR16', opus: 'OGG_OPUS' } as const;
 
-export function googleTtsBody(voice: string, text: string, speech: { language?: string; speed?: number; format?: 'mp3' | 'wav' | 'opus' } = {}): Record<string, unknown> {
+export function googleTtsBody(voice: string, text: string, speech: { language?: string; speed?: number; format?: 'mp3' | 'wav' | 'opus'; sampleRate?: number } = {}): Record<string, unknown> {
     const audioConfig: Record<string, unknown> = { audioEncoding: ENCODING[speech.format ?? 'mp3'] };
     if (speech.speed !== undefined) audioConfig['speakingRate'] = speech.speed;
+    if (speech.sampleRate !== undefined) audioConfig['sampleRateHertz'] = speech.sampleRate;
     return { input: { text }, voice: { languageCode: voiceLanguage(voice) ?? speech.language ?? 'en-US', name: voice }, audioConfig };
 }
 

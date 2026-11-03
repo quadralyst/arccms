@@ -36,6 +36,8 @@ export interface AiSpeechAbilities {
     languages?: string[];
     /** Speaks only voices whose id holds this type, such as `Chirp3-HD` in `en-US-Chirp3-HD-Kore` (Google prices by type). */
     voiceType?: string;
+    /** The sample rates it makes, in Hz, by format; a format left out takes no rate setting. */
+    sampleRates?: Partial<Record<'mp3' | 'wav' | 'opus', number[]>>;
 }
 
 export type AiQuality = 'low' | 'medium' | 'high';
@@ -203,11 +205,17 @@ export interface AiPreset {
     models: Record<string, AiKnownModel>;
 }
 
+/** The sample rates each speech provider's docs list, by format, in Hz. */
+const SARVAM_RATES = [8000, 16000, 22050, 24000, 32000, 44100, 48000];
+const ELEVENLABS_RATES = { mp3: [22050, 24000, 44100], wav: [8000, 16000, 22050, 24000, 32000, 44100, 48000], opus: [48000] };
+const MINIMAX_RATES = { mp3: [8000, 16000, 22050, 24000, 32000, 44100], wav: [8000, 16000, 22050, 24000, 32000, 44100], opus: [8000, 16000, 24000] };
+const GOOGLE_RATES = { mp3: [8000, 16000, 22050, 24000, 32000, 44100, 48000], wav: [8000, 16000, 22050, 24000, 32000, 44100, 48000], opus: [8000, 12000, 16000, 24000, 48000] };
+
 /** What every speech model is: it makes speech and bills by the characters sent (AM-D5). */
 const SPEECH: Pick<AiKnownModel, 'makes' | 'unit' | 'reads' | 'schema'> = { makes: 'speech', unit: 'characters', reads: [], schema: 'json' };
 /** Google Cloud Text-to-Speech: 5,000 bytes a request, not characters (about 1,600 of Devanagari). */
 function googleTts(voiceType: string, price: number): AiKnownModel {
-    return { ...SPEECH, speech: { maxBytes: 5000, formats: ['mp3', 'wav', 'opus'], voiceType }, price, testedLive: false };
+    return { ...SPEECH, speech: { maxBytes: 5000, formats: ['mp3', 'wav', 'opus'], voiceType, sampleRates: GOOGLE_RATES }, price, testedLive: false };
 }
 /** What every picture model is: it makes pictures, and a model that edits reads one. */
 function picture(image: AiImageAbilities, extra: Partial<AiKnownModel> = {}): AiKnownModel {
@@ -473,9 +481,9 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         models: {
             'sarvam-105b': { reads: [], schema: 'json', priceIn: 15, priceOut: 60, priceCachedIn: 5, recommend: ['cheap', 'fast', 'thorough'] },
             // Speech (AM2): Rs 30 and Rs 10 per 10,000 characters.
-            'bulbul:v3': { ...SPEECH, price: 3, speech: { maxChars: 2500, formats: ['wav', 'mp3'], languages: SARVAM_LANGUAGES }, recommend: ['default'] },
+            'bulbul:v3': { ...SPEECH, price: 3, speech: { maxChars: 2500, formats: ['wav', 'mp3'], languages: SARVAM_LANGUAGES, sampleRates: { wav: SARVAM_RATES, mp3: SARVAM_RATES } }, recommend: ['default'] },
             // No Malayalam or Odia yet.
-            'bulbul:v4-flash': { ...SPEECH, price: 1, speech: { maxChars: 2500, formats: ['wav', 'mp3'], languages: SARVAM_LANGUAGES.filter((l) => l !== 'ml-IN' && l !== 'od-IN') } },
+            'bulbul:v4-flash': { ...SPEECH, price: 1, speech: { maxChars: 2500, formats: ['wav', 'mp3'], languages: SARVAM_LANGUAGES.filter((l) => l !== 'ml-IN' && l !== 'od-IN'), sampleRates: { wav: SARVAM_RATES, mp3: SARVAM_RATES } } },
         },
     },
     // AM2 (specs/ai-media-spec.md, section 6.2): speech, written from each provider's docs, not tested live.
@@ -494,10 +502,10 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         balance: 'elevenlabs',
         billingUrl: 'https://elevenlabs.io/app/subscription',
         models: {
-            'eleven_v4': { ...SPEECH, price: 0.08, speech: { maxChars: 10_000, formats: ['mp3', 'wav', 'opus'] }, recommend: ['default'] },
-            'eleven_v3': { ...SPEECH, price: 0.08, speech: { maxChars: 5000, formats: ['mp3', 'wav', 'opus'] } },
-            'eleven_multilingual_v2': { ...SPEECH, price: 0.08, speech: { maxChars: 10_000, formats: ['mp3', 'wav', 'opus'] } },
-            'eleven_flash_v2_5': { ...SPEECH, price: 0.04, speech: { maxChars: 40_000, formats: ['mp3', 'wav', 'opus'] } },
+            'eleven_v4': { ...SPEECH, price: 0.08, speech: { maxChars: 10_000, formats: ['mp3', 'wav', 'opus'], sampleRates: ELEVENLABS_RATES }, recommend: ['default'] },
+            'eleven_v3': { ...SPEECH, price: 0.08, speech: { maxChars: 5000, formats: ['mp3', 'wav', 'opus'], sampleRates: ELEVENLABS_RATES } },
+            'eleven_multilingual_v2': { ...SPEECH, price: 0.08, speech: { maxChars: 10_000, formats: ['mp3', 'wav', 'opus'], sampleRates: ELEVENLABS_RATES } },
+            'eleven_flash_v2_5': { ...SPEECH, price: 0.04, speech: { maxChars: 40_000, formats: ['mp3', 'wav', 'opus'], sampleRates: ELEVENLABS_RATES } },
             // Other audio (AM5), answered in the same request: $0.12 and $0.15 a minute. ElevenLabs'
             // pages also say "billed per generation"; the figure a minute ships, not tested live.
             'eleven_text_to_sound_v3': { makes: 'audio', unit: 'seconds', reads: [], schema: 'json', price: 0.002, audio: { type: 'sound', seconds: { min: 0.5, max: 30 }, loop: true, formats: ['mp3', 'wav'] }, recommend: ['default'] },
@@ -523,10 +531,10 @@ export const AI_PRESETS: Record<string, AiPreset> = {
         billingUrl: 'https://platform.minimax.io/user-center/payment/balance',
         models: {
             // $1.00 and $0.60 per 10,000 characters; fewer than 10,000 characters a request.
-            'speech-2.8-hd': { ...SPEECH, price: 0.1, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] }, recommend: ['default'] },
-            'speech-2.8-turbo': { ...SPEECH, price: 0.06, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] } },
-            'speech-2.6-hd': { ...SPEECH, price: 0.1, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] } },
-            'speech-2.6-turbo': { ...SPEECH, price: 0.06, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'] } },
+            'speech-2.8-hd': { ...SPEECH, price: 0.1, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'], sampleRates: MINIMAX_RATES }, recommend: ['default'] },
+            'speech-2.8-turbo': { ...SPEECH, price: 0.06, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'], sampleRates: MINIMAX_RATES } },
+            'speech-2.6-hd': { ...SPEECH, price: 0.1, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'], sampleRates: MINIMAX_RATES } },
+            'speech-2.6-turbo': { ...SPEECH, price: 0.06, speech: { maxChars: 9999, formats: ['mp3', 'wav', 'opus'], sampleRates: MINIMAX_RATES } },
             // Pictures (AM3), answered as base64 so nothing is fetched from another host.
             'MiniMax-H3': video({ aspects: MINIMAX_VIDEO_ASPECTS, resolutions: ['720p', '1080p'], seconds: { min: 4, max: 15 }, sound: 'never', firstFrame: true, priceByResolution: { '720p': 0.08, '1080p': 0.13 } }, { recommend: ['default'] }),
             'MiniMax-H3-Highspeed': video({ aspects: MINIMAX_VIDEO_ASPECTS, resolutions: ['480p', '720p'], seconds: { min: 4, max: 15 }, sound: 'never', firstFrame: true, priceByResolution: { '480p': 0.04, '720p': 0.06 } }),

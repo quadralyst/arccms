@@ -802,6 +802,8 @@ async function ask(input: AskAiInput, arc: ArcAskOptions | null): Promise<AskAiR
         if (abilities?.maxBytes && Buffer.byteLength(text, 'utf8') > abilities.maxBytes) return { detail: `takes at most ${abilities.maxBytes} bytes of text a request`, tooLong: true };
         const format = c.settings.speech?.format ?? 'mp3';
         if (abilities && !abilities.formats.includes(format)) return { detail: `makes no ${format}` };
+        const rate = c.settings.speech?.sampleRate;
+        if (abilities && rate !== undefined && !abilities.sampleRates?.[format]?.includes(rate)) return { detail: `makes no ${format} at ${rate} Hz` };
         const language = c.settings.speech?.language;
         // By the language alone, not the region: a provider that speaks en-IN reads en-US text too.
         const primary = (tag: string) => tag.split('-')[0].toLowerCase().replace(/^or$/, 'od');

@@ -51,9 +51,15 @@ export function sarvamLanguage(tag: string | undefined): string | null {
     return SARVAM_LANGUAGES.find((l) => l.startsWith(`${code}-`)) ?? null;
 }
 
-export function sarvamSpeechBody(model: string, voice: string, text: string, language: string, speech: { speed?: number; format?: 'mp3' | 'wav' | 'opus' } = {}): Record<string, unknown> {
-    const body: Record<string, unknown> = { text, language_code: language, speaker: voice, model };
+/**
+ * The request body. The language goes in `target_language_code`: Sarvam's reference page now
+ * shows `language_code`, but `target_language_code` is the field live apps send and get
+ * speech back with, so Arc sends that one.
+ */
+export function sarvamSpeechBody(model: string, voice: string, text: string, language: string, speech: { speed?: number; format?: 'mp3' | 'wav' | 'opus'; sampleRate?: number } = {}): Record<string, unknown> {
+    const body: Record<string, unknown> = { text, target_language_code: language, speaker: voice, model };
     if (speech.speed !== undefined) body['pace'] = speech.speed;
+    if (speech.sampleRate !== undefined) body['speech_sample_rate'] = speech.sampleRate;
     if (speech.format === 'mp3') body['output_audio_codec'] = 'mp3';
     return body;
 }

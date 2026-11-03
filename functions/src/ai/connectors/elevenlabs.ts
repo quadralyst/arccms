@@ -21,12 +21,18 @@ const NO_LANGUAGE = /^eleven_multilingual_v2/;
 /** v3 and v4 have no speed setting. */
 const NO_SPEED = /^eleven_v[34]/;
 
+/** ElevenLabs' MP3 at each rate it makes, with the bitrate it pairs with that rate. */
+const MP3_AT: Record<number, string> = { 22050: 'mp3_22050_32', 24000: 'mp3_24000_48', 44100: 'mp3_44100_128' };
+
 /**
- * The output_format for Arc's format: MP3 at 128 kbps, Opus, or WAV at 24 kHz (44.1 kHz WAV
- * needs ElevenLabs' Pro plan).
+ * The output_format for Arc's format and rate: MP3 at 128 kbps, Opus, or WAV at 24 kHz when no
+ * rate is asked (44.1 kHz WAV needs ElevenLabs' Pro plan). A rate the model does not make never
+ * gets here: Arc skips the model first.
  */
-export function elevenLabsFormat(format: 'mp3' | 'wav' | 'opus' = 'mp3'): string {
-    return format === 'wav' ? 'wav_24000' : format === 'opus' ? 'opus_48000_128' : 'mp3_44100_128';
+export function elevenLabsFormat(format: 'mp3' | 'wav' | 'opus' = 'mp3', sampleRate?: number): string {
+    if (format === 'wav') return `wav_${sampleRate ?? 24000}`;
+    if (format === 'opus') return 'opus_48000_128';
+    return (sampleRate && MP3_AT[sampleRate]) || 'mp3_44100_128';
 }
 
 /** The request body for one text. ElevenLabs takes a speed from 0.7 to 1.2, so Arc's is kept inside it. */
@@ -75,7 +81,7 @@ export const elevenLabsSpeech: FileConnector = async ({ connection, key }, reque
     if (!request.voice) return { ok: false, failure: 'off', detail: 'no ElevenLabs voice was chosen' };
     const format = request.speech?.format ?? 'mp3';
     const auth = connectionAuth(connection);
-    const url = `${base}/text-to-speech/${encodeURIComponent(request.voice)}?output_format=${elevenLabsFormat(format)}`;
+    const url = `${base}/text-to-speech/${encodeURIComponent(request.voice)}?output_format=${elevenLabsFormat(format, request.speech?.sampleRate)}`;
     const answer = await sendRequest(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json', accept: 'audio/*', [auth.header]: `${auth.prefix}${key}` },

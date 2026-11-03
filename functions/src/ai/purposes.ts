@@ -120,6 +120,7 @@ export function fileSettingsProblems(at: string, p: AiPurpose, kind: AiKind): st
         if (speech.speed !== undefined && (typeof speech.speed !== 'number' || speech.speed < 0.5 || speech.speed > 2)) problems.push(`${at}: speech.speed must be from 0.5 to 2`);
         if (speech.format !== undefined && !['mp3', 'wav', 'opus'].includes(speech.format)) problems.push(`${at}: speech.format must be 'mp3', 'wav' or 'opus'`);
         if (speech.language !== undefined && !/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(speech.language)) problems.push(`${at}: speech.language must be a language tag such as en-US or hi-IN`);
+        if (speech.sampleRate !== undefined && (!Number.isInteger(speech.sampleRate) || speech.sampleRate < 8000 || speech.sampleRate > 48000)) problems.push(`${at}: speech.sampleRate must be a whole number of Hz from 8000 to 48000, such as 22050`);
     }
     const audio = p.audio;
     if (audio && kind === 'audio') {

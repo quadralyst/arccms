@@ -54,6 +54,11 @@ export interface AiSpeechSettings {
     format?: 'mp3' | 'wav' | 'opus';
     /** An instruction for models that take one, such as "calm and warm". */
     style?: string;
+    /**
+     * Hz, such as 22050. Left out: the model's own rate. A model that does not make this rate
+     * in the format asked is skipped, as for a format it does not make.
+     */
+    sampleRate?: number;
 }
 
 /**
@@ -292,7 +297,7 @@ export interface AskAiInput {
     /** A picture's settings for this call, over the purpose's. */
     image?: AiImageSettings;
     /** Speech settings for this call, over the purpose's. */
-    speech?: Pick<AiSpeechSettings, 'language' | 'speed'>;
+    speech?: Pick<AiSpeechSettings, 'language' | 'speed' | 'sampleRate'>;
     /** Speech only: one of the purpose's named voices. Default: its first. */
     voice?: string;
     /** A sound's or music's length for this call. */
