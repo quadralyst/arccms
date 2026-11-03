@@ -9,7 +9,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, OnInit, ou
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { failureAdvice, PROVIDER_GUIDES, type ProviderGuide } from './ai-provider-guide';
-import { AiConnectionForm, AiPresetInfo, AiSettingsService, blankConnection, connectionId, KEY_HEADERS, presetNeedsKey, safeHeaderName } from './ai-settings.service';
+import { AiConnectionForm, AiPresetInfo, type AiPresetModel, AiSettingsService, blankConnection, connectionId, KEY_HEADERS, presetNeedsKey, safeHeaderName } from './ai-settings.service';
 
 /** What a finished connect hands back to the page. */
 export interface AiConnected {
@@ -125,8 +125,8 @@ type Phase = 'idle' | 'saving' | 'testing' | 'done' | 'failed';
                             <label class="form-label small mb-1" for="aiConnectModel">{{ 'admin.settings.ai.test_model' | transloco }}</label>
                             <input id="aiConnectModel" class="form-control" [attr.list]="'aiConnectModels'" [ngModel]="model()" (ngModelChange)="model.set($event)"
                                 [placeholder]="'admin.settings.ai.model_placeholder' | transloco" />
-                            <datalist id="aiConnectModels">@for (m of p.models; track m.model) { <option [value]="m.model"></option> }</datalist>
-                            @if (!p.models.length) { <small class="text-muted">{{ 'admin.settings.ai.model_name_hint' | transloco }}</small> }
+                            <datalist id="aiConnectModels">@for (m of textModels(); track m.model) { <option [value]="m.model"></option> }</datalist>
+                            @if (!textModels().length) { <small class="text-muted">{{ 'admin.settings.ai.model_name_hint' | transloco }}</small> }
                         </div>
                         } @else {
                             <div class="col-sm-6 small text-muted align-self-end voices-check-hint">{{ (preset()?.makesPresenters ? 'admin.settings.ai.connect_checks_avatars' : preset()?.makesSpeech ? 'admin.settings.ai.connect_checks_voices' : 'admin.settings.ai.connect_checks_balance') | transloco }}</div>
@@ -137,7 +137,7 @@ type Phase = 'idle' | 'saving' | 'testing' | 'done' | 'failed';
                         @if (busy()) { <i class="fas fa-spinner fa-spin me-1"></i>{{ (phase() === 'saving' ? 'admin.settings.ai.connecting' : 'admin.settings.ai.testing') | transloco }} }
                         @else { <i class="fa-solid fa-plug me-1"></i>{{ (existing() ? 'admin.settings.ai.save_and_test' : 'admin.settings.ai.connect_and_test') | transloco }} }
                     </button>
-                    @if (!ready() && !busy()) { <small class="d-block text-muted mt-1">{{ missing() | transloco }}</small> }
+                    @if (!ready() && !busy()) { <small class="d-block text-muted mt-1 missing-hint">{{ missing() | transloco: { model: model().trim(), example: textModels()[0]?.model ?? '' } }}</small> }
 
                     @if (phase() === 'failed') {
                         <div class="alert alert-danger mt-3 mb-0 small result" role="alert">
@@ -222,8 +222,12 @@ export class AiConnectComponent implements OnInit {
         if (!this.existing() && p.needsAddress && this.headerChoice() === 'custom' && !this.header()) return 'admin.settings.ai.header_invalid';
         if (this.needsKey(p) && this.key().trim().length < 8) return 'admin.settings.ai.missing_key';
         if (p.makesText !== false && !this.model().trim()) return 'admin.settings.ai.missing_model';
+        // Test asks a question: a model the provider lists as making files cannot answer it.
+        if (p.makesText !== false && p.models.some((m) => m.model === this.model().trim() && !isTextModel(m))) return this.textModels().length ? 'admin.settings.ai.test_model_not_text' : 'admin.settings.ai.test_model_not_text_type';
         return '';
     });
+    /** The provider's models that answer in text, the only ones Test can try. */
+    readonly textModels = computed(() => (this.preset()?.models ?? []).filter(isTextModel));
     readonly ready = computed(() => this.missing() === '');
 
     needsKey(p: AiPresetInfo): boolean {
@@ -244,7 +248,8 @@ export class AiConnectComponent implements OnInit {
         this.choosing.set(false);
         this.phase.set('idle');
         const p = this.presets().find((x) => x.id === id);
-        this.model.set(p?.models.find((m) => m.recommend?.includes('fast'))?.model ?? p?.models[0]?.model ?? '');
+        const text = (p?.models ?? []).filter(isTextModel);
+        this.model.set(text.find((m) => m.recommend?.includes('fast'))?.model ?? text[0]?.model ?? '');
     }
 
     /** Replacing a key: the provider is known, and the model to test is its first recommended one. */
@@ -300,7 +305,8 @@ export class AiConnectComponent implements OnInit {
             this.saved.emit({ ...base, lastError: r.detail ?? r.failure ?? null });
             this.fail(failureAdvice(r.failure, r.detail), r.detail ?? r.failure ?? '');
         } catch (err: any) {
-            this.fail('advice_other', err?.message ?? '');
+            // A model the admin set as making files in Settings, AI: the server refuses to test it.
+            this.fail(/text models only/i.test(String(err?.message ?? '')) ? 'advice_not_text' : 'advice_other', err?.message ?? '');
         }
     }
 
@@ -331,4 +337,9 @@ export class AiConnectComponent implements OnInit {
         this.detail.set(detail);
         this.phase.set('failed');
     }
+}
+
+/** A model that answers in text (data is text with a schema), which Test can ask its question. */
+function isTextModel(m: AiPresetModel): boolean {
+    return (m.makes ?? 'text') === 'text';
 }

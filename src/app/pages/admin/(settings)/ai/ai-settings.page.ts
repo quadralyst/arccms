@@ -608,7 +608,7 @@ export function usd(n: number): string {
                                                     <label class="form-label small mb-1" [for]="'aiDelete-' + p.id">{{ 'admin.settings.ai.delete_after' | transloco }}</label>
                                                     <input type="number" min="1" max="3650" step="1" class="form-control form-control-sm delete-after" [id]="'aiDelete-' + p.id"
                                                         [placeholder]="p.deleteAfterDays ?? ''" [ngModel]="purpose(p.id).deleteAfterDays" (ngModelChange)="setDeleteAfter(p.id, $event)" />
-                                                    <small class="text-muted">{{ (p.deleteAfterDays ? 'admin.settings.ai.delete_after_hint_app' : 'admin.settings.ai.delete_after_hint_none') | transloco: { n: p.deleteAfterDays } }}</small>
+                                                    <small class="text-muted">{{ (p.deleteAfterDays === 1 ? 'admin.settings.ai.delete_after_hint_app_one' : p.deleteAfterDays ? 'admin.settings.ai.delete_after_hint_app' : 'admin.settings.ai.delete_after_hint_none') | transloco: { n: p.deleteAfterDays } }}</small>
                                                 </div>
                                             </div>
                                         }
@@ -616,7 +616,7 @@ export function usd(n: number): string {
                                             <div class="form-check form-switch mt-3">
                                                 <input type="checkbox" class="form-check-input cache-switch" role="switch" [id]="'aiCache-' + p.id" [ngModel]="purpose(p.id).cache !== false" (ngModelChange)="patchPurpose(p.id, { cache: $event ? null : false })" />
                                                 <label class="form-check-label" [for]="'aiCache-' + p.id">{{ 'admin.settings.ai.cache' | transloco }}</label>
-                                                <small class="d-block text-muted">{{ 'admin.settings.ai.cache_hint' | transloco: { days: p.cacheDays } }}</small>
+                                                <small class="d-block text-muted">{{ (p.cacheDays === 1 ? 'admin.settings.ai.cache_hint_one' : 'admin.settings.ai.cache_hint') | transloco: { days: p.cacheDays } }}</small>
                                             </div>
                                         }
                                     }
@@ -1686,7 +1686,7 @@ export class AiSettingsPage implements OnInit, OnDestroy {
     /** An amount in its unit, such as "3 pictures" or "1,200 characters". */
     amountText(n: number, unit: string): string {
         if (unit !== 'pictures' && unit !== 'characters' && unit !== 'seconds') return `${this.n(n)} ${unit}`;
-        return this.transloco.translate(`admin.settings.ai.amount_${unit}`, { n: this.n(n) });
+        return this.transloco.translate(`admin.settings.ai.amount_${unit}${n === 1 ? '_one' : ''}`, { n: this.n(n) });
     }
 
     /** What file kinds billed, in each unit: '' when none. */

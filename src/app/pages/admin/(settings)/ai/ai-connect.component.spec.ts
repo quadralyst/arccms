@@ -19,6 +19,12 @@ const PRESETS: AiPresetInfo[] = [
     { id: 'elevenlabs', label: 'ElevenLabs', kind: 'elevenlabs', processesIn: 'The US', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, makesText: false, makesSpeech: true, files: 'elevenlabs', testedLive: false, docsReadOn: '2026-11-02', models: [{ model: 'eleven_v4', makes: 'speech', reads: [], schema: 'json', recommend: ['default'] }] },
     { id: 'heygen', label: 'HeyGen (presenter videos)', kind: 'heygen', processesIn: 'The US', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, makesText: false, makesSpeech: false, makesVideo: true, makesPresenters: true, files: 'heygen', testedLive: false, models: [] },
     { id: 'kling', label: 'Kling', kind: 'kling', processesIn: 'Singapore', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, makesText: false, makesSpeech: false, makesVideo: true, files: 'kling', readsBalance: true, testedLive: false, models: [] },
+    // A provider with text and speech models: only the text ones can be tested.
+    { id: 'sarvam', label: 'Sarvam AI', kind: 'openai', processesIn: 'India', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, makesSpeech: true, files: 'sarvam', testedLive: false, models: [
+        { model: 'bulbul:v3', makes: 'speech', reads: [], schema: 'json', recommend: ['default'] },
+        { model: 'sarvam-105b', reads: [], schema: 'json', recommend: ['cheap', 'fast', 'thorough'] },
+    ] },
+    { id: 'openai', label: 'OpenAI', kind: 'openai', processesIn: 'The US', needsWorkspace: false, needsAddress: false, reportsCost: false, needsKey: true, models: [{ model: 'gpt-image-2', makes: 'image', reads: [], schema: 'json', recommend: ['default'] }] },
     { id: 'other', label: 'Other OpenAI-style address', kind: 'openai', processesIn: 'Where the admin says', needsWorkspace: false, needsAddress: true, reportsCost: false, models: [] },
 ];
 
@@ -233,6 +239,46 @@ describe('AiConnectComponent, AM1 providers', () => {
 });
 
 describe('failureAdvice', () => {
+    it('offers only text models to test, starts on one, and explains a file model before anything is sent', async () => {
+        const { page, component, service, settle } = await render();
+        component.choose('sarvam');
+        await settle();
+        expect(component.model()).toBe('sarvam-105b');
+        expect([...page.querySelectorAll('#aiConnectModels option')].map((o) => o.getAttribute('value'))).toEqual(['sarvam-105b']);
+        component.key.set('sk_test_abcdefgh');
+        component.model.set('bulbul:v3');
+        await settle();
+        expect(page.querySelector<HTMLButtonElement>('.connect-button')!.disabled).toBe(true);
+        expect(page.querySelector('.missing-hint')?.textContent).toContain('bulbul:v3 makes files, not text. Test asks a question, so choose a text model, such as sarvam-105b.');
+        await component.connect();
+        expect(service.saveConnection).not.toHaveBeenCalled();
+        // A provider that lists only picture models: the admin types a text model.
+        component.choose('openai');
+        await settle();
+        expect(component.model()).toBe('');
+        component.key.set('sk-test-abcdefgh');
+        component.model.set('gpt-image-2');
+        await settle();
+        expect(page.querySelector('.missing-hint')?.textContent).toContain('type the name of one of the provider\'s text models');
+        component.choose('sarvam');
+        component.key.set('sk_test_abcdefgh');
+        // A name the provider does not list is the admin's to try.
+        component.model.set('sarvam-m');
+        await settle();
+        expect(page.querySelector<HTMLButtonElement>('.connect-button')!.disabled).toBe(false);
+    });
+
+    it('says so when the server refuses to test a model set as making files, and keeps the saved key', async () => {
+        const { page, component, settle } = await render({ test: async () => { throw Object.assign(new Error('This model makes speech; Test tries text models only.'), { code: 'functions/failed-precondition' }); } });
+        component.choose('sarvam');
+        component.key.set('sk_test_abcdefgh');
+        component.model.set('my-voice-model');
+        await component.connect();
+        await settle();
+        expect(page.querySelector('.result')?.textContent).toContain('The key is saved, but Test asks a question, and this model makes files, not text.');
+        expect(page.querySelector('.result')?.textContent).not.toContain('Something went wrong');
+    });
+
     it('turns a provider\'s answer into what to do', () => {
         expect(failureAdvice('key-refused')).toBe('advice_key');
         expect(failureAdvice('unavailable', 'the provider account has no credit (402): Insufficient credits')).toBe('advice_credit');

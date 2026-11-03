@@ -975,6 +975,7 @@ export type TranslationKey =
     | 'admin.settings.ai.advice_key'
     | 'admin.settings.ai.advice_key_again'
     | 'admin.settings.ai.advice_model'
+    | 'admin.settings.ai.advice_not_text'
     | 'admin.settings.ai.advice_other'
     | 'admin.settings.ai.advice_reach'
     | 'admin.settings.ai.advice_save'
@@ -990,8 +991,11 @@ export type TranslationKey =
     | 'admin.settings.ai.allowance_who'
     | 'admin.settings.ai.amount'
     | 'admin.settings.ai.amount_characters'
+    | 'admin.settings.ai.amount_characters_one'
     | 'admin.settings.ai.amount_pictures'
+    | 'admin.settings.ai.amount_pictures_one'
     | 'admin.settings.ai.amount_seconds'
+    | 'admin.settings.ai.amount_seconds_one'
     | 'admin.settings.ai.answer'
     | 'admin.settings.ai.answered'
     | 'admin.settings.ai.arc_media_image_note'
@@ -1040,6 +1044,7 @@ export type TranslationKey =
     | 'admin.settings.ai.by_purpose'
     | 'admin.settings.ai.cache'
     | 'admin.settings.ai.cache_hint'
+    | 'admin.settings.ai.cache_hint_one'
     | 'admin.settings.ai.cache_hits'
     | 'admin.settings.ai.cached_from'
     | 'admin.settings.ai.call_cached_tokens'
@@ -1076,6 +1081,7 @@ export type TranslationKey =
     | 'admin.settings.ai.day'
     | 'admin.settings.ai.delete_after'
     | 'admin.settings.ai.delete_after_hint_app'
+    | 'admin.settings.ai.delete_after_hint_app_one'
     | 'admin.settings.ai.delete_after_hint_none'
     | 'admin.settings.ai.details'
     | 'admin.settings.ai.download'
@@ -1267,6 +1273,8 @@ export type TranslationKey =
     | 'admin.settings.ai.test_badge'
     | 'admin.settings.ai.test_calls'
     | 'admin.settings.ai.test_model'
+    | 'admin.settings.ai.test_model_not_text'
+    | 'admin.settings.ai.test_model_not_text_type'
     | 'admin.settings.ai.test_needs_model'
     | 'admin.settings.ai.test_note'
     | 'admin.settings.ai.test_ok'
@@ -3493,6 +3501,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.advice_key',
     'admin.settings.ai.advice_key_again',
     'admin.settings.ai.advice_model',
+    'admin.settings.ai.advice_not_text',
     'admin.settings.ai.advice_other',
     'admin.settings.ai.advice_reach',
     'admin.settings.ai.advice_save',
@@ -3508,8 +3517,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.allowance_who',
     'admin.settings.ai.amount',
     'admin.settings.ai.amount_characters',
+    'admin.settings.ai.amount_characters_one',
     'admin.settings.ai.amount_pictures',
+    'admin.settings.ai.amount_pictures_one',
     'admin.settings.ai.amount_seconds',
+    'admin.settings.ai.amount_seconds_one',
     'admin.settings.ai.answer',
     'admin.settings.ai.answered',
     'admin.settings.ai.arc_media_image_note',
@@ -3558,6 +3570,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.by_purpose',
     'admin.settings.ai.cache',
     'admin.settings.ai.cache_hint',
+    'admin.settings.ai.cache_hint_one',
     'admin.settings.ai.cache_hits',
     'admin.settings.ai.cached_from',
     'admin.settings.ai.call_cached_tokens',
@@ -3594,6 +3607,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.day',
     'admin.settings.ai.delete_after',
     'admin.settings.ai.delete_after_hint_app',
+    'admin.settings.ai.delete_after_hint_app_one',
     'admin.settings.ai.delete_after_hint_none',
     'admin.settings.ai.details',
     'admin.settings.ai.download',
@@ -3785,6 +3799,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.ai.test_badge',
     'admin.settings.ai.test_calls',
     'admin.settings.ai.test_model',
+    'admin.settings.ai.test_model_not_text',
+    'admin.settings.ai.test_model_not_text_type',
     'admin.settings.ai.test_needs_model',
     'admin.settings.ai.test_note',
     'admin.settings.ai.test_ok',

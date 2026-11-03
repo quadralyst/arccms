@@ -392,6 +392,20 @@ describe('AiSettingsPage, files and AM1 settings', () => {
         expect(page.querySelector('.purpose[data-id="cover"] .model')?.getAttribute('list')).toBe('aiModels-p-image');
     });
 
+    it('says 1 day, not 1 days, and 1 picture, in the purpose\'s hints and the amounts', async () => {
+        const oneDay: AiSetupInfo = { ...MEDIA, purposes: MEDIA.purposes.map((p) => (p.id === 'cover' ? { ...p, deleteAfterDays: 1, cacheDays: 1 } : p)) };
+        const { page, component, settle } = await render({}, oneDay);
+        component.openTab('purposes');
+        await settle();
+        const cover = page.querySelector('.purpose[data-id="cover"]')!;
+        expect(cover.textContent).toContain('Leave empty to keep your app\'s 1 day.');
+        expect(cover.textContent).toContain('again for 1 day,');
+        expect(cover.textContent).not.toContain('1 days');
+        expect(component.amountText(1, 'pictures')).toBe('1 picture');
+        expect(component.amountText(1, 'seconds')).toBe('1 second');
+        expect(component.amountText(2, 'pictures')).toBe('2 pictures');
+    });
+
     it('shows a file purpose\'s kind, where its files go, its allowance unit, the days and the cache switch', async () => {
         const { page, component, settle } = await render({}, MEDIA);
         component.openTab('purposes');
