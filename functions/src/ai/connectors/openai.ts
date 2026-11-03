@@ -21,19 +21,28 @@ export interface ChatOptions {
     openRouter?: boolean;
 }
 
-export function chatBody(request: ConnectorRequest, options: ChatOptions = {}): Record<string, unknown> {
-    const content: Array<Record<string, unknown>> = request.parts.map((part) => {
+/**
+ * The user message's content. Text alone goes as one string, which every Chat Completions
+ * server takes (Sarvam's refuses a list of parts); with pictures or PDFs, as a list of parts.
+ */
+export function chatContent(parts: ConnectorRequest['parts']): string | Array<Record<string, unknown>> {
+    const texts = parts.flatMap((part) => (part.kind === 'text' ? [part.text] : []));
+    if (texts.length === parts.length) return texts.join('\n\n');
+    return parts.map((part) => {
         if (part.kind === 'text') return { type: 'text', text: part.text };
         const url = `data:${part.mimeType};base64,${part.bytes.toString('base64')}`;
         if (part.kind === 'picture') return { type: 'image_url', image_url: { url } };
         return { type: 'file', file: { filename: part.name ?? 'document.pdf', file_data: url } };
     });
-    if (!content.length) content.push({ type: 'text', text: '' });
+}
+
+export function chatBody(request: ConnectorRequest, options: ChatOptions = {}): Record<string, unknown> {
     const body: Record<string, unknown> = {
         model: request.model,
         messages: [
-            { role: 'system', content: request.instruction },
-            { role: 'user', content },
+            // No instruction, no system message: some servers refuse an empty one.
+            ...(request.instruction ? [{ role: 'system', content: request.instruction }] : []),
+            { role: 'user', content: chatContent(request.parts) },
         ],
     };
     if (request.schema) {

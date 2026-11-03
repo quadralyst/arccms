@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../init', () => ({ db: {}, storage: {}, owner: {} }));
 
-import { chatBody, openAiConnector, readResponse } from '../ai/connectors/openai.js';
+import { chatBody, chatContent, openAiConnector, readResponse } from '../ai/connectors/openai.js';
 import { resolveAiSettings } from '../ai/settings.js';
 import type { ConnectorRequest } from '../ai/connectors/types.js';
 
@@ -36,6 +36,20 @@ describe('chatBody', () => {
         expect(content[2]).toMatchObject({ type: 'file', file: { filename: 'menu.pdf' } });
         expect(body.response_format).toEqual({ type: 'json_object' });
         expect(body).not.toHaveProperty('usage');
+    });
+
+    it('sends text alone as one string, which every server takes, and a list of parts only with pictures or PDFs', () => {
+        // Sarvam's chat refuses a list ("Input should be a valid string"), found live.
+        const text = chatBody({ ...request, parts: [{ kind: 'text', text: 'In German.' }] }) as { messages: Array<{ role: string; content: unknown }> };
+        expect(text.messages).toEqual([{ role: 'system', content: 'Read the menu.' }, { role: 'user', content: 'In German.' }]);
+        expect(chatContent([{ kind: 'text', text: 'First.' }, { kind: 'text', text: 'Second.' }])).toBe('First.\n\nSecond.');
+        expect(chatContent([])).toBe('');
+        expect(Array.isArray(chatContent(request.parts))).toBe(true);
+    });
+
+    it('leaves out the system message when there is no instruction', () => {
+        const body = chatBody({ ...request, instruction: '', parts: [{ kind: 'text', text: 'Hi' }] }) as { messages: unknown[] };
+        expect(body.messages).toEqual([{ role: 'user', content: 'Hi' }]);
     });
 
     it('holds a strict model to the schema, and asks OpenRouter for the cost', () => {
