@@ -18,6 +18,7 @@ import { roleGuard } from '../../../../guards/role.guard';
 import { AnalyticsSettingService } from './analytics-setting.service';
 import { AnalyticsTrackingStatusComponent } from '../../../../core/analytics/analytics-status.component';
 import { DEFAULT_ANALYTICS_SETTINGS, IAnalyticsSettings } from './analytics-setting.model';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Analytics Settings',
@@ -28,7 +29,7 @@ export const routeMeta: RouteMeta = {
 @Component({
     standalone: true,
     imports: [
-        CommonModule,
+        LoaderComponent, CommonModule,
         ReactiveFormsModule,
         MatCardModule,
         MatFormFieldModule,
@@ -41,11 +42,7 @@ export const routeMeta: RouteMeta = {
         <div class="analytics-settings">
             <arc-analytics-tracking-status />
             @if (isLoading()) {
-                <div class="disabled-state">
-                    <div class="disabled-content">
-                        <mat-spinner diameter="40"></mat-spinner>
-                    </div>
-                </div>
+                <arc-loader kind="block" [count]="2"></arc-loader>
             } @else if (!connectionStatus.isConnected() && !hasCredentials() && !showSetup()) {
                 <!-- Disabled State — matches Email Settings pattern -->
                 <div class="disabled-state">

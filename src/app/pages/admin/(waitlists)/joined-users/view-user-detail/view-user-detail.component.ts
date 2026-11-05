@@ -18,6 +18,7 @@ import { IWaitlistUserNote, getWaitlistUserNotesPath } from '../waitlist-user-no
 import { WaitlistUserTagsStore } from '../waitlist-user-tags.store';
 import { GlobalService } from '../../../../../../shared/services/global.service';
 import { ISignupMetadata } from '../../../../waitlist/signup-metadata.model';
+import { LoaderComponent } from '../../../../../../shared/components/loader/loader.component';
 
 interface WaitlistUser {
     id: string;
@@ -38,7 +39,7 @@ interface WaitlistUser {
     styleUrls: ['./view-user-detail.component.scss'],
     standalone: true,
     imports: [
-        CommonModule,
+        LoaderComponent, CommonModule,
         FormsModule,
         MatIconModule,
         MatButtonModule

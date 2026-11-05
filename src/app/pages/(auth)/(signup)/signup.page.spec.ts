@@ -1192,6 +1192,14 @@ describe('SignupComponent', () => {
             };
         }
 
+        it('a blocked account is told so on the email step, and asked for nothing', async () => {
+            const c = emailCheckCtx({ signInWith: 'blocked' });
+            await proto.checkEmail.call(c);
+            expect(c.errorMessage.set).toHaveBeenLastCalledWith(expect.stringContaining('blocked'));
+            expect(c.goToStep).not.toHaveBeenCalled();
+            expect(c.sendOtp).not.toHaveBeenCalled();
+        });
+
         it('an account with a PIN goes to the PIN', async () => {
             const c = emailCheckCtx({ signInWith: 'pin' });
             await proto.checkEmail.call(c);

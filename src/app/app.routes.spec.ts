@@ -95,6 +95,14 @@ describe('App Routes', () => {
     });
 
     describe('Admin Routes', () => {
+        it('draws the 403 page on its own, without the admin\'s side menu', async () => {
+            const route = routes.find(r => r.path === 'admin/unauthorized');
+            expect(route?.children, 'no admin shell around it').toBeUndefined();
+            expect(route?.canActivate, 'anyone may land on it').toBeUndefined();
+            const page = await (route!.loadComponent as () => Promise<unknown>)();
+            expect((page as { name: string }).name).toContain('UnauthorizedComponent');
+        });
+
         it('should have admin/waitlists route with correct layout', async () => {
             const adminRoute = routes.find(r => r.path === 'admin/waitlists');
             expect(adminRoute, 'Admin waitlists route should exist').toBeDefined();

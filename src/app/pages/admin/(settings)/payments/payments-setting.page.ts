@@ -21,6 +21,7 @@ import { roleGuard } from '../../../../guards/role.guard';
 import { PaymentSettingsService, PAYMENT_EMAIL_DEFINITIONS } from './payment-settings.service';
 import { MASKED_VALUE } from './payment-settings.model';
 import { IEmailTemplate, PaymentEmailType } from '../../(waitlists)/email-template.model';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Payments Settings',
@@ -31,7 +32,7 @@ export const routeMeta: RouteMeta = {
 @Component({
     standalone: true,
     imports: [
-        CommonModule,
+        LoaderComponent, CommonModule,
         ReactiveFormsModule,
         FormsModule,
         MatCardModule,
@@ -52,7 +53,7 @@ export const routeMeta: RouteMeta = {
             <p class="text-muted mb-4">{{ 'admin.settings.payments.subtitle' | transloco }}</p>
 
             @if (isLoading()) {
-                <div class="d-flex justify-content-center py-5"><mat-spinner diameter="40"></mat-spinner></div>
+                <arc-loader kind="block" [count]="2"></arc-loader>
             } @else {
                 <!-- ═══════════ Connection ═══════════ -->
                 <mat-card class="mb-4 integration-card">

@@ -25,7 +25,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { EmailSettingService } from './email-setting.service';
 import { TestConnectionDialogComponent } from './test-connection-dialog.component';
-import { DEFAULT_EMAIL_FEATURES, EMAIL_FEATURE_META, EMAIL_PROVIDERS, EmailProvider, IEmailSettings, PROVIDER_DEFAULT_LIMITS } from './email-setting.model';
+import { DEFAULT_EMAIL_FEATURES, EMAIL_FEATURE_META, EMAIL_PROVIDERS, EmailProvider, IEmailSettings, PROVIDER_DEFAULT_LIMITS, senderNameFor } from './email-setting.model';
+import { SiteBrandService } from '../../../../core/brand/site-brand';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 import { IEmailProviderComponent } from './providers/email-provider-base';
 import { SmtpProviderComponent } from './providers/smtp-provider.component';
 import { GmailProviderComponent } from './providers/gmail-provider.component';
@@ -35,7 +37,7 @@ import { DebugProviderComponent } from './providers/debug-provider.component';
 @Component({
     standalone: true,
     imports: [
-        CommonModule,
+        LoaderComponent, CommonModule,
         ReactiveFormsModule,
         MatCardModule,
         MatFormFieldModule,
@@ -55,6 +57,7 @@ import { DebugProviderComponent } from './providers/debug-provider.component';
 })
 export default class EmailSettingPageComponent extends BaseComponent implements OnInit {
     private fb = inject(FormBuilder);
+    private siteBrand = inject(SiteBrandService);
     private emailSettingService = inject(EmailSettingService);
     private dialog = inject(MatDialog);
     private destroyRef = inject(DestroyRef);
@@ -192,7 +195,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
                     isEnabled: settings.isEnabled,
                     activeProvider: settings.activeProvider,
                     senderEmail: settings.senderEmail,
-                    senderName: settings.senderName,
+                    senderName: senderNameFor(settings.senderName, this.siteBrand.brand()),
                     replyToEmail: settings.replyToEmail,
                     bccEmail: settings.bccEmail,
                     rateLimit: settings.rateLimit,
@@ -214,6 +217,12 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
 
                 this.emailForm.markAsPristine();
                 this.isLoading.set(false);
+
+                // The site's name may still be on the way: never over what someone typed meanwhile.
+                void this.siteBrand.load().then(() => {
+                    const sender = this.emailForm.get('senderName');
+                    if (sender && !sender.dirty) sender.setValue(senderNameFor(settings.senderName, this.siteBrand.brand()), { emitEvent: false });
+                });
             },
             error: (error) => {
                 console.error('Failed to load email settings:', error);

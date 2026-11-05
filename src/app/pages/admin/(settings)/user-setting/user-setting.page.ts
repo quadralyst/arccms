@@ -19,6 +19,7 @@ import { PhoneSignInCheck, PhoneSignInCheckService } from './phone-sign-in-check
 import { isOn } from '../../../../core/features/features';
 import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
     title: 'User Settings',
@@ -29,7 +30,7 @@ export const routeMeta: RouteMeta = {
 @Component({
     standalone: true,
     imports: [
-        CommonModule,
+        LoaderComponent, CommonModule,
         FormsModule,
         MatCardModule,
         MatIconModule,

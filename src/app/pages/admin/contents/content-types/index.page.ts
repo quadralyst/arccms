@@ -27,6 +27,7 @@ import { roleGuard } from '../../../../guards/role.guard';
 import { escapeHtml } from '../../../../../shared/utils/escape-html';
 import { SiteDriftNoticeComponent } from '../site-drift-notice/site-drift-notice.component';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
   title: 'Content Types',
@@ -38,7 +39,7 @@ export const routeMeta: RouteMeta = {
   selector: 'arc-content-types',
   standalone: true,
   imports: [
-    CommonModule,
+    LoaderComponent, CommonModule,
     MatSidenavModule,
     MatIconModule,
     MatButtonModule,

@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { NotifyService } from '../../../../../shared/services/notify.service';
 import { EntryOrderService, OrderedEntry } from './entry-order.service';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 export interface ArrangeEntriesData {
     slug: string;
@@ -24,17 +25,14 @@ export const ARRANGE_WARN_ABOVE = 200;
 @Component({
     selector: 'arc-arrange-entries-dialog',
     standalone: true,
-    imports: [MatDialogModule, MatButtonModule, MatIconModule, CdkDropList, CdkDrag, CdkDragHandle, TranslocoPipe],
+    imports: [LoaderComponent, MatDialogModule, MatButtonModule, MatIconModule, CdkDropList, CdkDrag, CdkDragHandle, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <h2 mat-dialog-title>{{ 'admin.contents.arrange.title' | transloco: { type: data.typeName } }}</h2>
     <mat-dialog-content>
         <p class="text-muted small mb-3">{{ 'admin.contents.arrange.hint' | transloco }}</p>
         @if (loading()) {
-            <div class="d-flex align-items-center gap-2 py-3">
-                <span class="spinner-border spinner-border-sm" role="status"></span>
-                <span>{{ 'admin.contents.arrange.loading' | transloco }}</span>
-            </div>
+            <arc-loader kind="rows" [label]="'admin.contents.arrange.loading' | transloco"></arc-loader>
         } @else if (!entries().length) {
             <p class="py-3 mb-0">{{ 'admin.contents.arrange.empty' | transloco }}</p>
         } @else {

@@ -181,9 +181,7 @@
 
       <!-- Notes List (displayed first) -->
       @if(isLoadingNotes()) {
-      <div class="notes-loading">
-        <i class="fas fa-spinner fa-spin"></i> Loading notes...
-      </div>
+      <arc-loader></arc-loader>
       } @else if(notes().length > 0) {
       <div class="notes-list">
         @for(note of notes(); track note.id) {

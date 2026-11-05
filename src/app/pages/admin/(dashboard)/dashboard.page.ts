@@ -23,6 +23,7 @@ import { PWA } from '../../../core/pwa/pwa.service';
 import { isOn } from '../../../core/features/features';
 import { AnalyticsTrackingStatusComponent } from '../../../core/analytics/analytics-status.component';
 import { PwaStatsService } from '../../../core/pwa/pwa-stats.service';
+import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
   title: 'Dashboard',
@@ -33,7 +34,7 @@ export const routeMeta: RouteMeta = {
 @Component({
   selector: 'arc-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, PageHeaderComponent, TranslocoPipe, AnalyticsTrackingStatusComponent],
+  imports: [LoaderComponent, CommonModule, RouterLink, PageHeaderComponent, TranslocoPipe, AnalyticsTrackingStatusComponent],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
 })

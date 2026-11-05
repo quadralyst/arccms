@@ -93,7 +93,7 @@ gcloud iam service-accounts add-iam-policy-binding &lt;service-account&gt; --mem
 
     <h3 id="email-pin">Email with a PIN</h3>
     <p>With <strong>Email accounts sign in with: 6-digit PIN</strong> (Settings, User Settings, or the app's choice), an email works as a phone number does: a code by email to sign up, then name and a 6-digit PIN; after that the PIN. The PIN is the account's one sign-in PIN (<code>auth_pins/{uid}</code>), so a person with both an email and a number has the same PIN for both, with the same strength rule, the same 5-try lock and the same per-caller limit (30 PIN tries an hour). The account has no password.</p>
-    <p>The page asks each account for what it has, never for what the setting says: <code>checkEmailAccount</code> reads the account and answers <code>signInWith</code>. Switching the setting either way locks nobody out.</p>
+    <p>The page asks each account for what it has, never for what the setting says: <code>checkEmailAccount</code> reads the account and answers <code>signInWith</code>. Switching the setting either way locks nobody out. A blocked or detached account gets <code>blocked</code>: the page says "This account is blocked" and asks for nothing, as the PIN, code and reset steps already refuse it with <code>account-blocked</code>.</p>
     <table>
       <thead><tr><th>The account has</th><th>Setting: 6-digit PIN</th><th>Setting: Password</th></tr></thead>
       <tbody>

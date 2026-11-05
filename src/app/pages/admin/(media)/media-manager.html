@@ -206,7 +206,7 @@
                                 <div class="col-12 mt-2 empty_col" [ngClass]="{'asModal': _DIALOG_DATA.isDialogOpen}">
                                     @if(selectedItem?.value === 'upload'){
                                     @if(!uploadImage){
-                                    <label class="empty_upload_label">{{ 'admin.media.empty' | transloco }}</label><br>
+                                    <p class="empty_upload_label">{{ 'admin.media.empty' | transloco }}</p>
                                     }
                                     <div class="dropzone"
                                          [class.dragover]="isDragOver"
@@ -243,9 +243,7 @@
                                     @if(selectedItem?.value === 'search'){
                                         @if(unsplashConfigured === null) {
                                         <!-- Checking configuration -->
-                                        <div class="d-flex justify-content-center align-items-center py-5">
-                                            <mat-spinner diameter="30"></mat-spinner>
-                                        </div>
+                                        <arc-loader kind="block"></arc-loader>
                                         } @else if(unsplashConfigured === false) {
                                         <!-- Not configured -->
                                         <div class="unsplash-not-configured">

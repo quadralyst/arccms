@@ -1,5 +1,6 @@
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { Component, inject, signal, ViewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import {
@@ -11,6 +12,7 @@ import {
 } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { RouterOutlet } from '@angular/router';
+import { take } from 'rxjs';
 import { BaseComponent } from '../../shared/components/base/base.component';
 import SideNavbarComponent from '../../shared/components/side-navbar/side-navbar.component';
 import { CommonModule } from '@angular/common';
@@ -96,9 +98,20 @@ export default class AdminComponent extends BaseComponent {
     breakpointObserver = inject(BreakpointObserver);
     /** The site's name for the mobile bar (core/brand/site-brand.ts). */
     readonly brandName = inject(SiteBrandService).name;
+    /**
+     * The page opens once its words are in. A select reads the label of its chosen option
+     * once, and Material re-reads it only when the label had text, so an option whose
+     * translation arrives later stays blank (a Status filter on a fresh load).
+     */
+    readonly textReady = signal(false);
 
     constructor() {
         super();
+        this.transloco.load(this.transloco.getActiveLang()).pipe(take(1), takeUntilDestroyed()).subscribe({
+            next: () => this.textReady.set(true),
+            // Keys on the page are better than no page.
+            error: () => this.textReady.set(true),
+        });
         // The dialog layer takes the admin's colours while the admin is open.
         useAdminOverlay();
         // The tables' paginators in the admin's language (kept out of the first script, F34).

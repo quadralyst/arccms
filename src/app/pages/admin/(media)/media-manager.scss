@@ -1028,17 +1028,17 @@ figcaption {
 
 .empty_col {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    gap: 24px;
     flex: 1;
     min-height: 200px;
 }
 
 .empty_upload_label {
-    position: absolute;
-    width: 40%;
+    margin: 0;
     text-align: center;
-    transform: translate(0px, -120px);
     font-size: 20px;
 }
 
@@ -1267,7 +1267,10 @@ footer {
         width: 100% !important;
     }
 
-    .empty_upload_label,
+    .empty_upload_label {
+        font-size: 16px;
+    }
+
     .empty_search_label {
         width: 90% !important;
         position: static !important;

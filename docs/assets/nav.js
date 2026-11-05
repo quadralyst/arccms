@@ -63,6 +63,7 @@ window.ARC_DOCS_NAV = [
       { path: "app/admin-menu.html", title: "Change the admin menu" },
       { path: "app/admin-look.html", title: "Brand the admin" },
       { path: "app/version.html", title: "Version and build number" },
+      { path: "app/loader.html", title: "Show that a page is loading" },
       { path: "app/member-area.html", title: "Build the member area" },
       { path: "app/functions.html", title: "Write your own Cloud Functions" },
       { path: "app/app-email.html", title: "Send email from your app" },

@@ -143,25 +143,7 @@
         </mat-paginator>
         }
         @else {
-        <!-- Skeleton Loading State -->
-        <div class="pagination-container">
-            <div class="record-count-skeleton">
-                <span class="skeleton skeleton-text"></span>
-            </div>
-            <div class="pagination-controls-skeleton">
-                <div class="items-per-page-skeleton">
-                    <span class="skeleton skeleton-text-small"></span>
-                    <span class="skeleton skeleton-select"></span>
-                </div>
-                <span class="skeleton skeleton-text-medium"></span>
-                <div class="pagination-buttons-skeleton">
-                    <span class="skeleton skeleton-button"></span>
-                    <span class="skeleton skeleton-button"></span>
-                    <span class="skeleton skeleton-button"></span>
-                    <span class="skeleton skeleton-button"></span>
-                </div>
-            </div>
-        </div>
+        <arc-loader class="w-100" [count]="1" aria-hidden="true"></arc-loader>
         }
     </div>
     }

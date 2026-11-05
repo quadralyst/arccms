@@ -13,6 +13,7 @@ import { RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
+import { followLandedPage } from '../../../../shared/services/generic-store.service';
 import { statusBadgeClass } from '../../../../shared/utils/status-badge';
 import { injectT } from '../../../core/i18n/inject-t';
 import { SmsLogStore } from './sms-log.store';
@@ -56,7 +57,7 @@ import { ISmsLog } from './sms-log.model';
             @if (store.items().length) {
                 <div class="d-flex justify-content-end">
                     <mat-paginator [length]="store.totalRecords()" [pageSize]="pageSize()" [pageIndex]="currentPage()"
-                        [pageSizeOptions]="[10, 25, 50]" [showFirstLastButtons]="true" (page)="onPageChange($event)">
+                        [pageSizeOptions]="[10, 25, 50]" [showFirstLastButtons]="true" [disabled]="store.isLoading()" (page)="onPageChange($event)">
                     </mat-paginator>
                 </div>
             }
@@ -77,6 +78,10 @@ export default class SmsLogsComponent implements OnInit {
     readonly statusFilter = signal('');
 
     columns: TableColumn[] = [];
+
+    constructor() {
+        followLandedPage(this.store.currentPageNumber, this.currentPage);
+    }
 
     ngOnInit(): void {
         this.columns = [

@@ -154,11 +154,7 @@
     <div class="row g-3 mb-3">
         <div class="col-12">
             @if (analyticsConnectionStatus.isLoading()) {
-            <div class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span>
-                </div>
-            </div>
+            <arc-loader kind="block"></arc-loader>
             } @else if (!analyticsConnectionStatus.isConnected()) {
             <div class="analytics-connect-card text-center py-5">
                 <div class="mb-3">

@@ -22,7 +22,9 @@
                 <span class="ms-1">{{ brandName() }}</span>
             </div>
             }
+            @if (textReady()) {
             <router-outlet></router-outlet>
+            }
             <!-- <arc-footer></arc-footer> -->
         </mat-drawer-content>
     </mat-drawer-container>

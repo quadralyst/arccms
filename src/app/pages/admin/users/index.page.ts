@@ -8,27 +8,31 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule, DatePipe } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, ViewChild, TemplateRef } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, OnDestroy, signal, ViewChild, TemplateRef } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { ConstantVariables } from '../../../../shared/constants';
+import { followLandedPage } from '../../../../shared/services/generic-store.service';
 import { ToastService } from '../../../../shared/services/toast.service';
 
 import AddUserComponent from './(add-user)/add.page';
 import EditUserComponent from './(edit-user)/edit.[userId].page';
 import ViewUserComponent from './(view-user)/view.[userId].page';
-import { ACCOUNT_KINDS, AccountKind, accountKindConditions, IUser, isAppAccount } from './user.model';
+import { ACCOUNT_KINDS, AccountKind, accountKindConditions, IUser, isAppAccount, matchesUserSearch, MAX_SEARCHED_USERS } from './user.model';
 import { UserService } from './user.service';
 import { injectT } from '../../../core/i18n/inject-t';
 import { UserStore } from './user.store';
@@ -36,6 +40,7 @@ import { roleGuard } from '../../../guards/role.guard';
 import { AuthService } from '../../(auth)/auth.service';
 import { AuthState } from '../../(auth)/auth.store';
 import { escapeHtml } from '../../../../shared/utils/escape-html';
+import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Users Management',
@@ -47,10 +52,12 @@ export const routeMeta: RouteMeta = {
     selector: 'arc-users',
     standalone: true,
     imports: [
-        CommonModule,
+        LoaderComponent, CommonModule,
         ReactiveFormsModule,
         MatSidenavModule,
+        MatFormFieldModule,
         MatIconModule,
+        MatInputModule,
         MatButtonModule,
         MatButtonToggleModule,
         MatPaginatorModule,
@@ -68,7 +75,7 @@ export const routeMeta: RouteMeta = {
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { ngSkipHydration: 'true' },
 })
-export default class UsersComponent {
+export default class UsersComponent implements OnDestroy {
     @ViewChild('drawer') drawer!: MatDrawer;
 
     userStore = inject(UserStore);
@@ -100,11 +107,42 @@ export default class UsersComponent {
     /** Whether older records were checked for a missing `by` in this visit (checkOlderAccounts). */
     private olderAccountsChecked = false;
 
+    /** What was typed in the search box, and the page of its matches. */
+    searchTerm = signal('');
+    searchPage = signal(0);
+    readonly searching = computed(() => !!this.searchTerm().trim());
+    /**
+     * The accounts the search looks through, read when the first character is typed and
+     * kept current while the search stays open: typing more reads nothing. Firestore
+     * cannot search inside a field and these records keep no search keys.
+     */
+    private readonly searchable = signal<IUser[]>([]);
+    readonly searchLoading = signal(false);
+    /** More accounts exist than a search looks through. */
+    readonly searchCapped = signal(false);
+    readonly maxSearched = MAX_SEARCHED_USERS;
+    private searchRead?: Subscription;
+    private searchReadKey = '';
+    private readonly matches = computed(() => this.searchable().filter((user) => matchesUserSearch(user, this.searchTerm())));
+
     // Role from route params
     role: string | null | undefined;
 
     // Computed values
     allUserList = computed(() => this.userStore.items() || []);
+
+    /** The page of matches to show: never past the last one, should a match go while it is open. */
+    private readonly lastMatchPage = computed(() => Math.min(this.searchPage(), Math.max(0, Math.ceil(this.matches().length / this.pageSize()) - 1)));
+
+    /** What the table and the paginator show: the list as Firestore pages it, or the matches of a search. */
+    readonly rows = computed(() => {
+        if (!this.searching()) return this.userStore.items();
+        const start = this.lastMatchPage() * this.pageSize();
+        return this.matches().slice(start, start + this.pageSize());
+    });
+    readonly total = computed(() => (this.searching() ? this.matches().length : this.userStore.totalRecords()));
+    readonly page = computed(() => (this.searching() ? this.lastMatchPage() : this.currentPage()));
+    readonly loading = computed(() => (this.searching() ? this.searchLoading() : this.userStore.isLoading()));
 
     // Table Config
     tableColumns: TableColumn[] = [];
@@ -114,14 +152,8 @@ export default class UsersComponent {
     @ViewChild('dateTemplate', { static: true }) dateTemplate!: TemplateRef<any>;
 
     constructor() {
-        // Initialize with route params if present
-        effect(() => {
-            const params = this.route.snapshot.queryParams;
-            if (params['page']) this.currentPage.set(+params['page']);
-            if (params['pageSize']) this.pageSize.set(+params['pageSize']);
-            if (params['sortField']) this.sortField.set(params['sortField']);
-            if (params['sortOrder']) this.sortOrder.set(params['sortOrder']);
-        });
+        // The page the list landed on, which a reload or a removed record can change.
+        followLandedPage(this.userStore.currentPageNumber, this.currentPage);
 
         // Load data on init - use effect to watch store state
         effect(() => {
@@ -146,6 +178,13 @@ export default class UsersComponent {
             this.role = params['role'];
         });
 
+        // A list opens on its first page: a page in the middle cannot be reached without the
+        // ones before it (page-cursors.ts), so the address keeps only the size and the order.
+        const params = this.route.snapshot.queryParams;
+        if (params['pageSize']) this.pageSize.set(+params['pageSize']);
+        if (params['sortField']) this.sortField.set(params['sortField']);
+        if (params['sortOrder']) this.sortOrder.set(params['sortOrder']);
+
         this.initColumns();
         this.fetchData();
     }
@@ -154,6 +193,19 @@ export default class UsersComponent {
      * Fetch data with current filter, sort, and pagination settings
      */
     private fetchData(): void {
+        this.userStore.getAll({
+            limitCount: this.pageSize(),
+            currentPageNumber: this.currentPage(),
+            previousPageNumber: this.currentPage() - 1,
+            orderByField: this.sortField(),
+            orderByDirection: this.sortOrder(),
+            whereConditions: this.listConditions(),
+        });
+        if (this.searching()) this.openSearchRead();
+    }
+
+    /** The current filters, as query conditions. */
+    private listConditions(): any[] {
         const whereConditions: any[] = [];
 
         // Add filter conditions
@@ -187,14 +239,64 @@ export default class UsersComponent {
             });
         }
 
-        this.userStore.getAll({
-            limitCount: this.pageSize(),
-            currentPageNumber: this.currentPage(),
-            previousPageNumber: this.currentPage() - 1,
+        return whereConditions;
+    }
+
+    // Search
+    onSearch(typed: string): void {
+        const wasSearching = this.searching();
+        this.searchTerm.set(typed);
+        this.searchPage.set(0);
+        if (this.searching()) this.openSearchRead();
+        else if (wasSearching) {
+            this.closeSearchRead();
+            // A page size chosen while searching applies to the list too.
+            this.fetchData();
+        }
+    }
+
+    /** Reads the accounts to look through, once for each set of filters and order. */
+    private openSearchRead(): void {
+        const whereConditions = this.listConditions();
+        const key = JSON.stringify([whereConditions, this.sortField(), this.sortOrder()]);
+        if (this.searchRead && key === this.searchReadKey) return;
+        this.closeSearchRead();
+        this.searchReadKey = key;
+        this.searchLoading.set(true);
+        this.searchRead = this.userService.getAll({
+            limitCount: MAX_SEARCHED_USERS,
+            currentPageNumber: 0,
+            previousPageNumber: -1,
             orderByField: this.sortField(),
             orderByDirection: this.sortOrder(),
             whereConditions,
+        }).subscribe({
+            next: (result) => {
+                this.searchable.set(result.collectionData);
+                this.searchCapped.set(result.totalCount > result.collectionData.length);
+                this.searchLoading.set(false);
+            },
+            error: (error) => {
+                console.error('Could not read the accounts to search:', error);
+                this.searchLoading.set(false);
+                // Typing again tries again.
+                this.searchRead = undefined;
+                this.searchReadKey = '';
+                this.toastService.error(this.t('admin.users.search_failed'));
+            },
         });
+    }
+
+    private closeSearchRead(): void {
+        this.searchRead?.unsubscribe();
+        this.searchRead = undefined;
+        this.searchReadKey = '';
+        this.searchable.set([]);
+        this.searchCapped.set(false);
+    }
+
+    ngOnDestroy(): void {
+        this.closeSearchRead();
     }
 
     // Drawer actions
@@ -225,6 +327,12 @@ export default class UsersComponent {
 
     // Pagination
     onPageChange(event: PageEvent): void {
+        if (this.searching()) {
+            // Matches are already here: nothing to read.
+            this.searchPage.set(event.pageIndex);
+            this.pageSize.set(event.pageSize);
+            return;
+        }
         this.currentPage.set(event.pageIndex);
         this.pageSize.set(event.pageSize);
 
@@ -232,7 +340,7 @@ export default class UsersComponent {
         this.router.navigate([], {
             relativeTo: this.route,
             queryParams: {
-                page: event.pageIndex,
+                page: null,
                 pageSize: event.pageSize,
             },
             queryParamsHandling: 'merge',
@@ -249,6 +357,7 @@ export default class UsersComponent {
             this.sortField.set(column);
             this.sortOrder.set('asc');
         }
+        this.currentPage.set(0);
         this.fetchData();
     }
 
@@ -299,24 +408,23 @@ export default class UsersComponent {
 
     clearFilters(): void {
         this.filters.set({});
+        this.currentPage.set(0);
         this.fetchData();
     }
 
     hasActiveFilters(): boolean {
-        return this.showDetached() || this.accountKind() !== 'all' || Object.values(this.filters()).some((v) => v && v.trim());
+        return this.searching() || this.showDetached() || this.accountKind() !== 'all' || Object.values(this.filters()).some((v) => v && v.trim());
     }
 
     // Record count helpers
     getStartRecord(): number {
-        const total = this.userStore.totalRecords();
-        if (total === 0) return 0;
-        return this.currentPage() * this.pageSize() + 1;
+        if (this.total() === 0) return 0;
+        return this.page() * this.pageSize() + 1;
     }
 
     getEndRecord(): number {
-        const total = this.userStore.totalRecords();
-        const end = (this.currentPage() + 1) * this.pageSize();
-        return Math.min(end, total);
+        const end = (this.page() + 1) * this.pageSize();
+        return Math.min(end, this.total());
     }
 
     // User actions

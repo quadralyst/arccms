@@ -39,6 +39,7 @@ describe('ContentsPage', () => {
         paramMapSubject = new BehaviorSubject(createMockParamMap('articles'));
 
         mockDraftContentsStore = {
+            currentPageNumber: signal(0),
             items: signal([]),
             currentItem: signal({}),
             isLoading: signal(false),

@@ -31,7 +31,7 @@
             </button>
             }
             @else{
-            <mat-spinner [diameter]="50"></mat-spinner>
+            <arc-loader class="w-100" kind="block"></arc-loader>
             }
         </div>
     </div>
@@ -253,7 +253,7 @@
                     <mat-form-field appearance="outline" style="width: 220px;">
                         <mat-label>{{ 'admin.settings.email.keep_days' | transloco }}</mat-label>
                         <input matInput type="number" formControlName="retentionDays" min="1" max="365">
-                        <mat-hint class="text-nowrap">{{ 'admin.settings.email.keep_days_hint' | transloco }}</mat-hint>
+                        <mat-hint>{{ 'admin.settings.email.keep_days_hint' | transloco }}</mat-hint>
                         <mat-error>{{ 'admin.settings.email.keep_days_range' | transloco }}</mat-error>
                     </mat-form-field>
                     }

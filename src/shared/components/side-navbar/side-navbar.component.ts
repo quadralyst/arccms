@@ -59,6 +59,8 @@ function isSvg(src: string): boolean {
     return /^data:image\/svg\+xml/i.test(src) || /\.svg(\?|#|$)/i.test(src);
 }
 
+let lastMeasuredLogo: { src: string; wide: boolean } | null = null;
+
 /** What a group's open state is kept by: its id, or its label for a group built from CMS data. */
 function groupKey(item: MenuItem): string {
     return item.id ?? item.label;
@@ -72,13 +74,14 @@ export { insertCustomNav, withoutFeaturesOff, type MenuItem };
     standalone: true,
     animations: [
         trigger('expandContractMenu', [
+            // Clipped only while it moves, so the items never run over the next group.
             transition(':enter', [
-                style({ height: 0, opacity: 0 }),
-                animate('500ms ease-in-out', style({ height: '*', opacity: 1 })),
+                style({ height: 0, opacity: 0, overflow: 'hidden' }),
+                animate('200ms ease-in-out', style({ height: '*', opacity: 1 })),
             ]),
             transition(':leave', [
-                style({ height: '*', opacity: 1 }),
-                animate('500ms ease-in-out', style({ height: 0, opacity: 0 })),
+                style({ height: '*', opacity: 1, overflow: 'hidden' }),
+                animate('200ms ease-in-out', style({ height: 0, opacity: 0 })),
             ]),
         ]),
     ],
@@ -115,8 +118,8 @@ export default class NavbarComponent extends BaseComponent {
         const brand = this.brand();
         return brand ? (brand.arc ? logoSmall : brand.logo) : '';
     });
-    /** The last logo measured, and whether it is a wordmark. */
-    private readonly measuredLogo = signal<{ src: string; wide: boolean } | null>(null);
+    /** The last logo measured, and whether it is a wordmark; kept between pages, as each admin route draws this panel anew. */
+    private readonly measuredLogo = signal<{ src: string; wide: boolean } | null>(lastMeasuredLogo);
     /** Whether the logo shown is a wordmark: null until it has loaded. Arc CMS's own shows as a square mark, as always. */
     readonly logoWide = computed(() => {
         if (this.brand()?.arc) return false;
@@ -134,7 +137,10 @@ export default class NavbarComponent extends BaseComponent {
             const size = await fetch(src).then((r) => (r.ok ? r.text() : '')).then(svgSize).catch(() => null);
             if (size) ({ width, height } = size);
         }
-        if (this.panelLogo() === src) this.measuredLogo.set({ src, wide: isWideLogo(width, height) });
+        if (this.panelLogo() === src) {
+            lastMeasuredLogo = { src, wide: isWideLogo(width, height) };
+            this.measuredLogo.set(lastMeasuredLogo);
+        }
     }
     @Output() selectedMenu = new EventEmitter();
     @Output() toggleMenu = new EventEmitter();
@@ -142,6 +148,12 @@ export default class NavbarComponent extends BaseComponent {
 
     /** Current router URL, kept in sync on NavigationEnd so OnPush change detection re-evaluates active state. */
     readonly currentUrl = signal<string>(this.router.url);
+    /**
+     * A group opens with a slide only when the person pressed it. Each admin route draws
+     * this panel anew, and a group the route opens is simply open: moving between its pages must not replay anything.
+     */
+    readonly animateGroups = signal(false);
+
     /** Explicit user expand/collapse choices, keyed by group id (label for a signup form's group). Overrides route-based auto-expand. */
     private readonly manualToggles = signal<Record<string, boolean>>({});
 
@@ -298,6 +310,7 @@ export default class NavbarComponent extends BaseComponent {
         this.router.events
             .pipe(filter((event: any): event is NavigationEnd => event instanceof NavigationEnd))
             .subscribe((event: NavigationEnd) => {
+                this.animateGroups.set(false);
                 this.currentUrl.set(event.urlAfterRedirects);
             });
     }
@@ -305,6 +318,7 @@ export default class NavbarComponent extends BaseComponent {
     toggleDropdown(item: MenuItem) {
         this.selectedMenu.emit(item);
         if (item.subItems) {
+            this.animateGroups.set(!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
             const nextOpen = !item.isOpen;
             item.isOpen = nextOpen;
             // Remember the explicit choice so a route-driven recompute doesn't override it.

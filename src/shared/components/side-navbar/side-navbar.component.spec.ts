@@ -287,6 +287,25 @@ describe('NavbarComponent', () => {
         expect(component.menuItems().find(i => i.label === 'Content')?.isOpen).toBe(true);
     });
 
+    it('slides a group only when the person pressed it: a route opening it replays nothing', () => {
+        expect(component.animateGroups()).toBe(false);
+        component.currentUrl.set('/admin/contacts');
+        expect(component.menuItems().find(i => i.label === 'Audience')?.isOpen).toBe(true);
+        expect(component.animateGroups()).toBe(false);
+
+        component.toggleDropdown(component.menuItems().find(i => i.label === 'Data')!);
+        expect(component.animateGroups()).toBe(true);
+    });
+
+    it('turns the group\'s slide off in the template until it is wanted, and clips it only while it moves', () => {
+        const html = fs.readFileSync(path.resolve(__dirname, 'side-navbar.component.html'), 'utf8');
+        expect(html).toContain('[@.disabled]="!animateGroups()"');
+        const ts = fs.readFileSync(path.resolve(__dirname, 'side-navbar.component.ts'), 'utf8');
+        expect(ts).toContain("overflow: 'hidden'");
+        const scss = fs.readFileSync(path.resolve(__dirname, 'side-navbar.component.scss'), 'utf8');
+        expect(scss).toMatch(/\.menu-sub-item \.nav-link:hover \{\s*transform: none;/);
+    });
+
     it('should honour an explicit toggle over route-based auto-expand', () => {
         component.currentUrl.set('/admin/dashboard');
         const audience = component.menuItems().find(i => i.label === 'Audience')!;
@@ -377,11 +396,11 @@ describe('NavbarComponent: translations that load after the first render', () =>
 });
 
 describe('NavbarComponent: the site\'s name and logo at the top (specs/admin-brand-spec.md AB-D10)', () => {
-    async function render(identity: { name?: string; logoUrl?: string }, expanded: boolean, loaded = true) {
+    async function render(identity: { name?: string; logoUrl?: string }, expanded: boolean, loaded = true, person: Record<string, unknown> | null = null) {
         await TestBed.configureTestingModule({
             imports: [NavbarComponent, NoopAnimationsModule],
             providers: [
-                { provide: AuthState, useValue: { currentUser: signal(null), logout: vi.fn() } },
+                { provide: AuthState, useValue: { currentUser: signal(person), logout: vi.fn() } },
                 { provide: ContentTypesStore, useValue: { items: signal([]), getAll: vi.fn() } },
                 { provide: WaitlistAdminStore, useValue: { items: signal([]), subscribe: vi.fn() } },
                 { provide: MatDialog, useValue: { open: vi.fn() } },
@@ -412,6 +431,15 @@ describe('NavbarComponent: the site\'s name and logo at the top (specs/admin-bra
     }
 
     const text = (fixture: any) => (fixture.nativeElement.querySelector('.logo-text')?.textContent ?? '').trim();
+
+    it('names the person at the top with a real link, with the pointer of one', async () => {
+        const fixture = await render({ name: 'Acme Studio' }, true, true, { name: 'Asha', role: 'admin' });
+        const link = fixture.nativeElement.querySelector('.user-info') as HTMLElement;
+        expect(link.tagName).toBe('A');
+        expect(link.textContent).toContain('Asha');
+        const scss = fs.readFileSync(path.resolve(__dirname, 'side-navbar.component.scss'), 'utf8');
+        expect(scss).toMatch(/\.user-info \{[^}]*cursor: pointer;/);
+    });
 
     it('calls a logo at least twice as wide as tall a wordmark', () => {
         expect(isWideLogo(300, 60)).toBe(true);

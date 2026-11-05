@@ -152,6 +152,8 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                         endBefore(queryParams.endBeforeDoc),
                         limitToLast(queryParams.limitCount),
                     );
+                } else if (queryParams.lastCount) {
+                    dataQuery = query<T, DocumentData>(dataQuery, limitToLast(queryParams.lastCount));
                 } else if (queryParams.limitCount > 0) {
                     dataQuery = query<T, DocumentData>(dataQuery, limit(queryParams.limitCount));
                 }

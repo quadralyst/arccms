@@ -57,6 +57,7 @@ import { PdfPickerMemory, PdfPlace } from './pdf-picker-memory.service';
 import { localPdfSource } from './local-pdf-source';
 import { MediaAiTabComponent, type MediaAiEditSource, type MediaAiSaved } from './media-ai-tab/media-ai-tab.component';
 import { MEDIA_IMAGE_PURPOSE, MediaAiService, type MediaAiNote, type MediaAiPreset } from './media-ai.service';
+import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Media Manager',
@@ -208,7 +209,7 @@ export function mediaFileRef(file: IMediaFile): MediaFileRef {
     selector: 'arc-media-manager',
     standalone: true,
     imports: [
-        MatPaginatorModule,
+        LoaderComponent, MatPaginatorModule,
         NgClass,
         NgTemplateOutlet,
         ArcTimePipe,

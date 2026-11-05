@@ -15,6 +15,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { followLandedPage } from '../../../../../shared/services/generic-store.service';
 import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { WaitlistUserTagsStore } from '../joined-users/waitlist-user-tags.store';
 import { IWaitlistUserTag } from '../joined-users/waitlist-user-tags.model';
@@ -89,7 +90,9 @@ export default class WaitlistTagsComponent implements OnInit {
     // Table Config
     tableColumns: TableColumn[] = [];
 
-    constructor() { }
+    constructor() {
+        followLandedPage(this.tagsStore.currentPageNumber, this.currentPage);
+    }
 
     ngOnInit(): void {
         this.route.queryParams.subscribe(params => {

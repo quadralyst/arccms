@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Show that a page is loading | Arc CMS docs</title>
+  <meta name="description" content="Use the admin's one loader on your own pages: a shimmer in the place of what is coming, with a name a screen reader says.">
+  <meta name="docs:sources" content="src/shared/components/loader/loader.component.ts, src/shared/components/global-table/global-table.component.html">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/loader.html">
+  <main>
+    <h1>Show that a page is loading</h1>
+    <p class="lead">Every admin page shows the same loader while its data is on the way: a shimmer in the place of what is coming. Use it on your own pages, so they look the same and you get every later fix. It has a name a screen reader says, and it stops moving for someone who asks their device for less motion.</p>
+
+    <h2 id="use-it">Use it</h2>
+    <p>Import <code>LoaderComponent</code> and show it while your page waits:</p>
+    <pre><code>import { LoaderComponent } from '../../shared/components/loader/loader.component';
+
+@Component({
+  standalone: true,
+  imports: [LoaderComponent],
+  template: `
+    @if (loading()) {
+      &lt;arc-loader kind="rows" [count]="5" label="Loading orders" /&gt;
+    } @else {
+      ...
+    }
+  `,
+})</code></pre>
+    <p>A list made with <code>app-global-table</code> already has it: pass <code>[loading]</code>.</p>
+
+    <h2 id="options">Its options</h2>
+    <table>
+      <thead><tr><th>Input</th><th>What it does</th><th>Without it</th></tr></thead>
+      <tbody>
+        <tr><td><code>kind</code></td><td>The shape of what is coming: <code>lines</code> for text, <code>rows</code> for a list or a table, <code>block</code> for a card or a picture</td><td><code>lines</code></td></tr>
+        <tr><td><code>count</code></td><td>How many lines, rows or blocks to draw. Draw about as many as will come, so the page moves as little as possible when they do</td><td>3</td></tr>
+        <tr><td><code>label</code></td><td>What a screen reader says, such as "Loading orders"</td><td>"Loading..." in the person's language</td></tr>
+      </tbody>
+    </table>
+    <p>Beside another loader on the same screen, such as a shimmer under a list that has its own, add <code>aria-hidden="true"</code>, so a screen reader says it once.</p>
+
+    <h2 id="colours">Change its look</h2>
+    <p>Set these in <code>src/custom/styles.css</code>:</p>
+    <table>
+      <thead><tr><th>Variable</th><th>What it sets</th><th>Default</th></tr></thead>
+      <tbody>
+        <tr><td><code>--arc-loader-base</code></td><td>The colour of a bar</td><td><code>#e9ecef</code></td></tr>
+        <tr><td><code>--arc-loader-shine</code></td><td>The colour that moves across it</td><td><code>#f6f7f9</code></td></tr>
+        <tr><td><code>--arc-loader-height</code></td><td>The height of a bar</td><td>Set by its <code>kind</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="when-not">When to use something else</h2>
+    <ul>
+      <li><strong>A button that is working</strong> keeps its own small spinner: nothing is coming to take its place.</li>
+      <li><strong>Work with a known end,</strong> such as an upload or an import, shows a progress bar.</li>
+      <li><strong>A wait on the server with no data coming,</strong> such as a sign-in step, says so with <code>arc-wait-line</code> (<a href="sign-in.html#waiting">While the page waits on the server</a>).</li>
+    </ul>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

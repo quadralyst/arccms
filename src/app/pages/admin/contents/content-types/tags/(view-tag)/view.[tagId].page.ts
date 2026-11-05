@@ -5,12 +5,13 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { TagsStore } from '../tags.store';
 import { ITag } from '../tags.model';
+import { LoaderComponent } from '../../../../../../../shared/components/loader/loader.component';
 
 @Component({
     selector: 'arc-view-tag',
     standalone: true,
     imports: [
-        CommonModule,
+        LoaderComponent, CommonModule,
         MatButtonModule,
         MatIconModule,
     ],

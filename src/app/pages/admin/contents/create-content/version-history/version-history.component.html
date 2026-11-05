@@ -1,10 +1,7 @@
 <div class="version-history-container">
     <!-- Loading State -->
     @if(isLoading()){
-    <div class="loading-state">
-        <i class="fa-solid fa-spinner fa-spin"></i>
-        <span>Loading version history...</span>
-    </div>
+    <arc-loader kind="rows" class="d-block p-3"></arc-loader>
     }
 
     <!-- Error State -->

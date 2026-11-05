@@ -8,7 +8,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
 import { BrowserAnimationsModule, NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 
@@ -45,11 +45,13 @@ describe('UsersComponent', () => {
         update: vi.fn().mockReturnValue(of({})),
         currentItem: signal(null),
         getById: vi.fn(),
+        currentPageNumber: signal(0),
     };
 
     const mockUserService = {
         countByKind: vi.fn(),
         fillAccountSources: vi.fn(),
+        getAll: vi.fn(),
     };
 
     const mockToastService = {
@@ -397,6 +399,122 @@ describe('UsersComponent', () => {
             expect(mockUserStore.delete).toHaveBeenCalledWith('user-1');
             expect(mockToastService.error).toHaveBeenCalledWith('Failed to delete user.');
             expect(mockToastService.success).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('search', () => {
+        const people = Array.from({ length: 23 }, (_, i) => ({ id: `u${i}`, name: `Person ${i}`, email: `p${i}@example.com`, phone: i === 7 ? '+919876543210' : '' }));
+        let live: Subject<any>;
+        const ready = (total = people.length) => live.next({ collectionData: people, totalCount: total, firstVisible: null, lastVisible: null });
+
+        beforeEach(() => {
+            live = new Subject();
+            mockUserService.getAll.mockReset();
+            mockUserService.getAll.mockReturnValue(live);
+            mockUserStore.getAll.mockClear();
+        });
+
+        it('reads the accounts once, however much is typed, and keeps to the page\'s filters and order', () => {
+            component.setAccountKind('app');
+            mockUserStore.getAll.mockClear();
+            component.onSearch('p');
+            component.onSearch('pe');
+            component.onSearch('per');
+            expect(mockUserService.getAll).toHaveBeenCalledTimes(1);
+            expect(mockUserService.getAll).toHaveBeenCalledWith(expect.objectContaining({
+                limitCount: 5000, orderByField: 'createdAt', orderByDirection: 'desc',
+                whereConditions: [{ field: 'by', operator: '==', value: 'app' }],
+            }));
+            expect(mockUserStore.getAll).not.toHaveBeenCalled();
+        });
+
+        it('shows the matches a page at a time, turning pages without reading', () => {
+            component.onSearch('person');
+            ready();
+            expect(component.total()).toBe(23);
+            expect(component.rows().map((u) => u.id).slice(0, 2)).toEqual(['u0', 'u1']);
+            component.onPageChange({ pageIndex: 2, pageSize: 10, length: 23 });
+            expect(component.rows().map((u) => u.id)).toEqual(['u20', 'u21', 'u22']);
+            expect(component.getStartRecord()).toBe(21);
+            expect(component.getEndRecord()).toBe(23);
+            expect(mockUserService.getAll).toHaveBeenCalledTimes(1);
+            expect(mockUserStore.getAll).not.toHaveBeenCalled();
+        });
+
+        it('goes back to the first page of matches when the search changes', () => {
+            component.onSearch('person');
+            ready();
+            component.onPageChange({ pageIndex: 1, pageSize: 10, length: 23 });
+            component.onSearch('98765');
+            expect(component.page()).toBe(0);
+            expect(component.rows().map((u) => u.id)).toEqual(['u7']);
+        });
+
+        it('shuts the read when the box is cleared, and goes back to the list', () => {
+            component.onSearch('person');
+            ready();
+            expect(live.observed).toBe(true);
+            component.onSearch('');
+            expect(live.observed).toBe(false);
+            expect(component.searching()).toBe(false);
+            expect(component.rows()).toEqual(mockUserStore.items());
+            expect(mockUserStore.getAll).toHaveBeenCalledTimes(1);
+        });
+
+        it('shuts the read when the page closes', () => {
+            component.onSearch('person');
+            component.ngOnDestroy();
+            expect(live.observed).toBe(false);
+        });
+
+        it('reads again only when the filters change, and says when there are more accounts than it looks through', () => {
+            component.onSearch('person');
+            ready(6000);
+            expect(component.searchCapped()).toBe(true);
+            component.toggleDetached();
+            expect(mockUserService.getAll).toHaveBeenCalledTimes(2);
+            expect(mockUserService.getAll.mock.calls[1][0].whereConditions).toContainEqual({ field: 'status', operator: '==', value: 'Detached' });
+        });
+
+        it('tells the admin when the read fails, and typing again tries again', () => {
+            component.onSearch('person');
+            live.error(new Error('denied'));
+            expect(component.searchLoading()).toBe(false);
+            expect(mockToastService.error).toHaveBeenCalled();
+            live = new Subject();
+            mockUserService.getAll.mockReturnValue(live);
+            component.onSearch('persons');
+            expect(mockUserService.getAll).toHaveBeenCalledTimes(2);
+        });
+
+        it('stays on a page that exists when a match goes while the search is open', () => {
+            component.onSearch('person');
+            ready();
+            component.onPageChange({ pageIndex: 2, pageSize: 10, length: 23 });
+            live.next({ collectionData: people.slice(0, 15), totalCount: 15, firstVisible: null, lastVisible: null });
+            expect(component.page()).toBe(1);
+            expect(component.rows()).toHaveLength(5);
+        });
+    });
+
+    describe('pages (no reload can reach the middle of a list)', () => {
+        it('opens on the first page whatever the address says, keeping its size and order', () => {
+            mockActivatedRoute.snapshot.queryParams = { page: '3', pageSize: '25', sortField: 'name', sortOrder: 'asc' };
+            mockUserStore.getAll.mockClear();
+            component.ngOnInit();
+            mockActivatedRoute.snapshot.queryParams = {};
+            expect(mockUserStore.getAll).toHaveBeenCalledWith(expect.objectContaining({ currentPageNumber: 0, limitCount: 25, orderByField: 'name', orderByDirection: 'asc' }));
+        });
+
+        it('takes the page out of the address', () => {
+            component.onPageChange({ pageIndex: 2, pageSize: 10, length: 30 });
+            expect(mockRouter.navigate).toHaveBeenLastCalledWith([], expect.objectContaining({ queryParams: { page: null, pageSize: 10 } }));
+        });
+
+        it('a new order starts on the first page', () => {
+            component.currentPage.set(3);
+            component.onSort('name');
+            expect(component.currentPage()).toBe(0);
         });
     });
 });

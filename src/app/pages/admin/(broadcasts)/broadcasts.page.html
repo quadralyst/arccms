@@ -70,7 +70,7 @@
                                 <mat-option [value]="l.id">{{ l.name }} ({{ l.type === 'app' ? 'App users, live' : (l.memberCount || 0) }})</mat-option>
                                 }
                             </mat-select>
-                            <mat-hint>Pick several to reach everyone across them — nobody is emailed twice.</mat-hint>
+                            <mat-hint>Pick several to reach everyone across them. Nobody is emailed twice.</mat-hint>
                         </mat-form-field>
 
                         <mat-form-field appearance="outline">
@@ -113,7 +113,7 @@
                                 <input matInput type="datetime-local" [(ngModel)]="scheduledAt" />
                             </mat-form-field>
                             } @else {
-                            <p class="schedule-note">Off — the broadcast is queued and sent immediately.</p>
+                            <p class="schedule-note">Off: the broadcast is queued and sent immediately.</p>
                             }
                         </div>
                     </div>

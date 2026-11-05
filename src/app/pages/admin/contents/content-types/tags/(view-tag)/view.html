@@ -7,10 +7,7 @@
     </div>
 
     @if(isLoading()) {
-    <div class="drawer-body text-center py-5">
-        <span class="spinner-border"></span>
-        <p class="mt-2">Loading tag...</p>
-    </div>
+    <div class="drawer-body p-3"><arc-loader></arc-loader></div>
     } @else if(errorMessage()) {
     <div class="drawer-body">
         <div class="alert alert-danger">{{ errorMessage() }}</div>

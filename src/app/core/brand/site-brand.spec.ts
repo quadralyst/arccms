@@ -61,6 +61,26 @@ describe('SiteBrandService', () => {
         expect(brand.name()).toBe('');
     });
 
+    it('gives an app\'s own name and logo at once, known when it was built, and About\'s once it has loaded', () => {
+        APP_BRAND.name = 'Acme Studio';
+        APP_BRAND.logo = '/src/custom/logo.svg';
+        try {
+            const loaded = signal(false);
+            const identity = signal<{ name?: string }>({});
+            TestBed.configureTestingModule({
+                providers: [{ provide: SiteIdentityService, useValue: { identity, loaded, load: () => Promise.resolve({}) } }],
+            });
+            const service = TestBed.inject(SiteBrandService);
+            expect(service.brand()).toEqual({ name: 'Acme Studio', logo: '/src/custom/logo.svg', arc: false });
+            identity.set({ name: 'Renamed' });
+            loaded.set(true);
+            expect(service.name()).toBe('Renamed');
+        } finally {
+            APP_BRAND.name = '';
+            APP_BRAND.logo = '';
+        }
+    });
+
     it('gives the site\'s brand once loaded', () => {
         expect(setup({ name: 'Deepakam' }, true).name()).toBe('Deepakam');
     });

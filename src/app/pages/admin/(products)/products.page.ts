@@ -24,6 +24,7 @@ import { roleGuard } from '../../../guards/role.guard';
 import { ProductsStore } from './products.store';
 import { IProduct } from './product.model';
 import { arcCallable } from '../../../core/config/arc-functions';
+import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Products',
@@ -34,7 +35,7 @@ export const routeMeta: RouteMeta = {
 @Component({
     standalone: true,
     imports: [
-        CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatIconModule,
+        LoaderComponent, CommonModule, ReactiveFormsModule, MatCardModule, MatButtonModule, MatIconModule,
         MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule, MatTableModule,
         MatSidenavModule, MatTooltipModule, MatProgressSpinnerModule, PageHeaderComponent, RowActionsComponent, TranslocoPipe, ArcTimePipe],
     template: `
@@ -262,7 +263,7 @@ export const routeMeta: RouteMeta = {
             <mat-card>
                 <mat-card-content class="pt-3">
                     @if (store.isLoading()) {
-                        <p class="text-muted">{{ 'common.state.loading' | transloco }}</p>
+                        <arc-loader kind="rows"></arc-loader>
                     } @else if (store.items().length === 0) {
                         <p class="text-muted">{{ 'admin.products.none' | transloco }}</p>
                     } @else {

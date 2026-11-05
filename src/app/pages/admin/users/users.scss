@@ -40,6 +40,33 @@
     padding: 24px;
 }
 
+.users-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.users-search {
+    flex: 0 1 320px;
+    min-width: 0;
+    --mat-form-field-container-height: 44px;
+    --mat-form-field-container-vertical-padding: 10px;
+}
+
+.users-search-note {
+    font-size: 0.8rem;
+    margin: -8px 0 12px;
+}
+
+@media (max-width: 576px) {
+    .users-search {
+        flex-basis: 100%;
+    }
+}
+
 .card {
     border: none;
     border-radius: 10px;

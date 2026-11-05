@@ -14,6 +14,7 @@ import { Functions } from '@angular/fire/functions';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { ToastService } from '../../../../../shared/services/toast.service';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 /** Mirrors functions/src/app-audience/config.ts. */
 export interface AppAudienceSettings {
@@ -47,7 +48,7 @@ interface TestResult {
 @Component({
     selector: 'arc-app-audience-settings',
     standalone: true,
-    imports: [FormsModule, TranslocoPipe],
+    imports: [LoaderComponent, FormsModule, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <div class="settings-section">
@@ -55,7 +56,7 @@ interface TestResult {
       <p class="text-muted mb-4">{{ 'admin.settings.app_audience.intro' | transloco }}</p>
 
       @if (loading()) {
-        <p class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.state.loading' | transloco }}</p>
+        <arc-loader kind="block" [count]="2"></arc-loader>
       } @else {
         <h5>{{ 'admin.settings.app_audience.location_title' | transloco }}</h5>
         @if (location()?.configured) {

@@ -1979,6 +1979,12 @@ export type TranslationKey =
     | 'admin.users.none_selected'
     | 'admin.users.page_subtitle'
     | 'admin.users.page_title'
+    | 'admin.users.search'
+    | 'admin.users.search_capped'
+    | 'admin.users.search_clear'
+    | 'admin.users.search_empty_description'
+    | 'admin.users.search_empty_title'
+    | 'admin.users.search_failed'
     | 'admin.users.show_all'
     | 'admin.users.show_detached'
     | 'admin.users.verify'
@@ -4505,6 +4511,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.users.none_selected',
     'admin.users.page_subtitle',
     'admin.users.page_title',
+    'admin.users.search',
+    'admin.users.search_capped',
+    'admin.users.search_clear',
+    'admin.users.search_empty_description',
+    'admin.users.search_empty_title',
+    'admin.users.search_failed',
     'admin.users.show_all',
     'admin.users.show_detached',
     'admin.users.verify',

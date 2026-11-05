@@ -33,8 +33,8 @@ export interface PhoneAccount extends CheckedCode {
     deviceCode?: boolean;
 }
 
-/** What a registered email signs in with (functions/src/auth/emailPin.ts): its password, its PIN, or a code and then a first PIN. */
-export type EmailSignInWith = 'password' | 'pin' | 'code';
+/** What a registered email signs in with (functions/src/auth/emailPin.ts): its password, its PIN, a code and then a first PIN, or nothing while the account is blocked. */
+export type EmailSignInWith = 'password' | 'pin' | 'code' | 'blocked';
 
 /** The sign-in page's first question for an email, answered. */
 export interface EmailAccount extends CheckedCode {

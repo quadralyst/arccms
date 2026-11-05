@@ -17,6 +17,7 @@ import { roleGuard } from '../../../../guards/role.guard';
 import { IntegrationsSettingService } from './integrations-setting.service';
 import { DEFAULT_INTEGRATIONS_SETTINGS } from './integrations-setting.model';
 import { isOn } from '../../../../core/features/features';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Integrations Settings',
@@ -27,7 +28,7 @@ export const routeMeta: RouteMeta = {
 @Component({
     standalone: true,
     imports: [
-        CommonModule,
+        LoaderComponent, CommonModule,
         ReactiveFormsModule,
         MatCardModule,
         MatFormFieldModule,
@@ -44,9 +45,7 @@ export const routeMeta: RouteMeta = {
             <p class="text-muted mb-4">{{ 'admin.settings.integrations.subtitle' | transloco }}</p>
 
             @if (isLoading()) {
-                <div class="d-flex justify-content-center py-5">
-                    <mat-spinner diameter="40"></mat-spinner>
-                </div>
+                <arc-loader kind="block" [count]="2"></arc-loader>
             } @else {
 
                 <!-- ═══════════════════ Unsplash Card ═══════════════════ -->
@@ -180,7 +179,7 @@ export const routeMeta: RouteMeta = {
                             </div>
 
                             <!-- Unsplash Save -->
-                            <div class="d-flex justify-content-end gap-2 mt-3">
+                            <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
                                 <button
                                     mat-stroked-button
                                     type="button"
@@ -369,7 +368,7 @@ export const routeMeta: RouteMeta = {
                             </div>
 
                             <!-- Geolocation Save -->
-                            <div class="d-flex justify-content-end gap-2 mt-3">
+                            <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
                                 <button
                                     mat-stroked-button
                                     type="button"

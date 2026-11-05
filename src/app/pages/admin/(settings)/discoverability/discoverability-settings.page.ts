@@ -16,11 +16,12 @@ import {
     IDiscoverabilitySettings,
 } from '../../../../../shared/models/discoverability.model';
 import { CRAWLERS, CrawlerAgent, CrawlerGroup } from '../../../../../shared/constants/crawlers';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 @Component({
     selector: 'arc-discoverability-settings',
     standalone: true,
-    imports: [CommonModule, TranslocoPipe],
+    imports: [LoaderComponent, CommonModule, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <div class="settings-section">
@@ -28,7 +29,7 @@ import { CRAWLERS, CrawlerAgent, CrawlerGroup } from '../../../../../shared/cons
       <p class="text-muted mb-4">{{ 'admin.settings.discoverability.intro' | transloco }}</p>
 
       @if (isLoading()) {
-        <p class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.state.loading' | transloco }}</p>
+        <arc-loader kind="block" [count]="2"></arc-loader>
       } @else {
 
         <!-- Crawlers -->

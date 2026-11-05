@@ -80,6 +80,22 @@ export type AccountKind = 'all' | 'people' | 'app';
 
 export const ACCOUNT_KINDS: readonly AccountKind[] = ['all', 'people', 'app'];
 
+/** The most accounts a search on the users page looks through: Firestore cannot search inside a field, so the page does. */
+export const MAX_SEARCHED_USERS = 5000;
+
+/**
+ * Whether an account matches what was typed: any part of the name, email or phone, in any
+ * case. Typed digits also match a number however it is written, so "98765" finds +919876543210.
+ */
+export function matchesUserSearch(user: Pick<IUser, 'name' | 'email'> & Partial<Pick<IUser, 'firstName' | 'lastName' | 'phone'>>, typed: string): boolean {
+    const term = typed.trim().toLowerCase();
+    if (!term) return true;
+    const texts = [user.name, user.firstName, user.lastName, user.email, user.phone];
+    if (texts.some((text) => typeof text === 'string' && text.toLowerCase().includes(term))) return true;
+    const digits = /^[\d\s()+.-]+$/.test(term) ? term.replace(/\D/g, '') : '';
+    return !!digits && typeof user.phone === 'string' && user.phone.replace(/\D/g, '').includes(digits);
+}
+
 /**
  * The query conditions for a kind of account. People are the records whose `by` is
  * anything but `app`. Firestore leaves out a record with no `by` at all, so older

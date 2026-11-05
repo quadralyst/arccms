@@ -28,6 +28,7 @@ import {
     AiPresetInfo, AiPresetModel, AiPriceField, AiPurposeForm, AiPurposeInfo, AiReads, AiTotals, AiUnit,
     AiCallContent, AiSettingsForm, AiSettingsService, AiSetupInfo, AiTier, KEY_HEADERS, addressChanged, blankPurpose, callsCsv, emptyAiForm, isFileKind,
     modelKindFor, naturalUnit, presetNeedsKey, purposeKind, recommendedLists, recommendedTiers, removalData, safeHeaderName, SPEECH_PRESETS, VOICE_ID, AVATAR_PRESETS } from './ai-settings.service';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 type Tab = 'setup' | 'purposes' | 'usage' | 'calls';
 /** How a provider stands, as its card says. */
@@ -62,7 +63,7 @@ export function usd(n: number): string {
 @Component({
     selector: 'arc-ai-settings',
     standalone: true,
-    imports: [FormsModule, TranslocoPipe, DecimalPipe, ArcTimePipe, NgTemplateOutlet, AiConnectComponent, AiVoicesComponent, AiAvatarsComponent],
+    imports: [LoaderComponent, FormsModule, TranslocoPipe, DecimalPipe, ArcTimePipe, NgTemplateOutlet, AiConnectComponent, AiVoicesComponent, AiAvatarsComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="settings-section">
@@ -72,7 +73,7 @@ export function usd(n: number): string {
             @if (loadError()) {
                 <div class="alert alert-danger">{{ 'admin.settings.ai.load_failed' | transloco }} {{ loadError() }}</div>
             } @else if (!loaded() || !setup()) {
-                <p class="text-muted loading"><i class="fas fa-spinner fa-spin me-2"></i>{{ 'admin.settings.ai.loading' | transloco }}</p>
+                <arc-loader kind="block" [count]="2" [label]="'admin.settings.ai.loading' | transloco"></arc-loader>
             } @else {
                 <div class="mode mb-2 d-flex flex-wrap gap-2 align-items-center">
                     <label class="form-label mb-0 fw-semibold" for="aiMode">{{ 'admin.settings.ai.mode' | transloco }}</label>
@@ -641,7 +642,7 @@ export function usd(n: number): string {
                                 <i class="fa-solid fa-download me-1"></i>{{ 'admin.settings.ai.download' | transloco }}
                             </button>
                         </div>
-                        @if (usageState() === 'loading' && !usage()) { <p class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i>{{ 'admin.settings.ai.loading' | transloco }}</p> }
+                        @if (usageState() === 'loading' && !usage()) { <arc-loader [label]="'admin.settings.ai.loading' | transloco"></arc-loader> }
                         @if (usageState() === 'failed') { <p class="text-danger" role="alert">{{ 'admin.settings.ai.usage_failed' | transloco }}</p> }
                         @if (csvMessage()) { <p class="small" role="status">{{ csvMessage() }}</p> }
                         @if (usage(); as u) {
@@ -702,7 +703,7 @@ export function usd(n: number): string {
                             <button type="button" class="btn btn-sm btn-outline-secondary" (click)="loadCalls()"><i class="fa-solid fa-rotate me-1"></i>{{ 'admin.settings.ai.refresh' | transloco }}</button>
                         </div>
                         <p class="text-muted small">{{ 'admin.settings.ai.calls_hint' | transloco }}</p>
-                        @if (callsState() === 'loading') { <p class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i>{{ 'admin.settings.ai.loading' | transloco }}</p> }
+                        @if (callsState() === 'loading') { <arc-loader kind="rows" [label]="'admin.settings.ai.loading' | transloco"></arc-loader> }
                         @else if (callsState() === 'failed') { <p class="text-danger" role="alert">{{ 'admin.settings.ai.calls_failed' | transloco }}</p> }
                         @else if (!shownCalls().length) { <p class="text-muted no-calls">{{ 'admin.settings.ai.no_calls' | transloco }}</p> }
                         <div class="list-group calls">

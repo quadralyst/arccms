@@ -32,7 +32,7 @@
         }
 
         @if (authStore.currentUser()) {
-        <div class="user-info cursor" [ngClass]="{'justify-content-center': !isExpanded}" routerLink="/admin/profile">
+        <a class="user-info" [ngClass]="{'justify-content-center': !isExpanded}" routerLink="/admin/profile" (click)="subItemClick()">
             <div class="avatar">
                 @if (authStore.currentUser()?.photo) {
                 <img [src]="authStore.currentUser()?.photo" alt="">
@@ -46,10 +46,10 @@
                 <div class="fw-bold">{{authStore.currentUser()?.name}}</div>
             </div>
             }
-        </div>
+        </a>
         }
 
-        <div class="sidebar-menu">
+        <div class="sidebar-menu" [@.disabled]="!animateGroups()">
             @for (item of menuItems(); track $index) {
             @if(item.allowRoles?.includes(authStore.currentUser()?.role ?? '') || item.allowRoles?.includes('showAll')) {
             @if (item.separator) {

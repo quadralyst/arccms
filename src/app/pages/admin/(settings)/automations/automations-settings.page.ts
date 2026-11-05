@@ -30,6 +30,7 @@ import {
     emptyRule,
     mappingToDraft,
 } from './automation-model';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 interface TemplateOption {
     type: string;
@@ -66,7 +67,7 @@ export function isRuleEmailTemplate(type: string): boolean {
 @Component({
     selector: 'arc-automations-settings',
     standalone: true,
-    imports: [FormsModule, TranslocoPipe],
+    imports: [LoaderComponent, FormsModule, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <div class="settings-section">
@@ -74,7 +75,7 @@ export function isRuleEmailTemplate(type: string): boolean {
       <p class="text-muted mb-4">{{ 'admin.settings.automations.intro' | transloco }}</p>
 
       @if (loading()) {
-        <p class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.state.loading' | transloco }}</p>
+        <arc-loader kind="block" [count]="2"></arc-loader>
       } @else if (error()) {
         <div class="alert alert-danger">{{ 'admin.settings.automations.load_failed' | transloco: { error: error() } }}</div>
       } @else {

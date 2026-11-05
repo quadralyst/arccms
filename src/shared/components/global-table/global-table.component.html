@@ -132,8 +132,7 @@
     <!-- Loading State -->
     @else {
     <div class="loading-state">
-        <div class="spinner"></div>
-        <p>{{ 'common.state.loading' | transloco }}</p>
+        <arc-loader kind="rows" [count]="loadingRows"></arc-loader>
     </div>
     }
 </div>

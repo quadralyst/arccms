@@ -11,11 +11,12 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { injectT } from '../../../core/i18n/inject-t';
 import { MessagesAdminService, replyLink, type ContactMessageItem, type MessageStatus } from './messages-admin.service';
+import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
 
 @Component({
     selector: 'arc-messages-inbox',
     standalone: true,
-    imports: [ArcTimePipe, MatButtonModule, MatButtonToggleModule, TranslocoPipe, PageHeaderComponent],
+    imports: [LoaderComponent, ArcTimePipe, MatButtonModule, MatButtonToggleModule, TranslocoPipe, PageHeaderComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { ngSkipHydration: 'true' },
     template: `
@@ -84,7 +85,7 @@ import { MessagesAdminService, replyLink, type ContactMessageItem, type MessageS
             </div>
 
             @if (inbox.loading()) {
-                <p class="text-muted">{{ 'common.state.loading' | transloco }}</p>
+                <arc-loader kind="block" [count]="2"></arc-loader>
             } @else if (inbox.hasMore()) {
                 <button mat-stroked-button (click)="inbox.load(status(), true)">{{ 'admin.messages.load_more' | transloco }}</button>
             }

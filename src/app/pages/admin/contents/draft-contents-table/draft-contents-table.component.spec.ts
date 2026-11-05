@@ -52,6 +52,7 @@ describe('DraftContentsTableComponent', () => {
         };
 
         mockDraftContentsStore = {
+            currentPageNumber: signal(0),
             items: signal(sampleContents),
             currentItem: signal({}),
             isLoading: signal(false),

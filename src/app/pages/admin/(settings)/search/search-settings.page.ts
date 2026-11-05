@@ -36,6 +36,7 @@ import {
     collectionSourceId,
     fillLinkPattern,
 } from '../../../../../shared/models/search.model';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 interface SourceRow {
     id: string;
@@ -109,7 +110,7 @@ const STATE_BADGE: Record<SearchCollectionState, string> = {
 @Component({
     selector: 'arc-search-settings',
     standalone: true,
-    imports: [CommonModule, TranslocoPipe, ArcTimePipe],
+    imports: [LoaderComponent, CommonModule, TranslocoPipe, ArcTimePipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <div class="settings-section">
@@ -117,7 +118,7 @@ const STATE_BADGE: Record<SearchCollectionState, string> = {
       <p class="text-muted mb-4">{{ 'admin.settings.search.intro' | transloco }}</p>
 
       @if (isLoading()) {
-        <p class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.state.loading' | transloco }}</p>
+        <arc-loader kind="block" [count]="2"></arc-loader>
       } @else {
         <h5 class="mb-2">{{ 'admin.settings.search.sources_heading' | transloco }}</h5>
         @if (sourceRows().length) {

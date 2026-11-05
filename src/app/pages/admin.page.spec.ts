@@ -4,7 +4,8 @@ import { TestBed } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { BreakpointObserver, type BreakpointState } from '@angular/cdk/layout';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
+import { TranslocoService } from '@jsverse/transloco';
 import * as fs from 'fs';
 import * as path from 'path';
 import AdminComponent from './admin.page';
@@ -108,5 +109,48 @@ describe('AdminComponent: the side panel and its button', () => {
         expect(page).toMatch(/\.arc-admin\.is-phone \{\s*--arc-admin-sticky-top: 48px;/);
         const styles = fs.readFileSync(path.resolve(__dirname, '../../styles.css'), 'utf8');
         expect(styles).toMatch(/\.composer-topbar \{[^}]*top: var\(--arc-admin-sticky-top, 0px\)/);
+    });
+});
+
+/**
+ * A select reads its chosen option's label once and re-reads it only if it had text, so a
+ * page drawn before its words were in showed a Status filter with nothing in it, on a fresh load.
+ */
+describe('AdminComponent: the page waits for its words', () => {
+    async function render(words: Subject<unknown>) {
+        TestBed.configureTestingModule({
+            imports: [AdminComponent, NoopAnimationsModule],
+            providers: [
+                provideZonelessChangeDetection(),
+                provideRouter([]),
+                { provide: BreakpointObserver, useValue: { observe: () => new BehaviorSubject<BreakpointState>({ matches: false, breakpoints: {} }) } },
+                { provide: SiteBrandService, useValue: { name: signal('Acme Studio') } },
+            ],
+        });
+        TestBed.overrideComponent(AdminComponent, { remove: { imports: [SideNavbarComponent] }, add: { imports: [NavbarStub] } });
+        vi.spyOn(TestBed.inject(TranslocoService), 'load').mockReturnValue(words as never);
+        const fixture = TestBed.createComponent(AdminComponent);
+        fixture.autoDetectChanges();
+        await fixture.whenStable();
+        return fixture;
+    }
+
+    it('opens the page only once the language file is in', async () => {
+        const words = new Subject<unknown>();
+        const fixture = await render(words);
+        expect(fixture.nativeElement.querySelector('router-outlet')).toBeNull();
+        expect(fixture.nativeElement.querySelector('arc-side-navbar')).not.toBeNull();
+
+        words.next({});
+        await fixture.whenStable();
+        expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
+    });
+
+    it('still opens the page if the file cannot be read', async () => {
+        const words = new Subject<unknown>();
+        const fixture = await render(words);
+        words.error(new Error('offline'));
+        await fixture.whenStable();
+        expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
     });
 });

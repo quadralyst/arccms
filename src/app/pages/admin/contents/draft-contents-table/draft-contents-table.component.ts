@@ -25,6 +25,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { followLandedPage } from '../../../../../shared/services/generic-store.service';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { ContentsStore } from '../content-store/published-contents.store';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
@@ -52,12 +53,13 @@ import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { iconClasses, iconLabel } from '../../../../../shared/models/icon.model';
 import { isRepeaterType } from '../../../../../shared/models/repeater.model';
 import { escapeHtml } from '../../../../../shared/utils/escape-html';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 @Component({
   selector: 'arc-draft-contents-table',
   standalone: true,
   imports: [
-    MatIconModule,
+    LoaderComponent, MatIconModule,
     MatButtonModule,
     MatSidenavModule,
     MatPaginatorModule,
@@ -322,6 +324,9 @@ export class DraftContentsTableComponent
 
     constructor() {
     super();
+
+    // The page the list landed on, which a removed record can change.
+    followLandedPage(this.draftContentStore.currentPageNumber, this.currentPageNum);
 
     effect(() => {
       // Ensure Content Types are loaded

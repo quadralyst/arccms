@@ -12,6 +12,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Firestore, collection, collectionData, doc, getDoc, query, where } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
+import { followLandedPage } from '../../../../shared/services/generic-store.service';
 import { statusBadgeClass, statusBadgeLabel } from '../../../../shared/utils/status-badge';
 import { Subscription } from 'rxjs';
 
@@ -92,9 +93,12 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
     tableColumns: TableColumn[] = [];
 
     constructor() {
-        // Initialize from URL query params (Fix 10: plain code instead of effect)
+        // The page the list landed on, which a removed record can change.
+        followLandedPage(this.emailLogStore.currentPageNumber, this.currentPage);
+
+        // Initialize from URL query params (Fix 10: plain code instead of effect). A list opens on
+        // its first page: a page in the middle cannot be reached without the ones before it (page-cursors.ts).
         const params = this.route.snapshot.queryParams;
-        if (params['page']) this.currentPage.set(+params['page']);
         if (params['pageSize']) this.pageSize.set(+params['pageSize']);
         if (params['sortField']) this.sortField.set(params['sortField']);
         if (params['sortOrder']) this.sortOrder.set(params['sortOrder'] as 'asc' | 'desc');
@@ -191,7 +195,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
         this.pageSize.set(event.pageSize);
         this.router.navigate([], {
             relativeTo: this.route,
-            queryParams: { page: event.pageIndex, pageSize: event.pageSize },
+            queryParams: { page: null, pageSize: event.pageSize },
             queryParamsHandling: 'merge',
         });
         this.fetchData();
@@ -205,6 +209,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
             this.sortField.set(field);
             this.sortOrder.set('asc');
         }
+        this.currentPage.set(0);
         this.router.navigate([], {
             relativeTo: this.route,
             queryParams: { sortField: this.sortField(), sortOrder: this.sortOrder() },
@@ -219,7 +224,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
         this.currentPage.set(0);
         this.router.navigate([], {
             relativeTo: this.route,
-            queryParams: { status: value || null, page: 0 },
+            queryParams: { status: value || null, page: null },
             queryParamsHandling: 'merge',
         });
         this.fetchData();

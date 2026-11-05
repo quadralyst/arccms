@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { IUser, UserFormData, COMPONENT_NAME, accountKindConditions, ACCOUNT_KINDS, isAppAccount } from './user.model';
+import { matchesUserSearch } from './user.model';
 import { UserRole, UserStatus } from '../../../../shared/components/base/base.component';
 import { IBaseModel } from '../../../../shared/models/base-model';
 
@@ -213,3 +214,29 @@ function createMinimalUser(): IUser {
         uid: 'uid-1',
     };
 }
+
+describe('matchesUserSearch', () => {
+    const person = { name: 'Asha Rao', email: 'asha@example.com', phone: '+919876543210' };
+
+    it('finds any part of the name, email or phone, in any case', () => {
+        expect(matchesUserSearch(person, 'asha')).toBe(true);
+        expect(matchesUserSearch(person, 'RAO')).toBe(true);
+        expect(matchesUserSearch(person, 'example.com')).toBe(true);
+        expect(matchesUserSearch(person, '+9198')).toBe(true);
+        expect(matchesUserSearch(person, 'zed')).toBe(false);
+    });
+
+    it('finds a number however it is typed', () => {
+        expect(matchesUserSearch(person, '98765')).toBe(true);
+        expect(matchesUserSearch(person, '98765 43210')).toBe(true);
+        expect(matchesUserSearch(person, '(987) 654-3210')).toBe(true);
+        expect(matchesUserSearch(person, '12345')).toBe(false);
+    });
+
+    it('takes an account with no email or phone, and nothing typed matches everyone', () => {
+        const app = { name: 'Till One', email: '' };
+        expect(matchesUserSearch(app, 'till')).toBe(true);
+        expect(matchesUserSearch(app, '987')).toBe(false);
+        expect(matchesUserSearch(app, '   ')).toBe(true);
+    });
+});

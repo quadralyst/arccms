@@ -23,6 +23,7 @@ import { GlobalTableComponent, TableColumn } from '../../../../shared/components
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { statusBadgeClass } from '../../../../shared/utils/status-badge';
 import { MAX_APP_USERS } from './app-users-limit';
+import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
 
 /** Mirrors functions/src/app-audience/listAppUsers.ts. */
 export interface AppUserRow {
@@ -74,7 +75,7 @@ export { MAX_APP_USERS };
 @Component({
     standalone: true,
     imports: [
-        ArcTimePipe, FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule,
+        LoaderComponent, ArcTimePipe, FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule,
         MatPaginatorModule, MatSidenavModule, GlobalTableComponent, PageHeaderComponent, TranslocoPipe,
     ],
     templateUrl: './app-users.page.html',

@@ -11,6 +11,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { ContentsService } from '../../content-store/published-contents.service';
 import { INextContentReference } from '../../draft-content-store/draft-contents.model';
+import { LoaderComponent } from '../../../../../../shared/components/loader/loader.component';
 
 export interface VersionHistoryItem {
     historyId: string;
@@ -35,7 +36,7 @@ export interface VersionHistoryItem {
 @Component({
     selector: 'arc-version-history',
     standalone: true,
-    imports: [CommonModule],
+    imports: [LoaderComponent, CommonModule],
     templateUrl: './version-history.component.html',
     styleUrl: './version-history.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,

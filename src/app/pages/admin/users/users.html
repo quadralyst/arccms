@@ -41,63 +41,66 @@
                         </button>
                     </arc-page-header>
 
-                    <mat-button-toggle-group class="mb-3" [value]="accountKind()" (change)="setAccountKind($event.value)"
-                        [attr.aria-label]="'admin.users.kind_filter' | transloco">
-                        @for (kind of accountKinds; track kind) {
-                        <mat-button-toggle [value]="kind">{{ 'admin.users.kind_' + kind | transloco }}</mat-button-toggle>
-                        }
-                    </mat-button-toggle-group>
+                    <div class="users-toolbar">
+                        <mat-button-toggle-group [value]="accountKind()" (change)="setAccountKind($event.value)"
+                            [attr.aria-label]="'admin.users.kind_filter' | transloco">
+                            @for (kind of accountKinds; track kind) {
+                            <mat-button-toggle [value]="kind">{{ 'admin.users.kind_' + kind | transloco }}</mat-button-toggle>
+                            }
+                        </mat-button-toggle-group>
+
+                        <mat-form-field appearance="outline" class="users-search" subscriptSizing="dynamic">
+                            <mat-icon matPrefix>search</mat-icon>
+                            <input matInput type="search" [value]="searchTerm()" (input)="onSearch($any($event.target).value)"
+                                [attr.aria-label]="'admin.users.search' | transloco"
+                                [placeholder]="'admin.users.search' | transloco" autocomplete="off">
+                            @if (searching()) {
+                            <button matSuffix mat-icon-button type="button" (click)="onSearch('')"
+                                [attr.aria-label]="'admin.users.search_clear' | transloco">
+                                <mat-icon>close</mat-icon>
+                            </button>
+                            }
+                        </mat-form-field>
+                    </div>
+
+                    @if (searching() && searchCapped()) {
+                    <p class="users-search-note text-muted">{{ 'admin.users.search_capped' | transloco: { max: maxSearched } }}</p>
+                    }
 
                     <!-- <div class="card mb-4 mt-3">
                         <div class="card-body p-0"> -->
-                    <app-global-table [data]="userStore.items()" [columns]="tableColumns"
-                        [loading]="userStore.isLoading()" [sortField]="sortField()" [sortOrder]="sortOrder()"
+                    <app-global-table [data]="rows()" [columns]="tableColumns"
+                        [loading]="loading()" [sortField]="sortField()" [sortOrder]="sortOrder()"
                         (sortChange)="setSortField($event)" (cellClick)="onCellClick($event)"
-                        [pageIndex]="currentPage()" [pageSize]="pageSize()" [emptyTitle]="'admin.users.empty_title' | transloco"
-                        [emptyDescription]="'admin.users.empty_description' | transloco" [showEmptyAction]="false">
+                        [pageIndex]="page()" [pageSize]="pageSize()"
+                        [emptyTitle]="(searching() ? 'admin.users.search_empty_title' : 'admin.users.empty_title') | transloco"
+                        [emptyDescription]="(searching() ? 'admin.users.search_empty_description' : 'admin.users.empty_description') | transloco"
+                        [showEmptyAction]="false">
                     </app-global-table>
                     <!-- </div> -->
 
                     <!-- Pagination and Record Count -->
-                    @if(userStore.items().length){
+                    @if(rows().length){
                     <div class="pagination-footer d-flex justify-content-between align-items-center">
-                        @if(!userStore.isLoading()) {
+                        @if(!loading()) {
                         <div class="record-count text-muted">
-                            @if(userStore.totalRecords() > 0) {
+                            @if(total() > 0) {
                             @if(hasActiveFilters()) {
-                            {{ 'common.table.showing_range_filtered' | transloco: { start: getStartRecord(), end: getEndRecord(), total: userStore.totalRecords() } }}
+                            {{ 'common.table.showing_range_filtered' | transloco: { start: getStartRecord(), end: getEndRecord(), total: total() } }}
                             } @else {
-                            {{ 'common.table.showing_range' | transloco: { start: getStartRecord(), end: getEndRecord(), total: userStore.totalRecords() } }}
+                            {{ 'common.table.showing_range' | transloco: { start: getStartRecord(), end: getEndRecord(), total: total() } }}
                             }
                             } @else {
                             {{ 'common.table.no_records' | transloco }}
                             }
                         </div>
-                        <mat-paginator [length]="userStore.totalRecords()" [pageSize]="pageSize()"
-                            [pageIndex]="currentPage()" [pageSizeOptions]="[5, 10, 25, 50]"
+                        <mat-paginator [length]="total()" [pageSize]="pageSize()"
+                            [pageIndex]="page()" [pageSizeOptions]="[5, 10, 25, 50]"
                             [showFirstLastButtons]="true" (page)="onPageChange($event)">
                         </mat-paginator>
                         }
                         @else {
-                        <!-- Skeleton Loading State -->
-                        <div class="pagination-container">
-                            <div class="record-count-skeleton">
-                                <span class="skeleton skeleton-text"></span>
-                            </div>
-                            <div class="pagination-controls-skeleton">
-                                <div class="items-per-page-skeleton">
-                                    <span class="skeleton skeleton-text-small"></span>
-                                    <span class="skeleton skeleton-select"></span>
-                                </div>
-                                <span class="skeleton skeleton-text-medium"></span>
-                                <div class="pagination-buttons-skeleton">
-                                    <span class="skeleton skeleton-button"></span>
-                                    <span class="skeleton skeleton-button"></span>
-                                    <span class="skeleton skeleton-button"></span>
-                                    <span class="skeleton skeleton-button"></span>
-                                </div>
-                            </div>
-                        </div>
+                        <arc-loader class="w-100" [count]="1" aria-hidden="true"></arc-loader>
                         }
                     </div>
                     }

@@ -5,7 +5,7 @@
  * This provides a reusable pattern for managing any entity that extends IBaseModel.
  */
 
-import { computed, inject, Injectable, PendingTasks, Type } from '@angular/core';
+import { computed, effect, inject, Injectable, PendingTasks, Signal, Type, untracked, WritableSignal } from '@angular/core';
 import { WhereFilterOp } from '@angular/fire/firestore';
 import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
 import { catchError, finalize, Observable, of, Subscription, tap, throwError } from 'rxjs';
@@ -13,6 +13,7 @@ import { AuthState } from '../../app/pages/(auth)/auth.store';
 import { QueryParams } from '../models';
 import { IBaseModel, OmitCommonFields } from '../models/base-model';
 import { DbService } from './db.service';
+import { PageCursors, pageQueryShape, type PageRead } from './page-cursors';
 
 /**
  * Generic state interface for entity stores
@@ -63,6 +64,26 @@ export function getDefaultInitialState<T extends IBaseModel>(): GenericState<T> 
 }
 
 /**
+ * Keeps a page's own page number on the page the store landed on, which is not always the
+ * one asked for (page-cursors.ts). Call it in the constructor of a page that lists with
+ * a store: `followLandedPage(this.store.currentPageNumber, this.currentPage)`.
+ */
+export function followLandedPage(landed: Signal<number>, page: WritableSignal<number>): void {
+    effect(() => {
+        const at = landed();
+        untracked(() => page.set(at));
+    });
+}
+
+/** A page read (page-cursors.ts) as query parameters. */
+function cursorParams(read: PageRead): Pick<QueryParams, 'startAfterDoc' | 'endBeforeDoc' | 'lastCount'> {
+    if (read.kind === 'after') return { startAfterDoc: read.cursor };
+    if (read.kind === 'before') return { endBeforeDoc: read.cursor };
+    if (read.kind === 'fromEnd') return { lastCount: read.count };
+    return {};
+}
+
+/**
  * Factory function to create a generic store for any entity
  * 
  * @param ServiceType - The DbService implementation for the entity
@@ -83,6 +104,94 @@ export function createGenericStore<T extends IBaseModel>(
         })),
         withMethods((store, service = inject(ServiceType), authStore = inject(AuthState), pendingTasks = inject(PendingTasks)) => {
             let activeSubscription: any = null;
+            const cursors = new PageCursors();
+
+            const getAll = async (queryParams?: QueryParams, collectionSuffix?: string): Promise<void> => {
+                patchState(store, { isLoading: true, isSuccess: false, error: '' });
+
+                // Tell Angular SSR to wait for data before rendering HTML.
+                // taskCleanup() is called once data arrives (or on error).
+                const taskCleanup = pendingTasks.add();
+                let taskCleaned = false;
+                const cleanupOnce = () => {
+                    if (!taskCleaned) {
+                        taskCleaned = true;
+                        taskCleanup();
+                    }
+                };
+
+                const defaultQueryParams: QueryParams = {
+                    limitCount: store.limit(),
+                    orderByField: store.sortField(),
+                    orderByDirection: store.order(),
+                    whereConditions: store.whereConditions(),
+                    orConditions: store.orConditions(),
+                    previousPageNumber: store.previousPageNumber(),
+                    currentPageNumber: store.currentPageNumber(),
+                };
+
+                const merged: QueryParams = { ...defaultQueryParams, ...queryParams };
+
+                // Where this page is read from (page-cursors.ts). The page asked for is not
+                // always the page reached, so a page shows what landed: currentPageNumber.
+                const shape = pageQueryShape(merged, collectionSuffix);
+                const plan = cursors.plan({
+                    target: merged.currentPageNumber,
+                    shape,
+                    current: store.currentPageNumber(),
+                    firstVisible: store.firstVisible(),
+                    lastVisible: store.lastVisible(),
+                    total: store.totalRecords(),
+                    limit: merged.limitCount,
+                    ordered: !!merged.orderByField,
+                });
+                const readParams: QueryParams = { ...cursorParams(plan.read), ...merged, currentPageNumber: plan.page };
+
+                if (activeSubscription) {
+                    activeSubscription.unsubscribe();
+                }
+
+                activeSubscription = service.getAll(readParams, collectionSuffix).subscribe({
+                    next: (result) => {
+                        cursors.landed(shape);
+                        patchState(store, {
+                            items: result.collectionData,
+                            // limitCount 0 means "no limit", so everything is
+                            // one page — dividing by it would give Infinity.
+                            totalPages: readParams.limitCount
+                                ? Math.ceil(result.totalCount / readParams.limitCount)
+                                : 1,
+                            totalRecords: result.totalCount,
+                            isLoading: false,
+                            isSuccess: true,
+                            error: '',
+                            firstVisible: result.firstVisible,
+                            lastVisible: result.lastVisible,
+                            whereConditions: readParams.whereConditions,
+                            limit: readParams.limitCount,
+                            sortField: readParams.orderByField,
+                            order: readParams.orderByDirection,
+                            previousPageNumber: readParams.previousPageNumber,
+                            currentPageNumber: readParams.currentPageNumber,
+                        });
+                        cleanupOnce();
+                        // The last record of the last page went: step back, rather than show an empty list with more records behind it.
+                        if (!result.collectionData.length && readParams.currentPageNumber > 0) {
+                            queueMicrotask(() => void getAll({ ...merged, currentPageNumber: readParams.currentPageNumber - 1 }, collectionSuffix));
+                        }
+                    },
+                    error: (error) => {
+                        console.error('Error', error);
+                        patchState(store, {
+                            error: error.message,
+                            isLoading: false,
+                            isSuccess: false,
+                        });
+                        cleanupOnce();
+                    },
+                });
+            };
+
             return {
             /**
              * Clear current item
@@ -95,6 +204,7 @@ export function createGenericStore<T extends IBaseModel>(
              * Clear all items and reset state
              */
             clearList() {
+                cursors.forget();
                 patchState(store, mergedState);
             },
 
@@ -115,92 +225,7 @@ export function createGenericStore<T extends IBaseModel>(
             /**
              * Get all items from Firestore
              */
-            async getAll(queryParams?: QueryParams, collectionSuffix?: string): Promise<void> {
-                patchState(store, { isLoading: true, isSuccess: false, error: '' });
-
-                // Tell Angular SSR to wait for data before rendering HTML.
-                // taskCleanup() is called once data arrives (or on error).
-                const taskCleanup = pendingTasks.add();
-                let taskCleaned = false;
-                const cleanupOnce = () => {
-                    if (!taskCleaned) {
-                        taskCleaned = true;
-                        taskCleanup();
-                    }
-                };
-
-                const targetPage = queryParams?.currentPageNumber ?? store.currentPageNumber();
-                const currentPage = store.currentPageNumber();
-
-                let startAfterDoc = null;
-                let endBeforeDoc = null;
-
-                // Determine direction and correct cursor
-                if (targetPage === 0) {
-                    // Reset or first page
-                    startAfterDoc = null;
-                    endBeforeDoc = null;
-                } else if (targetPage > currentPage) {
-                    // Next page
-                    startAfterDoc = store.lastVisible();
-                } else if (targetPage < currentPage) {
-                    // Previous page
-                    endBeforeDoc = store.firstVisible();
-                }
-
-                const defaultQueryParams: QueryParams = {
-                    limitCount: store.limit(),
-                    orderByField: store.sortField(),
-                    orderByDirection: store.order(),
-                    startAfterDoc,
-                    endBeforeDoc,
-                    whereConditions: store.whereConditions(),
-                    orConditions: store.orConditions(),
-                    previousPageNumber: store.previousPageNumber(),
-                    currentPageNumber: store.currentPageNumber(),
-                };
-
-                queryParams = { ...defaultQueryParams, ...queryParams };
-
-                if (activeSubscription) {
-                    activeSubscription.unsubscribe();
-                }
-
-                activeSubscription = service.getAll(queryParams, collectionSuffix).subscribe({
-                    next: (result) => {
-                        patchState(store, {
-                            items: result.collectionData,
-                            // limitCount 0 means "no limit", so everything is
-                            // one page — dividing by it would give Infinity.
-                            totalPages: queryParams!.limitCount
-                                ? Math.ceil(result.totalCount / queryParams!.limitCount)
-                                : 1,
-                            totalRecords: result.totalCount,
-                            isLoading: false,
-                            isSuccess: true,
-                            error: '',
-                            firstVisible: result.firstVisible,
-                            lastVisible: result.lastVisible,
-                            whereConditions: queryParams!.whereConditions,
-                            limit: queryParams!.limitCount,
-                            sortField: queryParams!.orderByField,
-                            order: queryParams!.orderByDirection,
-                            previousPageNumber: queryParams!.previousPageNumber,
-                            currentPageNumber: queryParams!.currentPageNumber,
-                        });
-                        cleanupOnce();
-                    },
-                    error: (error) => {
-                        console.error('Error', error);
-                        patchState(store, {
-                            error: error.message,
-                            isLoading: false,
-                            isSuccess: false,
-                        });
-                        cleanupOnce();
-                    },
-                });
-            },
+            getAll,
 
             /**
              * Get item by ID from Firestore
@@ -419,6 +444,7 @@ export function createGenericStore<T extends IBaseModel>(
                     activeSubscription = null;
                 }
 
+                cursors.forget();
                 patchState(store, mergedState);
             },
         } }),

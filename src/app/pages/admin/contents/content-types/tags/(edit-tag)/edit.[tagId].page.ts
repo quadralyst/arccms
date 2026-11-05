@@ -7,12 +7,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { TagsStore } from '../tags.store';
 import { ITag } from '../tags.model';
 import { ConstantVariables } from '../../../../../../../shared/constants/common-constants';
+import { LoaderComponent } from '../../../../../../../shared/components/loader/loader.component';
 
 @Component({
     selector: 'arc-edit-tag',
     standalone: true,
     imports: [
-        CommonModule,
+        LoaderComponent, CommonModule,
         FormsModule,
         ReactiveFormsModule,
         MatButtonModule,

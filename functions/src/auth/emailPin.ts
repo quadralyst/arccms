@@ -52,8 +52,8 @@ const HOUR = 60 * 60 * 1000;
 const TOO_MANY = 'Too many attempts. Please try again later.';
 const NO_PIN = 'Set a PIN with a code sent to your email.';
 
-/** What the sign-in page asks a registered email for. */
-export type EmailSignInWith = 'password' | 'pin' | 'code';
+/** What the sign-in page asks a registered email for; `blocked`: nothing, it says the account is blocked. */
+export type EmailSignInWith = 'password' | 'pin' | 'code' | 'blocked';
 
 /** The two codes this file sends. */
 export type EmailPinPurpose = 'device' | 'pin-reset';
@@ -86,14 +86,18 @@ export async function emailPinAccount(email: string): Promise<UserRecord & { uid
 
 /**
  * What the sign-in page needs about a registered email (checkEmailAccount): what to ask
- * for, whether this device needs a code first, whether to offer a PIN after the password,
- * and the code purpose to send now (`device` or `pin-reset`), or none.
+ * for (`blocked`: nothing), whether this device needs a code first, whether to offer a PIN
+ * after the password, and the code purpose to send now (`device` or `pin-reset`), or none.
  */
 export async function emailPinStatus(
     record: UserRecord,
     settings: SignInSettings,
     deviceKey: string | null,
 ): Promise<{ signInWith: EmailSignInWith; deviceCode?: true; offerPin?: true; codePurpose: EmailPinPurpose | null }> {
+    // A blocked account is told so now, as the PIN, code and reset doors already do: a
+    // password step could only end in "Wrong password" for an account with only a PIN. A
+    // locked app account keeps its own refusal (emailPinAccount).
+    if (!canSignIn(record.data) && !isLockedAppAccount(record.data)) return { signInWith: 'blocked', codePurpose: null };
     const uid = String(record.data['uid'] ?? '');
     const eligible = !!uid && pinEligible(record.data) && canSignIn(record.data);
     if (!eligible) return { signInWith: 'password', codePurpose: null };

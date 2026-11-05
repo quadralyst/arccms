@@ -30,11 +30,12 @@ import {
 } from '../../../../../shared/constants/languages';
 import { ZonePickerComponent } from '../../../../../shared/components/zone-picker/zone-picker.component';
 import { deviceZone, zoneLabel } from '../../../../core/time/zones';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 @Component({
     selector: 'arc-localization-settings',
     standalone: true,
-    imports: [CommonModule, FormsModule, TranslocoPipe, ZonePickerComponent],
+    imports: [LoaderComponent, CommonModule, FormsModule, TranslocoPipe, ZonePickerComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <div class="settings-section">
@@ -48,7 +49,7 @@ import { deviceZone, zoneLabel } from '../../../../core/time/zones';
       </p>
 
       @if (isLoading()) {
-        <p class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.state.loading' | transloco }}</p>
+        <arc-loader kind="block" [count]="2"></arc-loader>
       } @else {
 
         <div class="table-responsive mb-3">

@@ -12,6 +12,7 @@ import { BaseComponent } from '../../../../shared/components/base/base.component
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { roleGuard } from '../../../guards/role.guard';
 import { TransactionsStore } from './transactions.store';
+import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
     title: 'Transactions',
@@ -21,7 +22,7 @@ export const routeMeta: RouteMeta = {
 
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent, TranslocoPipe, ArcTimePipe],
+    imports: [LoaderComponent, CommonModule, FormsModule, MatCardModule, MatTableModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent, TranslocoPipe, ArcTimePipe],
     template: `
         <div class="transactions-page">
             <arc-page-header [title]="'admin.transactions.title' | transloco"
@@ -41,7 +42,7 @@ export const routeMeta: RouteMeta = {
             <mat-card>
                 <mat-card-content class="pt-3">
                     @if (store.isLoading()) {
-                        <p class="text-muted">{{ 'common.state.loading' | transloco }}</p>
+                        <arc-loader kind="rows"></arc-loader>
                     } @else if (filtered().length === 0) {
                         <p class="text-muted">{{ 'admin.transactions.none' | transloco }}</p>
                     } @else {

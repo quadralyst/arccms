@@ -54,14 +54,19 @@ export function siteBrand(
     return { name, logo, arc: false };
 }
 
-/** The site's brand once Settings, About has loaded; null until then, so Arc CMS's never flashes. */
+/**
+ * The site's brand. An app's own name and logo are known when it is built, so they show at
+ * once, and Settings, About replaces them if it differs. With neither, null until Settings,
+ * About has loaded, so Arc CMS's never flashes on a site with a name of its own.
+ */
 @Injectable({ providedIn: 'root' })
 export class SiteBrandService {
     private identity = inject(SiteIdentityService);
 
-    readonly brand = computed<SiteBrand | null>(() =>
-        this.identity.loaded() ? siteBrand(this.identity.identity()) : null,
-    );
+    readonly brand = computed<SiteBrand | null>(() => {
+        if (this.identity.loaded()) return siteBrand(this.identity.identity());
+        return APP_BRAND.name || APP_BRAND.logo ? siteBrand({}) : null;
+    });
 
     /** The name, or '' until it is known. */
     readonly name = computed(() => this.brand()?.name ?? '');

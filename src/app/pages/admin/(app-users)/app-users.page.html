@@ -9,7 +9,7 @@
             </div>
 
             @if (detailLoading()) {
-                <p class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i> {{ 'common.state.loading' | transloco }}</p>
+                <arc-loader [count]="5"></arc-loader>
             } @else if (detailError()) {
                 <div class="alert alert-danger">{{ detailError() }}</div>
             } @else if (detail(); as d) {

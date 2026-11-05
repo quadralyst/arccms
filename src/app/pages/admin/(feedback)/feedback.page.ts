@@ -11,11 +11,12 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { injectT } from '../../../core/i18n/inject-t';
 import { describeBrowser, FeedbackAdminService, type FeedbackFilter, type FeedbackItem } from './feedback-admin.service';
+import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
 
 @Component({
     selector: 'arc-feedback-inbox',
     standalone: true,
-    imports: [ArcTimePipe, MatButtonModule, MatButtonToggleModule, MatSlideToggleModule, TranslocoPipe, PageHeaderComponent],
+    imports: [LoaderComponent, ArcTimePipe, MatButtonModule, MatButtonToggleModule, MatSlideToggleModule, TranslocoPipe, PageHeaderComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { ngSkipHydration: 'true' },
     template: `
@@ -97,7 +98,7 @@ import { describeBrowser, FeedbackAdminService, type FeedbackFilter, type Feedba
             </div>
 
             @if (inbox.loading()) {
-                <p class="text-muted">{{ 'common.state.loading' | transloco }}</p>
+                <arc-loader kind="block" [count]="2"></arc-loader>
             } @else if (inbox.hasMore()) {
                 <button mat-stroked-button (click)="inbox.load(filter(), true)">{{ 'admin.feedback.load_more' | transloco }}</button>
             }

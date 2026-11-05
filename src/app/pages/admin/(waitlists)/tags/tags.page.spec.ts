@@ -20,6 +20,7 @@ import { ConstantVariables } from '../../../../../shared/constants/common-consta
 
 // Create mock store
 class MockWaitlistUserTagsStore {
+    currentPageNumber = signal(0);
     items = signal<any[]>([]);
     isLoading = signal(false);
     totalRecords = signal(0);

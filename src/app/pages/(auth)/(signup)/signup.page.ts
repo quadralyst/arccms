@@ -37,6 +37,7 @@ import { Auth, type AuthCredential } from '@angular/fire/auth';
 import { filter, firstValueFrom, take } from 'rxjs';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { AuthState, NO_ACCESS_KEY } from '../auth.store';
+import { BLOCKED_KEY } from '../auth-messages';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { sentenceParts } from '../../../core/i18n/sentence-parts';
 import type { TranslationKey } from '../../../core/i18n/translation-keys';
@@ -825,7 +826,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         // deployed before email PINs says nothing, which is the password.
         const how = account?.signInWith ?? 'password';
         this.offerPin.set(how === 'password' && !!account?.offerPin);
-        if (how === 'pin' && account?.deviceCode) {
+        if (how === 'blocked') {
+          // Nothing to ask for: no step could end in anything but this.
+          this.errorMessage.set(this.t(BLOCKED_KEY));
+        } else if (how === 'pin' && account?.deviceCode) {
           this.emailPurpose.set('device');
           this.goToStep('verify');
           await this.sendOtp(false, checked);

@@ -122,6 +122,45 @@ describe('what a registered email signs in with (the table in the spec)', () => 
     });
 });
 
+describe('checkEmailAccount for a blocked account', () => {
+    const block = (uid: string, change: Record<string, unknown> = { isActive: false }) =>
+        mem.seed('users', `rec-${uid}`, { ...mem.read('users', `rec-${uid}`), ...change });
+
+    it('says it is blocked, whatever it has, and asks for nothing and sends nothing', async () => {
+        person('b1');
+        await setPin('b1', '604175');
+        block('b1');
+        await expect(call(checkEmailAccount, { email: EMAIL, deviceKey: PHONE_KEY, sendCode: true }))
+            .resolves.toEqual({ status: 'registered', signupOpen: true, signInWith: 'blocked' });
+        expect(sent.emails).toHaveLength(0);
+    });
+
+    it('an account with only a PIN is never asked for a password it does not have', async () => {
+        settings({ emailSignIn: 'password' });
+        person('b2');
+        await setPin('b2', '604175');
+        block('b2');
+        expect((await call(checkEmailAccount, { email: EMAIL })).signInWith).toBe('blocked');
+    });
+
+    it('a detached account too, as every other door treats it', async () => {
+        person('b3', { password: true });
+        block('b3', { status: 'Detached' });
+        expect((await call(checkEmailAccount, { email: EMAIL })).signInWith).toBe('blocked');
+    });
+
+    it('says no more than before about an address with no account', async () => {
+        await expect(call(checkEmailAccount, { email: 'nobody@example.com' })).resolves.toEqual({ status: 'new', signupOpen: true });
+    });
+
+    it('a locked app account keeps its own refusal at the next step', async () => {
+        person('b4', { password: true });
+        block('b4', { isActive: false, by: 'app', selfService: false });
+        const reply = await call(checkEmailAccount, { email: EMAIL });
+        expect(reply.signInWith).not.toBe('pin');
+    });
+});
+
 describe('checkEmailAccount for a registered address', () => {
     it('a PIN account on a device not proved yet: the code comes first, and the check sends it', async () => {
         person('u1');

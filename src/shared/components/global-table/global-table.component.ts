@@ -9,6 +9,7 @@ import { RowActionsComponent, ROW_ACTIONS_COMPACT_QUERY } from '../row-actions/r
 import { RowAction, RowActionsPlan, planRowActions } from '../row-actions/row-actions';
 import { ArcTimePipe } from '../../../app/core/time/arc-time.pipe';
 import type { ZoneRef } from '../../../app/core/time/arc-time.service';
+import { LoaderComponent } from '../../../shared/components/loader/loader.component';
 
 /** A row action. See row-actions.ts for how a table lays them out. */
 export type TableAction = RowAction;
@@ -84,7 +85,7 @@ export interface TableColumn {
     templateUrl: './global-table.component.html',
     styleUrls: ['./global-table.component.scss'],
     standalone: true,
-    imports: [CommonModule, TranslocoPipe, TranslatablePipe, RowActionsComponent, ArcTimePipe]
+    imports: [LoaderComponent, CommonModule, TranslocoPipe, TranslatablePipe, RowActionsComponent, ArcTimePipe]
 })
 export class GlobalTableComponent implements DoCheck {
     /**
@@ -114,6 +115,12 @@ export class GlobalTableComponent implements DoCheck {
     // Pagination Inputs (Required for 'index' type)
     @Input() pageIndex = 0;
     @Input() pageSize = 10;
+
+    /** How many rows the loader draws in the place of the table. */
+    get loadingRows(): number {
+        return Math.min(this.pageSize || 5, 8);
+    }
+
 
     // Empty State Inputs
     @Input() emptyTitle = 'No Items Yet';

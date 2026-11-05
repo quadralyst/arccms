@@ -9,11 +9,12 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 import { EmailLogStore } from '../email-log.store';
 import { fileSize, IEmailLog, sentSubject } from '../email-log.model';
+import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 @Component({
     selector: 'arc-view-email-log',
     standalone: true,
-    imports: [CommonModule, MatIconModule, MatButtonModule],
+    imports: [LoaderComponent, CommonModule, MatIconModule, MatButtonModule],
     templateUrl: './view-email-log.component.html',
     styleUrl: './view-email-log.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,

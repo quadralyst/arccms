@@ -63,6 +63,15 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/waitlist/unsubscribe-handling/unsubscribe-handling.component').then((m) => m.UnsubscribeHandlingComponent),
   },
+  // The 403 page stands alone: someone without access to the admin has no use for its
+  // side menu. Listed here, so the admin shell (pages/admin.page.ts) is never drawn around it.
+  {
+    path: 'admin/unauthorized',
+    title: 'Unauthorized',
+    data: { titleKey: 'member.titles.unauthorized' },
+    loadComponent: () =>
+      import('./pages/admin/unauthorized.page').then((m) => m.default),
+  },
   // Admin Profile Route
   {
     path: 'admin/profile',

@@ -30,5 +30,7 @@ export interface QueryParams {
     previousPageNumber: number;
     endBeforeDoc?: any;
     startAfterDoc?: any;
+    /** Read this many records from the end of the list: its last page, reached without walking to it. */
+    lastCount?: number;
     getOnce?: boolean;
 }

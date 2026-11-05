@@ -381,6 +381,10 @@ arc-content-partials {
   margin: 0 auto;
 }
 
+.arc-admin .content-area {
+  padding: 24px;
+}
+
 .arc-admin .page-header {
   display: flex;
   justify-content: space-between;
@@ -543,6 +547,46 @@ arc-content-partials {
    admin shell's own nav drawer (.arc-main-page). */
 .arc-admin mat-drawer-container:not(.arc-main-page) {
   min-height: 100vh;
+}
+
+/* A page's drawer is the screen's height wherever the page is scrolled to, and scrolls
+   by itself. Sized by the page instead, a long list leaves a tall blank area under its
+   last line, and a page scrolled down opens the drawer out of sight. The phone's menu bar
+   stays above it (--arc-admin-sticky-top, admin.page.ts). */
+.arc-admin mat-drawer-container:not(.arc-main-page) > mat-drawer {
+  position: fixed;
+  top: var(--arc-admin-sticky-top, 0px);
+  bottom: 0;
+  height: auto;
+}
+
+/* A hint or error as long as it needs: Material sets them over a one-line space, so a
+   long one runs into the next field. A field with none keeps that space. */
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-form-field-hint-wrapper,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-form-field-error-wrapper {
+  position: static;
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-form-field-hint-wrapper mat-hint,
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-form-field-hint-wrapper .mat-mdc-form-field-hint {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-form-field-subscript-wrapper:has(mat-hint, mat-error) {
+  padding-bottom: 8px;
+}
+
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) .mat-mdc-form-field-subscript-wrapper:has(mat-hint, mat-error)::before {
+  content: none;
+}
+
+/* A label too long for a phone wraps inside the button, with room above and below it. */
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) :is(.mat-mdc-button, .mat-mdc-raised-button, .mat-mdc-unelevated-button, .mat-mdc-outlined-button) {
+  height: auto;
+  min-height: 36px;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 /* ============================================================

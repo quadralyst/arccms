@@ -215,13 +215,25 @@ export const PROVIDER_DEFAULT_LIMITS: Record<EmailProvider, IProviderRateLimits>
 };
 
 /**
+ * The sender's name a form starts with: the one saved, else the site's own name. "Arc CMS"
+ * was written as the default for a long time, so on a site with a name of its own that is
+ * not a choice anyone made.
+ */
+export function senderNameFor(saved: string | undefined, site: { name: string; arc: boolean } | null): string {
+    const name = saved?.trim() ?? '';
+    const siteName = site && !site.arc ? site.name : '';
+    if (!name || (name === 'Arc CMS' && siteName)) return siteName || name;
+    return name;
+}
+
+/**
  * Default email settings values
  */
 export const DEFAULT_EMAIL_SETTINGS: IEmailSettings = {
     isEnabled: false,
     activeProvider: 'smtp',
     senderEmail: '',
-    senderName: 'Arc CMS',
+    senderName: '',
     replyToEmail: '',
     smtp: {
         host: '',
