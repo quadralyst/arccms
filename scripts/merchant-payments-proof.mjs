@@ -17,6 +17,7 @@
 import readline from 'node:readline';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { Writable } from 'node:stream';
 import { runAdminScript } from './arc-admin-script.mjs';
 
 /** Every 10 seconds, so 30 minutes for a page or the sweep, and 2 minutes for an event. */
@@ -301,7 +302,7 @@ export async function runProof({ kit, args, ask, askHidden, log, wait, peek, fet
     await wrongKeyCheck(fields);
     await forgedCheck(connected.account.webhookAddress);
 
-    log(`\nWebhook address: ${connected.account.webhookAddress}`);
+    log(`\nWebhook address. Copy all of it, with the code at the end:\n${connected.account.webhookAddress}`);
     if (connector.webhookByHand) await ask("Add it in the provider's own admin, and see that it passes the provider's check, then press Enter. ");
 
     for (;;) {
@@ -322,20 +323,32 @@ export async function runProof({ kit, args, ask, askHidden, log, wait, peek, fet
     return { ok: true, rows };
 }
 
-function askWith(hidden) {
-    return (question) => new Promise((done) => {
-        const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-        if (hidden) {
-            process.stdout.write(question);
-            // Nothing typed reaches the screen.
-            rl._writeToOutput = () => undefined;
-        }
-        rl.question(hidden ? '' : question, (answer) => {
-            rl.close();
-            if (hidden) process.stdout.write('\n');
-            done(answer);
-        });
-    });
+/** The two prompts, on any pair of streams. */
+export function promptsOn({ input, output }) {
+    return {
+        ask: (question) => new Promise((done) => {
+            const rl = readline.createInterface({ input, output, terminal: true });
+            rl.question(question, (answer) => {
+                rl.close();
+                done(answer);
+            });
+        }),
+        /**
+         * Readline clears the line and redraws it on its output, at the start and on any
+         * keystroke that needs it, such as a backspace. So it gets an output that goes nowhere:
+         * it can neither wipe the label, written here first, nor show what is typed.
+         */
+        askHidden: (question) => new Promise((done) => {
+            output.write(question);
+            const nowhere = new Writable({ write: (_chunk, _encoding, next) => next() });
+            const rl = readline.createInterface({ input, output: nowhere, terminal: true, historySize: 0 });
+            rl.question('', (answer) => {
+                rl.close();
+                output.write('\n');
+                done(answer);
+            });
+        }),
+    };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -353,7 +366,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         // The kit's own database handle, as a script that loads the built functions needs no other.
         const [{ db }, { PAYMENTS }] = await Promise.all([import(built('init.js')), import(built('merchant-payments/store.js'))]);
         const peek = async (paymentId) => (await db.collection(PAYMENTS).doc(paymentId).get()).data() ?? null;
-        const answer = await runProof({ kit, args, ask: askWith(false), askHidden: askWith(true), log: console.log, peek, wait: () => new Promise((done) => setTimeout(done, 10_000)) });
+        const answer = await runProof({ kit, args, ...promptsOn({ input: process.stdin, output: process.stdout }), log: console.log, peek, wait: () => new Promise((done) => setTimeout(done, 10_000)) });
         if (!answer.ok) process.exitCode = 1;
     });
 }

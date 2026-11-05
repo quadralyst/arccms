@@ -1,6 +1,7 @@
+import { PassThrough, Writable } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
 // @ts-expect-error: plain ESM script without type declarations
-import { flag, runProof, tryForgedEvents, wrongKey } from '../merchant-payments-proof.mjs';
+import { flag, promptsOn, runProof, tryForgedEvents, wrongKey } from '../merchant-payments-proof.mjs';
 
 const SECRET = 'TYPED-SECRET-CANARY';
 const connector = {
@@ -75,7 +76,7 @@ describe('payments:proof', () => {
             { check: 'forged event', saw: 'answered 401 in 0 ms', expected: true },
         ]);
         const text = h.lines.join('\n');
-        expect(text.indexOf('Forging an event')).toBeLessThan(text.indexOf('Webhook address: https://x.example/hook/abc'));
+        expect(text.indexOf('Forging an event')).toBeLessThan(text.indexOf('https://x.example/hook/abc'));
         expect(h.questions.findIndex((q) => /Add it in the provider/.test(q))).toBeGreaterThanOrEqual(0);
     });
 
@@ -177,8 +178,71 @@ describe('payments:proof', () => {
         expect(wrongKey('abcdefghij')).toHaveLength(10);
     });
 
+    it('tells you to copy the whole webhook address', async () => {
+        const h = harness();
+        await h.run();
+        expect(h.lines.join('\n')).toContain('Copy all of it, with the code at the end');
+    });
+
     it('reads a flag', () => {
         expect(flag(['--mode=test'], 'mode')).toBe('test');
         expect(flag([], 'mode')).toBeUndefined();
+    });
+});
+
+/** The real prompts on streams standing in for a terminal 40 columns wide, as readline treats them with `terminal: true`. */
+function terminal() {
+    const input = new PassThrough();
+    let screen = '';
+    const output = Object.assign(new Writable({ write: (chunk, _encoding, next) => { screen += chunk.toString(); next(); } }), { columns: 40, rows: 24, isTTY: true });
+    return { input, output, screen: () => screen, prompts: promptsOn({ input, output }) };
+}
+
+const CLEAR_DOWN = '\u001b[0J';
+const LABEL = 'API Key ID [Help text]: ';
+const KEY = 'S3CRETVALUE';
+
+/** What the terminal still shows of the label: nothing, if a clear came after it. */
+const labelStays = (screen: string) => screen.slice(screen.lastIndexOf(CLEAR_DOWN) + 1).includes(LABEL);
+
+describe('the hidden prompt, on a terminal', () => {
+    const typing: Array<[string, string[], string]> = [
+        ['typed one key at a time', [...KEY, '\r'], KEY],
+        ['pasted in one go', [KEY, '\r'], KEY],
+        ['with a backspace, which makes readline redraw', [...KEY, 'X', '\u007f', '\r'], KEY],
+        ['with a move left and an insert, which redraws too', [...KEY, '\u001b[D', 'Z', '\r'], `${KEY.slice(0, -1)}Z${KEY.slice(-1)}`],
+        ['with the line cleared by Ctrl+U, then typed again', [...'junk', '\u0015', ...KEY, '\r'], KEY],
+        ['longer than the terminal is wide', [`${KEY}`.repeat(8), '\r'], KEY.repeat(8)],
+    ];
+
+    it.each(typing)('keeps the label and shows nothing typed: %s', async (_name, keys, wanted) => {
+        const t = terminal();
+        const answer = t.prompts.askHidden(LABEL);
+        for (const key of keys) t.input.write(key);
+        expect(await answer).toBe(wanted);
+        const screen = t.screen();
+        expect(labelStays(screen)).toBe(true);
+        expect(screen).not.toContain(KEY.slice(0, 4));
+        expect(screen).not.toContain('junk');
+        expect(screen.endsWith('\n')).toBe(true);
+    });
+
+    it('leaves each label of a run of them on screen, and the plain prompt still shows what is typed', async () => {
+        const t = terminal();
+        const first = t.prompts.ask('Merchant ID: ');
+        t.input.write('1234\r');
+        expect(await first).toBe('1234');
+        const second = t.prompts.askHidden(LABEL);
+        t.input.write(`${KEY}\r`);
+        expect(await second).toBe(KEY);
+        const third = t.prompts.askHidden('Secret API Key: ');
+        t.input.write(`${KEY}\r`);
+        expect(await third).toBe(KEY);
+        const screen = t.screen();
+        expect(screen).toContain('Merchant ID: ');
+        expect(screen).toContain('1234');
+        expect(labelStays(screen.slice(0, screen.indexOf('Secret API Key: ')))).toBe(true);
+        expect(screen).toContain('Secret API Key: ');
+        expect(screen).not.toContain(KEY.slice(0, 4));
     });
 });

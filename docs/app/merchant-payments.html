@@ -31,7 +31,7 @@
         <tbody>
           <tr><td>Fields</td><td>Merchant ID, API key ID and secret, webhooks key ID and secret, MyCheckout subdomain, the merchant's country, and optionally the day the API key ends</td><td>Instance name, API secret</td></tr>
           <tr><td>Modes</td><td>Test and live, with separate keys</td><td>Live. Its docs show no test system</td></tr>
-          <tr><td>Webhook</td><td>Added by hand in the Configuration Center. Signed</td><td>Added by hand in its admin, under Settings, API. Not signed, so its events only prompt a read back</td></tr>
+          <tr><td>Webhook</td><td>Added by hand in the Configuration Center, under Merchant settings, Webhooks, Webhooks endpoints. Signed</td><td>Added by hand in its admin, under Settings, API. Not signed, so its events only prompt a read back</td></tr>
           <tr><td>How long a page stays open</td><td>2 hours, fixed by the provider</td><td>You choose, in minutes</td></tr>
           <tr><td>Ending a page</td><td>Yes, but a buyer already paying can still finish</td><td>Yes, by deleting the gateway</td></tr>
           <tr><td>Refunds</td><td>Whole or in part</td><td>Whole or in part</td></tr>
@@ -230,7 +230,7 @@ hooks.stop();</code></pre>
         <pre><code>npm run payments:proof -- --provider=worldline-connect --mode=test</code></pre>
         <pre><code>npm run payments:proof -- --provider=payrexx --mode=live</code></pre>
       </li>
-      <li>It connects, then tries a wrong key and a forged event by itself. The forged event goes first so its time can be a cold start, before the provider's own address check wakes the function. Then it shows the webhook address for you to add, and a list of checks to run, as many times as you like:
+      <li>It connects, then tries a wrong key and a forged event by itself. The forged event goes first so its time can be a cold start, before the provider's own address check wakes the function. Then it shows the webhook address for you to add, and a list of checks to run, as many times as you like. The address exists only once the provider has taken the keys, so it cannot be added earlier. Copy all of it, with the code at the end: without the code the provider's check fails with a 404, <code>Unknown address</code>.
         <ul>
           <li><strong>Pay.</strong> Follows what the provider says, with the seconds since the page opened, waits up to 2 minutes for the provider's event, and offers a part and a whole refund. Once for each way of paying.</li>
           <li><strong>End a page</strong> nobody has paid, and write down what a buyer now sees.</li>
@@ -270,6 +270,7 @@ hooks.stop();</code></pre>
           <tr><td><code>key-refused</code></td><td>The provider turned the keys down.</td><td>Check them in the provider's admin; replace them.</td></tr>
           <tr><td><code>bad-page-address</code></td><td>The provider gave a page on an unexpected domain, which is refused.</td><td>Check <code>pageHost</code> in the connector against the page's real address.</td></tr>
           <tr><td>A payment stays <code>open</code></td><td>The provider says so. For a paid-looking one, <code>providerStatus</code> shows its word.</td><td>See <a href="#paid">What counts as paid</a>.</td></tr>
+          <tr><td>The provider's check of the address fails with a 404, <code>Unknown address</code></td><td>The address was copied without the code at its end, or the account was disconnected since. Connecting again after that gives a new address.</td><td>Copy all of <code>webhookAddress</code> again from the account.</td></tr>
           <tr><td>No events arrive</td><td>The webhook was not added, or was switched off.</td><td>Add <code>webhookAddress</code> in the provider's admin. The sweep keeps payments moving meanwhile.</td></tr>
         </tbody>
       </table>

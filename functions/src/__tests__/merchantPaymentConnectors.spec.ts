@@ -62,6 +62,13 @@ afterEach(() => {
 });
 
 describe('Worldline Connect', () => {
+    it('sends each prompt to where the Configuration Center really has it', () => {
+        const help = (id: string) => worldlineConnect.info.fields.find((f) => f.id === id)?.help;
+        for (const id of ['apiKeyId', 'secretApiKey']) expect(help(id)).toContain('Account settings, API keys (HMAC SHA-256)');
+        for (const id of ['webhookKeyId', 'webhookSecret']) expect(help(id)).toContain('Account settings, Webhooks keys');
+        expect(help('pageSubdomain')).toContain('Merchant settings, Hosted payment pages, Subdomains');
+    });
+
     it('the address follows the mode, and nothing else: live never reaches pre-production', async () => {
         const { hosts } = fakeClient();
         await worldlineConnect.testKeys(context('live'));
