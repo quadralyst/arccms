@@ -291,6 +291,10 @@ export async function runProof({ kit, args, ask, askHidden, log, wait, peek, fet
     const connected = await kit.connectPaymentAccount({ accountId, provider, mode, fields, by: PROOF_BY });
     if (!connected.ok) {
         log(`Not connected (${connected.reason}): ${connected.detail}`);
+        if (connected.reason === 'key-refused') {
+            log('What arrived, to compare with the provider\'s admin:');
+            for (const field of connector.fields.filter((f) => f.secret)) log(`  ${field.label}: ${(fields[field.id] ?? '').length} characters, ending ${(fields[field.id] ?? '').slice(-4)}`);
+        }
         return { ok: false };
     }
     log(`The provider took the keys. A page may read: ${connected.account.publicName}, ending ${connected.account.last4}.`);

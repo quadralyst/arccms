@@ -19,7 +19,8 @@ export function safeDetail(value: unknown): string {
     return raw
         .replace(/[^\w .,:;'()/-]/g, ' ')
         .split(/\s+/)
-        .map((word) => (word.length >= 24 || /^https?:/i.test(word) ? '[removed]' : word))
+        // A provider's own error name is long, and says what went wrong, and no key looks like it.
+        .map((word) => ((word.length >= 24 && !/^[A-Z]+(?:_[A-Z]+)+$/.test(word)) || /^https?:/i.test(word) ? '[removed]' : word))
         .join(' ')
         .trim()
         .slice(0, 160);

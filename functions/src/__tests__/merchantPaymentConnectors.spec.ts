@@ -464,5 +464,11 @@ describe('safeDetail', () => {
         expect(said).not.toContain('<');
         expect(safeDetail(undefined)).toBe('');
         expect(safeDetail('x'.repeat(23)).length).toBe(23);
+        expect(safeDetail('A'.repeat(30))).toBe('[removed]');
+        expect(safeDetail('aB3_dE4_fG5_hI6_jK7_lM8_nO9')).toBe('[removed]');
+    });
+
+    it('keeps a provider\'s long error name, which says what went wrong', () => {
+        expect(safeDetail('9002 MISSING_OR_INVALID_AUTHORIZATION')).toBe('9002 MISSING_OR_INVALID_AUTHORIZATION');
     });
 });

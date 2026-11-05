@@ -143,10 +143,13 @@ describe('payments:proof', () => {
         expect(h.kit.disconnectPaymentAccount).toHaveBeenCalledWith({ accountId: 'proof-worldline-connect', by: 'payments-proof', force: true });
     });
 
-    it('stops at keys the provider refuses', async () => {
+    it('stops at keys the provider refuses, saying what arrived and never the whole of it', async () => {
         const h = harness({ connectPaymentAccount: vi.fn(async () => ({ ok: false, reason: 'key-refused', detail: 'Worldline refused the keys' })) });
         expect(await h.run()).toEqual({ ok: false });
         expect(h.kit.startPayment).not.toHaveBeenCalled();
+        const text = h.lines.join('\n');
+        expect(text).toContain(`Secret API Key: ${SECRET.length} characters, ending NARY`);
+        expect(text).not.toContain(SECRET);
     });
 
     it('needs a provider and a mode, and refuses a mode the provider lacks', async () => {
