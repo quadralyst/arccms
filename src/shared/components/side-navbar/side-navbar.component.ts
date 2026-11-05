@@ -25,7 +25,7 @@ import { WaitlistAdminStore } from '../../../app/pages/admin/(waitlists)/waitlis
 import { CUSTOM_NAV } from '../../../custom/nav';
 import { appNavChanges } from '../../../app/core/nav/app-nav-changes';
 import { isOn } from '../../../app/core/features/features';
-import { insertCustomNav, withoutFeaturesOff, type MenuItem } from '../../../app/core/nav/menu';
+import { insertCustomNav, pagePathOf, withoutFeaturesOff, type MenuItem } from '../../../app/core/nav/menu';
 import { applyNavChanges } from '../../../app/core/nav/nav-changes';
 import { ADMIN_LOCKS, adminContentGroup, coreAdminItems } from '../../../app/core/nav/admin-menu';
 import { SiteBrandService } from '../../../app/core/brand/site-brand';
@@ -118,7 +118,7 @@ export default class NavbarComponent extends BaseComponent {
         const brand = this.brand();
         return brand ? (brand.arc ? logoSmall : brand.logo) : '';
     });
-    /** The last logo measured, and whether it is a wordmark; kept between pages, as each admin route draws this panel anew. */
+    /** The last logo measured, and whether it is a wordmark; kept for the next time this panel is drawn, on coming back to the admin. */
     private readonly measuredLogo = signal<{ src: string; wide: boolean } | null>(lastMeasuredLogo);
     /** Whether the logo shown is a wordmark: null until it has loaded. Arc CMS's own shows as a square mark, as always. */
     readonly logoWide = computed(() => {
@@ -149,8 +149,8 @@ export default class NavbarComponent extends BaseComponent {
     /** Current router URL, kept in sync on NavigationEnd so OnPush change detection re-evaluates active state. */
     readonly currentUrl = signal<string>(this.router.url);
     /**
-     * A group opens with a slide only when the person pressed it. Each admin route draws
-     * this panel anew, and a group the route opens is simply open: moving between its pages must not replay anything.
+     * A group opens with a slide only when the person pressed it. A group a page opens is
+     * simply open: moving between pages must not replay anything.
      */
     readonly animateGroups = signal(false);
 
@@ -308,11 +308,34 @@ export default class NavbarComponent extends BaseComponent {
         if (isOn('content')) this.contentTypesStore.getAll();
         if (isOn('forms')) this.waitlistAdminStore.subscribe();
         this.router.events
-            .pipe(filter((event: any): event is NavigationEnd => event instanceof NavigationEnd))
+            .pipe(
+                filter((event: any): event is NavigationEnd => event instanceof NavigationEnd),
+                takeUntilDestroyed(this.destroyRef),
+            )
             .subscribe((event: NavigationEnd) => {
                 this.animateGroups.set(false);
+                this.keepGroupsOpen(this.currentUrl(), event.urlAfterRedirects);
                 this.currentUrl.set(event.urlAfterRedirects);
             });
+    }
+
+    /**
+     * The panel stays through every admin page, so a group closing by itself above the item
+     * just pressed would move the menu under the pointer. The group of the page left stays
+     * as it was, and the group of the page reached opens, even if closed by hand, so the
+     * active item shows. Only pressing a group closes it. A filter in the address changes nothing.
+     *
+     * A page several groups link to says nothing about which one the person was in (every
+     * signup form's group has the same Tags page), so none of them stays open for it.
+     */
+    private keepGroupsOpen(from: string, to: string): void {
+        if (pagePathOf(from) === pagePathOf(to)) return;
+        const groupsOf = (url: string) => this.menuItems().filter(item => item.subItems?.some(sub => this.isUrlUnder(url, sub.route)));
+        const toggles = { ...this.manualToggles() };
+        for (const item of groupsOf(to)) delete toggles[groupKey(item)];
+        const left = groupsOf(from);
+        if (left.length === 1 && !(groupKey(left[0]) in toggles)) toggles[groupKey(left[0])] = true;
+        this.manualToggles.set(toggles);
     }
 
     toggleDropdown(item: MenuItem) {
@@ -382,10 +405,10 @@ export default class NavbarComponent extends BaseComponent {
         });
     }
 
-    /** True when `url` targets `route` or a descendant of it (path-only, ignoring query string). */
+    /** True when `url` targets `route` or a descendant of it (the page path alone). */
     private isUrlUnder(url: string, route?: string): boolean {
         if (!route) return false;
-        const path = url.split('?')[0].split('#')[0];
+        const path = pagePathOf(url);
         return path === route || path.startsWith(route + '/');
     }
 }

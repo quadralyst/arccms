@@ -148,7 +148,8 @@ describe('no tab names Arc CMS', () => {
 
     it('gives every member-facing route its title in the member strings', () => {
         const routes = readFileSync(join(ROOT, 'src/app/app.routes.ts'), 'utf8');
-        for (const path of ['admin/profile', 'user/profile', 'user/dashboard', 'account', 'user/premium', 'user/payments', 'admin/notifications']) {
+        // 'profile' and 'notifications' are /admin/profile and /admin/notifications, children of the one admin route.
+        for (const path of ['profile', 'user/profile', 'user/dashboard', 'account', 'user/premium', 'user/payments', 'notifications']) {
             expect(routes, path).toMatch(new RegExp(`path: '${path}',[\\s\\S]{0,300}?titleKey: 'member\\.titles\\.`));
         }
         for (const file of [

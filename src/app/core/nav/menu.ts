@@ -77,3 +77,12 @@ export function shownTo(item: MenuItem, role: string | null | undefined): boolea
 export function menuIds(items: readonly MenuItem[]): string[] {
     return items.flatMap((item) => [...(item.id ? [item.id] : []), ...menuIds(item.subItems ?? [])]);
 }
+
+/**
+ * The page a URL opens: its path, without the query, the fragment or matrix parameters,
+ * which is where the admin's filters, sorting and search live. Two URLs with the same
+ * page path are the same page, showing something else.
+ */
+export function pagePathOf(url: string): string {
+    return url.split(/[?#]/)[0].replace(/;[^/]*/g, '').replace(/\/+$/, '') || '/';
+}

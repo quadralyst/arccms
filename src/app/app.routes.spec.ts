@@ -104,30 +104,27 @@ describe('App Routes', () => {
         });
 
         it('should have admin/waitlists route with correct layout', async () => {
-            const adminRoute = routes.find(r => r.path === 'admin/waitlists');
+            const adminRoute = adminChild('waitlists');
             expect(adminRoute, 'Admin waitlists route should exist').toBeDefined();
 
             // Verify it has children (nested routing)
             expect(adminRoute?.children, 'Admin route should have children').toBeDefined();
             expect(isArray(adminRoute?.children)).toBe(true);
 
-            // Verify it loads the admin layout
-            if (adminRoute?.loadComponent) {
-                const component = await adminRoute.loadComponent();
-                // We can't easily check the class name if it is anonymous default export 
-                // but we can check it's not null
-                expect(component).toBeDefined();
-            }
+            // The layout comes from the one admin parent, not from this route (admin-shell.spec.ts).
+            expect(adminRoute?.loadComponent).toBeUndefined();
+            expect(await routes.find(r => r.path === 'admin')?.loadComponent?.()).toBeDefined();
         });
 
         it('sends the bare /admin/contents to Content Types, since that folder has no page of its own', async () => {
-            const route = routes.find(r => r.path === 'admin/contents');
+            const route = adminChild('contents');
             expect(route?.redirectTo).toBe('/admin/contents/content-types');
             expect(route?.pathMatch).toBe('full');
 
             // Only the bare URL: the pages below it keep their own addresses.
-            const contentTypes = { path: 'admin/contents/content-types', children: [] };
-            TestBed.configureTestingModule({ providers: [provideRouter([route!, contentTypes, { path: '**', children: [] }])] });
+            const contentTypes = { path: 'contents/content-types', children: [] };
+            const admin = { path: 'admin', children: [route!, contentTypes] };
+            TestBed.configureTestingModule({ providers: [provideRouter([admin, { path: '**', children: [] }])] });
             const router = TestBed.inject(Router);
             await router.navigateByUrl('/admin/contents');
             expect(router.url).toBe('/admin/contents/content-types');
@@ -136,11 +133,16 @@ describe('App Routes', () => {
         });
 
         it('should have waitlists list as default child route', () => {
-            const adminRoute = routes.find(r => r.path === 'admin/waitlists');
+            const adminRoute = adminChild('waitlists');
             const defaultChild = adminRoute?.children?.find(r => r.path === '');
             expect(defaultChild).toBeDefined();
         });
     });
+
+    /** A route under the one admin parent. */
+    function adminChild(path: string) {
+        return routes.find(r => r.path === 'admin')?.children?.find(r => r.path === path);
+    }
 
     // Helper to check for array (since Array.isArray is standard)
     function isArray(val: any): boolean {

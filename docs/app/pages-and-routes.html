@@ -95,7 +95,7 @@ const record = await inject(AuthState).recordReady();</code></pre>
     <p><code>initAuthStateListener()</code> still works and uses the same read: it gives the record each time someone signs in or out, and starts no listener or query of its own.</p>
 
     <h2>Add an admin page</h2>
-    <p>An admin page needs the admin shell (the side menu and layout) and the admin guard. Give it the same route shape core uses for its own admin pages:</p>
+    <p>An admin page needs the admin shell (the side menu and layout) and the admin guard. Give your page a route with the shell as its parent:</p>
     <ol class="steps">
       <li>
         <p>Create the component, such as <code class="new">src/custom/admin/lessons.component.ts</code>:</p>
@@ -131,6 +131,7 @@ export const CUSTOM_ROUTES: Routes = [
         <p>Add the title to <code>src/custom/i18n/en.json</code> (<code>"custom": { "lessons": { "title": "Lessons" } }</code>) and link the page from the admin menu (<a href="admin-menu.html">Change the admin menu</a>).</p>
       </li>
     </ol>
+    <p>Arc CMS's own admin pages share one parent, so the shell stays while someone moves between them: the side menu keeps its scroll and its open groups, and a new page opens at its top. Your page's route is a parent of its own, so the side menu is drawn again on moving to or from it. The page works the same, and the menu goes back to the top of its list.</p>
     <div class="trap"><p>An admin page that has only a page file and no explicit route does not reliably reach the browser's route table. The address then falls through to the public content route and shows "Content Not Found" in the public layout. Firebase Hosting answers every address with the app shell and HTTP 200, so a status check does not catch it: open the page in a browser. Give every admin page an explicit route as above.</p></div>
     <p>Keep components that have an explicit route outside <code>src/custom/pages/</code>, as above, or name them without <code>.page</code>. Every <code>.page.ts</code> file in that folder also gets an address of its own from its file name, without the admin shell, the guards of the explicit route, or a <code>whenOn</code> around it.</p>
 

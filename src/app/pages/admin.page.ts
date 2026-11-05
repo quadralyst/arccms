@@ -11,8 +11,8 @@ import {
     MatSidenavModule,
 } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
-import { RouterOutlet } from '@angular/router';
-import { finalize, take } from 'rxjs';
+import { NavigationEnd, RouterOutlet } from '@angular/router';
+import { filter, finalize, take } from 'rxjs';
 import { BaseComponent } from '../../shared/components/base/base.component';
 import SideNavbarComponent from '../../shared/components/side-navbar/side-navbar.component';
 import { CommonModule } from '@angular/common';
@@ -20,6 +20,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { useAdminOverlay } from '../core/brand/admin-overlay';
 import { useTranslatedPaginator } from '../core/i18n/paginator-intl';
 import { SiteBrandService } from '../core/brand/site-brand';
+import { pagePathOf } from '../core/nav/menu';
 
 @Component({
     standalone: true,
@@ -95,6 +96,7 @@ export default class AdminComponent extends BaseComponent {
     /** 'over' on a phone. A signal, so a window crossing the width redraws the layout (there is no zone.js). */
     readonly drawerMode = signal<MatDrawerMode>('side');
     @ViewChild('drawer') drawer!: MatDrawer;
+    @ViewChild(MatDrawerContent) private content?: MatDrawerContent;
     breakpointObserver = inject(BreakpointObserver);
     /** The site's name for the mobile bar (core/brand/site-brand.ts). */
     readonly brandName = inject(SiteBrandService).name;
@@ -104,6 +106,7 @@ export default class AdminComponent extends BaseComponent {
      * translation arrives later stays blank (a Status filter on a fresh load).
      */
     readonly textReady = signal(false);
+    private pagePath = pagePathOf(this.router.url);
 
     constructor() {
         super();
@@ -122,6 +125,22 @@ export default class AdminComponent extends BaseComponent {
         this.breakpointObserver.observe('(max-width: 768px)').subscribe((state) => {
             this.drawerMode.set(state.matches ? 'over' : 'side');
         });
+        this.router.events
+            .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), takeUntilDestroyed())
+            .subscribe((event) => this.pageOpened(event.urlAfterRedirects));
+    }
+
+    /**
+     * This shell stays through every admin page (app.routes.ts), so a new page opens at its
+     * top and the phone's panel gets out of its way. A filter or sort in the address is the same page.
+     */
+    private pageOpened(url: string): void {
+        const path = pagePathOf(url);
+        if (path === this.pagePath) return;
+        this.pagePath = path;
+        const content = this.content?.getElementRef().nativeElement;
+        if (content) content.scrollTop = 0;
+        if (this.drawerMode() === 'over') void this.drawer?.close();
     }
 
     ngOnInit() {

@@ -53,20 +53,30 @@
 
     <h2 id="routing">Routing</h2>
     <p>AnalogJS turns files into routes. A file ending in <code>.page.ts</code> with a default export, under <code>src/app/pages/</code> (or <code>src/custom/pages/</code> in an app), is a page: <code>search.page.ts</code> is <code>/search</code>, <code>[contentTypeSlug]</code> in a name is a parameter, and a folder in parentheses such as <code>(settings)</code> groups files without adding to the URL.</p>
-    <p>The explicit routes in <code>src/app/app.routes.ts</code> come before the file-based ones. Admin pages need one: wrap the page in the admin layout with the role guard, like the existing entries:</p>
+    <p>The explicit routes in <code>src/app/app.routes.ts</code> come before the file-based ones. Every admin page has one, as a child of the single <code>admin</code> route that loads the admin layout (<code>src/app/pages/admin.page.ts</code>). Add the page there, with the role guard, like the existing entries:</p>
     <pre><code>{
-  path: 'admin/email-logs',
+  path: 'admin',
   loadComponent: () =&gt; import('./pages/admin.page').then((m) =&gt; m.default),
   canActivate: [roleGuard],
   data: { allowedRoles: ['admin'] },
   children: [
+    // ...
     {
-      path: '',
+      path: 'email-logs',
+      title: 'Email Logs',
+      canActivate: [roleGuard],
+      data: { allowedRoles: ['admin'] },
       loadComponent: () =&gt;
         import('./pages/admin/(email-logs)/email-logs.page').then((m) =&gt; m.default),
     },
   ],
 },</code></pre>
+    <p>All the pages share that one parent so the layout stays when someone moves between them. Three things follow from that:</p>
+    <ul>
+      <li><strong>The guard goes on each page.</strong> Angular runs a route's guard when the route opens, and the parent stays open, so its guard runs only on entering the admin. The guard on the page is what checks the person again on every move.</li>
+      <li><strong>The layout does not start again for each page.</strong> The side panel keeps its scroll and its open groups, and it reads its menu once. Anything that used to run because the layout was rebuilt must now react to the router: the layout puts each new page at its top and closes the phone's panel on <code>NavigationEnd</code>, and leaves both alone when only the query changes.</li>
+      <li><strong>A second parent brings the rebuild back.</strong> <code>src/app/pages/admin-shell.spec.ts</code> fails on a second route that loads the layout, on an admin page file with no route under the parent, and on a page there without the guard.</li>
+    </ul>
     <div class="trap"><p>An admin page that relies on its file alone may render on the server but not reach the browser's route table. The URL then falls through to the public content route and shows "Content Not Found" in the public layout, with HTTP 200, so a status check misses it. Give every admin page an explicit route.</p></div>
     <p>A folder of admin pages with no page of its own, such as <code>src/app/pages/admin/contents/</code>, still gets an address, and it shows an empty admin page. Redirect it to the folder's main page with an explicit route, as <code>admin</code> (to the dashboard) and <code>admin/contents</code> (to Content types) do.</p>
     <p>Every page URL also belongs to exactly one feature or to core, so a feature that is off can hide it. Add a new URL to the right list in <code>src/app/core/features/feature-routes.ts</code>; a test fails on one in no list (see <a href="keep-core-generic.html#add-a-feature">Keep core generic</a>).</p>
