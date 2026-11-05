@@ -84,6 +84,17 @@ function cursorParams(read: PageRead): Pick<QueryParams, 'startAfterDoc' | 'endB
 }
 
 /**
+ * The total to show for a read. The rows and the count arrive apart (DbService), so:
+ * - a count with no answer yet says nothing, so the list keeps the total it had, or counts the rows it has;
+ * - an empty page proves the list ends before it, whatever the last count said, and that is what lets the page before be reached.
+ */
+function shownTotal(counted: number, rows: number, page: number, limit: number, totalBefore: number): number {
+    if (rows && !counted) return Math.max(totalBefore, rows);
+    if (!rows && page > 0 && limit > 0) return Math.min(counted, page * limit);
+    return counted;
+}
+
+/**
  * Factory function to create a generic store for any entity
  * 
  * @param ServiceType - The DbService implementation for the entity
@@ -107,6 +118,8 @@ export function createGenericStore<T extends IBaseModel>(
             const cursors = new PageCursors();
             /** The latest read: a correction meant for an older one is dropped. */
             let latestRead = 0;
+            /** The list on screen, whose total a read of the same list can keep. */
+            let shownShape = '';
 
             const getAll = async (queryParams?: QueryParams, collectionSuffix?: string): Promise<void> => {
                 patchState(store, { isLoading: true, isSuccess: false, error: '' });
@@ -159,14 +172,16 @@ export function createGenericStore<T extends IBaseModel>(
                 activeSubscription = service.getAll(readParams, collectionSuffix).subscribe({
                     next: (result) => {
                         const correction = cursors.landed(shape, plan, result.collectionData.length, result.totalCount, readParams.limitCount);
+                        const total = shownTotal(result.totalCount, result.collectionData.length, plan.page, readParams.limitCount, shape === shownShape ? store.totalRecords() : 0);
+                        shownShape = shape;
                         patchState(store, {
                             items: result.collectionData,
                             // limitCount 0 means "no limit", so everything is
                             // one page — dividing by it would give Infinity.
                             totalPages: readParams.limitCount
-                                ? Math.ceil(result.totalCount / readParams.limitCount)
+                                ? Math.ceil(total / readParams.limitCount)
                                 : 1,
-                            totalRecords: result.totalCount,
+                            totalRecords: total,
                             isLoading: false,
                             isSuccess: true,
                             error: '',
