@@ -22,6 +22,7 @@ export const FEATURE_IDS = [
     'contact',
     'analytics',
     'ai',
+    'merchant-payments',
 ] as const;
 
 export type FeatureId = (typeof FEATURE_IDS)[number];

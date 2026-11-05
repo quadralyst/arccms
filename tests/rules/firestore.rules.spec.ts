@@ -295,6 +295,25 @@ describe('phone and email sign-in fields (item 1: Google and phone sign-in)', ()
         await assertFails(getDoc(doc(anon(), 'AiKeys', 'qwen')));
     });
 
+    it('keeps merchants\' provider keys, webhook addresses, events and the pretend records from every browser, admins included', async () => {
+        for (const c of ['MerchantAccountKeys', 'MerchantWebhooks', 'MerchantPaymentEvents', 'MerchantPretendPayments']) {
+            await assertFails(getDoc(doc(admin(), c, 'x')));
+            await assertFails(setDoc(doc(admin(), c, 'x'), { a: 1 }));
+            await assertFails(getDoc(doc(alice(), c, 'x')));
+            await assertFails(getDoc(doc(anon(), c, 'x')));
+        }
+    });
+
+    it('lets admins read a merchant\'s public account and payments; only the functions write them', async () => {
+        for (const c of ['MerchantAccounts', 'MerchantPayments']) {
+            await assertSucceeds(getDoc(doc(admin(), c, 'x')));
+            await assertFails(setDoc(doc(admin(), c, 'x'), { status: 'paid' }));
+            await assertFails(getDoc(doc(alice(), c, 'x')));
+            await assertFails(setDoc(doc(alice(), c, 'x'), { status: 'paid' }));
+            await assertFails(getDoc(doc(anon(), c, 'x')));
+        }
+    });
+
     it('keeps the AI cache and pacing counters from every browser, admins included', async () => {
         for (const [c, id] of [['AiCache', 'abc'], ['AiPacing', 'sarvam']]) {
             await assertFails(getDoc(doc(admin(), c, id)));

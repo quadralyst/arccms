@@ -34,7 +34,8 @@
     "seed": "node functions/scripts/call-seed.cjs",
     "seed:dev": "node functions/scripts/call-seed.cjs dev",
     "seed:prod": "node functions/scripts/call-seed.cjs prod",
-    "forms:remove-referrals": "node scripts/forms-remove-referrals.mjs"
+    "forms:remove-referrals": "node scripts/forms-remove-referrals.mjs",
+    "payments:proof": "node scripts/merchant-payments-proof.mjs"
   },
   "private": true,
   "dependencies": {

@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Take payments on a merchant's account | Arc CMS docs</title>
+  <meta name="description" content="Let each customer of your app take money from their own buyers on their own provider account, with connectors for Worldline Connect and Payrexx, and rules that keep keys and forged events out.">
+  <meta name="docs:sources" content="functions/src/merchant-payments, functions/src/features/merchant-payments.ts, functions/src/custom/payments.ts, functions/src/app-kit/index.ts, firestore.rules, scripts/merchant-payments-proof.mjs">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="app/merchant-payments.html">
+  <main>
+    <h1>Take payments on a merchant's account</h1>
+    <p class="lead">Each customer of your app, such as a shop, a clinic or a club, takes money from their own buyers on their own provider account. The money never passes through the site's owner. Your app never writes a provider's signing, webhooks or key storage. It calls a few server helpers from its own functions, and hears each result in one place.</p>
+    <p>This is a different need from <a href="payments.html">Add payments and premium features</a>, which sells the site's own plans through one account. No page comes with it: the screens are your app's, in its languages.</p>
+
+    <h2 id="turn-on">Turn it on</h2>
+    <p>The feature is off unless your app asks for it, as it runs a sweep every 2 minutes. In <code>src/custom/features.ts</code>:</p>
+    <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
+    on: ['merchant-payments'],
+};</code></pre>
+    <p>Then deploy its four functions:</p>
+    <pre><code>npm run deploy -- --only functions:arccms:arccms.merchantPaymentWebhook,functions:arccms:arccms.onMerchantPaymentEvent,functions:arccms:arccms.sweepMerchantPayments,functions:arccms:arccms.checkMerchantAccounts,firestore:rules</code></pre>
+    <p>While it is off, every helper below answers <code>{ ok: false, reason: 'off' }</code>.</p>
+
+    <h2 id="connectors">Which providers</h2>
+    <p><code>paymentConnectors()</code> lists what your screen may offer here, with what one screen needs for any provider: the fields to ask for, which are secret, which modes, whether test and live take separate keys, whether the owner adds the webhook by hand, and what the provider can do. A field's <code>label</code> is the provider's name for it; show it in your own words.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>Worldline Connect (<code>worldline-connect</code>)</th><th>Payrexx (<code>payrexx</code>)</th></tr></thead>
+        <tbody>
+          <tr><td>Fields</td><td>Merchant ID, API key ID and secret, webhooks key ID and secret, MyCheckout subdomain, the merchant's country, and optionally the day the API key ends</td><td>Instance name, API secret</td></tr>
+          <tr><td>Modes</td><td>Test and live, with separate keys</td><td>Live. Its docs show no test system</td></tr>
+          <tr><td>Webhook</td><td>Added by hand in the Configuration Center. Signed</td><td>Added by hand in its admin, under Settings, API. Not signed, so its events only prompt a read back</td></tr>
+          <tr><td>How long a page stays open</td><td>2 hours, fixed by the provider</td><td>You choose, in minutes</td></tr>
+          <tr><td>Ending a page</td><td>Yes, but a buyer already paying can still finish</td><td>Yes, by deleting the gateway</td></tr>
+          <tr><td>Refunds</td><td>Whole or in part</td><td>Whole or in part</td></tr>
+          <tr><td>Library</td><td>Worldline's own <code>connect-sdk-nodejs</code>, loaded when a call needs it</td><td>Its REST API with plain <code>fetch</code>. The <code>payrexx</code> npm package is a third party's, last changed in 2022, on retired libraries</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A connector goes on the list only when it has passed every rule on the provider's own account (<a href="#proof">Prove a connector</a>), so a merchant can never pick an untried one. <strong>Neither has yet:</strong> <code>paymentConnectors()</code> lists neither on a project until the proof is done, except where <code>ARC_PAYMENTS_TRY</code> says so.</p>
+
+    <h2 id="connect">Connect an account</h2>
+    <p>One account for each customer of your app, named by your own id, such as a business id. One provider at a time. Your function decides who may connect, so check the owner and <a href="fresh-code.html">ask for a fresh code</a> first:</p>
+    <pre><code>// functions/src/custom/payment-account.ts
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { connectPaymentAccount, useFreshCodeProof } from '../app-kit/index.js';
+
+export const connectBusinessPayments = onCall(async (request) =&gt; {
+  const owner = request.auth?.token['arccms_uid'];
+  const { businessId, provider, mode, fields, proof } = request.data;
+  // ... check that this person owns businessId ...
+  await useFreshCodeProof(request, proof, 'payment-keys');
+  const answer = await connectPaymentAccount({ accountId: businessId, provider, mode, fields, by: owner });
+  if (!answer.ok) throw new HttpsError('failed-precondition', answer.detail, { reason: answer.reason });
+  return answer.account; // the public view: show webhookAddress to the owner
+});</code></pre>
+    <p>The provider is called before anything is saved, and a key it turns down is not saved. Clear your form whatever the outcome.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Call</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>connectPaymentAccount({ accountId, provider, mode, fields, by })</code></td><td>Connects, or replaces the keys of that mode. The account then runs in that mode. Replacing keeps the webhook address the owner already added. A different provider replaces the old one and all its keys, and gets a new address; it is refused with <code>open-payments</code> while a payment on the old one is open.</td></tr>
+          <tr><td><code>switchPaymentMode({ accountId, mode, by })</code></td><td>Switches between test and live, with keys already held for that mode, after trying them. <code>no-keys-for-mode</code> when there are none. An open payment goes on being read with the keys of the mode it started in.</td></tr>
+          <tr><td><code>disconnectPaymentAccount({ accountId, by, force? })</code></td><td>Tries to end each open page, then removes the keys and the address. <code>open-payments</code> if a page would not end; with <code>force</code>, those are held for a person instead, as the money may still come.</td></tr>
+          <tr><td><code>readPaymentAccount(accountId)</code></td><td>The public view, or <code>null</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The public view is all a page ever needs: <code>provider</code>, <code>mode</code>, <code>publicName</code>, <code>last4</code>, <code>modesWithKeys</code>, who connected and when, <code>webhookAddress</code>, <code>keyExpiresOn</code>, the last payment update, and <code>problems</code>. To let a page read it directly, add your own read rule on <code>MerchantAccounts/{accountId}</code> in <code class="new">firestore.app.rules</code> (<a href="rules-and-indexes.html">Rules and indexes</a>). Admins can read it already. Only the functions write it.</p>
+
+    <h2 id="start">Start a payment</h2>
+    <pre><code>import { startPayment } from '../app-kit/index.js';
+
+const answer = await startPayment({
+  accountId: businessId,
+  amountMinor: 1250,           // CHF 12.50, in whole minor units
+  currency: 'CHF',
+  reference: request.id,       // your own, unique in the account
+  returnUrl: 'https://your.app/paid',
+  lifeMinutes: 15,             // where the provider allows it
+});
+// { ok: true, paymentId, pageUrl, providerId, closesAtIso, lifeFixedByProvider, existing }
+// or { ok: false, reason, detail }</code></pre>
+    <ul>
+      <li>Your function names the account and nothing more. The server reads the keys itself.</li>
+      <li>The same reference again gives back the same open page, with <code>existing: true</code>. Another amount, or a reference already finished, is refused with <code>reference-used</code>.</li>
+      <li>Connect keeps a page open 2 hours whatever you ask: <code>lifeFixedByProvider</code> is <code>true</code>, and <code>closesAtIso</code> is when it really closes.</li>
+      <li><code>returnUrl</code> proves nothing. The buyer can reach it without paying, so never treat arriving there as paid.</li>
+      <li>A reference is letters, digits, and <code>.</code> <code>_</code> <code>:</code> <code>-</code>. Connect takes at most 30 characters.</li>
+    </ul>
+
+    <h2 id="result">Hear the result</h2>
+    <p>Fill in <code>functions/src/custom/payments.ts</code>. Arc CMS ships it empty and never edits it again:</p>
+    <pre><code>import type { PaymentHooks } from '../app-kit/index.js';
+import { db } from '../init.js';
+
+export const PAYMENT_HOOKS: PaymentHooks = {
+  onResult: async (result) =&gt; {
+    // result: { resultId, paymentId, accountId, reference, status, amountMinor, currency,
+    //           provider, providerId, mode, late, resolvedBy? }
+    if (result.mode === 'test') return; // test never counts as money
+    await db.collection('SettledPayments').doc(result.resultId).create({ ... });
+  },
+  onAlert: async (alert) =&gt; {
+    // alert: { type, accountId, provider, mode, detail, expiresOn?, daysLeft?, reference?, reasons? }
+  },
+};</code></pre>
+    <ul>
+      <li><strong>Once.</strong> Each status reaches <code>onResult</code> once. If it throws, Arc tries again later with the same <code>resultId</code>, up to every hour, and raises <code>delivery-failed</code> after 10 tries. A crash just after your hook ran is the one way to hear something twice, so write with <code>resultId</code> as the document id, as above.</li>
+      <li><strong>Late money.</strong> A payment that failed or that you ended can still become paid, as a buyer may already be paying. It arrives as a second result, <code>paid</code> with <code>late: true</code>. Decide what that means for your app. Connect's page cannot be closed early, so this will happen.</li>
+      <li><strong>Test.</strong> <code>mode</code> is on every result. Check it before counting money.</li>
+    </ul>
+    <p>Your hooks are not loaded by the webhook, so what they import cannot slow it down.</p>
+    <h3 id="alerts">Alerts</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th><code>type</code></th><th>When</th></tr></thead>
+        <tbody>
+          <tr><td><code>key-expiring</code></td><td>At 30, 7 and 1 days before the day the merchant typed for the key's end, and when it has come. Worldline's API keys end; no call says when, so ask for the date.</td></tr>
+          <tr><td><code>key-refused</code></td><td>The provider refused the keys, in use or in the daily check. Goes away by itself when they work again.</td></tr>
+          <tr><td><code>webhook-silent</code></td><td>3 payments in a row finished with no event, whether the sweep or your own <code>readPayment</code> found them. Neither provider's docs show a call that says a webhook was switched off, so this is how Arc notices: it was never added, or it is off. Goes away when an event arrives.</td></tr>
+          <tr><td><code>payment-held</code></td><td>A payment is held for a person (<a href="#held">below</a>).</td></tr>
+          <tr><td><code>delivery-failed</code></td><td>Your <code>onResult</code> has failed 10 times for one payment.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Each is said once until it changes. <code>onAlert</code> is the only way a held payment is told, so fill it in. What is wrong now is also in the account's <code>problems</code>, so your screens can show it.</p>
+
+    <h2 id="read-and-end">Read, end, refund</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Call</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>readPayment({ accountId, reference })</code></td><td>Reads the provider now, applies what it says and answers the payment: <code>{ status, amountMinor, currency, mode, late, heldReasons, refundedMinor, closesAtIso, providerStatus, method, eventSeen, checked }</code>. Use it while a buyer waits. If the provider cannot answer, <code>checked</code> is <code>false</code> and you get what Arc last knew.</td></tr>
+          <tr><td><code>endPayment({ accountId, reference })</code></td><td>Reads first, as the money may have come, then ends the page and marks it cancelled. The sweep goes on reading until the page's life is over, looking for a payment made on it even when the page itself can no longer be read. Payrexx offers no such look: once a gateway is deleted, only an event can name its transaction.</td></tr>
+          <tr><td><code>refundPayment({ accountId, reference, amountMinor?, by })</code></td><td>Whole (what is left) or in part, through the provider, never more than was paid. If the provider gives no answer, the amount stays set aside and further refunds answer <code>busy</code>, because it may have gone through: look in the provider's own account, then call <code>settleRefund</code>.</td></tr>
+          <tr><td><code>settleRefund({ accountId, reference, went, by })</code></td><td>A person says whether a refund left with no answer went through. <code>refundingMinor</code> in <code>readPayment</code> shows one is waiting.</td></tr>
+          <tr><td><code>resolveHeldPayment({ accountId, reference, as, by })</code></td><td>A person decides a held payment: <code>paid</code>, <code>failed</code> or <code>cancelled</code>. Your <code>onResult</code> hears it, with <code>resolvedBy</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="held">A payment held for a person</h3>
+    <p>Arc never says paid when something does not add up. <code>heldReasons</code> says why:</p>
+    <ul>
+      <li><code>amount</code>, <code>currency</code>, <code>reference</code>: the provider says paid, but not this.</li>
+      <li><code>mode</code>: the provider says the payment was on its other system.</li>
+      <li><code>provider-status</code>: an open payment is now refunded or charged back, or a payment still unfinished 3 days after its page closed.</li>
+      <li><code>provider-unread</code>: the provider has not answered for 3 days after the page closed.</li>
+      <li><code>disconnected</code>: the account's keys are gone while its page could still be paid, so nothing can read it now.</li>
+    </ul>
+
+    <h2 id="how-it-works">How it works</h2>
+    <ol>
+      <li><code>merchantPaymentWebhook</code> takes a delivery at the account's address. Where the provider signs, it checks the signature over the exact bytes, with a key the server holds, before reading the body. It finds the payment, writes the event's id once, and answers.</li>
+      <li><code>onMerchantPaymentEvent</code> reads the payment back from the provider. Only that answer can say what happened. Amount, currency, reference and system are compared with your record.</li>
+      <li><code>sweepMerchantPayments</code>, every 2 minutes, reads what is still unfinished (further apart each time, up to 15 minutes) and retries results your app has not taken. A lost webhook recovers with no browser. A page nobody paid on is cancelled once it closes. A payment under way is never closed as unpaid: it is read on for 3 days, then held for a person. A cancelled or failed payment goes on being read until its page has closed.</li>
+      <li><code>checkMerchantAccounts</code>, daily, warns of keys ending, tries each account's keys, and clears event records older than 7 days.</li>
+    </ol>
+
+    <h2 id="rules">The rules that always hold</h2>
+    <p>Each has tests in <code>functions/src/__tests__/merchantPayments.spec.ts</code>, under its number, or in the two specs beside it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>Rule</th><th>How</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>No browser ever holds a key.</td><td>Keys live in <code>MerchantAccountKeys</code>, closed to every browser, admins included. They come back in no answer. <code>startPayment</code> reads no key from its input.</td></tr>
+          <tr><td>2</td><td>No secret in an address, and no account named by the sender alone.</td><td>The address holds a random public id, which proves nothing. An event signed with a key the server does not hold is refused with 401, and nothing is written. Payrexx's unsigned events only prompt a read back; an id they name counts only if that transaction is this gateway's.</td></tr>
+          <tr><td>3</td><td>The signature is checked over the exact bytes received, before anything is read.</td><td>From <code>rawBody</code>, never a body put back together. With no raw bytes it answers 400.</td></tr>
+          <tr><td>4</td><td>An event is never enough to say paid.</td><td>Only a read back can, and any difference is held.</td></tr>
+          <tr><td>5</td><td>Paid means the money is secured.</td><td>A strict table per connector (<a href="#paid">below</a>). An unknown status is never paid.</td></tr>
+          <tr><td>6</td><td>No fallback, ever.</td><td>Each connector's address follows the mode alone, and no account value can name a host. Keys of one mode never serve the other. A missing or half-set account is refused with a plain reason. The pretend provider cannot be live.</td></tr>
+          <tr><td>7</td><td>Once, in any order.</td><td>Duplicates are dropped by event id (for Payrexx, which gives none, by a hash of the bytes). Paid and held never change by themselves. Unsigned events prompt at most one read in 30 seconds, so a flood of them cannot become a flood of calls on the merchant's account.</td></tr>
+          <tr><td>8</td><td>Answer inside 10 seconds, cold start included.</td><td>The webhook records and answers. A test holds what it loads: no SDK, none of your code. A slow database gets a 503 within 6 seconds of the code starting, and the provider sends it again. Only a real cold start can be measured (<a href="#proof">Prove a connector</a>); if it is too slow on your project, keep the function warm with <code>ARC_KEEP_WARM=merchantPaymentWebhook</code> (<a href="functions.html#keep-warm">Keep a function running</a>).</td></tr>
+          <tr><td>9</td><td>Nothing secret or personal in a log.</td><td>Logs carry a type and a provider's name. No raw event is kept, and an event's record is gone after 7 days. A provider's or a library's error words are filtered or dropped.</td></tr>
+          <tr><td>10</td><td>A key can expire: tell the app first.</td><td><a href="#alerts">Alerts</a>.</td></tr>
+          <tr><td>11</td><td>The payment page's address is checked.</td><td>https, the provider's own domain, no credentials or port, and a live page never on pre-production. Anything else is refused, and the page ended.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="paid">What counts as paid</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>Paid</th><th>Open, not paid</th><th>Failed or cancelled</th><th>Held, on an open payment</th></tr></thead>
+        <tbody>
+          <tr><td>Worldline Connect</td><td><code>CAPTURED</code>, <code>PAID</code>, <code>COMPLETED</code></td><td><code>CREATED</code>, <code>REDIRECTED</code>, <code>ACCOUNT_VERIFIED</code>, <code>PENDING_PAYMENT</code>, <code>PENDING_FRAUD_APPROVAL</code>, <code>PENDING_APPROVAL</code>, <code>PENDING_COMPLETION</code>, <code>PENDING_CAPTURE</code>, <code>AUTHORIZATION_REQUESTED</code>, <code>CAPTURE_REQUESTED</code>, <code>CAPTURE_IN_PROGRESS</code>, and any other</td><td><code>REJECTED</code>, <code>REJECTED_CAPTURE</code>; <code>CANCELLED</code></td><td><code>REVERSED</code>, <code>CHARGEBACK_NOTIFICATION</code>, <code>CHARGEBACKED</code>, <code>REFUNDED</code></td></tr>
+          <tr><td>Payrexx</td><td><code>confirmed</code>, on a transaction marked <code>LIVE</code></td><td><code>waiting</code>, <code>authorized</code>, <code>reserved</code>, <code>uncaptured</code>, and any other. A gateway saying <code>confirmed</code> with no transaction to prove it stays open</td><td><code>declined</code>, <code>error</code>; <code>cancelled</code>, <code>expired</code></td><td><code>refunded</code>, <code>partially-refunded</code>, <code>refund_pending</code>, <code>chargeback</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Neither provider's docs say which status means the money is secured. This table is the strict reading until the proof below says otherwise for each way of paying.</p>
+
+    <h2 id="pretend">Build and test with the pretend provider</h2>
+    <p>A provider with no network, for your unit tests, the emulator and a dev project. It signs its events and is read back like a real one, so your flow runs through every rule. It is test mode only, and offered only on the emulator, in tests, or where you set <code>ARC_PAYMENTS_PRETEND=on</code> in <code>functions/.env.YOUR_PROJECT</code>. Never set that on a live project.</p>
+    <pre><code>import { capturePaymentHooks, connectPaymentAccount, pretendPayment, startPayment } from '../app-kit/index.js';
+
+const results = [];
+const hooks = capturePaymentHooks({ onResult: (r) =&gt; results.push(r) });
+
+await connectPaymentAccount({ accountId: 'b1', provider: 'pretend', mode: 'test', by: 'me', fields: {
+  accountName: 'My shop', secretKey: 'any-8-chars', webhookKeyId: 'key1', webhookSecret: 'any-8-chars',
+} });
+await startPayment({ accountId: 'b1', amountMinor: 1250, currency: 'CHF', reference: 'order-1', returnUrl: 'https://a.example/' });
+await pretendPayment({ accountId: 'b1', reference: 'order-1', outcome: 'paid', processNow: true });
+// results[0].status === 'paid'
+hooks.stop();</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>In <code>pretendPayment</code></th><th>What it gives you</th></tr></thead>
+        <tbody>
+          <tr><td><code>outcome</code></td><td><code>paid</code>, <code>failed</code>, <code>cancelled</code>, <code>waiting</code>, <code>waiting-approval</code>, <code>authorized</code>, <code>charged-back</code>, <code>wrong-amount</code>, <code>wrong-currency</code>, <code>wrong-reference</code></td></tr>
+          <tr><td><code>deliver</code></td><td><code>now</code> (one event, the default), <code>twice</code> (a duplicate), <code>none</code> (a lost webhook, for the sweep or <code>readPayment</code> to find)</td></tr>
+          <tr><td><code>processNow</code></td><td>Do the work here rather than in the trigger, for a unit test</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>For a late payment, call <code>endPayment</code> and then <code>pretendPayment</code> with <code>paid</code>. A secret key of <code>refuse-this-key</code> makes the provider refuse the keys. Its page address (<code>pretend-pay.arccms.invalid</code>) goes nowhere, so a dev screen shows its own stand-in and calls <code>pretendPayment</code> from a dev function.</p>
+
+    <h2 id="proof">Prove a connector</h2>
+    <p>A connector's <code>proven</code> is set in code, for each provider, once this has passed on the provider's own account. Until then, no merchant can pick it. Keys are yours to type: <code>npm run payments:proof</code> takes them at a prompt that shows nothing, and goes through the same calls your app makes. Do not put them in chat, a file or a command line.</p>
+    <ol>
+      <li>
+        <p>Build the functions with the feature on, and deploy the four functions above to a project you can test on. Leave the change to <code>src/custom/features.ts</code> uncommitted in Arc CMS itself:</p>
+        <pre><code>npm run build --prefix functions</code></pre>
+      </li>
+      <li>
+        <p>Run it. <code>--project=&lt;id&gt;</code> chooses the project, as in <a href="scripts-and-data.html">Run scripts and keep data</a>:</p>
+        <pre><code>npm run payments:proof -- --provider=worldline-connect --mode=test</code></pre>
+        <pre><code>npm run payments:proof -- --provider=payrexx --mode=live</code></pre>
+      </li>
+      <li>It connects, shows the webhook address for you to add, starts a payment for each way of paying you name, tries a forged event on the deployed webhook and times the answer, shows the page to pay on, follows what the provider says, offers a refund, and removes the keys at the end.</li>
+    </ol>
+    <p>What must be seen, for each provider and each way of paying (card, TWINT), before its <code>proven</code> is set:</p>
+    <ul>
+      <li>Which status means the money is secured, and whether it comes while a buyer waits. If a Connect card stays at <code>CAPTURE_REQUESTED</code> until the day's end, the table above would keep a buyer waiting at the counter: decide, and write it here.</li>
+      <li>A wrong key is refused; a forged event answers 401 (Connect) or changes nothing (Payrexx).</li>
+      <li>The webhook answers inside 10 seconds from cold, and Connect's address check passes.</li>
+      <li>A paid event reaches the record; with the webhook removed, the sweep still finds it.</li>
+      <li>Ending a page works, and what a buyer sees after it. Paying just before it: <code>late</code>.</li>
+      <li>A part refund and a whole refund. A part capture reads as its real amount, so it is held.</li>
+      <li>Connect: TWINT and wallets go straight to a sale, with <code>requiresApproval: false</code> sent for them as well as for cards.</li>
+    </ul>
+    <p>On Connect: the live API address; whether it insists on a buyer's email; the page's real host and subdomain; that an event carries <code>merchantReference</code>, or it is dropped and left to the sweep; the time an API key lasts. On Payrexx: whether it has a test system; the webhook's real shape, as its docs' webhook pages could not be read; that a gateway's answer names its transactions, or a sweep alone can never say paid, and that a transaction carries <code>invoice.paymentRequestId</code>, or an id from an event is never believed; that a transaction on version 1.0 of its API carries <code>mode</code>, or every paid one is held; whether <code>/Transaction/?limit=1</code> tells a good key from a bad one; whether the page can be on a domain of the merchant's own, which would be refused today.</p>
+    <p>To try an unproven connector from your own screens on a project, set <code>ARC_PAYMENTS_TRY</code> in <code>functions/.env.YOUR_PROJECT</code>: <code>worldline-connect</code> for test mode, <code>worldline-connect:live</code> or <code>payrexx:live</code> for live, several with commas. Never set it on a project merchants use.</p>
+
+    <h2 id="add-a-provider">Add a provider</h2>
+    <p>This is for Arc CMS itself. A provider is one file in <code>functions/src/merchant-payments/connectors/</code> implementing <code>PaymentConnector</code> from <code>types.ts</code>, and one line in <code>connectors/index.ts</code>. No app changes. A provider whose page takes a form posted from a browser, as myPOS does, needs <code>ConnectorStarted</code> to carry the form and a page of Arc's own to send the buyer there. Load any SDK with <code>await import()</code>, so the webhook never pays for it.</p>
+
+    <h2 id="troubleshooting">When something goes wrong</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>You see</th><th>Why</th><th>Do</th></tr></thead>
+        <tbody>
+          <tr><td><code>off</code></td><td>The feature is off for this build.</td><td>Add it to <code>on</code> (<a href="#turn-on">Turn it on</a>).</td></tr>
+          <tr><td><code>not-offered</code></td><td>The connector is not proven and this project is not trying it, or the pretend provider is not allowed here.</td><td><a href="#proof">Prove a connector</a>.</td></tr>
+          <tr><td><code>account-incomplete</code>, <code>no-account</code></td><td>The account has no keys for its mode. There is no default to fall back on.</td><td>Connect it.</td></tr>
+          <tr><td><code>key-refused</code></td><td>The provider turned the keys down.</td><td>Check them in the provider's admin; replace them.</td></tr>
+          <tr><td><code>bad-page-address</code></td><td>The provider gave a page on an unexpected domain, which is refused.</td><td>Check <code>pageHost</code> in the connector against the page's real address.</td></tr>
+          <tr><td>A payment stays <code>open</code></td><td>The provider says so. For a paid-looking one, <code>providerStatus</code> shows its word.</td><td>See <a href="#paid">What counts as paid</a>.</td></tr>
+          <tr><td>No events arrive</td><td>The webhook was not added, or was switched off.</td><td>Add <code>webhookAddress</code> in the provider's admin. The sweep keeps payments moving meanwhile.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

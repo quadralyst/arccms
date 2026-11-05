@@ -64,3 +64,14 @@ export { estimateAiCost } from '../ai/estimate.js';
 export type { AiEstimate } from '../ai/estimate.js';
 export { aiTestFailure, AI_FAILURE_REASONS, AI_TIERS, AI_KINDS, AI_UNITS } from '../ai/types.js';
 export type { AiPurpose, AiPurposes, AiInputPart, AskAiInput, AskAiResult, AiUsage, AiFailureReason, AiTier, AiTestInput, AiTestAnswer, AiKind, AiUnit, AiFile, AiImageSettings, AiSpeechSettings, AiAudioSettings, AiVideoSettings, AiVoiceMap, AiAllowanceUnit, AiJob, AiJobResult, JsonSchema } from '../ai/types.js';
+
+// Online payments on a merchant's own provider account: connect an account, start a payment, read it
+// back, end it, refund it; results and alerts reach functions/src/custom/payments.ts (docs/app/merchant-payments.html)
+export { connectPaymentAccount, switchPaymentMode, disconnectPaymentAccount, readPaymentAccount } from '../merchant-payments/accounts.js';
+export { paymentConnectors } from '../merchant-payments/connectors/index.js';
+export type { OfferedConnector } from '../merchant-payments/connectors/index.js';
+export { startPayment, readPayment, endPayment, refundPayment, settleRefund, resolveHeldPayment } from '../merchant-payments/payments.js';
+export { capturePaymentHooks } from '../merchant-payments/alerts.js';
+export { pretendPayment } from '../merchant-payments/pretendControl.js';
+export type { PretendInput, PretendOutcome } from '../merchant-payments/pretendControl.js';
+export type { ConnectPaymentAccountInput, PaymentAlert, PaymentAlertType, PaymentConnectorInfo, PaymentFailure, PaymentFailureReason, PaymentField, PaymentHooks, PaymentMode, PaymentResult, PaymentResultStatus, PaymentStatus, PaymentView, PublicPaymentAccount, StartedPayment, StartPaymentInput } from '../merchant-payments/types.js';

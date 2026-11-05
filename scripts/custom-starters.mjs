@@ -41,6 +41,7 @@ export const CUSTOM_STARTERS = [
     { file: 'functions/src/custom/search-sources.ts', exports: { SEARCH_COLLECTIONS: [], CUSTOM_SEARCH_SOURCES: [] } },
     { file: 'functions/src/custom/email-templates.ts', exports: { APP_EMAIL_TEMPLATES: [], ACCOUNT_EMAIL_LANGUAGES: {} } },
     { file: 'functions/src/custom/ai.ts', exports: { AI_PURPOSES: {} } },
+    { file: 'functions/src/custom/payments.ts', exports: { PAYMENT_HOOKS: {} } },
 ];
 
 /**
@@ -59,6 +60,7 @@ export const SHIPPED_FILES = {
     'functions/src/custom/ai.ts': '454e15a999fac573',
     'functions/src/custom/email-templates.ts': 'a15388a8c3cc73ec',
     'functions/src/custom/index.ts': 'bc37230ec1e6fa32',
+    'functions/src/custom/payments.ts': '04a936ba0d3523a1',
     'functions/src/custom/public-callables.txt': 'bd3f72e171f12f56',
     'functions/src/custom/search-sources.ts': '74da7f252bd88529',
     'src/custom/README.md': '19d24bc0d239b2e1',

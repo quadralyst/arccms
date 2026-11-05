@@ -522,6 +522,32 @@ service cloud.firestore {
     match /AiKeys/{connectionId} {
       allow read, write: if false;
     }
+    // Merchant payments (docs/app/merchant-payments.html). The providers' keys: nobody reads
+    // or writes them from a browser, not even an admin. The same for a webhook address's
+    // account, the events and the pretend provider's records: only the functions touch them.
+    match /MerchantAccountKeys/{accountId} {
+      allow read, write: if false;
+    }
+    match /MerchantWebhooks/{webhookId} {
+      allow read, write: if false;
+    }
+    match /MerchantPaymentEvents/{eventKey} {
+      allow read, write: if false;
+    }
+    match /MerchantPretendPayments/{providerId} {
+      allow read, write: if false;
+    }
+    // What a page may read of an account and a payment, none of it secret. Admins read them;
+    // an app adds its own read in firestore.app.rules for whoever owns the account. Only the
+    // functions write them.
+    match /MerchantAccounts/{accountId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /MerchantPayments/{paymentId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
     // Arc's own cache of files a model made, and each connection's pacing counter
     // (specs/ai-media-spec.md, AM-D15, AM-D16): only the functions read and write them.
     match /AiCache/{hash} {

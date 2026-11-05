@@ -322,6 +322,18 @@
       </tbody>
     </table>
 
+    <h2>Merchant payments</h2>
+    <p>Owned by <a href="../app/merchant-payments.html">Take payments on a merchant's account</a>. Deployed only when the <code>merchant-payments</code> feature is on. What an app calls are helpers in the app kit, not functions.</p>
+    <table>
+      <thead><tr><th>Function</th><th>Kind</th><th>Who or what starts it</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>merchantPaymentWebhook</code></td><td>HTTP</td><td>A provider</td><td>Takes an event at an account's address: checks its signature where the provider signs, writes its id once, and answers. Loads no provider's SDK and none of the app's code.</td></tr>
+        <tr><td><code>onMerchantPaymentEvent</code></td><td>Firestore trigger</td><td><code>MerchantPaymentEvents</code> created</td><td>Reads the payment back from the provider, applies what it says, and tells the app.</td></tr>
+        <tr><td><code>sweepMerchantPayments</code></td><td>Scheduled</td><td>Every 2 minutes</td><td>Reads payments still open, closes those whose page has ended, and retries results the app has not taken.</td></tr>
+        <tr><td><code>checkMerchantAccounts</code></td><td>Scheduled</td><td>Daily, 06:00 UTC</td><td>Warns of keys ending, tries each account's keys, and clears event records older than 7 days.</td></tr>
+      </tbody>
+    </table>
+
     <h2>Feedback</h2>
     <p>Owned by <a href="../features/feedback.html">Feedback button</a>. Always deployed.</p>
     <table>

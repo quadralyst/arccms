@@ -115,6 +115,21 @@
       </table>
     </div>
 
+    <h2>Merchant payments</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Collection</th><th>Holds</th><th>Read</th><th>Write</th><th>Feature</th><th>Key fields</th></tr></thead>
+        <tbody>
+          <tr><td><code>MerchantAccounts</code></td><td>What a page may read of each customer's provider account, id the app's own id. Nothing secret.</td><td>Admin, and whoever the app's own rules allow</td><td>Server only</td><td><a href="../app/merchant-payments.html">Merchant payments</a></td><td><code>provider</code>, <code>mode</code>, <code>publicName</code>, <code>last4</code>, <code>webhookId</code>, <code>keyExpiresOn</code>, <code>problems</code>, <code>lastPaymentAtIso</code></td></tr>
+          <tr><td><code>MerchantAccountKeys</code></td><td>The provider's keys for each account, per mode.</td><td>Nobody from a browser</td><td>Server only</td><td><a href="../app/merchant-payments.html">Merchant payments</a></td><td><code>provider</code>, <code>webhookId</code>, <code>modes</code>, <code>setAtIso</code>, <code>setBy</code></td></tr>
+          <tr><td><code>MerchantWebhooks</code></td><td>Which account a webhook address is for, id the address's public id.</td><td>Server only</td><td>Server only</td><td><a href="../app/merchant-payments.html">Merchant payments</a></td><td><code>accountId</code>, <code>provider</code></td></tr>
+          <tr><td><code>MerchantPayments</code></td><td>One payment, id a hash of the account and the app's reference. No buyer's details.</td><td>Admin, and whoever the app's own rules allow</td><td>Server only</td><td><a href="../app/merchant-payments.html">Merchant payments</a></td><td><code>accountId</code>, <code>reference</code>, <code>status</code>, <code>amountMinor</code>, <code>currency</code>, <code>mode</code>, <code>providerId</code>, <code>nextCheckAtMs</code>, <code>pending</code></td></tr>
+          <tr><td><code>MerchantPaymentEvents</code></td><td>One delivery's id and which payment it names, never the event itself. Cleared after 7 days.</td><td>Server only</td><td>Server only</td><td><a href="../app/merchant-payments.html">Merchant payments</a></td><td><code>provider</code>, <code>accountId</code>, <code>paymentId</code>, <code>type</code>, <code>receivedAtMs</code></td></tr>
+          <tr><td><code>MerchantPretendPayments</code></td><td>What the pretend provider knows, for tests and a dev project.</td><td>Server only</td><td>Server only</td><td><a href="../app/merchant-payments.html">Merchant payments</a></td><td><code>providerStatus</code>, <code>amountMinor</code>, <code>currency</code>, <code>reference</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <h2>Signup forms</h2>
     <p>In the code and the collection names, a form is a waitlist. Members join through the <code>joinForm</code> callable.</p>
     <div class="table-wrap">

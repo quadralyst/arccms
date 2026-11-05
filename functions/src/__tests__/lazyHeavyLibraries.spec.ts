@@ -1,7 +1,7 @@
 /**
  * Every function loads the whole codebase on a cold start, so a slow library
  * imported at the top of any file slows the start of every function, sign-in
- * included. googleapis and cheerio are loaded where they are used instead
+ * included. googleapis, cheerio and Worldline's SDK are loaded where they are used instead
  * (docs/app/functions.html, "Keep cold starts short"). A type-only import costs nothing.
  */
 import { describe, it, expect } from 'vitest';
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join, relative } from 'node:path';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SLOW = ['googleapis', 'cheerio'];
+const SLOW = ['googleapis', 'cheerio', 'connect-sdk-nodejs'];
 
 function sources(dir: string, acc: string[] = []): string[] {
     for (const entry of readdirSync(dir)) {
@@ -25,7 +25,7 @@ function sources(dir: string, acc: string[] = []): string[] {
 }
 
 describe('slow libraries load on first use', () => {
-    it('no file imports googleapis or cheerio at the top, except as types', () => {
+    it('no file imports a slow library at the top, except as types', () => {
         const offenders: string[] = [];
         for (const file of sources(SRC)) {
             for (const line of readFileSync(file, 'utf-8').split('\n')) {

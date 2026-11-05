@@ -20,6 +20,7 @@
   "main": "lib/index.js",
   "dependencies": {
     "cheerio": "^1.2.0",
+    "connect-sdk-nodejs": "8.3.3",
     "dodopayments": "^2.32.0",
     "firebase-admin": "^13.4.0",
     "firebase-functions": "^7.4.0",

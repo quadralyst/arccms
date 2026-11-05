@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Merchant payments | Arc CMS docs</title>
+  <meta name="description" content="Each customer of an app takes money on their own provider account, through Worldline Connect or Payrexx, with no page of Arc CMS's own.">
+  <meta name="docs:sources" content="functions/src/merchant-payments, functions/src/features/merchant-payments.ts, functions/src/custom/payments.ts, src/app/core/features/feature-registry.ts, firestore.rules">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/merchant-payments.html">
+  <main>
+    <h1>Merchant payments</h1>
+    <p class="lead">Each customer of an app, such as a shop or a clinic, takes money from their own buyers on their own provider account. The money never passes through the site's owner.</p>
+
+    <h2>What it is</h2>
+    <p>Server helpers in the app kit, a connector for each provider behind one interface, and the webhook, sweep and checks that hold the rules: no browser holds a key, a forged event changes nothing, and only the provider's own answer can say paid. It has no screen of its own: the app's screens use it, in the app's languages. <a href="payments.html">Payments</a> is the other need, selling the site's own plans through one account.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>Off unless an app turns it on, with <code>on: ['merchant-payments']</code> in <code>src/custom/features.ts</code> (<a href="../app/choose-features.html">Choose your app's features</a>). While off, its four functions are not deployed and its helpers answer <code>off</code>.</p>
+
+    <h2>Set it up</h2>
+    <p>Deploy the functions and the rules, and fill in <code>functions/src/custom/payments.ts</code>. A merchant connects with their provider's keys through the app's own screen, and adds the webhook address in the provider's admin. Worldline Connect and Payrexx cannot be picked until each has been proven on the provider's own account: see <a href="../app/merchant-payments.html#proof">Prove a connector</a>.</p>
+
+    <h2>Use it</h2>
+    <p>From an app's own functions: <code>startPayment()</code> gives the page to send the buyer to, the result reaches the app's <code>onResult</code>, and <code>readPayment()</code>, <code>endPayment()</code> and <code>refundPayment()</code> do the rest. The whole of it is in <a href="../app/merchant-payments.html">Take payments on a merchant's account</a>.</p>
+
+    <h2>Extend it</h2>
+    <p>A new provider is one file and one line, and changes no app: <a href="../app/merchant-payments.html#add-a-provider">Add a provider</a>. Build and test against the <a href="../app/merchant-payments.html#pretend">pretend provider</a>.</p>
+
+    <h2>What it stores</h2>
+    <p>Accounts, keys, webhook addresses, payments and events, all in collections named <code>Merchant...</code>: see the <a href="../reference/data-model.html">Data model</a>. Keys are stored in Firestore where no browser can read them, as <code>AiKeys</code> are, so a full export of the database by someone with server access includes them. No buyer's details are kept, and no raw event.</p>
+
+    <h2>Who can do what</h2>
+    <p>The app decides who may connect, by wrapping each helper in its own function. A browser reads only what the app's rules allow of an account's public view and of a payment; admins can read both. Nobody writes them from a browser, and nobody reads a key from one.</p>
+
+    <h2>Troubleshooting</h2>
+    <p>See <a href="../app/merchant-payments.html#troubleshooting">When something goes wrong</a>.</p>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

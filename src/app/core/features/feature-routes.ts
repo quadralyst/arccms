@@ -45,6 +45,8 @@ export const FEATURE_URLS: Record<FeatureId, readonly string[]> = {
     // admin/analytics-setting is the file router's second URL for the settings page.
     analytics: ['admin/settings/analytics', 'admin/analytics-setting/**'],
     ai: ['admin/settings/ai'],
+    // No pages: an app's own screens use it (docs/app/merchant-payments.html).
+    'merchant-payments': [],
 };
 
 /**

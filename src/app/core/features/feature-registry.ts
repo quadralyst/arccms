@@ -21,6 +21,7 @@ export const FEATURE_IDS = [
     'contact',
     'analytics',
     'ai',
+    'merchant-payments',
 ] as const;
 
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -52,9 +53,12 @@ export const FEATURE_INFO: Record<FeatureId, FeatureInfo> = {
     analytics: { label: 'Analytics', defaultOn: true, needs: [] },
     // An app's own AI uses through askAi (docs/app/ai.html). On, so any app can use it; a site with no AI turns it off.
     ai: { label: 'AI', defaultOn: true, needs: [] },
+    // Each customer of an app takes money on their own provider account (docs/app/merchant-payments.html).
+    // Off, as it runs a sweep every 2 minutes that a site with no merchants has no use for.
+    'merchant-payments': { label: 'Merchant payments', defaultOn: false, needs: [] },
 };
 
-/** What `src/custom/features.ts` exports. Empty: every feature on except the PWA. */
+/** What `src/custom/features.ts` exports. Empty: every feature on except the PWA and merchant payments. */
 export interface FeatureChoice {
     /** Features that are off by default and this app wants (`pwa`, `ai`). */
     on?: readonly FeatureId[];

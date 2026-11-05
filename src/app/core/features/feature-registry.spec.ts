@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FEATURE_IDS, FEATURE_INFO, FeatureChoiceError, resolveFeatures, type FeatureChoice, type FeatureId } from './feature-registry';
 import { resolvePwaConfig } from '../pwa/pwa-config';
 
-const DEFAULT_ON = FEATURE_IDS.filter((id) => id !== 'pwa');
+const DEFAULT_ON = FEATURE_IDS.filter((id) => id !== 'pwa' && id !== 'merchant-payments');
 const sorted = (ids: Iterable<FeatureId>) => [...ids].sort();
 const problem = (choice: unknown) => {
     try {
@@ -30,16 +30,21 @@ describe('feature registry', () => {
         for (const id of FEATURE_IDS) visit(id, []);
     });
 
-    it('has only the PWA off by default', () => {
-        expect(FEATURE_IDS.filter((id) => !FEATURE_INFO[id].defaultOn)).toEqual(['pwa']);
+    it('has only the PWA and merchant payments off by default', () => {
+        expect(FEATURE_IDS.filter((id) => !FEATURE_INFO[id].defaultOn)).toEqual(['pwa', 'merchant-payments']);
     });
 });
 
 describe('resolveFeatures', () => {
-    it('turns every feature on except the PWA for an empty choice, AI included', () => {
+    it('turns every feature on except the PWA and merchant payments for an empty choice, AI included', () => {
         expect(resolveFeatures({}).has('ai')).toBe(true);
         expect(sorted(resolveFeatures({}))).toEqual(sorted(DEFAULT_ON));
         expect(sorted(resolveFeatures(undefined))).toEqual(sorted(DEFAULT_ON));
+    });
+
+    it('turns merchant payments on when the app asks, and only then', () => {
+        expect(resolveFeatures({}).has('merchant-payments')).toBe(false);
+        expect(resolveFeatures({ on: ['merchant-payments'] }).has('merchant-payments')).toBe(true);
     });
 
     it('turns the PWA on when the app asks', () => {

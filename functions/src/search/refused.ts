@@ -19,6 +19,13 @@ export const REFUSED_COLLECTIONS: Readonly<Record<string, string>> = {
     form_otps: 'one-time codes',
     phone_otps: 'one-time codes',
     Settings: 'site settings, some of them secret',
+    AiKeys: 'providers\' keys',
+    MerchantAccountKeys: 'providers\' keys',
+    MerchantWebhooks: 'webhook addresses, no text to search',
+    MerchantAccounts: 'merchants\' provider accounts',
+    MerchantPayments: 'merchants\' payments',
+    MerchantPaymentEvents: 'one document per payment webhook',
+    MerchantPretendPayments: 'test records',
 };
 
 /** Why a collection can never be searchable, or null when it can. */

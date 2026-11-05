@@ -9,7 +9,22 @@
 
 type Data = Record<string, unknown>;
 
+type Op = '==' | '<' | '<=' | '>' | '>=';
+
 let autoId = 0;
+
+function compare(a: unknown, b: unknown): number {
+    if (a === b) return 0;
+    return (a as number) < (b as number) ? -1 : 1;
+}
+
+/** A filter as Firestore has it: a range only ever matches a document that has the field. */
+function matches(value: unknown, op: Op, wanted: unknown): boolean {
+    if (op === '==') return value === wanted;
+    if (value === undefined) return false;
+    const order = compare(value, wanted);
+    return op === '<' ? order < 0 : op === '<=' ? order <= 0 : op === '>' ? order > 0 : order >= 0;
+}
 
 function isDeleteSentinel(value: unknown): boolean {
     return typeof value === 'object' && value !== null && (value as { _delete?: boolean })._delete === true;
@@ -68,20 +83,23 @@ export class MemoryFirestore {
                 await ref.set(data);
                 return ref;
             },
-            where: (field: string, _op: '==', value: unknown) => db.query(name, [[field, value]]),
+            where: (field: string, op: Op, value: unknown) => db.query(name, [[field, value, op]]),
+            orderBy: (field: string) => db.query(name, [], Infinity, field),
         };
     }
 
-    private query(name: string, filters: Array<[string, unknown]>, max = Infinity) {
+    private query(name: string, filters: Array<[string, unknown, Op?]>, max = Infinity, order?: string, after?: unknown) {
         const db = this;
         const q = {
-            where: (field: string, _op: '==', value: unknown) => db.query(name, [...filters, [field, value]], max),
-            limit: (n: number) => db.query(name, filters, n),
+            where: (field: string, op: Op, value: unknown) => db.query(name, [...filters, [field, value, op]], max, order, after),
+            orderBy: (field: string) => db.query(name, filters, max, field, after),
+            startAfter: (value: unknown) => db.query(name, filters, max, order, value),
+            limit: (n: number) => db.query(name, filters, n, order, after),
             get: async () => {
-                const docs = [...db.coll(name).entries()]
-                    .filter(([, data]) => filters.every(([f, v]) => data[f] === v))
-                    .slice(0, max)
-                    .map(([id]) => db.snapshot(name, id));
+                let rows = [...db.coll(name).entries()].filter(([, data]) => filters.every(([f, v, op]) => matches(data[f], op ?? '==', v)));
+                if (order) rows = rows.sort(([, a], [, b]) => compare(a[order], b[order]));
+                if (order && after !== undefined) rows = rows.filter(([, data]) => compare(data[order], after) > 0);
+                const docs = rows.slice(0, max).map(([id]) => db.snapshot(name, id));
                 return { empty: docs.length === 0, size: docs.length, docs };
             },
         };
