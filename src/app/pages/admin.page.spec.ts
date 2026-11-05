@@ -146,6 +146,14 @@ describe('AdminComponent: the page waits for its words', () => {
         expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
     });
 
+    it('still opens the page if the load just ends with no answer, as Transloco does when the failed file is its own fallback', async () => {
+        const words = new Subject<unknown>();
+        const fixture = await render(words);
+        words.complete();
+        await fixture.whenStable();
+        expect(fixture.nativeElement.querySelector('router-outlet')).not.toBeNull();
+    });
+
     it('still opens the page if the file cannot be read', async () => {
         const words = new Subject<unknown>();
         const fixture = await render(words);

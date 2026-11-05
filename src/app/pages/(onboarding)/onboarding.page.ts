@@ -587,7 +587,7 @@ export default class OnboardingComponent implements OnInit {
         try {
             if (!(await this.ensureAdminClaim())) return;
 
-            await this.setupService.saveEmailSkipped();
+            await this.setupService.saveEmailSkipped(this.siteInfoForm?.get('siteName')?.value || '');
             this.currentStep.set(5);
             this.errorMessage.set('');
         } catch (error) {

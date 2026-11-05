@@ -161,9 +161,10 @@ export class OnboardingSetupService {
     /**
      * Save email as disabled (user chose "Skip for now").
      */
-    async saveEmailSkipped(): Promise<void> {
+    async saveEmailSkipped(senderName = ''): Promise<void> {
         const dataToSave = {
             ...DEFAULT_EMAIL_SETTINGS,
+            senderName,
             isEnabled: false,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),

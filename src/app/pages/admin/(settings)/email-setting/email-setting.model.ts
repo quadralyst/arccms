@@ -215,15 +215,14 @@ export const PROVIDER_DEFAULT_LIMITS: Record<EmailProvider, IProviderRateLimits>
 };
 
 /**
- * The sender's name a form starts with: the one saved, else the site's own name. "Arc CMS"
- * was written as the default for a long time, so on a site with a name of its own that is
- * not a choice anyone made.
+ * The site's own name, when the form should offer it for the sender: the field is blank,
+ * or still says "Arc CMS", long written as the default, on a site with a name of its own.
+ * Only offered: what is saved is what emails go out as, until someone changes it.
  */
-export function senderNameFor(saved: string | undefined, site: { name: string; arc: boolean } | null): string {
-    const name = saved?.trim() ?? '';
-    const siteName = site && !site.arc ? site.name : '';
-    if (!name || (name === 'Arc CMS' && siteName)) return siteName || name;
-    return name;
+export function suggestedSender(value: string | null | undefined, site: { name: string; arc: boolean } | null): string {
+    const siteName = site && !site.arc ? site.name.trim() : '';
+    const name = value?.trim() ?? '';
+    return siteName && (!name || name === 'Arc CMS') ? siteName : '';
 }
 
 /**

@@ -105,6 +105,8 @@ export function createGenericStore<T extends IBaseModel>(
         withMethods((store, service = inject(ServiceType), authStore = inject(AuthState), pendingTasks = inject(PendingTasks)) => {
             let activeSubscription: any = null;
             const cursors = new PageCursors();
+            /** The latest read: a correction meant for an older one is dropped. */
+            let latestRead = 0;
 
             const getAll = async (queryParams?: QueryParams, collectionSuffix?: string): Promise<void> => {
                 patchState(store, { isLoading: true, isSuccess: false, error: '' });
@@ -134,7 +136,10 @@ export function createGenericStore<T extends IBaseModel>(
 
                 // Where this page is read from (page-cursors.ts). The page asked for is not
                 // always the page reached, so a page shows what landed: currentPageNumber.
-                const shape = pageQueryShape(merged, collectionSuffix);
+                // Each waitlist or content type can have a collection of its own, with no suffix.
+                const collectionPath = service.getCollectionRef?.(collectionSuffix)?.path ?? collectionSuffix;
+                const shape = pageQueryShape(merged, collectionPath);
+                const read = ++latestRead;
                 const plan = cursors.plan({
                     target: merged.currentPageNumber,
                     shape,
@@ -153,7 +158,7 @@ export function createGenericStore<T extends IBaseModel>(
 
                 activeSubscription = service.getAll(readParams, collectionSuffix).subscribe({
                     next: (result) => {
-                        cursors.landed(shape);
+                        const correction = cursors.landed(shape, plan, result.collectionData.length, result.totalCount, readParams.limitCount);
                         patchState(store, {
                             items: result.collectionData,
                             // limitCount 0 means "no limit", so everything is
@@ -175,9 +180,11 @@ export function createGenericStore<T extends IBaseModel>(
                             currentPageNumber: readParams.currentPageNumber,
                         });
                         cleanupOnce();
-                        // The last record of the last page went: step back, rather than show an empty list with more records behind it.
-                        if (!result.collectionData.length && readParams.currentPageNumber > 0) {
-                            queueMicrotask(() => void getAll({ ...merged, currentPageNumber: readParams.currentPageNumber - 1 }, collectionSuffix));
+                        // The list changed under this page, such as its last record going: read the page that is right now.
+                        if (correction !== null) {
+                            queueMicrotask(() => {
+                                if (read === latestRead) void getAll({ ...merged, currentPageNumber: correction }, collectionSuffix);
+                            });
                         }
                     },
                     error: (error) => {
@@ -205,6 +212,7 @@ export function createGenericStore<T extends IBaseModel>(
              */
             clearList() {
                 cursors.forget();
+                latestRead++;
                 patchState(store, mergedState);
             },
 
@@ -445,6 +453,7 @@ export function createGenericStore<T extends IBaseModel>(
                 }
 
                 cursors.forget();
+                latestRead++;
                 patchState(store, mergedState);
             },
         } }),

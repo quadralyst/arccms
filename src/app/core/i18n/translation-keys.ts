@@ -1578,6 +1578,7 @@ export type TranslationKey =
     | 'admin.settings.email.sender_name'
     | 'admin.settings.email.sender_name_hint'
     | 'admin.settings.email.sender_name_placeholder'
+    | 'admin.settings.email.sender_use_site'
     | 'admin.settings.email.show_reset_links'
     | 'admin.settings.email.show_reset_links_hint'
     | 'admin.settings.email.subtitle'
@@ -4110,6 +4111,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.email.sender_name',
     'admin.settings.email.sender_name_hint',
     'admin.settings.email.sender_name_placeholder',
+    'admin.settings.email.sender_use_site',
     'admin.settings.email.show_reset_links',
     'admin.settings.email.show_reset_links_hint',
     'admin.settings.email.subtitle',

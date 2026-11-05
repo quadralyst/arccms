@@ -1,3 +1,5 @@
+import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { SiteBrandService } from '../../../../core/brand/site-brand';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
@@ -489,3 +491,73 @@ describe('EmailSettingPageComponent', () => {
     });
 });
 
+describe('EmailSettingPageComponent: the sender', () => {
+    function render(saved: string) {
+        const service = {
+            getEmailSettings: vi.fn().mockReturnValue(of({ ...DEFAULT_EMAIL_SETTINGS, isEnabled: true, activeProvider: 'debug_log', senderName: saved })),
+            saveEmailSettings: vi.fn().mockResolvedValue(undefined),
+        };
+        TestBed.configureTestingModule({
+            imports: [EmailSettingPageComponent, NoopAnimationsModule],
+            providers: [
+                provideRouter([]),
+                { provide: Firestore, useValue: {} },
+                { provide: Functions, useValue: {} },
+                { provide: EmailSettingService, useValue: service },
+                { provide: MatDialog, useValue: { open: vi.fn() } },
+                { provide: SiteBrandService, useValue: { brand: signal({ name: 'Acme Studio', logo: '', arc: false }), name: signal('Acme Studio'), load: () => Promise.resolve() } },
+            ],
+        });
+        const fixture = TestBed.createComponent(EmailSettingPageComponent);
+        fixture.detectChanges();
+        return { page: fixture.componentInstance, service, fixture };
+    }
+    const savedSender = (service: { saveEmailSettings: ReturnType<typeof vi.fn> }) => service.saveEmailSettings.mock.calls.at(-1)?.[0].senderName;
+
+    it('shows what emails go out as, and a save for something else leaves it alone', async () => {
+        const { page, service } = render('Arc CMS');
+        expect(page.emailForm.get('senderName')?.value).toBe('Arc CMS');
+        page.onFeatureToggleChange();
+        await vi.waitFor(() => expect(service.saveEmailSettings).toHaveBeenCalled());
+        expect(savedSender(service)).toBe('Arc CMS');
+    });
+
+    it('offers the site\'s name in place of the old default, and takes it only when asked', () => {
+        const { page } = render('Arc CMS');
+        page.emailForm.get('senderName')?.setValue('Arc CMS');
+        expect(page.senderSuggestion()).toBe('Acme Studio');
+        page.useSuggestedSender();
+        expect(page.emailForm.get('senderName')?.value).toBe('Acme Studio');
+        expect(page.emailForm.get('senderName')?.dirty).toBe(true);
+        expect(page.senderSuggestion()).toBe('');
+    });
+
+    it('draws the offer, and takes it away once it is taken, with no zone to prompt a redraw', async () => {
+        TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+        const { fixture } = render('Arc CMS');
+        fixture.autoDetectChanges();
+        await fixture.whenStable();
+        const offer = () => fixture.nativeElement.querySelector('mat-hint button') as HTMLButtonElement | null;
+        expect(offer()?.textContent).toContain('Use Acme Studio');
+
+        offer()!.click();
+        await fixture.whenStable();
+        expect((fixture.nativeElement.querySelector('input[formcontrolname=senderName]') as HTMLInputElement).value).toBe('Acme Studio');
+        expect(offer()).toBeNull();
+    });
+
+    it('never saves a blank sender: it saves the name the field offers', async () => {
+        const { page, service } = render('');
+        expect(page.emailForm.get('senderName')?.value).toBe('');
+        page.onFeatureToggleChange();
+        await vi.waitFor(() => expect(service.saveEmailSettings).toHaveBeenCalled());
+        expect(savedSender(service)).toBe('Acme Studio');
+    });
+
+    it('keeps a name someone chose', async () => {
+        const { page, service } = render('Team Acme');
+        page.onFeatureToggleChange();
+        await vi.waitFor(() => expect(service.saveEmailSettings).toHaveBeenCalled());
+        expect(savedSender(service)).toBe('Team Acme');
+    });
+});

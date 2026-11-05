@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -25,7 +25,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { EmailSettingService } from './email-setting.service';
 import { TestConnectionDialogComponent } from './test-connection-dialog.component';
-import { DEFAULT_EMAIL_FEATURES, EMAIL_FEATURE_META, EMAIL_PROVIDERS, EmailProvider, IEmailSettings, PROVIDER_DEFAULT_LIMITS, senderNameFor } from './email-setting.model';
+import { DEFAULT_EMAIL_FEATURES, EMAIL_FEATURE_META, EMAIL_PROVIDERS, EmailProvider, IEmailSettings, PROVIDER_DEFAULT_LIMITS, suggestedSender } from './email-setting.model';
 import { SiteBrandService } from '../../../../core/brand/site-brand';
 import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 import { IEmailProviderComponent } from './providers/email-provider-base';
@@ -58,6 +58,9 @@ import { DebugProviderComponent } from './providers/debug-provider.component';
 export default class EmailSettingPageComponent extends BaseComponent implements OnInit {
     private fb = inject(FormBuilder);
     private siteBrand = inject(SiteBrandService);
+    /** The site's name, offered while the sender field is blank or still says "Arc CMS". */
+    private readonly senderValue = signal('');
+    readonly senderSuggestion = computed(() => suggestedSender(this.senderValue(), this.siteBrand.brand()));
     private emailSettingService = inject(EmailSettingService);
     private dialog = inject(MatDialog);
     private destroyRef = inject(DestroyRef);
@@ -95,9 +98,10 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
     private providerFormSub: Subscription | null = null;
 
     ngOnInit(): void {
+        void this.siteBrand.load();
         this.initForm();
-        this.loadSettings();
         this.setupFormChangeListener();
+        this.loadSettings();
     }
 
     private initForm(): void {
@@ -159,6 +163,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
         this.emailForm.valueChanges
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe(() => {
+                this.senderValue.set(this.emailForm.get('senderName')?.value ?? '');
                 if (this.testPassed()) {
                     this.testPassed.set(false);
                 }
@@ -195,7 +200,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
                     isEnabled: settings.isEnabled,
                     activeProvider: settings.activeProvider,
                     senderEmail: settings.senderEmail,
-                    senderName: senderNameFor(settings.senderName, this.siteBrand.brand()),
+                    senderName: settings.senderName,
                     replyToEmail: settings.replyToEmail,
                     bccEmail: settings.bccEmail,
                     rateLimit: settings.rateLimit,
@@ -217,12 +222,6 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
 
                 this.emailForm.markAsPristine();
                 this.isLoading.set(false);
-
-                // The site's name may still be on the way: never over what someone typed meanwhile.
-                void this.siteBrand.load().then(() => {
-                    const sender = this.emailForm.get('senderName');
-                    if (sender && !sender.dirty) sender.setValue(senderNameFor(settings.senderName, this.siteBrand.brand()), { emitEvent: false });
-                });
             },
             error: (error) => {
                 console.error('Failed to load email settings:', error);
@@ -270,6 +269,14 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
             }
             this.emailForm.markAsDirty();
         });
+    }
+
+    /** Take the name the sender field offers. */
+    useSuggestedSender(): void {
+        const sender = this.emailForm.get('senderName');
+        sender?.setValue(this.senderSuggestion());
+        sender?.markAsDirty();
+        this.emailForm.markAsDirty();
     }
 
     /** Called by Gmail provider when the user email field changes */
@@ -357,6 +364,8 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
 
         return {
             ...this.emailForm.value,
+            // Never saved blank: an email's From line needs a name, and the field offers this one.
+            senderName: this.emailForm.value.senderName?.trim() || this.siteBrand.name(),
             smtp: this.providerFormCache['smtp'] ?? {},
             gmail: this.providerFormCache['gmail'] ?? {},
             resend: this.providerFormCache['resend'] ?? {},

@@ -12,7 +12,7 @@ import {
 } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { RouterOutlet } from '@angular/router';
-import { take } from 'rxjs';
+import { finalize, take } from 'rxjs';
 import { BaseComponent } from '../../shared/components/base/base.component';
 import SideNavbarComponent from '../../shared/components/side-navbar/side-navbar.component';
 import { CommonModule } from '@angular/common';
@@ -107,11 +107,14 @@ export default class AdminComponent extends BaseComponent {
 
     constructor() {
         super();
-        this.transloco.load(this.transloco.getActiveLang()).pipe(take(1), takeUntilDestroyed()).subscribe({
-            next: () => this.textReady.set(true),
-            // Keys on the page are better than no page.
-            error: () => this.textReady.set(true),
-        });
+        // However the load ends. A language file that fails can also just complete, with no
+        // answer and no error, when the fallback is the language asked for (Transloco's
+        // handleFailure), and every later load repeats that. Keys on the page beat no page.
+        this.transloco.load(this.transloco.getActiveLang()).pipe(
+            take(1),
+            finalize(() => this.textReady.set(true)),
+            takeUntilDestroyed(),
+        ).subscribe({ error: () => undefined });
         // The dialog layer takes the admin's colours while the admin is open.
         useAdminOverlay();
         // The tables' paginators in the admin's language (kept out of the first script, F34).

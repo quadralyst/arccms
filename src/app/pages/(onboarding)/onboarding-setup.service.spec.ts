@@ -313,6 +313,11 @@ describe('OnboardingSetupService', () => {
             expect(statusCall[1]).toEqual({ isEnabled: false, requireSignupVerification: false, debugMode: false });
         });
 
+        it('saves the site\'s name as the sender, never Arc CMS', async () => {
+            await service.saveEmailSkipped('Acme Studio');
+            expect(mockSetDoc.mock.calls[0][1]).toEqual(expect.objectContaining({ senderName: 'Acme Studio' }));
+        });
+
         it('should propagate Firestore errors', async () => {
             mockSetDoc.mockRejectedValueOnce(new Error('fail'));
             await expect(service.saveEmailSkipped()).rejects.toThrow('fail');

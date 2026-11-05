@@ -453,6 +453,7 @@
         "sender_info": "प्रेषक की जानकारी",
         "sender_info_hint": "प्राप्तकर्ताओं को आपके ईमेल इस तरह दिखेंगे",
         "sender_name": "प्रेषक का नाम",
+        "sender_use_site": "{{ name }} का उपयोग करें",
         "sender_name_hint": "वह नाम जो प्राप्तकर्ता देखते हैं (जैसे आपकी वेबसाइट का नाम)",
         "sender_name_placeholder": "जैसे My Website",
         "sender_email": "प्रेषक ईमेल",

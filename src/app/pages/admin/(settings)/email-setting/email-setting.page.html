@@ -146,8 +146,13 @@
                     <div class="col-md-6">
                         <mat-form-field appearance="outline" class="w-100">
                             <mat-label>{{ 'admin.settings.email.sender_name' | transloco }}</mat-label>
-                            <input matInput formControlName="senderName" [placeholder]="'admin.settings.email.sender_name_placeholder' | transloco">
-                            <mat-hint>{{ 'admin.settings.email.sender_name_hint' | transloco }}</mat-hint>
+                            <input matInput formControlName="senderName" [placeholder]="senderSuggestion() || ('admin.settings.email.sender_name_placeholder' | transloco)">
+                            <mat-hint>
+                                {{ 'admin.settings.email.sender_name_hint' | transloco }}
+                                @if (senderSuggestion(); as suggestion) {
+                                <button type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="useSuggestedSender()">{{ 'admin.settings.email.sender_use_site' | transloco: { name: suggestion } }}</button>
+                                }
+                            </mat-hint>
                         </mat-form-field>
                     </div>
                     <div class="col-md-6">

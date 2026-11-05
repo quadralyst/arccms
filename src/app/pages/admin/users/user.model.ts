@@ -92,7 +92,8 @@ export function matchesUserSearch(user: Pick<IUser, 'name' | 'email'> & Partial<
     if (!term) return true;
     const texts = [user.name, user.firstName, user.lastName, user.email, user.phone];
     if (texts.some((text) => typeof text === 'string' && text.toLowerCase().includes(term))) return true;
-    const digits = /^[\d\s()+.-]+$/.test(term) ? term.replace(/\D/g, '') : '';
+    // Without leading zeros: a number typed the way it is dialled at home, 098..., is stored as +9198...
+    const digits = /^[\d\s()+.-]+$/.test(term) ? term.replace(/\D/g, '').replace(/^0+/, '') : '';
     return !!digits && typeof user.phone === 'string' && user.phone.replace(/\D/g, '').includes(digits);
 }
 

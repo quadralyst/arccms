@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_EMAIL_SETTINGS, senderNameFor } from './email-setting.model';
+import { DEFAULT_EMAIL_SETTINGS, suggestedSender } from './email-setting.model';
 
 describe('the name emails come from', () => {
     const site = { name: 'Acme Studio', arc: false };
@@ -9,22 +9,22 @@ describe('the name emails come from', () => {
         expect(DEFAULT_EMAIL_SETTINGS.senderName).toBe('');
     });
 
-    it('keeps the name someone saved', () => {
-        expect(senderNameFor('Team Acme', site)).toBe('Team Acme');
+    it('offers the site\'s own name for a blank field', () => {
+        expect(suggestedSender('', site)).toBe('Acme Studio');
+        expect(suggestedSender(undefined, site)).toBe('Acme Studio');
     });
 
-    it('starts from the site\'s own name', () => {
-        expect(senderNameFor('', site)).toBe('Acme Studio');
-        expect(senderNameFor(undefined, site)).toBe('Acme Studio');
+    it('offers it for the old default too, on a site with a name of its own', () => {
+        expect(suggestedSender('Arc CMS', site)).toBe('Acme Studio');
     });
 
-    it('does not take the old default for a choice, on a site with a name of its own', () => {
-        expect(senderNameFor('Arc CMS', site)).toBe('Acme Studio');
+    it('offers nothing beside a name someone chose', () => {
+        expect(suggestedSender('Team Acme', site)).toBe('');
     });
 
-    it('leaves a site with no name of its own alone', () => {
-        expect(senderNameFor('', arc)).toBe('');
-        expect(senderNameFor('Arc CMS', arc)).toBe('Arc CMS');
-        expect(senderNameFor('', null)).toBe('');
+    it('offers nothing on a site with no name of its own, or before the name is in', () => {
+        expect(suggestedSender('', arc)).toBe('');
+        expect(suggestedSender('Arc CMS', arc)).toBe('');
+        expect(suggestedSender('', null)).toBe('');
     });
 });

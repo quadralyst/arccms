@@ -230,6 +230,7 @@ describe('matchesUserSearch', () => {
         expect(matchesUserSearch(person, '98765')).toBe(true);
         expect(matchesUserSearch(person, '98765 43210')).toBe(true);
         expect(matchesUserSearch(person, '(987) 654-3210')).toBe(true);
+        expect(matchesUserSearch(person, '09876543210')).toBe(true);
         expect(matchesUserSearch(person, '12345')).toBe(false);
     });
 

@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 
 import { TagsStore } from './tags.store';
 import { ITag } from './tags.model';
+import { followLandedPage } from '../../../../../../shared/services/generic-store.service';
 import { ConfirmationPopupComponent } from '../../../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { GlobalTableComponent, TableColumn } from '../../../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../../../shared/components/page-header/page-header.component';
@@ -100,6 +101,8 @@ export default class TagsPageComponent {
     tableColumns: TableColumn[] = [];
 
     constructor() {
+        followLandedPage(this.tagsStore.currentPageNumber, this.currentPage);
+
         effect(() => {
             // Re-fetch when pagination/sorting changes
             this.currentPage();
@@ -266,7 +269,9 @@ export default class TagsPageComponent {
     // Data fetching
     fetchData(): void {
         const params: any = {
-            limit: this.pageSize(),
+            limitCount: this.pageSize(),
+            currentPageNumber: this.currentPage(),
+            previousPageNumber: this.currentPage() - 1,
             orderByField: this.sortField(),
             orderByDirection: this.sortDirection(),
         };

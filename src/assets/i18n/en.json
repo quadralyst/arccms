@@ -461,6 +461,7 @@
         "sender_info": "Sender Information",
         "sender_info_hint": "This is how your emails will appear to recipients",
         "sender_name": "Sender Name",
+        "sender_use_site": "Use {{ name }}",
         "sender_name_hint": "The name recipients see (e.g. your website name)",
         "sender_name_placeholder": "e.g. My Website",
         "sender_email": "Sender Email",
