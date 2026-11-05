@@ -230,9 +230,20 @@ hooks.stop();</code></pre>
         <pre><code>npm run payments:proof -- --provider=worldline-connect --mode=test</code></pre>
         <pre><code>npm run payments:proof -- --provider=payrexx --mode=live</code></pre>
       </li>
-      <li>It connects, shows the webhook address for you to add, starts a payment for each way of paying you name, tries a forged event on the deployed webhook and times the answer, shows the page to pay on, follows what the provider says, offers a refund, and removes the keys at the end.</li>
+      <li>It connects, then tries a wrong key and a forged event by itself. The forged event goes first so its time can be a cold start, before the provider's own address check wakes the function. Then it shows the webhook address for you to add, and a list of checks to run, as many times as you like:
+        <ul>
+          <li><strong>Pay.</strong> Follows what the provider says, with the seconds since the page opened, waits up to 2 minutes for the provider's event, and offers a part and a whole refund. Once for each way of paying.</li>
+          <li><strong>End a page</strong> nobody has paid, and write down what a buyer now sees.</li>
+          <li><strong>Late money.</strong> You stop just before the last button, it ends the page, you press the button. Money the provider takes must arrive as paid with <code>late</code>.</li>
+          <li><strong>The sweep.</strong> You remove the webhook address and pay. Nothing reads the provider from your machine, so only the deployed sweep can find it, 2 to 15 minutes apart.</li>
+        </ul>
+      </li>
+      <li>It lists each check as <em>as the rules ask</em>, <em>not as the rules ask</em> or <em>for you to judge</em>, and what this run did not try, then removes the keys. It never sets <code>proven</code>: you do, in the connector.</li>
     </ol>
-    <p>What must be seen, for each provider and each way of paying (card, TWINT), before its <code>proven</code> is set:</p>
+    <p>A payment on a live account moves real money. If you stop with Ctrl+C the keys stay stored. To take them out, run it again with <code>--remove</code> and no keys to type:</p>
+    <pre><code>npm run payments:proof -- --provider=payrexx --mode=live --remove</code></pre>
+    <p>Where a provider signs nothing, the forged event runs on a page kept for it and ended afterwards, so it never counts as an event on a payment you make. A row saying <code>event arrived</code> is the provider's own.</p>
+    <p>What must be seen, for each provider and each way of paying (card, TWINT), before its <code>proven</code> is set. Only the part capture is done by hand, in the provider's own admin:</p>
     <ul>
       <li>Which status means the money is secured, and whether it comes while a buyer waits. If a Connect card stays at <code>CAPTURE_REQUESTED</code> until the day's end, the table above would keep a buyer waiting at the counter: decide, and write it here.</li>
       <li>A wrong key is refused; a forged event answers 401 (Connect) or changes nothing (Payrexx).</li>

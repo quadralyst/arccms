@@ -500,6 +500,30 @@ describe('rule 7: once, in any order', () => {
         expect(db.all('MerchantPaymentEvents')).toHaveLength(count);
     });
 
+    it('a late event says an event arrived, once, however many come', async () => {
+        await connectPretend();
+        await startPretend();
+        await pretendPayment({ accountId: ACCOUNT, reference: 'order-1', outcome: 'paid', deliver: 'none' });
+        await readPayment({ accountId: ACCOUNT, reference: 'order-1' });
+        expect(record().eventSeen).toBe(false);
+
+        await pretendPayment({ accountId: ACCOUNT, reference: 'order-1', outcome: 'paid' });
+        expect(record().eventSeen).toBe(true);
+        expect(await readPayment({ accountId: ACCOUNT, reference: 'order-1' })).toMatchObject({ status: 'paid', eventSeen: true });
+
+        // Each doc() is a new object, so every one is watched: a further event writes nothing to the record.
+        const written: string[] = [];
+        const realDoc = db.doc.bind(db);
+        const watched = vi.spyOn(db, 'doc').mockImplementation((name: string, id: string) => {
+            const ref = realDoc(name, id);
+            return { ...ref, update: (data: Record<string, unknown>) => (written.push(name), ref.update(data)) };
+        });
+        await pretendPayment({ accountId: ACCOUNT, reference: 'order-1', outcome: 'paid' });
+        watched.mockRestore();
+        expect(written).not.toContain('MerchantPayments');
+        expect(results.map((r) => r.status)).toEqual(['paid']);
+    });
+
     it('a handler that throws hears it again from the sweep, with the same resultId, and the sweep stops once it took it', async () => {
         hooks.stop();
         const seen: string[] = [];

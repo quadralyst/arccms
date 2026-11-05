@@ -85,6 +85,8 @@ export async function receivePaymentEvent(request: WebhookRequest): Promise<Webh
     if (record.status === 'paid' || record.status === 'held') {
         // Nothing more for this payment, but the webhook is plainly on: the app may have read it paid first.
         await noteEventArrived(target.accountId).catch(() => undefined);
+        // Once, so a flood of unsigned events is not a flood of writes.
+        if (!record.eventSeen) await db.collection(PAYMENTS).doc(paymentId).update({ eventSeen: true }).catch(() => undefined);
         return { status: 200, body: 'Nothing to do' };
     }
 
