@@ -22,6 +22,7 @@ Online payments on a merchant's own provider account. How it works and how to us
 - Webhook switched off: no call found on either provider, so 3 finishes in a row with no event raise `webhook-silent`.
 - A payment under way at its page's close is read on for 3 days (`UNFINISHED_LIMIT_MS`), then held for a person.
 - Worldline's API key end date is typed by the merchant, as no call gives it.
+- Connect's `merchantCustomerId` is the first 15 characters of the payment id, not a fixed word: a real run was refused with a 400 without it, and a fixed word would make all buyers one customer to fraud screening. Its effect on fraud screening is still to be seen.
 - Only the World cluster of Connect; the India hosts are not offered.
 
 ## Still open, outside this repo

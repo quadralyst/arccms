@@ -181,6 +181,15 @@ describe('payments:proof', () => {
         expect(wrongKey('abcdefghij')).toHaveLength(10);
     });
 
+    it('says why a payment did not start, for every check that starts one', async () => {
+        const refused = vi.fn(async () => ({ ok: false, reason: 'refused', detail: 'Worldline refused the request (400) (20000000 PARAMETER_NOT_FOUND_IN_REQUEST order.customer.merchantCustomerId)' }));
+        const h = harness({ startPayment: refused }, [[/Merchant ID/, '1234'], [/A number/, '1'], [/Which way/, 'card'], [/A number/, '2'], [/A number/, '3'], [/A number/, '4'], [/A number/, '']]);
+        const answer = await h.run();
+        const started = answer.rows.filter((row: { saw: string }) => row.saw.startsWith('not started'));
+        expect(started).toHaveLength(4);
+        for (const row of started) expect(row.saw).toContain('refused: Worldline refused the request (400) (20000000 PARAMETER_NOT_FOUND_IN_REQUEST order.customer.merchantCustomerId)');
+    });
+
     it('tells you to copy the whole webhook address', async () => {
         const h = harness();
         await h.run();

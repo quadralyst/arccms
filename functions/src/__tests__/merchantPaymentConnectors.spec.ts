@@ -85,6 +85,30 @@ describe('Worldline Connect', () => {
         expect(source).toContain('enableLogging: false');
     });
 
+    it('always names a customer, as Connect refuses a page without one, from the payment and within its 15 characters', async () => {
+        const { calls } = fakeClient({ create: { status: 201, isSuccess: true, body: { hostedCheckoutId: 'hc1', partialRedirectUrl: 'pay1.preprod.checkout.worldline-solutions.com/checkout/abc' } } });
+        const paymentId = 'a'.repeat(15) + 'b'.repeat(25);
+        await worldlineConnect.start(context(), { paymentId, amountMinor: 100, currency: 'CHF', reference: 'order-1', returnUrl: 'https://a.example/x' });
+        await worldlineConnect.start(context(), { paymentId: `c${paymentId}`, amountMinor: 100, currency: 'CHF', reference: 'order-2', returnUrl: 'https://a.example/x' });
+        const customers = calls.map((call) => (call.args as [string, any])[1].order.customer.merchantCustomerId);
+        expect(customers[0]).toBe('a'.repeat(15));
+        expect(customers[1]).toHaveLength(15);
+        // Not one customer for every buyer, and nothing of the app's own reference.
+        expect(customers[1]).not.toBe(customers[0]);
+        expect(customers[0]).not.toContain('order');
+    });
+
+    it('says which field Connect refused, and keeps out anything that is not a field\'s name', async () => {
+        const refusal = (propertyName: string) => ({ status: 400, isSuccess: false, body: { errors: [{ code: '20000000', message: 'PARAMETER_NOT_FOUND_IN_REQUEST', propertyName }] } });
+        const start = () => worldlineConnect.start(context(), { paymentId: 'p', amountMinor: 100, currency: 'CHF', reference: 'r', returnUrl: 'https://a.example/x' });
+        fakeClient({ create: refusal('order.customer.merchantCustomerId') });
+        expect(await start()).toEqual({ ok: false, failure: 'refused', detail: 'Worldline refused the request (400) (20000000 PARAMETER_NOT_FOUND_IN_REQUEST order.customer.merchantCustomerId)' });
+        fakeClient({ create: refusal('order.items[0].name') });
+        expect(await start()).toMatchObject({ detail: expect.stringContaining('order.items[0].name') });
+        fakeClient({ create: refusal('https://evil.example/<script>') });
+        expect(await start()).toEqual({ ok: false, failure: 'refused', detail: 'Worldline refused the request (400) (20000000 PARAMETER_NOT_FOUND_IN_REQUEST)' });
+    });
+
     it('starts a hosted page with no buyer\'s details, a sale, and a key against making two', async () => {
         const { calls } = fakeClient({ create: { status: 201, isSuccess: true, body: { hostedCheckoutId: 'hc1', partialRedirectUrl: 'pay1.preprod.checkout.worldline-solutions.com/checkout/abc', RETURNMAC: 'mac' } } });
         const answer = await worldlineConnect.start(context(), { paymentId: 'pid1', amountMinor: 1250, currency: 'CHF', reference: 'order-1', returnUrl: 'https://a.example/x', language: 'de_CH' });
@@ -93,7 +117,7 @@ describe('Worldline Connect', () => {
         expect(merchant).toBe('1234');
         expect(body.order.amountOfMoney).toEqual({ amount: 1250, currencyCode: 'CHF' });
         expect(body.order.references.merchantReference).toBe('order-1');
-        expect(body.order.customer).toEqual({ billingAddress: { countryCode: 'CH' } });
+        expect(body.order.customer).toEqual({ merchantCustomerId: 'pid1', billingAddress: { countryCode: 'CH' } });
         expect(body.hostedCheckoutSpecificInput).toMatchObject({ returnUrl: 'https://a.example/x', showResultPage: false, returnCancelState: true, locale: 'de_CH' });
         expect(body.cardPaymentMethodSpecificInput.requiresApproval).toBe(false);
         expect(body.redirectPaymentMethodSpecificInput.requiresApproval).toBe(false);

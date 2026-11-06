@@ -95,6 +95,7 @@ function steps(run) {
         const started = await kit.startPayment({ accountId, amountMinor, currency, reference, returnUrl: flag(args, 'return') ?? 'https://example.com/', lifeMinutes: connector.pageLife.settable ? 15 : undefined });
         return { reference, started };
     };
+    const notStarted = (started) => `not started: ${started.reason}${started.detail ? `: ${started.detail}` : ''}`;
     const askAmount = async () => Number((await ask(`Amount in minor units, ${currency} [100]: `)).trim() || '100');
     const showPage = (started) => log(`\nPay here: ${started.pageUrl}\nThe page closes at ${started.closesAtIso}. After paying you land on the return address, example.com unless you set --return.`);
     const awaitEvent = async (view) => {
@@ -181,7 +182,7 @@ function steps(run) {
                 async run() {
                     const way = (await ask('Which way of paying (such as card or twint)? ')).trim() || 'unnamed';
                     const { reference, started } = await openPage('pay', await askAmount());
-                    if (!started.ok) return note(`pay, ${way}`, `not started: ${started.reason}`, false);
+                    if (!started.ok) return note(`pay, ${way}`, notStarted(started), false);
                     showPage(started);
                     log('Waiting for the provider...');
                     const view = await awaitEvent(await watchPayment({ kit, accountId, reference, log, wait, now }));
@@ -198,7 +199,7 @@ function steps(run) {
                 label: 'End a page nobody has paid',
                 async run() {
                     const { reference, started } = await openPage('end');
-                    if (!started.ok) return note('end a page', `not started: ${started.reason}`, false);
+                    if (!started.ok) return note('end a page', notStarted(started), false);
                     log(`\nOpen this page, to see what a buyer sees: ${started.pageUrl}`);
                     await ask('Press Enter to end it. ');
                     const ended = await kit.endPayment({ accountId, reference });
@@ -213,7 +214,7 @@ function steps(run) {
                 label: 'Pay just as the page is ended, so the money comes late',
                 async run() {
                     const { reference, started } = await openPage('late', await askAmount());
-                    if (!started.ok) return note('late money', `not started: ${started.reason}`, false);
+                    if (!started.ok) return note('late money', notStarted(started), false);
                     log(`\nOpen this page, fill everything in, and stop just before the last button: ${started.pageUrl}`);
                     await ask('Press Enter when you are there. ');
                     const ended = await kit.endPayment({ accountId, reference });
@@ -238,7 +239,7 @@ function steps(run) {
                 async run() {
                     if (connector.webhookByHand) await ask("Remove the webhook address in the provider's own admin, then press Enter. ");
                     const { reference, started } = await openPage('sweep', await askAmount());
-                    if (!started.ok) return note('sweep', `not started: ${started.reason}`, false);
+                    if (!started.ok) return note('sweep', notStarted(started), false);
                     showPage(started);
                     log('Nothing here reads the provider now. The sweep does, 2 to 15 minutes apart, so this can take a while...');
                     const record = await watchRecord({ peek, paymentId: started.paymentId, log, wait, now });

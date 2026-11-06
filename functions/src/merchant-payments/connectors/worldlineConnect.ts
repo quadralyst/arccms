@@ -22,6 +22,8 @@ const PAGE_DOMAIN = '.worldline-solutions.com';
 const PREPROD_LABEL = /(^|\.)preprod\./;
 /** Connect closes a hosted page after 2 hours, with no setting to shorten it. */
 const PAGE_MINUTES = 120;
+/** The longest order.customer.merchantCustomerId Connect takes. */
+const CUSTOMER_ID_LENGTH = 15;
 
 /**
  * Every status Connect's guide lists, and what it is here (rule 5). Strict until the proof on
@@ -107,10 +109,14 @@ function client(context: Pick<ConnectorContext, 'mode' | 'keys'>): Promise<World
     return makeClient(WORLDLINE_HOSTS[context.mode], context.keys);
 }
 
+/** A field's name in Worldline's error, such as order.customer.countryCode. Long, so safeDetail would take it for a key. */
+const PROPERTY_NAME = /^[A-Za-z][A-Za-z0-9.[\]]{0,120}$/;
+
 function failed(answer: SdkAnswer): ConnectorError {
-    const body = answer.body as { errors?: Array<{ code?: string; message?: string }> } | undefined;
+    const body = answer.body as { errors?: Array<{ code?: string; message?: string; propertyName?: string }> } | undefined;
     const first = body?.errors?.[0];
-    const said = first ? ` (${safeDetail(first.code ?? '')} ${safeDetail(first.message ?? '')})`.replace(/\s+\)/, ')') : '';
+    const field = first?.propertyName && PROPERTY_NAME.test(first.propertyName) ? ` ${first.propertyName}` : '';
+    const said = first ? ` (${safeDetail(first.code ?? '')} ${safeDetail(first.message ?? '')}${field})`.replace(/\s+\)/, ')') : '';
     if (answer.status === 401 || answer.status === 403) return { ok: false, failure: 'key-refused', detail: `Worldline refused the keys${said}` };
     if (answer.status === 404) return { ok: false, failure: 'not-found', detail: `Worldline does not know this payment${said}` };
     if (answer.status === 429 || answer.status >= 500) return { ok: false, failure: 'unavailable', detail: `Worldline could not answer (${answer.status})` };
@@ -212,8 +218,14 @@ export const worldlineConnect: PaymentConnector = {
                 {
                     order: {
                         amountOfMoney: { amount: input.amountMinor, currencyCode: input.currency },
-                        // The merchant's country, not a person's: a QR buyer gives neither name nor address.
-                        customer: { billingAddress: { countryCode: context.keys['countryCode'] } },
+                        customer: {
+                            // Connect asks for one for some ways of paying. Arc keeps no customer, and a buyer may
+                            // be anonymous, so it comes from the payment: no person in it, and buyers are not made
+                            // one customer to fraud screening, as a fixed word would.
+                            merchantCustomerId: input.paymentId.slice(0, CUSTOMER_ID_LENGTH),
+                            // The merchant's country, not a person's: a QR buyer gives neither name nor address.
+                            billingAddress: { countryCode: context.keys['countryCode'] },
+                        },
                         references: { merchantReference: input.reference },
                     },
                     hostedCheckoutSpecificInput: {
