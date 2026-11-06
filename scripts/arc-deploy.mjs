@@ -80,7 +80,7 @@ import {
 } from './arc-install-config.mjs';
 import { deployedParts, gitHead, readState, recordDeploy, writeState } from './arc-deploy-state.mjs';
 import { builtArccms, isCloudFunction } from './arc-built-functions.mjs';
-import { main as configure, normalizeConfig, refreshFirebaseConfig } from './arc-configure.mjs';
+import { main as configure, normalizeConfig, refreshFirebaseConfig, updateFunctionsEnv } from './arc-configure.mjs';
 import { checkSignInSetup, smsBuilt } from './arc-sign-in-setup.mjs';
 import {
     applyPolicy, cleanupSetting, cliFoundNoPolicy, ensureCleanupPolicy, forgetPolicy, reportPolicy, watchForRepository,
@@ -218,6 +218,39 @@ async function askOnce(question) {
 /** A project's install settings from arccms.config.json, defaults filled in. */
 export function projectConfig(projectId) {
     return normalizeConfig(configForProject(readArcInstallConfig(), projectId));
+}
+
+function parseDotenv(text) {
+    const values = {};
+    for (const line of text.split('\n')) {
+        const match = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
+        if (match) values[match[1]] = match[2].replace(/^(['"])(.*)\1$/, '$2');
+    }
+    return values;
+}
+
+/**
+ * What stops the functions deploying with the settings arccms.config.json gives a project, or ''.
+ *
+ * The Firebase CLI reads functions/.env, then functions/.env.<projectId> over it, and neither
+ * it nor the build objects when the second is missing: a checkout without that git-ignored
+ * file, such as a worktree, deploys every function against the `(default)` database and
+ * reports success. So what those two files give is compared with what the config says.
+ */
+export function functionsEnvProblem(projectId, config, functionsDir = resolve(ROOT, 'functions')) {
+    const read = (file) => {
+        const path = resolve(functionsDir, file);
+        return existsSync(path) ? parseDotenv(readFileSync(path, 'utf8')) : {};
+    };
+    const projectFile = `.env.${projectId}`;
+    const wanted = parseDotenv(updateFunctionsEnv('', config));
+    const found = { ...read('.env'), ...read(projectFile) };
+    const wrong = Object.keys(wanted).filter((key) => found[key] !== wanted[key]);
+    if (!wrong.length) return '';
+    const details = wrong.map((key) => `  ${key}: arccms.config.json says ${wanted[key]}, the functions would get ${found[key] ?? 'nothing'}`);
+    const missing = existsSync(resolve(functionsDir, projectFile)) ? '' : `functions/${projectFile} is missing. `;
+    return `${missing}The functions would deploy to ${projectId} with the wrong settings:\n${details.join('\n')}\n`
+        + `Run npm run arc:configure -- --project=${projectId} to write them, then deploy again. Nothing was deployed.`;
 }
 
 /** The region a project's functions run in. */
@@ -567,6 +600,14 @@ export async function runDeploy(allArgs, options = {}) {
     // Before the config is read: a first deploy may set the functions region.
     if (deploysFunctions(args) && !options.regionChecked) {
         if (!checkFunctionsRegion(projectId).proceed) return { status: 1, created: [] };
+    }
+    // After the region check, which may write these settings.
+    if (deploysFunctions(args) && projectId) {
+        const problem = functionsEnvProblem(projectId, projectConfig(projectId));
+        if (problem) {
+            console.error(`\n${problem}`);
+            return { status: 1, created: [] };
+        }
     }
     // firebase.<projectId>.json is derived from firebase.json: rebuild it first, so a change
     // there (a Hosting header, a rewrite) reaches this deploy too.

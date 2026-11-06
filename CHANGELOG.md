@@ -101,6 +101,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- **A functions deploy stops rather than use the wrong database.** A checkout without `functions/.env.<project id>`, such as a git worktree, deployed every function against the `(default)` database and reported success. The deploy now compares those settings with `arccms.config.json`, names any that differ, and deploys nothing.
+
 - **Filters ask the server, so they work on every page.** The Status filter on a content list used to filter only the 10 rows on screen, and Transactions only the latest 50. A content type's first filter shows the right rows in no particular order, with an alert and a **Create index** button (`createContentListIndexes`), and sorts by date once its indexes are built. Transactions needs the new index in `firestore.indexes.json`. A draft from before this version has no status and shows only under All.
 
 - **Who an email is from.** A template with no sender used to go out as `"" <address>`, and test sends and the default templates fell back to "Arc CMS" on a site with its own name. `sendMail` now decides the name for every kind of email and provider: the template's, else Settings, Email's sender or company name, else the site's name in Settings, About, else the address alone. "Arc CMS" left on a template gives way to any of these; saved in Settings, Email it stays. A blank sender address takes the one in Settings, Email. The email log records what went out. Deploy the functions that send email.

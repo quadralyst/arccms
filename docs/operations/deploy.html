@@ -48,6 +48,8 @@
     </table>
     <p>The website is offered for every project that has one (not for a project set up with <code>--site=none</code>). <strong>A deploy always builds what it deploys</strong>: the website is built for the project being deployed to, with that project's Firebase web settings, so a site can never go out talking to another project. Which settings that is, and how to add a project such as staging, is on <a href="../app/environments.html">Dev, staging and production</a>.</p>
 
+    <div class="trap"><p>A functions deploy stops if <code>functions/.env</code> and <code>functions/.env.&lt;project id&gt;</code> do not give the settings in <code>arccms.config.json</code>, and it names each one. The usual cause is a checkout without the second file, such as a git worktree: it is not committed, and without it the functions would use the <code>(default)</code> database and still report success. <code>npm run arc:configure -- --project=&lt;alias&gt;</code> writes it.</p></div>
+
     <h2>Deploy from a script or CI</h2>
     <p>With any option, <code>npm run deploy</code> skips the guided questions and passes the options on to <code>firebase deploy</code>. The questions it can still ask, in a terminal, are before it deletes functions (see <a href="#functions-that-are-deleted">Functions that are deleted</a>), the id of a project marked production, and, once per project, whether to set up phone sign-in's Google Cloud setting. Off a terminal it asks nothing: what would need an answer takes a flag instead. For a whole CI job, see <a href="../app/ci.html">Deploy from CI</a>. Off a terminal and with no options, it prints these examples and stops.</p>
     <pre><code>npm run deploy -- --only functions:arccms --project default
