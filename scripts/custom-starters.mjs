@@ -22,6 +22,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Each starter file, from the repo root, and its exports as Arc CMS ships them. */
 export const CUSTOM_STARTERS = [
+    { file: 'src/custom/admin-routes.ts', exports: { CUSTOM_ADMIN_ROUTES: [] } },
     { file: 'src/custom/app-accounts.ts', exports: { CUSTOM_APP_ACCOUNTS: {} } },
     { file: 'src/custom/brand.ts', exports: { CUSTOM_BRAND: {} } },
     { file: 'src/custom/clock.ts', exports: { CUSTOM_CLOCK: {} } },
@@ -64,6 +65,7 @@ export const SHIPPED_FILES = {
     'functions/src/custom/public-callables.txt': 'bd3f72e171f12f56',
     'functions/src/custom/search-sources.ts': '74da7f252bd88529',
     'src/custom/README.md': '19d24bc0d239b2e1',
+    'src/custom/admin-routes.ts': '6aff666bfefdd201',
     'src/custom/app-accounts.ts': '98766b44091a8f0c',
     'src/custom/brand.ts': '1d20a8595c79ea1f',
     'src/custom/clock.ts': '1d143597b6347503',

@@ -25,6 +25,7 @@ async function starter(file: string, actual: () => Promise<unknown>) {
     const { starterFor } = await import('../../scripts/custom-starters.mjs');
     return starterFor(file, expect.getState().testPath, actual);
 }
+vi.mock('../custom/admin-routes', (actual) => starter('src/custom/admin-routes.ts', actual));
 vi.mock('../custom/app-accounts', (actual) => starter('src/custom/app-accounts.ts', actual));
 vi.mock('../custom/brand', (actual) => starter('src/custom/brand.ts', actual));
 vi.mock('../custom/clock', (actual) => starter('src/custom/clock.ts', actual));

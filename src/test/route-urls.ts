@@ -27,3 +27,28 @@ export function isServedBy(urls: readonly string[], path: readonly string[]): bo
         return parts.length === path.length;
     });
 }
+
+/**
+ * What is wrong with the app's admin pages (src/custom/admin-routes.ts), one line each.
+ * The shell has no guard of its own, so a page with none on it or above it opens for
+ * anyone. A path is below /admin already, so one starting with admin opens at /admin/admin.
+ * roleGuard without allowedRoles lets every visitor in, on the route that sets it.
+ */
+export function adminRouteProblems(list: readonly Route[], prefix = 'admin', guarded = false): string[] {
+    return list.flatMap((route) => {
+        if (route.redirectTo !== undefined) return [];
+        const url = [prefix, route.path].filter(Boolean).join('/');
+        const guards = [...(route.canActivate ?? []), ...(route.canActivateChild ?? []), ...(route.canMatch ?? [])];
+        const safe = guarded || guards.length > 0;
+        const problems: string[] = [];
+        if (prefix === 'admin' && /^admin(\/|$)/.test(route.path ?? '')) {
+            problems.push(`/${url}: a path here is below /admin already, so write '${(route.path ?? '').replace(/^admin\/?/, '')}'`);
+        }
+        if (guards.some((guard) => guard.name === 'roleGuard') && !route.data?.['allowedRoles']?.length) {
+            problems.push(`/${url}: roleGuard with no data.allowedRoles lets every visitor in`);
+        }
+        if (route.children) return [...problems, ...adminRouteProblems(route.children, url, safe)];
+        if (!safe) problems.push(`/${url}: no guard, so anyone can open it. Add roleGuard with data.allowedRoles`);
+        return problems;
+    });
+}

@@ -18,6 +18,8 @@ import { navChangeLabels, navChangeProblems, type NavChanges } from './core/nav/
 import { joinNavChanges } from './core/nav/app-nav-changes';
 import { ADMIN_LOCKS, ADMIN_MENU_IDS } from './core/nav/admin-menu';
 import { MEMBER_MENU_IDS } from './core/nav/member-menu';
+import { roleGuard } from './guards/role.guard';
+import { adminRouteProblems } from '../test/route-urls';
 import coreEn from '../assets/i18n/en.json';
 import customEn from '../custom/i18n/en.json';
 import customHi from '../custom/i18n/hi.json';
@@ -204,6 +206,51 @@ describe('custom space', () => {
             const { routes } = await import('./app.routes');
             expect(routes[routes.length - 1]).toEqual({ path: 'learn' });
             vi.doUnmock('../custom/routes');
+        });
+
+        it("puts the app's admin pages in the shell, after every core page", async () => {
+            vi.resetModules();
+            const lessons = { path: 'lessons', canActivate: [() => true] };
+            vi.doMock('../custom/admin-routes', () => ({ CUSTOM_ADMIN_ROUTES: [lessons] }));
+            const { routes } = await import('./app.routes');
+            const shell = routes.filter((r) => r.path === 'admin');
+            expect(shell).toHaveLength(1);
+            expect(shell[0].children?.at(-1)).toBe(lessons);
+            vi.doUnmock('../custom/admin-routes');
+        });
+
+        // The app's real file: the shell has no guard of its own, so a page without one is open.
+        it('checks src/custom/admin-routes.ts: every page has a guard and a path below /admin', async () => {
+            const { CUSTOM_ADMIN_ROUTES } = await vi.importActual<typeof import('../custom/admin-routes')>('../custom/admin-routes');
+            expect(adminRouteProblems(CUSTOM_ADMIN_ROUTES), 'fix CUSTOM_ADMIN_ROUTES in src/custom/admin-routes.ts').toEqual([]);
+        });
+
+        it('reports an admin page with no guard, a roleGuard with no roles, and a path that repeats admin', () => {
+            const page = { loadComponent: async () => class {} };
+            expect(adminRouteProblems([
+                { path: 'open', ...page },
+                { path: 'no-roles', canActivate: [roleGuard], ...page },
+                { path: 'admin/twice', canActivate: [roleGuard], data: { allowedRoles: ['admin'] }, ...page },
+                { path: 'parent', children: [{ path: 'open', ...page }] },
+            ])).toEqual([
+                '/admin/open: no guard, so anyone can open it. Add roleGuard with data.allowedRoles',
+                '/admin/no-roles: roleGuard with no data.allowedRoles lets every visitor in',
+                "/admin/admin/twice: a path here is below /admin already, so write 'twice'",
+                '/admin/parent/open: no guard, so anyone can open it. Add roleGuard with data.allowedRoles',
+            ]);
+        });
+
+        it('accepts a guard on the page or above it, any guard, and a redirect with none', () => {
+            const page = { loadComponent: async () => class {} };
+            const guarded = { canActivate: [roleGuard], data: { allowedRoles: ['admin', 'editor'] } };
+            expect(adminRouteProblems([
+                { path: 'lessons', ...guarded, ...page },
+                { path: 'classes', ...guarded, children: [{ path: '', ...page }, { path: ':id', ...page }] },
+                { path: 'mine', canActivate: [() => true], ...page },
+                { path: 'matched', canMatch: [() => true], ...page },
+                { path: 'parent', canActivateChild: [() => true], children: [{ path: 'child', ...page }] },
+                { path: 'old', redirectTo: '/admin/lessons', pathMatch: 'full' },
+            ])).toEqual([]);
         });
 
         it('lets the page scanner find src/custom/pages', () => {

@@ -14,6 +14,7 @@ import { featureOfPath, isCorePath } from '../../../app/core/features/feature-ro
 import type { FeatureId } from '../../../app/core/features/feature-registry';
 import { CUSTOM_NAV, CUSTOM_NAV_CHANGES as NAV_FILE_CHANGES } from '../../../custom/nav';
 import { CUSTOM_NAV_CHANGES } from '../../../custom/nav-changes';
+import { CUSTOM_ADMIN_ROUTES } from '../../../custom/admin-routes';
 import { CUSTOM_ROUTES } from '../../../custom/routes';
 import { explicitRouteUrls, isServedBy } from '../../../test/route-urls';
 import { AuthState } from '../../../app/pages/(auth)/auth.store';
@@ -189,7 +190,7 @@ describe('NavbarComponent', () => {
      * be linked by an item of any feature: an app item names one to hide with it.
      */
     const ownershipProblems = (items: MenuItem[]) => {
-        const appUrls = explicitRouteUrls(CUSTOM_ROUTES);
+        const appUrls = [...explicitRouteUrls(CUSTOM_ROUTES), ...explicitRouteUrls(CUSTOM_ADMIN_ROUTES, 'admin')];
         const problems: string[] = [];
         const check = (items: MenuItem[], inherited?: FeatureId) => {
             for (const item of items) {
@@ -234,6 +235,16 @@ describe('NavbarComponent', () => {
         it("counts a link to one of the app's routes as the app's page, whatever feature the item names", () => {
             const problems = ownershipProblems(component.menuItems());
             expect(problems.filter((p) => p.startsWith('Lesson'))).toEqual([]);
+        });
+
+        it("counts a link to one of the app's pages in src/custom/admin-routes.ts the same way", () => {
+            CUSTOM_ROUTES.splice(0);
+            CUSTOM_ADMIN_ROUTES.push({ path: 'lessons' }, { path: 'lessons/:id' });
+            try {
+                expect(ownershipProblems(component.menuItems()).filter((p) => p.startsWith('Lesson'))).toEqual([]);
+            } finally {
+                CUSTOM_ADMIN_ROUTES.splice(0);
+            }
         });
 
         it('still reports an app item that links to a page nobody serves', () => {

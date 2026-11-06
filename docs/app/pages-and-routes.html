@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Add pages and routes | Arc CMS docs</title>
   <meta name="description" content="Add your app's public, member and admin pages with CUSTOM_ROUTES and page files, protect them with guards, and avoid the admin page trap.">
-  <meta name="docs:sources" content="src/custom/routes.ts, src/custom/pages, src/app/app.routes.ts, src/app/guards/role.guard.ts, src/app/guards/language.guard.ts, scripts/vite-language-routes.ts, src/app/pages/user/user.guards.ts, src/app/pages/(auth)/auth.store.ts, src/app/pages/admin.page.ts, src/app/core/features/feature-routes.ts, src/app/core/layout/full-screen.service.ts, src/app/core/pwa/pwa-update-route.ts, src/app/core/analytics/analytics-route.ts, src/app/core/version/stale-code.service.ts, src/app/app.ts, src/styles.css, vite.config.ts, firebase.json">
+  <meta name="docs:sources" content="src/custom/routes.ts, src/custom/admin-routes.ts, src/custom/pages, src/app/app.routes.ts, src/app/guards/role.guard.ts, src/app/guards/language.guard.ts, scripts/vite-language-routes.ts, src/app/pages/user/user.guards.ts, src/app/pages/(auth)/auth.store.ts, src/app/pages/admin.page.ts, src/app/core/features/feature-routes.ts, src/app/core/layout/full-screen.service.ts, src/app/core/pwa/pwa-update-route.ts, src/app/core/analytics/analytics-route.ts, src/app/core/version/stale-code.service.ts, src/app/app.ts, src/styles.css, vite.config.ts, firebase.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/pages-and-routes.html">
@@ -95,7 +95,7 @@ const record = await inject(AuthState).recordReady();</code></pre>
     <p><code>initAuthStateListener()</code> still works and uses the same read: it gives the record each time someone signs in or out, and starts no listener or query of its own.</p>
 
     <h2>Add an admin page</h2>
-    <p>An admin page needs the admin shell (the side menu and layout) and the admin guard. Give your page a route with the shell as its parent:</p>
+    <p>An admin page goes in the admin shell (the side menu and layout) with a guard. Give it a route in <code>CUSTOM_ADMIN_ROUTES</code>, in <code>src/custom/admin-routes.ts</code>: it joins the one shell around Arc CMS's own admin pages, so moving between any of them keeps the side menu, with its scroll and open groups, and a new page opens at its top.</p>
     <ol class="steps">
       <li>
         <p>Create the component, such as <code class="new">src/custom/admin/lessons.component.ts</code>:</p>
@@ -111,19 +111,17 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
 export default class LessonsComponent {}</code></pre>
       </li>
       <li>
-        <p>Add the route, with the admin shell as the parent and your page as its child:</p>
+        <p>Add the route to <code>CUSTOM_ADMIN_ROUTES</code>. The path is below <code>/admin</code>, so <code>lessons</code> is <code>/admin/lessons</code>:</p>
         <pre><code>import type { Routes } from '@angular/router';
 import { roleGuard } from '../app/guards/role.guard';
 
-export const CUSTOM_ROUTES: Routes = [
+export const CUSTOM_ADMIN_ROUTES: Routes = [
   {
-    path: 'admin/lessons',
-    loadComponent: () =&gt; import('../app/pages/admin.page').then((m) =&gt; m.default),
+    path: 'lessons',
+    title: 'Lessons',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
-    children: [
-      { path: '', loadComponent: () =&gt; import('./admin/lessons.component').then((m) =&gt; m.default) },
-    ],
+    loadComponent: () =&gt; import('./admin/lessons.component').then((m) =&gt; m.default),
   },
 ];</code></pre>
       </li>
@@ -131,7 +129,9 @@ export const CUSTOM_ROUTES: Routes = [
         <p>Add the title to <code>src/custom/i18n/en.json</code> (<code>"custom": { "lessons": { "title": "Lessons" } }</code>) and link the page from the admin menu (<a href="admin-menu.html">Change the admin menu</a>).</p>
       </li>
     </ol>
-    <p>Arc CMS's own admin pages share one parent, so the shell stays while someone moves between them: the side menu keeps its scroll and its open groups, and a new page opens at its top. Your page's route is a parent of its own, so the side menu is drawn again on moving to or from it. The page works the same, and the menu goes back to the top of its list.</p>
+    <p>Arc CMS's own pages come first, so yours cannot replace one by accident, and an address they do not use is yours. The rest of a route works as in <code>CUSTOM_ROUTES</code>, including <code>children</code> and <code>whenOn</code>.</p>
+    <div class="trap"><p>The shell has no guard of its own, so every page needs one, on its route or on a parent in this list. That lets a page open for more roles than admins: add them to its <code>allowedRoles</code>. <code>npm run test</code> (<code>src/app/custom-space.spec.ts</code>) fails on a page with no guard, on <code>roleGuard</code> with no <code>allowedRoles</code>, and on a path that starts with <code>admin</code>, which would open at <code>/admin/admin/...</code>.</p></div>
+    <p>An admin route in <code>CUSTOM_ROUTES</code> that loads the shell itself, written <code>path: 'admin/lessons'</code> with <code>src/app/pages/admin.page.ts</code> as its parent, still works, but it draws a second shell: the side menu starts again on moving to or from that page. To move it here, drop the <code>admin/</code> and the parent.</p>
     <div class="trap"><p>An admin page that has only a page file and no explicit route does not reliably reach the browser's route table. The address then falls through to the public content route and shows "Content Not Found" in the public layout. Firebase Hosting answers every address with the app shell and HTTP 200, so a status check does not catch it: open the page in a browser. Give every admin page an explicit route as above.</p></div>
     <p>Keep components that have an explicit route outside <code>src/custom/pages/</code>, as above, or name them without <code>.page</code>. Every <code>.page.ts</code> file in that folder also gets an address of its own from its file name, without the admin shell, the guards of the explicit route, or a <code>whenOn</code> around it.</p>
 

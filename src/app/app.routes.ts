@@ -3,6 +3,7 @@ import { roleGuard } from './guards/role.guard';
 import { languageRedirect, languageRouteGuard } from './guards/language.guard';
 import { publicContentTypeGuard } from './core/site/public-content-types';
 import { memberPagesGuard, entitledGuard } from './pages/user/user.guards';
+import { CUSTOM_ADMIN_ROUTES } from '../custom/admin-routes';
 import { CUSTOM_ROUTES } from '../custom/routes';
 import { CUSTOM_USER_DASHBOARD } from '../custom/user-dashboard';
 import { FEATURE_OFF_ROUTE, whenOn } from './core/features/feature-routes';
@@ -23,16 +24,15 @@ export const routes: Routes = [
   },
   // The admin: one shell (pages/admin.page.ts, the side menu and layout) around every
   // page, so moving between pages keeps it, with the panel's scroll and open groups.
-  // A page listed here shares it; a parent of its own would draw the shell again. Each
-  // page keeps its own guard, because a guard runs for the routes a move opens and
-  // never again for the shell it stays in. A URL with no match here falls through to
-  // the routes below, then the file-based pages (docs/app/pages-and-routes.html).
+  // A page listed here shares it; a parent of its own would draw the shell again.
+  // Each page has its own guard and the shell has none: a guard runs for the routes a
+  // move opens, never again for the shell it stays in, and an app's admin page may let
+  // in more roles than admins. A URL with no match here falls through to the routes
+  // below, then the file-based pages (docs/app/pages-and-routes.html).
   {
     path: 'admin',
     loadComponent: () =>
       import('./pages/admin.page').then((m) => m.default),
-    canActivate: [roleGuard],
-    data: { allowedRoles: ['admin'] },
     children: [
       { path: '', redirectTo: '/admin/dashboard', pathMatch: 'full' },
       {
@@ -591,6 +591,9 @@ export const routes: Routes = [
           },
         ],
       },
+      // The app's own admin pages (src/custom/admin-routes.ts). After every core page, so
+      // an app page never replaces a core one by accident.
+      ...CUSTOM_ADMIN_ROUTES,
     ],
   },
 

@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { routes } from '../../app.routes';
+import { CUSTOM_ADMIN_ROUTES } from '../../../custom/admin-routes';
 import { CUSTOM_ROUTES } from '../../../custom/routes';
 import { CORE_URLS, FEATURE_PARAM_ROUTES, FEATURE_URLS, featureOfPath, isCorePath } from './feature-routes';
 import { FEATURE_IDS } from './feature-registry';
@@ -47,7 +48,7 @@ const owners = (url: string) => {
 describe('feature coverage', () => {
     // An app's own pages (src/custom/routes.ts) are not Arc CMS's to assign: they belong to the
     // app, not to a feature or to core, so only Arc CMS's own URLs are checked here.
-    const appUrls = new Set(explicitRouteUrls(CUSTOM_ROUTES));
+    const appUrls = new Set([...explicitRouteUrls(CUSTOM_ROUTES), ...explicitRouteUrls(CUSTOM_ADMIN_ROUTES, 'admin')]);
     const urls = [...new Set([...fileRouteUrls(), ...explicitRouteUrls(routes)])].filter((url) => !appUrls.has(url)).sort();
 
     it('finds the pages to check', () => {

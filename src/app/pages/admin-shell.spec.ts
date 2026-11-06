@@ -160,6 +160,35 @@ describe('the admin routes', () => {
         expect(shellsBuilt).toBe(0);
     });
 
+    describe("with an app's own admin page, which lets editors in", () => {
+        const lessons: Route = { path: 'lessons', canActivate: [roleGuard], data: { allowedRoles: ['admin', 'editor'] }, component: PageStub };
+        const withLessons = () => table(true).map((route) => route.path === 'admin' ? { ...route, children: [...route.children!, lessons] } : route);
+        const signedInAs = (role: string) => [
+            { provide: AuthState, useValue: { recordReady: async () => ({ role }) } },
+            { provide: ToastService, useValue: { openCustomSnackbar: vi.fn() } },
+        ];
+
+        it('keeps the shell moving to and from it', async () => {
+            const router = await start(withLessons(), signedInAs('admin'));
+            for (const url of ['/admin/dashboard', '/admin/lessons', '/admin/users']) {
+                await router.navigateByUrl(url);
+                expect(router.url).toBe(url);
+            }
+            expect(shellsBuilt).toBe(1);
+            expect(shellsDestroyed).toBe(0);
+        });
+
+        it("opens it for that role, and still refuses that role Arc CMS's own pages", async () => {
+            const router = await start(withLessons(), signedInAs('editor'));
+            await router.navigateByUrl('/admin/lessons');
+            expect(router.url).toBe('/admin/lessons');
+            expect(shellsBuilt).toBe(1);
+
+            await router.navigateByUrl('/admin/users');
+            await vi.waitFor(() => expect(router.url).toBe('/admin/unauthorized'));
+        });
+    });
+
     it('gives every page under the shell the admin guard', () => {
         const unguarded = (adminRoute.children ?? [])
             .filter((route) => !route.redirectTo)

@@ -57,8 +57,6 @@
     <pre><code>{
   path: 'admin',
   loadComponent: () =&gt; import('./pages/admin.page').then((m) =&gt; m.default),
-  canActivate: [roleGuard],
-  data: { allowedRoles: ['admin'] },
   children: [
     // ...
     {
@@ -73,7 +71,7 @@
 },</code></pre>
     <p>All the pages share that one parent so the layout stays when someone moves between them. Three things follow from that:</p>
     <ul>
-      <li><strong>The guard goes on each page.</strong> Angular runs a route's guard when the route opens, and the parent stays open, so its guard runs only on entering the admin. The guard on the page is what checks the person again on every move.</li>
+      <li><strong>The guard goes on each page, and the parent has none.</strong> Angular runs a route's guard when the route opens, and the parent stays open, so a guard there would run only on entering the admin. The guard on the page is what checks the person again on every move. A role check on the parent would also refuse the roles an app lets into its own admin pages (<code>src/custom/admin-routes.ts</code>, added after the core pages).</li>
       <li><strong>The layout does not start again for each page.</strong> The side panel keeps its scroll and its open groups, and it reads its menu once. Anything that used to run because the layout was rebuilt must now react to the router: the layout puts each new page at its top and closes the phone's panel on <code>NavigationEnd</code>, and leaves both alone when only the query changes.</li>
       <li><strong>A second parent brings the rebuild back.</strong> <code>src/app/pages/admin-shell.spec.ts</code> fails on a second route that loads the layout, on an admin page file with no route under the parent, and on a page there without the guard.</li>
     </ul>
