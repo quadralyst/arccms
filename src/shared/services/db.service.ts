@@ -35,24 +35,34 @@ import {
     runTransaction,
     setDoc,
     startAfter,
+    waitForPendingWrites,
     where,
     writeBatch,
 } from '@angular/fire/firestore';
 
 import {
     Observable,
+    Subject,
     catchError,
     combineLatest,
     concatMap,
+    debounceTime,
+    defer,
+    filter,
     forkJoin,
     from,
     map,
+    merge,
     of,
     retry,
+    share,
     switchMap,
     take,
+    takeUntil,
     tap,
+    throttleTime,
     throwError,
+    timer,
 } from 'rxjs';
 
 import { QueryParams } from '../models';
@@ -61,6 +71,13 @@ import { GlobalService } from './global.service';
 import { draftQueueEntry } from './search-queue';
 
 export const COLLECTION_NAME = new InjectionToken<string>('CollectionName');
+
+/** How long a list's rows wait for their first total, so a slow or missing connection does not hold back rows the device already has. */
+export const FIRST_COUNT_WAIT_MS = 3000;
+/** How soon after this device's add or delete the total is read again. Several at once share one read. */
+export const WRITE_COUNT_WAIT_MS = 300;
+/** The first change to a list reads its total at once. One that keeps changing (new logs arriving) then reads it at most this often: on a large collection each read costs more than one record. */
+export const LIST_CHANGE_COUNT_WAIT_MS = 5000;
 
 interface QueryResult<T> {
     collectionData: T[];
@@ -77,6 +94,8 @@ export class DbService<T extends IBaseModel> extends GlobalService {
     private platformId = inject(PLATFORM_ID);
     protected injector = inject(Injector);
     dbCollection: CollectionReference<T>;
+    /** Adds and deletes through this service that the server has confirmed. */
+    private readonly countedWrites$ = new Subject<void>();
 
     constructor(@Inject(COLLECTION_NAME) private collectionName: string) {
         super();
@@ -101,6 +120,7 @@ export class DbService<T extends IBaseModel> extends GlobalService {
         const targetCollection = this.getCollectionRef(collectionSuffix);
         let dataQuery: Query<T> = targetCollection;
         let countQuery: Query<T> = targetCollection;
+        const listChanged$ = new Subject<void>();
 
         if (queryParams) {
             runInInjectionContext(this.injector, () => {
@@ -164,9 +184,16 @@ export class DbService<T extends IBaseModel> extends GlobalService {
         // On the client, use real-time onSnapshot() for live updates.
         const data$ = isPlatformBrowser(this.platformId)
             ? new Observable<any>((observer) => {
+                let firstSnapshot = true;
                 const unsubscribe = runInInjectionContext(this.injector, () => onSnapshot(
                     dataQuery,
                     (querySnapshot) => {
+                        // A record came into or left this page, so the list may be a different length. An edit in place cannot change it.
+                        if (!firstSnapshot && querySnapshot.docChanges().some((change) => change.type !== 'modified')) {
+                            listChanged$.next();
+                        }
+                        firstSnapshot = false;
+
                         const data = querySnapshot.docs.map((doc) => {
                             const docData = doc.data();
                             const { id, ...restData } = docData;
@@ -232,35 +259,57 @@ export class DbService<T extends IBaseModel> extends GlobalService {
             }),
         );
 
-        const count$ = isPlatformBrowser(this.platformId)
-            ? new Observable<number>((observer) => {
-                const unsubscribe = runInInjectionContext(this.injector, () => onSnapshot(
-                    countQuery,
-                    (snapshot) => {
-                        observer.next(snapshot.size);
-                    },
-                    (error) => {
-                        console.warn(`[DbService] count snapshot error on "${this.collectionName}":`, error);
-                        observer.next(0); // Emit 0 instead of killing the combineLatest pipeline
-                    },
-                ));
-                return { unsubscribe };
-            })
-            : from(runInInjectionContext(this.injector, () => getCountFromServer(countQuery))).pipe(
-                map((snapshot) => snapshot.data().count),
-                catchError((error) => {
-                    console.warn(`[DbService] getCountFromServer error on "${this.collectionName}":`, error);
-                    return of(0);
-                }),
-            );
-
-        return combineLatest([resolvedData$, count$]).pipe(
+        return combineLatest([resolvedData$, this.listTotal(countQuery, listChanged$)]).pipe(
             map(([dataResult, totalCount]) => ({
                 collectionData: dataResult.collectionData as T[],
                 totalCount,
                 firstVisible: dataResult.firstVisible,
                 lastVisible: dataResult.lastVisible
             })),
+        );
+    }
+
+    /**
+     * How many records a list has, as an aggregate count: Firestore charges one read per 1,000
+     * records counted, where a live read of them all charges one per record. A count is not
+     * live, so it is read again when the list opens, after an add or delete through this
+     * service, and when the list's own page sees a record arrive or leave. A change by someone
+     * else that does not touch the page on screen shows at the next read of the list. The
+     * total stays 0 until a count has answered, which the store takes for no answer.
+     */
+    private listTotal(countQuery: Query<T>, listChanged$: Observable<void>): Observable<number> {
+        let known = 0;
+        // A change that no read since has covered. This device's own add or delete comes both ways, and one read covers both.
+        let uncounted = false;
+        const noted = <V>(change$: Observable<V>) => change$.pipe(tap(() => { uncounted = true; }));
+        const stillUncounted = <V>(change$: Observable<V>) => change$.pipe(filter(() => uncounted), map(() => true));
+        const readCount = () => from(runInInjectionContext(this.injector, () => getCountFromServer(countQuery))).pipe(
+            map((snapshot) => snapshot.data().count),
+        );
+        // A count taken before the server has this device's write would miss it.
+        const readCountAfterWrites = () => from(runInInjectionContext(this.injector, () => waitForPendingWrites(this.firestore))).pipe(
+            switchMap(readCount),
+        );
+
+        const counted$ = merge(
+            of(false),
+            this.countedWrites$.pipe(noted, debounceTime(WRITE_COUNT_WAIT_MS), stillUncounted),
+            listChanged$.pipe(noted, throttleTime(LIST_CHANGE_COUNT_WAIT_MS, undefined, { leading: true, trailing: true }), stillUncounted),
+        ).pipe(
+            tap(() => { uncounted = false; }),
+            switchMap((afterWrites) => defer(() => (afterWrites ? readCountAfterWrites() : readCount())).pipe(
+                tap((count) => { known = count; }),
+                catchError((error) => {
+                    console.warn(`[DbService] getCountFromServer error on "${this.collectionName}":`, error);
+                    return of(known);
+                }),
+            )),
+            share(),
+        );
+
+        return merge(
+            counted$,
+            timer(FIRST_COUNT_WAIT_MS).pipe(takeUntil(counted$), map(() => known)),
         );
     }
 
@@ -379,6 +428,7 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                 console.error('Transaction failed:', error);
                 return throwError(() => new Error(`Transaction failed: ${error.message}`));
             }),
+            tap(() => this.countedWrites$.next()),
         );
     }
 
@@ -453,7 +503,8 @@ export class DbService<T extends IBaseModel> extends GlobalService {
             catchError((error) => {
                 console.error('Batch add failed:', error);
                 return throwError(() => new Error(`Batch add failed: ${error.message}`));
-            })
+            }),
+            tap(() => this.countedWrites$.next()),
         );
     }
 
@@ -475,6 +526,7 @@ export class DbService<T extends IBaseModel> extends GlobalService {
                 console.error('Error deleting document:', error);
                 return throwError(() => error);
             }),
+            tap(() => this.countedWrites$.next()),
         );
     }
 

@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { Injectable } from '@angular/core';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import {
     GenericState,
     getDefaultInitialState,
@@ -251,6 +251,53 @@ describe('Generic Store Service', () => {
                 const before = store.currentItem();
                 await new Promise<void>((resolve) => store.update('id-1', { name: 'Saved' }).subscribe(() => resolve()));
                 expect(store.currentItem()).toBe(before);
+            });
+        });
+
+        describe('getAll() when the total changes after the list opened', () => {
+            @Injectable({ providedIn: 'root' })
+            class FakeService {
+                results = new Subject<any>();
+                getAll = vi.fn((_params?: unknown) => this.results);
+            }
+
+            const TestStore = createGenericStore<TestModel>(FakeService as any);
+            const row = (id: string) => ({ id, name: id, value: 1 });
+            const result = (totalCount: number) => ({ collectionData: [row('a')], totalCount, firstVisible: { first: true }, lastVisible: { last: true } });
+
+            let fakeService: FakeService;
+            let store: InstanceType<typeof TestStore>;
+
+            beforeEach(() => {
+                TestBed.configureTestingModule({
+                    providers: [
+                        FakeService,
+                        { provide: AuthState, useValue: { currentUser: () => ({ id: 'u1' }) } },
+                    ],
+                });
+                fakeService = TestBed.inject(FakeService);
+                store = TestBed.inject(TestStore);
+            });
+
+            it('updates totalRecords and totalPages from a later count', () => {
+                store.getAll({ limitCount: 10, currentPageNumber: 0, previousPageNumber: -1, orderByField: 'name' });
+                fakeService.results.next(result(20));
+                expect(store.totalRecords()).toBe(20);
+                expect(store.totalPages()).toBe(2);
+
+                fakeService.results.next(result(21));
+                expect(store.totalRecords()).toBe(21);
+                expect(store.totalPages()).toBe(3);
+            });
+
+            it('reaches the last page of the list as it now is', () => {
+                store.getAll({ limitCount: 10, currentPageNumber: 0, previousPageNumber: -1, orderByField: 'name' });
+                fakeService.results.next(result(20));
+                fakeService.results.next(result(21));
+
+                store.getAll({ limitCount: 10, currentPageNumber: 2, previousPageNumber: 0, orderByField: 'name' });
+
+                expect(fakeService.getAll.mock.lastCall![0]).toMatchObject({ currentPageNumber: 2, lastCount: 1 });
             });
         });
 

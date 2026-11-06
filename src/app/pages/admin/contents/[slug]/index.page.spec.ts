@@ -97,7 +97,8 @@ describe('ContentsPage', () => {
                     provide: ActivatedRoute,
                     useValue: {
                         paramMap: paramMapSubject.asObservable(),
-                        queryParams: of({})
+                        queryParams: of({}),
+                        snapshot: { queryParams: {} },
                     }
                 },
                 { provide: GlobalService, useValue: mockGlobalService },

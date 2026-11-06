@@ -48,7 +48,8 @@ describe('DraftContentsTableComponent', () => {
 
         mockActivatedRoute = {
             paramMap: of({ keys: [], get: () => null }),
-            queryParams: of({})
+            queryParams: of({}),
+            snapshot: { queryParams: {} },
         };
 
         mockDraftContentsStore = {
@@ -302,6 +303,46 @@ describe('DraftContentsTableComponent', () => {
             component.ngOnInit();
             expect(Object.keys(component.filters()).length).toBe(0);
         });
+
+        const openedAt = (queryParams: Record<string, string>) => {
+            mockActivatedRoute.snapshot.queryParams = queryParams;
+            mockDraftContentsStore.getAll.mockClear();
+            const opened = TestBed.createComponent(DraftContentsTableComponent).componentInstance;
+            opened.ngOnInit();
+            return opened;
+        };
+
+        it('opens on the sort and page size in the address, and reads with them', () => {
+            const opened = openedAt({ sort: 'title', order: 'asc', size: '25' });
+
+            expect(opened.sortField()).toBe('title');
+            expect(opened.sortOrder()).toBe('asc');
+            expect(opened.pageSizeSignal()).toBe(25);
+            expect(mockDraftContentsStore.getAll).toHaveBeenCalledWith(
+                expect.objectContaining({ orderByField: 'title', orderByDirection: 'asc', limitCount: 25, currentPageNumber: 0 }),
+                undefined,
+            );
+        });
+
+        it('opens on the first page whatever page an old address names', () => {
+            const opened = openedAt({ page: '4' });
+
+            expect(opened.currentPageNum()).toBe(0);
+        });
+
+        it.each([
+            ['an order that is not one', { order: 'sideways' }],
+            ['a sort field Firestore would refuse', { sort: 'title..name' }],
+            ['a page size the list does not offer', { size: '7' }],
+            ['a page size that is not a number', { size: 'many' }],
+            ['a page size of none, which would read every record', { size: '0' }],
+        ])('keeps the default for %s', (_name, queryParams) => {
+            const opened = openedAt(queryParams as Record<string, string>);
+
+            expect(opened.sortField()).toBe('modifiedAt');
+            expect(opened.sortOrder()).toBe('desc');
+            expect(opened.pageSizeSignal()).toBe(10);
+        });
     });
 
     describe('Sorting', () => {
@@ -356,6 +397,19 @@ describe('DraftContentsTableComponent', () => {
             expect(component.isSortedBy('modifiedAt')).toBe(false);
         });
 
+        it('reads the list in the new order, from its first page', () => {
+            component.currentPageNum.set(3);
+            mockDraftContentsStore.getAll.mockClear();
+
+            component.setSortField('title');
+
+            expect(mockDraftContentsStore.getAll).toHaveBeenCalledTimes(1);
+            expect(mockDraftContentsStore.getAll).toHaveBeenCalledWith(
+                expect.objectContaining({ orderByField: 'title', orderByDirection: 'asc', currentPageNumber: 0 }),
+                component.contentTypeSlug || undefined,
+            );
+        });
+
         it('should navigate with query params when sorting', () => {
             component.setSortField('title');
 
@@ -384,16 +438,36 @@ describe('DraftContentsTableComponent', () => {
             expect(component.pageSizeSignal()).toBe(25);
         });
 
-        it('should navigate with query params on page change', () => {
+        it('should keep the page size in the address, and no page, which a reload could not reach', () => {
             const event: PageEvent = { pageIndex: 1, pageSize: 10, length: 100 };
             component.onPageChange(event);
 
             expect(mockRouter.navigate).toHaveBeenCalledWith([], expect.objectContaining({
                 queryParams: expect.objectContaining({
-                    page: 1,
+                    page: null,
                     size: 10
                 })
             }));
+        });
+
+        it('reads the page it moved to', () => {
+            mockDraftContentsStore.getAll.mockClear();
+
+            component.onPageChange({ pageIndex: 2, pageSize: 10, length: 100 });
+
+            expect(mockDraftContentsStore.getAll).toHaveBeenCalledTimes(1);
+            expect(mockDraftContentsStore.getAll).toHaveBeenCalledWith(
+                expect.objectContaining({ currentPageNumber: 2, limitCount: 10 }),
+                component.contentTypeSlug || undefined,
+            );
+        });
+
+        it('reads again at a new page size', () => {
+            mockDraftContentsStore.getAll.mockClear();
+
+            component.onPageChange({ pageIndex: 0, pageSize: 25, length: 100 });
+
+            expect(mockDraftContentsStore.getAll).toHaveBeenCalledWith(expect.objectContaining({ limitCount: 25 }), component.contentTypeSlug || undefined);
         });
 
         it('should return correct start record', () => {

@@ -24,7 +24,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
 import { followLandedPage } from '../../../../../shared/services/generic-store.service';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { ContentsStore } from '../content-store/published-contents.store';
@@ -54,6 +54,9 @@ import { iconClasses, iconLabel } from '../../../../../shared/models/icon.model'
 import { isRepeaterType } from '../../../../../shared/models/repeater.model';
 import { escapeHtml } from '../../../../../shared/utils/escape-html';
 import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
+
+/** The page sizes a content list offers. */
+const PAGE_SIZES = [5, 10, 25, 50];
 
 @Component({
   selector: 'arc-draft-contents-table',
@@ -101,6 +104,7 @@ export class DraftContentsTableComponent
   sortOrder = signal<'asc' | 'desc'>('desc');
 
   // Pagination signals
+  readonly pageSizes = PAGE_SIZES;
   pageSizeSignal = signal<number>(10);
   currentPageNum = signal<number>(0);
 
@@ -327,6 +331,9 @@ export class DraftContentsTableComponent
 
     // The page the list landed on, which a removed record can change.
     followLandedPage(this.draftContentStore.currentPageNumber, this.currentPageNum);
+
+    // Here, since the first read comes before ngOnInit (ngOnChanges).
+    this.applyAddress(this.route.snapshot.queryParams);
 
     effect(() => {
       // Ensure Content Types are loaded
@@ -652,14 +659,23 @@ export class DraftContentsTableComponent
     }, this.contentTypeSlug || undefined);
   }
 
+  /** Opens on the sort and page size in the address, so a reload or a shared link keeps them. */
+  private applyAddress(params: Params): void {
+    // A malformed field would throw when the query is built, and leave the list loading.
+    if (/^[\w-]+(\.[\w-]+)*$/.test(params['sort'] ?? '')) this.sortField.set(params['sort']);
+    if (params['order'] === 'asc' || params['order'] === 'desc') this.sortOrder.set(params['order']);
+    if (PAGE_SIZES.includes(+params['size'])) this.pageSizeSignal.set(+params['size']);
+  }
+
   /**
-   * Update URL with current state
+   * Update URL with current state. No page: a list read by cursor cannot reach a page
+   * after a reload (page-cursors.ts), so an old one is cleared.
    */
   private updateUrl(): void {
     const queryParams: any = {
       sort: this.sortField(),
       order: this.sortOrder(),
-      page: this.currentPageNum(),
+      page: null,
       size: this.pageSizeSignal(),
     };
 
@@ -684,6 +700,7 @@ export class DraftContentsTableComponent
     this.currentPageNum.set(event.pageIndex);
     this.pageSizeSignal.set(event.pageSize);
     this.updateUrl();
+    this.fetchData();
   }
 
   /**
@@ -763,8 +780,10 @@ export class DraftContentsTableComponent
 
     this.sortField.set(field);
     this.sortOrder.set(newOrder);
+    this.currentPageNum.set(0); // Another order is another list, which opens on its first page
 
     this.updateUrl();
+    this.fetchData();
   }
 
   /**
