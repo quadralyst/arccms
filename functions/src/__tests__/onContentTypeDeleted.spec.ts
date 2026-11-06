@@ -12,7 +12,10 @@ const m = vi.hoisted(() => ({
     docs: {} as Record<string, string[]>,
     deleted: [] as string[],
     removeCollectionEntries: vi.fn(async () => undefined),
+    deleteContentListIndexes: vi.fn(async () => undefined),
 }));
+
+vi.mock('../content-types/contentListIndexes', () => ({ deleteContentListIndexes: m.deleteContentListIndexes }));
 
 function docRef(path: string) {
     return {

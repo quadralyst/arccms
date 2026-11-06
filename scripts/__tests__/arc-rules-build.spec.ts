@@ -56,6 +56,13 @@ describe('arc-rules-build', () => {
             expect(subtractIndexes({ indexes: [a, b], fieldOverrides: [o] }, { indexes: [b], fieldOverrides: [o] }))
                 .toEqual({ indexes: [a], fieldOverrides: [] });
         });
+
+        it("leaves out a site's content list indexes, with or without an app file", () => {
+            const core = { collectionGroup: 'Transactions', queryScope: 'COLLECTION', fields: [] };
+            const list = { collectionGroup: 'arc_articles_drafts', queryScope: 'COLLECTION', fields: [] };
+            expect(subtractIndexes({ indexes: [core, list], fieldOverrides: [] }, null).indexes).toEqual([core]);
+            expect(subtractIndexes({ indexes: [core, list], fieldOverrides: [] }, { indexes: [] }).indexes).toEqual([core]);
+        });
     });
 
     describe('build', () => {

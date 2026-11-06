@@ -89,14 +89,16 @@ export function mergeIndexes(core, app) {
     return { ...core, indexes, fieldOverrides: overrides };
 }
 
-/** Live indexes minus the app's own: what belongs in the core file. */
+/** A content type's list index, made when the site's list needs it (functions/src/content-types/contentListIndexes.ts). */
+const SITE_CONTENT_LIST = /^arc_.+_drafts$/;
+
+/** Live indexes minus the app's own and the site's content lists: what belongs in the core file. */
 export function subtractIndexes(live, app) {
-    if (!app) return live;
-    const appIndexes = new Set((app.indexes ?? []).map(indexKey));
-    const appOverrides = new Set((app.fieldOverrides ?? []).map(overrideKey));
+    const appIndexes = new Set((app?.indexes ?? []).map(indexKey));
+    const appOverrides = new Set((app?.fieldOverrides ?? []).map(overrideKey));
     return {
         ...live,
-        indexes: (live.indexes ?? []).filter((index) => !appIndexes.has(indexKey(index))),
+        indexes: (live.indexes ?? []).filter((index) => !appIndexes.has(indexKey(index)) && !SITE_CONTENT_LIST.test(index.collectionGroup)),
         fieldOverrides: (live.fieldOverrides ?? []).filter((o) => !appOverrides.has(overrideKey(o))),
     };
 }

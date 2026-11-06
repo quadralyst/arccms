@@ -4,6 +4,7 @@ import { getPublishedCollectionName, getDraftCollectionName } from '../draftCont
 import { arcDocument } from '../arc-config.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { removeCollectionEntries } from '../search/writer.js';
+import { deleteContentListIndexes } from './contentListIndexes.js';
 
 const BATCH_LIMIT = 400;
 // What lives under an entry: its other languages (drafts and published), and on a
@@ -29,6 +30,7 @@ export const onContentTypeDeleted = onDocumentDeleted(
             deleteCollection(getPublishedCollectionName(slug)),
             deleteCollection(getDraftCollectionName(slug)),
             deleteCollection(`Tags_${slug}`),
+            deleteContentListIndexes(getDraftCollectionName(slug)),
         ]);
         // Nothing watches these collections' writes (specs/feature-flags-spec.md 6.5),
         // so their search entries go here.

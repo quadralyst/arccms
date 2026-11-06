@@ -29,7 +29,7 @@ export const routeMeta: RouteMeta = {
                 [subtitle]="'admin.transactions.subtitle' | transloco">
                 <mat-form-field appearance="outline" class="mb-0">
                     <mat-label>{{ 'common.table.status' | transloco }}</mat-label>
-                    <mat-select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
+                    <mat-select [ngModel]="statusFilter()" (ngModelChange)="onStatusChange($event)">
                         <mat-option value="">{{ 'common.filters.all' | transloco }}</mat-option>
                         <mat-option value="succeeded">{{ 'admin.transactions.succeeded' | transloco }}</mat-option>
                         <mat-option value="failed">{{ 'admin.transactions.failed' | transloco }}</mat-option>
@@ -43,10 +43,18 @@ export const routeMeta: RouteMeta = {
                 <mat-card-content class="pt-3">
                     @if (store.isLoading()) {
                         <arc-loader kind="rows"></arc-loader>
-                    } @else if (filtered().length === 0) {
+                    } @else if (needsIndex()) {
+                        <!-- Shipped in firestore.indexes.json: not deployed yet, or still building. -->
+                        <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 mb-0" role="status">
+                            <span class="flex-grow-1">{{ 'admin.transactions.index_needed' | transloco }}</span>
+                            @if (indexConsoleLink()) {
+                                <a class="btn btn-sm btn-outline-secondary" [href]="indexConsoleLink()" target="_blank" rel="noopener noreferrer">{{ 'admin.contents.list.index_open_console' | transloco }}</a>
+                            }
+                        </div>
+                    } @else if (store.items().length === 0) {
                         <p class="text-muted">{{ 'admin.transactions.none' | transloco }}</p>
                     } @else {
-                        <table mat-table [dataSource]="filtered()" class="w-100">
+                        <table mat-table [dataSource]="store.items()" class="w-100">
                             <ng-container matColumnDef="createdAt"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_date' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.createdAt | arcTime: 'short' }}</td></ng-container>
                             <ng-container matColumnDef="userEmail"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_customer' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.userEmail }}</td></ng-container>
                             <ng-container matColumnDef="amount"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_amount' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.currency }} {{ t.amount }}</td></ng-container>
@@ -76,14 +84,22 @@ export default class TransactionsPageComponent extends BaseComponent implements 
     store = inject(TransactionsStore);
     columns = ['createdAt', 'userEmail', 'amount', 'premiumType', 'status', 'eventType'];
     statusFilter = signal('');
-
-    filtered = computed(() => {
-        const f = this.statusFilter();
-        const items = this.store.items();
-        return f ? items.filter((t) => t.status === f) : items;
-    });
+    /** A filter's read failed for want of its index: not the same as there being no transactions. */
+    readonly needsIndex = computed(() => /requires an index/i.test(this.store.error() ?? ''));
+    readonly indexConsoleLink = computed(() => this.store.error()?.match(/https:\/\/console\.firebase\.google\.com\/\S+/)?.[0] ?? '');
 
     ngOnInit(): void {
         this.store.getAll();
+    }
+
+    /** On the server: the page holds the latest 50, and a filter is over all of them. */
+    onStatusChange(status: string): void {
+        this.statusFilter.set(status);
+        this.store.getAll({
+            limitCount: this.store.limit(),
+            currentPageNumber: 0,
+            previousPageNumber: -1,
+            whereConditions: status ? [{ field: 'status', operator: '==', value: status }] : [],
+        });
     }
 }

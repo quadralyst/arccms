@@ -2546,7 +2546,8 @@ export class CreateContentComponent extends BaseComponent {
   private addContentInDraft(formValues: any, isPublish: boolean = false, afterSave?: () => void) {
     const savedSignature = this.draftSignature(formValues);
 
-    this.draftContentStore.add(formValues, this.contentTypeSlug).subscribe({
+    // The list's Status filter is a server query, which skips a record without the field.
+    this.draftContentStore.add({ publishedStatus: false, ...formValues }, this.contentTypeSlug).subscribe({
       next: (newId: string) => {
         this.ngZone.run(async () => {
           if (newId) {

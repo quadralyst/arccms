@@ -7,6 +7,7 @@ import { of, BehaviorSubject } from 'rxjs';
 import { signal } from '@angular/core';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
+import { DraftContentsService } from '../draft-content-store/draft-contents.service';
 import { ContentsStore } from '../content-store/published-contents.store';
 import { ContentTypesStore } from '../content-types/content-types.store';
 import { GlobalService } from '../../../../../shared/services/global.service';
@@ -39,6 +40,7 @@ describe('ContentsPage', () => {
         paramMapSubject = new BehaviorSubject(createMockParamMap('articles'));
 
         mockDraftContentsStore = {
+            error: signal(''),
             currentPageNumber: signal(0),
             items: signal([]),
             currentItem: signal({}),
@@ -89,6 +91,7 @@ describe('ContentsPage', () => {
             providers: [
                 ...headerTestProviders(),
                 { provide: DraftContentsStore, useValue: mockDraftContentsStore },
+                { provide: DraftContentsService, useValue: { createListIndexes: vi.fn() } },
                 { provide: ContentsStore, useValue: mockContentsStore },
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },
                 { provide: Firestore, useValue: {} },

@@ -286,6 +286,11 @@ export type TranslationKey =
     | 'admin.contents.list.delete_failed'
     | 'admin.contents.list.deleted'
     | 'admin.contents.list.go_to_types'
+    | 'admin.contents.list.index_create'
+    | 'admin.contents.list.index_failed'
+    | 'admin.contents.list.index_needed'
+    | 'admin.contents.list.index_open_console'
+    | 'admin.contents.list.index_requested'
     | 'admin.contents.list.manage_subtitle'
     | 'admin.contents.list.no_type_edit'
     | 'admin.contents.list.no_type_import'
@@ -1960,6 +1965,7 @@ export type TranslationKey =
     | 'admin.transactions.col_event'
     | 'admin.transactions.col_plan'
     | 'admin.transactions.failed'
+    | 'admin.transactions.index_needed'
     | 'admin.transactions.none'
     | 'admin.transactions.pending'
     | 'admin.transactions.refunded'
@@ -2820,6 +2826,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.list.delete_failed',
     'admin.contents.list.deleted',
     'admin.contents.list.go_to_types',
+    'admin.contents.list.index_create',
+    'admin.contents.list.index_failed',
+    'admin.contents.list.index_needed',
+    'admin.contents.list.index_open_console',
+    'admin.contents.list.index_requested',
     'admin.contents.list.manage_subtitle',
     'admin.contents.list.no_type_edit',
     'admin.contents.list.no_type_import',
@@ -4494,6 +4505,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.transactions.col_event',
     'admin.transactions.col_plan',
     'admin.transactions.failed',
+    'admin.transactions.index_needed',
     'admin.transactions.none',
     'admin.transactions.pending',
     'admin.transactions.refunded',

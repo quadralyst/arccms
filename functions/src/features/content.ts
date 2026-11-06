@@ -9,4 +9,5 @@ export { onSiteSettingsWritten } from '../publishQueue/onSiteSettingsWritten.js'
 // Runs again a whole-site republish or items-from rebuild whose run never finished.
 export * from '../publishQueue/recoverPublishQueue.js';
 export * from '../content-types/onContentTypeDelete.js';
+export * from '../content-types/createContentListIndexes.js';
 export { seedStaticPages } from '../pages/seedStaticPages.js';

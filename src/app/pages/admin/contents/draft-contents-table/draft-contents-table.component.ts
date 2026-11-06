@@ -13,6 +13,7 @@ import {
   SimpleChanges,
   ViewChild,
   TemplateRef,
+  untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -54,9 +55,18 @@ import { iconClasses, iconLabel } from '../../../../../shared/models/icon.model'
 import { isRepeaterType } from '../../../../../shared/models/repeater.model';
 import { escapeHtml } from '../../../../../shared/utils/escape-html';
 import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
+import { DraftContentsService } from '../draft-content-store/draft-contents.service';
 
 /** The page sizes a content list offers. */
 const PAGE_SIZES = [5, 10, 25, 50];
+
+/** What Firestore says when a query's index is missing or still building. */
+const NEEDS_INDEX = /requires an index/i;
+const INDEX_CONSOLE_LINK = /https:\/\/console\.firebase\.google\.com\/\S+/;
+/** Needs no index of its own beside a filter. */
+const RECORD_ORDER = '__name__';
+/** The sort a filtered list has an index for (functions/src/content-types/contentListIndexes.ts). */
+const FILTERED_SORT_FIELD = 'modifiedAt';
 
 @Component({
   selector: 'arc-draft-contents-table',
@@ -92,6 +102,7 @@ export class DraftContentsTableComponent
   private publishQueueService = inject(PublishQueueService);
   private datePipe = inject(DatePipe);
   private route = inject(ActivatedRoute);
+  private draftContentsService = inject(DraftContentsService);
 
   historyOpened: any;
   modifiedData: any[] = [];
@@ -110,6 +121,14 @@ export class DraftContentsTableComponent
 
   // Filters
   statusFilter = signal<string>(''); // '', 'published', 'draft'
+  /**
+   * The type has no index for filtering and sorting yet, or it is still building, so a
+   * filtered list reads in record order and offers to create it.
+   */
+  readonly orderPending = signal(false);
+  readonly indexRequest = signal<'none' | 'creating' | 'requested' | 'failed'>('none');
+  /** Firestore's own link to create the index in the Firebase console, from its error. */
+  readonly indexConsoleLink = signal('');
 
   // Preview
   previewItem = signal<any>(null);
@@ -202,38 +221,13 @@ export class DraftContentsTableComponent
     return slug.charAt(0).toUpperCase() + slug.slice(1);
   }
 
-  // Filter contents by content type and status (client-side).
-  // Status filtering is done client-side to avoid requiring per-collection
-  // composite Firestore indexes (publishedStatus + modifiedAt) for every
-  // dynamically-created content type collection.
   public draftContentsData = computed(() => {
-    let items = this.draftContentStore.items() || [];
-    if (this.contentTypeSlug) {
-      items = items.filter((item: any) => item.type === this.contentTypeSlug);
-    }
-
-    // Apply status filter client-side
-    const status = this.statusFilter();
-    if (status === 'published') {
-      items = items.filter((item: any) => item.publishedStatus === true);
-    } else if (status === 'draft') {
-      items = items.filter((item: any) => !item.publishedStatus);
-    }
-
-    return items;
+    const items = this.draftContentStore.items() || [];
+    return this.contentTypeSlug ? items.filter((item: any) => item.type === this.contentTypeSlug) : items;
   });
 
-  /**
-   * Total records count that reflects client-side status filtering.
-   * When a status filter is active, the count is the filtered data length;
-   * otherwise it falls through to the store's server-side count.
-   */
-  public filteredTotalRecords = computed(() => {
-    if (this.statusFilter()) {
-      return this.draftContentsData().length;
-    }
-    return this.draftContentStore.totalRecords();
-  });
+  /** The server's count of what the list holds, filtered or not. */
+  public filteredTotalRecords = computed(() => this.draftContentStore.totalRecords());
 
   searchTerm = signal<string>('');
 
@@ -333,6 +327,13 @@ export class DraftContentsTableComponent
     this.applyAddress(this.route.snapshot.queryParams);
 
     effect(() => {
+      const error = this.draftContentStore.error();
+      untracked(() => {
+        if (this.statusFilter() && !this.orderPending() && NEEDS_INDEX.test(error ?? '')) this.readWithoutIndex(error);
+      });
+    });
+
+    effect(() => {
       // Ensure Content Types are loaded
       const types = this.contentTypesStore.items();
       const isLoading = this.contentTypesStore.isLoading();
@@ -378,6 +379,8 @@ export class DraftContentsTableComponent
     if (changes['contentTypeSlug'] && !changes['contentTypeSlug'].firstChange) {
       // Reset pagination when switching content types
       this.currentPageNum.set(0);
+      this.orderPending.set(false);
+      this.indexRequest.set('none');
       this.fetchData();
     }
   }
@@ -623,17 +626,40 @@ export class DraftContentsTableComponent
     // (no need for a type WHERE filter — the collection itself is type-specific).
     // When contentTypeSlug is empty, fall back to the legacy collection with no type filter.
 
-    // Status filter (publishedStatus) is applied client-side in draftContentsData()
-    // to avoid requiring composite Firestore indexes for every content type collection.
+    // One filter at a time, on the server, so the rows and the total are right on every page.
+    // "Published" includes a page with unpublished edits: "edited" compares two fields, which
+    // a query cannot do.
+    const status = this.statusFilter();
+    const inRecordOrder = !!status && this.orderPending();
 
     this.draftContentStore.getAll({
-      orderByField: this.sortField(),
-      orderByDirection: this.sortOrder(),
+      orderByField: inRecordOrder ? RECORD_ORDER : this.sortField(),
+      orderByDirection: inRecordOrder ? 'asc' : this.sortOrder(),
       limitCount: this.pageSizeSignal(),
       currentPageNumber: this.currentPageNum(),
       previousPageNumber: this.currentPageNum() - 1,
-      whereConditions: [],
+      whereConditions: status ? [{ field: 'publishedStatus', operator: '==', value: status === 'published' }] : [],
     }, this.contentTypeSlug || undefined);
+  }
+
+  /** Firestore says the index is missing or still building: the rows are still right without it. */
+  private readWithoutIndex(error: string): void {
+    this.orderPending.set(true);
+    this.indexConsoleLink.set(error.match(INDEX_CONSOLE_LINK)?.[0] ?? '');
+    this.currentPageNum.set(0);
+    this.fetchData();
+  }
+
+  /** The alert's button. One press, and it takes a few minutes; choosing the filter again then finds it. */
+  async createIndexes(): Promise<void> {
+    this.indexRequest.set('creating');
+    try {
+      const created = await this.draftContentsService.createListIndexes(this.contentTypeSlug);
+      this.indexRequest.set(created ? 'requested' : 'failed');
+    } catch (error) {
+      console.warn('Could not create the list indexes:', error);
+      this.indexRequest.set('failed');
+    }
   }
 
   /** Opens on the sort and page size in the address, so a reload or a shared link keeps them. */
@@ -678,6 +704,7 @@ export class DraftContentsTableComponent
    */
   clearFilters(): void {
     this.statusFilter.set('');
+    this.orderPending.set(false);
     this.currentPageNum.set(0);
     this.updateUrl();
     this.fetchData();
@@ -696,6 +723,12 @@ export class DraftContentsTableComponent
   onStatusFilterChange(event: any): void {
     const value = event.target.value;
     this.statusFilter.set(value);
+    this.orderPending.set(false); // Tried again: the index may be ready by now
+    // The one sort a filtered list has an index for.
+    if (value && this.sortField() !== FILTERED_SORT_FIELD) {
+      this.sortField.set(FILTERED_SORT_FIELD);
+      this.updateUrl();
+    }
     this.currentPageNum.set(0); // Reset to first page on filter change
     this.fetchData();
   }
@@ -722,6 +755,8 @@ export class DraftContentsTableComponent
    * Set sort field and update URL parameters
    */
   setSortField(field: string): void {
+    if (this.orderPending()) return;
+
     let newOrder: 'asc' | 'desc' = 'asc';
 
     // If clicking the same field, toggle the order

@@ -36,11 +36,11 @@ describe('TransactionsPageComponent', () => {
     let component: TransactionsPageComponent;
     let fixture: ComponentFixture<TransactionsPageComponent>;
     let items: ReturnType<typeof signal<ITransaction[]>>;
-    let mockStore: { items: unknown; isLoading: unknown; getAll: ReturnType<typeof vi.fn> };
+    let mockStore: { items: unknown; isLoading: unknown; limit: unknown; error: ReturnType<typeof signal<string>>; getAll: ReturnType<typeof vi.fn> };
 
     beforeEach(async () => {
         items = signal<ITransaction[]>([]);
-        mockStore = { items, isLoading: signal(false), getAll: vi.fn() };
+        mockStore = { items, isLoading: signal(false), limit: signal(50), error: signal(''), getAll: vi.fn() };
 
         await TestBed.configureTestingModule({
             imports: [TransactionsPageComponent, NoopAnimationsModule],
@@ -102,13 +102,26 @@ describe('TransactionsPageComponent', () => {
         expect(fixture.nativeElement.querySelector('.status-test')).toBeNull();
     });
 
-    it('filters by status', () => {
-        items.set([txn(), txn({ status: 'refunded', userEmail: 'c@d.com' })]);
-        component.statusFilter.set('refunded');
+    it('filters by status on the server, and All reads everything again', () => {
+        component.onStatusChange('refunded');
+        expect(component.statusFilter()).toBe('refunded');
+        expect(mockStore.getAll).toHaveBeenLastCalledWith(expect.objectContaining({
+            limitCount: 50,
+            currentPageNumber: 0,
+            whereConditions: [{ field: 'status', operator: '==', value: 'refunded' }],
+        }));
+
+        component.onStatusChange('');
+        expect(mockStore.getAll).toHaveBeenLastCalledWith(expect.objectContaining({ whereConditions: [] }));
+    });
+
+    it('a filter whose index is missing says so, with its link, rather than "no transactions"', () => {
+        mockStore.error.set('The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/p/firestore/indexes?create_composite=abc');
         fixture.detectChanges();
 
-        expect(component.filtered()).toHaveLength(1);
-        expect(component.filtered()[0].userEmail).toBe('c@d.com');
+        const alert = fixture.nativeElement.querySelector('.alert-warning');
+        expect(alert).not.toBeNull();
+        expect(alert.querySelector('a').getAttribute('href')).toContain('https://console.firebase.google.com/');
     });
 
     it('shows an empty state when there are no transactions', () => {

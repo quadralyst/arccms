@@ -102,6 +102,27 @@
                     <option value="draft">{{ 'common.status.draft' | transloco }}</option>
                 </select>
             </div>
+            @if(orderPending()) {
+            <div class="col-12">
+                <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 mb-0" role="status">
+                    @switch (indexRequest()) {
+                    @case ('requested') {
+                    <span>{{ 'admin.contents.list.index_requested' | transloco }}</span>
+                    }
+                    @case ('failed') {
+                    <span class="flex-grow-1">{{ 'admin.contents.list.index_failed' | transloco }}</span>
+                    @if (indexConsoleLink()) {
+                    <a class="btn btn-sm btn-outline-secondary" [href]="indexConsoleLink()" target="_blank" rel="noopener noreferrer">{{ 'admin.contents.list.index_open_console' | transloco }}</a>
+                    }
+                    }
+                    @default {
+                    <span class="flex-grow-1">{{ 'admin.contents.list.index_needed' | transloco }}</span>
+                    <button type="button" class="btn btn-sm btn-primary" [disabled]="indexRequest() === 'creating'" (click)="createIndexes()">{{ 'admin.contents.list.index_create' | transloco }}</button>
+                    }
+                    }
+                </div>
+            </div>
+            }
             @if(hasActiveFilters()) {
             <div class="col-auto">
                 <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()">

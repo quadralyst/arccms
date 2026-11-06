@@ -673,6 +673,13 @@ describe('CreateContentComponent', () => {
             expect(mockDraftContentsStore.add).toHaveBeenCalled();
         });
 
+        it('a new draft carries its status, which the list\'s server filter needs', () => {
+            component.pageTitle = 'Test Title';
+            component.saveAsDraft();
+
+            expect(mockDraftContentsStore.add.mock.calls[0][0]).toMatchObject({ publishedStatus: false });
+        });
+
         it('should execute afterSave callback upon successful save', () => {
             component.pageTitle = 'Test Title';
             const afterSaveSpy = vi.fn();

@@ -18,8 +18,10 @@ import { Firestore } from '@angular/fire/firestore';
 import { ContentTypesService } from '../content-types/content-types.service';
 import { DatePipe } from '@angular/common';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
+import { DraftContentsService } from '../draft-content-store/draft-contents.service';
 
 describe('DraftContentsTableComponent', () => {
+    let mockDraftContentsService: { createListIndexes: ReturnType<typeof vi.fn> };
     let component: DraftContentsTableComponent;
     let fixture: ComponentFixture<DraftContentsTableComponent>;
     let mockRouter: any;
@@ -58,12 +60,15 @@ describe('DraftContentsTableComponent', () => {
             currentItem: signal({}),
             isLoading: signal(false),
             totalRecords: signal(2),
+            error: signal(''),
             getAll: vi.fn(() => of(sampleContents)),
             clearList: vi.fn(),
             delete: vi.fn().mockReturnValue(of({})),
             update: vi.fn().mockReturnValue(of({})),
             unsubscribeStore: vi.fn(),
         };
+
+        mockDraftContentsService = { createListIndexes: vi.fn().mockResolvedValue(true) };
 
         mockContentsStore = {
             items: signal([]),
@@ -108,6 +113,7 @@ describe('DraftContentsTableComponent', () => {
             providers: [
                 ...headerTestProviders(),
                 { provide: DraftContentsStore, useValue: mockDraftContentsStore },
+                { provide: DraftContentsService, useValue: mockDraftContentsService },
                 { provide: ContentsStore, useValue: mockContentsStore },
                 { provide: ContentTypesStore, useValue: mockContentTypesStore },
                 { provide: Router, useValue: mockRouter },
@@ -496,6 +502,114 @@ describe('DraftContentsTableComponent', () => {
     });
 
     describe('Filtering', () => {
+        const NEEDS_INDEX = 'The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/p/firestore/indexes?create_composite=abc';
+        const lastRead = () => mockDraftContentsStore.getAll.mock.lastCall![0];
+        const choose = (value: string) => component.onStatusFilterChange({ target: { value } });
+        const alert = () => fixture.nativeElement.querySelector('.alert-warning');
+
+        it('asks the server for the chosen status, and All reads everything', () => {
+            choose('published');
+            expect(lastRead().whereConditions).toEqual([{ field: 'publishedStatus', operator: '==', value: true }]);
+
+            choose('draft');
+            expect(lastRead().whereConditions).toEqual([{ field: 'publishedStatus', operator: '==', value: false }]);
+
+            choose('');
+            expect(lastRead().whereConditions).toEqual([]);
+        });
+
+        it('shows the rows the server sends and its total, with no filtering of its own', () => {
+            mockDraftContentsStore.items.set([{ id: 'a', title: 'A', type: '', publishedStatus: true }]);
+            mockDraftContentsStore.totalRecords.set(40);
+            component.statusFilter.set('draft');
+
+            expect(component.draftContentsData()).toHaveLength(1);
+            expect(component.filteredTotalRecords()).toBe(40);
+        });
+
+        it('a filter sorts by the date, the one sort it has an index for', () => {
+            component.sortField.set('title');
+            choose('draft');
+            expect(lastRead().orderByField).toBe('modifiedAt');
+        });
+
+        it('with no index it reads in record order and offers the button, and creates nothing by itself', () => {
+            choose('draft');
+            mockDraftContentsStore.error.set(NEEDS_INDEX);
+            fixture.detectChanges();
+
+            expect(component.orderPending()).toBe(true);
+            expect(lastRead()).toMatchObject({ orderByField: '__name__', orderByDirection: 'asc' });
+            expect(lastRead().whereConditions).toEqual([{ field: 'publishedStatus', operator: '==', value: false }]);
+            expect(alert().querySelector('button')).not.toBeNull();
+            expect(mockDraftContentsService.createListIndexes).not.toHaveBeenCalled();
+        });
+
+        it('another error is not mistaken for a missing index', () => {
+            choose('draft');
+            mockDraftContentsStore.error.set('Missing or insufficient permissions.');
+            fixture.detectChanges();
+
+            expect(component.orderPending()).toBe(false);
+            expect(alert()).toBeNull();
+        });
+
+        it('the unfiltered list has no alert, whatever the error', () => {
+            mockDraftContentsStore.error.set(NEEDS_INDEX);
+            fixture.detectChanges();
+
+            expect(component.orderPending()).toBe(false);
+        });
+
+        it('the button creates the indexes for this type and says it has', async () => {
+            component.contentTypeSlug = 'article';
+            choose('draft');
+            mockDraftContentsStore.error.set(NEEDS_INDEX);
+            fixture.detectChanges();
+
+            await component.createIndexes();
+            fixture.detectChanges();
+
+            expect(mockDraftContentsService.createListIndexes).toHaveBeenCalledWith('article');
+            expect(component.indexRequest()).toBe('requested');
+            expect(alert().querySelector('button')).toBeNull();
+        });
+
+        it("when it cannot, it offers Firestore's own link to the Firebase console", async () => {
+            mockDraftContentsService.createListIndexes.mockRejectedValue(new Error('not deployed'));
+            choose('draft');
+            mockDraftContentsStore.error.set(NEEDS_INDEX);
+            fixture.detectChanges();
+
+            await component.createIndexes();
+            fixture.detectChanges();
+
+            expect(component.indexRequest()).toBe('failed');
+            expect(alert().querySelector('a').getAttribute('href')).toContain('https://console.firebase.google.com/');
+        });
+
+        it('choosing the filter again tries the sorted read, which finds a finished index', () => {
+            choose('draft');
+            mockDraftContentsStore.error.set(NEEDS_INDEX);
+            fixture.detectChanges();
+
+            choose('published');
+
+            expect(component.orderPending()).toBe(false);
+            expect(lastRead().orderByField).toBe('modifiedAt');
+        });
+
+        it('sorting waits while the list is in record order', () => {
+            choose('draft');
+            mockDraftContentsStore.error.set(NEEDS_INDEX);
+            fixture.detectChanges();
+            const order = component.sortOrder();
+
+            component.setSortField('modifiedAt');
+
+            expect(component.sortOrder()).toBe(order);
+        });
+
         it('should reset page to 0 on clear filters', () => {
             component.currentPageNum.set(2);
             component.statusFilter.set('draft');

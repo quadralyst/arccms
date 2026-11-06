@@ -5,6 +5,8 @@ import { DbService } from '../../../../../shared/services/db.service';
 import { IDraftContents, INextContentReference } from './draft-contents.model';
 import { IContentTranslation, pruneTranslation } from './content-translation.model';
 import { BacklinkChange, BacklinkResult, SeriesField, SeriesLinks, backlinkValue, isRealId, refreshedReference, seriesReference } from './series-links';
+import { Functions } from '@angular/fire/functions';
+import { arcCallable } from '../../../../core/config/arc-functions';
 
 @Injectable({
     providedIn: 'root'
@@ -20,6 +22,17 @@ export class DraftContentsService extends DbService<IDraftContents> {
             return runInInjectionContext(this.injector, () => collection(this.firestore, `arc_${collectionSuffix}_drafts`)) as CollectionReference<IDraftContents>;
         }
         return super.getCollectionRef();
+    }
+
+    /**
+     * Creates the indexes a type's list needs to filter by status and stay sorted. False when
+     * they could not be created (functions/src/content-types/createContentListIndexes.ts).
+     */
+    async createListIndexes(contentTypeSlug: string): Promise<boolean> {
+        const functions = this.injector.get(Functions);
+        const result = await runInInjectionContext(this.injector, () =>
+            arcCallable<{ slug: string }, { indexes: string }>(functions, 'createContentListIndexes')({ slug: contentTypeSlug }));
+        return result.data.indexes === 'requested';
     }
 
     // ── Translations (M2) ──────────────────────────────────────────────────

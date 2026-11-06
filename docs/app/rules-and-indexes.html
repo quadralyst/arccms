@@ -95,6 +95,7 @@ match /Lessons/{lessonId} {
 }</code></pre>
     <p>The build merges it with the core indexes and drops duplicates. A field override that both files define differently stops the build with a message: keep it in one file.</p>
     <div class="trap"><p><code>npm run export-indexes</code> copies the live indexes into the core file, <code>firestore.indexes.json</code>, leaving out those listed in your app file. An index you created in the Firebase console and did not add to <code class="new">firestore.app.indexes.json</code> first lands in the core file, and <code>npm run check:core</code> reports it. Add app indexes to your own file by hand.</p></div>
+    <div class="trap"><p>A content type's list indexes belong to the site, not to any file: an admin creates them from the list (<a href="../features/content.html#status-filter">Filter a list by status</a>), and <code>npm run export-indexes</code> leaves them out. Firebase therefore sees them as not in the file. A deploy of indexes offers to delete them, and with <code>--force</code> it does. Answer no. If they do go, the list falls back and offers the button again.</p></div>
 
     <h2>Deploy</h2>
     <p>Deploy rules and indexes like any other part; the combined files are built first. See <a href="../operations/deploy.html">Deploy</a> and <a href="../operations/security-rules.html">Security rules</a>.</p>
