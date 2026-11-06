@@ -63,6 +63,17 @@ describe('arc-rules-build', () => {
             expect(subtractIndexes({ indexes: [core, list], fieldOverrides: [] }, null).indexes).toEqual([core]);
             expect(subtractIndexes({ indexes: [core, list], fieldOverrides: [] }, { indexes: [] }).indexes).toEqual([core]);
         });
+
+        it('keeps a content list index the core file already ships, and drops one it does not', () => {
+            const fields = [{ fieldPath: 'publishedStatus', order: 'ASCENDING' }, { fieldPath: 'modifiedAt', order: 'DESCENDING' }];
+            const shipped = { collectionGroup: 'arc_articles_drafts', queryScope: 'COLLECTION', fields };
+            const live = { ...shipped, fields: [...fields, { fieldPath: '__name__', order: 'DESCENDING' }] };
+            const sites = { ...live, collectionGroup: 'arc_info_drafts' };
+
+            const kept = subtractIndexes({ indexes: [live, sites], fieldOverrides: [] }, null, { indexes: [shipped] }).indexes;
+
+            expect(kept).toEqual([live]);
+        });
     });
 
     describe('build', () => {

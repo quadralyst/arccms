@@ -92,13 +92,23 @@ export function mergeIndexes(core, app) {
 /** A content type's list index, made when the site's list needs it (functions/src/content-types/contentListIndexes.ts). */
 const SITE_CONTENT_LIST = /^arc_.+_drafts$/;
 
-/** Live indexes minus the app's own and the site's content lists: what belongs in the core file. */
-export function subtractIndexes(live, app) {
+/** An index by what it is, without the `__name__` Firebase adds to a live export. */
+function fieldsKey(index) {
+    return indexKey({ ...index, fields: (index.fields ?? []).filter((field) => field.fieldPath !== '__name__') });
+}
+
+/**
+ * Live indexes minus the app's own and the site's content lists: what belongs in the core
+ * file. A content list index the core file already ships stays (`core`).
+ */
+export function subtractIndexes(live, app, core = null) {
     const appIndexes = new Set((app?.indexes ?? []).map(indexKey));
     const appOverrides = new Set((app?.fieldOverrides ?? []).map(overrideKey));
+    const shipped = new Set((core?.indexes ?? []).map(fieldsKey));
+    const isSites = (index) => SITE_CONTENT_LIST.test(index.collectionGroup) && !shipped.has(fieldsKey(index));
     return {
         ...live,
-        indexes: (live.indexes ?? []).filter((index) => !appIndexes.has(indexKey(index)) && !SITE_CONTENT_LIST.test(index.collectionGroup)),
+        indexes: (live.indexes ?? []).filter((index) => !appIndexes.has(indexKey(index)) && !isSites(index)),
         fieldOverrides: (live.fieldOverrides ?? []).filter((o) => !appOverrides.has(overrideKey(o))),
     };
 }
@@ -136,7 +146,8 @@ export function build(root = ROOT) {
 export function splitIndexes(liveFile, root = ROOT) {
     const live = JSON.parse(readFileSync(resolve(root, liveFile), 'utf8'));
     const appText = readOptional(root, INDEX_FILES.app);
-    const core = subtractIndexes(live, appText ? JSON.parse(appText) : null);
+    const coreText = readOptional(root, INDEX_FILES.core);
+    const core = subtractIndexes(live, appText ? JSON.parse(appText) : null, coreText ? JSON.parse(coreText) : null);
     write(root, INDEX_FILES.core, `${JSON.stringify(core, null, 2)}\n`);
     return core;
 }
