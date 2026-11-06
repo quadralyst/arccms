@@ -71,7 +71,7 @@ export async function runSeed(): Promise<SeedResult> {
           })) as Array<{ id: string; slug: string; name: string; [key: string]: any }>;
 
     if (contentTypes.length === 0) {
-        result.details.push('No ContentTypes found — skipping content pages.');
+        result.details.push('No ContentTypes found, skipping content pages.');
     } else {
         result.details.push(`Found ${contentTypes.length} content type(s): ${contentTypes.map(ct => ct.slug).join(', ')}`);
     }
@@ -80,12 +80,12 @@ export async function runSeed(): Promise<SeedResult> {
     for (const contentType of contentTypes) {
         const slug = contentType.slug;
         if (!slug) {
-            result.details.push(`Skipping ContentType ${contentType.id} — no slug`);
+            result.details.push(`Skipping ContentType ${contentType.id}: no slug`);
             continue;
         }
 
         if (contentType.hasPublicUrl === false) {
-            result.details.push(`Skipping ${contentType.name} (${slug}) — no public URL`);
+            result.details.push(`Skipping ${contentType.name} (${slug}): no public URL`);
             continue;
         }
 

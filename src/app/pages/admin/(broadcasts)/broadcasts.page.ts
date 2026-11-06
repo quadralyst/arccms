@@ -112,7 +112,7 @@ export default class BroadcastsPageComponent implements OnInit {
             key: 'results', header: 'Results', type: 'text', classFn: () => 'small',
             transformFn: (r) => r.status === 'completed'
                 ? `${r.sentCount || 0} sent · ${r.skippedCount || 0} skipped · ${r.failedCount || 0} failed`
-                : '—',
+                : '-',
         },
         { key: 'scheduledAt', header: 'Scheduled', type: 'date', dateFormat: 'MMM d, y, h:mm a' },
         {
@@ -214,7 +214,7 @@ export default class BroadcastsPageComponent implements OnInit {
 
     onContentSaved(e: BlockEditorSaveEvent): void {
         this.content.set(e);
-        this.toast.success('Content captured — ready to send');
+        this.toast.success('Content captured, ready to send');
     }
 
     async onTestSend(e: BlockEditorSaveEvent): Promise<void> {

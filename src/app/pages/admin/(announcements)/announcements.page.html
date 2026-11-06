@@ -60,7 +60,7 @@
 
                 <p class="small text-muted mb-3">
                     Announcements create an in-app notification, so only people with an account
-                    receive them — contacts on a list without a linked account are skipped.
+                    receive them. Contacts on a list without a linked account are skipped.
                 </p>
 
                 <button mat-flat-button color="primary" [disabled]="sending() || !canPublish()" (click)="publish()">
@@ -91,7 +91,7 @@
         <!-- Event mappings -->
         <mat-tab label="Event mappings">
             <div class="tab-body">
-                <p class="text-muted">Built-in event hooks. Enabling a mapping runs its configured actions in addition to the direct behavior — enable with care to avoid duplicate sends.</p>
+                <p class="text-muted">Built-in event hooks. Enabling a mapping runs its configured actions in addition to the direct behavior, so enable with care to avoid duplicate sends.</p>
                 @for (m of mappings(); track m.key) {
                 <div class="mapping-row d-flex justify-content-between align-items-center py-2 border-bottom">
                     <code>{{ m.key }}</code>

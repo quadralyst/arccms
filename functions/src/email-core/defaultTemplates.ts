@@ -97,11 +97,11 @@ export const DEFAULT_TEMPLATES: DefaultTemplateDef[] = [
     category: 'marketing',
     subject: 'Welcome aboard!',
     title: 'Signup Welcome Email',
-    previewText: 'Welcome — your account is ready',
+    previewText: 'Welcome, your account is ready',
     body: shell(`
       <h1 style="font-size:22px;color:#111827;margin:0 0 20px;">Welcome, ##NAME##!</h1>
       <p style="margin:0 0 20px;">Your account is ready. We're glad to have you with us.</p>
-      <p style="margin:0 0 20px;">If you have any questions, just reply to this email — we're happy to help.</p>`, { marketing: true }),
+      <p style="margin:0 0 20px;">If you have any questions, just reply to this email. We're happy to help.</p>`, { marketing: true }),
   },
   {
     type: 'updates_ending_email',
@@ -118,7 +118,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplateDef[] = [
   {
     type: 'payment_succeeded_email',
     category: 'transactional',
-    subject: 'Payment received — thank you',
+    subject: 'Payment received, thank you',
     title: 'Payment Succeeded',
     previewText: 'We received your payment',
     body: shell(`
@@ -379,7 +379,8 @@ export async function ensureDefaultTemplates(): Promise<SeedResult> {
     /* fall back to blank sender identity */
   }
 
-  const senderName = settings?.senderName || 'Arc CMS';
+  // Blank when nothing names a sender yet: sendMail fills it in (sender.ts).
+  const senderName = settings?.senderName || '';
   const senderEmail = settings?.senderEmail || '';
 
   const created: string[] = [];

@@ -92,7 +92,7 @@ export const migrateFormDataToContactFields = onCall(async (request) => {
   try {
     const registry = await getFieldRegistry();
     if (!Object.keys(registry).length) {
-      return { dryRun, forms: 0, note: 'No custom fields defined yet — nothing to map.' };
+      return { dryRun, forms: 0, note: 'No custom fields defined yet, so there is nothing to map.' };
     }
 
     const forms = await db.collection('Waitlists').get();

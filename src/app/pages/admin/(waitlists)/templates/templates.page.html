@@ -91,7 +91,7 @@
                     <div class="form-column">
                         <div class="form-group">
                             <label>Sender Name</label>
-                            <p class="text-muted">{{ templateForm.get('senderName')?.value }}</p>
+                            <p class="text-muted">{{ templateForm.get('senderName')?.value || siteName() }}</p>
                             <!-- <input type="text" formControlName="senderName" placeholder="Arc CMS"> -->
                         </div>
 

@@ -113,7 +113,7 @@ export default class JoinedUsersComponent implements OnInit {
             {
                 key: 'user',
                 header: 'User',
-                transformFn: (row: WaitlistUser) => `${row.firstName || '—'} (${row.email})`,
+                transformFn: (row: WaitlistUser) => `${row.firstName || '-'} (${row.email})`,
                 classFn: (row) => 'fw-bold'
             },
             {

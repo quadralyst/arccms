@@ -55,7 +55,7 @@ export const routeMeta: RouteMeta = {
               <div class="detail-body">
                 @if (p.description) { <p class="desc">{{ p.description }}</p> }
 
-                <div class="field"><span class="k">{{ 'admin.products.dodo_id' | transloco }}</span><span class="v mono">{{ p.providerProductIds?.dodo || legacyDodoId(p) || '—' }}</span></div>
+                <div class="field"><span class="k">{{ 'admin.products.dodo_id' | transloco }}</span><span class="v mono">{{ p.providerProductIds?.dodo || legacyDodoId(p) || '-' }}</span></div>
                 <div class="field"><span class="k">{{ 'admin.products.type' | transloco }}</span><span class="v">{{ (p.type === 'subscription' ? 'admin.products.subscription' : 'admin.products.one_time') | transloco }}</span></div>
                 @if (p.type === 'subscription') {
                   <div class="field"><span class="k">{{ 'admin.products.interval' | transloco }}</span><span class="v">{{ (p.interval === 'year' ? 'admin.products.yearly' : 'admin.products.monthly') | transloco }}</span></div>
@@ -78,10 +78,10 @@ export const routeMeta: RouteMeta = {
                     <tbody>
                       @for (t of p.tiers; track $index; let i = $index) {
                         <tr>
-                          <td>{{ t.label || '—' }}</td>
+                          <td>{{ t.label || '-' }}</td>
                           <td>{{ t.maxCount && t.maxCount > 0 ? t.maxCount : 'Everyone else' }}</td>
-                          <td>{{ t.discountCode || '—' }}</td>
-                          <td>{{ t.discountPct ? t.discountPct + '%' : '—' }}</td>
+                          <td>{{ t.discountCode || '-' }}</td>
+                          <td>{{ t.discountPct ? t.discountPct + '%' : '-' }}</td>
                           <td class="link-cell">
                             @if (testLinks()[i]; as url) {
                               <div class="link-row">

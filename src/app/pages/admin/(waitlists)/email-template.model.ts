@@ -70,7 +70,7 @@ export const DEFAULT_TRIAL_ENDING_TEMPLATE = `
     <h2>Your trial ends soon</h2>
     <p>Hi ##NAME##,</p>
     <p>Your free trial of the <strong>##SUBSCRIPTION_PLAN##</strong> plan ends on <strong>##TRIAL_ENDS_AT##</strong>.</p>
-    <p>You'll be charged automatically when the trial ends — no action needed to continue.</p>
+    <p>You'll be charged automatically when the trial ends, with no action needed to continue.</p>
 </div>
 `;
 

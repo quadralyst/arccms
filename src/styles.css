@@ -1287,3 +1287,8 @@ arc-content-partials {
 .arc-member-lang-menu {
     margin-inline: 8px;
 }
+
+/* "1 to 10 of 11" on one line. On a phone the paginator wraps its buttons below before this breaks. */
+.mat-mdc-paginator-range-label {
+    white-space: nowrap;
+}

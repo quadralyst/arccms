@@ -71,7 +71,7 @@ import { IEmailProviderComponent } from './email-provider-base';
                         <mat-icon>{{ showApiKey() ? 'visibility_off' : 'visibility' }}</mat-icon>
                     </button>
                     <mat-hint>
-                        Starts with <code>re_</code> — get it from
+                        Starts with <code>re_</code>. Get it from
                         <a href="https://resend.com/api-keys" target="_blank" rel="noopener">resend.com/api-keys</a>
                     </mat-hint>
                 </mat-form-field>

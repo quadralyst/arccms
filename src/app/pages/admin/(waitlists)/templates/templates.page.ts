@@ -29,6 +29,7 @@ import { EmailSettingService } from '../../(settings)/email-setting/email-settin
 import { HashtagAutocompleteDirective } from '../../../../../shared/directives/hashtag-autocomplete/hashtag-autocomplete.directive';
 import { getEmailTags } from '../../../../../shared/constants/email-tags';
 import { arcCallable } from '../../../../core/config/arc-functions';
+import { SiteBrandService } from '../../../../core/brand/site-brand';
 
 export const routeMeta: RouteMeta = {
     title: 'Email Templates',
@@ -57,6 +58,8 @@ export default class TemplatesComponent implements OnInit {
     private readonly broadcastStore = inject(BroadcastEmailStore);
     private readonly toastService = inject(ToastService);
     private emailSettingService = inject(EmailSettingService);
+    /** The name shown while Settings, Email names no sender, which is the one the email goes out under. */
+    readonly siteName = inject(SiteBrandService).name;
 
     // Email configuration status
     emailConfigService = inject(EmailConfigStatusService);
@@ -108,7 +111,8 @@ export default class TemplatesComponent implements OnInit {
 
     initForm(): void {
         this.templateForm = this.fb.group({
-            senderName: ['', Validators.required],
+            // From Settings, Email, and blank until that names one: the email then goes out under the site's name.
+            senderName: [''],
             senderEmail: ['', [Validators.required, Validators.email]],
             subject: ['', Validators.required],
             template: ['', Validators.required],
@@ -238,8 +242,8 @@ export default class TemplatesComponent implements OnInit {
         this.emailSettingService.getEmailSettings().subscribe({
             next: (settings) => {
                 this.templateForm.patchValue({
-                    senderName: settings.senderName,
-                    senderEmail: settings.senderEmail,
+                    senderName: settings.senderName || '',
+                    senderEmail: settings.senderEmail || '',
                 });
                 this.loading.set(false);
             },
@@ -528,9 +532,9 @@ export default class TemplatesComponent implements OnInit {
         const dialogMessage = isOtp
             ? 'Turn off email verification for this form? New signups will not be sent a '
               + 'code, and their email status will stay "Pending". This takes effect '
-              + 'immediately — you do not need to save.'
+              + 'immediately, so you do not need to save.'
             : 'Turn off the welcome email for this form? New signups will no longer be '
-              + 'greeted. This takes effect immediately — you do not need to save.';
+              + 'greeted. This takes effect immediately, so you do not need to save.';
 
         this.dialog.open(ConfirmationPopupComponent, {
             width: '350px',

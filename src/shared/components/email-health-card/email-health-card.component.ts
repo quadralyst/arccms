@@ -20,7 +20,7 @@ interface HealthCounts {
     template: `
     <div class="border rounded p-3 mb-3">
         <div class="d-flex justify-content-between align-items-center mb-2">
-            <strong><mat-icon class="align-middle">monitor_heart</mat-icon> Email health — last 24h</strong>
+            <strong><mat-icon class="align-middle">monitor_heart</mat-icon> Email health: last 24h</strong>
             @if (loading()) { <span class="small text-muted">loading…</span> }
         </div>
         <div class="d-flex gap-3 flex-wrap">
@@ -34,7 +34,7 @@ interface HealthCounts {
             <span class="ms-auto small text-muted">{{ counts().total }} total</span>
         </div>
         @if (counts().failed > 0) {
-        <div class="small text-danger mt-2">⚠ {{ counts().failed }} email(s) failed in the last 24h — check the logs below.</div>
+        <div class="small text-danger mt-2">⚠ {{ counts().failed }} email(s) failed in the last 24h. Check the logs below.</div>
         }
     </div>`,
 })

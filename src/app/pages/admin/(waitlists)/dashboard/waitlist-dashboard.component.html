@@ -227,7 +227,7 @@
                         <tbody>
                             @for (user of recentSignups(); track user.id) {
                             <tr>
-                                <td>{{ user.firstName || '—' }}</td>
+                                <td>{{ user.firstName || '-' }}</td>
                                 <td>{{ user.email }}</td>
                                 <td>
                                     <span class="badge"

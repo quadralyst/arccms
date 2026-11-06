@@ -110,7 +110,7 @@ interface ActivityItem {
                             <span class="tile-icon icon-purple"><i class="fa-solid fa-arrow-up-right-dots"></i></span>
                         </div>
                         <div class="tile-content">
-                            <span class="tile-value">{{ entitlements.tierRank() >= 0 ? '#' + entitlements.tierRank() : '—' }}</span>
+                            <span class="tile-value">{{ entitlements.tierRank() >= 0 ? '#' + entitlements.tierRank() : '-' }}</span>
                             <span class="tile-sub text-truncate">{{ entitlement()?.premiumTierLabel || ('user.payments.no_active_plan' | transloco) }}</span>
                         </div>
                     </mat-card>
@@ -140,8 +140,8 @@ interface ActivityItem {
                     <mat-card class="mdetail">
                         <div class="md"><span class="k">{{ 'user.dashboard.renews' | transloco }}</span><span class="v">{{ fmtDate(entitlement()?.premiumExpiresAt) }}</span></div>
                         <div class="md"><span class="k">{{ 'user.dashboard.updates_until' | transloco }}</span><span class="v">{{ fmtDate(entitlement()?.updatesUntil) }}</span></div>
-                        <div class="md"><span class="k">{{ 'user.dashboard.deal' | transloco }}</span><span class="v">{{ entitlement()?.premiumTierLabel || '—' }}</span></div>
-                        <div class="md"><span class="k">{{ 'user.dashboard.discount' | transloco }}</span><span class="v mono">{{ entitlement()?.premiumDiscountCode || '—' }}</span></div>
+                        <div class="md"><span class="k">{{ 'user.dashboard.deal' | transloco }}</span><span class="v">{{ entitlement()?.premiumTierLabel || '-' }}</span></div>
+                        <div class="md"><span class="k">{{ 'user.dashboard.discount' | transloco }}</span><span class="v mono">{{ entitlement()?.premiumDiscountCode || '-' }}</span></div>
                     </mat-card>
                 }
 
@@ -740,6 +740,6 @@ export default class UserPaymentsComponent implements OnInit {
 
     fmtDate(value: unknown): string {
         const d = toJsDate(value);
-        return d ? d.toLocaleDateString(memberLocaleNow()) : '—';
+        return d ? d.toLocaleDateString(memberLocaleNow()) : '-';
     }
 }

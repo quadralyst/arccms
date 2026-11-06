@@ -101,6 +101,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- **Who an email is from.** A template with no sender used to go out as `"" <address>`, and test sends and the default templates fell back to "Arc CMS" on a site with its own name. `sendMail` now decides the name for every kind of email and provider: the template's, else Settings, Email's sender or company name, else the site's name in Settings, About, else the address alone. "Arc CMS" left on a template gives way to any of these; saved in Settings, Email it stays. A blank sender address takes the one in Settings, Email. The email log records what went out. Deploy the functions that send email.
+- **A name can no longer add a recipient to an email.** The `To` and `From` lines wrote a name in as it was, so a name typed into a public signup form such as `x", someone@else.test, "y` sent the email to that other address too, with SMTP and Gmail.
+- **A site with no sender saved can save an email template and send a broadcast.** Both forms required a sender name in a field nobody could see, and the broadcast form could fall back to an `arccms.com` address when the settings failed to load.
+- **The content list reads once when it opens,** not twice, and an unused filter was removed.
+- **A list read replaced before its answer no longer holds a pending task open,** which kept the app from settling (dev mode's "did not stabilize" note).
+- **No em or en dashes in text people read,** in English and Hindi, the default emails included. A paged list says "1 to 10 of 300", an empty value shows as `-`, and a new test keeps it that way.
+
 - **A blocked account is told so on the email step,** instead of being asked for a password an account with only a PIN does not have (`checkEmailAccount` answers `signInWith: 'blocked'`; deploy that function).
 - **The 403 page stands alone,** without the admin's side menu.
 - **Lists that page through a store land where they say.** Last, the same page again after a drawer closes, a new order and a page in an address after a reload all read the wrong cursor, which could end in "No user found" on Back. Paging now goes through `src/shared/services/page-cursors.ts`, and an address no longer holds a page number.
@@ -151,15 +158,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
-- **Content Management** — Dynamic content types with custom fields, rich text editor (TipTap), draft/publish workflow, tags, and SEO optimization
-- **Template System** — HTML template hydration with data binding, loops, and custom styling
-- **Waitlist Management** — Signup forms, referral tracking, leaderboard, and email workflows
-- **User Management** — Email/password authentication, role-based access control (admin/user)
-- **Email Integration** — Modular email provider support (SMTP, Gmail, Resend) with broadcast messaging and tracking
-- **Admin Dashboard** — Content management, user management, waitlist management, email logs, and settings
-- **Analytics Integration** — Google Analytics connection and dashboard
-- **Cloud Functions** — Firestore triggers for user lifecycle, content publishing, waitlist operations, email processing, and analytics
-- **Onboarding Wizard** — First-run setup flow for initial admin account creation
-- **Global Banner** — Configurable site-wide announcement banner
-- **Cookie Consent** — GDPR-compliant cookie consent banner
-- **Media Library** — Image upload and management with Unsplash integration
+- **Content Management**: Dynamic content types with custom fields, rich text editor (TipTap), draft/publish workflow, tags, and SEO optimization
+- **Template System**: HTML template hydration with data binding, loops, and custom styling
+- **Waitlist Management**: Signup forms, referral tracking, leaderboard, and email workflows
+- **User Management**: Email/password authentication, role-based access control (admin/user)
+- **Email Integration**: Modular email provider support (SMTP, Gmail, Resend) with broadcast messaging and tracking
+- **Admin Dashboard**: Content management, user management, waitlist management, email logs, and settings
+- **Analytics Integration**: Google Analytics connection and dashboard
+- **Cloud Functions**: Firestore triggers for user lifecycle, content publishing, waitlist operations, email processing, and analytics
+- **Onboarding Wizard**: First-run setup flow for initial admin account creation
+- **Global Banner**: Configurable site-wide announcement banner
+- **Cookie Consent**: GDPR-compliant cookie consent banner
+- **Media Library**: Image upload and management with Unsplash integration

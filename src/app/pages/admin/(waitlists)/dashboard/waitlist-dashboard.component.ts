@@ -105,7 +105,7 @@ export default class WaitlistDashboardComponent implements OnInit {
     // Avg Return Visits (average visitCount across users with data)
     avgReturnVisits = computed(() => {
         const usersWithData = this.users().filter(u => u.signupMetadata?.visitCount != null);
-        if (usersWithData.length === 0) return '—';
+        if (usersWithData.length === 0) return '-';
         const total = usersWithData.reduce((sum, u) => sum + (u.signupMetadata!.visitCount || 0), 0);
         return (total / usersWithData.length).toFixed(1);
     });
@@ -113,7 +113,7 @@ export default class WaitlistDashboardComponent implements OnInit {
     // Avg Time on Page (average timeOnPageMs, formatted as Xm Ys)
     avgTimeOnPage = computed(() => {
         const usersWithData = this.users().filter(u => u.signupMetadata?.timeOnPageMs != null);
-        if (usersWithData.length === 0) return '—';
+        if (usersWithData.length === 0) return '-';
         const totalMs = usersWithData.reduce((sum, u) => sum + (u.signupMetadata!.timeOnPageMs || 0), 0);
         const avgMs = totalMs / usersWithData.length;
         const totalSecs = Math.round(avgMs / 1000);

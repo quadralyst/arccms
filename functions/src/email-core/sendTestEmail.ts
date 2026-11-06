@@ -35,7 +35,7 @@ export const sendTestEmail = onCall(async (request) => {
     category: 'transactional',
     toEmail,
     senderEmail: settings?.senderEmail || '',
-    senderName: settings?.senderName || 'Arc CMS',
+    senderName: settings?.senderName || '',
     subject: `[TEST] ${subject}`,
     template: html,
     type: 'test',

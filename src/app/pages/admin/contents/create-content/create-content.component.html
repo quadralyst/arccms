@@ -81,7 +81,7 @@
                     </button>
                     <span class="version-preview-label">
                         <i class="fa-solid fa-clock-rotate-left me-1"></i>
-                        Version {{ previewingVersion()!.versionNumber }} &mdash;
+                        Version {{ previewingVersion()!.versionNumber }} &middot;
                         {{ formatVersionDate(previewingVersion()!.publishedOn) }}
                     </span>
                 </div>
@@ -175,12 +175,12 @@
 
                         <div class="meta-field">
                             <label>{{ 'admin.contents.editor.seo_title' | transloco }}</label>
-                            <p>{{ previewingVersion()!.seoTitle || '—' }}</p>
+                            <p>{{ previewingVersion()!.seoTitle || '-' }}</p>
                         </div>
 
                         <div class="meta-field">
                             <label>{{ 'admin.contents.editor.meta_description' | transloco }}</label>
-                            <p>{{ previewingVersion()!.metaDescription || '—' }}</p>
+                            <p>{{ previewingVersion()!.metaDescription || '-' }}</p>
                         </div>
                     </div>
                 </div>
@@ -577,7 +577,7 @@
                             <!-- Not prose: numbers, dates, options and references are
                                  language-independent, so they stay on the base document. -->
                             <div class="shared-field-preview">
-                                <span class="text-muted">{{ baseCustomFieldValue(field.key) || '—' }}</span>
+                                <span class="text-muted">{{ baseCustomFieldValue(field.key) || '-' }}</span>
                                 <small class="text-muted d-block mt-1">Edit on the {{ defaultLang() }} tab.</small>
                             </div>
                             }

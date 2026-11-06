@@ -1,6 +1,6 @@
 <div class="page-container">
     <arc-page-header title="Email Brand Kit"
-        subtitle="Set your logo, colors and footer once — every branded email uses them.">
+        subtitle="Set your logo, colors and footer once, and every branded email uses them.">
         <button mat-flat-button color="primary" [disabled]="saving()" (click)="save()">
             <mat-icon>save</mat-icon> Save brand kit
         </button>
@@ -42,7 +42,7 @@
 
             <h3 class="h6 text-uppercase text-muted mb-2 mt-3">Footer</h3>
             <mat-form-field appearance="outline" class="w-100">
-                <mat-label>Footer text (HTML — supports ##UNSUBSCRIBE_LINK##, ##PREFERENCES_LINK##)</mat-label>
+                <mat-label>Footer text (HTML, supports ##UNSUBSCRIBE_LINK##, ##PREFERENCES_LINK##)</mat-label>
                 <textarea matInput rows="3" [arcHashtagAutocomplete]="footerTags" [ngModel]="kit().footerText" (ngModelChange)="update('footerText', $event)"></textarea>
             </mat-form-field>
             <mat-form-field appearance="outline" class="w-100">

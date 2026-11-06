@@ -1,6 +1,6 @@
 <div class="page-container">
     <arc-page-header title="Email Composer"
-        subtitle="Compose emails from blocks — no HTML required. Templates store both the design and compiled HTML.">
+        subtitle="Compose emails from blocks, no HTML required. Templates store both the design and compiled HTML.">
     </arc-page-header>
 
     @if (selected(); as t) {
@@ -15,7 +15,7 @@
                 <mat-form-field appearance="outline" class="w-100">
                     <mat-label>Title</mat-label>
                     <input matInput [ngModel]="titleDraft()" (ngModelChange)="titleDraft.set($event)"
-                        placeholder="Welcome — day 1" />
+                        placeholder="Welcome, day 1" />
                 </mat-form-field>
             </div>
             <div class="col-md-5">

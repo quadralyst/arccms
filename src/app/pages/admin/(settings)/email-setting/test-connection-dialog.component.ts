@@ -97,7 +97,7 @@ export class TestConnectionDialogComponent {
 
 Woohoo! If you're reading this, your email configuration is working like a charm!
 
-One quick heads-up — your settings are NOT saved yet! Don't forget to click the "Save Settings" button back in Arc CMS to lock them in.
+One quick heads-up: your settings are NOT saved yet! Don't forget to click the "Save Settings" button back in Arc CMS to lock them in.
 
 Happy emailing! ✉️
 Arc CMS`);

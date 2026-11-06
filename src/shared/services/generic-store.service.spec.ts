@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { Injectable } from '@angular/core';
+import { Injectable, PendingTasks } from '@angular/core';
 import { of, Subject, throwError } from 'rxjs';
 import {
     GenericState,
@@ -298,6 +298,78 @@ describe('Generic Store Service', () => {
                 store.getAll({ limitCount: 10, currentPageNumber: 2, previousPageNumber: 0, orderByField: 'name' });
 
                 expect(fakeService.getAll.mock.lastCall![0]).toMatchObject({ currentPageNumber: 2, lastCount: 1 });
+            });
+        });
+
+        describe('getAll() and the app settling', () => {
+            @Injectable({ providedIn: 'root' })
+            class FakeService {
+                reads: Subject<any>[] = [];
+                getAll = vi.fn(() => {
+                    const read = new Subject<any>();
+                    this.reads.push(read);
+                    return read;
+                });
+            }
+
+            const TestStore = createGenericStore<TestModel>(FakeService as any);
+            const answer = { collectionData: [{ id: 'a', name: 'a', value: 1 }], totalCount: 1, firstVisible: null, lastVisible: null };
+            const params = { limitCount: 10, currentPageNumber: 0, previousPageNumber: -1, orderByField: 'name' };
+
+            let open: number;
+            let fakeService: FakeService;
+            let store: InstanceType<typeof TestStore>;
+
+            beforeEach(() => {
+                open = 0;
+                TestBed.configureTestingModule({
+                    providers: [
+                        FakeService,
+                        { provide: AuthState, useValue: { currentUser: () => ({ id: 'u1' }) } },
+                        {
+                            provide: PendingTasks,
+                            useValue: {
+                                add: () => {
+                                    open++;
+                                    return () => { open--; };
+                                },
+                            },
+                        },
+                    ],
+                });
+                fakeService = TestBed.inject(FakeService);
+                store = TestBed.inject(TestStore);
+            });
+
+            it('holds a task until its read answers', () => {
+                store.getAll(params);
+                expect(open).toBe(1);
+
+                fakeService.reads[0].next(answer);
+                expect(open).toBe(0);
+            });
+
+            it('a read replaced before its answer lets go of its task', () => {
+                store.getAll(params);
+                store.getAll(params);
+                expect(open).toBe(1);
+
+                fakeService.reads[1].next(answer);
+                expect(open).toBe(0);
+            });
+
+            it('a read dropped with the store lets go of its task', () => {
+                store.getAll(params);
+                store.unsubscribeStore();
+                expect(open).toBe(0);
+            });
+
+            it('never lets go of one task twice', () => {
+                store.getAll(params);
+                fakeService.reads[0].next(answer);
+                fakeService.reads[0].next(answer);
+                store.getAll(params);
+                expect(open).toBe(1);
             });
         });
 

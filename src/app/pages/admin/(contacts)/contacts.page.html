@@ -30,7 +30,7 @@
                     <strong>{{ counts().subscribed }}</strong> subscribed
                 </button>
                 <button type="button" class="count-chip" (click)="onConsentFilter('pending')"
-                    matTooltip="Signed up but haven't confirmed their email — excluded from all marketing sends">
+                    matTooltip="Signed up but haven't confirmed their email, so they are excluded from all marketing sends">
                     <strong>{{ counts().pending }}</strong> pending
                 </button>
                 <button type="button" class="count-chip" (click)="onConsentFilter('unsubscribed')">

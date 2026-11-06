@@ -417,7 +417,7 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
         this.awaitingConfirm.update((m) => ({ ...m, [type]: false }));
         if (received) {
             this.confirmed.update((m) => ({ ...m, [type]: true }));
-            this.toastService.success('Confirmed — you can now save this template.');
+            this.toastService.success('Confirmed. You can now save this template.');
         } else {
             this.toastService.error('No test received. Check your Email settings, then send another test.');
         }

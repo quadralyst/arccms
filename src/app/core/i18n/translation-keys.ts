@@ -428,6 +428,7 @@ export type TranslationKey =
     | 'admin.dashboard.count_draft'
     | 'admin.dashboard.count_published'
     | 'admin.dashboard.count_this_week'
+    | 'admin.dashboard.date_range'
     | 'admin.dashboard.debug_banner'
     | 'admin.dashboard.debug_provider_active'
     | 'admin.dashboard.email_disabled_note'
@@ -2961,6 +2962,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.count_draft',
     'admin.dashboard.count_published',
     'admin.dashboard.count_this_week',
+    'admin.dashboard.date_range',
     'admin.dashboard.debug_banner',
     'admin.dashboard.debug_provider_active',
     'admin.dashboard.email_disabled_note',

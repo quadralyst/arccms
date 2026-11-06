@@ -143,7 +143,7 @@ export default class ListHubPageComponent implements OnInit {
 
     memberColumns: TableColumn[] = [
         { key: 'email', header: 'Email', type: 'text' },
-        { key: 'name', header: 'Name', type: 'text', transformFn: (r) => r.name || '—' },
+        { key: 'name', header: 'Name', type: 'text', transformFn: (r) => r.name || '-' },
         {
             key: 'tags', header: 'Tags', type: 'tags',
             transformFn: (r) => (r.tags || []).map((id: string) => this.tagsById().get(id)).filter(Boolean),

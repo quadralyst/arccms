@@ -48,20 +48,20 @@ import { IEmailProviderComponent } from './email-provider-base';
                             <li>
                                 <a href="https://support.microsoft.com/en-us/office/pop-imap-and-smtp-settings-8361e398-8af4-4e97-b147-6c6c4ac95353" target="_blank" rel="noopener">
                                     Outlook / Microsoft 365
-                                </a>
-                                — Host: <code>smtp.office365.com</code>, Port: <code>587</code>
+                                </a>:
+                                host <code>smtp.office365.com</code>, port <code>587</code>
                             </li>
                             <li>
                                 <a href="https://help.yahoo.com/kb/SLN4724.html" target="_blank" rel="noopener">
                                     Yahoo Mail
-                                </a>
-                                — Host: <code>smtp.mail.yahoo.com</code>, Port: <code>465</code> (SSL)
+                                </a>:
+                                host <code>smtp.mail.yahoo.com</code>, port <code>465</code> (SSL)
                             </li>
                             <li>
                                 <a href="https://www.zoho.com/mail/help/zoho-smtp.html" target="_blank" rel="noopener">
                                     Zoho Mail
-                                </a>
-                                — Host: <code>smtp.zoho.com</code>, Port: <code>465</code> (SSL)
+                                </a>:
+                                host <code>smtp.zoho.com</code>, port <code>465</code> (SSL)
                             </li>
                         </ul>
                     </div>

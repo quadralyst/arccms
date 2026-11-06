@@ -10,6 +10,7 @@ import { of } from 'rxjs';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { BroadcastEmailEditorComponent } from './broadcast-email-editor.component';
 import { EmailSettingService } from '../../../app/pages/admin/(settings)/email-setting/email-setting.service';
+import { SiteBrandService } from '../../../app/core/brand/site-brand';
 
 describe('BroadcastEmailEditorComponent', () => {
     let component: BroadcastEmailEditorComponent;
@@ -42,6 +43,7 @@ describe('BroadcastEmailEditorComponent', () => {
             providers: [
                 { provide: MatDialog, useValue: mockDialog },
                 { provide: EmailSettingService, useValue: mockEmailSettingService },
+                { provide: SiteBrandService, useValue: { name: () => 'My Site' } },
             ],
         }).compileComponents();
 
@@ -118,8 +120,16 @@ describe('BroadcastEmailEditorComponent', () => {
         });
 
         it('should require sender name', () => {
+            // Nobody can fill this field here: a blank one goes out under the site's name.
             component.broadcastForm.get('senderName')?.setValue('');
-            expect(component.broadcastForm.get('senderName')?.valid).toBe(false);
+            expect(component.broadcastForm.get('senderName')?.valid).toBe(true);
+        });
+
+        it('never starts from an address of its own when the settings have none', () => {
+            mockEmailSettingService.getEmailSettings.mockReturnValue(of({}));
+            (component as any).loadEmailSettings();
+            expect(component.broadcastForm.get('senderName')?.value).toBe('');
+            expect(component.broadcastForm.get('senderEmail')?.value).toBe('');
         });
 
         it('should validate sender email format', () => {

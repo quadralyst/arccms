@@ -191,15 +191,6 @@ describe('DraftContentsTableComponent', () => {
         it('should initialize with current page 0', () => {
             expect(component.currentPageNum()).toBe(0);
         });
-
-        it('should initialize with empty filters', () => {
-            expect(Object.keys(component.filters()).length).toBe(0);
-        });
-
-        it('should have filterable columns defined', () => {
-            expect(component.filterableColumns.length).toBeGreaterThan(0);
-            expect(component.filterableColumns[0].field).toBe('title');
-        });
     });
 
     describe('Content Type Slug Changes (ngOnChanges)', () => {
@@ -237,8 +228,23 @@ describe('DraftContentsTableComponent', () => {
             expect(component.currentPageNum()).toBe(0);
         });
 
-        it('should clear filters when contentTypeSlug changes', () => {
-            component.filters.set({ title: 'test' });
+        it('reads the list once on opening, from ngOnInit and not its first slug as well', () => {
+            vi.clearAllMocks();
+            component.ngOnChanges({
+                contentTypeSlug: {
+                    currentValue: 'articles',
+                    previousValue: undefined,
+                    firstChange: true,
+                    isFirstChange: () => true
+                }
+            });
+            expect(mockDraftContentsStore.getAll).not.toHaveBeenCalled();
+
+            component.ngOnInit();
+            expect(mockDraftContentsStore.getAll).toHaveBeenCalledTimes(1);
+        });
+
+        it('reads once when the content type changes', () => {
             component.ngOnInit();
             vi.clearAllMocks();
 
@@ -251,22 +257,7 @@ describe('DraftContentsTableComponent', () => {
                 }
             });
 
-            expect(Object.keys(component.filters()).length).toBe(0);
-        });
-
-        it('should also re-fetch on first change (ngOnChanges always triggers fetchData)', () => {
-            vi.clearAllMocks();
-            component.ngOnChanges({
-                contentTypeSlug: {
-                    currentValue: 'articles',
-                    previousValue: undefined,
-                    firstChange: true,
-                    isFirstChange: () => true
-                }
-            });
-
-            // ngOnChanges always triggers fetchData for contentTypeSlug changes
-            expect(mockDraftContentsStore.getAll).toHaveBeenCalled();
+            expect(mockDraftContentsStore.getAll).toHaveBeenCalledTimes(1);
         });
 
         it('should not react to changes in other properties', () => {
@@ -297,11 +288,6 @@ describe('DraftContentsTableComponent', () => {
             component.ngOnInit();
             expect(component.currentPageNum()).toBe(0);
             expect(component.pageSizeSignal()).toBe(10);
-        });
-
-        it('should use default empty filters when no URL params provided', () => {
-            component.ngOnInit();
-            expect(Object.keys(component.filters()).length).toBe(0);
         });
 
         const openedAt = (queryParams: Record<string, string>) => {
@@ -510,74 +496,29 @@ describe('DraftContentsTableComponent', () => {
     });
 
     describe('Filtering', () => {
-        it('should update filter on filter change', () => {
-            const event = { target: { value: 'test' } };
-            component.onFilterChange('title', event);
-
-            expect(component.filters()['title']).toBe('test');
-        });
-
-        it('should reset page to 0 on filter change', () => {
-            component.currentPageNum.set(2);
-            const event = { target: { value: 'test' } };
-
-            component.onFilterChange('title', event);
-
-            expect(component.currentPageNum()).toBe(0);
-        });
-
-        it('should remove filter when value is empty', () => {
-            component.filters.set({ title: 'test' });
-            const event = { target: { value: '' } };
-
-            component.onFilterChange('title', event);
-
-            expect(component.filters()['title']).toBeUndefined();
-        });
-
-        it('should clear all filters', () => {
-            component.filters.set({ title: 'test', status: 'draft' });
-
-            component.clearFilters();
-
-            expect(Object.keys(component.filters()).length).toBe(0);
-        });
-
         it('should reset page to 0 on clear filters', () => {
             component.currentPageNum.set(2);
-            component.filters.set({ title: 'test' });
+            component.statusFilter.set('draft');
 
             component.clearFilters();
 
             expect(component.currentPageNum()).toBe(0);
         });
 
-        it('should return true for hasActiveFilters when filters exist', () => {
-            component.filters.set({ title: 'test' });
+        it('should return true for hasActiveFilters when a status is chosen', () => {
+            component.statusFilter.set('draft');
 
             expect(component.hasActiveFilters()).toBe(true);
         });
 
-        it('should return false for hasActiveFilters when no filters', () => {
-            component.filters.set({});
+        it('should return false for hasActiveFilters when no status is chosen', () => {
+            component.statusFilter.set('');
 
             expect(component.hasActiveFilters()).toBe(false);
         });
 
-        it('should navigate with filter params', () => {
-            const event = { target: { value: 'test' } };
-            component.onFilterChange('title', event);
-
-            expect(mockRouter.navigate).toHaveBeenCalledWith([], expect.objectContaining({
-                queryParams: expect.objectContaining({
-                    filter_title: 'test'
-                })
-            }));
-        });
-
         it('should clear status filter when clearFilters is called', () => {
             component.statusFilter.set('published');
-            component.filters.set({ title: 'test' });
 
             component.clearFilters();
 
@@ -585,7 +526,6 @@ describe('DraftContentsTableComponent', () => {
         });
 
         it('should fetch data after clearing filters', () => {
-            component.filters.set({ title: 'test' });
             component.statusFilter.set('draft');
             vi.clearAllMocks();
 
@@ -595,7 +535,6 @@ describe('DraftContentsTableComponent', () => {
         });
 
         it('should return true for hasActiveFilters when statusFilter is set', () => {
-            component.filters.set({});
             component.statusFilter.set('published');
 
             expect(component.hasActiveFilters()).toBe(true);

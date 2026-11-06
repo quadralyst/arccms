@@ -104,8 +104,8 @@ export default class ContactsPageComponent implements OnInit {
 
     columns: TableColumn[] = [
         { key: 'email', header: 'common.table.email', type: 'text' },
-        { key: 'name', header: 'common.table.name', type: 'text', transformFn: (r) => r.name || r.firstName || '—' },
-        { key: 'sources', header: 'admin.audience.contacts.sources', type: 'text', classFn: () => 'small', transformFn: (r) => (r.sources || []).join(', ') || '—' },
+        { key: 'name', header: 'common.table.name', type: 'text', transformFn: (r) => r.name || r.firstName || '-' },
+        { key: 'sources', header: 'admin.audience.contacts.sources', type: 'text', classFn: () => 'small', transformFn: (r) => (r.sources || []).join(', ') || '-' },
         { key: 'listIds', header: 'admin.audience.contacts.lists', type: 'text', transformFn: (r) => (r.listIds || []).length },
         {
             key: 'tags', header: 'admin.audience.contacts.tags', type: 'tags',

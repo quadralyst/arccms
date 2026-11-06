@@ -108,7 +108,7 @@ import { memberLocaleNow } from '../../core/i18n/member-language-now';
                                         <div class="info-icon"><i class="fa-solid fa-arrow-up-right-dots"></i></div>
                                         <div class="info-data">
                                             <span class="info-label">{{ 'user.account.tier_rank' | transloco }}</span>
-                                            <span class="info-val">{{ entitlement()?.premiumTierRank ?? '—' }}</span>
+                                            <span class="info-val">{{ entitlement()?.premiumTierRank ?? '-' }}</span>
                                         </div>
                                     </div>
 
@@ -116,7 +116,7 @@ import { memberLocaleNow } from '../../core/i18n/member-language-now';
                                         <div class="info-icon"><i class="fa-solid fa-receipt"></i></div>
                                         <div class="info-data">
                                             <span class="info-label">{{ 'user.account.subscription_id' | transloco }}</span>
-                                            <span class="info-val mono">{{ entitlement()?.providerSubscriptionId || '—' }}</span>
+                                            <span class="info-val mono">{{ entitlement()?.providerSubscriptionId || '-' }}</span>
                                         </div>
                                     </div>
 
@@ -124,7 +124,7 @@ import { memberLocaleNow } from '../../core/i18n/member-language-now';
                                         <div class="info-icon"><i class="fa-solid fa-id-card"></i></div>
                                         <div class="info-data">
                                             <span class="info-label">{{ 'user.account.customer_id' | transloco }}</span>
-                                            <span class="info-val mono">{{ entitlement()?.providerCustomerId || '—' }}</span>
+                                            <span class="info-val mono">{{ entitlement()?.providerCustomerId || '-' }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -837,6 +837,6 @@ export default class AccountPageComponent implements OnInit {
 
     fmtDate(value: unknown): string {
         const d = toJsDate(value);
-        return d ? d.toLocaleString(memberLocaleNow()) : '—';
+        return d ? d.toLocaleString(memberLocaleNow()) : '-';
     }
 }

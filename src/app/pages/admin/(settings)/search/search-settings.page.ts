@@ -155,9 +155,9 @@ const STATE_BADGE: Record<SearchCollectionState, string> = {
                       }
                     </div>
                   </td>
-                  <td>{{ row.scope ? (scopeKey(row.scope) | transloco) : '–' }}</td>
-                  <td class="text-end">{{ row.status?.documents ?? '–' }}</td>
-                  <td class="text-end">{{ row.status?.entries ?? '–' }}</td>
+                  <td>{{ row.scope ? (scopeKey(row.scope) | transloco) : '-' }}</td>
+                  <td class="text-end">{{ row.status?.documents ?? '-' }}</td>
+                  <td class="text-end">{{ row.status?.entries ?? '-' }}</td>
                   <td>
                     @if (reindexedAt(row.status); as when) {
                       {{ when | arcTime: 'dateTime' }}
@@ -242,7 +242,7 @@ const STATE_BADGE: Record<SearchCollectionState, string> = {
               <div class="col-md-4">
                 <label class="form-label small mb-1" for="search-title">{{ 'admin.settings.search.result_title' | transloco }}</label>
                 <select id="search-title" class="form-select form-select-sm" (change)="patch({ title: value($event) })">
-                  <option value="" [selected]="!ed.title">–</option>
+                  <option value="" [selected]="!ed.title">-</option>
                   @for (field of ed.fields; track field.path) { <option [value]="field.path" [selected]="field.path === ed.title">{{ field.path }}</option> }
                 </select>
               </div>
@@ -274,7 +274,7 @@ const STATE_BADGE: Record<SearchCollectionState, string> = {
             @if (preview(); as p) {
               <div class="border rounded p-3 mb-3 bg-light" data-testid="collection-preview">
                 <div class="d-flex align-items-baseline gap-2 flex-wrap">
-                  <strong [class.text-primary]="!!p.link">{{ p.title || '–' }}</strong>
+                  <strong [class.text-primary]="!!p.link">{{ p.title || '-' }}</strong>
                   <span class="badge bg-secondary">{{ p.badge }}</span>
                   @if (ed.sample.samples.length > 1) {
                     <button type="button" class="btn btn-link btn-sm ms-auto p-0" (click)="nextSample()">

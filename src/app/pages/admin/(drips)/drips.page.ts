@@ -158,7 +158,7 @@ export default class DripsPageComponent implements OnInit, AfterViewInit {
     }
 
     async archive(c: DripCampaign): Promise<void> {
-        try { await this.service.archive(c.id); this.toast.success('Archived — active enrollments exited'); }
+        try { await this.service.archive(c.id); this.toast.success('Archived. Active enrollments exited.'); }
         catch (e) { console.error(e); this.toast.error('Failed to archive'); }
     }
 }

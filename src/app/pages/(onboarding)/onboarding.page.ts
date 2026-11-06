@@ -616,14 +616,14 @@ export default class OnboardingComponent implements OnInit {
                 this.toastService.success('Setup complete! Welcome to Arc CMS.');
             } else {
                 this.toastService.warning(
-                    'Setup complete — the default waitlist could not be created. You can add one from Waitlists.',
+                    'Setup complete, but the default waitlist could not be created. You can add one from Waitlists.',
                 );
             }
             this.router.navigate(['/admin/dashboard'], { replaceUrl: true });
         } catch (error) {
             console.error('Failed to complete setup:', error);
             this.errorMessage.set('Failed to create default content. Please try again.');
-            this.toastService.error('Setup failed — please retry');
+            this.toastService.error('Setup failed. Please retry.');
             this.setupFailed.set(true);
         } finally {
             this.isCompleting.set(false);

@@ -150,7 +150,7 @@ import { LoaderComponent } from '../../../../../shared/components/loader/loader.
             >
               <option value="">{{ 'admin.settings.localization.select_a_language' | transloco }}</option>
               @for (lang of availableToAdd(); track lang.code) {
-                <option [value]="lang.code">{{ lang.label }} ({{ lang.nativeLabel }}) — {{ lang.code }}</option>
+                <option [value]="lang.code">{{ lang.label }} ({{ lang.nativeLabel }}), {{ lang.code }}</option>
               }
               <option value="__custom__">{{ 'admin.settings.localization.other_enter_code' | transloco }}</option>
             </select>

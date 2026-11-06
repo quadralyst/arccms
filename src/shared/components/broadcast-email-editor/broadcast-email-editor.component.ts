@@ -36,6 +36,7 @@ import { TestEmailComponent } from '../test-email/test-email.component';
 import { EmailSettingService } from '../../../app/pages/admin/(settings)/email-setting/email-setting.service';
 import { HashtagAutocompleteDirective } from '../../directives/hashtag-autocomplete/hashtag-autocomplete.directive';
 import { getEmailTags } from '../../constants/email-tags';
+import { SiteBrandService } from '../../../app/core/brand/site-brand';
 
 type SendToOption = 'all' | 'some' | 'new' | '';
 
@@ -76,6 +77,8 @@ export class BroadcastEmailEditorComponent {
     private readonly globalService = inject(GlobalService);
     private readonly toastService = inject(ToastService);
     private readonly emailSettingService = inject(EmailSettingService);
+    /** The name shown and sent while Settings, Email names no sender. */
+    readonly siteName = inject(SiteBrandService).name;
 
     readonly constantVariables = new ConstantVariables();
 
@@ -105,9 +108,10 @@ export class BroadcastEmailEditorComponent {
     private initForm(): void {
         this.broadcastForm = this.fb.group({
             sendTo: ['', Validators.required],
-            // Filled from Settings, Email (loadEmailSettings).
-            senderName: ['', Validators.required],
-            senderEmail: ['noreply@arccms.com', [Validators.required, this.globalService.emailValidator()]],
+            // Filled from Settings, Email (loadEmailSettings), and blank until that names one:
+            // the email then goes out under the site's name.
+            senderName: [''],
+            senderEmail: ['', [Validators.required, this.globalService.emailValidator()]],
             subject: ['', Validators.required],
             previewText: [''],
             emails: [''],
@@ -129,12 +133,17 @@ export class BroadcastEmailEditorComponent {
         });
     }
 
+    private valueToSend() {
+        const value = this.broadcastForm.value;
+        return { ...value, senderName: value.senderName || this.siteName() };
+    }
+
     private loadEmailSettings(): void {
         this.emailSettingService.getEmailSettings().subscribe({
             next: (settings) => {
                 this.broadcastForm.patchValue({
-                    senderName: settings.senderName,
-                    senderEmail: settings.senderEmail,
+                    senderName: settings.senderName || '',
+                    senderEmail: settings.senderEmail || '',
                 });
             },
             error: (error) => {
@@ -349,7 +358,7 @@ export class BroadcastEmailEditorComponent {
             panelClass: 'broadcast-email-dialog',
             disableClose: true,
             data: {
-                formValue: this.broadcastForm.value,
+                formValue: this.valueToSend(),
                 contentTemplate: this.htmlContent,
                 selectedUsers: selectedUsersWithTemplate,
                 waitlistId: this.waitlistId,
@@ -424,7 +433,7 @@ export class BroadcastEmailEditorComponent {
             maxHeight: '90vh',
             panelClass: 'test-email-dialog',
             data: {
-                formValue: this.broadcastForm.value,
+                formValue: this.valueToSend(),
                 contentTemplate: this.htmlContent,
             },
         });

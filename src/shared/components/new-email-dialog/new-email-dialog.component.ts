@@ -33,7 +33,7 @@ import { NewEmailMeta } from '../../email-compiler/new-template';
             <form [formGroup]="form">
                 <mat-form-field appearance="outline" class="w-100">
                     <mat-label>Title</mat-label>
-                    <input matInput formControlName="title" placeholder="Welcome — day 1" cdkFocusInitial />
+                    <input matInput formControlName="title" placeholder="Welcome, day 1" cdkFocusInitial />
                     @if (form.controls.title.touched && form.controls.title.invalid) {
                     <mat-error>Give the email a title</mat-error>
                     }

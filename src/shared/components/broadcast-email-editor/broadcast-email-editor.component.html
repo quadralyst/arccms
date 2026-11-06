@@ -51,7 +51,7 @@
                             <!-- Sender Name -->
                             <div class="form-group">
                                 <label>Sender Name</label>
-                                <p class="text-muted">{{ broadcastForm.get('senderName')?.value }}</p>
+                                <p class="text-muted">{{ broadcastForm.get('senderName')?.value || siteName() }}</p>
                             </div>
 
                             <!-- Sender Email -->

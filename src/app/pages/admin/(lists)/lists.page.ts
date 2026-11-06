@@ -56,7 +56,7 @@ export default class ListsPageComponent implements OnInit {
 
     columns: TableColumn[] = [
         { key: 'name', header: 'common.table.name', type: 'text', classFn: () => 'fw-medium' },
-        { key: 'description', header: 'common.table.description', type: 'text', classFn: () => 'small text-muted', transformFn: (r) => r.description || '—' },
+        { key: 'description', header: 'common.table.description', type: 'text', classFn: () => 'small text-muted', transformFn: (r) => r.description || '-' },
         {
             key: 'type', header: 'common.table.type', type: 'html',
             // Static markup only — never interpolate list-supplied values here.

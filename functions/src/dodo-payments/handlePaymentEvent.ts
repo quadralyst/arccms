@@ -60,7 +60,7 @@ export const handlePaymentEvent = onDocumentCreated(
 
       logger.error(
         `Failed to process WebhookEvents/${eventId} (attempt ${attempts}/${MAX_PROCESSING_ATTEMPTS})` +
-          (givingUp ? ' — giving up, flagged for manual replay' : ' — will retry'),
+          (givingUp ? ': giving up, flagged for manual replay' : ': will retry'),
         error,
       );
       await snap.ref.update({

@@ -145,11 +145,17 @@ describe('TemplatesComponent', () => {
         });
 
         it('should require sender name', () => {
+            // A site with no sender saved can still save a template: nobody can fill this
+            // field here, and the email goes out under the site's name.
             const senderName = component.templateForm.get('senderName');
             senderName?.setValue('');
-            expect(senderName?.valid).toBe(false);
-            senderName?.setValue('Test Sender');
             expect(senderName?.valid).toBe(true);
+        });
+
+        it('fills a sender missing from Settings, Email with blank, which can be saved', () => {
+            mockEmailSettingsService.getEmailSettings.mockReturnValue(of({ senderEmail: 'a@b.c' }));
+            (component as any).loadSettings();
+            expect(component.templateForm.get('senderName')?.value).toBe('');
         });
 
         it('should require sender email', () => {

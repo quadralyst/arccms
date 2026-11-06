@@ -120,6 +120,12 @@ export function createGenericStore<T extends IBaseModel>(
             let latestRead = 0;
             /** The list on screen, whose total a read of the same list can keep. */
             let shownShape = '';
+            /**
+             * Lets go of the pending task of the read under way. A read replaced before its
+             * answer never gets one, and its task left open would keep the app from ever
+             * settling (dev mode's "did not stabilize" note, and server rendering's wait).
+             */
+            let releaseReadTask: () => void = () => undefined;
 
             const getAll = async (queryParams?: QueryParams, collectionSuffix?: string): Promise<void> => {
                 patchState(store, { isLoading: true, isSuccess: false, error: '' });
@@ -134,6 +140,9 @@ export function createGenericStore<T extends IBaseModel>(
                         taskCleanup();
                     }
                 };
+                // After the new task opens, so the app does not settle for a moment between them.
+                releaseReadTask();
+                releaseReadTask = cleanupOnce;
 
                 const defaultQueryParams: QueryParams = {
                     limitCount: store.limit(),
@@ -466,6 +475,7 @@ export function createGenericStore<T extends IBaseModel>(
                     }
                     activeSubscription = null;
                 }
+                releaseReadTask();
 
                 cursors.forget();
                 latestRead++;

@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as nodemailer from "nodemailer";
 import { EmailSettings } from '../types.js';
+import { addressLine, senderNameFor } from '../email-core/sender.js';
 
 export const testSmtpConfigConnection = onCall(async (request) => {
     if (!request.auth) {
@@ -73,7 +74,7 @@ async function testSmtpWithEmail(config: EmailSettings, testEmail?: string, subj
         const subj = subject || "SMTP Connection Test - Arc CMS";
         const textContent = message || "This email confirms that your SMTP configuration in Arc CMS is working correctly.";
         await transporter.sendMail({
-            from: `"${config.senderName || 'Arc CMS System'}" <${config.senderEmail || user}>`,
+            from: addressLine(await senderNameFor(config.senderName, config), config.senderEmail || user),
             to: testEmail,
             subject: subj,
             text: textContent,
@@ -107,7 +108,7 @@ async function testGmailWithEmail(config: EmailSettings, testEmail?: string, sub
         const subj = subject || "Gmail Connection Test - Arc CMS";
         const textContent = message || "This email confirms that your Gmail configuration in Arc CMS is working correctly.";
         await transporter.sendMail({
-            from: `"${config.senderName || 'Arc CMS System'}" <${config.senderEmail || user}>`,
+            from: addressLine(await senderNameFor(config.senderName, config), config.senderEmail || user),
             to: testEmail,
             subject: subj,
             text: textContent,
@@ -147,7 +148,8 @@ async function testResendWithEmail(config: EmailSettings, testEmail?: string, su
             },
             signal: AbortSignal.timeout(15_000),
             body: JSON.stringify({
-                from: config.senderEmail ? `${config.senderName || 'Arc CMS System'} <${config.senderEmail}>` : 'Arc CMS <onboarding@resend.dev>',
+                // Resend's own address sends a test on an account with no domain of its own yet.
+                from: addressLine(await senderNameFor(config.senderName, config), config.senderEmail || 'onboarding@resend.dev'),
                 to: [testEmail],
                 subject: subj,
                 text: textContent,

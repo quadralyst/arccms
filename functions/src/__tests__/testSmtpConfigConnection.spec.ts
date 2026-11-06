@@ -42,6 +42,9 @@ vi.mock('firebase-functions/v2/https', () => {
     };
 });
 
+const { mockGetSiteConfig } = vi.hoisted(() => ({ mockGetSiteConfig: vi.fn().mockResolvedValue({ siteName: 'Sunrise Bakery' }) }));
+vi.mock('../shared/site-settings', () => ({ getSiteConfig: mockGetSiteConfig }));
+
 // ─── Global fetch mock ───────────────────────────────────────────────────────
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -326,6 +329,32 @@ describe('testSmtpConfigConnection handler', () => {
     });
 
     // ─── Regression: frontend payload shape ──────────────────────────────────
+
+    describe('who a test email is from', () => {
+        const smtp = { host: 'smtp.example.com', port: 587, secure: false, user: 'user@example.com', password: 'pass' };
+
+        it('keeps the sender being tried', async () => {
+            await handler(makeRequest({ config: { senderName: 'Bakery Mail', senderEmail: 'a@b.c', smtp }, activeProvider: 'smtp', testEmail: 't@e.st' }));
+            expect(mockSendMail.mock.lastCall![0].from).toBe('Bakery Mail <a@b.c>');
+        });
+
+        it("a blank sender takes the site's name, never \"Arc CMS System\"", async () => {
+            await handler(makeRequest({ config: { senderName: '', senderEmail: 'a@b.c', smtp }, activeProvider: 'smtp', testEmail: 't@e.st' }));
+            expect(mockSendMail.mock.lastCall![0].from).toBe('Sunrise Bakery <a@b.c>');
+        });
+
+        it('with no name anywhere, the address alone', async () => {
+            mockGetSiteConfig.mockResolvedValueOnce({ siteName: '' });
+            await handler(makeRequest({ config: { senderEmail: 'a@b.c', smtp }, activeProvider: 'smtp', testEmail: 't@e.st' }));
+            expect(mockSendMail.mock.lastCall![0].from).toBe('a@b.c');
+        });
+
+        it("Resend with no address yet uses its own test address under the site's name", async () => {
+            mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: 'r1' }) });
+            await handler(makeRequest({ config: { resend: { apiKey: 're_x' } }, activeProvider: 'resend', testEmail: 't@e.st' }));
+            expect(JSON.parse(mockFetch.mock.lastCall![1].body).from).toBe('Sunrise Bakery <onboarding@resend.dev>');
+        });
+    });
 
     describe('regression: frontend payload compatibility', () => {
         it('should accept the exact payload shape the frontend sends', async () => {

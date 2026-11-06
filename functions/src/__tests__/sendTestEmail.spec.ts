@@ -62,4 +62,12 @@ describe('sendTestEmail', () => {
       template: '<p>hi</p>',
     }));
   });
+
+  it('leaves a blank sender for sendMail to fill in, never "Arc CMS"', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => ({ senderEmail: 's@x.com', isEnabled: true, activeProvider: 'smtp' }) });
+
+    await handler(adminReq({ toEmail: 'a@b.com', html: '<p>hi</p>' }));
+
+    expect(mockQueueEmail.mock.calls[0][0].senderName).toBe('');
+  });
 });

@@ -309,7 +309,7 @@ export const EMAIL_PROVIDERS: IEmailProviderInfo[] = [
     {
         id: 'resend',
         name: 'Resend',
-        description: 'Simple, reliable email API — easy setup',
+        description: 'Simple, reliable email API with easy setup',
         icon: 'fa-solid fa-paper-plane',
         helpUrl: 'https://resend.com/api-keys',
         helpLabel: 'Get your Resend API Key',
@@ -319,11 +319,11 @@ export const EMAIL_PROVIDERS: IEmailProviderInfo[] = [
     {
         id: 'debug_log',
         name: 'Debug Provider (Log Only)',
-        description: 'Simulated provider — records every email in Email Logs but never actually sends.',
+        description: 'Simulated provider: records every email in Email Logs but never actually sends.',
         icon: 'fa-solid fa-bug',
         helpUrl: '',
         helpLabel: '',
         bestFor: 'Testing the whole email pipeline without a real provider or inbox',
-        freeLimit: 'Nothing is sent — every message is recorded in Email Logs only',
+        freeLimit: 'Nothing is sent: every message is recorded in Email Logs only',
     },
 ];

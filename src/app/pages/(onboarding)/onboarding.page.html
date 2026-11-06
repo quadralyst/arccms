@@ -10,7 +10,7 @@
               <h1 class="auth-left-title">Welcome to {{ productName }}</h1>
               <p class="auth-left-description">
                 Let's get your platform set up. You're creating the first admin
-                account — the person who will have full control of the CMS.
+                account: the person who will have full control of the CMS.
               </p>
               <ul class="auth-left-features">
                 <li>Manage content types and entries</li>
@@ -427,7 +427,7 @@
               <h2 class="auth-title">Set Up Email</h2>
               <p class="auth-subtitle">
                 Choose how your site sends emails for waitlist confirmations, notifications, and more.
-                Don't worry — you can change this later in Settings.
+                Don't worry, you can change this later in Settings.
               </p>
 
               <div class="skip-banner">
@@ -452,7 +452,7 @@
                   >
                     @for (provider of providers; track provider.id) {
                     <option [value]="provider.id">
-                      {{ provider.name }} — {{ provider.description }}
+                      {{ provider.name }}: {{ provider.description }}
                     </option>
                     }
                   </select>
@@ -482,20 +482,20 @@
                       <li>
                         <a href="https://support.microsoft.com/en-us/office/pop-imap-and-smtp-settings-8361e398-8af4-4e97-b147-6c6c4ac95353" target="_blank" rel="noopener">
                           Outlook / Microsoft 365
-                        </a>
-                        — Host: <code>smtp.office365.com</code>, Port: <code>587</code>
+                        </a>:
+                        host <code>smtp.office365.com</code>, port <code>587</code>
                       </li>
                       <li>
                         <a href="https://help.yahoo.com/kb/SLN4724.html" target="_blank" rel="noopener">
                           Yahoo Mail
-                        </a>
-                        — Host: <code>smtp.mail.yahoo.com</code>, Port: <code>465</code> (SSL)
+                        </a>:
+                        host <code>smtp.mail.yahoo.com</code>, port <code>465</code> (SSL)
                       </li>
                       <li>
                         <a href="https://www.zoho.com/mail/help/zoho-smtp.html" target="_blank" rel="noopener">
                           Zoho Mail
-                        </a>
-                        — Host: <code>smtp.zoho.com</code>, Port: <code>465</code> (SSL)
+                        </a>:
+                        host <code>smtp.zoho.com</code>, port <code>465</code> (SSL)
                       </li>
                     </ul>
                   </div>
@@ -693,7 +693,7 @@
                       </span>
                     </div>
                     <div class="form-text">
-                      Starts with <code>re_</code> — get it from
+                      Starts with <code>re_</code>. Get it from
                       <a href="https://resend.com/api-keys" target="_blank" rel="noopener">resend.com/api-keys</a>
                     </div>
                   </div>
@@ -811,7 +811,7 @@
               </div>
               <h2 class="auth-title">Setup Complete!</h2>
               <p class="auth-subtitle">
-                Congratulations — your CMS is configured and ready to go.
+                Congratulations! Your CMS is configured and ready to go.
               </p>
 
               <!-- What we configured -->
@@ -833,7 +833,7 @@
                     @if (testPassed()) {
                     <span>Email delivery configured via <strong>{{ selectedProvider() | titlecase }}</strong></span>
                     } @else {
-                    <span>Email delivery <strong>skipped</strong> — set up later from Settings</span>
+                    <span>Email delivery <strong>skipped</strong>: set up later from Settings</span>
                     }
                   </li>
                   <li>
@@ -846,7 +846,7 @@
                   </li>
                   <li>
                     <i class="fas fa-location-dot"></i>
-                    <span>Geolocation enabled via <strong>ipapi.co</strong> — captures country, region &amp; city for leads. Disable anytime from <strong>Settings &rarr; Integrations</strong></span>
+                    <span>Geolocation enabled via <strong>ipapi.co</strong>. Captures country, region &amp; city for leads. Disable anytime from <strong>Settings &rarr; Integrations</strong></span>
                   </li>
                 </ul>
               </div>
@@ -867,7 +867,7 @@
               <div class="alert alert-warning mt-3">
                 <i class="fas fa-triangle-exclamation me-1"></i>
                 Your admin permissions are still propagating. Setup will finish
-                either way — the default waitlist may be skipped, and you can add
+                either way: the default waitlist may be skipped, and you can add
                 one later from Waitlists.
               </div>
               } @if (errorMessage()) {

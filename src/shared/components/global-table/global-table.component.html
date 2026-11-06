@@ -70,7 +70,7 @@
                                 <img [src]="imageUrl" [alt]="resolveImageAlt(col, row)" class="table-thumb"
                                     [style.height.px]="col.imageConfig?.height || 40" loading="lazy" />
                             </ng-container>
-                            <ng-template #noImage><span class="text-muted">—</span></ng-template>
+                            <ng-template #noImage><span class="text-muted">-</span></ng-template>
                         </ng-container>
 
                         <!-- HTML Type -->
@@ -101,7 +101,7 @@
                                     </span>
                                 </ng-container>
                                 <span *ngIf="!(col.transformFn ? col.transformFn(row) : row[col.key])?.length"
-                                    class="text-muted small">—</span>
+                                    class="text-muted small">-</span>
                             </div>
                         </ng-container>
 

@@ -5,6 +5,7 @@ import nodemailer from 'nodemailer';
 import { EmailLogData, EmailSettings, ProcessedTemplate } from '../types.js';
 import { checkQuota, incrementSendCount, resolveProviderLimits } from './emailCounter.js';
 import { getMiscSettings } from '../shared/site-settings.js';
+import { addressLine, senderNameFor } from '../email-core/sender.js';
 import { POWERED_BY_EMAIL_HTML } from '../shared/html-document.js';
 import { buildUnsubscribeUrl, buildPreferencesUrl } from '../email-core/unsubscribeToken.js';
 import { getUnsubscribeSecret } from '../email-core/unsubscribeSecret.js';
@@ -147,6 +148,14 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string,
     // on first use rather than expected in Settings/email (see unsubscribeSecret.ts).
     settings.unsubscribeSecret = await getUnsubscribeSecret(settings.unsubscribeSecret);
 
+    // Who it comes from, decided here so every kind of email and every provider agrees, and
+    // the log records what went out. A template can have no sender of its own.
+    const senderName = await senderNameFor(emailLogsData.senderName, settings);
+    const senderEmail = emailLogsData.senderEmail || settings.senderEmail || '';
+    const senderChanged = senderName !== emailLogsData.senderName || senderEmail !== emailLogsData.senderEmail;
+    const senderFields = senderChanged ? { senderName, senderEmail } : {};
+    emailLogsData = { ...emailLogsData, senderName, senderEmail };
+
     try {
         updatedTemplate = await processEmailTemplate(emailLogsData, settings);
 
@@ -201,6 +210,7 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string,
             usedTags: updatedTemplate.usedTags,
             unmappedTags: updatedTemplate.unmappedTags,
             activeProvider,
+            ...senderFields,
         };
         if (logOnly) updateData.logOnly = true;
 
@@ -230,6 +240,7 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string,
             sendingTime: Timestamp.now(),
             activeProvider,
             errorMessage: err instanceof Error ? err.message : String(err),
+            ...senderFields,
         };
         if (!exhausted) {
             failData.nextAttemptAt = Timestamp.fromMillis(
@@ -283,8 +294,8 @@ async function sendSmtpMail(emailLogsData: EmailLogData, updatedTemplate: Proces
     });
 
     return await transporterMail.sendMail({
-        from: `"${emailLogsData.senderName}" <${emailLogsData.senderEmail}>`,
-        to: `"${emailLogsData.toName}" <${emailLogsData.toEmail}>`,
+        from: addressLine(emailLogsData.senderName, emailLogsData.senderEmail),
+        to: addressLine(emailLogsData.toName, emailLogsData.toEmail),
         subject: updatedTemplate.subject,
         text: emailLogsData.text,
         replyTo: emailLogsData.replyTo || settings.replyToEmail,
@@ -309,7 +320,7 @@ async function sendResendMail(emailLogsData: EmailLogData, updatedTemplate: Proc
         },
         signal: AbortSignal.timeout(30_000),
         body: JSON.stringify({
-            from: `${emailLogsData.senderName} <${emailLogsData.senderEmail}>`,
+            from: addressLine(emailLogsData.senderName, emailLogsData.senderEmail),
             to: [emailLogsData.toEmail],
             subject: updatedTemplate.subject,
             html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? '', settings.trackingPixelUrl),
@@ -343,8 +354,8 @@ async function sendGmailMail(emailLogsData: EmailLogData, updatedTemplate: Proce
     });
 
     return await transporter.sendMail({
-        from: `"${emailLogsData.senderName}" <${emailLogsData.senderEmail}>`,
-        to: `"${emailLogsData.toName}" <${emailLogsData.toEmail}>`,
+        from: addressLine(emailLogsData.senderName, emailLogsData.senderEmail),
+        to: addressLine(emailLogsData.toName, emailLogsData.toEmail),
         subject: updatedTemplate.subject,
         text: emailLogsData.text,
         html: updatedTemplate.template + buildTrackingPixel(emailLogsData.id ?? '', settings.trackingPixelUrl),

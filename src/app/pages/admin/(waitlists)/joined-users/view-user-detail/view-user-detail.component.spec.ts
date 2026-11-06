@@ -137,11 +137,11 @@ describe('ViewUserDetailComponent', () => {
 
     describe('formatFieldValue', () => {
         it('should return dash for null', () => {
-            expect(component.formatFieldValue(null)).toBe('—');
+            expect(component.formatFieldValue(null)).toBe('-');
         });
 
         it('should return dash for undefined', () => {
-            expect(component.formatFieldValue(undefined)).toBe('—');
+            expect(component.formatFieldValue(undefined)).toBe('-');
         });
 
         it('should return Yes for true', () => {

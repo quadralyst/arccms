@@ -83,7 +83,7 @@ export type DripDrawerMode = 'add' | 'edit';
                 <button mat-icon-button color="warn" (click)="removeStep(i)"><mat-icon>delete</mat-icon></button>
             </div>
             } @empty {
-            <p class="small text-muted">No steps yet — add the first email below.</p>
+            <p class="small text-muted">No steps yet. Add the first email below.</p>
             }
             <button mat-stroked-button (click)="addStep()"><mat-icon>add</mat-icon> Add step</button>
             <p class="small text-muted mt-2 mb-0">

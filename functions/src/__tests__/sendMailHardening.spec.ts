@@ -15,6 +15,7 @@ const {
   mockResolveLimits,
   mockIncrement,
   mockTransportSend,
+  mockGetSiteConfig,
 } = vi.hoisted(() => ({
   mockSettingsGet: vi.fn(),
   mockLogUpdate: vi.fn().mockResolvedValue(undefined),
@@ -22,6 +23,7 @@ const {
   mockResolveLimits: vi.fn().mockReturnValue({ perSecond: 1 }),
   mockIncrement: vi.fn().mockResolvedValue(undefined),
   mockTransportSend: vi.fn().mockResolvedValue({ messageId: 'mid-1' }),
+  mockGetSiteConfig: vi.fn().mockResolvedValue({ siteName: '' }),
 }));
 
 vi.mock('../init', () => ({
@@ -46,6 +48,7 @@ vi.mock('../mail-config/emailCounter', () => ({
 
 vi.mock('../shared/site-settings', () => ({
   getMiscSettings: vi.fn().mockResolvedValue({ showPoweredBy: false }),
+  getSiteConfig: mockGetSiteConfig,
 }));
 
 vi.mock('../shared/html-document', () => ({ POWERED_BY_EMAIL_HTML: '<!--pb-->' }));
@@ -205,5 +208,158 @@ describe('sendMail hardening', () => {
 
     expect(mockCheckQuota).not.toHaveBeenCalled();
     expect(lastUpdate().status).toBe('success');
+  });
+});
+
+describe('sendMail sender', () => {
+  const sentFrom = () => mockTransportSend.mock.calls[0][0].from;
+  const resendFrom = (fetchMock: ReturnType<typeof vi.fn>) => JSON.parse(fetchMock.mock.calls[0][1].body).from;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCheckQuota.mockResolvedValue({ ok: true, dailyCount: 0, hourlyCount: 0 });
+    mockResolveLimits.mockReturnValue({ perSecond: 1 });
+    mockTransportSend.mockResolvedValue({ messageId: 'mid-1' });
+    mockGetSiteConfig.mockResolvedValue({ siteName: 'Sunrise Bakery' });
+  });
+
+  it("keeps a template's own sender, with no read of the site", async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ senderName: 'Settings Name' }) });
+
+    await sendMail(baseLog({ senderName: 'Own Name' }) as any, 'log-1');
+
+    expect(sentFrom()).toBe('Own Name <s@site.com>');
+    expect(mockGetSiteConfig).not.toHaveBeenCalled();
+    expect(lastUpdate().senderName).toBeUndefined();
+  });
+
+  it('a blank sender takes Settings, Email, and the log records it', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ senderName: 'Settings Name', senderEmail: 'set@site.com' }) });
+
+    await sendMail(baseLog({ senderName: '', senderEmail: '' }) as any, 'log-1');
+
+    expect(sentFrom()).toBe('Settings Name <set@site.com>');
+    expect(lastUpdate()).toMatchObject({ status: 'success', senderName: 'Settings Name', senderEmail: 'set@site.com' });
+  });
+
+  it("with nothing in Settings, a blank sender takes the site's name", async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings() });
+
+    await sendMail(baseLog({ senderName: '' }) as any, 'log-1');
+
+    expect(sentFrom()).toBe('Sunrise Bakery <s@site.com>');
+  });
+
+  it('the old "Arc CMS" on a template gives way to what the site has named', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ senderName: 'Settings Name' }) });
+
+    await sendMail(baseLog({ senderName: 'Arc CMS' }) as any, 'log-1');
+
+    expect(sentFrom()).toBe('Settings Name <s@site.com>');
+  });
+
+  it('"Arc CMS" saved in Settings, Email is what that form shows, so it is what goes out', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ senderName: 'Arc CMS' }) });
+
+    await sendMail(baseLog({ senderName: '' }) as any, 'log-1');
+
+    expect(sentFrom()).toBe('Arc CMS <s@site.com>');
+    expect(mockGetSiteConfig).not.toHaveBeenCalled();
+  });
+
+  it('with no name anywhere it sends the address alone, never "" <address>', async () => {
+    mockGetSiteConfig.mockResolvedValue({ siteName: '' });
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings() });
+
+    await sendMail(baseLog({ senderName: '' }) as any, 'log-1');
+
+    expect(sentFrom()).toBe('s@site.com');
+  });
+
+  it('a site name that cannot be read costs the name, not the email', async () => {
+    mockGetSiteConfig.mockRejectedValue(new Error('offline'));
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings() });
+
+    await sendMail(baseLog({ senderName: '' }) as any, 'log-1');
+
+    expect(sentFrom()).toBe('s@site.com');
+    expect(lastUpdate().status).toBe('success');
+  });
+
+  it('"Arc CMS" on a template with nothing else named sends the address alone', async () => {
+    mockGetSiteConfig.mockResolvedValue({ siteName: '' });
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings() });
+
+    await sendMail(baseLog({ senderName: 'Arc CMS' }) as any, 'log-1');
+
+    expect(sentFrom()).toBe('s@site.com');
+  });
+
+  it('a name from a public form cannot add a recipient', async () => {
+    const { createRequire } = await import('node:module');
+    const parse = createRequire(import.meta.url)('nodemailer/lib/addressparser');
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings() });
+
+    await sendMail(baseLog({ toName: 'x", victim@evil.test, "y' }) as any, 'log-1');
+
+    const to = parse(mockTransportSend.mock.calls[0][0].to);
+    expect(to).toHaveLength(1);
+    expect(to[0].address).toBe('user@example.com');
+  });
+
+  it('Gmail takes the same fallback', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ activeProvider: 'gmail', gmail: { user: 'u', password: 'p' } }) });
+
+    await sendMail(baseLog({ senderName: '' }) as any, 'log-1');
+
+    expect(sentFrom()).toBe('Sunrise Bakery <s@site.com>');
+  });
+
+  it('Resend takes the same fallback', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'r1' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ activeProvider: 'resend', resend: { apiKey: 'k' } }) });
+
+      await sendMail(baseLog({ senderName: '' }) as any, 'log-1');
+
+      expect(resendFrom(fetchMock)).toBe('Sunrise Bakery <s@site.com>');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('the Simulated provider records the name that would have gone out', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ activeProvider: 'debug_log' }) });
+
+    await sendMail(baseLog({ senderName: '' }) as any, 'log-1');
+
+    expect(mockTransportSend).not.toHaveBeenCalled();
+    expect(lastUpdate()).toMatchObject({ status: 'success', senderName: 'Sunrise Bakery', logOnly: true });
+  });
+
+  it('##SENDER_NAME## in the body says the same name', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings() });
+
+    await sendMail(baseLog({ senderName: '', template: '<p>From ##SENDER_NAME##</p>' }) as any, 'log-1');
+
+    expect(mockTransportSend.mock.calls[0][0].html).toContain('From Sunrise Bakery');
+  });
+});
+
+describe('addressLine', () => {
+  it('quotes a name only when the line needs it', async () => {
+    const { addressLine } = await import('../email-core/sender.js');
+    expect(addressLine('Sunrise Bakery', 'a@b.c')).toBe('Sunrise Bakery <a@b.c>');
+    expect(addressLine('सूर्योदय बेकरी', 'a@b.c')).toBe('सूर्योदय बेकरी <a@b.c>');
+    expect(addressLine('Sunrise, Inc.', 'a@b.c')).toBe('"Sunrise, Inc." <a@b.c>');
+    expect(addressLine('The "Best" Bakery', 'a@b.c')).toBe('"The \\"Best\\" Bakery" <a@b.c>');
+    expect(addressLine('  ', 'a@b.c')).toBe('a@b.c');
+    expect(addressLine(undefined, 'a@b.c')).toBe('a@b.c');
+  });
+
+  it('a line break in a name cannot add a header', async () => {
+    const { addressLine } = await import('../email-core/sender.js');
+    expect(addressLine('Evil\r\nBcc: x@y.z', 'a@b.c')).toBe('"Evil Bcc: x@y.z" <a@b.c>');
   });
 });

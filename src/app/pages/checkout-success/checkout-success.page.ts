@@ -43,7 +43,7 @@ const MAX_POLLS = 15; // ~45s — entitlement is granted asynchronously by the w
                         <div class="icon wait"><i class="fa-solid fa-clock"></i></div>
                         <h2>Payment received</h2>
                         <p class="text-muted">
-                            We haven't seen the confirmation land yet. It usually arrives shortly —
+                            We haven't seen the confirmation land yet. It usually arrives shortly, so
                             check your account in a moment.
                         </p>
                     }

@@ -91,6 +91,14 @@ describe('ensureDefaultTemplates', () => {
     expect(data.editorVersion).toBe('html');
   });
 
+  it('saves a blank sender when nothing names one, never "Arc CMS"', async () => {
+    mockSettingsGet.mockResolvedValueOnce({ data: () => ({ senderEmail: 's@site.com' }) });
+
+    await ensureDefaultTemplates();
+
+    expect(mockTemplateSet.mock.calls[0][1].senderName).toBe('');
+  });
+
   it('is idempotent — a second run creates nothing', async () => {
     // Simulate: after the first run every type now exists.
     DEFAULT_TEMPLATES.forEach((t) => existingTypes.add(t.type));

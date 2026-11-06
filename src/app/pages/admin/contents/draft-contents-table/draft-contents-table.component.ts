@@ -109,10 +109,8 @@ export class DraftContentsTableComponent
   currentPageNum = signal<number>(0);
 
   // Filters
-  filters = signal<{ [key: string]: string }>({});
   statusFilter = signal<string>(''); // '', 'published', 'draft'
-  filterableColumns = [{ label: 'admin.contents.list.col_title', field: 'title' }];
-  
+
   // Preview
   previewItem = signal<any>(null);
 
@@ -332,7 +330,6 @@ export class DraftContentsTableComponent
     // The page the list landed on, which a removed record can change.
     followLandedPage(this.draftContentStore.currentPageNumber, this.currentPageNum);
 
-    // Here, since the first read comes before ngOnInit (ngOnChanges).
     this.applyAddress(this.route.snapshot.queryParams);
 
     effect(() => {
@@ -377,11 +374,10 @@ export class DraftContentsTableComponent
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['contentTypeSlug']) {
+    // The first value comes in before ngOnInit, which reads the list once it has opened.
+    if (changes['contentTypeSlug'] && !changes['contentTypeSlug'].firstChange) {
       // Reset pagination when switching content types
       this.currentPageNum.set(0);
-      this.filters.set({});
-      // Re-fetch data for the new content type (or initial type)
       this.fetchData();
     }
   }
@@ -623,9 +619,6 @@ export class DraftContentsTableComponent
    * Fetch data with current filter, sort, and pagination settings
    */
   private fetchData(): void {
-    // Convert filters to Firestore where conditions
-    const whereConditions: any[] = [];
-
     // When contentTypeSlug is set, we query the per-type collection directly
     // (no need for a type WHERE filter — the collection itself is type-specific).
     // When contentTypeSlug is empty, fall back to the legacy collection with no type filter.
@@ -633,29 +626,13 @@ export class DraftContentsTableComponent
     // Status filter (publishedStatus) is applied client-side in draftContentsData()
     // to avoid requiring composite Firestore indexes for every content type collection.
 
-    // Add text filters (prefix matching)
-    Object.entries(this.filters()).forEach(([field, value]) => {
-      if (value && value.trim()) {
-        whereConditions.push({
-          field,
-          operator: '>=',
-          value: value.trim(),
-        });
-        whereConditions.push({
-          field,
-          operator: '<=',
-          value: value.trim() + '\uf8ff',
-        });
-      }
-    });
-
     this.draftContentStore.getAll({
       orderByField: this.sortField(),
       orderByDirection: this.sortOrder(),
       limitCount: this.pageSizeSignal(),
       currentPageNumber: this.currentPageNum(),
       previousPageNumber: this.currentPageNum() - 1,
-      whereConditions,
+      whereConditions: [],
     }, this.contentTypeSlug || undefined);
   }
 
@@ -679,13 +656,6 @@ export class DraftContentsTableComponent
       size: this.pageSizeSignal(),
     };
 
-    // Add filter params
-    Object.entries(this.filters()).forEach(([field, value]) => {
-      if (value) {
-        queryParams[`filter_${field}`] = value;
-      }
-    });
-
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams,
@@ -704,28 +674,9 @@ export class DraftContentsTableComponent
   }
 
   /**
-   * Handle filter input changes
-   */
-  onFilterChange(field: string, event: any): void {
-    const value = event.target.value;
-    const currentFilters = { ...this.filters() };
-
-    if (value) {
-      currentFilters[field] = value;
-    } else {
-      delete currentFilters[field];
-    }
-
-    this.filters.set(currentFilters);
-    this.currentPageNum.set(0); // Reset to first page on filter change
-    this.updateUrl();
-  }
-
-  /**
    * Clear all filters
    */
   clearFilters(): void {
-    this.filters.set({});
     this.statusFilter.set('');
     this.currentPageNum.set(0);
     this.updateUrl();
@@ -736,7 +687,7 @@ export class DraftContentsTableComponent
    * Check if any filters are active
    */
   hasActiveFilters(): boolean {
-    return Object.keys(this.filters()).length > 0 || this.statusFilter() !== '';
+    return this.statusFilter() !== '';
   }
 
   /**

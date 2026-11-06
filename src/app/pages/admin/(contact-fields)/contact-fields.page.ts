@@ -71,7 +71,7 @@ export default class ContactFieldsPageComponent implements OnInit {
         },
         {
             key: 'defaultValue', header: 'admin.audience.fields.fallback', type: 'text', classFn: () => 'small text-muted',
-            transformFn: (r) => r.defaultValue || '—',
+            transformFn: (r) => r.defaultValue || '-',
         },
         {
             key: 'actions', header: 'common.table.actions', type: 'actions',

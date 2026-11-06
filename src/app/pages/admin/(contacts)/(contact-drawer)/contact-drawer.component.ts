@@ -111,9 +111,9 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
                 <dt class="col-4 text-muted small">Email</dt>
                 <dd class="col-8">{{ contact.email }}</dd>
                 <dt class="col-4 text-muted small">Name</dt>
-                <dd class="col-8">{{ contact.name || '—' }}</dd>
+                <dd class="col-8">{{ contact.name || '-' }}</dd>
                 <dt class="col-4 text-muted small">Sources</dt>
-                <dd class="col-8">{{ (contact.sources || []).join(', ') || '—' }}</dd>
+                <dd class="col-8">{{ (contact.sources || []).join(', ') || '-' }}</dd>
                 <dt class="col-4 text-muted small">Lists</dt>
                 <dd class="col-8">{{ (contact.listIds || []).length }}</dd>
                 <dt class="col-4 text-muted small">Consent</dt>
@@ -159,14 +159,14 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
                 }
             </div>
             } @else {
-            <p class="small text-muted mb-3">No tags yet — create them under Audience → Tags.</p>
+            <p class="small text-muted mb-3">No tags yet. Create them under Audience → Tags.</p>
             }
 
             <hr class="my-3" />
             <label class="form-label small text-muted d-block">Erase</label>
             <p class="small text-muted mb-2">
                 Deletes this address from the audience, the signup form's member list and any
-                pending verification. Use this to honour a deletion request — to just stop
+                pending verification. Use this to honour a deletion request. To just stop
                 emailing someone, suppress them instead.
             </p>
             <button mat-stroked-button color="warn" [disabled]="busy()" (click)="confirmErase()">
@@ -337,7 +337,7 @@ export class ContactDrawerComponent implements OnChanges {
             `Permanently erase <strong>${email}</strong>?<br><br>`
             + 'This deletes the contact, its signup form member record and any pending '
             + 'verification. It cannot be undone, and it is not the same as suppressing '
-            + 'them — an erased person can sign up again later.',
+            + 'them: an erased person can sign up again later.',
         );
 
         this.dialog.open(ConfirmationPopupComponent, {

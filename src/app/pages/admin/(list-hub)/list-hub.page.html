@@ -3,8 +3,8 @@
         [subtitle]="isLive()
             ? 'App users (live): people from your app who match this list\'s conditions right now'
             : isFormFed()
-            ? 'Fed by a signup form — membership syncs automatically'
-            : 'Manual list — add or remove members freely'">
+            ? 'Fed by a signup form: membership syncs automatically'
+            : 'Manual list: add or remove members freely'">
         @if (isFormFed()) {
             <button mat-stroked-button (click)="viewForm()">
                 <mat-icon>open_in_new</mat-icon> View form
@@ -59,12 +59,12 @@
         <div class="hub-counts">
             <span class="count-chip"><strong>{{ counts().subscribed }}</strong> subscribed</span>
             <span class="count-chip"
-                matTooltip="Signed up but haven't confirmed their email — excluded from marketing sends">
+                matTooltip="Signed up but haven't confirmed their email, so they are excluded from marketing sends">
                 <strong>{{ counts().pending }}</strong> pending
             </span>
             <span class="count-chip"><strong>{{ counts().unsubscribed }}</strong> unsubscribed</span>
             @if (counts().disabled) {
-                <span class="count-chip" matTooltip="Admin-disabled — these receive no email at all">
+                <span class="count-chip" matTooltip="Admin-disabled: these receive no email at all">
                     <strong>{{ counts().disabled }}</strong> disabled
                 </span>
             }
@@ -79,7 +79,7 @@
                         <p class="hub-note">
                             <i class="fas fa-circle-info"></i>
                             Membership comes from the signup form, so it can't be edited here.
-                            To stop emailing someone, <strong>disable</strong> them — they keep their
+                            To stop emailing someone, <strong>disable</strong> them. They keep their
                             place in the funnel and can be re-enabled at any time.
                         </p>
                     }

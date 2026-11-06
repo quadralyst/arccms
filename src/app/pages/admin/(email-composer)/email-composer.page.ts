@@ -289,7 +289,7 @@ export default class EmailComposerPageComponent implements OnInit {
             this.upgraded.set(false);
             this.selected.set(created);
             this.syncDrafts(created);
-            this.toast.success('New email created — edit the details and save');
+            this.toast.success('New email created. Edit the details and save.');
         } catch (err) {
             console.error(err);
             this.toast.error('Failed to create email');
@@ -334,7 +334,7 @@ export default class EmailComposerPageComponent implements OnInit {
             },
         });
         this.upgraded.set(true);
-        this.toast.success('Started a block version — edit and save to switch this template to blocks.');
+        this.toast.success('Started a block version. Edit and save to switch this template to blocks.');
     }
 
     async onSaved(e: BlockEditorSaveEvent): Promise<void> {

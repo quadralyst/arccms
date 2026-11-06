@@ -61,9 +61,7 @@
         <h2>{{ 'admin.dashboard.ga_overview' | transloco }}</h2>
         @if (analyticsData()[0]?.dateRange) {
         <span class="date-range-badge">
-            {{ formatShortDate(analyticsData()[0]?.dateRange?.startDate) }}
-            –
-            {{ formatShortDate(analyticsData()[0]?.dateRange?.endDate) }}
+            {{ 'admin.dashboard.date_range' | transloco: { start: formatShortDate(analyticsData()[0]?.dateRange?.startDate), end: formatShortDate(analyticsData()[0]?.dateRange?.endDate) } }}
         </span>
         }
     </div>
