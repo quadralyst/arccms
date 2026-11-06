@@ -138,7 +138,7 @@
             }
         </div>
         <mat-paginator [length]="filteredTotalRecords()" [pageSize]="pageSizeSignal()"
-            [pageIndex]="currentPageNum()" [pageSizeOptions]="[5, 10, 25, 50]" [showFirstLastButtons]="true"
+            [pageIndex]="currentPageNum()" [pageSizeOptions]="pageSizes" [showFirstLastButtons]="true"
             (page)="onPageChange($event)">
         </mat-paginator>
         }
