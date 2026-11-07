@@ -102,9 +102,9 @@
                     <h1 class="version-preview-title">{{ previewingVersion()!.title }}</h1>
                     @if (bodyLook()) {
                     <!-- In the page's look, as the editor shows the body (ES3). -->
-                    <arc-site-look-view [look]="bodyLook()!" [html]="previewingVersion()!.content" />
+                    <arc-site-look-view arcPreviewLinks [look]="bodyLook()!" [html]="previewingVersion()!.content" />
                     } @else {
-                    <div class="version-preview-body" [innerHTML]="getPreviewSafeHtml(previewingVersion()!.content)"></div>
+                    <div class="version-preview-body" arcPreviewLinks [innerHTML]="getPreviewSafeHtml(previewingVersion()!.content)"></div>
                     }
                 </div>
 

@@ -1,4 +1,5 @@
 import { RouteMeta } from '@analogjs/router';
+import { PreviewLinksDirective } from '../../../../shared/directives/preview-links/preview-links.directive';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -37,7 +38,7 @@ const SOCIAL_PLATFORMS: SocialLink['platform'][] = ['x', 'linkedin', 'github', '
 
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent, HashtagAutocompleteDirective],
+    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatSelectModule, PageHeaderComponent, HashtagAutocompleteDirective, PreviewLinksDirective],
     templateUrl: './brand-kit.page.html',
 })
 export default class BrandKitPageComponent implements OnInit {

@@ -1,4 +1,5 @@
 import { RouteMeta } from '@analogjs/router';
+import { PreviewLinksDirective } from '../../../../shared/directives/preview-links/preview-links.directive';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { Component, inject, Injector, OnInit, PLATFORM_ID, runInInjectionContext, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -99,7 +100,7 @@ interface TemplateDoc {
         CommonModule, FormsModule, MatButtonModule, MatIconModule,
         MatFormFieldModule, MatInputModule, MatSelectModule,
         MatDialogModule, EmailBlockEditorComponent,
-        GlobalTableComponent, PageHeaderComponent,
+        GlobalTableComponent, PageHeaderComponent, PreviewLinksDirective,
     ],
     templateUrl: './email-composer.page.html',
 })

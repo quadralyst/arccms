@@ -1,4 +1,5 @@
 import { parseHexColor } from '../../../../../shared/utils/color';
+import { PreviewLinksDirective } from '../../../../../shared/directives/preview-links/preview-links.directive';
 import { hasReplacePrompt } from '../standard-pages/standard-pages';
 import { nextUrlSlug, toUrlSlug } from '../../../../../shared/utils/url-slug';
 import { authorCanonicalUrl } from '../../../../../shared/utils/canonical-url';
@@ -139,6 +140,7 @@ const COVER_IMAGE_SIZE: ImageSize = 'xl';
     FormsModule,
     ReactiveFormsModule,
     TiptapEditorComponent,
+    PreviewLinksDirective,
     VersionHistoryComponent,
     TranslocoPipe,
     FieldRepeaterComponent,

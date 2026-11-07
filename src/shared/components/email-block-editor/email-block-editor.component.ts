@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { PreviewLinksDirective } from '../../../shared/directives/preview-links/preview-links.directive';
 import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -28,7 +29,7 @@ export interface BlockEditorSaveEvent {
     standalone: true,
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatMenuModule,
-        MatFormFieldModule, MatInputModule, MatSelectModule, HashtagAutocompleteDirective,
+        MatFormFieldModule, MatInputModule, MatSelectModule, HashtagAutocompleteDirective, PreviewLinksDirective,
     ],
     templateUrl: './email-block-editor.component.html',
 })

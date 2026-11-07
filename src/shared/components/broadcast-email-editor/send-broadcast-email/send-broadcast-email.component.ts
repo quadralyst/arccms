@@ -6,6 +6,7 @@
  */
 
 import { CommonModule } from '@angular/common';
+import { PreviewLinksDirective } from '../../../../shared/directives/preview-links/preview-links.directive';
 import { Component, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -30,7 +31,7 @@ interface DialogData {
 @Component({
     selector: 'arc-send-broadcast-email',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule],
+    imports: [CommonModule, ReactiveFormsModule, PreviewLinksDirective],
     templateUrl: './send-broadcast-email.component.html',
     styleUrls: ['./send-broadcast-email.component.scss'],
 })

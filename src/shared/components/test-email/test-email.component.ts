@@ -9,6 +9,7 @@
  */
 
 import { CommonModule, DOCUMENT } from '@angular/common';
+import { PreviewLinksDirective } from '../../../shared/directives/preview-links/preview-links.directive';
 import { Component, inject, Inject, SecurityContext } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -34,7 +35,7 @@ interface DialogData {
 @Component({
     selector: 'arc-test-email',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, HashtagAutocompleteDirective],
+    imports: [CommonModule, ReactiveFormsModule, HashtagAutocompleteDirective, PreviewLinksDirective],
     templateUrl: './test-email.component.html',
     styleUrls: ['./test-email.component.scss'],
 })
