@@ -722,7 +722,7 @@ describe('ContentDetailComponent', () => {
         });
 
         it('should set og:site_name to the site\'s own name (Settings, About), not Arc CMS', async () => {
-            TestBed.inject(SiteIdentityService).set({ ...DEFAULT_ABOUT_SETTINGS, name: 'Deepakam' });
+            TestBed.inject(SiteIdentityService).set({ ...DEFAULT_ABOUT_SETTINGS, name: 'Example Site' });
             mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
             mockContentsStore.items.set([buildContent()]);
             fixture.detectChanges();
@@ -730,7 +730,7 @@ describe('ContentDetailComponent', () => {
             await Promise.resolve();
 
             expect(mockMetaService.updateTag).toHaveBeenCalledWith(
-                expect.objectContaining({ property: 'og:site_name', content: 'Deepakam' })
+                expect.objectContaining({ property: 'og:site_name', content: 'Example Site' })
             );
             expect(mockMetaService.updateTag).not.toHaveBeenCalledWith(
                 expect.objectContaining({ property: 'og:site_name', content: 'Arc CMS' })

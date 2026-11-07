@@ -62,10 +62,10 @@ beforeEach(() => {
     mem.store.clear();
     vi.clearAllMocks();
     resetRuntimeIdentityForTests();
-    process.env.GCLOUD_PROJECT = 'sanskrit-app-live';
+    process.env.GCLOUD_PROJECT = 'demo-app-live';
     owner.createCustomToken.mockImplementation(async (uid: string) => `token-${uid}`);
     mockFetch.mockImplementation(async (url: string) => ({
-        ok: true, status: 200, text: async () => (url.endsWith('/email') ? SA : 'sanskrit-app-live'),
+        ok: true, status: 200, text: async () => (url.endsWith('/email') ? SA : 'demo-app-live'),
     }));
     mem.seed('users', 'a1', { uid: 'admin-uid', role: 'admin' });
     mem.seed('users', 'u1', { uid: 'parent-uid', role: 'user' });
@@ -83,17 +83,17 @@ describe('signingProblem', () => {
 
 describe('fixFor', () => {
     it('grants the role on the service account itself, for this project', () => {
-        const fix = fixFor('token-creator-missing', 'sanskrit-app-live', SA);
+        const fix = fixFor('token-creator-missing', 'demo-app-live', SA);
         expect(fix.command).toBe(
             `gcloud iam service-accounts add-iam-policy-binding ${SA} --member=serviceAccount:${SA} `
-            + '--role=roles/iam.serviceAccountTokenCreator --project=sanskrit-app-live');
-        expect(fix.consoleUrl).toBe('https://console.cloud.google.com/iam-admin/iam?project=sanskrit-app-live');
+            + '--role=roles/iam.serviceAccountTokenCreator --project=demo-app-live');
+        expect(fix.consoleUrl).toBe('https://console.cloud.google.com/iam-admin/iam?project=demo-app-live');
     });
 
     it('turns the API on', () => {
-        const fix = fixFor('api-disabled', 'sanskrit-app-live', SA);
-        expect(fix.command).toBe('gcloud services enable iamcredentials.googleapis.com --project=sanskrit-app-live');
-        expect(fix.consoleUrl).toContain('apis/library/iamcredentials.googleapis.com?project=sanskrit-app-live');
+        const fix = fixFor('api-disabled', 'demo-app-live', SA);
+        expect(fix.command).toBe('gcloud services enable iamcredentials.googleapis.com --project=demo-app-live');
+        expect(fix.consoleUrl).toContain('apis/library/iamcredentials.googleapis.com?project=demo-app-live');
     });
 
     it('leaves a placeholder rather than a broken command when the account is unknown', () => {
@@ -157,7 +157,7 @@ describe('checkPhoneSignIn', () => {
         owner.createCustomToken.mockRejectedValue(NO_ROLE);
         const result = await asAdmin();
         expect(result).toMatchObject({
-            ready: false, smsProvider: 'log', problem: 'token-creator-missing', serviceAccount: SA, project: 'sanskrit-app-live',
+            ready: false, smsProvider: 'log', problem: 'token-creator-missing', serviceAccount: SA, project: 'demo-app-live',
         });
         expect(result.command).toContain('roles/iam.serviceAccountTokenCreator');
         expect(mem.all('Notifications')).toHaveLength(0); // the admin is looking at it already

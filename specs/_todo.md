@@ -160,7 +160,7 @@ and how it interacts with translations (edit the language you are viewing).
 Today `app.config.ts` starts Firebase Analytics, `ScreenTrackingService` and
 `UserTrackingService` for every visitor. The Site Usage banner saves the visitor's
 choice to localStorage, but nothing applies it (docs/features/analytics.html says so).
-Raised by the Sanskrit app, which has children's screens (India's DPDP Act requires
+Raised by an app built on Arc CMS, which has children's screens (India's DPDP Act requires
 verifiable parental consent and rules out tracking children). Deferred on purpose:
 analytics stays as it is for now.
 

@@ -6,7 +6,7 @@ Node's default heap limit on that machine is 4,144 MB.
 
 ## The problem
 
-A Sanskrit app built on Arc CMS failed at "Building Server" with "JavaScript heap out of
+An app built on Arc CMS failed at "Building Server" with "JavaScript heap out of
 memory". Core itself peaked at about 5.5 GB of process memory and only just passed.
 
 ## Where the memory went (before)

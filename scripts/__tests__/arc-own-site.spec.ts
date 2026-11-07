@@ -77,7 +77,7 @@ describe('arc:own-site pieces', () => {
 
 const OLD_HOME = `<div class="arc-cms-template">
     <arc-header></arc-header>
-    <section class="hero"><h1>Deepakam</h1><img ngSrc="assets/images/logo.png" width="10" height="10"></section>
+    <section class="hero"><h1>Example Site</h1><img ngSrc="assets/images/logo.png" width="10" height="10"></section>
     <arc-content-partials [contentType]="'articles'"></arc-content-partials>
     <arc-footer></arc-footer>
 </div>
@@ -129,9 +129,9 @@ function buildRepositories(): void {
     sh(app, 'remote', 'rename', 'origin', 'upstream');
     // The app edits core files the old way.
     put(app, {
-        'index.html': '<html><head><title>Deepakam</title><meta name="description" content="Sanskrit for kids"></head><body><arc-root></arc-root></body></html>',
+        'index.html': '<html><head><title>Example Site</title><meta name="description" content="Lessons for everyone"></head><body><arc-root></arc-root></body></html>',
         'public/index.html': OLD_HOME,
-        'public/_partials/_header.html': '<nav>Deepakam</nav>\n',
+        'public/_partials/_header.html': '<nav>Example Site</nav>\n',
         'public/templates/events/detail.html': '<article>event</article>\n',
         'public/i18n/hi/strings.json': '{\n  "read_more": "और पढ़ें",\n  "join": "जुड़ें"\n}\n',
         'public/assets/images/logo.png': 'PNG',
@@ -210,14 +210,14 @@ describe('arc:own-site end to end', { timeout: SLOW }, () => {
         // The home page: a whole document, plain HTML, the old title, the old styles.
         const home = read('src/custom/site/home.html');
         expect(home).toMatch(/^<!doctype html>\n<html lang="en">/);
-        expect(home).toContain('<title>Deepakam</title>');
-        expect(home).toContain('content="Sanskrit for kids"');
+        expect(home).toContain('<title>Example Site</title>');
+        expect(home).toContain('content="Lessons for everyone"');
         expect(home).toContain('<arc-content-partials content-type="articles">');
         expect(home).toContain('src="/site/images/logo.png"');
         expect(home).toContain('href="/site/home.css"');
         expect(read('src/custom/site/assets/home.css')).toBe('.hero { color: red; }\n');
 
-        expect(read('src/custom/site/header.html')).toBe('<nav>Deepakam</nav>\n');
+        expect(read('src/custom/site/header.html')).toBe('<nav>Example Site</nav>\n');
         expect(read('src/custom/site/templates/events/detail.html')).toBe('<article>event</article>\n');
         expect(JSON.parse(read('src/custom/site/strings/hi.json'))).toEqual({ join: 'जुड़ें' });
         expect(read('src/custom/site/assets/images/logo.png')).toBe('PNG');
@@ -249,7 +249,7 @@ describe('arc:own-site end to end', { timeout: SLOW }, () => {
         const plan = planMigration({ cwd: app });
         expect(plan.moves.map((m: { to: string }) => m.to)).toContain('src/custom/site/home.html');
         writeMigration(plan, app);
-        expect(read('src/custom/site/header.html')).toBe('<nav>Deepakam</nav>\n');
+        expect(read('src/custom/site/header.html')).toBe('<nav>Example Site</nav>\n');
         expect(main([], () => {}, app)).toBe(0);
     });
 

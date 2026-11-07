@@ -196,7 +196,7 @@ describe('onUserRoleChange', () => {
     });
 
     it('syncs a role written by a 2nd gen function as the default compute account (authType unknown)', async () => {
-        // What Eventarc reported for claimFirstAdmin on a fresh install (sanskrit-app-live).
+        // What Eventarc reported for claimFirstAdmin on a fresh install (demo-app-live).
         const { event, refUpdate } = makeEvent(
             { uid: 'first', role: 'user' }, { uid: 'first', role: 'admin' },
             'unknown', '449144539409-compute@developer.gserviceaccount.com');

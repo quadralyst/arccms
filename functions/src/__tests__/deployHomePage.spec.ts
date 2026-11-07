@@ -27,10 +27,10 @@ vi.mock('../shared/site-files', async (importOriginal) => ({
 }));
 vi.mock('../shared/site-settings', () => ({
     getPartials: async () => ({ headerHtml: '<nav class="site-nav"><a href="/articles">Articles</a><arc-search></arc-search></nav>', footerHtml: partialsFooter.html }),
-    getSiteConfig: async () => ({ siteName: 'Deepakam', baseUrl: 'https://deepakam.example', cssUrls: ['/assets/css/main.css'] }),
+    getSiteConfig: async () => ({ siteName: 'Example Site', baseUrl: 'https://example-site.example', cssUrls: ['/assets/css/main.css'] }),
     getMiscSettings: async () => ({ showPoweredBy: false }),
     getLocalizationSettings: (...a: unknown[]) => mockLocalization(...a),
-    getAboutConfig: async () => ({ name: 'Deepakam', description: 'Sanskrit for kids.', logoUrl: 'https://deepakam.example/logo.png', finalUrl: '', address: '', sameAs: [], contactEmail: '', organizationType: 'Organization' }),
+    getAboutConfig: async () => ({ name: 'Example Site', description: 'Lessons for everyone.', logoUrl: 'https://example-site.example/logo.png', finalUrl: '', address: '', sameAs: [], contactEmail: '', organizationType: 'Organization' }),
     getUiStrings: (...a: unknown[]) => mockGetUiStrings(...a),
 }));
 vi.mock('../pages/deployToHosting', async (importOriginal) => ({
@@ -47,7 +47,7 @@ import { clearPublicContentTypesCache } from '../shared/public-content-types.js'
 
 const HOME = `<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
-<title data-arc-t="home_title">Learn Sanskrit</title>
+<title data-arc-t="home_title">Learn something new</title>
 <link rel="stylesheet" href="/site/home.css">
 </head><body>
 <arc-header></arc-header>
@@ -149,13 +149,13 @@ describe('deployHomePage', () => {
         it('keeps the page\'s own head and adds every SEO tag it does not set', async () => {
             await generateAndDeployHomePage();
             const $ = loadHtml(released()['/index.html'], { xmlMode: false });
-            expect($('title').text()).toBe('Learn Sanskrit');
-            expect($('meta[name="description"]').attr('content')).toBe('Sanskrit for kids.');
-            expect($('link[rel="canonical"]').attr('href')).toBe('https://deepakam.example/');
-            expect($('meta[property="og:url"]').attr('content')).toBe('https://deepakam.example/');
-            expect($('meta[property="og:image"]').attr('content')).toBe('https://deepakam.example/logo.png');
-            expect($('link[hreflang="hi"]').attr('href')).toBe('https://deepakam.example/hi');
-            expect($('link[hreflang="x-default"]').attr('href')).toBe('https://deepakam.example/');
+            expect($('title').text()).toBe('Learn something new');
+            expect($('meta[name="description"]').attr('content')).toBe('Lessons for everyone.');
+            expect($('link[rel="canonical"]').attr('href')).toBe('https://example-site.example/');
+            expect($('meta[property="og:url"]').attr('content')).toBe('https://example-site.example/');
+            expect($('meta[property="og:image"]').attr('content')).toBe('https://example-site.example/logo.png');
+            expect($('link[hreflang="hi"]').attr('href')).toBe('https://example-site.example/hi');
+            expect($('link[hreflang="x-default"]').attr('href')).toBe('https://example-site.example/');
             expect($('script[type="application/ld+json"]').length).toBeGreaterThan(0);
             expect($('meta[name="robots"]').attr('content')).toBe('index, follow');
             expect($('html').attr('lang')).toBe('en');
@@ -226,7 +226,7 @@ describe('deployHomePage', () => {
                 ? HOME.replace('<h1 data-arc-t="home_heading">Hello</h1>', '<p class="who" data-arc-site="name">x</p><p class="mail" data-arc-site-if="email">mail</p>') : null));
             await generateAndDeployHomePage();
             const $ = loadHtml(released()['/index.html'], { xmlMode: false });
-            expect($('p.who').text()).toBe('Deepakam');
+            expect($('p.who').text()).toBe('Example Site');
             expect($('p.mail').length).toBe(0); // no contact email in About
         });
 
@@ -283,7 +283,7 @@ describe('deployHomePage', () => {
             expect($('nav.site-nav a').attr('href')).toBe('/hi/articles');
             expect($('a.card').attr('href')).toBe('/hi/articles/first-post');
             expect($('a.card').text()).toBe('पहला लेख');
-            expect($('link[rel="canonical"]').attr('href')).toBe('https://deepakam.example/hi');
+            expect($('link[rel="canonical"]').attr('href')).toBe('https://example-site.example/hi');
             expect($('form [data-legal-notice]').text()).toContain('शर्तें');
         });
 

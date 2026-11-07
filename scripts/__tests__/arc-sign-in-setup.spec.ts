@@ -41,7 +41,7 @@ function harness(gcloud: ReturnType<typeof fakeGcloud>, state: Record<string, an
     const log: string[] = [];
     const saved: Record<string, any>[] = [];
     const ask = vi.fn(async () => answer);
-    const check = () => checkSignInSetup('sanskrit-app-live', {
+    const check = () => checkSignInSetup('demo-app-live', {
         run: gcloud.run, state, save: (s: Record<string, any>) => saved.push(s), ask, isTTY, log: (l: string) => log.push(l),
     });
     return { check, log, saved, ask, out: () => log.join('\n') };
@@ -75,9 +75,9 @@ describe('arc-sign-in-setup', () => {
         const h = harness(fakeGcloud());
         await expect(h.check()).resolves.toBe('ok');
         expect(h.log).toEqual([]);
-        expect(h.saved.at(-1)?.signInSetup).toEqual({ 'sanskrit-app-live': 'ok' });
+        expect(h.saved.at(-1)?.signInSetup).toEqual({ 'demo-app-live': 'ok' });
 
-        const again = harness(fakeGcloud(), { signInSetup: { 'sanskrit-app-live': 'ok' } });
+        const again = harness(fakeGcloud(), { signInSetup: { 'demo-app-live': 'ok' } });
         await expect(again.check()).resolves.toBe('skipped');
     });
 
@@ -87,9 +87,9 @@ describe('arc-sign-in-setup', () => {
         await expect(h.check()).resolves.toBe('set-up');
         expect(h.out()).toContain('the iamcredentials.googleapis.com API is off');
         expect(h.out()).toContain(`${SA} does not have the Service Account Token Creator role`);
-        expect(gcloud.calls).toContain('services enable iamcredentials.googleapis.com --project=sanskrit-app-live');
+        expect(gcloud.calls).toContain('services enable iamcredentials.googleapis.com --project=demo-app-live');
         expect(gcloud.calls.some((c) => c.startsWith(`iam service-accounts add-iam-policy-binding ${SA}`))).toBe(true);
-        expect(h.saved.at(-1)?.signInSetup).toEqual({ 'sanskrit-app-live': 'ok' });
+        expect(h.saved.at(-1)?.signInSetup).toEqual({ 'demo-app-live': 'ok' });
     });
 
     it('changes nothing on a no, prints the commands, and does not ask again', async () => {
@@ -98,7 +98,7 @@ describe('arc-sign-in-setup', () => {
         await expect(h.check()).resolves.toBe('declined');
         expect(gcloud.calls.some((c) => c.includes('add-iam-policy-binding'))).toBe(false);
         expect(h.out()).toContain('gcloud iam service-accounts add-iam-policy-binding');
-        expect(h.saved.at(-1)?.signInSetup).toEqual({ 'sanskrit-app-live': 'declined' });
+        expect(h.saved.at(-1)?.signInSetup).toEqual({ 'demo-app-live': 'declined' });
     });
 
     it('off a terminal only prints the commands, and asks again next time', async () => {
@@ -121,15 +121,15 @@ describe('arc-sign-in-setup', () => {
         const first = harness(fakeGcloud({ installed: false }));
         await expect(first.check()).resolves.toBe('no-gcloud');
         expect(first.out()).toContain('Install gcloud');
-        expect(first.saved.at(-1)?.signInSetup).toEqual({ 'sanskrit-app-live': 'no-gcloud' });
+        expect(first.saved.at(-1)?.signInSetup).toEqual({ 'demo-app-live': 'no-gcloud' });
 
-        const second = harness(fakeGcloud({ installed: false }), { signInSetup: { 'sanskrit-app-live': 'no-gcloud' } });
+        const second = harness(fakeGcloud({ installed: false }), { signInSetup: { 'demo-app-live': 'no-gcloud' } });
         await expect(second.check()).resolves.toBe('no-gcloud');
         expect(second.log).toEqual([]);
     });
 
     it('checks once gcloud is installed after all', async () => {
-        const h = harness(fakeGcloud(), { signInSetup: { 'sanskrit-app-live': 'no-gcloud' } });
+        const h = harness(fakeGcloud(), { signInSetup: { 'demo-app-live': 'no-gcloud' } });
         await expect(h.check()).resolves.toBe('ok');
     });
 

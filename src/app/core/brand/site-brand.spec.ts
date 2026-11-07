@@ -16,17 +16,17 @@ const APP = { name: 'Acme Studio', logo: '/src/custom/logo.svg' };
 
 describe('siteBrand', () => {
     it('uses the site\'s name and logo from Settings, About', () => {
-        expect(siteBrand({ name: 'Deepakam', logoUrl: 'https://x.test/logo.svg' }, APP))
-            .toEqual({ name: 'Deepakam', logo: 'https://x.test/logo.svg', arc: false });
+        expect(siteBrand({ name: 'Example Site', logoUrl: 'https://x.test/logo.svg' }, APP))
+            .toEqual({ name: 'Example Site', logo: 'https://x.test/logo.svg', arc: false });
     });
 
     it('shows the site\'s name, not Arc CMS\'s logo, when the site has no logo', () => {
-        expect(siteBrand({ name: 'Deepakam', logoUrl: '' }, NO_APP)).toEqual({ name: 'Deepakam', logo: '', arc: false });
+        expect(siteBrand({ name: 'Example Site', logoUrl: '' }, NO_APP)).toEqual({ name: 'Example Site', logo: '', arc: false });
     });
 
     it('takes the app\'s name and logo, field by field, where About has none', () => {
         expect(siteBrand({ name: '', logoUrl: '' }, APP)).toEqual({ name: 'Acme Studio', logo: '/src/custom/logo.svg', arc: false });
-        expect(siteBrand({ name: 'Deepakam', logoUrl: '' }, APP)).toEqual({ name: 'Deepakam', logo: '/src/custom/logo.svg', arc: false });
+        expect(siteBrand({ name: 'Example Site', logoUrl: '' }, APP)).toEqual({ name: 'Example Site', logo: '/src/custom/logo.svg', arc: false });
         expect(siteBrand({ name: '', logoUrl: 'https://x.test/l.png' }, APP)).toEqual({ name: 'Acme Studio', logo: 'https://x.test/l.png', arc: false });
     });
 
@@ -56,7 +56,7 @@ describe('SiteBrandService', () => {
     }
 
     it('gives nothing until Settings, About has loaded, so Arc CMS\'s name never flashes', () => {
-        const brand = setup({ name: 'Deepakam' }, false);
+        const brand = setup({ name: 'Example Site' }, false);
         expect(brand.brand()).toBeNull();
         expect(brand.name()).toBe('');
     });
@@ -82,7 +82,7 @@ describe('SiteBrandService', () => {
     });
 
     it('gives the site\'s brand once loaded', () => {
-        expect(setup({ name: 'Deepakam' }, true).name()).toBe('Deepakam');
+        expect(setup({ name: 'Example Site' }, true).name()).toBe('Example Site');
     });
 });
 

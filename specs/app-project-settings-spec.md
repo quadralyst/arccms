@@ -129,6 +129,6 @@ eight files importing it as `'../../../environments/environment'` or deeper kept
 It never showed before because `environment.prod.ts` names the same project as `environment.ts`
 here. Now `environmentSwap()` (`scripts/arc-environment.mjs`) swaps by what an import resolves
 to; a test builds a sample app with shallow, deep and barrel imports, and a staging build of
-this repo names only `sanskrit-app-live` (checked against that project's fetched settings,
+this repo names only an app's live project (checked against that project's fetched settings,
 nothing deployed).
 

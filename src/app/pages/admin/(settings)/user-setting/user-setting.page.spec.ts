@@ -13,9 +13,9 @@ import { EmailConfigStatusService } from '../../../../../shared/services/email-c
 
 const SA = '449144539409-compute@developer.gserviceaccount.com';
 const NOT_READY = {
-    ready: false, smsProvider: 'msg91', problem: 'token-creator-missing', serviceAccount: SA, project: 'sanskrit-app-live',
-    command: `gcloud iam service-accounts add-iam-policy-binding ${SA} --member=serviceAccount:${SA} --role=roles/iam.serviceAccountTokenCreator --project=sanskrit-app-live`,
-    consoleUrl: 'https://console.cloud.google.com/iam-admin/iam?project=sanskrit-app-live',
+    ready: false, smsProvider: 'msg91', problem: 'token-creator-missing', serviceAccount: SA, project: 'demo-app-live',
+    command: `gcloud iam service-accounts add-iam-policy-binding ${SA} --member=serviceAccount:${SA} --role=roles/iam.serviceAccountTokenCreator --project=demo-app-live`,
+    consoleUrl: 'https://console.cloud.google.com/iam-admin/iam?project=demo-app-live',
 };
 
 describe('UserSettingPageComponent', () => {
