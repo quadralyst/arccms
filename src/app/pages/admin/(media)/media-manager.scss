@@ -1,9 +1,10 @@
 // Everything here is scoped to the media manager (the page and the picker dialog). The
-// component is not encapsulated and its styles stay loaded once it has opened, so a bare
-// rule such as `.mat-mdc-form-field-subscript-wrapper`, `body`, `img` or `.form-control`
-// used to restyle every admin page visited afterwards: fields lost the room under them,
-// and their floating labels ran into the field above. Only the dialog's own panel, which
-// sits outside the component, is styled from outside it.
+// component is not encapsulated, so a bare rule such as
+// `.mat-mdc-form-field-subscript-wrapper`, `body`, `img` or `.form-control` restyles the
+// whole admin while its styles are loaded, and in a production build they were seen to
+// outlive it: fields lost the room under them, and their floating labels ran into the
+// field above. `npm run dev` removes them on leaving, which hides this. Only the dialog's
+// own panel, which sits outside the component, is styled from outside it.
 arc-media-manager {
     --primary-color: var(--arc-admin-accent);
     --secondary-color: #6c757d;
@@ -988,13 +989,6 @@ arc-media-manager {
         display: none;
     }
 
-    // Nothing uploaded yet: the message and the upload box sit in the middle of what is
-    // left of the pane, across and down. The row takes that room, so the column can centre in it.
-    .row:has(> .empty_col) {
-        flex: 1;
-        min-height: 0;
-    }
-
     .empty_col {
         display: flex;
         flex-direction: column;
@@ -1003,12 +997,6 @@ arc-media-manager {
         gap: 24px;
         flex: 1;
         min-height: 200px;
-        text-align: center;
-
-        .dropzone {
-            width: 100%;
-            max-width: 520px;
-        }
     }
 
     .empty_upload_label {

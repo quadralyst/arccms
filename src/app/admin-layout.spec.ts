@@ -60,9 +60,9 @@ describe('the admin layout', () => {
     });
 
     it('keeps the media manager\'s styles to the media manager', () => {
-        // Its component is not encapsulated and its styles stay loaded once it has opened: a bare
-        // rule (`body`, `img`, `.form-control`, Material's subscript wrapper) restyled every admin
-        // page visited afterwards, so fields lost the room under them and their labels overlapped.
+        // Its component is not encapsulated, and in a production build its styles were seen to
+        // outlive it: a bare rule (`body`, `img`, `.form-control`, Material's subscript wrapper)
+        // restyled the admin, so fields lost the room under them and their labels overlapped.
         const file = resolve(__dirname, 'pages/admin/(media)/media-manager.scss');
         const css = sass.compile(file).css;
         // Each selector sits after a `}`, a `{` (the first rule of a media query) or the start.
