@@ -407,13 +407,14 @@ code {
         padding: 15px;
     }
 
+    // Cancel stays left of the main button, in the same row, on a phone too.
     .drawer-actions {
         padding: 15px;
-        flex-direction: column;
         gap: 0.5rem;
 
         .btn {
-            width: 100%;
+            flex: 1 1 0;
+            min-width: 0;
         }
     }
 

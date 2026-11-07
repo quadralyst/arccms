@@ -581,6 +581,40 @@ arc-content-partials {
   content: none;
 }
 
+/* A field given a width of its own keeps it in a row. Flex shrinks it otherwise, and its
+   floating label, too long for what is left, is cut off ("Dela" for "Delay (h)"). */
+:is(.arc-admin, .arc-onboarding, .arc-admin-overlay) mat-form-field[style*="width"] {
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+/* The buttons that end a form or a card, Cancel then the main one on the right, always in
+   one row. A long label wraps inside its button (below) instead of pushing the other onto
+   a line of its own; Cancel keeps its size. A phone gets the same row, not a stack. */
+.arc-admin .action-row {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.arc-admin .action-row > :is(button, a) {
+  min-width: 0;
+}
+
+.arc-admin .action-row > :is(button, a):first-child:not(:only-child) {
+  flex-shrink: 0;
+}
+
+/* A settings page that is switched off shows one card (icon, words, Enable button). Its
+   page is held to a reading width for the settings it hides, which left the card at the
+   left of the panel: with nothing else on the page, it takes the panel's width and the card
+   sits in the middle (the card itself already centres its content). */
+.arc-admin :has(> .disabled-state) {
+  max-width: none !important;
+}
+
 /* A label too long for a phone wraps inside the button, with room above and below it. */
 :is(.arc-admin, .arc-onboarding, .arc-admin-overlay) :is(.mat-mdc-button, .mat-mdc-raised-button, .mat-mdc-unelevated-button, .mat-mdc-outlined-button) {
   height: auto;
@@ -764,13 +798,15 @@ arc-content-partials {
     padding: 15px;
   }
 
+  /* Cancel stays left of the main button, in the same row, on a phone too. */
   .arc-admin .drawer-actions {
-    flex-direction: column;
+    flex-direction: row;
     gap: 0.5rem;
   }
 
   .arc-admin .drawer-actions .btn {
-    width: 100%;
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   /* Form controls */

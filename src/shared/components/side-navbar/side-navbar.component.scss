@@ -46,6 +46,21 @@
     min-width: 0;
 }
 
+// A link on the panel keeps the panel's text colour in every state. The page's own link
+// colour (Bootstrap's a:hover, an app's brand green) is set for a white page and, on a
+// panel of the same colour, left the person's name unreadable under the pointer.
+.brand-link,
+.user-info {
+    &:hover,
+    &:focus,
+    &:focus-visible,
+    &:active,
+    &:visited {
+        color: var(--arc-admin-panel-color);
+        text-decoration: none;
+    }
+}
+
 // A square mark is 40px; a wordmark keeps its shape, up to the panel's width
 .logo {
     width: 40px;
@@ -239,7 +254,7 @@
     display: flex;
     align-items: center;
     padding: 10px;
-    color: inherit;
+    color: var(--arc-admin-panel-color);
     text-decoration: none;
     cursor: pointer;
     border-bottom: 1px solid color-mix(in srgb, var(--arc-admin-panel-color) 10%, transparent);

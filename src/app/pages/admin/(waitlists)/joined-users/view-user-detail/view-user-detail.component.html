@@ -198,6 +198,13 @@
             ></textarea>
             <div class="note-edit-actions">
               <button
+                class="btn btn-secondary btn-sm"
+                (click)="cancelEditNote()"
+                [disabled]="isSavingNote()"
+              >
+                Cancel
+              </button>
+              <button
                 class="btn btn-primary btn-sm"
                 (click)="saveEditedNote(note)"
                 [disabled]="!editNoteContent().trim() || isSavingNote()"
@@ -206,13 +213,6 @@
                 <i class="fas fa-spinner fa-spin"></i>
                 } @else {
                 <i class="fas fa-check"></i> Save }
-              </button>
-              <button
-                class="btn btn-secondary btn-sm"
-                (click)="cancelEditNote()"
-                [disabled]="isSavingNote()"
-              >
-                Cancel
               </button>
             </div>
           </div>

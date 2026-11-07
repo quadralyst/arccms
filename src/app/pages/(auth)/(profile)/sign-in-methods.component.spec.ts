@@ -3,6 +3,8 @@ import { signal } from '@angular/core';
 import { SignInMethodsComponent } from './sign-in-methods.component';
 import { english } from '../../../../test/english';
 import { SentCodes } from '../sent-codes';
+import { NEVER } from 'rxjs';
+import { SIGN_IN_SETTINGS_CACHE_KEY } from '../../admin/(settings)/user-setting/user-setting.service';
 
 const proto = SignInMethodsComponent.prototype as unknown as Record<string, (this: unknown, ...args: unknown[]) => Promise<void>>;
 
@@ -308,3 +310,24 @@ describe('SignInMethodsComponent', () => {
     });
 });
 
+describe('SignInMethodsComponent first paint', () => {
+    it('has the phone and Google rows from the settings the browser kept, before the read answers', () => {
+        // The profile page has just read the site's settings and kept them. Waiting for this
+        // card's own read added the rows a moment later and pushed the cards under it down.
+        localStorage.setItem(SIGN_IN_SETTINGS_CACHE_KEY, JSON.stringify({ isSignupEnabled: true, phoneSignIn: true, googleSignIn: true }));
+        try {
+            const c: Record<string, any> = {
+                googleConnected: signal(false), phoneEnabled: signal(false), googleEnabled: signal(false), emailPin: signal(false),
+                countryCode: signal('91'), phoneCountries: signal(['IN']), countriesListed: signal(false), phoneCountry: signal('IN'),
+                signIn: { hasGoogle: () => false },
+                settings: { getSettings: () => NEVER },
+            };
+            c['applySettings'] = (proto as any)['applySettings'].bind(c);
+            (proto as any)['ngOnInit'].call(c);
+            expect(c['phoneEnabled']()).toBe(true);
+            expect(c['googleEnabled']()).toBe(true);
+        } finally {
+            localStorage.removeItem(SIGN_IN_SETTINGS_CACHE_KEY);
+        }
+    });
+});

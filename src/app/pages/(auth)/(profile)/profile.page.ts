@@ -126,9 +126,26 @@ export default class ProfileComponent extends BaseComponent {
     return !!(newPw && confirmPw && newPw !== confirmPw && this.passwordForm.get('confirmPassword')?.touched);
   }
 
+  /**
+   * The site's sign-in settings are in. The cards below depend on them (the phone and Google
+   * rows of Sign-in methods, whether there is a password to change), so the page draws them
+   * all at once when they are, and a placeholder until then. Drawn as each one learned its
+   * part, they arrived one after another and pushed each other down. A failed read ends the
+   * wait too: the page works with what the browser kept.
+   */
+  readonly settingsReady = signal(false);
+
   constructor() {
     super();
-    this.userSettings.readSettings().then((settings) => this.emailPin.set(emailPinOn(settings)), () => undefined);
+    this.userSettings.readSettings().then(
+      (settings) => {
+        this.emailPin.set(emailPinOn(settings));
+        this.settingsReady.set(true);
+      },
+      () => this.settingsReady.set(true),
+    );
+    // A read that never answers must not leave the page on its loading line.
+    setTimeout(() => this.settingsReady.set(true), 5000);
   }
 
   getInitials(name: string): string {

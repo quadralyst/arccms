@@ -96,6 +96,10 @@ describe('email compiler', () => {
         it('wraps content in a 600px branded shell with the footer', () => {
             const html = compileEmailDesign(design({ id: '1', type: 'heading', text: 'Hi' }));
             expect(html).toContain('width="600"');
+            // 100% up to 600px, not a fixed 600px: a table does not shrink to a narrow window
+            // (a phone, the Mobile preview) by max-width alone, so its footer was cut off.
+            expect(html).toContain('width:100%;max-width:600px');
+            expect(html).not.toMatch(/[^-]width:600px/);
             expect(html).toContain(DEFAULT_BRAND_KIT.backgroundColor);
             expect(html).toContain('##UNSUBSCRIBE_LINK##');
             expect(html).toContain('##PREFERENCES_LINK##');

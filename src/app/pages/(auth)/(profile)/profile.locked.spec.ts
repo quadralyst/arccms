@@ -26,7 +26,7 @@ describe('ProfileComponent for a locked app account', () => {
     const user = vi.fn();
     const signIn = { hasPassword: vi.fn(() => true), deleteMyAccount: vi.fn() };
 
-    async function render(record: Record<string, unknown>) {
+    async function render(record: Record<string, unknown>, readSettings: () => Promise<unknown> = async () => ({ isSignupEnabled: true, defaultRole: 'user' })) {
         user.mockReturnValue({ id: 'doc-1', uid: 'uid-1', name: 'Anna', role: 'user', isActive: true, photo: 'https://example.com/a.png', ...record });
         TestBed.resetTestingModule();
         await TestBed.configureTestingModule({
@@ -38,7 +38,7 @@ describe('ProfileComponent for a locked app account', () => {
                 { provide: AuthState, useValue: { currentUser: user, isAdmin: () => false, updateUserProfile: vi.fn(), isSuccess: () => true, error: () => '' } },
                 { provide: SignInService, useValue: signIn },
                 // Settings, User Settings as read by the page: passwords for email accounts.
-                { provide: UserSettingService, useValue: { readSettings: vi.fn(async () => ({ isSignupEnabled: true, defaultRole: 'user' })) } },
+                { provide: UserSettingService, useValue: { readSettings: vi.fn(readSettings) } },
                 { provide: MatDialog, useValue: { open: vi.fn() } },
                 { provide: FileUploadService, useValue: { uploadAvatar: vi.fn() } },
             ],
@@ -46,6 +46,10 @@ describe('ProfileComponent for a locked app account', () => {
             .overrideComponent(ProfileComponent, { remove: { imports: [SignInMethodsComponent] }, add: { imports: [SignInMethodsStub] } })
             .compileComponents();
         fixture = TestBed.createComponent(ProfileComponent);
+        fixture.detectChanges();
+        // The cards come once the site's settings are in (settingsReady), all at once.
+        await fixture.whenStable();
+        await new Promise((r) => setTimeout(r, 0));
         fixture.detectChanges();
         return fixture.nativeElement as HTMLElement;
     }
@@ -88,5 +92,19 @@ describe('ProfileComponent for a locked app account', () => {
         expect(text).toContain('Delete my account');
         expect(page.querySelector('.avatar-overlay')).not.toBeNull();
         expect(fixture.componentInstance.canDeleteAccount()).toBe(true);
+    });
+
+    it('draws its cards together once the site settings are in, not one after another', async () => {
+        let settingsIn!: (v: unknown) => void;
+        const page = await render({ by: 'email' }, () => new Promise((resolve) => { settingsIn = resolve; }));
+        // Waiting for them: the header and a loading line, none of the cards (they depend on the
+        // settings, and each arriving on its own pushed the ones below it down).
+        expect(page.textContent).toContain('Loading profile');
+        expect(page.querySelector('.profile-card')).toBeNull();
+        settingsIn({ isSignupEnabled: true, defaultRole: 'user' });
+        await new Promise((r) => setTimeout(r, 0));
+        fixture.detectChanges();
+        expect(page.textContent).not.toContain('Loading profile');
+        expect(page.querySelectorAll('.profile-card').length).toBeGreaterThanOrEqual(3);
     });
 });

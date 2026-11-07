@@ -64,9 +64,9 @@ export type DripDrawerMode = 'add' | 'edit';
             <!-- Steps -->
             <h6 class="text-uppercase text-muted mt-2 mb-2" style="font-size: 0.75rem;">Steps</h6>
             @for (s of steps(); track s.id; let i = $index) {
-            <div class="d-flex gap-2 align-items-center mb-2">
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
                 <span class="status-badge is-neutral">{{ i + 1 }}</span>
-                <mat-form-field appearance="outline" class="flex-grow-1 mb-0">
+                <mat-form-field appearance="outline" class="flex-grow-1 mb-0" style="min-width: 150px;">
                     <mat-label>Template</mat-label>
                     <mat-select [(ngModel)]="s.templateId">
                         @for (t of templates; track t.id) { <mat-option [value]="t.id">{{ t.label }}</mat-option> }

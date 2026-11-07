@@ -106,7 +106,13 @@
         }
         <!-- A sandboxed frame (review F): the email as sent, including anything a
              visitor typed into a form, can never run script in the admin's session. -->
+        @if (hasContent()) {
         <iframe class="email-preview" sandbox="" title="Email as sent" [srcdoc]="processedHtml()"></iframe>
+        } @else {
+        <div class="email-preview-empty text-muted small">
+            The content of this email was not stored, so there is nothing to show.
+        </div>
+        }
     </div>
 
     <!-- Attachments (an app email's files, kept beside the log) -->
@@ -125,6 +131,8 @@
                 @if(fileUrls()[file.path]; as url) {
                 @if(url === 'missing') {
                 <span class="text-muted small">No longer stored</span>
+                } @else if(url === 'unavailable') {
+                <span class="text-muted small">Could not reach the file, try again later</span>
                 } @else {
                 <a mat-stroked-button [href]="url" target="_blank" rel="noopener" [attr.download]="file.name">Open</a>
                 }

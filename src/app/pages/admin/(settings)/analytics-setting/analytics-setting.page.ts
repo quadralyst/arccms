@@ -252,7 +252,7 @@ export const routeMeta: RouteMeta = {
                     </mat-card>
 
                     <!-- Save Button -->
-                    <div class="d-flex justify-content-end gap-2 mb-4">
+                    <div class="action-row mb-4">
                         <button
                             mat-stroked-button
                             type="button"

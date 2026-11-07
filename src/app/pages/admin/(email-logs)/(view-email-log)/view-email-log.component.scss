@@ -160,6 +160,13 @@
     border-radius: 6px;
 }
 
+.email-preview-empty {
+    padding: 16px;
+    border: 1px dashed #dee2e6;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
 .email-preview {
     display: block;
     width: 100%;

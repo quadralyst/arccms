@@ -90,7 +90,7 @@
       <li><p>Pick a template, or click <strong>New email</strong>. A new email gets a unique type such as <code>custom_1759200000000</code>; the Type column shows it as "Custom 1759200000000".</p></li>
       <li><p>Set the title, subject and category, then build the body from blocks: heading, paragraph, image, button, divider, spacer, columns, social links and raw HTML.</p></li>
       <li><p>Type <code>#</code> in a text field to pick a merge tag such as <code>##NAME##</code>. The tags offered depend on the template type; the full list is in <a href="../reference/email-tags.html">Email merge tags</a>.</p></li>
-      <li><p>Save. The composer stores the block design and the finished HTML, wrapped in the brand kit.</p></li>
+      <li><p>Save. The composer stores the block design and the finished HTML, wrapped in the brand kit. The email is 600px wide at most and as wide as the window below that, so it fits a phone and the <strong>Mobile</strong> preview, footer included. An email saved before this keeps the fixed 600px shell it was saved with until it is saved again.</p></li>
       <li><p>Click <strong>Send test</strong> to send the compiled email to an address. Its subject starts with <code>[TEST]</code>, and it is logged like any other email.</p></li>
     </ol>
     <p>A marketing template cannot be saved without <code>##UNSUBSCRIBE_LINK##</code>. The brand kit footer carries it by default.</p>
@@ -122,7 +122,7 @@
     <p>A failed send is retried with growing delays (10, then 20 minutes) up to 3 attempts, then marked <code>failed</code>. A send over the rate limit is marked <code>deferred</code> and tried again after 15 minutes. The <code>retryPendingEmails</code> job picks both up every 5 minutes.</p>
 
     <h3>Read the email log</h3>
-    <p>Admin, Email, Email Logs lists every email with its status. Open one to see the exact subject and HTML that were sent, the merge tags used, any tag that had no value, its language and Reply-To when it set them, and, for an app's email, the app's reference and the files it carried, each with an Open link. With the Debug Provider, that is how an email and its files are checked on a test install.</p>
+    <p>Admin, Email, Email Logs lists every email with its status. Open one to see the exact subject and HTML that were sent, the merge tags used, any tag that had no value, its language and Reply-To when it set them, and, for an app's email, the app's reference and the files it carried, each with an Open link. With the Debug Provider, that is how an email and its files are checked on a test install. A log that kept no content says so ("The content of this email was not stored") instead of showing an empty frame, and a file whose link does not answer within 10 seconds says it could not be reached, so the page never stays on Loading.</p>
     <table>
       <thead><tr><th>Status</th><th>Means</th></tr></thead>
       <tbody>

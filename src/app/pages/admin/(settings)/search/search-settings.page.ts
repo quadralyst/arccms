@@ -289,15 +289,15 @@ const STATE_BADGE: Record<SearchCollectionState, string> = {
               <p class="text-muted small mb-3">{{ 'admin.settings.search.preview_empty' | transloco }}</p>
             }
 
-            <div class="d-flex align-items-center gap-2 flex-wrap">
+            @if (editorError()) { <div class="text-danger small mb-2">{{ editorError() }}</div> }
+            <div class="action-row">
+              <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="busy() !== null" (click)="editor.set(null)">
+                {{ 'common.actions.cancel' | transloco }}
+              </button>
               <button type="button" class="btn btn-primary btn-sm" [disabled]="busy() !== null" (click)="save()">
                 @if (busy() === 'save') { <i class="fas fa-spinner fa-spin me-1"></i> }
                 {{ 'admin.settings.search.save_rebuild' | transloco }}
               </button>
-              <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="busy() !== null" (click)="editor.set(null)">
-                {{ 'common.actions.cancel' | transloco }}
-              </button>
-              @if (editorError()) { <span class="text-danger small">{{ editorError() }}</span> }
             </div>
           </div>
         </div>

@@ -148,7 +148,7 @@ export function compileEmailDesign(design: EmailDesign, brandKit?: Partial<IEmai
 
     return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${brand.backgroundColor};margin:0;padding:0;">
 <tr><td align="center" style="padding:24px 12px;">
-  <table role="presentation" width="${WIDTH}" cellpadding="0" cellspacing="0" border="0" style="width:${WIDTH}px;max-width:100%;background-color:${brand.contentBackgroundColor};border-radius:12px;overflow:hidden;">
+  <table role="presentation" width="${WIDTH}" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:${WIDTH}px;background-color:${brand.contentBackgroundColor};border-radius:12px;overflow:hidden;">
     ${header}
     <tr><td style="padding:24px 32px;font-family:${brand.fontFamily};color:${brand.textColor};">
       ${content}

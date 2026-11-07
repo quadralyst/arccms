@@ -251,7 +251,7 @@ export const routeMeta: RouteMeta = {
                                 </div>
                             </div>
 
-                            <div class="d-flex justify-content-end gap-2 mt-3">
+                            <div class="action-row mt-3">
                                 <button mat-stroked-button type="button" (click)="closeForm()">{{ 'common.actions.cancel' | transloco }}</button>
                                 <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid">{{ 'admin.products.save' | transloco }}</button>
                             </div>

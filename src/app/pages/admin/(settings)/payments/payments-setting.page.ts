@@ -124,7 +124,7 @@ export const routeMeta: RouteMeta = {
                                 <code>arccms-dodoWebhook</code> {{ 'admin.settings.payments.webhook_note_end' | transloco }}
                             </div>
 
-                            <div class="d-flex justify-content-end gap-2 mt-3">
+                            <div class="action-row mt-3">
                                 <button mat-stroked-button type="button" (click)="testConnection()" [disabled]="isTesting()">
                                     @if (isTesting()) { <mat-spinner diameter="18" class="me-2"></mat-spinner> {{ 'admin.settings.payments.testing' | transloco }} }
                                     @else { <i class="fa-solid fa-plug me-2"></i> {{ 'admin.settings.payments.test_connection' | transloco }} }

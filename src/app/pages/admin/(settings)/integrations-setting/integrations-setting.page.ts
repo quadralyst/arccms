@@ -179,7 +179,7 @@ export const routeMeta: RouteMeta = {
                             </div>
 
                             <!-- Unsplash Save -->
-                            <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
+                            <div class="action-row mt-3">
                                 <button
                                     mat-stroked-button
                                     type="button"
@@ -368,7 +368,7 @@ export const routeMeta: RouteMeta = {
                             </div>
 
                             <!-- Geolocation Save -->
-                            <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
+                            <div class="action-row mt-3">
                                 <button
                                     mat-stroked-button
                                     type="button"

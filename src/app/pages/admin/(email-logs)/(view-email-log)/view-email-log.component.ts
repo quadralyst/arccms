@@ -11,6 +11,22 @@ import { EmailLogStore } from '../email-log.store';
 import { fileSize, IEmailLog, sentSubject } from '../email-log.model';
 import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
+/** How long a file's link may take before the log says it could not be reached. */
+const LINK_WAIT_MS = 10_000;
+
+class TimedOut extends Error {}
+
+/** The promise's answer, or a TimedOut error when it takes longer than `ms`. */
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new TimedOut('no answer')), ms);
+        work.then(
+            (value) => { clearTimeout(timer); resolve(value); },
+            (error) => { clearTimeout(timer); reject(error); },
+        );
+    });
+}
+
 @Component({
     selector: 'arc-view-email-log',
     standalone: true,
@@ -30,14 +46,17 @@ export default class ViewEmailLogComponent implements OnChanges {
     private readonly injector = inject(Injector);
 
     log = computed<IEmailLog | null>(() => this.emailLogStore.currentItem() as IEmailLog | null);
-    processedHtml = computed<SafeHtml>(() => {
+    /** The email as stored: what was sent when the log has it, else the template it was made from. */
+    private readonly storedHtml = computed(() => {
         const item = this.log();
-        const html = item?.processedTemplate || item?.template || '';
-        return this.sanitizer.bypassSecurityTrustHtml(html);
+        return item?.processedTemplate || item?.template || '';
     });
+    /** Whether the log kept any content to show. A frame with nothing in it only looks like a page still loading. */
+    readonly hasContent = computed(() => this.storedHtml().trim().length > 0);
+    processedHtml = computed<SafeHtml>(() => this.sanitizer.bypassSecurityTrustHtml(this.storedHtml()));
     readonly sentSubject = sentSubject;
     readonly fileSize = fileSize;
-    /** Each stored file's link by its path, 'missing' when it is gone; absent while loading. */
+    /** Each stored file's link by its path, 'missing' when it is gone, 'unavailable' when Storage did not answer; absent while loading. */
     fileUrls = signal<Record<string, string>>({});
     showRawTemplate = signal(false);
     showTags = signal(false);
@@ -98,13 +117,19 @@ export default class ViewEmailLogComponent implements OnChanges {
     private async resolveLink(path: string): Promise<void> {
         let url: string;
         try {
-            const storage = await this.arcStorage.get();
-            url = await runInInjectionContext(this.injector, () => getDownloadURL(ref(storage, path)));
+            url = await withTimeout(this.linkOf(path), LINK_WAIT_MS);
         } catch (err) {
+            // A file that is not there answers at once (object-not-found); one that does not
+            // answer within the wait is shown as such, so the line never stays on Loading.
             console.warn('Could not find the attachment', path, err);
-            url = 'missing';
+            url = err instanceof TimedOut ? 'unavailable' : 'missing';
         }
         this.fileUrls.update((urls) => ({ ...urls, [path]: url }));
+    }
+
+    private async linkOf(path: string): Promise<string> {
+        const storage = await this.arcStorage.get();
+        return runInInjectionContext(this.injector, () => getDownloadURL(ref(storage, path)));
     }
 
     toggleRawTemplate(): void {

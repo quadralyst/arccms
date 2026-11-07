@@ -22,8 +22,8 @@ import { RESEND_SECONDS, SentCodes } from '../sent-codes';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
 import { NewPinInputComponent } from '../../../../shared/components/new-pin-input/new-pin-input.component';
 import { ToastService } from '../../../../shared/services/toast.service';
-import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
-import { emailPinOn, phoneCountrySettings, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
+import { readStoredSignInSettings, UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
+import { emailPinOn, IUserSettings, phoneCountrySettings, phoneSignInOn } from '../../admin/(settings)/user-setting/user-setting.model';
 import { classifyIdentifier, DEFAULT_COUNTRY_CODE, formatPhone, hasCountryCode, identifierProblem, withoutTrunk } from '../../../../shared/utils/identifier.util';
 import { codesOf, countryByIso, DEFAULT_COUNTRY, startingCountry } from '../../../../shared/data/countries';
 import { chipPhone, countryListText, rememberCountry, rememberedCountry, tidyChipNumber } from '../../../../shared/utils/phone-country';
@@ -124,10 +124,10 @@ interface Flow {
                 <arc-new-pin #newPinField [disabled]="busy()" (firstDone)="error.set('')" (completed)="savePin()" />
                 @if (error()) { <div class="text-danger small mt-2">{{ error() }}</div> }
                 <div class="edit-actions">
+                    <button class="btn btn-sm btn-light" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
                     <button class="btn btn-sm btn-primary" (click)="savePin()" [disabled]="busy()">
                         {{ 'member.methods.save_pin' | transloco }} @if (busy()) { <span class="spinner-border spinner-border-sm ms-1"></span> }
                     </button>
-                    <button class="btn btn-sm btn-light" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
                 </div>
             </div>
         </ng-template>
@@ -294,16 +294,23 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
 
     ngOnInit(): void {
         this.googleConnected.set(this.signIn.hasGoogle());
-        firstValueFrom(this.settings.getSettings()).then((s) => {
-            this.phoneEnabled.set(phoneSignInOn(s));
-            const countries = phoneCountrySettings(s);
-            this.countryCode.set(countryByIso(countries.country)!.code);
-            this.phoneCountries.set(countries.countries);
-            this.countriesListed.set(countries.listed);
-            this.phoneCountry.set(startingCountry(countries.countries, countries.country, rememberedCountry()));
-            this.googleEnabled.set(s.googleSignIn === true);
-            this.emailPin.set(emailPinOn(s));
-        }).catch(() => undefined);
+        // The copy the browser kept of the site's settings (the profile page has just read
+        // them), so the phone and Google rows are in the first paint. Waiting for the read
+        // below added them a moment later and pushed the cards under this one down.
+        const kept = readStoredSignInSettings();
+        if (kept) this.applySettings(kept);
+        firstValueFrom(this.settings.getSettings()).then((s) => this.applySettings(s)).catch(() => undefined);
+    }
+
+    private applySettings(s: IUserSettings): void {
+        this.phoneEnabled.set(phoneSignInOn(s));
+        const countries = phoneCountrySettings(s);
+        this.countryCode.set(countryByIso(countries.country)!.code);
+        this.phoneCountries.set(countries.countries);
+        this.countriesListed.set(countries.listed);
+        this.phoneCountry.set(startingCountry(countries.countries, countries.country, rememberedCountry()));
+        this.googleEnabled.set(s.googleSignIn === true);
+        this.emailPin.set(emailPinOn(s));
     }
 
     start(kind: Kind): void {
