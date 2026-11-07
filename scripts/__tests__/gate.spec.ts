@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // @ts-expect-error: plain ESM script without type declarations
-import { gateKeys, javaEnv, judgeRules, judgeSuite, readStamps, recordGreen, runGate, stampFile, summarizeSuite, watchForStalls } from '../gate.mjs';
+import { DOCS_SPECS, docsProblems, gateKeys, javaEnv, judgeRules, judgeSuite, readStamps, recordGreen, runGate, stampFile, summarizeSuite, watchForStalls } from '../gate.mjs';
 
 const git = (root: string, ...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
@@ -96,20 +96,34 @@ describe('the order of the gate', () => {
     const fail = (summary = 'broken', lines: string[] = []) => vi.fn(async () => ({ ok: false, summary, lines }));
 
     function setup(overrides: Record<string, unknown> = {}, known = { suite: {}, rules: {} } as { suite: Record<string, string>; rules: Record<string, string> }) {
-        const steps = { keys: vi.fn(() => keys), typecheck: pass(), suite: pass(), changedSpecs: pass(), rules: pass(), affectedDocs: vi.fn(async () => [] as string[]), ...overrides };
+        const steps = { keys: vi.fn(() => keys), docs: pass(), typecheck: pass(), suite: pass(), changedSpecs: pass(), rules: pass(), affectedDocs: vi.fn(async () => [] as string[]), ...overrides };
         const stamps = { read: vi.fn(() => known), record: vi.fn() };
         const lines: string[] = [];
         return { steps, stamps, lines, print: (line: string) => lines.push(line) };
     }
 
-    it('runs the type check, the suite and the rules tests, then records the pass', async () => {
+    it('runs the docs checks, the type check, the suite and the rules tests in that order, then records the pass', async () => {
         const s = setup();
         expect(await runGate(s)).toBe(0);
+        const order = [s.steps.docs, s.steps.typecheck, s.steps.suite, s.steps.rules].map((step) => step.mock.invocationCallOrder[0]);
+        expect(order).toEqual([...order].sort((a, b) => a - b));
+        expect(s.lines[0]).toMatch(/^gate: docs checks ok/);
         expect(s.steps.typecheck).toHaveBeenCalledOnce();
         expect(s.steps.suite).toHaveBeenCalledOnce();
         expect(s.steps.rules).toHaveBeenCalledOnce();
         expect(s.stamps.record.mock.calls).toEqual([['suite', 'suite-key'], ['rules', 'rules-key']]);
         expect(s.lines.at(-1)).toMatch(/^GATE GREEN/);
+    });
+
+    it('stops at a docs failure, before anything slower starts, and records nothing', async () => {
+        const s = setup({ docs: fail('1 failed of 62', ['FAIL docs.spec.ts > has no broken link']) });
+        expect(await runGate(s)).toBe(1);
+        expect(s.steps.typecheck).not.toHaveBeenCalled();
+        expect(s.steps.suite).not.toHaveBeenCalled();
+        expect(s.steps.rules).not.toHaveBeenCalled();
+        expect(s.stamps.record).not.toHaveBeenCalled();
+        expect(s.lines).toContain('  FAIL docs.spec.ts > has no broken link');
+        expect(s.lines.at(-1)).toMatch(/^GATE RED: fix the docs/);
     });
 
     it('stops at a type error, before the suite starts, and records nothing', async () => {
@@ -138,6 +152,7 @@ describe('the order of the gate', () => {
     it('answers at once for code that already passed', async () => {
         const s = setup({}, { suite: { 'suite-key': 'earlier' }, rules: { 'rules-key': 'earlier' } });
         expect(await runGate(s)).toBe(0);
+        expect(s.steps.docs).not.toHaveBeenCalled();
         expect(s.steps.typecheck).not.toHaveBeenCalled();
         expect(s.steps.suite).not.toHaveBeenCalled();
         expect(s.steps.rules).not.toHaveBeenCalled();
@@ -158,6 +173,7 @@ describe('the order of the gate', () => {
     it('runs everything with --force, whatever was recorded', async () => {
         const s = setup({}, { suite: { 'suite-key': 'earlier' }, rules: { 'rules-key': 'earlier' } });
         expect(await runGate({ ...s, force: true })).toBe(0);
+        expect(s.steps.docs).toHaveBeenCalledOnce();
         expect(s.steps.suite).toHaveBeenCalledOnce();
         expect(s.steps.rules).toHaveBeenCalledOnce();
     });
@@ -169,9 +185,10 @@ describe('the order of the gate', () => {
         expect(s.lines.at(-1)).toMatch(/^GATE RED.*files changed/);
     });
 
-    it('with --changed runs the type check and the changed specs, records nothing and does not call it a merge check', async () => {
+    it('with --changed runs the docs checks, the type check and the changed specs, records nothing and does not call it a merge check', async () => {
         const s = setup({}, { suite: { 'suite-key': 'earlier' }, rules: {} });
         expect(await runGate({ ...s, changed: true })).toBe(0);
+        expect(s.steps.docs).toHaveBeenCalledOnce();
         expect(s.steps.typecheck).toHaveBeenCalledOnce();
         expect(s.steps.changedSpecs).toHaveBeenCalledOnce();
         expect(s.steps.suite).not.toHaveBeenCalled();
@@ -190,6 +207,40 @@ describe('the order of the gate', () => {
         expect(many.lines.join('\n')).not.toContain('page 6');
         const broken = setup({ affectedDocs: vi.fn(async () => { throw new Error('no docs'); }) });
         expect(await runGate(broken)).toBe(0);
+    });
+});
+
+describe('the docs step', () => {
+    it('lists each problem in the docs checks\' own words, once, in the shape of Vitest\'s log', () => {
+        const log = [
+            ' FAIL  |server| scripts/__tests__/docs/docs.spec.ts > the docs > has no broken link',
+            'AssertionError: expected [ Array(2) ] to deeply equal []',
+            '- Expected',
+            '+ Received',
+            '- []',
+            '+ [',
+            '\u001b[32m+   "contributing/a.html: the link \\"no-such-page.html\\" does not lead to a page",\u001b[39m',
+            '+   "contributing/b.html: broken link other.html"',
+            '+ ]',
+        ].join('\n');
+        expect(docsProblems(`${log}\n${log}`)).toEqual(['contributing/a.html: the link "no-such-page.html" does not lead to a page', 'contributing/b.html: broken link other.html']);
+        expect(docsProblems('nothing to list')).toEqual([]);
+    });
+
+    it('names the folder the docs checks are in, so the suite leaves out only those', () => {
+        const specs = readdirSync(DOCS_SPECS).filter((file: string) => file.endsWith('.spec.ts'));
+        expect(specs).toContain('docs.spec.ts');
+    });
+
+    it('tells the reader to read the pages, since a check cannot tell whether their words are still true', async () => {
+        const lines: string[] = [];
+        const ok = async () => ({ ok: true, summary: 'fine' });
+        await runGate({
+            steps: { keys: () => ({ tree: 't', suite: 's', rules: 'r' }), docs: ok, typecheck: ok, suite: ok, rules: ok, changedSpecs: ok, affectedDocs: async () => ['page one'] },
+            stamps: { read: () => ({ suite: {}, rules: {} }), record: () => {} },
+            print: (line: string) => lines.push(line),
+        });
+        expect(lines.join('\n')).toContain('read these docs pages and fix what is now wrong: page one');
     });
 });
 

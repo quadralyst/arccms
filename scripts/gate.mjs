@@ -2,8 +2,9 @@
 /**
  * `npm run gate`: the one check before a merge. It runs, and stops at the first failure:
  *
+ *   docs checks  about 8 seconds: broken links, and pages naming what no longer exists
  *   type check   about 15 seconds, so a type error fails before the suite starts
- *   whole suite  the specs, the docs checks and the rest of `npm run test`
+ *   whole suite  every other spec of `npm run test`
  *   rules tests  when the rules or their tests changed since they last passed
  *
  * It prints a few short lines and writes everything else to tmp/gate/. When all of it
@@ -14,8 +15,8 @@
  *
  *   npm run gate               the check above
  *   npm run gate -- --force    run everything, even for code that already passed
- *   npm run gate -- --changed  while working: type check and the specs the change
- *                              touches; not a merge check, and it records nothing
+ *   npm run gate -- --changed  while working: docs checks, type check and the specs the
+ *                              change touches; not a merge check, and it records nothing
  *
  * Exit code 0 when everything passed, 1 otherwise.
  */
@@ -28,6 +29,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
+/** The docs checks: the gate's first step, so the suite it runs next leaves them out. */
+export const DOCS_SPECS = 'scripts/__tests__/docs';
 /** What the rules tests depend on: they rerun only when one of these changed. */
 export const RULES_INPUTS = [
     'firestore.rules', 'storage.rules', 'firestore.app.rules', 'storage.app.rules', 'firebase.json',
@@ -165,9 +168,10 @@ function runToLog(command, args, { cwd, env, log }) {
 /** The real steps. Each resolves to { ok, summary, lines, notes }. */
 function realSteps(root, logDir) {
     const vitest = join(root, 'node_modules/vitest/vitest.mjs');
-    const report = join(logDir, 'suite.json');
 
-    async function runSpecs(extraArgs, log, env) {
+    async function runSpecs(name, extraArgs, env = process.env) {
+        const report = join(logDir, `${name}.json`);
+        const log = join(logDir, `${name}.log`);
         rmSync(report, { force: true });
         const code = await runToLog(process.execPath, [
             vitest, 'run', '--silent=passed-only', '--reporter=dot', '--reporter=json', `--outputFile.json=${report}`, ...extraArgs,
@@ -187,10 +191,17 @@ function realSteps(root, logDir) {
             writeFileSync(log, text);
             return { ok: false, summary: `errors in ${failed.map((result) => result.name).join(' and ')}`, lines: [...text.split('\n').slice(0, 30), `Full list: ${relative(root, log)}`] };
         },
-        suite: () => runSpecs([], join(logDir, 'suite.log'), { ...process.env, [TYPECHECK_PASSED_ENV]: '1' }),
+        async docs() {
+            const result = await runSpecs('docs', [DOCS_SPECS]);
+            if (result.ok) return result;
+            // Vitest's report says only "expected [ Array(1) ] to deeply equal []"; its log lists the problems.
+            const problems = docsProblems(readFileSync(join(logDir, 'docs.log'), 'utf8'));
+            return { ...result, lines: [...problems, ...(result.lines ?? [])] };
+        },
+        suite: () => runSpecs('suite', [`--exclude=${DOCS_SPECS}/**`], { ...process.env, [TYPECHECK_PASSED_ENV]: '1' }),
         changedSpecs: () => {
             const base = hasRef(root, 'dev') ? 'dev' : 'HEAD';
-            return runSpecs([`--changed=${base}`, '--passWithNoTests'], join(logDir, 'changed.log'), { ...process.env, [TYPECHECK_PASSED_ENV]: '1' });
+            return runSpecs('changed', [`--changed=${base}`, '--passWithNoTests', `--exclude=${DOCS_SPECS}/**`], { ...process.env, [TYPECHECK_PASSED_ENV]: '1' });
         },
         async rules() {
             const log = join(logDir, 'rules.log');
@@ -238,6 +249,13 @@ export function judgeSuite(code, reportPath, logPath, root = ROOT, logDir = dirn
     return { ok: true, total, summary: `${total} tests in ${files} files` };
 }
 
+/** The docs checks' own words for each problem, from the `+ "..."` lines of Vitest's log. */
+export function docsProblems(log) {
+    const lines = plain(log).split('\n').map((line) => /^\s*\+\s+"(.*)",?\s*$/.exec(line)?.[1]?.replaceAll('\\"', '"')).filter(Boolean);
+    const unique = [...new Set(lines)];
+    return [...unique.slice(0, SHOW_FAILURES), ...(unique.length > SHOW_FAILURES ? [`and ${unique.length - SHOW_FAILURES} more`] : [])];
+}
+
 export function judgeRules(code, log, logName) {
     const counted = /Tests\s+(?:\d+ failed \| )?(\d+) passed/.exec(log);
     if (code === 0) return { ok: true, summary: counted ? `${counted[1]} tests` : 'passed' };
@@ -252,7 +270,7 @@ async function affectedDocs() {
 }
 
 /**
- * The order of the gate, apart from how each step runs. `steps` holds typecheck, suite,
+ * The order of the gate, apart from how each step runs. `steps` holds docs, typecheck, suite,
  * changedSpecs, rules, keys and affectedDocs; `stamps` holds read and record.
  */
 export async function runGate({ force = false, changed = false, steps, stamps, print }) {
@@ -273,7 +291,7 @@ export async function runGate({ force = false, changed = false, steps, stamps, p
             try {
                 const pages = await steps.affectedDocs();
                 const more = pages.length > SHOW_DOCS ? `, and ${pages.length - SHOW_DOCS} more (npm run docs:affected)` : '';
-                if (pages.length) print(`gate: docs pages that describe this change: ${pages.slice(0, SHOW_DOCS).join(', ')}${more}`);
+                if (pages.length) print(`gate: read these docs pages and fix what is now wrong: ${pages.slice(0, SHOW_DOCS).join(', ')}${more}`);
             } catch { /* The list is a reminder only. */ }
         }
         print(`GATE ${green ? 'GREEN' : 'RED'}: ${detail} (${seconds(started)})`);
@@ -281,6 +299,7 @@ export async function runGate({ force = false, changed = false, steps, stamps, p
     };
 
     if (changed) {
+        if (!(await step('docs checks', steps.docs)).ok) return finish(false, 'fix the docs');
         if (!(await step('type check', steps.typecheck)).ok) return finish(false, 'fix the type errors');
         const specs = await step('changed specs', steps.changedSpecs);
         return finish(specs.ok, specs.ok ? 'changed specs only, so run the full gate before a merge' : 'fix the failures above');
@@ -292,8 +311,9 @@ export async function runGate({ force = false, changed = false, steps, stamps, p
     const rulesDone = known.rules[keys.rules];
 
     if (suiteDone) {
-        print(`gate: suite already passed for this exact code at ${suiteDone}`);
+        print(`gate: docs checks and suite already passed for this exact code at ${suiteDone}`);
     } else {
+        if (!(await step('docs checks', steps.docs)).ok) return finish(false, 'fix the docs');
         if (!(await step('type check', steps.typecheck)).ok) return finish(false, 'fix the type errors');
         const suite = await step('suite', steps.suite);
         if (!suite.ok) return finish(false, 'fix the failures above');
