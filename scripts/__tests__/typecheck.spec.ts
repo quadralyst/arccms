@@ -14,7 +14,8 @@ describe('typecheck', () => {
         expect(app.include).toEqual(expect.arrayContaining(['src/app/pages/**/*.page.ts', 'src/custom/pages/**/*.page.ts']));
     });
 
-    it('finds no type errors in the app or the functions', async () => {
+    // npm run gate has just run this same check before starting the suite (scripts/gate.mjs).
+    it.skipIf(process.env.ARC_GATE_TYPECHECK_PASSED === '1')('finds no type errors in the app or the functions', async () => {
         const results: { name: string; ok: boolean; output: string }[] = await typecheck();
         for (const result of results) {
             expect(result.ok, `${result.name} has type errors (npm run typecheck):\n${result.output}`).toBe(true);

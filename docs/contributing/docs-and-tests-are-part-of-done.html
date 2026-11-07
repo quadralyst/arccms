@@ -30,11 +30,9 @@
         <p><strong>Add tests that would have caught the break.</strong> A change to behavior gets a test of that behavior. A change to something the docs list (a script, a feature, a config key, a function) gets, or already has, a docs check that fails when the list and the code disagree.</p>
       </li>
       <li>
-        <p><strong>Run the whole suite:</strong></p>
-        <pre><code>npm run test</code></pre>
-        <p>It type-checks the app and the functions too, which the specs alone do not: a change that passes its specs can still fail the production build. <code>npm run typecheck</code> runs only that check (see <a href="../operations/testing.html#type-check">Type check</a>).</p>
-        <p>When security rules changed, run the rules tests as well:</p>
-        <pre><code>npm run test:rules</code></pre>
+        <p><strong>Run the gate:</strong></p>
+        <pre><code>npm run gate</code></pre>
+        <p>It type-checks the app and the functions, runs the whole suite, and runs the rules tests when the rules or their tests changed. It also lists the docs pages for your change. It does not test the same code twice, so run it again after a merge: it answers at once when the code is the same (see <a href="../operations/testing.html#gate">Before a merge</a>).</p>
         <p>If anything fails, the change is not done. Fix it, or report it as unfinished with the failing output.</p>
       </li>
     </ol>

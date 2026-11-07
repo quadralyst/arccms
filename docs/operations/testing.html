@@ -5,16 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Testing | Arc CMS docs</title>
   <meta name="description" content="Run the Arc CMS test suite, run one file, and write component, Cloud Function, security rules and feature-aware specs the way the existing ones do.">
-  <meta name="docs:sources" content="vitest.config.ts, custom, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, scripts/custom-starters.mjs, functions/src/users/claimLock.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json, scripts/typecheck.mjs, tsconfig.app.json, functions/tsconfig.json">
+  <meta name="docs:sources" content="vitest.config.ts, custom, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, scripts/custom-starters.mjs, functions/src/users/claimLock.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json, scripts/typecheck.mjs, scripts/gate.mjs, scripts/vitest-only-server.mjs, tsconfig.app.json, functions/tsconfig.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/testing.html">
   <main>
     <h1>Testing</h1>
-    <p class="lead">One command runs every test of the website, the Cloud Functions, the scripts and the docs. The security rules have a second command, because they need the Firebase emulators.</p>
+    <p class="lead">One command checks everything before a merge. While you work, run the one spec you are changing: a Cloud Functions or script spec answers in seconds.</p>
+
+    <h2 id="gate">Before a merge</h2>
+    <p>From the repository root:</p>
+    <pre><code>npm run gate</code></pre>
+    <p>It stops at the first failure, and takes about three minutes when everything has to run:</p>
+    <ol class="steps">
+      <li><p><strong>Type check</strong> (about 15 seconds), so a type error fails before the suite starts.</p></li>
+      <li><p><strong>The whole suite</strong>, docs checks included.</p></li>
+      <li><p><strong>The rules tests</strong>, when the rules or their tests changed since they last passed. It finds Java 21 from Homebrew when the <code>java</code> on your path is older.</p></li>
+    </ol>
+    <p>It prints a few lines: each step, any failed test with its first error line, and the docs pages that describe your change. The full output goes to <code>tmp/gate/</code>, which git ignores.</p>
+    <p>When everything passes, the gate records the exact code that passed, new files included. The same code is not tested twice: asking again answers at once, and so does the main checkout after a fast-forward merge, because every worktree of a clone shares the record. A merge that produces different code runs in full.</p>
+    <table>
+      <thead><tr><th>Command</th><th>Use it to</th></tr></thead>
+      <tbody>
+        <tr><td><code>npm run gate -- --force</code></td><td>Run everything, even for code that already passed. Files git ignores, such as <code>arccms.config.json</code>, are not part of the record, so use this after changing one if a test could depend on it.</td></tr>
+        <tr><td><code>npm run gate -- --changed</code></td><td>Before a commit: run the type check and the specs your change touches. This is not a merge check, because it misses specs that read a source file as text, and it records nothing.</td></tr>
+      </tbody>
+    </table>
+    <div class="trap"><p>Timeouts in specs you did not touch usually mean a busy machine, not a bug. The gate says when failures timed out and what the load was, and when the machine slept or froze during the run. Closing a laptop's lid does that: keep it open, and run one heavy job at a time.</p></div>
 
     <h2>Run the tests</h2>
-    <p>From the repository root:</p>
     <pre><code>npm run test</code></pre>
     <p>In a terminal, Vitest keeps watching and reruns the tests you touch; press <kbd>q</kbd> to stop. To run everything once and stop, for example in a script:</p>
     <pre><code>npx vitest run</code></pre>
@@ -22,24 +41,26 @@
 
     <h3>Run one file or one test</h3>
     <pre><code>npx vitest run functions/src/__tests__/adminCreateUser.spec.ts</code></pre>
+    <p>A run that names only paths under <code>functions/</code> or <code>scripts/</code> takes a few seconds, because it does not start the Angular compiler. Any other run spends about 35 seconds starting it, whatever it runs.</p>
     <p>A path that contains brackets or parentheses, such as a page in a <code>(group)</code> folder, needs quotes in the shell. To run only the tests whose name contains some words, add <code>-t</code>:</p>
     <pre><code>npx vitest run src/app/core/features -t "resolveFeatures"</code></pre>
 
     <h2>What runs</h2>
-    <p><code>vitest.config.ts</code> sets up one run for everything:</p>
+    <p><code>vitest.config.ts</code> splits the specs into two projects that run together:</p>
     <table>
-      <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+      <thead><tr><th>Setting</th><th><code>server</code></th><th><code>app</code></th></tr></thead>
       <tbody>
-        <tr><td>Specs</td><td><code>src/**/*.spec.ts</code>, <code>functions/src/**/*.spec.ts</code>, <code>scripts/**/*.spec.ts</code>, and an app's <code class="new">custom/**/*.spec.ts</code></td></tr>
-        <tr><td>Environment</td><td>jsdom, with Vitest globals</td></tr>
-        <tr><td>Setup for every spec</td><td><code>src/test/setup.ts</code> (Angular) and <code>functions/src/__tests__/setup.ts</code> (Cloud Functions)</td></tr>
-        <tr><td>Once before the run</td><td><code>scripts/vitest-global-setup.ts</code> writes the functions' generated feature files, which a fresh clone does not have</td></tr>
+        <tr><td>Specs</td><td><code>functions/src/**/*.spec.ts</code>, <code>scripts/**/*.spec.ts</code></td><td><code>src/**/*.spec.ts</code>, an app's <code class="new">custom/**/*.spec.ts</code></td></tr>
+        <tr><td>Environment</td><td>Node, with Vitest globals</td><td>jsdom, with Vitest globals and the Angular compiler</td></tr>
+        <tr><td>Setup for every spec</td><td><code>functions/src/__tests__/setup.ts</code> (Cloud Functions)</td><td><code>src/test/setup.ts</code> (Angular) and <code>functions/src/__tests__/setup.ts</code></td></tr>
+        <tr><td>Workers</td><td>Separate processes</td><td>Threads, each replaced past 1500 MB (<code>vmMemoryLimit</code>), so a run peaks near 15 GB in all</td></tr>
       </tbody>
     </table>
+    <p>Both share half the machine's cores (<code>maxWorkers</code>). Once before the run, <code>scripts/vitest-global-setup.ts</code> writes the functions' generated feature files, which a fresh clone does not have.</p>
     <p>The rules tests in <code>tests/rules/</code> are left out of this run (see <a href="#rules-tests">Rules tests</a>).</p>
 
     <h2 id="type-check">Type check</h2>
-    <p>Vitest strips the types from each file without checking them, so code with a type error passes its specs and only fails when <code>npm run build</code> or a deploy compiles it. The suite closes that gap: <code>scripts/__tests__/typecheck.spec.ts</code> fails on any type error in the app or the functions. On its own, in about 15 seconds:</p>
+    <p>Vitest strips the types from each file without checking them, so code with a type error passes its specs and only fails when <code>npm run build</code> or a deploy compiles it. The suite closes that gap: <code>scripts/__tests__/typecheck.spec.ts</code> fails on any type error in the app or the functions. <code>npm run gate</code> runs the check first and skips that spec, so it does not run twice. On its own, in about 15 seconds:</p>
     <pre><code>npm run typecheck</code></pre>
     <table>
       <thead><tr><th>Checks</th><th>With</th><th>Like</th></tr></thead>
@@ -141,7 +162,7 @@ vi.mock('../feature-flags.js', () =&gt; ({ isFeatureOn: (id: string) =&gt; !feat
     <h2>Rules tests</h2>
     <p>The security rules are tested against the Firestore and Storage emulators:</p>
     <pre><code>npm run test:rules</code></pre>
-    <p>It combines the core and app rules, starts the emulators with the Firebase CLI, and runs <code>tests/rules/</code> with <code>vitest.rules.config.ts</code>. It needs the Firebase CLI and Java. Run it whenever a rules file changed. How to write a rules test is in <a href="security-rules.html#change-a-rule-safely">Security rules</a>.</p>
+    <p>It combines the core and app rules, starts the emulators with the Firebase CLI, and runs <code>tests/rules/</code> with <code>vitest.rules.config.ts</code>. It needs the Firebase CLI and Java 21. <code>npm run gate</code> runs it whenever a rules file changed. How to write a rules test is in <a href="security-rules.html#change-a-rule-safely">Security rules</a>.</p>
 
     <h2>Docs checks</h2>
     <p>The docs have tests too. They run with <code>npm run test</code>, and on their own with:</p>
@@ -149,7 +170,7 @@ vi.mock('../feature-flags.js', () =&gt; ({ isFeatureOn: (id: string) =&gt; !feat
     <p>They fail on a broken link, a path or npm script that does not exist, a missing feature page, or a writing rule broken. See <a href="../contributing/writing-docs.html">Writing docs</a>.</p>
 
     <h2>Before you finish</h2>
-    <p>A change is done when the whole suite passes, with the rules tests when rules changed, and the docs agree with the code: see <a href="../contributing/docs-and-tests-are-part-of-done.html">Docs and tests are part of done</a>.</p>
+    <p>A change is done when <code>npm run gate</code> passes and the docs agree with the code: see <a href="../contributing/docs-and-tests-are-part-of-done.html">Docs and tests are part of done</a>.</p>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

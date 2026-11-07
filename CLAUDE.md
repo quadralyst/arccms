@@ -38,7 +38,12 @@ A task that changes anything is not done until the docs, the tests and the whole
 - Add or update tests that would have caught the change breaking. The docs have their own
   tests (`npm run check:docs`): they fail on a broken link, a page that names a file, script,
   feature or function that no longer exists, and a feature or script the docs do not cover.
-- Run the whole suite (`npm run test`, and `npm run test:rules` when rules changed). If
-  anything fails, the task is not done: fix it, or report it as unfinished with the output.
+- Run `npm run gate`: the type check, the whole suite, and the rules tests when rules changed. If
+  anything fails, the task is not done: fix it, or report it as unfinished with the output. It already
+  covers `npm run check:docs`, `npm run typecheck` and the functions build, so do not run those as well,
+  and run it once in the background and wait for it rather than reading its log. It does not test the
+  same code twice, so it answers at once after a fast-forward merge.
+- While working, run only the spec you are changing: `npx vitest run <path>`. Under `functions/` or
+  `scripts/` that takes seconds; anywhere else it spends about 35 seconds starting Angular.
 - In an app built on Arc CMS, the app's own pages go in `docs/custom/`; the rest of `docs/`
   is core and is not edited there.

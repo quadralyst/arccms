@@ -20,6 +20,7 @@
     "build": "node scripts/arc-website-build.mjs",
     "build:project": "node scripts/arc-build.mjs",
     "test": "vitest",
+    "gate": "node scripts/gate.mjs",
     "typecheck": "node scripts/typecheck.mjs",
     "test:rules": "node scripts/arc-rules-build.mjs && firebase emulators:exec --only firestore,storage --project demo-arccms-rules 'vitest run --config vitest.rules.config.ts'",
     "i18n:keys": "node scripts/generate-i18n-keys.mjs",

@@ -49,8 +49,11 @@ git checkout -b feat/your-feature-name
 ### Running Tests
 
 ```bash
-# Run all tests (frontend + functions)
-npm run test
+# Before a merge: type check, all tests, and the rules tests when rules changed
+npm run gate
+
+# While working: one spec
+npx vitest run functions/src/__tests__/adminCreateUser.spec.ts
 ```
 
 > **Note:** All tests run from the project root using Vitest. The `functions/` directory does not have its own test script.
