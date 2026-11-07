@@ -271,8 +271,9 @@ else if (args[0] === 'functions:artifacts:setpolicy') {
         out('✔  Successfully set up cleanup policy');
     }
 } else if (args[0] === 'deploy' && (!args.includes('--only') || args[args.indexOf('--only') + 1].includes('functions'))) {
+    // Only a first deploy (no repository yet) has a watcher to wait for.
+    const until = Date.now() + (existsSync(repo) ? 0 : 5000);
     writeFileSync(repo, '');
-    const until = Date.now() + 5000;
     while (!existsSync(policy) && Date.now() < until) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
     if (!existsSync(policy)) {
         out('⚠  functions: No cleanup policy detected for repositories in asia-south1. This may result in a small monthly bill as container images accumulate over time.');

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Testing | Arc CMS docs</title>
   <meta name="description" content="Run the Arc CMS test suite, run one file, and write component, Cloud Function, security rules and feature-aware specs the way the existing ones do.">
-  <meta name="docs:sources" content="vitest.config.ts, custom, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, scripts/custom-starters.mjs, functions/src/users/claimLock.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json, scripts/typecheck.mjs, scripts/gate.mjs, scripts/vitest-only-server.mjs, tsconfig.app.json, functions/tsconfig.json">
+  <meta name="docs:sources" content="vitest.config.ts, custom, vitest.rules.config.ts, src/test, functions/src/__tests__/setup.ts, functions/src/__tests__/broadcastHelper.spec.ts, functions/src/__tests__/memberPin.spec.ts, scripts/__tests__/arc-own-site.spec.ts, scripts/custom-starters.mjs, functions/src/users/claimLock.ts, scripts/vitest-global-setup.ts, scripts/arc-features.mjs, tests/rules, scripts/__tests__/docs, package.json, functions/package.json, scripts/typecheck.mjs, scripts/gate.mjs, scripts/vitest-only-server.mjs, tsconfig.app.json, functions/tsconfig.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/testing.html">
@@ -131,6 +131,15 @@ import { adminCreateUser } from '../users/adminCreateUser.js';</code></pre>
     <div class="trap"><p>Take a trigger's handler at the top of the file, not inside a test. <code>vi.clearAllMocks()</code> in a <code>beforeEach</code> empties the mock's call list, so a handler read inside a test is missing, and a test that returns early when it is missing passes without checking anything.</p></div>
     <p>Code that writes claims (<code>mergeAppClaims()</code>, <code>createAppAccount()</code> and Arc CMS's own claims writes) takes a short lease in Firestore first, so a spec whose fake <code>db</code> has no transactions mocks the lease to simply run the work, as <code>functions/src/__tests__/appKit.spec.ts</code> does:</p>
     <pre><code>vi.mock('../users/claimLock.js', () =&gt; ({ withClaimLock: (_uid: string, work: () =&gt; Promise&lt;unknown&gt;) =&gt; work() }));</code></pre>
+
+    <h2 id="keep-specs-fast">Keep specs fast</h2>
+    <p>A spec should not wait for real time. Most slow specs wait for something the code under test only asks for:</p>
+    <ul>
+      <li><strong>Retries and backoffs:</strong> run them on Vitest's fake clock, then check the time that passed. <code>functions/src/__tests__/broadcastHelper.spec.ts</code> does this. Where fake timers do not suit, pass only the known wait at once and check it was asked for, as <code>src/app/pages/(auth)/auth.store.login.spec.ts</code> does.</li>
+      <li><strong>PIN hashing:</strong> mock <code>scrypt</code> from <code>node:crypto</code> with the lowest cost, so the real code still runs, as <code>functions/src/__tests__/memberPin.spec.ts</code> does.</li>
+      <li><strong>Setup that does not change between tests:</strong> build it once and copy it for each test, as <code>scripts/__tests__/arc-own-site.spec.ts</code> does with its git repositories.</li>
+    </ul>
+    <p>After you replace a wait, break the code it covers once, to confirm the spec still fails.</p>
 
     <h2>The custom space in specs</h2>
     <p>Core specs test Arc CMS as it ships, whatever an app puts in the custom space's starter files, so an app can run the whole suite with its own routes, menu items, home pages, member languages and feature choices:</p>

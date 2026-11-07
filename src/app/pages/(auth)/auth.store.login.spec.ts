@@ -3,7 +3,7 @@
  * The sign-in pool can be shared with another app, whose users must not end up
  * signed in to Firebase and treated as nobody.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { of } from 'rxjs';
@@ -109,12 +109,24 @@ describe('AuthState.login', () => {
 
     it('keeps the new sign-in when creating the record keeps failing, and says to sign in (review F)', async () => {
         const del = vi.fn();
+        // Only the two retry waits pass at once; the store's other timers keep their length.
+        onTestFinished(() => vi.unstubAllGlobals());
+        const realSetTimeout = globalThis.setTimeout;
+        const waits: number[] = [];
+        vi.stubGlobal('setTimeout', (fn: () => void, ms?: number) => {
+            if (ms === 1500 || ms === 4000) {
+                waits.push(ms);
+                return realSetTimeout(fn, 0);
+            }
+            return realSetTimeout(fn, ms);
+        });
         signIn.createAccountRecord.mockRejectedValue({ code: 'functions/unavailable', message: 'down' });
         authService.register.mockReturnValue(of({ uid: 'u1', delete: del }));
         const store = TestBed.inject(AuthState);
         store.signup({ name: 'Asha', email: 'a@x.com', password: 'longenough' });
         await vi.waitFor(() => expect(store.error()).toBe(english('member.auth.unfinished_signup')), { timeout: 8000 });
         expect(signIn.createAccountRecord).toHaveBeenCalledTimes(3);
+        expect(waits).toEqual([1500, 4000]);
         expect(del).not.toHaveBeenCalled();
     }, 10000);
 

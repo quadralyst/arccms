@@ -6,6 +6,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomBytes } from 'node:crypto';
 
+// The real hashing code at the lowest scrypt cost: dozens of tries at full cost took 9 seconds.
+vi.mock('node:crypto', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('node:crypto')>();
+    const scrypt = (pin: string, salt: Buffer, keylen: number, done: (error: Error | null, key: Buffer) => void) => actual.scrypt(pin, salt, keylen, { N: 2 }, done);
+    return { ...actual, default: { ...actual, scrypt }, scrypt };
+});
 vi.mock('../init', async () => {
     const { MemoryFirestore } = await import('./helpers/memoryFirestore.js');
     return { db: new MemoryFirestore(), owner: {} };

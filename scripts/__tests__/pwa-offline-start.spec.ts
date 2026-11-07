@@ -305,10 +305,13 @@ async function coldStart(worker: Worker, address: string) {
 /** Deploy 1, people open each address, deploy 2, the update is applied: the stored files as they then are. */
 async function afterAnUpdate(mode: RouteCodeMode, options: { timeout?: number; plain?: boolean } = {}) {
     const name = `${mode}${options.timeout ?? ''}${options.plain ? '-plain' : ''}`;
-    const one = writeBuild(`${name}-1`, 'AAAAAAAA');
-    const two = writeBuild(`${name}-2`, 'BBBBBBBB');
-    await buildServiceWorker(one, 'AAAAAAAA', mode, options.timeout, options.plain);
-    await buildServiceWorker(two, 'BBBBBBBB', mode, options.timeout, options.plain);
+    const one = join(TMP, `${name}-1`);
+    const two = join(TMP, `${name}-2`);
+    // The same settings build the same workers, so each set is built once.
+    if (!existsSync(two)) {
+        await buildServiceWorker(writeBuild(`${name}-1`, 'AAAAAAAA'), 'AAAAAAAA', mode, options.timeout, options.plain);
+        await buildServiceWorker(writeBuild(`${name}-2`, 'BBBBBBBB'), 'BBBBBBBB', mode, options.timeout, options.plain);
+    }
     const caches = new FakeCacheStorage();
     const server = new FakeServer();
 

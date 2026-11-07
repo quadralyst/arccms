@@ -80,6 +80,15 @@ function makeBroadcastRef() {
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
+/** Runs a batch with its waits on the fake clock, so the 1, 2 and 4 second backoffs pass at once. */
+async function runOnFakeClock(batch: Parameters<typeof processRecipientBatch>[0]) {
+    let running = true;
+    const result = processRecipientBatch(batch).finally(() => { running = false; });
+    result.catch(() => {});
+    while (running) await vi.advanceTimersByTimeAsync(100);
+    return result;
+}
+
 describe('broadcastHelper', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -325,7 +334,8 @@ describe('broadcastHelper', () => {
             });
             const broadcastRef = makeBroadcastRef();
 
-            const result = await processRecipientBatch({
+            const started = Date.now();
+            const result = await runOnFakeClock({
                 broadcastRef,
                 broadcastData,
                 broadcastId: 'bc-1',
@@ -337,6 +347,7 @@ describe('broadcastHelper', () => {
             });
 
             // 3 attempts
+            expect(Date.now() - started).toBeGreaterThanOrEqual(3000); // backed off 1s, then 2s
             expect(mockCollectionAdd).toHaveBeenCalledTimes(3);
             expect(result.sentCount).toBe(0);
             expect(result.failedCount).toBe(1);
@@ -353,7 +364,7 @@ describe('broadcastHelper', () => {
             });
             const broadcastRef = makeBroadcastRef();
 
-            const result = await processRecipientBatch({
+            const result = await runOnFakeClock({
                 broadcastRef,
                 broadcastData,
                 broadcastId: 'bc-1',
@@ -432,7 +443,7 @@ describe('broadcastHelper', () => {
             });
             const broadcastRef = makeBroadcastRef();
 
-            await processRecipientBatch({
+            await runOnFakeClock({
                 broadcastRef,
                 broadcastData,
                 broadcastId: 'bc-1',
@@ -559,7 +570,7 @@ describe('broadcastHelper', () => {
             });
             const broadcastRef = makeBroadcastRef();
 
-            const result = await processRecipientBatch({
+            const result = await runOnFakeClock({
                 broadcastRef,
                 broadcastData,
                 broadcastId: 'bc-1',

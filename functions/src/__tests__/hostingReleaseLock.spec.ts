@@ -151,6 +151,9 @@ const publish = (...paths: string[]) => {
 };
 
 beforeEach(() => {
+    // The lock's poll of 500 to 1000 ms passes at once; the fake's own short delays keep their length.
+    const realSetTimeout = globalThis.setTimeout;
+    vi.stubGlobal('setTimeout', (fn: () => void, ms?: number) => realSetTimeout(fn, ms !== undefined && ms >= 500 ? 5 : ms));
     store.clear();
     hosting = {
         versions: new Map([[`sites/${SITE}/versions/v0`, { '/index.html': 'h0' }]]),
@@ -162,6 +165,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    vi.unstubAllGlobals();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
 });

@@ -5,9 +5,9 @@
  * The end-to-end tests build two real git repositories: an "Arc CMS" with a commit
  * in the old layout and one in the new, and an app that edited the old one.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import {
@@ -104,7 +104,7 @@ function put(root: string, files: Record<string, string | null>): void {
 
 const read = (path: string) => readFileSync(join(app, path), 'utf8');
 
-function setUpRepositories(): void {
+function buildRepositories(): void {
     dir = mkdtempSync(join(tmpdir(), 'arc-own-site-'));
     arc = join(dir, 'arccms');
     app = join(dir, 'app');
@@ -168,8 +168,21 @@ function mergeUpstream(): void {
 }
 
 describe('arc:own-site end to end', { timeout: SLOW }, () => {
-    beforeEach(setUpRepositories);
-    afterEach(() => rmSync(dir, { recursive: true, force: true }));
+    // Built once and copied back to the same path for each test, so the app's remote still points at Arc CMS.
+    let pristine: string;
+    beforeAll(() => {
+        buildRepositories();
+        pristine = `${dir}-pristine`;
+        cpSync(dir, pristine, { recursive: true });
+    });
+    beforeEach(() => {
+        rmSync(dir, { recursive: true, force: true });
+        cpSync(pristine, dir, { recursive: true });
+    });
+    afterAll(() => {
+        rmSync(dir, { recursive: true, force: true });
+        rmSync(pristine, { recursive: true, force: true });
+    });
 
     it('asks for the merge first while the copy is still on the old Arc CMS', () => {
         const out: string[] = [];
