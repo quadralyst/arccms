@@ -44,6 +44,10 @@ describe('the admin layout', () => {
         const profile = readFileSync(resolve(__dirname, 'pages/(auth)/(profile)/profile.page.html'), 'utf8');
         expect(profile.indexOf('cancelEditName()')).toBeLessThan(profile.indexOf('saveName()'));
         expect(profile.indexOf('cancelChangePassword()')).toBeLessThan(profile.indexOf('savePassword()'));
+        const methods = readFileSync(resolve(__dirname, 'pages/(auth)/(profile)/sign-in-methods.component.ts'), 'utf8');
+        expect(methods.indexOf('(click)="cancel()"', methods.indexOf('(click)="finish()"'))).toBe(-1);
+        const full = readFileSync(resolve(__dirname, 'pages/admin/contents/create-content/fullscreen-editor-dialog/fullscreen-editor-dialog.component.ts'), 'utf8');
+        expect(full.indexOf('(click)="cancel()"')).toBeLessThan(full.indexOf('(click)="save()"'));
     });
 
     it('centres the card of a settings page that is switched off in the panel', () => {

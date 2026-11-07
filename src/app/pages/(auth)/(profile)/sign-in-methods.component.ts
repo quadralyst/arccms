@@ -184,6 +184,7 @@ interface Flow {
                 }
                 @if (error()) { <div class="text-danger small mt-2">{{ error() }}</div> }
                 <div class="edit-actions">
+                    <button class="btn btn-sm btn-light" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
                     @switch (f.step) {
                         @case ('enter') {
                             <button class="btn btn-sm btn-primary" (click)="sendCode()" [disabled]="busy()">
@@ -204,7 +205,6 @@ interface Flow {
                             </button>
                         }
                     }
-                    <button class="btn btn-sm btn-light" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
                 </div>
             </div>
         </ng-template>

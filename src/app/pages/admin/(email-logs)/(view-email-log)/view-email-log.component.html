@@ -108,6 +108,9 @@
              visitor typed into a form, can never run script in the admin's session. -->
         @if (hasContent()) {
         <iframe class="email-preview" sandbox="" title="Email as sent" [srcdoc]="processedHtml()"></iframe>
+        @if (hasLinks()) {
+        <p class="text-muted small mt-1 mb-0">Links do not open from this preview.</p>
+        }
         } @else {
         <div class="email-preview-empty text-muted small">
             The content of this email was not stored, so there is nothing to show.

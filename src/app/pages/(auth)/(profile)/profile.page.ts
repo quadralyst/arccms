@@ -130,10 +130,11 @@ export default class ProfileComponent extends BaseComponent {
    * The site's sign-in settings are in. The cards below depend on them (the phone and Google
    * rows of Sign-in methods, whether there is a password to change), so the page draws them
    * all at once when they are, and a placeholder until then. Drawn as each one learned its
-   * part, they arrived one after another and pushed each other down. A failed read ends the
-   * wait too: the page works with what the browser kept.
+   * part, they arrived one after another and pushed each other down. With a copy kept in this
+   * browser there is nothing to wait for. Without one, a failed read or no answer in 5 seconds
+   * ends the wait too, and the page opens with what it knows.
    */
-  readonly settingsReady = signal(false);
+  readonly settingsReady = signal(readStoredSignInSettings() !== null);
 
   constructor() {
     super();
@@ -144,8 +145,7 @@ export default class ProfileComponent extends BaseComponent {
       },
       () => this.settingsReady.set(true),
     );
-    // A read that never answers must not leave the page on its loading line.
-    setTimeout(() => this.settingsReady.set(true), 5000);
+    if (!this.settingsReady()) setTimeout(() => this.settingsReady.set(true), 5000);
   }
 
   getInitials(name: string): string {

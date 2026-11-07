@@ -45,6 +45,18 @@ describe('ViewEmailLogComponent', () => {
         const fixture = open();
         expect(fixture.nativeElement.querySelector('iframe.email-preview')).toBeTruthy();
         expect(fixture.nativeElement.textContent).not.toContain('was not stored');
+        expect(fixture.nativeElement.textContent).not.toContain('Links do not open');
+    });
+
+    it('keeps a link from replacing the email in its frame, and says links do not open', () => {
+        // The review's "Loading...": a link followed in the sandboxed frame loads the app there
+        // with no scripts and no stylesheet, for good.
+        item.set({ status: 'success', processedTemplate: '<p><a href="/admin/reports">Open it in Reports</a></p>' });
+        const fixture = open();
+        const frame = fixture.nativeElement.querySelector('iframe.email-preview') as HTMLIFrameElement;
+        expect(frame.getAttribute('sandbox')).toBe('');
+        expect(frame.getAttribute('srcdoc')).toMatch(/^<base target="_blank">/);
+        expect(fixture.nativeElement.textContent).toContain('Links do not open from this preview.');
     });
 
     it('says plainly that no content was stored, instead of an empty frame', () => {

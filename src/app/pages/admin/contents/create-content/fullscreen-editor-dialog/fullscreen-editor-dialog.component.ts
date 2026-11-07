@@ -20,11 +20,11 @@ export interface FullscreenEditorData {
             <div class="fullscreen-editor-header">
                 <h5 class="mb-0">{{ data.fieldLabel }}</h5>
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-primary btn-sm" (click)="save()">
-                        <i class="fa-solid fa-check me-1"></i> Done
-                    </button>
                     <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancel()">
                         <i class="fa-solid fa-xmark me-1"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" (click)="save()">
+                        <i class="fa-solid fa-check me-1"></i> Done
                     </button>
                 </div>
             </div>

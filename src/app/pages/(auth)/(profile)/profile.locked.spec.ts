@@ -13,7 +13,7 @@ import ProfileComponent from './profile.page';
 import { SignInMethodsComponent } from './sign-in-methods.component';
 import { AuthState } from '../auth.store';
 import { SignInService } from '../sign-in.service';
-import { UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
+import { SIGN_IN_SETTINGS_CACHE_KEY, UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
 import { FileUploadService } from '../../../../shared/services/file-upload.service';
 import { headerTestProviders } from '../../../../test/header-test-providers';
 import { translocoTestingModule } from '../../../../test/transloco-test-providers';
@@ -54,7 +54,10 @@ describe('ProfileComponent for a locked app account', () => {
         return fixture.nativeElement as HTMLElement;
     }
 
-    beforeEach(() => vi.clearAllMocks());
+    beforeEach(() => {
+        vi.clearAllMocks();
+        localStorage.removeItem(SIGN_IN_SETTINGS_CACHE_KEY);
+    });
 
     it('shows every field read-only, with one line saying why', async () => {
         const page = await render({ by: 'app' });
@@ -106,5 +109,32 @@ describe('ProfileComponent for a locked app account', () => {
         fixture.detectChanges();
         expect(page.textContent).not.toContain('Loading profile');
         expect(page.querySelectorAll('.profile-card').length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('has nothing to wait for when this browser kept the settings', async () => {
+        localStorage.setItem(SIGN_IN_SETTINGS_CACHE_KEY, JSON.stringify({ isSignupEnabled: true }));
+        const page = await render({ by: 'email' }, () => new Promise(() => undefined));
+        localStorage.removeItem(SIGN_IN_SETTINGS_CACHE_KEY);
+        expect(page.textContent).not.toContain('Loading profile');
+        expect(page.querySelectorAll('.profile-card').length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('opens anyway when the settings never answer', async () => {
+        const real = globalThis.setTimeout;
+        const timers: Array<{ fn: () => void; ms: number }> = [];
+        const spy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: () => void, ms?: number) => {
+            if (ms === 5000) { timers.push({ fn, ms }); return 0; }
+            return real(fn, ms);
+        }) as typeof setTimeout);
+        try {
+            const page = await render({ by: 'email' }, () => new Promise(() => undefined));
+            expect(page.textContent).toContain('Loading profile');
+            expect(timers).toHaveLength(1);
+            timers[0].fn();
+            fixture.detectChanges();
+            expect(page.textContent).not.toContain('Loading profile');
+        } finally {
+            spy.mockRestore();
+        }
     });
 });

@@ -1,4 +1,6 @@
-import { Component, Inject, signal } from '@angular/core';
+import { Component, computed, inject, Inject, signal } from '@angular/core';
+import { DomSanitizer } from '@angular/platform-browser';
+import { emailPreviewDocument } from '../../../../shared/utils/email-preview';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -41,7 +43,7 @@ export interface EmailPreviewData {
         }
         <div mat-dialog-content class="p-0" style="max-height: 70vh;">
             @if (html()) {
-            <iframe [srcdoc]="html()" sandbox="" title="Email preview"
+            <iframe [srcdoc]="frameHtml()" sandbox="" title="Email preview"
                 style="width: 100%; height: 70vh; border: 0;"></iframe>
             } @else {
             <div class="alert alert-info m-3">
@@ -62,6 +64,14 @@ export class EmailPreviewDialogComponent {
     html(): string {
         return this.data.languages?.[this.chosen()]?.html ?? this.data.html ?? '';
     }
+
+    private readonly sanitizer = inject(DomSanitizer);
+    /**
+     * The email as it is, in a frame with no scripts (sandbox=""). Left to Angular's sanitizer
+     * it would lose its inline styles, and with them its look. Its links cannot replace it
+     * (emailPreviewDocument). One value per email, so the frame is not reloaded on every check.
+     */
+    readonly frameHtml = computed(() => this.sanitizer.bypassSecurityTrustHtml(emailPreviewDocument(this.html())));
 
     constructor(
         public dialogRef: MatDialogRef<EmailPreviewDialogComponent>,

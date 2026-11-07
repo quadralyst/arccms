@@ -10,6 +10,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { EmailLogStore } from '../email-log.store';
 import { fileSize, IEmailLog, sentSubject } from '../email-log.model';
 import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
+import { emailHasLinks, emailPreviewDocument } from '../../../../../shared/utils/email-preview';
 
 /** How long a file's link may take before the log says it could not be reached. */
 const LINK_WAIT_MS = 10_000;
@@ -53,7 +54,8 @@ export default class ViewEmailLogComponent implements OnChanges {
     });
     /** Whether the log kept any content to show. A frame with nothing in it only looks like a page still loading. */
     readonly hasContent = computed(() => this.storedHtml().trim().length > 0);
-    processedHtml = computed<SafeHtml>(() => this.sanitizer.bypassSecurityTrustHtml(this.storedHtml()));
+    readonly hasLinks = computed(() => emailHasLinks(this.storedHtml()));
+    processedHtml = computed<SafeHtml>(() => this.sanitizer.bypassSecurityTrustHtml(emailPreviewDocument(this.storedHtml())));
     readonly sentSubject = sentSubject;
     readonly fileSize = fileSize;
     /** Each stored file's link by its path, 'missing' when it is gone, 'unavailable' when Storage did not answer; absent while loading. */
