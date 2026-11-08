@@ -18,17 +18,18 @@
     <pre><code>npm run gate</code></pre>
     <p>It stops at the first failure, and takes about three minutes when everything has to run:</p>
     <ol class="steps">
+      <li><p><strong>Docs checks</strong> (about 8 seconds): broken links, pages that name what no longer exists, and the rest of <a href="#docs-checks">Docs checks</a>.</p></li>
       <li><p><strong>Type check</strong> (about 15 seconds), so a type error fails before the suite starts.</p></li>
-      <li><p><strong>The whole suite</strong>, docs checks included.</p></li>
+      <li><p><strong>The whole suite:</strong> every other spec.</p></li>
       <li><p><strong>The rules tests</strong>, when the rules or their tests changed since they last passed. It finds Java 21 from Homebrew when the <code>java</code> on your path is older.</p></li>
     </ol>
-    <p>It prints a few lines: each step, any failed test with its first error line, and the docs pages that describe your change. The full output goes to <code>tmp/gate/</code>, which git ignores.</p>
+    <p>It prints a few lines: each step, any failed test with its first error line, and the docs pages to read for your change. A check can find a broken link, but only a person can tell whether a page's words are still true, so read those pages. The full output goes to <code>tmp/gate/</code>, which git ignores.</p>
     <p>When everything passes, the gate records the exact code that passed, new files included. The same code is not tested twice: asking again answers at once, and so does the main checkout after a fast-forward merge, because every worktree of a clone shares the record. A merge that produces different code runs in full.</p>
     <table>
       <thead><tr><th>Command</th><th>Use it to</th></tr></thead>
       <tbody>
         <tr><td><code>npm run gate -- --force</code></td><td>Run everything, even for code that already passed. Files git ignores, such as <code>arccms.config.json</code>, are not part of the record, so use this after changing one if a test could depend on it.</td></tr>
-        <tr><td><code>npm run gate -- --changed</code></td><td>Before a commit: run the type check and the specs your change touches. This is not a merge check, because it misses specs that read a source file as text, and it records nothing.</td></tr>
+        <tr><td><code>npm run gate -- --changed</code></td><td>Before a commit: run the docs checks, the type check and the specs your change touches. This is not a merge check, because it misses specs that read a source file as text, and it records nothing.</td></tr>
       </tbody>
     </table>
     <div class="trap"><p>Timeouts in specs you did not touch usually mean a busy machine, not a bug. The gate says when failures timed out and what the load was, and when the machine slept or froze during the run. Closing a laptop's lid does that: keep it open, and run one heavy job at a time.</p></div>
@@ -173,8 +174,8 @@ vi.mock('../feature-flags.js', () =&gt; ({ isFeatureOn: (id: string) =&gt; !feat
     <pre><code>npm run test:rules</code></pre>
     <p>It combines the core and app rules, starts the emulators with the Firebase CLI, and runs <code>tests/rules/</code> with <code>vitest.rules.config.ts</code>. It needs the Firebase CLI and Java 21. <code>npm run gate</code> runs it whenever a rules file changed. How to write a rules test is in <a href="security-rules.html#change-a-rule-safely">Security rules</a>.</p>
 
-    <h2>Docs checks</h2>
-    <p>The docs have tests too. They run with <code>npm run test</code>, and on their own with:</p>
+    <h2 id="docs-checks">Docs checks</h2>
+    <p>The docs have tests too. They are the first step of <code>npm run gate</code>, they run with <code>npm run test</code>, and they run on their own with:</p>
     <pre><code>npm run check:docs</code></pre>
     <p>They fail on a broken link, a path or npm script that does not exist, a missing feature page, or a writing rule broken. See <a href="../contributing/writing-docs.html">Writing docs</a>.</p>
 

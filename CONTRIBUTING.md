@@ -49,7 +49,7 @@ git checkout -b feat/your-feature-name
 ### Running Tests
 
 ```bash
-# Before a merge: type check, all tests, and the rules tests when rules changed
+# Before a merge: docs checks, type check, all tests, and the rules tests when rules changed
 npm run gate
 
 # While working: one spec

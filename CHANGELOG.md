@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Added
 
-- **`npm run gate`, the one check before a merge.** The type check first, then the whole suite, then the rules tests when they or the rules changed. It prints a few lines, keeps the rest in `tmp/gate/`, and records the code that passed, so the same code is not tested twice: a fast-forward merge answers at once. See Testing in the docs.
+- **`npm run gate`, the one check before a merge.** The docs checks first, then the type check, the whole suite, and the rules tests when they or the rules changed. It prints a few lines, keeps the rest in `tmp/gate/`, and records the code that passed, so the same code is not tested twice: a fast-forward merge answers at once. See Testing in the docs.
 - **A Cloud Functions or script spec now runs in about 2 seconds, not 40.** The test settings split into a `server` project, with no Angular compiler to start, and an `app` project whose memory is capped: the whole suite peaks near 15 GB, down from 21 GB, and takes about two minutes, down from about three.
 - **A shared loader.** `arc-loader` is a shimmer in the place of what is coming, named for a screen reader and still for someone who asks for less motion. Every admin page uses it, and so can an app's own (docs/app/loader.html).
 - **Search on Users,** by any part of a name, email or phone. The first character reads the accounts of the list (up to 5,000), kept current while the search stays open; typing more and turning pages read nothing.

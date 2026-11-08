@@ -78,7 +78,7 @@ export const SHIPPED_FILES = {
     'src/custom/nav.ts': 'ff6e1483758b4f0a',
     'src/custom/notices.ts': 'd6fa1f28f80af9ad',
     'src/custom/pages/.gitkeep': 'e3b0c44298fc1c14',
-    'src/custom/pwa.ts': '0c9032e2aa1b94eb',
+    'src/custom/pwa.ts': 'a37b04ebdd546a00',
     'src/custom/routes.ts': 'bb7388f7df4aae16',
     'src/custom/sign-in.ts': '5f916ed4918bab96',
     'src/custom/sign-in-page.ts': '99a406ddce02d276',

@@ -32,15 +32,14 @@ A task that changes anything is not done until the docs, the tests and the whole
   how Arc CMS works and how to use it, today. `specs/` holds the working papers: build
   specs, test plans, runbooks and the backlog. Never link from `docs/` into `specs/`.
 - Before finishing, run `npm run docs:affected`. It lists the docs pages that describe the
-  files you changed. Read them and update what is now wrong, in the same task. Retake the
-  screenshots of any screen you changed. In the report, say which pages and screenshots
-  changed, or why none needed to.
+  files you changed. Read them and update what is now wrong, in the same task. In the report,
+  say which pages changed, or why none needed to.
 - Add or update tests that would have caught the change breaking. The docs have their own
   tests (`npm run check:docs`): they fail on a broken link, a page that names a file, script,
   feature or function that no longer exists, and a feature or script the docs do not cover.
-- Run `npm run gate`: the type check, the whole suite, and the rules tests when rules changed. If
-  anything fails, the task is not done: fix it, or report it as unfinished with the output. It already
-  covers `npm run check:docs`, `npm run typecheck` and the functions build, so do not run those as well,
+- Run `npm run gate`: the docs checks, the type check, the whole suite, and the rules tests when rules
+  changed. If anything fails, the task is not done: fix it, or report it as unfinished with the output.
+  It already covers `npm run check:docs`, `npm run typecheck` and the functions build, so do not run those as well,
   and run it once in the background and wait for it rather than reading its log. It does not test the
   same code twice, so it answers at once after a fast-forward merge.
 - While working, run only the spec you are changing: `npx vitest run <path>`. Under `functions/` or

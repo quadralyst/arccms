@@ -5,7 +5,7 @@
  * Every page names the code it describes in <meta name="docs:sources">. This compares
  * your working copy (committed or not, and new files) with a base (default `dev`) and
  * lists the pages whose sources overlap the changed files, so you know which pages to
- * read and update in the same task. Screenshots of those pages need a look too.
+ * read and update in the same task.
  *
  *   npm run docs:affected                  changes since dev
  *   npm run docs:affected -- --base main   changes since another base
@@ -43,7 +43,7 @@ export function main(argv = process.argv.slice(2)) {
         console.log('No docs page names these files as its sources. If the change is visible to a developer or an admin, a page may still need a line: check the section it belongs to.');
         return 0;
     }
-    console.log('\nRead these pages and update what is now wrong (and retake their screenshots):\n');
+    console.log('\nRead these pages and update what is now wrong:\n');
     for (const page of pages) {
         console.log(`  docs/${page.path}${page.edited ? '   (edited already)' : ''}`);
         for (const file of page.files.slice(0, 6)) console.log(`      ${file}`);
