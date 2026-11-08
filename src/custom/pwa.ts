@@ -6,8 +6,8 @@
  * src/custom/pwa-icon.png; every size is made from it.
  *
  *   export const CUSTOM_PWA: Partial<PwaConfig> = {
- *       name: 'Sanskrit for Kids',
- *       shortName: 'Sanskrit',
+ *       name: 'Example App',
+ *       shortName: 'Example',
  *       themeColor: '#e8590c',
  *       startUrl: '/learn',
  *   };
