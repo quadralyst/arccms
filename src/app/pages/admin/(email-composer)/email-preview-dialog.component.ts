@@ -43,7 +43,7 @@ export interface EmailPreviewData {
         }
         <div mat-dialog-content class="p-0" style="max-height: 70vh;">
             @if (html()) {
-            <iframe [srcdoc]="frameHtml()" sandbox="" title="Email preview"
+            <iframe [srcdoc]="frameHtml()" sandbox="allow-popups allow-popups-to-escape-sandbox" title="Email preview"
                 style="width: 100%; height: 70vh; border: 0;"></iframe>
             } @else {
             <div class="alert alert-info m-3">
@@ -67,9 +67,9 @@ export class EmailPreviewDialogComponent {
 
     private readonly sanitizer = inject(DomSanitizer);
     /**
-     * The email as it is, in a frame with no scripts (sandbox=""). Left to Angular's sanitizer
-     * it would lose its inline styles, and with them its look. Its links cannot replace it
-     * (emailPreviewDocument). One value per email, so the frame is not reloaded on every check.
+     * The email as it is, in a frame with no scripts (EMAIL_FRAME_SANDBOX). Left to Angular's
+     * sanitizer it would lose its inline styles, and with them its look. Its links open in a
+     * new tab, but those that act for the recipient (emailPreviewDocument). One value per email, so the frame is not reloaded on every check.
      */
     readonly frameHtml = computed(() => this.sanitizer.bypassSecurityTrustHtml(emailPreviewDocument(this.html())));
 

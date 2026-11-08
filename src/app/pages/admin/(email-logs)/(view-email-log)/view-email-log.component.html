@@ -105,11 +105,13 @@
         </div>
         }
         <!-- A sandboxed frame (review F): the email as sent, including anything a
-             visitor typed into a form, can never run script in the admin's session. -->
+             visitor typed into a form, can never run script in the admin's session. Its links
+             open in a new tab, as EMAIL_FRAME_SANDBOX in shared/utils/email-preview.ts says;
+             written here, as Angular takes no bound sandbox. -->
         @if (hasContent()) {
-        <iframe class="email-preview" sandbox="" title="Email as sent" [srcdoc]="processedHtml()"></iframe>
-        @if (hasLinks()) {
-        <p class="text-muted small mt-1 mb-0">Links do not open from this preview.</p>
+        <iframe class="email-preview" sandbox="allow-popups allow-popups-to-escape-sandbox" title="Email as sent" [srcdoc]="processedHtml()"></iframe>
+        @if (hasRecipientLinks()) {
+        <p class="text-muted small mt-1 mb-0">Unsubscribe and preference links do not open from here: they act for the recipient.</p>
         }
         } @else {
         <div class="email-preview-empty text-muted small">

@@ -10,6 +10,7 @@ import { ArcTime } from '../../../../core/time/arc-time.service';
 import { ArcStorage } from '../../../../core/config/arc-storage';
 import { EmailLogStore } from '../email-log.store';
 import ViewEmailLogComponent from './view-email-log.component';
+import { EMAIL_FRAME_SANDBOX } from '../../../../../shared/utils/email-preview';
 
 const getDownloadURL = vi.fn();
 vi.mock('@angular/fire/storage', () => ({ getDownloadURL: (...a: unknown[]) => getDownloadURL(...a), ref: (_s: unknown, p: string) => ({ path: p }) }));
@@ -45,18 +46,22 @@ describe('ViewEmailLogComponent', () => {
         const fixture = open();
         expect(fixture.nativeElement.querySelector('iframe.email-preview')).toBeTruthy();
         expect(fixture.nativeElement.textContent).not.toContain('was not stored');
-        expect(fixture.nativeElement.textContent).not.toContain('Links do not open');
+        expect(fixture.nativeElement.textContent).not.toContain('do not open from here');
     });
 
-    it('keeps a link from replacing the email in its frame, and says links do not open', () => {
-        // The review's "Loading...": a link followed in the sandboxed frame loads the app there
-        // with no scripts and no stylesheet, for good.
-        item.set({ status: 'success', processedTemplate: '<p><a href="/admin/reports">Open it in Reports</a></p>' });
+    it('opens a link in a new tab, keeps the unsubscribe link for the recipient, and runs no script', () => {
+        // The review's "Loading...": a link followed inside the frame loaded the app there with
+        // no scripts and no stylesheet, for good. Now it opens in a new tab.
+        item.set({ status: 'success', processedTemplate: '<p><a href="/admin/reports">Open it in Reports</a> <a href="https://site.example/unsubscribe?e=1&t=2">Unsubscribe</a></p>' });
         const fixture = open();
         const frame = fixture.nativeElement.querySelector('iframe.email-preview') as HTMLIFrameElement;
-        expect(frame.getAttribute('sandbox')).toBe('');
-        expect(frame.getAttribute('srcdoc')).toMatch(/^<base target="_blank">/);
-        expect(fixture.nativeElement.textContent).toContain('Links do not open from this preview.');
+        expect(frame.getAttribute('sandbox')).toBe(EMAIL_FRAME_SANDBOX);
+        expect(frame.getAttribute('sandbox')).not.toMatch(/allow-scripts|allow-same-origin/);
+        const doc = frame.getAttribute('srcdoc') ?? '';
+        expect(doc).toMatch(/^<base target="_blank">/);
+        expect(doc).toContain('<a href="/admin/reports" target="_blank" rel="noopener noreferrer">');
+        expect(doc).not.toContain('unsubscribe?e=1');
+        expect(fixture.nativeElement.textContent).toContain('Unsubscribe and preference links do not open from here');
     });
 
     it('says plainly that no content was stored, instead of an empty frame', () => {

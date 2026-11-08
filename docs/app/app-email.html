@@ -155,7 +155,7 @@ export const onClosingDone = onDocumentUpdated(arcDocument('businesses/{bid}/clo
     <h2>In the admin</h2>
     <ul>
       <li><strong>Email, Composer</strong> lists your templates, marked <em>App</em>, with their languages. They open as a preview, in each language, filled with their <code>sample</code> data, and cannot be edited there. Opening the composer brings the list up to date with your file (the <code>syncAppEmailTemplates</code> function), and so does each send.</li>
-      <li><strong>Email Logs</strong> shows each email as it was sent, its language, Reply-To and your reference, and lists its files with an Open link.</li>
+      <li><strong>Email Logs</strong> shows each email as it was sent, its language, Reply-To and your reference, and lists its files with an Open link. A link in the email opens in a new tab when an admin clicks it, except Arc CMS's unsubscribe and preference links. Arc CMS cannot tell which of your own links act for the recipient, so a link that signs them in, confirms an order or changes their account would act for the admin who clicks it there: give such a link a short life, or have its page ask who is there.</li>
       <li><strong>Settings, Automations</strong> does not offer your templates for rules: they need your data.</li>
     </ul>
 
