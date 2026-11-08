@@ -15,17 +15,20 @@
   /* The main button, and the main button under the pointer: any CSS background */
   --arc-admin-button-background: var(--arc-admin-gradient);
   --arc-admin-button-hover-background: var(--arc-admin-button-background);
-  /* The side panel (and the setup wizard's panel): any CSS background, and its text */
+  /* The side panel (and the setup wizard's panel): any CSS background, and its text.
+     Dark enough everywhere for white text at 4.5:1, the least for small text: its lighter
+     cyan and blue once left the menu at 2.5:1 (src/app/admin-theme.spec.ts measures them). */
   --arc-admin-panel-background:
     radial-gradient(circle at 10% 10%, #2654bd 0%, transparent 50%),
-    radial-gradient(circle at 90% 20%, #24c6dc 0%, transparent 60%),
-    radial-gradient(circle at 50% 50%, #3c76f5 0%, transparent 70%),
+    radial-gradient(circle at 90% 20%, #14808f 0%, transparent 60%),
+    radial-gradient(circle at 50% 50%, #2c5ed2 0%, transparent 70%),
     radial-gradient(circle at 80% 80%, #1d47a3 0%, transparent 50%),
     radial-gradient(circle at 20% 90%, #1b429a 0%, transparent 60%),
-    linear-gradient(135deg, #1d47a3 0%, #24c6dc 100%);
+    linear-gradient(135deg, #1d47a3 0%, #14808f 100%);
   --arc-admin-panel-color: #fff;
-  /* The side panel's current item, and the item under the pointer */
-  --arc-admin-menu-active-background: rgba(255, 255, 255, 0.15);
+  /* The side panel's current item, and the item under the pointer. A shade, not a veil of
+     white: a light veil took contrast from the white text on it. */
+  --arc-admin-menu-active-background: rgba(0, 0, 0, 0.2);
   --arc-admin-menu-hover-background: var(--arc-admin-menu-active-background);
 }
 

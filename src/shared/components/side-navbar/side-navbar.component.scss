@@ -37,7 +37,6 @@
     // The app's panel, or Arc CMS's blues (src/admin-theme.css, docs/app/admin-look.html)
     background: var(--arc-admin-panel-background);
     z-index: -1;
-    opacity: 0.95;
 }
 
 .brand-link {
@@ -162,8 +161,9 @@
     padding: 0 5px;
 }
 
+// The panel's own text colour: dimmed, it fell below 4.5:1 on most panels.
 .nav-link {
-    color: color-mix(in srgb, var(--arc-admin-panel-color) 80%, transparent);
+    color: var(--arc-admin-panel-color);
     padding: 9px 16px;
     margin: 2px 0;
     border-radius: 6px;
@@ -213,7 +213,7 @@
 .app-version {
     padding: 0 16px 10px 38px;
     font-size: 0.7rem;
-    color: color-mix(in srgb, var(--arc-admin-panel-color) 70%, transparent);
+    color: var(--arc-admin-panel-color);
     overflow-wrap: anywhere;
     user-select: all;
 }

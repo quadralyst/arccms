@@ -27,11 +27,11 @@ function filesUnder(folder: string): string[] {
 // Arc CMS's blues, and the other brand blues the admin's styles used to write
 // (Bootstrap's primary and its tints, and a few more), as hex and as rgba.
 const ARC_BLUES = new RegExp(
-    '#(3c76f5|1d47a3|2654bd|24c6dc|1b429a|2a5fd8|163a8a' +
+    '#(3c76f5|1d47a3|2654bd|24c6dc|1b429a|2a5fd8|163a8a|14808f|2c5ed2' +
         '|0d6efd|0b5ed7|0a58ca|86b7fe|cfe2ff|e7f1ff|e7f3ff|cce5ff|b6d9ff|e9f2ff|eef4ff|f0f7ff' +
         '|3b82f6|93c5fd|bfdbfe|dbeafe|e0f2fe|1e40af|4a6cf7|2196f3|1976d2|e3f2fd|0066cc|0056b3|004085' +
         '|4f46e5|eef2ff|e0e7ff|5c6bc0|283593|e8eaf6|1b98e0|dce8ff|dceeff|bae1ff)\\b' +
-        '|rgba?\\(\\s*(60,\\s*118,\\s*245|29,\\s*71,\\s*163|38,\\s*84,\\s*189|36,\\s*198,\\s*220|27,\\s*66,\\s*154|13,\\s*110,\\s*253)\\b',
+        '|rgba?\\(\\s*(60,\\s*118,\\s*245|29,\\s*71,\\s*163|38,\\s*84,\\s*189|36,\\s*198,\\s*220|27,\\s*66,\\s*154|13,\\s*110,\\s*253|20,\\s*128,\\s*143|44,\\s*94,\\s*210)\\b',
     'i',
 );
 
@@ -95,6 +95,36 @@ describe('the admin\'s colours', () => {
                 .filter(Boolean),
         );
         expect(offenders).toEqual([]);
+    });
+
+    it('keeps the side panel\'s words at 4.5:1 or more on Arc CMS\'s own panel', () => {
+        // Every point of the panel mixes its gradient's stops, and a mix is never lighter than
+        // its lightest stop, so the stops bound the whole panel. The menu once read at 2.5:1.
+        const lin = (v: number) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+        const lum = ([r, g, b]: number[]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+        const ratio = (a: number[], b: number[]) => {
+            const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+            return (hi + 0.05) / (lo + 0.05);
+        };
+        const white = [255, 255, 255];
+
+        const root = read('src/admin-theme.css').match(/:root \{([\s\S]*?)\n\}/)?.[1] ?? '';
+        const panel = root.match(/--arc-admin-panel-background:([^;]*);/)?.[1] ?? '';
+        const stops = [...panel.matchAll(/#([0-9a-f]{6})\b/gi)].map((m) => [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)));
+        expect(stops.length).toBeGreaterThanOrEqual(5);
+        for (const stop of stops) {
+            const name = '#' + stop.map((v) => v.toString(16).padStart(2, '0')).join('');
+            expect(ratio(white, stop), `menu words on ${name}`).toBeGreaterThanOrEqual(4.5);
+        }
+        // The current item and the one under the pointer: a shade, which only adds contrast.
+        expect(root).toContain('--arc-admin-menu-active-background: rgba(0, 0, 0, 0.2);');
+
+        const nav = read('src/shared/components/side-navbar/side-navbar.component.scss');
+        // Every word at the panel's own colour: a dimmed one fell below 4.5:1.
+        expect(nav).toMatch(/\.nav-link \{\s*color: var\(--arc-admin-panel-color\);/);
+        expect(nav).toMatch(/\.app-version \{[^}]*\n\s*color: var\(--arc-admin-panel-color\);/);
+        // Drawn at full strength: at 95% the page's white showed through and lightened it.
+        expect(nav.match(/\.sidebar::before \{[^}]*\}/)?.[0]).not.toContain('opacity');
     });
 
     it('colours the side panel, its items and the main buttons from the variables', () => {
@@ -177,6 +207,9 @@ describe('the setup wizard', () => {
     });
 
     it('draws its panel with the admin\'s panel background', () => {
-        expect(read('src/app/pages/(onboarding)/onboarding.page.scss')).toContain('background: var(--arc-admin-panel-background);');
+        const wizard = read('src/app/pages/(onboarding)/onboarding.page.scss');
+        expect(wizard).toContain('background: var(--arc-admin-panel-background);');
+        // Its words at full strength on the panel, as the side panel's.
+        expect(wizard.match(/\.auth-left-description \{[^}]*\}/)?.[0]).not.toContain('opacity');
     });
 });
