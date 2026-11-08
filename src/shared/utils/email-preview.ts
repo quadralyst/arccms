@@ -15,6 +15,11 @@
  * srcdoc frame that is the admin page's own address, and loads the app in the frame. For
  * the same reason a link to a spot in the email (`#top`) loses its address, and so does a
  * script or data address, which would run outside the sandbox in the new tab.
+ *
+ * A link the email gave no address does not open either: an empty one (`href=""`, which
+ * would open the admin page itself in the new tab) and one whose address is still a
+ * `##TAG##` (a template shown before it is sent). Each says why when pointed at, so an
+ * admin can tell it from a fault.
  */
 const NEW_WINDOW = '<base target="_blank">';
 
@@ -24,10 +29,21 @@ export const EMAIL_FRAME_SANDBOX = 'allow-popups allow-popups-to-escape-sandbox'
 /** What a link that acts for the recipient says when pointed at. */
 export const RECIPIENT_LINK_TITLE = 'Opens for the recipient, so it does not open from here';
 
+/** What a link says when the email gave it no address: empty, or a tag filled with nothing. */
+export const NO_ADDRESS_TITLE = 'No address was filled in';
+
+/** What a link says when its address is still a tag, as in an email not yet sent. */
+export const UNFILLED_TAG_TITLE = 'Filled in when the email is sent';
+
 /** Arc CMS's links that act for the recipient: its unsubscribe and preference pages, or their tags before sending. */
 const ACTS_FOR_RECIPIENT = /^(?:##(?:UNSUBSCRIBE|PREFERENCES)_LINK##|[^?#]*\/(?:unsubscribe|email-preferences)(?:[?#]|$))/i;
 
-const HREF = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+/** A link's `href`: quoted, bare, or written with no value (`<a href>`), never `data-href`. */
+const HREF = /\shref(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?(?=[\s/>])/i;
+const TITLE = /\stitle\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i;
+
+/** An address still holding a `##TAG##`, as in a template before it is sent. */
+const HOLDS_TAG = /##[^#"'<>]+##/;
 const STYLE = /\sstyle\s*=\s*("([^"]*)"|'([^']*)')/i;
 
 /** An address that cannot open from a preview: a spot in the email, or a script or data URL. */
@@ -49,17 +65,19 @@ export function emailPreviewDocument(html: string): string {
         const value = href[1] ?? href[2] ?? href[3] ?? '';
         // Whatever the email asked for, the link's own target and rel are ours.
         const bare = tag.replace(/\s(?:target|rel)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
-        const forRecipient = actsForRecipient(value);
-        if (forRecipient || GOES_NOWHERE.test(value.trim())) {
+        const why = actsForRecipient(value) ? RECIPIENT_LINK_TITLE
+            : !value.trim() ? NO_ADDRESS_TITLE
+            : HOLDS_TAG.test(value) ? UNFILLED_TAG_TITLE
+            : null;
+        if (why || GOES_NOWHERE.test(value.trim())) {
             // No address, so nothing to open; the link's look from its own style, else a link's colours.
             const look = 'color:LinkText;text-decoration:underline;cursor:not-allowed;';
             const styled = STYLE.test(bare)
                 ? bare.replace(STYLE, (_m, _q, dq, sq) => ` style="${look}${(dq ?? sq ?? '').replace(/"/g, "'")}"`)
                 : bare.replace(/\s*\/?>$/, (end) => ` style="${look}"${end}`);
-            if (!forRecipient) return styled.replace(HREF, 'aria-disabled="true"');
-            return styled
-                .replace(/\stitle\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i, '')
-                .replace(HREF, `aria-disabled="true" title="${RECIPIENT_LINK_TITLE}"`);
+            // A spot in the email or a script address: inert, and nothing to explain.
+            if (!why) return styled.replace(HREF, ' aria-disabled="true"');
+            return styled.replace(TITLE, '').replace(HREF, ` aria-disabled="true" title="${why}"`);
         }
         return bare.replace(/\s*\/?>$/, (end) => ` target="_blank" rel="noopener noreferrer"${end}`);
     });

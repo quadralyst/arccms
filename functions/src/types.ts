@@ -317,6 +317,8 @@ export interface ProcessedTemplate {
   subject: string;
   usedTags: string[];
   unmappedTags: string[];
+  /** The links, as written, left with no address once the tags were filled in. */
+  emptyLinks?: string[];
 }
 
 /** Return type of getAnalyticsPropertyInfo */

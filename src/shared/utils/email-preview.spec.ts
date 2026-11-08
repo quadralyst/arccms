@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { actsForRecipient, emailHasRecipientLinks, emailPreviewDocument, RECIPIENT_LINK_TITLE } from './email-preview';
+import {
+    actsForRecipient, emailHasRecipientLinks, emailPreviewDocument, NO_ADDRESS_TITLE, RECIPIENT_LINK_TITLE, UNFILLED_TAG_TITLE,
+} from './email-preview';
 
 describe('emailPreviewDocument', () => {
     it('opens a link in a new tab, with no way back to the frame, so the email stays', () => {
@@ -42,6 +44,33 @@ describe('emailPreviewDocument', () => {
             expect(doc, href).toContain('aria-disabled="true"');
             expect(doc, href).not.toContain(RECIPIENT_LINK_TITLE);
         }
+    });
+
+    it('does not open a link the email gave no address, and says so', () => {
+        // href="" in a srcdoc frame is the admin page's own address: it opened the admin in a new tab.
+        for (const link of ['<a href="">x</a>', "<a href=''>x</a>", '<a href="   ">x</a>', '<a href>x</a>', '<a title="Your voucher" href="">x</a>']) {
+            const doc = emailPreviewDocument(link);
+            expect(doc, link).not.toContain('href');
+            expect(doc, link).not.toMatch(/<a[^>]*target=/);
+            expect(doc, link).toContain(`aria-disabled="true" title="${NO_ADDRESS_TITLE}"`);
+            expect(doc, link).not.toContain('Your voucher');
+        }
+    });
+
+    it('does not open a link whose address is still a tag, and says it is filled in when sent', () => {
+        for (const href of ['##LINK##', '##LIVE_URL##/vouchers/1', '##APP.site|https://example.com##/p', '##FIELD:page##']) {
+            const doc = emailPreviewDocument(`<a href="${href}">x</a>`);
+            expect(doc, href).not.toContain('href');
+            expect(doc, href).toContain(`title="${UNFILLED_TAG_TITLE}"`);
+        }
+        // Arc's own recipient links keep theirs, and a spot in the email says nothing.
+        expect(emailPreviewDocument('<a href="##UNSUBSCRIBE_LINK##">u</a>')).toContain(`title="${RECIPIENT_LINK_TITLE}"`);
+        expect(emailPreviewDocument('<a href="#top">t</a>')).not.toContain('title=');
+    });
+
+    it('reads the href, not an attribute that only ends in href', () => {
+        expect(emailPreviewDocument('<a data-href="#elsewhere" href="/shop">Shop</a>'))
+            .toContain('<a data-href="#elsewhere" href="/shop" target="_blank" rel="noopener noreferrer">');
     });
 
     it('keeps a link\'s own title', () => {

@@ -48,7 +48,7 @@
 
     <h2>How tags are filled</h2>
     <p>The send happens in the Cloud Functions: each queued email is written to <code>EmailLogs</code> with its data, and the sender replaces every tag in the subject and the body in one pass. Values are escaped, so markup in a name shows as text (except an app's <code>{ html }</code> values), and a value that itself looks like a tag is not replaced again.</p>
-    <div class="trap"><p>A tag with no value becomes empty text, not the tag itself. A subject such as <code>Welcome, ##NAME##</code> is safe, but a tag the email does not carry leaves a gap. Send yourself a test from the editor before a real send.</p></div>
+    <div class="trap"><p>A tag with no value becomes empty text, not the tag itself. A subject such as <code>Welcome, ##NAME##</code> is safe, but a tag the email does not carry leaves a gap. Send yourself a test from the editor before a real send. A tag used as a link's address, as in <code>href="##LINK##"</code>, leaves a link that goes nowhere when it has no value: the email still goes, and the sending function's log warns, naming the template and the address as written.</p></div>
     <p>To add a tag to the list an editor offers, add it to <code>EMAIL_TAG</code> and the right context in <code>src/shared/constants/email-tags.ts</code>, and make sure the sender puts a value for it in the email's data.</p>
   </main>
   <script src="../assets/nav.js"></script>

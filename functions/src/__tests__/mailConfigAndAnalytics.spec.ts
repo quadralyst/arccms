@@ -405,6 +405,45 @@ describe('processEmailTemplate (##NAME## tag)', () => {
   });
 });
 
+describe('processEmailTemplate (a link left with no address)', () => {
+  it('warns, naming the template and the tag, when a tag used as an address comes out empty', async () => {
+    const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const result = await processEmailTemplate({
+        id: 'log1',
+        toEmail: 'reader@example.com',
+        subject: 'Your voucher',
+        appTemplate: 'voucher',
+        appData: { LINK: '', PAGE: 'https://example.com/v/1' },
+        template: '<p><a href="##LINK##">Open it</a> <a href="##PAGE##">Page</a> <a href="">Blank</a> <a name="top">x</a></p>',
+      } as any, {});
+      // The email still goes, with the rest of what it says.
+      expect(result.template).toContain('href="https://example.com/v/1"');
+      expect(result.emptyLinks).toEqual(['##LINK##', '']);
+      const said = warn.mock.calls.map((call) => String(call[0])).find((line) => line.includes('no address'));
+      expect(said).toContain("template 'voucher'");
+      expect(said).toContain('(log log1)');
+      expect(said).toContain('##LINK##, (empty)');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('counts an unknown tag and a blank address alike, and leaves a full one alone', async () => {
+    const { processEmailTemplate, linksWithoutAddress } = await import('../mail-config/mailConfig.js');
+    const result = await processEmailTemplate({
+      toEmail: 'reader@example.com', subject: 'Hi', type: 'welcome',
+      template: "<a href='##NOT_A_KNOWN_TAG##'>a</a><a href=\"  \">b</a><a href>c</a><a href=\"https://example.com\">d</a>",
+    } as any, {});
+    expect(result.emptyLinks).toEqual(['##NOT_A_KNOWN_TAG##', '  ', '']);
+    const full = await processEmailTemplate({ toEmail: 'r@example.com', subject: 'Hi', template: '<a href="https://example.com">d</a>' } as any, {});
+    expect(full.emptyLinks).toBeUndefined();
+    // Not taken in by an attribute that only ends in href.
+    expect(linksWithoutAddress('<a data-href="" href="https://example.com">x</a>', (h) => h)).toEqual([]);
+  });
+});
+
 describe('Mail Config Functions', () => {
   describe('testSmtpConfigConnection (source structure)', () => {
     it('should require an admin', async () => {

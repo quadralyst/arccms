@@ -469,6 +469,22 @@ export async function processEmailTemplate(
         return mergeValueSubject(typeof value === 'string' ? value : htmlAsText(value.html));
     });
 
+    // A link the email left with no address once its tags were filled in: the recipient
+    // gets a link that goes nowhere. The email still goes, for the rest of what it says;
+    // the warning names the template and the address as written, for the app's developer.
+    const emptyLinks = linksWithoutAddress(template, (href) => href.replace(MERGE_TAG_PATTERN, (_m, f, ff, a, af, t) => {
+        const value = valueOf(f, ff, a, af, t);
+        return typeof value === 'string' ? value : htmlAsText(value.html);
+    }));
+    if (emptyLinks.length > 0) {
+        const name = emailLogsData.appTemplate || emailLogsData.type || emailLogsData.source || 'email';
+        const written = emptyLinks.map((href) => (href.trim() ? href : '(empty)')).join(', ');
+        console.warn(
+            `sendMail: template '${name}'${emailLogsData.id ? ` (log ${emailLogsData.id})` : ''} has ${emptyLinks.length} link(s) ` +
+            `with no address after its tags were filled in: ${written}. A tag used as an address needs a full address, such as https://example.com/page.`,
+        );
+    }
+
     // Log unmapped tags for debugging
     if (unmappedTags.length > 0) {
         console.warn('Unmapped tags found:', unmappedTags);
@@ -480,7 +496,27 @@ export async function processEmailTemplate(
         subject: processedSubject,
         usedTags: Array.from(foundTags),
         unmappedTags,
+        ...(emptyLinks.length ? { emptyLinks } : {}),
     };
+}
+
+/** A link's `href` in an opening `<a>` tag: quoted, bare, or written with no value at all. */
+const LINK_HREF = /\shref(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?(?=[\s/>])/i;
+
+/**
+ * The addresses, as written, of the links in `html` whose address is blank once `merge`
+ * has filled in its tags: `href=""`, or `href="##LINK##"` filled with nothing. A link with
+ * no `href` at all (a named anchor) is not a link and is left out.
+ */
+export function linksWithoutAddress(html: string, merge: (href: string) => string): string[] {
+    const empty: string[] = [];
+    for (const tag of html.match(/<a\b[^>]*>/gi) ?? []) {
+        const href = LINK_HREF.exec(tag);
+        if (!href) continue;
+        const written = href[1] ?? href[2] ?? href[3] ?? '';
+        if (!merge(written).trim()) empty.push(written);
+    }
+    return empty;
 }
 
 /** A tag value an app gave as `{ html }`. */
