@@ -15,7 +15,7 @@ import { CountryPickerComponent } from '../../../../../shared/components/country
 import { PhoneCountryComponent } from '../../../../../shared/components/phone-country/phone-country.component';
 import { countryByIso, countryName, defaultFirst, flagUrl } from '../../../../../shared/data/countries';
 import { normalizePhone, withoutTrunk } from '../../../../../shared/utils/identifier.util';
-import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-settings.service';
+import { DEFAULT_SMS_FORM, MAX_SMS_DAILY_LIMIT, SmsSettingsForm, SmsSettingsService, validDailyLimit } from './sms-settings.service';
 
 @Component({
     selector: 'arc-sms-settings',
@@ -74,6 +74,13 @@ import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-set
                     <input id="msg91Template" type="text" class="form-control"
                         [ngModel]="form().msg91OtpTemplateId" (ngModelChange)="update('msg91OtpTemplateId', $event)" />
                     <small class="text-muted d-block mt-1">{{ 'admin.settings.sms.msg91_template_hint' | transloco }}</small>
+                </div>
+                <!-- A real provider costs money: the site stops sending for the day at this many. -->
+                <div class="mb-3 daily-limit">
+                    <label class="form-label" for="smsDailyLimit">{{ 'admin.settings.sms.daily_limit' | transloco }}</label>
+                    <input id="smsDailyLimit" type="number" class="form-control" min="1" [max]="maxDailyLimit" step="1" inputmode="numeric"
+                        [ngModel]="form().dailyLimit" (ngModelChange)="update('dailyLimit', $event)" />
+                    <small class="text-muted d-block mt-1">{{ 'admin.settings.sms.daily_limit_hint' | transloco }}</small>
                 </div>
             }
 
@@ -136,6 +143,7 @@ import { DEFAULT_SMS_FORM, SmsSettingsForm, SmsSettingsService } from './sms-set
         h3 { font-size: 1.25rem; font-weight: 600; color: #212529; }
         h4 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
         .test-row { max-width: 420px; }
+        .daily-limit input { max-width: 160px; }
         .default-country .input-group { max-width: 360px; }
         .default-country img { border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1); }
     `],
@@ -147,6 +155,7 @@ export class SmsSettingsPage implements OnInit {
     private readonly lang = toSignal(this.transloco.langChanges$, { initialValue: this.transloco.getActiveLang() });
 
     readonly form = signal<SmsSettingsForm>({ ...DEFAULT_SMS_FORM });
+    readonly maxDailyLimit = MAX_SMS_DAILY_LIMIT;
     readonly hasAuthKey = signal(false);
     readonly phoneSignIn = signal(false);
     readonly saving = signal(false);
@@ -199,6 +208,8 @@ export class SmsSettingsPage implements OnInit {
         try {
             await this.service.save(this.form());
             if (this.form().msg91AuthKey.trim()) this.hasAuthKey.set(true);
+            // The box shows what was saved: a number it could not take is the default.
+            this.update('dailyLimit', validDailyLimit(this.form().dailyLimit));
             this.update('msg91AuthKey', '');
             this.saveMessage.set(this.t('admin.settings.sms.saved'));
         } catch (err) {
@@ -221,11 +232,12 @@ export class SmsSettingsPage implements OnInit {
         this.testMessage.set('');
         try {
             const result = await this.service.sendTest(this.testNumber());
-            this.testFailed.set(result.status === 'failed');
+            this.testFailed.set(result.status === 'failed' || result.status === 'limited');
             this.testMessage.set(
                 result.status === 'failed' ? this.t('admin.settings.sms.test_failed', { error: result.error ?? '' })
-                    : result.status === 'logged' ? this.t('admin.settings.sms.test_logged')
-                        : this.t('admin.settings.sms.test_sent'),
+                    : result.status === 'limited' ? this.t('admin.settings.sms.test_limited')
+                        : result.status === 'logged' ? this.t('admin.settings.sms.test_logged')
+                            : this.t('admin.settings.sms.test_sent'),
             );
         } catch (err: any) {
             this.testFailed.set(true);

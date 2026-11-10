@@ -4,7 +4,6 @@ import { inject, PLATFORM_ID } from '@angular/core';
 import { CanActivateFn, CanMatchFn, Router } from '@angular/router';
 import { map } from 'rxjs/operators';
 import { from } from 'rxjs';
-import { ToastService } from '../../shared/services/toast.service';
 import { ConstantVariables } from '../../shared/constants';
 import { AuthState } from '../pages/(auth)/auth.store';
 
@@ -19,12 +18,12 @@ interface RoleGuardUser {
 }
 
 export const roleGuard: CanActivateFn | CanMatchFn = (
-    route: { data?: RoleGuardRouteData; path?: string },
+    // A Route (canMatch) has its own path; a snapshot (canActivate) has it on routeConfig.
+    route: { data?: RoleGuardRouteData; path?: string; routeConfig?: { path?: string } | null },
     state: any,
 ) => {
     const platformId = inject(PLATFORM_ID);
     const authStore = inject(AuthState);
-    const toastService = inject(ToastService);
     const router = inject(Router);
     const constantVariables = inject(ConstantVariables);
 
@@ -40,14 +39,13 @@ export const roleGuard: CanActivateFn | CanMatchFn = (
 
     const requiredRoles = route.data?.['allowedRoles'] as string[];
 
+    // A route with roleGuard and no roles lets nobody in: a forgotten data.allowedRoles
+    // must never open a page to everyone. The developer reads why in the console; the
+    // visitor sees the usual unauthorized page.
     if (!requiredRoles || requiredRoles.length === 0) {
-        console.warn(`RoleGuard: No allowedRoles defined for route ${route.path}. Access granted.`);
-        toastService.openCustomSnackbar(
-            `RoleGuard: No allowed roles defined for route ${route.path}. Access granted.`,
-            'warning',
-            'warning',
-        );
-        return true;
+        console.warn(`roleGuard: the route "${route.routeConfig?.path ?? route.path ?? ''}" sets no data.allowedRoles, so nobody may open it. Add the roles that may (docs/app/pages-and-routes.html).`);
+        router.navigate(['/admin/unauthorized']);
+        return false;
     }
 
     // The person's record, shared with every other guard (AuthState.recordReady).

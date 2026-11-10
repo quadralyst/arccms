@@ -102,6 +102,8 @@
       </tbody>
     </table>
     <p>With <strong>Update media collection metadata</strong> ticked (the default), each uploaded file also gets a new media record (a <code>mediaFiles</code> record for a document), with a new id. Unzip the export first: the screen takes files, not the ZIP. Imported files are stored as they are, at one size.</p>
+    <p>The bucket takes only images (JPEG, PNG, WebP, GIF, AVIF), PDF, video, audio, fonts, plain text, CSV and JSON from this screen, and never into a <code>users</code> or <code>avatars</code> folder. The screen checks each file's extension against that list before it uploads (<code>src/shared/utils/staff-files.ts</code>, the same list as <code>storage.rules</code>) and stores the file with the type its extension names, so a font or a CSV the browser cannot name still goes in. Another file, such as an SVG, an HTML page or a ZIP, is not sent and is listed as failed with "This type of file cannot be stored".</p>
+    <p>SVG stays out on purpose: an SVG can carry a script, and the bucket is public, so an SVG opened on its own would run it. The media library never takes SVG either, so an export only holds one that was put in the bucket another way. Convert it to PNG or WebP before you import it.</p>
     <div class="trap"><p>Content stores full image URLs. After moving to another project, entries still point at the old project's Storage, so images keep working only while the old files exist. Re-pick the images in the editor if the old project goes away.</p></div>
 
     <h2>Extend it</h2>

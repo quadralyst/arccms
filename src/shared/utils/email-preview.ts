@@ -40,7 +40,10 @@ export function actsForRecipient(href: string): boolean {
 
 /** The email's HTML, whose links open in a new tab (but those that act for the recipient). It looks the same. */
 export function emailPreviewDocument(html: string): string {
-    const kept = html.replace(/<a\b[^>]*>/gi, (tag) => {
+    // A refresh would move the frame to another page on its own, and the sandbox lets a
+    // frame navigate itself: a stored email or version could show a lookalike sign-in
+    // page inside the admin. Previews never refresh.
+    const kept = html.replace(/<meta\b[^>]*http-equiv\s*=\s*["']?\s*refresh[^>]*>/gi, '').replace(/<a\b[^>]*>/gi, (tag) => {
         const href = HREF.exec(tag);
         if (!href) return tag;
         const value = href[1] ?? href[2] ?? href[3] ?? '';

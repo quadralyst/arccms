@@ -50,7 +50,7 @@ match /Lessons/{lessonId} {
         || (request.resource.size &lt; 10 * 1024 * 1024
             &amp;&amp; request.resource.contentType.matches('audio/.*')));
 }</code></pre>
-    <p>Every other path in the bucket is public for reading, except folders named <code>users</code>, <code>email-logs</code> (the files of sent email), <code>ai-calls</code> (the files kept with AI calls) or <code>ai-files</code> (files AI made, until your app moves them; see <a href="ai.html#files">Make files</a>) in the first two levels; the last three are admins only. Put private files under <code>users/{userDocId}/</code>.</p>
+    <p>Every other file in the bucket can be read by anyone who has its path, except in folders named <code>users</code>, <code>email-logs</code> (the files of sent email), <code>ai-calls</code> (the files kept with AI calls) or <code>ai-files</code> (files AI made, until your app moves them; see <a href="ai.html#files">Make files</a>) in the first two levels; the last three are admins only. Listing a folder is for staff only, so keep the paths of files a page shows in Firestore. Put private files under <code>users/{userDocId}/</code>.</p>
     <div class="trap"><p>An install that keeps its uploads in a folder (an upload prefix set with <code>npm run arc:configure</code>) stores the per-user folders at <code>{prefix}/users/{userDocId}/</code>. A rule for <code>/users/...</code> alone never matches there. Add the same rule for <code>/{prefix}/users/{userDocId}/...</code>, as the core rules do.</p></div>
 
     <h2>The helpers you can call</h2>
@@ -71,12 +71,32 @@ match /Lessons/{lessonId} {
     <h2>What an app rule can and cannot do</h2>
     <ul>
       <li><strong>It can only add access.</strong> Firebase allows a request when any matching rule allows it. Your rule can grant more; it can never take away what a core rule grants.</li>
-      <li><strong>Keep it to your own paths.</strong> A rule on a core collection can only widen access to it. If core's access is wrong for your app, that is a change to Arc CMS.</li>
+      <li><strong>Keep it to your own paths.</strong> The build refuses a rule on core's paths (below). If core's access is wrong for your app, that is a change to Arc CMS.</li>
       <li><strong>Name your functions differently from core's.</strong> Besides the helpers above, the core Firestore file defines functions such as <code>isAuthenticated</code>, <code>isOwnUserDoc</code>, <code>hasNoPassword</code> and <code>arcRole</code>. Prefix your own, for example <code>appIsTeacher()</code>.</li>
       <li><strong>Choose collection names core does not use.</strong> Core's rules make every collection named <code>arc_...</code> or <code>Tags_...</code> readable by anyone and writable by editors, so a collection of yours with such a name is public whatever your rule says. <code>app_pins</code>, <code>app_phone_pin_tries</code>, <code>auth_devices</code>, <code>auth_fresh_proofs</code> and <code>app_member_pin_tries</code> are core's too, closed to every browser: they hold your app's PINs, its gates' counts of wrong phone PINs (see <a href="pin.html">PINs for your app</a>), the devices proved for PIN sign-in and fresh-code proofs (see <a href="fresh-code.html">Ask for a fresh code</a>).</li>
       <li><strong>No wrapper.</strong> A <code>rules_version</code> line or a <code>service</code> block in your file breaks the combined file.</li>
     </ul>
     <p>Firestore denies every path no rule matches, so a collection of yours without a rule is closed to the browser. Cloud Functions are not bound by rules.</p>
+
+    <h3 id="refused">What the build refuses</h3>
+    <p>Before it combines the files, <code>npm run rules:build</code> (and so every rules deploy and <code>npm run test:rules</code>) reads each app file and stops, naming the file, the line and the fix, when a block that grants something (<code>allow</code>) would reach into core's paths. It reads core's names from the core rules files themselves.</p>
+    <table>
+      <thead><tr><th>Refused</th><th>Example</th><th>Do instead</th></tr></thead>
+      <tbody>
+        <tr><td>A recursive match at the top of the file, except a collection group of your own (below)</td><td><code>match /{path=**}</code>, <code>match /{path=**}/translations/{id}</code></td><td>Match your own collection by name, such as <code>/lessons/{id}</code>, or a collection group by a name core does not use</td></tr>
+        <tr><td>A match on every collection or folder</td><td><code>match /{collection}/{docId}</code></td><td>The same</td></tr>
+        <tr><td>A core collection or folder, by name or by a prefix core serves</td><td><code>match /Settings/{id}</code>, <code>match /arc_lessons/{id}</code>, <code>match /avatars/{uid}/{file}</code></td><td>A name of your own</td></tr>
+        <tr><td>A member's record itself, or a folder core uses under it</td><td><code>match /users/{userDocId}</code> with an <code>allow</code>, <code>match /users/{userDocId}/feedback/...</code> in Storage</td><td>Your own subcollection or folder under it, such as <code>/users/{userDocId}/children/{childId}</code></td></tr>
+        <tr><td>Braces that do not balance</td><td>A missing <code>}</code></td><td>Add it where the message says</td></tr>
+      </tbody>
+    </table>
+    <p>Allowed besides your own names: subcollections and folders of your own under <code>users/{userDocId}/</code> (also under the upload folder, <code>/{prefix}/users/...</code>), and a read rule on <code>MerchantAccounts</code> or <code>MerchantPayments</code> for whoever owns the account (<a href="merchant-payments.html">Take payments on a merchant's account</a>). A nested match counts by its full path, so <code>match /users/{userDocId} { match /progress/{id} { ... } }</code> is fine.</p>
+    <p id="collection-group">A <strong>collection group</strong> rule, for a query across every member's subcollection of one name (<code>collectionGroup('progress')</code>), is allowed in <code class="new">firestore.app.rules</code> when the name after the recursive part is one core uses nowhere, at any depth, and is not a member folder core uses or a prefix core serves:</p>
+    <pre><code>match /{path=**}/progress/{id} {
+  allow read: if isAdmin();
+}</code></pre>
+    <p>It matches every <code>progress</code> subcollection, wherever it is, so keep the name to your own data. <code>/{path=**}/users/{id}</code> or <code>/{path=**}/translations/{id}</code> is refused, because core uses those names. Storage app rules take no recursive match at the top.</p>
+    <p>Every collection core's Cloud Functions use is named in <code>firestore.rules</code>, most as closed to every browser (such as <code>form_otps</code>, <code>CountedBuyers</code> and <code>_sms_daily</code>), so an app rule on one of them is refused by name like any other core collection.</p>
 
     <h2>Add indexes</h2>
     <p>Create <code class="new">firestore.app.indexes.json</code> with the same shape as <code>firestore.indexes.json</code>:</p>

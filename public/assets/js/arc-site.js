@@ -64,6 +64,29 @@
         });
     }
 
+    /**
+     * A form step's refusal in the page's language, from its code and reason, never
+     * the server's English. `fallback` is the step's own failure line; `step` is
+     * 'verify' while a code is being checked.
+     */
+    function formError(error, fallback, step) {
+        var code = error && error.code;
+        var reason = error && error.reason;
+        if (reason === 'form-closed' || reason === 'form-missing') return t('signup_form_closed', 'This form is not taking signups right now.');
+        if (code === 'PERMISSION_DENIED') return t('signup_expired', 'This signup has expired. Please fill in the form again.');
+        if (code === 'RESOURCE_EXHAUSTED') {
+            if (reason === 'wait') return t('signup_wait', 'Please wait a minute before asking for another code.');
+            if (reason === 'too-many-codes') return t('signup_too_many_codes', 'Too many codes for this address. Please try again later.');
+            if (reason === 'code-locked') return t('signup_code_locked', 'Too many tries. Please ask for a new code.');
+            return t('signup_too_many', 'Too many attempts. Please try again later.');
+        }
+        if (step === 'verify' && (code === 'INVALID_ARGUMENT' || code === 'DEADLINE_EXCEEDED' || code === 'NOT_FOUND')) {
+            return t('signup_code_invalid', 'Invalid or expired code');
+        }
+        if (step === 'join' && code === 'INVALID_ARGUMENT') return t('signup_check_answers', 'Please check your answers and try again.');
+        return fallback;
+    }
+
     /** Where referral codes were kept before signup forms dropped referrals; cleared on load. */
     var OLD_REFERRAL_KEY = 'arc_referral';
     var SIGNED_IN_KEY = 'arc:signed-in';
@@ -85,6 +108,7 @@
                 if (!res.ok || body.error) {
                     var error = new Error((body.error && body.error.message) || 'Request failed');
                     error.code = body.error && body.error.status;
+                    error.reason = body.error && body.error.details && body.error.details.reason;
                     throw error;
                 }
                 return body.result;
@@ -372,7 +396,9 @@
             state.waitlistId = found.id;
             var waitlist = found.waitlist;
             if (!waitlist) {
-                // Created by the server on first use, as in the app.
+                // The default form is created by the server on first use. Any other
+                // form needs an admin to create it, so nothing is asked for.
+                if (found.id !== DEFAULT_FORM && found.id !== 'default') return null;
                 return call('ensureWaitlistExists', { waitlistId: found.id }).catch(function () { return null; });
             }
             if (waitlist.isActive === false) {
@@ -413,9 +439,10 @@
             signupMetadata: signupMetadata(state.email),
             origin: location.origin,
         }).then(function (joined) {
-            state.memberId = joined.memberId;
+            // A sealed, short-lived ticket, never the member id: the later steps take it.
+            state.ticket = joined && joined.ticket;
             return Promise.all([
-                call('requestFormOtp', { waitlistId: state.waitlistId, email: state.email, name: state.firstName }).catch(function () { return null; }),
+                call('requestFormOtp', { waitlistId: state.waitlistId, ticket: state.ticket }).catch(function () { return null; }),
                 readDoc('Settings/email_status').catch(function () { return null; }),
             ]);
         }).then(function (results) {
@@ -424,14 +451,14 @@
             state.step = 'verify';
             showVerify(form, state);
         }).catch(function (error) {
-            showError(form, state, (error && error.message) || t('signup_failed', 'Failed to sign up. Please try again.'));
+            showError(form, state, formError(error, t('signup_failed', 'Failed to sign up. Please try again.'), 'join'));
         });
     }
 
     /** Completes a signup whose code was checked, or that needed none. */
     function confirm(form, state) {
         loading(form, t('signup_verifying', 'Verifying...'));
-        return call('finalizeFormSignup', { waitlistId: state.waitlistId, userId: state.memberId })
+        return call('finalizeFormSignup', { waitlistId: state.waitlistId, ticket: state.ticket })
             .then(function (finalized) {
                 state.existing = !!finalized.alreadyConfirmed;
                 state.step = state.existing ? 'existing-user' : 'success';
@@ -439,7 +466,7 @@
                 else showSuccess(form, state);
             })
             .catch(function (error) {
-                showError(form, state, (error && error.message) || t('signup_verify_failed', 'Verification failed. Please try again.'));
+                showError(form, state, formError(error, t('signup_verify_failed', 'Verification failed. Please try again.')));
             });
     }
 
@@ -459,18 +486,18 @@
             var code = (otp.value || '').trim();
             if (!/^\d{6}$/.test(code)) return inline(form, t('signup_code_format', 'Please enter a 6-digit code'));
             loading(form, t('signup_verifying', 'Verifying...'));
-            call('verifyFormOtp', { waitlistId: state.waitlistId, email: state.email, code: code }).then(function (result) {
+            call('verifyFormOtp', { waitlistId: state.waitlistId, ticket: state.ticket, code: code }).then(function (result) {
                 if (!result || !result.verified) throw new Error(t('signup_code_invalid', 'Invalid or expired code'));
                 return confirm(form, state);
             }).catch(function (error) {
                 showVerify(form, state);
-                inline(form, (error && error.message) || t('signup_code_invalid', 'Invalid or expired code'));
+                inline(form, formError(error, t('signup_code_invalid', 'Invalid or expired code'), 'verify'));
             });
         });
         form.querySelector('.waitlist-resend-btn').addEventListener('click', function () {
-            call('requestFormOtp', { waitlistId: state.waitlistId, email: state.email, name: state.firstName })
+            call('requestFormOtp', { waitlistId: state.waitlistId, ticket: state.ticket })
                 .then(function () { inline(form, t('signup_code_resent', 'New code sent to your email!'), true); })
-                .catch(function (error) { inline(form, (error && error.message) || t('signup_resend_failed', 'Failed to resend code')); });
+                .catch(function (error) { inline(form, formError(error, t('signup_resend_failed', 'Failed to resend code'))); });
         });
         form.querySelector('.waitlist-back-btn').addEventListener('click', function () { reset(form, state); });
         if (otp) otp.focus();

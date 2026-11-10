@@ -25,4 +25,6 @@ export interface ITransaction extends IBaseModel {
      * purchase count. Absent on genuine customer transactions.
      */
     isTest?: boolean;
+    /** The product paid for was not the one this sale names: nothing was granted (handlePaymentEvent). */
+    productMismatch?: boolean;
 }

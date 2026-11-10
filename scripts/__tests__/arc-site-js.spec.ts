@@ -33,7 +33,8 @@ function mockFetch(): void {
                 return { ok: true, status: 200, json: async () => ({ result }) };
             } catch (error) {
                 const status = (error as { status?: string }).status || 'INVALID_ARGUMENT';
-                return { ok: false, status: 400, json: async () => ({ error: { message: (error as Error).message, status } }) };
+                const reason = (error as { reason?: string }).reason;
+                return { ok: false, status: 400, json: async () => ({ error: { message: (error as Error).message, status, ...(reason ? { details: { reason } } : {}) } }) };
             }
         }
         if (url.startsWith(FIRESTORE)) {
@@ -72,7 +73,7 @@ beforeEach(() => {
     calls = [];
     localStorage.clear();
     callables = {
-        joinForm: () => ({ memberId: 'm1' }),
+        joinForm: () => ({ ticket: 'ticket-1' }),
         requestFormOtp: () => ({ sent: true, status: 'sent' }),
         verifyFormOtp: (d) => { if (d['code'] !== '123456') throw new Error('Wrong code'); return { verified: true }; },
         finalizeFormSignup: () => ({ totalSignups: 42, emailVerified: true }),
@@ -105,23 +106,63 @@ describe('signup forms', () => {
         await flush();
 
         expect(calls.map((c) => c.name)).toEqual(['joinForm', 'requestFormOtp', 'verifyFormOtp', 'finalizeFormSignup']);
-        expect(calls[2].data).toEqual({ waitlistId: 'launch', email: 'asha@example.com', code: '123456' });
-        expect(calls[3].data).toMatchObject({ waitlistId: 'launch', userId: 'm1' });
+        // Every step after joining names the signup by its ticket, never by a member id or an address.
+        expect(calls[1].data).toEqual({ waitlistId: 'launch', ticket: 'ticket-1' });
+        expect(calls[2].data).toEqual({ waitlistId: 'launch', ticket: 'ticket-1', code: '123456' });
+        expect(calls[3].data).toEqual({ waitlistId: 'launch', ticket: 'ticket-1' });
         expect(form.querySelector('.waitlist-success-icon')).toBeTruthy();
         expect(form.querySelector('.waitlist-success-title')!.textContent).toBe('You\'re on the list!');
         expect(form.querySelector('.waitlist-success-text')!.textContent).toBe('We\'ll be in touch at asha@example.com.');
         expect(form.querySelector('.waitlist-success-step')!.textContent).not.toContain('42');
     });
 
-    it('shows the server\'s message for a wrong code and lets the person try again', async () => {
+    it('says a wrong code in its own words, not the server\'s, and lets the person try again', async () => {
         page(FORM);
         await flush();
         const form = await signUp();
         (form.querySelector('.waitlist-otp-input') as HTMLInputElement).value = '000000';
         (form.querySelector('.waitlist-verify-btn') as HTMLButtonElement).click();
         await flush();
-        expect(form.querySelector('.waitlist-inline-message')!.textContent).toBe('Wrong code');
+        expect(form.querySelector('.waitlist-inline-message')!.textContent).toBe('Invalid or expired code');
         expect(form.querySelector('.waitlist-otp-input')).toBeTruthy();
+    });
+
+    it('maps the server\'s refusals to the page\'s strings by code, never showing its English', async () => {
+        const refuse = (status: string, reason?: string) => () => { throw Object.assign(new Error('SERVER ENGLISH'), { status, reason }); };
+        const strings = { signup_expired: 'Fill it in again (strings)' };
+        const attr = ` data-strings="${JSON.stringify(strings).replace(/"/g, '&quot;')}"`;
+
+        // A ticket refused at the last step: the strings file's line.
+        docs['Settings/email_status'] = { isEnabled: false };
+        callables['finalizeFormSignup'] = refuse('PERMISSION_DENIED');
+        page(FORM, '', '', attr);
+        await flush();
+        let form = await signUp();
+        expect(form.querySelector('.waitlist-error-text')!.textContent).toBe('Fill it in again (strings)');
+
+        // A closed form, at the first step.
+        callables['joinForm'] = refuse('FAILED_PRECONDITION', 'form-closed');
+        page(FORM);
+        await flush();
+        form = await signUp();
+        expect(form.querySelector('.waitlist-error-text')!.textContent).toBe('This form is not taking signups right now.');
+
+        // A resend inside the minute, and a code tried too often.
+        docs['Settings/email_status'] = { isEnabled: true };
+        callables['joinForm'] = () => ({ ticket: 'ticket-1' });
+        page(FORM);
+        await flush();
+        form = await signUp();
+        callables['requestFormOtp'] = refuse('RESOURCE_EXHAUSTED', 'wait');
+        (form.querySelector('.waitlist-resend-btn') as HTMLButtonElement).click();
+        await flush();
+        expect(form.querySelector('.waitlist-inline-message')!.textContent).toBe('Please wait a minute before asking for another code.');
+        callables['verifyFormOtp'] = refuse('RESOURCE_EXHAUSTED', 'code-locked');
+        (form.querySelector('.waitlist-otp-input') as HTMLInputElement).value = '123456';
+        (form.querySelector('.waitlist-verify-btn') as HTMLButtonElement).click();
+        await flush();
+        expect(form.querySelector('.waitlist-inline-message')!.textContent).toBe('Too many tries. Please ask for a new code.');
+        expect(form.textContent).not.toContain('SERVER ENGLISH');
     });
 
     it('confirms at once when email is off, as the app does', async () => {
@@ -257,11 +298,29 @@ describe('signup forms', () => {
         expect(calls).toEqual([]);
     });
 
-    it('asks the server to create a form that does not exist yet', async () => {
+    it('asks the server to create the default form when it does not exist yet', async () => {
+        docs = { 'Settings/email_status': { isEnabled: true } };
+        page('<form data-waitlist-form data-waitlist-id="waitlist-form"><input name="email"><button type="submit">Join</button></form>');
+        await flush();
+        expect(calls).toEqual([{ name: 'ensureWaitlistExists', data: { waitlistId: 'waitlist-form' } }]);
+    });
+
+    // Only an admin may create any other form, and this script never signs in.
+    it('asks for nothing when another form does not exist', async () => {
         docs['Waitlists/launch'] = null;
         page(FORM);
         await flush();
-        expect(calls).toEqual([{ name: 'ensureWaitlistExists', data: { waitlistId: 'launch' } }]);
+        expect(calls).toEqual([]);
+    });
+
+    it('stays usable when the server refuses to create the form', async () => {
+        docs = { 'Settings/email_status': { isEnabled: false } };
+        callables['ensureWaitlistExists'] = () => { throw Object.assign(new Error('Admin access required.'), { status: 'PERMISSION_DENIED' }); };
+        page('<form data-waitlist-form data-waitlist-id="default"><input name="email"><button type="submit">Join</button></form>');
+        await flush();
+        expect(calls.map((c) => c.name)).toEqual(['ensureWaitlistExists']);
+        expect(document.querySelector('.waitlist-error-step')).toBeNull();
+        expect(document.querySelector('[name="email"]')).toBeTruthy();
     });
 
     it('uses an older install\'s default form instead of starting a new, empty one, as the app does', async () => {
@@ -277,12 +336,12 @@ describe('signup forms', () => {
         expect(calls.find((c) => c.name === 'joinForm')!.data['waitlistId']).toBe('get-early-access-to-arc-cms');
     });
 
-    it('shows the server\'s error when joining fails', async () => {
-        callables['joinForm'] = () => { throw new Error('This email cannot join.'); };
+    it('says joining failed in the page\'s words, not the server\'s, and lets the person try again', async () => {
+        callables['joinForm'] = () => { throw Object.assign(new Error('This email cannot join.'), { status: 'INTERNAL' }); };
         page(FORM);
         await flush();
         const form = await signUp();
-        expect(form.querySelector('.waitlist-error-text')!.textContent).toBe('This email cannot join.');
+        expect(form.querySelector('.waitlist-error-text')!.textContent).toBe('Failed to sign up. Please try again.');
         (form.querySelector('.waitlist-retry-btn') as HTMLButtonElement).click();
         expect(form.querySelector('[name="email"]')).toBeTruthy();
     });

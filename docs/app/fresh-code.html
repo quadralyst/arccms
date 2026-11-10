@@ -24,7 +24,7 @@ async setUpTill(): Promise&lt;void&gt; {
   if (!proof) return; // cancelled
   await arcCallable(this.functions, 'custom-setUpTill')({ proof, name: 'Till 2' });
 }</code></pre>
-    <p>The <code>purpose</code> names the action: lower case letters, digits, <code>-</code> and <code>_</code>, starting with a letter. The proof is for that purpose only.</p>
+    <p>The <code>purpose</code> names the action: lower case letters, digits, <code>-</code> and <code>_</code>, starting with a letter. The proof is for that purpose only. Arc CMS itself uses <code>link-email</code> and <code>link-phone</code>, when someone adds or changes the email or number on their profile (see <a href="../features/sign-in.html">Sign-in methods</a>); pick other names for your app's actions.</p>
     <p>To ask inside a sheet of your own instead, call the two steps yourself and use the same code boxes as the sign-in page, <code>arc-code-input</code> (<code>src/shared/components/code-input/</code>):</p>
     <pre><code>const sent = await this.freshCode.request('pos-setup');       // { via, to, wait, testCode? }
 // ... show "We've sent a 6-digit code to " + sent.to, and &lt;arc-code-input (completed)="..."&gt; ...
@@ -46,7 +46,7 @@ export const setUpTill = onCall(async (request) =&gt; {
     <h2 id="how-it-works">How it works</h2>
     <ul>
       <li><strong>Where the code goes.</strong> The person's verified email address, which costs nothing to send to; with none, their verified phone number by SMS; with neither, an email address on the account that is not verified yet. The person never types an address, and nobody can name another. An account with neither (an <a href="app-accounts.html">app account</a>) is refused with <code>no-contact</code>.</li>
-      <li><strong>The code</strong> is a sign-in code: 6 digits, good for 10 minutes, 5 tries, one a minute (asking again sooner sends nothing new), 5 an hour per person and 20 an hour per caller's address. The email uses the "Your verification code" template.</li>
+      <li><strong>The code</strong> is a sign-in code: 6 digits, good for 10 minutes, 5 tries, one a minute (asking again sooner sends nothing new), 5 an hour per person and 20 an hour per caller's address; checking it allows 60 checks an hour per caller and 20 wrong codes a day per person. The email uses the "Your verification code" template.</li>
       <li><strong>The proof</strong> is a random value only its hash is kept of, in <code>auth_fresh_proofs</code>, which no browser can read. It works once, for that person and purpose, within 5 minutes of confirming the code. A new confirmation for the same purpose replaces it. Deleting the account deletes any left unused.</li>
       <li><strong>Who may ask.</strong> Only a signed-in person, for themselves. A blocked account is refused, and so is a <a href="app-accounts.html#locked">locked app account</a>.</li>
       <li><strong>While testing</strong> with the Simulated email provider or the Test SMS provider, nothing is sent and the code is in Email Logs or SMS Logs. It shows in the dialog only when an admin turned on showing reset codes on screen, as for Forgot PIN, since a fresh code guards what a session alone may not do.</li>

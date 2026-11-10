@@ -66,7 +66,7 @@ export const CUSTOM_ROUTES: Routes = [
         <tr><td>Some roles</td><td><code>roleGuard</code> with <code>data: { allowedRoles: [...] }</code></td><td><code>src/app/guards/role.guard.ts</code></td><td><code>/admin/unauthorized</code></td></tr>
       </tbody>
     </table>
-    <div class="trap"><p>Always give <code>roleGuard</code> a <code>data.allowedRoles</code> list. Without one, the guard lets every visitor open the page and only shows a warning.</p></div>
+    <div class="trap"><p>Always give <code>roleGuard</code> a <code>data.allowedRoles</code> list. Without one, nobody can open the page: the guard sends every visitor to <code>/admin/unauthorized</code> and writes the reason in the browser console.</p></div>
     <p>A member page:</p>
     <pre><code>import { userGuard } from '../app/pages/user/user.guards';
 

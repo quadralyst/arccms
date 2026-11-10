@@ -32,8 +32,14 @@ function ctx(check: Record<string, unknown> = { status: 'available' }, countryCo
         sentCodes: new SentCodes(),
         startCountdown: vi.fn(),
         changingPin: signal(false),
+        hasCurrentPin: signal(false),
+        currentPin: signal(''),
+        currentPinBoxes: () => currentBoxes,
         codeBoxes: () => ({ reset: vi.fn(), value: () => '' }),
         toast: { success: vi.fn() },
+        // No email or number yet: no fresh code (the tests below that need one set it).
+        user: signal<any>({ email: '' }),
+        freshCode: { confirm: vi.fn().mockResolvedValue('proof-1') },
         authStore: { refreshCurrentUser: vi.fn().mockResolvedValue(null), currentUser: () => ({ name: 'Asha Rao' }) },
         signIn: {
             checkForLink: vi.fn().mockResolvedValue({ kind: 'phone', value: '+919876543210', needsPin: false, ...check }),
@@ -43,14 +49,19 @@ function ctx(check: Record<string, unknown> = { status: 'available' }, countryCo
             verifyEmailLinkCode: vi.fn().mockResolvedValue({ verified: true }),
             linkPhone: vi.fn().mockResolvedValue({ moved: false }),
             linkEmail: vi.fn().mockResolvedValue({ moved: false }),
+            hasPin: vi.fn().mockResolvedValue(false),
         },
     };
-    for (const name of ['run', 'requestCode', 'finish', 'reset', 'typedPhone', 'phoneError', 'readNewPin', 'pinRefused']) c[name] = (proto as any)[name].bind(c);
+    for (const name of ['run', 'requestCode', 'finish', 'reset', 'typedPhone', 'phoneError', 'readNewPin', 'pinRefused', 'needsFreshCode', 'askFreshCode']) c[name] = (proto as any)[name].bind(c);
     return c;
 }
 
 /** The new-PIN rows in the stand-in: both hold `pin`, or `again` differs. */
 let newPin: { check: ReturnType<typeof vi.fn>; restart: ReturnType<typeof vi.fn> };
+/** The current PIN row in the stand-in. */
+let currentBoxes = { reset: vi.fn(), focus: vi.fn() };
+beforeEach(() => { currentBoxes = { reset: vi.fn(), focus: vi.fn() }; });
+
 function rowsHold(pin: string, again = pin): void {
     newPin = {
         check: vi.fn(() => (again === pin ? { pin } : { problem: 'member.auth.pins_mismatch' })),
@@ -168,7 +179,7 @@ describe('SignInMethodsComponent', () => {
 
         rowsHold('246810');
         await proto['finish'].call(c);
-        expect(c['signIn'].linkPhone).toHaveBeenCalledWith('+919876543210', '246810');
+        expect(c['signIn'].linkPhone).toHaveBeenCalledWith('+919876543210', '246810', undefined);
         expect(c['message']()).toBe('Phone number saved.');
         expect(c['flow']()).toBeNull();
     });
@@ -179,9 +190,49 @@ describe('SignInMethodsComponent', () => {
         c['flow'].set({ kind: 'email', step: 'code', typed: 'a@b.co', check: { kind: 'email', value: 'a@b.co', status: 'other', needsPassword: false } });
         await proto['verifyCode'].call(c, '123456');
         expect(c['signIn'].verifyEmailLinkCode).toHaveBeenCalledWith('a@b.co', '123456');
-        expect(c['signIn'].linkEmail).toHaveBeenCalledWith('a@b.co', undefined);
+        expect(c['signIn'].linkEmail).toHaveBeenCalledWith('a@b.co', undefined, undefined);
         expect(c['message']()).toBe('Email moved to this account.');
         expect(c['authStore'].refreshCurrentUser).toHaveBeenCalled();
+    });
+
+    describe('an account with a way in already confirms it is them first (fresh code)', () => {
+        it('asks for the fresh code before any code goes to the new number, and links with its proof', async () => {
+            const c = ctx();
+            c['user'].set({ email: 'asha@example.com' });
+            c['flow'].set({ kind: 'phone', step: 'enter', typed: '98765 43210', check: null });
+            await proto['sendCode'].call(c);
+            expect(c['freshCode'].confirm).toHaveBeenCalledWith({ purpose: 'link-phone' });
+            expect(c['freshCode'].confirm.mock.invocationCallOrder[0]).toBeLessThan(c['signIn'].requestPhoneCode.mock.invocationCallOrder[0]);
+            expect(c['flow']()).toMatchObject({ step: 'code', proof: 'proof-1' });
+
+            await proto['verifyCode'].call(c, '123456');
+            expect(c['signIn'].linkPhone).toHaveBeenCalledWith('+919876543210', undefined, 'proof-1');
+            expect(c['message']()).toBe('Phone number saved.');
+        });
+
+        it('sends nothing to the new address when the fresh code is cancelled, and says why', async () => {
+            const c = ctx({ kind: 'email', value: 'new@example.com' });
+            c['user'].set({ email: '', phone: '+919811112222' });
+            c['freshCode'].confirm.mockResolvedValue(null);
+            c['flow'].set({ kind: 'email', step: 'enter', typed: 'new@example.com', check: null });
+            await proto['sendCode'].call(c);
+            expect(c['freshCode'].confirm).toHaveBeenCalledWith({ purpose: 'link-email' });
+            expect(c['signIn'].requestEmailLinkCode).not.toHaveBeenCalled();
+            expect(c['flow']().step).toBe('enter');
+            expect(c['error']()).toBe(english('member.methods.fresh_code_needed'));
+        });
+
+        it('asks again and retries once when the server says the proof ran out', async () => {
+            const c = ctx();
+            c['signIn'].linkEmail
+                .mockRejectedValueOnce({ code: 'functions/permission-denied', message: 'x', details: { reason: 'fresh-code-required' } })
+                .mockResolvedValueOnce({ moved: false });
+            c['freshCode'].confirm.mockResolvedValue('proof-2');
+            c['flow'].set({ kind: 'email', step: 'code', typed: 'a@b.co', proof: 'proof-1', check: { kind: 'email', value: 'a@b.co', status: 'available', needsPassword: false } });
+            await proto['finish'].call(c);
+            expect(c['signIn'].linkEmail.mock.calls.map((call: unknown[]) => call[2])).toEqual(['proof-1', 'proof-2']);
+            expect(c['message']()).toBe(english('member.methods.email_saved'));
+        });
     });
 
     it('shows a wrong code in place and keeps the flow open', async () => {
@@ -216,7 +267,7 @@ describe('SignInMethodsComponent', () => {
 
         c['secretAgain'].set('river-lamp-2024');
         await proto['finish'].call(c);
-        expect(c['signIn'].linkEmail).toHaveBeenCalledWith('asha.rao@example.com', 'river-lamp-2024');
+        expect(c['signIn'].linkEmail).toHaveBeenCalledWith('asha.rao@example.com', 'river-lamp-2024', undefined);
     });
 
     describe('a code already asked for (specs/sign-in-codes-spec.md)', () => {
@@ -278,7 +329,7 @@ describe('SignInMethodsComponent', () => {
         rowsHold('604175');
         c['signIn'].setPin = vi.fn().mockResolvedValue({ saved: true, passwordRemoved: true });
         await proto['savePin'].call(c);
-        expect(c['signIn'].setPin).toHaveBeenCalledWith('604175');
+        expect(c['signIn'].setPin).toHaveBeenCalledWith('604175', undefined);
         expect(c['message']()).toBe('PIN saved. Sign in with it from now on: your password no longer works.');
         c['signIn'].setPin = vi.fn().mockResolvedValue({ saved: true });
         rowsHold('604175');
@@ -301,12 +352,61 @@ describe('SignInMethodsComponent', () => {
         expect(newPin.restart).toHaveBeenCalled();
     });
 
-    it('changes the PIN from the email row when there is no number', () => {
+    it('changes the PIN from the email row when there is no number', async () => {
         const c = ctx();
         c['pinRow'] = signal('phone');
-        proto['startPinChange'].call(c, 'email');
+        await proto['startPinChange'].call(c, 'email');
         expect(c['pinRow']()).toBe('email');
         expect(c['changingPin']()).toBe(true);
+    });
+
+    describe('changing a PIN the account has', () => {
+        it('asks for the current PIN when the account has one, and none for a first PIN', async () => {
+            const c = ctx();
+            c['pinRow'] = signal('phone');
+            c['signIn'].hasPin.mockResolvedValue(true);
+            await proto['startPinChange'].call(c, 'phone');
+            expect(c['hasCurrentPin']()).toBe(true);
+            expect(c['busy']()).toBe(false);
+
+            c['signIn'].hasPin.mockResolvedValue(false);
+            await proto['startPinChange'].call(c, 'phone');
+            expect(c['hasCurrentPin']()).toBe(false);
+        });
+
+        it('sends the current PIN with the new one, and saves nothing until it is typed', async () => {
+            const c = ctx();
+            c['hasCurrentPin'].set(true);
+            c['signIn'].setPin = vi.fn().mockResolvedValue({ saved: true });
+            rowsHold('604175');
+            await proto['savePin'].call(c);
+            expect(c['signIn'].setPin).not.toHaveBeenCalled();
+            expect(c['error']()).toBe(english('member.auth.server_error.current_pin_required'));
+            expect(currentBoxes.focus).toHaveBeenCalled();
+
+            c['currentPin'].set('246810');
+            await proto['savePin'].call(c);
+            expect(c['signIn'].setPin).toHaveBeenCalledWith('604175', '246810');
+            expect(c['message']()).toBe(english('member.methods.pin_changed'));
+        });
+
+        it('empties the current PIN after a wrong one, and shows the row when the server asks for it', async () => {
+            const c = ctx();
+            c['hasCurrentPin'].set(true);
+            c['currentPin'].set('000000');
+            c['signIn'].setPin = vi.fn().mockRejectedValue({ code: 'functions/permission-denied', message: 'Wrong PIN. 4 tries left.', details: { reason: 'wrong', remaining: 4 } });
+            rowsHold('604175');
+            await proto['savePin'].call(c);
+            expect(c['error']()).toBe('Wrong PIN. 4 tries left.');
+            expect(c['currentPin']()).toBe('');
+            expect(currentBoxes.reset).toHaveBeenCalled();
+
+            c['hasCurrentPin'].set(false);
+            c['signIn'].setPin = vi.fn().mockRejectedValue({ code: 'functions/failed-precondition', message: 'Enter your current PIN.', details: { reason: 'current-pin-required' } });
+            rowsHold('604175');
+            await proto['savePin'].call(c);
+            expect(c['hasCurrentPin']()).toBe(true);
+        });
     });
 });
 

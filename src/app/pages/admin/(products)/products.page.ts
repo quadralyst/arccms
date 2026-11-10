@@ -22,7 +22,8 @@ import { RowActionsComponent } from '../../../../shared/components/row-actions/r
 import { RowAction } from '../../../../shared/components/row-actions/row-actions';
 import { roleGuard } from '../../../guards/role.guard';
 import { ProductsStore } from './products.store';
-import { IProduct } from './product.model';
+import { ProductsService } from './products.service';
+import { IProduct, tiersWithoutCodes } from './product.model';
 import { arcCallable } from '../../../core/config/arc-functions';
 import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
 
@@ -80,7 +81,7 @@ export const routeMeta: RouteMeta = {
                         <tr>
                           <td>{{ t.label || '-' }}</td>
                           <td>{{ t.maxCount && t.maxCount > 0 ? t.maxCount : 'Everyone else' }}</td>
-                          <td>{{ t.discountCode || '-' }}</td>
+                          <td>{{ codeAt(p, i) || '-' }}</td>
                           <td>{{ t.discountPct ? t.discountPct + '%' : '-' }}</td>
                           <td class="link-cell">
                             @if (testLinks()[i]; as url) {
@@ -90,7 +91,7 @@ export const routeMeta: RouteMeta = {
                                 <a mat-icon-button [matTooltip]="'admin.products.open_new_tab' | transloco" [href]="url" target="_blank" rel="noopener"><mat-icon>open_in_new</mat-icon></a>
                               </div>
                             } @else {
-                              <button mat-stroked-button class="gen-btn" (click)="generateTestLink(p, i, t.discountCode)" [disabled]="generatingTier() === i">
+                              <button mat-stroked-button class="gen-btn" (click)="generateTestLink(p, i)" [disabled]="generatingTier() === i">
                                 @if (generatingTier() === i) {
                                   <span class="btn-inner"><mat-spinner diameter="16" class="me-1"></mat-spinner> {{ 'admin.products.generating' | transloco }}</span>
                                 } @else {
@@ -327,7 +328,15 @@ export const routeMeta: RouteMeta = {
 export default class ProductsPageComponent extends BaseComponent implements OnInit {
     private fb = inject(FormBuilder);
     private functions = inject(Functions);
+    private productsService = inject(ProductsService);
     store = inject(ProductsStore);
+    /** Tier discount codes by product id, from the admin-only ProductCodes documents. */
+    codes = signal<Record<string, string[]>>({});
+    /**
+     * The id a new product is saved under, made when the form opens: saving again
+     * after a failed save writes the same product, never a second one.
+     */
+    private newProductId: string | null = null;
 
     @ViewChild('drawer') drawer!: MatDrawer;
 
@@ -351,6 +360,22 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
     ngOnInit(): void {
         this.buildForm();
         this.store.getAll();
+        // Codes older versions left on the public products move on the server first
+        // (moveProductCodes), so the codes read here are complete. Quiet: a failure
+        // leaves the old codes where they were, and they are still read from there.
+        this.productsService.moveLegacyCodes()
+            .catch((e) => { console.error('Moving tier codes into ProductCodes failed', e); return 0; })
+            .then((moved) => {
+                if (moved) this.store.getAll();
+                return this.productsService.loadCodes();
+            })
+            .then((codes) => this.codes.set(codes))
+            .catch((e) => console.error('Reading tier codes failed', e));
+    }
+
+    /** A tier's discount code: the stored one, else one an older version left on the product. */
+    codeAt(p: IProduct, i: number): string {
+        return this.codes()[p.id]?.[i] || p.tiers?.[i]?.discountCode || '';
     }
 
     private buildForm(): void {
@@ -405,13 +430,13 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         this.testLinks.set({});
     }
 
-    /** Generate a Dodo checkout link applying a specific tier's discount code. */
-    async generateTestLink(p: IProduct, tierIndex: number, discountCode: string): Promise<void> {
+    /** Generate a Dodo checkout link applying a specific tier's discount code (read on the server). */
+    async generateTestLink(p: IProduct, tierIndex: number): Promise<void> {
         if (this.generatingTier() !== null) return;
         this.generatingTier.set(tierIndex);
         try {
             const callable = arcCallable(this.functions, 'createTestCheckoutLink');
-            const result = await callable({ productId: p.id, discountCode: discountCode || '' });
+            const result = await callable({ productId: p.id, tierIndex });
             const url = (result.data as { checkoutUrl?: string }).checkoutUrl;
             if (url) {
                 this.testLinks.update((m) => ({ ...m, [tierIndex]: url }));
@@ -452,6 +477,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
 
     openCreate(): void {
         this.editingId.set(null);
+        this.newProductId = this.productsService.newProductId();
         this.buildForm();
         this.showForm.set(true);
     }
@@ -467,7 +493,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
             price: p.price ?? 0, currency: p.currency ?? 'USD',
             premiumType: p.premiumType, tierRank: p.tierRank, active: p.active,
         });
-        (p.tiers ?? []).forEach((t) => this.tiers.push(this.tierGroup(t)));
+        (p.tiers ?? []).forEach((t, i) => this.tiers.push(this.tierGroup({ ...t, discountCode: this.codeAt(p, i) })));
         this.showForm.set(true);
     }
 
@@ -475,9 +501,13 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         this.showForm.set(false);
     }
 
-    save(): void {
+    async save(): Promise<void> {
         if (this.form.invalid) return;
         const v = this.form.getRawValue();
+        type TierForm = { label: string; maxCount: number; discountCode: string; discountPct: number; price: number };
+        const formTiers: TierForm[] = v.tiers ?? [];
+        // Codes go to the admin-only ProductCodes document, never onto the public product.
+        const codes = formTiers.map((t) => String(t.discountCode ?? '').trim());
         const payload = {
             name: v.name,
             providerProductIds: { dodo: v.dodoProductId },
@@ -492,31 +522,37 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
             premiumType: v.premiumType,
             tierRank: Number(v.tierRank) || 0,
             active: v.active,
-            tiers: (v.tiers ?? []).map((t: { label: string; maxCount: number; discountCode: string; discountPct: number; price: number }) => ({
-                label: t.label, maxCount: Number(t.maxCount) || 0, discountCode: t.discountCode, discountPct: Number(t.discountPct) || 0, price: Number(t.price) || 0,
-            })),
+            tiers: tiersWithoutCodes(formTiers.map((t) => ({
+                label: t.label, maxCount: Number(t.maxCount) || 0, discountPct: Number(t.discountPct) || 0, price: Number(t.price) || 0,
+            }))),
             features: [],
         };
 
+        // The product and its codes are written together (saveWithCodes): a failure
+        // leaves both as they were, so the codes never fall out of line with the tiers.
         const editingId = this.editingId();
-        if (editingId) {
-            this.store.update(editingId, payload).subscribe({
-                next: () => { this.notify.success('admin.products.updated'); this.closeForm(); },
-                error: () => this.notify.error('admin.products.update_failed'),
-            });
-        } else {
-            // purchaseCount starts at 0 for new products.
-            this.store.add({ ...payload, purchaseCount: 0 } as never).subscribe({
-                next: () => { this.notify.success('admin.products.created_toast'); this.closeForm(); this.store.getAll(); },
-                error: () => this.notify.error('admin.products.create_failed'),
-            });
+        const id = editingId ?? this.newProductId ?? (this.newProductId = this.productsService.newProductId());
+        try {
+            await this.productsService.saveWithCodes(id, !editingId, payload, codes);
+        } catch (e) {
+            console.error('Saving the product failed', e);
+            this.notify.error(editingId ? 'admin.products.update_failed' : 'admin.products.create_failed');
+            return;
         }
+        this.codes.update((all) => ({ ...all, [id]: codes }));
+        this.newProductId = null;
+        this.notify.success(editingId ? 'admin.products.updated' : 'admin.products.created_toast');
+        this.closeForm();
+        this.store.getAll();
     }
 
     remove(p: IProduct): void {
         if (!confirm(`Delete product "${p.name}"?`)) return;
         this.store.delete(p.id).subscribe({
-            next: () => this.notify.success('admin.products.deleted'),
+            next: () => {
+                this.notify.success('admin.products.deleted');
+                this.productsService.deleteCodes(p.id).catch((e) => console.error('Deleting tier codes failed', e));
+            },
             error: () => this.notify.error('admin.products.delete_failed'),
         });
     }

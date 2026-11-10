@@ -7,7 +7,8 @@
  * - Re-assembles when a file in either changes while the dev server runs.
  * - Checks the app's redirects (src/custom/site/redirects.json, scripts/arc-redirects.mjs),
  *   so a mistake there stops `npm run build` and `npm run dev` before a deploy finds it.
- *   The dev server does not follow them: only Firebase Hosting does.
+ *   The dev server does not follow them: only Firebase Hosting does. The same for the
+ *   app's headers (src/custom/site/headers.json, scripts/arc-headers.mjs).
  * - Provides `virtual:arc-site`: the header, the footer, the sign-in panel and
  *   the manifest, for the browser app.
  * - In `npm run dev`, serves the live site's manifest at /__arc/live-site.json, so
@@ -22,6 +23,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Plugin, ViteDevServer } from 'vite';
 import { assembleSite, isSiteSource, siteModule } from './arc-site.mjs';
 import { readAppRedirects } from './arc-redirects.mjs';
+import { readAppHeaders } from './arc-headers.mjs';
 import type { SiteNotices } from '../src/shared/utils/notice-text';
 
 const VIRTUAL = 'virtual:arc-site';
@@ -98,6 +100,7 @@ export function arcSite(
             const { dir, ignored } = assembleSite(root, undefined, { notices, extra });
             warnIgnored(ignored, console.warn);
             readAppRedirects(root);
+            readAppHeaders(root);
             return { publicDir: dir };
         },
         resolveId(id) {
@@ -114,6 +117,7 @@ export function arcSite(
                 if (!isSiteSource(root, file)) return;
                 try {
                     readAppRedirects(root);
+                    readAppHeaders(root);
                     const { changed, ignored } = assembleSite(root, undefined, { notices, extra });
                     warnIgnored(ignored, (message) => server.config.logger.warn(message));
                     if (!changed.some((path) => MODULE_PATHS.includes(path))) return;

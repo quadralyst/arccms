@@ -123,6 +123,34 @@ describe('ImportFilesService', () => {
             expect(results[0].success).toBe(false);
             expect(results[0].error).toBe('Upload quota exceeded');
         });
+
+        // storage.rules refuses these; sent anyway, the admin read a bare "unauthorized".
+        it('never sends a type the bucket refuses, and marks it so', async () => {
+            const { uploadBytesResumable: mockUpload } = await import('@angular/fire/storage');
+            const files: FileWithPath[] = [
+                { file: new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' }), storagePath: 'mediaImages/logo.svg' },
+                { file: new File(['<p>'], 'page.html', { type: 'text/html' }), storagePath: 'site/page.html' },
+                { file: new File(['1'], 'ok.png'), storagePath: 'mediaImages/ok.png' },
+            ];
+
+            const results = await service.uploadFiles(files, vi.fn());
+
+            expect(results.map((r) => [r.fileName, r.success, r.refusedType ?? false])).toEqual([
+                ['logo.svg', false, true], ['page.html', false, true], ['ok.png', true, false],
+            ]);
+            expect(mockUpload).toHaveBeenCalledTimes(1);
+        });
+
+        // The browser may name no type (fonts) or another one (CSV on Windows); the rules check the type.
+        it('stores each file with the type its extension names, not the browser\'s guess', async () => {
+            const { uploadBytesResumable: mockUpload } = await import('@angular/fire/storage');
+            await service.uploadFiles([
+                { file: new File(['1'], 'brand.woff2'), storagePath: 'fonts/brand.woff2' },
+                { file: new File(['1'], 'list.csv', { type: 'application/vnd.ms-excel' }), storagePath: 'data/list.csv' },
+            ], vi.fn());
+
+            expect((mockUpload as any).mock.calls.map((c: any[]) => c[2])).toEqual([{ contentType: 'font/woff2' }, { contentType: 'text/csv' }]);
+        });
     });
 
     describe('updateMediaMetadata', () => {

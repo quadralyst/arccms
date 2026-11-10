@@ -26,6 +26,12 @@ export async function findUserRef(data: DodoWebhookData): Promise<DocumentRefere
   return null;
 }
 
+/** The entitlement fields of a user record as they are now (an empty object when there is none). */
+export async function currentEntitlement(userRef: DocumentReference): Promise<Record<string, unknown>> {
+  const snap = await userRef.get();
+  return snap.data() ?? {};
+}
+
 /** Map a Dodo subscription/payment status to our entitlement status. */
 function mapStatus(rawStatus?: string, isTrial?: boolean): UserEntitlement['premiumStatus'] {
   if (isTrial) return 'trialing';
@@ -62,6 +68,8 @@ export async function grantEntitlement(
     eventAt?: Date;
     tierLabel?: string;
     discountCode?: string;
+    /** One-time purchases: the payment that grants this entitlement (refunds match on it). */
+    paymentId?: string;
   },
 ): Promise<void> {
   await db.runTransaction(async (tx) => {
@@ -78,8 +86,11 @@ export async function grantEntitlement(
     const isCurrentlyPro = current['isPro'] === true;
 
     const newRank = product.tierRank ?? 0;
-    // Don't downgrade an active higher tier from a lower-tier purchase.
-    if (isCurrentlyPro && newRank < currentRank) {
+    // Don't downgrade an active higher tier from a lower-tier purchase. The same
+    // subscription moved to a lower plan in the gateway is not a second purchase:
+    // its new plan is what it now pays for.
+    const sameSubscription = !!opts.subscriptionId && current['providerSubscriptionId'] === opts.subscriptionId;
+    if (isCurrentlyPro && newRank < currentRank && !sameSubscription) {
       logger.info('Skipping entitlement grant — user holds a higher tier', { newRank, currentRank });
       return;
     }
@@ -91,6 +102,8 @@ export async function grantEntitlement(
       premiumStatus: mapStatus(opts.rawStatus, opts.isTrial),
       provider: PAYMENT_PROVIDER,
       providerSubscriptionId: opts.subscriptionId ?? null,
+      premiumProductId: product.id ?? null,
+      premiumPaymentId: opts.subscriptionId ? null : opts.paymentId ?? null,
       // A customer id is stable for the life of the account, so an event that
       // omits it must never blank out the one we already hold.
       providerCustomerId: opts.customerId ?? (current['providerCustomerId'] as string | undefined) ?? null,
@@ -246,6 +259,8 @@ export async function revokeEntitlement(
         premiumType: null,
         premiumTierRank: null,
         providerSubscriptionId: FieldValue.delete(),
+        premiumProductId: FieldValue.delete(),
+        premiumPaymentId: FieldValue.delete(),
         ...eventAtPatch(current, eventAt),
         modifiedAt: Timestamp.now(),
       },

@@ -286,6 +286,21 @@ describe('queueEmail', () => {
     expect(lastAddArg().skipReason).toBe('email_disabled');
   });
 
+  it('a blocked email keeps no one-time code: it is never sent or retried (pending keeps it to send)', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => enabledSettings({ isEnabled: false }) });
+    await queueEmail({ ...baseParams, data: { otp: '482913' } });
+    expect(lastAddArg()).toMatchObject({ status: 'skipped', otp: '••••••' });
+    expect(JSON.stringify(lastAddArg())).not.toContain('482913');
+
+    mockSettingsGet.mockResolvedValue({ data: () => enabledSettings({ features: { waitlistEmails: false } }) });
+    await queueEmail({ ...baseParams, data: { otp: '482913' } });
+    expect(lastAddArg()).toMatchObject({ skipReason: 'feature_disabled', otp: '••••••' });
+
+    mockSettingsGet.mockResolvedValue({ data: () => enabledSettings() });
+    await queueEmail({ ...baseParams, data: { otp: '482913' } });
+    expect(lastAddArg()).toMatchObject({ status: 'pending', otp: '482913' });
+  });
+
   it('gate 1: missing provider ⇒ skipped/email_disabled', async () => {
     mockSettingsGet.mockResolvedValue({ data: () => enabledSettings({ activeProvider: undefined }) });
 

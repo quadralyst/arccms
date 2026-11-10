@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Change the admin menu | Arc CMS docs</title>
   <meta name="description" content="Add your app's links and groups to the admin side menu with CUSTOM_NAV, change, hide, add and move Arc CMS's items by id with CUSTOM_NAV_CHANGES, for every role or some, and pick Font Awesome icons.">
-  <meta name="docs:sources" content="src/custom/nav.ts, src/custom/nav-changes.ts, src/shared/components/side-navbar, src/app/core/nav, src/app/custom-space.spec.ts, src/custom/i18n, index.html, public/assets/icons, scripts/generate-icon-index.mjs">
+  <meta name="docs:sources" content="src/custom/nav.ts, src/custom/nav-changes.ts, src/shared/components/side-navbar, src/app/core/nav, src/app/custom-space.spec.ts, src/custom/i18n, index.html, public/assets/icons, scripts/generate-icon-index.mjs, src/vendor-styles.css">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/admin-menu.html">
@@ -172,7 +172,7 @@ export const CUSTOM_NAV_CHANGES: NavChanges = {
     <p>The ids are in <code>src/app/core/nav/admin-menu.ts</code>; the changes are made by <code>applyNavChanges()</code> in <code>src/app/core/nav/nav-changes.ts</code>.</p>
 
     <h2>Choose an icon</h2>
-    <p>The admin loads Font Awesome Free 6.5.1 (see <code>index.html</code>), so any free icon works. Write the style class and the icon class: <code>fa-solid fa-book-open</code>, <code>fa-regular fa-calendar</code>, <code>fa-brands fa-youtube</code>.</p>
+    <p>The admin has Font Awesome Free 6.5.1, served with the app (<code>src/vendor-styles.css</code>), so any free icon works. Write the style class and the icon class: <code>fa-solid fa-book-open</code>, <code>fa-regular fa-calendar</code>, <code>fa-brands fa-youtube</code>.</p>
     <p>To see which icons and styles exist, search <code>public/assets/icons/fa-index.json</code>: each entry has the icon name (<code>n</code>), its label, its free styles (<code>s</code>) and search terms. <code>npm run icons:index</code> builds that file for the admin's icon picker; it is a core file, so you never need to run it in an app.</p>
     <div class="note"><p>A Pro-only icon or style renders as an empty box. Check the styles in the index before you pick one.</p></div>
   </main>

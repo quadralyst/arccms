@@ -118,10 +118,10 @@ export const confirmFreshCode = onCall(async (request) => {
     const uid = String(record.data['uid']);
     const target = targetOf(record);
     if (target.via === 'email') {
-        await verifyEmailCode(target.email, code, 'fresh', uid);
+        await verifyEmailCode(target.email, code, 'fresh', uid, request);
         await consumeVerifiedEmailLinkOtp(target.email, uid, 'fresh');
     } else {
-        await verifyPhoneOtp(target.phone, code, 'fresh', uid);
+        await verifyPhoneOtp(target.phone, code, 'fresh', uid, request);
         await consumeVerifiedPhoneOtp(target.phone, 'fresh', { uid });
     }
     const { ticket, ticketHash } = newOtpTicket();

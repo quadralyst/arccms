@@ -22,6 +22,7 @@ import { refuse, refuseWeakPassword } from './refusal.js';
 import { AUTH_OWNER } from '../users/authOwner.js';
 import { APP_MANAGED, isLockedAppAccount } from '../users/lockedAppAccount.js';
 import { HOST_ACCOUNT, keepsPassword } from './emailPinRules.js';
+import { emailForLog } from './logSafe.js';
 
 /** What someone whose account signs in with a PIN is told on Forgot password. */
 export const PIN_ACCOUNT = 'This account signs in with a PIN. Use Forgot PIN to choose a new one.';
@@ -125,6 +126,6 @@ export const resetPassword = onCall(async (request) => {
     if (!(await verifiedResetCode(email, request.data?.ticket, true))) throw expired();
     await owner.updateUser(target.uid, { password });
     await owner.revokeRefreshTokens(target.uid);
-    logger.info(`resetPassword: a new password was set for ${email} with a reset code.`);
+    logger.info(`resetPassword: a new password was set for ${emailForLog(email)} with a reset code.`);
     return { reset: true };
 });

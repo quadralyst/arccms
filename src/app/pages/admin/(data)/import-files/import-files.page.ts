@@ -148,7 +148,7 @@ export default class ImportFilesPageComponent extends BaseComponent {
                     : []),
             ];
 
-            this.uploadResults.set(results);
+            this.uploadResults.set(this.withMessages(results));
 
             if (this.updateMediaCollection()) {
                 await this.importFilesService.updateMediaMetadata(results);
@@ -187,7 +187,7 @@ export default class ImportFilesPageComponent extends BaseComponent {
                 this.updateMediaCollection(),
             );
 
-            this.uploadResults.set(results);
+            this.uploadResults.set(this.withMessages(results));
 
             if (this.updateMediaCollection()) {
                 await this.importFilesService.updateMediaMetadata(results);
@@ -200,6 +200,11 @@ export default class ImportFilesPageComponent extends BaseComponent {
         } finally {
             this.isUploading.set(false);
         }
+    }
+
+    /** A file of a type the bucket does not take says so in plain words. */
+    private withMessages(results: UploadResult[]): UploadResult[] {
+        return results.map((r) => (r.refusedType ? { ...r, error: this.t('admin.data.import_files.type_refused') } : r));
     }
 
     resetUpload(): void {

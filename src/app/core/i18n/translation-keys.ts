@@ -277,6 +277,7 @@ export type TranslationKey =
     | 'admin.contents.editor.url_copied'
     | 'admin.contents.editor.url_copy_failed'
     | 'admin.contents.editor.url_slug'
+    | 'admin.contents.editor.version_body_frame'
     | 'admin.contents.editor.version_restored'
     | 'admin.contents.list.add_item'
     | 'admin.contents.list.arrange'
@@ -548,6 +549,7 @@ export type TranslationKey =
     | 'admin.data.import_files.subtitle'
     | 'admin.data.import_files.successful'
     | 'admin.data.import_files.title'
+    | 'admin.data.import_files.type_refused'
     | 'admin.data.import_files.update_metadata'
     | 'admin.data.import_files.upload'
     | 'admin.data.import_files.upload_failed'
@@ -1872,6 +1874,8 @@ export type TranslationKey =
     | 'admin.settings.sms.col_to'
     | 'admin.settings.sms.countries'
     | 'admin.settings.sms.countries_hint'
+    | 'admin.settings.sms.daily_limit'
+    | 'admin.settings.sms.daily_limit_hint'
     | 'admin.settings.sms.default_country'
     | 'admin.settings.sms.default_country_hint'
     | 'admin.settings.sms.intro'
@@ -1891,9 +1895,11 @@ export type TranslationKey =
     | 'admin.settings.sms.show_reset_codes'
     | 'admin.settings.sms.show_reset_codes_hint'
     | 'admin.settings.sms.status_failed'
+    | 'admin.settings.sms.status_limited'
     | 'admin.settings.sms.status_logged'
     | 'admin.settings.sms.status_sent'
     | 'admin.settings.sms.test_failed'
+    | 'admin.settings.sms.test_limited'
     | 'admin.settings.sms.test_logged'
     | 'admin.settings.sms.test_mode_warning'
     | 'admin.settings.sms.test_phone'
@@ -1966,6 +1972,8 @@ export type TranslationKey =
     | 'admin.transactions.col_plan'
     | 'admin.transactions.failed'
     | 'admin.transactions.index_needed'
+    | 'admin.transactions.mismatch_badge'
+    | 'admin.transactions.mismatch_badge_hint'
     | 'admin.transactions.none'
     | 'admin.transactions.pending'
     | 'admin.transactions.refunded'
@@ -2213,6 +2221,7 @@ export type TranslationKey =
     | 'member.auth.server_error.code_tries'
     | 'member.auth.server_error.code_wrong'
     | 'member.auth.server_error.country_not_allowed'
+    | 'member.auth.server_error.current_pin_required'
     | 'member.auth.server_error.email_failed'
     | 'member.auth.server_error.email_has_account'
     | 'member.auth.server_error.email_managed'
@@ -2244,8 +2253,10 @@ export type TranslationKey =
     | 'member.auth.server_error.sign_in_again'
     | 'member.auth.server_error.sign_in_managed'
     | 'member.auth.server_error.sign_in_not_ready'
+    | 'member.auth.server_error.signup_again'
     | 'member.auth.server_error.signup_closed'
     | 'member.auth.server_error.sms_failed'
+    | 'member.auth.server_error.sms_limit'
     | 'member.auth.server_error.too_many_attempts'
     | 'member.auth.server_error.too_many_codes'
     | 'member.auth.server_error.wait'
@@ -2328,11 +2339,13 @@ export type TranslationKey =
     | 'member.methods.code_sent_to'
     | 'member.methods.connect'
     | 'member.methods.connected'
+    | 'member.methods.current_pin'
     | 'member.methods.email'
     | 'member.methods.email_moved'
     | 'member.methods.email_placeholder'
     | 'member.methods.email_saved'
     | 'member.methods.enter_code'
+    | 'member.methods.fresh_code_needed'
     | 'member.methods.google'
     | 'member.methods.google_connected'
     | 'member.methods.google_failed'
@@ -2429,6 +2442,17 @@ export type TranslationKey =
     | 'member.unauthorized.go_home'
     | 'member.unauthorized.heading'
     | 'member.unauthorized.sign_in'
+    | 'member.unsubscribe.email_label'
+    | 'member.unsubscribe.failed'
+    | 'member.unsubscribe.home'
+    | 'member.unsubscribe.intro'
+    | 'member.unsubscribe.invalid_email'
+    | 'member.unsubscribe.send'
+    | 'member.unsubscribe.sending'
+    | 'member.unsubscribe.sent_text'
+    | 'member.unsubscribe.sent_title'
+    | 'member.unsubscribe.title'
+    | 'member.unsubscribe.too_many'
     | 'member.wait.checking'
     | 'member.wait.no_answer'
     | 'member.wait.still_checking'
@@ -2817,6 +2841,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.url_copied',
     'admin.contents.editor.url_copy_failed',
     'admin.contents.editor.url_slug',
+    'admin.contents.editor.version_body_frame',
     'admin.contents.editor.version_restored',
     'admin.contents.list.add_item',
     'admin.contents.list.arrange',
@@ -3088,6 +3113,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.data.import_files.subtitle',
     'admin.data.import_files.successful',
     'admin.data.import_files.title',
+    'admin.data.import_files.type_refused',
     'admin.data.import_files.update_metadata',
     'admin.data.import_files.upload',
     'admin.data.import_files.upload_failed',
@@ -4412,6 +4438,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.sms.col_to',
     'admin.settings.sms.countries',
     'admin.settings.sms.countries_hint',
+    'admin.settings.sms.daily_limit',
+    'admin.settings.sms.daily_limit_hint',
     'admin.settings.sms.default_country',
     'admin.settings.sms.default_country_hint',
     'admin.settings.sms.intro',
@@ -4431,9 +4459,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.settings.sms.show_reset_codes',
     'admin.settings.sms.show_reset_codes_hint',
     'admin.settings.sms.status_failed',
+    'admin.settings.sms.status_limited',
     'admin.settings.sms.status_logged',
     'admin.settings.sms.status_sent',
     'admin.settings.sms.test_failed',
+    'admin.settings.sms.test_limited',
     'admin.settings.sms.test_logged',
     'admin.settings.sms.test_mode_warning',
     'admin.settings.sms.test_phone',
@@ -4506,6 +4536,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.transactions.col_plan',
     'admin.transactions.failed',
     'admin.transactions.index_needed',
+    'admin.transactions.mismatch_badge',
+    'admin.transactions.mismatch_badge_hint',
     'admin.transactions.none',
     'admin.transactions.pending',
     'admin.transactions.refunded',
@@ -4753,6 +4785,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.code_tries',
     'member.auth.server_error.code_wrong',
     'member.auth.server_error.country_not_allowed',
+    'member.auth.server_error.current_pin_required',
     'member.auth.server_error.email_failed',
     'member.auth.server_error.email_has_account',
     'member.auth.server_error.email_managed',
@@ -4784,8 +4817,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.sign_in_again',
     'member.auth.server_error.sign_in_managed',
     'member.auth.server_error.sign_in_not_ready',
+    'member.auth.server_error.signup_again',
     'member.auth.server_error.signup_closed',
     'member.auth.server_error.sms_failed',
+    'member.auth.server_error.sms_limit',
     'member.auth.server_error.too_many_attempts',
     'member.auth.server_error.too_many_codes',
     'member.auth.server_error.wait',
@@ -4868,11 +4903,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.methods.code_sent_to',
     'member.methods.connect',
     'member.methods.connected',
+    'member.methods.current_pin',
     'member.methods.email',
     'member.methods.email_moved',
     'member.methods.email_placeholder',
     'member.methods.email_saved',
     'member.methods.enter_code',
+    'member.methods.fresh_code_needed',
     'member.methods.google',
     'member.methods.google_connected',
     'member.methods.google_failed',
@@ -4969,6 +5006,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.unauthorized.go_home',
     'member.unauthorized.heading',
     'member.unauthorized.sign_in',
+    'member.unsubscribe.email_label',
+    'member.unsubscribe.failed',
+    'member.unsubscribe.home',
+    'member.unsubscribe.intro',
+    'member.unsubscribe.invalid_email',
+    'member.unsubscribe.send',
+    'member.unsubscribe.sending',
+    'member.unsubscribe.sent_text',
+    'member.unsubscribe.sent_title',
+    'member.unsubscribe.title',
+    'member.unsubscribe.too_many',
     'member.wait.checking',
     'member.wait.no_answer',
     'member.wait.still_checking',

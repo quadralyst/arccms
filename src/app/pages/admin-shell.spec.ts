@@ -236,7 +236,8 @@ describe('the real shell and panel', () => {
                 provideZonelessChangeDetection(),
                 provideRouter([{ ...standIn(adminRoute, false), loadComponent: adminRoute.loadComponent, component: undefined }]),
                 { provide: BreakpointObserver, useValue: { observe: () => screen } },
-                { provide: AuthState, useValue: { currentUser: signal({ name: 'Admin', role: 'admin', photo: '' }), logout: vi.fn() } },
+                // recordReady: the shell asks it before moving old product codes (product-codes-upkeep.ts).
+                { provide: AuthState, useValue: { currentUser: signal({ name: 'Admin', role: 'admin', photo: '' }), logout: vi.fn(), recordReady: async () => null } },
                 { provide: ContentTypesStore, useValue: contentTypes },
                 { provide: WaitlistAdminStore, useValue: forms },
                 { provide: MatDialog, useValue: { open: vi.fn() } },

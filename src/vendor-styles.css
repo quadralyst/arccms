@@ -1,0 +1,16 @@
+/*
+ * The style libraries every page has, served with the app instead of from CDNs
+ * (index.html, docs/contributing/frontend-notes.html): nothing to wait for on another
+ * host before sign-in, nothing a CDN could change, and they open offline in the PWA.
+ * The build bundles them into the app's stylesheet and serves their fonts as files of
+ * its own. Full icon sets, so an app's own pages can use any icon.
+ */
+@import "bootstrap/dist/css/bootstrap.min.css";
+@import "bootstrap-icons/font/bootstrap-icons.min.css";
+@import "@fortawesome/fontawesome-free/css/all.min.css";
+/* Material Icons: the same font and .material-icons class Google Fonts served. */
+@import "material-icons/iconfont/filled.css";
+/* Roboto 300, 400 and 500, every script Google Fonts served, each loaded only when a page uses it. */
+@import "@fontsource/roboto/300.css";
+@import "@fontsource/roboto/400.css";
+@import "@fontsource/roboto/500.css";

@@ -8,6 +8,7 @@
  */
 import { db } from '../init.js';
 import { DEFAULT_COUNTRY_CODE } from '../auth/phoneNumber.js';
+import { DEFAULT_SMS_DAILY_LIMIT, MAX_SMS_DAILY_LIMIT } from './smsDailyLimit.js';
 
 export const SMS_PROVIDERS = ['log', 'msg91'] as const;
 export type SmsProviderId = (typeof SMS_PROVIDERS)[number];
@@ -26,6 +27,8 @@ export interface SmsSettings {
      * since anyone who knows a number could then reset its PIN (Settings, SMS warns).
      */
     showResetCodes: boolean;
+    /** Texts the site may send in a day (smsDailyLimit.ts); 300 unless an admin changes it. */
+    dailyLimit: number;
 }
 
 export const DEFAULT_SMS_SETTINGS: SmsSettings = {
@@ -35,7 +38,14 @@ export const DEFAULT_SMS_SETTINGS: SmsSettings = {
     msg91AuthKey: '',
     msg91OtpTemplateId: '',
     showResetCodes: false,
+    dailyLimit: DEFAULT_SMS_DAILY_LIMIT,
 };
+
+/** A whole number from 1 to the highest the settings take, else the default. */
+export function readDailyLimit(value: unknown): number {
+    const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+    return Number.isInteger(n) && n >= 1 && n <= MAX_SMS_DAILY_LIMIT ? n : DEFAULT_SMS_DAILY_LIMIT;
+}
 
 function digits(value: unknown): string {
     return String(value ?? '').replace(/\D/g, '');
@@ -60,6 +70,7 @@ export function resolveSmsSettings(raw: Record<string, unknown> | undefined): Sm
         msg91AuthKey: typeof data['msg91AuthKey'] === 'string' ? data['msg91AuthKey'].trim() : '',
         msg91OtpTemplateId: typeof data['msg91OtpTemplateId'] === 'string' ? data['msg91OtpTemplateId'].trim() : '',
         showResetCodes: data['showResetCodes'] === true,
+        dailyLimit: readDailyLimit(data['dailyLimit']),
     };
 }
 

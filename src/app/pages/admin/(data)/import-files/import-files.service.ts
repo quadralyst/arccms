@@ -9,6 +9,7 @@ import { withStoragePrefix } from '../../../../core/config/arc-config';
 import { ArcStorage } from '../../../../core/config/arc-storage';
 import { FileUploadService } from '../../../../../shared/services/file-upload.service';
 import { isLibraryDocument } from '../../../../../shared/utils/media-files';
+import { staffFileType } from '../../../../../shared/utils/staff-files';
 import { FileImportProgress, UploadResult } from '../data-constants';
 
 export interface FileWithPath {
@@ -31,16 +32,19 @@ export class ImportFilesService {
     private fileUpload = inject(FileUploadService);
 
     /**
-     * Upload a single file to Firebase Storage.
+     * Upload a single file to Firebase Storage, stored with the content type its
+     * extension names (STAFF_FILE_TYPES, the list storage.rules takes).
      */
     async uploadFile(
         file: File,
         storagePath: string,
         progressCallback: (progress: number) => void,
     ): Promise<{ downloadURL: string; fullPath: string }> {
+        const contentType = staffFileType(file.name);
+        if (!contentType) throw Object.assign(new Error(`${file.name}: this type of file is not taken`), { refusedType: true });
         const fullPath = withStoragePrefix(storagePath);
         const storageRef = ref(await this.arcStorage.get(), fullPath);
-        const uploadTask = uploadBytesResumable(storageRef, file);
+        const uploadTask = uploadBytesResumable(storageRef, file, { contentType });
 
         return new Promise((resolve, reject) => {
             uploadTask.on(
@@ -76,6 +80,14 @@ export class ImportFilesService {
                 totalFiles: files.length,
                 bytesUploaded,
             });
+
+            // A type the bucket refuses is never sent: storage.rules would answer
+            // with a bare "unauthorized".
+            if (!staffFileType(file.name)) {
+                results.push({ fileName: file.name, storagePath, downloadURL: '', success: false, refusedType: true });
+                filesCompleted++;
+                continue;
+            }
 
             try {
                 const { downloadURL, fullPath } = await this.uploadFile(file, storagePath, () => {});

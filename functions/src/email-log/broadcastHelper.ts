@@ -1,6 +1,7 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import type { BroadcastEmailDoc, RateLimitConfig, ProviderRateLimits, EmailSettings } from '../types.js';
 import { queueEmail } from '../email-core/queueEmail.js';
+import { emailForLog } from '../auth/logSafe.js';
 
 /** Convert legacy rate limit config to milliseconds-per-email delay
  * @deprecated Use getDelayFromLimits instead */
@@ -148,7 +149,7 @@ export async function processRecipientBatch(params: {
 
         if (!success) {
             failedCount++;
-            console.error(`Broadcast ${broadcastId}: all ${MAX_RETRIES} attempts failed for ${recipient.toEmail}`);
+            console.error(`Broadcast ${broadcastId}: all ${MAX_RETRIES} attempts failed for ${emailForLog(recipient.toEmail)}`);
         }
 
         // Rate limit delay (skip on last iteration)

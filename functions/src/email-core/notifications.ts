@@ -83,6 +83,11 @@ export const DEFAULT_NOTIFICATION_TYPES: Record<string, NotificationTypeConfig> 
     category: 'transactional', defaultChannels: { inApp: true, email: true },
     userConfigurable: false, enabled: true,
   },
+  admin_payment_check: {
+    label: 'Payment to check (admin)', description: "A payment's product did not match the site's product.",
+    category: 'transactional', defaultChannels: { inApp: true, email: true },
+    userConfigurable: false, enabled: true,
+  },
   account_security: {
     label: 'Account security', description: 'Your email or phone number was moved to another account.',
     category: 'transactional', defaultChannels: { inApp: true, email: true },
@@ -120,6 +125,11 @@ export const DEFAULT_NOTIFICATION_TYPES: Record<string, NotificationTypeConfig> 
   },
   admin_ai_credit: {
     label: 'AI credit gone (admin)', description: 'An AI provider says its account has no credit left.',
+    category: 'transactional', defaultChannels: { inApp: true, email: true },
+    userConfigurable: false, enabled: true,
+  },
+  admin_sms_limit: {
+    label: 'Text limit reached (admin)', description: "The site sent its texts for the day; more go out tomorrow.",
     category: 'transactional', defaultChannels: { inApp: true, email: true },
     userConfigurable: false, enabled: true,
   },

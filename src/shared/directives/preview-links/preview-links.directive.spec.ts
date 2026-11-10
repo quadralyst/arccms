@@ -59,7 +59,7 @@ describe('PreviewLinksDirective', () => {
         expect(event.defaultPrevented).toBe(true);
     });
 
-    it('is on every email and version drawn into an admin page', () => {
+    it('is on every email drawn into an admin page', () => {
         const root = resolve(__dirname, '../../..');
         for (const [file, marker] of [
             ['shared/components/email-block-editor/email-block-editor.component.html', '[innerHTML]="previewHtml()"'],
@@ -67,13 +67,11 @@ describe('PreviewLinksDirective', () => {
             ['app/pages/admin/(email-composer)/email-composer.page.html', '[innerHTML]="t.template"'],
             ['shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.component.html', '[innerHTML]="previewContent"'],
             ['shared/components/test-email/test-email.component.html', '[innerHTML]="previewContent"'],
-            ['app/pages/admin/contents/create-content/create-content.component.html', '[innerHTML]="getPreviewSafeHtml(previewingVersion()!.content)"'],
         ]) {
             const html = readFileSync(resolve(root, file), 'utf8');
             const tag = html.slice(html.lastIndexOf('<', html.indexOf(marker)), html.indexOf(marker));
             expect(tag, file).toContain('arcPreviewLinks');
         }
-        const create = readFileSync(resolve(root, 'app/pages/admin/contents/create-content/create-content.component.html'), 'utf8');
-        expect(create).toMatch(/<arc-site-look-view arcPreviewLinks \[look\]="bodyLook\(\)!" \[html\]="previewingVersion\(\)!\.content"/);
+        // The editor's version preview is in a sandboxed frame instead (site-look-view.ts).
     });
 });

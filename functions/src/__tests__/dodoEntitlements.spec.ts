@@ -251,3 +251,35 @@ describe('markPastDue — scoping + ordering', () => {
     expect(set).not.toHaveBeenCalled();
   });
 });
+
+describe('grantEntitlement — what granted the access', () => {
+  it('stores the Product and, for a one-time purchase, the payment', async () => {
+    const { set } = withCurrent({});
+    await grantEntitlement(userRef, { ...product, id: 'p1', type: 'one_time' }, { paymentId: 'pay1' });
+    expect(set.mock.calls[0][1]).toMatchObject({ premiumProductId: 'p1', premiumPaymentId: 'pay1' });
+  });
+
+  it('stores no payment for a subscription, which refunds match by subscription', async () => {
+    const { set } = withCurrent({});
+    await grantEntitlement(userRef, { ...product, id: 'p1' }, { subscriptionId: 'sub1', paymentId: 'pay1' });
+    expect(set.mock.calls[0][1]).toMatchObject({ premiumProductId: 'p1', premiumPaymentId: null, providerSubscriptionId: 'sub1' });
+  });
+
+  it('moves the same subscription to a lower plan', async () => {
+    const { set } = withCurrent({ isPro: true, premiumTierRank: 5, providerSubscriptionId: 'sub1' });
+    await grantEntitlement(userRef, { ...product, id: 'p2', tierRank: 1 }, { subscriptionId: 'sub1' });
+    expect(set.mock.calls[0][1]).toMatchObject({ premiumProductId: 'p2', premiumTierRank: 1 });
+  });
+
+  it('still keeps a higher tier from a lower purchase on another subscription', async () => {
+    const { set } = withCurrent({ isPro: true, premiumTierRank: 5, providerSubscriptionId: 'sub1' });
+    await grantEntitlement(userRef, { ...product, tierRank: 1 }, { subscriptionId: 'sub2' });
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it('a revoke forgets the Product and payment', async () => {
+    const { set } = withCurrent({ providerSubscriptionId: 'sub1' });
+    await revokeEntitlement(userRef, 'sub1', 'expired');
+    expect(set.mock.calls[0][1]).toMatchObject({ premiumProductId: '__DELETE__', premiumPaymentId: '__DELETE__' });
+  });
+});

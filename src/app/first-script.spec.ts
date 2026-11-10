@@ -72,4 +72,41 @@ describe('the first script', () => {
         const app = readFileSync(resolve(ROOT, 'src/app/app.ts'), 'utf8');
         expect(app).toMatch(/@defer \(on idle\) \{\s*<arc-feedback \/>\s*\}/);
     });
+
+    it('keeps Bootstrap\'s script out of it: a script of its own, written by the build', () => {
+        expect(firstScriptPackages().has('bootstrap')).toBe(false);
+        const vite = readFileSync(resolve(ROOT, 'vite.config.ts'), 'utf8');
+        expect(vite).toMatch(/^\s*vendorScripts\(\),/m);
+    });
+});
+
+/**
+ * Every page waits for what index.html links before it shows (src/vendor-styles.css):
+ * Bootstrap, the icon fonts and Roboto are served with the app, so nothing on another
+ * host holds up sign-in, changes under the app, or is missing offline.
+ */
+describe('index.html', () => {
+    const html = readFileSync(resolve(ROOT, 'index.html'), 'utf8');
+    const tags = (name: string) => [...html.matchAll(new RegExp(`<${name}\\b[^>]*>`, 'gi'))].map((m) => m[0]);
+    const address = (tag: string, attr: string) => new RegExp(`\\s${attr}\\s*=\\s*["']?([^"'\\s>]+)`, 'i').exec(tag)?.[1] ?? '';
+    const offSite = (url: string) => /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(url);
+
+    it('links no stylesheet, font or script from another host', () => {
+        const links = tags('link').map((tag) => address(tag, 'href')).filter(offSite);
+        const scripts = tags('script').map((tag) => address(tag, 'src')).filter(offSite);
+        expect([...links, ...scripts]).toEqual([]);
+        expect(html).not.toMatch(/@import\s+url\(\s*["']?(?:https?:)?\/\//i);
+    });
+
+    it('links the style libraries served with the app first, then core\'s styles, then the app\'s own', () => {
+        // Order is the cascade: core overrides Bootstrap (same specificity, later wins),
+        // and the app overrides both.
+        const sheets = tags('link').filter((tag) => /rel=["']?stylesheet/i.test(tag)).map((tag) => address(tag, 'href'));
+        expect(sheets).toEqual(['/src/vendor-styles.css', '/src/styles.css', '/src/custom/styles.css']);
+        const vendor = readFileSync(resolve(ROOT, 'src/vendor-styles.css'), 'utf8');
+        for (const library of ['bootstrap/', 'bootstrap-icons/', '@fortawesome/fontawesome-free/', 'material-icons/', '@fontsource/roboto/']) {
+            expect(vendor).toContain(`@import "${library}`);
+        }
+        expect(vendor).not.toMatch(/(?:https?:)?\/\//);
+    });
 });

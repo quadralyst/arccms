@@ -79,8 +79,9 @@
     </table>
 
     <h3>Pricing tiers</h3>
-    <p>Tiers give the first buyers a better price, such as "first 100 buyers get 40% off". Each tier has a label, a limit (the cumulative number of buyers it covers), a Dodo discount code, and a display percentage and price. A new buyer gets the first tier whose limit is higher than the number of confirmed buyers so far; a limit of 0 means "everyone else" and belongs last. The code is applied at checkout. Only a first purchase or a first subscription activation counts as a buyer; renewals do not.</p>
-    <p>Each tier has a <strong>Test payment link</strong>: a real Dodo checkout with that tier's code, so you can check the price. A purchase through it is marked test in Transactions and grants no plan, no credits, no email, and does not count as a buyer.</p>
+    <p>Tiers give the first buyers a better price, such as "first 100 buyers get 40% off". Each tier has a label, a limit (the cumulative number of buyers it covers), a Dodo discount code, and a display percentage and price. A new buyer gets the first tier whose limit is higher than the number of confirmed buyers so far; a limit of 0 means "everyone else" and belongs last. The code is applied at checkout. Codes are kept apart from the product, in the admin-only <code>ProductCodes</code>, because anyone can read an active product; only the Products page and checkout see them. Only a first purchase or a first subscription activation counts as a buyer; renewals do not.</p>
+    <p>Each tier has a <strong>Test payment link</strong>: a real Dodo checkout with that tier's code, so you can check the price. A purchase through it is marked test in Transactions and grants no plan, no credits, no email, and does not count as a buyer. The link carries a token the server keeps, so only a link made on the Products page counts as a test: a checkout that claims to be a test any other way is handled as a real purchase. A link is good for 7 days. Its first payment binds the token to that payment and subscription, so later renewals and refunds of the same test stay tests. If Dodo cannot make the checkout, the token is removed at once.</p>
+    <p>Products saved by an older version kept their codes on the product, where anyone can read them. They stay public until an admin opens the admin once after the update: the admin then asks the <code>moveProductCodes</code> function, quietly and once a session, to move every product's codes into <code>ProductCodes</code> (a code already there is kept), and Products asks again when it opens. Until then checkout still uses them.</p>
     <div class="trap"><p>A subscription tier keeps its discount on renewals only when the Dodo discount code is set up as recurring. A one-time code discounts the first payment and the buyer pays full price from the first renewal.</p></div>
 
     <h3>Payment emails</h3>
@@ -99,14 +100,18 @@
     <table>
       <thead><tr><th>Event</th><th>Effect</th></tr></thead>
       <tbody>
-        <tr><td><code>payment.succeeded</code>, <code>subscription.active</code>, <code>subscription.renewed</code></td><td>Records the transaction, grants or renews the plan, grants credits, adds the buyer to the <code>all-customers</code> list (with the <code>audience</code> feature), notifies the member and the admins. The receipt email is sent for <code>payment.succeeded</code> only.</td></tr>
+        <tr><td><code>payment.succeeded</code>, <code>subscription.active</code>, <code>subscription.renewed</code></td><td>Records the transaction. When the product Dodo says was paid for matches (see <a href="#product-checks">The product check</a>), grants or renews the plan and grants credits, adds the buyer to the <code>all-customers</code> list (with the <code>audience</code> feature) and notifies the member and the admins; the receipt email is sent for <code>payment.succeeded</code> only. When it does not match, the transaction is recorded with <code>productMismatch</code> and nothing else happens: no plan, no credits, no list, no receipt; the admins get an <code>admin_payment_check</code> notification instead.</td></tr>
+        <tr><td><code>subscription.plan_changed</code></td><td>When the plan of a subscription the member holds was changed in Dodo, gives the member the product now linked to the new Dodo product. When no product is linked to it, or the member does not hold that subscription, changes nothing and notifies the admins.</td></tr>
         <tr><td><code>payment.failed</code></td><td>Records it, sends the failure email, notifies the member and the admins.</td></tr>
         <tr><td><code>subscription.failed</code>, <code>subscription.on_hold</code></td><td>Marks the plan <code>past_due</code> (access stays) and sends the lifecycle email.</td></tr>
         <tr><td><code>subscription.cancelled</code>, <code>subscription.expired</code></td><td>Ends the plan and sends the lifecycle email.</td></tr>
-        <tr><td><code>refund.succeeded</code></td><td>Records the refund and sends the lifecycle email. A full refund also ends the plan and takes back the credits that charge granted; a partial refund leaves the plan and credits as they are.</td></tr>
+        <tr><td><code>refund.succeeded</code></td><td>Records the refund and sends the lifecycle email. A full refund also ends the plan when the refunded payment is the one that gives the member their plan (the one-time payment that granted it, or the subscription they hold), and takes back the credits that charge granted to the member it was for. A plan from another purchase stays. A partial refund leaves the plan and credits as they are.</td></tr>
       </tbody>
     </table>
     <p>Every step is safe to repeat, so a webhook Dodo sends twice is counted once. Events that arrive out of order never undo a newer one.</p>
+
+    <h3 id="product-checks">The product check</h3>
+    <p>The checkout says which product to grant, but a buyer can put their own details on a Dodo payment link, so a grant also needs Dodo's own record of what was bought: the product Dodo says was paid for must be the product's Dodo product (<strong>Dodo Product ID</strong> on Products). A one-time payment whose event names no product is read back from Dodo first. One exception keeps paying subscribers: a renewal of the subscription the member already holds still renews when Dodo bills it under another Dodo product, because the plan was changed in Dodo (the member gets the product linked to the new Dodo product) or you linked the product to another Dodo product (the member keeps the product they hold). Each of these, and every refused payment, sends the admins an <code>admin_payment_check</code> notification, and a refused payment shows <code>productMismatch</code> on its transaction. Check it in Dodo, and refund it there when it was a mistake.</p>
 
     <h3>Every day</h3>
     <table>
@@ -123,7 +128,7 @@
       <li><strong>Lock your app's features</strong> by the buyer's plan: <a href="entitlements.html">Premium entitlements</a>.</li>
       <li><strong>Spend credits</strong> from your app with the <code>consumeCredits</code> callable: <code>{ amount, note }</code>, where <code>amount</code> is a positive whole number. It returns <code>{ balance, spent }</code>, or fails with <code>failed-precondition</code> ("Insufficient credits.") when the balance is too low. Apart from a full refund, it is the only way a balance goes down.</li>
       <li><strong>React to payments</strong> in automations or your own functions: the event bus gets <code>payment.succeeded</code> and <code>payment.failed</code>. See <a href="automations.html">Automations</a> and <a href="../app/functions.html">Write your own Cloud Functions</a>.</li>
-      <li><strong>Your own pricing page</strong>: read the <code>Products</code> collection (public) and call <code>createCheckoutSession</code> with <code>{ productId }</code>; it returns <code>{ checkoutUrl, sessionId, tierApplied }</code>. Send the browser to <code>checkoutUrl</code>.</li>
+      <li><strong>Your own pricing page</strong>: read the active products (<code>where('active', '==', true)</code>, the only list a visitor may make) and call <code>createCheckoutSession</code> with <code>{ productId }</code>; it returns <code>{ checkoutUrl, sessionId, tierApplied }</code>. Send the browser to <code>checkoutUrl</code>.</li>
     </ul>
     <p>Another payment provider cannot be plugged in from an app: the records are provider-neutral, but only Dodo is wired up.</p>
 
@@ -132,8 +137,10 @@
       <thead><tr><th>Where</th><th>What</th></tr></thead>
       <tbody>
         <tr><td><code>Settings/dodo-payments</code></td><td>On or off, mode, API keys, webhook secret, success and cancel URLs.</td></tr>
-        <tr><td><code>Products</code></td><td>Your products, tiers and <code>purchaseCount</code> (confirmed buyers).</td></tr>
-        <tr><td><code>Transactions</code></td><td>One document per payment event: buyer uid (<code>userId</code>) and email, product, plan, amount, currency, status (<code>succeeded</code>, <code>failed</code>, <code>refunded</code>, <code>pending</code>), tier and code, and <code>isTest</code> for test links.</td></tr>
+        <tr><td><code>Products</code></td><td>Your products, tiers (without their codes) and <code>purchaseCount</code> (confirmed buyers).</td></tr>
+        <tr><td><code>ProductCodes</code></td><td>Each product's tier discount codes, <code>discountCodes[i]</code> for tier <code>i</code>, by product id. Admin only.</td></tr>
+        <tr><td><code>TestCheckouts</code></td><td>The token of each Test payment link, with its product, when it was made, and the payments and subscriptions it was used for. Cloud Functions only.</td></tr>
+        <tr><td><code>Transactions</code></td><td>One document per payment event: buyer uid (<code>userId</code>) and email, product, plan, amount, currency, status (<code>succeeded</code>, <code>failed</code>, <code>refunded</code>, <code>pending</code>), tier and code, <code>isTest</code> for test links, and <code>productMismatch</code> when the product check refused it.</td></tr>
         <tr><td><code>WebhookEvents</code></td><td>Every verified webhook exactly as Dodo sent it, keyed by its <code>webhook-id</code>, with <code>processed</code>, <code>processingError</code> and <code>processingAttempts</code>.</td></tr>
         <tr><td><code>CreditLedger</code></td><td>Every credit change (<code>purchase</code>, <code>renewal</code>, <code>refund</code>, <code>consume</code>), with the balance after it.</td></tr>
         <tr><td><code>CountedBuyers</code></td><td>One marker per counted buyer, so a buyer is counted once.</td></tr>
@@ -141,19 +148,19 @@
         <tr><td><code>EmailTemplate</code></td><td>The payment email templates.</td></tr>
       </tbody>
     </table>
-    <p>Payments stores no files. Its Cloud Functions, built only when the feature is on: <code>createCheckoutSession</code>, <code>createTestCheckoutLink</code>, <code>testDodoConnection</code>, <code>consumeCredits</code> (callables), <code>dodoWebhook</code> (HTTP), <code>handlePaymentEvent</code> (runs on each new <code>WebhookEvents</code> document), and the three daily scans above. All are listed in <a href="../reference/cloud-functions.html">Cloud Functions</a>; the collections in <a href="../reference/data-model.html">Data model</a>.</p>
+    <p>Payments stores no files. Its Cloud Functions, built only when the feature is on: <code>createCheckoutSession</code>, <code>createTestCheckoutLink</code>, <code>moveProductCodes</code>, <code>testDodoConnection</code>, <code>consumeCredits</code> (callables), <code>dodoWebhook</code> (HTTP), <code>handlePaymentEvent</code> (runs on each new <code>WebhookEvents</code> document), and the three daily scans above. All are listed in <a href="../reference/cloud-functions.html">Cloud Functions</a>; the collections in <a href="../reference/data-model.html">Data model</a>.</p>
 
     <h2>Who can do what</h2>
     <table>
       <thead><tr><th>Data or action</th><th>Who</th></tr></thead>
       <tbody>
-        <tr><td>Read products</td><td>Anyone (the pricing page is public)</td></tr>
-        <tr><td>Create, edit, delete products; payment settings</td><td>Admins</td></tr>
+        <tr><td>Read products</td><td>Anyone, while the product is active (the pricing page is public); admins, every product</td></tr>
+        <tr><td>Create, edit, delete products, read and set their discount codes; payment settings</td><td>Admins</td></tr>
         <tr><td>Read transactions and credit ledger entries</td><td>Admins, and the person they belong to</td></tr>
         <tr><td>Read webhook events</td><td>Admins</td></tr>
         <tr><td>Write transactions, ledger, webhook events</td><td>Cloud Functions only</td></tr>
         <tr><td>Start a checkout, spend own credits</td><td>Any signed-in person</td></tr>
-        <tr><td>Test payment link, Test Connection</td><td>Admins</td></tr>
+        <tr><td>Test payment link, Test Connection, move old codes off products</td><td>Admins</td></tr>
       </tbody>
     </table>
     <p>People cannot write their own plan or credit fields: the rules refuse it. See <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
@@ -165,7 +172,7 @@
         <tr><td>Dodo shows the webhook failing with 401</td><td>The signing secret in Settings, Payments does not match the webhook's. Paste it again.</td></tr>
         <tr><td>Dodo shows 500 "Webhook not configured"</td><td>No signing secret is saved. Paste it in Settings, Payments and save.</td></tr>
         <tr><td>Dodo shows 500 "Webhook configuration unavailable"</td><td>The payment settings were never saved, or there is no API key for the selected Mode. Fill them in and save.</td></tr>
-        <tr><td>Paid, but the plan never arrived</td><td>Open the event in <code>WebhookEvents</code>: <code>processingError</code> says why. After 5 failed tries it is marked <code>processingFailedPermanently</code>. The buyer is found by the uid sent at checkout, then by email; the product by its id in the checkout metadata, so a deleted product grants nothing.</td></tr>
+        <tr><td>Paid, but the plan never arrived</td><td>Open the event in <code>WebhookEvents</code>: <code>processingError</code> says why. After 5 failed tries it is marked <code>processingFailedPermanently</code>. The buyer is found by the uid sent at checkout, then by email; the product by its id in the checkout metadata, so a deleted product grants nothing. A warning in the function log, "paid for a different product than its metadata names", means Dodo's product for the payment is not the product's <strong>Dodo Product ID</strong>: correct the ID in Products, then grant the plan by hand. A subscription's own charge never grants: its <code>subscription.active</code> or <code>.renewed</code> event does.</td></tr>
         <tr><td>Pressing buy on <code>/pricing</code> does nothing</td><td>The page shows no message; the browser console has the reason. "Your account has no email address": checkout needs an email for Dodo, so a person who signed up with a phone number adds an email under Profile, Sign-in methods. "Product is not linked to a Dodo product": give the product its Dodo Product ID in Products. "Failed to create checkout session.": check that Enable Dodo Payments is on and the key for the selected mode is saved (Test Connection).</td></tr>
         <tr><td><code>/checkout/success</code> shows "Payment received" instead of "You're all set!"</td><td>The webhook took longer than about 45 seconds, or failed. <strong>Check again</strong> starts checking again; the plan appears on <code>/account</code> once the event is processed.</td></tr>
         <tr><td>A test purchase gave no access</td><td>Purchases through a Test payment link never do. Buy from <code>/pricing</code> in Test mode instead.</td></tr>

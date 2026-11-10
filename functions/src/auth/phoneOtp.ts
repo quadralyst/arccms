@@ -25,6 +25,8 @@ import { newOtpTicket, ticketMatches } from './otpTicket.js';
 import type { SmsSettings } from '../sms/smsSettings.js';
 import { refuse } from './refusal.js';
 import { codeAskedAgain, codeSealKey, refuseWithinWait, reusableCode, sealCode } from './codeSeal.js';
+import { beforeCodeCheck, countWrongCode } from './codeGuesses.js';
+import type { CallableRequest } from 'firebase-functions/v2/https';
 
 export const PHONE_OTPS = 'phone_otps';
 /** The purposes the public phone callables accept; `device` is a PIN account's first sign-in on a device. */
@@ -130,20 +132,34 @@ export async function issuePhoneOtp(
     const { code, before } = issued;
 
     const result = await sendSms({ to: e164, purpose: 'otp', code, text: otpSmsText(code) }, settings);
-    if (result.status === 'failed') {
+    if (result.status === 'failed' || result.status === 'limited') {
         // Let them try again straight away rather than wait out the resend gap:
         // a code sent before keeps its old times, a new one goes.
         if (before) await ref.update(before);
         else await ref.delete();
+        // The site's texts for today are used up (Settings, SMS): nothing goes until tomorrow.
+        if (result.status === 'limited') throw refuse('resource-exhausted', 'sms-limit', "We can't send more text messages today. Please try again later.");
         throw refuse('unavailable', 'sms-failed', "We couldn't send the SMS. Please try again in a moment.");
     }
     return { ...(result.status === 'logged' ? { testCode: code } : {}), ...(before ? { sameCode: true } : {}) };
 }
 
-/** Check a code and mark it verified. Returns the ticket the next step needs. */
-export async function verifyPhoneOtp(e164: string, code: string, purpose: PhoneOtpPurpose, uid?: string): Promise<string> {
+/**
+ * Check a code and mark it verified. Returns the ticket the next step needs. The
+ * caller's checks an hour and the number's wrong codes a day are limited too
+ * (codeGuesses.ts).
+ */
+export async function verifyPhoneOtp(
+    e164: string,
+    code: string,
+    purpose: PhoneOtpPurpose,
+    uid: string | undefined,
+    caller: CallableRequest,
+): Promise<string> {
     const key = phoneHash(e164);
     const ref = db.collection(PHONE_OTPS).doc(key);
+    const target = { via: 'phone', hash: key } as const;
+    await beforeCodeCheck(target, caller);
     const { ticket, ticketHash } = newOtpTicket();
     const outcome = await db.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
@@ -164,6 +180,7 @@ export async function verifyPhoneOtp(e164: string, code: string, purpose: PhoneO
     if (outcome === 'missing') throw refuse('not-found', 'code-expired', 'That code has expired. Please ask for a new one.');
     if (outcome === 'expired') throw refuse('deadline-exceeded', 'code-expired', 'That code has expired. Please ask for a new one.');
     if (outcome === 'locked') throw refuse('resource-exhausted', 'code-tries', 'Too many tries. Please ask for a new code.');
+    await countWrongCode(target);
     throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
 }
 

@@ -351,43 +351,8 @@
     line-height: 1.3;
 }
 
-.version-preview-body {
-    font-size: 0.95rem;
-    line-height: 1.7;
-    color: #343a40;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-
-    img {
-        max-width: 100%;
-        height: auto;
-        border-radius: 0.35rem;
-    }
-
-    h1, h2, h3, h4, h5, h6 {
-        margin-top: 1.25rem;
-        margin-bottom: 0.5rem;
-        color: #212529;
-    }
-
-    p {
-        margin-bottom: 0.75rem;
-    }
-
-    blockquote {
-        border-left: 3px solid #dee2e6;
-        padding-left: 1rem;
-        color: #6c757d;
-        margin: 1rem 0;
-    }
-
-    pre {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 0.35rem;
-        overflow-x: auto;
-    }
-}
+// The version's body is in a sandboxed frame (arc-site-look-view), which brings
+// its own text styles when the page has no look.
 
 // Right column — basic + SEO meta info (narrower)
 .version-preview-meta {
@@ -400,7 +365,7 @@
 
 // The version's body in the page's look (ES3): the template brings its own
 // spacing, so it uses the column's full width, as the editor's body does.
-.version-preview-content arc-site-look-view {
+.version-preview-content arc-site-look-view.arc-has-look {
     margin-inline: -1.5rem;
 }
 

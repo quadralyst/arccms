@@ -4,8 +4,11 @@
 
 import { describe, it, expect } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
+import { Router, provideRouter, type Routes } from '@angular/router';
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { routes } from './app.routes';
+import { roleGuard } from './guards/role.guard';
 import { claimedFirstSegments } from './guards/language.guard';
 import { SUPPORTED_LANGUAGES } from '../shared/constants/languages';
 
@@ -53,6 +56,27 @@ describe('App Routes', () => {
                 const hasChildren = route.children !== undefined;
                 expect(hasComponent || hasLoadComponent || hasRedirect || hasChildren).toBe(true);
             });
+        });
+
+        it('names the roles on every route and page that roleGuard guards (without them the guard lets nobody in)', () => {
+            const missing: string[] = [];
+            const walk = (list: Routes, prefix: string) => {
+                for (const route of list) {
+                    const url = [prefix, route.path].filter(Boolean).join('/');
+                    const guards = [...(route.canActivate ?? []), ...(route.canActivateChild ?? []), ...(route.canMatch ?? [])];
+                    if (guards.includes(roleGuard) && !route.data?.['allowedRoles']?.length) missing.push(`/${url}`);
+                    if (route.children) walk(route.children, url);
+                }
+            };
+            walk(routes, '');
+            // The file-based pages set the guard in their routeMeta.
+            const pagesDir = resolve(__dirname, 'pages');
+            for (const file of readdirSync(pagesDir, { recursive: true }) as string[]) {
+                if (!file.endsWith('.page.ts')) continue;
+                const code = readFileSync(resolve(pagesDir, file), 'utf8');
+                if (/canActivate:\s*\[[^\]]*\broleGuard\b/.test(code) && !/allowedRoles:\s*\[\s*['"]/.test(code)) missing.push(file);
+            }
+            expect(missing).toEqual([]);
         });
     });
 

@@ -2,7 +2,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { db } from '../init.js';
-import { findUserRef, grantEntitlement, revokeEntitlement, markPastDue } from './entitlements.js';
+import { findUserRef, grantEntitlement, revokeEntitlement, markPastDue, currentEntitlement } from './entitlements.js';
 import { grantCredits, refundCredits, refundableCreditAmount } from './credits.js';
 import { sendPaymentEmail } from './paymentEmailHelper.js';
 import { upsertContact, ensureSystemLists, SYSTEM_LISTS } from '../email-core/contacts.js';
@@ -11,7 +11,10 @@ import { createNotification } from '../email-core/notifications.js';
 import { notifyAdmins } from '../email-core/adminAlerts.js';
 import { emitAppEvent } from '../email-core/appEvents.js';
 import { toMajorUnits } from './money.js';
-import { DodoWebhookPayload, DodoWebhookData, ProductDoc, TransactionDoc, TransactionStatus, PAYMENT_PROVIDER } from './types.js';
+import { DodoWebhookPayload, DodoWebhookData, ProductDoc, TransactionDoc, TransactionStatus, PAYMENT_PROVIDER, providerProductId } from './types.js';
+import type { DocumentReference } from 'firebase-admin/firestore';
+import { isAdminTestCheckout } from './testCheckouts.js';
+import { getDodoClient } from './dodoClient.js';
 import { arcDocument } from '../arc-config.js';
 
 /**
@@ -83,7 +86,7 @@ async function processEvent(payload: DodoWebhookPayload): Promise<void> {
   const eventAt = payload.timestamp ? new Date(payload.timestamp) : undefined;
   const at = eventAt && !isNaN(eventAt.getTime()) ? eventAt : undefined;
 
-  if (isTestEvent(data)) {
+  if (await isTestEvent(data)) {
     await handleTestEvent(type, data, at);
     return;
   }
@@ -98,6 +101,10 @@ async function processEvent(payload: DodoWebhookPayload): Promise<void> {
     case 'payment.failed':
     case 'subscription.failed':
       await handleFailure(type, data, at);
+      break;
+
+    case 'subscription.plan_changed':
+      await handlePlanChanged(data, at);
       break;
 
     case 'subscription.on_hold':
@@ -122,11 +129,58 @@ async function processEvent(payload: DodoWebhookPayload): Promise<void> {
 }
 
 /**
- * True for a charge started from the admin "test this tier" link, which stamps
- * `metadata.test` at checkout ({@link ../dodo-payments/createTestCheckoutLink}).
+ * True for a charge started from the admin "test this tier" link, which stamps a
+ * token it keeps in `metadata.test` ({@link ../dodo-payments/createTestCheckoutLink}).
+ * Any other `test` value (a buyer can set checkout metadata on a payment link) is
+ * ignored, and the event is handled as a real purchase with all its checks.
  */
-function isTestEvent(data: DodoWebhookData): boolean {
-  return data?.metadata?.test === 'true';
+async function isTestEvent(data: DodoWebhookData): Promise<boolean> {
+  if (data?.metadata?.test === undefined) return false;
+  if (await isAdminTestCheckout(data)) return true;
+  logger.warn('Payment event carries a test flag no admin test checkout made; handled as a real purchase', {
+    productId: data.metadata?.productId, paymentId: data.payment_id, subscriptionId: data.subscription_id,
+  });
+  return false;
+}
+
+/**
+ * The gateway product ids the event says were paid for: the cart of a payment
+ * (`product_cart[].product_id`) and the product of a subscription (`product_id`).
+ */
+export function paidProductIds(data: DodoWebhookData): string[] {
+  const ids: string[] = [];
+  if (Array.isArray(data.product_cart)) {
+    for (const item of data.product_cart) {
+      if (typeof item?.product_id === 'string' && item.product_id) ids.push(item.product_id);
+    }
+  }
+  if (typeof data.product_id === 'string' && data.product_id) ids.push(data.product_id);
+  return ids;
+}
+
+/**
+ * How an event's purchase relates to the Product its metadata names. The metadata
+ * says which Product to grant, and a buyer can set metadata on a gateway payment
+ * link, so a grant also needs the gateway's own record of what was bought:
+ *
+ * - `paid`: the event's products include that Product's gateway product.
+ * - `subscription-charge`: a charge of a subscription that names no product (Dodo's
+ *   payment events list products only for one-time payments). It grants nothing
+ *   itself; the subscription's own events, which name the product, do.
+ * - `mismatch`: anything else, including an event that names no product at all.
+ *
+ * `paid` is what the event names ({@link paidProductIds}), or for a one-time payment
+ * whose payload lists none, what the gateway's own record of the payment lists
+ * ({@link paidProductIdsOf}).
+ */
+export type ProductCheck = 'paid' | 'subscription-charge' | 'mismatch';
+
+export function checkPaidProduct(paid: string[], data: DodoWebhookData, eventType: string, product: ProductDoc): ProductCheck {
+  if (!paid.length) {
+    return eventType === 'payment.succeeded' && data.subscription_id ? 'subscription-charge' : 'mismatch';
+  }
+  const expected = providerProductId(product);
+  return expected && paid.includes(expected) ? 'paid' : 'mismatch';
 }
 
 /** Map an event type onto the status its Transaction should carry. */
@@ -208,6 +262,7 @@ async function recordTransaction(
   userId: string,
   eventAt?: Date,
   isTest = false,
+  productMismatch = false,
 ): Promise<{ created: boolean; idempotencyKey: string }> {
   const idempotencyKey = buildIdempotencyKey(data, eventType, eventAt);
   const existing = await db.collection('Transactions').where('idempotencyKey', '==', idempotencyKey).limit(1).get();
@@ -237,6 +292,7 @@ async function recordTransaction(
     idempotencyKey,
     // Omitted rather than written false, so real transactions stay unchanged.
     ...(isTest ? { isTest: true } : {}),
+    ...(productMismatch ? { productMismatch: true } : {}),
     createdAt: Timestamp.now(),
     ...(data.payment_id ? { providerPaymentId: data.payment_id } : {}),
     ...(data.subscription_id ? { providerSubscriptionId: data.subscription_id } : {}),
@@ -300,23 +356,137 @@ function creditGrantPlan(
   return null;
 }
 
+/**
+ * The products an event paid for. A one-time payment whose payload lists none is
+ * read back from the gateway, so a real buyer is never refused for a short payload.
+ * A failed read throws, and the trigger retries the event.
+ */
+export async function paidProductIdsOf(data: DodoWebhookData, eventType: string): Promise<string[]> {
+  const named = paidProductIds(data);
+  if (named.length || eventType !== 'payment.succeeded' || data.subscription_id || !data.payment_id) return named;
+  const { client } = await getDodoClient();
+  const payment = await client.payments.retrieve(data.payment_id);
+  return paidProductIds({ product_cart: payment.product_cart ?? null });
+}
+
+/** Product type plus id, as loaded from `Products`. */
+type LoadedProduct = ProductDoc & { id: string };
+
+/** The success events that renew or (re)start a subscription the member may already hold. */
+const SUBSCRIPTION_SUCCESS = new Set(['subscription.active', 'subscription.renewed']);
+
+/**
+ * The one Product linked to a gateway product id, or null when none or more than one is.
+ * Products saved before `providerProductIds` keep a flat `dodoProductId`.
+ */
+export async function productByProviderId(gatewayProductId: string): Promise<LoadedProduct | null> {
+  if (!gatewayProductId) return null;
+  const found = new Map<string, LoadedProduct>();
+  for (const field of [`providerProductIds.${PAYMENT_PROVIDER}`, 'dodoProductId']) {
+    const snap = await db.collection('Products').where(field, '==', gatewayProductId).limit(2).get();
+    for (const doc of snap.docs) found.set(doc.id, { ...(doc.data() as ProductDoc), id: doc.id });
+  }
+  return found.size === 1 ? [...found.values()][0] : null;
+}
+
+/** Whether the member's current entitlement came from this Product. */
+function holdsProduct(current: Record<string, unknown>, product: LoadedProduct): boolean {
+  const held = current['premiumProductId'];
+  if (typeof held === 'string' && held) return held === product.id;
+  // Granted before the Product was stored on the member: the plan name stands in.
+  return current['isPro'] === true && current['premiumType'] === product.premiumType;
+}
+
+/**
+ * What a success event pays for, and whether it may grant.
+ *
+ * `checkPaidProduct` decides, except for a subscription the member already holds
+ * (its id is the member's `providerSubscriptionId`) renewing under a gateway product
+ * other than the Product's current one. That happens when the plan was changed in
+ * the gateway, or the admin linked the Product to another gateway product. Then:
+ * the Product now linked to what was paid is granted (the plan changed), or, when no
+ * Product is, the Product the member holds keeps going (the link changed). Both are
+ * reported to the admins (`note`); anything else that does not match is refused.
+ */
+export async function decideSuccessProduct(
+  named: LoadedProduct,
+  paid: string[],
+  data: DodoWebhookData,
+  eventType: string,
+  userRef: DocumentReference | null,
+): Promise<{ product: LoadedProduct; check: ProductCheck; note?: 'plan-changed' | 'relinked' }> {
+  const check = checkPaidProduct(paid, data, eventType, named);
+  if (check !== 'mismatch' || !SUBSCRIPTION_SUCCESS.has(eventType) || !data.subscription_id || !userRef || !paid.length) {
+    return { product: named, check };
+  }
+  const current = await currentEntitlement(userRef);
+  if (current['providerSubscriptionId'] !== data.subscription_id) return { product: named, check };
+  const linked = await productByProviderId(paid[0]);
+  if (linked && linked.id !== named.id) return { product: linked, check: 'paid', note: 'plan-changed' };
+  if (!linked && holdsProduct(current, named)) return { product: named, check: 'paid', note: 'relinked' };
+  return { product: named, check };
+}
+
+/** Tell the admins about a payment whose product did not match (never silent). */
+async function alertProductMismatch(
+  outcome: 'refused' | 'plan-changed' | 'relinked',
+  product: LoadedProduct,
+  data: DodoWebhookData,
+): Promise<void> {
+  const who = data.customer?.email || 'A customer';
+  const name = product.name || product.premiumType || product.id;
+  const body = outcome === 'refused'
+    ? `${who} paid for something other than ${name}, so nothing was given. Check the payment in Dodo.`
+    : outcome === 'plan-changed'
+      ? `${who}'s subscription is now billed as ${name} in Dodo, so it now gives ${name}.`
+      : `${who}'s subscription to ${name} renewed under a Dodo product that ${name} is no longer linked to. Access continues.`;
+  await notifyAdmins('admin_payment_check', { title: 'Payment to check', body, link: '/admin/transactions' });
+}
+
 async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?: Date): Promise<void> {
-  const product = await loadProduct(data);
+  const named = await loadProduct(data);
   const userRef = await findUserRef(data);
   const userId = data.metadata?.userId || '';
 
-  const { created, idempotencyKey } = await recordTransaction(data, eventType, 'succeeded', product, userId, eventAt);
+  // What was paid for must be the Product the metadata names, or nothing is granted:
+  // no buyer counted, no access, no credits, no receipt, no customer list. Decided
+  // before anything is written: a failed read of the gateway retries the whole event,
+  // so the Transaction, and with it the receipt, is never written by an attempt
+  // that then fails.
+  const paid = named ? await paidProductIdsOf(data, eventType) : [];
+  const decision = named ? await decideSuccessProduct(named, paid, data, eventType, userRef) : null;
+  const product = decision?.product ?? named;
+  const check = decision?.check ?? null;
+  const mismatch = check === 'mismatch';
+
+  const { created, idempotencyKey } = await recordTransaction(data, eventType, 'succeeded', product, userId, eventAt, false, mismatch);
+
+  if (product && (mismatch || decision?.note)) {
+    logger.warn(mismatch
+      ? 'Payment event paid for a different product than its metadata names; nothing granted'
+      : `Subscription renewed under another gateway product (${decision?.note}); granted`, {
+      productId: product.id,
+      expectedProviderProductId: providerProductId(product) ?? null,
+      paidProviderProductIds: paid,
+      paymentId: data.payment_id,
+      subscriptionId: data.subscription_id,
+      userId,
+    });
+    // Once per event: a redelivery finds its Transaction already written.
+    if (created) await alertProductMismatch(mismatch ? 'refused' : decision!.note!, product, data);
+  }
+  if (mismatch) return;
 
   // Count the buyer at most once — one-time purchase or first subscription
   // activation only. Renewal charges never add a buyer (tiers count buyers).
   // Deliberately NOT gated on `created`: countBuyerOnce has its own atomic
   // CountedBuyers guard, and gating would permanently lose the count on a retry
   // that happens after the Transaction was already written.
-  if (product) {
+  if (product && check === 'paid') {
     await countBuyerOnce(product, data, eventType);
   }
 
-  if (userRef && product) {
+  if (userRef && product && check === 'paid') {
     const isTrial = (data.trial_period_days ?? 0) > 0 && eventType === 'subscription.active';
     await grantEntitlement(userRef, product, {
       subscriptionId: data.subscription_id,
@@ -327,6 +497,7 @@ async function handleSuccess(eventType: string, data: DodoWebhookData, eventAt?:
       eventAt,
       tierLabel: data.metadata?.tierLabel,
       discountCode: data.metadata?.discountCode,
+      paymentId: data.payment_id,
     });
 
     // Prepaid credits: grant the allowance once per charge (initial + each renewal).
@@ -452,6 +623,69 @@ async function handleEnd(data: DodoWebhookData, finalStatus: 'cancelled' | 'expi
   );
 }
 
+/**
+ * The plan of a subscription was changed in the gateway: the member now holds the
+ * Product linked to the new gateway product. Only for the subscription the member
+ * holds, and only when exactly one Product is linked to it; anything else is left
+ * as it is and reported to the admins. No money moved, so no Transaction or email.
+ */
+async function handlePlanChanged(data: DodoWebhookData, eventAt?: Date): Promise<void> {
+  const userRef = await findUserRef(data);
+  const gatewayProductId = paidProductIds(data)[0] ?? '';
+  const product = await productByProviderId(gatewayProductId);
+  const current = userRef ? await currentEntitlement(userRef) : {};
+  const holds = !!data.subscription_id && current['providerSubscriptionId'] === data.subscription_id;
+  if (!userRef || !product || !holds) {
+    logger.warn('Plan change not applied', {
+      gatewayProductId, subscriptionId: data.subscription_id, productFound: !!product, memberFound: !!userRef, holds,
+    });
+    await notifyAdmins('admin_payment_check', {
+      title: 'Payment to check',
+      body: `${data.customer?.email || 'A customer'} changed plan in Dodo, but the site could not match the new plan to a product. Their access is unchanged.`,
+      link: '/admin/transactions',
+    });
+    return;
+  }
+  await grantEntitlement(userRef, product, {
+    subscriptionId: data.subscription_id,
+    customerId: data.customer?.customer_id,
+    rawStatus: data.status,
+    nextBillingDate: data.next_billing_date,
+    eventAt,
+  });
+}
+
+/** The charge a refund reverses, as its `payment.succeeded` Transaction recorded it. */
+async function refundedCharge(paymentId: string | undefined): Promise<TransactionDoc | null> {
+  if (!paymentId) return null;
+  const snap = await db.collection('Transactions')
+    .where('providerPaymentId', '==', paymentId)
+    .where('eventType', '==', 'payment.succeeded')
+    .limit(1)
+    .get();
+  return snap.empty ? null : (snap.docs[0].data() as TransactionDoc);
+}
+
+/**
+ * Whether a refund reverses the payment that gives the member their current access:
+ * the subscription they hold, or the one-time payment that granted it. A member
+ * granted before the payment was stored on them is matched by the refunded charge's
+ * own record (their uid and plan, and no subscription of theirs).
+ */
+export function refundEndsAccess(
+  current: Record<string, unknown>,
+  refund: { paymentId?: string; subscriptionId?: string },
+  charge: TransactionDoc | null,
+): boolean {
+  if (current['isPro'] !== true) return false;
+  const heldSub = current['providerSubscriptionId'];
+  if (refund.subscriptionId && heldSub === refund.subscriptionId) return true;
+  const heldPayment = current['premiumPaymentId'];
+  if (typeof heldPayment === 'string' && heldPayment) return heldPayment === refund.paymentId;
+  return !heldSub && !refund.subscriptionId && !!charge && !charge.isTest && !charge.productMismatch
+    && charge.userId === current['uid'] && charge.premiumType === current['premiumType'];
+}
+
 async function handleRefund(data: DodoWebhookData, eventAt?: Date): Promise<void> {
   const product = await loadProduct(data);
   const userId = data.metadata?.userId || '';
@@ -462,22 +696,35 @@ async function handleRefund(data: DodoWebhookData, eventAt?: Date): Promise<void
 
   // Only a FULL refund removes access and claws back credits. A partial refund
   // (e.g. a prorated/goodwill amount) leaves the entitlement and credits intact.
+  // Whose access and credits is the refunded charge's own record, not the
+  // metadata: only the member that charge was for, and only what it gave them.
   if (!isPartial) {
-    const userRef = await findUserRef(data);
+    const charge = await refundedCharge(data.payment_id);
+    const subscriptionId = data.subscription_id || charge?.providerSubscriptionId;
+    const owner = charge?.userId || userId;
+    const userRef = await findUserRef({ ...data, metadata: { ...(data.metadata ?? {}), userId: owner } });
     if (userRef) {
-      await revokeEntitlement(userRef, data.subscription_id, 'expired', eventAt);
+      const current = await currentEntitlement(userRef);
+      if (refundEndsAccess(current, { paymentId: data.payment_id, subscriptionId }, charge)) {
+        await revokeEntitlement(userRef, subscriptionId, 'expired', eventAt);
+      } else {
+        logger.info('Refund leaves access alone: it is not the payment that gives the member access', {
+          paymentId: data.payment_id, subscriptionId,
+        });
+      }
 
-      if (product && (product.creditsGranted ?? 0) > 0) {
-        const key = data.payment_id || data.subscription_id || '';
+      const chargeGranted = !!charge && !charge.isTest && !charge.productMismatch && (!userId || charge.userId === userId);
+      if (product && (product.creditsGranted ?? 0) > 0 && chargeGranted) {
+        const key = data.payment_id || subscriptionId || '';
         // Claw back what the refunded charge actually granted — not the product's
         // current per-charge allowance, which under-counts a subscription that
         // granted once per renewal and is stale if the product was since edited.
         const amount = await refundableCreditAmount({
           providerPaymentId: data.payment_id,
-          providerSubscriptionId: data.subscription_id,
+          providerSubscriptionId: subscriptionId,
           fallback: product.creditsGranted as number,
         });
-        await refundCredits(userRef, userId, amount, {
+        await refundCredits(userRef, owner, amount, {
           ledgerId: `refund:${key}`,
           productId: product.id,
           providerPaymentId: data.payment_id,

@@ -75,10 +75,23 @@ vi.mock('firebase-functions/v2/https', () => ({
   },
 }));
 
+const { mockConsume } = vi.hoisted(() => ({ mockConsume: vi.fn() }));
+vi.mock('../auth/accounts', () => ({
+  callerKey: () => 'ip-hash',
+  consumeRateLimits: mockConsume,
+}));
+vi.mock('../email-core/unsubscribeSecret', () => ({ getUnsubscribeSecret: async () => 's'.repeat(64) }));
+
 const { joinForm } = await import('../waitlists/joinForm.js');
+const { openFormTicket } = await import('../waitlists/formTicket.js');
+const { computeEmailHash } = await import('../email-core/unsubscribeToken.js');
 
 const FORM = 'f1';
-const call = (data: any) => (joinForm as any)({ data });
+/** The member id inside the ticket joinForm returned, as the later steps will find it. */
+async function call(data: any): Promise<any> {
+  const res = await (joinForm as any)({ data, rawRequest: { headers: {}, ip: '1.2.3.4' } });
+  return { ...res, memberId: await openFormTicket(res.ticket, data.waitlistId) };
+}
 const memberCount = () => childrenOf(`Waitlists/${FORM}/users`).length;
 
 describe('joinForm', () => {
@@ -87,6 +100,7 @@ describe('joinForm', () => {
     added.length = 0;
     autoId = 0;
     vi.clearAllMocks();
+    mockConsume.mockResolvedValue([]);
     store.set(`Waitlists/${FORM}`, { name: 'Founding Circle' });
   });
 
@@ -101,6 +115,48 @@ describe('joinForm', () => {
       }
     });
 
+    it('refuses a closed form', async () => {
+      store.set(`Waitlists/${FORM}`, { name: 'Founding Circle', isActive: false });
+      await expect(call({ waitlistId: FORM, email: 'a@b.com' })).rejects.toMatchObject({ code: 'failed-precondition' });
+      expect(memberCount()).toBe(0);
+    });
+
+    it('refuses a form id with a slash', async () => {
+      await expect(call({ waitlistId: `${FORM}/users/x`, email: 'a@b.com' })).rejects.toMatchObject({ code: 'invalid-argument' });
+    });
+
+    it('refuses a name over 100 characters, or one that is not text', async () => {
+      await expect(call({ waitlistId: FORM, email: 'a@b.com', firstName: 'x'.repeat(101) })).rejects.toMatchObject({ code: 'invalid-argument' });
+      await expect(call({ waitlistId: FORM, email: 'a@b.com', firstName: { a: 1 } })).rejects.toMatchObject({ code: 'invalid-argument' });
+      await expect(call({ waitlistId: FORM, email: ['a@b.com'] })).rejects.toMatchObject({ code: 'invalid-argument' });
+      expect(memberCount()).toBe(0);
+    });
+
+    it('refuses form data that is too big, and trims the signup metadata instead', async () => {
+      await expect(call({ waitlistId: FORM, email: 'a@b.com', formData: { note: 'x'.repeat(5001) } }))
+        .rejects.toMatchObject({ code: 'invalid-argument' });
+
+      const res = await call({
+        waitlistId: FORM, email: 'a@b.com', formData: { company: 'Acme' },
+        signupMetadata: { referrerUrl: 'r'.repeat(900), junk: [1, 2] },
+      });
+      const member = store.get(`Waitlists/${FORM}/users/${res.memberId}`);
+      expect(member.formData).toEqual({ company: 'Acme' });
+      expect(member.signupMetadata).toEqual({ referrerUrl: 'r'.repeat(500) });
+    });
+
+    it('counts each join against the caller and the address, before anything is written', async () => {
+      await call({ waitlistId: FORM, email: 'A@b.com' });
+      expect(mockConsume).toHaveBeenCalledWith([
+        expect.objectContaining({ key: 'form-join-ip-ip-hash', max: 60, windowMs: 3600000 }),
+        expect.objectContaining({ key: `form-join-${computeEmailHash('a@b.com')}`, max: 10, windowMs: 3600000 }),
+      ]);
+
+      mockConsume.mockRejectedValueOnce(Object.assign(new Error('Too many attempts. Please try again later.'), { code: 'resource-exhausted' }));
+      await expect(call({ waitlistId: FORM, email: 'other@b.com' })).rejects.toMatchObject({ code: 'resource-exhausted' });
+      expect(memberCount()).toBe(1);
+    });
+
     it('refuses a form that does not exist, rather than creating orphan records', async () => {
       await expect(call({ waitlistId: 'ghost', email: 'a@b.com' }))
         .rejects.toMatchObject({ code: 'not-found' });
@@ -109,11 +165,15 @@ describe('joinForm', () => {
   });
 
   describe('a new member', () => {
-    it('creates the member and returns its ids', async () => {
-      const res = await call({ waitlistId: FORM, email: 'new@example.com', firstName: 'New' });
+    it('creates the member and returns a ticket for it, never its id', async () => {
+      const raw = await (joinForm as any)({ data: { waitlistId: FORM, email: 'new@example.com', firstName: 'New' } });
 
       expect(memberCount()).toBe(1);
-      expect(res).toEqual({ memberId: expect.any(String) });
+      expect(raw).toEqual({ ticket: expect.any(String) });
+      const [path] = childrenOf(`Waitlists/${FORM}/users`)[0];
+      const id = path.split('/').pop()!;
+      expect(raw.ticket).not.toContain(id);
+      expect(await openFormTicket(raw.ticket, FORM)).toBe(id);
     });
 
     // specs/form-gamification-spec.md: signup forms are plain.
@@ -172,6 +232,7 @@ describe('joinForm', () => {
       const repeat = await call({ waitlistId: FORM, email: 'a@example.com' });
 
       expect(Object.keys(repeat).sort()).toEqual(Object.keys(fresh).sort());
+      expect(Object.keys(repeat).sort()).toEqual(['memberId', 'ticket']);
       expect(repeat).not.toHaveProperty('exists');
       expect(repeat).not.toHaveProperty('isExisting');
       expect(repeat).not.toHaveProperty('verified');

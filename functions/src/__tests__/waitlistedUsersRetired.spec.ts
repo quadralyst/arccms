@@ -41,7 +41,7 @@ const ALLOWED: Record<string, string> = {
     'right-to-erasure sweep — a frozen collection still holds readable addresses on an '
     + 'upgraded deployment, and leaving them would make the erasure incomplete',
   'email-core/unsubscribeLegacyLink.ts':
-    'resolves /unsubscribe/:waitlistId/:userId links already sent by email',
+    'recognises the address behind /unsubscribe/:waitlistId/:userId links already sent by email',
 };
 
 /**

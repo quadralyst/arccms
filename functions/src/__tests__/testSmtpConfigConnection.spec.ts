@@ -44,6 +44,7 @@ vi.mock('firebase-functions/v2/https', () => {
 
 const { mockGetSiteConfig } = vi.hoisted(() => ({ mockGetSiteConfig: vi.fn().mockResolvedValue({ siteName: 'Sunrise Bakery' }) }));
 vi.mock('../shared/site-settings', () => ({ getSiteConfig: mockGetSiteConfig }));
+vi.mock('../init', () => ({ db: {}, owner: { getUser: vi.fn().mockRejectedValue(new Error('no user')) } }));
 
 // ─── Global fetch mock ───────────────────────────────────────────────────────
 const mockFetch = vi.fn();
@@ -52,7 +53,7 @@ vi.stubGlobal('fetch', mockFetch);
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
 function makeRequest(data: any) {
-    return { auth: { uid: 'test-user', token: {} }, data };
+    return { auth: { uid: 'test-user', token: { arccms_role: 'admin' } }, data };
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────

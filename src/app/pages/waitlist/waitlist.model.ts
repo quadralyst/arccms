@@ -94,7 +94,8 @@ export interface IJoinWaitlistResult {
     exists: boolean;
     verified?: boolean;
     userData?: IWaitlistUser;
-    userId?: string;
+    /** The sealed, short-lived ticket joinForm gave: the later steps take it, never a member id. */
+    ticket?: string;
     email?: string;
     verificationCode?: string;
 }

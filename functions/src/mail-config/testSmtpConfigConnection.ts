@@ -2,11 +2,11 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as nodemailer from "nodemailer";
 import { EmailSettings } from '../types.js';
 import { addressLine, senderNameFor } from '../email-core/sender.js';
+import { requireAdmin } from '../search/auth.js';
 
 export const testSmtpConfigConnection = onCall(async (request) => {
-    if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'Authentication required.');
-    }
+    // Admins only: it sends a test email through the settings the caller passes.
+    await requireAdmin(request);
 
     const { config, activeProvider, testEmail, subject, message } = request.data;
 

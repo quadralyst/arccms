@@ -85,6 +85,7 @@ export class MemoryFirestore {
             },
             where: (field: string, op: Op, value: unknown) => db.query(name, [[field, value, op]]),
             orderBy: (field: string) => db.query(name, [], Infinity, field),
+            get: () => db.query(name, []).get(),
         };
     }
 

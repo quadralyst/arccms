@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { SiteLookViewComponent, buildLookWrappers } from './site-look-view';
+import { STORED_HTML_FRAME_SANDBOX, SiteLookViewComponent, buildLookWrappers, pageStyles, storedHtmlDocument } from './site-look-view';
 import { SiteLook, SiteLookService } from './site-look.service';
 
 const LOOK: SiteLook = {
@@ -25,7 +25,7 @@ const LOOK: SiteLook = {
 })
 class HostComponent {
     shown = signal(true);
-    look = signal<SiteLook>(LOOK);
+    look = signal<SiteLook | null>(LOOK);
     html = signal('<p>Version <strong>two</strong></p>');
 }
 
@@ -68,10 +68,17 @@ describe('SiteLookViewComponent', () => {
         return fixture;
     }
 
-    it('shows the HTML in the template\'s elements, with the look\'s stylesheet on', () => {
+    const frameOf = (fixture: ReturnType<typeof render>) => fixture.nativeElement.querySelector('arc-site-look-view iframe') as HTMLIFrameElement;
+
+    it('shows the HTML in the template\'s elements, in a sandboxed frame, with the look\'s stylesheet on', () => {
         const fixture = render();
         const view = fixture.nativeElement.querySelector('arc-site-look-view') as HTMLElement;
-        expect(view.innerHTML).toBe(
+        // Nothing of the stored HTML is drawn into the admin page itself.
+        expect(view.children).toHaveLength(1);
+        const frame = frameOf(fixture);
+        expect(frame.getAttribute('sandbox')).toBe(STORED_HTML_FRAME_SANDBOX);
+        expect(frame.getAttribute('sandbox')).not.toMatch(/allow-scripts|allow-same-origin/);
+        expect(frame.srcdoc).toContain(
             '<div class="arc-site-look arc-site-look-3" lang="hi"><article class="page" id="top"><div class="wrapper">'
             + '<section class="article-content"><p>Version <strong>two</strong></p></section></div></article></div>',
         );
@@ -83,9 +90,18 @@ describe('SiteLookViewComponent', () => {
         fixture.componentInstance.html.set('<p>Version one</p>');
         fixture.detectChanges();
         const view = fixture.nativeElement.querySelector('arc-site-look-view') as HTMLElement;
-        expect(view.querySelectorAll('.arc-site-look')).toHaveLength(1);
-        expect(view.querySelector('.article-content')!.innerHTML).toBe('<p>Version one</p>');
+        expect(view.querySelectorAll('iframe')).toHaveLength(1);
+        expect(frameOf(fixture).srcdoc).toContain('<section class="article-content"><p>Version one</p></section>');
         expect(service.use).toHaveBeenCalledTimes(2);
+        expect(release).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows the HTML in plain text styles without a look, with no stylesheet to put on', () => {
+        const fixture = render();
+        fixture.componentInstance.look.set(null);
+        fixture.detectChanges();
+        expect(frameOf(fixture).srcdoc).toContain('<body class="arc-plain"><p>Version <strong>two</strong></p></body>');
+        expect(service.use).toHaveBeenCalledTimes(1);
         expect(release).toHaveBeenCalledTimes(1);
     });
 
@@ -94,5 +110,37 @@ describe('SiteLookViewComponent', () => {
         fixture.componentInstance.shown.set(false);
         fixture.detectChanges();
         expect(release).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('storedHtmlDocument', () => {
+    it('copies the admin page\'s global stylesheets, not the components\' own', () => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = '/assets/index-abc.css';
+        const global = document.createElement('style');
+        global.textContent = '.btn{color:red}';
+        const component = document.createElement('style');
+        component.textContent = '.card[_ngcontent-ng-c1]{color:blue}';
+        document.head.append(link, global, component);
+        const styles = pageStyles(document);
+        [link, global, component].forEach((element) => element.remove());
+        expect(styles).toContain(`<link rel="stylesheet" href="${new URL('/assets/index-abc.css', document.baseURI).href}">`);
+        expect(styles).toContain('<style>.btn{color:red}</style>');
+        expect(styles).not.toContain('_ngcontent');
+    });
+
+    it('opens links in a new tab and keeps the stored HTML as written', () => {
+        const page = storedHtmlDocument(document, null, '<p><a href="/pricing">Prices</a> <a href="javascript:alert(1)">x</a></p>', '');
+        expect(page).toContain('<base target="_blank">');
+        expect(page).toContain('<a href="/pricing" target="_blank" rel="noopener noreferrer">Prices</a>');
+        expect(page).not.toContain('javascript:');
+    });
+
+    it('never parses the stored HTML in the admin page', () => {
+        const before = document.querySelectorAll('img').length;
+        storedHtmlDocument(document, LOOK, '<img src="x" onerror="window.hacked = 1">', '');
+        expect(document.querySelectorAll('img').length).toBe(before);
+        expect((window as { hacked?: number }).hacked).toBeUndefined();
     });
 });

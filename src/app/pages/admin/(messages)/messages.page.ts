@@ -12,6 +12,7 @@ import { PageHeaderComponent } from '../../../../shared/components/page-header/p
 import { injectT } from '../../../core/i18n/inject-t';
 import { MessagesAdminService, replyLink, type ContactMessageItem, type MessageStatus } from './messages-admin.service';
 import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
+import { isSitePath } from '../../../../shared/utils/site-path';
 
 @Component({
     selector: 'arc-messages-inbox',
@@ -58,7 +59,12 @@ import { LoaderComponent } from '../../../../shared/components/loader/loader.com
                         @if (item.page) {
                             <div class="msg-page text-muted">
                                 <i class="fa-solid fa-link"></i> {{ 'admin.messages.sent_from' | transloco }}
-                                <a [href]="item.page" target="_blank" rel="noopener">{{ item.page }}</a>
+                                <!-- A link only to a path on this site (isSitePath); anything else is plain text. -->
+                                @if (isSitePath(item.page)) {
+                                    <a [href]="item.page" target="_blank" rel="noopener">{{ item.page }}</a>
+                                } @else {
+                                    <span data-testid="page-text">{{ item.page }}</span>
+                                }
                             </div>
                         }
                         <div class="msg-actions">
@@ -115,6 +121,7 @@ import { LoaderComponent } from '../../../../shared/components/loader/loader.com
 })
 export default class MessagesInboxPage implements OnInit {
     readonly inbox = inject(MessagesAdminService);
+    readonly isSitePath = isSitePath;
     private t = injectT();
 
     readonly status = signal<MessageStatus>('new');

@@ -47,6 +47,7 @@ import { authOwnerFor } from './googleAccount.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuse } from './refusal.js';
 import { APP_MANAGED, isLockedAppAccount } from '../users/lockedAppAccount.js';
+import { emailForLog } from './logSafe.js';
 
 const HOUR = 60 * 60 * 1000;
 const TOO_MANY = 'Too many attempts. Please try again later.';
@@ -215,7 +216,7 @@ export const completeEmailSignup = onCall(async (request) => {
         rememberDevice(uid, readDeviceKey(request.data?.deviceKey)),
         issueSignInToken(uid),
     ]);
-    logger.info(`completeEmailSignup: account created for ${email} with a PIN.`);
+    logger.info(`completeEmailSignup: account created for ${emailForLog(email)} with a PIN.`);
     return { token };
 });
 
@@ -261,6 +262,6 @@ export const resetEmailPin = onCall(async (request) => {
     // password the account had goes (dropPasswordForPin), so there is one way in.
     await Promise.all([owner.revokeRefreshTokens(uid), forgetDevices(uid), dropPasswordForPin(account)]);
     const [, token] = await Promise.all([rememberDevice(uid, readDeviceKey(request.data?.deviceKey)), issueSignInToken(uid)]);
-    logger.info(`resetEmailPin: a new PIN was set for ${email} with a code.`);
+    logger.info(`resetEmailPin: a new PIN was set for ${emailForLog(email)} with a code.`);
     return { token };
 });

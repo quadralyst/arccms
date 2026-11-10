@@ -11,7 +11,7 @@ import { Auth } from '@angular/fire/auth';
 
 vi.mock('@angular/fire/auth', () => ({ Auth: class {}, onAuthStateChanged: vi.fn(() => () => undefined) }));
 
-import { AuthState, NO_ACCESS_CODE } from './auth.store';
+import { AuthState, NO_ACCESS_CODE, SIGNUP_AGAIN_CODE } from './auth.store';
 import { english } from '../../../test/english';
 import { AuthService } from './auth.service';
 import { SignInService } from './sign-in.service';
@@ -77,6 +77,20 @@ describe('AuthState.login', () => {
         expect(store.error()).toBe(english('member.auth.no_access'));
         expect(store.errorCode()).toBe(NO_ACCESS_CODE);
         expect(store.isSuccess()).toBe(false);
+    });
+
+    it('says to sign up again when the server removed a sign-up that never finished (page reloaded mid sign-up)', async () => {
+        authService.login.mockReturnValue(of({ uid: 'u1' }));
+        authService.getCurrentUserByUid.mockReturnValue(of(null));
+        signIn.createAccountRecord.mockRejectedValue({
+            code: 'functions/failed-precondition', message: 'server words', details: { reason: 'signup-again' },
+        });
+        const store = TestBed.inject(AuthState);
+        store.login({ email: 'a@x.com', password: 'pw' });
+        await vi.waitFor(() => expect(authService.logout).toHaveBeenCalled());
+        expect(store.error()).toBe(english('member.auth.server_error.signup_again'));
+        expect(store.errorCode()).toBe(SIGNUP_AGAIN_CODE);
+        expect(toast.success).not.toHaveBeenCalled();
     });
 
     it('sign-up stays busy until the record exists, so nobody presses Create Account twice', async () => {

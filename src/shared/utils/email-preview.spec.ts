@@ -51,6 +51,13 @@ describe('emailPreviewDocument', () => {
     it('leaves an anchor without an address alone', () => {
         expect(emailPreviewDocument('<a name="top"></a>')).toBe('<base target="_blank"><a name="top"></a>');
     });
+
+    it('drops a refresh, which would move the frame to another page on its own', () => {
+        for (const meta of ['<meta http-equiv="refresh" content="0;url=https://x.example">', "<META HTTP-EQUIV='Refresh' CONTENT='1'>", '<meta content="0" http-equiv=refresh>']) {
+            expect(emailPreviewDocument(`<html><head>${meta}</head><body>Hi</body></html>`)).not.toMatch(/refresh/i);
+        }
+        expect(emailPreviewDocument('<meta charset="utf-8"><p>Hi</p>')).toContain('<meta charset="utf-8">');
+    });
 });
 
 describe('actsForRecipient', () => {

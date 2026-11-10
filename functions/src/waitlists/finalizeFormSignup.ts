@@ -5,6 +5,8 @@ import { db } from '../init.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { getEmailTemplate } from '../utils/emailTemplateHelper.js';
 import type { EmailSettings } from '../types.js';
+import { readFormId } from './formInput.js';
+import { FORM_TICKET_TTL_MS, memberFromTicket } from './formTicket.js';
 
 /**
  * Server-authoritative completion of a form signup (audience-unification spec U5,
@@ -18,6 +20,9 @@ import type { EmailSettings } from '../types.js';
  *
  * Signup forms are plain (specs/form-gamification-spec.md): no queue position or
  * referral is recorded. The confirmed count still sets the form's `totalSignups`.
+ *
+ * The member is named by the ticket `joinForm` gave (formTicket.ts), not by an id,
+ * so a caller can only finish the signup it started.
  *
  * **Authorization is derived, never supplied.** The caller cannot say "no OTP was
  * needed": this function decides whether the form requires one (email enabled AND
@@ -66,40 +71,21 @@ async function otpRequired(waitlistId: string): Promise<boolean> {
 }
 
 export const finalizeFormSignup = onCall(async (request) => {
-  const waitlistId = String(request.data?.waitlistId || '').trim();
-  const userId = String(request.data?.userId || '').trim();
-  if (!waitlistId || !userId) {
-    throw new HttpsError('invalid-argument', 'waitlistId and userId are required.');
-  }
-
-  const memberRef = db.collection('Waitlists').doc(waitlistId).collection('users').doc(userId);
-  const memberSnap = await memberRef.get();
-  if (!memberSnap.exists) {
-    throw new HttpsError('not-found', 'This signup no longer exists.');
-  }
-  const member = memberSnap.data()!;
-  const email = String(member['email'] || '').trim().toLowerCase();
-  if (!email) {
-    throw new HttpsError('failed-precondition', 'This signup has no email address.');
-  }
-
-  // Idempotent: re-running (a double-click, a retried request) must not count the
-  // signup twice.
-  if (member['isConfirmed'] === true) {
-    return {
-      totalSignups: 0,
-      emailVerified: member['emailVerified'] === true,
-      alreadyConfirmed: true,
-    } satisfies FinalizeResult;
-  }
+  const waitlistId = readFormId(request.data?.waitlistId);
+  // The member comes from the ticket joinForm gave, never from an id the caller names.
+  const member = await memberFromTicket(waitlistId, request.data?.ticket);
+  const memberRef = member.ref;
+  const email = member.email;
 
   // ── Authorization ───────────────────────────────────────────────────────────
+  // Checked before anything is answered, "already on the list" included: otherwise
+  // anyone who typed someone else's address would learn that they are on it.
   let needsOtp: boolean;
   try {
     needsOtp = await otpRequired(waitlistId);
   } catch (err) {
     // Fail closed with a message an admin can act on, rather than a bare
-    // `internal` — or worse, silently confirming the signup unverified.
+    // `internal`, or worse, silently confirming the signup unverified.
     logger.error(`finalizeFormSignup: cannot resolve the OTP template for ${waitlistId}`, err);
     throw new HttpsError(
       'failed-precondition',
@@ -113,7 +99,11 @@ export const finalizeFormSignup = onCall(async (request) => {
       .collection('form_otps')
       .doc(`${waitlistId}_${computeEmailHash(email)}`)
       .get();
-    if (!otpSnap.exists || otpSnap.data()?.['verified'] !== true) {
+    const otp = otpSnap.exists ? otpSnap.data() : undefined;
+    const verifiedAt = (otp?.['verifiedAt'] as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+    // A code verified in this signup, not one left verified from an earlier one:
+    // the record stays `verified` until the next code is asked for.
+    if (otp?.['verified'] !== true || verifiedAt < Date.now() - FORM_TICKET_TTL_MS) {
       // The whole point of this function: without a server-side record of a
       // verified code, the signup cannot be completed.
       throw new HttpsError('permission-denied', 'This email has not been verified.');
@@ -127,6 +117,22 @@ export const finalizeFormSignup = onCall(async (request) => {
       .collection('Waitlists').doc(waitlistId).collection('users')
       .where('isConfirmed', '==', true)
       .count().get();
+
+    // Idempotent: re-running (a double-click, a retried request) must not count the
+    // signup twice.
+    if (member.data['isConfirmed'] === true) {
+      // With a code, the caller proved the address, so "already on the list" is theirs
+      // to hear. Without one, anyone could have typed it: the reply is the one a new
+      // signup gets, so it says nothing about whether that address is on the list.
+      if (!needsOtp) {
+        return { totalSignups: confirmed.data().count, emailVerified: false, alreadyConfirmed: false } satisfies FinalizeResult;
+      }
+      return {
+        totalSignups: 0,
+        emailVerified: member.data['emailVerified'] === true,
+        alreadyConfirmed: true,
+      } satisfies FinalizeResult;
+    }
     const totalSignups = confirmed.data().count + 1;
 
     const now = Timestamp.now();
@@ -159,7 +165,7 @@ export const finalizeFormSignup = onCall(async (request) => {
     }
 
     logger.info(
-      `finalizeFormSignup: ${email} on ${waitlistId} confirmed (${totalSignups} signups), `
+      `finalizeFormSignup: member ${member.id} on ${waitlistId} confirmed (${totalSignups} signups), `
       + `emailVerified=${needsOtp}.`,
     );
     return { totalSignups, emailVerified: needsOtp, alreadyConfirmed: false } satisfies FinalizeResult;

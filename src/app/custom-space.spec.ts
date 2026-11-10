@@ -234,7 +234,7 @@ describe('custom space', () => {
                 { path: 'parent', children: [{ path: 'open', ...page }] },
             ])).toEqual([
                 '/admin/open: no guard, so anyone can open it. Add roleGuard with data.allowedRoles',
-                '/admin/no-roles: roleGuard with no data.allowedRoles lets every visitor in',
+                '/admin/no-roles: roleGuard with no data.allowedRoles lets nobody in',
                 "/admin/admin/twice: a path here is below /admin already, so write 'twice'",
                 '/admin/parent/open: no guard, so anyone can open it. Add roleGuard with data.allowedRoles',
             ]);

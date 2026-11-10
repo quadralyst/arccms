@@ -113,6 +113,14 @@ describe('sendMail hardening', () => {
     expect(lastUpdate()).toMatchObject({ status: 'skipped', skipReason: 'email_disabled' });
   });
 
+  it('kill-switch off ⇒ the skipped log loses its one-time code (it is never retried)', async () => {
+    mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ isEnabled: false }) });
+
+    await sendMail(baseLog({ otp: '482913' }) as any, 'log-1');
+
+    expect(lastUpdate()).toMatchObject({ status: 'skipped', otp: '••••••' });
+  });
+
   it('quota exhausted ⇒ deferred/quota with nextAttemptAt, no send', async () => {
     mockSettingsGet.mockResolvedValue({ data: () => smtpSettings() });
     mockCheckQuota.mockResolvedValue({ ok: false, dailyCount: 999, hourlyCount: 0 });
@@ -163,6 +171,47 @@ describe('sendMail hardening', () => {
     expect(upd.status).toBe('failed');
     expect(upd.attempts).toBe(3);
     expect(upd.nextAttemptAt).toBeUndefined();
+  });
+
+  describe('a one-time code in the log', () => {
+    const codeLog = (extra: Record<string, any> = {}) => baseLog({ subject: 'Code ##OTP##', template: '<p>Your code is ##OTP##</p>', otp: '482913', ...extra });
+
+    it('sends the code, then keeps only a placeholder in the log', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => smtpSettings() });
+      await sendMail(codeLog() as any, 'log-1');
+      const sent = mockTransportSend.mock.calls[0][0];
+      expect(sent.html).toContain('482913');
+      const upd = lastUpdate();
+      expect(upd.status).toBe('success');
+      expect(upd.otp).toBe('••••••');
+      expect(upd.processedTemplate).not.toContain('482913');
+      expect(upd.processedTemplate).toContain('Your code is ••••••');
+      expect(upd.processedSubject).toBe('Code ••••••');
+    });
+
+    it('keeps the code while a retry still needs it, and hides it once it fails for good', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => smtpSettings() });
+      mockTransportSend.mockRejectedValue(new Error('smtp down'));
+      await sendMail(codeLog({ attempts: 0 }) as any, 'log-1');
+      expect(lastUpdate().otp).toBeUndefined();
+      await sendMail(codeLog({ attempts: 2, maxAttempts: 3 }) as any, 'log-1');
+      expect(lastUpdate()).toMatchObject({ status: 'failed', otp: '••••••' });
+      expect(lastUpdate().processedTemplate).not.toContain('482913');
+    });
+
+    it('keeps the code with the Simulated provider, where Email Logs is the only place to read it', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => smtpSettings({ activeProvider: 'debug_log' }) });
+      await sendMail(codeLog() as any, 'log-1');
+      const upd = lastUpdate();
+      expect(upd.otp).toBeUndefined();
+      expect(upd.processedTemplate).toContain('482913');
+    });
+
+    it('changes nothing for an email with no code', async () => {
+      mockSettingsGet.mockResolvedValue({ data: () => smtpSettings() });
+      await sendMail(baseLog() as any, 'log-1');
+      expect(lastUpdate()).not.toHaveProperty('otp');
+    });
   });
 
   it('marketing send carries List-Unsubscribe headers', async () => {

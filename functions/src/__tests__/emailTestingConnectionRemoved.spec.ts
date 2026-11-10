@@ -70,13 +70,12 @@ describe('onEmailConnectionTestCreate is gone', () => {
         expect(hits).toEqual([]);
     });
 
-    it('keeps the auth-gated callable that replaced it', () => {
+    it('keeps the admin-only callable that replaced it', () => {
         const callable = fs.readFileSync(
             path.resolve(FUNCTIONS_SRC, 'mail-config/testSmtpConfigConnection.ts'),
             'utf-8',
         );
-        expect(callable).toMatch(/if \(!request\.auth\)/);
-        expect(callable).toMatch(/'unauthenticated'/);
+        expect(callable).toMatch(/await requireAdmin\(request\);/);
         // Destructures the nested payload shape both clients send.
         expect(callable).toMatch(/const \{ config, activeProvider, testEmail, subject, message \} = request\.data/);
     });

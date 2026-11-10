@@ -102,6 +102,16 @@ describe('AuthService', () => {
             rxOf(nonEmptySnapshot).pipe(map((s: any) => s.empty)).subscribe((v: boolean) => (result = v));
             expect(result).toBe(false);
         });
+
+        // The rules let a visitor list email_lookup only on a fresh install; one entry
+        // answers the question, and a list of them all is what the rules protect.
+        it('asks for one entry, not the whole collection', () => {
+            const { readFileSync } = require('node:fs');
+            const { resolve } = require('node:path');
+            const source: string = readFileSync(resolve(__dirname, 'auth.service.ts'), 'utf8');
+            const body = source.slice(source.indexOf('public isFirstRun'), source.indexOf('public async removeEmailLookup'));
+            expect(body).toContain('query(colRef, limit(1))');
+        });
     });
 
     describe('removeEmailLookup Method', () => {

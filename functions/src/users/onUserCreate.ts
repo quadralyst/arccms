@@ -15,8 +15,18 @@ import { notifyAdmins } from '../email-core/adminAlerts.js';
 import { arcDocument } from '../arc-config.js';
 import { maskPhone } from '../auth/phoneNumber.js';
 import { arccmsOwnsAuthAccount } from './authOwner.js';
+import { emailForLog } from '../auth/logSafe.js';
 
 const EMAIL_LOOKUP_COLLECTION = 'email_lookup';
+
+/**
+ * Written when the first user record is made, and never removed: this install has
+ * members. firestore.rules lets anyone list `email_lookup` (the fresh-install check,
+ * AuthService.isFirstRun) only while neither this nor Settings/onboarding_status
+ * exists, so an app whose members sign up without the setup wizard still closes the list.
+ * `_system` is Admin SDK only.
+ */
+export const HAS_MEMBERS_DOC = { collection: '_system', doc: 'has_members' } as const;
 
 /**
  * SHA-256 hash of an email address, matching the client-side hashEmail() utility.
@@ -40,15 +50,17 @@ export const onUserCreated = onDocumentCreated(
                 const hash = await hashEmail(email);
                 const docRef = db.collection(EMAIL_LOOKUP_COLLECTION).doc(hash);
                 await docRef.set({ exists: true });
-                console.log(`email_lookup entry created for email=${email}`);
+                console.log(`email_lookup entry created for ${emailForLog(email)}`);
             } catch (err: any) {
-                console.error(`Failed to create email_lookup entry for email=${email}:`, err);
+                console.error(`Failed to create email_lookup entry for ${emailForLog(email)}:`, err);
             }
             await markAuthEmailVerified(createdData);
         } else {
             // Phone sign-ups have no email: nothing to look up, but still a sign-up.
             console.log('User document created without an email field — skipping email_lookup.');
         }
+
+        await markHasMembers();
 
         // Notifications & event bus (Phase 5) — additive, non-fatal.
         const who = createdData.name || email || maskPhone(String(createdData.phone || ''));
@@ -65,6 +77,16 @@ export const onUserCreated = onDocumentCreated(
         ]);
     }
 );
+
+/** Write HAS_MEMBERS_DOC once; a later sign-up finds it there. Never throws. */
+async function markHasMembers(): Promise<void> {
+    try {
+        await db.collection(HAS_MEMBERS_DOC.collection).doc(HAS_MEMBERS_DOC.doc).create({ since: new Date() });
+    } catch (err: any) {
+        const exists = err?.code === 6 || err?.code === 'already-exists';
+        if (!exists) console.error('Could not mark that this install has members:', err);
+    }
+}
 
 /**
  * Tell Firebase Auth the email is verified when our own sign-up code proved it.

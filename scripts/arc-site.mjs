@@ -20,6 +20,8 @@
  *   the tab icon made from the app's icon           /favicon.ico, /favicon-32x32.png, /favicon.svg (scripts/vite-tab-icon.ts)
  *   src/custom/site/redirects.json                  not served: the website deploy puts the redirects in
  *                                                   the Hosting config (scripts/arc-redirects.mjs)
+ *   src/custom/site/headers.json                    not served: the deploy adds the headers to
+ *                                                   the Hosting config (scripts/arc-headers.mjs)
  *
  * An app file replaces the core file served at the same path; strings files are
  * merged key by key instead. Everything is assembled into one folder
@@ -49,9 +51,15 @@ export const MANIFEST_PATH = '_site/site.json';
 
 /**
  * Served files that keep their name across builds but must reach browsers when
- * they change (Hosting lets browsers keep CSS for a year): linked with `?v={hash}`.
+ * they change (Hosting lets browsers keep CSS and scripts for a year): linked with
+ * `?v={hash}`. The search box's script and stylesheet are among them: a published
+ * page links them from the widget (functions/src/search/widget.ts), and the publish
+ * step adds the version (functions/src/shared/site-urls.ts).
  */
-export const VERSIONED = ['assets/css/main.css', 'assets/css/site.css', 'assets/css/sign-in.css', 'assets/js/arc-site.js'];
+export const VERSIONED = [
+    'assets/css/main.css', 'assets/css/site.css', 'assets/css/sign-in.css', 'assets/js/arc-site.js',
+    'assets/js/arc-search.js', 'assets/css/arc-search.css',
+];
 
 /** The three files a template folder can have. */
 export const TEMPLATE_FILES = ['partials', 'list', 'detail'];
@@ -79,8 +87,8 @@ const APP_RULES = [
 
 /** Files in src/custom/site that are never served and never warned about. */
 const QUIET = /(^|\/)(README\.md|\.gitkeep|\.DS_Store)$/;
-/** The app's redirects (scripts/arc-redirects.mjs): read by the deploy, never served. */
-const NOT_SERVED = /^redirects\.json$/;
+/** The app's redirects and headers (scripts/arc-redirects.mjs, arc-headers.mjs): read by the deploy, never served. */
+const NOT_SERVED = /^(redirects|headers)\.json$/;
 
 /** Where an app file is served, or null when it is not a site file. */
 export function servedPath(appRelative) {

@@ -7,7 +7,7 @@
  */
 
 import { Injectable, runInInjectionContext } from '@angular/core';
-import { collection, doc, getDocs, getDoc, deleteDoc } from '@angular/fire/firestore';
+import { collection, doc, getDocs, getDoc, deleteDoc, limit, query } from '@angular/fire/firestore';
 import { catchError, from, switchMap, map, Observable } from 'rxjs';
 import { GlobalAuthService } from '../../../shared/services/global-auth.service';
 import { IAuth } from './auth.model';
@@ -53,12 +53,15 @@ export class AuthService extends GlobalAuthService<IAuth> {
 
     /**
      * Check if this is a first run (no entries in email_lookup collection).
-     * Used to detect whether the onboarding wizard should be shown.
+     * Used to detect whether the onboarding wizard should be shown. One entry is
+     * enough to answer. The rules allow this list only on a fresh install (or to an
+     * admin), so once the install has members a visitor's list is refused, which
+     * reads as "not a first run" below.
      */
     public isFirstRun(): Observable<boolean> {
         const docsPromise = runInInjectionContext(this.injector, () => {
             const colRef = collection(this.firestore, EMAIL_LOOKUP_COLLECTION);
-            return getDocs(colRef);
+            return getDocs(query(colRef, limit(1)));
         });
         return from(docsPromise).pipe(
             map((snapshot) => snapshot.empty),

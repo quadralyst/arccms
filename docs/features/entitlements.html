@@ -52,6 +52,7 @@
         <tr><td><code>creditBalance</code></td><td>Prepaid credits left.</td></tr>
         <tr><td><code>provider</code>, <code>providerSubscriptionId</code>, <code>providerCustomerId</code></td><td>The payment provider (<code>dodo</code>) and its ids, for support.</td></tr>
         <tr><td><code>premiumTierLabel</code>, <code>premiumDiscountCode</code></td><td>The pricing tier and discount code the person bought at.</td></tr>
+        <tr><td><code>premiumProductId</code>, <code>premiumPaymentId</code></td><td>The product that granted the plan, and for a one-time purchase the Dodo payment. A renewal under another Dodo product and a full refund are matched against them (see <a href="payments.html#product-checks">The product check</a>).</td></tr>
       </tbody>
     </table>
 
@@ -59,7 +60,7 @@
     <ul>
       <li><strong>One plan at a time.</strong> A purchase replaces the current plan only when its rank is the same or higher; buying a lower plan while holding a higher one leaves the higher one.</li>
       <li><strong>A failed renewal</strong> sets <code>premiumStatus</code> to <code>past_due</code> and keeps <code>isPro</code> <code>true</code>.</li>
-      <li><strong>Cancelled, expired or fully refunded:</strong> <code>isPro</code> becomes <code>false</code>, <code>premiumType</code> and <code>premiumTierRank</code> become <code>null</code>, and <code>premiumStatus</code> becomes <code>cancelled</code> or <code>expired</code> (a full refund sets <code>expired</code>).</li>
+      <li><strong>Cancelled, expired or fully refunded</strong> (a refund only of the payment or subscription that gives the plan): <code>isPro</code> becomes <code>false</code>, <code>premiumType</code> and <code>premiumTierRank</code> become <code>null</code>, and <code>premiumStatus</code> becomes <code>cancelled</code> or <code>expired</code> (a full refund sets <code>expired</code>).</li>
       <li><strong>A missed webhook:</strong> every morning a subscription whose <code>premiumExpiresAt</code> is more than 3 days past is set to <code>expired</code>.</li>
       <li>The plan is not in the ID token. Arc CMS puts no plan claims on accounts, so always read the record.</li>
     </ul>

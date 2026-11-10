@@ -45,6 +45,8 @@ import { setPin } from '../auth/setPin.js';
 /** The phone sign-in callables, and changing the PIN (setPin.ts, shared with email PIN sign-in). */
 const phone = { ...phoneAuth, setPin };
 import { phoneHash } from '../auth/phoneNumber.js';
+import { siteDate } from '../sms/smsDailyLimit.js';
+import { createHash } from 'node:crypto';
 import type { MemoryFirestore } from './helpers/memoryFirestore.js';
 
 const mem = db as unknown as MemoryFirestore;
@@ -211,6 +213,36 @@ describe('sign-up with a new number', () => {
             .rejects.toMatchObject({ code: 'not-found' });
     });
 
+    it('counts each wrong code against the number for the day, never a right one', async () => {
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        const code = lastCode();
+        const wrong = code === '111111' ? '222222' : '111111';
+        await expect(call(phone.verifyPhoneOtp, { phone: NUMBER, code: wrong, purpose: 'signup' })).rejects.toMatchObject({ details: { reason: 'code-wrong' } });
+        await expect(call(phone.verifyPhoneOtp, { phone: NUMBER, code: wrong, purpose: 'signup' })).rejects.toMatchObject({ details: { reason: 'code-wrong' } });
+        await call(phone.verifyPhoneOtp, { phone: NUMBER, code, purpose: 'signup' });
+        expect(mem.read('_rate_limits', `code-wrong-phone-${phoneHash(E164)}`)).toMatchObject({ count: 2 });
+    });
+
+    it('after 20 wrong codes in a day refuses every check, a right code too, saying when it lifts', async () => {
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        const startedAt = Date.now() - 60 * 60 * 1000; // the first wrong code an hour ago
+        mem.seed('_rate_limits', `code-wrong-phone-${phoneHash(E164)}`, { windowStart: startedAt, count: 20 });
+        const refused = await call(phone.verifyPhoneOtp, { phone: NUMBER, code: lastCode(), purpose: 'signup' }).catch((e) => e);
+        expect(refused).toMatchObject({ code: 'resource-exhausted', details: { reason: 'too-many-codes' } });
+        // About 23 hours left.
+        expect(refused.details.retryAfter).toBeGreaterThan(22 * 3600);
+        expect(refused.details.retryAfter).toBeLessThanOrEqual(23 * 3600);
+        expect(mem.read('phone_otps', phoneHash(E164))).toMatchObject({ attempts: 0, verified: false });
+    });
+
+    it('allows 60 code checks an hour from one caller', async () => {
+        await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
+        const ipKey = createHash('sha256').update('10.0.0.1').digest('hex').slice(0, 32);
+        mem.seed('_rate_limits', `code-check-ip-${ipKey}`, { windowStart: Date.now(), count: 60 });
+        await expect(call(phone.verifyPhoneOtp, { phone: NUMBER, code: lastCode(), purpose: 'signup' }))
+            .rejects.toMatchObject({ code: 'resource-exhausted', details: { reason: 'too-many-attempts', retryAfter: expect.any(Number) } });
+    });
+
     it('sends nothing new for 60 seconds', async () => {
         await call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' });
         await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' }))
@@ -282,8 +314,29 @@ describe('signing in with the PIN', () => {
             .rejects.toMatchObject({ details: { reason: 'no-pin' } });
     });
 
-    it('a signed-in person can change their PIN', async () => {
-        await expect(call(phone.setPin, { pin: '112233' }, 'uid-asha')).rejects.toMatchObject({ details: { reason: 'weak-pin' } });
+    it('a signed-in person can change their PIN, with the one they have', async () => {
+        await expect(call(phone.setPin, { pin: '112233', currentPin: '246810' }, 'uid-asha')).rejects.toMatchObject({ details: { reason: 'weak-pin' } });
+        await expect(call(phone.setPin, { pin: '192837', currentPin: '246810' }, 'uid-asha')).resolves.toEqual({ saved: true });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '192837' })).resolves.toEqual({ token: 'token-uid-asha' });
+    });
+
+    it('changing a PIN needs the current one, and a wrong one counts towards the lock', async () => {
+        await expect(call(phone.setPin, { pin: '192837' }, 'uid-asha'))
+            .rejects.toMatchObject({ code: 'failed-precondition', details: { reason: 'current-pin-required' } });
+        await expect(call(phone.setPin, { pin: '192837', currentPin: '000000' }, 'uid-asha'))
+            .rejects.toMatchObject({ details: { reason: 'wrong', remaining: 4 } });
+        for (let i = 0; i < 3; i++) await call(phone.setPin, { pin: '192837', currentPin: '000000' }, 'uid-asha').catch(() => undefined);
+        await expect(call(phone.setPin, { pin: '192837', currentPin: '000000' }, 'uid-asha'))
+            .rejects.toMatchObject({ code: 'resource-exhausted', details: { reason: 'locked' } });
+        // Locked: the right one no longer helps, and sign-in is locked too (Forgot PIN, with a code).
+        await expect(call(phone.setPin, { pin: '192837', currentPin: '246810' }, 'uid-asha')).rejects.toMatchObject({ details: { reason: 'locked' } });
+        await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '246810' })).rejects.toMatchObject({ details: { reason: 'locked' } });
+    });
+
+    it('a first PIN needs no current one, and the status says whether there is one', async () => {
+        await expect(call(phone.setPin, { status: true }, 'uid-asha')).resolves.toEqual({ hasPin: true });
+        mem.store.get('auth_pins')!.clear();
+        await expect(call(phone.setPin, { status: true }, 'uid-asha')).resolves.toEqual({ hasPin: false });
         await expect(call(phone.setPin, { pin: '192837' }, 'uid-asha')).resolves.toEqual({ saved: true });
         await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '192837' })).resolves.toEqual({ token: 'token-uid-asha' });
     });
@@ -368,6 +421,23 @@ describe('the one-minute wait and the hourly limit (specs/sign-in-codes-spec.md)
         try {
             await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' })).rejects.toMatchObject({ details: { reason: 'sms-failed' } });
             expect(numberCount()).toBe(0);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('says try again later once the site\'s texts for the day are used up, and gives the counts back', async () => {
+        mem.seed('Settings', 'sms', { provider: 'msg91', msg91AuthKey: 'k', msg91OtpTemplateId: 't', dailyLimit: 1 });
+        mem.seed('_sms_daily', siteDate(new Date(), 'UTC'), { count: 1, alerted: true });
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        try {
+            await expect(call(phone.requestPhoneOtp, { phone: NUMBER, purpose: 'signup' }))
+                .rejects.toMatchObject({ code: 'resource-exhausted', details: { reason: 'sms-limit' } });
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(numberCount()).toBe(0);
+            // No code was sent, so asking again is not held back by the minute's wait.
+            expect(mem.read('phone_otps', phoneHash(E164))).toBeUndefined();
         } finally {
             vi.unstubAllGlobals();
         }
@@ -667,7 +737,7 @@ describe('an app that chose simple PINs (specs/sign-in-strength-spec.md)', () =>
 
     it('takes an easy PIN when changing it, and still locks on the fifth wrong one', async () => {
         await signUp('246810');
-        await expect(call(phone.setPin, { pin: '111111' }, 'uid-asha')).resolves.toEqual({ saved: true });
+        await expect(call(phone.setPin, { pin: '111111', currentPin: '246810' }, 'uid-asha')).resolves.toEqual({ saved: true });
         for (let i = 0; i < 4; i++) await call(phone.signInWithPin, { phone: NUMBER, pin: '000000' }).catch(() => undefined);
         await expect(call(phone.signInWithPin, { phone: NUMBER, pin: '000000' }))
             .rejects.toMatchObject({ code: 'resource-exhausted', details: { reason: 'locked' } });

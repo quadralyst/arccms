@@ -9,6 +9,7 @@ import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { appListConditionsOf, oneMemberPerAddress, resolveAppList, type AppListMember } from '../app-audience/appLists.js';
 import { readAppAudienceSettings } from '../app-audience/adminCallables.js';
 import { MAX_APP_USERS } from '../app-audience/listAppUsers.js';
+import { emailForLog } from '../auth/logSafe.js';
 
 /**
  * Broadcasts v2 audience engine (Phase 6, §3.13).
@@ -469,7 +470,7 @@ export async function processAudienceChunk(params: {
           else skippedCount++; // skipped / suppressed by the consent gate
         } catch (err) {
           failedCount++;
-          console.error(`processAudienceChunk: queueEmail failed for ${contact.email}:`, err);
+          console.error(`processAudienceChunk: queueEmail failed for ${emailForLog(contact.email)}:`, err);
         }
 
         startAfter = contact.id;

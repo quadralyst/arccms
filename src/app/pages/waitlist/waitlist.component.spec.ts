@@ -168,7 +168,7 @@ describe('WaitlistComponent', () => {
             await component.loadWaitlist('test-waitlist');
 
             component.signupForm.setValue({ firstName: 'Alice', email: 'alice@test.com' });
-            mockWaitlistService.joinWaitlist.mockResolvedValue({ userId: 'user-123' });
+            mockWaitlistService.joinWaitlist.mockResolvedValue({ ticket: 'ticket-123' });
         });
 
         it('should skip OTP and go directly to success when email is not configured', async () => {
@@ -176,9 +176,11 @@ describe('WaitlistComponent', () => {
 
             await component.onSignup({});
 
-            expect(mockWaitlistService.confirmWithoutOtp).toHaveBeenCalledWith('test-waitlist', 'user-123');
+            expect(mockWaitlistService.confirmWithoutOtp).toHaveBeenCalledWith('test-waitlist', 'ticket-123');
             expect(component.currentStep).toBe('success');
             expect(mockGaTrackingService.trackWaitlistSignupComplete).toHaveBeenCalledWith('test-waitlist');
+            // The ticket never goes to analytics.
+            expect(mockGaTrackingService.linkUserAfterSignup).not.toHaveBeenCalled();
         });
 
         it('shows "already on the list" for someone confirmed before', async () => {
@@ -207,17 +209,17 @@ describe('WaitlistComponent', () => {
             mockWaitlistService.getWaitlist.mockResolvedValue({ id: 'test-waitlist', slug: 'test', name: 'Test' });
             await component.loadWaitlist('test-waitlist');
             component.signupForm.setValue({ firstName: 'Alice', email: 'alice@test.com' });
-            mockWaitlistService.joinWaitlist.mockResolvedValue({ userId: 'user-123' });
+            mockWaitlistService.joinWaitlist.mockResolvedValue({ ticket: 'ticket-123' });
             await component.onSignup({});
             component.otpForm.setValue({ otpCode: '123456' });
         });
 
-        it('checks the code against the address typed, then shows the plain confirmation', async () => {
+        it('checks the code for this signup\'s ticket, then shows the plain confirmation', async () => {
             mockWaitlistService.verifyAndConfirm.mockResolvedValue({ success: true, alreadyConfirmed: false });
 
             await component.onVerifyOtp();
 
-            expect(mockWaitlistService.verifyAndConfirm).toHaveBeenCalledWith('test-waitlist', 'user-123', 'alice@test.com', '123456');
+            expect(mockWaitlistService.verifyAndConfirm).toHaveBeenCalledWith('test-waitlist', 'ticket-123', '123456');
             expect(component.currentStep).toBe('success');
             fixture.detectChanges();
             const text = (fixture.nativeElement as HTMLElement).textContent || '';
@@ -239,9 +241,9 @@ describe('WaitlistComponent', () => {
             expect((fixture.nativeElement as HTMLElement).querySelector('[formcontrolname="referralCode"]')).toBeNull();
         });
 
-        it('resends the code to the address typed', async () => {
+        it('resends the code for this signup\'s ticket', async () => {
             await component.resendOtp();
-            expect(mockWaitlistService.resendVerificationCode).toHaveBeenCalledWith('test-waitlist', 'alice@test.com', 'Alice');
+            expect(mockWaitlistService.resendVerificationCode).toHaveBeenCalledWith('test-waitlist', 'ticket-123');
         });
     });
 });

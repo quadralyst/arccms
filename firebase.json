@@ -59,6 +59,44 @@
         ],
         "headers": [
             {
+                "regex": "^/(|[^_].*|_|_[^_].*|__|__[^/].*)$",
+                "headers": [
+                    {
+                        "key": "X-Frame-Options",
+                        "value": "SAMEORIGIN"
+                    },
+                    {
+                        "key": "X-Content-Type-Options",
+                        "value": "nosniff"
+                    },
+                    {
+                        "key": "Referrer-Policy",
+                        "value": "strict-origin-when-cross-origin"
+                    },
+                    {
+                        "key": "Strict-Transport-Security",
+                        "value": "max-age=31536000"
+                    },
+                    {
+                        "key": "Permissions-Policy",
+                        "value": "camera=(), microphone=(self), geolocation=(), payment=()"
+                    },
+                    {
+                        "key": "Content-Security-Policy-Report-Only",
+                        "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://apis.google.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' data: blob: https://*.googleapis.com https://*.cloudfunctions.net https://*.run.app https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://nominatim.openstreetmap.org https://ipapi.co https://ipinfo.io; frame-src 'self' blob: https://*.firebaseapp.com https://*.web.app https://www.youtube-nocookie.com https://www.youtube.com https://www.openstreetmap.org; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+                    }
+                ]
+            },
+            {
+                "source": "**/*.@(woff|woff2|ttf|otf)",
+                "headers": [
+                    {
+                        "key": "Access-Control-Allow-Origin",
+                        "value": "*"
+                    }
+                ]
+            },
+            {
                 "source": "**/*.html",
                 "headers": [
                     {

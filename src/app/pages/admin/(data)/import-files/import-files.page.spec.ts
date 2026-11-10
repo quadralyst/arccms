@@ -183,6 +183,19 @@ describe('ImportFilesPageComponent', () => {
         );
     });
 
+    it('says in plain words when a type of file is not taken', async () => {
+        mockImportFilesService.uploadFiles.mockResolvedValue([
+            { fileName: 'logo.svg', storagePath: 'mediaImages/logo.svg', downloadURL: '', success: false, refusedType: true },
+        ]);
+        component.selectedFiles.set([new File(['<svg/>'], 'logo.svg')]);
+
+        await component.startUpload();
+        fixture.detectChanges();
+
+        expect(component.uploadResults()![0].error).toContain('This type of file cannot be stored');
+        expect(fixture.nativeElement.textContent).not.toContain('unauthorized');
+    });
+
     it('should reset all state on resetUpload', () => {
         component.selectedFiles.set([new File(['1'], 'img1.jpg')]);
         component.uploadResults.set([{ fileName: 'img1.jpg', storagePath: '', downloadURL: '', success: true }]);

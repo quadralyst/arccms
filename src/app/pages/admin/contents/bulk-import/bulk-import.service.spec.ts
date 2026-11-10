@@ -186,6 +186,21 @@ describe('BulkImportService', () => {
         });
     });
 
+    describe('the spreadsheet library', () => {
+        // The official SheetJS build (0.20.3 from cdn.sheetjs.com): 0.18.5 on npm has open
+        // advisories and no fix there. The calls the service makes, on a real file.
+        it('is the patched build and reads back a sheet it wrote', async () => {
+            const real = await vi.importActual<typeof import('xlsx')>('xlsx');
+            expect(real.version).toBe('0.20.3');
+            const book = real.utils.book_new();
+            real.utils.book_append_sheet(book, real.utils.aoa_to_sheet([['Title', 'Tags'], ['First post', 'news'], ['Second', '']]), 'Template');
+            const bytes = real.write(book, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer;
+            const read = real.read(new Uint8Array(bytes), { type: 'array' });
+            const rows = real.utils.sheet_to_json<Record<string, unknown>>(read.Sheets[read.SheetNames[0]], { raw: false, defval: '' });
+            expect(rows).toEqual([{ Title: 'First post', Tags: 'news' }, { Title: 'Second', Tags: '' }]);
+        });
+    });
+
     describe('authorName (D2)', () => {
         it('offers Author as a standard target and stores the trimmed name', () => {
             const mapping = service.autoMapColumns(['Author'], []);

@@ -22,6 +22,7 @@
         <tr><td><code>admin_new_feedback</code></td><td>Every admin</td><td>Someone sends feedback (see <a href="feedback.html">Feedback button</a>)</td></tr>
         <tr><td><code>admin_contact_message</code></td><td>Every admin</td><td>Someone writes with the contact form on the site; at most ten an hour, and none for possible spam (see <a href="contact.html">Contact form</a>)</td></tr>
         <tr><td><code>admin_payment_received</code>, <code>admin_payment_failed</code></td><td>Every admin</td><td>A customer's payment goes through or fails</td></tr>
+        <tr><td><code>admin_payment_check</code></td><td>Every admin</td><td>A payment's product in Dodo does not match the site's product, so nothing was given, or a subscription renewed or changed plan under another Dodo product (see <a href="payments.html#product-checks">Payments</a>)</td></tr>
         <tr><td><code>payment_succeeded</code>, <code>payment_failed</code></td><td>The paying user</td><td>Their payment goes through or fails (see <a href="payments.html">Payments</a>)</td></tr>
         <tr><td><code>account_security</code></td><td>The user</td><td>Their email or phone number was verified on another account and removed from theirs</td></tr>
         <tr><td><code>admin_account_detached</code></td><td>Every admin</td><td>An account lost its only sign-in method to another account</td></tr>
@@ -29,6 +30,7 @@
         <tr><td><code>admin_ai_budget</code></td><td>Every admin</td><td>The month's AI spending reaches 80% and then all of its budget; once each a month (see <a href="ai.html">AI</a>)</td></tr>
         <tr><td><code>admin_ai_balance</code></td><td>Every admin</td><td>An AI provider's balance, read with its key, falls below the low mark set in Settings, AI; once until it rises again (see <a href="ai.html">AI</a>)</td></tr>
         <tr><td><code>admin_ai_credit</code></td><td>Every admin</td><td>An AI provider says its account has no credit left; once a day for each provider (see <a href="ai.html">AI</a>)</td></tr>
+        <tr><td><code>admin_sms_limit</code></td><td>Every admin</td><td>The site reaches its daily limit of texts; once that day (see <a href="sms.html#daily-limit">SMS</a>)</td></tr>
         <tr><td><code>announcement</code></td><td>The users an admin picks: everyone, a role, or lists</td><td>An admin sends an announcement, with the Email marketing feature on (see <a href="email-marketing.html">Email marketing</a>)</td></tr>
         <tr><td>Any type</td><td>The event's user</td><td>A rule in <a href="automations.html">Automations</a> creates one</td></tr>
       </tbody>

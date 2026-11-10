@@ -627,21 +627,26 @@ describe('CreateContentComponent', () => {
             expect(mockDialog.open.mock.calls.at(-1)[1].data.siteLook).toBeNull();
         });
 
-        it('shows a version preview in the body\'s look, and plain without one', async () => {
+        it('shows a version preview in a sandboxed frame, in the body\'s look, and plain without one', async () => {
             mockSiteLook.forField.mockResolvedValue(LOOK);
             withType();
             await flush();
-            component.previewVersion({ versionNumber: 2, title: 'Older', content: '<p>Before</p>', publishedOn: new Date() } as any);
+            const stored = '<p>Before</p><img src="x" onerror="parent.hacked = true">';
+            component.previewVersion({ versionNumber: 2, title: 'Older', content: stored, publishedOn: new Date() } as any);
             fixture.detectChanges();
             const view = fixture.debugElement.query((el) => el.name === 'arc-site-look-view');
             expect(view?.componentInstance.look()).toEqual(LOOK);
-            expect(view?.componentInstance.html()).toBe('<p>Before</p>');
-            expect(fixture.nativeElement.querySelector('.version-preview-body')).toBeNull();
+            expect(view?.componentInstance.html()).toBe(stored);
+            // The stored HTML is never drawn into the admin page itself.
+            expect(view.nativeElement.querySelector('img')).toBeNull();
+            const frame = view.nativeElement.querySelector('iframe') as HTMLIFrameElement;
+            expect(frame.getAttribute('sandbox')).toBe('allow-popups allow-popups-to-escape-sandbox');
+            expect(frame.srcdoc).toContain('<p>Before</p>');
 
             component.bodyLook.set(null);
             fixture.detectChanges();
-            expect(fixture.nativeElement.querySelector('arc-site-look-view')).toBeNull();
-            expect(fixture.nativeElement.querySelector('.version-preview-body')?.innerHTML).toBe('<p>Before</p>');
+            expect(view.componentInstance.look()).toBeNull();
+            expect((view.nativeElement.querySelector('iframe') as HTMLIFrameElement).srcdoc).toContain('<body class="arc-plain"><p>Before</p>');
         });
 
         it('names the toolbar buttons on hover, since a narrow page shows only their icons', () => {

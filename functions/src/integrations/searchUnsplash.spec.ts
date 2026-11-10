@@ -31,6 +31,8 @@ vi.mock('firebase-functions/v2/https', () => ({
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+const ADMIN = { uid: 'admin1', token: { arccms_role: 'admin' } };
+
 describe('searchUnsplash', () => {
     let handler: Function;
     let mockDb: any;
@@ -59,11 +61,17 @@ describe('searchUnsplash', () => {
             await expect(handler({ auth: null, data: { query: 'nature', page: 1 } }))
                 .rejects.toMatchObject({ code: 'unauthenticated' });
         });
+
+        it('should refuse a signed-in account that is not an admin', async () => {
+            await expect(handler({ auth: { uid: 'member1', token: { arccms_role: 'user' } }, data: { query: 'nature', page: 1 } }))
+                .rejects.toMatchObject({ code: 'permission-denied' });
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
     });
 
     describe('warmup', () => {
         it('should return { ok: true } for warmup ping without calling Firestore or Unsplash', async () => {
-            const result = await handler({ auth: { uid: 'user1' }, data: { warmup: true } });
+            const result = await handler({ auth: ADMIN, data: { warmup: true } });
 
             expect(result).toEqual({ ok: true });
             expect(mockFetch).not.toHaveBeenCalled();
@@ -72,13 +80,19 @@ describe('searchUnsplash', () => {
 
     describe('input validation', () => {
         it('should throw invalid-argument if query is missing', async () => {
-            await expect(handler({ auth: { uid: 'user1' }, data: { page: 1 } }))
+            await expect(handler({ auth: ADMIN, data: { page: 1 } }))
                 .rejects.toMatchObject({ code: 'invalid-argument' });
         });
 
         it('should throw invalid-argument if query is empty string', async () => {
-            await expect(handler({ auth: { uid: 'user1' }, data: { query: '   ', page: 1 } }))
+            await expect(handler({ auth: ADMIN, data: { query: '   ', page: 1 } }))
                 .rejects.toMatchObject({ code: 'invalid-argument' });
+        });
+
+        it.each([0, -1, 1.5, '2', 101, 1e9, null])('should throw invalid-argument for page %s', async (page) => {
+            await expect(handler({ auth: ADMIN, data: { query: 'nature', page } }))
+                .rejects.toMatchObject({ code: 'invalid-argument' });
+            expect(mockFetch).not.toHaveBeenCalled();
         });
     });
 
@@ -90,7 +104,7 @@ describe('searchUnsplash', () => {
                 }),
             });
 
-            await expect(handler({ auth: { uid: 'user1' }, data: { query: 'nature', page: 1 } }))
+            await expect(handler({ auth: ADMIN, data: { query: 'nature', page: 1 } }))
                 .rejects.toMatchObject({ code: 'not-found' });
         });
 
@@ -104,7 +118,7 @@ describe('searchUnsplash', () => {
                 }),
             });
 
-            await expect(handler({ auth: { uid: 'user1' }, data: { query: 'nature', page: 1 } }))
+            await expect(handler({ auth: ADMIN, data: { query: 'nature', page: 1 } }))
                 .rejects.toMatchObject({ code: 'not-found' });
         });
     });
@@ -127,7 +141,7 @@ describe('searchUnsplash', () => {
                 json: async () => ({ results: [], total: 0 }),
             });
 
-            await handler({ auth: { uid: 'user1' }, data: { query: 'nature', page: 1 } });
+            await handler({ auth: ADMIN, data: { query: 'nature', page: 1 } });
 
             expect(mockFetch).toHaveBeenCalledWith(
                 expect.stringContaining('query=nature'),
@@ -145,7 +159,7 @@ describe('searchUnsplash', () => {
                 json: async () => ({ results: [], total: 0 }),
             });
 
-            await handler({ auth: { uid: 'user1' }, data: { query: 'blue ocean', page: 2 } });
+            await handler({ auth: ADMIN, data: { query: 'blue ocean', page: 2 } });
 
             expect(mockFetch).toHaveBeenCalledWith(
                 expect.stringContaining('blue%20ocean'),
@@ -159,7 +173,7 @@ describe('searchUnsplash', () => {
                 json: async () => ({ results: [{}, {}], total: 100 }),
             });
 
-            const result = await handler({ auth: { uid: 'user1' }, data: { query: 'nature', page: 3 } });
+            const result = await handler({ auth: ADMIN, data: { query: 'nature', page: 3 } });
 
             expect(result.pagination).toEqual({
                 pageIndex: 3,
@@ -177,8 +191,19 @@ describe('searchUnsplash', () => {
                 statusText: 'Forbidden',
             });
 
-            await expect(handler({ auth: { uid: 'user1' }, data: { query: 'nature', page: 1 } }))
+            await expect(handler({ auth: ADMIN, data: { query: 'nature', page: 1 } }))
                 .rejects.toMatchObject({ code: 'internal' });
         });
+    });
+
+    it('never offers more pages than a search may ask for', async () => {
+        mockDb.collection.mockReturnValue({
+            doc: vi.fn().mockReturnValue({
+                get: vi.fn().mockResolvedValue({ exists: true, data: () => ({ unsplash: { accessKey: 'k' } }) }),
+            }),
+        });
+        mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ results: [], total: 50_000 }) });
+        const result = await handler({ auth: ADMIN, data: { query: 'sea', page: 100 } });
+        expect(result.pagination).toMatchObject({ totalItems: 2000, totalPages: 100 });
     });
 });

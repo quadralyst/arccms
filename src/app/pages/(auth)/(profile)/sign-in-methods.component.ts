@@ -17,6 +17,7 @@ import type { TranslationKey } from '../../../core/i18n/translation-keys';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthState } from '../auth.store';
+import { FreshCodeService } from '../../../core/sign-in/fresh-code.service';
 import { readSignInError, SignInService, type LinkCheck } from '../sign-in.service';
 import { RESEND_SECONDS, SentCodes } from '../sent-codes';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
@@ -41,7 +42,12 @@ interface Flow {
     typed: string;
     /** The server's check: the canonical value, whose it is, and what is still missing. */
     check: LinkCheck | null;
+    /** The fresh-code proof the link takes, asked for before the new value's code goes out. */
+    proof?: string;
 }
+
+/** The fresh code purposes linkEmail and linkPhone take (functions/src/auth/linkIdentifiers.ts). */
+const LINK_FRESH_PURPOSE = { email: 'link-email', phone: 'link-phone' } as const;
 
 @Component({
     selector: 'arc-sign-in-methods',
@@ -120,8 +126,13 @@ interface Flow {
 
         <ng-template #pinTpl>
             <div class="edit-form">
-                <!-- Typed twice, as every new PIN -->
-                <arc-new-pin #newPinField [disabled]="busy()" (firstDone)="error.set('')" (completed)="savePin()" />
+                <!-- Changing a PIN the account has: that PIN first, then the new one typed twice -->
+                @if (hasCurrentPin()) {
+                    <div class="current-pin-label">{{ 'member.methods.current_pin' | transloco }}</div>
+                    <arc-code-input #currentPinBoxes [label]="'member.methods.current_pin' | transloco" [masked]="true" [oneTimeCode]="false"
+                        [disabled]="busy()" (changed)="currentPin.set($event)" (completed)="error.set('')" />
+                }
+                <arc-new-pin #newPinField [disabled]="busy()" [autofocus]="!hasCurrentPin()" (firstDone)="error.set('')" (completed)="savePin()" />
                 @if (error()) { <div class="text-danger small mt-2">{{ error() }}</div> }
                 <div class="edit-actions">
                     <button class="btn btn-sm btn-light" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
@@ -222,12 +233,15 @@ interface Flow {
         .verified-badge { color: #10b981; font-size: 0.85rem; font-weight: 500; }
         .edit-form { margin-top: 0.5rem; }
         .edit-actions { display: flex; gap: 0.5rem; margin-top: 1rem; align-items: center; }
+        .current-pin-label { font-size: 0.9rem; font-weight: 500; text-align: center; margin-bottom: 8px; }
+        arc-code-input + arc-new-pin { margin-top: 16px; }
         .move-note { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.5rem 0.75rem; }
         @media (max-width: 576px) { .form-control { font-size: 16px; } }
     `],
 })
 export class SignInMethodsComponent implements OnInit, OnDestroy {
     private readonly signIn = inject(SignInService);
+    private readonly freshCode = inject(FreshCodeService);
     private readonly authStore = inject(AuthState);
     private readonly toast = inject(ToastService);
     private readonly settings = inject(UserSettingService);
@@ -253,6 +267,10 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
 
     readonly flow = signal<Flow | null>(null);
     readonly changingPin = signal(false);
+    /** The account has a PIN, so changing it asks for that one first. */
+    readonly hasCurrentPin = signal(false);
+    /** The current PIN as typed. */
+    readonly currentPin = signal('');
     /** Which row the PIN is changed from: the number's, or the email's when the site signs email in with a PIN. */
     readonly pinRow = signal<'email' | 'phone'>('phone');
     /** Email accounts sign in with a PIN on this site (Settings, User Settings, or the app). */
@@ -280,6 +298,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
     private readonly codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
     /** The new PIN, typed twice: Change PIN, or the PIN for a number added (one at a time). */
     private readonly newPinField = viewChild<NewPinInputComponent>('newPinField');
+    private readonly currentPinBoxes = viewChild<CodeInputComponent>('currentPinBoxes');
 
     /** "Enter the 6-digit code sent to {value}", split so the value can be bold (L-D15). */
     codeSentParts(): [string, string] {
@@ -318,10 +337,20 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         this.flow.set({ kind, step: 'enter', typed: '', check: null });
     }
 
-    startPinChange(row: 'email' | 'phone' = 'phone'): void {
+    async startPinChange(row: 'email' | 'phone' = 'phone'): Promise<void> {
         this.reset();
         this.pinRow.set(row);
         this.changingPin.set(true);
+        // Whether to ask for the current PIN. Unknown (no answer): the save says so, and the row shows then.
+        this.busy.set(true);
+        try {
+            const has = await this.signIn.hasPin();
+            if (this.changingPin()) this.hasCurrentPin.set(has);
+        } catch {
+            // The save asks for it when there is one (current-pin-required).
+        } finally {
+            this.busy.set(false);
+        }
     }
 
     cancel(): void {
@@ -331,6 +360,8 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
     private reset(): void {
         this.flow.set(null);
         this.changingPin.set(false);
+        this.hasCurrentPin.set(false);
+        this.currentPin.set('');
         this.error.set('');
         this.message.set('');
         this.secret.set('');
@@ -424,9 +455,26 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
                 if (check.status === 'blocked') throw { code: 'local', message: this.t('member.methods.blocked_email') };
                 if (check.status === 'other') return; // shown; the next press sends the code
             }
+            // An account with a way in already confirms it is them first, on their own
+            // email or number, before anything goes to the new one (docs/app/fresh-code.html).
+            let proof = f.proof;
+            if (!proof && this.needsFreshCode()) proof = await this.askFreshCode(f.kind);
             await this.requestCode(check);
-            this.flow.set({ ...f, check, step: 'code' });
+            this.flow.set({ ...f, check, proof, step: 'code' });
         });
+    }
+
+    /** Whether the account has a way in already, so adding or changing one needs a fresh code (as the server decides). */
+    private needsFreshCode(): boolean {
+        const user = this.user();
+        return !!(user?.email?.trim() || user?.phone?.trim());
+    }
+
+    /** The fresh code dialog's proof; cancelled, a refusal whose line says why. */
+    private async askFreshCode(kind: Kind): Promise<string> {
+        const proof = await this.freshCode.confirm({ purpose: LINK_FRESH_PURPOSE[kind] });
+        if (!proof) throw { code: 'local', message: this.t('member.methods.fresh_code_needed') };
+        return proof;
     }
 
     ngOnDestroy(): void {
@@ -554,9 +602,17 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         }
 
         await this.run(async () => {
-            const result = check.kind === 'email'
-                ? await this.signIn.linkEmail(check.value, secret || undefined)
-                : await this.signIn.linkPhone(check.value, secret || undefined);
+            const link = (proof?: string) => (check.kind === 'email'
+                ? this.signIn.linkEmail(check.value, secret || undefined, proof)
+                : this.signIn.linkPhone(check.value, secret || undefined, proof));
+            let result: { moved: boolean };
+            try {
+                result = await link(f.proof);
+            } catch (err) {
+                // The proof ran out (5 minutes) or was used by a try that failed: ask again, once.
+                if (readSignInError(err).reason !== 'fresh-code-required') throw err;
+                result = await link(await this.askFreshCode(check.kind));
+            }
             await this.authStore.refreshCurrentUser();
             this.reset();
             // Whole sentences per case, so each language orders its own words (L-D15).
@@ -567,13 +623,19 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         }, check.kind === 'phone' && f.step === 'secret' ? (err) => this.pinRefused(err) : undefined);
     }
 
-    /** Change PIN: the new PIN, typed twice. */
+    /** Change PIN: the current PIN when the account has one, then the new PIN, typed twice. */
     async savePin(): Promise<void> {
         if (this.busy()) return;
+        const current = this.currentPin();
+        if (this.hasCurrentPin() && current.length !== 6) {
+            this.error.set(this.t('member.auth.server_error.current_pin_required'));
+            this.currentPinBoxes()?.focus(0);
+            return;
+        }
         const pin = this.readNewPin();
         if (!pin) return;
         await this.run(async () => {
-            const { passwordRemoved } = await this.signIn.setPin(pin);
+            const { passwordRemoved } = await this.signIn.setPin(pin, this.hasCurrentPin() ? current : undefined);
             this.reset();
             // An email account's password goes when it chooses a PIN (specs/sign-in-pin-spec.md).
             this.message.set(this.t(passwordRemoved ? 'member.methods.pin_saved_password_removed' : 'member.methods.pin_changed'));
@@ -595,10 +657,18 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         return read.pin;
     }
 
-    /** A refused PIN's message; one too easy to guess empties both rows, for another typed twice. */
+    /**
+     * A refused PIN's message; one too easy to guess empties both rows, for another typed
+     * twice. A wrong current PIN empties its row; one the page did not know about shows it.
+     */
     private pinRefused(err: unknown): string {
         const failed = readSignInError(err);
         if (failed.reason === 'weak-pin' || failed.reason === 'pin-format') this.newPinField()?.restart();
+        if (failed.reason === 'wrong') {
+            this.currentPin.set('');
+            this.currentPinBoxes()?.reset();
+        }
+        if (failed.reason === 'current-pin-required') this.hasCurrentPin.set(true);
         return failed.message;
     }
 

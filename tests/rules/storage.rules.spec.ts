@@ -11,8 +11,9 @@ import {
     initializeTestEnvironment,
     RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { deleteObject, getBytes, ref, updateMetadata, uploadBytes } from 'firebase/storage';
+import { deleteObject, getBytes, list, listAll, ref, updateMetadata, uploadBytes } from 'firebase/storage';
 import { ALLOWED_FILES, MAX_FILE_BYTES } from '../../src/shared/utils/media-files';
+import { STAFF_FILE_TYPES } from '../../src/shared/utils/staff-files';
 
 let env: RulesTestEnvironment;
 
@@ -24,6 +25,7 @@ const admin = () => env.authenticatedContext('admin-uid', { arccms_role: 'admin'
 // A host app's own admin in a shared sign-in pool (CO-D7): not an ArcCMS admin.
 const hostAdmin = () => env.authenticatedContext('host-uid', { role: 'admin' }).storage();
 const anon = () => env.unauthenticatedContext().storage();
+const editor = () => env.authenticatedContext('editor-uid', { arccms_role: 'editor' }).storage();
 
 beforeAll(async () => {
     env = await initializeTestEnvironment({
@@ -64,17 +66,103 @@ describe('storage', () => {
         await assertSucceeds(uploadBytes(ref(admin(), 'imports/data.json'), png, { contentType: 'application/json' }));
     });
 
-    it('lets a member write an image in their own avatar folder', async () => {
-        await assertSucceeds(uploadBytes(ref(alice(), 'avatars/alice-uid/me.png'), png, asImage));
+    it('lets a member write a photo in their own avatar folder, as the profile page names it', async () => {
+        await assertSucceeds(uploadBytes(ref(alice(), 'avatars/alice-uid/avatar-1731240000000.webp'), png, { contentType: 'image/webp' }));
+        await assertSucceeds(uploadBytes(ref(alice(), 'avatars/alice-uid/avatar-1731240000001.png'), png, asImage));
+        await assertSucceeds(uploadBytes(ref(alice(), 'avatars/alice-uid/avatar-1731240000002.jpg'), png, { contentType: 'image/jpeg' }));
+        await assertSucceeds(deleteObject(ref(alice(), 'avatars/alice-uid/avatar-1731240000001.png')));
+        await assertSucceeds(getBytes(ref(anon(), 'avatars/alice-uid/avatar-1731240000000.webp')));
     });
 
-    it("refuses another member's folder and non-image files", async () => {
-        await assertFails(uploadBytes(ref(alice(), 'avatars/bob-uid/me.png'), png, asImage));
+    it("refuses another member's folder, SVG and other types, other names and big files", async () => {
+        await assertFails(uploadBytes(ref(alice(), 'avatars/bob-uid/avatar-1.png'), png, asImage));
         await assertFails(uploadBytes(ref(alice(), 'avatars/alice-uid/x.html'), png, { contentType: 'text/html' }));
+        await assertFails(uploadBytes(ref(alice(), 'avatars/alice-uid/avatar-1.svg'), png, { contentType: 'image/svg+xml' }));
+        await assertFails(uploadBytes(ref(alice(), 'avatars/alice-uid/avatar-1.png'), png, { contentType: 'image/svg+xml' }));
+        await assertFails(uploadBytes(ref(alice(), 'avatars/alice-uid/avatar-1.gif'), png, { contentType: 'image/gif' }));
+        await assertFails(uploadBytes(ref(alice(), 'avatars/alice-uid/me.png'), png, asImage));
+        await assertFails(uploadBytes(ref(alice(), 'avatars/alice-uid/avatar-1.png'), new Uint8Array(1024 * 1024), asImage));
     });
 
     it('refuses unauthenticated writes', async () => {
-        await assertFails(uploadBytes(ref(anon(), 'avatars/alice-uid/me.png'), png, asImage));
+        await assertFails(uploadBytes(ref(anon(), 'avatars/alice-uid/avatar-1.png'), png, asImage));
+    });
+});
+
+describe('listing the bucket', () => {
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await uploadBytes(ref(ctx.storage(), 'root.png'), png, asImage);
+            await uploadBytes(ref(ctx.storage(), 'arccms/mediaImages/site.png'), png, asImage);
+            await uploadBytes(ref(ctx.storage(), 'mediaFiles/guide.pdf'), png, { contentType: 'application/pdf' });
+            await uploadBytes(ref(ctx.storage(), 'avatars/alice-uid/avatar-1.png'), png, asImage);
+        });
+    });
+
+    it('lets anyone fetch a file by its path, and nobody but staff list a folder', async () => {
+        for (const path of ['root.png', 'mediaImages/site.png', 'arccms/mediaImages/site.png', 'mediaFiles/guide.pdf']) {
+            await assertSucceeds(getBytes(ref(anon(), path)));
+        }
+        for (const storage of [anon(), alice(), hostAdmin()]) {
+            for (const folder of ['', 'mediaImages', 'arccms/mediaImages', 'mediaFiles', 'avatars/alice-uid']) {
+                await assertFails(list(ref(storage, folder), { maxResults: 10 }));
+            }
+        }
+        for (const folder of ['', 'mediaImages', 'arccms/mediaImages', 'mediaFiles', 'avatars/alice-uid']) {
+            await assertSucceeds(list(ref(admin(), folder), { maxResults: 10 }));
+        }
+        await assertSucceeds(listAll(ref(admin(), 'mediaImages')));
+        await assertSucceeds(list(ref(editor(), 'mediaImages'), { maxResults: 10 }));
+        await assertFails(list(ref(editor(), 'users'), { maxResults: 10 }));
+        await assertFails(list(ref(editor(), 'email-logs'), { maxResults: 10 }));
+    });
+
+    // Under the upload folder the members' folders are as closed as at the root.
+    it("lets an editor list the upload folder but not the members' folders in it", async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await uploadBytes(ref(ctx.storage(), 'arccms/users/rec-alice/private.png'), png, asImage);
+            await uploadBytes(ref(ctx.storage(), 'arccms/email-logs/log1/a.pdf'), png, { contentType: 'application/pdf' });
+        });
+        for (const folder of ['arccms/users', 'arccms/users/rec-alice', 'arccms/email-logs', 'arccms/ai-files']) {
+            await assertFails(list(ref(editor(), folder), { maxResults: 10 }));
+            await assertSucceeds(list(ref(admin(), folder), { maxResults: 10 }));
+        }
+        await assertSucceeds(list(ref(editor(), 'arccms'), { maxResults: 10 }));
+        await assertSucceeds(list(ref(editor(), 'arccms/mediaImages'), { maxResults: 10 }));
+    });
+});
+
+describe('staff uploads', () => {
+    it('take images, PDF, video, audio, fonts and plain data', async () => {
+        const ok: Array<[string, string]> = [
+            ['mediaImages/a.jpg', 'image/jpeg'], ['mediaImages/a.webp', 'image/webp'], ['mediaImages/a.gif', 'image/gif'],
+            ['arccms/mediaImages/a.png', 'image/png'], ['site/brochure.pdf', 'application/pdf'], ['site/intro.mp4', 'video/mp4'],
+            ['site/theme.mp3', 'audio/mpeg'], ['fonts/brand.woff2', 'font/woff2'], ['notes.txt', 'text/plain'],
+        ];
+        for (const [path, contentType] of ok) await assertSucceeds(uploadBytes(ref(admin(), path), png, { contentType }));
+    });
+
+    // Import Files checks a file against this list before it uploads (src/shared/utils/staff-files.ts).
+    it('take every type on the Import Files list, stored as its extension names it', async () => {
+        for (const [extension, contentType] of Object.entries(STAFF_FILE_TYPES)) {
+            await assertSucceeds(uploadBytes(ref(editor(), `arccms/site/file.${extension}`), png, { contentType }));
+        }
+    });
+
+    it('refuse pages, SVG, scripts and archives anywhere in the bucket', async () => {
+        const bad: Array<[string, string]> = [
+            ['page.html', 'text/html'], ['mediaImages/x.html', 'text/html'], ['mediaImages/logo.svg', 'image/svg+xml'],
+            ['arccms/mediaImages/x.js', 'application/javascript'], ['site/x.js', 'text/javascript'],
+            ['site/all.zip', 'application/zip'], ['site/feed.xml', 'application/xml'], ['site/raw.bin', 'application/octet-stream'],
+        ];
+        for (const [path, contentType] of bad) await assertFails(uploadBytes(ref(admin(), path), png, { contentType }));
+    });
+
+    it("never write into a member's folder or the avatar folders", async () => {
+        for (const path of ['users/rec-alice/new.png', 'arccms/users/rec-alice/new.png', 'avatars/alice-uid/avatar-1.png', 'arccms/avatars/x/a.png']) {
+            await assertFails(uploadBytes(ref(admin(), path), png, asImage));
+            await assertFails(uploadBytes(ref(editor(), path), png, asImage));
+        }
     });
 });
 
@@ -121,6 +209,17 @@ describe('per-user folders (docs/app/account-contract.html)', () => {
         await assertFails(uploadBytes(ref(owner(), 'users/rec-alice/feedback/f1/notes.txt'), png, { contentType: 'text/plain' }));
         await assertFails(uploadBytes(ref(other(), 'users/rec-alice/feedback/f1/screenshot.jpg'), png, asImage));
         await assertFails(uploadBytes(ref(owner(), 'users/rec-alice/feedback/f1/screenshot.jpg'), png, jpeg)); // no overwrite
+    });
+
+    it("let an admin delete a feedback file with its feedback, and nobody else", async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await uploadBytes(ref(ctx.storage(), 'users/rec-alice/feedback/f9/screenshot.jpg'), png, { contentType: 'image/jpeg' });
+            await uploadBytes(ref(ctx.storage(), 'arccms/users/rec-alice/feedback/f9/voice.webm'), png, { contentType: 'audio/webm' });
+        });
+        await assertFails(deleteObject(ref(owner(), 'users/rec-alice/feedback/f9/screenshot.jpg')));
+        await assertFails(deleteObject(ref(editor(), 'users/rec-alice/feedback/f9/screenshot.jpg')));
+        await assertSucceeds(deleteObject(ref(admin(), 'users/rec-alice/feedback/f9/screenshot.jpg')));
+        await assertSucceeds(deleteObject(ref(admin(), 'arccms/users/rec-alice/feedback/f9/voice.webm')));
     });
 
     it('leave everything else public, under the upload folder and at the root', async () => {

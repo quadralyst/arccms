@@ -73,21 +73,35 @@
         <tr><td><code>data-legal-notice</code></td><td>Your own terms notice. Without one, a standard notice is added above the submit button. It links to your terms and privacy pages: the published standard pages <code>/info/terms</code> and <code>/info/privacy-policy</code> (see <a href="content.html#standard-pages">Standard pages</a>), else your own static pages at <code>/p/terms</code> and <code>/p/privacy-policy</code>, else no link. An app words it in <code>src/custom/notices.ts</code> (see <a href="../app/sign-up-notice.html">Word the sign-up notice</a>)</td></tr>
       </tbody>
     </table>
-    <p>If no form has the given id, the first visit creates one with default settings. The code step, the confirmation and the error messages are drawn inside the form. To reword the confirmation, see <a href="../website/forms.html">Add signup forms to your site</a>.</p>
+    <p>If the default form does not exist yet, the first visit creates it with default settings. Any other form is created in the admin first: a page naming one that does not exist creates nothing, and its sign-ups fail with "This form does not exist". The code step, the confirmation and the error messages are drawn inside the form. To reword the confirmation, see <a href="../website/forms.html">Add signup forms to your site</a>.</p>
     <div class="trap"><p>Put the form's id in <code>data-waitlist-id</code>, not a slug you changed later. The page finds the form by its slug, but sign-ups are sent with the value as written, and a value that is not the id fails with "This form does not exist".</p></div>
 
     <h2>Use it</h2>
 
     <h3>What happens on a sign-up</h3>
     <ol class="steps">
-      <li><p>The visitor submits. The <code>joinForm</code> function finds or creates their member record on that form. Submitting the same address again returns the same record, never a second one.</p></li>
+      <li><p>The visitor submits. The <code>joinForm</code> function finds or creates their member record on that form. Submitting the same address again returns the same record, never a second one. It hands the page a ticket for the next steps, sealed and good for an hour, never the member id: anyone can type someone else's address, so the answer must not name that member.</p></li>
       <li><p>The member record creates a <code>pending</code> contact, which joins the form's list and the lists it feeds, gets the form's default tag and its mapped answers.</p></li>
-      <li><p><code>requestFormOtp</code> emails a 6-digit code. It is valid for 15 minutes, can be resent once a minute, and allows 5 wrong tries.</p></li>
-      <li><p>The visitor enters it. <code>verifyFormOtp</code> checks it and <code>finalizeFormSignup</code> confirms the member and counts them in the form's <code>totalSignups</code>.</p></li>
+      <li><p><code>requestFormOtp</code> emails a 6-digit code to the member the ticket names. It is valid for 15 minutes, can be resent once a minute (two requests at the same moment send one code), and allows 5 wrong tries, counted even when guesses arrive at the same moment. The reply is the same whether the code went or the address is disabled or suppressed, so a visitor learns nothing about someone else's address.</p></li>
+      <li><p>The visitor enters it. <code>verifyFormOtp</code> checks it and <code>finalizeFormSignup</code> confirms the member and counts them in the form's <code>totalSignups</code>. Both take the ticket. A code counts only for the sign-up it was sent in, so "You're already on the list" is said only once the address is verified. On a form with no code step it is never said: someone already on the list sees what a new sign-up sees.</p></li>
       <li><p>The contact becomes <code>subscribed</code>, the <code>waitlist.joined</code> event fires (see <a href="automations.html">Automations</a>), and the welcome email goes out.</p></li>
-      <li><p>The form shows a tick, "You're on the list!" and the address. Someone who was already on the list sees "You're already on the list." instead.</p></li>
+      <li><p>The form shows a tick, "You're on the list!" and the address. Someone who was already on the list, and proved it with the code, sees "You're already on the list." instead.</p></li>
     </ol>
     <p>The code step is skipped, and the member confirmed at once, when email is not set up, when the <strong>Waitlist emails</strong> switch in Settings, Email Settings is off, or when the form's verification template is inactive. Such a member is confirmed but not verified.</p>
+
+    <h3>Limits</h3>
+    <p>The sign-up functions are public, so the server limits what they take. A closed form (<strong>Active</strong> off) takes no sign-ups and sends no codes.</p>
+    <table>
+      <thead><tr><th>What</th><th>Limit</th></tr></thead>
+      <tbody>
+        <tr><td>Joining</td><td>60 an hour from one connection (many people can share one office or school network), 10 an hour for one address</td></tr>
+        <tr><td>Codes</td><td>One a minute for one address on one form, 60 an hour from one connection, 5 an hour for one address</td></tr>
+        <tr><td>Checking a code</td><td>5 tries for each code; 20 wrong codes a day for one address across its forms (counted apart from its sign-in codes), and 60 checks an hour from one connection, as for <a href="sign-in.html#codes-waits-and-limits">sign-in codes</a></td></tr>
+        <tr><td>Name and source</td><td>100 characters each. Longer is refused with "Please use a shorter name."</td></tr>
+        <tr><td>Form answers</td><td>Text, numbers and yes/no only; at most 50 inputs, 5,000 characters each and 20,000 in all. More is refused, so the visitor can shorten it</td></tr>
+        <tr><td>Signup metadata</td><td>Gathered by the page, not typed, so it is trimmed instead of refused: 60 keys, 500 characters a value, 20 query parameters</td></tr>
+      </tbody>
+    </table>
 
     <h3>Form settings</h3>
     <p>Edit a form from its row or its dashboard (<strong>Settings</strong>):</p>
@@ -136,7 +150,7 @@
 
     <h2>Extend it</h2>
     <p>Any page that renders your own HTML can collect sign-ups by linking to <code>/waitlist/{form}</code>. To react to a sign-up in code or without code, listen for the <code>waitlist.joined</code> event with an automation rule (<a href="automations.html">Automations</a>), or add a sequence on the form's list.</p>
-    <p>The public functions are callable from any client, but prefer the built-in page and markup: they already call <code>joinForm</code>, <code>requestFormOtp</code>, <code>verifyFormOtp</code> and <code>finalizeFormSignup</code> in the right order. Calling them from a client uses the prefixed name, such as <code>arccms-joinForm</code>.</p>
+    <p>The public functions are callable from any client, but prefer the built-in page and markup: they already call <code>joinForm</code>, <code>requestFormOtp</code>, <code>verifyFormOtp</code> and <code>finalizeFormSignup</code> in the right order, passing the <code>ticket</code> from <code>joinForm</code> to each of the others with the form's <code>waitlistId</code>. Calling them from a client uses the prefixed name, such as <code>arccms-joinForm</code>.</p>
 
     <h2>What it stores</h2>
     <table>
@@ -146,6 +160,7 @@
         <tr><td><code>Waitlists/{form}/users/{member}</code></td><td>One member: <code>email</code>, <code>firstName</code>, <code>formData</code> (the answers), <code>signupMetadata</code>, <code>emailVerified</code>, <code>isConfirmed</code>, <code>verifiedAt</code>, <code>tags</code></td></tr>
         <tr><td><code>Waitlists/{form}/users/{member}/notes/{id}</code></td><td>Admin notes on a member</td></tr>
         <tr><td><code>form_otps/{form}_{emailHash}</code></td><td>The pending code, stored hashed, with its expiry and tries</td></tr>
+        <tr><td><code>_rate_limits</code></td><td>The counts behind the limits above (ids starting <code>form-join-</code> and <code>form-otp-</code>), beside the sign-in ones</td></tr>
         <tr><td><code>EmailTemplate/{form}_{type}</code></td><td>The form's two templates</td></tr>
         <tr><td><code>WaitlistUserTags_{form}</code></td><td>The form's own member tags</td></tr>
         <tr><td><code>WaitlistedUsers</code></td><td>A member registry from older installs. Nothing writes it</td></tr>
@@ -156,7 +171,7 @@
     <table>
       <thead><tr><th>Kind</th><th>Functions</th></tr></thead>
       <tbody>
-        <tr><td>Public callables</td><td><code>joinForm</code>, <code>requestFormOtp</code>, <code>verifyFormOtp</code>, <code>finalizeFormSignup</code>, <code>ensureWaitlistExists</code></td></tr>
+        <tr><td>Public callables</td><td><code>joinForm</code>, <code>requestFormOtp</code>, <code>verifyFormOtp</code>, <code>finalizeFormSignup</code>, <code>ensureWaitlistExists</code> (anyone for the default form, an admin for any other)</td></tr>
         <tr><td>Admin callables</td><td><code>getWaitlistTemplateDefaults</code>, <code>backfillWaitlistTemplates</code>, and the one-time upgrade helpers <code>normalizeWaitlistTemplateIds</code>, <code>stampFormTargetLists</code></td></tr>
         <tr><td>Triggers</td><td><code>onWaitlistsCreate</code>, <code>onWaitlistsUpdate</code>, <code>onWaitlistsDelete</code> (forms); <code>onWaitlistUserCreate</code>, <code>onWaitlistUserUpdate</code> (members); <code>syncOtpEnabledFlag</code> (on templates)</td></tr>
       </tbody>
@@ -168,7 +183,7 @@
       <thead><tr><th>Data</th><th>Visitors</th><th>Admins</th></tr></thead>
       <tbody>
         <tr><td><code>Waitlists/{form}</code></td><td>Read (it renders the page)</td><td>Read and write. The signup count is written by Cloud Functions</td></tr>
-        <tr><td>Members</td><td>Create their own record; change only their name, tags and subscription. No reads: joining and confirming go through the public callables</td><td>Read, write, delete</td></tr>
+        <tr><td>Members</td><td>Nothing directly: joining, confirming and unsubscribing go through the public callables</td><td>Read, write, delete</td></tr>
         <tr><td>Old referral records</td><td>Nothing</td><td>Nothing (deleted by <code>npm run forms:remove-referrals</code>)</td></tr>
         <tr><td>Notes, <code>WaitlistUserTags_{form}</code>, <code>WaitlistedUsers</code></td><td>Nothing</td><td>Read and write</td></tr>
         <tr><td><code>form_otps</code></td><td>Nothing</td><td>Nothing (Cloud Functions only)</td></tr>

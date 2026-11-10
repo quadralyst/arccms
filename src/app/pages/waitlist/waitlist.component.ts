@@ -198,7 +198,8 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
 
     // User data
     userData: { email?: string; firstName?: string } = {};
-    userId = '';
+    /** What joinForm gave for this signup: the later steps take it. Never a member id. */
+    ticket = '';
 
     waitlist = signal<IWaitlist | null>(null);
 
@@ -355,14 +356,14 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
                 }
 
                 this.userData = { email: email.trim(), firstName: finalFirstName.trim() };
-                this.userId = result.userId || '';
+                this.ticket = result.ticket || '';
 
                 // Check if OTP should be skipped (email not configured)
                 const shouldSkipOtp = !this.emailConfigService.isEmailConfigured();
 
                 if (shouldSkipOtp) {
                     // Skip OTP: confirm the user immediately
-                    const confirmation = await this.waitlistService.confirmWithoutOtp(this.currentWaitlistId!, this.userId);
+                    const confirmation = await this.waitlistService.confirmWithoutOtp(this.currentWaitlistId!, this.ticket);
                     this.finish(!!confirmation.alreadyConfirmed);
                 } else {
                     this.currentStep = 'verify';
@@ -385,8 +386,7 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
                 const { otpCode } = this.otpForm.value;
                 const result = await this.waitlistService.verifyAndConfirm(
                     this.currentWaitlistId!,
-                    this.userId,
-                    this.userData.email || '',
+                    this.ticket,
                     otpCode,
                 );
 
@@ -420,8 +420,9 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
             this.gaTracking.trackWaitlistExistingUser(this.currentWaitlistId!);
             this.currentStep = 'existing-user';
         } else {
+            // No user id goes to analytics: the page holds only the signup's ticket,
+            // which must not leave it.
             this.gaTracking.trackWaitlistSignupComplete(this.currentWaitlistId!);
-            this.gaTracking.linkUserAfterSignup(this.userId, this.currentWaitlistId!);
             this.currentStep = 'success';
         }
     }
@@ -432,8 +433,7 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
             try {
                 const result = await this.waitlistService.resendVerificationCode(
                     this.currentWaitlistId!,
-                    this.userData.email || '',
-                    this.userData.firstName,
+                    this.ticket,
                 );
                 if (!result.success) {
                     this.error = result.message || 'Failed to resend code';
@@ -459,7 +459,7 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
         this.signupForm.reset();
         this.otpForm.reset();
         this.userData = {};
-        this.userId = '';
+        this.ticket = '';
         this.cdr.detectChanges();
     }
 

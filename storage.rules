@@ -51,38 +51,73 @@ service firebase.storage {
       return isSignedIn() ? request.auth.token.get('arccms_session', {}).get(name, null) : null;
     }
 
-    function isSmallImage() {
-      return request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+    // A member's profile photo, as the profile page makes it (file-upload.service.ts,
+    // uploadAvatar): `avatar-{time}.webp`, a JPEG, PNG or WebP image (never SVG), under 1 MB.
+    function isAvatarUpload(fileName) {
+      return fileName.matches('avatar-[0-9]{1,16}[.](webp|png|jpg|jpeg)')
+        && request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp']
+        && request.resource.size < 1024 * 1024;
+    }
+
+    // The files the admin tools put anywhere else in the bucket (the media library's
+    // images, Data > Import Files): images, PDF, video, audio, fonts and plain data.
+    // Never HTML, SVG, scripts or archives: the bucket is public, so anything here
+    // could be linked as a page or a script.
+    function isStaffFileType() {
+      let type = request.resource.contentType;
+      return type in ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif',
+                      'application/pdf', 'text/plain', 'text/csv', 'application/json']
+        || type.matches('video/(mp4|webm|ogg|quicktime)')
+        || type.matches('audio/(mpeg|mp3|mp4|aac|ogg|wav|x-wav|webm|x-m4a|flac)')
+        || type.matches('font/(woff|woff2|ttf|otf)');
+    }
+
+    // Folders the staff catch-all below neither serves nor writes, at the bucket
+    // root or under one upload folder (`arccms/users/...`, the install's
+    // storagePrefix). Each has its own rules further down.
+    function isOwnFolder(name) {
+      return name in ['users', 'email-logs', 'ai-calls', 'ai-files'];
     }
 
     // Everything the admin tools write: the media library (mediaImages/...),
-    // the data import/export files, and any other path. Staff only: this was
-    // "any signed-in user", and sign-up is open, so anyone could upload to the
-    // bucket or overwrite and delete the site's images.
+    // imported files, and any other path. Staff only: this was "any signed-in
+    // user", and sign-up is open, so anyone could upload to the bucket or
+    // overwrite and delete the site's images.
     //
-    // Public read, because images are served on public pages and SSR, except
-    // the per-user folders: `users/{userDocId}/...` at the bucket root or under
-    // one upload folder (`arccms/users/...`, the install's storagePrefix), and
-    // the files of email logs (`email-logs/...`), of AI records (`ai-calls/...`) and the
-    // files AI made (`ai-files/...`, below). A folder named `users`, `email-logs`,
-    // `ai-calls` or `ai-files` in the first two levels is therefore never public.
+    // Anyone may fetch a file by its path (`get`), because images are served on
+    // public pages and SSR; only staff may list a folder (`list`), so nobody can
+    // walk the bucket for files never linked anywhere. Not public: the per-user
+    // folders (`users/{userDocId}/...`), the files of email logs (`email-logs/...`),
+    // of AI records (`ai-calls/...`) and the files AI made (`ai-files/...`). A folder
+    // with one of those names in the first two levels is therefore never public.
     match /{fileName} {
-      allow read: if true;
-      allow write: if isEditor();
+      allow get: if true;
+      allow list: if isEditor();
+      allow delete: if isEditor();
+      allow create, update: if isEditor() && isStaffFileType();
+    }
+    // Listing a folder: admins anywhere, editors outside the folders above, at the
+    // bucket root or under one upload folder (`arccms/users/...` is as closed as
+    // `users/...`). A list is checked against the folder plus one name, so listing
+    // `mediaImages/` meets `/{first}/{name}`, and `arccms/users/` meets the match below.
+    match /{first}/{name} {
+      allow list: if isAdmin() || (isEditor() && !isOwnFolder(first));
     }
     match /{first}/{second}/{rest=**} {
-      allow read: if first != 'users' && second != 'users'
-        && first != 'email-logs' && second != 'email-logs'
-        && first != 'ai-calls' && second != 'ai-calls'
-        && first != 'ai-files' && second != 'ai-files';
-      // Library files have their own rules below. Without this exclusion a
-      // staff write there would pass here whatever its type, since a request
-      // is allowed when any rule allows it. Email log and AI record files are the functions' only.
-      allow write: if isEditor() && first != 'mediaFiles' && second != 'mediaFiles'
-        && first != 'email-logs' && second != 'email-logs'
-        && first != 'ai-calls' && second != 'ai-calls'
-        && first != 'ai-files' && second != 'ai-files';
+      allow get: if !isOwnFolder(first) && !isOwnFolder(second);
+      allow list: if isAdmin() || (isEditor() && !isOwnFolder(first) && !isOwnFolder(second));
+      // Library files (mediaFiles) and member photos (avatars) have their own rules
+      // below. Without these exclusions a staff write there would pass here whatever
+      // its type, since a request is allowed when any rule allows it. Email log and AI
+      // record files are the functions' only; a member's folder is the member's and
+      // the app's (storage.app.rules).
+      allow delete: if isEditor() && !isOwnFolder(first) && !isOwnFolder(second)
+        && first != 'mediaFiles' && second != 'mediaFiles'
+        && first != 'avatars' && second != 'avatars';
+      allow create, update: if isEditor() && isStaffFileType()
+        && !isOwnFolder(first) && !isOwnFolder(second)
+        && first != 'mediaFiles' && second != 'mediaFiles'
+        && first != 'avatars' && second != 'avatars';
     }
 
     // The files an email carried (an app's attachments, specs/app-email-spec.md),
@@ -136,12 +171,14 @@ service firebase.storage {
       );
     }
     match /mediaFiles/{fileName} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isEditor();
       allow create, update: if isEditor() && isLibraryFile(fileName);
       allow delete: if isEditor();
     }
     match /{prefix}/mediaFiles/{fileName} {
-      allow read: if prefix != 'users';
+      allow get: if !isOwnFolder(prefix);
+      allow list: if isEditor() && !isOwnFolder(prefix);
       allow create, update: if isEditor() && isLibraryFile(fileName);
       allow delete: if isEditor();
     }
@@ -173,16 +210,20 @@ service firebase.storage {
     }
     match /users/{userDocId}/feedback/{feedbackId}/{fileName} {
       allow create: if ownsUserRecord(userDocId) && isFeedbackUpload(fileName);
+      allow delete: if isAdmin();
     }
     match /{prefix}/users/{userDocId}/feedback/{feedbackId}/{fileName} {
       allow create: if ownsUserRecord(userDocId) && isFeedbackUpload(fileName);
+      allow delete: if isAdmin();
     }
 
-    // Member profile photos. A signed-in user may write images only in their
-    // own folder; the profile page stores the download URL in users.photo.
+    // Member profile photos. A signed-in user may write a photo only in their own
+    // folder (isAvatarUpload) and delete their own; the profile page stores the
+    // download URL in users.photo. Anyone may fetch one by its path (the catch-all
+    // above); nobody lists the folder but staff.
     match /avatars/{uid}/{fileName} {
-      allow write: if isAuthenticated() && request.auth.uid == uid
-        && (request.resource == null || isSmallImage());
+      allow create, update: if isAuthenticated() && request.auth.uid == uid && isAvatarUpload(fileName);
+      allow delete: if isAuthenticated() && request.auth.uid == uid;
     }
 
     // App rules. `npm run rules:build` (run by every deploy) puts the

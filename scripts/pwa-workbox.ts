@@ -45,6 +45,9 @@ export interface PwaWorkboxOptions {
 
 type WorkboxSettings = Omit<GenerateSWOptions, 'globDirectory' | 'swDest'>;
 
+/** Roboto's font files for scripts other than Latin, as the build names them. */
+export const ROBOTO_OTHER_SCRIPTS = 'assets/roboto-{cyrillic,greek,vietnamese,math,symbols}*.woff2';
+
 export function pwaWorkbox({ transform, navigationTimeoutSeconds }: PwaWorkboxOptions): WorkboxSettings {
     return {
         // Up front, only the files every page starts with (routeCode 'visited'); the
@@ -53,7 +56,9 @@ export function pwaWorkbox({ transform, navigationTimeoutSeconds }: PwaWorkboxOp
         // the build's own chunk graph by the transform.
         globPatterns: transform ? ['**/*.{css,woff2}', 'assets/**/*.js'] : ['**/*.{css,woff2}', 'assets/index-*.js'],
         ...(transform ? { manifestTransforms: [transform as unknown as ManifestTransform] } : {}),
-        globIgnores: ['**/*.map'],
+        // Roboto's files for other scripts than Latin (src/vendor-styles.css) load only on a
+        // page in one of them, and are stored then (arc-code below), not up front.
+        globIgnores: ['**/*.map', ROBOTO_OTHER_SCRIPTS],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         // Versioned by index.html (the same file), which names every hashed
         // code file: a build that changes nothing leaves the service worker
@@ -106,6 +111,9 @@ export function pwaWorkbox({ transform, navigationTimeoutSeconds }: PwaWorkboxOp
                 },
             },
             {
+                // The app serves its own Bootstrap, icon fonts and Roboto. Published pages
+                // still link stylesheets on CDNs (the site's settings), and a site's own
+                // CSS may use Google Fonts: stored the first time they load.
                 urlPattern: ({ url }) => /^(fonts\.(googleapis|gstatic)\.com|cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net)$/.test(url.hostname),
                 handler: 'CacheFirst',
                 options: { cacheName: 'arc-cdn', expiration: { maxEntries: 60, maxAgeSeconds: 365 * 24 * 60 * 60 } },

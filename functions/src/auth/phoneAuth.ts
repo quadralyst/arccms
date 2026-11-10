@@ -206,7 +206,7 @@ export const verifyPhoneOtp = onCall(async (request) => {
     if (!/^\d{6}$/.test(code)) throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
     // A link code is for the signed-in account's own record (never a locked app account).
     const uid = purpose === 'link' ? String((await requireOwnRecord(request)).data['uid']) : undefined;
-    const ticket = await checkPhoneOtp(phone, code, purpose, uid);
+    const ticket = await checkPhoneOtp(phone, code, purpose, uid, request);
     return { verified: true, ticket };
 });
 

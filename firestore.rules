@@ -112,12 +112,9 @@ service cloud.firestore {
       // user, and sign-up is open, so anyone could publish or deface content.
       allow write: if (collection.matches('arc_.*') || collection.matches('Tags_.*'))
                    && isEditor();
-      // WaitlistUserTags → admin write; allow unauthenticated usageCount increment for signup flow
-      allow create, delete: if collection.matches('WaitlistUserTags_.*') && isAdmin();
-      allow update: if collection.matches('WaitlistUserTags_.*')
-                    && (isAdmin() || request.resource.data.diff(resource.data)
-                        .affectedKeys()
-                        .hasOnly(['usageCount']));
+      // WaitlistUserTags → admin write. Signing up no longer counts tag use from the
+      // browser (joinForm runs on the server), so nobody else may touch `usageCount`.
+      allow create, update, delete: if collection.matches('WaitlistUserTags_.*') && isAdmin();
 
       // PublishedHistory subcollection — version history for published content
       // Written by Cloud Functions (Admin SDK bypasses rules), read by admin
@@ -136,6 +133,12 @@ service cloud.firestore {
         allow read, write: if collection.matches('arc_.*_drafts') && isEditor();
         allow read: if collection.matches('arc_.*') && !collection.matches('.*_drafts');
       }
+
+      // The steps of a page's release to Hosting (functions/src/pages/deployToHosting.ts):
+      // Cloud Functions only.
+      match /DeploymentLogs/{logId} {
+        allow read, write: if false;
+      }
     }
 
     // Media library details: images (media) and documents (mediaFiles).
@@ -152,12 +155,24 @@ service cloud.firestore {
     }
 
     // Email lookup - SHA-256 hashed emails for signup flow
-    // Public read (check if hash exists). Functions keep it in step with the
-    // users records (onUserCreated, onUserDelete, the sign-in callables); only
-    // admins write it from the browser (Users, Delete). Any signed-in writer
-    // could make a registered address look unregistered (review S5).
+    // Public `get` (does this one address have an account), admin `list`: a list
+    // handed anyone every hash, which a dictionary of addresses turns back into
+    // the members' addresses. One exception: on a fresh install anyone may list,
+    // because the app asks "is this a fresh install?" by listing one entry
+    // (AuthService.isFirstRun), and a fresh install has no members to protect.
+    // Fresh means neither Settings/onboarding_status (claimFirstAdmin writes it
+    // when the first admin is made) nor _system/has_members (onUserCreated writes
+    // it with the first user record, so an app whose members sign up without the
+    // setup wizard closes the list too) exists. Both are written once and kept.
+    // Functions keep it in step with the users records (onUserCreated,
+    // onUserDelete, the sign-in callables); only admins write it from the browser
+    // (Users, Delete). Any signed-in writer could make a registered address look
+    // unregistered (review S5).
     match /email_lookup/{hashId} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdmin()
+                  || (!exists(/databases/$(database)/documents/Settings/onboarding_status)
+                      && !exists(/databases/$(database)/documents/_system/has_members));
       allow write: if isAdmin();
     }
 
@@ -206,9 +221,9 @@ service cloud.firestore {
       // API key, `analytics` holds the Google OAuth clientSecret. Rules are the
       // only gate a direct SDK call meets, and "authenticated" means any
       // registered visitor, not an admin.
-      // analytics_status — authenticated read (frontend listener for GA connect flow);
-      // writes are Cloud Function only (Admin SDK bypasses rules).
-      allow read: if settingId == 'analytics_status' && isAuthenticated();
+      // analytics_status — the Analytics connection, read by the admin dashboard and
+      // Settings, Analytics; admin only through the catch-all below. Writes are Cloud
+      // Function only (Admin SDK bypasses rules).
       // search_status — per-source counts from the reindex tool. Admin read;
       // writes are Cloud Function only.
       allow read: if settingId == 'search_status' && isAdmin();
@@ -292,7 +307,8 @@ service cloud.firestore {
                        'isPro', 'premiumType', 'premiumTierRank', 'premiumStatus',
                        'premiumExpiresAt', 'provider', 'providerSubscriptionId', 'providerCustomerId',
                        'premiumTrialReminderSent', 'premiumEventAt', 'updatesUntil',
-                       'premiumTierLabel', 'premiumDiscountCode', 'creditBalance'])
+                       'premiumTierLabel', 'premiumDiscountCode', 'premiumProductId', 'premiumPaymentId',
+                       'creditBalance'])
          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['emailVerified'])
              || request.resource.data.emailVerified == false)
          && !(isLockedAppRecord(resource.data)
@@ -310,10 +326,25 @@ service cloud.firestore {
     // PAYMENTS (Dodo) — products, transactions, raw webhook log
     // ============================================================
 
-    // Products — public read of active products (pricing page); admin write.
+    // Products — public read of active products only (the pricing page lists them with
+    // `active == true`, which a list must ask for); admins read and write every product.
+    // Tier discount codes are not here: they are in ProductCodes.
     match /Products/{docId} {
-      allow read: if true;
+      allow read: if isAdmin() || resource.data.get('active', false) == true;
       allow write: if isAdmin();
+    }
+
+    // ProductCodes — each product's tier discount codes (`discountCodes[i]` for
+    // `tiers[i]`). Admin only: checkout reads them on the server
+    // (functions/src/dodo-payments/productCodes.ts), so a visitor never sees a code.
+    match /ProductCodes/{productId} {
+      allow read, write: if isAdmin();
+    }
+
+    // The tokens of admin test checkouts (functions/src/dodo-payments/testCheckouts.ts):
+    // Cloud Functions only.
+    match /TestCheckouts/{token} {
+      allow read, write: if false;
     }
 
     // Transactions — owner or admin read; never written by clients (Cloud Functions only).
@@ -469,6 +500,25 @@ service cloud.firestore {
       allow read, write: if false;
     }
     match /_rate_limits/{key} {
+      allow read, write: if false;
+    }
+
+    // Kept and read only by Cloud Functions, named here so no app rule can open them
+    // (scripts/arc-rules-build.mjs refuses an app rule on a collection this file names,
+    // and a spec checks every collection the functions use is named in this file):
+    // a form's sign-up codes (waitlists/formOtp.ts), the buyers already counted for a
+    // product's tiers (dodo-payments/handlePaymentEvent.ts), the day's count of texts
+    // (sms/smsDailyLimit.ts) and each app member's email consent (app-audience/state.ts).
+    match /form_otps/{id} {
+      allow read, write: if false;
+    }
+    match /CountedBuyers/{id} {
+      allow read, write: if false;
+    }
+    match /_sms_daily/{day} {
+      allow read, write: if false;
+    }
+    match /AppAudience/{id} {
       allow read, write: if false;
     }
     // The lease that makes claims writes on one account run one at a time
@@ -733,7 +783,7 @@ service cloud.firestore {
       // a visitor used to be able to set it to anything (specs/form-gamification-spec.md).
       allow create, update, delete: if isAdmin();
 
-      // Users subcollection - signup flow (unauthenticated)
+      // Users subcollection: a form's members, admin only (members join through joinForm)
       match /users/{userId} {
         // #51: NO public read. This carried `allow read: if true`, verified exploitable —
         // an unauthenticated request using only the web API key (which ships in the
@@ -745,24 +795,12 @@ service cloud.firestore {
         // go through callables (joinForm, finalizeFormSignup); the rest went with
         // referrals and the leaderboard (specs/form-gamification-spec.md).
         //
-        // Creates stay open: a signup writes its own member doc, and the U5 lockdown
-        // already restricts which fields an update may touch.
+        // Writes are admin only. Joining (joinForm), confirming (finalizeFormSignup,
+        // verifyFormOtp) and unsubscribing (the token-checked unsubscribe callable) all
+        // run on the server. Creates and some updates used to be open to anyone, so a
+        // script could add members to any form or unsubscribe a member by id.
         allow read: if isAdmin();
-        allow create: if request.resource.data.keys().hasAll(['email', 'waitlistId'])
-                      && request.resource.data.email is string
-                      && request.resource.data.email.size() > 0
-                      && request.resource.data.email.size() < 255;
-        // U5 item 5: verification is written ONLY by Cloud Functions
-        // (finalizeFormSignup / verifyFormOtp). Until U5 these were client-writable, so
-        // anyone could mark themselves verified with a single Firestore write. Removed
-        // from the whitelist: emailVerified, isConfirmed, verificationCode,
-        // verificationExpires, verifiedAt, queuePosition, totalReferrals, and with
-        // referrals gone, leaderboardLink and referredBy. Creates are unaffected: a
-        // signup still creates its own doc.
-        allow update: if isAdmin() || request.resource.data.diff(resource.data)
-                         .affectedKeys()
-                         .hasOnly(['isSubscribed', 'firstName', 'tags']);
-        allow delete: if isAdmin();
+        allow create, update, delete: if isAdmin();
 
         // Notes subcollection - admin-only internal annotations on subscribers
         match /notes/{noteId} {

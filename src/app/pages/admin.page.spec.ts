@@ -11,6 +11,7 @@ import * as path from 'path';
 import AdminComponent from './admin.page';
 import SideNavbarComponent from '../../shared/components/side-navbar/side-navbar.component';
 import { SiteBrandService } from '../core/brand/site-brand';
+import { AuthState } from './(auth)/auth.store';
 
 @Component({ selector: 'arc-side-navbar', standalone: true, template: '' })
 class NavbarStub {
@@ -39,6 +40,7 @@ describe('AdminComponent: the side panel and its button', () => {
                 provideRouter([]),
                 { provide: BreakpointObserver, useValue: { observe: () => screen } },
                 { provide: SiteBrandService, useValue: { name: signal('Acme Studio') } },
+                { provide: AuthState, useValue: { recordReady: async () => null } },
             ],
         });
         TestBed.overrideComponent(AdminComponent, { remove: { imports: [SideNavbarComponent] }, add: { imports: [NavbarStub] } });
@@ -125,6 +127,7 @@ describe('AdminComponent: the page waits for its words', () => {
                 provideRouter([]),
                 { provide: BreakpointObserver, useValue: { observe: () => new BehaviorSubject<BreakpointState>({ matches: false, breakpoints: {} }) } },
                 { provide: SiteBrandService, useValue: { name: signal('Acme Studio') } },
+                { provide: AuthState, useValue: { recordReady: async () => null } },
             ],
         });
         TestBed.overrideComponent(AdminComponent, { remove: { imports: [SideNavbarComponent] }, add: { imports: [NavbarStub] } });

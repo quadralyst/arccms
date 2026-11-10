@@ -105,8 +105,8 @@
     <table>
       <thead><tr><th>Who</th><th>Can</th></tr></thead>
       <tbody>
-        <tr><td>Admin</td><td>Read and write <code>Settings/analytics</code> and <code>AnalyticsDashboards</code>; connect, pick a property, refresh and disconnect</td></tr>
-        <tr><td>Signed-in person</td><td>Read <code>Settings/analytics_status</code> (no secrets)</td></tr>
+        <tr><td>Admin</td><td>Read and write <code>Settings/analytics</code> and <code>AnalyticsDashboards</code>; read <code>Settings/analytics_status</code>, which only the functions write; connect, pick a property, refresh and disconnect</td></tr>
+        <tr><td>Anyone else</td><td>Nothing</td></tr>
       </tbody>
     </table>
     <p>The client secret is shown masked on the settings page and is only sent to Google by the functions.</p>

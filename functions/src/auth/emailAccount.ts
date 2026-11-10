@@ -24,7 +24,9 @@ import {
 import { normalizeEmailAddress } from './linkIdentifiers.js';
 import { readName } from './phoneAuth.js';
 import { authOwnerFor } from './googleAccount.js';
-import { consumeVerifiedSignupCode, requestedLanguage, requestedName, sendSignupCode } from './signupOtp.js';
+import { EMAIL_VERIFIED_WINDOW_MS, requestedLanguage, requestedName, sendSignupCode, signupCodeRequired, signupCodeVerifiedAt, verifiedEmailCode } from './signupOtp.js';
+import { USER_RECORD_CLAIM } from '../users/claims.js';
+import type { UserRecord } from 'firebase-admin/auth';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuseOtherSignIn } from './appAccountLock.js';
 import { codeOrRefusal, refuse } from './refusal.js';
@@ -107,6 +109,14 @@ export const checkEmailAccount = onCall(async (request) => {
  * `finish` (a sign-in finishing an unfinished sign-up, auth.store login): only
  * for a sign-in created within UNFINISHED_SIGNUP_MS, so another app's user
  * signing in here never gets a record that way.
+ *
+ * When the site asks new accounts for a sign-up code (signupCodeRequired, or email
+ * PIN sign-in, where the code is the only proof), a record needs the ticket from
+ * this browser's own code check: a sign-in account made straight through Firebase,
+ * with no code, gets no record. The page then removes that sign-in and asks again.
+ * A call with no ticket at all for a sign-in this site's sign-up made (see
+ * removeUnfinishedSignup) removes that sign-in here and answers `signup-again`:
+ * after a reload the page has lost the ticket, and the address must not stay blocked.
  */
 export const createAccountRecord = onCall(async (request) => {
     if (isWarmUp(request)) return WARM;
@@ -123,7 +133,7 @@ export const createAccountRecord = onCall(async (request) => {
     if (token.firebase?.sign_in_provider !== 'password' || !email) {
         throw refuse('failed-precondition', 'sign-in-again', 'Please sign in again.');
     }
-    const settings = await readSignInSettings();
+    const [settings, codeRequired] = await Promise.all([readSignInSettings(), signupCodeRequired()]);
     if (!settings.signupOpen) {
         throw new HttpsError('failed-precondition', "New accounts can't be created on this site right now.", { reason: 'signup-closed' });
     }
@@ -136,6 +146,19 @@ export const createAccountRecord = onCall(async (request) => {
     if (request.data?.finish === true && !isUnfinishedSignup(account.metadata?.creationTime)) {
         throw new HttpsError('permission-denied', "This account doesn't have access to this site.", { reason: 'no-access' });
     }
+    // Verified only with the ticket from this browser's own code check. Checked here and
+    // used up once the record is written, so a retry after a failed write still has it.
+    const ticket = request.data?.ticket;
+    const emailVerified = await verifiedEmailCode(email, 'signup', ticket, false);
+    if (!emailVerified && (codeRequired || settings.emailPin)) {
+        // No ticket at all: a sign-up whose page was reloaded before this answered (the
+        // ticket lives only in the page). Its sign-in would block the address for good,
+        // so when this site's own sign-up made it, it goes, and the person signs up again.
+        if (!ticket && await removeUnfinishedSignup(email, account)) {
+            throw refuse('failed-precondition', 'signup-again', "Your sign-up didn't finish. Please sign up again.");
+        }
+        throw refuse('failed-precondition', 'code-expired', 'Your code has expired. Please ask for a new one.');
+    }
     const ref = db.collection('users').doc();
     const now = Timestamp.now();
     await ref.set({
@@ -143,8 +166,7 @@ export const createAccountRecord = onCall(async (request) => {
         uid,
         name,
         email,
-        // Verified only with the ticket from this browser's own code check.
-        emailVerified: await consumeVerifiedSignupCode(email, request.data?.ticket),
+        emailVerified,
         role: settings.defaultRole,
         status: 'Active',
         isActive: true,
@@ -155,6 +177,34 @@ export const createAccountRecord = onCall(async (request) => {
         createdAt: now,
         modifiedAt: now,
     });
-    await applyNewAccountClaims(uid, ref.id, settings.defaultRole);
+    await Promise.all([
+        applyNewAccountClaims(uid, ref.id, settings.defaultRole),
+        emailVerified ? verifiedEmailCode(email, 'signup', ticket, true) : Promise.resolve(false),
+    ]);
     return { id: ref.id, created: true };
 });
+
+/** How long after its code check this site's sign-up creates the sign-in account. */
+const SIGNUP_AFTER_CODE_MS = EMAIL_VERIFIED_WINDOW_MS;
+
+/**
+ * Delete a sign-in account this site's own email sign-up made and never finished,
+ * and say whether it did. Only when every sign holds: a password sign-in and nothing
+ * else, its email never verified, made within UNFINISHED_SIGNUP_MS, no `arccms_uid`
+ * claim, no record (the caller checked), and this address passed this site's sign-up
+ * code check shortly before the account was made. In a sign-in pool shared with another
+ * app, that app's users fail the last test, so their accounts are never touched.
+ */
+export async function removeUnfinishedSignup(email: string, account: UserRecord, now = Date.now()): Promise<boolean> {
+    const providers = account.providerData ?? [];
+    if (account.emailVerified === true) return false;
+    if (!providers.length || providers.some((p) => p.providerId !== 'password')) return false;
+    if (!isUnfinishedSignup(account.metadata?.creationTime, now)) return false;
+    if (account.customClaims?.[USER_RECORD_CLAIM]) return false;
+    const created = Date.parse(account.metadata.creationTime);
+    const codeAt = await signupCodeVerifiedAt(email);
+    // A few seconds' leeway: two servers' clocks.
+    if (codeAt === null || created < codeAt - 5_000 || created - codeAt > SIGNUP_AFTER_CODE_MS) return false;
+    await owner.deleteUser(account.uid);
+    return true;
+}

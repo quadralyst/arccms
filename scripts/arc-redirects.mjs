@@ -22,6 +22,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withAppHeaders } from './arc-headers.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -209,7 +210,8 @@ export function withAppRedirects(config, redirects) {
 }
 
 /**
- * Where the website deploy writes its Hosting config when the app has redirects. A
+ * Where the website deploy writes its Hosting config when the app has redirects or
+ * headers (scripts/arc-headers.mjs). A
  * project id never holds a dot, so this never meets firebase.<projectId>.json. In the
  * repo root, as the Firebase CLI reads the paths in a config from the config's folder.
  */
@@ -219,12 +221,13 @@ export function websiteConfigPath(projectId, root = ROOT) {
 
 /**
  * Writes the config the website deploy uploads: `base` (the project's generated
- * firebase.<projectId>.json, else firebase.json) with the app's redirects first.
- * Returns its path, or null when the app has no redirects and `base`'s own file serves.
+ * firebase.<projectId>.json, else firebase.json) with the app's redirects first and
+ * the app's headers in (withAppHeaders). Returns its path, or null when the app has
+ * neither and `base`'s own file serves.
  */
-export function writeWebsiteConfig(projectId, base, redirects, root = ROOT) {
-    if (!redirects.length) return null;
+export function writeWebsiteConfig(projectId, base, redirects, root = ROOT, headers = []) {
+    if (!redirects.length && !headers.length) return null;
     const path = websiteConfigPath(projectId, root);
-    writeFileSync(path, `${JSON.stringify(withAppRedirects(base, redirects), null, 4)}\n`);
+    writeFileSync(path, `${JSON.stringify(withAppHeaders(withAppRedirects(base, redirects), headers), null, 4)}\n`);
     return path;
 }

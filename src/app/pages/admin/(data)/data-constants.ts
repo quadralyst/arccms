@@ -123,6 +123,8 @@ export interface UploadResult {
     downloadURL: string;
     success: boolean;
     error?: string;
+    /** True when the bucket does not take this type of file, so it was never sent (STAFF_FILE_TYPES). */
+    refusedType?: boolean;
     /** `mediaFiles` when it went to the library's Files (its record is already written). */
     collection?: 'mediaFiles';
     /** Library details from a manifest, written with the `media` record. */

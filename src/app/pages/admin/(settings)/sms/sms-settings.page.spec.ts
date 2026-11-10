@@ -59,6 +59,17 @@ describe('SmsSettingsPage', () => {
         expect(page.querySelector('#smsShowResetCodes')).toBeNull();
     });
 
+    it('asks for no texts a day with the Test provider, which sends nothing', async () => {
+        expect((await render(true)).querySelector('#smsDailyLimit')).toBeNull();
+    });
+
+    it('asks for the texts a day with a real provider, showing the saved number', async () => {
+        const page = await render(true, { provider: 'msg91', dailyLimit: 120 });
+        await new Promise((r) => setTimeout(r));
+        expect(page.querySelector<HTMLInputElement>('#smsDailyLimit')?.value).toBe('120');
+        expect(page.querySelector('.daily-limit')?.textContent).toContain('Texts a day');
+    });
+
     it('lists the allowed countries, with no default to choose when there is one', async () => {
         const page = await render(true);
         expect([...page.querySelectorAll('.countries .picked-country')].map((li) => li.getAttribute('data-iso'))).toEqual(['IN']);

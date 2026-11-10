@@ -11,7 +11,7 @@ import {
     initializeTestEnvironment,
     RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -106,6 +106,9 @@ describe('users: update', () => {
 
     it('still refuses premium fields', async () => {
         await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { isPro: true }));
+        // What granted the access: a renewal or refund is matched against these.
+        await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { premiumProductId: 'gold' }));
+        await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { premiumPaymentId: 'pay_1' }));
     });
 
     it("refuses editing someone else's doc", async () => {
@@ -189,6 +192,46 @@ describe('site settings and email_lookup are admin write only (review S5)', () =
         await assertSucceeds(getDoc(doc(anon(), 'email_lookup', 'hash-a')));
         await assertFails(getDoc(doc(alice(), 'Settings', 'site')));
         await assertSucceeds(getDoc(doc(admin(), 'Settings', 'site')));
+    });
+
+    // A list handed anyone every hash, which a dictionary of addresses turns back into addresses.
+    it('lets anyone check one address in email_lookup, and only admins list it once setup has started', async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await setDoc(doc(ctx.firestore(), 'Settings', 'onboarding_status'), { completed: true });
+        });
+        for (const db of [anon(), alice(), hostAdmin()]) {
+            await assertFails(getDocs(collection(db, 'email_lookup')));
+            await assertFails(getDocs(query(collection(db, 'email_lookup'), limit(1))));
+        }
+        await assertSucceeds(getDocs(collection(admin(), 'email_lookup')));
+    });
+
+    // A fresh install asks "is this the first run?" by listing (AuthService.isFirstRun).
+    it('lets anyone list email_lookup on a fresh install, before setup has started', async () => {
+        await assertSucceeds(getDocs(query(collection(anon(), 'email_lookup'), limit(1))));
+    });
+
+    // An app whose members sign up without the setup wizard never writes onboarding_status;
+    // its first member's record writes _system/has_members (onUserCreated).
+    it('closes the list once the install has members, even with no setup wizard', async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await setDoc(doc(ctx.firestore(), '_system', 'has_members'), { since: new Date() });
+        });
+        for (const db of [anon(), alice()]) {
+            await assertFails(getDocs(query(collection(db, 'email_lookup'), limit(1))));
+        }
+        await assertSucceeds(getDoc(doc(anon(), 'email_lookup', 'hash-a')));
+        await assertSucceeds(getDocs(collection(admin(), 'email_lookup')));
+    });
+
+    it('keeps Settings/analytics_status admin only', async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await setDoc(doc(ctx.firestore(), 'Settings', 'analytics_status'), { isConnected: true, propertyName: 'Site' });
+        });
+        await assertFails(getDoc(doc(anon(), 'Settings', 'analytics_status')));
+        await assertFails(getDoc(doc(alice(), 'Settings', 'analytics_status')));
+        await assertSucceeds(getDoc(doc(admin(), 'Settings', 'analytics_status')));
+        await assertFails(setDoc(doc(alice(), 'Settings', 'analytics_status'), { isConnected: false }));
     });
 });
 
@@ -658,7 +701,33 @@ describe('signup forms', () => {
         await assertFails(updateDoc(doc(anon(), member), { leaderboardLink: 'https://evil.example' }));
         await assertFails(updateDoc(doc(anon(), member), { referredBy: 'CODE1' }));
         await assertFails(updateDoc(doc(anon(), member), { queuePosition: 1 }));
-        await assertSucceeds(updateDoc(doc(anon(), member), { isSubscribed: false }));
+    });
+
+    // Joining, confirming and unsubscribing all run in Cloud Functions.
+    it('lets only admins add, change or remove a member', async () => {
+        for (const db of [anon(), alice(), hostAdmin()]) {
+            await assertFails(updateDoc(doc(db, member), { isSubscribed: false }));
+            await assertFails(updateDoc(doc(db, member), { firstName: 'X', tags: ['vip'] }));
+            await assertFails(setDoc(doc(db, 'Waitlists/launch/users/m2'), { email: 'n@x.com', waitlistId: 'launch' }));
+            await assertFails(addDoc(collection(db, 'Waitlists/launch/users'), { email: 'n@x.com', waitlistId: 'launch' }));
+            await assertFails(deleteDoc(doc(db, member)));
+        }
+        await assertSucceeds(updateDoc(doc(admin(), member), { isSubscribed: false, tags: ['vip'] }));
+        await assertSucceeds(setDoc(doc(admin(), 'Waitlists/launch/users/m2'), { email: 'n@x.com', waitlistId: 'launch' }));
+        await assertSucceeds(deleteDoc(doc(admin(), member)));
+    });
+
+    it("keeps a form's member tags admin only, their use count included", async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            await setDoc(doc(ctx.firestore(), 'WaitlistUserTags_launch', 'vip'), { label: 'VIP', usageCount: 2 });
+        });
+        for (const db of [anon(), alice()]) {
+            await assertFails(updateDoc(doc(db, 'WaitlistUserTags_launch', 'vip'), { usageCount: 3 }));
+            await assertFails(getDoc(doc(db, 'WaitlistUserTags_launch', 'vip')));
+            await assertFails(setDoc(doc(db, 'WaitlistUserTags_launch', 'new'), { label: 'New', usageCount: 0 }));
+        }
+        await assertSucceeds(updateDoc(doc(admin(), 'WaitlistUserTags_launch', 'vip'), { usageCount: 3 }));
+        await assertSucceeds(getDoc(doc(admin(), 'WaitlistUserTags_launch', 'vip')));
     });
 
     it('closes the old referrals records to every client, admins included', async () => {
@@ -670,5 +739,129 @@ describe('signup forms', () => {
         // The retired registry's records too.
         await assertFails(addDoc(collection(anon(), 'WaitlistedUsers', 'w1', 'referrals'), { referredEmail: 'x@y.com' }));
         await assertFails(getDoc(doc(admin(), 'WaitlistedUsers', 'w1', 'referrals', 'r1')));
+    });
+});
+
+describe('products and their discount codes', () => {
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            const db = ctx.firestore();
+            await setDoc(doc(db, 'Products', 'on'), { name: 'Gold', active: true, tiers: [{ label: 'Early', maxCount: 10 }] });
+            await setDoc(doc(db, 'Products', 'off'), { name: 'Old', active: false });
+            await setDoc(doc(db, 'Products', 'unset'), { name: 'Draft' });
+            await setDoc(doc(db, 'ProductCodes', 'on'), { discountCodes: ['EARLY'] });
+        });
+    });
+
+    it('shows a visitor and a member active products only, and lists them only when asked for active ones', async () => {
+        for (const db of [anon(), alice()]) {
+            await assertSucceeds(getDoc(doc(db, 'Products', 'on')));
+            await assertFails(getDoc(doc(db, 'Products', 'off')));
+            await assertFails(getDoc(doc(db, 'Products', 'unset')));
+            await assertSucceeds(getDocs(query(collection(db, 'Products'), where('active', '==', true))));
+            await assertFails(getDocs(collection(db, 'Products')));
+        }
+    });
+
+    it('lets an admin read and list every product, and nobody else write one', async () => {
+        await assertSucceeds(getDoc(doc(admin(), 'Products', 'off')));
+        await assertSucceeds(getDocs(collection(admin(), 'Products')));
+        await assertSucceeds(updateDoc(doc(admin(), 'Products', 'on'), { name: 'Gold+' }));
+        for (const db of [anon(), alice(), hostAdmin()]) {
+            await assertFails(updateDoc(doc(db, 'Products', 'on'), { purchaseCount: 0 }));
+            await assertFails(setDoc(doc(db, 'Products', 'new'), { name: 'Free', active: true }));
+        }
+    });
+
+    it('keeps the tier codes admin only', async () => {
+        for (const db of [anon(), alice(), hostAdmin(), editor()]) {
+            await assertFails(getDoc(doc(db, 'ProductCodes', 'on')));
+            await assertFails(getDocs(collection(db, 'ProductCodes')));
+            await assertFails(setDoc(doc(db, 'ProductCodes', 'on'), { discountCodes: ['FREE'] }));
+        }
+        await assertSucceeds(getDocs(collection(admin(), 'ProductCodes')));
+        await assertSucceeds(setDoc(doc(admin(), 'ProductCodes', 'on'), { discountCodes: ['EARLY2'] }));
+        await assertSucceeds(deleteDoc(doc(admin(), 'ProductCodes', 'on')));
+    });
+
+    it('keeps admin test checkout tokens from every browser, admins included', async () => {
+        for (const db of [anon(), alice(), admin()]) {
+            await assertFails(getDoc(doc(db, 'TestCheckouts', 't_x')));
+            await assertFails(setDoc(doc(db, 'TestCheckouts', 't_x'), { productId: 'on' }));
+        }
+    });
+});
+
+describe('payments, credits and notifications belong to their owner', () => {
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            const db = ctx.firestore();
+            await setDoc(doc(db, 'Transactions', 'tA'), { userId: ALICE, amount: 10 });
+            await setDoc(doc(db, 'Transactions', 'tB'), { userId: BOB, amount: 20 });
+            await setDoc(doc(db, 'CreditLedger', 'cA'), { userId: ALICE, delta: 5 });
+            await setDoc(doc(db, 'CreditLedger', 'cB'), { userId: BOB, delta: 5 });
+            await setDoc(doc(db, 'Notifications', 'nA'), { userId: ALICE, title: 'Hi', read: false });
+            await setDoc(doc(db, 'Notifications', 'nB'), { userId: BOB, title: 'Hi', read: false });
+        });
+    });
+
+    it('lets a member read their own transactions and credit entries, and nobody write them', async () => {
+        for (const name of ['Transactions', 'CreditLedger']) {
+            const [mine, theirs] = name === 'Transactions' ? ['tA', 'tB'] : ['cA', 'cB'];
+            await assertSucceeds(getDoc(doc(alice(), name, mine)));
+            await assertSucceeds(getDocs(query(collection(alice(), name), where('userId', '==', ALICE))));
+            await assertFails(getDoc(doc(alice(), name, theirs)));
+            await assertFails(getDocs(collection(alice(), name)));
+            await assertFails(getDoc(doc(anon(), name, mine)));
+            await assertSucceeds(getDocs(collection(admin(), name)));
+            for (const db of [alice(), admin()]) {
+                await assertFails(setDoc(doc(db, name, 'forged'), { userId: ALICE, amount: 1e6, delta: 1e6 }));
+                await assertFails(updateDoc(doc(db, name, mine), { amount: 0, delta: 1e6 }));
+            }
+        }
+    });
+
+    it('lets a member mark their own notification read, and nothing else', async () => {
+        await assertSucceeds(getDoc(doc(alice(), 'Notifications', 'nA')));
+        await assertSucceeds(updateDoc(doc(alice(), 'Notifications', 'nA'), { read: true, readAt: serverTimestamp() }));
+        await assertFails(updateDoc(doc(alice(), 'Notifications', 'nA'), { title: 'Changed' }));
+        await assertFails(getDoc(doc(alice(), 'Notifications', 'nB')));
+        await assertFails(updateDoc(doc(alice(), 'Notifications', 'nB'), { read: true }));
+        await assertFails(addDoc(collection(alice(), 'Notifications'), { userId: ALICE, title: 'Self' }));
+        await assertFails(deleteDoc(doc(alice(), 'Notifications', 'nA')));
+        await assertFails(getDoc(doc(anon(), 'Notifications', 'nA')));
+        await assertSucceeds(getDoc(doc(admin(), 'Notifications', 'nB')));
+    });
+});
+
+describe('audience and email records are admin only', () => {
+    beforeEach(async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+            const db = ctx.firestore();
+            await setDoc(doc(db, 'Contacts', 'h1'), { email: 'c@x.com' });
+            await setDoc(doc(db, 'Suppression', 'h1'), { reason: 'bounce' });
+            await setDoc(doc(db, 'EmailLogs', 'l1'), { to: 'c@x.com' });
+            await setDoc(doc(db, 'Lists', 'all'), { name: 'All', memberCount: 1 });
+        });
+    });
+
+    it('refuses visitors, members and a host app\'s admin', async () => {
+        for (const db of [anon(), alice(), hostAdmin()]) {
+            for (const [name, id] of [['Contacts', 'h1'], ['Suppression', 'h1'], ['EmailLogs', 'l1'], ['Lists', 'all']]) {
+                await assertFails(getDoc(doc(db, name, id)));
+                await assertFails(getDocs(collection(db, name)));
+                await assertFails(setDoc(doc(db, name, 'x'), { email: 'x@x.com' }));
+            }
+        }
+    });
+
+    it('lets admins read them all, and write only lists and email logs', async () => {
+        for (const [name, id] of [['Contacts', 'h1'], ['Suppression', 'h1'], ['EmailLogs', 'l1'], ['Lists', 'all']]) {
+            await assertSucceeds(getDoc(doc(admin(), name, id)));
+        }
+        await assertFails(setDoc(doc(admin(), 'Contacts', 'h2'), { email: 'x@x.com' }));
+        await assertFails(deleteDoc(doc(admin(), 'Suppression', 'h1')));
+        await assertSucceeds(setDoc(doc(admin(), 'Lists', 'vip'), { name: 'VIP' }));
+        await assertSucceeds(updateDoc(doc(admin(), 'EmailLogs', 'l1'), { note: 'checked' }));
     });
 });

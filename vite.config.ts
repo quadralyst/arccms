@@ -26,6 +26,7 @@ import { routeCode } from './scripts/vite-route-code';
 import { pwaWorkbox } from './scripts/pwa-workbox';
 import { makeTabIcon, tabIcon } from './scripts/vite-tab-icon';
 import { appVersion } from './scripts/arc-version.mjs';
+import { vendorScripts } from './scripts/vite-vendor-scripts';
 
 // The app's features (src/custom/features.ts, specs/feature-flags-spec.md). Resolved
 // here so a typo or a missing need stops `npm run dev` and `npm run build` at once.
@@ -197,6 +198,8 @@ export default defineConfig(async ({ mode }) => {
       appleLinks(),
       // The tab's text before the app starts: the app's name, never Arc CMS's (withAppTitle).
       appTitle(CUSTOM_BRAND.name),
+      // Bootstrap's script, served with the app rather than from a CDN (scripts/vite-vendor-scripts.ts).
+      vendorScripts(),
       // Warns when an app page's address is also a language code, such as /de (docs/features/languages.html).
       languageRouteCheck(),
       ...(pwa.enabled ? [storedCode.recorder] : []),

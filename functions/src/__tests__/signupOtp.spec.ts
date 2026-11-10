@@ -64,6 +64,13 @@ vi.mock('../auth/accounts', () => ({
   },
 }));
 
+// The guessing limits (codeGuesses.ts) have their own spec; here, that they are asked.
+const { mockBeforeCheck, mockCountWrong } = vi.hoisted(() => ({
+  mockBeforeCheck: vi.fn().mockResolvedValue(undefined),
+  mockCountWrong: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../auth/codeGuesses', () => ({ beforeCodeCheck: mockBeforeCheck, countWrongCode: mockCountWrong }));
+
 vi.mock('../email-core/queueEmail', () => ({ queueEmail: mockQueueEmail }));
 vi.mock('../email-core/defaultTemplates', () => ({ ensureDefaultTemplates: mockEnsureDefaults }));
 
@@ -364,6 +371,32 @@ describe('verifySignupOtp', () => {
     mockOtpGet.mockResolvedValue({ exists: true, data: () => ({ expiresAt: future(), attempts: 1, codeHash: hashCode('654321') }) });
     await expect(verifyHandler({ data: { email: EMAIL, code: '000000' } })).rejects.toMatchObject({ code: 'invalid-argument' });
     expect(mockOtpUpdate).toHaveBeenCalledWith({ attempts: 2 });
+  });
+
+  it('checks the caller and the address limits first, and counts only a wrong code for the day', async () => {
+    const request = { data: { email: EMAIL, code: '000000' }, rawRequest: { ip: '1.2.3.4' } };
+    mockOtpGet.mockResolvedValue({ exists: true, data: () => ({ expiresAt: future(), attempts: 1, codeHash: hashCode('654321') }) });
+    await expect(verifyHandler(request)).rejects.toMatchObject({ details: { reason: 'code-wrong' } });
+    expect(mockBeforeCheck).toHaveBeenCalledWith({ via: 'email', hash: HASH }, request);
+    expect(mockCountWrong).toHaveBeenCalledWith({ via: 'email', hash: HASH });
+
+    mockCountWrong.mockClear();
+    await verifyHandler({ data: { email: EMAIL, code: '654321' } });
+    expect(mockCountWrong).not.toHaveBeenCalled();
+
+    // An expired or used-up code is not a guess.
+    mockOtpGet.mockResolvedValue({ exists: true, data: () => ({ expiresAt: past(), attempts: 0, codeHash: hashCode('654321') }) });
+    await expect(verifyHandler({ data: { email: EMAIL, code: '000000' } })).rejects.toMatchObject({ code: 'deadline-exceeded' });
+    expect(mockCountWrong).not.toHaveBeenCalled();
+  });
+
+  it('refuses before reading the code once the day\'s wrong codes are used up, even a right one', async () => {
+    mockBeforeCheck.mockRejectedValueOnce(Object.assign(new Error('Too many wrong codes.'), { code: 'resource-exhausted', details: { reason: 'too-many-codes', retryAfter: 3600 } }));
+    mockOtpGet.mockClear();
+    mockOtpGet.mockResolvedValue({ exists: true, data: () => ({ expiresAt: future(), attempts: 0, codeHash: hashCode('246810') }) });
+    await expect(verifyHandler({ data: { email: EMAIL, code: '246810' } })).rejects.toMatchObject({ details: { reason: 'too-many-codes', retryAfter: 3600 } });
+    expect(mockOtpGet).not.toHaveBeenCalled();
+    expect(mockOtpUpdate).not.toHaveBeenCalled();
   });
 
   it('verifies a correct code and marks the record verified', async () => {

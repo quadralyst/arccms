@@ -62,8 +62,9 @@
  * - puts the app's own redirects (src/custom/site/redirects.json, scripts/arc-redirects.mjs)
  *   first in the Hosting config of that channel deploy, whichever config the project
  *   uses (firebase.<projectId>.json or firebase.json): the live release copies the
- *   channel's config, so they go live with the build. A bad redirects file stops the
- *   deploy before anything is built;
+ *   channel's config, so they go live with the build. The app's own headers
+ *   (src/custom/site/headers.json, scripts/arc-headers.mjs) go in the same way. A bad
+ *   redirects or headers file stops the deploy before anything is built;
  * - for a project marked production (arc:configure --production=yes), needs
  *   --confirm-production=<its project id>, or on a terminal the id typed back;
  *   off a terminal without it, nothing is deployed (productionGuard).
@@ -88,6 +89,7 @@ import {
 import { enabledFeatures } from './arc-features.mjs';
 import { channelDeployArgs, hostingSiteOf, releaseWebsite, withoutHosting } from './arc-hosting-release.mjs';
 import { APP_REDIRECTS, readAppRedirects, writeWebsiteConfig } from './arc-redirects.mjs';
+import { APP_HEADERS, readAppHeaders } from './arc-headers.mjs';
 import {
     DEFAULT_FUNCTIONS_REGION, countArccms, databaseLocation, lookupDatabaseLocation, regionDecision, regionWarning,
 } from './arc-region.mjs';
@@ -631,11 +633,13 @@ export async function runDeploy(allArgs, options = {}) {
     // The website goes its own way, keeping the published pages; the rest through `firebase deploy`.
     const firebaseConfig = generatedConfig ?? readJsonFile(resolve(ROOT, 'firebase.json'));
     const website = deploysWebsite(args) && !!firebaseConfig?.hosting;
-    // The app's redirects, checked before anything is built or deployed.
+    // The app's redirects and headers, checked before anything is built or deployed.
     let redirects = [];
+    let headers = [];
     if (website) {
         try {
             redirects = readAppRedirects(ROOT);
+            headers = readAppHeaders(ROOT, firebaseConfig);
         } catch (error) {
             console.error(`${error.message}\nNothing was deployed.`);
             return { status: 1, created: [] };
@@ -757,7 +761,7 @@ export async function runDeploy(allArgs, options = {}) {
         status = status || 1;
     }
 
-    if (website && status === 0) status = await deployWebsite(projectId, generated ? generatedConfigPath(projectId) : null, firebaseConfig, redirects);
+    if (website && status === 0) status = await deployWebsite(projectId, generated ? generatedConfigPath(projectId) : null, firebaseConfig, redirects, headers);
     else if (website) console.error(websiteSkippedMessage(projectId));
 
     if (status === 0 && projectId && deploysFunctions(args) && args.includes('--probe')) {
@@ -809,12 +813,13 @@ function readJsonFile(path) {
 /**
  * The website, keeping the published pages: the build to the deploy channel,
  * then one live release of the build and the published files. Returns the exit status.
- * With app redirects, the channel deploy uses a copy of the project's config with them
- * first (writeWebsiteConfig), removed once the channel has it.
+ * With app redirects or headers, the channel deploy uses a copy of the project's config
+ * with them in (writeWebsiteConfig), removed once the channel has it.
  */
-async function deployWebsite(projectId, configPath, firebaseConfig, redirects = []) {
-    const websiteConfig = writeWebsiteConfig(projectId, firebaseConfig, redirects, ROOT);
-    if (websiteConfig) console.log(`> ${redirects.length} redirect(s) from ${APP_REDIRECTS}, ahead of Arc CMS's own`);
+async function deployWebsite(projectId, configPath, firebaseConfig, redirects = [], headers = []) {
+    const websiteConfig = writeWebsiteConfig(projectId, firebaseConfig, redirects, ROOT, headers);
+    if (redirects.length) console.log(`> ${redirects.length} redirect(s) from ${APP_REDIRECTS}, ahead of Arc CMS's own`);
+    if (headers.length) console.log(`> ${headers.length} header rule(s) from ${APP_HEADERS}`);
     const used = websiteConfig ?? configPath;
     const channelArgs = channelDeployArgs({ projectId, configPath: used ? relative(process.cwd(), used) || used : null });
     console.log(`> firebase ${channelArgs.join(' ')}`);

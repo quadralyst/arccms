@@ -70,6 +70,11 @@ describe('translateRefusal (specs/sign-in-codes-spec.md, SC-D7)', () => {
         expect(translateRefusal({ reason: 'too-many-codes', retryAfter: 42 * 60 }, en, 'en', now)).toBe('Too many codes. Try again after 5:42 PM.');
     });
 
+    it('names the day when the limit lifts on another day (20 wrong codes a day)', () => {
+        const now = new Date(2026, 9, 8, 17, 0, 0).getTime(); // a Thursday
+        expect(translateRefusal({ reason: 'too-many-codes', retryAfter: 20 * 3600 }, en, 'en', now)).toBe('Too many codes. Try again after Friday 1:00 PM.');
+    });
+
     it('says why a new password was refused, in the page\'s own words (F22)', () => {
         expect(translateRefusal({ reason: 'weak-password', problem: 'common' }, en, 'en')).toBe(english('member.auth.password_error.common'));
         expect(translateRefusal({ reason: 'weak-password', problem: 'personal' }, en, 'en')).toBe(english('member.auth.password_error.personal'));
@@ -156,6 +161,25 @@ describe('SignInService code tickets (review F)', () => {
         await proto['verifySignupCode'].call(c, 'asha@example.com ', '123456');
         await proto['createAccountRecord'].call(c, 'Asha');
         expect(c['call']).toHaveBeenLastCalledWith('createAccountRecord', { name: 'Asha', ticket: 'email-ticket' });
+    });
+});
+
+describe('SignInService PIN while signed in', () => {
+    const proto = SignInService.prototype as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+    const ctx = (reply: unknown) => ({ call: vi.fn(async () => reply), auth: { currentUser: null } });
+
+    it('sends the current PIN with a new one only when there is one', async () => {
+        const c = ctx({ saved: true });
+        await proto['setPin'].call(c, '604175');
+        expect(c.call).toHaveBeenLastCalledWith('setPin', { pin: '604175', deviceKey: deviceKey() });
+        await proto['setPin'].call(c, '604175', '246810');
+        expect(c.call).toHaveBeenLastCalledWith('setPin', { pin: '604175', currentPin: '246810', deviceKey: deviceKey() });
+    });
+
+    it('asks the server whether the account has a PIN', async () => {
+        const c = ctx({ hasPin: true });
+        await expect(proto['hasPin'].call(c)).resolves.toBe(true);
+        expect(c.call).toHaveBeenLastCalledWith('setPin', { status: true });
     });
 });
 

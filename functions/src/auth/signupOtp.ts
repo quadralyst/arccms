@@ -14,6 +14,8 @@ import { newOtpTicket, ticketMatches } from './otpTicket.js';
 import { isWarmUp, WARM } from './warmUp.js';
 import { refuse } from './refusal.js';
 import { codeAskedAgain, codeSealKey, refuseWithinWait, reusableCode, sealCode } from './codeSeal.js';
+import { beforeCodeCheck, countWrongCode } from './codeGuesses.js';
+import { emailForLog } from './logSafe.js';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -103,10 +105,14 @@ export const requestSignupOtp = onCall(async (request) => {
   return sendSignupCode(request, email, { name: requestedName(request.data), language: requestedLanguage(request.data) });
 });
 
+/** The longest name a code email greets; a longer one is cut to it. */
+export const MAX_REQUESTED_NAME = 100;
+
 /** The name a sign-up code email greets, when the page sent one. */
 export function requestedName(data: unknown): string | undefined {
   const name = (data as { name?: unknown } | undefined)?.name;
-  return typeof name === 'string' && name ? name : undefined;
+  const trimmed = typeof name === 'string' ? name.trim().slice(0, MAX_REQUESTED_NAME).trim() : '';
+  return trimmed || undefined;
 }
 
 /**
@@ -259,7 +265,7 @@ export async function issueEmailOtp(
     ...(emailSettings ? { emailSettings: emailSettings as EmailSettings } : {}),
   });
 
-  logger.info(`issueEmailOtp: queued ${purpose} OTP for ${email} (status=${result.status}).`);
+  logger.info(`issueEmailOtp: queued ${purpose} OTP for ${emailForLog(email)} (status=${result.status}).`);
   const sent = result.status === 'pending';
   if (!sent) {
     // Not sent (email off, the address suppressed): the code never went, so asking
@@ -320,6 +326,16 @@ export async function isSimulatedEmail(): Promise<boolean> {
 }
 
 /**
+ * Whether the site asks a new email account for a sign-up code: email is on and an
+ * admin turned on "Require sign-up verification" (Settings, Email). The sign-in page
+ * reads the same switch from `Settings/email_status`; the server reads it here.
+ */
+export async function signupCodeRequired(): Promise<boolean> {
+  const settings = await readEmailSettings();
+  return settings?.['isEnabled'] === true && settings?.['requireSignupVerification'] === true;
+}
+
+/**
  * Callable: verify a signup code (E3). Server-authoritative: checks expiry,
  * the attempt cap and the hashed code, counting tries in a transaction so
  * guesses sent in parallel cannot all read the same count. On success marks
@@ -339,19 +355,28 @@ export const verifySignupOtp = onCall(async (request) => {
   // A link code is for the signed-in account's own record (never a locked app account).
   if (purpose === 'link') await requireOwnRecord(request);
 
-  const ticket = await verifyEmailCode(email, code, purpose, request.auth?.uid);
-  logger.info(`verifySignupOtp: verified ${email}.`);
+  const ticket = await verifyEmailCode(email, code, purpose, request.auth?.uid, request);
+  logger.info(`verifySignupOtp: verified a ${purpose} code.`);
   return { verified: true, ticket };
 });
 
 /**
  * Check an emailed code and mark it verified, counting the try: the ticket the next
  * step needs, or the refusal the page shows. `uid` is the signed-in account, for the
- * purposes whose code is that account's (`link`, `fresh`).
+ * purposes whose code is that account's (`link`, `fresh`). The caller's checks an
+ * hour and the address's wrong codes a day are limited too (codeGuesses.ts).
  */
-export async function verifyEmailCode(email: string, code: string, purpose: EmailOtpPurpose, uid: string | undefined): Promise<string> {
+export async function verifyEmailCode(
+  email: string,
+  code: string,
+  purpose: EmailOtpPurpose,
+  uid: string | undefined,
+  caller: CallableRequest,
+): Promise<string> {
   const emailHash = computeEmailHash(email);
   const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(emailHash);
+  const target = { via: 'email', hash: emailHash } as const;
+  await beforeCodeCheck(target, caller);
   const { ticket, ticketHash } = newOtpTicket();
   const outcome = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
@@ -372,7 +397,10 @@ export async function verifyEmailCode(email: string, code: string, purpose: Emai
   if (outcome === 'missing') throw refuse('not-found', 'code-expired', 'That code has expired. Please ask for a new one.');
   if (outcome === 'expired') throw refuse('deadline-exceeded', 'code-expired', 'That code has expired. Please ask for a new one.');
   if (outcome === 'locked') throw refuse('resource-exhausted', 'code-tries', 'Too many tries. Please ask for a new code.');
-  if (outcome === 'wrong') throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
+  if (outcome === 'wrong') {
+    await countWrongCode(target);
+    throw refuse('invalid-argument', 'code-wrong', "That code didn't work.");
+  }
   return ticket;
 }
 
@@ -388,17 +416,7 @@ function matchesPurpose(data: Record<string, unknown>, purpose: EmailOtpPurpose,
  * A recent verification by someone else, or an old one, proves nothing.
  */
 export async function consumeVerifiedSignupCode(email: string, ticket: unknown): Promise<boolean> {
-  const ref = db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(normalizeEmail(email)));
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.data();
-    if (!snap.exists || !data || data['verified'] !== true || !matchesPurpose(data, 'signup', undefined)) return false;
-    if (!ticketMatches(ticket, data['ticketHash'])) return false;
-    const verifiedAt = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.() ?? 0;
-    if (Date.now() - verifiedAt > EMAIL_VERIFIED_WINDOW_MS) return false;
-    tx.delete(ref);
-    return true;
-  });
+  return verifiedEmailCode(email, 'signup', ticket, true);
 }
 
 /**
@@ -417,7 +435,7 @@ export async function verifiedResetCode(email: string, ticket: unknown, consume:
  */
 export async function verifiedEmailCode(
   email: string,
-  purpose: 'reset' | 'device' | 'pin-reset',
+  purpose: 'signup' | 'reset' | 'device' | 'pin-reset',
   ticket: unknown,
   consume: boolean,
 ): Promise<boolean> {
@@ -432,6 +450,19 @@ export async function verifiedEmailCode(
     if (consume) tx.delete(ref);
     return true;
   });
+}
+
+/**
+ * When this address last passed a sign-up code check (its record verified for
+ * `signup`), in milliseconds, or null when it has no such record. Not a proof for
+ * the caller (that is the ticket): only that this site's own sign-up got that far.
+ */
+export async function signupCodeVerifiedAt(email: string): Promise<number | null> {
+  const snap = await db.collection(SIGNUP_OTP_COLLECTION).doc(computeEmailHash(normalizeEmail(email))).get();
+  const data = snap.exists ? snap.data() : undefined;
+  if (!data || data['verified'] !== true || !matchesPurpose(data, 'signup', undefined)) return null;
+  const at = (data['verifiedAt'] as Timestamp | undefined)?.toMillis?.();
+  return typeof at === 'number' && Number.isFinite(at) ? at : null;
 }
 
 /** Use up a verified link (or fresh) code. Returns false when there is none for this caller. */

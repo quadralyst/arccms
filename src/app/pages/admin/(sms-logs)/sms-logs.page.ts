@@ -44,6 +44,7 @@ import { ISmsLog } from './sms-log.model';
                         <mat-option value="logged">{{ 'admin.settings.sms.status_logged' | transloco }}</mat-option>
                         <mat-option value="sent">{{ 'admin.settings.sms.status_sent' | transloco }}</mat-option>
                         <mat-option value="failed">{{ 'admin.settings.sms.status_failed' | transloco }}</mat-option>
+                        <mat-option value="limited">{{ 'admin.settings.sms.status_limited' | transloco }}</mat-option>
                     </mat-select>
                 </mat-form-field>
             </div>
@@ -120,6 +121,7 @@ export default class SmsLogsComponent implements OnInit {
     private statusLabel(status: string): string {
         if (status === 'logged') return this.t('admin.settings.sms.status_logged');
         if (status === 'sent') return this.t('admin.settings.sms.status_sent');
+        if (status === 'limited') return this.t('admin.settings.sms.status_limited');
         return this.t('admin.settings.sms.status_failed');
     }
 

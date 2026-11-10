@@ -3,14 +3,16 @@ import { logger } from 'firebase-functions/v2';
 import { db, owner } from '../init.js';
 import { getDodoClient } from './dodoClient.js';
 import { resolveTier } from './tiers.js';
+import { loadProductCodes, tierDiscountCode } from './productCodes.js';
 import { ProductDoc, providerProductId } from './types.js';
 
 /**
  * Callable: create a Dodo hosted-checkout session for the authenticated user.
  *
  * Flow: resolve the active pricing tier from the product's confirmed-purchase
- * count, apply that tier's discount code, attach the buyer's identity in
- * metadata, and return the Dodo checkout URL for the client to redirect to.
+ * count, apply that tier's discount code (from the admin-only ProductCodes
+ * document, see productCodes.ts), attach the buyer's identity in metadata, and
+ * return the Dodo checkout URL for the client to redirect to.
  *
  * Note: we read `purchaseCount` for tier selection but do NOT reserve a slot
  * here — the count is only incremented on a confirmed payment. The authoritative
@@ -46,6 +48,7 @@ export const createCheckoutSession = onCall(async (request) => {
   }
 
   const tier = resolveTier(product.tiers, product.purchaseCount ?? 0);
+  const discountCode = tier ? tierDiscountCode(product.tiers, tier, await loadProductCodes(product.id)) : '';
 
   // Resolve the buyer's email from Firebase Auth.
   let email: string | undefined = request.auth.token?.email as string | undefined;
@@ -77,15 +80,15 @@ export const createCheckoutSession = onCall(async (request) => {
         tierRank: String(product.tierRank ?? 0),
         tierLabel: tier?.label ?? '',
         // Snapshot the applied discount code so the webhook can record the locked-in deal.
-        discountCode: tier?.discountCode ?? '',
+        discountCode,
       },
     };
 
     if (settings.cancelUrl) {
       checkoutParams['cancel_url'] = settings.cancelUrl;
     }
-    if (tier?.discountCode) {
-      checkoutParams['discount_codes'] = [tier.discountCode];
+    if (discountCode) {
+      checkoutParams['discount_codes'] = [discountCode];
     }
     if (product.type === 'subscription' && product.trialDays && product.trialDays > 0) {
       checkoutParams['subscription_data'] = { trial_period_days: product.trialDays };

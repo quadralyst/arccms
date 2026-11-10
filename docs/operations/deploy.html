@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Deploy | Arc CMS docs</title>
   <meta name="description" content="Deploy Arc CMS to a Firebase project with npm run deploy: the guided questions, the flags for scripts and CI, deleted functions, the callable check and the static pages.">
-  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-hosting-release.mjs, scripts/arc-redirects.mjs, functions/src/shared/site-files.ts, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-sign-in-setup.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-built-functions.mjs, scripts/arc-callables.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, firebase.json, package.json">
+  <meta name="docs:sources" content="scripts/arc-deploy.mjs, scripts/arc-hosting-release.mjs, scripts/arc-redirects.mjs, scripts/arc-headers.mjs, functions/src/shared/site-files.ts, scripts/arc-region.mjs, scripts/arc-deploy-menu.mjs, scripts/arc-deploy-state.mjs, scripts/arc-sign-in-setup.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-built-functions.mjs, scripts/arc-callables.mjs, scripts/arc-rules-build.mjs, functions/scripts/check-callable-access.sh, functions/scripts/call-seed.cjs, functions/src/pages/seedStaticPages.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/publishQueue/onSiteSettingsWritten.ts, firebase.json, package.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/deploy.html">
@@ -148,6 +148,32 @@ npm run arc:configure -- --project=default --artifact-cleanup-days=none</code></
     </ul>
     <pre><code>npm run deploy -- --only functions:arccms --project default --yes</code></pre>
     <p>A deleted function's URL stops working, for example a payment webhook registered with the payment provider or a link in an email already sent.</p>
+
+    <h2 id="security-headers">Security headers</h2>
+    <p>Hosting sends these headers on every address, from the first rule under <code>headers</code> in <code>firebase.json</code>. Firebase's own addresses under <code>/__/</code> are left out (the app's <code>/__shell.html</code> still gets them): the sign-in helper there is shown in a frame by the site, from the project's auth domain, which can be another origin. Each deploy rebuilds a project's <code>firebase.&lt;projectId&gt;.json</code> from <code>firebase.json</code>, so they reach every project.</p>
+    <table>
+      <thead><tr><th>Header</th><th>Value</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>X-Frame-Options</code></td><td><code>SAMEORIGIN</code></td><td>Only the site's own pages can show it in a frame</td></tr>
+        <tr><td><code>X-Content-Type-Options</code></td><td><code>nosniff</code></td><td>A browser takes each file as the type Hosting says</td></tr>
+        <tr><td><code>Referrer-Policy</code></td><td><code>strict-origin-when-cross-origin</code></td><td>Other sites see only the site's address, never the page's</td></tr>
+        <tr><td><code>Strict-Transport-Security</code></td><td><code>max-age=31536000</code></td><td>Browsers use HTTPS for a year. Not for subdomains and not preloaded, since the site runs on its owner's domain</td></tr>
+        <tr><td><code>Permissions-Policy</code></td><td><code>camera=(), microphone=(self), geolocation=(), payment=()</code></td><td>Turns off the camera, location and in-page payments, which Arc CMS never uses. The microphone stays on for the site itself: voice feedback records with it</td></tr>
+        <tr><td><code>Content-Security-Policy-Report-Only</code></td><td>Arc CMS's own sources</td><td>Lists what the pages may load: the site itself, Firebase and Google, Google Analytics, sign-in with Google, YouTube and OpenStreetMap frames, and the stylesheet CDNs that published pages link by default (see <a href="../website/templates.html">Design templates</a>). Report-only: a browser blocks nothing and writes what falls outside it in the console. No reporting address is set. <code>frame-ancestors 'self'</code> matches the frame protection above</td></tr>
+      </tbody>
+    </table>
+    <p>Font files also get <code>Access-Control-Allow-Origin: *</code>, so a sandboxed preview frame, such as the editor's version preview, can load the site's fonts.</p>
+    <p>Before you launch, open the site's main pages with the browser's console open and look for Content-Security-Policy messages: each names something a page loads that the policy does not list. A later release enforces the policy.</p>
+
+    <h3 id="app-headers">Your app's own headers</h3>
+    <p><code>firebase.json</code> is a core file. To change one of these headers, or add one, list it in <code class="new">src/custom/site/headers.json</code>, in Hosting's own header format. A header in a <code>**</code> rule goes into Arc CMS's rule for every address, replacing Arc CMS's value; any other rule is added after Arc CMS's own. For example, an app with a page that scans with the camera turns it back on for the site itself:</p>
+    <pre><code>[
+  { "source": "**", "headers": [
+    { "key": "Permissions-Policy", "value": "camera=(self), microphone=(self), geolocation=(), payment=()" }
+  ] },
+  { "source": "/kiosk/**", "headers": [{ "key": "Cache-Control", "value": "no-store" }] }
+]</code></pre>
+    <p>A value replaces Arc CMS's whole value, so copy it and change what you need: to load a script from another host, copy the <code>Content-Security-Policy-Report-Only</code> value from <code>firebase.json</code> and add the host. A header Arc CMS sends on every address can be changed only in a <code>**</code> rule, so one value is ever in force. <code>npm run dev</code>, <code>npm run build</code> and the website deploy check the file and stop on a mistake, naming it; each website deploy puts the headers in the Hosting config it uploads, as it does <a href="../website/redirects.html">your redirects</a>. The file is not served. No file: Arc CMS's headers only.</p>
 
     <h2>When the order matters</h2>
     <p>"Everything", <code>deploy:dev</code> and <code>deploy:prod</code> run one <code>firebase deploy</code>, and the Firebase CLI decides the order of the parts. That is fine for most changes. When a change tightens a security rule so that the browser must go through a new function, or stops the browser reading something older website code still reads, deploy in steps instead, so nothing is refused in between:</p>

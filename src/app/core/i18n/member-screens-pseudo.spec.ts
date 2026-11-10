@@ -21,6 +21,7 @@ import { SignInService } from '../../pages/(auth)/sign-in.service';
 import { AuthState } from '../../pages/(auth)/auth.store';
 import { ToastService } from '../../../shared/services/toast.service';
 import { UserSettingService } from '../../pages/admin/(settings)/user-setting/user-setting.service';
+import { FreshCodeService } from '../sign-in/fresh-code.service';
 import { UserShellComponent } from '../../pages/user/user-shell.component';
 import { EntitlementService } from '../../pages/user/entitlement.service';
 import { SiteIdentityService } from '../services/site-identity.service';
@@ -90,6 +91,8 @@ describe('member screens in a pseudo language', () => {
             { provide: AuthState, useValue: { currentUser: signal({ email: '', phone: '', emailVerified: false }) } },
             { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn() } },
             { provide: UserSettingService, useValue: { getSettings: () => of({ googleSignIn: true, phoneSignIn: true }) } },
+            // Linking a new email or number to an account with a way in asks for a fresh code first.
+            { provide: FreshCodeService, useValue: { confirm: vi.fn().mockResolvedValue('proof') } },
         ];
 
         it('with nothing added yet', async () => {

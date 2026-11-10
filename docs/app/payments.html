@@ -42,6 +42,8 @@ async buy(productId: string) {
     window.location.href = data.checkoutUrl;
 }</code></pre>
     <div class="trap"><p>Checkout needs an email address on the sign-in account, and it reads it from Firebase Auth, not from the <code>users</code> record. Someone who signed up with a phone number has none, and <code>createCheckoutSession</code> refuses with "Your account has no email address." Offer phone-only people another way to buy, or ask them to add an email under Profile.</p></div>
+    <div class="trap"><p>To show products on a page of your own, read <code>Products</code> with <code>where('active', '==', true)</code>, as <code>ProductsService.listActive()</code> does. Visitors and members may read only active products, so a list without that filter is refused. Tier discount codes are not on the product: they stay in the admin-only <code>ProductCodes</code>, and checkout applies them on the server.</p></div>
+    <p>Only a payment for the product's own Dodo product grants anything. The webhook compares the product Dodo says was paid for with the Dodo product id on the Products document the checkout named; when they differ, the payment is recorded and nothing is granted.</p>
 
     <h2>Lock a feature in your app</h2>
     <table>

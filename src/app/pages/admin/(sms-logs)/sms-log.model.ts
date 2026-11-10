@@ -8,7 +8,8 @@ export interface ISmsLog extends IBaseModel {
     provider: 'log' | 'msg91' | string;
     /** The full text for the Test provider; the code is blanked for a real one. */
     text: string;
-    status: 'logged' | 'sent' | 'failed';
+    /** `limited`: not sent, the site's daily limit of texts was reached (Settings, SMS). */
+    status: 'logged' | 'sent' | 'failed' | 'limited';
     error?: string;
     providerMessageId?: string;
 }

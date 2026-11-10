@@ -1,5 +1,4 @@
 import { parseHexColor } from '../../../../../shared/utils/color';
-import { PreviewLinksDirective } from '../../../../../shared/directives/preview-links/preview-links.directive';
 import { hasReplacePrompt } from '../standard-pages/standard-pages';
 import { nextUrlSlug, toUrlSlug } from '../../../../../shared/utils/url-slug';
 import { authorCanonicalUrl } from '../../../../../shared/utils/canonical-url';
@@ -9,7 +8,6 @@ import { ImageSize } from '../../../../../shared/utils/image-sizes';
 import { inject, computed, Component, ChangeDetectorRef, effect, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { SafeHtml } from '@angular/platform-browser';
 import { CommonModule, formatDate } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { IDraftContents, INextContentReference } from '../draft-content-store/draft-contents.model';
@@ -140,7 +138,6 @@ const COVER_IMAGE_SIZE: ImageSize = 'xl';
     FormsModule,
     ReactiveFormsModule,
     TiptapEditorComponent,
-    PreviewLinksDirective,
     VersionHistoryComponent,
     TranslocoPipe,
     FieldRepeaterComponent,
@@ -3068,11 +3065,6 @@ export class CreateContentComponent extends BaseComponent {
   /** Close the version preview and return to the editor */
   closeVersionPreview(): void {
     this.previewingVersion.set(null);
-  }
-
-  /** Get sanitized HTML for version preview */
-  getPreviewSafeHtml(content: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(content || '');
   }
 
   /** Format a Firestore timestamp or Date for display */

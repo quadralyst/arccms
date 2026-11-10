@@ -4,6 +4,7 @@ import { db } from '../init.js';
 import type { EmailSettings } from '../types.js';
 import { queueEmail } from './queueEmail.js';
 import { isArcAdmin } from '../users/claims.js';
+import { emailForLog } from '../auth/logSafe.js';
 
 /**
  * Admin callable: send a test email of composed content (Phase 4 "Send test").
@@ -42,6 +43,6 @@ export const sendTestEmail = onCall(async (request) => {
     emailSettings: settings,
   });
 
-  logger.info(`sendTestEmail: queued test to ${toEmail} (status=${result.status}).`);
+  logger.info(`sendTestEmail: queued test to ${emailForLog(toEmail)} (status=${result.status}).`);
   return { status: result.status };
 });

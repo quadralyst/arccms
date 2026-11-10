@@ -2,6 +2,13 @@ import { IBaseModel } from '../../../../shared/models/base-model';
 
 export const PRODUCTS_COLLECTION = 'Products';
 
+/**
+ * Each product's tier discount codes, admin only: `discountCodes[i]` belongs to
+ * `tiers[i]`. Products are public (the pricing page reads them), so the codes are
+ * kept here instead (functions/src/dodo-payments/productCodes.ts reads them at checkout).
+ */
+export const PRODUCT_CODES_COLLECTION = 'ProductCodes';
+
 /** Payment gateways the schema is prepared for. Only 'dodo' is active today. */
 export type PaymentProvider = 'dodo' | 'stripe' | 'razorpay';
 
@@ -10,8 +17,12 @@ export interface IPricingTier {
     label: string;
     /** Cumulative confirmed-purchase threshold. 0 or empty = "everyone else" (unbounded). */
     maxCount: number;
-    /** Dodo discount code applied for this tier ('' = full price). */
-    discountCode: string;
+    /**
+     * Legacy: the tier's Dodo discount code, from before the codes moved to
+     * ProductCodes. The moveProductCodes function moves one it finds when an admin
+     * opens the admin; the Products page never writes it.
+     */
+    discountCode?: string;
     /** Display-only percentage. */
     discountPct: number;
     /** Display-only effective price for this tier (major units), e.g. 15 for $15/mo. */
@@ -43,4 +54,9 @@ export interface IProduct extends IBaseModel {
     tiers: IPricingTier[];
     /** Confirmed-purchase counter (incremented by Cloud Functions). */
     purchaseCount: number;
+}
+
+/** A product's tiers as saved on the public product: without their discount codes. */
+export function tiersWithoutCodes(tiers: IPricingTier[]): IPricingTier[] {
+    return tiers.map(({ discountCode: _code, ...tier }) => tier);
 }

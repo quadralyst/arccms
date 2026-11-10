@@ -9,6 +9,14 @@
  * shown to admins under Users, Detached, never deleted. Otherwise its owner
  * is told. Every move is recorded in `account_transfers`.
  *
+ * An account that already has a way in (a PIN, a password, an email or a number)
+ * needs a fresh code first (docs/app/fresh-code.html, purposes `link-email` and
+ * `link-phone`), sent to its own address or number: a session alone must not be
+ * able to put in a number or address of its choosing and then reset the PIN or
+ * password through it. When an email or number replaces another, the person is
+ * told on the old one (an email to the old address; for a number, an email to the
+ * account's address and a notification, since a text needs a registered template).
+ *
  *   checkIdentifierForLink  is this email or number free, mine, or on another account?
  *   requestEmailLinkOtp     email a code to the new address
  *   linkEmail               after the code: the address moves to this account
@@ -49,6 +57,11 @@ import {
 import { refuse, refuseWeakPassword } from './refusal.js';
 import { minPasswordLength } from '../shared/password-rule.js';
 import { signInStrength } from '../sign-in-choice.js';
+import { emailForLog } from './logSafe.js';
+import { maskEmail, useFreshCodeProof } from './freshCode.js';
+import { isBlank } from '../shared/blank.js';
+import { queueEmail } from '../email-core/queueEmail.js';
+import { readEmailBrand, wrapInEmailLayout } from '../email-core/emailLayout.js';
 
 const HOUR = 60 * 60 * 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -88,6 +101,52 @@ export function releasedEmail(uid: string): string {
 async function passwordIsSet(uid: string): Promise<boolean> {
     const account = await owner.getUser(uid);
     return account.providerData.some((p) => p.providerId === 'password');
+}
+
+/** The fresh code purposes linkEmail and linkPhone take a proof for. */
+export const LINK_FRESH_PURPOSE = { email: 'link-email', phone: 'link-phone' } as const;
+
+/** Whether the account has a way in already: then adding or changing one needs a fresh code. */
+export async function linkNeedsFreshCode(data: Record<string, unknown>, uid: string): Promise<boolean> {
+    if (!isBlank(data['email']) || !isBlank(data['phone'])) return true;
+    const [pin, password] = await Promise.all([hasPin(uid), passwordIsSet(uid)]);
+    return pin || password;
+}
+
+/** Refuse (`fresh-code-required`) unless the request carries a fresh-code proof for this kind, when one is needed. */
+async function requireLinkProof(request: Parameters<typeof useFreshCodeProof>[0] & { data?: Record<string, unknown> }, me: UserRecord, uid: string, kind: LinkKind): Promise<void> {
+    if (!(await linkNeedsFreshCode(me.data, uid))) return;
+    await useFreshCodeProof(request, request.data?.['freshProof'], LINK_FRESH_PURPOSE[kind]);
+}
+
+/**
+ * Tell the person their email or number was replaced, on the old one where that can be
+ * reached. Best effort: the change already happened.
+ */
+async function tellReplaced(kind: LinkKind, me: UserRecord, oldValue: string, newValue: string): Promise<void> {
+    const label = kind === 'email' ? 'email address' : 'phone number';
+    const shown = kind === 'email' ? maskEmail(newValue) : maskPhone(newValue);
+    const text = `The ${label} on your account was changed to ${shown}. If this wasn't you, contact us at once.`;
+    const to = kind === 'email' ? oldValue : String(me.data['email'] ?? '').trim().toLowerCase();
+    const sends: Promise<unknown>[] = [createNotification({
+        userId: String(me.data['uid'] ?? ''), type: 'account_security', title: `Your ${label} was changed`, body: text,
+    })];
+    if (!isBlank(to) && to.includes('@')) {
+        sends.push((async () => queueEmail({
+            source: 'auth',
+            category: 'transactional',
+            toEmail: to,
+            toName: String(me.data['name'] ?? '') || undefined,
+            senderEmail: '',
+            senderName: '',
+            subject: `Your ${label} was changed`,
+            template: wrapInEmailLayout(`<p>${text}</p>`, await readEmailBrand()),
+            text,
+            type: kind === 'email' ? 'email_changed_email' : 'phone_changed_email',
+        }))());
+    }
+    const results = await Promise.allSettled(sends);
+    for (const r of results) if (r.status === 'rejected') logger.error(`link${kind === 'email' ? 'Email' : 'Phone'}: could not tell the old ${label}`, r.reason);
 }
 
 /** Record the move and tell whoever needs to know. Best effort: the move itself already happened. */
@@ -188,9 +247,11 @@ export const linkPhone = onCall(async (request) => {
     if (needsPin && !isValidPin(pin)) {
         throw new HttpsError('failed-precondition', 'Choose a 6-digit PIN.', { reason: 'pin-required' });
     }
-    if (isValidPin(pin) && pinTooEasy(pin)) {
+    if (needsPin && pinTooEasy(pin)) {
         throw new HttpsError('invalid-argument', 'That PIN is too easy to guess. Avoid repeated digits and runs like 123456.', { reason: 'weak-pin' });
     }
+    // Before the number's code is used up, so a page that still needs the fresh code keeps it.
+    await requireLinkProof(request, me, uid, 'phone');
     if (!(await consumeVerifiedPhoneOtp(phone, 'link', { uid }))) {
         throw refuse('failed-precondition', 'code-expired', 'Please verify the number again.');
     }
@@ -217,13 +278,15 @@ export const linkPhone = onCall(async (request) => {
         return holder;
     });
 
-    if (isValidPin(pin)) await setPin(uid, pin);
+    // Only a first PIN: changing one the account has needs the old one (setPin.ts).
+    if (needsPin) await setPin(uid, pin as string);
     if (from) {
         // The PIN belonged to the number: without it the old account has no phone sign-in.
         await db.collection(AUTH_PINS).doc(String(from.data['uid'])).delete().catch(() => undefined);
         await afterMove('phone', maskPhone(phone), from, me);
         logger.info(`linkPhone: ${maskPhone(phone)} moved from ${from.ref.id} to ${me.ref.id}.`);
     }
+    if (!isBlank(oldPhone) && oldPhone !== phone) await tellReplaced('phone', me, oldPhone, phone);
     return { linked: true, moved: !!from };
 });
 
@@ -256,6 +319,8 @@ export const linkEmail = onCall(async (request) => {
         throw refuse('failed-precondition', 'email-not-movable', "This email is used by a sign-in that can't be moved here.");
     }
 
+    // Before the address's code is used up, so a page that still needs the fresh code keeps it.
+    await requireLinkProof(request, me, uid, 'email');
     if (!(await consumeVerifiedEmailLinkOtp(email, uid))) {
         throw refuse('failed-precondition', 'code-expired', 'Please verify the email again.');
     }
@@ -298,7 +363,8 @@ export const linkEmail = onCall(async (request) => {
 
     if (from) {
         await afterMove('email', email, from, me);
-        logger.info(`linkEmail: ${email} moved from ${from.ref.id} to ${me.ref.id}.`);
+        logger.info(`linkEmail: ${emailForLog(email)} moved from ${from.ref.id} to ${me.ref.id}.`);
     }
+    if (!isBlank(oldEmail) && oldEmail !== email) await tellReplaced('email', me, oldEmail, email);
     return { linked: true, moved: !!from };
 });

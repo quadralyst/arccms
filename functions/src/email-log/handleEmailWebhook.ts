@@ -4,6 +4,7 @@ import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { emitEmailOutcome } from '../email-core/appEmailOutcome.js';
+import { emailForLog } from '../auth/logSafe.js';
 
 interface EmailWebhookPayload {
   eventType?: string;
@@ -124,7 +125,7 @@ export const handleEmailWebhook = onRequest(async (request, response) => {
     // AWS SES names events in capitals (Bounce, Delivery, Complaint).
     eventType = eventType.toLowerCase();
 
-    logger.info(`Processing webhook - eventType: ${eventType}, messageId: ${messageId}, recipient: ${recipientEmail}`);
+    logger.info(`Processing webhook - eventType: ${eventType}, messageId: ${messageId}, recipient: ${emailForLog(recipientEmail)}`);
 
     // Find email log by messageId first
     let emailLogDoc;
@@ -177,7 +178,7 @@ export const handleEmailWebhook = onRequest(async (request, response) => {
     }
 
     if (!emailLogDoc) {
-      logger.warn(`No EmailLog found for messageId: ${messageId} or recipient: ${recipientEmail}`);
+      logger.warn(`No EmailLog found for messageId: ${messageId} or recipient: ${emailForLog(recipientEmail)}`);
       response.status(200).send('Email log not found');
       return;
     }

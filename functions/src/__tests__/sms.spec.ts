@@ -12,9 +12,12 @@ vi.mock('firebase-admin/firestore', async () => {
     return { Timestamp: FakeTimestamp, FieldValue: { delete: () => ({ _delete: true }) } };
 });
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
+const notifyAdmins = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock('../email-core/adminAlerts', () => ({ notifyAdmins }));
 
 import { db } from '../init.js';
 import { resolveSmsSettings, DEFAULT_SMS_SETTINGS } from '../sms/smsSettings.js';
+import { countDailySms, siteDate, SMS_DAILY } from '../sms/smsDailyLimit.js';
 import { buildMsg91OtpRequest } from '../sms/providers.js';
 import { loggedText, sendSms } from '../sms/sendSms.js';
 import type { MemoryFirestore } from './helpers/memoryFirestore.js';
@@ -46,6 +49,62 @@ describe('showResetCodes', () => {
         expect(resolveSmsSettings(undefined).showResetCodes).toBe(false);
         expect(resolveSmsSettings({ showResetCodes: 'yes' }).showResetCodes).toBe(false);
         expect(resolveSmsSettings({ showResetCodes: true }).showResetCodes).toBe(true);
+    });
+});
+
+describe('dailyLimit', () => {
+    it('is 300 a day unless an admin saved a whole number from 1 up', () => {
+        expect(resolveSmsSettings(undefined).dailyLimit).toBe(300);
+        expect(resolveSmsSettings({ dailyLimit: 50 }).dailyLimit).toBe(50);
+        expect(resolveSmsSettings({ dailyLimit: '75' }).dailyLimit).toBe(75);
+        for (const bad of [0, -5, 2.5, 'lots', null, 1e9]) expect(resolveSmsSettings({ dailyLimit: bad }).dailyLimit).toBe(300);
+    });
+});
+
+describe('the daily limit on texts', () => {
+    const msg91 = { ...DEFAULT_SMS_SETTINGS, provider: 'msg91' as const, msg91AuthKey: 'KEY', msg91OtpTemplateId: 'TPL', dailyLimit: 2 };
+    const text = { to: '+919876543210', purpose: 'otp' as const, code: '123456', text: '123456 is your code' };
+    const fetchMock = vi.fn();
+
+    beforeEach(() => {
+        mem.store.clear();
+        notifyAdmins.mockClear();
+        fetchMock.mockReset().mockResolvedValue({ ok: true, json: async () => ({ type: 'success', request_id: 'r1' }), text: async () => '' });
+        vi.stubGlobal('fetch', fetchMock);
+    });
+
+    it('a day is the site\'s, in its time zone', () => {
+        const at = new Date(Date.UTC(2026, 10, 10, 20, 0));
+        expect(siteDate(at, 'UTC')).toBe('2026-11-10');
+        expect(siteDate(at, 'Asia/Kolkata')).toBe('2026-11-11');
+    });
+
+    it('sends up to the limit, then logs the rest as limited, sends nothing and tells the admins once', async () => {
+        expect((await sendSms(text, msg91)).status).toBe('sent');
+        expect((await sendSms(text, msg91)).status).toBe('sent');
+        const third = await sendSms(text, msg91);
+        expect(third.status).toBe('limited');
+        await sendSms(text, msg91);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(notifyAdmins).toHaveBeenCalledTimes(1);
+        expect(notifyAdmins).toHaveBeenCalledWith('admin_sms_limit', expect.objectContaining({ link: '/admin/settings/sms' }));
+        const logs = mem.all('SmsLogs').map((l) => l.data['status']);
+        expect(logs).toEqual(['sent', 'sent', 'limited', 'limited']);
+        const [day] = mem.all(SMS_DAILY);
+        expect(day.data).toMatchObject({ count: 2, alerted: true });
+    });
+
+    it('gives back a text the provider refused, and never counts the Test provider', async () => {
+        fetchMock.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({ type: 'error', message: 'down' }), text: async () => 'down' });
+        expect((await sendSms(text, msg91)).status).toBe('failed');
+        await sendSms(text, { ...DEFAULT_SMS_SETTINGS, dailyLimit: 1 });
+        expect(Number(mem.all(SMS_DAILY)[0]?.data['count'] ?? 0)).toBe(0);
+    });
+
+    it('counts in one document a day, in a transaction', async () => {
+        await expect(countDailySms(1)).resolves.toMatchObject({ ok: true });
+        await expect(countDailySms(1)).resolves.toEqual({ ok: false });
+        expect(mem.all(SMS_DAILY)).toHaveLength(1);
     });
 });
 

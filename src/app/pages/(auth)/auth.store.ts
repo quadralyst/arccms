@@ -27,6 +27,9 @@ import { BLOCKED_KEY, FALLBACK_KEY, NO_ACCESS_KEY, UNFINISHED_SIGNUP_KEY, fireba
 export const NO_ACCESS_CODE = 'arccms/no-access';
 /** Signed in with a valid password, but an admin blocked the account. */
 export const BLOCKED_CODE = 'arccms/blocked';
+/** A sign-up that never finished, removed by the server: sign up again (createAccountRecord). */
+export const SIGNUP_AGAIN_CODE = 'signup-again';
+export const SIGNUP_AGAIN_KEY = 'member.auth.server_error.signup_again';
 // The messages, as translation keys (auth-messages.ts, specs/app-member-language-spec.md).
 export { BLOCKED_KEY, NO_ACCESS_KEY, UNFINISHED_SIGNUP_KEY } from './auth-messages';
 
@@ -203,13 +206,19 @@ export const AuthState = signalStore(
                                             // the login is older than a day (another app's user, most
                                             // likely), and then this is no access.
                                             const name = String((res as { displayName?: string }).displayName || form.email.split('@')[0]).trim();
+                                            // When the page was reloaded mid sign-up (its code's ticket is gone), the
+                                            // server removes that unfinished sign-in instead (`signup-again`): the
+                                            // person is told to sign up again, which now works.
                                             return from(createRecordWithRetry(() => signIn().createAccountRecord(name.length >= 2 ? name : say('user.member'), { finish: true }))).pipe(
-                                                switchMap((result) => (result.outcome === 'ok'
-                                                    ? from(this.refreshCurrentUser()).pipe(map(() => res))
-                                                    : authService.logout().pipe(
-                                                        tap(() => patchState(store, { error: say(NO_ACCESS_KEY), errorCode: NO_ACCESS_CODE, isSuccess: false })),
+                                                switchMap((result) => {
+                                                    if (result.outcome === 'ok') return from(this.refreshCurrentUser()).pipe(map(() => res));
+                                                    const again = result.outcome === 'refused' && readSignInError(result.error).reason === SIGNUP_AGAIN_CODE;
+                                                    const [error, errorCode] = again ? [say(SIGNUP_AGAIN_KEY), SIGNUP_AGAIN_CODE] : [say(NO_ACCESS_KEY), NO_ACCESS_CODE];
+                                                    return authService.logout().pipe(
+                                                        tap(() => patchState(store, { error, errorCode, isSuccess: false })),
                                                         map(() => null),
-                                                    ))),
+                                                    );
+                                                }),
                                             );
                                         }
                                         const [error, errorCode] = [say(BLOCKED_KEY), BLOCKED_CODE];

@@ -1,11 +1,11 @@
 /**
- * Regression tests — every callable function that handles sensitive
- * operations MUST reject unauthenticated callers.
+ * Regression tests: the connection test callables and the Unsplash search are
+ * for admins only, not for any signed-in account.
  *
  * Two layers of protection:
- *   1. Source-code analysis: the auth guard pattern MUST be present in source.
- *   2. Behavioural tests: importing the handler and calling it without
- *      `request.auth` MUST throw an HttpsError('unauthenticated').
+ *   1. Source-code analysis: each calls requireAdmin(request) first.
+ *   2. Behavioural tests: no auth answers 'unauthenticated', a signed-in account
+ *      that is not an admin answers 'permission-denied'.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fileURLToPath } from 'node:url';
@@ -108,10 +108,14 @@ describe('Callable function authentication — source analysis', () => {
       name: 'testAnalyticsConnection',
       path: '../AnalyticsDashboard/testAnalyticsConnection.ts',
     },
+    {
+      name: 'searchUnsplash',
+      path: '../integrations/searchUnsplash.ts',
+    },
   ];
 
   for (const { name, path } of callableSources) {
-    it(`${name} should check request.auth before processing`, async () => {
+    it(`${name} should check for an admin before processing`, async () => {
       const fs = await import('fs');
       const pathModule = await import('path');
       const src = fs.readFileSync(
@@ -119,13 +123,17 @@ describe('Callable function authentication — source analysis', () => {
         'utf-8',
       );
 
-      // The auth guard MUST appear before any business logic
-      expect(src).toContain('request.auth');
-      expect(src).toContain("'unauthenticated'");
-      expect(src).toContain('HttpsError');
+      // The admin guard MUST appear before any business logic
+      expect(src).toContain("import { requireAdmin } from '../search/auth.js'");
+      expect(src).toContain('await requireAdmin(request);');
+      const body = src.slice(src.indexOf('async (request'));
+      expect(body.indexOf('await requireAdmin(request);')).toBeGreaterThan(-1);
+      // Nothing reads the request's data or settings before the check.
+      const firstWork = Math.min(...['request.data', 'try {'].map((m) => body.indexOf(m)).filter((i) => i >= 0));
+      expect(body.indexOf('await requireAdmin(request);')).toBeLessThan(firstWork);
     });
 
-    it(`${name} should import HttpsError`, async () => {
+    it(`${name} should use the v2 callable API`, async () => {
       const fs = await import('fs');
       const pathModule = await import('path');
       const src = fs.readFileSync(
@@ -133,7 +141,6 @@ describe('Callable function authentication — source analysis', () => {
         'utf-8',
       );
 
-      expect(src).toContain('HttpsError');
       expect(src).toContain("firebase-functions/v2/https");
     });
   }
@@ -226,5 +233,25 @@ describe('Callable function authentication — behavioural', () => {
         data: {},
       }),
     ).rejects.toThrow('Authentication required.');
+  });
+
+  const member = { uid: 'member-1', token: { arccms_role: 'user' } };
+  const nonAdminCases: Array<[string, () => Promise<any>, any]> = [
+    ['testSmtpConfigConnection', async () => (await import('../mail-config/testSmtpConfigConnection.js')).testSmtpConfigConnection, { config: {}, activeProvider: 'smtp' }],
+    ['testProviderConnection', async () => (await import('../mail-config/testProviderConnection.js')).testProviderConnection, { activeProvider: 'smtp', config: {} }],
+    ['testAnalyticsConnection', async () => (await import('../AnalyticsDashboard/testAnalyticsConnection.js')).testAnalyticsConnection, {}],
+    ['searchUnsplash', async () => (await import('../integrations/searchUnsplash.js')).searchUnsplash, { query: 'sea', page: 1 }],
+  ];
+  for (const [name, load, data] of nonAdminCases) {
+    it(`${name} refuses a signed-in account that is not an admin`, async () => {
+      const handler = (await load()) as any;
+      await expect(handler({ auth: member, data })).rejects.toMatchObject({ code: 'permission-denied' });
+    });
+  }
+
+  it('searchUnsplash refuses an unauthenticated call', async () => {
+    const { searchUnsplash } = await import('../integrations/searchUnsplash.js');
+    await expect((searchUnsplash as any)({ auth: null, data: { query: 'sea', page: 1 } }))
+      .rejects.toMatchObject({ code: 'unauthenticated' });
   });
 });

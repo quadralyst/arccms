@@ -130,6 +130,7 @@ describe('Arc CMS\'s own deletions never set it off', () => {
             .sort();
         expect(callers).toEqual([
             'app-kit/accounts.ts', // createAppAccount: the record could not be written
+            'auth/emailAccount.ts', // createAccountRecord: a sign-up that never got its record (removeUnfinishedSignup)
             'auth/emailPin.ts', // completeEmailSignup: the record could not be written
             'auth/phoneAuth.ts', // completePhoneSignup: the record could not be written
             'users/adminCreateUser.ts', // adminCreateUser: the record could not be written

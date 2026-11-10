@@ -60,6 +60,14 @@ describe('MessagesInboxPage', () => {
         expect(service.remove).toHaveBeenCalledWith(ITEM);
     });
 
+    it('links the page it was sent from only when that is a path on this site', () => {
+        expect(root().querySelector('.msg-page a')!.getAttribute('href')).toBe('/info/contact');
+        items.set([{ ...ITEM, page: '//evil.example/login' }]);
+        fixture.detectChanges();
+        expect(root().querySelector('.msg-page a')).toBeNull();
+        expect(root().querySelector('[data-testid="page-text"]')!.textContent).toBe('//evil.example/login');
+    });
+
     it('says when there is nothing new', () => {
         items.set([]);
         fixture.detectChanges();

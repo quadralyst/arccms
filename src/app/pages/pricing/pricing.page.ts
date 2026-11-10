@@ -368,10 +368,11 @@ export default class PricingPageComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit(): void {
-        this.productsService.getAll({ limitCount: 100, currentPageNumber: 0, previousPageNumber: 0 }).subscribe({
+        // Only active products are public (firestore.rules), so ask for those alone:
+        // a list of every product is refused for a visitor.
+        this.productsService.listActive().subscribe({
             next: (result) => {
-                
-                this.products.set((result.collectionData ?? []).filter((p) => p.active));
+                this.products.set(result.collectionData ?? []);
                 this.isLoading.set(false);
                 this.applyStructuredData();
             },

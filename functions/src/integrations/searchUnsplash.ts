@@ -1,5 +1,9 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { db } from '../init.js';
+import { requireAdmin } from '../search/auth.js';
+
+/** The highest results page a search may ask for. */
+export const MAX_UNSPLASH_PAGE = 100;
 
 /**
  * Callable Cloud Function: searchUnsplash
@@ -11,13 +15,10 @@ import { db } from '../init.js';
  *   - Warmup ping:  { warmup: true }
  *   - Search:       { query: string, page: number }
  *
- * Requires: authenticated user (any role).
+ * Requires: an admin (the media library is an admin page).
  */
 export const searchUnsplash = onCall(async (request) => {
-    // Require authentication
-    if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'You must be signed in to search images.');
-    }
+    await requireAdmin(request);
 
     // Warmup ping — return immediately to pre-warm the cold start
     if (request.data?.warmup === true) {
@@ -28,6 +29,9 @@ export const searchUnsplash = onCall(async (request) => {
 
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
         throw new HttpsError('invalid-argument', 'A non-empty query string is required.');
+    }
+    if (!Number.isInteger(page) || page < 1 || page > MAX_UNSPLASH_PAGE) {
+        throw new HttpsError('invalid-argument', `page must be a whole number from 1 to ${MAX_UNSPLASH_PAGE}.`);
     }
 
     // Read Unsplash credentials from Firestore Settings/integrations
@@ -66,8 +70,9 @@ export const searchUnsplash = onCall(async (request) => {
         pagination: {
             pageIndex: page,
             pageSize: 20,
-            totalItems: result.total,
-            totalPages: Math.ceil(result.total / 20),
+            // Never more pages than a search may ask for: the page's pager counts from these.
+            totalItems: Math.min(result.total, MAX_UNSPLASH_PAGE * 20),
+            totalPages: Math.min(MAX_UNSPLASH_PAGE, Math.ceil(result.total / 20)),
         },
         status: 200,
     };

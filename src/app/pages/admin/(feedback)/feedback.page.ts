@@ -12,6 +12,7 @@ import { PageHeaderComponent } from '../../../../shared/components/page-header/p
 import { injectT } from '../../../core/i18n/inject-t';
 import { describeBrowser, FeedbackAdminService, type FeedbackFilter, type FeedbackItem } from './feedback-admin.service';
 import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
+import { isSitePath } from '../../../../shared/utils/site-path';
 
 @Component({
     selector: 'arc-feedback-inbox',
@@ -74,8 +75,13 @@ import { LoaderComponent } from '../../../../shared/components/loader/loader.com
                                 <audio controls preload="none" [src]="item.voiceUrl"></audio>
                             }
                             <div class="fb-context text-muted">
-                                @if (item.page?.path) {
-                                    <span><i class="fa-solid fa-link"></i> <a [href]="item.page?.path" target="_blank" rel="noopener">{{ item.page?.path }}</a></span>
+                                @if (item.page?.path; as path) {
+                                    <!-- A link only to a path on this site (isSitePath); anything else is plain text. -->
+                                    @if (isSitePath(path)) {
+                                        <span><i class="fa-solid fa-link"></i> <a [href]="path" target="_blank" rel="noopener">{{ path }}</a></span>
+                                    } @else {
+                                        <span><i class="fa-solid fa-link"></i> {{ path }}</span>
+                                    }
                                 }
                                 <span><i class="fa-solid fa-mobile-screen"></i> {{ device(item) }}</span>
                                 @if (item.version?.text) {
@@ -135,6 +141,7 @@ import { LoaderComponent } from '../../../../shared/components/loader/loader.com
 })
 export default class FeedbackInboxPage implements OnInit {
     readonly inbox = inject(FeedbackAdminService);
+    readonly isSitePath = isSitePath;
     private t = injectT();
 
     readonly filter = signal<FeedbackFilter>('new');

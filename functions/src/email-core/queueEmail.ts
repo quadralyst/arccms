@@ -12,6 +12,7 @@ import { usedAppFields } from '../app-audience/mergeFields.js';
 import { appUserSubscribed } from './appUserConsent.js';
 import { isFeatureOn } from '../feature-flags.js';
 import { sendMail } from '../mail-config/mailConfig.js';
+import { codeHidden } from './codeHidden.js';
 import type { EmailLogData } from '../types.js';
 import { deleteStoredAttachments, listedAttachments, storeAttachments, type PreparedAttachment, type StoredAttachment } from './emailAttachments.js';
 import { emitEmailOutcome } from './appEmailOutcome.js';
@@ -177,7 +178,12 @@ export async function queueEmail(params: QueueEmailParams): Promise<QueueEmailRe
     status: 'skipped' | 'suppressed',
     skipReason: EmailSkipReason,
   ): Promise<QueueEmailResult> => {
-    const log = { ...base, status, skipReason, ...(files.length ? { attachments: listedAttachments(files) } : {}) };
+    // A blocked email is never sent or retried, so a one-time code on it is never needed.
+    const log = {
+      ...base, status, skipReason,
+      ...codeHidden((base as Record<string, unknown>)['otp'], undefined),
+      ...(files.length ? { attachments: listedAttachments(files) } : {}),
+    };
     const id = await writeLog(log);
     await emitEmailOutcome(id, log);
     return { id, status, skipReason };

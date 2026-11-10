@@ -4,7 +4,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const owner = vi.hoisted(() => ({ getUser: vi.fn(), setCustomUserClaims: vi.fn() }));
+const owner = vi.hoisted(() => ({ getUser: vi.fn(), setCustomUserClaims: vi.fn(), deleteUser: vi.fn() }));
 const claims = vi.hoisted(() => ({} as Record<string, Record<string, unknown>>));
 
 vi.mock('../init', async () => {
@@ -77,6 +77,114 @@ describe('createAccountRecord (email sign-up)', () => {
         expect(mem.read('users', second.id)!['emailVerified']).toBe(true);
         // Used up: the code cannot verify another account.
         expect(mem.read('signup_otps', computeEmailHash('asha@example.com'))).toBeUndefined();
+    });
+
+    describe('when the site asks for a sign-up code', () => {
+        const verifiedCode = () => {
+            const { ticket, ticketHash } = newOtpTicket();
+            mem.seed('signup_otps', computeEmailHash('asha@example.com'), { purpose: 'signup', verified: true, verifiedAt: FakeTimestamp.now(), ticketHash });
+            return ticket;
+        };
+
+        it('refuses a sign-in made with no code, finishing or not, and writes nothing', async () => {
+            mem.seed('Settings', 'email', { isEnabled: true, requireSignupVerification: true });
+            await expect(call(createAccountRecord, { name: 'Asha' }, 'u1', password))
+                .rejects.toMatchObject({ code: 'failed-precondition', details: { reason: 'code-expired' } });
+            await expect(call(createAccountRecord, { name: 'Asha', finish: true }, 'u1', password))
+                .rejects.toMatchObject({ details: { reason: 'code-expired' } });
+            // A ticket that is not this code's proves nothing either.
+            verifiedCode();
+            await expect(call(createAccountRecord, { name: 'Asha', ticket: 'x'.repeat(32) }, 'u1', password))
+                .rejects.toMatchObject({ details: { reason: 'code-expired' } });
+            expect(mem.all('users')).toHaveLength(0);
+            expect(claims['u1']).toBeUndefined();
+        });
+
+        describe('a sign-up whose page was reloaded before the record was made (the ticket is gone)', () => {
+            const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toUTCString();
+            const orphan = (over: Record<string, unknown> = {}) => owner.getUser.mockImplementation(async (uid: string) => ({
+                uid, emailVerified: false, customClaims: claims[uid], providerData: [{ providerId: 'password' }],
+                metadata: { creationTime: minutesAgo(1) }, ...over,
+            }));
+            const codeChecked = (minutes: number) => mem.seed('signup_otps', computeEmailHash('asha@example.com'), {
+                purpose: 'signup', verified: true, verifiedAt: FakeTimestamp.fromMillis(Date.now() - minutes * 60_000), ticketHash: 'h',
+            });
+
+            beforeEach(() => {
+                mem.seed('Settings', 'email', { isEnabled: true, requireSignupVerification: true });
+            });
+
+            it('removes the sign-in this site\'s sign-up made and says to sign up again, so the address is free', async () => {
+                codeChecked(2);
+                orphan();
+                await expect(call(createAccountRecord, { name: 'Asha', finish: true }, 'u1', password))
+                    .rejects.toMatchObject({ code: 'failed-precondition', details: { reason: 'signup-again' } });
+                expect(owner.deleteUser).toHaveBeenCalledWith('u1');
+                expect(mem.all('users')).toHaveLength(0);
+            });
+
+            it('never removes a sign-in this site\'s sign-up did not make: another app\'s user keeps theirs', async () => {
+                const cases: [string, () => void][] = [
+                    ['no code check here', () => { orphan(); }],
+                    ['the code check came after the account', () => { codeChecked(-5); orphan({ metadata: { creationTime: minutesAgo(10) } }); }],
+                    ['an account made long after the code', () => { codeChecked(120); orphan(); }],
+                    ['a verified email', () => { codeChecked(2); orphan({ emailVerified: true }); }],
+                    ['another way to sign in', () => { codeChecked(2); orphan({ providerData: [{ providerId: 'password' }, { providerId: 'google.com' }] }); }],
+                    ['a record claim', () => { codeChecked(2); claims['u1'] = { arccms_uid: 'rec-9' }; orphan(); }],
+                ];
+                for (const [name, setUp] of cases) {
+                    mem.store.get('signup_otps')?.clear();
+                    for (const key of Object.keys(claims)) delete claims[key];
+                    setUp();
+                    await expect(call(createAccountRecord, { name: 'Asha', finish: true }, 'u1', password), name)
+                        .rejects.toMatchObject({ details: { reason: 'code-expired' } });
+                }
+                expect(owner.deleteUser).not.toHaveBeenCalled();
+            });
+
+            it('keeps the sign-in when a ticket came (a wrong one is the page\'s to handle)', async () => {
+                codeChecked(2);
+                orphan();
+                await expect(call(createAccountRecord, { name: 'Asha', ticket: 'x'.repeat(32) }, 'u1', password))
+                    .rejects.toMatchObject({ details: { reason: 'code-expired' } });
+                expect(owner.deleteUser).not.toHaveBeenCalled();
+            });
+        });
+
+        it('creates the record with the code\'s ticket, then uses the code up', async () => {
+            mem.seed('Settings', 'email', { isEnabled: true, requireSignupVerification: true });
+            const ticket = verifiedCode();
+            const { id, created } = await call(createAccountRecord, { name: 'Asha', ticket }, 'u1', password);
+            expect(created).toBe(true);
+            expect(mem.read('users', id)).toMatchObject({ emailVerified: true });
+            expect(mem.read('signup_otps', computeEmailHash('asha@example.com'))).toBeUndefined();
+        });
+
+        it('keeps the code when the record could not be written, so the retry still has it', async () => {
+            mem.seed('Settings', 'email', { isEnabled: true, requireSignupVerification: true });
+            const ticket = verifiedCode();
+            const original = mem.collection.bind(mem);
+            const spy = vi.spyOn(mem, 'collection').mockImplementation(((name: string) => {
+                const c = original(name);
+                if (name !== 'users') return c;
+                return { ...c, doc: (id?: string) => ({ ...c.doc(id), set: async () => { throw new Error('write failed'); } }) };
+            }) as never);
+            await expect(call(createAccountRecord, { name: 'Asha', ticket }, 'u1', password)).rejects.toThrow('write failed');
+            spy.mockRestore();
+            expect(mem.read('signup_otps', computeEmailHash('asha@example.com'))).toMatchObject({ verified: true });
+            await expect(call(createAccountRecord, { name: 'Asha', ticket }, 'u1', password)).resolves.toMatchObject({ created: true });
+        });
+
+        it('asks for the code with email PIN sign-in on, whatever the email switch says', async () => {
+            mem.seed('Settings', 'users', { isSignupEnabled: true, emailSignIn: 'pin' });
+            await expect(call(createAccountRecord, { name: 'Asha' }, 'u1', password))
+                .rejects.toMatchObject({ details: { reason: 'code-expired' } });
+        });
+
+        it('needs no code with email off or the switch off', async () => {
+            mem.seed('Settings', 'email', { isEnabled: false, requireSignupVerification: true });
+            await expect(call(createAccountRecord, { name: 'Asha' }, 'u1', password)).resolves.toMatchObject({ created: true });
+        });
     });
 
     it('changes nothing for someone who already has a record', async () => {

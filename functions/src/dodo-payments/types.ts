@@ -48,8 +48,12 @@ export interface DodoPaymentsSettings {
 export interface PricingTier {
   label: string;
   maxCount: number;
-  /** Dodo discount code applied for this tier ('' = full price, no discount). */
-  discountCode: string;
+  /**
+   * Legacy: the tier's Dodo discount code. Codes now live in the admin-only
+   * `ProductCodes/{productId}` document (productCodes.ts); a code still here is
+   * used until the admin Products page moves it.
+   */
+  discountCode?: string;
   /** Display-only percentage shown in the admin UI / pricing page. */
   discountPct: number;
   /** Display-only effective price for this tier (in major units), e.g. 15 for $15/mo. */
@@ -135,6 +139,12 @@ export interface TransactionDoc {
    */
   isTest?: boolean;
   /**
+   * Set when the gateway's record of what was bought does not match the Product the
+   * checkout metadata names: the charge is real and recorded, but nothing was granted
+   * and the admins were alerted (handlePaymentEvent.ts). Absent otherwise.
+   */
+  productMismatch?: boolean;
+  /**
    * Stable dedup key, always scoped by event type: `ref:<refund_id>:<eventType>`
    * for refunds (whose payload repeats the ORIGINAL payment id), else
    * `pay:<payment_id>:<eventType>`, else `sub:<subscription_id>:<eventType>:<period>`
@@ -183,6 +193,10 @@ export interface DodoWebhookData {
   trial_period_days?: number;
   customer?: { customer_id?: string; email?: string; name?: string };
   metadata?: Record<string, string>;
+  /** Payments: what was bought (the gateway's own record, not metadata). */
+  product_cart?: Array<{ product_id?: string; quantity?: number }> | null;
+  /** Subscriptions: the gateway product subscribed to. */
+  product_id?: string;
   // Refund events (`refund.succeeded`): the refunded amount and whether it is a
   // partial refund. Full refunds revoke access + claw back credits; partial do not.
   refund_id?: string;
@@ -209,6 +223,18 @@ export interface UserEntitlement {
   provider?: PaymentProvider;
   providerSubscriptionId: string | null;
   providerCustomerId: string | null;
+  /**
+   * The Product that granted the current entitlement. A renewal billed under another
+   * gateway product (the plan changed in the gateway, or the admin re-linked the
+   * Product) is still accepted when it renews this subscription for this Product.
+   */
+  premiumProductId?: string | null;
+  /**
+   * One-time purchases: the gateway payment that granted the current entitlement. A
+   * full refund revokes access only when it refunds this payment (or the subscription
+   * in `providerSubscriptionId`).
+   */
+  premiumPaymentId?: string | null;
   /**
    * Timestamp of the webhook event that last drove this entitlement. Used to
    * discard out-of-order deliveries (e.g. a delayed `active` arriving after a

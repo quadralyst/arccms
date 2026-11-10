@@ -12,6 +12,7 @@ import { getUnsubscribeSecret } from '../email-core/unsubscribeSecret.js';
 import { APP_TAG_PATTERN } from '../app-audience/mergeFields.js';
 import { loadAttachments } from '../email-core/emailAttachments.js';
 import { emitEmailOutcome } from '../email-core/appEmailOutcome.js';
+import { codeHidden } from '../email-core/codeHidden.js';
 
 /** A file as the providers take it. */
 type MailAttachment = { filename: string; contentType: string; content: Buffer };
@@ -89,6 +90,9 @@ function buildTrackingPixel(emailId: string, trackingUrl?: string): string {
     return `<img src="${url}?emailId=${emailId}" width="1" height="1" style="opacity:0; position:absolute; top:-9999px; left:-9999px;" alt=""/>`;
 }
 
+// The code redaction lives in its own module so queueEmail can use it on a blocked send.
+export { CODE_PLACEHOLDER, codeHidden } from '../email-core/codeHidden.js';
+
 /**
  * `readSettings`: Settings/email as the caller read it a moment ago (a sign-in
  * code sent by the call that queued it, specs/sign-in-speed-spec.md SP-D13).
@@ -110,10 +114,12 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string,
     // every retry attempt too.
     if (!settings?.isEnabled || !settings?.activeProvider) {
         console.log('Email sending is disabled in settings.');
+        // Never sent and never retried, so the code it carries is not needed again.
         await logRef.update({
             status: 'skipped',
             skipReason: 'email_disabled',
             sendingTime: Timestamp.now(),
+            ...codeHidden(emailLogsData.otp, undefined),
         });
         await emitEmailOutcome(emailLogsId, { ...emailLogsData, status: 'skipped', skipReason: 'email_disabled' });
         return;
@@ -213,6 +219,7 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string,
             ...senderFields,
         };
         if (logOnly) updateData.logOnly = true;
+        else Object.assign(updateData, codeHidden(emailLogsData.otp, updatedTemplate));
 
         if (result?.messageId) {
             updateData.messageId = result.messageId;
@@ -253,6 +260,8 @@ export async function sendMail(emailLogsData: EmailLogData, emailLogsId: string,
             failData.usedTags = updatedTemplate.usedTags;
             failData.unmappedTags = updatedTemplate.unmappedTags;
         }
+        // A retry still needs the code; one that will not be tried again does not.
+        if (exhausted && !isDebugProvider) Object.assign(failData, codeHidden(emailLogsData.otp, updatedTemplate));
         await logRef.update(failData);
         if (exhausted) await emitEmailOutcome(emailLogsId, { ...emailLogsData, ...failData });
         console.error(

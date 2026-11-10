@@ -5,6 +5,10 @@
  * The log keeps the full text only for the `log` provider (nothing was sent,
  * and reading the code there is the point); for a real provider the code is
  * blanked out of the stored text.
+ *
+ * A real provider sends only while the day's limit allows (smsDailyLimit.ts): past
+ * it the text is logged as `limited` and not sent. One the provider refuses is given
+ * back to the day's count.
  */
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -12,11 +16,13 @@ import { db } from '../init.js';
 import { maskPhone } from '../auth/phoneNumber.js';
 import { SMS_PROVIDER_REGISTRY, type SmsMessage } from './providers.js';
 import { readSmsSettings, type SmsSettings } from './smsSettings.js';
+import { countDailySms } from './smsDailyLimit.js';
 
 export const SMS_LOGS_COLLECTION = 'SmsLogs';
 
 export interface SmsResult {
-    status: 'logged' | 'sent' | 'failed';
+    /** `limited`: not sent, the day's limit of texts is reached. */
+    status: 'logged' | 'sent' | 'failed' | 'limited';
     logId: string;
     error?: string;
 }
@@ -35,12 +41,19 @@ export async function sendSms(message: SmsMessage, settings?: SmsSettings): Prom
     let status: SmsResult['status'] = provider.delivers ? 'sent' : 'logged';
     let error: string | undefined;
     let providerMessageId: string | undefined;
-    try {
-        ({ providerMessageId } = await provider.send(message, resolved));
-    } catch (err) {
-        status = 'failed';
-        error = err instanceof Error ? err.message : String(err);
-        logger.error(`sendSms: ${provider.id} failed for ${maskPhone(message.to)}: ${error}`);
+    const counted = provider.delivers ? await countDailySms(resolved.dailyLimit) : null;
+    if (counted && !counted.ok) {
+        status = 'limited';
+        error = `The daily limit of ${resolved.dailyLimit} texts is reached.`;
+    } else {
+        try {
+            ({ providerMessageId } = await provider.send(message, resolved));
+        } catch (err) {
+            status = 'failed';
+            error = err instanceof Error ? err.message : String(err);
+            logger.error(`sendSms: ${provider.id} failed for ${maskPhone(message.to)}: ${error}`);
+            if (counted?.ok) await counted.release();
+        }
     }
 
     await ref.set({

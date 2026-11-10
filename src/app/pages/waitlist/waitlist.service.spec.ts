@@ -58,7 +58,7 @@ import * as FunctionsSDK from '@angular/fire/functions';
 function defaultCallableData(name: string): Record<string, unknown> {
     switch (name) {
         case 'joinForm':
-            return { memberId: 'member-1' };
+            return { ticket: 'ticket-1' };
         case 'finalizeFormSignup':
             return { totalSignups: 1, emailVerified: true, alreadyConfirmed: false };
         default:
@@ -142,7 +142,7 @@ describe('WaitlistService', () => {
         let joinSpy: ReturnType<typeof vi.fn>;
 
         beforeEach(() => {
-            joinSpy = vi.fn(async () => ({ data: { memberId: 'member-1' } }));
+            joinSpy = vi.fn(async () => ({ data: { ticket: 'ticket-1' } }));
             vi.mocked(FunctionsSDK.httpsCallable).mockReturnValue(joinSpy as any);
         });
 
@@ -176,19 +176,21 @@ describe('WaitlistService', () => {
             expect(getDocs).not.toHaveBeenCalled();
         });
 
-        it('returns the member id the form needs to continue, and sends no referral', async () => {
+        it('returns the ticket the form needs to continue, never a member id, and sends no referral', async () => {
             const res = await service.joinWaitlist('waitlist-1', { email: 'new@example.com' });
 
-            expect(res.userId).toBe('member-1');
+            expect(res.ticket).toBe('ticket-1');
+            expect(res).not.toHaveProperty('userId');
             expect(joinSpy.mock.calls[0][0]).not.toHaveProperty('referredBy');
         });
 
-        it('asks the server to send the code after joining', async () => {
+        it('asks the server to send the code after joining, by the ticket', async () => {
             await service.joinWaitlist('waitlist-1', { email: 'new@example.com' });
 
             const called = vi.mocked(FunctionsSDK.httpsCallable).mock.calls.map((c) => String(c[1]).replace(/^arccms-/, ''));
             expect(called).toContain('joinForm');
             expect(called).toContain('requestFormOtp');
+            expect(joinSpy).toHaveBeenLastCalledWith({ waitlistId: 'waitlist-1', ticket: 'ticket-1' });
         });
 
         it('rejects a call with no email before touching the network', async () => {
@@ -248,19 +250,19 @@ describe('WaitlistService', () => {
 
 
     describe('resendVerificationCode', () => {
-        it('asks the server to send the code to the address it is given', async () => {
+        it('asks the server to send the code for the signup\'s ticket', async () => {
             const spies = mockCallables();
 
-            const result = await service.resendVerificationCode('waitlist-1', 'a@b.com', 'Asha');
+            const result = await service.resendVerificationCode('waitlist-1', 'ticket-1');
 
-            expect(spies['requestFormOtp']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', email: 'a@b.com', name: 'Asha' });
+            expect(spies['requestFormOtp']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', ticket: 'ticket-1' });
             expect(result.success).toBe(true);
         });
 
         it('passes on the server\'s message, such as the resend throttle', async () => {
             mockCallables({ requestFormOtp: () => { throw new Error('Please wait a minute before asking again.'); } });
 
-            const result = await service.resendVerificationCode('waitlist-1', 'a@b.com');
+            const result = await service.resendVerificationCode('waitlist-1', 'ticket-1');
 
             expect(result).toEqual({ success: false, message: 'Please wait a minute before asking again.' });
         });
@@ -279,7 +281,7 @@ describe('WaitlistService', () => {
         it('returns the server message when the code has expired, and confirms nothing', async () => {
             const spies = serverRejects('Your code has expired. Please request a new one.');
 
-            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
+            const result = await service.verifyAndConfirm('waitlist-1', 'ticket-1', '123456');
 
             expect(result.success).toBe(false);
             expect(result.message).toContain('expired');
@@ -289,7 +291,7 @@ describe('WaitlistService', () => {
         it('returns the server message on a wrong code', async () => {
             serverRejects('Invalid verification code.');
 
-            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '000000');
+            const result = await service.verifyAndConfirm('waitlist-1', 'ticket-1', '000000');
 
             expect(result.success).toBe(false);
             expect(result.message).toContain('Invalid verification code');
@@ -298,7 +300,7 @@ describe('WaitlistService', () => {
         it('surfaces the attempt-cap lockout rather than verifying', async () => {
             serverRejects('Too many attempts. Please request a new code.');
 
-            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
+            const result = await service.verifyAndConfirm('waitlist-1', 'ticket-1', '123456');
 
             expect(result.success).toBe(false);
             expect(result.message).toContain('Too many attempts');
@@ -309,27 +311,27 @@ describe('WaitlistService', () => {
                 vi.fn(async () => { throw new Error('network down'); }) as any,
             );
 
-            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
+            const result = await service.verifyAndConfirm('waitlist-1', 'ticket-1', '123456');
 
             expect(result.success).toBe(false);
         });
     });
 
     describe('verifyAndConfirm, accepted codes', () => {
-        it('checks the code for the address typed, then confirms through the server', async () => {
+        it('checks the code for the ticket, then confirms through the server', async () => {
             const spies = mockCallables();
 
-            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
+            const result = await service.verifyAndConfirm('waitlist-1', 'ticket-1', '123456');
 
-            expect(spies['verifyFormOtp']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', email: 'a@b.com', code: '123456' });
-            expect(spies['finalizeFormSignup']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', userId: 'user-1' });
+            expect(spies['verifyFormOtp']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', ticket: 'ticket-1', code: '123456' });
+            expect(spies['finalizeFormSignup']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', ticket: 'ticket-1' });
             expect(result).toEqual({ success: true, alreadyConfirmed: false });
         });
 
         it('says when the person was already on the list', async () => {
             mockCallables({ finalizeFormSignup: () => ({ totalSignups: 0, emailVerified: true, alreadyConfirmed: true }) });
 
-            const result = await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
+            const result = await service.verifyAndConfirm('waitlist-1', 'ticket-1', '123456');
 
             expect(result.alreadyConfirmed).toBe(true);
         });
@@ -338,7 +340,7 @@ describe('WaitlistService', () => {
             const getDoc = vi.spyOn(FirestoreSDK, 'getDoc');
             mockCallables();
 
-            await service.verifyAndConfirm('waitlist-1', 'user-1', 'a@b.com', '123456');
+            await service.verifyAndConfirm('waitlist-1', 'ticket-1', '123456');
 
             const called = vi.mocked(FunctionsSDK.httpsCallable).mock.calls.map((c) => String(c[1]).replace(/^arccms-/, ''));
             expect(called.sort()).toEqual(['finalizeFormSignup', 'verifyFormOtp']);
@@ -358,19 +360,19 @@ describe('WaitlistService', () => {
             vi.spyOn(FirestoreSDK, 'setDoc').mockResolvedValue(undefined);
         });
 
-        it('should call finalizeFormSignup with the waitlist and member ids only', async () => {
+        it('should call finalizeFormSignup with the waitlist id and the ticket only', async () => {
             const spies = mockCallables();
 
-            const result = await service.confirmWithoutOtp('waitlist-1', 'user-1');
+            const result = await service.confirmWithoutOtp('waitlist-1', 'ticket-1');
 
-            expect(spies['finalizeFormSignup']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', userId: 'user-1' });
+            expect(spies['finalizeFormSignup']).toHaveBeenCalledWith({ waitlistId: 'waitlist-1', ticket: 'ticket-1' });
             expect(result).toEqual({ success: true, alreadyConfirmed: false });
         });
 
         it('should not write any member field from the client', async () => {
             mockCallables();
 
-            await service.confirmWithoutOtp('waitlist-1', 'user-1');
+            await service.confirmWithoutOtp('waitlist-1', 'ticket-1');
 
             expect(FirestoreSDK.updateDoc).not.toHaveBeenCalled();
             expect(FirestoreSDK.setDoc).not.toHaveBeenCalled();
@@ -379,7 +381,7 @@ describe('WaitlistService', () => {
         it('passes on an already-confirmed signup from the server', async () => {
             mockCallables({ finalizeFormSignup: () => ({ totalSignups: 0, emailVerified: true, alreadyConfirmed: true }) });
 
-            const result = await service.confirmWithoutOtp('waitlist-1', 'user-1');
+            const result = await service.confirmWithoutOtp('waitlist-1', 'ticket-1');
 
             expect(result.alreadyConfirmed).toBe(true);
         });

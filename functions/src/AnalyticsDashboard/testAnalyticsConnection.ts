@@ -1,7 +1,8 @@
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onCall } from 'firebase-functions/v2/https';
 import { GoogleAuth } from 'google-auth-library';
 import { db } from '../init.js';
 import { AnalyticsPropertyInfo } from '../types.js';
+import { requireAdmin } from '../search/auth.js';
 
 // Debug function to test Analytics connection
 export const testAnalyticsConnection = onCall(
@@ -10,9 +11,8 @@ export const testAnalyticsConnection = onCall(
     enforceAppCheck: false,
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Authentication required.');
-    }
+    // Admins only: it reads the analytics service account from the settings.
+    await requireAdmin(request);
 
     try {
       console.log('=== ANALYTICS DEBUG ===');

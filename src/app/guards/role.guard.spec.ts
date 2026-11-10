@@ -107,26 +107,22 @@ describe('roleGuard', () => {
     });
 
     describe('when no allowedRoles defined', () => {
-        it('should allow access and show warning', () => {
-            const mockUser = { role: 'admin', email: 'test@example.com' };
-            mockAuthState.recordReady.mockResolvedValue(mockUser);
+        it('lets nobody in, not even an admin: the developer reads why in the console, the visitor sees no toast', () => {
+            const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+            mockAuthState.recordReady.mockResolvedValue({ role: 'admin', email: 'test@example.com' });
 
-            const route = {
-                data: {},
-                path: 'admin/test-route',
-            };
+            for (const data of [{}, { allowedRoles: [] }, undefined]) {
+                mockRouter.navigate.mockClear();
+                TestBed.runInInjectionContext(() => {
+                    expect(roleGuard({ data, path: 'admin/test-route' } as any, {} as any)).toBe(false);
+                });
+                expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/unauthorized']);
+            }
 
-            TestBed.runInInjectionContext(() => {
-                const result = roleGuard(route as any, {} as any);
-                // When no allowedRoles, guard returns true synchronously
-                expect(result).toBe(true);
-            });
-
-            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                expect.stringContaining('No allowed roles defined'),
-                'warning',
-                'warning'
-            );
+            expect(mockAuthState.recordReady).not.toHaveBeenCalled();
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining('admin/test-route'));
+            expect(mockToastService.openCustomSnackbar).not.toHaveBeenCalled();
+            warn.mockRestore();
         });
     });
 

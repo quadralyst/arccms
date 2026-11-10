@@ -62,6 +62,14 @@ describe('SMS settings', () => {
         expect(smsSettingsData({ ...DEFAULT_SMS_FORM, provider: 'msg91', showResetCodes: true })['showResetCodes']).toBe(false);
     });
 
+    it('saves the texts a day as a whole number from 1 up, else 300', () => {
+        expect(DEFAULT_SMS_FORM.dailyLimit).toBe(300);
+        expect(smsSettingsData({ ...DEFAULT_SMS_FORM, dailyLimit: 50 })['dailyLimit']).toBe(50);
+        for (const bad of [0, -1, 2.5, NaN, null as unknown as number, 1e9]) {
+            expect(smsSettingsData({ ...DEFAULT_SMS_FORM, dailyLimit: bad })['dailyLimit']).toBe(300);
+        }
+    });
+
     it('keeps the saved MSG91 key when the field is left empty', () => {
         expect(smsSettingsData(DEFAULT_SMS_FORM)).not.toHaveProperty('msg91AuthKey');
         expect(smsSettingsData({ ...DEFAULT_SMS_FORM, msg91AuthKey: ' k ' })['msg91AuthKey']).toBe('k');

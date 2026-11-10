@@ -118,6 +118,10 @@ export class WaitlistService {
      * `joinForm` now does the find-or-create, which also makes deduplication atomic;
      * the client-side version was a read-then-write race between concurrent submits.
      *
+     * It returns a sealed, short-lived ticket, never the member id: anyone can type
+     * someone else's address, so the reply must not name that member. Every later
+     * step (the code, the check, confirming) takes the ticket.
+     *
      * The cross-form "already verified on another form" branch is gone rather than
      * moved (U6 option C): its outcome — a member document plus a verification code —
      * was identical to the new-member path, and cross-form identity is deduplicated by
@@ -130,7 +134,7 @@ export class WaitlistService {
 
         try {
             const callable = runInInjectionContext(this.injector, () =>
-                arcCallable<Record<string, unknown>, { memberId: string }>(this.functions, 'joinForm'));
+                arcCallable<Record<string, unknown>, { ticket: string }>(this.functions, 'joinForm'));
 
             const res = await callable({
                 waitlistId,
@@ -145,12 +149,12 @@ export class WaitlistService {
 
             // Ask for the code. The server owns generation, expiry and the resend
             // throttle, and decides whether this form verifies at all.
-            await this.sendFormOtp(waitlistId, userData.email, userData.firstName);
+            await this.sendFormOtp(waitlistId, joined.ticket);
 
             return {
                 exists: false,
                 verified: false,
-                userId: joined.memberId,
+                ticket: joined.ticket,
                 email: userData.email,
             };
         } catch (error) {
@@ -166,13 +170,13 @@ export class WaitlistService {
      * can neither read a code off a document nor skip the check, and
      * `finalizeFormSignup` checks the verified record again before confirming.
      */
-    async verifyAndConfirm(waitlistId: string, userId: string, email: string, otp: string): Promise<IConfirmResult> {
+    async verifyAndConfirm(waitlistId: string, ticket: string, otp: string): Promise<IConfirmResult> {
         try {
-            const check = await this.checkFormOtp(waitlistId, email, otp);
+            const check = await this.checkFormOtp(waitlistId, ticket, otp);
             if (!check.ok) {
                 return { success: false, message: check.message || 'Invalid or expired OTP' };
             }
-            const finalized = await this.finalizeSignup(waitlistId, userId);
+            const finalized = await this.finalizeSignup(waitlistId, ticket);
             return { success: true, alreadyConfirmed: finalized.alreadyConfirmed };
         } catch (error) {
             console.error('Error in verifyAndConfirm:', error);
@@ -184,8 +188,8 @@ export class WaitlistService {
      * Confirm a signup that needs no code: email is not set up, or the form's
      * verification template is off. The server decides that, not the browser.
      */
-    async confirmWithoutOtp(waitlistId: string, userId: string): Promise<IConfirmResult> {
-        const finalized = await this.finalizeSignup(waitlistId, userId);
+    async confirmWithoutOtp(waitlistId: string, ticket: string): Promise<IConfirmResult> {
+        const finalized = await this.finalizeSignup(waitlistId, ticket);
         return { success: true, alreadyConfirmed: finalized.alreadyConfirmed };
     }
 
@@ -193,8 +197,8 @@ export class WaitlistService {
      * Send the code again. The server owns the 60s resend throttle and returns a
      * clear error when asked too soon.
      */
-    async resendVerificationCode(waitlistId: string, email: string, firstName?: string): Promise<{ success: boolean; message: string }> {
-        const sent = await this.sendFormOtp(waitlistId, email, firstName);
+    async resendVerificationCode(waitlistId: string, ticket: string): Promise<{ success: boolean; message: string }> {
+        const sent = await this.sendFormOtp(waitlistId, ticket);
         if (!sent.ok) {
             return { success: false, message: sent.message || 'Failed to resend verification code' };
         }
@@ -205,20 +209,20 @@ export class WaitlistService {
      * Ask the server to send this form's verification code (U5).
      *
      * The code is generated, stored hashed and emailed by `requestFormOtp` — the
-     * browser never sees or stores it. Errors are returned rather than thrown so
-     * callers can surface the server's message (e.g. the resend throttle).
+     * browser never sees or stores it. It goes to the address the ticket's member
+     * holds. Errors are returned rather than thrown so callers can surface the
+     * server's message (e.g. the resend throttle).
      */
     private async sendFormOtp(
         waitlistId: string,
-        email: string,
-        name?: string,
+        ticket: string,
     ): Promise<{ ok: boolean; message?: string }> {
         try {
             const call = arcCallable<
-                { waitlistId: string; email: string; name?: string },
+                { waitlistId: string; ticket: string },
                 { sent: boolean; status: string }
             >(this.functions, 'requestFormOtp');
-            const res = await call({ waitlistId, email, name });
+            const res = await call({ waitlistId, ticket });
             return { ok: !!res.data?.sent, message: res.data?.sent ? undefined : `Email not sent (${res.data?.status}).` };
         } catch (error: any) {
             console.error('requestFormOtp failed:', error);
@@ -235,13 +239,13 @@ export class WaitlistService {
      */
     private async finalizeSignup(
         waitlistId: string,
-        userId: string,
+        ticket: string,
     ): Promise<{ totalSignups: number; emailVerified: boolean; alreadyConfirmed: boolean }> {
         const call = arcCallable<
-            { waitlistId: string; userId: string },
+            { waitlistId: string; ticket: string },
             { totalSignups: number; emailVerified: boolean; alreadyConfirmed: boolean }
         >(this.functions, 'finalizeFormSignup');
-        const res = await call({ waitlistId, userId });
+        const res = await call({ waitlistId, ticket });
         return {
             totalSignups: res.data?.totalSignups ?? 0,
             emailVerified: !!res.data?.emailVerified,
@@ -252,15 +256,15 @@ export class WaitlistService {
     /** Server-authoritative code check (U5). Throws are converted to a result. */
     private async checkFormOtp(
         waitlistId: string,
-        email: string,
+        ticket: string,
         code: string,
     ): Promise<{ ok: boolean; message?: string }> {
         try {
             const call = arcCallable<
-                { waitlistId: string; email: string; code: string },
+                { waitlistId: string; ticket: string; code: string },
                 { verified: boolean }
             >(this.functions, 'verifyFormOtp');
-            const res = await call({ waitlistId, email, code });
+            const res = await call({ waitlistId, ticket, code });
             return { ok: !!res.data?.verified };
         } catch (error: any) {
             // The callable's HttpsError message is user-facing (expired, wrong

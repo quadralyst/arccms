@@ -9,9 +9,17 @@ import { randomInt } from 'node:crypto';
 import { requireAdmin } from '../search/auth.js';
 import { normalizePhone } from '../auth/phoneNumber.js';
 import { readSmsSettings } from './smsSettings.js';
-import { sendSms } from './sendSms.js';
+import { sendSms, type SmsResult } from './sendSms.js';
 
-export const sendTestSms = onCall(async (request) => {
+/**
+ * What the test answers: the send's result (`logged`, `sent`, `failed`, or `limited`
+ * when the day's limit of texts is reached and nothing went) and the provider.
+ */
+export interface SendTestSmsResult extends SmsResult {
+    provider: string;
+}
+
+export const sendTestSms = onCall(async (request): Promise<SendTestSmsResult> => {
     await requireAdmin(request);
     const settings = await readSmsSettings();
     const to = normalizePhone(request.data?.phone, settings.defaultCountryCode);

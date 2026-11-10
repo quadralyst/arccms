@@ -119,7 +119,13 @@ export function translateRefusal(
     const params: Record<string, unknown> = { min: minPasswordLength(SIGN_IN_STRENGTH), ...details };
     const retryAfter = Number(details?.['retryAfter']);
     if (retryAfter > 0) {
-        params['time'] = new Intl.DateTimeFormat(lang, { hour: 'numeric', minute: '2-digit' }).format(new Date(now + retryAfter * 1000));
+        // A limit that lifts on another day (20 wrong codes a day) names the day too.
+        const at = new Date(now + retryAfter * 1000);
+        const sameDay = at.toDateString() === new Date(now).toDateString();
+        const format: Intl.DateTimeFormatOptions = sameDay
+            ? { hour: 'numeric', minute: '2-digit' }
+            : { weekday: 'long', hour: 'numeric', minute: '2-digit' };
+        params['time'] = new Intl.DateTimeFormat(lang, format).format(at);
     }
     const text = translate(key, params);
     return text && text !== key ? text : null;
@@ -421,12 +427,24 @@ export class SignInService {
         await this.signInWithToken(token);
     }
 
-    /** Signed in: choose or change the PIN. `passwordRemoved`: an email account's password went with it (email PIN sign-in). */
-    async setPin(pin: string): Promise<{ saved: boolean; passwordRemoved?: boolean }> {
-        const result = await this.call<{ saved: boolean; passwordRemoved?: boolean }>('setPin', { pin, deviceKey: deviceKey() });
+    /**
+     * Signed in: choose or change the PIN. Changing one the account has needs it as
+     * `currentPin` (a first PIN needs none). `passwordRemoved`: an email account's
+     * password went with it (email PIN sign-in).
+     */
+    async setPin(pin: string, currentPin?: string): Promise<{ saved: boolean; passwordRemoved?: boolean }> {
+        const result = await this.call<{ saved: boolean; passwordRemoved?: boolean }>('setPin', {
+            pin, ...(currentPin ? { currentPin } : {}), deviceKey: deviceKey(),
+        });
         // The session still lists the password until it reloads.
         if (result.passwordRemoved) await this.auth.currentUser?.reload().catch(() => undefined);
         return result;
+    }
+
+    /** Signed in: whether the account has a PIN, so changing it asks for the current one. */
+    async hasPin(): Promise<boolean> {
+        const { hasPin } = await this.call<{ hasPin: boolean }>('setPin', { status: true });
+        return hasPin === true;
     }
 
     /** Signed in: remember this device for PIN sign-in, so "Ask for a code on a new device" asks nothing here. */
@@ -493,15 +511,17 @@ export class SignInService {
         return this.call('verifySignupOtp', { email, code, purpose: 'link' });
     }
 
-    async linkEmail(email: string, password?: string): Promise<{ moved: boolean }> {
-        const result = await this.call<{ moved: boolean }>('linkEmail', { email, ...(password ? { password } : {}) });
+    /** `freshProof`: from the fresh code dialog, needed when the account has a way in already. */
+    async linkEmail(email: string, password?: string, freshProof?: string): Promise<{ moved: boolean }> {
+        const result = await this.call<{ moved: boolean }>('linkEmail', { email, ...(password ? { password } : {}), ...(freshProof ? { freshProof } : {}) });
         // The session still carries the old address until the token refreshes.
         await this.auth.currentUser?.reload();
         await this.auth.currentUser?.getIdToken(true);
         return result;
     }
 
-    linkPhone(phone: string, pin?: string): Promise<{ moved: boolean }> {
-        return this.call('linkPhone', { phone, ...(pin ? { pin } : {}) });
+    /** `freshProof`: from the fresh code dialog, needed when the account has a way in already. */
+    linkPhone(phone: string, pin?: string, freshProof?: string): Promise<{ moved: boolean }> {
+        return this.call('linkPhone', { phone, ...(pin ? { pin } : {}), ...(freshProof ? { freshProof } : {}) });
     }
 }

@@ -78,8 +78,18 @@ vi.mock('firebase-admin/firestore', () => ({
   },
 }));
 
+vi.mock('../email-core/unsubscribeSecret', () => ({ getUnsubscribeSecret: async () => 's'.repeat(64) }));
+
 const { finalizeFormSignup } = await import('../waitlists/finalizeFormSignup.js');
-const call = (data: any) => (finalizeFormSignup as any)({ data });
+const { issueFormTicket } = await import('../waitlists/formTicket.js');
+/** The page sends the ticket joinForm gave for `userId`, never the id itself. */
+async function call(data: any): Promise<any> {
+  const { userId, ...rest } = data;
+  const ticket = userId ? await issueFormTicket(rest.waitlistId ?? 'w1', userId) : undefined;
+  return (finalizeFormSignup as any)({ data: { ...rest, ticket } });
+}
+/** A code verified just now, in this signup. */
+const justVerified = () => ({ verified: true, verifiedAt: { toMillis: () => Date.now() } });
 
 /** Email on, provider set, OTP template active ⇒ verification is required. */
 function requireOtp() {
@@ -132,7 +142,7 @@ describe('finalizeFormSignup', () => {
 
     it('should confirm with emailVerified=true once a verified record exists', async () => {
       requireOtp();
-      store.set('form_otps/w1_hash_new@example.com', { verified: true });
+      store.set('form_otps/w1_hash_new@example.com', justVerified());
 
       const result = await call({ waitlistId: 'w1', userId: 'u1' });
 
@@ -158,7 +168,7 @@ describe('finalizeFormSignup', () => {
     it('should still fail closed when a verified OTP record happens to exist', async () => {
       requireOtp();
       mockGetTemplate.mockRejectedValue(new Error('No email template found'));
-      store.set('form_otps/w1_hash_new@example.com', { verified: true });
+      store.set('form_otps/w1_hash_new@example.com', justVerified());
 
       await expect(call({ waitlistId: 'w1', userId: 'u1' })).rejects.toMatchObject({
         code: 'failed-precondition',
@@ -255,9 +265,30 @@ describe('finalizeFormSignup', () => {
     });
   });
 
+  describe('nothing told to someone who typed another person\'s address', () => {
+    it('does not say "already on the list" until the code is verified', async () => {
+      requireOtp();
+      store.set('Waitlists/w1/users/u1', { email: 'new@example.com', isConfirmed: true, emailVerified: true });
+
+      await expect(call({ waitlistId: 'w1', userId: 'u1' })).rejects.toMatchObject({ code: 'permission-denied' });
+
+      store.set('form_otps/w1_hash_new@example.com', justVerified());
+      await expect(call({ waitlistId: 'w1', userId: 'u1' })).resolves.toMatchObject({ alreadyConfirmed: true });
+    });
+
+    it('does not accept a code verified in an earlier signup', async () => {
+      requireOtp();
+      store.set('form_otps/w1_hash_new@example.com', { verified: true, verifiedAt: { toMillis: () => Date.now() - 2 * 3600000 } });
+
+      await expect(call({ waitlistId: 'w1', userId: 'u1' })).rejects.toMatchObject({ code: 'permission-denied' });
+      expect(store.get('Waitlists/w1/users/u1').isConfirmed).toBe(false);
+    });
+  });
+
   describe('idempotency', () => {
     it('should not count the signup again when re-run on an already-confirmed member', async () => {
-      store.set('Settings/email', { isEnabled: false });
+      requireOtp();
+      store.set('form_otps/w1_hash_new@example.com', justVerified());
       store.set('Waitlists/w1/users/u1', {
         email: 'new@example.com', isConfirmed: true, emailVerified: true, queuePosition: 4,
       });
@@ -268,14 +299,24 @@ describe('finalizeFormSignup', () => {
       expect(store.get('Waitlists/w1').totalSignups).toBe(0); // untouched
     });
 
-    it('should say "already confirmed" on a double submit', async () => {
+    it('on a form with no code, answers a confirmed address as it answers a new one, and counts nothing', async () => {
       store.set('Settings/email', { isEnabled: false });
 
-      await call({ waitlistId: 'w1', userId: 'u1' });
+      const first = await call({ waitlistId: 'w1', userId: 'u1' });
       const second = await call({ waitlistId: 'w1', userId: 'u1' });
 
-      expect(second.alreadyConfirmed).toBe(true);
+      // Anyone could have typed the address: the reply must not say it is on the list.
+      expect(second).toEqual(first);
+      expect(second).toEqual({ alreadyConfirmed: false, totalSignups: 1, emailVerified: false });
       expect(store.get('Waitlists/w1').totalSignups).toBe(1);
+    });
+
+    it('on a form with no code, does not tell a verified member from a new signup', async () => {
+      store.set('Settings/email', { isEnabled: false });
+      store.set('Waitlists/w1/users/u1', { email: 'new@example.com', isConfirmed: true, emailVerified: true });
+
+      expect(await call({ waitlistId: 'w1', userId: 'u1' })).toEqual({ alreadyConfirmed: false, totalSignups: 1, emailVerified: false });
+      expect(store.get('Waitlists/w1/users/u1').emailVerified).toBe(true); // untouched
     });
   });
 
@@ -324,16 +365,25 @@ describe('finalizeFormSignup', () => {
   });
 
   describe('input validation', () => {
-    it('should reject a missing waitlistId or userId', async () => {
+    it('should reject a missing waitlistId or ticket', async () => {
       await expect(call({ userId: 'u1' })).rejects.toMatchObject({ code: 'invalid-argument' });
-      await expect(call({ waitlistId: 'w1' })).rejects.toMatchObject({ code: 'invalid-argument' });
+      await expect(call({ waitlistId: 'w1' })).rejects.toMatchObject({ code: 'permission-denied' });
     });
 
-    it('should report a signup that no longer exists rather than creating one', async () => {
+    it('should refuse a signup that no longer exists rather than creating one', async () => {
       await expect(call({ waitlistId: 'w1', userId: 'gone' })).rejects.toMatchObject({
-        code: 'not-found',
+        code: 'permission-denied',
       });
       expect(store.has('Waitlists/w1/users/gone')).toBe(false);
+    });
+
+    it('takes no member id: only a ticket for this form', async () => {
+      store.set('Settings/email', { isEnabled: false });
+      const other = await issueFormTicket('w2', 'u1');
+      for (const data of [{ waitlistId: 'w1', userId: 'u1' }, { waitlistId: 'w1', ticket: 'u1' }, { waitlistId: 'w1', ticket: other }]) {
+        await expect((finalizeFormSignup as any)({ data })).rejects.toMatchObject({ code: 'permission-denied' });
+      }
+      expect(store.get('Waitlists/w1/users/u1').isConfirmed).toBe(false);
     });
   });
 });

@@ -407,7 +407,7 @@ describe('processEmailTemplate (##NAME## tag)', () => {
 
 describe('Mail Config Functions', () => {
   describe('testSmtpConfigConnection (source structure)', () => {
-    it('should require authentication', async () => {
+    it('should require an admin', async () => {
       const fs = await import('fs');
       const path = await import('path');
       const fileContent = fs.readFileSync(
@@ -415,8 +415,7 @@ describe('Mail Config Functions', () => {
         'utf-8'
       );
 
-      expect(fileContent).toContain('request.auth');
-      expect(fileContent).toContain("'unauthenticated'");
+      expect(fileContent).toContain('await requireAdmin(request);');
     });
 
     it('should have timeouts on all external fetch calls', async () => {
@@ -531,7 +530,7 @@ describe('Mail Config Functions', () => {
   });
 
   describe('testProviderConnection', () => {
-    it('should require authentication', async () => {
+    it('should require an admin', async () => {
       const fs = await import('fs');
       const path = await import('path');
       const fileContent = fs.readFileSync(
@@ -539,8 +538,7 @@ describe('Mail Config Functions', () => {
         'utf-8'
       );
 
-      expect(fileContent).toContain('request.auth');
-      expect(fileContent).toContain("'unauthenticated'");
+      expect(fileContent).toContain('await requireAdmin(request);');
     });
 
     it('should use v2 onCall API', async () => {
@@ -571,7 +569,7 @@ describe('Mail Config Functions', () => {
 
 describe('Analytics Dashboard Functions', () => {
   describe('testAnalyticsConnection', () => {
-    it('should require authentication', async () => {
+    it('should require an admin', async () => {
       const fs = await import('fs');
       const path = await import('path');
       const fileContent = fs.readFileSync(
@@ -579,8 +577,7 @@ describe('Analytics Dashboard Functions', () => {
         'utf-8'
       );
 
-      expect(fileContent).toContain('request.auth');
-      expect(fileContent).toContain("'unauthenticated'");
+      expect(fileContent).toContain('await requireAdmin(request);');
     });
 
     it('should use v2 onCall API', async () => {

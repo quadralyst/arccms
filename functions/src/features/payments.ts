@@ -6,6 +6,7 @@
 // Payments (Dodo): checkout, webhook ingestion, event processing, reminders, credits.
 export * from '../dodo-payments/createCheckoutSession.js';
 export * from '../dodo-payments/createTestCheckoutLink.js';
+export * from '../dodo-payments/moveProductCodes.js';
 export * from '../dodo-payments/dodoWebhook.js';
 export * from '../dodo-payments/handlePaymentEvent.js';
 export * from '../dodo-payments/testDodoConnection.js';

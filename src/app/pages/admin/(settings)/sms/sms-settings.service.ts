@@ -11,6 +11,14 @@ import { Functions } from '@angular/fire/functions';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { codesOf, countryByIso, DEFAULT_COUNTRY, resolveCountrySettings } from '../../../../../shared/data/countries';
 
+/** What sendTestSms answers. */
+export interface SendTestSmsResult {
+    status: 'logged' | 'sent' | 'failed' | 'limited';
+    error?: string;
+    logId?: string;
+    provider?: string;
+}
+
 export type SmsProviderId = 'log' | 'msg91';
 
 export interface SmsSettingsForm {
@@ -24,6 +32,18 @@ export interface SmsSettingsForm {
     msg91OtpTemplateId: string;
     /** Test provider only: the sign-in page also shows PIN reset codes. */
     showResetCodes: boolean;
+    /** Texts the site may send in a day; sending stops for the day at this many (functions/src/sms/smsDailyLimit.ts). */
+    dailyLimit: number;
+}
+
+/** Texts a day unless an admin changes it, and the most the setting takes (as the server reads it). */
+export const DEFAULT_SMS_DAILY_LIMIT = 300;
+export const MAX_SMS_DAILY_LIMIT = 100_000;
+
+/** A whole number from 1 to the most the setting takes, else the default. */
+export function validDailyLimit(value: unknown): number {
+    const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+    return Number.isInteger(n) && n >= 1 && n <= MAX_SMS_DAILY_LIMIT ? n : DEFAULT_SMS_DAILY_LIMIT;
 }
 
 export const DEFAULT_SMS_FORM: SmsSettingsForm = {
@@ -33,6 +53,7 @@ export const DEFAULT_SMS_FORM: SmsSettingsForm = {
     msg91AuthKey: '',
     msg91OtpTemplateId: '',
     showResetCodes: false,
+    dailyLimit: DEFAULT_SMS_DAILY_LIMIT,
 };
 
 /** The countries the form's choices come to: never none, the default always among them. */
@@ -55,6 +76,7 @@ export function smsSettingsData(form: SmsSettingsForm): Record<string, unknown> 
         msg91OtpTemplateId: form.msg91OtpTemplateId.trim(),
         // Leaving test mode turns it off, so coming back to it asks again.
         showResetCodes: form.provider === 'log' && form.showResetCodes,
+        dailyLimit: validDailyLimit(form.dailyLimit),
     };
     if (form.msg91AuthKey.trim()) data['msg91AuthKey'] = form.msg91AuthKey.trim();
     return data;
@@ -116,6 +138,7 @@ export class SmsSettingsService {
                 msg91AuthKey: '',
                 msg91OtpTemplateId: String(data['msg91OtpTemplateId'] ?? ''),
                 showResetCodes: data['showResetCodes'] === true,
+                dailyLimit: validDailyLimit(data['dailyLimit']),
             },
             hasAuthKey: !!data['msg91AuthKey'],
             phoneSignIn: users?.data()?.['phoneSignIn'] === true,
@@ -133,8 +156,9 @@ export class SmsSettingsService {
         });
     }
 
-    async sendTest(phone: string): Promise<{ status: string; error?: string }> {
+    /** `limited`: not sent, the day's limit of texts is reached (functions/src/sms/sendTestSms.ts). */
+    async sendTest(phone: string): Promise<SendTestSmsResult> {
         const result = await this.inCtx(() => arcCallable(this.functions, 'sendTestSms')({ phone }));
-        return result.data as { status: string; error?: string };
+        return result.data as SendTestSmsResult;
     }
 }

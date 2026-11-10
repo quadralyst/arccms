@@ -159,6 +159,14 @@ describe('siteContents', () => {
         expect(readSiteFile(root, 'assets/css/sign-in.css')).toContain(`url(/site/img/hero.webp?v=${manifest.files['site/img/hero.webp']})`);
     });
 
+    it('lists the search box\'s script and stylesheet with a hash, so a published page links a new version when they change', () => {
+        core('assets/js/arc-search.js', 'search();');
+        core('assets/css/arc-search.css', '.arc-search{}');
+        const { manifest } = siteContents(root);
+        expect(manifest.files['assets/js/arc-search.js']).toMatch(/^[0-9a-f]{16}$/);
+        expect(manifest.files['assets/css/arc-search.css']).toMatch(/^[0-9a-f]{16}$/);
+    });
+
     it('leaves Arc CMS\'s own stylesheets as they are', () => {
         core('assets/css/main.css', '.a{background:url(/site/img/hero.webp)}');
         app('assets/img/hero.webp', 'IMG');

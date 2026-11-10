@@ -52,7 +52,7 @@
     <table>
       <thead><tr><th>Command</th><th>What it does</th><th>When to use it</th></tr></thead>
       <tbody>
-        <tr><td><code>npm run rules:build</code></td><td>Combines the core rules and indexes with the app's own (<code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code>) into <code>.arc-build/</code>. App rules go in at the <code>// @arc-app-rules</code> line of the core file. Every Firestore and Storage deploy runs it first.</td><td>To inspect the combined rules by hand. See <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>.</td></tr>
+        <tr><td><code>npm run rules:build</code></td><td>Combines the core rules and indexes with the app's own (<code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code>) into <code>.arc-build/</code>. App rules go in at the <code>// @arc-app-rules</code> line of the core file. Stops with the file, line and fix when an app rule reaches into core's paths or its braces do not balance (<a href="../app/rules-and-indexes.html#refused">What the build refuses</a>). Every Firestore and Storage deploy runs it first.</td><td>To inspect the combined rules by hand. See <a href="../app/rules-and-indexes.html">Set security rules and indexes</a>.</td></tr>
         <tr><td><code>npm run export-indexes</code></td><td>Exports the live Firestore indexes of the install's database and writes them to <code>firestore.indexes.json</code>, leaving out the app's own indexes.</td><td>After creating indexes in the Firebase console, to bring them into the repository.</td></tr>
       </tbody>
     </table>

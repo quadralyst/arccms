@@ -21,6 +21,7 @@ import { useAdminOverlay } from '../core/brand/admin-overlay';
 import { useTranslatedPaginator } from '../core/i18n/paginator-intl';
 import { SiteBrandService } from '../core/brand/site-brand';
 import { pagePathOf } from '../core/nav/menu';
+import { useProductCodesUpkeep } from './admin/(products)/product-codes-upkeep';
 
 @Component({
     standalone: true,
@@ -122,6 +123,8 @@ export default class AdminComponent extends BaseComponent {
         useAdminOverlay();
         // The tables' paginators in the admin's language (kept out of the first script, F34).
         useTranslatedPaginator();
+        // Tier codes older versions left on public products move once a session (admins only).
+        useProductCodesUpkeep();
         this.breakpointObserver.observe('(max-width: 768px)').subscribe((state) => {
             this.drawerMode.set(state.matches ? 'over' : 'side');
         });

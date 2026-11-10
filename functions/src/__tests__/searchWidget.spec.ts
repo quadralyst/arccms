@@ -11,6 +11,7 @@ import {
     SEARCH_WIDGET_SCRIPT,
 } from '../search/widget.js';
 import { replaceArcComponents } from '../shared/html-document.js';
+import { versionSiteUrls } from '../shared/site-urls.js';
 
 describe('buildSearchWidget', () => {
     it('builds a no-JavaScript form to the results page with the callable and strings in data attributes', () => {
@@ -27,6 +28,15 @@ describe('buildSearchWidget', () => {
         expect($('input[name="q"]').attr('placeholder')).toBe('खोजें');
         expect($(`script[src="${SEARCH_WIDGET_SCRIPT}"]`).attr('defer')).toBeDefined();
         expect($('link[rel="stylesheet"]').attr('href')).toBe('/assets/css/arc-search.css');
+    });
+
+    it('links its script and stylesheet at versioned addresses on a published page', () => {
+        // Hosting lets browsers keep both for a year; the publish step versions every
+        // link to a file the site manifest lists (scripts/arc-site.mjs VERSIONED).
+        const html = buildSearchWidget({ projectId: 'demo', lang: 'en', defaultLang: 'en' });
+        const $ = cheerio.load(versionSiteUrls(html, { 'assets/js/arc-search.js': 'aaaa', 'assets/css/arc-search.css': 'bbbb' }));
+        expect($('script').attr('src')).toBe('/assets/js/arc-search.js?v=aaaa');
+        expect($('link[rel="stylesheet"]').attr('href')).toBe('/assets/css/arc-search.css?v=bbbb');
     });
 
     it('uses the root results path for the default language', () => {

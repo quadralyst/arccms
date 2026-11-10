@@ -9,12 +9,10 @@
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <!-- Bootstrap, the icon fonts and Roboto, served with the app (src/vendor-styles.css):
+       first, so core's styles below override Bootstrap as they did when it came from a CDN. -->
+  <link rel="stylesheet" href="/src/vendor-styles.css" />
   <link rel="stylesheet" href="/src/styles.css" />
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
   <!-- The app's own styles (src/custom/styles.css, docs/app/custom-space.html): last, so they win. -->
   <link rel="stylesheet" href="/src/custom/styles.css" />
 
@@ -29,7 +27,7 @@
   </arc-root>
 
   <script type="module" src="/src/main.ts"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Bootstrap's script (window.bootstrap) is added here by scripts/vite-vendor-scripts.ts, served with the app. -->
 </body>
 
 </html>

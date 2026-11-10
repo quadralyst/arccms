@@ -23,7 +23,7 @@
  */
 import { onDocumentWrittenWithAuthContext } from 'firebase-functions/v2/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldPath, FieldValue } from 'firebase-admin/firestore';
 import { owner, db } from '../init.js';
 import { arcDocument } from '../arc-config.js';
 import { thisProjectKeys } from '../utils/runtimeIdentity.js';
@@ -276,50 +276,62 @@ export const claimFirstAdmin = onCall(async (request) => {
     return { role: 'admin' };
 });
 
+/** Records read per page by syncAllUserRoles. */
+export const SYNC_PAGE_SIZE = 200;
+
 /**
  * Admin: re-apply every user's claims (`arccms_role`, `arccms_uid`) from their records.
- * Run once after deploying a new claim, and whenever claims drift.
+ * Run once after deploying a new claim, and whenever claims drift. Reads the records a
+ * page at a time, so a large site never loads them all at once. A blocked or detached
+ * record gets no claims, as the role trigger does.
+ *
+ * The caller must be an active admin by their record, not their claims: this is the
+ * repair for claims that drifted, so it cannot trust them.
  */
 export const syncAllUserRoles = onCall(async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'Must be authenticated');
     }
 
-    // Check caller is admin by querying the users collection. Safe because the rules let
-    // only admins and the Admin SDK write `role`.
-    const callerQuery = await db.collection('users')
+    // Safe because the rules let only admins and the Admin SDK write `role` and `isActive`.
+    const callerRecords = await db.collection('users')
         .where('uid', '==', request.auth.uid)
         .where('role', '==', 'admin')
-        .limit(1)
         .get();
-
-    if (callerQuery.empty) {
+    if (!callerRecords.docs.some((doc) => !isBlockedRecord(doc.data()))) {
         throw new HttpsError('permission-denied', 'Must be an admin');
     }
 
-    const usersSnap = await db.collection('users').get();
     let synced = 0;
     let skipped = 0;
-
-    for (const userDoc of usersSnap.docs) {
-        const data = userDoc.data();
-        const uid = data.uid;
-        const role = data.role;
-
-        if (!uid) {
-            skipped++;
-            continue;
+    let total = 0;
+    let last: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+    for (;;) {
+        let page = db.collection('users').orderBy(FieldPath.documentId()).limit(SYNC_PAGE_SIZE);
+        if (last) page = page.startAfter(last);
+        const snap = await page.get();
+        total += snap.size;
+        for (const userDoc of snap.docs) {
+            const data = userDoc.data();
+            const uid = data.uid;
+            const role = data.role;
+            if (!uid) {
+                skipped++;
+                continue;
+            }
+            try {
+                // Also backfills the claims for records made before they existed.
+                if (isBlockedRecord(data)) await clearArcClaims(uid);
+                else await setRecordClaims(uid, typeof role === 'string' ? role : '', userDoc.id);
+                synced++;
+            } catch (error) {
+                console.error(`Failed to sync claims for ${uid}:`, error);
+                skipped++;
+            }
         }
-
-        try {
-            // Also backfills the claims for records made before they existed.
-            await setRecordClaims(uid, typeof role === 'string' ? role : '', userDoc.id);
-            synced++;
-        } catch (error) {
-            console.error(`Failed to sync claims for ${uid}:`, error);
-            skipped++;
-        }
+        if (snap.size < SYNC_PAGE_SIZE) break;
+        last = snap.docs[snap.docs.length - 1];
     }
 
-    return { synced, skipped, total: usersSnap.size };
+    return { synced, skipped, total };
 });

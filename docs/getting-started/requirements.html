@@ -35,6 +35,7 @@
       <li>Before every functions build and every test run, <code>scripts/arc-features.mjs</code> loads the TypeScript file <code>src/custom/features.ts</code> directly, which Node can do from 22.18 on.</li>
     </ul>
     <div class="trap"><p>The root <code>package.json</code> accepts Node 20.19, and the dev server starts on it. The functions build and <code>npm run test</code> then stop with "Node 22.18 or later is needed". Install Node 22, version 22.18 or later, from the start.</p></div>
+    <p>One package comes from outside the npm registry: <code>xlsx</code> (spreadsheet import), which SheetJS publishes only on its own site, <code>cdn.sheetjs.com</code>. <code>npm install</code> and <code>npm ci</code> must be able to reach that host the first time, so a CI runner or a registry mirror that allows only npm needs it added. <code>npm audit</code> does not check that package.</p>
 
     <h2>The Firebase CLI</h2>
     <p>Install it once, globally, and sign in:</p>
