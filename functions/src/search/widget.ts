@@ -5,8 +5,9 @@
  * the site's language, the callable's URL or the translated strings, so
  * the publish pipeline replaces the element with this markup per page, the
  * way it does the language switcher. The markup is a plain GET form to the
- * results page, so search works with JavaScript disabled; arc-search.js
- * adds the type-ahead.
+ * results page, so the box submits without JavaScript, but the results page
+ * (/search, a page of the app) needs JavaScript to show the results.
+ * arc-search.js adds the type-ahead.
  *
  * Spec: specs/search-spec.md, decision S-D16 and phase S5 item 2.
  */

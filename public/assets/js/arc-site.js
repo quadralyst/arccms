@@ -15,6 +15,9 @@
  *   data-waitlist-existing-text attributes reword it for that form. The terms
  *   notice is added by the publish pipeline, and by the app's preview of the home
  *   page (src/app/pages/index.page.ts), which runs this same script.
+ *   A failed step puts the form back as it was filled in, with a line saying why in
+ *   the page's language (the server's own English is never shown). A hidden
+ *   honeypot input (arc_website) goes with each signup for joinForm's spam check.
  * - Contact forms, <form data-arc-contact-form> with inputs named name, email,
  *   phone, subject and message (email and message required): sent to
  *   submitContactMessage, then replaced by a thank-you. A hidden honeypot input
@@ -23,7 +26,9 @@
  * - Live counts, <span data-waitlist-count="form-id">: confirmed sign-ups.
  * - Signup metadata: the same fields and visitor history as the app's forms
  *   (device, UTM, visits, scroll depth, time on page), and "Welcome back" for
- *   someone already on the list.
+ *   someone already on the list. Only when analytics consent allows it: the visitor
+ *   accepted the site usage banner, or gave no answer on a site that shows none.
+ *   Otherwise only the UTM fields and the throwaway-address flag are sent.
  * - The installable app, when the page links a manifest: registers the service
  *   worker; <button data-arc-install hidden> appears once the browser offers
  *   installing, and window.arcSite.install() asks.
@@ -72,6 +77,7 @@
     function formError(error, fallback, step) {
         var code = error && error.code;
         var reason = error && error.reason;
+        if (code === 'NETWORK') return t('signup_offline', 'No internet connection. Check it and try again.');
         if (reason === 'form-closed' || reason === 'form-missing') return t('signup_form_closed', 'This form is not taking signups right now.');
         if (code === 'PERMISSION_DENIED') return t('signup_expired', 'This signup has expired. Please fill in the form again.');
         if (code === 'RESOURCE_EXHAUSTED') {
@@ -97,12 +103,19 @@
 
     // ─── Server ────────────────────────────────────────────────────────────
 
-    /** A callable by its plain name; rejects with the server's message. */
+    /**
+     * A callable by its plain name. Rejects with the server's status as `code` and
+     * its reason as `reason`, or with code NETWORK when the server could not be reached.
+     */
     function call(name, data) {
         return fetch(config.functions.replace(/\/+$/, '') + '/' + config.group + '-' + name, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: data }),
+        }).catch(function () {
+            var offline = new Error('Network error');
+            offline.code = 'NETWORK';
+            throw offline;
         }).then(function (res) {
             return res.json().catch(function () { return {}; }).then(function (body) {
                 if (!res.ok || body.error) {
@@ -167,7 +180,26 @@
     var LEGACY_RETURN_VISITOR_KEY = 'arc_return_visitor';
     var DISPOSABLE_DOMAINS = ['10minutemail.com', 'guerrillamail.com', 'mailinator.com', 'tempmail.com', 'yopmail.com',
         'throwaway.email', 'maildrop.cc', 'fakeinbox.com', 'trashmail.com', 'getnada.com', 'temp-mail.org'];
-    var visit = { loadedAt: Date.now(), maxScroll: 0, clicks: 0, tabSwitches: 0, formStarted: false, tracking: false, session: null };
+    var visit = { loadedAt: Date.now(), maxScroll: 0, clicks: 0, tabSwitches: 0, formStarted: false, tracking: false, allowed: false, session: null };
+
+    /** Where the app keeps this visitor's answer to the site usage banner (site-usage.model.ts). */
+    var CONSENT_KEY = 'arc_site_usage';
+
+    /**
+     * Whether this visitor's visit may be tracked for the signup metadata, as analytics
+     * consent allows: yes once they accepted the site usage banner, never once they
+     * rejected it, and without an answer only when the site shows no banner
+     * (Settings/site-usage). Unknown counts as no.
+     */
+    function trackingAllowed() {
+        var answer = '';
+        try { answer = localStorage.getItem(CONSENT_KEY) || ''; } catch (e) { /* storage off */ }
+        if (answer === 'accepted') return Promise.resolve(true);
+        if (answer === 'rejected' || !config.project) return Promise.resolve(false);
+        return readDoc('Settings/site-usage')
+            .then(function (settings) { return !(settings && settings.isEnabled === true); })
+            .catch(function () { return false; });
+    }
 
     function detectDeviceType(ua) {
         if (/iPad|Android(?!.*Mobile)|tablet/i.test(ua)) return 'tablet';
@@ -264,7 +296,7 @@
 
     /** Counts a person starting to fill a form, once a page view. */
     function trackFormStart() {
-        if (visit.formStarted) return;
+        if (visit.formStarted || !visit.allowed) return;
         visit.formStarted = true;
         loadSession().formStartCount += 1;
         saveSession();
@@ -280,16 +312,23 @@
         return out;
     }
 
-    /** What a signup records about the visit: the app's ISignupMetadata. */
+    /**
+     * What a signup records about the visit: the app's ISignupMetadata. Without
+     * consent to track (trackingAllowed), only the campaign the link named (UTM) and
+     * whether the address is a throwaway one: nothing about the device or the visit.
+     */
     function signupMetadata(email) {
         var params = new URLSearchParams(location.search);
-        var ua = navigator.userAgent;
-        var conn = navigator.connection;
         var utm = {};
         ['source', 'medium', 'campaign', 'content', 'term'].forEach(function (k) {
             var value = params.get('utm_' + k);
             if (value) utm['utm' + k.charAt(0).toUpperCase() + k.slice(1)] = value;
         });
+        var domain = String(email || '').split('@')[1];
+        var disposable = !!domain && DISPOSABLE_DOMAINS.indexOf(domain.toLowerCase()) !== -1;
+        if (!visit.allowed) return Object.assign({}, utm, { isDisposableEmail: disposable });
+        var ua = navigator.userAgent;
+        var conn = navigator.connection;
         var query = {};
         params.forEach(function (value, key) { if (!/^utm_(source|medium|campaign|content|term)$|^ref$/.test(key)) query[key] = value; });
         var fcp;
@@ -300,7 +339,6 @@
         var data = loadSession();
         var now = new Date();
         var onPage = Date.now() - visit.loadedAt;
-        var domain = String(email || '').split('@')[1];
         return withoutUndefined(Object.assign({}, utm, {
             deviceType: detectDeviceType(ua),
             operatingSystem: detectOS(ua),
@@ -332,15 +370,39 @@
             formStartCount: data.formStartCount || undefined,
             clickCount: visit.clicks || undefined,
             tabSwitchCount: visit.tabSwitches || undefined,
-            isDisposableEmail: !!domain && DISPOSABLE_DOMAINS.indexOf(domain.toLowerCase()) !== -1,
+            isDisposableEmail: disposable,
         }));
+    }
+
+    /** The hidden input a signup form carries for the server's spam check (joinForm's HONEYPOT_FIELD). */
+    var SIGNUP_TRAP = 'arc_website';
+
+    /**
+     * An input people never see or fill; a bot filling every input does, and the
+     * server then quietly drops what it sent.
+     */
+    function addTrap(form, name) {
+        if (form.querySelector('input[name="' + name + '"]')) return;
+        var trap = document.createElement('input');
+        trap.type = 'text';
+        trap.name = name;
+        trap.tabIndex = -1;
+        trap.autocomplete = 'off';
+        trap.setAttribute('aria-hidden', 'true');
+        trap.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;opacity:0;';
+        form.appendChild(trap);
+    }
+
+    function trapValue(form, name) {
+        var trap = form.querySelector('input[name="' + name + '"]');
+        return trap ? trap.value : '';
     }
 
     function formValues(form) {
         var data = {};
         for (var i = 0; i < form.elements.length; i++) {
             var el = form.elements[i];
-            if (!el.name || el.disabled || el.type === 'submit' || el.type === 'button') continue;
+            if (!el.name || el.name === SIGNUP_TRAP || el.disabled || el.type === 'submit' || el.type === 'button') continue;
             if (el.type === 'checkbox') {
                 if (el.checked) data[el.name] = data[el.name] ? data[el.name] + ', ' + el.value : el.value;
             } else if (el.type === 'radio') {
@@ -353,6 +415,50 @@
     }
 
     function render(form, html) { form.innerHTML = html; }
+
+    /**
+     * Takes the form's own inputs out while a step shows, keeping them, and what was
+     * typed in them, for showFields to put back.
+     */
+    function hideFields(form, state) {
+        if (state.fields) return;
+        var kept = document.createDocumentFragment();
+        while (form.firstChild) kept.appendChild(form.firstChild);
+        state.fields = kept;
+    }
+
+    /** Puts the form's own inputs back, as they were left. */
+    function showFields(form, state) {
+        if (!state.fields) return;
+        form.innerHTML = '';
+        form.appendChild(state.fields);
+        state.fields = null;
+    }
+
+    /** The line in the form saying what went wrong ('' clears it), created on first use. */
+    function formStatus(form, message) {
+        var el = form.querySelector('[data-waitlist-status]');
+        if (!el && !message) return;
+        if (!el) {
+            el = document.createElement('p');
+            el.setAttribute('data-waitlist-status', '');
+            el.setAttribute('role', 'alert');
+            el.className = 'waitlist-form-error';
+            el.style.cssText = 'color:#b42318;font-size:0.9rem;margin:0.5rem 0;';
+            form.appendChild(el);
+        }
+        el.textContent = message;
+        el.hidden = !message;
+    }
+
+    /** Back to the filled-in form after a failure, with the reason under it and the address focused. */
+    function backToForm(form, state, message) {
+        state.step = 'signup';
+        showFields(form, state);
+        formStatus(form, message);
+        var emailInput = form.querySelector('[data-waitlist-email], [name="email"]');
+        if (emailInput) emailInput.focus();
+    }
 
     function loading(form, message) {
         render(form, '<div class="waitlist-loading"><div class="waitlist-spinner"></div><p>' + escapeHtml(message) + '</p></div>');
@@ -390,7 +496,8 @@
 
     function bindForm(form) {
         var requested = form.getAttribute('data-waitlist-id') || DEFAULT_FORM;
-        var state = { step: 'signup', waitlistId: requested, original: form.innerHTML, email: '', firstName: '' };
+        var state = { step: 'signup', waitlistId: requested, fields: null, email: '', firstName: '' };
+        addTrap(form, SIGNUP_TRAP);
 
         resolveForm(requested).then(function (found) {
             state.waitlistId = found.id;
@@ -423,14 +530,17 @@
         var emailInput = form.querySelector('[data-waitlist-email], [name="email"]');
         var nameInput = form.querySelector('[data-waitlist-name], [name="firstName"], [name="name"]');
         var sourceInput = form.querySelector('[data-waitlist-source], [name="source"]');
-        if (!emailInput || !emailInput.value.trim()) return showError(form, state, t('signup_email_required', 'Email is required'));
+        if (!emailInput || !emailInput.value.trim()) {
+            formStatus(form, t('signup_email_required', 'Email is required'));
+            if (emailInput) emailInput.focus();
+            return;
+        }
+        formStatus(form, '');
 
         state.email = emailInput.value.trim().toLowerCase();
         state.firstName = (nameInput && nameInput.value.trim()) || firstNameFrom(state.email);
         var source = (sourceInput && sourceInput.value) || 'direct';
-        loading(form, t('signup_loading', 'Signing you up...'));
-
-        call('joinForm', {
+        var request = {
             waitlistId: state.waitlistId,
             email: state.email,
             firstName: state.firstName,
@@ -438,7 +548,13 @@
             formData: data,
             signupMetadata: signupMetadata(state.email),
             origin: location.origin,
-        }).then(function (joined) {
+        };
+        request[SIGNUP_TRAP] = trapValue(form, SIGNUP_TRAP);
+        state.step = 'joining';
+        hideFields(form, state);
+        loading(form, t('signup_loading', 'Signing you up...'));
+
+        call('joinForm', request).then(function (joined) {
             // A sealed, short-lived ticket, never the member id: the later steps take it.
             state.ticket = joined && joined.ticket;
             return Promise.all([
@@ -451,7 +567,7 @@
             state.step = 'verify';
             showVerify(form, state);
         }).catch(function (error) {
-            showError(form, state, formError(error, t('signup_failed', 'Failed to sign up. Please try again.'), 'join'));
+            backToForm(form, state, formError(error, t('signup_failed', 'Failed to sign up. Please try again.'), 'join'));
         });
     }
 
@@ -466,17 +582,17 @@
                 else showSuccess(form, state);
             })
             .catch(function (error) {
-                showError(form, state, formError(error, t('signup_verify_failed', 'Verification failed. Please try again.')));
+                backToForm(form, state, formError(error, t('signup_verify_failed', 'Verification failed. Please try again.')));
             });
     }
 
     function showVerify(form, state) {
         render(form, '<div class="waitlist-verify-step" style="' + CARD + '">'
-            + '<h3 style="margin-top:0;color:#1a1a1a;font-size:24px;font-weight:700;">' + escapeHtml(t('signup_check_email', 'Check Your Email')) + '</h3>'
+            + '<h3 style="margin-top:0;color:#1a1a1a;font-size:24px;font-weight:700;">' + escapeHtml(t('signup_check_email', 'Check your email')) + '</h3>'
             + '<p style="color:#666;line-height:1.5;font-size:15px;margin-bottom:25px;">' + escapeHtml(t('signup_code_sent_to', 'We sent a 6-digit verification code to')) + '<br><strong style="color:#1a1a1a;">' + escapeHtml(state.email) + '</strong></p>'
             + '<div style="margin-bottom:15px;"><input type="text" class="waitlist-otp-input" placeholder="000000" maxlength="6" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:12px;font-size:24px;letter-spacing:8px;text-align:center;border:2px solid #ddd;border-radius:8px;box-sizing:border-box;"></div>'
             + '<div class="waitlist-inline-message" style="margin-bottom:15px;color:#d93025;font-size:13px;min-height:18px;"></div>'
-            + '<button type="button" class="waitlist-verify-btn" style="' + BUTTON + '">' + escapeHtml(t('signup_verify_button', 'Verify Email')) + '</button>'
+            + '<button type="button" class="waitlist-verify-btn" style="' + BUTTON + '">' + escapeHtml(t('signup_verify_button', 'Verify your email')) + '</button>'
             + '<div style="margin-top:20px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:10px;">'
             + '<button type="button" class="waitlist-resend-btn" style="' + LINK + 'color:#007bff;text-decoration:underline;">' + escapeHtml(t('signup_resend', 'Resend code')) + '</button><span style="color:#ccc;">|</span>'
             + '<button type="button" class="waitlist-back-btn" style="' + LINK + 'color:#666;">' + escapeHtml(t('signup_change_email', 'Change email')) + '</button></div></div>');
@@ -544,19 +660,9 @@
             formText(form, 'data-waitlist-existing-text', state) || t('signup_already', 'You\'re already on the list.', params));
     }
 
-    function showError(form, state, message) {
-        state.step = 'error';
-        render(form, '<div class="waitlist-error-step" style="padding:20px;border-radius:12px;background:#fffafb;border:1px solid #f8d7da;text-align:center;font-family:sans-serif;">'
-            + '<div style="font-size:48px;color:#dc3545;margin-bottom:15px;line-height:1;">⚠</div>'
-            + '<h3 style="margin:0 0 10px;color:#721c24;font-size:22px;font-weight:700;">' + escapeHtml(t('signup_error_title', 'Something went wrong')) + '</h3>'
-            + '<p class="waitlist-error-text" style="margin:0 0 25px;color:#842029;font-size:15px;line-height:1.5;">' + escapeHtml(message) + '</p>'
-            + '<button type="button" class="waitlist-retry-btn" style="padding:12px 24px;background-color:#dc3545;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">' + escapeHtml(t('signup_try_again', 'Try Again')) + '</button></div>');
-        form.querySelector('.waitlist-retry-btn').addEventListener('click', function () { reset(form, state); });
-    }
-
+    /** "Change email": the form again, as it was filled in. */
     function reset(form, state) {
-        state.step = 'signup';
-        form.innerHTML = state.original;
+        backToForm(form, state, '');
     }
 
     // ─── Counts ────────────────────────────────────────────────────────────
@@ -646,15 +752,7 @@
     function bindContactForm(form) {
         if (form.hasAttribute('data-arc-bound')) return;
         form.setAttribute('data-arc-bound', '');
-        // People never see or fill this; a bot filling every input does.
-        var trap = document.createElement('input');
-        trap.type = 'text';
-        trap.name = 'website';
-        trap.tabIndex = -1;
-        trap.autocomplete = 'off';
-        trap.setAttribute('aria-hidden', 'true');
-        trap.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;opacity:0;';
-        form.appendChild(trap);
+        addTrap(form, 'website');
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             sendContact(form);
@@ -731,8 +829,11 @@
         setupInstall();
         var forms = document.querySelectorAll('form[data-waitlist-form]');
         if (config.functions && forms.length) {
-            startTracking();
             Array.prototype.forEach.call(forms, bindForm);
+            trackingAllowed().then(function (allowed) {
+                visit.allowed = allowed;
+                if (allowed) startTracking();
+            });
         }
         var contactForms = document.querySelectorAll('form[data-arc-contact-form]');
         if (config.functions) Array.prototype.forEach.call(contactForms, bindContactForm);

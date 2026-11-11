@@ -33,7 +33,7 @@ import { extractCode } from '../../utils/identifier.util';
     imports: [TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
-        <div class="code-boxes" role="group" [attr.aria-label]="label()">
+        <div class="code-boxes" role="group" [attr.aria-label]="label() || ('common.code_input.label' | transloco)">
             @for (digit of digits(); track $index) {
                 <input #box
                     class="code-box"
@@ -42,7 +42,7 @@ import { extractCode } from '../../utils/identifier.util';
                     inputmode="numeric"
                     pattern="[0-9]*"
                     [attr.autocomplete]="$index === 0 && oneTimeCode() ? 'one-time-code' : 'off'"
-                    [attr.aria-label]="'common.code_input.digit' | transloco: { label: label(), n: $index + 1, total: length() }"
+                    [attr.aria-label]="'common.code_input.digit' | transloco: { label: label() || ('common.code_input.label' | transloco), n: $index + 1, total: length() }"
                     [attr.maxlength]="$index === 0 ? length() : 1"
                     [value]="digit"
                     [disabled]="disabled()"
@@ -86,7 +86,8 @@ export class CodeInputComponent {
     readonly invalid = input(false);
     /** Let the phone offer a code from an SMS (off for PINs). */
     readonly oneTimeCode = input(true);
-    readonly label = input('Code');
+    /** What the boxes are for, read out with each box: "Code" in the person's language when left out. */
+    readonly label = input('');
     /** Put the cursor in the first box when it can take it. */
     readonly autofocus = input(true);
 

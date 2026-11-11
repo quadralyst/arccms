@@ -11,15 +11,15 @@
  * language exactly as before (L-D2).
  */
 import { Injectable, PLATFORM_ID, computed, effect, inject, signal, untracked } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
 import { TranslocoService } from '@jsverse/transloco';
 import { filter } from 'rxjs';
 import { MEMBER_LANGUAGES } from '../../../custom/languages';
 import { AdminLanguageService } from './admin-language.service';
 import {
-    DEFAULT_MEMBER_LANGUAGE, MEMBER_LANGUAGE_CACHE_KEY, chooseMemberLanguage, isAdminUrl, resolveMemberLanguages,
+    DEFAULT_MEMBER_LANGUAGE, MEMBER_LANGUAGE_CACHE_KEY, chooseMemberLanguage, isAdminUrl, languageDir, resolveMemberLanguages,
     type MemberLanguage,
 } from './member-languages';
 
@@ -92,8 +92,9 @@ export class MemberLanguageService {
 
 /**
  * Applies the right language to the page (L-D3): the admin's under /admin, the member's
- * elsewhere. Started when the app starts; does nothing when the app declares no member
- * languages.
+ * elsewhere. Started when the app starts. `<html lang>` and `dir` follow the language the
+ * page shows, always; the switching between the two areas only when the app declares
+ * member languages.
  */
 @Injectable({ providedIn: 'root' })
 export class LanguageAreaService {
@@ -101,12 +102,24 @@ export class LanguageAreaService {
     private readonly transloco = inject(TranslocoService);
     private readonly admin = inject(AdminLanguageService);
     private readonly member = inject(MemberLanguageService);
+    private readonly document = inject(DOCUMENT);
 
     private readonly url = signal(typeof location === 'undefined' ? '/' : location.pathname);
     /** True while the page is in the admin area. */
     readonly inAdmin = computed(() => isAdminUrl(this.url()));
+    /** The language the page shows now. */
+    private readonly shown = toSignal(this.transloco.langChanges$, { initialValue: this.transloco.getActiveLang() });
 
     constructor() {
+        // Screen readers, spelling, hyphens and fonts read the page's language from <html lang>;
+        // a language declared right to left also turns the page with `dir` (docs/app/member-languages.html).
+        effect(() => {
+            const lang = this.shown();
+            if (!lang) return;
+            const root = this.document.documentElement;
+            root.lang = lang;
+            root.dir = languageDir(lang, MEMBER_LANGUAGE_LIST);
+        });
         if (!MEMBER_LANGUAGES_DECLARED) return;
         this.router.events
             .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd), takeUntilDestroyed())

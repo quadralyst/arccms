@@ -189,20 +189,6 @@
   text-transform: capitalize;
 }
 
-.status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  background: #f3f4f6;
-  color: #6b7280;
-
-  &.active {
-    background: #d1fae5;
-    color: #065f46;
-  }
-}
-
 // Edit forms
 .edit-form {
   margin-top: 0.5rem;

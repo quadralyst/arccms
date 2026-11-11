@@ -281,12 +281,14 @@ export function replaceArcComponents(
  * would otherwise be thrown off the site by clicking a language.
  *
  * Returns '' when the page exists in one language only, so single-language
- * sites get no markup at all.
+ * sites get no markup at all. `label` names it for screen readers, in the page's
+ * language (the `language_label` site string).
  */
 export function buildLanguageSwitcher(
     alternates: PageAlternate[],
     currentLang: string,
     labels: Record<string, string> = {},
+    label = '',
 ): string {
     if (!alternates || alternates.length < 2) return '';
 
@@ -305,7 +307,7 @@ export function buildLanguageSwitcher(
         })
         .join('');
 
-    return `<div class="arc-lang-switcher" role="navigation" aria-label="Language">${links}</div>
+    return `<div class="arc-lang-switcher" role="navigation" aria-label="${escapeAttr(label.trim() || 'Language')}">${links}</div>
 <style>
 .arc-lang-switcher{display:inline-flex;align-items:center;gap:.25rem;margin-left:1rem}
 .arc-lang-switcher .arc-lang-link{display:inline-block;padding:.15rem .5rem;border-radius:1rem;font-size:.8125rem;line-height:1.4;text-decoration:none;color:#6e6e73;white-space:nowrap}

@@ -50,12 +50,12 @@ describe('member screens in a pseudo language', () => {
         TestBed.configureTestingModule({ imports: [pseudoTestingModule({ desk: { open: 'Open the desk' } })] });
         const transloco = TestBed.inject(TranslocoService);
         expect(transloco.translate('desk.open')).toBe(pseudo('Open the desk'));
-        expect(transloco.translate('member.not_found.home')).toBe(pseudo('Go to Home'));
+        expect(transloco.translate('member.not_found.home')).toBe(pseudo('Go to the home page'));
     });
 
     it('page not found', async () => {
         const fixture = await render(NotFoundComponent);
-        expect(fixture.nativeElement.textContent).toContain(pseudo('Go to Home'));
+        expect(fixture.nativeElement.textContent).toContain(pseudo('Go to the home page'));
         expect(textNotInPseudo(fixture.nativeElement)).toEqual([]);
     });
 
@@ -80,7 +80,7 @@ describe('member screens in a pseudo language', () => {
             },
             { provide: SitePagesService, useValue: { pages: signal([]), load: async () => [] } },
         ]);
-        expect(fixture.nativeElement.textContent).toContain(pseudo('Accept All'));
+        expect(fixture.nativeElement.textContent).toContain(pseudo('Accept all'));
         // The banner's message is the admin's own text, the site's content.
         expect(textNotInPseudo(fixture.nativeElement, ['Our own words about cookies.'])).toEqual([]);
     });

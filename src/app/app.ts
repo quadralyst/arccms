@@ -11,6 +11,7 @@ import { FeedbackComponent } from '../shared/components/feedback/feedback.compon
 import { FullScreenService } from './core/layout/full-screen.service';
 import { StaleCodeService } from './core/version/stale-code.service';
 import { StaleCodeBarComponent } from './core/version/stale-code-bar.component';
+import { keepOutOfSearchOnEachMove } from './core/site/search-engines';
 
 @Component({
   selector: 'arc-root',
@@ -93,6 +94,8 @@ export class App {
 
   constructor() {
     this.gaTracking.initializeTracking();
+    // Out of search until a public content page says otherwise (core/site/search-engines.ts).
+    keepOutOfSearchOnEachMove();
 
     // The class on <html> lets the global styles drop page scroll and margins
     // (src/styles.css), on the server render as well as in the browser.

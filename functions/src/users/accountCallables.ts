@@ -10,7 +10,9 @@
  *   deleteMyAccount   delete the account and everything under it: the person's
  *                     contact (their address, lists and consent) here, the rest
  *                     in onUserDelete.ts (never a locked app account: its app
- *                     deletes it, with deleteAppAccount)
+ *                     deletes it, with deleteAppAccount); more than 10 minutes
+ *                     after signing in, only with a fresh code's proof
+ *                     (`freshProof`, purpose `delete-account`)
  *   rememberThisDevice  remember the device a signed-in person is on for PIN sign-in,
  *                     so "Ask for a code on a new device" asks nothing there
  *                     (specs/sign-in-pin-spec.md); the page calls it once per device
@@ -21,6 +23,7 @@ import { clearArcClaims, setRecordClaims, USER_RECORD_CLAIM } from './claims.js'
 import { canSignIn, requireOwnRecord } from '../auth/accounts.js';
 import { readDeviceKey, rememberDevice } from '../auth/devices.js';
 import { refuseOtherSignIn } from '../auth/appAccountLock.js';
+import { DELETE_ACCOUNT_PURPOSE, freshCodeTarget, useFreshCodeProof } from '../auth/freshCode.js';
 import { eraseContact } from '../email-core/eraseContact.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 
@@ -54,15 +57,29 @@ export const deleteMyAccount = onCall(async (request) => {
     if (record.data['role'] === 'admin') {
         throw new HttpsError('failed-precondition', 'An administrator account is removed by another administrator, under Users.');
     }
+    let provedWithCode = false;
     if (!signedInRecently((request.auth!.token as { auth_time?: number }).auth_time)) {
-        throw new HttpsError('failed-precondition', 'For your security, sign in again, then delete your account.', { reason: 'recent-sign-in' });
+        // Signed in a while ago: a fresh code to the person's own address or number proves it
+        // is them (docs/app/fresh-code.html). An account with neither signs in again instead.
+        if (!freshCodeTarget(record.data)) {
+            throw new HttpsError('failed-precondition', 'For your security, sign in again, then delete your account.', { reason: 'recent-sign-in' });
+        }
+        await useFreshCodeProof(request, request.data?.freshProof, DELETE_ACCOUNT_PURPOSE);
+        provedWithCode = true;
     }
-    // "Everything saved in it" includes the contact: an admin deleting a user
-    // only unlinks it (it may predate the account), but the person asking to be
-    // deleted is asking for their address to go too (review F).
-    const email = typeof record.data['email'] === 'string' ? record.data['email'].trim().toLowerCase() : '';
-    if (email) await eraseContact(computeEmailHash(email), String(record.data['uid']));
-    await record.ref.delete();
+    try {
+        // "Everything saved in it" includes the contact: an admin deleting a user
+        // only unlinks it (it may predate the account), but the person asking to be
+        // deleted is asking for their address to go too (review F).
+        const email = typeof record.data['email'] === 'string' ? record.data['email'].trim().toLowerCase() : '';
+        if (email) await eraseContact(computeEmailHash(email), String(record.data['uid']));
+        await record.ref.delete();
+    } catch (err) {
+        if (!provedWithCode) throw err;
+        // The code's proof is used up: the next try needs a new code, so say so (RF6).
+        logger.error(`deleteMyAccount: ${record.ref.id} not deleted after its fresh code`, err);
+        throw new HttpsError('aborted', "We couldn't delete your account. Please try again with a new code.", { reason: 'delete-failed' });
+    }
     logger.info(`deleteMyAccount: ${record.ref.id} deleted by its owner.`);
     return { deleted: true };
 });

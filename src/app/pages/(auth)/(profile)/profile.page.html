@@ -12,17 +12,17 @@
 
   <!-- Alerts -->
   @if (successMsg()) {
-    <div class="alert alert-success d-flex align-items-center">
-      <i class="fas fa-check-circle me-2"></i>
+    <div class="alert alert-success d-flex align-items-center" role="status">
+      <i class="fas fa-check-circle me-2" aria-hidden="true"></i>
       <span>{{ successMsg() }}</span>
-      <button type="button" class="btn-close ms-auto" (click)="clearMessages()"></button>
+      <button type="button" class="btn-close ms-auto" [attr.aria-label]="'common.actions.close' | transloco" (click)="clearMessages()"></button>
     </div>
   }
   @if (errorMsg()) {
-    <div class="alert alert-danger d-flex align-items-center">
-      <i class="fas fa-exclamation-circle me-2"></i>
+    <div class="alert alert-danger d-flex align-items-center" role="alert">
+      <i class="fas fa-exclamation-circle me-2" aria-hidden="true"></i>
       <span>{{ errorMsg() }}</span>
-      <button type="button" class="btn-close ms-auto" (click)="clearMessages()"></button>
+      <button type="button" class="btn-close ms-auto" [attr.aria-label]="'common.actions.close' | transloco" (click)="clearMessages()"></button>
     </div>
   }
 
@@ -62,12 +62,12 @@
       </div>
 
       <h3 class="user-display-name">{{ currentUser()?.name }}</h3>
-      <div class="badge-row">
-        <span class="role-badge">{{ roleLabel() }}</span>
-        <span class="status-badge" [class.active]="currentUser()?.isActive">
-          {{ (currentUser()?.isActive ? 'member.profile.status_active' : 'member.profile.status_inactive') | transloco }}
-        </span>
-      </div>
+      <!-- A member's own profile names no role or status; an admin's says Admin. -->
+      @if (isAdmin()) {
+        <div class="badge-row">
+          <span class="role-badge">{{ 'member.profile.role_admin' | transloco }}</span>
+        </div>
+      }
     </div>
 
     <!-- CARD 2: Personal Information -->
@@ -80,7 +80,7 @@
 
       <!-- Name Row -->
       <div class="info-row">
-        <label>{{ 'member.profile.name' | transloco }}</label>
+        <label [attr.for]="isEditingName() ? 'profile-name' : null">{{ 'member.profile.name' | transloco }}</label>
         @if (!isEditingName()) {
           <div class="info-value">
             <span>{{ currentUser()?.name }}</span>
@@ -92,7 +92,7 @@
           </div>
         } @else {
           <div class="edit-form">
-            <input type="text" class="form-control" [formControl]="nameControl"
+            <input id="profile-name" type="text" class="form-control" [formControl]="nameControl" autocomplete="name"
                    [placeholder]="'member.profile.name_placeholder' | transloco" />
             @if (nameControl.invalid && nameControl.touched) {
               <div class="text-danger mt-1 small">{{ 'member.profile.name_invalid' | transloco }}</div>
@@ -112,7 +112,7 @@
 
       <!-- Time zone: this person's own, on this device; a locked app account may set it too. -->
       <div class="info-row time-zone-row">
-        <label>{{ 'member.profile.time_zone' | transloco }}</label>
+        <label for="profile-time-zone">{{ 'member.profile.time_zone' | transloco }}</label>
         <div class="zone-value">
           <arc-zone-picker inputId="profile-time-zone" [label]="'member.profile.time_zone' | transloco" [allowAutomatic]="true"
             [value]="zones.memberChoice()" (valueChange)="zones.useMemberZone($event)"></arc-zone-picker>
@@ -154,14 +154,15 @@
           <div class="edit-form" [formGroup]="passwordForm">
             <!-- Current Password -->
             <div class="mb-3">
-              <label class="form-label">{{ 'member.profile.current_password' | transloco }}</label>
+              <label class="form-label" for="profile-current-password">{{ 'member.profile.current_password' | transloco }}</label>
               <div class="input-group">
-                <input [type]="showCurrentPassword() ? 'text' : 'password'"
-                       class="form-control" formControlName="currentPassword"
+                <input id="profile-current-password" [type]="showCurrentPassword() ? 'text' : 'password'"
+                       class="form-control" formControlName="currentPassword" autocomplete="current-password"
                        [placeholder]="'member.profile.current_password_placeholder' | transloco" />
-                <button type="button" class="btn btn-outline-secondary"
+                <button type="button" class="btn btn-outline-secondary" [attr.aria-pressed]="showCurrentPassword()"
+                        [attr.aria-label]="'member.profile.show_password' | transloco"
                         (click)="showCurrentPassword.set(!showCurrentPassword())">
-                  <i class="fas" [class.fa-eye]="showCurrentPassword()"
+                  <i class="fas" aria-hidden="true" [class.fa-eye]="showCurrentPassword()"
                      [class.fa-eye-slash]="!showCurrentPassword()"></i>
                 </button>
               </div>
@@ -171,14 +172,15 @@
             </div>
             <!-- New Password -->
             <div class="mb-3">
-              <label class="form-label">{{ 'member.profile.new_password' | transloco }}</label>
+              <label class="form-label" for="profile-new-password">{{ 'member.profile.new_password' | transloco }}</label>
               <div class="input-group">
-                <input [type]="showNewPassword() ? 'text' : 'password'"
-                       class="form-control" formControlName="newPassword"
+                <input id="profile-new-password" [type]="showNewPassword() ? 'text' : 'password'"
+                       class="form-control" formControlName="newPassword" autocomplete="new-password"
                        [placeholder]="'member.profile.new_password_placeholder' | transloco: passwordMin" />
-                <button type="button" class="btn btn-outline-secondary"
+                <button type="button" class="btn btn-outline-secondary" [attr.aria-pressed]="showNewPassword()"
+                        [attr.aria-label]="'member.profile.show_password' | transloco"
                         (click)="showNewPassword.set(!showNewPassword())">
-                  <i class="fas" [class.fa-eye]="showNewPassword()"
+                  <i class="fas" aria-hidden="true" [class.fa-eye]="showNewPassword()"
                      [class.fa-eye-slash]="!showNewPassword()"></i>
                 </button>
               </div>
@@ -188,14 +190,15 @@
             </div>
             <!-- Confirm Password -->
             <div class="mb-3">
-              <label class="form-label">{{ 'member.profile.confirm_password' | transloco }}</label>
+              <label class="form-label" for="profile-confirm-password">{{ 'member.profile.confirm_password' | transloco }}</label>
               <div class="input-group">
-                <input [type]="showConfirmPassword() ? 'text' : 'password'"
-                       class="form-control" formControlName="confirmPassword"
+                <input id="profile-confirm-password" [type]="showConfirmPassword() ? 'text' : 'password'"
+                       class="form-control" formControlName="confirmPassword" autocomplete="new-password"
                        [placeholder]="'member.profile.confirm_password_placeholder' | transloco" />
-                <button type="button" class="btn btn-outline-secondary"
+                <button type="button" class="btn btn-outline-secondary" [attr.aria-pressed]="showConfirmPassword()"
+                        [attr.aria-label]="'member.profile.show_password' | transloco"
                         (click)="showConfirmPassword.set(!showConfirmPassword())">
-                  <i class="fas" [class.fa-eye]="showConfirmPassword()"
+                  <i class="fas" aria-hidden="true" [class.fa-eye]="showConfirmPassword()"
                      [class.fa-eye-slash]="!showConfirmPassword()"></i>
                 </button>
               </div>

@@ -50,9 +50,21 @@ describe('no silent reloads', () => {
         const body = recover.slice(recover.indexOf('private onNavigationError'));
         expect(body.indexOf('routeOwnsPwaUpdate')).toBeGreaterThan(-1);
         expect(body.indexOf('routeOwnsPwaUpdate')).toBeLessThan(body.indexOf('this.page.assign'));
-        // No other core file reloads a page by itself on a router error.
-        const others = files.filter((f) => !f.endsWith('stale-code.service.ts') && /NavigationError[\s\S]*location\.(assign|reload)/.test(readFileSync(f, 'utf8')));
+        // No other core file reloads a page by itself on a router error: a reload within a
+        // few lines of a NavigationError (its handler), not one anywhere in a file that only
+        // names the event, such as the sign-in page waiting for the router (RF6) beside its
+        // own "start over" reload.
+        const reloadsOnError = /NavigationError(?:[^\n]*\n){0,8}?[^\n]*location\.(assign|reload)/;
+        const others = files.filter((f) => !f.endsWith('stale-code.service.ts') && reloadsOnError.test(readFileSync(f, 'utf8')));
         expect(others).toEqual([]);
+    });
+
+    it('still catches a reload in a NavigationError handler', () => {
+        const reloadsOnError = /NavigationError(?:[^\n]*\n){0,8}?[^\n]*location\.(assign|reload)/;
+        const handler = "router.events.pipe(filter((e) => e instanceof NavigationError)).subscribe(() => {\n    window.location.reload();\n});";
+        const elsewhere = `filter((e) => e instanceof NavigationError)\n${'\n'.repeat(40)}resetAll() { window.location.reload(); }`;
+        expect(reloadsOnError.test(handler)).toBe(true);
+        expect(reloadsOnError.test(elsewhere)).toBe(false);
     });
 
     describe('third-party code: the PWA library\'s own reload (another tab applied an update)', () => {

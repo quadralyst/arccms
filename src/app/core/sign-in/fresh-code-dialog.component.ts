@@ -1,3 +1,4 @@
+import { ClockCountdown } from './clock-countdown';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal, viewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogActions, MatDialogContent, MatDialogRef, MatDialogTitle } from '@angular/material/dialog';
@@ -74,11 +75,12 @@ export class FreshCodeDialogComponent {
     readonly sent = signal<FreshCodeSent | null>(null);
     readonly working = signal(false);
     readonly error = signal('');
-    readonly wait = signal(0);
-    private timer: ReturnType<typeof setInterval> | undefined;
+    /** Seconds until another code may be sent, by the clock (clock-countdown.ts, RF6). */
+    private readonly clock = new ClockCountdown();
+    readonly wait = this.clock.left;
 
     constructor() {
-        inject(DestroyRef).onDestroy(() => clearInterval(this.timer));
+        inject(DestroyRef).onDestroy(() => this.clock.stop());
         void this.send();
     }
 
@@ -119,11 +121,6 @@ export class FreshCodeDialogComponent {
     }
 
     private countDown(seconds: number): void {
-        clearInterval(this.timer);
-        this.wait.set(seconds);
-        this.timer = setInterval(() => {
-            this.wait.update((w) => Math.max(0, w - 1));
-            if (this.wait() === 0) clearInterval(this.timer);
-        }, 1000);
+        this.clock.start(seconds);
     }
 }

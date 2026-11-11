@@ -7,9 +7,13 @@ import { TestBed } from '@angular/core/testing';
 import { Component, PLATFORM_ID, signal } from '@angular/core';
 import { Router, provideRouter } from '@angular/router';
 import { TranslocoService } from '@jsverse/transloco';
+import { BehaviorSubject } from 'rxjs';
 
 vi.mock('../../../custom/languages', () => ({
-    MEMBER_LANGUAGES: [{ code: 'zz', label: 'Zed', locale: 'en-GB', localeData: async () => ({ default: ['en-GB-test'] }) }],
+    MEMBER_LANGUAGES: [
+        { code: 'zz', label: 'Zed', locale: 'en-GB', localeData: async () => ({ default: ['en-GB-test'] }) },
+        { code: 'yy', label: 'Why', locale: 'en-GB', dir: 'rtl' },
+    ],
 }));
 
 import { AuthState } from '../../pages/(auth)/auth.store';
@@ -23,7 +27,12 @@ import { AdminTranslationLoader, MEMBER_TRANSLATION_SOURCES, customTranslationFi
 @Component({ template: '' })
 class Page {}
 
-const transloco = { setActiveLang: vi.fn(), getActiveLang: vi.fn(() => 'en') };
+const langChanges$ = new BehaviorSubject('en');
+const transloco = {
+    setActiveLang: vi.fn((lang: string) => langChanges$.next(lang)),
+    getActiveLang: vi.fn(() => langChanges$.value),
+    langChanges$,
+};
 const browserLanguages = (langs: string[]) => vi.spyOn(navigator, 'languages', 'get').mockReturnValue(langs);
 
 function setup() {
@@ -41,6 +50,9 @@ beforeEach(() => {
     TestBed.resetTestingModule();
     vi.clearAllMocks();
     localStorage.clear();
+    langChanges$.next('en');
+    document.documentElement.lang = 'en';
+    document.documentElement.removeAttribute('dir');
     history.replaceState({}, '', '/');
     browserLanguages(['en-US']);
 });
@@ -48,7 +60,7 @@ beforeEach(() => {
 describe('the declared languages', () => {
     it('are English plus the app\'s, and never reach the admin', () => {
         expect(MEMBER_LANGUAGES_DECLARED).toBe(true);
-        expect(MEMBER_LANGUAGE_LIST.map((l) => l.code)).toEqual(['en', 'zz']);
+        expect(MEMBER_LANGUAGE_LIST.map((l) => l.code)).toEqual(['en', 'zz', 'yy']);
         expect(ADMIN_LANGUAGES.map((l) => l.code)).toEqual(['en', 'hi']);
         expect(isAdminLanguage('zz')).toBe(false);
         setup();
@@ -100,6 +112,28 @@ describe('LanguageAreaService', () => {
         await router.navigateByUrl('/');
         TestBed.tick();
         expect(transloco.setActiveLang).toHaveBeenLastCalledWith('zz');
+    });
+});
+
+describe('<html lang> and dir (RF6 6.6)', () => {
+    it('follow the language the page shows, and turn right to left only for a language declared so', async () => {
+        localStorage.setItem(MEMBER_LANGUAGE_CACHE_KEY, 'zz');
+        localStorage.setItem('arc-admin-lang', 'hi');
+        setup();
+        const router = TestBed.inject(Router);
+        TestBed.inject(LanguageAreaService);
+        const root = document.documentElement;
+        await router.navigateByUrl('/user');
+        TestBed.tick();
+        expect([root.lang, root.dir]).toEqual(['zz', 'ltr']);
+
+        setMemberLanguage('yy');
+        TestBed.tick();
+        expect([root.lang, root.dir]).toEqual(['yy', 'rtl']);
+
+        await router.navigateByUrl('/admin/users');
+        TestBed.tick();
+        expect([root.lang, root.dir]).toEqual(['hi', 'ltr']);
     });
 });
 

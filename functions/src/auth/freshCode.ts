@@ -31,6 +31,13 @@ export const FRESH_PROOFS = 'auth_fresh_proofs';
 /** How long a proof stays usable after the code was confirmed. */
 export const FRESH_PROOF_MS = 5 * 60 * 1000;
 
+/**
+ * The purposes Arc CMS uses itself; an app names its own actions otherwise.
+ *   link-email, link-phone  adding or changing the email or number on the profile (linkIdentifiers.ts)
+ *   delete-account          deleting your own account more than 10 minutes after signing in (accountCallables.ts)
+ */
+export const DELETE_ACCOUNT_PURPOSE = 'delete-account';
+
 const HOUR = 60 * 60 * 1000;
 const PURPOSE = /^[a-z][a-z0-9_-]{1,40}$/;
 

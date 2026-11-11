@@ -46,11 +46,11 @@ function expectAllScoped(css: string): void {
 
 describe('bodyChain', () => {
     const shipped: Array<[string, string, string[]]> = [
-        ['articles/detail.html', 'article-content', ['arc-cms-template', 'article-page', 'container', 'article-wrapper']],
-        ['default/detail.html', 'article-content', ['arc-cms-template', 'article-detail', 'article-body', 'container']],
-        ['info/detail.html', 'arc-page-body', ['arc-cms-template', 'arc-page', 'container']],
+        ['articles/detail.html', 'article-content', ['arc-cms-template', 'arc-main', 'article-page', 'container', 'article-wrapper']],
+        ['default/detail.html', 'article-content', ['arc-cms-template', 'arc-main', 'article-detail', 'article-body', 'container']],
+        ['info/detail.html', 'arc-page-body', ['arc-cms-template', 'arc-main', 'arc-page', 'container']],
         ['info/detail-contact.html', 'arc-page-body', []],
-        ['manuals/detail.html', 'docs-content', ['arc-cms-template', 'docs-page', 'container', 'docs-layout', 'docs-main']],
+        ['manuals/detail.html', 'docs-content', ['arc-cms-template', 'arc-main', 'docs-page', 'container', 'docs-layout', 'docs-main']],
     ];
 
     it.each(shipped)('finds the body in %s', (path, bodyClass, outer) => {

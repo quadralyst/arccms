@@ -160,6 +160,15 @@
                 ]
             },
             {
+                "regex": "^/(admin|user|checkout)(/.*)?$|^/(signup|profile|account|auth-checker|onboarding)/?$",
+                "headers": [
+                    {
+                        "key": "X-Robots-Tag",
+                        "value": "noindex"
+                    }
+                ]
+            },
+            {
                 "source": "robots.txt",
                 "headers": [
                     {

@@ -47,7 +47,7 @@ describe('AuthState.login', () => {
         authService.getCurrentUserByUid.mockReturnValue(of({ id: 'rec-1', uid: 'u1', role: 'user' }));
         const store = TestBed.inject(AuthState);
         store.login({ email: 'a@x.com', password: 'pw' });
-        await vi.waitFor(() => expect(toast.success).toHaveBeenCalledWith('Logged in successfully.'));
+        await vi.waitFor(() => expect(toast.success).toHaveBeenCalledWith(english('member.auth.logged_in')));
         expect(authService.logout).not.toHaveBeenCalled();
         expect(store.error()).toBe('');
     });

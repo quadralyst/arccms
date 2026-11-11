@@ -226,3 +226,28 @@ RF5:
   integrations), Data. Every setting stays.
 - Hindi strings are written with the English ones, as in earlier phases.
 - Order inside the branch: RF4 and the shared table first, then the RF5 sweep page group by page group.
+
+## Decisions (2026-11-11): RF6
+
+RF6 runs alone on `fix/members-rf6` (worktree `../arccms-members-rf6`); RF7 waits. The recommendations
+below were accepted.
+
+- 6.6 Right-to-left: a member language can be marked right-to-left (`dir: 'rtl'`) where member
+  languages are declared; `<html lang>` and `dir` follow the member's language on every app page. None
+  of the languages Arc CMS ships is right-to-left, so nothing changes until an app adds one.
+- 6.3 Search engines (revised after the RF6 review): the app shell ships with no robots tag, because a
+  page whose first HTML says `noindex` may never be rendered by Google (and less still by Bing), which
+  would keep every public page the app draws out of search, not only the private ones. Instead the app
+  adds `noindex` with JavaScript at each move (Google honours a noindex added after rendering, so unknown
+  addresses and the not-found page drop out), and public pages lift it: content pages, the home page, static
+  pages, and any route with `data: { searchEngines: 'index' }` (core's /pricing and /waitlist/{id}; the plug
+  point apps use). Sign-in, member, admin, checkout and setup addresses also get `X-Robots-Tag: noindex`
+  from Hosting (firebase.json, `PRIVATE_PAGES` in scripts/arc-headers.mjs), which needs no script. A real
+  404 status only where Firebase Hosting can tell without new hosting setup (a rewrite that catches every
+  path answers 200); anything more is recorded, not built.
+- Carried over from RF1 to RF3: the English server messages on `/waitlist/{id}` are mapped to the page's
+  language with 6.1.
+- Member wording (6.9, 6.11) uses the agreed words from RF5 where they apply to members: Sign in and
+  Sign out, Code (not OTP), Delete, Cancel.
+- New member keys go in en and hi; apps with their own member languages are told in the changelog
+  (`npm run i18n:member -- --lang=<code>` lists what is missing).

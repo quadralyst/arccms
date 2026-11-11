@@ -10,6 +10,7 @@ import { getSiteFile, getSiteManifest, LEGACY_STATIC_PAGES, pageStylesheets } fr
 import { versionSiteUrls } from '../shared/site-urls.js';
 import { liveSiteScript, loadSiteNotices, prepareLiveParts } from '../shared/live-parts.js';
 import { siteChrome } from './card-blocks.js';
+import { withImageAttributes } from './image-attributes.js';
 
 /**
  * Generates and deploys a processed static page (e.g., privacy-policy, terms).
@@ -106,8 +107,9 @@ export async function generateAndDeployStaticPage(
         processedHtml = $.html();
     }
 
-    // Links to the site's files carry their version (shared/site-urls.ts).
-    processedHtml = versionSiteUrls(processedHtml, (await getSiteManifest())?.files);
+    // Image sizes and lazy loading (image-attributes.ts); links to the site's files
+    // carry their version (shared/site-urls.ts).
+    processedHtml = versionSiteUrls(await withImageAttributes(processedHtml), (await getSiteManifest())?.files);
 
     // 7. Deploy to /pages/{pageSlug}/index.html
     const filePath = `/pages/${pageSlug}/index.html`;

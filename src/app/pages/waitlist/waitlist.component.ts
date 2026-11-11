@@ -18,19 +18,22 @@ import {
     signal,
 } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { WaitlistService } from './waitlist.service';
 import { IWaitlist, StepType, DEFAULT_UI_CONFIG } from './waitlist.model';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { EmailConfigStatusService } from '../../../shared/services/email-config-status.service';
+import type { TranslationKey } from '../../core/i18n/translation-keys';
+import { signupErrorKey } from './signup-error';
 
 @Component({
     selector: 'arc-waitlist',
     templateUrl: './waitlist.component.html',
     styleUrls: ['./waitlist.component.scss'],
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule],
+    imports: [CommonModule, ReactiveFormsModule, TranslocoPipe],
     animations: [
         trigger('stepSlider', [
             transition('signup => verify', [
@@ -185,7 +188,13 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
     // State management
     currentStep: StepType = 'signup';
     loading = false;
-    error = '';
+    /**
+     * What went wrong, as a translation key in the member's language (signup-error.ts),
+     * never the server's English. Shown under the form on the step it happened in.
+     */
+    error: TranslationKey | '' = '';
+    /** A good-news line on the code step, such as "New code sent". */
+    notice: TranslationKey | '' = '';
     childLoaded = false;
 
     // Waitlist properties
@@ -247,7 +256,7 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
                 this.currentWaitlistId = finalWaitlistId;
                 this.loadWaitlist(finalWaitlistId);
             } else if (!finalWaitlistId) {
-                this.error = 'Invalid waitlist configuration - no waitlist ID provided';
+                this.error = 'member.signup_form.errors.no_form';
                 this.currentStep = 'error';
             }
         });
@@ -281,7 +290,7 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
             // loadWaitlist() can run concurrently with onSignup() — if it fails after the
             // user has already moved to 'verify' or 'success', don't clobber their step.
             if (this.currentStep === 'signup') {
-                this.error = 'Failed to load waitlist data';
+                this.error = 'member.signup_form.errors.load_failed';
                 this.currentStep = 'error';
             }
         }
@@ -325,6 +334,8 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
             // Track signup submit
             this.gaTracking.trackWaitlistSignupSubmit(this.currentWaitlistId!);
 
+            // A failure keeps the form and what was typed, with a line under it (RF6 6.1).
+            let step: 'join' | 'confirm' = 'join';
             try {
                 const formValue = this.signupForm.value;
                 const { firstName, email } = formValue;
@@ -348,13 +359,6 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
                     email: email.trim(),
                 });
 
-                if ((result as Record<string, unknown>)['error']) {
-                    this.error = (result as Record<string, unknown>)['message'] as string;
-                    this.currentStep = 'error';
-                    this.cdr.detectChanges();
-                    return;
-                }
-
                 this.userData = { email: email.trim(), firstName: finalFirstName.trim() };
                 this.ticket = result.ticket || '';
 
@@ -363,18 +367,19 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
 
                 if (shouldSkipOtp) {
                     // Skip OTP: confirm the user immediately
+                    step = 'confirm';
                     const confirmation = await this.waitlistService.confirmWithoutOtp(this.currentWaitlistId!, this.ticket);
                     this.finish(!!confirmation.alreadyConfirmed);
                 } else {
+                    this.notice = '';
                     this.currentStep = 'verify';
                 }
-                this.cdr.detectChanges();
             } catch (error) {
                 console.error('Error initiating signup:', error);
-                this.error = error instanceof Error ? error.message : 'Failed to initiate signup. Please try again.';
-                this.currentStep = 'error';
+                this.error = signupErrorKey(error, step);
             } finally {
                 this.loading = false;
+                this.cdr.detectChanges();
             }
         }
     }
@@ -401,15 +406,15 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
                         'otp_verification_failed',
                         result.message || 'Invalid code'
                     );
-                    this.error = result.message || 'Invalid verification code';
+                    this.notice = '';
+                    this.error = signupErrorKey(result.error, result.failedStep ?? 'verify');
                 }
-
-                this.cdr.detectChanges();
             } catch (error) {
                 console.error('Error verifying OTP:', error);
-                this.error = error instanceof Error ? error.message : 'Verification failed';
+                this.error = signupErrorKey(error, 'confirm');
             } finally {
                 this.loading = false;
+                this.cdr.detectChanges();
             }
         }
     }
@@ -430,25 +435,29 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
     async resendOtp(): Promise<void> {
         if (!this.loading) {
             this.loading = true;
+            this.error = '';
+            this.notice = '';
             try {
                 const result = await this.waitlistService.resendVerificationCode(
                     this.currentWaitlistId!,
                     this.ticket,
                 );
-                if (!result.success) {
-                    this.error = result.message || 'Failed to resend code';
-                }
+                if (result.success) this.notice = 'member.signup_form.code_resent';
+                else this.error = signupErrorKey(result.error, 'resend');
             } catch (error) {
                 console.error('Error resending OTP:', error);
-                this.error = error instanceof Error ? error.message : 'Failed to resend code';
+                this.error = signupErrorKey(error, 'resend');
             } finally {
                 this.loading = false;
+                this.cdr.detectChanges();
             }
         }
     }
 
     goBack(): void {
         this.currentStep = 'signup';
+        this.error = '';
+        this.notice = '';
         this.otpForm.reset();
         this.router.navigate([]);
         this.cdr.detectChanges();
@@ -456,6 +465,8 @@ export class WaitlistComponent extends BaseComponent implements OnInit, OnChange
 
     resetToSignup(): void {
         this.currentStep = 'signup';
+        this.error = '';
+        this.notice = '';
         this.signupForm.reset();
         this.otpForm.reset();
         this.userData = {};

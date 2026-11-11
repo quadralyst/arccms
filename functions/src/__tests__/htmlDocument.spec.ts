@@ -486,6 +486,13 @@ describe('buildLanguageSwitcher', () => {
         expect(buildLanguageSwitcher(ALTERNATES, 'en', {})).toContain('>EN<');
     });
 
+    // RF6 6.8: its name for screen readers is in the page's language.
+    it('is named by the language_label string, and "Language" without one', () => {
+        expect(buildLanguageSwitcher(ALTERNATES, 'hi', LABELS, 'भाषा')).toContain('role="navigation" aria-label="भाषा"');
+        expect(buildLanguageSwitcher(ALTERNATES, 'en', LABELS)).toContain('aria-label="Language"');
+        expect(buildLanguageSwitcher(ALTERNATES, 'en', LABELS, '  ')).toContain('aria-label="Language"');
+    });
+
     it('should work without JavaScript — the links are real hrefs', () => {
         const html = buildLanguageSwitcher(ALTERNATES, 'en', LABELS);
         // Switching language is navigation; the script only stores a preference.

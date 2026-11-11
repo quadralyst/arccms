@@ -40,3 +40,28 @@ export function genericErrorText(): string {
     }
     return 'Something went wrong. Please try again.';
 }
+
+/** "No internet connection", Firebase's own message for a sign-in with no network, reused for every sign-in step. */
+export const OFFLINE_KEY: TranslationKey = 'member.errors.network_request_failed';
+
+/** "No internet connection", translated as genericErrorText is. */
+export function offlineText(): string {
+    try {
+        const text = translate(OFFLINE_KEY);
+        if (text && text !== OFFLINE_KEY) return text;
+    } catch {
+        // Transloco not started yet
+    }
+    return 'No internet connection. Check your connection and try again.';
+}
+
+/**
+ * The browser has no network: Firebase Auth says so (`auth/network-request-failed`), or
+ * the browser knows it is offline and the error carries no server reason. A callable
+ * that never reached the server fails as `internal` with no details, the same as a
+ * server crash, so the browser's own flag is what tells the two apart.
+ */
+export function isOfflineError(code: string, reason: unknown, online = typeof navigator === 'undefined' ? true : navigator.onLine !== false): boolean {
+    if (code === 'auth/network-request-failed') return true;
+    return !online && !reason;
+}

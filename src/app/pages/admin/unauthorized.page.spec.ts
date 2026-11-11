@@ -42,8 +42,10 @@ describe('the 403 page (F26)', () => {
 
     it('says what happened, in the person\'s language, with no typo', () => {
         const { text } = render(null);
-        expect(text).toContain('403 - Forbidden');
-        expect(text).toContain('Access Denied');
+        expect(text).toContain('No access');
+        expect(text).toContain("You don't have access to this page.");
+        // Plain words for a member: no status code (RF6 6.9).
+        expect(text).not.toContain('403');
         expect(text).not.toContain('Opps');
     });
 });
@@ -51,9 +53,10 @@ describe('the 403 page (F26)', () => {
 describe('public/403.html, the plain page the hosting serves', () => {
     const html = readFileSync(resolve(__dirname, '../../../../public/403.html'), 'utf8');
 
-    it('has no typo, and keeps a side margin so its button never touches a phone\'s edges', () => {
-        expect(html).toContain('Oops!');
-        expect(html).not.toContain('Opps');
+    it('says "No access" in plain words, and keeps a side margin so its button never touches a phone\'s edges', () => {
+        expect(html).toContain('<h1 class="display-5 fw-bold">No access</h1>');
+        expect(html).toContain('<title>No access</title>');
+        expect(html).not.toMatch(/>403<|Access Denied|Oops|Opps/);
         expect(html).toMatch(/class="text-center px-3"/);
     });
 });

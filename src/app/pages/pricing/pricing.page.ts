@@ -14,41 +14,45 @@ import { SiteIdentityService } from '../../core/services/site-identity.service';
 import { buildOrganization, organizationId, setJsonLd } from '../../../shared/utils/structured-data';
 import { buildProductNodes } from '../../../shared/utils/product-jsonld';
 import { arcCallable } from '../../core/config/arc-functions';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 @Component({
     standalone: true,
-    imports: [CommonModule, MatButtonModule, MatCardModule, MatProgressSpinnerModule, PublicNavComponent],
+    imports: [CommonModule, MatButtonModule, MatCardModule, MatProgressSpinnerModule, PublicNavComponent, TranslocoPipe],
     template: `
         <app-public-nav></app-public-nav>
 
         <div class="pricing-container animate-fade-in">
             <div class="pricing-header">
-                <h1>Simple, Transparent Pricing</h1>
-                <p class="subtitle text-muted">Choose the perfect plan to unlock advanced CMS capabilities and power your website.</p>
+                <h1>{{ 'member.pricing.title' | transloco }}</h1>
+                <p class="subtitle text-muted">{{ 'member.pricing.subtitle' | transloco }}</p>
             </div>
 
             @if (isLoading()) {
-                <div class="loading-container"><mat-spinner diameter="40"></mat-spinner></div>
+                <div class="loading-container" role="status"><mat-spinner diameter="40" [attr.aria-label]="'common.state.loading' | transloco"></mat-spinner></div>
             } @else if (products().length === 0) {
                 <div class="empty-state">
-                    <p class="text-muted">No plans are available right now. Please check back later.</p>
+                    <p class="text-muted">{{ 'member.pricing.empty' | transloco }}</p>
                 </div>
             } @else {
+                @if (checkoutFailed()) {
+                    <p class="checkout-error" role="alert">{{ 'member.pricing.checkout_failed' | transloco }}</p>
+                }
                 <div class="plans-grid">
                     @for (p of products(); track p.id) {
                         <mat-card class="plan-card" [class.highlighted]="p.name.toLowerCase().includes('pro')">
                             @if (p.name.toLowerCase().includes('pro')) {
-                                <div class="popular-badge">RECOMMENDED</div>
+                                <div class="popular-badge">{{ 'member.pricing.recommended' | transloco }}</div>
                             }
                             <mat-card-content class="plan-content">
-                                <div class="plan-type">{{ p.type === 'subscription' ? 'Subscription' : 'One-time Plan' }}</div>
+                                <div class="plan-type">{{ (p.type === 'subscription' ? 'member.pricing.subscription' : 'member.pricing.one_time') | transloco }}</div>
                                 <h2 class="plan-name">{{ p.name }}</h2>
                                 
                                 @if (price(p) !== null) {
                                     <div class="price-display">
                                         <span class="price-amount">{{ money(price(p), p.currency) }}</span>
                                         @if (p.type === 'subscription') { 
-                                            <span class="price-period">/{{ p.interval === 'year' ? 'year' : 'month' }}</span> 
+                                            <span class="price-period">{{ (p.interval === 'year' ? 'member.pricing.per_year' : 'member.pricing.per_month') | transloco }}</span> 
                                         }
                                         @if (discounted(p)) { 
                                             <span class="original-price">{{ money(p.price, p.currency) }}</span> 
@@ -65,16 +69,16 @@ import { arcCallable } from '../../core/config/arc-functions';
                                 
                                 <div class="plan-meta">
                                     @if (p.type === 'subscription') {
-                                        <span>Billed {{ p.interval === 'year' ? 'yearly' : 'monthly' }}</span>
+                                        <span>{{ (p.interval === 'year' ? 'member.pricing.billed_yearly' : 'member.pricing.billed_monthly') | transloco }}</span>
                                         @if (p.trialDays) { 
                                             <span class="meta-dot"></span>
-                                            <span>{{ p.trialDays }}-day free trial</span> 
+                                            <span>{{ 'member.pricing.trial' | transloco: { days: p.trialDays } }}</span> 
                                         }
                                     } @else {
-                                        <span>One-time billing</span>
+                                        <span>{{ 'member.pricing.pay_once' | transloco }}</span>
                                         @if (p.updatesYears) { 
                                             <span class="meta-dot"></span>
-                                            <span>{{ p.updatesYears }} {{ p.updatesYears === 1 ? 'year' : 'years' }} updates</span> 
+                                            <span>{{ p.updatesYears === 1 ? ('member.pricing.updates_one' | transloco) : ('member.pricing.updates_many' | transloco: { years: p.updatesYears }) }}</span> 
                                         }
                                     }
                                 </div>
@@ -93,9 +97,9 @@ import { arcCallable } from '../../core/config/arc-functions';
                                     <span class="btn-content">
                                         @if (buyingId() === p.id) { 
                                             <mat-spinner diameter="18" class="spinner-light"></mat-spinner>
-                                            <span>Redirecting…</span>
+                                            <span>{{ 'member.pricing.opening_checkout' | transloco }}</span>
                                         } @else { 
-                                            <span>{{ p.type === 'subscription' ? 'Get Started' : 'Buy Now' }}</span>
+                                            <span>{{ (p.type === 'subscription' ? 'member.pricing.get_started' : 'member.pricing.buy_now') | transloco }}</span>
                                         }
                                     </span>
                                 </button>
@@ -167,7 +171,7 @@ import { arcCallable } from '../../core/config/arc-functions';
         .popular-badge {
             position: absolute;
             top: 16px;
-            right: 16px;
+            inset-inline-end: 16px;
             background: #2563eb;
             color: #ffffff;
             font-size: 0.68rem;
@@ -175,6 +179,7 @@ import { arcCallable } from '../../core/config/arc-functions';
             padding: 4px 10px;
             border-radius: 30px;
             letter-spacing: 0.05em;
+            text-transform: uppercase;
         }
 
         .plan-content {
@@ -222,7 +227,7 @@ import { arcCallable } from '../../core/config/arc-functions';
             font-size: 1.1rem;
             color: #94a3b8;
             text-decoration: line-through;
-            margin-left: 8px;
+            margin-inline-start: 8px;
             font-weight: 500;
         }
 
@@ -328,6 +333,11 @@ import { arcCallable } from '../../core/config/arc-functions';
             justify-content: center;
             padding: 64px 0;
         }
+        .checkout-error {
+            text-align: center;
+            color: #b42318;
+            margin: 0 0 24px;
+        }
         .empty-state {
             text-align: center;
             padding: 48px 0;
@@ -357,6 +367,8 @@ export default class PricingPageComponent implements OnInit, OnDestroy {
     products = signal<IProduct[]>([]);
     isLoading = signal(true);
     buyingId = signal<string | null>(null);
+    /** Checkout did not open: said above the plans, so the person can try again. */
+    checkoutFailed = signal(false);
 
     // Display-only pricing (authoritative tier/discount is resolved server-side at checkout).
     price(p: IProduct): number | null { return displayPrice(p); }
@@ -415,7 +427,7 @@ export default class PricingPageComponent implements OnInit, OnDestroy {
     }
 
     async buy(product: IProduct): Promise<void> {
-        // Gate on the actual signed-in user, NOT authState.isAuthenticated() —
+        // Gate on the actual signed-in user, NOT authState.isAuthenticated():
         // that signal is false for plain `user`-role accounts (see auth.store).
         if (!this.authState.currentUser()) {
             this.router.navigate(['/signup'], { queryParams: { redirect: '/pricing' } });
@@ -423,6 +435,7 @@ export default class PricingPageComponent implements OnInit, OnDestroy {
         }
 
         this.buyingId.set(product.id);
+        this.checkoutFailed.set(false);
         try {
             const createSession = arcCallable(this.functions, 'createCheckoutSession');
             const result = await createSession({ productId: product.id });
@@ -431,10 +444,12 @@ export default class PricingPageComponent implements OnInit, OnDestroy {
                 window.location.href = data.checkoutUrl;
             } else {
                 this.buyingId.set(null);
+                this.checkoutFailed.set(true);
             }
         } catch (e) {
             console.error('Checkout failed', e);
             this.buyingId.set(null);
+            this.checkoutFailed.set(true);
         }
     }
 }

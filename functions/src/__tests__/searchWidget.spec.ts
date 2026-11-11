@@ -75,3 +75,17 @@ describe('replaceArcComponents with <arc-search>', () => {
         expect(out).not.toContain('arc-search');
     });
 });
+
+// RF6 6.13: the box submits without JavaScript, but /search is a page of the app.
+describe('what the widget promises', () => {
+    it('says the results page needs JavaScript, in the code and the docs', async () => {
+        const { readFileSync } = await import('node:fs');
+        const { join } = await import('node:path');
+        const root = join(__dirname, '../../..');
+        for (const file of ['functions/src/search/widget.ts', 'public/assets/js/arc-search.js', 'docs/features/search.html', 'docs/website/search.html']) {
+            const text = readFileSync(join(root, file), 'utf8').replace(/\s+/g, ' ');
+            expect(text, file).not.toMatch(/search works (with|without) JavaScript disabled|works without JavaScript, with suggestions|so it works without JavaScript/);
+            expect(text, file).toMatch(/needs (JavaScript|it)|need JavaScript/);
+        }
+    });
+});

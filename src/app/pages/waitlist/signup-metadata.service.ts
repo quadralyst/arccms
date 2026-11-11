@@ -4,11 +4,18 @@
  * Collects marketing metadata during form submission.
  * Phase 1: UTM parameters, device info, referrer, extended device
  * Phase 2: Behavioral tracking with cross-session localStorage persistence
+ *
+ * Only when analytics consent allows it (RF6 6.12), by the same rule as arc-site.js on
+ * published pages: the visitor accepted the site usage banner, or gave no answer on a
+ * site that shows none. Otherwise nothing is tracked or kept, and a signup carries only
+ * the campaign (UTM) and whether the address is a throwaway one.
  */
 
-import { Injectable, PLATFORM_ID, inject } from '@angular/core';
+import { Injectable, Injector, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ISignupMetadata } from './signup-metadata.model';
+import { SiteUsageService } from '../admin/(settings)/site-usage/site-usage.service';
+import { SITE_USAGE_STORAGE_KEY } from '../admin/(settings)/site-usage/site-usage.model';
 
 /**
  * Shape of the consolidated localStorage object for cross-session tracking.
@@ -28,7 +35,27 @@ interface IArcSessionData {
 })
 export class SignupMetadataService {
   private platformId = inject(PLATFORM_ID);
+  private injector = inject(Injector);
   private pageLoadTimestamp = 0;
+
+  /** Whether this visit may be tracked: see the top of this file. Unknown counts as no. */
+  trackingAllowed(): boolean {
+    if (!isPlatformBrowser(this.platformId)) return false;
+    let answer: string | null = null;
+    try {
+      answer = localStorage.getItem(SITE_USAGE_STORAGE_KEY);
+    } catch {
+      // storage off: no answer
+    }
+    if (answer === 'accepted') return true;
+    if (answer === 'rejected') return false;
+    try {
+      const usage = this.injector.get(SiteUsageService);
+      return usage.settingsLoaded() && !usage.bannerEnabled();
+    } catch {
+      return false;
+    }
+  }
 
   constructor() {
     if (isPlatformBrowser(this.platformId)) {
@@ -244,7 +271,7 @@ export class SignupMetadataService {
    * Start tracking behavioral signals (call on page load)
    */
   startBehaviorTracking(): void {
-    if (!isPlatformBrowser(this.platformId) || this.scrollTrackingActive) return;
+    if (!isPlatformBrowser(this.platformId) || this.scrollTrackingActive || !this.trackingAllowed()) return;
 
     this.scrollTrackingActive = true;
 
@@ -570,6 +597,10 @@ export class SignupMetadataService {
     email: string,
     geoSettings?: { geoEnabled?: boolean; geoApiProvider?: string; geoApiKey?: string; geoApiEndpoint?: string }
   ): Promise<ISignupMetadata> {
+    // Without consent: the campaign and the throwaway flag only, no device, visit or place.
+    if (!this.trackingAllowed()) {
+      return this.removeUndefined({ ...this.parseUTMParams(), isDisposableEmail: this.checkDisposableEmail(email) });
+    }
     const baseMetadata = this.collectMetadataWithBehavior();
 
     // Fetch geo data (graceful degradation)

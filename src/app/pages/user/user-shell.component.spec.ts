@@ -61,7 +61,7 @@ describe('UserShellComponent: the member menu as Arc CMS ships it', () => {
         expect(links).toEqual([
             link('Dashboard', '/user/dashboard', 'fa-gauge'),
             link('Payments', '/user/payments', 'fa-coins'),
-            link('Account & Billing', '/account', 'fa-receipt'),
+            link('Account & billing', '/account', 'fa-receipt'),
             link('Premium', '/user/premium', 'fa-star'),
             link('Profile', '/user/profile', 'fa-user', true),
             link('Plans', '/pricing', 'fa-tag'),
@@ -82,7 +82,7 @@ describe('UserShellComponent: the member menu as Arc CMS ships it', () => {
         CUSTOM_HOME['user'] = '/learn';
         const { links } = await memberMenu({ role: 'user' }, '/learn');
         expect(links[0]).toEqual(link('Home', '/learn', 'fa-house'));
-        expect(links.map((l) => l.text)).toEqual(['Home', 'Dashboard', 'Payments', 'Account & Billing', 'Premium', 'Profile', 'Plans']);
+        expect(links.map((l) => l.text)).toEqual(['Home', 'Dashboard', 'Payments', 'Account & billing', 'Premium', 'Profile', 'Plans']);
     });
 
     it('keeps a locked app account out of the member pages when the app says so, leaving Home and Plans', async () => {
@@ -119,7 +119,7 @@ describe("UserShellComponent: the app's member menu changes (src/custom/nav-chan
             link('My week', '/user/dashboard', 'fa-calendar'),
             link('Plans', '/pricing', 'fa-tag'),
             link('Payments', '/user/payments', 'fa-coins'),
-            link('Account & Billing', '/account', 'fa-receipt'),
+            link('Account & billing', '/account', 'fa-receipt'),
             link('Lessons', '/learn?level=1', 'fa-book', true),
             link('Profile', '/user/profile', 'fa-user'),
             link('Help', 'https://example.com/help', 'fa-circle-question'),
@@ -130,7 +130,7 @@ describe("UserShellComponent: the app's member menu changes (src/custom/nav-chan
     it('applies a change only to the roles it names, and shows an added item only to its allowRoles', async () => {
         changes();
         const teacher = await memberMenu({ role: 'teacher' });
-        expect(teacher.links.map((l) => l.text)).toEqual(['My week', 'Plans', 'Payments', 'Account & Billing', 'Premium', 'Lessons', 'Profile', 'Staff room', 'Help']);
+        expect(teacher.links.map((l) => l.text)).toEqual(['My week', 'Plans', 'Payments', 'Account & billing', 'Premium', 'Lessons', 'Profile', 'Staff room', 'Help']);
     });
 
     it("keeps an item of a feature that is off gone, and ignores a change to an id the menu does not have", async () => {
@@ -148,7 +148,7 @@ describe("UserShellComponent: the app's member menu changes (src/custom/nav-chan
         NAV_FILE_CHANGES.member = [{ id: 'premium', hide: true }, { id: 'dashboard', label: 'My week' }];
         CUSTOM_NAV_CHANGES.member = [{ id: 'dashboard', label: 'This week' }];
         const { links } = await memberMenu({ role: 'user' });
-        expect(links.map((l) => l.text)).toEqual(['This week', 'Payments', 'Account & Billing', 'Profile', 'Plans']);
+        expect(links.map((l) => l.text)).toEqual(['This week', 'Payments', 'Account & billing', 'Profile', 'Plans']);
     });
 });
 

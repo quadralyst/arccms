@@ -1,4 +1,5 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { SitePagesService } from '../../core/site/site-pages.service';
 import { siteInfoOf } from '../../core/site/site-info-source';
 import { attachLiveParts } from '../../core/site/live-parts';
@@ -26,6 +27,7 @@ import { HeaderComponent } from './header.component';
 import { PageSpinnerComponent } from './page-spinner.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
+import { usePageLanguage } from '../../core/site/page-language';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { interpolate } from '../../core/i18n/interpolate';
 import { notFoundText, NotFoundStringKey } from './not-found-strings';
@@ -73,7 +75,7 @@ const MAX_BLOCK_NODES = 12;
 @Component({
     selector: 'arc-content-detail',
     standalone: true,
-    imports: [CommonModule, HeaderComponent, FooterComponent, PageSpinnerComponent, SafeHtmlPipe],
+    imports: [CommonModule, HeaderComponent, FooterComponent, PageSpinnerComponent, SafeHtmlPipe, TranslocoPipe],
     template: `
     <arc-header></arc-header>
     
@@ -84,7 +86,7 @@ const MAX_BLOCK_NODES = 12;
     @if(contentTypesStore.isLoading() || contentsStore.isLoading() || isCheckingDraft() || !contentsStore.isSuccess()) {
         <div class="loading-container">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span>
             </div>
         </div>
     } @else if(templateHtml()) {
@@ -104,14 +106,14 @@ const MAX_BLOCK_NODES = 12;
         <!-- Loading placeholder while waiting to confirm content is not found -->
         <div class="loading-container">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span>
             </div>
         </div>
     } @else {
         <!-- The template is on its way -->
         <div class="loading-container">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span>
             </div>
         </div>
     }
@@ -180,6 +182,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     // that renders content — and its spec — depend on Firestore.
     private injector = inject(Injector);
     private localization = inject(LocalizationService);
+    /** `<html lang>` and `dir` follow the content's language, as on the published page. */
+    private pageLanguage = usePageLanguage(() => this.pageLang());
     private uiStrings = inject(UiStringsService);
     private mediaSettings = inject(MediaSettingsService);
     private auth = inject(Auth);

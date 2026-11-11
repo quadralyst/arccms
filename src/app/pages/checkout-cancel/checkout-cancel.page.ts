@@ -3,26 +3,27 @@ import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { PublicNavComponent } from '../payments-ui/public-nav.component';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 /**
- * Dodo `cancel_url` landing — shown when a buyer abandons checkout. Point
+ * Dodo `cancel_url` landing, shown when a buyer leaves checkout. Point
  * `cancelUrl` in Settings/dodo-payments at `/checkout/cancel`.
  */
 @Component({
     standalone: true,
-    imports: [RouterLink, MatButtonModule, MatCardModule, PublicNavComponent],
+    imports: [RouterLink, MatButtonModule, MatCardModule, PublicNavComponent, TranslocoPipe],
     template: `
         <app-public-nav></app-public-nav>
 
         <div class="cancel">
             <mat-card class="card">
                 <mat-card-content class="text-center py-4">
-                    <div class="icon"><i class="fa-solid fa-circle-xmark"></i></div>
-                    <h2>Checkout cancelled</h2>
-                    <p class="text-muted">No charge was made. You can pick a plan again whenever you're ready.</p>
+                    <div class="icon" aria-hidden="true"><i class="fa-solid fa-circle-xmark"></i></div>
+                    <h1 class="h2">{{ 'member.checkout.cancelled_title' | transloco }}</h1>
+                    <p class="text-muted">{{ 'member.checkout.cancelled_body' | transloco }}</p>
                     <div class="actions mt-3">
-                        <a mat-raised-button color="primary" routerLink="/pricing">Back to pricing</a>
-                        <a mat-stroked-button routerLink="/account">My account</a>
+                        <a mat-raised-button color="primary" routerLink="/pricing">{{ 'member.checkout.back_to_pricing' | transloco }}</a>
+                        <a mat-stroked-button routerLink="/account">{{ 'member.checkout.my_account' | transloco }}</a>
                     </div>
                 </mat-card-content>
             </mat-card>

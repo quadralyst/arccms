@@ -7,7 +7,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
-import ProfileComponent from './profile.page';
+import { of } from 'rxjs';
+import ProfileComponent, { DELETE_ACCOUNT_PURPOSE } from './profile.page';
 import { english } from '../../../../test/english';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -405,9 +406,32 @@ describe('ProfileComponent', () => {
             expect(template).toContain('removePhoto()');
         });
 
-        it('should show role badge and status badge', () => {
-            expect(template).toContain('role-badge');
-            expect(template).toContain('status-badge');
+        it('names no role or status on a member\'s own profile, and Admin on an admin\'s (RF6 6.10)', () => {
+            expect(template).toContain('@if (isAdmin())');
+            expect(template).toContain("'member.profile.role_admin' | transloco");
+            expect(template).not.toContain('status-badge');
+            expect(template).not.toContain('role_user');
+        });
+
+        it('links each field to its label and says what the browser may fill in (RF6 6.10)', () => {
+            for (const [id, autocomplete] of [['profile-name', 'name'], ['profile-current-password', 'current-password'], ['profile-new-password', 'new-password'], ['profile-confirm-password', 'new-password']]) {
+                expect(template, id).toMatch(new RegExp(`id="${id}"[\\s\\S]{0,200}autocomplete="${autocomplete}"`));
+            }
+            for (const id of ['profile-current-password', 'profile-new-password', 'profile-confirm-password', 'profile-time-zone']) {
+                expect(template, id).toContain(`for="${id}"`);
+            }
+            expect(template).toContain("'profile-name' : null");
+            expect(template.match(/member\.profile\.show_password/g)).toHaveLength(3);
+        });
+
+        it('names each show-password button "Show password" and says with aria-pressed whether it is shown (RF6)', () => {
+            const eyes = template.match(/<button type="button" class="btn btn-outline-secondary"[\s\S]*?<\/button>/g) ?? [];
+            expect(eyes).toHaveLength(3);
+            for (const eye of eyes) {
+                expect(eye).toContain(`[attr.aria-label]="'member.profile.show_password' | transloco"`);
+                expect(eye).toMatch(/\[attr\.aria-pressed\]="show\w+Password\(\)"/);
+            }
+            expect(template).not.toContain('member.profile.hide_password');
         });
 
         it('should have back button', () => {
@@ -503,17 +527,78 @@ describe('ProfileComponent', () => {
         });
     });
 
-    describe('role badge', () => {
-        const label = (role?: string) => ProfileComponent.prototype.roleLabel.call({ currentUser: () => (role === undefined ? null : { role }), t: english } as never);
+    describe('deleting your own account (RF6 6.10)', () => {
+        function page(deleteResults: unknown[], proof: string | null = 'proof-1') {
+            const calls: (string | undefined)[] = [];
+            const confirm = vi.fn(async () => proof);
+            const logout = vi.fn(() => of(undefined));
+            const navigate = vi.fn(async () => true);
+            const errorMsg = vi.fn();
+            const deleteNeedsSignIn = vi.fn();
+            const ctx = {
+                dialog: { open: vi.fn(() => ({ afterClosed: () => of(true) })) },
+                t: english,
+                sanitizer: { bypassSecurityTrustHtml: (html: string) => html },
+                clearMessages: vi.fn(),
+                isDeleting: { set: vi.fn() },
+                deleteNeedsSignIn: { set: deleteNeedsSignIn },
+                errorMsg: { set: errorMsg },
+                injector: { get: () => ({ confirm }) },
+                authStore: { logout },
+                toastService: { success: vi.fn() },
+                router: { navigate },
+                signIn: {
+                    deleteMyAccount: vi.fn(async (freshProof?: string) => {
+                        calls.push(freshProof);
+                        const next = deleteResults.shift();
+                        if (next) throw next;
+                        return { deleted: true };
+                    }),
+                },
+            };
+            const run = () => ProfileComponent.prototype.deleteAccount.call(ctx as never);
+            return { run, calls, confirm, logout, navigate, errorMsg, deleteNeedsSignIn };
+        }
+        const refusal = (reason: string, message = 'refused') => Object.assign(new Error(message), { code: 'functions/permission-denied', details: { reason } });
 
-        it('names Arc CMS\'s roles in the person\'s language', () => {
-            expect(label('admin')).toBe('Admin');
-            expect(label('user')).toBe('User');
-            expect(label(undefined)).toBe('User');
+        it('deletes at once within 10 minutes of signing in', async () => {
+            const p = page([]);
+            await p.run();
+            expect(p.calls).toEqual([undefined]);
+            expect(p.confirm).not.toHaveBeenCalled();
+            expect(p.logout).toHaveBeenCalled();
+            expect(p.navigate).toHaveBeenCalledWith(['/'], { replaceUrl: true });
         });
 
-        it('shows an app\'s own role as it is', () => {
-            expect(label('reception')).toBe('reception');
+        it('after that asks for a fresh code for delete-account, not a new sign-in, and deletes with its proof', async () => {
+            const p = page([refusal('fresh-code-required')]);
+            await p.run();
+            expect(p.confirm).toHaveBeenCalledWith({ purpose: DELETE_ACCOUNT_PURPOSE });
+            expect(DELETE_ACCOUNT_PURPOSE).toBe('delete-account');
+            expect(p.calls).toEqual([undefined, 'proof-1']);
+            expect(p.logout).toHaveBeenCalled();
+            expect(p.deleteNeedsSignIn).not.toHaveBeenCalledWith(true);
+        });
+
+        it('names the purpose the server checks', () => {
+            const server = readFileSync(resolve(__dirname, '../../../../../functions/src/auth/freshCode.ts'), 'utf8');
+            expect(server).toContain(`DELETE_ACCOUNT_PURPOSE = '${DELETE_ACCOUNT_PURPOSE}'`);
+        });
+
+        it('keeps the account when the code is cancelled', async () => {
+            const p = page([refusal('fresh-code-required')], null);
+            await p.run();
+            expect(p.calls).toEqual([undefined]);
+            expect(p.logout).not.toHaveBeenCalled();
+            expect(p.errorMsg).not.toHaveBeenCalled();
+        });
+
+        it('offers Sign in again only to an account with no address or number for a code', async () => {
+            const p = page([refusal('recent-sign-in', 'For your security, sign in again, then delete your account.')]);
+            await p.run();
+            expect(p.confirm).not.toHaveBeenCalled();
+            expect(p.deleteNeedsSignIn).toHaveBeenCalledWith(true);
+            expect(p.errorMsg).toHaveBeenCalledWith('For your security, sign in again, then delete your account.');
         });
     });
 });

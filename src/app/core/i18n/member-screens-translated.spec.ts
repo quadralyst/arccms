@@ -30,6 +30,8 @@ export function untranslated(template: string): string[] {
     const inExpressions = expressions.flatMap((e) => [...e.matchAll(ENGLISH_LITERAL)].map((m) => m[0]));
     const clean = uncommented
         .replace(/<svg[\s\S]*?<\/svg>/g, '')
+        // An icon's ligature name (<mat-icon>save</mat-icon>) is drawn as the icon, not read as text.
+        .replace(/<mat-icon\b[^>]*>[\s\S]*?<\/mat-icon>/g, '')
         .replace(/\{\{[\s\S]*?\}\}/g, ' ')
         .replace(/@(if|else if|for|switch|case|let|default)\b[^{]*\{|@(else|empty)\s*\{|\}/g, ' ');
     // Attribute values may hold `>` (`[class.pos]="n > 0"`): blank them before reading text.
@@ -71,6 +73,7 @@ describe('member screens', () => {
         expect(untranslated('<p>{{ \'a.b\' | transloco }}</p><input [placeholder]="\'a.b\' | transloco">')).toEqual([]);
         expect(literalMessages("this.error.set('Try again.'); this.error.set(''); this.toast.success(this.t('a.b')); console.error('Log it:', e);")).toEqual(['Try again.']);
         expect(untranslated('<span [class.pos]="e.delta > 0">{{ e.delta }}</span>')).toEqual([]);
+        expect(untranslated('<button><mat-icon aria-hidden="true">save</mat-icon> Save</button>')).toEqual(['Save']);
         expect(untranslated('<b>{{ name || \'Member\' }}</b><i [title]="t || \'Pro plan\'"></i><b>{{ x || (\'user.pro\' | transloco) }}</b>')).toEqual(["'Member'", "'Pro plan'"]);
         expect(literalMessages("return u?.name || 'Member'; this.e.set(bad ? 'Try again.' : this.t('a.b')); const k = x ?? 'user.pro'; const o = { title: 'Rose' }; const m = ok ? this.t('a.b') : 'Failed.';")).toEqual(['Member', 'Try again.', 'Failed.']);
     });

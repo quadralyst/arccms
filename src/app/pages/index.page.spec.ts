@@ -7,8 +7,8 @@ import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Title } from '@angular/platform-browser';
-import { of } from 'rxjs';
+import { Meta, Title } from '@angular/platform-browser';
+import { of, Subject } from 'rxjs';
 import HomeComponent from './index.page';
 import { ContentsStore } from './admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from './admin/contents/content-types/content-types.store';
@@ -19,6 +19,7 @@ import { UiStringsService } from '../core/services/ui-strings.service';
 import { setSiteManifestForTesting } from '../core/site/site';
 import { coreSiteManifest } from '../../test/core-site';
 import { PublicContentTypesService } from '../core/site/public-content-types';
+import { translocoTestingModule } from '../../test/transloco-test-providers';
 
 const HOME = `<!doctype html><html lang="en"><head>
     <title data-arc-t="home_title">My Site</title>
@@ -40,7 +41,7 @@ describe('HomeComponent (home page preview)', () => {
     let onboarding: { shouldShowOnboarding: ReturnType<typeof vi.fn> };
     let strings: Record<string, string>;
     const localization = () => ({
-        load: vi.fn().mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: [{ code: 'en' }, { code: 'hi' }] }),
+        load: vi.fn().mockResolvedValue({ defaultLanguage: 'en', enabledLanguages: [{ code: 'en' }, { code: 'hi' }, { code: 'ar', rtl: true }] }),
         languageVariants: signal<string[] | null>(null),
         enabledLanguages: signal([]),
         defaultLanguage: signal('en'),
@@ -48,7 +49,7 @@ describe('HomeComponent (home page preview)', () => {
 
     async function open(lang = ''): Promise<HTMLElement> {
         await TestBed.configureTestingModule({
-            imports: [HomeComponent],
+            imports: [HomeComponent, translocoTestingModule({ lang: 'en' })],
             providers: [
                 provideRouter([]),
                 { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (k: string) => (k === 'lang' ? lang || null : null) } }, paramMap: of({ keys: [], get: () => null }), queryParams: of({}) } },
@@ -132,6 +133,63 @@ describe('HomeComponent (home page preview)', () => {
         expect(document.documentElement.lang).toBe('hi');
         fixture.destroy();
         expect(document.documentElement.lang).not.toBe('hi');
+    });
+
+    // The page's own language and direction, as when published, and the app's language
+    // service (which sets <html lang> and dir on every page) does not take them over.
+    it('keeps <html lang> and dir its own while it shows, and hands them back when it goes', async () => {
+        await open('ar');
+        const root = document.documentElement;
+        expect(root.lang).toBe('ar');
+        expect(root.dir).toBe('rtl');
+        root.lang = 'en';
+        root.dir = 'ltr';
+        await new Promise((r) => setTimeout(r, 0));
+        expect(root.lang).toBe('ar');
+        expect(root.dir).toBe('rtl');
+        fixture.destroy();
+        expect(root.lang).toBe('en');
+        expect(root.dir).toBe('ltr');
+    });
+
+    // RF6 6.3: the home page is public, and its own robots tag wins.
+    it('lets search engines list it, unless its own file says otherwise', async () => {
+        await open();
+        expect(TestBed.inject(Meta).getTag('name="robots"')?.content).toBe('index, follow');
+        fixture.destroy();
+        TestBed.resetTestingModule();
+
+        http.get.mockReturnValue(of(HOME.replace('<head>', '<head><meta name="robots" content="noindex, nofollow">')));
+        await open();
+        expect(TestBed.inject(Meta).getTag('name="robots"')?.content).toBe('noindex, nofollow');
+    });
+
+    // Left before the page loaded (such as the redirect to the setup wizard): nothing of it stays.
+    it('changes nothing when it is left before its page arrives', async () => {
+        const pending = new Subject<string>();
+        http.get.mockReturnValue(pending);
+        await open('ar');
+        const meta = TestBed.inject(Meta);
+        meta.updateTag({ name: 'robots', content: 'noindex' });
+        fixture.destroy();
+        pending.next(HOME);
+        pending.complete();
+        await new Promise((r) => setTimeout(r, 0));
+
+        const root = document.documentElement;
+        expect(meta.getTag('name="robots"')?.content).toBe('noindex');
+        root.lang = 'fr';
+        root.dir = 'ltr';
+        await new Promise((r) => setTimeout(r, 0));
+        expect(root.lang).toBe('fr');
+        expect(root.dir).toBe('ltr');
+        expect(document.querySelector('script[src*="arc-site.js"]')).toBeNull();
+    });
+
+    it('says the default language on the default home page', async () => {
+        await open();
+        expect(document.documentElement.lang).toBe('en');
+        expect(document.documentElement.dir).toBe('ltr');
     });
 
     it('shows the language\'s own file when the site has one', async () => {

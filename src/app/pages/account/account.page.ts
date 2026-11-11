@@ -625,7 +625,7 @@ import { memberLocaleNow } from '../../core/i18n/member-language-now';
         .premium-table {
             width: 100%;
             border-collapse: collapse;
-            text-align: left;
+            text-align: start;
         }
         .premium-table th {
             background: #f8fafc;
@@ -662,7 +662,7 @@ import { memberLocaleNow } from '../../core/i18n/member-language-now';
         .tier-indicator {
             font-size: 0.78rem;
             color: #475569;
-            margin-left: 4px;
+            margin-inline-start: 4px;
         }
         .status-indicator-pill {
             display: inline-block;

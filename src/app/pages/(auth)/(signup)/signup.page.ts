@@ -32,7 +32,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { NavigationCancel, NavigationEnd, NavigationError, NavigationSkipped, RouterModule } from '@angular/router';
 import { Auth, type AuthCredential } from '@angular/fire/auth';
 import { filter, firstValueFrom, take } from 'rxjs';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
@@ -62,6 +62,8 @@ import { PhoneCountryComponent } from '../../../../shared/components/phone-count
 import { WaitLineComponent } from '../../../../shared/components/wait-line/wait-line.component';
 import { readSignInError, SignInService, type CheckedCode, type CodeReply, type EmailAccount } from '../sign-in.service';
 import { RESEND_SECONDS, SentCodes, sentCodeKey } from '../sent-codes';
+import { StepHistory } from './step-history';
+import { ClockCountdown } from '../../../core/sign-in/clock-countdown';
 import { trackKeyboard } from '../../../core/layout/keyboard-viewport';
 import { environment } from '../../../../environments/environment';
 import { arcConfig } from '../../../core/config/arc-config';
@@ -103,6 +105,28 @@ export const SIGNED_IN_WAIT_MS = 20_000;
  * page to move on, before they work again (a record that never answers).
  */
 export const LEAVING_LIMIT_MS = 20_000;
+
+/**
+ * How long a sign-in that went through waits for the browser to take this visit's
+ * steps off its history before it moves on anyway (StepHistory).
+ */
+export const FIRST_ENTRY_WAIT_MS = 3_000;
+
+/**
+ * Once the browser is back on the first entry, how long to wait for the router to say it
+ * skipped that popstate before moving on anyway (StepHistory).
+ */
+export const ROUTER_SKIP_WAIT_MS = 500;
+
+/**
+ * Whether a move from one step to the next takes the place of the step it leaves, so
+ * back skips it: a code step once its code is used, the details step (its code is
+ * used too), and a new PIN or password sent back to an expired code.
+ */
+export function replacesStep(from: string, to: string): boolean {
+  if (from === 'verify' || from === 'signup') return true;
+  return to === 'verify' && (from === 'newPin' || from === 'newPassword');
+}
 
 /** The project line under the footer's copyright, for developers running `npm run dev` only; '' otherwise. */
 export function instanceLabelFor(devServer: boolean, production: boolean, projectId: string, databaseId: string): string {
@@ -163,15 +187,21 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   otpError = signal('');
   /** A quiet line under the code boxes: a code was sent a moment ago (SC-D2). */
   otpNotice = signal('');
-  resendCountdown = signal(0);
+  /**
+   * The resend countdown and the first step's wait, by the clock (core/sign-in/clock-countdown.ts):
+   * right after a visit to the SMS app or a tab in the background, whose timers the
+   * browser slows (RF6, 6.11).
+   */
+  private readonly resendClock = new ClockCountdown();
+  private readonly requestWaitClock = new ClockCountdown();
+  readonly resendCountdown = this.resendClock.left;
   /**
    * The server's "please wait" for the number on the first step: the seconds left,
    * counting down, with Continue greyed out until 0 (F41). It belongs to what was
    * typed, so another number or address ends it.
    */
-  readonly requestWait = signal(0);
+  readonly requestWait = this.requestWaitClock.left;
   private requestWaitFor = '';
-  private requestWaitTimer: ReturnType<typeof setInterval> | undefined;
   /** The wait in words, the number going down with it. */
   readonly requestWaitMessage = computed(() => {
     const wait = this.requestWait();
@@ -269,6 +299,16 @@ export default class SignupComponent extends BaseComponent implements OnInit {
    */
   readonly instanceLabel = instanceLabelFor(isDevMode(), environment.production, environment.firebaseConfig.projectId, arcConfig.databaseId);
 
+  /**
+   * The steps in the browser's history: the phone's back button goes one step back in
+   * the flow, and on the first step it leaves the page (RF6, 6.4). Null on the server.
+   */
+  private readonly stepHistory: StepHistory<SignupStep> | null;
+  /** A back being shown: goToStep leaves the history as the browser already has it. */
+  private steppingBack = false;
+  /** The page went past an earlier visit's entries: the popstate it causes is its own. */
+  private skippingBelow = false;
+
   private codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
   private pinBoxes = viewChild<CodeInputComponent>('pinBoxes');
   /** The new PIN, typed twice, on the sign-up, new-PIN and Choose PIN steps (one at a time). */
@@ -278,7 +318,6 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
   private destroyRef = inject(DestroyRef);
 
-  private countdownInterval: any;
   /** True only when the user actually completed the OTP step (email verification). */
   private otpVerified = false;
   /** A Google sign-in that hit an existing email account: linked after the password. */
@@ -299,6 +338,17 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.siteBrand.load().catch(() => undefined);
       // The card stays above a phone's keyboard while a field is focused (core/layout/keyboard-viewport.ts).
       afterNextRender(() => this.destroyRef.onDestroy(trackKeyboard(this.host.nativeElement)), { injector: this.injector });
+      this.stepHistory = new StepHistory<SignupStep>('request', window.history);
+      const href = window.location.href;
+      const popped = (event: PopStateEvent) => {
+        // Another address is the router's to show; this page is on its way out.
+        if (window.location.href === href) this.onPopState(event.state);
+        else this.skippingBelow = false;
+      };
+      window.addEventListener('popstate', popped);
+      this.destroyRef.onDestroy(() => window.removeEventListener('popstate', popped));
+    } else {
+      this.stepHistory = null;
     }
     this.initForm();
 
@@ -666,7 +716,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   }
 
   goToStep(step: SignupStep) {
+    const from = this.currentStep();
     this.currentStep.set(step);
+    this.moveHistory(from, step);
     this.errorMessage.set('');
     this.successMessage.set('');
     this.otpError.set('');
@@ -681,6 +733,89 @@ export default class SignupComponent extends BaseComponent implements OnInit {
     // The details step opens on its first field, the name; code and PIN boxes take
     // the cursor themselves (specs/sign-in-strength-spec.md, SS-D12).
     if (step === 'signup') afterNextRender(() => this.nameBox()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  /**
+   * The history entry for a move (RF6, 6.4): back to the first step, or to the step
+   * before, takes entries off; a step that replaces the one it leaves keeps its entry;
+   * any other step adds one.
+   */
+  private moveHistory(from: SignupStep, to: SignupStep): void {
+    const flow = this.stepHistory;
+    if (!flow || this.steppingBack || from === to) return;
+    if (to === 'request') {
+      flow.backTo(0);
+      return;
+    }
+    const before = flow.depth - 1;
+    if (before >= 0 && flow.stepAt(before) === to) flow.backTo(before);
+    else if (replacesStep(from, to)) flow.replace(to);
+    else flow.push(to);
+  }
+
+  /** The browser's back (or forward) button, on this page's own address. */
+  private onPopState(state: unknown): void {
+    const flow = this.stepHistory;
+    if (!flow || this.navigationInProgress) return;
+    // The page's own skip below an earlier visit has landed.
+    if (this.skippingBelow) {
+      this.skippingBelow = false;
+      return;
+    }
+    const landing = flow.landing(state);
+    if ('below' in landing) {
+      // An earlier visit's entry (after a reload mid-way, or back from another page): one
+      // back press leaves sign-in, past that visit's steps, as it would from the first step.
+      if (this.working()) {
+        flow.stay();
+        return;
+      }
+      if (flow.depth > 0) this.stepBack(0);
+      this.skippingBelow = true;
+      window.history.go(-landing.below);
+      return;
+    }
+    const depth = landing.depth;
+    if (depth === flow.depth) return;
+    // Forward to a step left behind: back to the step on screen.
+    if (depth > flow.depth) {
+      window.history.go(flow.depth - depth);
+      return;
+    }
+    this.stepBack(depth);
+  }
+
+  /** Back to the step at this depth, which the browser's history is already at. */
+  private stepBack(depth: number): void {
+    const flow = this.stepHistory!;
+    const from = this.currentStep();
+    if (this.working()) {
+      // A step still running: it would move the page on anyway. Stay.
+      flow.stay();
+      return;
+    }
+    if (from === 'choosePin') {
+      // Signed in already: back is "Not now" where it is offered, else the step stays.
+      if (!this.pinSkipAllowed()) {
+        flow.stay();
+        return;
+      }
+      flow.cutTo(depth);
+      this.skipChoosingPin();
+      return;
+    }
+    const to = flow.cutTo(depth);
+    this.steppingBack = true;
+    try {
+      if (to === 'request') {
+        this.changeIdentifier();
+      } else {
+        this.leaveCodeStep();
+        this.goToStep(to);
+      }
+    } finally {
+      this.steppingBack = false;
+    }
   }
 
   updateValidators(step: SignupStep) {
@@ -869,7 +1004,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
         }
       }
     } catch (error) {
-      this.errorMessage.set(this.t('member.auth.check_email_failed'));
+      // No network says so, rather than blaming the email (RF6, 6.7).
+      const failed = readSignInError(error);
+      this.errorMessage.set(failed.reason === 'offline' ? failed.message : this.t('member.auth.check_email_failed'));
     } finally {
       this.isLoading.set(false);
     }
@@ -889,7 +1026,9 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       const name = this.registrationForm.get('name')?.value || undefined;
       const reply = await this.signIn.checkEmail(email, { sendCode, name });
       return { status: reply.status, checked: reply, account: reply };
-    } catch {
+    } catch (err) {
+      // With no network the lookup cannot answer either: say so (RF6, 6.7).
+      if (readSignInError(err).reason === 'offline') throw err;
       const res = await (await this.authStore.checkItemNumberExist(email)).toPromise();
       return { status: res && res.length ? 'registered' : 'new' };
     }
@@ -1052,35 +1191,19 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   }
 
   private stopCountdown(): void {
-    clearInterval(this.countdownInterval);
-    this.resendCountdown.set(0);
+    this.resendClock.stop();
   }
 
+  /** Resend comes back when the seconds are up, counted from now by the clock (RF6, 6.11). */
   startCountdown(seconds = RESEND_SECONDS) {
-    clearInterval(this.countdownInterval);
-    this.resendCountdown.set(Math.max(0, seconds));
-
-    this.countdownInterval = setInterval(() => {
-      const current = this.resendCountdown();
-      if (current > 0) {
-        this.resendCountdown.set(current - 1);
-      } else {
-        clearInterval(this.countdownInterval);
-      }
-    }, 1000);
+    this.resendClock.start(seconds);
   }
 
-  /** The first step's wait: counts down each second, and at 0 the message goes and Continue is back. */
+  /** The first step's wait: counts down by the clock, and at 0 the message goes and Continue is back. */
   private startRequestWait(seconds: number): void {
-    clearInterval(this.requestWaitTimer);
     this.errorMessage.set('');
     this.requestWaitFor = this.waitKey(this.registrationForm.get('identifier')?.value);
-    this.requestWait.set(Math.ceil(seconds));
-    this.requestWaitTimer = setInterval(() => {
-      const left = this.requestWait() - 1;
-      if (left > 0) this.requestWait.set(left);
-      else this.stopRequestWait();
-    }, 1000);
+    this.requestWaitClock.start(seconds);
   }
 
   /** What a wait is for: the number as read, so tidying how it is written keeps the wait. */
@@ -1089,8 +1212,7 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   }
 
   private stopRequestWait(): void {
-    clearInterval(this.requestWaitTimer);
-    this.requestWait.set(0);
+    this.requestWaitClock.stop();
   }
 
   resendOtp() {
@@ -1442,19 +1564,26 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.goToStep('disabled');
       return;
     }
-    this.errorMessage.set(code.startsWith('auth/') ? this.t('member.auth.google_failed') : error.message);
+    if (error.reason === 'offline') this.errorMessage.set(error.message);
+    else this.errorMessage.set(code.startsWith('auth/') ? this.t('member.auth.google_failed') : error.message);
   }
 
   /** Back to the first step, keeping what was typed. */
   changeIdentifier(): void {
-    // The codes asked for stay remembered (sentCodes): coming back to the same
-    // number or address carries on where it was (SC-D1).
+    this.leaveCodeStep();
+    this.goToStep('request');
+  }
+
+  /**
+   * Off the code step: its test code, notice and countdown go. The codes asked for stay
+   * remembered (sentCodes): coming back to the same number or address carries on where
+   * it was (SC-D1).
+   */
+  private leaveCodeStep(): void {
     this.testCode.set('');
     this.testCodeInLogs.set(false);
     this.otpNotice.set('');
-    clearInterval(this.countdownInterval);
-    this.resendCountdown.set(0);
-    this.goToStep('request');
+    this.stopCountdown();
   }
 
   private navigationInProgress = false;
@@ -1491,13 +1620,48 @@ export default class SignupComponent extends BaseComponent implements OnInit {
       this.toastService.success(this.t('member.auth.redirecting'));
       this.startLeaving();
       // A move a guard refuses leaves the page here: its buttons work again.
-      this.router.navigateByUrl(route, { replaceUrl: true }).then(
+      const move = () => this.router.navigateByUrl(route, { replaceUrl: true }).then(
         (moved) => {
           if (!moved) this.navigationFailed();
         },
         () => this.navigationFailed(),
       );
+      // The steps' history entries go first, so back from the next page leaves sign-in
+      // rather than landing on its steps again (RF6, 6.4).
+      if (this.stepHistory?.depth) void this.toFirstEntry().then(move);
+      else void move();
     }
+  }
+
+  /**
+   * Take this visit's steps off the browser's history, then move on once the router has
+   * seen the browser get there. The router hears that popstate and skips it (the address
+   * is the same); moving on after that makes the move the newer navigation, which that
+   * popstate cannot cancel. Timers only as a last resort: ROUTER_SKIP_WAIT_MS once the
+   * browser is there, FIRST_ENTRY_WAIT_MS in all.
+   */
+  private toFirstEntry(): Promise<void> {
+    return new Promise((resolve) => {
+      const timers: ReturnType<typeof setTimeout>[] = [];
+      let settled: { unsubscribe(): void } | undefined;
+      const done = () => {
+        window.removeEventListener('popstate', landed);
+        settled?.unsubscribe();
+        timers.forEach(clearTimeout);
+        resolve();
+      };
+      const landed = () => {
+        window.removeEventListener('popstate', landed);
+        settled = this.router.events
+          .pipe(filter((e) => e instanceof NavigationSkipped || e instanceof NavigationEnd || e instanceof NavigationCancel || e instanceof NavigationError), take(1))
+          // The router's own move, if any, is over: ours comes after it.
+          .subscribe(() => setTimeout(done));
+        timers.push(setTimeout(done, ROUTER_SKIP_WAIT_MS));
+      };
+      window.addEventListener('popstate', landed);
+      timers.push(setTimeout(done, FIRST_ENTRY_WAIT_MS));
+      this.stepHistory!.backTo(0);
+    });
   }
 
   /** A password sign-in on this page, for an account the server offered a PIN, not offered yet. */
@@ -1546,6 +1710,10 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   private navigationFailed(): void {
     this.navigationInProgress = false;
     this.stopLeaving();
+    // The steps' entries came off before the move: the step on screen gets its entry
+    // back, so back still goes to the first step rather than out of sign-in (RF6, 6.4).
+    const flow = this.stepHistory;
+    if (flow && flow.depth === 0 && this.currentStep() !== 'request') flow.push(this.currentStep());
   }
 
   /**
@@ -1574,8 +1742,8 @@ export default class SignupComponent extends BaseComponent implements OnInit {
   }
 
   ngOnDestroy() {
-    clearInterval(this.countdownInterval);
-    clearInterval(this.requestWaitTimer);
+    this.resendClock.stop();
+    this.requestWaitClock.stop();
     clearTimeout(this.openingTimer);
     clearTimeout(this.leavingTimer);
   }

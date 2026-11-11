@@ -47,6 +47,7 @@ import { getPublishedCollectionName } from '../draftContent/collectionHelpers.js
 import { nameItemsFromTypeLoops } from '../shared/items-from-type.js';
 import { type ItemsFromTypeCache, readItemsFromType } from './published-entries.js';
 import { arcHostingSite } from '../arc-config.js';
+import { withImageAttributes } from './image-attributes.js';
 
 // ─── Private Helpers ────────────────────────────────────────────────────────
 
@@ -441,7 +442,7 @@ export async function generateAndDeployContentDetailPage(
             hydratedHtml,
             inLanguage(chrome.headerHtml),
             inLanguage(chrome.footerHtml),
-            buildLanguageSwitcher(switcherLinks, lang, languageLabels),
+            buildLanguageSwitcher(switcherLinks, lang, languageLabels, pageStrings['language_label']),
             buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings: pageStrings }),
         );
 
@@ -494,7 +495,8 @@ export async function generateAndDeployContentDetailPage(
         const liveBody = withLiveParts(body, pageStrings, manifest, siteInfo.pages, { lang, defaultLang, notices });
         const liveScripts = [scripts, await liveSiteScript(manifest, pageStrings)].filter(Boolean).join('\n');
         const poweredBy = miscSettings.showPoweredBy ? poweredByHtml(pageStrings) : undefined;
-        const fullHtml = buildHtmlDocument(liveBody, meta, '', '', styles, liveScripts, poweredBy);
+        // Image sizes and lazy loading (image-attributes.ts).
+        const fullHtml = await withImageAttributes(buildHtmlDocument(liveBody, meta, '', '', styles, liveScripts, poweredBy));
 
         // Links to the site's files carry their version (shared/site-urls.ts).
         target.add(detailFilePath(lang, defaultLang, contentTypeSlug, content.urlSlug), versionSiteUrls(fullHtml, (await getSiteManifest())?.files));

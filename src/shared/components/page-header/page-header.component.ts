@@ -107,15 +107,15 @@ import { isOn } from '../../../app/core/features/features';
         .bell-slot {
             display: inline-flex;
             align-items: center;
-            margin-left: 4px;
-            padding-left: 8px;
-            border-left: 1px solid #e9ecef;
+            margin-inline-start: 4px;
+            padding-inline-start: 8px;
+            border-inline-start: 1px solid #e9ecef;
         }
         .actions:only-child .bell-slot,
         .bell-slot:only-child {
-            border-left: none;
-            padding-left: 0;
-            margin-left: 0;
+            border-inline-start: none;
+            padding-inline-start: 0;
+            margin-inline-start: 0;
         }
         /*
          * A phone: still a row, so the title and the bell share a line. The title takes the

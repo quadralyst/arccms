@@ -11,6 +11,8 @@ describe('SignupMetadataService', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    // These tests are about what is tracked with consent (RF6 6.12); the last block, without.
+    localStorage.setItem('arc_site_usage', 'accepted');
 
     TestBed.configureTestingModule({
       providers: [
@@ -129,6 +131,7 @@ describe('SignupMetadataService', () => {
   describe('Cross-Session Persistence', () => {
     beforeEach(() => {
       localStorage.clear();
+      localStorage.setItem('arc_site_usage', 'accepted');
     });
 
     it('should create arc_session_data on first visit', () => {
@@ -324,6 +327,42 @@ describe('SignupMetadataService', () => {
       };
 
       expect(hasUndefined(metadata)).toBe(false);
+    });
+  });
+
+  // RF6 6.12: the same rule as arc-site.js on published pages.
+  describe('without consent to track', () => {
+    const tracked = (m: Record<string, unknown>) => 'deviceType' in m || 'visitCount' in m || 'clickCount' in m;
+
+    it('tracks nothing and keeps nothing for a visitor who rejected the banner', async () => {
+      localStorage.setItem('arc_site_usage', 'rejected');
+      history.replaceState({}, '', '/?utm_source=news');
+      service.startBehaviorTracking();
+      window.dispatchEvent(new Event('click'));
+      const metadata = await service.collectAllMetadata('a@mailinator.com');
+      expect(metadata).toEqual({ utmSource: 'news', isDisposableEmail: true });
+      expect(localStorage.getItem('arc_session_data')).toBeNull();
+      history.replaceState({}, '', '/');
+    });
+
+    it('tracks nothing without an answer while the banner\'s setting is not known', async () => {
+      localStorage.removeItem('arc_site_usage');
+      service.startBehaviorTracking();
+      expect(service.trackingAllowed()).toBe(false);
+      expect(tracked(await service.collectAllMetadata('a@example.com') as Record<string, unknown>)).toBe(false);
+    });
+
+    it('tracks a visitor with no answer on a site without the banner, and one who accepted', () => {
+      localStorage.removeItem('arc_site_usage');
+      const usage = { settingsLoaded: () => true, bannerEnabled: () => false };
+      const injector = (service as unknown as { injector: { get: (t: unknown) => unknown } }).injector;
+      const get = vi.spyOn(injector, 'get').mockReturnValue(usage);
+      expect(service.trackingAllowed()).toBe(true);
+      usage.bannerEnabled = () => true;
+      expect(service.trackingAllowed()).toBe(false);
+      get.mockRestore();
+      localStorage.setItem('arc_site_usage', 'accepted');
+      expect(service.trackingAllowed()).toBe(true);
     });
   });
 });

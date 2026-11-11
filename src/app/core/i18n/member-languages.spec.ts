@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-    ENGLISH, MemberLanguageError, chooseMemberLanguage, firstVisitLanguage, isAdminUrl, resolveMemberLanguages,
+    ENGLISH, MemberLanguageError, chooseMemberLanguage, firstVisitLanguage, isAdminUrl, languageDir, resolveMemberLanguages,
+    type MemberLanguage,
 } from './member-languages';
 import { flattenKeys, isMemberKey, MEMBER_SCREEN_FILES, missingMemberKeys } from './member-keys';
 import en from '../../../assets/i18n/en.json';
@@ -36,6 +37,16 @@ describe('member languages (specs/app-member-language-spec.md)', () => {
     it('keep a saved choice the app still has, and forget one it dropped', () => {
         expect(chooseMemberLanguage('de', ['en'], ['en', 'de'])).toBe('de');
         expect(chooseMemberLanguage('fr', ['de'], ['en', 'de'])).toBe('de');
+    });
+
+    it('are written right to left only when declared so (RF6 6.6)', () => {
+        const list = resolveMemberLanguages([{ code: 'ar', label: 'العربية', locale: 'ar', dir: 'rtl' }, { code: 'de', label: 'Deutsch', locale: 'de-CH' }]);
+        expect(languageDir('ar', list)).toBe('rtl');
+        expect(languageDir('de', list)).toBe('ltr');
+        expect(languageDir('en', list)).toBe('ltr');
+        expect(languageDir('hi', list)).toBe('ltr');
+        const wrong = [{ code: 'ar', label: 'العربية', locale: 'ar', dir: 'right' }] as unknown as MemberLanguage[];
+        expect(() => resolveMemberLanguages(wrong)).toThrow(/ar: dir is 'rtl'/);
     });
 
     it('know the admin area by its address', () => {

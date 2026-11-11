@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
+import { randomBytes } from 'node:crypto';
 import { db } from '../init.js';
 import { isBlank } from '../shared/blank.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
@@ -35,7 +36,8 @@ import { issueFormTicket } from './formTicket.js';
  * the code: the caller asks for that separately via `requestFormOtp`.
  *
  * Public, so it is limited per caller and per address, the form must be open, and
- * what is stored is capped (formInput.ts).
+ * what is stored is capped (formInput.ts). A filled hidden field (HONEYPOT_FIELD, the
+ * same trap the contact form has) gets a ticket like any join, and nothing is stored.
  *
  * Signup forms are plain (specs/form-gamification-spec.md): no referral code, links,
  * queue position or masked address is written. Members from before keep theirs, unread.
@@ -52,9 +54,27 @@ interface JoinResult {
 const JOIN_LIMIT_PER_IP = 60;
 const JOIN_LIMIT_PER_ADDRESS = 10;
 
+/**
+ * The hidden field published sign-up forms carry (arc-site.js adds it): people never
+ * see or fill it, a bot filling every input does.
+ */
+export const HONEYPOT_FIELD = 'arc_website';
+
+/** Whether a bot sent it: the hidden field has something in it. */
+export function filledHoneypot(data: unknown): boolean {
+  const value = data && typeof data === 'object' ? (data as Record<string, unknown>)[HONEYPOT_FIELD] : undefined;
+  return typeof value === 'string' && value.trim() !== '';
+}
+
 export const joinForm = onCall(async (request): Promise<JoinResult> => {
   const waitlistId = readFormId(request.data?.waitlistId);
   const email = readEmail(request.data?.email);
+  // A bot is answered as a person is, with a ticket, but nothing is stored or counted:
+  // the ticket names a member that does not exist, so the later steps go nowhere.
+  if (filledHoneypot(request.data)) {
+    logger.info(`joinForm: dropped a bot signup on ${waitlistId} (hidden field filled).`);
+    return { ticket: await issueFormTicket(waitlistId, randomBytes(15).toString('base64url')) };
+  }
   const firstName = readShortText(request.data?.firstName, 'Please use a shorter name.');
   const source = readShortText(request.data?.source, 'This form sent too much. Please shorten your answers and try again.');
   const formData = readFormData(request.data?.formData);

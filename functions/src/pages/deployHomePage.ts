@@ -20,6 +20,7 @@ import { siteInfoFor } from '../shared/site-info-source.js';
 import { arcSiteScript, loadSiteNotices, prepareLiveParts, setupState } from '../shared/live-parts.js';
 
 import { arcHostingSite } from '../arc-config.js';
+import { withImageAttributes } from './image-attributes.js';
 
 // The live parts moved to shared/live-parts.ts (SS5), the card blocks to card-blocks.ts;
 // re-exported for existing callers.
@@ -144,7 +145,7 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
             html,
             prefixAnchorHrefs(chrome.headerHtml, prefix, contentTypes),
             prefixAnchorHrefs(chrome.footerHtml, prefix, contentTypes),
-            buildLanguageSwitcher(switcherLinks, lang, labels),
+            buildLanguageSwitcher(switcherLinks, lang, labels, strings['language_label']),
             buildSearchWidget({ projectId: process.env.GCLOUD_PROJECT || '', lang, defaultLang, strings }),
         );
         html = prefixAnchorHrefs(html, prefix, contentTypes);
@@ -194,7 +195,8 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         if (miscSettings.showPoweredBy) $('body').append(`\n${poweredByHtml(strings)}`);
 
         // Links to the site's files (the page's own CSS, scripts, images) carry their version.
-        const out = versionSiteUrls($.html(), manifest?.files);
+        // Image sizes and lazy loading (image-attributes.ts).
+        const out = versionSiteUrls(await withImageAttributes($.html()), manifest?.files);
         target.add(homeFilePath(lang, defaultLang), out.startsWith('<!DOCTYPE') || out.startsWith('<!doctype') ? out : `<!DOCTYPE html>\n${out}`);
     }
 

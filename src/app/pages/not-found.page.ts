@@ -1,13 +1,17 @@
 /**
  * NotFoundComponent (404 Page)
  *
- * Displays a 404 page for invalid routes.
+ * Displays a 404 page for invalid routes, and keeps it out of search (RF6 6.3). The
+ * status is still 200: Firebase Hosting answers every address the app draws with the
+ * app shell (docs/features/seo.html).
  */
 
 import { RouteMeta } from '@analogjs/router';
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { Meta } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { keepOutOfSearch } from '../core/site/search-engines';
 
 export const routeMeta: RouteMeta = {
     title: 'Page Not Found',
@@ -86,4 +90,8 @@ export const routeMeta: RouteMeta = {
     }
   `]
 })
-export default class NotFoundComponent { }
+export default class NotFoundComponent {
+    constructor() {
+        keepOutOfSearch(inject(Meta));
+    }
+}

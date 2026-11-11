@@ -9,7 +9,7 @@
  */
 
 import { RouteMeta } from '@analogjs/router';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
@@ -18,6 +18,7 @@ import MediaManagerComponent from '../../admin/(media)/media.page';
 import { mediaPickerDialogConfig } from '../../admin/(media)/media-picker-dialog';
 import { FileUploadService } from '../../../../shared/services/file-upload.service';
 import { readSignInError, SignInService } from '../sign-in.service';
+import { FreshCodeService } from '../../../core/sign-in/fresh-code.service';
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { firstValueFrom } from 'rxjs';
 import { SignInMethodsComponent } from './sign-in-methods.component';
@@ -31,6 +32,9 @@ import { ArcZones } from '../../../core/time/arc-zones.service';
 import { ZonePickerComponent } from '../../../../shared/components/zone-picker/zone-picker.component';
 import { readStoredSignInSettings, UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
 import { emailPinOn } from '../../admin/(settings)/user-setting/user-setting.model';
+
+/** The fresh code's purpose for deleting your own account (functions/src/auth/freshCode.ts). */
+export const DELETE_ACCOUNT_PURPOSE = 'delete-account';
 
 export const routeMeta: RouteMeta = {
   title: 'Profile',
@@ -93,11 +97,9 @@ export default class ProfileComponent extends BaseComponent {
   /** An app account its app manages: everything here is read-only (the server refuses changes too). */
   locked = computed(() => isLockedAppAccount(this.currentUser()));
 
-  /** The role in the person's language: Arc CMS's own roles are translated, an app's own shows as it is. */
-  roleLabel(): string {
-    const role = this.currentUser()?.role;
-    if (role === 'admin') return this.t('member.profile.role_admin');
-    return role && role !== 'user' ? role : this.t('member.profile.role_user');
+  /** Only an admin's own profile names the role: a member's says nothing about roles or status (RF6 6.10). */
+  isAdmin(): boolean {
+    return this.currentUser()?.role === 'admin';
   }
 
   /**
@@ -322,8 +324,10 @@ export default class ProfileComponent extends BaseComponent {
   // --- Delete account ---
 
   isDeleting = signal(false);
-  /** The server wants a fresh sign-in before deleting. */
+  /** The server wants a fresh sign-in before deleting: an account with no address or number for a code. */
   deleteNeedsSignIn = signal(false);
+  /** Read only when deleting, so the page itself needs neither. */
+  private readonly injector = inject(Injector);
 
   /** Admins are removed by another admin, under Users; a locked app account by its app. */
   canDeleteAccount(): boolean {
@@ -347,7 +351,16 @@ export default class ProfileComponent extends BaseComponent {
     this.clearMessages();
     this.isDeleting.set(true);
     try {
-      await this.signIn.deleteMyAccount();
+      try {
+        await this.signIn.deleteMyAccount();
+      } catch (err) {
+        // Signed in more than 10 minutes ago: a code to the person's own email or phone
+        // proves it is them, with no sign-out (docs/app/fresh-code.html).
+        if (readSignInError(err).reason !== 'fresh-code-required') throw err;
+        const proof = await this.injector.get(FreshCodeService).confirm({ purpose: DELETE_ACCOUNT_PURPOSE });
+        if (!proof) return;
+        await this.signIn.deleteMyAccount(proof);
+      }
       await firstValueFrom(this.authStore.logout());
       this.toastService.success(this.t('member.profile.account_deleted'));
       await this.router.navigate(['/'], { replaceUrl: true });

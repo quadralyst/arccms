@@ -118,7 +118,7 @@ describe('the sign-in page', () => {
         const blocks = html.split('<div class="auth-logo">').slice(1);
         expect(blocks).toHaveLength(10);
         for (const block of blocks) {
-            expect(block).toMatch(/^[\s\S]{0,600}?<div class="auth-logo-line">\s*<h2 class="auth-logo-text"[^>]*>\{\{ brandName\(\) \}\}<\/h2>/);
+            expect(block).toMatch(/^[\s\S]{0,600}?<div class="auth-logo-line">\s*<p class="auth-logo-text"[^>]*>\{\{ brandName\(\) \}\}<\/p>/);
         }
         expect(html.match(/\[class\.auth-logo-text-by-tile\]="!!brandLogo\(\)"/g)).toHaveLength(3);
         // The name is read in place of the tile, so the tile has no alt of its own.

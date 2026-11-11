@@ -4,21 +4,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>404 - Page Not Found</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="robots" content="noindex">
+    <title>Page not found</title>
+    <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a1a; background: #fff; }
+        .page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 0 16px; text-align: center; }
+        h1 { font-size: 2rem; margin: 0 0 0.75rem; }
+        p { font-size: 1.1rem; color: #4a5568; margin: 0 0 1.5rem; }
+        a { display: inline-block; padding: 0.75rem 1.5rem; border-radius: 8px; background: #0b57d0; color: #fff; text-decoration: none; font-weight: 600; }
+    </style>
 </head>
 
 <body>
-    <div class="d-flex align-items-center justify-content-center vh-100">
-        <div class="text-center">
-            <h1 class="display-1 fw-bold">404</h1>
-            <p class="fs-3"> <span class="text-danger">Oops!</span> Page Not Found.</p>
-            <p class="lead">
-                The page you're looking for doesn't exist or has been moved.
-            </p>
-            <a href="/" class="btn btn-primary">Go to Home</a>
+    <main class="page">
+        <div>
+            <h1>Page not found</h1>
+            <p>This page doesn't exist or has moved.</p>
+            <a href="/">Go to the home page</a>
         </div>
-    </div>
+    </main>
 </body>
 
 </html>

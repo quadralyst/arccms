@@ -24,6 +24,7 @@
         <tr><td>Markdown twins</td><td>The same page as Markdown, at the same address with <code>.md</code> (<code>/articles/my-post.md</code>), linked from the HTML head. AI tools read it at a fraction of the tokens.</td></tr>
         <tr><td>Related items</td><td>Up to four related pages at the end of each page, chosen from the search index by title and tags. Needs <a href="search.html">Search</a>.</td></tr>
         <tr><td>Checks tab</td><td>A score out of 100 for each draft, with the one thing to fix per failing check. Advice only: it never blocks publishing.</td></tr>
+        <tr><td>Images</td><td>On each published page (<code>functions/src/pages/image-attributes.ts</code>): <code>width</code>, <code>height</code>, a <code>srcset</code> of the stored sizes and <code>sizes</code> for an image from the media library, and <code>loading="lazy"</code> on every image after the first one in <code>&lt;main&gt;</code>. Only content images: in <code>&lt;main&gt;</code>, or outside the header, nav and footer on a page without one, which gets no lazy loading. Images in scripts, templates and comments, and attributes an image already has, are left alone.</td></tr>
       </tbody>
     </table>
     <p>The <code>seo</code> feature adds the site-wide files and the settings for them:</p>
@@ -39,6 +40,12 @@
       </tbody>
     </table>
     <p>After each publish, IndexNow tells Bing (which feeds ChatGPT search and Copilot), Yandex, Seznam and Naver which pages changed. Google does not take part; the sitemap covers it. For a website walkthrough, see <a href="../website/seo.html">Get found by search engines and AI</a>.</p>
+
+    <h3 id="app-pages-out-of-search">Pages the app draws stay out of search</h3>
+    <p>The app shell, <code>index.html</code>, carries no robots tag: a page whose first HTML says <code>noindex</code> may never be rendered by a search engine, so nothing the app draws could be listed. Instead, each move to another page adds <code>&lt;meta name="robots" content="noindex"&gt;</code> with JavaScript (<code>src/app/core/site/search-engines.ts</code>). Search engines that render honour a tag added this way, so the not-found page, the search results and any address the site does not have drop out.</p>
+    <p>A public page lifts it: the home page, a content item, a content list and a static page once their content is on the page, and any route whose data says <code>{ searchEngines: 'index' }</code>, such as core's <code>/pricing</code> and <code>/waitlist/{form}</code>. The home page's own robots tag, when its file has one, wins. An app's own public pages use the same route data (see <a href="../app/pages-and-routes.html">Pages and routes</a>).</p>
+    <p>Sign-in, member, admin, checkout and setup addresses (<code>/admin</code>, <code>/signup</code>, <code>/profile</code>, <code>/account</code>, <code>/auth-checker</code>, <code>/user/…</code>, <code>/checkout/…</code>, <code>/onboarding</code>) also get an <code>X-Robots-Tag: noindex</code> header from Hosting, which works before any script runs (<code>firebase.json</code>, <code>PRIVATE_PAGES</code> in <code>scripts/arc-headers.mjs</code>; see <a href="../operations/deploy.html#security-headers">Deploy</a>). Published pages are files of their own on Hosting, never the shell, so they keep <code>index, follow</code>.</p>
+    <p>An address the site does not have still answers with status 200, not 404. <code>firebase.json</code> sends every address Hosting has no file for to the app shell (the <code>**</code> rewrite), and a rewrite always answers 200; Hosting serves <code>404.html</code> only for an address no rewrite catches, and there is none. A real 404 would need the shell to come from a server that knows the site's addresses, such as a function, which Arc CMS does not set up. Search engines treat a <code>noindex</code> page that says "Page not found" as a soft 404 and drop it.</p>
 
     <h2>Turn it on or off</h2>
     <p>The site-wide files are the switchable feature <code>seo</code>. It is on by default and needs no other feature. To turn it off, list it in <code>src/custom/features.ts</code>:</p>

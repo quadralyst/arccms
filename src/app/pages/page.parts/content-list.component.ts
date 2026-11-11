@@ -1,4 +1,5 @@
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { SitePagesService } from '../../core/site/site-pages.service';
 import { siteInfoOf } from '../../core/site/site-info-source';
 import { attachLiveParts } from '../../core/site/live-parts';
@@ -26,6 +27,7 @@ import { HeaderComponent } from './header.component';
 import { PageSpinnerComponent } from './page-spinner.component';
 import { GaTrackingService } from '../../../shared/services/ga-tracking.service';
 import { LocalizationService } from '../../core/services/localization.service';
+import { usePageLanguage } from '../../core/site/page-language';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { notFoundText, NotFoundStringKey } from './not-found-strings';
 import { MediaSettingsService } from '../../core/services/media-settings.service';
@@ -43,7 +45,7 @@ import { ArcZones } from '../../core/time/arc-zones.service';
 @Component({
     selector: 'arc-content-list',
     standalone: true,
-    imports: [CommonModule, HeaderComponent, FooterComponent, PageSpinnerComponent, SafeHtmlPipe],
+    imports: [CommonModule, HeaderComponent, FooterComponent, PageSpinnerComponent, SafeHtmlPipe, TranslocoPipe],
     template: `
     <arc-header></arc-header>
     
@@ -54,7 +56,7 @@ import { ArcZones } from '../../core/time/arc-zones.service';
     @if(contentTypesStore.isLoading() || contentsStore.isLoading() || !contentTypesStore.isSuccess()) {
         <div class="loading-container">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span>
             </div>
         </div>
     } @else if(!currentContentType()) {
@@ -74,7 +76,7 @@ import { ArcZones } from '../../core/time/arc-zones.service';
         <!-- The template is on its way -->
         <div class="loading-container">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span>
             </div>
         </div>
     }
@@ -118,6 +120,8 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
     // ContentDetailComponent for why this is not injected eagerly.
     private injector = inject(Injector);
     private localization = inject(LocalizationService);
+    /** `<html lang>` and `dir` follow the content's language, as on the published page. */
+    private pageLanguage = usePageLanguage(() => this.pageLang());
     private uiStrings = inject(UiStringsService);
     private mediaSettings = inject(MediaSettingsService);
     private siteIdentity = inject(SiteIdentityService);

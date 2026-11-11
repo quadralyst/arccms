@@ -1,4 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { SitePagesService } from '../../core/site/site-pages.service';
 import { siteInfoOf } from '../../core/site/site-info-source';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
@@ -58,7 +59,7 @@ const CARD_BLOCK_ATTRIBUTES: Record<string, string> = {
 @Component({
     selector: 'arc-content-partials',
     standalone: true,
-    imports: [CommonModule, SafeHtmlPipe],
+    imports: [CommonModule, SafeHtmlPipe, TranslocoPipe],
     // Stores of its own: its queries never replace or cancel the page's (a
     // content page reads its own type through the root ContentTypesStore).
     providers: [ContentsStore, ContentTypesStore],
@@ -67,7 +68,7 @@ const CARD_BLOCK_ATTRIBUTES: Record<string, string> = {
     @if(contentTypesStore.isLoading() || contentsStore.isLoading()) {
         <div class="content-partials-loading">
             <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span>
             </div>
         </div>
     } @else if(templateHtml()) {

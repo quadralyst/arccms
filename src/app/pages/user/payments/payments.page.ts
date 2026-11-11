@@ -273,7 +273,7 @@ interface ActivityItem {
             font-size: 0.9rem;
         }
         .action-accent-btn {
-            margin-left: auto;
+            margin-inline-start: auto;
             background: #0f172a !important;
             color: #ffffff !important;
             font-weight: 600 !important;
@@ -285,7 +285,7 @@ interface ActivityItem {
             margin-top: 24px;
         }
         .premium-action-btn {
-            margin-left: auto;
+            margin-inline-start: auto;
             background: #198754 !important;
             color: #ffffff !important;
             font-weight: 600 !important;
@@ -519,7 +519,7 @@ interface ActivityItem {
         .activity-amount {
             font-weight: 700;
             font-size: 0.9rem;
-            margin-right: 20px;
+            margin-inline-end: 20px;
         }
         .activity-amount.pos {
             color: #16a34a;
@@ -531,7 +531,7 @@ interface ActivityItem {
             font-size: 0.8rem;
             color: #64748b;
             min-width: 100px;
-            text-align: right;
+            text-align: end;
         }
 
         /* Quick Navigation Links */
@@ -617,7 +617,7 @@ interface ActivityItem {
         .pc-body { display: flex; align-items: center; gap: 16px; padding: 8px; }
         .pc-icon { font-size: 1.6rem; color: var(--arc-member-accent, #1b98e0); }
         .pc-body h3 { margin: 0; font-size: 1.05rem; }
-        .pc-body > a { margin-left: auto; }
+        .pc-body > a { margin-inline-start: auto; }
         .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-top: 24px; }
         .section-head .link { color: #0d6efd; text-decoration: none; font-size: 0.9rem; }
         .arow { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f3f5; }
@@ -627,7 +627,7 @@ interface ActivityItem {
         .arow .aa { font-weight: 600; }
         .arow .aa.pos { color: #0f5132; }
         .arow .aa.neg { color: #842029; }
-        .arow .ad { font-size: 0.8rem; color: #6c757d; min-width: 130px; text-align: right; }
+        .arow .ad { font-size: 0.8rem; color: #6c757d; min-width: 130px; text-align: end; }
     `],
 })
 export default class UserPaymentsComponent implements OnInit {

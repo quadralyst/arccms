@@ -1,5 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { memberLocaleNow } from '../../core/i18n/member-language-now';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -11,7 +13,7 @@ import { IUser } from '../admin/users/user.model';
 import { toJsDate } from '../payments-ui/date-utils';
 
 const POLL_INTERVAL_MS = 3000;
-const MAX_POLLS = 15; // ~45s — entitlement is granted asynchronously by the webhook
+const MAX_POLLS = 15; // about 45s: the webhook grants the plan after the payment
 
 /**
  * Dodo `return_url` landing. The webhook grants the entitlement asynchronously,
@@ -20,7 +22,7 @@ const MAX_POLLS = 15; // ~45s — entitlement is granted asynchronously by the w
  */
 @Component({
     standalone: true,
-    imports: [CommonModule, RouterLink, MatButtonModule, MatCardModule, MatProgressSpinnerModule, PublicNavComponent],
+    imports: [CommonModule, RouterLink, MatButtonModule, MatCardModule, MatProgressSpinnerModule, PublicNavComponent, TranslocoPipe],
     template: `
         <app-public-nav></app-public-nav>
 
@@ -28,30 +30,28 @@ const MAX_POLLS = 15; // ~45s — entitlement is granted asynchronously by the w
             <mat-card class="card">
                 <mat-card-content class="text-center py-4">
                     @if (phase() === 'processing') {
-                        <mat-spinner diameter="48" class="mx-auto mb-3"></mat-spinner>
-                        <h2>Confirming your payment…</h2>
-                        <p class="text-muted">This can take a few seconds while we process the confirmation.</p>
+                        <div role="status">
+                            <mat-spinner diameter="48" class="mx-auto mb-3" [attr.aria-label]="'common.state.loading' | transloco"></mat-spinner>
+                            <h1 class="h2">{{ 'member.checkout.confirming' | transloco }}</h1>
+                            <p class="text-muted">{{ 'member.checkout.confirming_hint' | transloco }}</p>
+                        </div>
                     } @else if (phase() === 'confirmed') {
-                        <div class="icon ok"><i class="fa-solid fa-circle-check"></i></div>
-                        <h2>You're all set!</h2>
+                        <div class="icon ok" aria-hidden="true"><i class="fa-solid fa-circle-check"></i></div>
+                        <h1 class="h2">{{ 'member.checkout.all_set' | transloco }}</h1>
                         <p class="text-muted">
-                            Your {{ entitlement()?.premiumType || 'membership' }} is now
-                            <strong>{{ entitlement()?.premiumStatus || 'active' }}</strong>.
-                            @if (expiresAt()) { Renews / expires {{ expiresAt() }}. }
+                            {{ 'member.checkout.plan_ready' | transloco: { plan: entitlement()?.premiumType || ('member.checkout.membership' | transloco) } }}
+                            @if (expiresAt()) { {{ 'member.checkout.renews' | transloco: { date: expiresAt() } }} }
                         </p>
                     } @else {
-                        <div class="icon wait"><i class="fa-solid fa-clock"></i></div>
-                        <h2>Payment received</h2>
-                        <p class="text-muted">
-                            We haven't seen the confirmation land yet. It usually arrives shortly, so
-                            check your account in a moment.
-                        </p>
+                        <div class="icon wait" aria-hidden="true"><i class="fa-solid fa-clock"></i></div>
+                        <h1 class="h2">{{ 'member.checkout.received_title' | transloco }}</h1>
+                        <p class="text-muted">{{ 'member.checkout.received_body' | transloco }}</p>
                     }
 
                     <div class="actions mt-3">
-                        <a mat-raised-button color="primary" routerLink="/account">Go to my account</a>
+                        <a mat-raised-button color="primary" routerLink="/account">{{ 'member.checkout.go_to_account' | transloco }}</a>
                         @if (phase() === 'timeout') {
-                            <button mat-stroked-button type="button" (click)="startPolling()">Check again</button>
+                            <button mat-stroked-button type="button" (click)="startPolling()">{{ 'member.checkout.check_again' | transloco }}</button>
                         }
                     </div>
                 </mat-card-content>
@@ -80,7 +80,8 @@ export default class CheckoutSuccessPageComponent implements OnInit, OnDestroy {
     uid = computed(() => this.authState.currentUser()?.uid ?? null);
     expiresAt = computed(() => {
         const d = toJsDate(this.entitlement()?.premiumExpiresAt);
-        return d ? d.toLocaleDateString() : '';
+        // The member's locale now, not the one the app started in (as the account page does).
+        return d ? d.toLocaleDateString(memberLocaleNow()) : '';
     });
 
     ngOnInit(): void {
@@ -101,7 +102,7 @@ export default class CheckoutSuccessPageComponent implements OnInit, OnDestroy {
     private poll(): void {
         const uid = this.uid();
         if (!uid) {
-            // Not signed in on this device — can't verify; send them to account to sign in.
+            // Not signed in on this device: nothing to check, so the page points to the account.
             this.phase.set('timeout');
             return;
         }

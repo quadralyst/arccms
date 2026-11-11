@@ -18,7 +18,7 @@
     <table>
       <thead><tr><th>Part</th><th>What it does</th><th>Set up with</th></tr></thead>
       <tbody>
-        <tr><td>Tracking</td><td>Firebase Analytics (GA4) runs in the browser on the pages the app draws, recording page views and Arc CMS's own events. Published content pages and static pages carry no tracking code</td><td>The <code>measurementId</code> in your Firebase web config</td></tr>
+        <tr><td>Tracking</td><td>Firebase Analytics (GA4) runs in the browser on the pages the app draws, recording page views and Arc CMS's own events. Published content pages and static pages carry no tracking code. A signup form on a published page notes details of the visit with the sign-up only when this consent allows it: the visitor accepted the site usage banner, or the site shows no banner (<a href="../website/forms.html">Add signup forms to your site</a>). Published pages show no banner, so with the banner on, only visitors who already accepted it in the app send those details</td><td>The <code>measurementId</code> in your Firebase web config</td></tr>
         <tr><td>Dashboard analytics</td><td>Cloud Functions read your GA4 property and the admin dashboard shows the numbers</td><td>A Google OAuth client, on Admin, Settings, Analytics</td></tr>
       </tbody>
     </table>

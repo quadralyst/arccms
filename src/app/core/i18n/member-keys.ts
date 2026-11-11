@@ -6,15 +6,16 @@
  * Existing groups keep their names (apps may already reword them): `user.*` is the
  * member area, `common.pwa.*` the install and update prompts, `common.feedback.*` the
  * feedback panel, `common.version.*` the reload message, `common.time.*` the zone picker
- * and the clock (docs/app/clock-and-zones.html). `member.*` holds the member
+ * and the clock (docs/app/clock-and-zones.html), `common.code_input.*` the code boxes,
+ * `common.notifications.*` the bell and its panel. `member.*` holds the member
  * screens' text that had none before. A test scans MEMBER_SCREEN_FILES and fails on a key
  * they use that this list does not cover, so a member screen cannot slip out of it.
  */
 
-export const MEMBER_KEY_PREFIXES = ['member.', 'user.', 'common.pwa.', 'common.feedback.', 'common.version.', 'common.time.'] as const;
+export const MEMBER_KEY_PREFIXES = ['member.', 'user.', 'common.pwa.', 'common.feedback.', 'common.version.', 'common.time.', 'common.code_input.', 'common.notifications.'] as const;
 
 /** Single shared keys member screens use. */
-export const MEMBER_KEYS = ['common.actions.cancel', 'common.actions.close'] as const;
+export const MEMBER_KEYS = ['common.actions.cancel', 'common.actions.close', 'common.state.loading'] as const;
 
 /** The files that make up member screens (and the templates they name). */
 export const MEMBER_SCREEN_FILES = [
@@ -49,6 +50,20 @@ export const MEMBER_SCREEN_FILES = [
     // The line that says a page is waiting on the server (sign-in, and an app's own screens)
     'src/shared/components/wait-line/wait-line.component.ts',
     'src/shared/utils/wait-stage.ts',
+    // Notifications, pricing and checkout, the payment screens' bar, the code boxes and what says
+    // a page is loading (RF6 6.9)
+    'src/app/pages/(notifications)/notifications.page.ts',
+    'src/shared/components/notification-bell/notification-bell.component.ts',
+    'src/app/pages/pricing/pricing.page.ts',
+    'src/app/pages/checkout-success/checkout-success.page.ts',
+    'src/app/pages/checkout-cancel/checkout-cancel.page.ts',
+    'src/app/pages/payments-ui/public-nav.component.ts',
+    'src/shared/components/code-input/code-input.component.ts',
+    'src/app/core/sign-in/fresh-code-dialog.component.ts',
+    'src/app/pages/page.parts/nav-progress.component.ts',
+    'src/app/pages/page.parts/page-spinner.component.ts',
+    'src/shared/components/loading/loading.component.ts',
+    'src/shared/components/loader/loader.component.ts',
 ] as const;
 
 export function isMemberKey(key: string): boolean {

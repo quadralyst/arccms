@@ -18,6 +18,8 @@ export interface MemberLanguage {
     localeData?: () => Promise<{ default: unknown }>;
     /** Still being translated: the parity test lists missing keys as a warning, not a failure. */
     partial?: boolean;
+    /** `'rtl'` for a language written right to left, such as Arabic. Left to right when left out. */
+    dir?: 'ltr' | 'rtl';
 }
 
 export const DEFAULT_MEMBER_LANGUAGE = 'en';
@@ -49,6 +51,7 @@ export function resolveMemberLanguages(declared: readonly MemberLanguage[] | und
         if (!CODE.test(code)) problems.push(`"${code}" is not a language code, such as de or pt-BR.`);
         if (!language?.label?.trim()) problems.push(`${code}: give it a label, its name in itself (Deutsch).`);
         if (!language?.locale?.trim()) problems.push(`${code}: give it a locale for dates and numbers (de-CH).`);
+        if (language?.dir !== undefined && language.dir !== 'ltr' && language.dir !== 'rtl') problems.push(`${code}: dir is 'rtl' for a language written right to left, or left out.`);
         if (seen.has(code)) problems.push(`${code} is declared twice.`);
         seen.add(code);
     }
@@ -72,6 +75,11 @@ export function firstVisitLanguage(browser: readonly string[] | undefined, codes
 /** The language to show: a saved choice the app still has, else the first-visit rule. */
 export function chooseMemberLanguage(saved: string | null | undefined, browser: readonly string[] | undefined, codes: readonly string[]): string {
     return saved && codes.includes(saved) ? saved : firstVisitLanguage(browser, codes);
+}
+
+/** Which way a language is written: `'rtl'` only for a member language declared so. */
+export function languageDir(code: string, list: readonly MemberLanguage[]): 'ltr' | 'rtl' {
+    return list.find((l) => l.code === code)?.dir === 'rtl' ? 'rtl' : 'ltr';
 }
 
 /** Whether an address is in the admin area, which keeps the admin's own language (L-D3). */

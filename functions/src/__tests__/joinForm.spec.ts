@@ -264,6 +264,34 @@ describe('joinForm', () => {
     });
   });
 
+  // RF6 6.2: the sign-up form's hidden field, as the contact form has.
+  describe('the hidden field', () => {
+    it('answers a filled one like a join, with a ticket, and stores and counts nothing', async () => {
+      const raw = await (joinForm as any)({ data: { waitlistId: FORM, email: 'bot@example.com', arc_website: 'http://spam.example' } });
+
+      expect(raw).toEqual({ ticket: expect.any(String) });
+      expect(raw.ticket.split('.')).toHaveLength(4);
+      expect(memberCount()).toBe(0);
+      expect(added).toHaveLength(0);
+      expect(mockConsume).not.toHaveBeenCalled();
+      // The ticket opens, so it looks like any other, but names nobody on the list.
+      const memberId = await openFormTicket(raw.ticket, FORM);
+      expect(memberId).toBeTruthy();
+      expect(store.has(`Waitlists/${FORM}/users/${memberId}`)).toBe(false);
+    });
+
+    it('lets an empty or blank one through as a person', async () => {
+      await call({ waitlistId: FORM, email: 'one@example.com', arc_website: '' });
+      await call({ waitlistId: FORM, email: 'two@example.com', arc_website: '   ' });
+      expect(memberCount()).toBe(2);
+    });
+
+    it('still refuses a request with no form id or address', async () => {
+      await expect(call({ email: 'a@b.com', arc_website: 'x' })).rejects.toMatchObject({ code: 'invalid-argument' });
+      await expect(call({ waitlistId: FORM, arc_website: 'x' })).rejects.toMatchObject({ code: 'invalid-argument' });
+    });
+  });
+
   it('does not send the code — the caller asks for that separately', async () => {
     // Keeping the send in requestFormOtp means one throttle and one place that decides
     // whether a form verifies at all.

@@ -649,13 +649,16 @@ export const routes: Routes = [
   },
 
   // Waitlist Routes
+  // Public pages: search engines may list them (core/site/search-engines.ts).
   {
     path: 'waitlist',
+    data: { searchEngines: 'index' },
     loadComponent: () =>
       import('./pages/waitlist/waitlist.component').then((m) => m.WaitlistComponent),
   },
   {
     path: 'waitlist/:waitlistId',
+    data: { searchEngines: 'index' },
     loadComponent: () =>
       import('./pages/waitlist/waitlist.component').then((m) => m.WaitlistComponent),
   },
@@ -701,6 +704,7 @@ export const routes: Routes = [
   {
     path: 'pricing',
     title: 'Pricing',
+    data: { titleKey: 'member.titles.pricing', searchEngines: 'index' },
     loadComponent: () =>
       import('./pages/pricing/pricing.page').then((m) => m.default),
   },
@@ -735,11 +739,15 @@ export const routes: Routes = [
   // Public payment test screens
   {
     path: 'checkout/success',
+    title: 'Checkout',
+    data: { titleKey: 'member.titles.checkout' },
     loadComponent: () =>
       import('./pages/checkout-success/checkout-success.page').then((m) => m.default),
   },
   {
     path: 'checkout/cancel',
+    title: 'Checkout',
+    data: { titleKey: 'member.titles.checkout' },
     loadComponent: () =>
       import('./pages/checkout-cancel/checkout-cancel.page').then((m) => m.default),
   },

@@ -68,6 +68,21 @@ describe('FreshCodeDialogComponent', () => {
         expect(fixture.componentInstance.wait()).toBe(40);
     });
 
+    it('counts the wait down by the clock, so it is right when the page comes back from the background (RF6)', async () => {
+        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+        try {
+            const fixture = await open();
+            expect(fixture.componentInstance.wait()).toBe(60);
+            // 50 seconds away with no timer run, then the page is in front again.
+            vi.setSystemTime(Date.now() + 50_000);
+            document.dispatchEvent(new Event('visibilitychange'));
+            expect(fixture.componentInstance.wait()).toBe(10);
+            fixture.destroy();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('closes with null on Cancel', async () => {
         const fixture = await open();
         fixture.componentInstance.cancel();

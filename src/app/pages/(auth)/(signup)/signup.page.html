@@ -33,7 +33,7 @@
                             }
                             @if (brandName()) {
                             <div class="auth-logo-line">
-                                <h2 class="auth-logo-text" [class.auth-logo-text-by-tile]="!!brandLogo()">{{ brandName() }}</h2>
+                                <p class="auth-logo-text" [class.auth-logo-text-by-tile]="!!brandLogo()">{{ brandName() }}</p>
                             </div>
                             }
                         </div>
@@ -54,7 +54,7 @@
                             }
                             @if (brandName()) {
                             <div class="auth-logo-line">
-                                <h2 class="auth-logo-text" [class.auth-logo-text-by-tile]="!!brandLogo()">{{ brandName() }}</h2>
+                                <p class="auth-logo-text" [class.auth-logo-text-by-tile]="!!brandLogo()">{{ brandName() }}</p>
                             </div>
                             }
                         </div>
@@ -62,7 +62,7 @@
                     <div class="request-container">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h2 class="auth-title">{{ getStepTitle() }}</h2>
+                                <h1 class="auth-title">{{ getStepTitle() }}</h1>
                                 <p class="auth-subtitle" [class.methods-pending]="!methodsKnown()">{{ getStepDescription() }}</p>
 
                                 <div class="mb-4 mt-4 text-start">
@@ -81,10 +81,12 @@
                                             [placeholder]="methodsKnown() ? ((!phoneEnabled() ? 'member.auth.identifier_placeholder_email' : countryCode() === '91' ? 'member.auth.identifier_placeholder_phone' : 'member.auth.identifier_placeholder_phone_any') | transloco) : ''"
                                             [readonly]="busy()" (paste)="cleanIdentifier()" (blur)="identifierBlur($event)"
                                             (input)="identifierInput($event)"
+                                            [attr.aria-invalid]="isFieldInvalid('identifier')"
+                                            [attr.aria-describedby]="isFieldInvalid('identifier') ? 'identifier-error' : null"
                                             [class.is-invalid]="isFieldInvalid('identifier')" />
 
                                         @if(isFieldInvalid('identifier')){
-                                        <div class="invalid-feedback">
+                                        <div class="invalid-feedback" id="identifier-error" role="alert">
                                             {{ identifierErrorKey() | transloco: identifierErrorParams() }}
                                         </div>
                                         }
@@ -93,7 +95,7 @@
 
                                 @if (errorMessage() || requestWaitMessage()) {
                                 <!-- A "please wait" counts down to 0, then goes (F41) -->
-                                <div class="alert alert-danger" [class.request-wait]="!errorMessage()">{{ errorMessage() || requestWaitMessage() }}</div>
+                                <div class="alert alert-danger" [class.request-wait]="!errorMessage()" [attr.role]="errorMessage() ? 'alert' : null">{{ errorMessage() || requestWaitMessage() }}</div>
                                 }
 
                                 <div class="mb-3">
@@ -136,14 +138,14 @@
                     <div class="auth-form-container">
                         <div class="auth-logo">
                             <div class="auth-logo-line">
-                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                                <p class="auth-logo-text">{{ brandName() }}</p>
                             </div>
                         </div>
                     </div>
                     <div class="request-container request-height">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title login-title mb-3">{{ 'member.auth.welcome_back_greeting' | transloco }}</h5>
+                                <h1 class="card-title login-title mb-3">{{ 'member.auth.welcome_back_greeting' | transloco }}</h1>
                                 @let loggingIn = parts('member.auth.logging_in_as');
                                 <p class="login-subtitle m-0">
                                     {{ loggingIn[0] }}<strong>{{ email }}</strong>{{ loggingIn[1] }}
@@ -151,43 +153,46 @@
                                 <p class="login-subtitle">{{ 'member.auth.enter_password_to_continue' | transloco }}</p>
 
                                 @if (successMessage()) {
-                                <div class="alert alert-info">{{ successMessage() }}</div>
+                                <div class="alert alert-info" role="status">{{ successMessage() }}</div>
                                 }
 
                                 <div class="mb-3 mt-4">
                                     <label for="password" class="form-label visually-hidden">{{ 'member.auth.password_label' | transloco }}</label>
                                     <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                        <span class="input-group-text"><i class="fas fa-lock" aria-hidden="true"></i></span>
                                         <input [type]="showLoginPassword() ? 'text' : 'password'"
                                             formControlName="loginPassword" class="form-control p-2" id="password"
                                             placeholder="********" autocomplete="current-password"
+                                            [attr.aria-invalid]="isFieldInvalid('loginPassword')"
+                                            [attr.aria-describedby]="isFieldInvalid('loginPassword') ? 'password-error' : null"
                                             [class.is-invalid]="isFieldInvalid('loginPassword')" />
+                                        <!-- One name, "Show password"; aria-pressed says whether it is shown -->
                                         <button type="button" class="btn btn-outline-secondary"
+                                            [attr.aria-label]="'member.auth.show_password' | transloco"
+                                            [attr.aria-pressed]="showLoginPassword()"
                                             (click)="showLoginPassword.set(!showLoginPassword())">
-                                            <i class="fas"
+                                            <i class="fas" aria-hidden="true"
                                                 [ngClass]="showLoginPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
                                         </button>
                                     </div>
 
                                     @if(isFieldInvalid('loginPassword')){
-                                    <div class="invalid-feedback d-block">
+                                    <div class="invalid-feedback d-block" id="password-error" role="alert">
                                         {{ 'member.auth.password_required' | transloco }}
                                     </div>
                                     }
                                 </div>
 
                                 @if (errorMessage()) {
-                                <div class="alert alert-danger">
+                                <div role="alert" class="alert alert-danger">
                                     {{ errorMessage() }}
                                 </div>
                                 }
 
                                 <div class="d-flex justify-content-between mt-4">
-                                    <a (click)="changeIdentifier()"
-                                        class="change-email cursor text-decoration-none"
-                                        style="cursor: pointer;">
-                                        <i class="bi bi-arrow-left"></i>&nbsp;{{ 'member.auth.change_email' | transloco }}
-                                    </a>
+                                    <button type="button" (click)="changeIdentifier()" class="link-button change-email">
+                                        <i class="bi bi-arrow-left" aria-hidden="true"></i>&nbsp;{{ 'member.auth.change_email' | transloco }}
+                                    </button>
                                 </div>
 
                                 <button type="submit" class="btn btn-primary login-button w-100 mt-3"
@@ -199,8 +204,7 @@
                                 <arc-wait-line [waiting]="checking()" [words]="waitWords()" [spinner]="false" />
 
                                 <div class="mt-3 text-center">
-                                    <a (click)="forgotPassword()" class="forgot-password cursor"
-                                        style="cursor: pointer;">{{ 'member.auth.forgot_password' | transloco }}</a>
+                                    <button type="button" (click)="forgotPassword()" class="link-button forgot-password">{{ 'member.auth.forgot_password' | transloco }}</button>
                                 </div>
                             </div>
                         </div>
@@ -218,14 +222,14 @@
                     <div class="auth-form-container">
                         <div class="auth-logo">
                             <div class="auth-logo-line">
-                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                                <p class="auth-logo-text">{{ brandName() }}</p>
                             </div>
                         </div>
                     </div>
                     <div class="request-container request-height">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title login-title mb-3">{{ 'member.auth.welcome_back_greeting' | transloco }}</h5>
+                                <h1 class="card-title login-title mb-3">{{ 'member.auth.welcome_back_greeting' | transloco }}</h1>
                                 @let signingIn = parts('member.auth.signing_in_as');
                                 <p class="login-subtitle m-0">
                                     {{ signingIn[0] }}<strong>{{ sentTo() }}</strong>{{ signingIn[1] }}
@@ -249,11 +253,10 @@
                                 <arc-wait-line [waiting]="checking()" [words]="waitWords()" [spinner]="false" />
 
                                 <div class="d-flex justify-content-between mt-3">
-                                    <a (click)="changeIdentifier()" class="change-email cursor text-decoration-none"
-                                        style="cursor: pointer;">
-                                        <i class="bi bi-arrow-left"></i>&nbsp;{{ (channel() === 'phone' ? 'member.auth.change_number' : 'member.auth.change_email') | transloco }}
-                                    </a>
-                                    <a (click)="forgotPin()" class="forgot-password cursor" style="cursor: pointer;">{{ 'member.auth.forgot_pin' | transloco }}</a>
+                                    <button type="button" (click)="changeIdentifier()" class="link-button change-email">
+                                        <i class="bi bi-arrow-left" aria-hidden="true"></i>&nbsp;{{ (channel() === 'phone' ? 'member.auth.change_number' : 'member.auth.change_email') | transloco }}
+                                    </button>
+                                    <button type="button" (click)="forgotPin()" class="link-button forgot-password">{{ 'member.auth.forgot_pin' | transloco }}</button>
                                 </div>
 
                                 @if (pinLocked()) {
@@ -285,14 +288,14 @@
                     <div class="auth-form-container">
                         <div class="auth-logo">
                             <div class="auth-logo-line">
-                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                                <p class="auth-logo-text">{{ brandName() }}</p>
                             </div>
                         </div>
                     </div>
                     <div class="verification-container request-height">
                         <div class="card verification-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title verification-title">{{ getStepTitle() }}</h5>
+                                <h1 class="card-title verification-title">{{ getStepTitle() }}</h1>
                                 @let codeSent = parts('member.auth.code_sent_to');
                                 <p class="verification-message">
                                     {{ codeSent[0] }}<br />
@@ -315,25 +318,23 @@
 
                                 <arc-wait-line [waiting]="checking()" [words]="waitWords()" [spinner]="false" />
                                 @if (otpNotice()) {
-                                <p class="small text-muted text-center mt-2 otp-notice">{{ otpNotice() }}</p>
+                                <p class="small text-muted text-center mt-2 otp-notice" role="status">{{ otpNotice() }}</p>
                                 }
                                 @if (otpError()) {
-                                <div class="text-danger mt-2 text-center">
+                                <div class="text-danger mt-2 text-center" role="alert">
                                     {{ otpError() }}
                                 </div>
                                 }
 
                                 <div class="d-flex justify-content-between mt-4">
-                                    <a (click)="changeIdentifier()"
-                                        class="change-email cursor text-decoration-none"
-                                        style="cursor: pointer;">
-                                        <i class="bi bi-arrow-left"></i>&nbsp;{{ (channel() === 'phone' ? 'member.auth.change_number' : 'member.auth.change_email') | transloco }}
-                                    </a>
+                                    <button type="button" (click)="changeIdentifier()" class="link-button change-email">
+                                        <i class="bi bi-arrow-left" aria-hidden="true"></i>&nbsp;{{ (channel() === 'phone' ? 'member.auth.change_number' : 'member.auth.change_email') | transloco }}
+                                    </button>
 
                                     <span id="timer" class="">
                                         @if (resendCountdown() === 0) {
-                                        <a href="javascript:void(0)" class="auth-link mb-0 text-decoration-none"
-                                            (click)="resendOtp()">{{ 'member.auth.resend' | transloco }}</a>
+                                        <button type="button" class="link-button auth-link mb-0"
+                                            (click)="resendOtp()">{{ 'member.auth.resend' | transloco }}</button>
                                         } @else {
                                         @let resendIn = parts('member.auth.resend_in');
                                         <p class="auth-link mb-0">{{ resendIn[0] }}<span class="counter">{{
@@ -364,32 +365,34 @@
                     <div class="auth-form-container">
                         <div class="auth-logo">
                             <div class="auth-logo-line">
-                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                                <p class="auth-logo-text">{{ brandName() }}</p>
                             </div>
                         </div>
                     </div>
                     <div class="signup-container request-height">
                         <div class="card signup-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title signup-title">{{ 'member.auth.complete_profile' | transloco }}</h5>
+                                <h1 class="card-title signup-title">{{ 'member.auth.complete_profile' | transloco }}</h1>
                                 @let signingUp = parts('member.auth.signing_up_as');
                                 <p class="signup-subtitle m-0">
                                     {{ signingUp[0] }}<strong>{{ sentTo() }}</strong>{{ signingUp[1] }}
                                 </p>
-                                <a (click)="changeIdentifier()" class="change-email cursor text-decoration-none small"
-                                    style="cursor: pointer;">
+                                <button type="button" (click)="changeIdentifier()" class="link-button change-email small">
                                     {{ (channel() === 'phone' ? 'member.auth.change_number' : 'member.auth.change_email') | transloco }}
-                                </a>
+                                </button>
 
                                 <div class="mb-3 mt-4">
+                                    <label for="name" class="form-label visually-hidden">{{ 'member.auth.name_label' | transloco }}</label>
                                     <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-user"></i></span>
-                                        <input #nameBox type="text" formControlName="name" class="form-control p-2"
+                                        <span class="input-group-text"><i class="fas fa-user" aria-hidden="true"></i></span>
+                                        <input #nameBox type="text" formControlName="name" class="form-control p-2" id="name"
                                             [placeholder]="'member.auth.name_placeholder' | transloco" autocomplete="name"
+                                            [attr.aria-invalid]="isFieldInvalid('name')"
+                                            [attr.aria-describedby]="isFieldInvalid('name') ? 'name-error' : null"
                                             [class.is-invalid]="isFieldInvalid('name')" [readOnly]="working()">
                                     </div>
                                     @if(isFieldInvalid('name')){
-                                    <div class="text-danger mt-2">
+                                    <div class="text-danger mt-2" id="name-error" role="alert">
                                         {{ 'member.auth.name_required' | transloco }}
                                     </div>
                                     }
@@ -407,45 +410,52 @@
                                 </div>
                                 } @else {
                                 <div class="mb-3">
-                                    <label for="password" class="form-label visually-hidden">{{ 'member.auth.password_label' | transloco }}</label>
+                                    <label for="password" class="form-label visually-hidden">{{ 'member.auth.new_account_password_label' | transloco }}</label>
                                     <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                        <span class="input-group-text"><i class="fas fa-lock" aria-hidden="true"></i></span>
                                         <input [type]="showPassword() ? 'text' : 'password'" formControlName="password"
                                             class="form-control p-2" id="password" placeholder="********"
                                             autocomplete="new-password"
+                                            [attr.aria-invalid]="isFieldInvalid('password')"
+                                            [attr.aria-describedby]="isFieldInvalid('password') ? 'password-error' : null"
                                             [class.is-invalid]="isFieldInvalid('password')" [readOnly]="working()" />
-                                        <span class="input-group-text password-toggle eye_btn"
-                                            (click)="showPassword.set(!showPassword())" style="cursor: pointer;">
-                                            <i class="fas" [ngClass]="showPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
-                                        </span>
+                                        <button type="button" class="btn btn-outline-secondary"
+                                            [attr.aria-label]="'member.auth.show_password' | transloco"
+                                            [attr.aria-pressed]="showPassword()"
+                                            (click)="showPassword.set(!showPassword())">
+                                            <i class="fas" aria-hidden="true" [ngClass]="showPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
+                                        </button>
                                     </div>
 
                                     @if(isFieldInvalid('password')){
-                                    <div class="text-danger mt-2">
+                                    <div class="text-danger mt-2" id="password-error" role="alert">
                                         {{ passwordErrorKey() | transloco: passwordMin }}
                                     </div>
                                     }
                                 </div>
 
                                 <div class="mb-3">
+                                    <label for="confirmPassword" class="form-label visually-hidden">{{ 'member.auth.password_again_label' | transloco }}</label>
                                     <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                        <span class="input-group-text"><i class="fas fa-lock" aria-hidden="true"></i></span>
                                         <input [type]="showConfirmPassword() ? 'text' : 'password'"
-                                            formControlName="confirmPassword" class="form-control p-2"
+                                            formControlName="confirmPassword" class="form-control p-2" id="confirmPassword"
                                             placeholder="********" autocomplete="new-password"
+                                            [attr.aria-invalid]="isFieldInvalid('confirmPassword') || hasPasswordMismatch()"
+                                            [attr.aria-describedby]="hasPasswordMismatch() ? 'confirm-password-error' : null"
                                             [class.is-invalid]="isFieldInvalid('confirmPassword') || hasPasswordMismatch()"
                                             [readOnly]="working()" />
-
-                                        <span class="input-group-text password-toggle eye_btn"
-                                            (click)="showConfirmPassword.set(!showConfirmPassword())"
-                                            style="cursor: pointer;">
-                                            <i class="fas"
+                                        <button type="button" class="btn btn-outline-secondary"
+                                            [attr.aria-label]="'member.auth.show_password' | transloco"
+                                            [attr.aria-pressed]="showConfirmPassword()"
+                                            (click)="showConfirmPassword.set(!showConfirmPassword())">
+                                            <i class="fas" aria-hidden="true"
                                                 [ngClass]="showConfirmPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
-                                        </span>
+                                        </button>
                                     </div>
 
                                     @if(hasPasswordMismatch()){
-                                    <div class="text-danger">
+                                    <div class="text-danger mt-2" id="confirm-password-error" role="alert">
                                         {{ 'member.auth.passwords_mismatch' | transloco }}
                                     </div>
                                     }
@@ -453,7 +463,7 @@
                                 }
 
                                 @if (errorMessage()) {
-                                <div class="alert alert-danger mt-3">
+                                <div role="alert" class="alert alert-danger mt-3">
                                     {{ errorMessage() }}
                                 </div>
                                 }
@@ -482,14 +492,14 @@
                     <div class="auth-form-container">
                         <div class="auth-logo">
                             <div class="auth-logo-line">
-                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                                <p class="auth-logo-text">{{ brandName() }}</p>
                             </div>
                         </div>
                     </div>
                     <div class="request-container request-height">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title login-title mb-3">{{ getStepTitle() }}</h5>
+                                <h1 class="card-title login-title mb-3">{{ getStepTitle() }}</h1>
                                 <p class="login-subtitle">{{ getStepDescription() }}</p>
 
                                 <!-- The new PIN twice, as every new PIN: one typo must not lock the person out (F40) -->
@@ -527,14 +537,14 @@
                     <div class="auth-form-container">
                         <div class="auth-logo">
                             <div class="auth-logo-line">
-                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                                <p class="auth-logo-text">{{ brandName() }}</p>
                             </div>
                         </div>
                     </div>
                     <div class="request-container request-height">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title login-title mb-3">{{ getStepTitle() }}</h5>
+                                <h1 class="card-title login-title mb-3">{{ getStepTitle() }}</h1>
                                 <p class="login-subtitle">{{ getStepDescription() }}</p>
 
                                 <!-- Typed twice, as every new PIN -->
@@ -558,7 +568,7 @@
                                 <arc-wait-line [waiting]="checking()" [words]="waitWords()" [spinner]="false" />
                                 @if (pinSkipAllowed()) {
                                 <div class="mt-3 text-center">
-                                    <a (click)="skipChoosingPin()" class="forgot-password cursor" style="cursor: pointer;">{{ 'member.auth.not_now' | transloco }}</a>
+                                    <button type="button" (click)="skipChoosingPin()" class="link-button forgot-password">{{ 'member.auth.not_now' | transloco }}</button>
                                 </div>
                                 }
                             </div>
@@ -577,32 +587,36 @@
                     <div class="auth-form-container">
                         <div class="auth-logo">
                             <div class="auth-logo-line">
-                                <h2 class="auth-logo-text">{{ brandName() }}</h2>
+                                <p class="auth-logo-text">{{ brandName() }}</p>
                             </div>
                         </div>
                     </div>
                     <div class="request-container request-height">
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
-                                <h5 class="card-title login-title mb-3">{{ getStepTitle() }}</h5>
+                                <h1 class="card-title login-title mb-3">{{ getStepTitle() }}</h1>
                                 <p class="login-subtitle">{{ getStepDescription() }}</p>
 
                                 <div class="mb-3 mt-4">
                                     <label for="newPassword" class="form-label visually-hidden">{{ 'member.auth.new_password_label' | transloco }}</label>
                                     <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                        <span class="input-group-text"><i class="fas fa-lock" aria-hidden="true"></i></span>
                                         <input [type]="showPassword() ? 'text' : 'password'" formControlName="password"
                                             class="form-control p-2" id="newPassword"
                                             [placeholder]="'member.auth.new_password_label' | transloco"
                                             autocomplete="new-password"
+                                            [attr.aria-invalid]="isFieldInvalid('password')"
+                                            [attr.aria-describedby]="isFieldInvalid('password') ? 'new-password-error' : null"
                                             [class.is-invalid]="isFieldInvalid('password')" [readOnly]="working()" />
                                         <button type="button" class="btn btn-outline-secondary"
+                                            [attr.aria-label]="'member.auth.show_password' | transloco"
+                                            [attr.aria-pressed]="showPassword()"
                                             (click)="showPassword.set(!showPassword())">
-                                            <i class="fas" [ngClass]="showPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
+                                            <i class="fas" aria-hidden="true" [ngClass]="showPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
                                         </button>
                                     </div>
                                     @if (isFieldInvalid('password')) {
-                                    <div class="text-danger mt-2">{{ passwordErrorKey() | transloco: passwordMin }}</div>
+                                    <div class="text-danger mt-2" id="new-password-error" role="alert">{{ passwordErrorKey() | transloco: passwordMin }}</div>
                                     }
                                 </div>
 
@@ -610,24 +624,28 @@
                                 <div class="mb-3">
                                     <label for="newPasswordAgain" class="form-label visually-hidden">{{ 'member.auth.password_again_label' | transloco }}</label>
                                     <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                        <span class="input-group-text"><i class="fas fa-lock" aria-hidden="true"></i></span>
                                         <input [type]="showConfirmPassword() ? 'text' : 'password'" formControlName="confirmPassword"
                                             class="form-control p-2" id="newPasswordAgain"
                                             [placeholder]="'member.auth.password_again_label' | transloco"
                                             autocomplete="new-password"
+                                            [attr.aria-invalid]="hasPasswordMismatch()"
+                                            [attr.aria-describedby]="hasPasswordMismatch() ? 'new-password-again-error' : null"
                                             [class.is-invalid]="hasPasswordMismatch()" [readOnly]="working()" />
                                         <button type="button" class="btn btn-outline-secondary"
+                                            [attr.aria-label]="'member.auth.show_password' | transloco"
+                                            [attr.aria-pressed]="showConfirmPassword()"
                                             (click)="showConfirmPassword.set(!showConfirmPassword())">
-                                            <i class="fas" [ngClass]="showConfirmPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
+                                            <i class="fas" aria-hidden="true" [ngClass]="showConfirmPassword() ? 'fa-eye' : 'fa-eye-slash'"></i>
                                         </button>
                                     </div>
                                     @if (hasPasswordMismatch()) {
-                                    <div class="text-danger mt-2">{{ 'member.auth.passwords_mismatch' | transloco }}</div>
+                                    <div class="text-danger mt-2" id="new-password-again-error" role="alert">{{ 'member.auth.passwords_mismatch' | transloco }}</div>
                                     }
                                 </div>
 
                                 @if (errorMessage()) {
-                                <div class="alert alert-danger mt-2">{{ errorMessage() }}</div>
+                                <div role="alert" class="alert alert-danger mt-2">{{ errorMessage() }}</div>
                                 }
 
                                 <button type="submit" class="btn btn-primary w-100 mt-4" [disabled]="working()">
@@ -657,7 +675,7 @@
                             }
                             @if (brandName()) {
                             <div class="auth-logo-line">
-                                <h2 class="auth-logo-text" [class.auth-logo-text-by-tile]="!!brandLogo()">{{ brandName() }}</h2>
+                                <p class="auth-logo-text" [class.auth-logo-text-by-tile]="!!brandLogo()">{{ brandName() }}</p>
                             </div>
                             }
                         </div>
@@ -666,14 +684,13 @@
                         <div class="card request-card border-0">
                             <div class="card-body customPadding">
                                 <div class="disabled-icon mb-4">
-                                    <i class="fa-solid fa-user-lock fa-3x text-muted"></i>
+                                    <i class="fa-solid fa-user-lock fa-3x text-muted" aria-hidden="true"></i>
                                 </div>
-                                <h2 class="auth-title">{{ getStepTitle() }}</h2>
+                                <h1 class="auth-title">{{ getStepTitle() }}</h1>
                                 <p class="auth-subtitle">{{ 'member.auth.closed_body' | transloco }}</p>
                                 <p class="text-muted">{{ 'member.auth.closed_contact' | transloco }}</p>
                                 @let haveOne = parts('member.auth.closed_have_one');
-                                <p class="text-muted">{{ haveOne[0] }}<a (click)="changeIdentifier()" class="auth-link"
-                                        role="button">{{ 'member.auth.closed_sign_in_other' | transloco }}</a>{{ haveOne[1] }}</p>
+                                <p class="text-muted">{{ haveOne[0] }}<button type="button" (click)="changeIdentifier()" class="link-button auth-link">{{ 'member.auth.closed_sign_in_other' | transloco }}</button>{{ haveOne[1] }}</p>
                             </div>
                         </div>
                     </div>

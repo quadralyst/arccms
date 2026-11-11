@@ -42,6 +42,13 @@ export const EVERY_ADDRESS = '**';
  */
 export const SITE_WIDE = '^/(|[^_].*|_|_[^_].*|__|__[^/].*)$';
 
+/**
+ * Arc CMS's addresses that never belong in search (RF6 6.3): the admin, the member area,
+ * checkout, sign-in, the profile and account pages, and setup. firebase.json sends
+ * `X-Robots-Tag: noindex` on them, a header that works before any script runs.
+ */
+export const PRIVATE_PAGES = '^/(admin|user|checkout)(/.*)?$|^/(signup|profile|account|auth-checker|onboarding)/?$';
+
 /** Whether a rule of Arc CMS's applies to every address of the site. */
 const isSiteWide = (rule) => (rule.source === EVERY_ADDRESS && !('regex' in rule)) || rule.regex === SITE_WIDE;
 

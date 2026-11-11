@@ -24,8 +24,8 @@ async setUpTill(): Promise&lt;void&gt; {
   if (!proof) return; // cancelled
   await arcCallable(this.functions, 'custom-setUpTill')({ proof, name: 'Till 2' });
 }</code></pre>
-    <p>The <code>purpose</code> names the action: lower case letters, digits, <code>-</code> and <code>_</code>, starting with a letter. The proof is for that purpose only. Arc CMS itself uses <code>link-email</code> and <code>link-phone</code>, when someone adds or changes the email or number on their profile (see <a href="../features/sign-in.html">Sign-in methods</a>); pick other names for your app's actions.</p>
-    <p>To ask inside a sheet of your own instead, call the two steps yourself and use the same code boxes as the sign-in page, <code>arc-code-input</code> (<code>src/shared/components/code-input/</code>):</p>
+    <p>The <code>purpose</code> names the action: lower case letters, digits, <code>-</code> and <code>_</code>, starting with a letter. The proof is for that purpose only. Arc CMS itself uses <code>link-email</code> and <code>link-phone</code>, when someone adds or changes the email or number on their profile (see <a href="../features/sign-in.html">Sign-in methods</a>), and <code>delete-account</code>, when someone deletes their own account more than 10 minutes after signing in (see <a href="../features/users-and-roles.html">Users and roles</a>); pick other names for your app's actions.</p>
+    <p>To ask inside a sheet of your own instead, call the two steps yourself and use the same code boxes as the sign-in page, <code>arc-code-input</code> (<code>src/shared/components/code-input/</code>). Give it a <code>label</code> such as "Code", which a screen reader says with each box; left out, it says "Code" in the member's language:</p>
     <pre><code>const sent = await this.freshCode.request('pos-setup');       // { via, to, wait, testCode? }
 // ... show "We've sent a 6-digit code to " + sent.to, and &lt;arc-code-input (completed)="..."&gt; ...
 const proof = await this.freshCode.confirmCode('pos-setup', code);</code></pre>

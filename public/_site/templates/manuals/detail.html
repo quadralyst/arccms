@@ -1,6 +1,8 @@
 <div class="arc-cms-template">
     <arc-header></arc-header>
 
+    <main class="arc-main">
+
     <!-- Documentation Detail Page - Clean Technical Design -->
     <article class="docs-page">
         <div class="container">
@@ -50,11 +52,11 @@
                         </div>
                         <div class="share-buttons">
                             <span class="share-label">Share:</span>
-                            <a href="{{ share.twitter }}" target="_blank" class="share-btn"
+                            <a href="{{ share.twitter }}" target="_blank" rel="noopener" class="share-btn"
                                 title="Share on Twitter">
                                 <i class="fab fa-twitter"></i>
                             </a>
-                            <a href="{{ share.linkedin }}" target="_blank" class="share-btn"
+                            <a href="{{ share.linkedin }}" target="_blank" rel="noopener" class="share-btn"
                                 title="Share on LinkedIn">
                                 <i class="fab fa-linkedin-in"></i>
                             </a>
@@ -83,6 +85,8 @@
             </div>
         </div>
     </article>
+
+    </main>
 
     <arc-footer></arc-footer>
 </div>

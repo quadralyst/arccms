@@ -34,6 +34,7 @@ import { knownDevice } from '../auth/devices.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { FakeTimestamp, type MemoryFirestore } from './helpers/memoryFirestore.js';
 import { newOtpTicket } from '../auth/otpTicket.js';
+import { DELETE_ACCOUNT_PURPOSE, FRESH_PROOFS } from '../auth/freshCode.js';
 
 const mem = db as unknown as MemoryFirestore;
 type Handler = (request: unknown) => Promise<any>;
@@ -274,10 +275,57 @@ describe('deleteMyAccount', () => {
         expect(mem.read('users', 'rec-1')).toBeDefined();
     });
 
-    it('asks for a fresh sign-in first', async () => {
+    it('asks an account with no address or number to sign in again after 10 minutes', async () => {
         await expect(call(deleteMyAccount, {}, 'u1', { auth_time: nowSeconds() - 3600 }))
             .rejects.toMatchObject({ details: { reason: 'recent-sign-in' } });
         expect(mem.read('users', 'rec-1')).toBeDefined();
+    });
+
+    describe('more than 10 minutes after signing in (RF6 6.10)', () => {
+        const old = { auth_time: nowSeconds() - 3600 };
+        const proofFor = (purpose: string, uid = 'u1', expiresInMs = 60_000) => {
+            const { ticket, ticketHash } = newOtpTicket();
+            mem.seed(FRESH_PROOFS, `${uid}__${purpose}`, { uid, purpose, proofHash: ticketHash, expiresAt: FakeTimestamp.fromMillis(Date.now() + expiresInMs) });
+            return ticket;
+        };
+        beforeEach(() => mem.seed('users', 'rec-1', { uid: 'u1', role: 'user', email: 'asha@example.com', emailVerified: true }));
+
+        it('asks for a fresh code, not a new sign-in', async () => {
+            await expect(call(deleteMyAccount, {}, 'u1', old)).rejects.toMatchObject({ code: 'permission-denied', details: { reason: 'fresh-code-required' } });
+            expect(mem.read('users', 'rec-1')).toBeDefined();
+        });
+
+        it('deletes with a fresh code\'s proof for delete-account, and uses it up', async () => {
+            const freshProof = proofFor(DELETE_ACCOUNT_PURPOSE);
+            await expect(call(deleteMyAccount, { freshProof }, 'u1', old)).resolves.toEqual({ deleted: true });
+            expect(mem.read('users', 'rec-1')).toBeUndefined();
+            expect(mem.all(FRESH_PROOFS)).toEqual([]);
+        });
+
+        it('says to try again with a new code when the delete fails after the proof was used up (RF6)', async () => {
+            const before = mem.read('users', 'rec-1') as Record<string, unknown>;
+            mem.seed('users', 'rec-1', { ...before, email: 'asha@example.com' });
+            mockErase.mockRejectedValueOnce(new Error('down'));
+            await expect(call(deleteMyAccount, { freshProof: proofFor(DELETE_ACCOUNT_PURPOSE) }, 'u1', old))
+                .rejects.toMatchObject({ code: 'aborted', message: "We couldn't delete your account. Please try again with a new code.", details: { reason: 'delete-failed' } });
+            expect(mem.read('users', 'rec-1')).toBeDefined();
+            expect(mem.all(FRESH_PROOFS)).toEqual([]);
+        });
+
+        it('refuses a proof for another purpose, another person\'s, or an expired one', async () => {
+            const cases: [string, () => string][] = [
+                ['another purpose', () => proofFor('link-email')],
+                ['another person', () => proofFor(DELETE_ACCOUNT_PURPOSE, 'u2')],
+                ['expired', () => proofFor(DELETE_ACCOUNT_PURPOSE, 'u1', -1)],
+                ['made up', () => 'x'.repeat(43)],
+            ];
+            for (const [name, make] of cases) {
+                mem.store.get(FRESH_PROOFS)?.clear();
+                await expect(call(deleteMyAccount, { freshProof: make() }, 'u1', old), name)
+                    .rejects.toMatchObject({ details: { reason: 'fresh-code-required' } });
+            }
+            expect(mem.read('users', 'rec-1')).toBeDefined();
+        });
     });
 
     it('never lets an admin delete themselves', async () => {

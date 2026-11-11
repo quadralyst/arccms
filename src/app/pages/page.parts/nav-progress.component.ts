@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 /**
  * The thin bar along the top of the viewport that shows while the router is
@@ -14,9 +15,10 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 @Component({
     selector: 'arc-nav-progress',
     standalone: true,
+    imports: [TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
-        <div class="arc-nav-progress" role="progressbar" aria-label="Loading page" aria-busy="true">
+        <div class="arc-nav-progress" role="progressbar" [attr.aria-label]="'common.state.loading' | transloco" aria-busy="true">
             <div class="arc-nav-progress-bar"></div>
         </div>
     `,

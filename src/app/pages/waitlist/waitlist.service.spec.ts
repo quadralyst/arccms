@@ -259,12 +259,13 @@ describe('WaitlistService', () => {
             expect(result.success).toBe(true);
         });
 
-        it('passes on the server\'s message, such as the resend throttle', async () => {
-            mockCallables({ requestFormOtp: () => { throw new Error('Please wait a minute before asking again.'); } });
+        it('passes on the server\'s error, such as the resend throttle, for the page to word by its code', async () => {
+            const throttled = Object.assign(new Error('Please wait a minute before asking again.'), { code: 'functions/resource-exhausted' });
+            mockCallables({ requestFormOtp: () => { throw throttled; } });
 
             const result = await service.resendVerificationCode('waitlist-1', 'ticket-1');
 
-            expect(result).toEqual({ success: false, message: 'Please wait a minute before asking again.' });
+            expect(result).toEqual({ success: false, message: 'Please wait a minute before asking again.', error: throttled });
         });
     });
 

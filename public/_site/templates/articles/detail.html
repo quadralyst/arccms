@@ -1,13 +1,15 @@
 <div class="arc-cms-template">
     <arc-header></arc-header>
 
+    <main class="arc-main">
+
     <!-- Article Page - Medium-style clean design -->
     <article class="article-page">
         <div class="container">
             <div class="article-wrapper">
                 <!-- Back Link -->
-                <a href="/{{ contentTypeSlug }}" class="back-link">
-                    <i class="fas fa-arrow-left"></i> Back to {{ contentType }}
+                <a href="{{ langPrefix }}/{{ contentTypeSlug }}" class="back-link">
+                    <i class="fas fa-arrow-left" aria-hidden="true"></i> <span data-arc-t="back_to">Back to {{ contentType }}</span>
                 </a>
 
                 <!-- Article Header -->
@@ -42,19 +44,19 @@
                 <!-- Share Buttons -->
                 <div class="share-section">
                     <div class="share-buttons">
-                        <a href="{{ share.facebook }}" target="_blank" class="share-btn"
+                        <a href="{{ share.facebook }}" target="_blank" rel="noopener" class="share-btn"
                             title="Share on Facebook">
                             <i class="fab fa-facebook-f"></i>
                         </a>
-                        <a href="{{ share.twitter }}" target="_blank" class="share-btn"
+                        <a href="{{ share.twitter }}" target="_blank" rel="noopener" class="share-btn"
                             title="Share on Twitter">
                             <i class="fab fa-twitter"></i>
                         </a>
-                        <a href="{{ share.linkedin }}" target="_blank" class="share-btn"
+                        <a href="{{ share.linkedin }}" target="_blank" rel="noopener" class="share-btn"
                             title="Share on LinkedIn">
                             <i class="fab fa-linkedin-in"></i>
                         </a>
-                        <a href="{{ share.whatsapp }}" target="_blank" class="share-btn"
+                        <a href="{{ share.whatsapp }}" target="_blank" rel="noopener" class="share-btn"
                             title="Share on WhatsApp">
                             <i class="fab fa-whatsapp"></i>
                         </a>
@@ -82,6 +84,8 @@
             </div>
         </div>
     </article>
+
+    </main>
 
     <arc-footer></arc-footer>
 </div>

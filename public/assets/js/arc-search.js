@@ -4,8 +4,9 @@
  * Runs on statically published pages, where no Angular bundle is loaded.
  * The publish pipeline replaces <arc-search> in the header partial with a
  * root element carrying data attributes (endpoint, language, strings) and
- * a plain GET form, so search works with JavaScript disabled too. This
- * script adds the type-ahead on top.
+ * a plain GET form to the results page. The form submits without JavaScript,
+ * but the results page (/search, a page of the app) needs it. This script
+ * adds the type-ahead on top.
  *
  * It talks to the `search` callable directly over fetch using the callable
  * protocol ({ data } in, { result } out), so it needs no Firebase SDK.

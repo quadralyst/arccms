@@ -166,7 +166,7 @@
         <tr><td><code>&lt;arc-admin-edit-button&gt;</code></td><td>An old tag, always removed</td><td>Does nothing</td></tr>
       </tbody>
     </table>
-    <p>Put <code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code> in <code>list.html</code> and <code>detail.html</code>, never in <code>partials.html</code>. Keep the search box and language switcher in the header or footer, so they work in the app too.</p>
+    <p>Put <code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code> in <code>list.html</code> and <code>detail.html</code>, never in <code>partials.html</code>, with the page's content between them in one <code>&lt;main class="arc-main"&gt;</code>, as every shipped template has. Keep the search box and language switcher in the header or footer, so they work in the app too.</p>
 
     <h3>Detail page bindings</h3>
     <p>Everything <code>detail.html</code> can use outside a loop. Every other field saved on the entry is there too, under its own name.</p>

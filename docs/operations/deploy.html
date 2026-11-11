@@ -163,6 +163,7 @@ npm run arc:configure -- --project=default --artifact-cleanup-days=none</code></
       </tbody>
     </table>
     <p>Font files also get <code>Access-Control-Allow-Origin: *</code>, so a sandboxed preview frame, such as the editor's version preview, can load the site's fonts.</p>
+    <p>Addresses that never belong in search get <code>X-Robots-Tag: noindex</code>: the site's source files under <code>/_site/</code>, and the sign-in, member, admin, checkout and setup addresses (<code>/admin</code>, <code>/signup</code>, <code>/profile</code>, <code>/account</code>, <code>/auth-checker</code>, <code>/user/…</code>, <code>/checkout/…</code>, <code>/onboarding</code>; <code>PRIVATE_PAGES</code> in <code>scripts/arc-headers.mjs</code>). A header works before any script runs. Other pages the app draws handle search engines themselves (see <a href="../features/seo.html#app-pages-out-of-search">SEO and discoverability</a>).</p>
     <p>Before you launch, open the site's main pages with the browser's console open and look for Content-Security-Policy messages: each names something a page loads that the policy does not list. A later release enforces the policy.</p>
 
     <h3 id="app-headers">Your app's own headers</h3>

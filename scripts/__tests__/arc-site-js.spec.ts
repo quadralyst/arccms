@@ -138,14 +138,14 @@ describe('signup forms', () => {
         page(FORM, '', '', attr);
         await flush();
         let form = await signUp();
-        expect(form.querySelector('.waitlist-error-text')!.textContent).toBe('Fill it in again (strings)');
+        expect(form.querySelector('[data-waitlist-status]')!.textContent).toBe('Fill it in again (strings)');
 
         // A closed form, at the first step.
         callables['joinForm'] = refuse('FAILED_PRECONDITION', 'form-closed');
         page(FORM);
         await flush();
         form = await signUp();
-        expect(form.querySelector('.waitlist-error-text')!.textContent).toBe('This form is not taking signups right now.');
+        expect(form.querySelector('[data-waitlist-status]')!.textContent).toBe('This form is not taking signups right now.');
 
         // A resend inside the minute, and a code tried too often.
         docs['Settings/email_status'] = { isEnabled: true };
@@ -279,7 +279,7 @@ describe('signup forms', () => {
         await flush();
         let form = await signUp();
         expect(form.querySelector('.waitlist-verify-step')!.textContent).toContain('अपना ईमेल देखें');
-        expect(form.querySelector('.waitlist-verify-btn')!.textContent).toBe('Verify Email');
+        expect(form.querySelector('.waitlist-verify-btn')!.textContent).toBe('Verify your email');
 
         docs['Settings/email_status'] = { isEnabled: false };
         callables['finalizeFormSignup'] = () => ({ totalSignups: 0, emailVerified: true, alreadyConfirmed: true });
@@ -319,7 +319,7 @@ describe('signup forms', () => {
         page('<form data-waitlist-form data-waitlist-id="default"><input name="email"><button type="submit">Join</button></form>');
         await flush();
         expect(calls.map((c) => c.name)).toEqual(['ensureWaitlistExists']);
-        expect(document.querySelector('.waitlist-error-step')).toBeNull();
+        expect(document.querySelector('[data-waitlist-status]')).toBeNull();
         expect(document.querySelector('[name="email"]')).toBeTruthy();
     });
 
@@ -336,14 +336,124 @@ describe('signup forms', () => {
         expect(calls.find((c) => c.name === 'joinForm')!.data['waitlistId']).toBe('get-early-access-to-arc-cms');
     });
 
-    it('says joining failed in the page\'s words, not the server\'s, and lets the person try again', async () => {
+    // RF6 6.1: a failure keeps the form and what was typed, with a line saying why.
+    it('says joining failed in the page\'s words, not the server\'s, and keeps the form as it was filled in', async () => {
         callables['joinForm'] = () => { throw Object.assign(new Error('This email cannot join.'), { status: 'INTERNAL' }); };
         page(FORM);
         await flush();
-        const form = await signUp();
-        expect(form.querySelector('.waitlist-error-text')!.textContent).toBe('Failed to sign up. Please try again.');
-        (form.querySelector('.waitlist-retry-btn') as HTMLButtonElement).click();
-        expect(form.querySelector('[name="email"]')).toBeTruthy();
+        const form = document.querySelector('form') as HTMLFormElement;
+        (form.querySelector('[name="firstName"]') as HTMLInputElement).value = 'Asha';
+        await signUp('asha@example.com');
+
+        const status = form.querySelector('[data-waitlist-status]')!;
+        expect(status.textContent).toBe('Failed to sign up. Please try again.');
+        expect(status.getAttribute('role')).toBe('alert');
+        expect(form.textContent).not.toContain('This email cannot join.');
+        expect((form.querySelector('[name="email"]') as HTMLInputElement).value).toBe('asha@example.com');
+        expect((form.querySelector('[name="firstName"]') as HTMLInputElement).value).toBe('Asha');
+        // The address has the focus, to fix or send again.
+        expect(document.activeElement).toBe(form.querySelector('[name="email"]'));
+
+        // Sent again, it works, and the line goes.
+        callables['joinForm'] = () => ({ ticket: 'ticket-1' });
+        form.dispatchEvent(new Event('submit', { cancelable: true }));
+        await flush();
+        expect(form.querySelector('.waitlist-verify-step')).toBeTruthy();
+        expect(calls.filter((c) => c.name === 'joinForm')).toHaveLength(2);
+    });
+
+    it('asks for the address in a line under the form, without leaving it', async () => {
+        page(FORM);
+        await flush();
+        const form = document.querySelector('form') as HTMLFormElement;
+        (form.querySelector('[name="firstName"]') as HTMLInputElement).value = 'Asha';
+        await signUp('  ');
+        expect(form.querySelector('[data-waitlist-status]')!.textContent).toBe('Email is required');
+        expect((form.querySelector('[name="firstName"]') as HTMLInputElement).value).toBe('Asha');
+        expect(calls).toEqual([]);
+    });
+
+    it('says there is no connection, in the page\'s language, when the server cannot be reached', async () => {
+        const strings = { signup_offline: 'कनेक्शन नहीं है' };
+        page(FORM, '', '', ` data-strings="${JSON.stringify(strings).replace(/"/g, '&quot;')}"`);
+        await flush();
+        const offline = vi.mocked(fetch).getMockImplementation()!;
+        vi.mocked(fetch).mockImplementation(async (url, init) => {
+            if (String(url).includes('joinForm')) throw new TypeError('Failed to fetch');
+            return offline(url, init);
+        });
+        const form = await signUp('asha@example.com');
+        expect(form.querySelector('[data-waitlist-status]')!.textContent).toBe('कनेक्शन नहीं है');
+        expect((form.querySelector('[name="email"]') as HTMLInputElement).value).toBe('asha@example.com');
+    });
+
+    it('brings the filled-in form back on Change email', async () => {
+        page(FORM);
+        await flush();
+        const form = await signUp('asha@example.com');
+        (form.querySelector('.waitlist-back-btn') as HTMLButtonElement).click();
+        expect((form.querySelector('[name="email"]') as HTMLInputElement).value).toBe('asha@example.com');
+        expect(form.querySelector('[data-waitlist-status]')?.textContent ?? '').toBe('');
+    });
+
+    // RF6 6.2: the honeypot the contact form has.
+    it('adds a hidden honeypot input, sends it apart from the answers, and never stores it as one', async () => {
+        page(FORM);
+        await flush();
+        const trap = document.querySelector('input[name="arc_website"]') as HTMLInputElement;
+        expect(trap).not.toBeNull();
+        expect(trap.tabIndex).toBe(-1);
+        expect(trap.getAttribute('aria-hidden')).toBe('true');
+        trap.value = 'http://spam.example';
+        await signUp();
+        expect(calls[0].data['arc_website']).toBe('http://spam.example');
+        expect(calls[0].data['formData']).not.toHaveProperty('arc_website');
+
+        page(FORM);
+        await flush();
+        await signUp();
+        expect(calls[calls.length - 2].data['arc_website']).toBe('');
+    });
+});
+
+// RF6 6.12: the visit is tracked for the signup only when analytics consent allows it.
+describe('signup metadata and consent', () => {
+    const tracked = (metadata: Record<string, unknown>) => 'deviceType' in metadata || 'visitCount' in metadata;
+
+    it('tracks a visitor who accepted the site usage banner', async () => {
+        localStorage.setItem('arc_site_usage', 'accepted');
+        docs['Settings/site-usage'] = { isEnabled: true };
+        page(FORM, '?utm_source=news');
+        await flush();
+        await signUp();
+        expect(tracked(calls[0].data['signupMetadata'] as Record<string, unknown>)).toBe(true);
+        expect(localStorage.getItem('arc_session_data')).not.toBeNull();
+    });
+
+    it('tracks nothing for a visitor who rejected it: only the campaign and the throwaway flag go', async () => {
+        localStorage.setItem('arc_site_usage', 'rejected');
+        page(FORM, '?utm_source=news');
+        await flush();
+        document.querySelector('form')!.dispatchEvent(new Event('focusin'));
+        window.dispatchEvent(new Event('click'));
+        await signUp('asha@mailinator.com');
+        expect(calls[0].data['signupMetadata']).toEqual({ utmSource: 'news', isDisposableEmail: true });
+        expect(localStorage.getItem('arc_session_data')).toBeNull();
+    });
+
+    it('waits for an answer when the site shows the banner, and tracks without one when it does not', async () => {
+        docs['Settings/site-usage'] = { isEnabled: true };
+        page(FORM);
+        await flush();
+        await signUp();
+        expect(tracked(calls[0].data['signupMetadata'] as Record<string, unknown>)).toBe(false);
+        expect(localStorage.getItem('arc_session_data')).toBeNull();
+
+        docs['Settings/site-usage'] = { isEnabled: false };
+        page(FORM);
+        await flush();
+        await signUp();
+        expect(tracked(calls[calls.length - 2].data['signupMetadata'] as Record<string, unknown>)).toBe(true);
     });
 });
 

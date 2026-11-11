@@ -29,6 +29,7 @@ function ctx(check: Record<string, unknown> = { status: 'available' }, countryCo
         testCodeInLogs: signal(false),
         notice: signal(''),
         resendIn: signal(0),
+        resendClock: { stop: vi.fn(), start: vi.fn() },
         sentCodes: new SentCodes(),
         startCountdown: vi.fn(),
         changingPin: signal(false),
@@ -429,5 +430,37 @@ describe('SignInMethodsComponent first paint', () => {
         } finally {
             localStorage.removeItem(SIGN_IN_SETTINGS_CACHE_KEY);
         }
+    });
+});
+
+
+describe('Sign-in methods for screen readers and the keyboard (RF6, M2)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const source: string = require('fs').readFileSync(require('path').resolve(__dirname, 'sign-in-methods.component.ts'), 'utf8');
+
+    it('labels the email or number box, linked to it', () => {
+        expect(source).toContain('<label class="visually-hidden" for="method-value">');
+        expect(source).toMatch(/<input #numberBox id="method-value"/);
+        expect(source).toContain("(f.kind === 'email' ? 'member.methods.email' : 'member.methods.phone')");
+    });
+
+    it('labels the new password with its visible line, and the second box by name', () => {
+        expect(source).toMatch(/<label class="form-label small" for="method-password">\{\{ 'member\.methods\.choose_password_email'/);
+        expect(source).toMatch(/<input id="method-password"/);
+        expect(source).toContain(`[attr.aria-label]="'member.auth.password_again_label' | transloco"`);
+    });
+
+    it('makes "Sign in to that account instead" a real button, not a link with no address', () => {
+        expect(source).not.toMatch(/<a [^>]*role="button"/);
+        expect(source).toMatch(/<button type="button" class="link-button ms-1" \(click\)="signInElsewhere\(\)">/);
+    });
+
+    it('reads errors out as they appear', () => {
+        expect(source.match(/<div class="text-danger small mt-2" role="alert">/g)).toHaveLength(2);
+    });
+
+    it('runs the Resend countdown by the clock', () => {
+        expect(source).toContain('new ClockCountdown()');
+        expect(source).not.toContain('setInterval');
     });
 });

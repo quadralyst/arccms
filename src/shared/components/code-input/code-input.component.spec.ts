@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { CodeInputComponent } from './code-input.component';
+import { translocoTestingModule } from '../../../test/transloco-test-providers';
 
 function setup(inputs: Record<string, unknown> = {}) {
     const fixture = TestBed.createComponent(CodeInputComponent);
@@ -27,6 +28,14 @@ function paste(box: HTMLInputElement, text: string): void {
 }
 
 describe('CodeInputComponent', () => {
+    it('names the boxes in the person\'s language when the page gives no label (RF6 6.9)', () => {
+        TestBed.configureTestingModule({ imports: [CodeInputComponent, translocoTestingModule({ lang: 'hi' })] });
+        const { fixture, boxes } = setup();
+        expect(fixture.nativeElement.querySelector('[role="group"]').getAttribute('aria-label')).toBe('कोड');
+        expect(boxes()[0].getAttribute('aria-label')).toBe('कोड, 6 में से अंक 1');
+        TestBed.resetTestingModule();
+    });
+
     it('renders six boxes, the first offered for a code from SMS', () => {
         const { boxes } = setup();
         expect(boxes()).toHaveLength(6);

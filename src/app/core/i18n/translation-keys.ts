@@ -3447,6 +3447,7 @@ export type TranslationKey =
     | 'common.broadcast_editor.title'
     | 'common.broadcast_editor.visual'
     | 'common.code_input.digit'
+    | 'common.code_input.label'
     | 'common.country_picker.none'
     | 'common.country_picker.remove'
     | 'common.country_picker.search'
@@ -3758,8 +3759,10 @@ export type TranslationKey =
     | 'member.auth.logging_in_as'
     | 'member.auth.login'
     | 'member.auth.logout_failed'
+    | 'member.auth.name_label'
     | 'member.auth.name_placeholder'
     | 'member.auth.name_required'
+    | 'member.auth.new_account_password_label'
     | 'member.auth.new_password_label'
     | 'member.auth.no_access'
     | 'member.auth.not_now'
@@ -3802,6 +3805,7 @@ export type TranslationKey =
     | 'member.auth.server_error.code_wrong'
     | 'member.auth.server_error.country_not_allowed'
     | 'member.auth.server_error.current_pin_required'
+    | 'member.auth.server_error.delete_failed'
     | 'member.auth.server_error.email_failed'
     | 'member.auth.server_error.email_has_account'
     | 'member.auth.server_error.email_managed'
@@ -3845,6 +3849,7 @@ export type TranslationKey =
     | 'member.auth.server_error.weak_pin'
     | 'member.auth.server_error.wrong'
     | 'member.auth.settings_failed'
+    | 'member.auth.show_password'
     | 'member.auth.show_pin'
     | 'member.auth.signing_in_as'
     | 'member.auth.signing_up_as'
@@ -3878,6 +3883,20 @@ export type TranslationKey =
     | 'member.auth.verify'
     | 'member.auth.welcome_back_greeting'
     | 'member.auth.your_new_pin'
+    | 'member.checkout.all_set'
+    | 'member.checkout.back_to_pricing'
+    | 'member.checkout.cancelled_body'
+    | 'member.checkout.cancelled_title'
+    | 'member.checkout.check_again'
+    | 'member.checkout.confirming'
+    | 'member.checkout.confirming_hint'
+    | 'member.checkout.go_to_account'
+    | 'member.checkout.membership'
+    | 'member.checkout.my_account'
+    | 'member.checkout.plan_ready'
+    | 'member.checkout.received_body'
+    | 'member.checkout.received_title'
+    | 'member.checkout.renews'
     | 'member.cookie_banner.accept_all'
     | 'member.cookie_banner.learn_more'
     | 'member.cookie_banner.reject_all'
@@ -3955,9 +3974,36 @@ export type TranslationKey =
     | 'member.not_found.heading'
     | 'member.not_found.home'
     | 'member.not_found.oops'
+    | 'member.notifications.all_marked'
+    | 'member.notifications.mark_read'
+    | 'member.notifications.prefs_failed'
+    | 'member.notifications.prefs_hint'
+    | 'member.notifications.prefs_saved'
+    | 'member.notifications.prefs_title'
+    | 'member.notifications.save_prefs'
+    | 'member.notifications.subtitle'
+    | 'member.notifications.view'
     | 'member.phone_country.change'
     | 'member.phone_country.label'
     | 'member.phone_country.search'
+    | 'member.pricing.billed_monthly'
+    | 'member.pricing.billed_yearly'
+    | 'member.pricing.buy_now'
+    | 'member.pricing.checkout_failed'
+    | 'member.pricing.empty'
+    | 'member.pricing.get_started'
+    | 'member.pricing.one_time'
+    | 'member.pricing.opening_checkout'
+    | 'member.pricing.pay_once'
+    | 'member.pricing.per_month'
+    | 'member.pricing.per_year'
+    | 'member.pricing.recommended'
+    | 'member.pricing.subscription'
+    | 'member.pricing.subtitle'
+    | 'member.pricing.title'
+    | 'member.pricing.trial'
+    | 'member.pricing.updates_many'
+    | 'member.pricing.updates_one'
     | 'member.profile.account_deleted'
     | 'member.profile.app_managed'
     | 'member.profile.back'
@@ -3998,23 +4044,62 @@ export type TranslationKey =
     | 'member.profile.photo_upload_failed'
     | 'member.profile.remove'
     | 'member.profile.role_admin'
-    | 'member.profile.role_user'
     | 'member.profile.save'
     | 'member.profile.security'
+    | 'member.profile.show_password'
     | 'member.profile.sign_in_again'
-    | 'member.profile.status_active'
-    | 'member.profile.status_inactive'
     | 'member.profile.subtitle'
     | 'member.profile.time_zone'
     | 'member.profile.time_zone_hint'
     | 'member.profile.title'
     | 'member.profile.update_password'
+    | 'member.public_nav.label'
+    | 'member.public_nav.my_account'
+    | 'member.public_nav.pricing'
+    | 'member.public_nav.sign_in'
+    | 'member.public_nav.sign_out'
+    | 'member.public_nav.signed_in_as'
+    | 'member.signup_form.already'
+    | 'member.signup_form.change_email'
+    | 'member.signup_form.check_email'
+    | 'member.signup_form.code_label'
+    | 'member.signup_form.code_resent'
+    | 'member.signup_form.code_sent_to'
+    | 'member.signup_form.email_label'
+    | 'member.signup_form.email_placeholder'
+    | 'member.signup_form.error_title'
+    | 'member.signup_form.errors.check_answers'
+    | 'member.signup_form.errors.code_invalid'
+    | 'member.signup_form.errors.code_locked'
+    | 'member.signup_form.errors.expired'
+    | 'member.signup_form.errors.failed'
+    | 'member.signup_form.errors.form_closed'
+    | 'member.signup_form.errors.load_failed'
+    | 'member.signup_form.errors.no_form'
+    | 'member.signup_form.errors.offline'
+    | 'member.signup_form.errors.resend_failed'
+    | 'member.signup_form.errors.too_many'
+    | 'member.signup_form.errors.too_many_codes'
+    | 'member.signup_form.errors.verify_failed'
+    | 'member.signup_form.errors.wait'
+    | 'member.signup_form.name_label'
+    | 'member.signup_form.name_placeholder'
+    | 'member.signup_form.on_list'
+    | 'member.signup_form.resend'
+    | 'member.signup_form.sending'
+    | 'member.signup_form.success_text'
+    | 'member.signup_form.try_again'
+    | 'member.signup_form.verify_button'
+    | 'member.signup_form.verifying'
+    | 'member.signup_form.welcome_back'
     | 'member.titles.account'
+    | 'member.titles.checkout'
     | 'member.titles.dashboard'
     | 'member.titles.not_found'
     | 'member.titles.notifications'
     | 'member.titles.payments'
     | 'member.titles.premium'
+    | 'member.titles.pricing'
     | 'member.titles.profile'
     | 'member.titles.sign_in'
     | 'member.titles.signing_in'
@@ -7592,6 +7677,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'common.broadcast_editor.title',
     'common.broadcast_editor.visual',
     'common.code_input.digit',
+    'common.code_input.label',
     'common.country_picker.none',
     'common.country_picker.remove',
     'common.country_picker.search',
@@ -7903,8 +7989,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.logging_in_as',
     'member.auth.login',
     'member.auth.logout_failed',
+    'member.auth.name_label',
     'member.auth.name_placeholder',
     'member.auth.name_required',
+    'member.auth.new_account_password_label',
     'member.auth.new_password_label',
     'member.auth.no_access',
     'member.auth.not_now',
@@ -7947,6 +8035,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.code_wrong',
     'member.auth.server_error.country_not_allowed',
     'member.auth.server_error.current_pin_required',
+    'member.auth.server_error.delete_failed',
     'member.auth.server_error.email_failed',
     'member.auth.server_error.email_has_account',
     'member.auth.server_error.email_managed',
@@ -7990,6 +8079,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.weak_pin',
     'member.auth.server_error.wrong',
     'member.auth.settings_failed',
+    'member.auth.show_password',
     'member.auth.show_pin',
     'member.auth.signing_in_as',
     'member.auth.signing_up_as',
@@ -8023,6 +8113,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.verify',
     'member.auth.welcome_back_greeting',
     'member.auth.your_new_pin',
+    'member.checkout.all_set',
+    'member.checkout.back_to_pricing',
+    'member.checkout.cancelled_body',
+    'member.checkout.cancelled_title',
+    'member.checkout.check_again',
+    'member.checkout.confirming',
+    'member.checkout.confirming_hint',
+    'member.checkout.go_to_account',
+    'member.checkout.membership',
+    'member.checkout.my_account',
+    'member.checkout.plan_ready',
+    'member.checkout.received_body',
+    'member.checkout.received_title',
+    'member.checkout.renews',
     'member.cookie_banner.accept_all',
     'member.cookie_banner.learn_more',
     'member.cookie_banner.reject_all',
@@ -8100,9 +8204,36 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.not_found.heading',
     'member.not_found.home',
     'member.not_found.oops',
+    'member.notifications.all_marked',
+    'member.notifications.mark_read',
+    'member.notifications.prefs_failed',
+    'member.notifications.prefs_hint',
+    'member.notifications.prefs_saved',
+    'member.notifications.prefs_title',
+    'member.notifications.save_prefs',
+    'member.notifications.subtitle',
+    'member.notifications.view',
     'member.phone_country.change',
     'member.phone_country.label',
     'member.phone_country.search',
+    'member.pricing.billed_monthly',
+    'member.pricing.billed_yearly',
+    'member.pricing.buy_now',
+    'member.pricing.checkout_failed',
+    'member.pricing.empty',
+    'member.pricing.get_started',
+    'member.pricing.one_time',
+    'member.pricing.opening_checkout',
+    'member.pricing.pay_once',
+    'member.pricing.per_month',
+    'member.pricing.per_year',
+    'member.pricing.recommended',
+    'member.pricing.subscription',
+    'member.pricing.subtitle',
+    'member.pricing.title',
+    'member.pricing.trial',
+    'member.pricing.updates_many',
+    'member.pricing.updates_one',
     'member.profile.account_deleted',
     'member.profile.app_managed',
     'member.profile.back',
@@ -8143,23 +8274,62 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.profile.photo_upload_failed',
     'member.profile.remove',
     'member.profile.role_admin',
-    'member.profile.role_user',
     'member.profile.save',
     'member.profile.security',
+    'member.profile.show_password',
     'member.profile.sign_in_again',
-    'member.profile.status_active',
-    'member.profile.status_inactive',
     'member.profile.subtitle',
     'member.profile.time_zone',
     'member.profile.time_zone_hint',
     'member.profile.title',
     'member.profile.update_password',
+    'member.public_nav.label',
+    'member.public_nav.my_account',
+    'member.public_nav.pricing',
+    'member.public_nav.sign_in',
+    'member.public_nav.sign_out',
+    'member.public_nav.signed_in_as',
+    'member.signup_form.already',
+    'member.signup_form.change_email',
+    'member.signup_form.check_email',
+    'member.signup_form.code_label',
+    'member.signup_form.code_resent',
+    'member.signup_form.code_sent_to',
+    'member.signup_form.email_label',
+    'member.signup_form.email_placeholder',
+    'member.signup_form.error_title',
+    'member.signup_form.errors.check_answers',
+    'member.signup_form.errors.code_invalid',
+    'member.signup_form.errors.code_locked',
+    'member.signup_form.errors.expired',
+    'member.signup_form.errors.failed',
+    'member.signup_form.errors.form_closed',
+    'member.signup_form.errors.load_failed',
+    'member.signup_form.errors.no_form',
+    'member.signup_form.errors.offline',
+    'member.signup_form.errors.resend_failed',
+    'member.signup_form.errors.too_many',
+    'member.signup_form.errors.too_many_codes',
+    'member.signup_form.errors.verify_failed',
+    'member.signup_form.errors.wait',
+    'member.signup_form.name_label',
+    'member.signup_form.name_placeholder',
+    'member.signup_form.on_list',
+    'member.signup_form.resend',
+    'member.signup_form.sending',
+    'member.signup_form.success_text',
+    'member.signup_form.try_again',
+    'member.signup_form.verify_button',
+    'member.signup_form.verifying',
+    'member.signup_form.welcome_back',
     'member.titles.account',
+    'member.titles.checkout',
     'member.titles.dashboard',
     'member.titles.not_found',
     'member.titles.notifications',
     'member.titles.payments',
     'member.titles.premium',
+    'member.titles.pricing',
     'member.titles.profile',
     'member.titles.sign_in',
     'member.titles.signing_in',

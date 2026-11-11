@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SITE_WIDE } from '../arc-headers.mjs';
+import { PRIVATE_PAGES, SITE_WIDE, withAppHeaders } from '../arc-headers.mjs';
 
 const ROOT = join(__dirname, '..', '..');
 const firebase = JSON.parse(readFileSync(join(ROOT, 'firebase.json'), 'utf8'));
@@ -34,6 +34,35 @@ describe('firebase.json hosting rewrites for public email links', () => {
         const source = functionSource('email-core/unsubscribeToken.ts');
         expect(source).toContain('}unsubscribe?e=');
         expect(source).toContain('}email-preferences?e=');
+    });
+});
+
+// RF6 6.3: sign-in, member, admin, checkout and setup addresses stay out of search with
+// a header, which works before any script runs; public addresses never get it.
+describe('firebase.json keeps private addresses out of search', () => {
+    type Rule = { source?: string; regex?: string; headers: Array<{ key: string; value: string }> };
+    const noindexFor = (config: { hosting: { headers: Rule[] } }, path: string) => config.hosting.headers
+        .filter((rule) => rule.regex && new RegExp(rule.regex).test(path))
+        .some((rule) => rule.headers.some((h) => h.key === 'X-Robots-Tag' && h.value === 'noindex'));
+
+    it('sends X-Robots-Tag: noindex on them', () => {
+        const rule = (firebase.hosting.headers as Rule[]).find((r) => r.regex === PRIVATE_PAGES);
+        expect(rule?.headers).toEqual([{ key: 'X-Robots-Tag', value: 'noindex' }]);
+        for (const path of ['/admin', '/admin/dashboard', '/signup', '/signup/', '/profile', '/account', '/auth-checker',
+            '/user/dashboard', '/user/payments', '/onboarding', '/checkout/success']) {
+            expect(noindexFor(firebase, path), path).toBe(true);
+        }
+    });
+
+    it('leaves public addresses alone', () => {
+        for (const path of ['/', '/pricing', '/waitlist/launch', '/articles/my-post', '/hi', '/search', '/signups-explained', '/users-guide', '/pages/terms']) {
+            expect(noindexFor(firebase, path), path).toBe(false);
+        }
+    });
+
+    it('keeps the header in the config a deploy builds with the app\'s own headers', () => {
+        const built = withAppHeaders(firebase, [{ source: '**', headers: [{ key: 'Permissions-Policy', value: 'camera=(self)' }] }]);
+        expect(noindexFor(built, '/admin/dashboard')).toBe(true);
     });
 });
 

@@ -6,6 +6,10 @@
   <!-- Until the app starts: the app's name (src/custom/brand.ts, written in by vite.config.ts), else this -->
   <title>Loading</title>
   <base href="/" />
+  <!-- No robots tag here: a page whose first HTML says noindex may never be rendered by a
+       search engine. The app adds it as it shows each page that is not public
+       (src/app/core/site/search-engines.ts), and Hosting sends X-Robots-Tag: noindex on
+       sign-in, member and admin addresses (firebase.json). -->
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />

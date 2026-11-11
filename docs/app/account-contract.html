@@ -63,7 +63,7 @@ match /users/{userDocId}/progress/{lessonId} {
     <p>Writing and testing these files is in <a href="rules-and-indexes.html">Set security rules and indexes</a>.</p>
 
     <h2>What deleting an account removes</h2>
-    <p>An admin deletes an account under Users, or the person deletes their own under Profile. Deleting your own account needs a sign-in within the last 10 minutes, and an admin's account can only be removed by another admin. Either way the <code>users</code> document is deleted, and then the server:</p>
+    <p>An admin deletes an account under Users, or the person deletes their own under Profile. Deleting your own account more than 10 minutes after signing in asks for a fresh code sent to the person's own email or phone (see <a href="fresh-code.html">Ask for a fresh code</a>), and an admin's account can only be removed by another admin. Either way the <code>users</code> document is deleted, and then the server:</p>
     <ol class="steps">
       <li><p><strong>Ends access first:</strong> removes the Arc CMS claims and ends every session, so a failure later never leaves a removed admin an admin.</p></li>
       <li><p><strong>Firestore:</strong> deletes every subcollection under <code>users/{userDocId}</code> at any depth, the person's in-app notifications (<code>Notifications</code>) and their feedback (<code>Feedback</code>).</p></li>

@@ -5,6 +5,8 @@ import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, Meta, SafeHtml, Title } from '@angular/platform-browser';
+import { letIntoSearch } from '../../core/site/search-engines';
+import { usePageLanguage } from '../../core/site/page-language';
 import { catchError, map, of, switchMap } from 'rxjs';
 import { HeaderComponent } from '../page.parts/header.component';
 import { FooterComponent } from '../page.parts/footer.component';
@@ -58,6 +60,8 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
     private uiStrings = inject(UiStringsService);
     private cdr = inject(ChangeDetectorRef);
     private document = inject(DOCUMENT);
+    /** `<html lang>` and `dir`: the site's default language, the one static pages are in. */
+    private pageLanguage = usePageLanguage(() => '');
     private platformId = inject(PLATFORM_ID);
     /** The live parts' script for the page's forms (SS5). */
     private liveScript: HTMLScriptElement | null = null;
@@ -180,6 +184,10 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
             // Optional: remove title tag from content if we only want it in head
             // processedHtml = processedHtml.replace(titleRegex, ''); 
         }
+
+        // A static page is public content: listed, unless its own robots tag below says
+        // otherwise (RF6 6.3, core/site/search-engines.ts).
+        letIntoSearch(this.metaService);
 
         // Meta Tags
         const metaRegex = /<meta\b[^>]*>/gi;

@@ -95,6 +95,7 @@
       <li><p>Pays. Dodo sends them to the Success URL. <code>/checkout/success</code> waits for the webhook to grant the plan (checking every 3 seconds, for about 45 seconds), then links to <code>/account</code>.</p></li>
     </ol>
     <p>Members see their plan, credit balance, recent activity and full transaction history on <code>/user/payments</code> and <code>/account</code>. <code>/user/premium</code> opens only for a paying member; others are sent to <code>/pricing</code>.</p>
+    <p>The pricing page and the two pages after checkout share a bar with the site's own name (from Settings, About, as the admin shows it), Pricing, My account, and Sign in or Sign out. Their words follow the member's language (see <a href="../app/member-languages.html">Member languages</a>); a product's name, description and features show as the admin wrote them. When checkout cannot open, the pricing page says so above the plans, and the buyer can press the button again.</p>
 
     <h3>What each Dodo event does</h3>
     <table>

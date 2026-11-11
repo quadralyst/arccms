@@ -122,7 +122,7 @@ import { SiteBrandService } from '../../core/brand/site-brand';
         .menu a i { width: 18px; text-align: center; opacity: 0.85; }
         .menu a:hover { background: var(--arc-member-menu-hover-background, #ffffff12); }
         .menu .group { color: #8a99a8; padding: 10px 12px 4px; font-size: 0.8rem; display: flex; align-items: center; gap: 10px; }
-        .menu .sub { padding-left: 28px; }
+        .menu .sub { padding-inline-start: 28px; }
         .menu hr { border-color: #ffffff22; margin: 6px 0; }
         .menu a.active { background: var(--arc-member-accent, #1b98e0); color: #fff; }
         .foot { flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; padding-top: 16px; }

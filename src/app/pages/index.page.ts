@@ -29,6 +29,8 @@ import { PublicContentTypesService } from '../core/site/public-content-types';
 import { siteManifest } from '../core/site/site';
 import { useSiteStyles } from '../core/site/site-styles';
 import { arcSiteScriptElement, prepareLiveParts } from '../core/site/live-parts';
+import { letIntoSearch } from '../core/site/search-engines';
+import { pageLanguageHold, siteLanguageDir } from '../core/site/page-language';
 
 export const routeMeta: RouteMeta = {
     title: 'Home',
@@ -82,13 +84,19 @@ export default class HomeComponent implements OnInit, OnDestroy {
     private contentTypes = inject(PublicContentTypesService);
     private siteIdentity = inject(SiteIdentityService);
     private sitePages = inject(SitePagesService);
+    /** `<html lang>` and `dir`: the page's own while it shows (core/site/page-language.ts). */
+    private language = pageLanguageHold();
     /** The published standard pages of the page being shown (SS6). */
     private pages: SitePageLink[] = [];
 
     /** Nodes this page added to <head> and <body>, removed when it goes. */
     private added: Element[] = [];
     private mounted: ComponentRef<unknown>[] = [];
-    private shellLang: string | null = null;
+    /** The page's own language and direction, set on <html> while it shows. */
+    private pageLang = '';
+    private pageDir: 'ltr' | 'rtl' = 'ltr';
+    /** Set when the page goes: a load still running then stops and changes nothing. */
+    private destroyed = false;
 
     constructor() {
         // Arc CMS's site stylesheets, as on the published page (before the page's own).
@@ -114,14 +122,21 @@ export default class HomeComponent implements OnInit, OnDestroy {
             // The site's own details for data-arc-site (SS3).
             this.siteIdentity.load(),
         ]);
+        if (this.destroyed) return;
         // The published standard pages, for the footer and the notice links (SS6).
         const pages = await this.sitePages.load(lang);
+        if (this.destroyed) return;
         // The home page exists in every enabled language (home.{lang}.html, or
         // home.html translated), so the switcher offers them all.
         this.localization.languageVariants.set(settings.enabledLanguages.map((l) => l.code));
+        // The page is in the site's language, as when published: its code, and right to left
+        // when the site says so for it, or when it is a member language declared so.
+        this.pageLang = lang || settings.defaultLanguage || '';
+        this.pageDir = siteLanguageDir(this.pageLang, settings.enabledLanguages);
 
         const ownFile = !!lang && !!siteManifest().home[lang];
         const html = await firstValueFrom(this.http.get(ownFile ? `/_site/home.${lang}.html` : '/_site/home.html', { responseType: 'text' }));
+        if (this.destroyed) return;
         // A language's own file is already in its words; its forms' panels still take the strings, as when published.
         this.render(new DOMParser().parseFromString(html, 'text/html'), lang, ownFile ? {} : strings, types, about, pages, strings);
     }
@@ -130,6 +145,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
         page: Document, lang: string, strings: Record<string, string>, types: ReadonlySet<string>,
         about: IAboutSettings, pages: SitePageLink[], panelStrings: Record<string, string> = strings,
     ): void {
+        if (this.destroyed) return;
         applyStringsToElement(page.documentElement, strings);
         applySiteInfoToElement(page.documentElement, siteInfoOf(about, pages));
         this.pages = pages;
@@ -138,10 +154,11 @@ export default class HomeComponent implements OnInit, OnDestroy {
         if (page.title.trim()) this.title.setTitle(page.title.trim());
         const description = page.querySelector('meta[name="description"]')?.getAttribute('content');
         if (description) this.meta.updateTag({ name: 'description', content: description });
-        if (lang) {
-            this.shellLang = this.document.documentElement.lang;
-            this.document.documentElement.lang = lang;
-        }
+        // The home page is public content: listed, unless its own file says otherwise (RF6 6.3).
+        letIntoSearch(this.meta);
+        const robots = page.querySelector('meta[name="robots"]')?.getAttribute('content');
+        if (robots) this.meta.updateTag({ name: 'robots', content: robots });
+        this.holdLanguage();
         for (const node of Array.from(page.head.querySelectorAll('link[rel="stylesheet"], style'))) {
             this.add(this.document.head, this.document.importNode(node, true) as Element);
         }
@@ -193,12 +210,23 @@ export default class HomeComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
+        this.destroyed = true;
         for (const ref of this.mounted) {
             this.appRef.detachView(ref.hostView);
             ref.destroy();
         }
         this.added.forEach((node) => node.remove());
         this.localization.languageVariants.set(null);
-        if (this.shellLang !== null) this.document.documentElement.lang = this.shellLang;
+        this.releaseLanguage();
+    }
+
+    /** `<html lang>` and `dir` are the page's own while it shows, as when published. */
+    private holdLanguage(): void {
+        if (this.destroyed || !this.pageLang) return;
+        this.language.hold(this.pageLang, this.pageDir);
+    }
+
+    private releaseLanguage(): void {
+        this.language.release();
     }
 }

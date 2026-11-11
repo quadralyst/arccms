@@ -19,10 +19,10 @@
     <h2>The brand panel</h2>
     <p>On screens 992 pixels wide and more, a coloured panel sits beside the form; narrower, the form is alone and centred. Arc CMS's says only "Welcome" and "Sign in, or create your account, to continue" (<code>public/_site/sign-in.html</code>). Write your own as <code class="new">src/custom/site/sign-in.html</code>, an HTML fragment like the header:</p>
     <pre><code>&lt;div class="auth-left-content"&gt;
-    &lt;h1 class="auth-left-title" data-arc-t="sign_in_title"&gt;Lessons for the whole family&lt;/h1&gt;
+    &lt;p class="auth-left-title" data-arc-t="sign_in_title"&gt;Lessons for the whole family&lt;/p&gt;
     &lt;p class="auth-left-description" data-arc-t="sign_in_body"&gt;Short daily lessons your child will look forward to.&lt;/p&gt;
 &lt;/div&gt;</code></pre>
-    <p>Keep the <code>auth-left-content</code>, <code>auth-left-title</code> and <code>auth-left-description</code> classes for Arc CMS's layout, or use your own classes and style them in <code class="new">src/custom/site/site.css</code>. Translate the text with <code>data-arc-t</code> keys in <code class="new">src/custom/site/strings/{lang}.json</code> (see <a href="languages.html">Publish in more than one language</a>). When your app declares member languages, the panel follows the language chosen in the sign-in page's picker instead of the site's, from the same files (see <a href="../app/member-languages.html#sign-in-page">Member languages</a>).</p>
+    <p>Write the panel's title as a paragraph, not a heading: each step's title in the form is the page's one main heading (<code>h1</code>), for screen readers. Keep the <code>auth-left-content</code>, <code>auth-left-title</code> and <code>auth-left-description</code> classes for Arc CMS's layout, or use your own classes and style them in <code class="new">src/custom/site/site.css</code>. Translate the text with <code>data-arc-t</code> keys in <code class="new">src/custom/site/strings/{lang}.json</code> (see <a href="languages.html">Publish in more than one language</a>). When your app declares member languages, the panel follows the language chosen in the sign-in page's picker instead of the site's, from the same files (see <a href="../app/member-languages.html#sign-in-page">Member languages</a>).</p>
 
     <h2 id="image">An image instead</h2>
     <p>An app can fill the whole panel with an image instead: put it at <code class="new">src/custom/sign-in-image.webp</code> (or <code>.jpg</code>, <code>.jpeg</code>, <code>.png</code>, <code>.svg</code>). It covers the panel, cropped to fill it and centred, and the panel's text is not shown, so put any words in the image. Pick one that still reads when its edges are cropped: the panel is half the screen wide and the full height. The file is found when the app is built, so a new image needs a deploy.</p>
@@ -113,7 +113,7 @@
         <tr><td><code>--arc-sign-in-card-shadow</code></td><td>The card's shadow, any CSS box shadow, or <code>none</code></td></tr>
         <tr><td><code>--arc-sign-in-card-max-width</code></td><td>The widest the card gets</td></tr>
         <tr><td><code>--arc-sign-in-gutter</code></td><td>The room either side of the card, and of the brand above it, on a phone</td></tr>
-        <tr><td><code>--arc-sign-in-title-color</code></td><td>Each step's title, such as "Welcome" and "Verify Email"</td></tr>
+        <tr><td><code>--arc-sign-in-title-color</code></td><td>Each step's title, such as "Welcome" and "Verify your email"</td></tr>
         <tr><td><code>--arc-sign-in-title-align</code></td><td>Where the title and the lines under it sit: <code>left</code>, <code>center</code> or <code>right</code></td></tr>
         <tr><td><code>--arc-sign-in-muted-color</code></td><td>The quieter words: the lines under the title, hints, the legal notice and the footer. The notice's size and link look have variables of their own (<a href="../app/sign-up-notice.html#style-it">Word the sign-up notice</a>)</td></tr>
         <tr><td><code>--arc-sign-in-label-color</code></td><td>The labels over fields</td></tr>
@@ -170,7 +170,7 @@
     --arc-sign-in-button-background: #4a90e2;
 }
 
-arc-sign-in-panel h1 { font-family: 'Raleway', sans-serif; }</code></pre>
+arc-sign-in-panel .auth-left-title { font-family: 'Raleway', sans-serif; }</code></pre>
 
     <h2>Next</h2>
     <p>Set up images: <a href="media.html">Manage media</a>.</p>

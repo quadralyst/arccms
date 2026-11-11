@@ -55,6 +55,31 @@ describe('readSignInError', () => {
             .toEqual({ code: 'failed-precondition', message: 'Sign in again.', reason: 'recent-sign-in', details: { reason: 'recent-sign-in' } });
         expect(readSignInError({ code: 'functions/internal', message: 'stack trace' }, 'Oops').message).toBe('Oops');
     });
+
+    describe('with no network (RF6, 6.7)', () => {
+        const offline = english('member.errors.network_request_failed');
+        afterEach(() => vi.restoreAllMocks());
+
+        it('says "No internet connection" for a callable that never reached the server, not the fallback', () => {
+            vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+            // What the Functions SDK throws when fetch fails: `internal`, no details.
+            expect(readSignInError({ code: 'functions/internal', message: 'internal' }, 'Oops'))
+                .toMatchObject({ code: 'internal', reason: 'offline', message: offline });
+            expect(offline).toMatch(/^No internet connection/);
+        });
+
+        it('says so for Firebase Auth\'s own network error, online flag or not (a PIN or code that signs in)', () => {
+            expect(readSignInError({ code: 'auth/network-request-failed', message: 'Firebase: Error (auth/network-request-failed).' }))
+                .toMatchObject({ reason: 'offline', message: offline });
+        });
+
+        it('keeps a server refusal as it is, and an internal error online as the fallback', () => {
+            vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+            expect(readSignInError({ code: 'functions/resource-exhausted', message: 'Wait.', details: { reason: 'wait', wait: 30 } }).reason).toBe('wait');
+            vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+            expect(readSignInError({ code: 'functions/internal', message: 'internal' }, 'Oops')).toMatchObject({ message: 'Oops', reason: undefined });
+        });
+    });
 });
 
 describe('translateRefusal (specs/sign-in-codes-spec.md, SC-D7)', () => {
@@ -117,6 +142,24 @@ describe('every reason the sign-in functions give has a member string (SC-D8)', 
             .filter((k) => english(`member.auth.server_error.${k}`).startsWith('member.') || !hi.member.auth.server_error?.[k]);
         expect(reasons.size).toBeGreaterThan(30);
         expect(missing).toEqual([]);
+    });
+});
+
+describe('SignInService.deleteMyAccount (RF6 6.10)', () => {
+    const deleteMyAccount = SignInService.prototype.deleteMyAccount;
+
+    it('asks with nothing within 10 minutes of signing in, and with the fresh code\'s proof after', async () => {
+        const call = vi.fn(async () => ({ deleted: true }));
+        await expect(deleteMyAccount.call({ call } as never)).resolves.toEqual({ deleted: true });
+        expect(call).toHaveBeenLastCalledWith('deleteMyAccount', {});
+        await deleteMyAccount.call({ call } as never, 'proof-1');
+        expect(call).toHaveBeenLastCalledWith('deleteMyAccount', { freshProof: 'proof-1' });
+    });
+
+    it('says to try again with a new code, in the member\'s language, when the delete failed after the code (RF6)', () => {
+        const text = translateRefusal({ reason: 'delete-failed' }, (key, params) => english(key, params), 'en');
+        expect(text).toBe(english('member.auth.server_error.delete_failed'));
+        expect(text).toMatch(/new code/);
     });
 });
 

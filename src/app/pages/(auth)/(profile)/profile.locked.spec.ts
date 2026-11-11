@@ -102,12 +102,12 @@ describe('ProfileComponent for a locked app account', () => {
         const page = await render({ by: 'email' }, () => new Promise((resolve) => { settingsIn = resolve; }));
         // Waiting for them: the header and a loading line, none of the cards (they depend on the
         // settings, and each arriving on its own pushed the ones below it down).
-        expect(page.textContent).toContain('Loading profile');
+        expect(page.textContent).toContain('Loading your profile');
         expect(page.querySelector('.profile-card')).toBeNull();
         settingsIn({ isSignupEnabled: true, defaultRole: 'user' });
         await new Promise((r) => setTimeout(r, 0));
         fixture.detectChanges();
-        expect(page.textContent).not.toContain('Loading profile');
+        expect(page.textContent).not.toContain('Loading your profile');
         expect(page.querySelectorAll('.profile-card').length).toBeGreaterThanOrEqual(3);
     });
 
@@ -115,7 +115,7 @@ describe('ProfileComponent for a locked app account', () => {
         localStorage.setItem(SIGN_IN_SETTINGS_CACHE_KEY, JSON.stringify({ isSignupEnabled: true }));
         const page = await render({ by: 'email' }, () => new Promise(() => undefined));
         localStorage.removeItem(SIGN_IN_SETTINGS_CACHE_KEY);
-        expect(page.textContent).not.toContain('Loading profile');
+        expect(page.textContent).not.toContain('Loading your profile');
         expect(page.querySelectorAll('.profile-card').length).toBeGreaterThanOrEqual(3);
     });
 
@@ -128,11 +128,11 @@ describe('ProfileComponent for a locked app account', () => {
         }) as typeof setTimeout);
         try {
             const page = await render({ by: 'email' }, () => new Promise(() => undefined));
-            expect(page.textContent).toContain('Loading profile');
+            expect(page.textContent).toContain('Loading your profile');
             expect(timers).toHaveLength(1);
             timers[0].fn();
             fixture.detectChanges();
-            expect(page.textContent).not.toContain('Loading profile');
+            expect(page.textContent).not.toContain('Loading your profile');
         } finally {
             spy.mockRestore();
         }

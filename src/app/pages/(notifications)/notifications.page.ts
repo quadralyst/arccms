@@ -11,6 +11,7 @@ import { PageHeaderComponent } from '../../../shared/components/page-header/page
 import { AuthState } from '../(auth)/auth.store';
 import { ToastService } from '../../../shared/services/toast.service';
 import { UserShellComponent } from '../user/user-shell.component';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 
 export const routeMeta: RouteMeta = {
     title: 'Notifications',
@@ -22,12 +23,13 @@ interface PrefRow { key: string; label: string; description: string; email: bool
 /**
  * Shared for two routes: /admin/notifications (nested under the admin shell,
  * which supplies the sidebar) and /notifications (top-level, for signed-in
- * members — self-wraps in the user shell here since there's no parent route
- * to supply one).
+ * members: it wraps itself in the user shell, since no parent route supplies one).
+ * Its words are member keys (member.notifications.*), so a member language has them;
+ * the notifications' own titles and the email types are the site's text.
  */
 @Component({
     standalone: true,
-    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatSlideToggleModule, PageHeaderComponent, UserShellComponent],
+    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatSlideToggleModule, PageHeaderComponent, UserShellComponent, TranslocoPipe],
     templateUrl: './notifications.page.html',
     styles: [`
         /* Mirrors the global .arc-admin .page-container so this page lines up with
@@ -59,6 +61,7 @@ export default class NotificationsPageComponent implements OnInit {
     protected authStore = inject(AuthState);
     private toast = inject(ToastService);
     private destroyRef = inject(DestroyRef);
+    private transloco = inject(TranslocoService);
 
     notifications = signal<INotification[]>([]);
     prefs = signal<PrefRow[]>([]);
@@ -91,7 +94,7 @@ export default class NotificationsPageComponent implements OnInit {
         const uid = this.authStore.currentUser()?.uid;
         if (uid) {
             await this.service.markAllRead(uid);
-            this.toast.success('All notifications marked read');
+            this.toast.success(this.transloco.translate('member.notifications.all_marked'));
         }
     }
 
@@ -101,10 +104,10 @@ export default class NotificationsPageComponent implements OnInit {
             const payload: Record<string, { email: boolean }> = {};
             for (const p of this.prefs()) payload[p.key] = { email: p.email };
             await this.service.updatePrefs(payload);
-            this.toast.success('Preferences saved');
+            this.toast.success(this.transloco.translate('member.notifications.prefs_saved'));
         } catch (e) {
             console.error(e);
-            this.toast.error('Failed to save preferences');
+            this.toast.error(this.transloco.translate('member.notifications.prefs_failed'));
         } finally {
             this.savingPrefs.set(false);
         }

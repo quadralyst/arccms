@@ -73,7 +73,7 @@
         <tr><td><code>data-legal-notice</code></td><td>Your own terms notice. Without one, a standard notice is added above the submit button. It links to your terms and privacy pages: the published standard pages <code>/info/terms</code> and <code>/info/privacy-policy</code> (see <a href="content.html#standard-pages">Standard pages</a>), else your own static pages at <code>/p/terms</code> and <code>/p/privacy-policy</code>, else no link. An app words it in <code>src/custom/notices.ts</code> (see <a href="../app/sign-up-notice.html">Word the sign-up notice</a>)</td></tr>
       </tbody>
     </table>
-    <p>If the default form does not exist yet, the first visit creates it with default settings. Any other form is created in the admin first: a page naming one that does not exist creates nothing, and its sign-ups fail with "This form does not exist". The code step, the confirmation and the error messages are drawn inside the form. To reword the confirmation, see <a href="../website/forms.html">Add signup forms to your site</a>.</p>
+    <p>If the default form does not exist yet, the first visit creates it with default settings. Any other form is created in the admin first: a page naming one that does not exist creates nothing, and its sign-ups fail with "This form does not exist". The code step, the confirmation and the error messages are drawn inside the form. A failed step brings the form back as it was filled in, with a line under it in the page's language, never the server's English. To reword the confirmation, see <a href="../website/forms.html">Add signup forms to your site</a>.</p>
     <div class="trap"><p>Put the form's id in <code>data-waitlist-id</code>, not a slug you changed later. The page finds the form by its slug, but sign-ups are sent with the value as written, and a value that is not the id fails with "This form does not exist".</p></div>
 
     <h2>Use it</h2>
@@ -99,7 +99,8 @@
         <tr><td>Checking a code</td><td>5 tries for each code; 20 wrong codes a day for one address across its forms (counted apart from its sign-in codes), and 60 checks an hour from one connection, as for <a href="sign-in.html#codes-waits-and-limits">sign-in codes</a></td></tr>
         <tr><td>Name and source</td><td>100 characters each. Longer is refused with "Please use a shorter name."</td></tr>
         <tr><td>Form answers</td><td>Text, numbers and yes/no only; at most 50 inputs, 5,000 characters each and 20,000 in all. More is refused, so the visitor can shorten it</td></tr>
-        <tr><td>Signup metadata</td><td>Gathered by the page, not typed, so it is trimmed instead of refused: 60 keys, 500 characters a value, 20 query parameters</td></tr>
+        <tr><td>Signup metadata</td><td>Gathered by the page, not typed, so it is trimmed instead of refused: 60 keys, 500 characters a value, 20 query parameters. On a published page, the visit's details are gathered only when analytics consent allows it (<a href="../website/forms.html">Add signup forms to your site</a>)</td></tr>
+        <tr><td>Bots</td><td>A published form carries a hidden input, <code>arc_website</code>, as the contact form does. A sign-up with it filled gets the usual answer, but nothing is stored or counted</td></tr>
       </tbody>
     </table>
 

@@ -23,7 +23,9 @@ vi.mock('@angular/fire/functions', () => ({
     httpsCallable: vi.fn(() => mockCallableFn),
 }));
 
-import SignupComponent, { SETTINGS_WAIT_MS, SIGNED_IN_WAIT_MS } from './signup.page';
+import SignupComponent, { FIRST_ENTRY_WAIT_MS, ROUTER_SKIP_WAIT_MS, SETTINGS_WAIT_MS, SIGNED_IN_WAIT_MS } from './signup.page';
+import { NavigationSkipped, type Event as RouterEvent } from '@angular/router';
+import { Subject } from 'rxjs';
 import { SIGNED_IN_KEY } from '../../../core/site/signed-in-hint';
 import { AuthState } from '../auth.store';
 import { AuthService } from '../auth.service';
@@ -453,7 +455,9 @@ describe('SignupComponent: the first frame and the way out (F22)', () => {
         currentUser.set({ uid: 'u1', id: 'r1', role: 'user', isActive: true });
         await flush();
         fixture.detectChanges();
-        expect(navigateByUrl).toHaveBeenCalled();
+        // The step's history entry comes off first (RF6, 6.4); this test's router never answers, so its timer moves on.
+        await vi.waitFor(() => expect(navigateByUrl).toHaveBeenCalled(), { timeout: FIRST_ENTRY_WAIT_MS + 1000 });
+        fixture.detectChanges();
         expect(button().disabled).toBe(true);
         expect(signIn['completePhoneSignup']).toHaveBeenCalledTimes(1);
     });
@@ -1011,8 +1015,8 @@ describe('SignupComponent: "please wait" on the first step counts down (F41)', (
         settingsRead.resolve(OPEN);
         render();
         typed('98765 43210');
-        // Only the countdown's clock is faked: the page's other waits run as they do.
-        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+        // Only the countdown's timer and clock are faked: the page's other waits run as they do.
+        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
         page.handleSubmit();
         await flush();
         fixture.detectChanges();
@@ -1078,5 +1082,388 @@ describe('SignupComponent: "please wait" on the first step counts down (F41)', (
         expect(page.requestWait()).toBe(0);
         expect(alertText()).toBe('Enter a valid mobile number.');
         expect(button().disabled).toBe(false);
+    });
+});
+
+describe('SignupComponent: the phone\'s back button steps back through sign-in (RF6, 6.4)', () => {
+    /** The browser's back button: wait for its popstate, which the page hears first. */
+    async function back(): Promise<void> {
+        const popped = new Promise((resolve) => window.addEventListener('popstate', resolve, { once: true }));
+        history.back();
+        await popped;
+        await flush();
+        fixture.detectChanges();
+    }
+    /** Let a history.go() the page made land before the next step. */
+    async function settle(): Promise<void> {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        await flush();
+        fixture.detectChanges();
+    }
+
+    async function atCodeStep(): Promise<void> {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        typed('98765 43210');
+        page.handleSubmit();
+        await flush();
+        fixture.detectChanges();
+        expect(page.currentStep()).toBe('verify');
+    }
+
+    it('goes from the code step back to the number, and adds one entry per step, at the same address', async () => {
+        const address = location.href;
+        const first = history.state;
+        await atCodeStep();
+        expect(location.href).toBe(address);
+        // The router's own state stays in the entry, so it skips the popstate.
+        expect(history.state).toEqual(expect.objectContaining({ arcSignInStep: expect.objectContaining({ depth: 1 }) }));
+
+        await back();
+        expect(history.state).toEqual(first);
+        expect(page.currentStep()).toBe('request');
+        expect(page.resendCountdown()).toBe(0);
+        expect(page.registrationForm.get('identifier')!.value).toBe('98765 43210');
+    });
+
+    it('skips a code once it is used: back from the details step is the number', async () => {
+        signIn['verifyPhoneCode'] = vi.fn().mockResolvedValue({ verified: true });
+        await atCodeStep();
+        await page.verifyOtp('482913');
+        fixture.detectChanges();
+        expect(page.currentStep()).toBe('signup');
+
+        await back();
+        expect(page.currentStep()).toBe('request');
+    });
+
+    it('goes from the code of Forgot password back to the password step, and from there to the address', async () => {
+        settingsRead.resolve(OPEN);
+        signIn['checkEmail'].mockResolvedValue({ status: 'registered', signupOpen: true, signInWith: 'password' });
+        signIn['requestPasswordReset'] = vi.fn().mockResolvedValue({ sent: true });
+        render();
+        await flush();
+        typed('asha@example.com');
+        page.handleSubmit();
+        await flush();
+        fixture.detectChanges();
+        expect(page.currentStep()).toBe('login');
+
+        await page.forgotPassword();
+        fixture.detectChanges();
+        expect(page.currentStep()).toBe('verify');
+
+        await back();
+        expect(page.currentStep()).toBe('login');
+        await back();
+        expect(page.currentStep()).toBe('request');
+    });
+
+    it('takes its entries off when the person changes the address, so back then leaves the page', async () => {
+        const first = history.state;
+        await atCodeStep();
+        (fixture.nativeElement.querySelector('.change-email') as HTMLButtonElement).click();
+        await settle();
+        expect(page.currentStep()).toBe('request');
+        // Back on the entry the page opened on.
+        expect(history.state).toEqual(first);
+        // Forward to the code step left behind stays on the number.
+        const popped = new Promise((resolve) => window.addEventListener('popstate', resolve, { once: true }));
+        history.forward();
+        await popped;
+        await settle();
+        expect(page.currentStep()).toBe('request');
+        expect(history.state).toEqual(first);
+    });
+
+    it('stays on a step while it is still running, and on Choose PIN with no Not now', async () => {
+        await atCodeStep();
+        page.isLoading.set(true);
+        await back();
+        expect(page.currentStep()).toBe('verify');
+        page.isLoading.set(false);
+
+        page.pinSkipAllowed.set(false);
+        page.goToStep('choosePin');
+        await back();
+        expect(page.currentStep()).toBe('choosePin');
+    });
+
+    it('takes the steps off the history before moving on after a sign-in, so back from the next page leaves sign-in', async () => {
+        signIn['signInWithPin'] = vi.fn().mockResolvedValue(undefined);
+        signIn['checkPhone'].mockResolvedValue({ phone: '+919876543210', exists: true, hasPin: true, signupOpen: true });
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        const first = history.state;
+        typed('98765 43210');
+        page.handleSubmit();
+        await flush();
+        fixture.detectChanges();
+        expect(page.currentStep()).toBe('pin');
+        expect(history.state?.arcSignInStep?.depth).toBe(1);
+
+        await page.signInWithPin('123456');
+        currentUser.set({ uid: 'u1', id: 'r1', role: 'user', isActive: true });
+        fixture.detectChanges();
+        expect(navigateByUrl).not.toHaveBeenCalled();
+        await vi.waitFor(() => expect(navigateByUrl).toHaveBeenCalled(), { timeout: FIRST_ENTRY_WAIT_MS + 1000 });
+        expect(history.state).toEqual(first);
+    });
+
+    /** Signed in on the PIN step, one step in: the page is about to move on. */
+    async function signedInOnPin(moved: Promise<boolean> = Promise.resolve(true)): Promise<void> {
+        navigateByUrl.mockReturnValue(moved);
+        signIn['signInWithPin'] = vi.fn().mockResolvedValue(undefined);
+        signIn['checkPhone'].mockResolvedValue({ phone: '+919876543210', exists: true, hasPin: true, signupOpen: true });
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        typed('98765 43210');
+        page.handleSubmit();
+        await flush();
+        fixture.detectChanges();
+        await page.signInWithPin('123456');
+        currentUser.set({ uid: 'u1', id: 'r1', role: 'user', isActive: true });
+        fixture.detectChanges();
+    }
+
+    it('moves on as soon as the router has skipped the popstate, without waiting for a timer', async () => {
+        const popped = new Promise((resolve) => window.addEventListener('popstate', resolve, { once: true }));
+        await signedInOnPin();
+        await popped;
+        await new Promise((resolve) => setTimeout(resolve));
+        expect(navigateByUrl).not.toHaveBeenCalled();
+        (TestBed.inject(Router).events as Subject<RouterEvent>).next(new NavigationSkipped(1, '/signup', ''));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(navigateByUrl).toHaveBeenCalled();
+        expect(ROUTER_SKIP_WAIT_MS).toBeGreaterThan(100);
+    });
+
+    it('gives the step its entry back when the move is refused, so back still goes to the first step', async () => {
+        await signedInOnPin(Promise.resolve(false));
+        await vi.waitFor(() => expect(navigateByUrl).toHaveBeenCalled(), { timeout: FIRST_ENTRY_WAIT_MS + 1000 });
+        await flush();
+        expect(page.leaving()).toBe(false);
+        expect(page.currentStep()).toBe('pin');
+        expect(history.state?.arcSignInStep?.depth).toBe(1);
+        await back();
+        expect(page.currentStep()).toBe('request');
+    });
+
+    /** Count the popstates of one back press, the page's own skip included. */
+    async function backPress(): Promise<void> {
+        history.back();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        await flush();
+        fixture.detectChanges();
+    }
+
+    it('leaves sign-in with one back press after a reload on a step', async () => {
+        history.pushState({ before: 'sign-in' }, '');
+        const before = history.state;
+        // The earlier visit: its first entry, then its code step, where the page reloaded.
+        history.pushState({ navigationId: 7 }, '');
+        history.pushState({ navigationId: 7, arcSignInStep: { id: 'earlier', depth: 1 } }, '');
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        expect(page.currentStep()).toBe('request');
+        await backPress();
+        expect(history.state).toEqual(before);
+    });
+
+    it('leaves sign-in with one back press from an earlier visit\'s step, its own steps skipped', async () => {
+        history.pushState({ before: 'sign-in' }, '');
+        const before = history.state;
+        history.pushState({ navigationId: 7 }, '');
+        history.pushState({ navigationId: 7, arcSignInStep: { id: 'earlier', depth: 1 } }, '');
+        history.pushState({ navigationId: 7, arcSignInStep: { id: 'earlier', depth: 2 } }, '');
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        // A step of this visit first: back from it is this visit's first step, then out.
+        typed('98765 43210');
+        page.handleSubmit();
+        await flush();
+        expect(page.currentStep()).toBe('verify');
+        await back();
+        expect(page.currentStep()).toBe('request');
+        await backPress();
+        expect(history.state).toEqual(before);
+    });
+});
+
+describe('SignupComponent: sign-in for screen readers and the keyboard (RF6, 6.5)', () => {
+    const all = (selector: string) => [...fixture.nativeElement.querySelectorAll(selector)] as HTMLElement[];
+
+    async function on(step: string, setup: () => void = () => undefined): Promise<void> {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        typed('asha@example.com');
+        setup();
+        page.goToStep(step as never);
+        fixture.detectChanges();
+    }
+
+    it('has one h1 on every step, the step\'s title', async () => {
+        for (const step of ['request', 'login', 'pin', 'verify', 'signup', 'newPin', 'newPassword', 'choosePin', 'disabled']) {
+            await on(step);
+            const h1 = all('h1');
+            expect(h1.length, step).toBe(1);
+            // The site's name above it is not a heading.
+            expect(all('h2, h3, h4, h5, h6').length, step).toBe(0);
+            expect(h1[0].textContent!.trim(), step).not.toBe('');
+            fixture.destroy();
+        }
+    });
+
+    it('makes every action a real button, never a link with no address', async () => {
+        for (const step of ['login', 'pin', 'verify', 'signup', 'choosePin', 'disabled']) {
+            await on(step);
+            expect(all('form a:not([href])').length, step).toBe(0);
+            for (const action of all('.change-email, .forgot-password, .auth-link button, button.auth-link')) {
+                expect(action.tagName, step).toBe('BUTTON');
+                expect(action.getAttribute('type'), step).toBe('button');
+            }
+            fixture.destroy();
+        }
+    });
+
+    it('names the show-password buttons and says whether the password is shown', async () => {
+        await on('login');
+        const eye = all('button[aria-pressed]')[0] as HTMLButtonElement;
+        expect(eye.getAttribute('aria-label')).toBe(english('member.auth.show_password'));
+        expect(eye.getAttribute('aria-pressed')).toBe('false');
+        eye.click();
+        fixture.detectChanges();
+        expect(eye.getAttribute('aria-pressed')).toBe('true');
+        expect(eye.getAttribute('aria-label')).toBe(english('member.auth.show_password'));
+        fixture.destroy();
+
+        for (const step of ['signup', 'newPassword']) {
+            await on(step, () => page.emailPin.set(false));
+            const eyes = all('button[aria-pressed]');
+            expect(eyes.length, step).toBe(2);
+            for (const button of eyes) expect(button.getAttribute('aria-label'), step).toBe(english('member.auth.show_password'));
+            fixture.destroy();
+        }
+    });
+
+    it('links a label to the name and to the password typed again', async () => {
+        await on('signup', () => page.emailPin.set(false));
+        for (const id of ['name', 'password', 'confirmPassword']) {
+            const label = fixture.nativeElement.querySelector(`label[for=${id}]`) as HTMLLabelElement | null;
+            expect(label?.textContent!.trim(), id).toBeTruthy();
+            expect(fixture.nativeElement.querySelector(`#${id}`), id).not.toBeNull();
+        }
+        expect((fixture.nativeElement.querySelector('label[for=name]') as HTMLElement).textContent!.trim()).toBe(english('member.auth.name_label'));
+    });
+
+    it('reads every error out as it appears, tied to its field', async () => {
+        await on('signup', () => page.emailPin.set(false));
+        page.registrationForm.get('password')!.setValue('a');
+        page.registrationForm.get('confirmPassword')!.setValue('b');
+        page.register();
+        page.errorMessage.set('Something went wrong.');
+        fixture.detectChanges();
+        const errors = all('.text-danger, .alert-danger, .invalid-feedback');
+        expect(errors.length).toBeGreaterThanOrEqual(4);
+        for (const error of errors) expect(error.getAttribute('role'), error.textContent!).toBe('alert');
+        const name = fixture.nativeElement.querySelector('#name') as HTMLInputElement;
+        expect(name.getAttribute('aria-invalid')).toBe('true');
+        expect(fixture.nativeElement.querySelector(`#${name.getAttribute('aria-describedby')}`)).not.toBeNull();
+        fixture.destroy();
+
+        await on('verify');
+        page.otpError.set('That code didn\'t work.');
+        fixture.detectChanges();
+        expect(all('[role=alert]').map((el) => el.textContent!.trim())).toContain('That code didn\'t work.');
+    });
+
+    it('does not read the first step\'s "please wait" as an alert every second', async () => {
+        await on('request');
+        page.requestWait.set(30);
+        fixture.detectChanges();
+        expect((fixture.nativeElement.querySelector('.alert-danger') as HTMLElement).getAttribute('role')).toBeNull();
+        page.errorMessage.set('Enter a valid mobile number.');
+        fixture.detectChanges();
+        expect((fixture.nativeElement.querySelector('.alert-danger') as HTMLElement).getAttribute('role')).toBe('alert');
+    });
+});
+
+describe('SignupComponent: no connection on a code or PIN step (RF6, 6.7)', () => {
+    const offline = english('member.errors.network_request_failed');
+    afterEach(() => vi.restoreAllMocks());
+    /** What the Functions SDK throws when its fetch fails: `internal`, with no details. */
+    const noNetwork = () => Object.assign(new Error('internal'), { code: 'functions/internal' });
+
+    async function atStep(step: 'pin' | 'verify'): Promise<void> {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        page.channel.set('phone');
+        page.phone.set('+919876543210');
+        page.currentStep.set(step);
+        fixture.detectChanges();
+        vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    }
+
+    it('says "No internet connection" for a PIN, not a server error', async () => {
+        signIn['signInWithPin'] = vi.fn().mockRejectedValue(noNetwork());
+        await atStep('pin');
+        await page.signInWithPin('123456');
+        fixture.detectChanges();
+        expect(page.errorMessage()).toBe(offline);
+        expect(shown()).toContain(offline);
+    });
+
+    it('says so for a code, and for asking for another', async () => {
+        signIn['verifyPhoneCode'] = vi.fn().mockRejectedValue(noNetwork());
+        signIn['requestPhoneCode'] = vi.fn().mockRejectedValue(noNetwork());
+        await atStep('verify');
+        await page.verifyOtp('482913');
+        expect(page.otpError()).toBe(offline);
+        await page.sendOtp(true);
+        expect(page.otpError()).toBe(offline);
+    });
+
+    it('says so on the first step, rather than blaming the email', async () => {
+        signIn['checkEmail'].mockRejectedValue(noNetwork());
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+        typed('asha@example.com');
+        page.handleSubmit();
+        await flush();
+        expect(page.errorMessage()).toBe(offline);
+    });
+});
+
+describe('SignupComponent: the resend countdown by the clock (RF6, 6.11)', () => {
+    it('is right after the page was in the background, whose timers the browser slowed', async () => {
+        settingsRead.resolve(OPEN);
+        render();
+        await flush();
+        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+        page.startCountdown(60);
+        expect(page.resendCountdown()).toBe(60);
+        vi.advanceTimersByTime(1000);
+        expect(page.resendCountdown()).toBe(59);
+
+        // 45 seconds in the SMS app, with no timer run in the meantime.
+        vi.setSystemTime(Date.now() + 45_000);
+        document.dispatchEvent(new Event('visibilitychange'));
+        expect(page.resendCountdown()).toBe(14);
+        vi.advanceTimersByTime(1000);
+        expect(page.resendCountdown()).toBe(13);
+
+        // Away past the end: Resend is back at once.
+        vi.setSystemTime(Date.now() + 60_000);
+        vi.advanceTimersByTime(1000);
+        expect(page.resendCountdown()).toBe(0);
     });
 });

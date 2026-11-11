@@ -20,6 +20,7 @@ import { AuthState } from '../auth.store';
 import { FreshCodeService } from '../../../core/sign-in/fresh-code.service';
 import { readSignInError, SignInService, type LinkCheck } from '../sign-in.service';
 import { RESEND_SECONDS, SentCodes } from '../sent-codes';
+import { ClockCountdown } from '../../../core/sign-in/clock-countdown';
 import { CodeInputComponent } from '../../../../shared/components/code-input/code-input.component';
 import { NewPinInputComponent } from '../../../../shared/components/new-pin-input/new-pin-input.component';
 import { ToastService } from '../../../../shared/services/toast.service';
@@ -133,7 +134,7 @@ const LINK_FRESH_PURPOSE = { email: 'link-email', phone: 'link-phone' } as const
                         [disabled]="busy()" (changed)="currentPin.set($event)" (completed)="error.set('')" />
                 }
                 <arc-new-pin #newPinField [disabled]="busy()" [autofocus]="!hasCurrentPin()" (firstDone)="error.set('')" (completed)="savePin()" />
-                @if (error()) { <div class="text-danger small mt-2">{{ error() }}</div> }
+                @if (error()) { <div class="text-danger small mt-2" role="alert">{{ error() }}</div> }
                 <div class="edit-actions">
                     <button class="btn btn-sm btn-light" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
                     <button class="btn btn-sm btn-primary" (click)="savePin()" [disabled]="busy()">
@@ -149,11 +150,12 @@ const LINK_FRESH_PURPOSE = { email: 'link-email', phone: 'link-phone' } as const
                 @switch (f.step) {
                     @case ('enter') {
                         <!-- A number shows its country beside it (specs/phone-country-spec.md). -->
+                        <label class="visually-hidden" for="method-value">{{ (f.kind === 'email' ? 'member.methods.email' : 'member.methods.phone') | transloco }}</label>
                         <div class="input-group flex-nowrap">
                             @if (f.kind === 'phone' && !hasOwnCode(f.typed)) {
                                 <arc-phone-country [countries]="phoneCountries()" [(value)]="phoneCountry" (chosen)="countryChosen(numberBox)" />
                             }
-                            <input #numberBox class="form-control" [type]="f.kind === 'email' ? 'email' : 'tel'"
+                            <input #numberBox id="method-value" class="form-control" [type]="f.kind === 'email' ? 'email' : 'tel'"
                                 [placeholder]="(f.kind === 'email' ? 'member.methods.email_placeholder' : phoneCountry() === 'IN' ? 'member.methods.phone_placeholder' : 'member.methods.phone_placeholder_any') | transloco"
                                 [autocomplete]="f.kind === 'email' ? 'email' : hasOwnCode(f.typed) ? 'tel' : 'tel-national'"
                                 [ngModel]="f.typed" (ngModelChange)="setTyped($event)"
@@ -162,7 +164,7 @@ const LINK_FRESH_PURPOSE = { email: 'link-email', phone: 'link-phone' } as const
                         @if (f.check?.status === 'other') {
                             <div class="small mt-2 move-note">
                                 {{ (f.kind === 'email' ? 'member.methods.move_email' : 'member.methods.move_number') | transloco }}
-                                <a class="ms-1" role="button" (click)="signInElsewhere()">{{ 'member.methods.sign_in_elsewhere' | transloco }}</a>
+                                <button type="button" class="link-button ms-1" (click)="signInElsewhere()">{{ 'member.methods.sign_in_elsewhere' | transloco }}</button>
                             </div>
                         }
                     }
@@ -183,8 +185,8 @@ const LINK_FRESH_PURPOSE = { email: 'link-email', phone: 'link-phone' } as const
                             <div class="form-label small">{{ 'member.methods.choose_pin_number' | transloco }}</div>
                             <arc-new-pin #newPinField [disabled]="busy()" (firstDone)="error.set('')" (completed)="finish()" />
                         } @else {
-                            <div class="form-label small">{{ 'member.methods.choose_password_email' | transloco }}</div>
-                            <input class="form-control" type="password" autocomplete="new-password" [placeholder]="'member.methods.password_placeholder' | transloco: passwordMin"
+                            <label class="form-label small" for="method-password">{{ 'member.methods.choose_password_email' | transloco }}</label>
+                            <input id="method-password" class="form-control" type="password" autocomplete="new-password" [placeholder]="'member.methods.password_placeholder' | transloco: passwordMin"
                                 [ngModel]="secret()" (ngModelChange)="secret.set($event)" (keydown.enter)="finish()" />
                             <!-- Typed twice, as every new password -->
                             <input class="form-control mt-2 password-again" type="password" autocomplete="new-password"
@@ -193,7 +195,7 @@ const LINK_FRESH_PURPOSE = { email: 'link-email', phone: 'link-phone' } as const
                         }
                     }
                 }
-                @if (error()) { <div class="text-danger small mt-2">{{ error() }}</div> }
+                @if (error()) { <div class="text-danger small mt-2" role="alert">{{ error() }}</div> }
                 <div class="edit-actions">
                     <button class="btn btn-sm btn-light" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
                     @switch (f.step) {
@@ -235,6 +237,9 @@ const LINK_FRESH_PURPOSE = { email: 'link-email', phone: 'link-phone' } as const
         .edit-actions { display: flex; gap: 0.5rem; margin-top: 1rem; align-items: center; }
         .current-pin-label { font-size: 0.9rem; font-weight: 500; text-align: center; margin-bottom: 8px; }
         arc-code-input + arc-new-pin { margin-top: 16px; }
+        /* A link to look at, a button to the keyboard and screen readers (RF6). */
+        .link-button { display: inline; padding: 0; border: 0; background: none; font: inherit; color: var(--bs-link-color); text-decoration: underline; cursor: pointer; }
+        .link-button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
         .move-note { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.5rem 0.75rem; }
         @media (max-width: 576px) { .form-control { font-size: 16px; } }
     `],
@@ -289,11 +294,11 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
     readonly testCodeInLogs = signal(false);
     /** A quiet line under the code boxes: a code was sent a moment ago (specs/sign-in-codes-spec.md, SC-D2). */
     readonly notice = signal('');
-    /** Seconds until Resend comes back. */
-    readonly resendIn = signal(0);
+    /** Seconds until Resend comes back, by the clock (core/sign-in/clock-countdown.ts, RF6). */
+    private readonly resendClock = new ClockCountdown();
+    readonly resendIn = this.resendClock.left;
     /** The codes asked for, so going back and forth never asks again too soon (SC-D1). */
     private readonly sentCodes = new SentCodes();
-    private countdown?: ReturnType<typeof setInterval>;
 
     private readonly codeBoxes = viewChild<CodeInputComponent>('codeBoxes');
     /** The new PIN, typed twice: Change PIN, or the PIN for a number added (one at a time). */
@@ -370,8 +375,7 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
         this.busy.set(false);
         // The codes asked for stay remembered: starting again with the same value carries on.
         this.notice.set('');
-        clearInterval(this.countdown);
-        this.resendIn.set(0);
+        this.resendClock.stop();
     }
 
     setTyped(typed: string): void {
@@ -478,16 +482,11 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
-        clearInterval(this.countdown);
+        this.resendClock.stop();
     }
 
     private startCountdown(seconds: number): void {
-        clearInterval(this.countdown);
-        this.resendIn.set(Math.max(0, seconds));
-        this.countdown = setInterval(() => {
-            if (this.resendIn() > 0) this.resendIn.update((n) => n - 1);
-            else clearInterval(this.countdown);
-        }, 1000);
+        this.resendClock.start(seconds);
     }
 
     async resend(): Promise<void> {

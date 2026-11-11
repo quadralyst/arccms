@@ -164,6 +164,11 @@ export const routeMeta: RouteMeta = {
     <pre><code>{ path: 'kids', loadChildren: () =&gt; import('./kids/kids.routes').then((m) =&gt; m.KIDS_ROUTES), data: { analytics: false } }</code></pre>
     <p>On such a page collection is off from the moment the route is recognised, before the page shows, and it turns on again on the next tracked page. Nothing is reloaded. What was sent before the person reached the page stays sent, so keep personal details out of the addresses that lead there. See <a href="../features/analytics.html">Analytics</a>.</p>
 
+    <h2 id="pages-in-search">Pages search engines may list</h2>
+    <p>Every page the app draws tells search engines not to list it (<code>noindex</code>), unless it says otherwise, so a member, admin or half-built page never turns up in search. A public page of your own, such as a menu, a timetable or a shop, says so on its route. Every page below that route inherits it:</p>
+    <pre><code>{ path: 'menu', loadComponent: () =&gt; import('./menu/menu.page').then((m) =&gt; m.default), data: { searchEngines: 'index' } }</code></pre>
+    <p>The tag is set when the move to the page ends; core's <code>/pricing</code> and <code>/waitlist/{form}</code> use the same. Search engines that render the page see it; for the fullest listing, publish the page as content instead, which Hosting serves as a file of its own (see <a href="../features/seo.html#app-pages-out-of-search">SEO and discoverability</a>).</p>
+
     <h2>Full-screen pages</h2>
     <p>Around every page, Arc CMS shows the admin's message banner, the powered-by footer, the site usage (cookie) banner, the installed app's update bar and the feedback button. A game, a player, a kiosk or a presentation screen needs the whole screen instead. Say so on its route: The powered-by footer stays out of sight until the site's setting for it has been read, so a site that turned it off never shows it for a moment; a browser that has read the setting before remembers it (<code>localStorage</code> key <code>arc-powered-by</code>) and shows the line at once.</p>
     <pre><code>{ path: 'play', loadComponent: () =&gt; import('./play/play.component').then((m) =&gt; m.default), data: { fullScreen: true } }</code></pre>

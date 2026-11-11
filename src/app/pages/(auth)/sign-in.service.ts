@@ -17,7 +17,7 @@ import {
 import { Functions } from '@angular/fire/functions';
 import { arcCallable } from '../../core/config/arc-functions';
 import { TranslocoService } from '@jsverse/transloco';
-import { genericErrorText } from './auth-messages';
+import { genericErrorText, isOfflineError, offlineText } from './auth-messages';
 import { minPasswordLength } from '../../../shared/utils/password-rule';
 import { SIGN_IN_STRENGTH } from '../../core/sign-in/sign-in-strength';
 import { deviceKey } from '../../core/sign-in/device-key';
@@ -88,10 +88,15 @@ export interface SignInError {
     details?: Record<string, unknown>;
 }
 
-/** Read a Firebase or callable error into something a page can show. */
+/**
+ * Read a Firebase or callable error into something a page can show. With no
+ * network it is "No internet connection" (reason `offline`), not a server error
+ * or the fallback (RF6, 6.7).
+ */
 export function readSignInError(err: unknown, fallback = genericErrorText()): SignInError {
     const e = err as { code?: string; message?: string; details?: Record<string, unknown> & { reason?: string } };
     const code = String(e?.code ?? '').replace(/^functions\//, '');
+    if (isOfflineError(code, e?.details?.reason)) return { code, message: offlineText(), reason: 'offline', details: e?.details };
     const message = code && code !== 'internal' && e?.message ? e.message : fallback;
     return { code, message, reason: e?.details?.reason, details: e?.details };
 }
@@ -375,8 +380,12 @@ export class SignInService {
         return true;
     }
 
-    deleteMyAccount(): Promise<{ deleted: boolean }> {
-        return this.call('deleteMyAccount', {});
+    /**
+     * Delete the signed-in account. `freshProof`: from the fresh code dialog, needed once
+     * the sign-in is more than 10 minutes old (refused with `fresh-code-required`).
+     */
+    deleteMyAccount(freshProof?: string): Promise<{ deleted: boolean }> {
+        return this.call('deleteMyAccount', freshProof ? { freshProof } : {});
     }
 
     // --- Phone ---------------------------------------------------------------

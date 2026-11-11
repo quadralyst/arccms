@@ -22,6 +22,10 @@ import { arcCallable } from '../../core/config/arc-functions';
 export interface IConfirmResult {
     success: boolean;
     message?: string;
+    /** What failed, as the callable threw it: the page words it by its code (signup-error.ts). */
+    error?: unknown;
+    /** The step that failed: the code check, or confirming after it. */
+    failedStep?: 'verify' | 'confirm';
     /** The person was already on the list before this signup. */
     alreadyConfirmed?: boolean;
 }
@@ -158,8 +162,9 @@ export class WaitlistService {
                 email: userData.email,
             };
         } catch (error) {
+            // Thrown as it came, so the page can say why by its code (signup-error.ts).
             console.error('Error in joinWaitlist:', error);
-            throw new Error(`Failed to join waitlist: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw error;
         }
     }
 
@@ -171,16 +176,16 @@ export class WaitlistService {
      * `finalizeFormSignup` checks the verified record again before confirming.
      */
     async verifyAndConfirm(waitlistId: string, ticket: string, otp: string): Promise<IConfirmResult> {
+        const check = await this.checkFormOtp(waitlistId, ticket, otp);
+        if (!check.ok) {
+            return { success: false, message: check.message || 'Invalid or expired OTP', error: check.error, failedStep: 'verify' };
+        }
         try {
-            const check = await this.checkFormOtp(waitlistId, ticket, otp);
-            if (!check.ok) {
-                return { success: false, message: check.message || 'Invalid or expired OTP' };
-            }
             const finalized = await this.finalizeSignup(waitlistId, ticket);
             return { success: true, alreadyConfirmed: finalized.alreadyConfirmed };
         } catch (error) {
             console.error('Error in verifyAndConfirm:', error);
-            return { success: false, message: 'Verification failed' };
+            return { success: false, message: 'Verification failed', error, failedStep: 'confirm' };
         }
     }
 
@@ -197,10 +202,10 @@ export class WaitlistService {
      * Send the code again. The server owns the 60s resend throttle and returns a
      * clear error when asked too soon.
      */
-    async resendVerificationCode(waitlistId: string, ticket: string): Promise<{ success: boolean; message: string }> {
+    async resendVerificationCode(waitlistId: string, ticket: string): Promise<{ success: boolean; message: string; error?: unknown }> {
         const sent = await this.sendFormOtp(waitlistId, ticket);
         if (!sent.ok) {
-            return { success: false, message: sent.message || 'Failed to resend verification code' };
+            return { success: false, message: sent.message || 'Failed to resend verification code', error: sent.error };
         }
         return { success: true, message: 'Verification code sent successfully' };
     }
@@ -216,7 +221,7 @@ export class WaitlistService {
     private async sendFormOtp(
         waitlistId: string,
         ticket: string,
-    ): Promise<{ ok: boolean; message?: string }> {
+    ): Promise<{ ok: boolean; message?: string; error?: unknown }> {
         try {
             const call = arcCallable<
                 { waitlistId: string; ticket: string },
@@ -226,7 +231,7 @@ export class WaitlistService {
             return { ok: !!res.data?.sent, message: res.data?.sent ? undefined : `Email not sent (${res.data?.status}).` };
         } catch (error: any) {
             console.error('requestFormOtp failed:', error);
-            return { ok: false, message: error?.message || 'Could not send the verification code.' };
+            return { ok: false, message: error?.message || 'Could not send the verification code.', error };
         }
     }
 
@@ -258,7 +263,7 @@ export class WaitlistService {
         waitlistId: string,
         ticket: string,
         code: string,
-    ): Promise<{ ok: boolean; message?: string }> {
+    ): Promise<{ ok: boolean; message?: string; error?: unknown }> {
         try {
             const call = arcCallable<
                 { waitlistId: string; ticket: string; code: string },
@@ -267,9 +272,9 @@ export class WaitlistService {
             const res = await call({ waitlistId, ticket, code });
             return { ok: !!res.data?.verified };
         } catch (error: any) {
-            // The callable's HttpsError message is user-facing (expired, wrong
-            // code, too many attempts) — pass it through rather than flattening it.
-            return { ok: false, message: error?.message || 'Invalid or expired OTP' };
+            // The page words it by the error's code and reason (signup-error.ts),
+            // never the server's English; the message stays for the logs.
+            return { ok: false, message: error?.message || 'Invalid or expired OTP', error };
         }
     }
 

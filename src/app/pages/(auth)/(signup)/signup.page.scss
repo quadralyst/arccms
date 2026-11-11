@@ -58,6 +58,32 @@
     color: var(--arc-sign-in-muted-color, var(--bs-secondary-color)) !important;
 }
 
+// The action links (Change email, Forgot PIN, Resend, Not now) are buttons, for the
+// keyboard and screen readers (RF6, 6.5), drawn as the links they were: no box, the
+// colour of the rules below.
+.link-button {
+    display: inline;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    line-height: inherit;
+    text-align: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.link-button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+// Each step's title is its page's one h1 (RF6, 6.5), at the size the h5 it was had.
+.login-title {
+    font-size: 1.25rem;
+}
+
 // Links: the change-address link was dark, the rest Bootstrap's link and primary blues.
 .change-email {
     color: var(--arc-sign-in-link-color, var(--bs-dark));
@@ -208,11 +234,6 @@ input:focus {
     text-decoration: none;
 }
 
-.eye_btn {
-    border-top-right-radius: 4px !important;
-    border-bottom-right-radius: 4px !important;
-}
-
 .auth-container {
     display: flex;
     // The visible screen: 100vh on iPhone includes the room behind the browser's bars.
@@ -297,8 +318,11 @@ input:focus {
 
 .auth-logo-text {
     justify-self: unsafe var(--arc-sign-in-name-align, center);
-    // The heading's margin used to run out of the 60px box unseen; in the grid it would add height.
+    // The margin used to run out of the 60px box unseen; in the grid it would add height.
     margin: 0;
+    // A line of text, not a heading (each step's title is the page's one h1, RF6), with
+    // the heading's line height it had.
+    line-height: 1.2;
     width: max-content;
     max-width: var(--sign-in-line-width);
     text-align: var(--arc-sign-in-name-align, center);
@@ -384,12 +408,6 @@ input:focus {
 .input-group > .form-control + .btn {
     margin-inline: 0.5rem 0 !important;
     border-radius: var(--arc-sign-in-field-radius, 8px) !important;
-}
-
-// The password inside the field (the sign-up step): its end corners are the field's.
-.input-group > .form-control:has(+ .password-toggle):not(:focus):not(.is-invalid) {
-    border-start-end-radius: var(--arc-sign-in-field-radius, 0) !important;
-    border-end-end-radius: var(--arc-sign-in-field-radius, 0) !important;
 }
 
 // The boxed icons in front of fields (a lock, a person); --arc-sign-in-field-icons: none hides them.
@@ -599,23 +617,6 @@ input:focus {
 
 .password-field {
     position: relative;
-}
-
-// The show-password box inside a field; it takes the secondary button's look, as
-// the show-password button beside the field on the other steps does.
-.password-toggle {
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--arc-sign-in-secondary-color, #6B7280);
-    background-color: var(--arc-sign-in-secondary-background, var(--bs-tertiary-bg));
-    border-color: var(--arc-sign-in-secondary-border, var(--bs-border-color));
-    cursor: pointer;
-}
-
-.password-toggle:hover {
-    color: #3C76F5;
 }
 
 .toast-notification {
