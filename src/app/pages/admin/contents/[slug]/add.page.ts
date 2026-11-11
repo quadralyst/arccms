@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -6,10 +6,13 @@ import { map } from 'rxjs';
 import { RouteMeta } from '@analogjs/router';
 import { CreateContentComponent } from '../create-content/create-content.component';
 import { roleGuard } from '../../../../guards/role.guard';
+import { HasUnsavedChanges, unsavedChangesGuard } from '../../../../guards/unsaved-changes.guard';
 
 export const routeMeta: RouteMeta = {
     title: 'Add Content',
     canActivate: [roleGuard],
+    // Asks before leaving with unsaved work (RF4 4.2).
+    canDeactivate: [unsavedChangesGuard],
     data: { allowedRoles: ['admin'] },
 };
 
@@ -21,7 +24,12 @@ export const routeMeta: RouteMeta = {
     <arc-create-content [contentTypeSlug]="slug() || ''"></arc-create-content>
   `
 })
-export default class AddContentPage {
+export default class AddContentPage implements HasUnsavedChanges {
     private route = inject(ActivatedRoute);
+    @ViewChild(CreateContentComponent) private editor?: CreateContentComponent;
     slug = toSignal(this.route.paramMap.pipe(map(params => params.get('slug'))));
+
+    hasUnsavedChanges(): boolean {
+        return this.editor?.hasUnsavedChanges() ?? false;
+    }
 }

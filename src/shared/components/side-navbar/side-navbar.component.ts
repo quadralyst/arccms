@@ -111,7 +111,7 @@ export default class NavbarComponent extends BaseComponent {
     /** The site's name and logo (core/brand/site-brand.ts); nothing until they are in, so Arc CMS's never flashes. */
     private readonly siteBrand = inject(SiteBrandService);
     readonly brand = this.siteBrand.brand;
-    /** The build's version, under Logout (docs/app/version.html); '' for none. */
+    /** The build's version, under Sign out (docs/app/version.html); '' for none. */
     versionText = panelVersion(APP_VERSION, CUSTOM_BRAND);
     /** The logo to show: the site's, or Arc CMS's small one when the site has set neither. */
     readonly panelLogo = computed(() => {
@@ -215,16 +215,16 @@ export default class NavbarComponent extends BaseComponent {
             feature: 'forms' as const,
             subItems: [
                 { label: 'Dashboard', labelKey: 'admin.nav.dashboard', route: `/admin/waitlists/dashboard/${w.id}`, icon: 'fa-solid fa-gauge-high' } as MenuItem,
-                { label: 'Users', labelKey: 'admin.nav.users', route: `/admin/waitlists/users/${w.id}`, icon: 'fa-solid fa-users', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
+                { label: 'Sign-ups', labelKey: 'admin.nav.sign_ups', route: `/admin/waitlists/users/${w.id}`, icon: 'fa-solid fa-users', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
                 // The form's list hub (U4): its audience, broadcast history and
                 // sequence. The list id mirrors the form id (`waitlistListId()`).
                 { label: 'Audience & emails', labelKey: 'admin.nav.audience_and_emails', route: `/admin/lists/waitlist-${w.id}`, icon: 'fa-solid fa-paper-plane', feature: 'audience' } as MenuItem,
                 { label: 'Tags', labelKey: 'admin.nav.tags', route: `/admin/waitlists/tags`, icon: 'fa-solid fa-tags', queryParams: { waitlistId: w.id, waitlistName: w.name, returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
-                { label: 'Email Templates', labelKey: 'admin.nav.email_templates', route: `/admin/waitlists/templates/${w.id}`, icon: 'fa-solid fa-envelope', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
+                { label: 'Email templates', labelKey: 'admin.nav.email_templates', route: `/admin/waitlists/templates/${w.id}`, icon: 'fa-solid fa-envelope', queryParams: { returnUrl: `/admin/waitlists/dashboard/${w.id}` } } as MenuItem,
             ]
         })).sort((a: MenuItem, b: MenuItem) => (a.label || '').localeCompare(b.label || ''));
 
-        // Dashboard, Signup Forms and each form's own group, Media Manager, then
+        // Dashboard, Forms and each form's own group, Media, then
         // Content between separators, then the rest. The legacy Subscribers link
         // is gone (U6): it viewed the frozen `WaitlistedUsers` collection, and
         // Audience → Contacts supersedes it.
@@ -240,7 +240,7 @@ export default class NavbarComponent extends BaseComponent {
         // The app's own items (src/custom/nav.ts), before Profile.
         insertCustomNav(items, withoutFeaturesOff(CUSTOM_NAV));
         // Then the app's changes for this person's role (src/custom/nav-changes.ts), which can
-        // neither bring back an item of a feature that is off nor take away Profile or Logout.
+        // neither bring back an item of a feature that is off nor take away Profile or Sign out.
         const changed = applyNavChanges(items, appNavChanges().admin, this.authStore.currentUser()?.role, ADMIN_LOCKS);
         // A separator before Profile, wherever it is; then none leading, trailing or doubled.
         const profileIndex = changed.findIndex(i => i.id === 'profile');
@@ -277,7 +277,14 @@ export default class NavbarComponent extends BaseComponent {
         return this.transloco.translate(key);
     }
 
-    /** What a screen reader says for the version under Logout: "Version v1.2.0.25". */
+    /** The profile link's name while the panel is collapsed and shows only the picture. */
+    profileLabel(): string {
+        this.activeLang();
+        this.translationsLoaded();
+        return this.transloco.translate('admin.nav.profile');
+    }
+
+    /** What a screen reader says for the version under Sign out: "Version v1.2.0.25". */
     versionLabel(): string {
         this.activeLang();
         this.translationsLoaded();
@@ -376,8 +383,12 @@ export default class NavbarComponent extends BaseComponent {
                 panelType: 'warn',
             },
         });
-        dialogRef.afterClosed().subscribe((result: any) => {
+        dialogRef.afterClosed().subscribe(async (result: any) => {
             if (!!result) {
+                // Leave the page first, so a page with unsaved work can ask
+                // (Stay keeps the person signed in), then sign out.
+                const left = await this.router.navigate(['/signup']);
+                if (left === false) return;
                 this.authStore.logout().subscribe({
                     next: () => {
                         this.toastService.openCustomSnackbar(this.transloco.translate('admin.nav.logout_success'), 'success', 'check_circle');

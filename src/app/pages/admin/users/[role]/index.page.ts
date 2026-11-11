@@ -8,7 +8,7 @@ import UsersListComponent from '../index.page';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Users by Role',
+    title: 'Users',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

@@ -1,86 +1,90 @@
 <div class="side-panel">
   <div class="panel-header">
-    <h5 class="mb-0">User Details</h5>
-    <button class="close-btn" (click)="closePanel()">
-      <i class="fas fa-times"></i>
+    <h5 class="mb-0">{{ 'admin.forms.detail.title' | transloco }}</h5>
+    <button type="button" class="close-btn" (click)="closePanel()" [attr.aria-label]="'common.actions.close' | transloco">
+      <i class="fas fa-times" aria-hidden="true"></i>
     </button>
   </div>
 
   @if(user) {
   <div class="panel-content">
-    <!-- User Info Section -->
+    <!-- The person -->
     <div class="section">
-      <div class="section-title">User Information</div>
+      <div class="section-title">{{ 'admin.forms.detail.person' | transloco }}</div>
 
       <div class="detail-row">
-        <label>Name:</label>
+        <label>{{ 'common.table.name' | transloco }}:</label>
         <div class="copyable-value">
           <span>{{ user.firstName || "-" }}</span>
           @if(user.firstName) {
           <button
+            type="button"
             class="btn-copy"
             (click)="copyToClipboard(user.firstName)"
-            title="Copy name"
+            [title]="'admin.forms.detail.copy_name' | transloco"
+            [attr.aria-label]="'admin.forms.detail.copy_name' | transloco"
           >
-            <i class="fas fa-copy"></i>
+            <i class="fas fa-copy" aria-hidden="true"></i>
           </button>
           }
         </div>
       </div>
 
       <div class="detail-row">
-        <label>Email:</label>
+        <label>{{ 'common.table.email' | transloco }}:</label>
         <div class="copyable-value">
           <span>{{ user.email }}</span>
           <button
+            type="button"
             class="btn-copy"
             (click)="copyToClipboard(user.email)"
-            title="Copy email"
+            [title]="'admin.forms.detail.copy_email' | transloco"
+            [attr.aria-label]="'admin.forms.detail.copy_email' | transloco"
           >
-            <i class="fas fa-copy"></i>
+            <i class="fas fa-copy" aria-hidden="true"></i>
           </button>
         </div>
       </div>
 
       <div class="detail-row">
-        <label>Email Verified:</label>
+        <label>{{ 'admin.forms.detail.email_checked' | transloco }}:</label>
         <span
           class="status-badge"
           [class.verified]="user.emailVerified"
           [class.pending]="!user.emailVerified"
         >
-          {{ user.emailVerified ? "Yes" : "No" }}
+          {{ (user.emailVerified ? 'common.yes' : 'common.no') | transloco }}
         </span>
       </div>
 
       <div class="detail-row">
-        <label>Status:</label>
+        <label>{{ 'common.table.status' | transloco }}:</label>
         <span
           class="status-badge"
           [class.confirmed]="user.isConfirmed"
           [class.pending]="!user.isConfirmed"
         >
-          {{ user.isConfirmed ? "Confirmed" : "Pending" }}
+          {{ (user.isConfirmed ? 'admin.forms.status.confirmed' : 'admin.forms.status.pending') | transloco }}
         </span>
       </div>
 
       <div class="detail-row">
-        <label>Signed Up:</label>
+        <label>{{ 'admin.forms.signups.col.signed_up' | transloco }}:</label>
         <span>{{ formatDate(user.signupTimestamp) }}</span>
       </div>
 
       @if(user.verifiedAt) {
       <div class="detail-row">
-        <label>Verified At:</label>
+        <label>{{ 'admin.forms.detail.checked_on' | transloco }}:</label>
         <span>{{ formatDate(user.verifiedAt) }}</span>
       </div>
       }
     </div>
 
-    <!-- Dynamic Form Data Section -->
+    <!-- Their answers -->
     @if(formDataEntries().length > 0) {
     <div class="section">
-      <div class="section-title">Form Submissions</div>
+      <div class="section-title">{{ 'admin.forms.detail.answers' | transloco }}</div>
 
       @for(entry of formDataEntries(); track entry.key) {
       <div class="detail-row">
@@ -91,16 +95,16 @@
     </div>
     }
 
-    <!-- Signup Metadata Section -->
+    <!-- Where they came from -->
     @if(hasSignupMetadata()) {
     <div class="section">
-      <div class="section-title">Signup Metadata</div>
+      <div class="section-title">{{ 'admin.forms.detail.metadata' | transloco }}</div>
 
       @for(entry of metadataEntries(); track entry.key) {
       <div class="detail-row">
         <label>
           @if(entry.icon) {
-          <i class="fas {{ entry.icon }} me-1"></i>
+          <i class="fas {{ entry.icon }} me-1" aria-hidden="true"></i>
           }
           {{ entry.label }}:
         </label>
@@ -110,28 +114,28 @@
     </div>
     }
 
-    <!-- Tags Section -->
+    <!-- Tags -->
     <div class="section">
-      <div class="section-title">Tags</div>
+      <div class="section-title">{{ 'admin.forms.signups.col.tags' | transloco }}</div>
 
-      <!-- Selected Tags -->
       <div class="tags-container">
         @for(tag of selectedTags(); track tag.id) {
         <span class="tag-badge" [style.background-color]="tag.color">
           {{ tag.label }}
-          <button type="button" class="tag-remove-btn" (click)="removeTag(tag)">
-            ×
+          <button type="button" class="tag-remove-btn" (click)="removeTag(tag)"
+            [attr.aria-label]="'admin.forms.detail.remove_tag' | transloco: { name: tag.label }">
+            <span aria-hidden="true">×</span>
           </button>
         </span>
         }
       </div>
 
-      <!-- Tag Search Input -->
       <div class="tag-search-wrapper">
         <input
           type="text"
           class="form-control form-control-sm"
-          placeholder="Search or create tags..."
+          [placeholder]="'admin.forms.detail.tag_search' | transloco"
+          [attr.aria-label]="'admin.forms.detail.tag_search' | transloco"
           [value]="tagSearchTerm()"
           (input)="onTagSearchInput($event)"
           (focus)="onTagSearchFocus()"
@@ -139,7 +143,6 @@
           (keyup.enter)="createTag()"
         />
 
-        <!-- Autocomplete Dropdown -->
         @if(showTagDropdown()) {
         <div class="tag-dropdown">
           @if(filteredTags().length > 0) { @for(tag of filteredTags(); track
@@ -153,15 +156,14 @@
           </div>
           } }
 
-          <!-- Create New Tag Option -->
           @if(tagSearchTerm() && !hasMatchingTag()) {
           <div class="tag-option create-new" (mousedown)="createTag()">
-            <i class="fas fa-plus me-2"></i>
-            Create "{{ tagSearchTerm() }}"
+            <i class="fas fa-plus me-2" aria-hidden="true"></i>
+            {{ 'admin.forms.detail.tag_create' | transloco: { name: tagSearchTerm() } }}
           </div>
           } @if(!filteredTags().length && !tagSearchTerm()) {
           <div class="tag-option text-muted">
-            Start typing to search or create tags
+            {{ 'admin.forms.detail.tag_hint' | transloco }}
           </div>
           }
         </div>
@@ -170,16 +172,15 @@
 
       @if(isSavingTags()) {
       <small class="text-muted"
-        ><i class="fas fa-spinner fa-spin"></i> Saving...</small
+        ><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> {{ 'common.actions.saving' | transloco }}</small
       >
       }
     </div>
 
-    <!-- Notes/Journal Section -->
+    <!-- Notes -->
     <div class="section">
-      <div class="section-title">Notes</div>
+      <div class="section-title">{{ 'admin.forms.detail.notes' | transloco }}</div>
 
-      <!-- Notes List (displayed first) -->
       @if(isLoadingNotes()) {
       <arc-loader></arc-loader>
       } @else if(notes().length > 0) {
@@ -187,53 +188,58 @@
         @for(note of notes(); track note.id) {
         <div class="note-item">
           @if(editingNoteId() === note.id) {
-          <!-- Edit Mode -->
           <div class="note-edit-wrapper">
             <textarea
               class="form-control"
               rows="3"
+              [attr.aria-label]="'admin.forms.detail.edit_note' | transloco"
               [value]="editNoteContent()"
               (input)="editNoteContent.set($any($event.target).value)"
               [disabled]="isSavingNote()"
             ></textarea>
             <div class="note-edit-actions">
               <button
+                type="button"
                 class="btn btn-secondary btn-sm"
                 (click)="cancelEditNote()"
                 [disabled]="isSavingNote()"
               >
-                Cancel
+                {{ 'common.actions.cancel' | transloco }}
               </button>
               <button
+                type="button"
                 class="btn btn-primary btn-sm"
                 (click)="saveEditedNote(note)"
                 [disabled]="!editNoteContent().trim() || isSavingNote()"
               >
                 @if(isSavingNote()) {
-                <i class="fas fa-spinner fa-spin"></i>
+                <i class="fas fa-spinner fa-spin" aria-hidden="true"></i> {{ 'common.actions.saving' | transloco }}
                 } @else {
-                <i class="fas fa-check"></i> Save }
+                <i class="fas fa-check" aria-hidden="true"></i> {{ 'common.actions.save' | transloco }} }
               </button>
             </div>
           </div>
           } @else {
-          <!-- View Mode -->
           <div class="note-header">
             <span class="note-date">{{ formatDate(note.createdAt) }}</span>
             <div class="note-actions">
               <button
+                type="button"
                 class="btn-edit-note"
                 (click)="startEditNote(note)"
-                title="Edit"
+                [title]="'admin.forms.detail.edit_note' | transloco"
+                [attr.aria-label]="'admin.forms.detail.edit_note' | transloco"
               >
-                <i class="fas fa-pen"></i>
+                <i class="fas fa-pen" aria-hidden="true"></i>
               </button>
               <button
+                type="button"
                 class="btn-delete-note"
                 (click)="deleteNote(note)"
-                title="Delete"
+                [title]="'admin.forms.detail.delete_note' | transloco"
+                [attr.aria-label]="'admin.forms.detail.delete_note' | transloco"
               >
-                <i class="fas fa-trash"></i>
+                <i class="fas fa-trash" aria-hidden="true"></i>
               </button>
             </div>
           </div>
@@ -244,36 +250,37 @@
       </div>
       } @else {
       <div class="notes-empty">
-        <i class="fas fa-sticky-note"></i>
-        <p>No notes yet</p>
+        <i class="fas fa-sticky-note" aria-hidden="true"></i>
+        <p>{{ 'admin.forms.detail.notes_empty' | transloco }}</p>
       </div>
       }
 
-      <!-- Add Note (at bottom) -->
       <div class="note-input-wrapper mt-3">
         <textarea
           class="form-control"
           rows="2"
-          placeholder="Add a new note..."
+          [placeholder]="'admin.forms.detail.note_placeholder' | transloco"
+          [attr.aria-label]="'admin.forms.detail.note_placeholder' | transloco"
           [value]="newNoteContent()"
           (input)="newNoteContent.set($any($event.target).value)"
           [disabled]="isSavingNote()"
         ></textarea>
         <button
+          type="button"
           class="btn btn-primary btn-sm mt-2"
           (click)="addNote()"
           [disabled]="!newNoteContent().trim() || isSavingNote()"
         >
           @if(isSavingNote()) {
-          <i class="fas fa-spinner fa-spin"></i> Adding... } @else {
-          <i class="fas fa-plus"></i> Add Note }
+          <i class="fas fa-spinner fa-spin" aria-hidden="true"></i> {{ 'common.actions.saving' | transloco }} } @else {
+          <i class="fas fa-plus" aria-hidden="true"></i> {{ 'admin.forms.detail.add_note' | transloco }} }
         </button>
       </div>
     </div>
   </div>
   } @else {
   <div class="panel-content">
-    <p class="text-muted">Loading...</p>
+    <p class="text-muted">{{ 'common.state.loading' | transloco }}</p>
   </div>
   }
 </div>

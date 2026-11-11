@@ -7,6 +7,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Firestore } from '@angular/fire/firestore';
 import { NEVER, of } from 'rxjs';
 import MediaManagerComponent, { MediaDialogData } from './media.page';
+import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
 import { MediaManagerService } from './media-manager.service';
 import { MediaManagerStore } from './media-manager.store';
 import { MediaFilesService } from './media-files.service';
@@ -67,6 +68,7 @@ describe('MediaManagerComponent cropping', () => {
     let fileUpload: any;
     let store: any;
     let mediaService: any;
+    const confirmDialog = { ask: vi.fn(async () => true) };
 
     async function create(data: MediaDialogData) {
         dialogRef = { close: vi.fn() };
@@ -89,6 +91,7 @@ describe('MediaManagerComponent cropping', () => {
             isUnsplashConfigured: vi.fn().mockResolvedValue(true),
             warmupUnsplash: vi.fn(),
             readMediaImage: vi.fn().mockResolvedValue(new Blob(['xl'], { type: 'image/webp' })),
+            mediaUsage: vi.fn().mockResolvedValue({ count: 0, titles: [] }),
         };
 
         await TestBed.configureTestingModule({
@@ -98,6 +101,7 @@ describe('MediaManagerComponent cropping', () => {
                 { provide: MediaManagerStore, useValue: store },
                 { provide: FileUploadService, useValue: fileUpload },
                 { provide: MatDialog, useValue: { open: vi.fn() } },
+                { provide: ConfirmService, useValue: confirmDialog },
                 { provide: MatDialogRef, useValue: dialogRef },
                 { provide: MAT_DIALOG_DATA, useValue: data },
                 { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn(), openCustomSnackbar: vi.fn() } },
@@ -125,6 +129,49 @@ describe('MediaManagerComponent cropping', () => {
     }
 
     afterEach(() => fixture?.destroy());
+
+    describe('delete warns when content uses the image (RF4, 4.13)', () => {
+        beforeEach(async () => {
+            confirmDialog.ask.mockReset().mockResolvedValue(true);
+            await create({ isDialogOpen: true });
+        });
+        const asked = () => (confirmDialog.ask.mock.calls.at(-1) as any[])[0];
+
+        it('names how many entries use it, and the admin can still delete', async () => {
+            mediaService.mediaUsage.mockResolvedValue({ count: 3, titles: ['Home', 'About <b>us</b>'] });
+            await component.confirmationToDeleteItem(upload);
+            expect(mediaService.mediaUsage).toHaveBeenCalledWith({ mediaId: upload.id });
+            expect(asked().panelType).toBe('warn');
+            expect(asked().dialogMessage).toContain('It is used in 3 entries, which will show a broken image.');
+            expect(asked().dialogMessage).toContain('Home, About &lt;b&gt;us&lt;/b&gt;, …');
+            expect(fileUpload.deleteMediaItem).toHaveBeenCalledWith(upload.id);
+        });
+
+        it('says "20 or more" when the check stopped at its cap', async () => {
+            mediaService.mediaUsage.mockResolvedValue({ count: 20, titles: ['Home'], more: true });
+            await component.confirmationToDeleteItem(upload);
+            expect(asked().dialogMessage).toContain('It is used in 20 or more entries, which will show a broken image.');
+            expect(asked().dialogMessage).toContain('Home, …');
+        });
+
+        it('says nothing more when nothing uses it', async () => {
+            await component.confirmationToDeleteItem(upload);
+            expect(asked().dialogMessage).not.toContain('used in');
+            expect(asked().dialogMessage).not.toContain('Could not check');
+        });
+
+        it('says it could not check, rather than that nothing uses it', async () => {
+            mediaService.mediaUsage.mockResolvedValue(null);
+            await component.confirmationToDeleteItem(upload);
+            expect(asked().dialogMessage).toContain('Could not check whether any entries use it.');
+        });
+
+        it('deletes nothing when cancelled', async () => {
+            confirmDialog.ask.mockResolvedValueOnce(false);
+            await component.confirmationToDeleteItem(upload);
+            expect(fileUpload.deleteMediaItem).not.toHaveBeenCalled();
+        });
+    });
 
     describe('who can crop', () => {
         beforeEach(() => create({ isDialogOpen: true }));
@@ -263,7 +310,8 @@ describe('MediaManagerComponent cropping', () => {
             await component.applyCrop();
             expect(component.isCropping).toBe(true);
             expect(component.isSavingCrop).toBe(false);
-            expect(component.notify.error).toHaveBeenCalledWith('admin.media.crop.save_failed', { reason: expect.stringContaining('exceeds') });
+            // In plain words, not the service's English: the limit, in MB (RF5 5.2).
+            expect(component.notify.error).toHaveBeenCalledWith('admin.media.crop.save_failed', { reason: 'It is larger than 5 MB, even after resizing.' });
             expect(store.addBatch).not.toHaveBeenCalled();
         });
 
@@ -275,7 +323,8 @@ describe('MediaManagerComponent cropping', () => {
             await component.applyCrop();
             expect(fileUpload.uploadCroppedCopy).not.toHaveBeenCalled();
             expect(component.isSavingCrop).toBe(false);
-            expect(component.notify.error).toHaveBeenCalledWith('admin.media.crop.save_failed', { reason: 'The image file is missing from Storage.' });
+            // The server's own text stays in the console; the admin reads "Try again." (RF5 5.2).
+            expect(component.notify.error).toHaveBeenCalledWith('admin.media.crop.save_failed', { reason: 'Try again.' });
         });
 
         it('warns when the crop is smaller than the picked size', () => {

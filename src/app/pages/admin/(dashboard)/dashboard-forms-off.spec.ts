@@ -1,7 +1,7 @@
 /**
  * Signup forms switched off (off: ['forms'] in src/custom/features.ts): the
- * dashboard drops the "Recent Waitlist Signups" table and does not read it,
- * while the audience's own Total Signups card stays (specs/feature-flags-spec.md).
+ * dashboard drops the "Recent sign-ups" table and does not read it,
+ * while the audience's own Sign-ups card stays (specs/feature-flags-spec.md).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
@@ -54,7 +54,7 @@ describe('dashboard with signup forms off', () => {
                 },
                 { provide: ActivatedRoute, useValue: { paramMap: of({ get: vi.fn(), keys: [] }) } },
                 { provide: AnalyticsStore, useValue: { items: signal([]), isLoading: signal(false), getAll: vi.fn(), unsubscribeStore: vi.fn() } },
-                { provide: ContentTypesStore, useValue: { items: signal([]), isLoading: signal(false), getAll: vi.fn(), unsubscribeStore: vi.fn() } },
+                { provide: ContentTypesStore, useValue: { items: signal([]), isLoading: signal(false), isSuccess: signal(true), getAll: vi.fn(), unsubscribeStore: vi.fn() } },
                 { provide: DraftContentsService, useValue: count },
                 { provide: MediaManagerService, useValue: count },
                 { provide: UserService, useValue: count },
@@ -92,7 +92,7 @@ describe('dashboard with signup forms off', () => {
         expect(waitlists.subscribe).not.toHaveBeenCalled();
     });
 
-    it('keeps the Total Signups card, which counts the audience', () => {
+    it('keeps the Sign-ups card, which counts the audience', () => {
         expect(audience.countContacts).toHaveBeenCalled();
     });
 

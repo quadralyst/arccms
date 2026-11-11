@@ -1,8 +1,8 @@
 /**
- * Email Templates Page
- * 
- * Admin page for managing email templates per waitlist.
- * Supports OTP, Welcome templates and Broadcast history with creation.
+ * A form's emails
+ *
+ * The sign-up code email and the welcome email of one form, and a pointer to
+ * where its broadcasts are sent from now (the form's list).
  */
 
 import { RouteMeta } from '@analogjs/router';
@@ -22,7 +22,8 @@ import { EmailTemplateEditorComponent } from '../../../../../shared/components/e
 import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
 import { MatChipsModule } from '@angular/material/chips';
 import { EmailConfigStatusService } from '../../../../../shared/services/email-config-status.service';
-import { ToastService } from '../../../../../shared/services/toast.service';
+import { NotifyService } from '../../../../../shared/services/notify.service';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { TestEmailComponent } from '../../../../../shared/components/test-email/test-email.component';
 import { roleGuard } from '../../../../guards/role.guard';
 import { EmailSettingService } from '../../(settings)/email-setting/email-setting.service';
@@ -32,7 +33,7 @@ import { arcCallable } from '../../../../core/config/arc-functions';
 import { SiteBrandService } from '../../../../core/brand/site-brand';
 
 export const routeMeta: RouteMeta = {
-    title: 'Email Templates',
+    title: 'Form emails',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -44,7 +45,7 @@ type TemplateType = 'waitlist_verify_otp_email' | 'waitlist_welcome_email' | 'wa
     templateUrl: './templates.page.html',
     styleUrls: ['./templates.page.scss'],
     standalone: true,
-    imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, MatDialogModule, EmailTemplateEditorComponent, MatChipsModule, BroadcastEmailEditorComponent, PageHeaderComponent, HashtagAutocompleteDirective],
+    imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, MatDialogModule, EmailTemplateEditorComponent, MatChipsModule, BroadcastEmailEditorComponent, PageHeaderComponent, HashtagAutocompleteDirective, TranslocoPipe],
 })
 export default class TemplatesComponent implements OnInit {
     private readonly route = inject(ActivatedRoute);
@@ -56,7 +57,8 @@ export default class TemplatesComponent implements OnInit {
     private readonly cdr = inject(ChangeDetectorRef);
     private readonly injector = inject(Injector);
     private readonly broadcastStore = inject(BroadcastEmailStore);
-    private readonly toastService = inject(ToastService);
+    private readonly notify = inject(NotifyService);
+    private readonly transloco = inject(TranslocoService);
     private emailSettingService = inject(EmailSettingService);
     /** The name shown while Settings, Email names no sender, which is the one the email goes out under. */
     readonly siteName = inject(SiteBrandService).name;
@@ -81,7 +83,6 @@ export default class TemplatesComponent implements OnInit {
     // For broadcast history
     broadcastHistory = signal<IBroadcastEmail[]>([]);
     loadingBroadcasts = signal(false);
-    waitlistUsers = signal<any[]>([]);
 
     // Show broadcast editor modal
     showBroadcastEditor = signal(false);
@@ -90,9 +91,9 @@ export default class TemplatesComponent implements OnInit {
     @ViewChild(EmailTemplateEditorComponent) emailTemplateEditor?: EmailTemplateEditorComponent;
 
     tabs: { key: TemplateType; label: string; icon: string }[] = [
-        { key: 'waitlist_verify_otp_email', label: 'OTP Verification', icon: 'fa-key' },
-        { key: 'waitlist_welcome_email', label: 'Welcome Email', icon: 'fa-envelope-open-text' },
-        { key: 'waitlist_broadcast_email', label: 'Broadcast', icon: 'fa-bullhorn' },
+        { key: 'waitlist_verify_otp_email', label: 'admin.forms.emails.tab_code', icon: 'fa-key' },
+        { key: 'waitlist_welcome_email', label: 'admin.forms.emails.tab_welcome', icon: 'fa-envelope-open-text' },
+        { key: 'waitlist_broadcast_email', label: 'admin.forms.emails.tab_broadcast', icon: 'fa-bullhorn' },
     ];
 
     ngOnInit(): void {
@@ -103,8 +104,8 @@ export default class TemplatesComponent implements OnInit {
             this.waitlistId.set(id);
             this.loadWaitlist(id);
             this.loadTemplates(id);
-            this.loadBroadcastHistory(id);
-            this.loadWaitlistUsers(id);
+            // Broadcasts and their recipients live on the form's list now (U4),
+            // so this page no longer reads the broadcast history or every sign-up.
             this.loadSettings();
         }
     }
@@ -125,7 +126,7 @@ export default class TemplatesComponent implements OnInit {
         try {
             const waitlistDoc = await runInInjectionContext(this.injector, () => getDoc(doc(this.firestore, 'Waitlists', waitlistId)));
             if (waitlistDoc.exists()) {
-                this.waitlistName.set(waitlistDoc.data()?.['name'] || 'Unknown Waitlist');
+                this.waitlistName.set(waitlistDoc.data()?.['name'] || '');
             }
         } catch (error) {
             console.error('Error loading waitlist:', error);
@@ -185,6 +186,7 @@ export default class TemplatesComponent implements OnInit {
             this.loadTemplateIntoForm(this.activeTab());
         } catch (error) {
             console.error('Error loading templates:', error);
+            this.notify.error('admin.forms.emails.load_failed');
         } finally {
             this.loading.set(false);
         }
@@ -214,29 +216,6 @@ export default class TemplatesComponent implements OnInit {
         }
     }
 
-    async loadWaitlistUsers(waitlistId: string): Promise<void> {
-        try {
-            const usersRef = runInInjectionContext(this.injector, () => collection(this.firestore, `Waitlists/${waitlistId}/users`));
-            const q = runInInjectionContext(this.injector, () => query(usersRef, orderBy('signupTimestamp', 'desc')));
-            const snapshot = await runInInjectionContext(this.injector, () => getDocs(q));
-
-            const users: any[] = [];
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                users.push({
-                    id: doc.id,
-                    name: data['firstName'] || data['email']?.split('@')[0] || '',
-                    email: data['email'] || '',
-                    ...data,
-                });
-            });
-
-            this.waitlistUsers.set(users);
-        } catch (error) {
-            console.error('Error loading waitlist users:', error);
-        }
-    }
-
     private loadSettings(): void {
         this.loading.set(true);
         this.emailSettingService.getEmailSettings().subscribe({
@@ -249,7 +228,7 @@ export default class TemplatesComponent implements OnInit {
             },
             error: (error) => {
                 console.error('Failed to load email settings:', error);
-                this.toastService.openCustomSnackbar('Failed to load settings', 'error', 'error');
+                this.notify.error('admin.forms.emails.settings_failed');
                 this.loading.set(false);
             },
         });
@@ -368,10 +347,10 @@ export default class TemplatesComponent implements OnInit {
                 await updateDoc(waitlistDocRef, { otpEnabled: formValue.isActive });
             }
 
-            this.toastService.success('Template saved successfully');
+            this.notify.success('admin.forms.emails.saved');
         } catch (error) {
             console.error('Error saving template:', error);
-            this.toastService.error('Failed to save template. Please try again.');
+            this.notify.error('admin.forms.emails.save_failed');
         } finally {
             this.saving.set(false);
         }
@@ -529,19 +508,14 @@ export default class TemplatesComponent implements OnInit {
         if (checkbox.checked) return; // enabling still needs an explicit Save
 
         const isOtp = this.activeTab() === 'waitlist_verify_otp_email';
-        const dialogMessage = isOtp
-            ? 'Turn off email verification for this form? New signups will not be sent a '
-              + 'code, and their email status will stay "Pending". This takes effect '
-              + 'immediately, so you do not need to save.'
-            : 'Turn off the welcome email for this form? New signups will no longer be '
-              + 'greeted. This takes effect immediately, so you do not need to save.';
+        const dialogMessage = this.transloco.translate(isOtp ? 'admin.forms.emails.code_off_confirm' : 'admin.forms.emails.welcome_off_confirm');
 
         this.dialog.open(ConfirmationPopupComponent, {
             width: '350px',
             data: {
-                dialogType: 'Confirm',
+                titleKey: 'common.dialog.confirm',
                 dialogMessage,
-                btnText: isOtp ? 'Turn off verification' : 'Turn off welcome email',
+                btnText: this.transloco.translate(isOtp ? 'admin.forms.emails.code_turn_off' : 'admin.forms.emails.welcome_turn_off'),
                 panelType: 'warn',
             },
         }).afterClosed().subscribe(async (confirmed: boolean) => {
@@ -565,7 +539,7 @@ export default class TemplatesComponent implements OnInit {
     openTestEmailDialog(): void {
         const templateContent = this.templateForm.get('template')?.value;
         if (!templateContent) {
-            this.toastService.error('Please add template content before sending a test email.');
+            this.notify.error('admin.forms.emails.test_needs_body');
             return;
         }
 

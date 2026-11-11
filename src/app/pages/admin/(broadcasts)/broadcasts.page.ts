@@ -12,13 +12,16 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
-import { statusBadgeClass } from '../../../../shared/utils/status-badge';
+import { statusBadgeClass, statusBadgeLabel } from '../../../../shared/utils/status-badge';
+import { injectT } from '../../../core/i18n/inject-t';
+import { isTranslationKey } from '../../../core/i18n/translatable.pipe';
 import { BroadcastService, BroadcastAudience, BroadcastRow } from './broadcast.service';
 import { AudienceService } from '../(audience)/audience.service';
 import { IList } from '../(audience)/audience.model';
@@ -30,7 +33,7 @@ import { Functions } from '@angular/fire/functions';
 import { HashtagAutocompleteDirective } from '../../../../shared/directives/hashtag-autocomplete/hashtag-autocomplete.directive';
 import { appFieldTags, EMAIL_TAG } from '../../../../shared/constants/email-tags';
 import { arcCallable } from '../../../core/config/arc-functions';
-import { APP_USERS_LIMIT_NOTE } from '../(app-users)/app-users-limit';
+import { MAX_APP_USERS } from '../(app-users)/app-users-limit';
 import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
@@ -45,7 +48,7 @@ export const routeMeta: RouteMeta = {
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule,
         MatFormFieldModule, MatSelectModule, MatSlideToggleModule, MatDialogModule,
         GlobalTableComponent, EmailBlockEditorComponent, PageHeaderComponent,
-        HashtagAutocompleteDirective,
+        HashtagAutocompleteDirective, TranslocoPipe,
     ],
     templateUrl: './broadcasts.page.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -60,6 +63,7 @@ export default class BroadcastsPageComponent implements OnInit {
     private sanitizer = inject(DomSanitizer);
     private route = inject(ActivatedRoute);
     private destroyRef = inject(DestroyRef);
+    private readonly t = injectT();
 
     /** 'list' shows past/scheduled broadcasts; 'compose' shows the editor. */
     mode = signal<'list' | 'compose'>('list');
@@ -67,6 +71,9 @@ export default class BroadcastsPageComponent implements OnInit {
     lists = signal<IList[]>([]);
     recent = signal<BroadcastRow[]>([]);
     loading = signal(true);
+    /** Set when the broadcasts did not load: the table says so and offers Retry. */
+    loadError = signal<string | boolean | null>(null);
+    private recentSub?: Subscription;
     brandKit = signal<IEmailBrandKit>({ ...DEFAULT_BRAND_KIT });
 
     private readonly baseTags = [EMAIL_TAG.NAME, EMAIL_TAG.EMAIL, EMAIL_TAG.UNSUBSCRIBE_LINK, EMAIL_TAG.PREFERENCES_LINK];
@@ -93,33 +100,35 @@ export default class BroadcastsPageComponent implements OnInit {
     eligible = signal<number | null>(null);
     /** A live list in the audience read only the first app users (review C2). */
     appUsersCapped = signal(false);
-    readonly limitNote = APP_USERS_LIMIT_NOTE;
+    readonly maxAppUsers = MAX_APP_USERS.toLocaleString();
     previewing = signal(false);
     sending = signal(false);
 
-    starterDesign: EmailDesign = { blocks: [
-        { id: 'h', type: 'heading', text: 'Big news', level: 1 },
-        { id: 'p', type: 'paragraph', html: 'Hi ##NAME##, here is what is new…' },
-    ] };
+    /** The first blocks of a new broadcast, in the admin's language (set on compose). */
+    starterDesign: EmailDesign = { blocks: [] };
 
     columns: TableColumn[] = [
-        { key: 'subject', header: 'Subject', type: 'text', classFn: () => 'fw-medium', transformFn: (r) => r.subject || '(no subject)' },
         {
-            key: 'status', header: 'Status', type: 'html',
-            transformFn: (r) => `<span class="${statusBadgeClass(r.status)}">${r.status}</span>`,
+            key: 'subject', header: 'admin.broadcasts.subject', type: 'text', classFn: () => 'fw-medium',
+            transformFn: (r) => r.subject || this.t('admin.broadcasts.no_subject'),
         },
         {
-            key: 'results', header: 'Results', type: 'text', classFn: () => 'small',
+            key: 'status', header: 'common.table.status', type: 'badge',
+            badgeConfig: { textFn: (r) => this.statusText(r.status) },
+            classFn: (r) => statusBadgeClass(r.status),
+        },
+        {
+            key: 'results', header: 'admin.broadcasts.col_results', type: 'text', classFn: () => 'small',
             transformFn: (r) => r.status === 'completed'
-                ? `${r.sentCount || 0} sent · ${r.skippedCount || 0} skipped · ${r.failedCount || 0} failed`
+                ? this.t('admin.broadcasts.results', { sent: r.sentCount || 0, skipped: r.skippedCount || 0, failed: r.failedCount || 0 })
                 : '-',
         },
-        { key: 'scheduledAt', header: 'Scheduled', type: 'date', dateFormat: 'MMM d, y, h:mm a' },
+        { key: 'scheduledAt', header: 'admin.broadcasts.col_scheduled', type: 'date', dateFormat: 'MMM d, y, h:mm a' },
         {
-            key: 'actions', header: 'Actions', type: 'actions',
+            key: 'actions', header: 'common.table.actions', type: 'actions',
             actions: [
                 {
-                    action: 'cancel', icon: 'fas fa-ban text-danger', label: 'Cancel', class: 'delete',
+                    action: 'cancel', icon: 'fas fa-ban text-danger', label: 'admin.broadcasts.cancel_broadcast', class: 'delete',
                     hide: (row) => row.status !== 'scheduled', onAction: (row) => this.confirmCancel(row),
                 },
             ],
@@ -131,10 +140,7 @@ export default class BroadcastsPageComponent implements OnInit {
             this.lists.set(l);
             void this.refreshTags();
         });
-        this.service.watchRecent().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((r) => {
-            this.recent.set(r);
-            this.loading.set(false);
-        });
+        this.load();
         this.brandKitService.getBrandKit().subscribe((k) => this.brandKit.set(k));
 
         // Arriving from a list hub's "New broadcast to this list" (U4): open the
@@ -143,7 +149,38 @@ export default class BroadcastsPageComponent implements OnInit {
         if (listId) this.startCompose(listId);
     }
 
+    /** Read the latest broadcasts (live). Retry calls it again after a failed read. */
+    load(): void {
+        this.recentSub?.unsubscribe();
+        this.loading.set(true);
+        this.loadError.set(null);
+        this.recentSub = this.service.watchRecent(20, { surfaceErrors: true })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+                next: (r) => {
+                    this.recent.set(r);
+                    this.loadError.set(null);
+                    this.loading.set(false);
+                },
+                error: () => {
+                    // The service logged the detail.
+                    this.loadError.set(true);
+                    this.loading.set(false);
+                },
+            });
+    }
+
+    /** A broadcast's status in the admin's language. */
+    statusText(status: string): string {
+        const key = `admin.broadcasts.status.${status}`;
+        return isTranslationKey(key) ? this.t(key) : statusBadgeLabel(status);
+    }
+
     startCompose(presetListId = ''): void {
+        this.starterDesign = { blocks: [
+            { id: 'h', type: 'heading', text: this.t('admin.broadcasts.starter_heading'), level: 1 },
+            { id: 'p', type: 'paragraph', html: this.t('admin.broadcasts.starter_text') },
+        ] };
         this.subject = '';
         this.includeListIds = presetListId ? [presetListId] : [];
         this.excludeListIds = [];
@@ -198,7 +235,7 @@ export default class BroadcastsPageComponent implements OnInit {
     }
 
     async preview(): Promise<void> {
-        if (!this.includeListIds.length) { this.toast.error('Pick at least one list first'); return; }
+        if (!this.includeListIds.length) { this.toast.error(this.t('admin.broadcasts.pick_list')); return; }
         this.previewing.set(true);
         try {
             const res = await this.service.previewAudience(this.buildAudience());
@@ -206,7 +243,7 @@ export default class BroadcastsPageComponent implements OnInit {
             this.appUsersCapped.set(!!res.data.appUsersCapped);
         } catch (e) {
             console.error(e);
-            this.toast.error('Failed to preview audience');
+            this.toast.error(this.t('admin.broadcasts.preview_failed'));
         } finally {
             this.previewing.set(false);
         }
@@ -214,29 +251,29 @@ export default class BroadcastsPageComponent implements OnInit {
 
     onContentSaved(e: BlockEditorSaveEvent): void {
         this.content.set(e);
-        this.toast.success('Content captured, ready to send');
+        this.toast.success(this.t('admin.broadcasts.content_saved'));
     }
 
     async onTestSend(e: BlockEditorSaveEvent): Promise<void> {
-        const subject = this.subject || 'Test broadcast';
+        const subject = this.subject || this.t('admin.broadcasts.test_subject');
         const to = await firstValueFrom(
             this.dialog.open(TestSendDialogComponent, { width: '420px', data: { subject } }).afterClosed(),
         );
         if (!to) return;
         try {
             await arcCallable(this.functions, 'sendTestEmail')({ toEmail: to, subject, html: e.html });
-            this.toast.success('Test queued');
+            this.toast.success(this.t('admin.broadcasts.test_queued'));
         } catch (err) {
             console.error(err);
-            this.toast.error('Failed to send test');
+            this.toast.error(this.t('admin.broadcasts.test_failed'));
         }
     }
 
     async send(): Promise<void> {
-        if (!this.subject.trim()) { this.toast.error('Add a subject'); return; }
-        if (!this.includeListIds.length) { this.toast.error('Pick at least one list'); return; }
+        if (!this.subject.trim()) { this.toast.error(this.t('admin.broadcasts.add_subject')); return; }
+        if (!this.includeListIds.length) { this.toast.error(this.t('admin.broadcasts.pick_list')); return; }
         const content = this.content();
-        if (!content) { this.toast.error('Click Save in the editor to capture content first'); return; }
+        if (!content) { this.toast.error(this.t('admin.broadcasts.save_content_first')); return; }
         this.sending.set(true);
         try {
             const scheduledAt = this.schedule && this.scheduledAt ? new Date(this.scheduledAt) : null;
@@ -246,11 +283,11 @@ export default class BroadcastsPageComponent implements OnInit {
                 audience: this.buildAudience(),
                 scheduledAt,
             });
-            this.toast.success(scheduledAt ? 'Broadcast scheduled' : 'Broadcast queued');
+            this.toast.success(this.t(scheduledAt ? 'admin.broadcasts.scheduled' : 'admin.broadcasts.queued'));
             this.mode.set('list');
         } catch (e) {
             console.error(e);
-            this.toast.error('Failed to create broadcast');
+            this.toast.error(this.t('admin.broadcasts.create_failed'));
         } finally {
             this.sending.set(false);
         }
@@ -258,19 +295,22 @@ export default class BroadcastsPageComponent implements OnInit {
 
     confirmCancel(row: BroadcastRow): void {
         const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Cancel the scheduled broadcast <strong>${escapeHtml(row.subject || '(no subject)')}</strong>?`,
+            this.t('admin.broadcasts.cancel_confirm', { subject: escapeHtml(row.subject || this.t('admin.broadcasts.no_subject')) }),
         );
         this.dialog.open(ConfirmationPopupComponent, {
             width: '350px',
-            data: { dialogType: 'Confirm', dialogMessage: msg, btnText: 'Cancel broadcast', panelType: 'warn' },
+            data: {
+                dialogType: 'Confirm', titleKey: 'admin.broadcasts.cancel_title', dialogMessage: msg,
+                btnText: this.t('admin.broadcasts.cancel_broadcast'), panelType: 'warn',
+            },
         }).afterClosed().subscribe(async (result: boolean) => {
             if (!result) return;
             try {
                 await this.service.cancel(row.id);
-                this.toast.success('Broadcast cancelled');
+                this.toast.success(this.t('admin.broadcasts.cancelled'));
             } catch (e) {
                 console.error(e);
-                this.toast.error('Failed to cancel');
+                this.toast.error(this.t('admin.broadcasts.cancel_failed'));
             }
         });
     }

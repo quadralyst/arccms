@@ -17,7 +17,7 @@ import {
 } from '@angular/core';
 import { FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
-import { TranslocoService } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { Editor, Extension, Node } from '@tiptap/core';
@@ -131,7 +131,7 @@ export interface EditorActionPayload {
 @Component({
   selector: 'app-tiptap-editor',
   standalone: true,
-  imports: [TiptapEditorDirective, TiptapBubbleMenuDirective, CommonModule, FormsModule, MatIconModule, MatTooltip, OverlayModule],
+  imports: [TiptapEditorDirective, TiptapBubbleMenuDirective, CommonModule, FormsModule, MatIconModule, MatTooltip, OverlayModule, TranslocoPipe],
   templateUrl: './tiptap-editor.component.html',
   styleUrl: './tiptap-editor.component.scss',
   providers: [
@@ -514,7 +514,7 @@ export default class TiptapEditorComponent {
         TableKit.configure({ table: { resizable: false } }),
         // Structured blocks: FAQ, key takeaways, how-to, definition (D-D10).
         ArcBlock,
-        SlashCommands,
+        SlashCommands.configure({ translate: (key) => this.transloco.translate(key) }),
         Youtube,
         YouTubeExt,
         Youtube.configure({
@@ -658,8 +658,9 @@ export default class TiptapEditorComponent {
   }
 
   openToAddUrlModal(type: any): void {
-    const msg = 'Add url whatever you want.';
-    const placeholder = type === 'youtube' ? 'Youtube' : 'Link';
+    // Translation keys; the dialog translates them.
+    const msg = type === 'youtube' ? 'common.add_url.youtube_text' : 'common.add_url.link_text';
+    const placeholder = type === 'youtube' ? 'common.add_url.youtube' : 'common.add_url.link';
     const dialogRef = this.dialog.open(UrlAddDialog, {
       enterAnimationDuration: '450ms',
       exitAnimationDuration: '300ms',
@@ -671,9 +672,10 @@ export default class TiptapEditorComponent {
       disableClose: true,
     });
     dialogRef.afterClosed().subscribe((result) => {
-      if (result) {
+      // Cancel, or Add with the box empty, changes nothing.
+      if (!result) return;
+      if (type === 'youtube') {
         this.editor.commands.setYoutubeVideo({ src: result, width: 640, height: 360 });
-        this.editor.commands.setYoutubeVideo({ src: result });
       } else {
         this.editor.chain().focus().extendMarkRange('link').setLink({ href: result }).run();
       }

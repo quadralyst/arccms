@@ -10,17 +10,18 @@
 
     <mat-drawer-content>
         <div class="page-container">
-            <arc-page-header title="Drip Campaigns"
-                subtitle="Linear sequences per list. Joining a list enrolls a contact; leaving or unsubscribing exits them.">
+            <arc-page-header [title]="'admin.drips.title' | transloco"
+                [subtitle]="'admin.drips.subtitle' | transloco">
                 <button mat-flat-button color="primary" (click)="openAdd()">
-                    <mat-icon>add</mat-icon> New campaign
+                    <mat-icon aria-hidden="true">add</mat-icon> {{ 'admin.drips.new' | transloco }}
                 </button>
             </arc-page-header>
 
             <app-global-table [data]="campaigns()" [columns]="columns" [loading]="loading()"
-                emptyIcon="fas fa-droplet" emptyTitle="No campaigns yet"
-                emptyDescription="Create a drip campaign to send a timed sequence of emails when contacts join a list."
-                emptyActionLabel="New campaign" emptyActionIcon="fas fa-plus"
+                [error]="loadError()" (retry)="load()"
+                emptyIcon="fas fa-droplet" emptyTitle="admin.drips.empty_title"
+                emptyDescription="admin.drips.empty_text"
+                emptyActionLabel="admin.drips.new" emptyActionIcon="fas fa-plus"
                 (emptyActionClick)="openAdd()">
             </app-global-table>
         </div>

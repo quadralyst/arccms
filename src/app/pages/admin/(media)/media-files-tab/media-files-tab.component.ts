@@ -47,6 +47,8 @@ export class MediaFilesTabComponent {
     readonly totalItems = signal(0);
     readonly pageIndex = signal(0);
     readonly loading = signal(true);
+    /** The first load or a page change failed: the grid says so, with Retry, in place of "No files yet". */
+    readonly loadFailed = signal(false);
     readonly query = signal('');
     /** Every file's details, loaded on the first search of this visit. */
     readonly allItems = signal<IMediaFile[] | null>(null);
@@ -212,8 +214,14 @@ export class MediaFilesTabComponent {
         this.allItems.update((all) => (all ? swap(all) : all));
     }
 
+    /** Retry on the "did not load" line. */
+    retry(): void {
+        void this.loadPage(Math.min(this.pageIndex(), this.pageEnds.length));
+    }
+
     private async loadPage(index: number): Promise<void> {
         this.loading.set(true);
+        this.loadFailed.set(false);
         try {
             if (index === 0) this.pageEnds = [];
             const after = index > 0 ? this.pageEnds[index - 1] : undefined;
@@ -229,7 +237,9 @@ export class MediaFilesTabComponent {
             this.pageIndex.set(index);
         } catch (error) {
             console.error('Failed to load files:', error);
-            this.notify.error('admin.media.files.load_failed');
+            // Files already on screen stay, and a toast says the change failed; with none, the grid says so.
+            if (this.items().length) this.notify.error('admin.media.files.load_failed');
+            else this.loadFailed.set(true);
         } finally {
             this.loading.set(false);
         }

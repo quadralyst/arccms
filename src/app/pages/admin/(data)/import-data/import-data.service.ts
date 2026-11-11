@@ -19,11 +19,17 @@ import {
 } from '../data-constants';
 import { deserializeFirestoreValue } from '../data-serialization';
 import { ContentTypesService } from '../../contents/content-types/content-types.service';
+import { injectT } from '../../../../core/i18n/inject-t';
+
+/** A file the import cannot read, with a plain sentence for the admin as its message. */
+export class ImportFileError extends Error {}
 
 @Injectable({ providedIn: 'root' })
 export class ImportDataService {
     private db = inject(Firestore);
     private contentTypes = inject(ContentTypesService);
+    /** What the admin reads is in their language and plain; the technical detail goes to the console. */
+    private t = injectT();
 
     /**
      * Parse an uploaded JSON file into an ExportFormat object.
@@ -37,10 +43,10 @@ export class ImportDataService {
                     const data = JSON.parse(text) as ExportFormat;
                     resolve(data);
                 } catch {
-                    reject(new Error('Invalid JSON file. Please upload a valid export file.'));
+                    reject(new ImportFileError(this.t('admin.data.import.err_not_json')));
                 }
             };
-            reader.onerror = () => reject(new Error('Failed to read file.'));
+            reader.onerror = () => reject(new ImportFileError(this.t('admin.data.import.err_read')));
             reader.readAsText(file);
         });
     }
@@ -55,12 +61,12 @@ export class ImportDataService {
 
         // Check version
         if (!data.version) {
-            errors.push('Missing "version" field. This may not be a valid export file.');
+            errors.push(this.t('admin.data.import.err_no_version'));
         }
 
         // Check collections
         if (!data.collections || typeof data.collections !== 'object') {
-            errors.push('Missing or invalid "collections" field.');
+            errors.push(this.t('admin.data.import.err_no_collections'));
             return { isValid: false, version: data.version || 'unknown', errors, warnings, collectionSummary };
         }
 
@@ -71,7 +77,7 @@ export class ImportDataService {
             const isKnown = isKnownCollectionName(path);
 
             if (!isKnown) {
-                warnings.push(`Unknown collection "${path}". It will still be imported.`);
+                warnings.push(this.t('admin.data.import.warn_unknown', { path }));
             }
 
             collectionSummary.push({
@@ -83,10 +89,7 @@ export class ImportDataService {
 
         // Warn about users collection and Auth UID dependency
         if (data.collections['users']) {
-            warnings.push(
-                'The "users" collection contains Auth UID references (uid field). ' +
-                'If importing to a different Firebase project, user login may not work until Auth accounts are re-created.',
-            );
+            warnings.push(this.t('admin.data.import.warn_users'));
         }
 
         return {
@@ -151,7 +154,7 @@ export class ImportDataService {
         }
 
         progressCallback({
-            currentCollection: 'Complete',
+            currentCollection: this.t('admin.data.progress_done'),
             collectionsCompleted: sortedCollections.length,
             totalCollections: sortedCollections.length,
             documentsImported: result.totalImported,
@@ -182,6 +185,8 @@ export class ImportDataService {
             entries = refused.entries;
         }
         const BATCH_SIZE = 500;
+        // Users records not on this site, which an import cannot add (keepUserAccess).
+        let newUsers = 0;
 
         for (let i = 0; i < entries.length; i += BATCH_SIZE) {
             const chunk = entries.slice(i, i + BATCH_SIZE);
@@ -201,6 +206,16 @@ export class ImportDataService {
                         }
                     }
 
+                    if (collectionPath === USERS_COLLECTION) {
+                        const existingUser = await getDoc(docRef);
+                        if (!existingUser.exists()) {
+                            newUsers++;
+                            skipped++;
+                            continue;
+                        }
+                        keepUserAccess(deserializedData as Record<string, unknown>, existingUser.data() as Record<string, unknown> | undefined);
+                    }
+
                     if (options.overwriteExisting) {
                         batch.set(docRef, deserializedData);
                     } else {
@@ -210,7 +225,8 @@ export class ImportDataService {
                     batchCount++;
                     imported++;
                 } catch (error: any) {
-                    errors.push(`${collectionPath}/${docId}: ${error.message || 'Unknown error'}`);
+                    console.error(`Import of ${collectionPath}/${docId} failed:`, error);
+                    errors.push(this.t('admin.data.import.err_doc', { path: `${collectionPath}/${docId}` }));
                 }
             }
 
@@ -218,11 +234,16 @@ export class ImportDataService {
                 try {
                     await batch.commit();
                 } catch (error: any) {
-                    errors.push(`Batch commit failed for ${collectionPath}: ${error.message}`);
+                    console.error(`Writing ${collectionPath} failed:`, error);
+                    errors.push(this.t('admin.data.import.err_batch', { collection: collectionPath, count: batchCount }));
                     // Adjust counts - documents weren't actually written
                     imported -= batchCount;
                 }
             }
+        }
+
+        if (newUsers) {
+            errors.push(this.t('admin.data.import.err_new_users', { count: newUsers }));
         }
 
         return { imported, skipped, errors };
@@ -258,10 +279,8 @@ export class ImportDataService {
                 if (!owner.has(slug)) owner.set(slug, existing.id);
             }
         } catch (error: any) {
-            return {
-                entries: [],
-                errors: [`ContentTypes: not imported, the site's content types could not be read to check their slugs (${error?.message || 'unknown error'})`],
-            };
+            console.error('Reading the content types to check their addresses failed:', error);
+            return { entries: [], errors: [this.t('admin.data.import.err_types_unread')] };
         }
         const kept: [string, any][] = [];
         const errors: string[] = [];
@@ -269,7 +288,7 @@ export class ImportDataService {
             const slug = typeof rawData?.slug === 'string' && rawData.slug ? rawData.slug as string : '';
             const holder = slug ? owner.get(slug) : undefined;
             if (holder && holder !== docId) {
-                errors.push(`ContentTypes/${docId}: not imported, the content type ${holder} already uses the slug "${slug}"`);
+                errors.push(this.t('admin.data.import.err_address_taken', { id: docId, holder, address: slug }));
                 continue;
             }
             const renameError = await this.renameError(docId, slug, siteSlug.get(docId), options);
@@ -303,14 +322,15 @@ export class ImportDataService {
         const nextSlug = slug || (options.overwriteExisting ? '' : currentSlug);
         if (nextSlug === currentSlug) return null;
         const change = nextSlug
-            ? `change its slug from "${currentSlug}" to "${nextSlug}"`
-            : `remove its slug "${currentSlug}"`;
+            ? this.t('admin.data.import.change_address', { from: currentSlug, to: nextSlug })
+            : this.t('admin.data.import.remove_address', { address: currentSlug });
         try {
             if (!(await this.contentTypes.hasStoredItems(currentSlug))) return null;
         } catch (error: any) {
-            return `ContentTypes/${docId}: not imported, it would ${change}, and the site could not be checked for entries stored under "${currentSlug}" (${error?.message || 'unknown error'})`;
+            console.error(`Checking the entries under "${currentSlug}" failed:`, error);
+            return this.t('admin.data.import.err_address_unchecked', { id: docId, change, address: currentSlug });
         }
-        return `ContentTypes/${docId}: not imported, it would ${change}, which would leave the entries, drafts and tags stored under "${currentSlug}" behind`;
+        return this.t('admin.data.import.err_address_change', { id: docId, change, address: currentSlug });
     }
 
     /**
@@ -332,5 +352,28 @@ export class ImportDataService {
             // Deeper nesting (shouldn't happen, but handle gracefully)
             return doc(this.db, collectionPath + '/' + docId);
         }
+    }
+}
+
+const USERS_COLLECTION = 'users';
+
+/**
+ * Who a user is, how they sign in and what they may do: the rules refuse these from
+ * every browser, an admin's too, so they only change through Users, which keeps the
+ * site an active admin and checks a new number (functions/src/users/adminUserAccess.ts,
+ * adminSetPhone.ts).
+ */
+export const USER_ACCESS_FIELDS = ['role', 'uid', 'isActive', 'status', 'phone', 'phoneVerified', 'by', 'authOwner', 'adminPasswordAt'] as const;
+
+/**
+ * An imported users record keeps the access it has on this site: the file's role,
+ * sign-in, phone and block are replaced by the site's own, so the write changes none of them.
+ * A record the site does not have is not imported at all (the rules refuse a new
+ * record from the browser: every record is made with its sign-in, on the server).
+ */
+export function keepUserAccess(data: Record<string, unknown>, existing: Record<string, unknown> | undefined): void {
+    for (const field of USER_ACCESS_FIELDS) {
+        if (existing && field in existing) data[field] = existing[field];
+        else delete data[field];
     }
 }

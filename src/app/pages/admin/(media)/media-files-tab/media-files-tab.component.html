@@ -60,7 +60,14 @@
 @if (searching() && allItems() && !shown().length) {
 <p class="files-empty">{{ 'admin.media.library_search_none' | transloco }}</p>
 }
-@if (!searching() && !loading() && !items().length && !uploading()) {
+@if (!searching() && !loading() && loadFailed()) {
+<div class="files-empty files-load-failed" role="alert">
+    <p class="mb-2">{{ 'admin.media.files.load_failed_retry' | transloco }}</p>
+    <button type="button" class="btn btn-outline-secondary btn-sm" id="filesRetryBtn" (click)="retry()">
+        <i class="fas fa-rotate-right me-1" aria-hidden="true"></i>{{ 'common.table.retry' | transloco }}
+    </button>
+</div>
+} @else if (!searching() && !loading() && !items().length && !uploading()) {
 <p class="files-empty">{{ 'admin.media.files.empty' | transloco }}</p>
 }
 

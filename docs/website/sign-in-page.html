@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Brand the sign-in page | Arc CMS docs</title>
-  <meta name="description" content="Give the sign-in page your site's name, logo, words, image, colours and whole look, from your site folder, the custom space and Settings, About.">
+  <meta name="description" content="Give the sign-in page your site's name, logo, words, image, colours and whole look, from your site folder, the custom space and Settings, Site details.">
   <meta name="docs:sources" content="src/app/core/brand/site-brand.ts, src/app/core/brand/app-brand-files.ts, src/app/pages/(auth)/(signup)/signup.page.html, src/app/pages/(auth)/(signup)/signup.page.scss, src/app/pages/(auth)/(signup)/signup.page.ts, src/app/pages/page.parts/sign-in-panel.component.ts, public/_site/sign-in.html, src/app/core/site/site-styles.ts, src/shared/components/code-input/code-input.component.ts, src/shared/components/phone-country/phone-country.component.ts, src/shared/components/member-language-picker/member-language-picker.component.ts, src/shared/components/legal-notice/legal-notice.component.ts, src/app/core/services/site-identity.service.ts, scripts/arc-site.mjs">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
@@ -14,7 +14,7 @@
     <p class="lead">The sign-in page at <code>/signup</code>, where visitors sign in or create an account, shows your site's name, logo, words and colours. Three things set them, and none of them is a core file.</p>
 
     <h2>Name and logo</h2>
-    <p>The page takes them from <strong>Settings</strong>, <strong>About</strong>: the site name and the logo URL you already fill in for search engines. Where About has none, an app's own default fills in (<code>src/custom/brand.ts</code> and <code class="new">src/custom/logo.svg</code>, see <a href="../app/admin-look.html#name-and-logo">Brand the admin</a>). With a name and no logo it shows the name; with neither, it shows Arc CMS's. The first step shows the logo above the card, the steps after it the name; a site can hide the logo and show the name, restyled, on every step (see <a href="#look">the whole look</a>). The browser tab reads "Sign in | <em>your site name</em>", and "Sign in" alone until the name is in.</p>
+    <p>The page takes them from <strong>Settings</strong>, <strong>Site details</strong>: the site name and the logo URL you already fill in for search engines. Where Site details has none, an app's own default fills in (<code>src/custom/brand.ts</code> and <code class="new">src/custom/logo.svg</code>, see <a href="../app/admin-look.html#name-and-logo">Brand the admin</a>). With a name and no logo it shows the name; with neither, it shows Arc CMS's. The first step shows the logo above the card, the steps after it the name; a site can hide the logo and show the name, restyled, on every step (see <a href="#look">the whole look</a>). The browser tab reads "Sign in | <em>your site name</em>", and "Sign in" alone until the name is in.</p>
 
     <h2>The brand panel</h2>
     <p>On screens 992 pixels wide and more, a coloured panel sits beside the form; narrower, the form is alone and centred. Arc CMS's says only "Welcome" and "Sign in, or create your account, to continue" (<code>public/_site/sign-in.html</code>). Write your own as <code class="new">src/custom/site/sign-in.html</code>, an HTML fragment like the header:</p>
@@ -91,7 +91,7 @@
         <tr><td><code>--arc-sign-in-panel</code></td><td><code>none</code> switches the brand panel off on wide screens: the card then sits alone in the middle, as on a phone</td></tr>
         <tr><td><code>--arc-sign-in-panel-background</code></td><td>The brand panel's background, any CSS background</td></tr>
         <tr><td><code>--arc-sign-in-panel-color</code></td><td>The brand panel's text colour</td></tr>
-        <tr><td><code>--arc-sign-in-logo</code></td><td><code>none</code> hides the logo tile; the site's name (Settings, About) then shows above the card on every step, as one line</td></tr>
+        <tr><td><code>--arc-sign-in-logo</code></td><td><code>none</code> hides the logo tile; the site's name (Settings, Site details) then shows above the card on every step, as one line</td></tr>
         <tr><td><code>--arc-sign-in-logo-height</code></td><td>The room kept above the card for the logo, 60 pixels; <code>0</code> lets the name sit just above the card once the tile is hidden</td></tr>
         <tr><td><code>--arc-sign-in-name-size</code></td><td>The name's size, such as <code>13px</code></td></tr>
         <tr><td><code>--arc-sign-in-name-weight</code></td><td>Its weight, such as <code>700</code></td></tr>
@@ -102,7 +102,7 @@
       </tbody>
     </table>
 
-    <p>The name is the one in Settings, About, so the stylesheet never names the site and one app can serve many sites. It is never shown twice: with the tile hidden there is one line on every step.</p>
+    <p>The name is the one in Settings, Site details, so the stylesheet never names the site and one app can serve many sites. It is never shown twice: with the tile hidden there is one line on every step.</p>
 
     <h3>The card and its words</h3>
     <table>

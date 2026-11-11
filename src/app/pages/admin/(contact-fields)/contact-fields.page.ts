@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,16 +8,20 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { injectT } from '../../../core/i18n/inject-t';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
-import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
-import { ToastService } from '../../../../shared/services/toast.service';
+import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
+import { NotifyService } from '../../../../shared/services/notify.service';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
 import { AudienceService } from '../(audience)/audience.service';
 import { IContactField, fieldKeyFromLabel } from '../(audience)/audience.model';
+
+/** Field types with a translated name (admin.audience.fields.type_*). */
+const FIELD_TYPES: string[] = ['text', 'number', 'date', 'boolean', 'select'];
 
 /**
  * Custom contact fields (U4.5).
@@ -40,14 +44,18 @@ import { IContactField, fieldKeyFromLabel } from '../(audience)/audience.model';
 })
 export default class ContactFieldsPageComponent implements OnInit {
     private audience = inject(AudienceService);
-    private toast = inject(ToastService);
-    private dialog = inject(MatDialog);
-    private sanitizer = inject(DomSanitizer);
+    private notify = inject(NotifyService);
+    private confirm = inject(ConfirmService);
+    private transloco = inject(TranslocoService);
+    private t = injectT();
     private destroyRef = inject(DestroyRef);
 
     fields = signal<IContactField[]>([]);
     loading = signal(true);
+    /** The fields did not load; the table shows it with Retry. */
+    loadError = signal(false);
     busy = signal(false);
+    private loadSub?: { unsubscribe(): void };
 
     // Drawer state
     editing = signal<IContactField | null>(null);
@@ -64,10 +72,13 @@ export default class ContactFieldsPageComponent implements OnInit {
             key: 'key', header: 'admin.audience.fields.merge_tag', type: 'code', classFn: () => 'small',
             transformFn: (r) => `##FIELD:${r.key}##`,
         },
-        { key: 'type', header: 'common.table.type', type: 'text', classFn: () => 'small text-muted' },
+        {
+            key: 'type', header: 'common.table.type', type: 'text', classFn: () => 'small text-muted',
+            transformFn: (r) => (FIELD_TYPES.includes(r.type) ? this.transloco.translate(`admin.audience.fields.type_${r.type}`) : r.type),
+        },
         {
             key: 'writePolicy', header: 'admin.audience.fields.on_resubmit', type: 'text', classFn: () => 'small',
-            transformFn: (r) => (r.writePolicy === 'overwrite' ? 'Overwrite' : 'Keep existing'),
+            transformFn: (r) => this.t(r.writePolicy === 'overwrite' ? 'admin.audience.fields.policy_overwrite_short' : 'admin.audience.fields.policy_fill_short'),
         },
         {
             key: 'defaultValue', header: 'admin.audience.fields.fallback', type: 'text', classFn: () => 'small text-muted',
@@ -94,11 +105,24 @@ export default class ContactFieldsPageComponent implements OnInit {
     }
 
     ngOnInit(): void {
-        this.audience.getFields().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((f) => {
-            this.fields.set(f);
-            this.loading.set(false);
-        });
+        this.load();
     }
+
+    /** Listen to the field registry; called again by Retry. */
+    load(): void {
+        this.loadSub?.unsubscribe();
+        this.loading.set(true);
+        this.loadError.set(false);
+        let failed = false;
+        this.loadSub = this.audience.getFields(() => { failed = true; })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe((f) => {
+                this.fields.set(f);
+                this.loadError.set(failed);
+                this.loading.set(false);
+            });
+    }
+
 
     openAdd(): void {
         this.editing.set(null);
@@ -128,7 +152,7 @@ export default class ContactFieldsPageComponent implements OnInit {
     async save(): Promise<void> {
         const label = this.label.trim();
         if (!this.previewKey()) {
-            this.toast.error('The label needs at least one letter or number');
+            this.notify.error('admin.audience.fields.label_invalid');
             return;
         }
         this.busy.set(true);
@@ -143,36 +167,34 @@ export default class ContactFieldsPageComponent implements OnInit {
                     ? this.optionsText.split(',').map((o) => o.trim()).filter(Boolean)
                     : undefined,
             });
-            this.toast.success(this.editing() ? 'Field updated' : 'Field created');
+            this.notify.success(this.editing() ? 'admin.audience.fields.updated' : 'admin.audience.fields.created');
             this.closeDrawer();
         } catch (e: any) {
-            console.error(e);
-            // Surface the server's reason — reserved keys are rejected by name.
-            this.toast.error(e?.message || 'Failed to save the field');
+            console.error('Saving the field failed', e);
+            // The server refuses a key it keeps for itself (invalid-argument); say so plainly.
+            this.notify.error(String(e?.code ?? '').endsWith('invalid-argument')
+                ? 'admin.audience.fields.key_reserved'
+                : 'admin.audience.fields.save_failed');
         } finally {
             this.busy.set(false);
         }
     }
 
-    confirmDelete(field: IContactField): void {
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Delete the <strong>${this.escape(field.label)}</strong> field?<br><br>`
-            + `Values already collected stay on contacts, so re-adding the field brings them back. `
-            + `Templates using <code>##FIELD:${this.escape(field.key)}##</code> will fall back to their default.`,
-        );
-        this.dialog.open(ConfirmationPopupComponent, {
-            width: '400px',
-            data: { dialogType: 'Delete', dialogMessage: msg, btnText: 'Delete', panelType: 'warn' },
-        }).afterClosed().subscribe(async (ok: boolean) => {
-            if (!ok) return;
-            try {
-                await this.audience.deleteField(field.key);
-                this.toast.success('Field deleted');
-            } catch (e) {
-                console.error(e);
-                this.toast.error('Failed to delete the field');
-            }
-        });
+    async confirmDelete(field: IContactField): Promise<void> {
+        const ok = await this.confirm.ask({
+            titleKey: 'common.dialog.delete',
+            dialogMessage: this.t('admin.audience.fields.delete_confirm', { name: escapeHtml(field.label), key: escapeHtml(field.key) }),
+            btnText: this.t('common.actions.delete'),
+            panelType: 'warn',
+        }, '400px');
+        if (!ok) return;
+        try {
+            await this.audience.deleteField(field.key);
+            this.notify.success('admin.audience.fields.deleted');
+        } catch (e) {
+            console.error('Deleting the field failed', e);
+            this.notify.error('admin.audience.fields.delete_failed');
+        }
     }
 
     /** Lift historical form submissions onto contact fields. Safe to re-run. */
@@ -181,21 +203,15 @@ export default class ContactFieldsPageComponent implements OnInit {
         try {
             const res: any = await this.audience.migrateFormDataToContactFields();
             const d = res?.data || {};
-            let msg = `Mapped ${d.valuesWritten || 0} values onto ${d.contactsUpdated || 0} contacts`;
-            if (d.conflicts?.length) msg += ` · ${d.conflicts.length} conflict(s) logged`;
-            if (d.unmappedForms?.length) msg += ` · ${d.unmappedForms.length} form(s) have no field mapping`;
-            this.toast.success(msg);
+            let msg = this.t('admin.audience.fields.migrated', { values: d.valuesWritten || 0, contacts: d.contactsUpdated || 0 });
+            if (d.conflicts?.length) msg += ` ${this.t('admin.audience.fields.migrated_conflicts', { count: d.conflicts.length })}`;
+            if (d.unmappedForms?.length) msg += ` ${this.t('admin.audience.fields.migrated_unmapped', { count: d.unmappedForms.length })}`;
+            this.notify.raw(msg, 'success');
         } catch (e) {
-            console.error(e);
-            this.toast.error('Failed to import form data');
+            console.error('Importing form data failed', e);
+            this.notify.error('admin.audience.fields.migrate_failed');
         } finally {
             this.busy.set(false);
         }
-    }
-
-    private escape(value: string): string {
-        return (value || '').replace(/[&<>"']/g, (c) => (
-            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string
-        ));
     }
 }

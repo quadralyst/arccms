@@ -27,6 +27,10 @@ describe('DraftContentsStore', () => {
             updatePreviousContentReferences: vi.fn(),
             applyBacklinks: vi.fn(),
             currentSeriesReference: vi.fn(),
+            createDraft: vi.fn().mockResolvedValue('new-id'),
+            newDraftId: vi.fn().mockReturnValue('pre-id'),
+            saveDraft: vi.fn().mockResolvedValue(undefined),
+            isSlugTaken: vi.fn().mockResolvedValue(true),
         };
 
         TestBed.configureTestingModule({
@@ -254,6 +258,47 @@ describe('DraftContentsStore', () => {
 
             await expect(store.currentSeriesReference('articles', 'b')).resolves.toEqual(current);
             expect(mockService.currentSeriesReference).toHaveBeenCalledWith('articles', 'b');
+        });
+    });
+
+    // RF4 4.1, 4.4, 4.5, 4.6: the editor's writes report failures.
+    describe('the editor\'s writes', () => {
+        it('creates with who wrote it, and passes a failure on', async () => {
+            const { firstValueFrom } = await import('rxjs');
+            expect(await firstValueFrom(store.createDraft({ title: 'A' }, 'blog'))).toBe('new-id');
+            expect(mockService.createDraft).toHaveBeenCalledWith('blog', { title: 'A', createdBy: 'test-user-123', modifiedBy: 'test-user-123' }, undefined);
+            mockService.createDraft.mockRejectedValueOnce(new Error('offline'));
+            await expect(firstValueFrom(store.createDraft({ title: 'B' }, 'blog'))).rejects.toThrow('offline');
+        });
+
+        it('saves against the time the editor opened, and writes nothing until subscribed', async () => {
+            const { firstValueFrom } = await import('rxjs');
+            const opened = new Date();
+            const save$ = store.saveDraft('d1', { title: 'A' }, 'blog', opened);
+            expect(mockService.saveDraft).not.toHaveBeenCalled();
+            await firstValueFrom(save$, { defaultValue: undefined });
+            expect(mockService.saveDraft).toHaveBeenCalledWith('blog', 'd1', { title: 'A', modifiedBy: 'test-user-123' }, opened);
+        });
+
+        it('asks the server whether an address is taken, leaving the entry itself out', async () => {
+            expect(await store.isSlugTaken('guide', 'blog', 'd1')).toBe(true);
+            expect(mockService.isSlugTaken).toHaveBeenCalledWith('guide', 'blog', 'd1');
+        });
+    });
+
+    // RF4 review H1, M4: a new entry keeps one id across retries and becomes the current item.
+    describe('a new entry', () => {
+        it('writes under the id chosen up front, so a retry cannot make a second entry', async () => {
+            const { firstValueFrom } = await import('rxjs');
+            const id = store.newDraftId('blog');
+            await firstValueFrom(store.createDraft({ title: 'A' }, 'blog', id));
+            await firstValueFrom(store.createDraft({ title: 'A' }, 'blog', id));
+            expect(mockService.createDraft.mock.calls.map((c: any[]) => c[2])).toEqual(['pre-id', 'pre-id']);
+        });
+
+        it('becomes the current item once created', () => {
+            store.adoptCreated({ id: 'new-1', title: 'A', publishedOn: null } as any);
+            expect(store.currentItem()).toMatchObject({ id: 'new-1', title: 'A' });
         });
     });
 });

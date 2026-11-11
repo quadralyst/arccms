@@ -228,6 +228,21 @@ describe('onUserRoleChange', () => {
         expect(mockSetCustomUserClaims).toHaveBeenCalledWith('amy', { arccms_role: 'user' });
     });
 
+    it('ends the sessions of a demoted admin, so the old claim does not outlive the hour (RF4, H1)', async () => {
+        claimsByUid['amy'] = { arccms_role: 'admin' };
+        const { event } = makeEvent({ uid: 'amy', role: 'admin' }, { uid: 'amy', role: 'user' }, 'service_account');
+        await trigger(event);
+        expect(mockRevoke).toHaveBeenCalledWith('amy');
+    });
+
+    it('ends no sessions for a promotion or a new record', async () => {
+        const { event } = makeEvent({ uid: 'amy', role: 'user' }, { uid: 'amy', role: 'admin' }, 'service_account');
+        await trigger(event);
+        const created = makeEvent(null, { uid: 'bea', role: 'admin' }, 'service_account');
+        await trigger(created.event);
+        expect(mockRevoke).not.toHaveBeenCalled();
+    });
+
     it('applies Settings/users.defaultRole to a self sign-up with the Admin SDK', async () => {
         settingsUsers = { defaultRole: 'admin' };
         const { event, refUpdate } = makeEvent(null, { uid: 'amy', role: 'user' }, 'app_user', 'amy');

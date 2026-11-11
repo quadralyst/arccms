@@ -4,10 +4,11 @@ import {
     Firestore, collection, collectionData, doc, addDoc, setDoc, serverTimestamp, query, orderBy,
 } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
-import { Observable, catchError, of } from 'rxjs';
+import { Observable, catchError, of, throwError } from 'rxjs';
 import { dedupeTemplatesByType } from '../../../../shared/utils/template-dedupe';
 import { buildNewEmailTemplate, NewEmailMeta } from '../../../../shared/email-compiler/new-template';
 import { arcCallable } from '../../../core/config/arc-functions';
+import type { LoadErrorHandler } from '../(audience)/audience.service';
 
 export interface DripStep { id: string; templateId: string; delayHours: number; }
 
@@ -31,7 +32,12 @@ export class DripService {
     private functions = inject(Functions);
     private platformId = inject(PLATFORM_ID);
 
-    watchCampaigns(): Observable<DripCampaign[]> {
+    /**
+     * The campaigns, live. A failed read gives an empty list and calls `onError` (as
+     * AudienceService does), so a page such as a list's Sequence tab can show the
+     * table's error; with `surfaceErrors` it errors instead, for the Drip campaigns page.
+     */
+    watchCampaigns(opts: { surfaceErrors?: boolean; onError?: LoadErrorHandler } = {}): Observable<DripCampaign[]> {
         // Admin-only Firestore rules; SSR has no authenticated user, so skip
         // the doomed request instead of letting it fail with permission-denied.
         if (!isPlatformBrowser(this.platformId)) {
@@ -41,6 +47,8 @@ export class DripService {
         return (collectionData(query(ref, orderBy('name')), { idField: 'id' }) as Observable<DripCampaign[]>).pipe(
             catchError((err) => {
                 console.error('Error fetching drip campaigns:', err);
+                if (opts.surfaceErrors) return throwError(() => err);
+                opts.onError?.(err);
                 return of([]);
             }),
         );
@@ -103,7 +111,7 @@ export class DripService {
         await setDoc(doc(this.firestore, 'DripCampaigns', id), { ...patch, updatedAt: serverTimestamp() }, { merge: true });
     }
 
-    /** Pause/resume/draft — simple status writes (activate/archive go through callables). */
+    /** Pause/resume/draft: simple status writes (activate/archive go through callables). */
     async setStatus(id: string, status: 'draft' | 'paused' | 'active'): Promise<void> {
         await setDoc(doc(this.firestore, 'DripCampaigns', id), { status, updatedAt: serverTimestamp() }, { merge: true });
     }

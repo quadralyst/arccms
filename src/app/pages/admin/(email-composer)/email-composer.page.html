@@ -1,36 +1,36 @@
 <div class="page-container">
-    <arc-page-header title="Email Composer"
-        subtitle="Compose emails from blocks, no HTML required. Templates store both the design and compiled HTML.">
+    <arc-page-header [title]="'admin.email_composer.title' | transloco"
+        [subtitle]="'admin.email_composer.subtitle' | transloco">
     </arc-page-header>
 
     @if (selected(); as t) {
         <div class="mb-3">
             <button mat-stroked-button (click)="clearSelection()">
-                <mat-icon>arrow_back</mat-icon> Back to templates
+                <mat-icon aria-hidden="true">arrow_back</mat-icon> {{ 'admin.email_composer.back' | transloco }}
             </button>
         </div>
         @if (isBlocks) {
         <div class="row g-2 mb-3">
             <div class="col-md-5">
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Title</mat-label>
+                    <mat-label>{{ 'admin.email_composer.name' | transloco }}</mat-label>
                     <input matInput [ngModel]="titleDraft()" (ngModelChange)="titleDraft.set($event)"
-                        placeholder="Welcome, day 1" />
+                        [placeholder]="'admin.email_composer.name_placeholder' | transloco" />
                 </mat-form-field>
             </div>
             <div class="col-md-5">
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Subject</mat-label>
+                    <mat-label>{{ 'admin.email_composer.subject' | transloco }}</mat-label>
                     <input matInput [ngModel]="subjectDraft()" (ngModelChange)="subjectDraft.set($event)"
-                        placeholder="Welcome aboard 👋" />
+                        [placeholder]="'admin.email_composer.subject_placeholder' | transloco" />
                 </mat-form-field>
             </div>
             <div class="col-md-2">
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Category</mat-label>
+                    <mat-label>{{ 'admin.email_composer.category' | transloco }}</mat-label>
                     <mat-select [ngModel]="categoryDraft()" (ngModelChange)="categoryDraft.set($event)">
-                        <mat-option value="marketing">Marketing</mat-option>
-                        <mat-option value="transactional">Transactional</mat-option>
+                        <mat-option value="marketing">{{ 'admin.email_composer.marketing' | transloco }}</mat-option>
+                        <mat-option value="transactional">{{ 'admin.email_composer.transactional' | transloco }}</mat-option>
                     </mat-select>
                 </mat-form-field>
             </div>
@@ -45,10 +45,10 @@
         </arc-email-block-editor>
         } @else {
         <div class="border rounded p-3">
-            <div class="alert alert-info d-flex justify-content-between align-items-center">
-                <span>This is a legacy (HTML) template. It sends unchanged. Upgrade to edit it with blocks.</span>
+            <div class="alert alert-info d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <span>{{ 'admin.email_composer.legacy_note' | transloco }}</span>
                 <button mat-flat-button color="primary" (click)="upgradeToBlocks()">
-                    <mat-icon>upgrade</mat-icon> Upgrade to blocks
+                    <mat-icon aria-hidden="true">upgrade</mat-icon> {{ 'admin.email_composer.upgrade' | transloco }}
                 </button>
             </div>
             <div class="border rounded p-2 bg-light" style="max-height: 400px; overflow:auto;">
@@ -59,16 +59,18 @@
     } @else {
     <div class="d-flex justify-content-end mb-3">
         <button mat-flat-button color="primary" [disabled]="creating()" (click)="createNew()">
-            <mat-icon>add</mat-icon> New email
+            <mat-icon aria-hidden="true">add</mat-icon> {{ 'admin.email_composer.new' | transloco }}
         </button>
     </div>
     <app-global-table
         [data]="templates()"
         [columns]="tableColumns"
         [loading]="loading()"
+        [error]="loadError()"
+        (retry)="load()"
         (cellClick)="onCellClick($event)"
-        emptyTitle="No Templates"
-        emptyDescription="No email templates found."
+        emptyTitle="admin.email_composer.empty_title"
+        emptyDescription="admin.email_composer.empty_text"
         [showEmptyAction]="false">
     </app-global-table>
     }

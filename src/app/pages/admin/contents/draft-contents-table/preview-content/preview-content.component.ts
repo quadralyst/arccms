@@ -1,3 +1,4 @@
+import { TranslocoPipe } from '@jsverse/transloco';
 import { CommonModule, DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -15,7 +16,7 @@ import { GlobalService } from '../../../../../../shared/services/global.service'
 @Component({
   selector: 'app-preview-content',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatButtonModule],
+  imports: [CommonModule, MatIconModule, MatButtonModule, TranslocoPipe],
   providers: [DatePipe],
   templateUrl: './preview-content.component.html',
   styleUrl: './preview-content.component.scss',

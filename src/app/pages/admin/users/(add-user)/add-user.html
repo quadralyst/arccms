@@ -2,94 +2,104 @@
 <div class="side-panel">
     <div class="panel-header">
         <h5 class="mb-0">
-            @for (roles of constantVariables.roles; track roles.userType) {
-            @if(roles.userType === role) {
-            Add a new {{roles.userTypeLabel}}
-            }
-            }
-            @if(!role) {
-            Add a new User
+            @if (role) {
+            {{ 'admin.users.form.add_title_role' | transloco: { role: roleName(role) } }}
+            } @else {
+            {{ 'admin.users.form.add_title' | transloco }}
             }
         </h5>
-        <button class="close-btn" (click)="closeAdd()">
-            <i class="fas fa-times"></i>
+        <button type="button" class="close-btn" (click)="closeAdd()" [attr.aria-label]="'admin.users.close' | transloco">
+            <i class="fas fa-times" aria-hidden="true"></i>
         </button>
     </div>
 
     <form [formGroup]="addForm" (ngSubmit)="onSubmit()" class="centered-form rounded">
         <div class="row mb-4">
             <div class="col-12">
-                <label for="name" class="form-label">Full name <span class="required">*</span></label>
-                <input type="text" placeholder="Enter full name" formControlName="name" class="form-control" id="name"
+                <label for="name" class="form-label">{{ 'admin.users.form.name' | transloco }} <span class="required" aria-hidden="true">*</span></label>
+                <input type="text" [placeholder]="'admin.users.form.name_placeholder' | transloco" formControlName="name" class="form-control" id="name"
+                    aria-required="true" aria-describedby="name-error"
                     (blur)="trimUnwantedSpace(addForm.controls['name'])" [class]="{
                         'is-invalid': name?.invalid && (name?.dirty || name?.touched),
                         'is-valid': name?.valid && (name?.dirty || name?.touched)
                     }" />
-                <div class="invalid-feedback">Full name is required.</div>
+                <div class="invalid-feedback" id="name-error">{{ 'admin.users.form.name_required' | transloco }}</div>
             </div>
         </div>
 
         <div class="row mb-4">
             <div class="col-12">
-                <label for="email" class="form-label">Email <span class="required">*</span></label>
-                <input type="email" placeholder="Enter valid email" formControlName="email" class="form-control"
+                <label for="email" class="form-label">{{ 'admin.users.form.email' | transloco }} <span class="required" aria-hidden="true">*</span></label>
+                <input type="email" [placeholder]="'admin.users.form.email_placeholder' | transloco" formControlName="email" class="form-control"
+                    aria-required="true" aria-describedby="email-error"
                     (blur)="trimUnwantedSpace(addForm.controls['email'])" id="email" [class]="{
                         'is-invalid': email?.invalid && (email?.dirty || email?.touched),
                         'is-valid': email?.valid && (email?.dirty || email?.touched)
                     }" />
 
                 @if(addForm.get('email')?.errors?.['required']) {
-                <div class="invalid-feedback">Email is required.</div>
+                <div class="invalid-feedback" id="email-error">{{ 'admin.users.form.email_required' | transloco }}</div>
                 } @else {
-                <div class="invalid-feedback">Please enter a valid email.</div>
+                <div class="invalid-feedback" id="email-error">{{ 'admin.users.form.email_invalid' | transloco }}</div>
                 }
 
                 @if (alreadyExist) {
-                <label class="text-danger small mt-1">Email already exists.</label>
+                <div class="text-danger small mt-1" role="alert">{{ 'admin.users.form.email_taken' | transloco }}</div>
                 }
             </div>
         </div>
 
         <div class="row mb-4">
             <div class="col-12">
-                <label for="password" class="form-label">Temporary password <span class="required">*</span></label>
-                <input type="password" formControlName="password" class="form-control" id="password"
-                    placeholder="At least 8 characters, hard to guess" [class]="{
+                <label for="role" class="form-label">{{ 'admin.users.role' | transloco }}</label>
+                <select id="role" class="form-select" formControlName="role" aria-describedby="role-hint">
+                    @for (option of roleOptions; track option) {
+                    <option [value]="option">{{ roleName(option) }}</option>
+                    }
+                </select>
+                <div class="form-text" id="role-hint">{{ 'admin.users.role_hint' | transloco }}</div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <label for="password" class="form-label">{{ 'admin.users.form.temp_password' | transloco }} <span class="required" aria-hidden="true">*</span></label>
+                <input type="password" formControlName="password" class="form-control" id="password" autocomplete="new-password"
+                    aria-required="true" aria-describedby="password-error password-hint"
+                    [placeholder]="'admin.users.form.password_placeholder' | transloco: { min: minPassword }" [class]="{
                         'is-invalid': password?.invalid && (password?.dirty || password?.touched),
                         'is-valid': password?.valid && (password?.dirty || password?.touched)
                     }" />
 
                 @if(addForm.get('password')?.errors?.['required']) {
-                <div class="invalid-feedback">Password is required.</div>
+                <div class="invalid-feedback" id="password-error">{{ 'admin.users.form.password_required' | transloco }}</div>
                 } @else {
-                <div class="invalid-feedback">{{ passwordError() }}</div>
+                <div class="invalid-feedback" id="password-error">{{ passwordError() }}</div>
                 }
-                <div class="form-text">
-                    Share it with them; it is never stored with the user record. If this address already has a
-                    sign-in account (for example a user of your app), they keep their existing password.
-                </div>
+                <div class="form-text" id="password-hint">{{ 'admin.users.form.temp_password_hint' | transloco }}</div>
             </div>
         </div>
 
         <div class="row mb-4">
             <div class="col-12">
-                <label for="confirmPassword" class="form-label">Type it again <span class="required">*</span></label>
+                <label for="confirmPassword" class="form-label">{{ 'admin.users.form.confirm_password' | transloco }} <span class="required" aria-hidden="true">*</span></label>
                 <input type="password" formControlName="confirmPassword" class="form-control" id="confirmPassword"
+                    aria-required="true" aria-describedby="confirm-error"
                     autocomplete="new-password" [class]="{
                         'is-invalid': confirmPassword?.invalid && (confirmPassword?.dirty || confirmPassword?.touched),
                         'is-valid': confirmPassword?.valid && (confirmPassword?.dirty || confirmPassword?.touched)
                     }" />
                 @if(confirmPassword?.errors?.['required']) {
-                <div class="invalid-feedback">Type the password again.</div>
+                <div class="invalid-feedback" id="confirm-error">{{ 'admin.users.form.confirm_required' | transloco }}</div>
                 } @else {
-                <div class="invalid-feedback">The two passwords do not match.</div>
+                <div class="invalid-feedback" id="confirm-error">{{ 'admin.users.form.confirm_mismatch' | transloco }}</div>
                 }
             </div>
         </div>
 
         @if(errorMessages && errorMessages.length) {
-        <div class="mt-4 alert alert-danger mb-0">
-            <label>Please fix these errors:</label>
+        <div class="mt-4 alert alert-danger mb-0" role="alert">
+            <p class="mb-1">{{ 'admin.users.form.fix_errors' | transloco }}</p>
             <ul class="mb-0 ps-3">
                 @for(error of errorMessages; track error) {
                 <li>{{ error }}</li>
@@ -99,8 +109,8 @@
         }
 
         <div class="d-grid gap-2 d-flex justify-content-end mt-4">
-            <button type="button" class="btn btn-light btn-sm" (click)="closeAdd()">Cancel</button>
-            <button type="submit" class="btn btn-primary btn-sm ms-2" [disabled]="saving()">Save User</button>
+            <button type="button" class="btn btn-light btn-sm" (click)="closeAdd()">{{ 'common.actions.cancel' | transloco }}</button>
+            <button type="submit" class="btn btn-primary btn-sm ms-2" [disabled]="saving()">{{ 'admin.users.form.save_add' | transloco }}</button>
         </div>
     </form>
 

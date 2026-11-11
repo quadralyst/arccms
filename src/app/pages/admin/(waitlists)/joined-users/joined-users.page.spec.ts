@@ -1,8 +1,9 @@
 /**
  * Tests for JoinedUsersComponent
  *
- * Covers: stats computation, pagination, navigation, delete flow
- * (batch write logic, count decrements, referrer cleanup, UI signal update).
+ * Covers: aggregate totals, cursor paging (one read per page, never the whole
+ * collection), the load error with Retry, navigation, and the delete flow
+ * (batch write logic, count decrements, the page read again).
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -14,6 +15,9 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 
 import JoinedUsersComponent from './joined-users.page';
 import { WaitlistUserTagsStore } from './waitlist-user-tags.store';
+import { ConfirmService } from '../../../../../shared/components/confirmation-popup/confirm.service';
+import { NotifyService } from '../../../../../shared/services/notify.service';
+import { headerTestProviders } from '../../../../../test/header-test-providers';
 
 // ---------------------------------------------------------------------------
 // Module-level Firestore mock (hoisted by Vitest before any imports)
@@ -31,7 +35,23 @@ vi.mock('@angular/fire/firestore', () => ({
     increment: vi.fn((n: number) => n),
     arrayRemove: vi.fn((val: string) => ({ __arrayRemove: val })),
     where: vi.fn(),
+    limit: vi.fn((n: number) => ({ __limit: n })),
+    startAfter: vi.fn((d: unknown) => ({ __startAfter: d })),
+    getCountFromServer: vi.fn(),
 }));
+
+/** A query snapshot of these sign-ups, as getDocs returns it. */
+function snap(users: any[]): any {
+    return { empty: users.length === 0, docs: users.map((u) => ({ id: u.id, data: () => u })) };
+}
+
+/** The sign-ups `n` of them, newest first. */
+function many(n: number): any[] {
+    return Array.from({ length: n }, (_, i) => ({
+        id: `u${i}`, email: `u${i}@x.com`, firstName: `U${i}`, isConfirmed: i % 2 === 0,
+        signupTimestamp: { toDate: () => new Date(2025, 0, 1) },
+    }));
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -70,6 +90,9 @@ describe('JoinedUsersComponent', () => {
     let component: JoinedUsersComponent;
     let fixture: ComponentFixture<JoinedUsersComponent>;
     let batchMock: { delete: any; update: any; commit: any };
+    // Arc CMS's own dialog, in place of the browser's confirm() (RF4, 4.10).
+    const confirmDialog = { ask: vi.fn(async () => true) };
+    const notify = { error: vi.fn(), success: vi.fn() };
 
     const mockRouter = { navigate: vi.fn().mockResolvedValue(true) };
     const mockRoute = {
@@ -99,9 +122,8 @@ describe('JoinedUsersComponent', () => {
         vi.mocked(FirestoreSDK.orderBy).mockReturnValue({} as any);
 
         // Default: getDocs returns empty snapshot
-        vi.mocked(FirestoreSDK.getDocs).mockResolvedValue({
-            empty: true, docs: [], forEach: vi.fn(),
-        } as any);
+        vi.mocked(FirestoreSDK.getDocs).mockResolvedValue(snap([]));
+        vi.mocked(FirestoreSDK.getCountFromServer).mockResolvedValue({ data: () => ({ count: 0 }) } as any);
 
         // Default: getDoc returns a doc whose waitlistId matches 'wl-1'
         vi.mocked(FirestoreSDK.getDoc).mockResolvedValue({
@@ -112,10 +134,14 @@ describe('JoinedUsersComponent', () => {
         await TestBed.configureTestingModule({
             imports: [JoinedUsersComponent, NoopAnimationsModule],
             providers: [
+                // <arc-page-header> renders once change detection runs (zoneless).
+                ...headerTestProviders(),
                 { provide: Firestore, useValue: {} },
                 { provide: Router, useValue: mockRouter },
                 { provide: ActivatedRoute, useValue: mockRoute },
                 { provide: WaitlistUserTagsStore, useClass: MockTagsStore },
+                { provide: ConfirmService, useValue: confirmDialog },
+                { provide: NotifyService, useValue: notify },
             ],
             // NO_ERRORS_SCHEMA suppresses unknown child component/directive errors
             schemas: [NO_ERRORS_SCHEMA],
@@ -151,18 +177,16 @@ describe('JoinedUsersComponent', () => {
     // Stats computed signals
     // -----------------------------------------------------------------------
 
-    describe('Stats signals', () => {
-        it('should count total users', () => {
-            component.users.set([makeUser(), makeUser({ id: 'user-2' })]);
-            expect(component.totalUsers()).toBe(2);
-        });
-
-        it('should count only confirmed users', () => {
-            component.users.set([
-                makeUser({ isConfirmed: true }),
-                makeUser({ id: 'user-2', isConfirmed: false }),
-            ]);
-            expect(component.verifiedUsers()).toBe(1);
+    describe('Totals (RF5, 5.10)', () => {
+        it('counts all sign-ups and the confirmed ones with aggregate counts, not by reading them', async () => {
+            vi.mocked(FirestoreSDK.getCountFromServer)
+                .mockResolvedValueOnce({ data: () => ({ count: 1234 }) } as any)
+                .mockResolvedValueOnce({ data: () => ({ count: 1000 }) } as any);
+            await component.loadCounts();
+            expect(component.totalUsers()).toBe(1234);
+            expect(component.verifiedUsers()).toBe(1000);
+            expect(FirestoreSDK.where).toHaveBeenCalledWith('isConfirmed', '==', true);
+            expect(FirestoreSDK.getDocs).not.toHaveBeenCalled();
         });
 
         // Signup forms have no referrals or queue (specs/form-gamification-spec.md).
@@ -176,26 +200,76 @@ describe('JoinedUsersComponent', () => {
     });
 
     // -----------------------------------------------------------------------
-    // Pagination
+    // Paging (RF5, 5.10): one read of a page, never the whole collection
     // -----------------------------------------------------------------------
 
-    describe('Pagination', () => {
-        it('should slice users for current page', () => {
-            component.users.set(
-                Array.from({ length: 15 }, (_, i) => makeUser({ id: `u${i}`, email: `u${i}@x.com` }))
-            );
+    describe('Paging', () => {
+        const all = many(25);
+        /** A tiny Firestore: answers a query from its startAfter and limit, newest first. */
+        function serve(): void {
+            vi.mocked(FirestoreSDK.query).mockImplementation(((...args: any[]) => ({ args })) as any);
+            vi.mocked(FirestoreSDK.getDocs).mockImplementation((async (q: any) => {
+                const parts = q?.args ?? [];
+                const after = parts.find((p: any) => p?.__startAfter)?.__startAfter;
+                const max = parts.find((p: any) => p?.__limit)?.__limit ?? all.length;
+                const from = after ? all.findIndex((u) => u.id === after.id) + 1 : 0;
+                return snap(all.slice(from, from + max));
+            }) as any);
+        }
+        beforeEach(() => {
+            serve();
             component.pageSize.set(10);
-            component.currentPage.set(0);
-            expect(component.paginatedUsers().length).toBe(10);
         });
 
-        it('should show remaining users on page 2', () => {
-            component.users.set(
-                Array.from({ length: 15 }, (_, i) => makeUser({ id: `u${i}`, email: `u${i}@x.com` }))
-            );
-            component.pageSize.set(10);
+        it('reads only the first page, newest first', async () => {
+            await component.loadPage();
+            expect(FirestoreSDK.limit).toHaveBeenCalledWith(10);
+            expect(FirestoreSDK.orderBy).toHaveBeenCalledWith('signupTimestamp', 'desc');
+            expect(FirestoreSDK.startAfter).not.toHaveBeenCalled();
+            expect(component.paginatedUsers().map((u) => u.id)).toEqual(all.slice(0, 10).map((u) => u.id));
+        });
+
+        it('starts the next page after the last sign-up of the page before', async () => {
+            await component.loadPage();
             component.currentPage.set(1);
-            expect(component.paginatedUsers().length).toBe(5);
+            await component.loadPage();
+            expect((vi.mocked(FirestoreSDK.startAfter).mock.calls.at(-1)![0] as any).id).toBe('u9');
+            expect(FirestoreSDK.limit).toHaveBeenLastCalledWith(10);
+            expect(component.paginatedUsers()[0].id).toBe('u10');
+        });
+
+        it('a jump to a page not read yet reads up to it once, then shows only that page', async () => {
+            component.currentPage.set(2);
+            await component.loadPage();
+            expect(FirestoreSDK.limit).toHaveBeenCalledWith(30);
+            expect(component.paginatedUsers().map((u) => u.id)).toEqual(['u20', 'u21', 'u22', 'u23', 'u24']);
+
+            // Going back a page now starts after the remembered end of page 0.
+            component.currentPage.set(1);
+            await component.loadPage();
+            expect((vi.mocked(FirestoreSDK.startAfter).mock.calls.at(-1)![0] as any).id).toBe('u9');
+            expect(component.paginatedUsers()[0].id).toBe('u10');
+        });
+
+        it('shows the page asked for last when an older read answers late', async () => {
+            let answerFirst!: (v: unknown) => void;
+            vi.mocked(FirestoreSDK.getDocs).mockImplementationOnce((() => new Promise((r) => { answerFirst = r; })) as any);
+            const first = component.loadPage();
+            component.currentPage.set(2);
+            await component.loadPage();
+            answerFirst(snap(all.slice(0, 10)));
+            await first;
+            expect(component.paginatedUsers()[0].id).toBe('u20');
+            expect(component.loading()).toBe(false);
+        });
+
+        it('a new page size starts the paging over', async () => {
+            await component.loadPage();
+            const load = vi.spyOn(component, 'loadPage');
+            component.onPageChange({ pageIndex: 0, pageSize: 25, length: 25 } as any);
+            await load.mock.results[0].value;
+            expect(FirestoreSDK.limit).toHaveBeenLastCalledWith(25);
+            expect(component.paginatedUsers().length).toBe(25);
         });
 
         it('getStartRecord should be 1 on first page', () => {
@@ -204,13 +278,47 @@ describe('JoinedUsersComponent', () => {
             expect(component.getStartRecord()).toBe(1);
         });
 
-        it('getEndRecord should cap at totalUsers', () => {
-            component.users.set(
-                Array.from({ length: 3 }, (_, i) => makeUser({ id: `u${i}`, email: `u${i}@x.com` }))
-            );
+        it('getEndRecord counts the rows on the page, capped at the total', () => {
+            component.users.set(many(3));
+            component.totalUsers.set(3);
             component.pageSize.set(10);
             component.currentPage.set(0);
             expect(component.getEndRecord()).toBe(3);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // Load error and Retry (RF5, 5.1)
+    // -----------------------------------------------------------------------
+
+    describe('Load error', () => {
+        it('marks the list as not loaded, keeping the detail in the console', async () => {
+            const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            vi.mocked(FirestoreSDK.getDocs).mockRejectedValueOnce(new Error('permission-denied'));
+            await component.loadPage();
+            expect(component.loadError()).toBe(true);
+            expect(component.loading()).toBe(false);
+            expect(log).toHaveBeenCalled();
+        });
+
+        it('Retry reads the totals and the page again, and clears the error', async () => {
+            component.loadError.set(true);
+            vi.mocked(FirestoreSDK.getDocs).mockResolvedValueOnce(snap(many(2)));
+            await component.loadUsers();
+            expect(component.loadError()).toBeNull();
+            expect(FirestoreSDK.getCountFromServer).toHaveBeenCalledTimes(2);
+            expect(component.paginatedUsers().length).toBe(2);
+        });
+
+        it('passes the error and Retry to the table', () => {
+            fixture.detectChanges();
+            component.loadError.set(true);
+            fixture.detectChanges();
+            const table = fixture.debugElement.query((el) => el.name === 'app-global-table');
+            expect(table.componentInstance.error).toBe(true);
+            const retry = vi.spyOn(component, 'loadUsers').mockResolvedValue(undefined);
+            table.componentInstance.retry.emit();
+            expect(retry).toHaveBeenCalled();
         });
     });
 
@@ -252,13 +360,13 @@ describe('JoinedUsersComponent', () => {
 
     describe('deleteUser() — confirmation cancelled', () => {
         it('should not call batch.commit when user cancels', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(false);
+            confirmDialog.ask.mockResolvedValueOnce(false);
             await component.deleteUser(makeUser());
             expect(batchMock.commit).not.toHaveBeenCalled();
         });
 
         it('should not remove user from list when cancelled', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(false);
+            confirmDialog.ask.mockResolvedValueOnce(false);
             component.users.set([makeUser()]);
             await component.deleteUser(makeUser());
             expect(component.users().length).toBe(1);
@@ -274,28 +382,32 @@ describe('JoinedUsersComponent', () => {
             makeUser({ isConfirmed: false });
 
         it('should delete the subcollection doc', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
             await component.deleteUser(unverified());
             expect(batchMock.delete).toHaveBeenCalledTimes(1);
         });
 
         it('should NOT decrement totalSignups for unverified user', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
             await component.deleteUser(unverified());
             expect(batchMock.update).not.toHaveBeenCalled();
         });
 
         it('should commit the batch', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
             await component.deleteUser(unverified());
             expect(batchMock.commit).toHaveBeenCalledOnce();
         });
 
-        it('should remove user from local signal', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
+        it('reads the page again, without the deleted sign-up', async () => {
             component.users.set([unverified()]);
             await component.deleteUser(unverified());
             expect(component.users().length).toBe(0);
+        });
+
+        it('takes one off the total, not off the confirmed count', async () => {
+            component.totalUsers.set(5);
+            component.verifiedUsers.set(3);
+            await component.deleteUser(unverified());
+            expect(component.totalUsers()).toBe(4);
+            expect(component.verifiedUsers()).toBe(3);
         });
     });
 
@@ -308,7 +420,6 @@ describe('JoinedUsersComponent', () => {
             makeUser({ isConfirmed: true });
 
         it('should decrement totalSignups on the waitlist doc', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
             await component.deleteUser(verified());
             expect(batchMock.update).toHaveBeenCalledWith(
                 expect.anything(),
@@ -317,22 +428,35 @@ describe('JoinedUsersComponent', () => {
         });
 
         it('should delete the subcollection doc', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
             await component.deleteUser(verified());
             expect(batchMock.delete).toHaveBeenCalledTimes(1);
         });
 
         it('should commit the batch exactly once', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
             await component.deleteUser(verified());
             expect(batchMock.commit).toHaveBeenCalledOnce();
         });
 
-        it('should remove user from local signal', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
+        it('reads the page again, without the deleted sign-up', async () => {
             component.users.set([verified()]);
             await component.deleteUser(verified());
             expect(component.users().length).toBe(0);
+        });
+
+        it('takes one off the total and the confirmed count', async () => {
+            component.totalUsers.set(5);
+            component.verifiedUsers.set(3);
+            await component.deleteUser(verified());
+            expect(component.totalUsers()).toBe(4);
+            expect(component.verifiedUsers()).toBe(2);
+        });
+
+        it('goes back a page when it deletes the last sign-up of the last page', async () => {
+            component.pageSize.set(10);
+            component.currentPage.set(1);
+            component.totalUsers.set(11);
+            await component.deleteUser(verified());
+            expect(component.currentPage()).toBe(0);
         });
     });
 
@@ -353,10 +477,11 @@ describe('JoinedUsersComponent', () => {
             expect(paths.some((p) => p.includes('WaitlistedUsers'))).toBe(false);
         });
 
-        it('removes the user from the local list without a reload', async () => {
+        it('shows the page as it now is', async () => {
             const user = { id: 'user-1', email: 'a@b.com', isConfirmed: false } as any;
             component.users.set([user, { id: 'user-2', email: 'c@d.com' } as any]);
             component.waitlistId.set('waitlist-1');
+            vi.mocked(FirestoreSDK.getDocs).mockResolvedValueOnce(snap([{ id: 'user-2', email: 'c@d.com' }]));
 
             await component.deleteUser(user);
 
@@ -370,19 +495,28 @@ describe('JoinedUsersComponent', () => {
     // -----------------------------------------------------------------------
 
     describe('deleteUser() — error handling', () => {
-        it('should show alert when batch.commit rejects', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
+        it('shows a message, not the browser alert(), when batch.commit rejects', async () => {
             const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
             batchMock.commit.mockRejectedValue(new Error('Permission denied'));
             await component.deleteUser(
                 makeUser({ emailVerified: false, isConfirmed: false, referredBy: undefined, waitlistedUserId: undefined })
             );
-            expect(alertSpy).toHaveBeenCalled();
+            expect(notify.error).toHaveBeenCalledWith('admin.forms.signup_delete_failed');
+            expect(alertSpy).not.toHaveBeenCalled();
+        });
+
+        it('asks with the dialog, naming the person safely, never the browser confirm()', async () => {
+            const nativeConfirm = vi.spyOn(window, 'confirm');
+            confirmDialog.ask.mockClear();
+            await component.deleteUser(makeUser({ firstName: '<img src=x>' }));
+            expect(nativeConfirm).not.toHaveBeenCalled();
+            const asked = (confirmDialog.ask.mock.calls[0] as any[])[0];
+            expect(asked.panelType).toBe('warn');
+            expect(asked.dialogMessage).toContain('&lt;img src=x&gt;');
+            expect(asked.dialogMessage).not.toContain('<img');
         });
 
         it('should reset isDeleting to false after error', async () => {
-            vi.spyOn(window, 'confirm').mockReturnValue(true);
-            vi.spyOn(window, 'alert').mockImplementation(() => undefined);
             batchMock.commit.mockRejectedValue(new Error('Permission denied'));
             await component.deleteUser(
                 makeUser({ emailVerified: false, isConfirmed: false, referredBy: undefined, waitlistedUserId: undefined })
@@ -397,6 +531,13 @@ describe('JoinedUsersComponent', () => {
 
     describe('Table column config', () => {
         beforeEach(() => component.initColumns());
+
+        it('names every column and action with a translation key', () => {
+            const headers = component.tableColumns.map((c) => c.header).filter((h) => h !== '#');
+            expect(headers.every((h) => /^(admin|common)\./.test(h))).toBe(true);
+            const labels = component.tableColumns.find((c) => c.key === 'actions')!.actions!.map((a: any) => a.label);
+            expect(labels).toEqual(['admin.forms.signups.view', 'common.actions.delete']);
+        });
 
         it('should have an actions column', () => {
             const col = component.tableColumns.find(c => c.key === 'actions');

@@ -100,18 +100,18 @@ beforeEach(() => {
     issuedQueries.length = 0;
     getUser.mockReset();
     index.push(
-        entry('a', 'content', 'public', 'en', 'Gunjan Karun', '', 3),
-        entry('b', 'content', 'public', 'en', 'Firebase Hosting Guide', 'Written by Gunjan Karun in 2024', 2),
-        entry('c', 'content', 'public', 'en', 'Interview: Gunjan on Firebase', '', 1),
-        entry('h', 'content', 'public', 'hi', 'गुंजन करुण', '', 1),
-        entry('d', 'content-drafts', 'admin', 'en', 'Gunjan Karun draft', '', 4),
+        entry('a', 'content', 'public', 'en', 'Anjali Verma', '', 3),
+        entry('b', 'content', 'public', 'en', 'Firebase Hosting Guide', 'Written by Anjali Verma in 2024', 2),
+        entry('c', 'content', 'public', 'en', 'Interview: Anjali on Firebase', '', 1),
+        entry('h', 'content', 'public', 'hi', 'अंजलि वर्मा', '', 1),
+        entry('d', 'content-drafts', 'admin', 'en', 'Anjali Verma draft', '', 4),
     );
 });
 
 describe('parseRequest', () => {
     it('applies defaults and caps', () => {
-        const parsed = parseRequest({ q: '  kar  ' });
-        expect(parsed).toMatchObject({ q: 'kar', lang: '*', scope: 'public', sources: null, limit: 8 });
+        const parsed = parseRequest({ q: '  ver  ' });
+        expect(parsed).toMatchObject({ q: 'ver', lang: '*', scope: 'public', sources: null, limit: 8 });
         expect(parseRequest({ q: 'x'.repeat(500) }).q).toHaveLength(120);
         expect(parseRequest({ q: 'x', limit: 99 }).limit).toBe(20);
         expect(parseRequest({ q: 'x', limit: 0 }).limit).toBe(1);
@@ -119,8 +119,8 @@ describe('parseRequest', () => {
     });
 
     it('treats null fields as absent, the way the client SDK sends them', () => {
-        const parsed = parseRequest({ q: 'kar', lang: null, scope: null, sources: null, limit: null });
-        expect(parsed).toMatchObject({ q: 'kar', lang: '*', scope: 'public', sources: null, limit: 8 });
+        const parsed = parseRequest({ q: 'ver', lang: null, scope: null, sources: null, limit: null });
+        expect(parsed).toMatchObject({ q: 'ver', lang: '*', scope: 'public', sources: null, limit: 8 });
     });
 
     it('rejects bad input', () => {
@@ -195,7 +195,7 @@ describe('candidateQueries', () => {
 
 describe('runSearch', () => {
     it('returns ranked public results for the language, never admin entries', async () => {
-        const response = await runSearch(parseRequest({ q: 'kar', lang: 'en', scope: 'public' }));
+        const response = await runSearch(parseRequest({ q: 'ver', lang: 'en', scope: 'public' }));
         expect(response.results.map(r => r.docId)).toEqual(['a', 'b']);
         expect(response.results[0].highlights.title).toEqual([[7, 10]]);
         expect(response.results[0].link).toBe('/content/a');
@@ -204,23 +204,23 @@ describe('runSearch', () => {
     });
 
     it('honours the language filter', async () => {
-        const response = await runSearch(parseRequest({ q: 'गुंजन', lang: 'hi', scope: 'public' }));
+        const response = await runSearch(parseRequest({ q: 'अंजलि', lang: 'hi', scope: 'public' }));
         expect(response.results.map(r => r.docId)).toEqual(['h']);
     });
 
     it("searches every language for lang 'all' and folds a document's variants into one row", async () => {
-        index.push(entry('a-hi', 'content', 'public', 'hi', 'Gunjan Karun (hi)', '', 3));
+        index.push(entry('a-hi', 'content', 'public', 'hi', 'Anjali Verma (hi)', '', 3));
         index[index.length - 1].docId = 'a';
-        const response = await runSearch(parseRequest({ q: 'gunjan', lang: 'all', scope: 'public' }));
+        const response = await runSearch(parseRequest({ q: 'anjali', lang: 'all', scope: 'public' }));
         const ids = response.results.map(r => r.docId);
         expect(ids.filter(id => id === 'a')).toHaveLength(1);
-        const hindi = await runSearch(parseRequest({ q: 'गुंजन', lang: 'all', scope: 'public' }));
+        const hindi = await runSearch(parseRequest({ q: 'अंजलि', lang: 'all', scope: 'public' }));
         expect(hindi.results.map(r => r.docId)).toEqual(['h']);
         expect(issuedQueries.every(q => !q.filters.some(([field]) => field === 'lang'))).toBe(true);
     });
 
     it('includes admin entries for an admin-scope request', async () => {
-        const response = await runSearch(parseRequest({ q: 'gunjan karun', lang: 'en', scope: 'admin' }));
+        const response = await runSearch(parseRequest({ q: 'anjali verma', lang: 'en', scope: 'admin' }));
         expect(response.results.map(r => r.docId)).toContain('d');
     });
 
@@ -230,36 +230,36 @@ describe('runSearch', () => {
     });
 
     it('falls back to a shorter token on a typo and says so', async () => {
-        const response = await runSearch(parseRequest({ q: 'gunjam', lang: 'en', scope: 'public' }));
-        expect(response.fallbackUsed).toBe('gunja');
+        const response = await runSearch(parseRequest({ q: 'anjalo', lang: 'en', scope: 'public' }));
+        expect(response.fallbackUsed).toBe('anjal');
         expect(response.results.map(r => r.docId)).toEqual(['a', 'c', 'b']);
     });
 
     it('limits the results', async () => {
-        const response = await runSearch(parseRequest({ q: 'gunjan', lang: 'en', scope: 'public', limit: 1 }));
+        const response = await runSearch(parseRequest({ q: 'anjali', lang: 'en', scope: 'public', limit: 1 }));
         expect(response.results).toHaveLength(1);
     });
 });
 
 describe('fallbackTokenSets', () => {
     it('shortens the shortest long-enough token, twice at most, never below 3', () => {
-        expect(fallbackTokenSets(['gunjam']).map(a => a.tokens)).toEqual([['gunjam'], ['gunja'], ['gunj']]);
+        expect(fallbackTokenSets(['anjalo']).map(a => a.tokens)).toEqual([['anjalo'], ['anjal'], ['anja']]);
         expect(fallbackTokenSets(['abc'])).toEqual([{ tokens: ['abc'] }]);
-        expect(fallbackTokenSets(['firebase', 'gunj']).map(a => a.fallback)).toEqual([undefined, 'gun']);
-        expect(fallbackTokenSets(['firebase', 'gunj'])[1].tokens).toEqual(['firebase', 'gun']);
+        expect(fallbackTokenSets(['firebase', 'anja']).map(a => a.fallback)).toEqual([undefined, 'anj']);
+        expect(fallbackTokenSets(['firebase', 'anja'])[1].tokens).toEqual(['firebase', 'anj']);
         expect(fallbackTokenSets([])).toEqual([{ tokens: [] }]);
     });
 });
 
 describe('search callable', () => {
     it('rejects a public request that names an admin source before reading anything', async () => {
-        await expect(handler({ data: { q: 'kar', sources: ['content-drafts'] } }))
+        await expect(handler({ data: { q: 'ver', sources: ['content-drafts'] } }))
             .rejects.toMatchObject({ code: 'permission-denied' });
         expect(issuedQueries).toHaveLength(0);
     });
 
     it('answers a plain public request', async () => {
-        const response = await handler({ data: { q: 'kar', lang: 'en' } }) as { results: { docId: string }[] };
+        const response = await handler({ data: { q: 'ver', lang: 'en' } }) as { results: { docId: string }[] };
         expect(response.results.map(r => r.docId)).toEqual(['a', 'b']);
     });
 });

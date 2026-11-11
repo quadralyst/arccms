@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Firestore, collection, addDoc } from '@angular/fire/firestore';
+import { Firestore, collection, addDoc, doc, runTransaction } from '@angular/fire/firestore';
 
 /**
  * `redeploy` regenerates the static pages from what is already published,
@@ -46,7 +46,14 @@ export class PublishQueueService {
             docId,
             timestamp: new Date(),
         };
-        await addDoc(collection(this.firestore, '_publish_queue'), item);
+        // A transaction with one write, not addDoc: without a connection it
+        // fails at once rather than waiting, so the editor can say publishing
+        // did not start and free its buttons (RF4 review M6). It only creates,
+        // as the rules allow.
+        const ref = doc(collection(this.firestore, '_publish_queue'));
+        await runTransaction(this.firestore, async (transaction) => {
+            transaction.set(ref, item);
+        });
     }
 
     /**

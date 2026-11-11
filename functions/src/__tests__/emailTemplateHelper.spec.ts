@@ -121,8 +121,8 @@ describe('emailTemplateHelper', () => {
 
     it('should use firstName when available (not email prefix)', async () => {
       const userData = {
-        email: 'gunjan+test1@example.com',
-        firstName: 'Gunjan Karun',
+        email: 'anjali+test1@example.com',
+        firstName: 'Anjali Verma',
         verificationCode: '999999',
         waitlistId: 'wl-abc',
       };
@@ -133,13 +133,13 @@ describe('emailTemplateHelper', () => {
       await createOtpEmailLog(userData as any, templateData as any);
 
       expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({
-        toName: 'Gunjan Karun',
+        toName: 'Anjali Verma',
       }));
     });
 
     it('should fall back to name field when firstName is absent', async () => {
       const userData = {
-        email: 'gunjan+test1@example.com',
+        email: 'anjali+test1@example.com',
         name: 'Full Name',
         verificationCode: '111111',
         waitlistId: 'wl-abc',
@@ -157,7 +157,7 @@ describe('emailTemplateHelper', () => {
 
     it('should fall back to email prefix when both firstName and name are absent', async () => {
       const userData = {
-        email: 'gunjan+test1@example.com',
+        email: 'anjali+test1@example.com',
         verificationCode: '222222',
         waitlistId: 'wl-abc',
       };
@@ -168,7 +168,7 @@ describe('emailTemplateHelper', () => {
       await createOtpEmailLog(userData as any, templateData as any);
 
       expect(mockQueueEmail).toHaveBeenCalledWith(expect.objectContaining({
-        toName: 'gunjan+test1',
+        toName: 'anjali+test1',
       }));
     });
 

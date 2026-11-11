@@ -3,7 +3,7 @@ import { authorNameKey, authorSlug, normalizeAuthor } from './author.model';
 
 describe('author.model', () => {
     it('authorSlug lowercases, strips accents and hyphenates', () => {
-        expect(authorSlug('Gunjan Karun')).toBe('gunjan-karun');
+        expect(authorSlug('Anjali Verma')).toBe('anjali-verma');
         expect(authorSlug('  José  Álvarez ')).toBe('jose-alvarez');
         expect(authorSlug('गुंजन')).toBe('');
     });

@@ -4,7 +4,7 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { Firestore } from '@angular/fire/firestore';
 import ImportDataPageComponent from './import-data.page';
-import { ImportDataService } from './import-data.service';
+import { ImportDataService, ImportFileError } from './import-data.service';
 import { ExportFormat, ImportValidationResult } from '../data-constants';
 
 describe('ImportDataPageComponent', () => {
@@ -86,7 +86,7 @@ describe('ImportDataPageComponent', () => {
     });
 
     it('should show error and stay on step 1 when invalid file is selected', async () => {
-        mockImportService.parseExportFile.mockRejectedValueOnce(new Error('Invalid JSON'));
+        mockImportService.parseExportFile.mockRejectedValueOnce(new ImportFileError('This is not an export file.'));
 
         const file = new File(['not json'], 'bad.json', { type: 'application/json' });
         const event = { target: { files: [file] } } as any;
@@ -94,7 +94,16 @@ describe('ImportDataPageComponent', () => {
         await component.onFileSelected(event);
 
         expect(component.currentStep()).toBe(1);
-        expect(component.parseError()).toBe('Invalid JSON');
+        expect(component.parseError()).toBe('This is not an export file.');
+    });
+
+    it('shows a plain sentence, never the raw error, when reading the file fails some other way', async () => {
+        mockImportService.parseExportFile.mockRejectedValueOnce(new Error('NotReadableError: TypeError at FileReader'));
+        const file = new File(['x'], 'export.json', { type: 'application/json' });
+
+        await component.onFileSelected({ target: { files: [file] } } as any);
+
+        expect(component.parseError()).toBe('The file could not be read. Try again.');
     });
 
     it('should show validation errors and stay on step 1 when validation fails', async () => {

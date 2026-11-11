@@ -413,4 +413,29 @@ describe('TiptapEditorComponent', () => {
             expect(chain.insertContent).toHaveBeenCalledWith('test content');
         });
     });
+
+    describe('link and YouTube dialog', () => {
+        const answer = (url: string | undefined) =>
+            vi.spyOn(component.dialog, 'open').mockReturnValue({ afterClosed: () => ({ subscribe: (fn: (r: unknown) => void) => fn(url) }) } as any);
+
+        it('adds a link for the link dialog, not a video', () => {
+            const spy = answer('https://example.com');
+            component.openToAddUrlModal('link');
+            expect((spy.mock.calls[0][1] as any).data).toEqual({ msg: 'common.add_url.link_text', placeholder: 'common.add_url.link' });
+            expect(component.editor.commands.setYoutubeVideo).not.toHaveBeenCalled();
+            expect(component.editor.chain().setLink).toHaveBeenCalledWith({ href: 'https://example.com' });
+        });
+
+        it('adds a video for the YouTube dialog, once', () => {
+            answer('https://youtu.be/x');
+            component.openToAddUrlModal('youtube');
+            expect(component.editor.commands.setYoutubeVideo).toHaveBeenCalledTimes(1);
+        });
+
+        it('changes nothing on Cancel', () => {
+            answer(undefined);
+            component.openToAddUrlModal('link');
+            expect(component.editor.commands.setYoutubeVideo).not.toHaveBeenCalled();
+        });
+    });
 });

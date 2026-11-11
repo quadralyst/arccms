@@ -81,6 +81,16 @@ vi.mock('../pages/deployContentPage', () => ({
     removeContentPage: mockRemoveContentPage,
 }));
 
+// An entry whose address changed (RF4 4.6): its old address is moved, as a spy.
+const { mockMoveContentPage, mockHolders } = vi.hoisted(() => ({
+    mockMoveContentPage: vi.fn(async (..._args: unknown[]): Promise<string[]> => []),
+    // Published entries that hold an address (the old one, when a move is asked for).
+    mockHolders: vi.fn(async () => ({ docs: [] as Array<{ id: string }> })),
+}));
+vi.mock('../pages/moved-page', () => ({
+    moveContentPage: (...args: unknown[]) => mockMoveContentPage(...args),
+}));
+
 vi.mock('../pages/deployContentListPage', () => ({
     generateAndDeployContentListPage: mockGenerateListPage,
 }));
@@ -1418,4 +1428,127 @@ describe('processPublishQueue — batched writes', () => {
             expect(mockBatchDelete).toHaveBeenCalled();
         });
     });
+
 });
+
+describe('processPublishQueue: an entry published at a new address (RF4 4.6)', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockGet.mockReset();
+        buildChain();
+        mockSubCollectionGet.mockResolvedValue({ docs: [], empty: true });
+        mockDeployBatchToHosting.mockResolvedValue(true);
+        mockSet.mockResolvedValue(undefined);
+        mockUpdate.mockResolvedValue(undefined);
+        mockDelete.mockResolvedValue(undefined);
+        mockGenerateDetailPage.mockResolvedValue(undefined);
+        mockGenerateListPage.mockResolvedValue(undefined);
+        mockHolders.mockResolvedValue({ docs: [] });
+        const { docRef } = buildChain();
+        (docRef as any).parent = { where: () => ({ limit: () => ({ get: mockHolders }) }) };
+    });
+
+    {
+        const draft = (extra: Record<string, unknown> = {}) => ({ exists: true, data: () => ({ title: 'Guide', urlSlug: 'new-guide', ...extra }) });
+        const live = { exists: true, data: () => ({ title: 'Guide', urlSlug: 'old-guide' }) };
+
+        it('sends the old address to the new one by default, in the same release', async () => {
+            mockGet.mockResolvedValueOnce(draft()).mockResolvedValueOnce(live);
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            expect(mockMoveContentPage).toHaveBeenCalledWith('articles', 'old-guide', 'new-guide', true, expect.anything(), []);
+            // The new page is built in the same release as the move.
+            expect(mockMoveContentPage.mock.calls[0][4]).toBe(mockGenerateDetailPage.mock.calls[0][2]);
+        });
+
+        it('takes the old address down when the editor\'s box was unticked, and keeps the choice off the live copy', async () => {
+            mockGet.mockResolvedValueOnce(draft({ redirectOldAddress: false })).mockResolvedValueOnce(live);
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            expect(mockMoveContentPage).toHaveBeenCalledWith('articles', 'old-guide', 'new-guide', false, expect.anything(), []);
+            const written = mockBatchSet.mock.calls.map(([, data]) => data);
+            expect(written[0]).not.toHaveProperty('redirectOldAddress');
+            expect(written[1]).not.toHaveProperty('redirectOldAddress');
+        });
+
+        it('moves nothing when the address is the same, or the entry was not live', async () => {
+            mockGet.mockResolvedValue(draft());
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            mockGet.mockReset();
+            mockGet.mockResolvedValueOnce(draft()).mockResolvedValueOnce({ exists: false, data: () => undefined });
+            await handler(createEvent('publish', 'articles', 'doc2'));
+
+            expect(mockMoveContentPage).not.toHaveBeenCalled();
+        });
+
+        it('does the same for an update', async () => {
+            mockGet.mockResolvedValueOnce(draft()).mockResolvedValueOnce(live);
+
+            await handler(createEvent('update', 'articles', 'doc1'));
+
+            expect(mockMoveContentPage).toHaveBeenCalledWith('articles', 'old-guide', 'new-guide', true, expect.anything(), []);
+        });
+
+        it('still publishes the new page when the move fails', async () => {
+            mockGet.mockResolvedValueOnce(draft()).mockResolvedValueOnce(live);
+            mockMoveContentPage.mockRejectedValueOnce(new Error('no settings'));
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            expect(mockDeployBatchToHosting).toHaveBeenCalled();
+            consoleSpy.mockRestore();
+        });
+
+        // RF4 server review M1: another live entry took the old address meanwhile.
+        it('leaves the old address alone when another published entry holds it', async () => {
+            mockGet.mockResolvedValueOnce(draft()).mockResolvedValueOnce(live);
+            mockHolders.mockResolvedValue({ docs: [{ id: 'other-entry' }] });
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            expect(mockMoveContentPage).not.toHaveBeenCalled();
+        });
+
+        // RF4 server review M2.
+        it('moves nothing when the new page could not be built', async () => {
+            mockGet.mockResolvedValueOnce(draft()).mockResolvedValueOnce(live);
+            mockGenerateDetailPage.mockRejectedValueOnce(new Error('no template'));
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            expect(mockMoveContentPage).not.toHaveBeenCalled();
+            consoleSpy.mockRestore();
+        });
+
+        // RF4 server review L4: only where the entry had a page.
+        it('moves the languages the entry was translated into', async () => {
+            mockGet.mockResolvedValueOnce(draft()).mockResolvedValueOnce(live);
+            mockSubCollectionGet.mockResolvedValue({ docs: [{ id: 'hi', ref: { id: 'hi' }, data: () => ({}) }], empty: false });
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            expect(mockMoveContentPage).toHaveBeenCalledWith('articles', 'old-guide', 'new-guide', true, expect.anything(), ['hi']);
+        });
+
+        // RF4 server review L5.
+        it('clears the editor\'s choice after use, and sends no moved page to IndexNow', async () => {
+            mockGet.mockResolvedValueOnce(draft({ redirectOldAddress: false })).mockResolvedValueOnce(live);
+            mockMoveContentPage.mockImplementationOnce(async (...args: unknown[]) => {
+                (args[4] as { add(path: string, content: string): void }).add('/articles/old-guide.html', '<moved>');
+                return ['/articles/old-guide.html'];
+            });
+
+            await handler(createEvent('publish', 'articles', 'doc1'));
+
+            expect(mockUpdate).toHaveBeenCalledWith({ redirectOldAddress: { _delete: true } });
+            const sent = mockSubmitBatchToIndexNow.mock.calls.at(-1)?.[0] as string[];
+            expect(sent).not.toContain('/articles/old-guide.html');
+        });
+    }
+});
+

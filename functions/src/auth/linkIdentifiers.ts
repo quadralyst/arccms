@@ -24,7 +24,7 @@
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, type Transaction } from 'firebase-admin/firestore';
 import { db, owner } from '../init.js';
 import { computeEmailHash } from '../email-core/unsubscribeToken.js';
 import { ensureSystemLists, SYSTEM_LISTS, unlinkUserContact, upsertContact } from '../email-core/contacts.js';
@@ -62,6 +62,7 @@ import { maskEmail, useFreshCodeProof } from './freshCode.js';
 import { isBlank } from '../shared/blank.js';
 import { queueEmail } from '../email-core/queueEmail.js';
 import { readEmailBrand, wrapInEmailLayout } from '../email-core/emailLayout.js';
+import { isActiveAdmin, requireAnotherActiveAdmin } from '../users/activeAdmins.js';
 
 const HOUR = 60 * 60 * 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -91,6 +92,18 @@ export function removalUpdate(data: Record<string, unknown>, kind: LinkKind, now
         Object.assign(update, { status: 'Detached', isActive: false, detachedAt: now, detachedReason: `${kind}_moved` });
     }
     return update;
+}
+
+/** Said when moving an email or number here would leave the site's last admin with no way in. */
+export const LAST_ADMIN_SIGN_IN = "This is the only way into the site's only admin account, so it can't move here. The site needs another admin first.";
+
+/**
+ * Refuse (`last-admin`) a move that would detach the holder when it is the site's last
+ * active admin: a detached account cannot sign in, and the site would have no admin.
+ */
+export async function refuseDetachingLastAdmin(holder: UserRecord | null, kind: LinkKind, tx: Transaction | null = null): Promise<void> {
+    if (!holder || hasSignInLeft(holder.data, kind) || !isActiveAdmin(holder.data)) return;
+    await requireAnotherActiveAdmin(tx, holder.ref.id, holder.data['uid'], LAST_ADMIN_SIGN_IN);
 }
 
 /** An address nobody receives mail at, for an Auth account whose email moved away. */
@@ -250,6 +263,9 @@ export const linkPhone = onCall(async (request) => {
     if (needsPin && pinTooEasy(pin)) {
         throw new HttpsError('invalid-argument', 'That PIN is too easy to guess. Avoid repeated digits and runs like 123456.', { reason: 'weak-pin' });
     }
+    // Before any code is used up: the move must not leave the site without an admin.
+    const current = await findUserByPhone(phone);
+    if (current && current.ref.id !== me.ref.id) await refuseDetachingLastAdmin(current, 'phone');
     // Before the number's code is used up, so a page that still needs the fresh code keeps it.
     await requireLinkProof(request, me, uid, 'phone');
     if (!(await consumeVerifiedPhoneOtp(phone, 'link', { uid }))) {
@@ -271,6 +287,8 @@ export const linkPhone = onCall(async (request) => {
             if (snap.exists && snap.data()?.['phone'] === phone) holder = { ref: snap.ref, data: snap.data() ?? {} };
         }
 
+        // Again in the transaction: an admin may have gone meanwhile.
+        await refuseDetachingLastAdmin(holder, 'phone', tx);
         if (holder) tx.update(holder.ref, removalUpdate(holder.data, 'phone', now));
         tx.set(newIndex, { userDocId: me.ref.id, uid, createdAt: now });
         if (oldIndex && oldIndexSnap?.data()?.['userDocId'] === me.ref.id) tx.delete(oldIndex);
@@ -318,6 +336,8 @@ export const linkEmail = onCall(async (request) => {
     if (holder && holder.uid !== uid && holder.uid !== from?.data['uid']) {
         throw refuse('failed-precondition', 'email-not-movable', "This email is used by a sign-in that can't be moved here.");
     }
+
+    if (from && from.ref.id !== me.ref.id) await refuseDetachingLastAdmin(from, 'email');
 
     // Before the address's code is used up, so a page that still needs the fresh code keeps it.
     await requireLinkProof(request, me, uid, 'email');

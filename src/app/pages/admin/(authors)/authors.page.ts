@@ -11,6 +11,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subscription } from 'rxjs';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
@@ -48,7 +49,10 @@ export default class AuthorsPageComponent implements OnInit {
     authors = signal<IAuthor[]>([]);
     defaultAuthorId = signal('');
     loading = signal(true);
+    /** The list did not load: the table says so with Retry; the detail stays in the console. */
+    loadError = signal<string | null>(null);
     busy = signal(false);
+    private listRead?: Subscription;
 
     /** Rows for the table: the author plus whether it is the default. */
     rows = computed(() =>
@@ -73,7 +77,7 @@ export default class AuthorsPageComponent implements OnInit {
             // textFn rather than the true/false pair: the pair's empty false
             // text falls back to the table's generic "Inactive", which reads
             // as a status the author does not have.
-            badgeConfig: { textFn: (r) => (r.isDefault ? 'Default' : '') },
+            badgeConfig: { textFn: (r) => (r.isDefault ? this.t('admin.contents.authors.default_badge') : '') },
             classFn: (r) => (r.isDefault ? 'badge-default' : 'badge-none'),
         },
         {
@@ -101,8 +105,17 @@ export default class AuthorsPageComponent implements OnInit {
         // the default, which the seed may just have set.
         this.authorsService.ensureAdminAuthor()
             .then(seeded => this.authorsService.loadSettings()
-                .then(settings => this.defaultAuthorId.set(settings.defaultAuthorId || seeded?.id || '')));
-        this.authorsService.list().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                .then(settings => this.defaultAuthorId.set(settings.defaultAuthorId || seeded?.id || '')))
+            .catch(e => console.error('Error reading the default author:', e));
+        this.load();
+    }
+
+    /** Opens the live list; Retry in the table's error state opens it again. */
+    load(): void {
+        this.listRead?.unsubscribe();
+        this.loading.set(true);
+        this.loadError.set(null);
+        this.listRead = this.authorsService.list().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: authors => {
                 this.authors.set(authors);
                 this.loading.set(false);
@@ -111,7 +124,7 @@ export default class AuthorsPageComponent implements OnInit {
                 // Typically the rules are not deployed yet; an endless spinner hides that.
                 console.error('Error loading authors:', e);
                 this.loading.set(false);
-                this.toast.error(this.t('admin.contents.authors.load_failed'));
+                this.loadError.set('admin.authors.load_failed');
             },
         });
     }
@@ -199,7 +212,7 @@ export default class AuthorsPageComponent implements OnInit {
         );
         this.dialog.open(ConfirmationPopupComponent, {
             width: '400px',
-            data: { dialogType: 'Delete', dialogMessage: msg, btnText: 'Delete', panelType: 'warn' },
+            data: { dialogType: 'Delete', titleKey: 'admin.authors.delete_title', dialogMessage: msg, btnText: this.t('common.actions.delete'), panelType: 'warn' },
         }).afterClosed().subscribe(async (ok: boolean) => {
             if (!ok) return;
             try {

@@ -60,6 +60,33 @@ export function validateCollectionRefField(field: any): string[] {
 }
 
 /**
+ * The same checks as validateCollectionRefField, as translation keys with
+ * their field's name, so a page shows them in the admin's language (RF5 5.3).
+ */
+export function collectionRefProblems(field: any): Array<{ key: CollectionRefProblemKey; field: string }> {
+    const problems: Array<{ key: CollectionRefProblemKey; field: string }> = [];
+    if (field?.useCollectionRef) {
+        const name = field.label || field.key || '';
+        if (!field.collectionRefSlug) problems.push({ key: 'admin.contents.types.form.ref_source_required', field: name });
+        if (!field.collectionRefDisplayField) problems.push({ key: 'admin.contents.types.form.ref_display_required', field: name });
+    }
+    return problems;
+}
+
+export type CollectionRefProblemKey = 'admin.contents.types.form.ref_source_required' | 'admin.contents.types.form.ref_display_required';
+
+/** The translation key for a built-in field's name in the field pickers, or null for a custom field. */
+export function systemFieldLabelKey(field: { key: string; order?: number }): string | null {
+    if ((field.order ?? 0) >= 0) return null;
+    return ({
+        id: 'admin.contents.types.system_id',
+        title: 'admin.contents.editor.title_label',
+        urlSlug: 'admin.contents.editor.address',
+        coverImage: 'admin.contents.editor.cover_image',
+    } as Record<string, string>)[field.key] ?? null;
+}
+
+/**
  * Map a form field value into a ContentTypeField with collectionRef configuration.
  * Used by both Add and Edit content type onSubmit methods.
  */

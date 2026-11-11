@@ -49,7 +49,7 @@
         <tr><td>Fixed text in Hindi</td><td><code class="new">src/custom/site/strings/hi.json</code></td><td>Translations</td></tr>
       </tbody>
     </table>
-    <p>Sections of the home page that editors should change without you, such as services, a hero or questions, become content types without public pages; contact details in the footer come from Settings, About. This example keeps them as HTML; <a href="editable-sections.html">Let editors change your home page</a> shows the other way.</p>
+    <p>Sections of the home page that editors should change without you, such as services, a hero or questions, become content types without public pages; contact details in the footer come from Settings, Site details. This example keeps them as HTML; <a href="editable-sections.html">Let editors change your home page</a> shows the other way.</p>
     <div class="note"><p>The home page is a whole document, with its own <code>&lt;head&gt;</code>. Templates are fragments: no <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code>. Arc CMS writes the page around them, with the title, description and search tags of each post. The folder name, <code>blog</code>, matches the content type's slug, so the admin picks it for you.</p></div>
 
     <h2>2. Header, footer and shared styles</h2>
@@ -96,7 +96,7 @@ a { color: var(--brand); }
     <ol>
       <li>The navigation and footer become <code>&lt;arc-header&gt;&lt;/arc-header&gt;</code> and <code>&lt;arc-footer&gt;&lt;/arc-footer&gt;</code>.</li>
       <li>The three hand-written cards become one element, <code>&lt;arc-content-partials content-type="blog" count="3" section-title="Latest from the blog"&gt;</code>. It shows the newest three posts, drawn by <code>partials.html</code> (step 6).</li>
-      <li>The signup form gets <code>data-waitlist-form</code> and <code>data-waitlist-id="newsletter"</code>. Arc CMS sends each sign-up to the form named <code>newsletter</code>, asks for the emailed code, and adds the terms notice above the button. If no form with that id exists, it is created the first time the page runs, so check the spelling, or create it first under <strong>Signup Forms</strong> with the slug <code>newsletter</code>.</li>
+      <li>The signup form gets <code>data-waitlist-form</code> and <code>data-waitlist-id="newsletter"</code>. Arc CMS sends each sign-up to the form named <code>newsletter</code>, asks for the emailed code, and adds the terms notice above the button. If no form with that id exists, it is created the first time the page runs, so check the spelling, or create it first under <strong>Forms</strong> with the slug <code>newsletter</code>.</li>
       <li>Styles and the script move to <code class="new">src/custom/site/assets/</code> and are linked as <code>/site/home.css</code> and <code>/site/main.js</code>. Arc CMS adds each file's version to the link, so a change reaches returning visitors.</li>
     </ol>
     <pre><code>&lt;!doctype html&gt;
@@ -328,7 +328,7 @@ a { color: var(--brand); }
         <tr><td>The post shows the default design</td><td>The type's <strong>Content Template</strong> is still Default, or your template file is a whole document (it has <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code> tags). Keep templates fragments.</td></tr>
         <tr><td>The body shows tags such as <code>&lt;p&gt;</code></td><td>It was written <code>{{ content }}</code>. Use <code>[innerHTML]="content"</code>.</td></tr>
         <tr><td>A list shows one post only, or the cards are empty</td><td>The loop keeps only its first child as the pattern: wrap each card in one element. Cards also need <code>hasItems</code> true, that is, a published post.</td></tr>
-        <tr><td>An empty form appears under <strong>Signup Forms</strong></td><td>The page's <code>data-waitlist-id</code> named a form that did not exist, so one was created. Fix the spelling, and delete the extra form.</td></tr>
+        <tr><td>An empty form appears under <strong>Forms</strong></td><td>The page's <code>data-waitlist-id</code> named a form that did not exist, so one was created. Fix the spelling, and delete the extra form.</td></tr>
         <tr><td>An icon disappears from a translated button</td><td><code>data-arc-t</code> replaces the element's text, children included. Put icons outside the element that has <code>data-arc-t</code>.</td></tr>
         <tr><td>A script works live but not in <code>npm run dev</code></td><td>It waits for <code>DOMContentLoaded</code>, which has already happened in the app. Start it as <code>main.js</code> does.</td></tr>
       </tbody>

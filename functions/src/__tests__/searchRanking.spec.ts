@@ -34,9 +34,9 @@ function entry(id: string, title: string, summary = '', sortAt = 0): Fixture {
     };
 }
 
-const A = entry('A', 'Gunjan Karun', '', 3);
-const B = entry('B', 'Firebase Hosting Guide', 'Written by Gunjan Karun in 2024', 2);
-const C = entry('C', 'Interview: Gunjan on Firebase', '', 1);
+const A = entry('A', 'Anjali Verma', '', 3);
+const B = entry('B', 'Firebase Hosting Guide', 'Written by Anjali Verma in 2024', 2);
+const C = entry('C', 'Interview: Anjali on Firebase', '', 1);
 const ALL = [A, B, C];
 
 /** Mimics the callable: filter by any shared token, rank, fall back on a typo. */
@@ -53,34 +53,34 @@ function search(query: string, candidates = ALL): string[] {
 
 describe('Appendix B', () => {
     it('kar: title prefix hit outranks summary prefix hit', () => {
-        expect(search('kar')).toEqual(['A', 'B']);
+        expect(search('ver')).toEqual(['A', 'B']);
     });
 
-    it('Karun Gunjan: order-free, both-token matches first', () => {
-        expect(search('Karun Gunjan')).toEqual(['A', 'B', 'C']);
+    it('Verma Anjali: order-free, both-token matches first', () => {
+        expect(search('Verma Anjali')).toEqual(['A', 'B', 'C']);
     });
 
-    it('gunjan fire: both in the title beats one in each field', () => {
-        expect(search('gunjan fire')).toEqual(['C', 'B', 'A']);
+    it('anjali fire: both in the title beats one in each field', () => {
+        expect(search('anjali fire')).toEqual(['C', 'B', 'A']);
     });
 
-    it('GUNJÁN: case and accent folded, title hits above summary hits', () => {
-        expect(search('GUNJÁN')).toEqual(['A', 'C', 'B']);
+    it('ANJÁLI: case and accent folded, title hits above summary hits', () => {
+        expect(search('ANJÁLI')).toEqual(['A', 'C', 'B']);
     });
 
-    it("karun's: apostrophe removed, the fallback shortens karuns to karun", () => {
-        expect(search("karun's")).toEqual(['A', 'B']);
-        const attempts = fallbackTokenSets(queryTokens("karun's").tokens);
-        expect(attempts[1]).toEqual({ tokens: ['karun'], fallback: 'karun' });
+    it("verma's: apostrophe removed, the fallback shortens vermas to verma", () => {
+        expect(search("verma's")).toEqual(['A', 'B']);
+        const attempts = fallbackTokenSets(queryTokens("verma's").tokens);
+        expect(attempts[1]).toEqual({ tokens: ['verma'], fallback: 'verma' });
     });
 
-    it('gunjam: a typo falls back to a shorter prefix', () => {
-        expect(search('gunjam')).toEqual(['A', 'C', 'B']);
+    it('anjalo: a typo falls back to a shorter prefix', () => {
+        expect(search('anjalo')).toEqual(['A', 'C', 'B']);
     });
 
-    it('गुंजन: Devanagari survives tokenizing end to end', () => {
-        const hindi = entry('H', 'गुंजन करुण');
-        expect(search('गुंजन', [hindi, A])).toEqual(['H']);
+    it('अंजलि: Devanagari survives tokenizing end to end', () => {
+        const hindi = entry('H', 'अंजलि वर्मा');
+        expect(search('अंजलि', [hindi, A])).toEqual(['H']);
     });
 
     it('arun: infix is not indexed', () => {
@@ -101,8 +101,8 @@ describe('Appendix B', () => {
         expect(search('firebase hosting guide')).toEqual(['B', 'C']);
     });
 
-    it('Gunjan Karun: phrase bonus puts the exact title first', () => {
-        expect(search('Gunjan Karun')).toEqual(['A', 'B', 'C']);
+    it('Anjali Verma: phrase bonus puts the exact title first', () => {
+        expect(search('Anjali Verma')).toEqual(['A', 'B', 'C']);
     });
 });
 
@@ -113,20 +113,20 @@ describe('scoreEntry', () => {
     });
 
     it('scores a whole word above a prefix in the same field', () => {
-        const whole = scoreEntry(A, ['karun'], 'karun')!;
-        const prefix = scoreEntry(A, ['kar'], 'kar')!;
+        const whole = scoreEntry(A, ['verma'], 'verma')!;
+        const prefix = scoreEntry(A, ['ver'], 'ver')!;
         expect(whole.score).toBeGreaterThan(prefix.score);
     });
 
     it('applies the source boost', () => {
         const boosted = { ...A, boost: 2 };
-        expect(scoreEntry(boosted, ['karun'], 'karun')!.score)
-            .toBeCloseTo(scoreEntry(A, ['karun'], 'karun')!.score * 2);
+        expect(scoreEntry(boosted, ['verma'], 'verma')!.score)
+            .toBeCloseTo(scoreEntry(A, ['verma'], 'verma')!.score * 2);
     });
 
     it('falls back to a weight of 1 for a field with no recorded weight', () => {
         const noWeights = { ...A, weights: {} };
-        expect(scoreEntry(noWeights, ['karun'], 'karun')).not.toBeNull();
+        expect(scoreEntry(noWeights, ['verma'], 'verma')).not.toBeNull();
     });
 });
 
@@ -140,20 +140,20 @@ describe('rank tie-breaks', () => {
 
 describe('highlightRanges', () => {
     it('marks whole-word matches in the original string', () => {
-        expect(highlightRanges('Gunjan Karun', ['karun'])).toEqual([[7, 12]]);
+        expect(highlightRanges('Anjali Verma', ['verma'])).toEqual([[7, 12]]);
     });
 
     it('marks only the matched prefix', () => {
-        expect(highlightRanges('Gunjan Karun', ['kar'])).toEqual([[7, 10]]);
+        expect(highlightRanges('Anjali Verma', ['ver'])).toEqual([[7, 10]]);
     });
 
     it('matches through accents and case', () => {
-        expect(highlightRanges('Gunján Karun', ['gunjan'])).toEqual([[0, 6]]);
+        expect(highlightRanges('Anjáli Verma', ['anjali'])).toEqual([[0, 6]]);
     });
 
     it('merges overlapping ranges and keeps distinct ones apart', () => {
-        expect(highlightRanges('Gunjan Karun', ['gunjan', 'karun'])).toEqual([[0, 6], [7, 12]]);
-        expect(highlightRanges('Karun', ['kar', 'karun'])).toEqual([[0, 5]]);
+        expect(highlightRanges('Anjali Verma', ['anjali', 'verma'])).toEqual([[0, 6], [7, 12]]);
+        expect(highlightRanges('Verma', ['ver', 'verma'])).toEqual([[0, 5]]);
     });
 
     it('returns nothing for empty input', () => {

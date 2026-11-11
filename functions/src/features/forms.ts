@@ -15,6 +15,8 @@ export * from '../waitlists/waitlist-details/onWaitlistUserUpdate.js';
 export * from '../waitlists/onWaitlistsCreate.js';
 export * from '../waitlists/onWaitlistsUpdate.js';
 export * from '../waitlists/onWaitlistsDelete.js';
+// Forms > Delete: the form, its sign-ups and its tags together.
+export * from '../waitlists/adminDeleteForm.js';
 export * from '../waitlists/ensureWaitlistExists.js';
 export * from '../waitlists/formOtp.js';
 export * from '../waitlists/finalizeFormSignup.js';

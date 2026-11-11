@@ -48,7 +48,14 @@
         }
     </div>
     @if (loading()) {
-    <div class="pdf-tab-status" role="status"><i class="fas fa-spinner fa-spin me-2" aria-hidden="true"></i></div>
+    <div class="pdf-tab-status" role="status"><i class="fas fa-spinner fa-spin me-2" aria-hidden="true"></i><span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span></div>
+    } @else if (loadFailed()) {
+    <div class="pdf-tab-status" role="alert">
+        <p class="mb-2">{{ 'admin.media.pdf_tab.load_failed_retry' | transloco }}</p>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="pdfRetryBtn" (click)="retry()">
+            <i class="fas fa-rotate-right me-1" aria-hidden="true"></i>{{ 'common.table.retry' | transloco }}
+        </button>
+    </div>
     } @else if (query() && !matching().length) {
     <div class="pdf-tab-status">{{ 'admin.media.pdf_tab.none_found' | transloco }}</div>
     } @else if (!pdfs().length) {

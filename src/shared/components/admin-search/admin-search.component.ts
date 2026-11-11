@@ -37,7 +37,8 @@ let rebuiltSources: Promise<boolean> | null = null;
             [placeholder]="'common.search.placeholder' | transloco"
             [emptyText]="'common.search.empty' | transloco"
             [showingForText]="'common.search.showing_for' | transloco"
-            [allResultsText]="'common.search.all_results' | transloco"></arc-search-box>
+            [allResultsText]="'common.search.all_results' | transloco"
+            [clearText]="'common.search_box.clear' | transloco"></arc-search-box>
         }
     `,
     styles: [':host { display: block; }'],

@@ -184,6 +184,29 @@ describe('NavbarComponent', () => {
         fixture.detectChanges();
     });
 
+    // RF4 review M5: a page with unsaved work is asked first; Stay keeps the person signed in.
+    describe('Sign out', () => {
+        const confirmAndWait = async () => {
+            (TestBed.inject(MatDialog) as any).open.mockReturnValue({ afterClosed: () => of(true) });
+            component.confirmLogout();
+            await new Promise((resolve) => setTimeout(resolve));
+        };
+
+        it('leaves the page before signing out, and signs out only when it could leave', async () => {
+            const router = TestBed.inject(Router) as any;
+            const auth = TestBed.inject(AuthState) as any;
+            router.navigate.mockResolvedValue(false);
+            await confirmAndWait();
+            expect(router.navigate).toHaveBeenCalledWith(['/signup']);
+            expect(auth.logout).not.toHaveBeenCalled();
+
+            router.navigate.mockResolvedValue(true);
+            auth.logout.mockReturnValue(of(undefined));
+            await confirmAndWait();
+            expect(auth.logout).toHaveBeenCalledTimes(1);
+        });
+    });
+
     /**
      * Each menu item whose page has another owner than the item says. A page is a
      * feature's, core's, the app's (src/custom/routes.ts) or nobody's. An app page may
@@ -330,7 +353,7 @@ describe('NavbarComponent', () => {
     it('should have About external link above Logout', () => {
         const items = component.menuItems();
         const aboutIndex = items.findIndex(i => i.label === 'About');
-        const logoutIndex = items.findIndex(i => i.label === 'Logout');
+        const logoutIndex = items.findIndex(i => i.id === 'logout');
 
         expect(aboutIndex).not.toBe(-1);
         expect(logoutIndex).not.toBe(-1);
@@ -624,7 +647,7 @@ describe('NavbarComponent: the version under Logout (specs/app-version-spec.md A
         expect(line.textContent!.trim()).toBe('v1.2.0.25 android');
         expect(line.getAttribute('aria-label')).toBe('Version v1.2.0.25 android');
         const links = [...fixture.nativeElement.querySelectorAll('.sidebar-menu .nav-link')] as HTMLElement[];
-        const logout = links.find((a) => a.textContent!.includes('Logout'))!;
+        const logout = links.find((a) => a.textContent!.includes('Sign out'))!;
         expect(logout.nextElementSibling).toBe(line);
     });
 
@@ -685,8 +708,8 @@ describe("NavbarComponent: the app's menu changes (src/custom/nav-changes.ts)", 
     it('shows the menu as Arc CMS ships it when the app changes nothing', () => {
         expect(renderedMenu()).toEqual([
             'Dashboard /admin/dashboard fa-solid fa-gauge-high',
-            'Signup Forms /admin/waitlists fa-solid fa-list-alt',
-            'Media Manager /admin/media fa-solid fa-images',
+            'Forms /admin/waitlists fa-solid fa-list-alt',
+            'Media /admin/media fa-solid fa-images',
             '---',
             'Content - fa-solid fa-layer-group',
             '---',
@@ -702,7 +725,7 @@ describe("NavbarComponent: the app's menu changes (src/custom/nav-changes.ts)", 
             'Profile /admin/profile fa-solid fa-user',
             'Settings /admin/settings fa-solid fa-gear',
             'About https://arccms.com/about fa-solid fa-circle-info',
-            'Logout - fa-solid fa-right-from-bracket',
+            'Sign out - fa-solid fa-right-from-bracket',
         ]);
     });
 
@@ -717,7 +740,7 @@ describe("NavbarComponent: the app's menu changes (src/custom/nav-changes.ts)", 
         CUSTOM_NAV_CHANGES.admin = [{ id: 'dashboard', route: '/admin/extension-dashboard' }];
         expect(renderedMenu().slice(0, 3)).toEqual([
             'Home /admin/extension-dashboard fa-solid fa-gauge-high',
-            'Signup Forms /admin/waitlists fa-solid fa-list-alt',
+            'Forms /admin/waitlists fa-solid fa-list-alt',
             '---',
         ]);
     });
@@ -736,11 +759,11 @@ describe("NavbarComponent: the app's menu changes (src/custom/nav-changes.ts)", 
             'Settings /admin/settings fa-solid fa-gear',
             'Dashboard /admin/dashboard fa-solid fa-gauge-high',
             'Reports /admin/reports fa-solid fa-chart-line',
-            'Signup Forms /admin/waitlists fa-solid fa-list-alt',
+            'Forms /admin/waitlists fa-solid fa-list-alt',
             '---',
         ]);
         expect(rows.filter((r) => r === '---')).toHaveLength(2);
-        expect(rows.slice(-4)).toEqual(['---', 'Profile /admin/profile fa-solid fa-user', 'About https://arccms.com/about fa-solid fa-circle-info', 'Logout - fa-solid fa-right-from-bracket']);
+        expect(rows.slice(-4)).toEqual(['---', 'Profile /admin/profile fa-solid fa-user', 'About https://arccms.com/about fa-solid fa-circle-info', 'Sign out - fa-solid fa-right-from-bracket']);
     });
 
     it("shows an editor the items the app's changes give that role, with Profile and Logout", () => {
@@ -753,18 +776,88 @@ describe("NavbarComponent: the app's menu changes (src/custom/nav-changes.ts)", 
         role.set('editor');
         expect(renderedMenu()).toEqual([
             'Reports /admin/reports fa-solid fa-chart-line',
-            'Media Manager /admin/media fa-solid fa-images',
+            'Media /admin/media fa-solid fa-images',
             // Separators are for admins and users, as before.
             'Profile /admin/profile fa-solid fa-user',
-            'Logout - fa-solid fa-right-from-bracket',
+            'Sign out - fa-solid fa-right-from-bracket',
         ]);
     });
 
-    it('opens the sign-out dialog from Logout, found by its id whatever its label', () => {
-        CUSTOM_NAV_CHANGES.admin = [{ id: 'logout', label: 'Sign out' }];
-        expect(renderedMenu().at(-1)).toBe('Sign out - fa-solid fa-right-from-bracket');
+    it('opens the sign-out dialog from Sign out, found by its id whatever its label', () => {
+        CUSTOM_NAV_CHANGES.admin = [{ id: 'logout', label: 'Leave' }];
+        expect(renderedMenu().at(-1)).toBe('Leave - fa-solid fa-right-from-bracket');
         const confirm = vi.spyOn(component, 'confirmLogout').mockImplementation(() => {});
         ([...fixture.nativeElement.querySelectorAll('.sidebar-menu > a')].at(-1) as HTMLElement).click();
         expect(confirm).toHaveBeenCalled();
+    });
+});
+
+/**
+ * RF5 5.4: one word per thing. The menu reads Forms, Media, Sign-ups and Sign out, in English
+ * and Hindi; the ids an app's changes name stay as they were.
+ */
+describe('NavbarComponent: the agreed words (RF5 5.4) and names while collapsed (5.8)', () => {
+    async function render(lang: 'en' | 'hi', expanded: boolean) {
+        const { TranslocoService, TranslocoTestingModule } = await import('@jsverse/transloco');
+        const en = (await import('../../../assets/i18n/en.json')).default;
+        const hi = (await import('../../../assets/i18n/hi.json')).default;
+        await TestBed.configureTestingModule({
+            imports: [
+                NavbarComponent,
+                NoopAnimationsModule,
+                TranslocoTestingModule.forRoot({
+                    langs: { en, hi },
+                    translocoConfig: { availableLangs: ['en', 'hi'], defaultLang: lang },
+                    preloadLangs: true,
+                }),
+            ],
+            providers: [
+                provideRouter([]),
+                { provide: AuthState, useValue: { currentUser: signal({ name: 'Admin', role: 'admin', photo: '' }), logout: vi.fn() } },
+                { provide: ContentTypesStore, useValue: { items: signal([]), getAll: vi.fn() } },
+                { provide: WaitlistAdminStore, useValue: { items: signal([{ id: 'f1', name: 'Launch' }]), subscribe: vi.fn() } },
+                { provide: MatDialog, useValue: { open: vi.fn() } },
+                { provide: SiteIdentityService, useValue: identityStub() },
+            ],
+        }).compileComponents();
+        TestBed.inject(TranslocoService).setActiveLang(lang);
+        const fixture = TestBed.createComponent(NavbarComponent);
+        fixture.componentInstance.isExpanded = expanded;
+        fixture.detectChanges();
+        return fixture;
+    }
+
+    it('says Forms, Media, Sign-ups and Sign out, with the ids unchanged', async () => {
+        const fixture = await render('en', true);
+        const nav = fixture.componentInstance;
+        const items = nav.menuItems();
+        const label = (id: string) => nav.menuLabel(items.find((i) => i.id === id)!);
+        expect(label('signup-forms')).toBe('Forms');
+        expect(label('media')).toBe('Media');
+        expect(label('logout')).toBe('Sign out');
+        const form = items.find((i) => i.label === 'Launch')!;
+        expect(form.subItems!.map((s) => nav.menuLabel(s))).toContain('Sign-ups');
+        expect(form.subItems!.map((s) => nav.menuLabel(s))).not.toContain('Users');
+        const email = items.find((i) => i.id === 'email')!;
+        expect(email.subItems!.map((s) => nav.menuLabel(s))).toEqual(expect.arrayContaining(['Brand kit', 'Drip campaigns', 'Email logs']));
+        const text = fixture.nativeElement.textContent as string;
+        for (const old of ['Signup Forms', 'Media Manager', 'Logout', 'Waitlist']) expect(text).not.toContain(old);
+    });
+
+    it('says the same words in Hindi', async () => {
+        const fixture = await render('hi', true);
+        const nav = fixture.componentInstance;
+        const label = (id: string) => nav.menuLabel(nav.menuItems().find((i) => i.id === id)!);
+        expect(label('signup-forms')).toBe('फ़ॉर्म');
+        expect(label('logout')).toBe('साइन आउट');
+    });
+
+    it('names every link while the panel is collapsed and shows only icons', async () => {
+        const fixture = await render('en', false);
+        const links = [...fixture.nativeElement.querySelectorAll('.sidebar-menu a.nav-link, a.user-info')] as HTMLElement[];
+        expect(links.length).toBeGreaterThan(5);
+        for (const link of links) expect(link.getAttribute('aria-label'), link.outerHTML.slice(0, 120)).toBeTruthy();
+        const names = links.map((a) => a.getAttribute('aria-label'));
+        expect(names).toEqual(expect.arrayContaining(['Admin', 'Dashboard', 'Forms', 'Media', 'Sign out']));
     });
 });

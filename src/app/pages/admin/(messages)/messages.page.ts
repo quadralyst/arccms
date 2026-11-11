@@ -12,6 +12,8 @@ import { PageHeaderComponent } from '../../../../shared/components/page-header/p
 import { injectT } from '../../../core/i18n/inject-t';
 import { MessagesAdminService, replyLink, type ContactMessageItem, type MessageStatus } from './messages-admin.service';
 import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
+import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
+import { NotifyService } from '../../../../shared/services/notify.service';
 import { isSitePath } from '../../../../shared/utils/site-path';
 
 @Component({
@@ -35,9 +37,15 @@ import { isSitePath } from '../../../../shared/utils/site-path';
                 <p class="text-muted small">{{ 'admin.messages.spam_hint' | transloco }}</p>
             }
 
-            @if (!inbox.loading() && !inbox.items().length) {
+            @if (loadError() && !inbox.loading()) {
+                <!-- The detail is in the console; the admin reads a plain sentence and can try again. -->
+                <div class="alert alert-danger d-flex flex-wrap align-items-center gap-2" role="alert">
+                    <span class="flex-grow-1"><strong>{{ 'common.table.load_failed_title' | transloco }}.</strong> {{ 'common.table.load_failed_text' | transloco }}</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="retry()">{{ 'common.table.retry' | transloco }}</button>
+                </div>
+            } @else if (!inbox.loading() && !inbox.items().length) {
                 <div class="msg-empty" data-testid="messages-empty">
-                    <i class="fa-regular fa-envelope"></i>
+                    <i class="fa-regular fa-envelope" aria-hidden="true"></i>
                     <p>{{ (status() === 'new' ? 'admin.messages.empty_new' : 'admin.messages.empty') | transloco }}</p>
                     @if (status() === 'new') {
                         <p class="text-muted">{{ 'admin.messages.empty_hint' | transloco }}</p>
@@ -58,7 +66,7 @@ import { isSitePath } from '../../../../shared/utils/site-path';
                         <p class="msg-text">{{ item.message }}</p>
                         @if (item.page) {
                             <div class="msg-page text-muted">
-                                <i class="fa-solid fa-link"></i> {{ 'admin.messages.sent_from' | transloco }}
+                                <i class="fa-solid fa-link" aria-hidden="true"></i> {{ 'admin.messages.sent_from' | transloco }}
                                 <!-- A link only to a path on this site (isSitePath); anything else is plain text. -->
                                 @if (isSitePath(item.page)) {
                                     <a [href]="item.page" target="_blank" rel="noopener">{{ item.page }}</a>
@@ -69,12 +77,12 @@ import { isSitePath } from '../../../../shared/utils/site-path';
                         }
                         <div class="msg-actions">
                             <a mat-flat-button color="primary" [href]="reply(item)" data-testid="reply">
-                                <i class="fa-solid fa-reply me-1"></i>{{ 'admin.messages.reply' | transloco }}
+                                <i class="fa-solid fa-reply me-1" aria-hidden="true"></i>{{ 'admin.messages.reply' | transloco }}
                             </a>
                             @switch (item.status) {
                                 @case ('new') {
                                     <button mat-stroked-button (click)="move(item, 'done')">
-                                        <i class="fa-solid fa-check me-1"></i>{{ 'admin.messages.mark_done' | transloco }}
+                                        <i class="fa-solid fa-check me-1" aria-hidden="true"></i>{{ 'admin.messages.mark_done' | transloco }}
                                     </button>
                                 }
                                 @case ('done') {
@@ -93,7 +101,7 @@ import { isSitePath } from '../../../../shared/utils/site-path';
             @if (inbox.loading()) {
                 <arc-loader kind="block" [count]="2"></arc-loader>
             } @else if (inbox.hasMore()) {
-                <button mat-stroked-button (click)="inbox.load(status(), true)">{{ 'admin.messages.load_more' | transloco }}</button>
+                <button mat-stroked-button (click)="load(true)">{{ 'admin.messages.load_more' | transloco }}</button>
             }
         </div>
     `,
@@ -123,16 +131,44 @@ export default class MessagesInboxPage implements OnInit {
     readonly inbox = inject(MessagesAdminService);
     readonly isSitePath = isSitePath;
     private t = injectT();
+    private confirmDialog = inject(ConfirmService);
+    private notify = inject(NotifyService);
 
     readonly status = signal<MessageStatus>('new');
+    /** The list did not load: the page says so with Retry, not "no messages". */
+    readonly loadError = signal(false);
+    /** Whether the read that failed was a Load more, so Retry asks for the same page. */
+    private retryMore = false;
 
     ngOnInit(): void {
-        void this.inbox.load(this.status()).catch((err) => console.error('Messages:', err));
+        void this.load();
     }
 
     setStatus(status: MessageStatus): void {
         this.status.set(status);
-        void this.inbox.load(status).catch((err) => console.error('Messages:', err));
+        void this.load();
+    }
+
+    /** The first page for the tab, or the next one with `more`. */
+    async load(more = false): Promise<void> {
+        this.loadError.set(false);
+        try {
+            await this.inbox.load(this.status(), more);
+        } catch (err) {
+            console.error('Messages:', err);
+            this.retryMore = more;
+            // A first page that failed leaves nothing of the previous filter on screen.
+            if (!more) {
+                this.inbox.items.set([]);
+                this.inbox.hasMore.set(false);
+            }
+            this.loadError.set(true);
+        }
+    }
+
+    /** Retry what failed: the first page, or the next page after a failed Load more. */
+    retry(): void {
+        void this.load(this.retryMore);
     }
 
     reply(item: ContactMessageItem): string {
@@ -140,11 +176,27 @@ export default class MessagesInboxPage implements OnInit {
     }
 
     async move(item: ContactMessageItem, status: MessageStatus): Promise<void> {
-        await this.inbox.setStatus(item, status);
+        try {
+            await this.inbox.setStatus(item, status);
+        } catch (err) {
+            console.error('Moving the message failed:', err);
+            this.notify.error('admin.messages.move_failed');
+        }
     }
 
     async remove(item: ContactMessageItem): Promise<void> {
-        if (!confirm(this.t('admin.messages.delete_confirm'))) return;
-        await this.inbox.remove(item);
+        const confirmed = await this.confirmDialog.ask({
+            titleKey: 'common.dialog.delete',
+            dialogMessage: this.t('admin.messages.delete_confirm'),
+            btnText: this.t('common.actions.delete'),
+            panelType: 'warn',
+        });
+        if (!confirmed) return;
+        try {
+            await this.inbox.remove(item);
+        } catch (err) {
+            console.error('Delete failed:', err);
+            this.notify.error('admin.messages.delete_failed');
+        }
     }
 }

@@ -47,8 +47,13 @@ describe('draft writers', () => {
         }
     });
 
-    it('queue translation saves and deletes', () => {
+    it('queue translation saves and deletes, and the editor\'s own create and save', () => {
         const source = read('src/app/pages/admin/contents/draft-content-store/draft-contents.service.ts');
-        expect(source.match(/draftQueueEntry\(this\.firestore, ref\.path\)/g)).toHaveLength(2);
+        for (const method of ['saveTranslation(', 'deleteTranslation(', 'createDraft(', 'saveDraft(']) {
+            const start = source.indexOf(`\n    async ${method}`);
+            expect(start, method).toBeGreaterThan(-1);
+            const end = source.indexOf('\n    }\n', start);
+            expect(source.slice(start, end), method).toContain('draftQueueEntry(this.firestore, ref.path)');
+        }
     });
 });

@@ -2,13 +2,15 @@
  * Users Page Component Tests
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Component, signal } from '@angular/core';
 import { BrowserAnimationsModule, NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of, Subject, throwError } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 
@@ -39,6 +41,7 @@ describe('UsersComponent', () => {
         ]),
         isLoading: signal(false),
         error: signal(''),
+        isSuccess: signal(true),
         totalRecords: signal(1),
         getAll: vi.fn(),
         delete: vi.fn().mockReturnValue(of({})),
@@ -52,6 +55,8 @@ describe('UsersComponent', () => {
         countByKind: vi.fn(),
         fillAccountSources: vi.fn(),
         getAll: vi.fn(),
+        deleteUser: vi.fn(),
+        setBlocked: vi.fn(),
     };
 
     const mockToastService = {
@@ -100,7 +105,7 @@ describe('UsersComponent', () => {
             .overrideComponent(UsersComponent, {
                 set: {
                     // Everything but the transloco pipe, which the template
-                    // needs and which NO_ERRORS_SCHEMA cannot stand in for —
+                    // needs and which NO_ERRORS_SCHEMA cannot stand in for:
                     // an unknown *pipe* is an error, not an unknown element.
                     imports: [TranslocoPipe],
                     schemas: [NO_ERRORS_SCHEMA],
@@ -336,20 +341,65 @@ describe('UsersComponent', () => {
         });
     });
 
-    describe('Date Formatting', () => {
-        it('should format date from Firebase timestamp', () => {
-            const timestamp = { seconds: 1702500000 };
-            const result = component.formatNewDate(timestamp);
-            expect(result).toBeTruthy();
-            expect(result).not.toBe('N/A');
+    describe('load error, Retry and Clear filters (RF5)', () => {
+        afterEach(() => {
+            mockUserStore.error.set('');
+            mockUserStore.isSuccess.set(true);
         });
 
-        it('should return N/A for null date', () => {
-            expect(component.formatNewDate(null)).toBe('N/A');
+        it('passes a failed load to the table as a plain sentence, never Firestore\'s text', () => {
+            expect(component.loadError()).toBeNull();
+            mockUserStore.error.set('Missing or insufficient permissions.');
+            mockUserStore.isSuccess.set(false);
+            expect(component.loadError()).toBe(true);
         });
 
-        it('should return N/A for undefined date', () => {
-            expect(component.formatNewDate(undefined)).toBe('N/A');
+        it('does not call the list failed when the drawer could not find one user', () => {
+            mockUserStore.error.set('Item not found');
+            mockUserStore.isSuccess.set(true);
+            expect(component.loadError()).toBeNull();
+        });
+
+        it('wires error, retry, filtered and clearFilters on the table', () => {
+            const html = readFileSync(join(__dirname, 'users.html'), 'utf8');
+            expect(html).toMatch(/\[error\]="loadError\(\)"/);
+            expect(html).toMatch(/\(retry\)="retryLoad\(\)"/);
+            expect(html).toMatch(/\[filtered\]="hasActiveFilters\(\)"/);
+            expect(html).toMatch(/\(clearFilters\)="clearAllFilters\(\)"/);
+        });
+
+        it('Retry reads the list again', () => {
+            mockUserStore.getAll.mockClear();
+            component.retryLoad();
+            expect(mockUserStore.getAll).toHaveBeenCalledTimes(1);
+        });
+
+        it('Clear filters goes back to everyone: no search, no Detached, All', () => {
+            mockUserService.getAll.mockReturnValue(new Subject());
+            component.onSearch('pat');
+            component.toggleDetached();
+            component.setAccountKind('app');
+            expect(component.hasActiveFilters()).toBe(true);
+            component.clearAllFilters();
+            expect(component.searching()).toBe(false);
+            expect(component.showDetached()).toBe(false);
+            expect(component.accountKind()).toBe('all');
+            expect(component.hasActiveFilters()).toBe(false);
+        });
+
+        it('shows Active or Blocked in the admin\'s language, and the role by its name', () => {
+            component.initColumns();
+            const status = component.tableColumns.find((c) => c.key === 'isActive')!;
+            expect(status.badgeConfig!.textFn!({ isActive: true })).toBe('Active');
+            expect(status.badgeConfig!.textFn!({ isActive: false })).toBe('Blocked');
+            const role = component.tableColumns.find((c) => c.key === 'role')!;
+            expect(role.transformFn!({ role: 'admin' })).toBe('Admin');
+        });
+
+        it('opens the user when their name is pressed', () => {
+            const view = vi.spyOn(component, 'openView').mockImplementation(() => undefined);
+            component.onCellClick({ key: 'name', row: { id: 'user-1' } });
+            expect(view).toHaveBeenCalledWith('user-1');
         });
     });
 
@@ -363,42 +413,88 @@ describe('UsersComponent', () => {
         });
     });
 
-    describe('deleteItem', () => {
+    describe('delete and block go through the server, which keeps an active admin (RF4)', () => {
         const sampleUser = {
             id: 'user-1',
-            name: 'Test User',
+            uid: 'uid-1',
+            name: 'Test <b>User</b>',
             email: 'test@example.com',
+            isActive: true,
         } as any;
+        const flush = () => new Promise((resolve) => setTimeout(resolve));
+        const lastDialog = () => mockDialog.open.mock.calls.at(-1)![1].data;
 
         beforeEach(() => {
             mockToastService.success.mockClear();
             mockToastService.error.mockClear();
-            mockUserStore.delete.mockReset();
+            mockUserStore.delete.mockClear();
+            mockUserStore.update.mockClear();
+            mockUserService.deleteUser.mockReset().mockResolvedValue({ deleted: true });
+            mockUserService.setBlocked.mockReset().mockResolvedValue({ blocked: true });
             mockDialog.open.mockReturnValue({ afterClosed: () => of(true) } as any);
+            mockAuthStore.currentUser.mockReturnValue({ id: 'me-doc', uid: 'me-uid' });
         });
 
-        it('shows success toast when delete succeeds', async () => {
-            mockUserStore.delete.mockReturnValue(of(undefined));
-
+        it('says what a delete removes, with the name escaped, and deletes through adminDeleteUser', async () => {
             component.deleteItem(sampleUser);
-            await Promise.resolve();
-
-            expect(mockUserStore.delete).toHaveBeenCalledWith('user-1');
-            expect(mockToastService.success).toHaveBeenCalledWith('User deleted successfully.');
+            const data = lastDialog();
+            expect(data.titleKey).toBe('admin.users.delete_title');
+            expect(data.dialogMessage).toContain('<strong>Test &lt;b&gt;User&lt;/b&gt;</strong>');
+            expect(data.dialogMessage).toContain('sign-in (unless another app shares it)');
+            expect(data.dialogMessage).toContain("can't be undone");
+            await flush();
+            expect(mockUserService.deleteUser).toHaveBeenCalledWith('user-1');
+            expect(mockUserStore.delete).not.toHaveBeenCalled();
+            expect(mockToastService.success).toHaveBeenCalledWith('Test <b>User</b> is deleted.');
             expect(mockToastService.error).not.toHaveBeenCalled();
         });
 
-        it('shows error toast and NOT success when delete errors (e.g. permission denied)', async () => {
-            mockUserStore.delete.mockReturnValue(
-                throwError(() => new Error('Missing or insufficient permissions.'))
-            );
-
+        it('shows why the server refused, in plain words, never only the console', async () => {
+            mockUserService.deleteUser.mockRejectedValue(Object.assign(new Error('x'), { details: { reason: 'last-admin' } }));
             component.deleteItem(sampleUser);
-            await Promise.resolve();
-
-            expect(mockUserStore.delete).toHaveBeenCalledWith('user-1');
-            expect(mockToastService.error).toHaveBeenCalledWith('Failed to delete user.');
+            await flush();
+            expect(mockToastService.error).toHaveBeenCalledWith('This is the only active admin. Make someone else an admin first.');
+            mockUserService.deleteUser.mockRejectedValue(new Error('Missing or insufficient permissions.'));
+            component.deleteItem(sampleUser);
+            await flush();
+            expect(mockToastService.error).toHaveBeenLastCalledWith('Could not delete this user. Please try again.');
             expect(mockToastService.success).not.toHaveBeenCalled();
+        });
+
+        it('deletes nothing when the admin cancels', async () => {
+            mockDialog.open.mockReturnValue({ afterClosed: () => of(undefined) } as any);
+            component.deleteItem(sampleUser);
+            await flush();
+            expect(mockUserService.deleteUser).not.toHaveBeenCalled();
+        });
+
+        it('blocks and unblocks through adminSetUserBlocked, never a browser write', async () => {
+            component.onActiveDeactivate(sampleUser);
+            expect(lastDialog().titleKey).toBe('admin.users.block_title');
+            await flush();
+            expect(mockUserService.setBlocked).toHaveBeenCalledWith('user-1', true);
+            expect(mockToastService.success).toHaveBeenCalledWith('Test <b>User</b> is blocked.');
+            component.onActiveDeactivate({ ...sampleUser, isActive: false });
+            await flush();
+            expect(mockUserService.setBlocked).toHaveBeenLastCalledWith('user-1', false);
+            expect(mockUserStore.update).not.toHaveBeenCalled();
+        });
+
+        it('hides Block and Delete on your own row only, and offers no Verify', () => {
+            component.initColumns();
+            const actions = component.tableColumns.find((c) => c.key === 'actions')!.actions!;
+            const named = (name: string) => actions.find((a) => a.action === name)!;
+            expect(named('toggleActive').hide!({ id: 'me-doc', uid: 'me-uid' })).toBe(true);
+            expect(named('delete').hide!({ id: 'other', uid: 'me-uid' })).toBe(true);
+            expect(named('delete').hide!({ id: 'other', uid: 'other-uid' })).toBe(false);
+            expect(named('toggleActive').hide!({ id: 'other', uid: 'other-uid' })).toBe(false);
+            expect(actions.some((a) => a.action === 'verify')).toBe(false);
+            expect(named('toggleActive').labelFn!({ isActive: true })).toBe('admin.users.block');
+            expect(named('toggleActive').labelFn!({ isActive: false })).toBe('admin.users.unblock');
+            // Unblocking a detached record could not let it in; a locked app account is its app's to delete.
+            expect(named('toggleActive').hide!({ id: 'other', uid: 'other-uid', status: 'Detached' })).toBe(true);
+            expect(named('delete').hide!({ id: 'till', uid: 'till-uid', by: 'app' })).toBe(true);
+            expect(named('delete').hide!({ id: 'open', uid: 'open-uid', by: 'app', selfService: true })).toBe(false);
         });
     });
 
@@ -480,7 +576,8 @@ describe('UsersComponent', () => {
             component.onSearch('person');
             live.error(new Error('denied'));
             expect(component.searchLoading()).toBe(false);
-            expect(mockToastService.error).toHaveBeenCalled();
+            // Said in the table, with Retry, not in a toast.
+            expect(component.loadError()).toBe('admin.users.search_failed');
             live = new Subject();
             mockUserService.getAll.mockReturnValue(live);
             component.onSearch('persons');

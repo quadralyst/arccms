@@ -77,7 +77,7 @@ export function isRuleEmailTemplate(type: string): boolean {
       @if (loading()) {
         <arc-loader kind="block" [count]="2"></arc-loader>
       } @else if (error()) {
-        <div class="alert alert-danger">{{ 'admin.settings.automations.load_failed' | transloco: { error: error() } }}</div>
+        <div class="alert alert-danger">{{ 'admin.settings.automations.load_failed' | transloco }}</div>
       } @else {
         @for (ev of events(); track ev.type) {
           @let d = drafts()[ev.type];
@@ -329,7 +329,8 @@ export class AutomationsSettingsPage implements OnInit {
             this.drafts.set(Object.fromEntries(events.map((e) => [e.type, mappingToDraft(e.type, this.rawMappings[e.type])])));
             this.dirty.set(new Set());
         } catch (e: any) {
-            this.error.set(e?.message || String(e));
+            console.error('Automations did not load:', e);
+            this.error.set('failed');
         } finally {
             this.loading.set(false);
         }
@@ -392,7 +393,8 @@ export class AutomationsSettingsPage implements OnInit {
             this.dirty.update((s) => { const n = new Set(s); n.delete(type); return n; });
             this.toast.success(this.transloco.translate('admin.settings.automations.saved'));
         } catch (e: any) {
-            this.toast.error(this.transloco.translate('admin.settings.automations.save_failed', { error: e?.message || String(e) }));
+            console.error('Automation not saved:', e);
+            this.toast.error(this.transloco.translate('admin.settings.automations.save_failed'));
         } finally {
             this.saving.set(false);
         }

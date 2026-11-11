@@ -41,7 +41,7 @@
     <p>Notifications are always on: they are core, not a switchable feature. The in-app part cannot be turned off. The email part can, in three places:</p>
     <ul>
       <li>per type, with the <strong>Email</strong> switch on the <strong>Notification types</strong> tab of Email, Announcements, then <strong>Save types</strong> (that page comes with the <a href="email-marketing.html">Email marketing</a> feature; without it, set <code>defaultChannels.email</code> on the type in <code>Settings/notification_types</code>);</li>
-      <li>for every type at once, with the Notification emails switch under Email Features on Admin, Settings, Email Settings (see <a href="email.html#turn-it-on-or-off">Email engine</a>);</li>
+      <li>for every type at once, with the Notification emails switch under Email types on Admin, Settings, Email sending (see <a href="email.html#turn-it-on-or-off">Email engine</a>);</li>
       <li>for admin alerts only, with the Admin alerts switch on the same page, which stops the admin notifications themselves, in-app as well.</li>
     </ul>
 
@@ -123,7 +123,7 @@ await createNotification({
         <tr><td>The notification shows but no email came</td><td>Read <code>emailDelivery.skippedReason</code> on the notification: <code>suppressed_by_sender</code> (an announcement sent without email), <code>unknown_type</code>, <code>type_channel_off</code>, <code>no_email</code>, <code>user_pref_off</code>, <code>feature_disabled</code>, <code>no_template</code>, or an email engine reason (<code>email_disabled</code>, <code>template_inactive</code>, <code>contact_disabled</code>, <code>unsubscribed</code>, <code>suppressed</code>). With <code>emailLogId</code>, the email log has the rest.</td></tr>
         <tr><td>The bell badge says 9+ but there are more</td><td>The badge counts only the 30 most recent notifications and stops at 9+. The notifications page lists up to 100.</td></tr>
         <tr><td>A member's notification list is empty</td><td>The notification's <code>userId</code> must be their Firebase Auth uid, not their user record id.</td></tr>
-        <tr><td>No admin gets alerts</td><td>The Admin alerts switch under Email Features is off.</td></tr>
+        <tr><td>No admin gets alerts</td><td>The Admin alerts switch under Email types is off.</td></tr>
       </tbody>
     </table>
   </main>

@@ -20,7 +20,7 @@
         <tr><td>Services: an icon, a name, a line of text and a link each</td><td>A content type without public pages, in your own order, shown as cards</td><td><strong>Content</strong>, <strong>Services</strong></td></tr>
         <tr><td>Hero: a heading, a line, a picture and a button</td><td>A content type without public pages, with one entry</td><td><strong>Content</strong>, <strong>Hero</strong></td></tr>
         <tr><td>Questions and answers</td><td>The ready-made FAQ page, and if you want them on the home page too, a small Questions type</td><td><strong>Content</strong>, <strong>Info Pages</strong> or <strong>Questions</strong></td></tr>
-        <tr><td>A footer with email, phone, address and social icons</td><td><code>data-arc-site</code> attributes in your footer</td><td>Settings, <strong>About</strong></td></tr>
+        <tr><td>A footer with email, phone, address and social icons</td><td><code>data-arc-site</code> attributes in your footer</td><td>Settings, <strong>Site details</strong></td></tr>
       </tbody>
     </table>
     <p>Every file on this page is in <code>docs/examples/sections/</code>. It assumes your home page is already <code class="new">src/custom/site/home.html</code> (see <a href="home-page.html">Build your home page</a>) and that <code>npm run dev</code> is running.</p>
@@ -77,7 +77,7 @@
 
     <h2>4. Contact details and social links</h2>
     <ol class="steps">
-      <li><p>In Settings, <strong>About</strong>, fill in the contact email, the public phone, the address and the <strong>Social and profile links</strong>, one URL per line. They also go into your structured data.</p></li>
+      <li><p>In Settings, <strong>Site details</strong>, fill in the contact email, the public phone, the address and the <strong>Social and profile links</strong>, one URL per line. They also go into your structured data.</p></li>
       <li><p>Copy <code>docs/examples/sections/footer.html</code> to <code class="new">src/custom/site/footer.html</code>, or add its parts to the footer you have.</p></li>
     </ol>
     <pre><code>&lt;div data-arc-site-if="contact"&gt;

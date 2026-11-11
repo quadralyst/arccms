@@ -30,8 +30,9 @@
     <!-- Error -->
     @if (loadError()) {
         <div class="error-message">
-            <i class="fa-solid fa-circle-exclamation"></i>
-            <span>{{ loadError() }}</span>
+            <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+            <span role="alert">{{ loadError() }}</span>
+            <button type="button" class="btn btn-sm btn-outline-danger ms-auto" (click)="loadMedia()">{{ 'common.table.retry' | transloco }}</button>
         </div>
     }
 

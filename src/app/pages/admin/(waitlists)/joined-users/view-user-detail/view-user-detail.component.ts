@@ -1,10 +1,6 @@
 /**
- * View User Detail Component
- * 
- * Sliding panel component showing waitlist user details including:
- * - All form data fields (dynamic)
- * - Tags management
- * - Notes/Journal entries
+ * One sign-up, in a side panel: their answers, where they came from, their tags
+ * and the admin's notes on them.
  */
 
 import { CommonModule } from '@angular/common';
@@ -19,6 +15,9 @@ import { WaitlistUserTagsStore } from '../waitlist-user-tags.store';
 import { GlobalService } from '../../../../../../shared/services/global.service';
 import { ISignupMetadata } from '../../../../waitlist/signup-metadata.model';
 import { LoaderComponent } from '../../../../../../shared/components/loader/loader.component';
+import { NotifyService } from '../../../../../../shared/services/notify.service';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 interface WaitlistUser {
     id: string;
@@ -42,7 +41,8 @@ interface WaitlistUser {
         LoaderComponent, CommonModule,
         FormsModule,
         MatIconModule,
-        MatButtonModule
+        MatButtonModule,
+        TranslocoPipe
     ],
 })
 export class ViewUserDetailComponent implements OnInit, OnChanges {
@@ -55,6 +55,10 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
     private tagsStore = inject(WaitlistUserTagsStore);
     public globalService = inject(GlobalService);
     private injector = inject(Injector);
+    private notify = inject(NotifyService);
+    private transloco = inject(TranslocoService);
+    /** The admin language, so the details below re-read their words when it changes. */
+    private lang = toSignal(this.transloco.langChanges$, { initialValue: this.transloco.getActiveLang() });
 
     // User signal for reactive computed properties
     private userSignal = signal<WaitlistUser | null>(null);
@@ -88,6 +92,7 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
     formDataEntries = computed(() => {
         const user = this.userSignal();
         if (!user?.formData) return [];
+        this.lang();
         return Object.entries(user.formData).map(([key, value]) => ({
             key,
             label: this.formatFieldLabel(key),
@@ -99,110 +104,115 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
     metadataEntries = computed(() => {
         const user = this.userSignal();
         if (!user?.signupMetadata) return [];
+        this.lang();
+        const t = (key: string, params?: Record<string, unknown>) => this.transloco.translate(key, params);
+        const yesNo = (v: boolean) => t(v ? 'common.yes' : 'common.no');
 
         const metadata = user.signupMetadata;
         const entries: { key: string; label: string; value: string; icon?: string }[] = [];
 
         // Attribution
-        if (metadata.utmSource) entries.push({ key: 'utmSource', label: 'UTM Source', value: metadata.utmSource, icon: 'fa-bullhorn' });
-        if (metadata.utmMedium) entries.push({ key: 'utmMedium', label: 'UTM Medium', value: metadata.utmMedium, icon: 'fa-layer-group' });
-        if (metadata.utmCampaign) entries.push({ key: 'utmCampaign', label: 'UTM Campaign', value: metadata.utmCampaign, icon: 'fa-flag' });
-        if (metadata.utmContent) entries.push({ key: 'utmContent', label: 'UTM Content', value: metadata.utmContent, icon: 'fa-file-alt' });
-        if (metadata.utmTerm) entries.push({ key: 'utmTerm', label: 'UTM Term', value: metadata.utmTerm, icon: 'fa-search' });
-        if (metadata.referrerUrl) entries.push({ key: 'referrerUrl', label: 'Referrer', value: this.truncateUrl(metadata.referrerUrl), icon: 'fa-link' });
-        if (metadata.landingPage) entries.push({ key: 'landingPage', label: 'Landing Page', value: this.truncateUrl(metadata.landingPage), icon: 'fa-file' });
+        if (metadata.utmSource) entries.push({ key: 'utmSource', label: t('admin.forms.detail.meta.utm_source'), value: metadata.utmSource, icon: 'fa-bullhorn' });
+        if (metadata.utmMedium) entries.push({ key: 'utmMedium', label: t('admin.forms.detail.meta.utm_medium'), value: metadata.utmMedium, icon: 'fa-layer-group' });
+        if (metadata.utmCampaign) entries.push({ key: 'utmCampaign', label: t('admin.forms.detail.meta.utm_campaign'), value: metadata.utmCampaign, icon: 'fa-flag' });
+        if (metadata.utmContent) entries.push({ key: 'utmContent', label: t('admin.forms.detail.meta.utm_content'), value: metadata.utmContent, icon: 'fa-file-alt' });
+        if (metadata.utmTerm) entries.push({ key: 'utmTerm', label: t('admin.forms.detail.meta.utm_term'), value: metadata.utmTerm, icon: 'fa-search' });
+        if (metadata.referrerUrl) entries.push({ key: 'referrerUrl', label: t('admin.forms.detail.meta.referrer'), value: this.truncateUrl(metadata.referrerUrl), icon: 'fa-link' });
+        if (metadata.landingPage) entries.push({ key: 'landingPage', label: t('admin.forms.detail.meta.landing_page'), value: this.truncateUrl(metadata.landingPage), icon: 'fa-file' });
         if (metadata.queryParams && Object.keys(metadata.queryParams).length > 0) {
             const paramStr = Object.entries(metadata.queryParams).map(([k, v]) => `${k}=${v}`).join(', ');
-            entries.push({ key: 'queryParams', label: 'Query Params', value: paramStr, icon: 'fa-question-circle' });
+            entries.push({ key: 'queryParams', label: t('admin.forms.detail.meta.query_params'), value: paramStr, icon: 'fa-question-circle' });
         }
 
         // Device
-        if (metadata.deviceType) entries.push({ key: 'deviceType', label: 'Device', value: this.capitalize(metadata.deviceType), icon: this.getDeviceIcon(metadata.deviceType) });
-        if (metadata.browser) entries.push({ key: 'browser', label: 'Browser', value: `${metadata.browser}${metadata.browserVersion ? ' ' + metadata.browserVersion : ''}`, icon: 'fa-globe' });
-        if (metadata.operatingSystem) entries.push({ key: 'operatingSystem', label: 'OS', value: metadata.operatingSystem, icon: 'fa-desktop' });
-        if (metadata.screenResolution) entries.push({ key: 'screenResolution', label: 'Screen', value: metadata.screenResolution, icon: 'fa-expand' });
-        if (metadata.language) entries.push({ key: 'language', label: 'Language', value: metadata.language, icon: 'fa-language' });
+        if (metadata.deviceType) entries.push({ key: 'deviceType', label: t('admin.forms.detail.meta.device'), value: this.capitalize(metadata.deviceType), icon: this.getDeviceIcon(metadata.deviceType) });
+        if (metadata.browser) entries.push({ key: 'browser', label: t('admin.forms.detail.meta.browser'), value: `${metadata.browser}${metadata.browserVersion ? ' ' + metadata.browserVersion : ''}`, icon: 'fa-globe' });
+        if (metadata.operatingSystem) entries.push({ key: 'operatingSystem', label: t('admin.forms.detail.meta.os'), value: metadata.operatingSystem, icon: 'fa-desktop' });
+        if (metadata.screenResolution) entries.push({ key: 'screenResolution', label: t('admin.forms.detail.meta.screen'), value: metadata.screenResolution, icon: 'fa-expand' });
+        if (metadata.language) entries.push({ key: 'language', label: t('admin.forms.detail.meta.language'), value: metadata.language, icon: 'fa-language' });
 
         // Device Extended
-        if (metadata.connectionType) entries.push({ key: 'connectionType', label: 'Connection', value: metadata.connectionType, icon: 'fa-wifi' });
-        if (metadata.downlinkSpeed !== undefined) entries.push({ key: 'downlinkSpeed', label: 'Download Speed', value: `${metadata.downlinkSpeed} Mbps`, icon: 'fa-tachometer-alt' });
-        if (metadata.prefersDarkMode !== undefined) entries.push({ key: 'prefersDarkMode', label: 'Dark Mode', value: metadata.prefersDarkMode ? 'Yes' : 'No', icon: 'fa-moon' });
-        if (metadata.viewportSize) entries.push({ key: 'viewportSize', label: 'Viewport', value: metadata.viewportSize, icon: 'fa-window-maximize' });
-        if (metadata.isTouchDevice !== undefined) entries.push({ key: 'isTouchDevice', label: 'Touch Device', value: metadata.isTouchDevice ? 'Yes' : 'No', icon: 'fa-hand-pointer' });
-        if (metadata.pageLoadTimeMs !== undefined) entries.push({ key: 'pageLoadTimeMs', label: 'Page Load', value: `${metadata.pageLoadTimeMs}ms`, icon: 'fa-stopwatch' });
+        if (metadata.connectionType) entries.push({ key: 'connectionType', label: t('admin.forms.detail.meta.connection'), value: metadata.connectionType, icon: 'fa-wifi' });
+        if (metadata.downlinkSpeed !== undefined) entries.push({ key: 'downlinkSpeed', label: t('admin.forms.detail.meta.download_speed'), value: `${metadata.downlinkSpeed} Mbps`, icon: 'fa-tachometer-alt' });
+        if (metadata.prefersDarkMode !== undefined) entries.push({ key: 'prefersDarkMode', label: t('admin.forms.detail.meta.dark_mode'), value: yesNo(metadata.prefersDarkMode), icon: 'fa-moon' });
+        if (metadata.viewportSize) entries.push({ key: 'viewportSize', label: t('admin.forms.detail.meta.viewport'), value: metadata.viewportSize, icon: 'fa-window-maximize' });
+        if (metadata.isTouchDevice !== undefined) entries.push({ key: 'isTouchDevice', label: t('admin.forms.detail.meta.touch_device'), value: yesNo(metadata.isTouchDevice), icon: 'fa-hand-pointer' });
+        if (metadata.pageLoadTimeMs !== undefined) entries.push({ key: 'pageLoadTimeMs', label: t('admin.forms.detail.meta.page_load'), value: `${metadata.pageLoadTimeMs}ms`, icon: 'fa-stopwatch' });
 
         // Behavioral (Phase 2)
         if (metadata.timeOnPageMs !== undefined && metadata.timeOnPageMs > 0) {
-            entries.push({ key: 'timeOnPage', label: 'Time on Page', value: this.formatDuration(metadata.timeOnPageMs), icon: 'fa-clock' });
+            entries.push({ key: 'timeOnPage', label: t('admin.forms.detail.meta.time_on_page'), value: this.formatDuration(metadata.timeOnPageMs), icon: 'fa-clock' });
         }
         if (metadata.scrollDepthPercent !== undefined) {
-            entries.push({ key: 'scrollDepth', label: 'Scroll Depth', value: `${metadata.scrollDepthPercent}%`, icon: 'fa-arrows-alt-v' });
+            entries.push({ key: 'scrollDepth', label: t('admin.forms.detail.meta.scroll_depth'), value: `${metadata.scrollDepthPercent}%`, icon: 'fa-arrows-alt-v' });
         }
         if (metadata.isReturnVisitor !== undefined) {
-            let encodedVal = metadata.isReturnVisitor ? 'Returning' : 'New';
+            let encodedVal = t(metadata.isReturnVisitor ? 'admin.forms.detail.returning' : 'admin.forms.detail.new_visitor');
             if (metadata.isReturnVisitor && metadata.visitCount && metadata.visitCount > 1) {
                 encodedVal += ` (${metadata.visitCount})`;
             }
-            entries.push({ key: 'isReturnVisitor', label: 'Visitor Type', value: encodedVal, icon: 'fa-user' });
+            entries.push({ key: 'isReturnVisitor', label: t('admin.forms.detail.meta.visitor_type'), value: encodedVal, icon: 'fa-user' });
         }
 
         // Cross-Session Behavioral (Phase 2b)
         if (metadata.firstVisitTimestamp && metadata.firstVisitTimestamp > 0) {
-            entries.push({ key: 'firstVisit', label: 'First Visit', value: this.formatDate(new Date(metadata.firstVisitTimestamp)), icon: 'fa-calendar-plus' });
+            entries.push({ key: 'firstVisit', label: t('admin.forms.detail.meta.first_visit'), value: this.formatDate(new Date(metadata.firstVisitTimestamp)), icon: 'fa-calendar-plus' });
         }
         if (metadata.lastVisitTimestamp) {
-            entries.push({ key: 'lastVisit', label: 'Last Visit', value: this.formatDate(new Date(metadata.lastVisitTimestamp)), icon: 'fa-calendar-check' });
+            entries.push({ key: 'lastVisit', label: t('admin.forms.detail.meta.last_visit'), value: this.formatDate(new Date(metadata.lastVisitTimestamp)), icon: 'fa-calendar-check' });
         }
         if (metadata.totalTimeOnPageMs !== undefined && metadata.totalTimeOnPageMs > 0) {
-            entries.push({ key: 'totalTimeOnPage', label: 'Total Time (All Visits)', value: this.formatDuration(metadata.totalTimeOnPageMs), icon: 'fa-hourglass-half' });
+            entries.push({ key: 'totalTimeOnPage', label: t('admin.forms.detail.meta.total_time'), value: this.formatDuration(metadata.totalTimeOnPageMs), icon: 'fa-hourglass-half' });
         }
         if (metadata.maxScrollDepthPercent !== undefined) {
-            entries.push({ key: 'maxScrollDepth', label: 'Max Scroll Depth', value: `${metadata.maxScrollDepthPercent}%`, icon: 'fa-arrows-alt-v' });
+            entries.push({ key: 'maxScrollDepth', label: t('admin.forms.detail.meta.max_scroll_depth'), value: `${metadata.maxScrollDepthPercent}%`, icon: 'fa-arrows-alt-v' });
         }
 
         // Engagement (Phase 2c)
         if (metadata.clickCount !== undefined && metadata.clickCount > 0) {
-            entries.push({ key: 'clickCount', label: 'Clicks', value: `${metadata.clickCount} clicks`, icon: 'fa-mouse-pointer' });
+            entries.push({ key: 'clickCount', label: t('admin.forms.detail.meta.clicks'), value: String(metadata.clickCount), icon: 'fa-mouse-pointer' });
         }
         if (metadata.tabSwitchCount !== undefined && metadata.tabSwitchCount > 0) {
-            entries.push({ key: 'tabSwitchCount', label: 'Tab Switches', value: `${metadata.tabSwitchCount} times`, icon: 'fa-exchange-alt' });
+            entries.push({ key: 'tabSwitchCount', label: t('admin.forms.detail.meta.tab_switches'), value: String(metadata.tabSwitchCount), icon: 'fa-exchange-alt' });
         }
         if (metadata.formStartCount !== undefined && metadata.formStartCount > 0) {
-            entries.push({ key: 'formStartCount', label: 'Form Interactions', value: `${metadata.formStartCount} session${metadata.formStartCount !== 1 ? 's' : ''}`, icon: 'fa-hand-pointer' });
+            entries.push({ key: 'formStartCount', label: t('admin.forms.detail.meta.form_interactions'), value: String(metadata.formStartCount), icon: 'fa-hand-pointer' });
         }
 
         // Geolocation (Phase 3)
-        if (metadata.country) entries.push({ key: 'country', label: 'Country', value: metadata.country, icon: 'fa-globe-americas' });
-        if (metadata.region) entries.push({ key: 'region', label: 'Region', value: metadata.region, icon: 'fa-map' });
-        if (metadata.city) entries.push({ key: 'city', label: 'City', value: metadata.city, icon: 'fa-map-marker-alt' });
-        if (metadata.timezone) entries.push({ key: 'timezone', label: 'Timezone', value: metadata.timezone, icon: 'fa-clock' });
+        if (metadata.country) entries.push({ key: 'country', label: t('admin.forms.detail.meta.country'), value: metadata.country, icon: 'fa-globe-americas' });
+        if (metadata.region) entries.push({ key: 'region', label: t('admin.forms.detail.meta.region'), value: metadata.region, icon: 'fa-map' });
+        if (metadata.city) entries.push({ key: 'city', label: t('admin.forms.detail.meta.city'), value: metadata.city, icon: 'fa-map-marker-alt' });
+        if (metadata.timezone) entries.push({ key: 'timezone', label: t('admin.forms.detail.meta.timezone'), value: metadata.timezone, icon: 'fa-clock' });
         if (metadata.timezoneOffset !== undefined) {
             const offset = metadata.timezoneOffset;
             const sign = offset <= 0 ? '+' : '-';
             const absOffset = Math.abs(offset);
             const hours = Math.floor(absOffset / 60);
             const mins = absOffset % 60;
-            entries.push({ key: 'timezoneOffset', label: 'UTC Offset', value: `UTC${sign}${hours}${mins > 0 ? ':' + String(mins).padStart(2, '0') : ''}`, icon: 'fa-globe' });
+            entries.push({ key: 'timezoneOffset', label: t('admin.forms.detail.meta.utc_offset'), value: `UTC${sign}${hours}${mins > 0 ? ':' + String(mins).padStart(2, '0') : ''}`, icon: 'fa-globe' });
         }
 
         // Temporal
         if (metadata.signupHour !== undefined) {
-            const hour = metadata.signupHour;
-            const ampm = hour >= 12 ? 'PM' : 'AM';
-            const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-            entries.push({ key: 'signupHour', label: 'Signup Hour', value: `${displayHour}:00 ${ampm}`, icon: 'fa-sun' });
+            const at = new Date(2024, 0, 1, metadata.signupHour);
+            const hour = new Intl.DateTimeFormat(this.lang(), { hour: 'numeric' }).format(at);
+            entries.push({ key: 'signupHour', label: t('admin.forms.detail.meta.signup_hour'), value: hour, icon: 'fa-sun' });
         }
         if (metadata.signupDayOfWeek !== undefined) {
-            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            entries.push({ key: 'signupDayOfWeek', label: 'Signup Day', value: days[metadata.signupDayOfWeek] || 'Unknown', icon: 'fa-calendar-day' });
+            // 7 January 2024 was a Sunday, so day n of the week is 7 + n January.
+            const day = metadata.signupDayOfWeek >= 0 && metadata.signupDayOfWeek <= 6
+                ? new Intl.DateTimeFormat(this.lang(), { weekday: 'long' }).format(new Date(2024, 0, 7 + metadata.signupDayOfWeek))
+                : t('admin.forms.detail.unknown');
+            entries.push({ key: 'signupDayOfWeek', label: t('admin.forms.detail.meta.signup_day'), value: day, icon: 'fa-calendar-day' });
         }
 
         // Email Quality (Phase 4)
         if (metadata.isDisposableEmail !== undefined) {
             entries.push({
                 key: 'isDisposableEmail',
-                label: 'Email Type',
-                value: metadata.isDisposableEmail ? '⚠️ Disposable' : '✓ Valid',
+                label: t('admin.forms.detail.meta.email_type'),
+                value: t(metadata.isDisposableEmail ? 'admin.forms.detail.email_disposable' : 'admin.forms.detail.email_valid'),
                 icon: metadata.isDisposableEmail ? 'fa-exclamation-triangle' : 'fa-check-circle'
             });
         }
@@ -255,6 +265,7 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
             this.notes.set(notesList);
         } catch (error) {
             console.error('Error loading notes:', error);
+            this.notify.error('admin.forms.detail.notes_load_failed');
         } finally {
             this.isLoadingNotes.set(false);
         }
@@ -276,6 +287,7 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
             await this.loadNotes();
         } catch (error) {
             console.error('Error adding note:', error);
+            this.notify.error('admin.forms.detail.note_save_failed');
         } finally {
             this.isSavingNote.set(false);
         }
@@ -291,6 +303,7 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
             await this.loadNotes();
         } catch (error) {
             console.error('Error deleting note:', error);
+            this.notify.error('admin.forms.detail.note_delete_failed');
         }
     }
 
@@ -320,6 +333,7 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
             await this.loadNotes();
         } catch (error) {
             console.error('Error updating note:', error);
+            this.notify.error('admin.forms.detail.note_save_failed');
         } finally {
             this.isSavingNote.set(false);
         }
@@ -401,6 +415,7 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
             },
             error: (error) => {
                 console.error('Error creating tag:', error);
+                this.notify.error('admin.forms.tags.add_failed');
             }
         });
     }
@@ -421,6 +436,7 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
             this.userUpdated.emit({ ...this.user, tags: tagIds });
         } catch (error) {
             console.error('Error saving tags:', error);
+            this.notify.error('admin.forms.detail.tags_save_failed');
         } finally {
             this.isSavingTags.set(false);
         }
@@ -439,14 +455,14 @@ export class ViewUserDetailComponent implements OnInit, OnChanges {
 
     formatFieldValue(value: any): string {
         if (value === null || value === undefined) return '-';
-        if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+        if (typeof value === 'boolean') return this.transloco.translate(value ? 'common.yes' : 'common.no');
         if (Array.isArray(value)) return value.join(', ');
         if (typeof value === 'object') return JSON.stringify(value);
         return String(value);
     }
 
     formatDate(timestamp: any): string {
-        if (!timestamp) return 'N/A';
+        if (!timestamp) return '-';
         const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
         return date.toLocaleDateString('en-US', {
             year: 'numeric',

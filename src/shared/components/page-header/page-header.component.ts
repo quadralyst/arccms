@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 import { AdminLanguagePickerComponent } from '../admin-language-picker/admin-language-picker.component';
 import { AdminSearchComponent } from '../admin-search/admin-search.component';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { isOn } from '../../../app/core/features/features';
 
 /**
@@ -21,14 +22,14 @@ import { isOn } from '../../../app/core/features/features';
 @Component({
     selector: 'arc-page-header',
     standalone: true,
-    imports: [NotificationBellComponent, AdminLanguagePickerComponent, AdminSearchComponent],
+    imports: [NotificationBellComponent, AdminLanguagePickerComponent, AdminSearchComponent, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <header class="arc-page-header">
             <div class="lead">
                 @if (showBack) {
-                <button type="button" class="back-btn" (click)="back.emit()" aria-label="Back">
-                    <i class="fas fa-arrow-left"></i>
+                <button type="button" class="back-btn" (click)="back.emit()" [attr.aria-label]="backLabel || ('common.actions.back' | transloco)">
+                    <i class="fas fa-arrow-left" aria-hidden="true"></i>
                 </button>
                 }
                 <div class="titles">
@@ -158,5 +159,7 @@ export class PageHeaderComponent {
     readonly searchOn = isOn('search');
     /** Show an inline back button before the title (for detail/sub pages). */
     @Input() showBack = false;
+    /** What the back button is called, such as "Back to Broadcasts"; "Back" when not set. */
+    @Input() backLabel = '';
     @Output() back = new EventEmitter<void>();
 }

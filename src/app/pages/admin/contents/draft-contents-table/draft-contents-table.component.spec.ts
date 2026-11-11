@@ -21,7 +21,7 @@ import { PublishQueueService } from '../publish-queue/publish-queue.service';
 import { DraftContentsService } from '../draft-content-store/draft-contents.service';
 
 describe('DraftContentsTableComponent', () => {
-    let mockDraftContentsService: { createListIndexes: ReturnType<typeof vi.fn> };
+    let mockDraftContentsService: { createListIndexes: ReturnType<typeof vi.fn>; listForSearch: ReturnType<typeof vi.fn> };
     let component: DraftContentsTableComponent;
     let fixture: ComponentFixture<DraftContentsTableComponent>;
     let mockRouter: any;
@@ -68,7 +68,14 @@ describe('DraftContentsTableComponent', () => {
             unsubscribeStore: vi.fn(),
         };
 
-        mockDraftContentsService = { createListIndexes: vi.fn().mockResolvedValue(true) };
+        mockDraftContentsService = {
+            createListIndexes: vi.fn().mockResolvedValue(true),
+            listForSearch: vi.fn().mockResolvedValue([
+                { id: 'a', title: 'Pricing guide', publishedStatus: true, modifiedAt: new Date('2026-01-02') },
+                { id: 'b', title: 'Getting started', publishedStatus: false, modifiedAt: new Date('2026-01-03') },
+                { id: 'c', title: 'The price list', publishedStatus: false, modifiedAt: new Date('2026-01-01') },
+            ]),
+        };
 
         mockContentsStore = {
             items: signal([]),
@@ -655,6 +662,88 @@ describe('DraftContentsTableComponent', () => {
         });
     });
 
+    // RF5 5.9: a title search on the entries list.
+    describe('title search', () => {
+        const wait = () => new Promise((resolve) => setTimeout(resolve, 300));
+
+        it('matches anywhere in the title in any case, after one read of the type', async () => {
+            component.contentTypeSlug = 'article';
+            component.onSearchInput('PRIC');
+            await wait();
+
+            expect(mockDraftContentsService.listForSearch).toHaveBeenCalledWith('article');
+            expect(component.draftContentsData().map((r: any) => r.id).sort()).toEqual(['a', 'c']);
+            expect(component.filteredTotalRecords()).toBe(2);
+            expect(component.hasActiveFilters()).toBe(true);
+
+            component.onSearchInput('price list');
+            await wait();
+            expect(mockDraftContentsService.listForSearch).toHaveBeenCalledTimes(1);
+            expect(component.draftContentsData().map((r: any) => r.id)).toEqual(['c']);
+        });
+
+        it('applies the status filter to the matches, and Clear filters empties the box', async () => {
+            component.contentTypeSlug = 'article';
+            component.onSearchInput('pric');
+            await wait();
+            component.onStatusFilterChange({ target: { value: 'published' } });
+            expect(component.draftContentsData().map((r: any) => r.id)).toEqual(['a']);
+
+            component.clearFilters();
+            expect(component.searchTerm()).toBe('');
+            expect(component.isSearching()).toBe(false);
+        });
+
+        // RF4 review L9.
+        it('reads the entries again after a delete, so a deleted entry leaves the matches', async () => {
+            component.contentTypeSlug = 'article';
+            component.onSearchInput('pric');
+            await wait();
+            expect(mockDraftContentsService.listForSearch).toHaveBeenCalledTimes(1);
+            mockMatDialog.open.mockReturnValue({ afterClosed: () => of(true) });
+            component.deleteItem({ id: 'c', title: 'The price list', publishedStatus: false });
+            await wait();
+            expect(mockDraftContentsService.listForSearch).toHaveBeenCalledTimes(2);
+        });
+
+        it('shows the table\'s error state with Retry when the read fails', async () => {
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            mockDraftContentsService.listForSearch.mockRejectedValueOnce(new Error('offline'));
+            component.contentTypeSlug = 'article';
+            component.onSearchInput('pric');
+            await wait();
+            expect(component.listError()).toBe(true);
+
+            component.retryLoad();
+            await wait();
+            expect(component.listError()).toBeNull();
+            expect(component.draftContentsData().length).toBe(2);
+        });
+    });
+
+    // RF5 5.1: a list that did not load says so, with Retry, and shows no raw error.
+    describe('load error', () => {
+        it('marks the list failed when its read ends in an error, but not for a missing index', () => {
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            component.retryLoad();
+            mockDraftContentsStore.isLoading.set(true);
+            fixture.detectChanges();
+            mockDraftContentsStore.error.set('permission-denied: Missing or insufficient permissions.');
+            mockDraftContentsStore.isLoading.set(false);
+            fixture.detectChanges();
+            expect(component.listError()).toBe(true);
+            expect(fixture.nativeElement.textContent).not.toContain('permission-denied');
+
+            component.retryLoad();
+            mockDraftContentsStore.isLoading.set(true);
+            fixture.detectChanges();
+            mockDraftContentsStore.error.set('');
+            mockDraftContentsStore.isLoading.set(false);
+            fixture.detectChanges();
+            expect(component.listError()).toBeNull();
+        });
+    });
+
     describe('Delete Item', () => {
         it('should delete item when confirmed', async () => {
             dialogResult = true;
@@ -662,6 +751,7 @@ describe('DraftContentsTableComponent', () => {
 
             component.deleteItem(sampleContents[0]);
             await fixture.whenStable();
+            await new Promise((resolve) => setTimeout(resolve));
 
             expect(mockDraftContentsStore.delete).toHaveBeenCalledWith('1', undefined);
         });
@@ -672,9 +762,37 @@ describe('DraftContentsTableComponent', () => {
 
             component.deleteItem(sampleContents[0]);
             await fixture.whenStable();
+            await new Promise((resolve) => setTimeout(resolve));
 
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                'Content deleted successfully.', 'success', 'check_circle');
+                'Deleted.', 'success', 'check_circle');
+        });
+
+        // RF4 4.11: the wording says the live page goes too; a published
+        // entry's page is taken down first, and a failure deletes nothing.
+        it('says a published entry\'s live page goes too, and a draft\'s only that it cannot be undone', () => {
+            mockMatDialog.open.mockReturnValue({ afterClosed: () => of(false) });
+            component.deleteItem(sampleContents[0]);
+            component.deleteItem(sampleContents[1]);
+            const messages = mockMatDialog.open.mock.calls.map((call: any[]) => String(call[1].data.dialogMessage?.changingThisBreaksApplicationSecurity ?? call[1].data.dialogMessage));
+            expect(messages[0]).toContain('live page');
+            expect(messages[1]).not.toContain('live page');
+        });
+
+        it('takes the live page down before deleting, and deletes nothing when that cannot start', async () => {
+            const queue = TestBed.inject(PublishQueueService) as any;
+            queue.enqueue.mockRejectedValueOnce(new Error('offline'));
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            mockMatDialog.open.mockReturnValue({ afterClosed: () => of(true) });
+
+            component.deleteItem(sampleContents[0]);
+            await fixture.whenStable();
+            await new Promise((resolve) => setTimeout(resolve));
+
+            expect(queue.enqueue).toHaveBeenCalledWith('delete', expect.anything(), '1');
+            expect(mockDraftContentsStore.delete).not.toHaveBeenCalled();
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
+                expect.stringContaining('Nothing was deleted'), 'error', expect.anything());
         });
 
         it('should not delete when cancelled', async () => {
@@ -734,7 +852,7 @@ describe('DraftContentsTableComponent', () => {
             component.openContent('content-123');
 
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                'Cannot determine content type for editing.', 'error', 'error');
+                'Open a content type to edit its entries.', 'error', 'error');
             expect(mockRouter.navigate).not.toHaveBeenCalled();
         });
 
@@ -774,7 +892,7 @@ describe('DraftContentsTableComponent', () => {
             await fixture.whenStable();
 
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                'Content unpublished.', 'success', 'check_circle');
+                'Taken off the website.', 'success', 'check_circle');
         });
     });
 
@@ -819,7 +937,7 @@ describe('DraftContentsTableComponent', () => {
             component.makeItemFeatured(item);
             await fixture.whenStable();
 
-            expect(mockToastService.success).toHaveBeenCalledWith('Content added to featured successfully.');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith('Featured.', 'success', 'check_circle');
         });
 
         it('should show appropriate success message when removing', async () => {
@@ -829,7 +947,7 @@ describe('DraftContentsTableComponent', () => {
             component.makeItemFeatured(item);
             await fixture.whenStable();
 
-            expect(mockToastService.success).toHaveBeenCalledWith('Content removed from featured successfully.');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith('No longer featured.', 'success', 'check_circle');
         });
 
         it('should not toggle when cancelled', async () => {
@@ -880,7 +998,7 @@ describe('DraftContentsTableComponent', () => {
             component.contentTypeSlug = 'nonexistent';
 
             expect(component.invalidSlugMessage()).toContain('nonexistent');
-            expect(component.invalidSlugMessage()).toContain('does not exist');
+            expect(component.invalidSlugMessage()).toContain('There is no content type');
         });
     });
 

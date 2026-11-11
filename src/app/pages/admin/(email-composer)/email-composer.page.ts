@@ -6,7 +6,6 @@ import { FormsModule } from '@angular/forms';
 import {
     Firestore, collection, collectionData, doc, addDoc, updateDoc, serverTimestamp, query, orderBy,
 } from '@angular/fire/firestore';
-import { catchError, of } from 'rxjs';
 import { Functions } from '@angular/fire/functions';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,7 +13,9 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { injectT } from '../../../core/i18n/inject-t';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { BrandKitService } from '../(email-brand)/brand-kit.service';
@@ -70,7 +71,7 @@ export function fillSample(text: string, sample: Record<string, string> | undefi
 }
 
 export const routeMeta: RouteMeta = {
-    title: 'Email Composer',
+    title: 'Composer',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -100,7 +101,7 @@ interface TemplateDoc {
         CommonModule, FormsModule, MatButtonModule, MatIconModule,
         MatFormFieldModule, MatInputModule, MatSelectModule,
         MatDialogModule, EmailBlockEditorComponent,
-        GlobalTableComponent, PageHeaderComponent, PreviewLinksDirective,
+        GlobalTableComponent, PageHeaderComponent, PreviewLinksDirective, TranslocoPipe,
     ],
     templateUrl: './email-composer.page.html',
 })
@@ -112,6 +113,7 @@ export default class EmailComposerPageComponent implements OnInit {
     private platformId = inject(PLATFORM_ID);
     private dialog = inject(MatDialog);
     private injector = inject(Injector);
+    private readonly t = injectT();
 
     templates = signal<TemplateDoc[]>([]);
     selectedId = signal<string>('');
@@ -128,6 +130,9 @@ export default class EmailComposerPageComponent implements OnInit {
     creating = signal(false);
 
     loading = signal(true);
+    /** Set when the templates did not load: the table says so and offers Retry. */
+    loadError = signal<string | boolean | null>(null);
+    private templatesSub?: Subscription;
     tableColumns: TableColumn[] = this.buildColumns();
 
     ngOnInit(): void {
@@ -143,20 +148,31 @@ export default class EmailComposerPageComponent implements OnInit {
         // still shows what was there.
         runInInjectionContext(this.injector, () => arcCallable(this.functions, 'syncAppEmailTemplates')({}))
             .catch((err) => console.warn('Could not bring the app\'s templates up to date:', err));
-        runInInjectionContext(this.injector, () => {
+        this.load();
+    }
+
+    /** Read the templates (live). Retry calls it again after a failed read. */
+    load(): void {
+        this.templatesSub?.unsubscribe();
+        this.loading.set(true);
+        this.loadError.set(null);
+        this.templatesSub = runInInjectionContext(this.injector, () => {
             const ref = collection(this.firestore, 'EmailTemplate');
-            collectionData(query(ref, orderBy('type')), { idField: 'id' }).pipe(
-                catchError((err) => {
-                    console.error('Error fetching email templates:', err);
-                    return of([]);
-                }),
-            ).subscribe((docs) => {
+            return collectionData(query(ref, orderBy('type')), { idField: 'id' });
+        }).subscribe({
+            next: (docs) => {
                 this.templates.set(dedupeTemplatesByType(docs as TemplateDoc[]).filter((t) => {
                     const feature = templateFeature(t.type || '');
                     return !feature || isOn(feature);
                 }));
+                this.loadError.set(null);
                 this.loading.set(false);
-            });
+            },
+            error: (err) => {
+                console.error('Error fetching email templates:', err);
+                this.loadError.set(true);
+                this.loading.set(false);
+            },
         });
     }
 
@@ -165,42 +181,45 @@ export default class EmailComposerPageComponent implements OnInit {
             { key: 'index', header: '#', type: 'index' },
             {
                 key: 'title',
-                header: 'Template',
+                header: 'admin.email_composer.col_template',
                 clickable: true,
                 classFn: () => 'fw-bold cursor-pointer text-primary',
                 transformFn: (row: TemplateDoc) => row.title || row.type,
             },
             {
                 key: 'type',
-                header: 'Type',
+                header: 'common.table.type',
                 type: 'text',
                 transformFn: (row: TemplateDoc) => row.owner === 'app'
-                    ? `App (${(row.type || '').replace(/^app\./, '')})`
+                    ? this.t('admin.email_composer.app_type', { name: (row.type || '').replace(/^app\./, '') })
                     : (row.type || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
             },
             {
                 key: 'languages',
-                header: 'Languages',
+                header: 'admin.email_composer.col_languages',
                 type: 'text',
                 transformFn: (row: TemplateDoc) => previewLanguages(row).map((l) => l.code).join(', ') || '-',
             },
             {
                 key: 'subject',
-                header: 'Subject',
+                header: 'admin.email_composer.subject',
                 type: 'text',
-                transformFn: (row: TemplateDoc) => row.subject || '(no subject)',
+                transformFn: (row: TemplateDoc) => row.subject || this.t('admin.email_composer.no_subject'),
             },
             {
                 key: 'category',
-                header: 'Category',
+                header: 'admin.email_composer.category',
                 type: 'text',
-                transformFn: (row: TemplateDoc) => row.category || 'transactional',
+                transformFn: (row: TemplateDoc) => this.t(row.category === 'marketing' ? 'admin.email_composer.marketing' : 'admin.email_composer.transactional'),
             },
             {
                 key: 'editorVersion',
-                header: 'Editor',
+                header: 'admin.email_composer.col_editor',
                 type: 'badge',
-                badgeConfig: { trueText: 'Blocks', falseText: 'HTML' },
+                badgeConfig: {
+                    textFn: (row: TemplateDoc) => this.t(row.editorVersion === 'blocks' ? 'admin.email_composer.blocks' : 'admin.email_composer.html'),
+                },
+                classFn: (row: TemplateDoc) => (row.editorVersion === 'blocks' ? 'active' : 'inactive'),
                 transformFn: (row: TemplateDoc) => row.editorVersion === 'blocks',
             },
             {
@@ -211,7 +230,7 @@ export default class EmailComposerPageComponent implements OnInit {
                     {
                         action: 'edit',
                         icon: 'fas fa-pen text-secondary',
-                        label: 'Edit',
+                        label: 'common.actions.edit',
                         class: 'edit',
                         isRowClick: true,
                         // The app's templates are its code: previewed here, changed in its file.
@@ -221,7 +240,7 @@ export default class EmailComposerPageComponent implements OnInit {
                     {
                         action: 'preview',
                         icon: 'fas fa-eye text-secondary',
-                        label: 'Preview',
+                        label: 'admin.email_composer.preview',
                         class: 'view',
                         onAction: (row: TemplateDoc) => this.onPreview(row),
                     },
@@ -245,7 +264,7 @@ export default class EmailComposerPageComponent implements OnInit {
                 subject: fill(row.subject ?? ''),
                 html: fill(row.template ?? ''),
                 languages: previewLanguages(row).map((l) => ({ code: l.code, subject: fill(l.subject), html: fill(l.html) })),
-                note: row.owner === 'app' ? 'This template comes with the app. Its words change in the app\'s code, functions/src/custom/email-templates.ts.' : '',
+                note: row.owner === 'app' ? this.t('admin.email_composer.app_note') : '',
             },
         });
     }
@@ -273,7 +292,7 @@ export default class EmailComposerPageComponent implements OnInit {
         this.creating.set(true);
         try {
             const payload = buildNewEmailTemplate(
-                { title: 'Untitled email', subject: '', category: 'marketing' },
+                { title: this.t('admin.email_composer.untitled'), subject: '', category: 'marketing' },
                 Date.now(),
                 this.brandKit(),
             );
@@ -290,10 +309,10 @@ export default class EmailComposerPageComponent implements OnInit {
             this.upgraded.set(false);
             this.selected.set(created);
             this.syncDrafts(created);
-            this.toast.success('New email created. Edit the details and save.');
+            this.toast.success(this.t('admin.email_composer.created'));
         } catch (err) {
             console.error(err);
-            this.toast.error('Failed to create email');
+            this.toast.error(this.t('admin.email_composer.create_failed'));
         } finally {
             this.creating.set(false);
         }
@@ -329,19 +348,19 @@ export default class EmailComposerPageComponent implements OnInit {
             ...t,
             design: {
                 blocks: [
-                    { id: 'h', type: 'heading', text: t.title || 'Heading', level: 1 },
-                    { id: 'p', type: 'paragraph', html: 'Start writing your email…' },
+                    { id: 'h', type: 'heading', text: t.title || this.t('admin.email_composer.starter_heading'), level: 1 },
+                    { id: 'p', type: 'paragraph', html: this.t('admin.email_composer.starter_text') },
                 ],
             },
         });
         this.upgraded.set(true);
-        this.toast.success('Started a block version. Edit and save to switch this template to blocks.');
+        this.toast.success(this.t('admin.email_composer.upgraded'));
     }
 
     async onSaved(e: BlockEditorSaveEvent): Promise<void> {
         const t = this.selected();
         if (!t) return;
-        const title = this.titleDraft().trim() || 'Untitled email';
+        const title = this.titleDraft().trim() || this.t('admin.email_composer.untitled');
         const subject = this.subjectDraft().trim();
         const category = this.categoryDraft();
         try {
@@ -357,15 +376,15 @@ export default class EmailComposerPageComponent implements OnInit {
             });
             this.selected.set({ ...t, title, subject, category, design: e.design, template: e.html, editorVersion: 'blocks' });
             this.upgraded.set(false);
-            this.toast.success('Template saved (design + compiled HTML)');
+            this.toast.success(this.t('admin.email_composer.saved'));
         } catch (err) {
             console.error(err);
-            this.toast.error('Failed to save template');
+            this.toast.error(this.t('admin.email_composer.save_failed'));
         }
     }
 
     async onTestSend(e: BlockEditorSaveEvent): Promise<void> {
-        const subject = this.subjectDraft().trim() || this.selected()?.subject || 'Test';
+        const subject = this.subjectDraft().trim() || this.selected()?.subject || this.t('admin.email_composer.test_subject');
         const to = await firstValueFrom(
             this.dialog.open(TestSendDialogComponent, { width: '420px', data: { subject } }).afterClosed(),
         );
@@ -373,14 +392,14 @@ export default class EmailComposerPageComponent implements OnInit {
         try {
             const callable = arcCallable(this.functions, 'sendTestEmail');
             await callable({ toEmail: to, subject, html: e.html });
-            this.toast.success('Test email queued');
+            this.toast.success(this.t('admin.email_composer.test_queued'));
         } catch (err) {
             console.error(err);
-            this.toast.error('Failed to send test');
+            this.toast.error(this.t('admin.email_composer.test_failed'));
         }
     }
 
-    /** Placeholder palette per template type — sourced from the central registry. */
+    /** Placeholder palette per template type: sourced from the central registry. */
     placeholdersFor(type?: string): string[] {
         return getComposerTags(type);
     }

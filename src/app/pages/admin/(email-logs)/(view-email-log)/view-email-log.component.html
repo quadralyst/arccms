@@ -3,11 +3,11 @@
     <!-- Header -->
     <div class="header d-flex justify-content-between align-items-start">
         <div>
-            <h5 class="mb-1">Email Detail</h5>
+            <h5 class="mb-1">{{ 'admin.email_logs.detail_title' | transloco }}</h5>
             <p class="text-muted mb-0 small">{{ emailLog.toName }} &lt;{{ emailLog.toEmail }}&gt;</p>
         </div>
-        <button mat-icon-button (click)="closeDrawer()">
-            <mat-icon>close</mat-icon>
+        <button mat-icon-button type="button" (click)="closeDrawer()" [attr.aria-label]="'common.actions.close' | transloco">
+            <mat-icon aria-hidden="true">close</mat-icon>
         </button>
     </div>
 
@@ -21,12 +21,12 @@
 
     <!-- Delivery Timeline -->
     <div class="section">
-        <h6 class="section-title">Delivery Timeline</h6>
+        <h6 class="section-title">{{ 'admin.email_logs.timeline' | transloco }}</h6>
         <div class="timeline">
             <div class="timeline-item">
                 <div class="timeline-dot dot-created"></div>
                 <div class="timeline-content">
-                    <strong>Created</strong>
+                    <strong>{{ 'admin.email_logs.event_created' | transloco }}</strong>
                     <span class="text-muted ms-2">{{ formatDate(emailLog.createdAt) }}</span>
                 </div>
             </div>
@@ -35,7 +35,7 @@
             <div class="timeline-item">
                 <div class="timeline-dot dot-sent"></div>
                 <div class="timeline-content">
-                    <strong>Sent</strong>
+                    <strong>{{ 'admin.email_logs.event_sent' | transloco }}</strong>
                     <span class="text-muted ms-2">{{ formatDate(emailLog.sendingTime) }}</span>
                     @if(emailLog.activeProvider) {
                     <span class="provider-chip ms-2">{{ emailLog.activeProvider | uppercase }}</span>
@@ -48,7 +48,7 @@
             <div class="timeline-item">
                 <div class="timeline-dot dot-delivered"></div>
                 <div class="timeline-content">
-                    <strong>Delivered</strong>
+                    <strong>{{ 'admin.email_logs.event_delivered' | transloco }}</strong>
                     <span class="text-muted ms-2">{{ formatDate(emailLog.lastWebhookAt) }}</span>
                 </div>
             </div>
@@ -58,10 +58,10 @@
             <div class="timeline-item">
                 <div class="timeline-dot dot-failed"></div>
                 <div class="timeline-content">
-                    <strong>Bounced</strong>
+                    <strong>{{ 'admin.email_logs.event_bounced' | transloco }}</strong>
                     <span class="text-muted ms-2">{{ formatDate(emailLog.lastWebhookAt) }}</span>
                     @if(emailLog.isHardBounce) {
-                    <span class="badge bg-danger ms-2">Hard Bounce</span>
+                    <span class="badge bg-danger ms-2">{{ 'admin.email_logs.hard_bounce' | transloco }}</span>
                     }
                 </div>
             </div>
@@ -71,7 +71,7 @@
             <div class="timeline-item">
                 <div class="timeline-dot dot-failed"></div>
                 <div class="timeline-content">
-                    <strong>Failed</strong>
+                    <strong>{{ 'admin.email_logs.event_failed' | transloco }}</strong>
                     <span class="text-muted ms-2">{{ formatDate(emailLog.sendingTime) }}</span>
                 </div>
             </div>
@@ -81,10 +81,10 @@
             <div class="timeline-item">
                 <div class="timeline-dot dot-opened"></div>
                 <div class="timeline-content">
-                    <strong>Opened</strong>
+                    <strong>{{ 'admin.email_logs.event_opened' | transloco }}</strong>
                     <span class="text-muted ms-2">{{ formatDate(emailLog.openedAt) }}</span>
                     @if(emailLog.ipAddress) {
-                    <span class="text-muted small ms-2">IP: {{ emailLog.ipAddress }}</span>
+                    <span class="text-muted small ms-2">{{ 'admin.email_logs.ip' | transloco: { ip: emailLog.ipAddress } }}</span>
                     }
                 </div>
             </div>
@@ -94,14 +94,14 @@
 
     <!-- Email Content Preview -->
     <div class="section">
-        <h6 class="section-title">Email Content</h6>
+        <h6 class="section-title">{{ 'admin.email_logs.content' | transloco }}</h6>
         <div class="subject-line mb-2">
-            <strong>Subject:</strong>
-            {{ sentSubject(emailLog) }}
+            <strong>{{ 'admin.email_logs.subject_label' | transloco }}</strong>
+            {{ sentSubject(emailLog, noSubject()) }}
         </div>
         @if(!emailLog.processedTemplate && emailLog.template) {
         <div class="alert alert-info small mb-2">
-            Showing raw template (processed version not available for older logs)
+            {{ 'admin.email_logs.raw_template' | transloco }}
         </div>
         }
         <!-- A sandboxed frame (review F): the email as sent, including anything a
@@ -109,13 +109,13 @@
              open in a new tab, as EMAIL_FRAME_SANDBOX in shared/utils/email-preview.ts says;
              written here, as Angular takes no bound sandbox. -->
         @if (hasContent()) {
-        <iframe class="email-preview" sandbox="allow-popups allow-popups-to-escape-sandbox" title="Email as sent" [srcdoc]="processedHtml()"></iframe>
+        <iframe class="email-preview" sandbox="allow-popups allow-popups-to-escape-sandbox" [title]="'admin.email_logs.as_sent' | transloco" [srcdoc]="processedHtml()"></iframe>
         @if (hasRecipientLinks()) {
-        <p class="text-muted small mt-1 mb-0">Unsubscribe and preference links do not open from here: they act for the recipient.</p>
+        <p class="text-muted small mt-1 mb-0">{{ 'admin.email_logs.recipient_links' | transloco }}</p>
         }
         } @else {
         <div class="email-preview-empty text-muted small">
-            The content of this email was not stored, so there is nothing to show.
+            {{ 'admin.email_logs.not_stored' | transloco }}
         </div>
         }
     </div>
@@ -123,7 +123,7 @@
     <!-- Attachments (an app email's files, kept beside the log) -->
     @if(emailLog.attachments?.length) {
     <div class="section">
-        <h6 class="section-title">Attachments</h6>
+        <h6 class="section-title">{{ 'admin.email_logs.attachments' | transloco }}</h6>
         <ul class="list-unstyled mb-0 attachment-list">
             @for(file of emailLog.attachments; track file.name + $index) {
             <li class="d-flex align-items-center justify-content-between gap-2 py-1">
@@ -135,17 +135,17 @@
                 @if(file.path) {
                 @if(fileUrls()[file.path]; as url) {
                 @if(url === 'missing') {
-                <span class="text-muted small">No longer stored</span>
+                <span class="text-muted small">{{ 'admin.email_logs.file_gone' | transloco }}</span>
                 } @else if(url === 'unavailable') {
-                <span class="text-muted small">Could not reach the file, try again later</span>
+                <span class="text-muted small">{{ 'admin.email_logs.file_unavailable' | transloco }}</span>
                 } @else {
-                <a mat-stroked-button [href]="url" target="_blank" rel="noopener" [attr.download]="file.name">Open</a>
+                <a mat-stroked-button [href]="url" target="_blank" rel="noopener" [attr.download]="file.name">{{ 'common.actions.open' | transloco }}</a>
                 }
                 } @else {
-                <span class="text-muted small">Loading...</span>
+                <span class="text-muted small">{{ 'common.state.loading' | transloco }}</span>
                 }
                 } @else {
-                <span class="text-muted small">Not stored: the email was not sent</span>
+                <span class="text-muted small">{{ 'admin.email_logs.file_not_sent' | transloco }}</span>
                 }
             </li>
             }
@@ -155,47 +155,47 @@
 
     <!-- Metadata -->
     <div class="section">
-        <h6 class="section-title">Metadata</h6>
+        <h6 class="section-title">{{ 'admin.email_logs.details' | transloco }}</h6>
         <div class="metadata-grid">
             <div class="meta-item">
-                <span class="meta-label">Provider</span>
+                <span class="meta-label">{{ 'admin.email_logs.col_provider' | transloco }}</span>
                 <span class="meta-value">{{ (emailLog.activeProvider || '-') | uppercase }}</span>
             </div>
             <div class="meta-item">
-                <span class="meta-label">Message ID</span>
+                <span class="meta-label">{{ 'admin.email_logs.message_id' | transloco }}</span>
                 <span class="meta-value text-break">{{ emailLog.messageId || '-' }}</span>
             </div>
             <div class="meta-item">
-                <span class="meta-label">Sender</span>
+                <span class="meta-label">{{ 'admin.email_logs.sender' | transloco }}</span>
                 <span class="meta-value">{{ emailLog.senderName }} &lt;{{ emailLog.senderEmail }}&gt;</span>
             </div>
             @if(emailLog.bcc) {
             <div class="meta-item">
-                <span class="meta-label">BCC</span>
+                <span class="meta-label">{{ 'admin.email_logs.bcc' | transloco }}</span>
                 <span class="meta-value">{{ emailLog.bcc }}</span>
             </div>
             }
             @if(emailLog.language) {
             <div class="meta-item">
-                <span class="meta-label">Language</span>
+                <span class="meta-label">{{ 'admin.email_logs.language' | transloco }}</span>
                 <span class="meta-value">{{ emailLog.language }}</span>
             </div>
             }
             @if(emailLog.replyTo) {
             <div class="meta-item">
-                <span class="meta-label">Reply-To</span>
+                <span class="meta-label">{{ 'admin.email_logs.reply_to' | transloco }}</span>
                 <span class="meta-value text-break">{{ emailLog.replyTo }}</span>
             </div>
             }
             @if(emailLog.appRef) {
             <div class="meta-item">
-                <span class="meta-label">App reference</span>
+                <span class="meta-label">{{ 'admin.email_logs.app_ref' | transloco }}</span>
                 <span class="meta-value text-break">{{ emailLog.appRef }}</span>
             </div>
             }
             @if(emailLog.broadcastId) {
             <div class="meta-item">
-                <span class="meta-label">Broadcast ID</span>
+                <span class="meta-label">{{ 'admin.email_logs.broadcast_id' | transloco }}</span>
                 <span class="meta-value text-break">{{ emailLog.broadcastId }}</span>
             </div>
             }
@@ -205,7 +205,7 @@
     <!-- Error Details -->
     @if(emailLog.errorMessage) {
     <div class="section">
-        <h6 class="section-title text-danger">Error Details</h6>
+        <h6 class="section-title text-danger">{{ 'admin.email_logs.error_details' | transloco }}</h6>
         <div class="error-box">
             {{ emailLog.errorMessage }}
         </div>
@@ -215,29 +215,31 @@
     <!-- Bounce/Complaint Details -->
     @if(emailLog.bounceDetails) {
     <div class="section">
-        <h6 class="section-title">Bounce Details</h6>
+        <h6 class="section-title">{{ 'admin.email_logs.bounce_details' | transloco }}</h6>
         <pre class="details-pre">{{ emailLog.bounceDetails | json }}</pre>
     </div>
     }
 
     @if(emailLog.complaintDetails) {
     <div class="section">
-        <h6 class="section-title">Complaint Details</h6>
+        <h6 class="section-title">{{ 'admin.email_logs.complaint_details' | transloco }}</h6>
         <pre class="details-pre">{{ emailLog.complaintDetails | json }}</pre>
     </div>
     }
 
     <!-- Template Tags (collapsible) -->
     <div class="section">
-        <h6 class="section-title clickable" (click)="toggleTags()">
-            Template Tags
-            <mat-icon class="toggle-icon">{{ showTags() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        <h6 class="section-title">
+            <button type="button" class="section-toggle" (click)="toggleTags()" [attr.aria-expanded]="showTags()">
+                {{ 'admin.email_logs.tags' | transloco }}
+                <mat-icon class="toggle-icon" aria-hidden="true">{{ showTags() ? 'expand_less' : 'expand_more' }}</mat-icon>
+            </button>
         </h6>
         @if(showTags()) {
         <div class="tags-section">
             @if(emailLog.usedTags?.length) {
             <div class="mb-2">
-                <strong class="small">Used Tags:</strong>
+                <strong class="small">{{ 'admin.email_logs.used_tags' | transloco }}</strong>
                 <div class="tag-chips">
                     @for(tag of emailLog.usedTags; track tag) {
                     <span class="tag-chip">##{{ tag }}##</span>
@@ -247,7 +249,7 @@
             }
             @if(emailLog.unmappedTags?.length) {
             <div>
-                <strong class="small text-warning">Unmapped Tags:</strong>
+                <strong class="small unmapped-label">{{ 'admin.email_logs.unmapped_tags' | transloco }}</strong>
                 <div class="tag-chips">
                     @for(tag of emailLog.unmappedTags; track tag) {
                     <span class="tag-chip unmapped">##{{ tag }}##</span>
@@ -256,7 +258,7 @@
             </div>
             }
             @if(!emailLog.usedTags?.length && !emailLog.unmappedTags?.length) {
-            <p class="text-muted small mb-0">No tag data available</p>
+            <p class="text-muted small mb-0">{{ 'admin.email_logs.no_tags' | transloco }}</p>
             }
         </div>
         }

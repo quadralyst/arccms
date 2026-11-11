@@ -3,6 +3,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
@@ -153,7 +155,7 @@ describe('AddUserComponent', () => {
             mockToastService.success.mockClear();
             mockToastService.error.mockClear();
         });
-        const fill = (email = 'newuser@example.com') => component.addForm.setValue({ name: 'New User', email, password: 'Monsoon-Train-42', confirmPassword: 'Monsoon-Train-42' });
+        const fill = (email = 'newuser@example.com', role = 'user') => component.addForm.setValue({ name: 'New User', email, password: 'Monsoon-Train-42', confirmPassword: 'Monsoon-Train-42', role });
         const flush = () => new Promise((r) => setTimeout(r));
 
         it('should not submit invalid form', () => {
@@ -169,16 +171,47 @@ describe('AddUserComponent', () => {
             await flush();
             expect(m.calls).toEqual([{ name: 'arccms-adminCreateUser', data: { name: 'New User', email: 'newuser@example.com', password: 'Monsoon-Train-42', role: 'user' } }]);
             expect(mockUserStore.add).not.toHaveBeenCalled();
-            expect(mockToastService.success).toHaveBeenCalledWith('User created. Share the temporary password with them.');
+            expect(mockToastService.success).toHaveBeenCalledWith('User added. Share the temporary password with them.');
             expect(closeSpy).toHaveBeenCalled();
         });
 
-        it('passes the role being added', async () => {
-            component.role = 'admin';
-            fill();
+        it('passes the role chosen in the form, so a second admin can be made (RF4)', async () => {
+            expect(component.roleOptions).toEqual(['admin', 'user']);
+            expect(component.addForm.get('role')?.value).toBe('user');
+            fill('newuser@example.com', 'admin');
             component.onSubmit();
             await flush();
             expect(m.calls[0].data.role).toBe('admin');
+        });
+
+        it('starts on the role of the list it was opened from', () => {
+            component.role = 'admin';
+            component.ngOnInit();
+            expect(component.addForm.get('role')?.value).toBe('admin');
+            fixture.detectChanges();
+            const select = fixture.nativeElement.querySelector('select#role') as HTMLSelectElement;
+            expect([...select.options].map((o) => o.textContent?.trim())).toEqual(['Admin', 'User']);
+        });
+
+        it('adds to the role list it was opened from, even one beyond Admin and User (M3)', async () => {
+            component.role = 'propertyOwner';
+            component.ngOnInit();
+            expect(component.roleOptions).toEqual(['admin', 'user', 'propertyOwner']);
+            expect(component.addForm.get('role')?.value).toBe('propertyOwner');
+            fixture.detectChanges();
+            const select = fixture.nativeElement.querySelector('select#role') as HTMLSelectElement;
+            expect([...select.options].map((o) => o.textContent?.trim())).toEqual(['Admin', 'User', 'Property owner']);
+            component.addForm.patchValue({ name: 'New User', email: 'newuser@example.com', password: 'Monsoon-Train-42', confirmPassword: 'Monsoon-Train-42' });
+            component.onSubmit();
+            await flush();
+            expect(m.calls[0].data.role).toBe('propertyOwner');
+        });
+
+        it('ignores a list role Arc CMS does not know (such as an old customer link)', () => {
+            component.role = 'customer';
+            component.ngOnInit();
+            expect(component.roleOptions).toEqual(['admin', 'user']);
+            expect(component.addForm.get('role')?.value).toBe('user');
         });
 
         it('says so when an existing sign-in account was reused', async () => {
@@ -196,15 +229,41 @@ describe('AddUserComponent', () => {
             expect(m.calls).toEqual([]);
         });
 
-        it('shows the server\'s error and stays open', async () => {
+        it('says why the server refused in the admin\'s words, never its English, and stays open', async () => {
             m.result.value = Object.assign(new Error('An ArcCMS user with this email already exists.'), { code: 'functions/already-exists' });
             const closeSpy = vi.spyOn(component.close, 'emit');
             fill();
             component.onSubmit();
             await flush();
-            expect(mockToastService.error).toHaveBeenCalledWith('An ArcCMS user with this email already exists.');
+            expect(mockToastService.error).toHaveBeenCalledWith('A user with this email already exists.');
             expect(component.alreadyExist).toBe(true);
             expect(closeSpy).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            [{ code: 'functions/invalid-argument', details: { reason: 'weak-password', problem: 'common', min: 8 } }, 'That password is one of the most used, so it is easy to guess. Choose another.'],
+            [{ code: 'functions/invalid-argument', details: { reason: 'weak-password', problem: 'short', min: 8 } }, 'Use at least 8 characters.'],
+            [{ code: 'functions/failed-precondition', details: { reason: 'unverified-account' } }, 'This address already has a sign-in that was never verified, so it could belong to someone else. Add them as a User, or ask them to verify their email first.'],
+            [{ code: 'functions/internal' }, 'Could not add this user. Please try again.'],
+        ])('maps the refusal %j to translated text', async (refusal, said) => {
+            m.result.value = Object.assign(new Error('The temporary password is too easy to guess. Use at least 8 characters.'), refusal);
+            fill();
+            component.onSubmit();
+            await flush();
+            expect(mockToastService.error).toHaveBeenCalledWith(said);
+            expect(mockToastService.error.mock.calls.at(-1)![0]).not.toMatch(/too easy to guess/);
+        });
+
+        it('has no English typed into its template, and every field has its label', () => {
+            const el: HTMLElement = fixture.nativeElement;
+            for (const input of el.querySelectorAll('input, select')) {
+                expect(el.querySelector(`label[for="${input.id}"]`), input.id).toBeTruthy();
+            }
+            expect(el.querySelector('.close-btn')!.getAttribute('aria-label')).toBe('Close');
+            const html = readFileSync(join(__dirname, 'add-user.html'), 'utf8').replace(/\{\{[\s\S]*?\}\}/g, '');
+            const text = [...html.matchAll(/>([^<>]*)</g)].map((x) => x[1]).map((t) => t.replace(/@\w+[^{]*\{|\}/g, '').trim()).filter((t) => /[A-Za-z]{2,}/.test(t.replace(/&\w+;/g, '')));
+            expect(text).toEqual([]);
+            expect(html).not.toMatch(/placeholder="[^"]*[A-Za-z]/);
         });
     });
 
@@ -217,12 +276,14 @@ describe('AddUserComponent', () => {
                 email: 'test@test.com',
                 password: 'Monsoon-Train-42',
                 confirmPassword: 'Monsoon-Train-42',
+                role: 'admin',
             });
 
             component.closeAdd();
 
             expect(closeSpy).toHaveBeenCalled();
             expect(component.addForm.get('name')?.value).toBeNull();
+            expect(component.addForm.get('role')?.value).toBe('user');
         });
     });
 

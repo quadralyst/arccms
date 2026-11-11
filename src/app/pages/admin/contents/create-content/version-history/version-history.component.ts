@@ -1,3 +1,4 @@
+import { TranslocoPipe } from '@jsverse/transloco';
 import {
     ChangeDetectionStrategy,
     Component,
@@ -36,7 +37,7 @@ export interface VersionHistoryItem {
 @Component({
     selector: 'arc-version-history',
     standalone: true,
-    imports: [LoaderComponent, CommonModule],
+    imports: [LoaderComponent, CommonModule, TranslocoPipe],
     templateUrl: './version-history.component.html',
     styleUrl: './version-history.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -69,7 +70,7 @@ export class VersionHistoryComponent implements OnInit {
         const slug = this.contentTypeSlug();
 
         if (!pubId || !slug) {
-            this.errorMessage.set('No published version found for this content.');
+            this.errorMessage.set('admin.contents.versions.none_published');
             return;
         }
 
@@ -83,7 +84,7 @@ export class VersionHistoryComponent implements OnInit {
             },
             error: (err) => {
                 console.error('Error loading version history:', err);
-                this.errorMessage.set('Failed to load version history.');
+                this.errorMessage.set('admin.contents.versions.load_failed');
                 this.isLoading.set(false);
             },
         });

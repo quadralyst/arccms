@@ -1,22 +1,25 @@
 /**
- * Waitlist Tags Management Page
- * 
- * Manages tags for a specific waitlist.
- * Similar to content-type tags management.
+ * Form tags page
+ *
+ * The tags of one form, which label its sign-ups.
  */
 
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, inject, signal, ViewChild, OnInit } from '@angular/core';
+import { Component, Injector, inject, runInInjectionContext, signal, ViewChild, OnInit } from '@angular/core';
+import { Firestore, collection, getCountFromServer, query, where } from '@angular/fire/firestore';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialogModule } from '@angular/material/dialog';
 import { followLandedPage } from '../../../../../shared/services/generic-store.service';
-import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
+import { ConfirmService } from '../../../../../shared/components/confirmation-popup/confirm.service';
+import { NotifyService } from '../../../../../shared/services/notify.service';
+import { escapeHtml } from '../../../../../shared/utils/escape-html';
 import { WaitlistUserTagsStore } from '../joined-users/waitlist-user-tags.store';
 import { IWaitlistUserTag } from '../joined-users/waitlist-user-tags.model';
 import { ConstantVariables } from '../../../../../shared/constants/common-constants';
@@ -25,7 +28,7 @@ import { PageHeaderComponent } from '../../../../../shared/components/page-heade
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Waitlist Tags',
+    title: 'Form tags',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -42,7 +45,8 @@ export const routeMeta: RouteMeta = {
         MatButtonModule,
         MatDialogModule,
         GlobalTableComponent,
-        PageHeaderComponent
+        PageHeaderComponent,
+        TranslocoPipe
     ],
     templateUrl: './tags.page.html',
     styleUrls: ['./tags.page.scss'],
@@ -53,7 +57,11 @@ export default class WaitlistTagsComponent implements OnInit {
 
     private route = inject(ActivatedRoute);
     private router = inject(Router);
-    private dialog = inject(MatDialog);
+    private firestore = inject(Firestore);
+    private injector = inject(Injector);
+    private confirmDialog = inject(ConfirmService);
+    private notify = inject(NotifyService);
+    private transloco = inject(TranslocoService);
     private datePipe = inject(DatePipe);
 
     tagsStore = inject(WaitlistUserTagsStore);
@@ -112,35 +120,35 @@ export default class WaitlistTagsComponent implements OnInit {
             { key: 'index', header: '#', type: 'index' },
             {
                 key: 'color',
-                header: 'Color',
+                header: 'admin.forms.tags.col.color',
                 type: 'tags',
                 transformFn: (row) => [{ color: row.color, label: '' }],
                 tagConfig: { class: 'color-badge' }
             },
             {
                 key: 'label',
-                header: 'Label',
+                header: 'admin.forms.tags.col.tag',
                 type: 'tags',
                 transformFn: (row) => [row],
                 tagConfig: { class: 'tag-label' }
             },
-            { key: 'usageCount', header: 'Usage' },
-            { key: 'createdAt', header: 'Created', type: 'date', dateFormat: 'MMM d, y' },
+            { key: 'usageCount', header: 'admin.forms.tags.col.used' },
+            { key: 'createdAt', header: 'admin.forms.tags.col.created', type: 'date', dateFormat: 'MMM d, y' },
             {
                 key: 'actions',
-                header: 'Actions',
+                header: 'common.table.actions',
                 type: 'actions',
                 actions: [
                     {
                         action: 'edit',
                         icon: 'fas fa-pen text-primary',
-                        label: 'Edit',
+                        label: 'common.actions.edit',
                         onAction: (row) => this.openEdit(row)
                     },
                     {
                         action: 'delete',
                         icon: 'fas fa-trash text-danger',
-                        label: 'Delete',
+                        label: 'common.actions.delete',
                         onAction: (row) => this.deleteItem(row)
                     }
                 ]
@@ -176,7 +184,11 @@ export default class WaitlistTagsComponent implements OnInit {
                 this.newTagLabel = '';
                 this.fetchData();
             },
-            error: (error) => console.error('Error adding tag:', error),
+            error: (error) => {
+                console.error('Adding a tag failed:', error);
+                this.notify.error('admin.forms.tags.add_failed');
+                this.fetchData();
+            },
         });
     }
 
@@ -214,7 +226,9 @@ export default class WaitlistTagsComponent implements OnInit {
             },
             error: (error) => {
                 this.isSubmitting.set(false);
-                console.error('Error updating tag:', error);
+                console.error('Saving a tag failed:', error);
+                this.notify.error('admin.forms.tags.save_failed');
+                this.fetchData();
             },
         });
     }
@@ -223,23 +237,44 @@ export default class WaitlistTagsComponent implements OnInit {
         this.editColor.set(color);
     }
 
-    deleteItem(item: IWaitlistUserTag): void {
-        const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
-            data: {
-                dialogType: 'Delete Tag',
-                dialogMessage: `Are you sure you want to delete the tag "<strong>${item.label}</strong>"?`,
-                btnText: 'Delete',
-                panelType: 'warn',
-            },
-        });
+    /** How many of this form's sign-ups have the tag; null when the count cannot be read. */
+    async signupsWithTag(tagId: string): Promise<number | null> {
+        if (!this.waitlistId) return null;
+        try {
+            const signups = runInInjectionContext(this.injector, () =>
+                query(collection(this.firestore, 'Waitlists', this.waitlistId, 'users'), where('tags', 'array-contains', tagId)));
+            const snap = await runInInjectionContext(this.injector, () => getCountFromServer(signups));
+            return snap.data().count;
+        } catch (error) {
+            console.error('Counting the sign-ups with a tag failed:', error);
+            return null;
+        }
+    }
 
-        dialogRef.afterClosed().subscribe(result => {
-            if (result) {
-                this.tagsStore.delete(item.id).subscribe({
-                    next: () => this.fetchData(),
-                    error: (error) => console.error('Error deleting tag:', error),
-                });
-            }
+    /** Delete a tag, saying first how many sign-ups lose it. */
+    async deleteItem(item: IWaitlistUserTag): Promise<void> {
+        const count = await this.signupsWithTag(item.id);
+        const key = count === null ? 'admin.forms.tag_delete_confirm_unknown'
+            : count === 0 ? 'admin.forms.tag_delete_confirm_none'
+                : count === 1 ? 'admin.forms.tag_delete_confirm_one'
+                    : 'admin.forms.tag_delete_confirm';
+        const confirmed = await this.confirmDialog.ask({
+            titleKey: 'common.dialog.delete',
+            dialogMessage: this.transloco.translate(key, { name: escapeHtml(item.label), count }),
+            btnText: this.transloco.translate('common.actions.delete'),
+            panelType: 'warn',
+        });
+        if (!confirmed) return;
+
+        this.tagsStore.delete(item.id).subscribe({
+            next: () => this.fetchData(),
+            error: (error) => {
+                console.error('Error deleting tag:', error);
+                this.notify.error('admin.forms.tag_delete_failed');
+                // Reading the list again clears the store's error, so the table
+                // shows "did not load" only when the list itself failed.
+                this.fetchData();
+            },
         });
     }
 

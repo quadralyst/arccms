@@ -95,9 +95,11 @@ describe('AppAudienceSettingsPage', () => {
         await page.runTest();
         fixture.detectChanges();
         expect(page.error()).toBe('');
-        expect(page.testError()).toBe('No document u9');
+        expect(page.testError()).toBe('failed');
         const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-        expect(text).toContain('No document u9');
+        // A plain sentence, never the server's text.
+        expect(text).toContain('The test did not run.');
+        expect(text).not.toContain('No document u9');
         // The editor is still there: the fields table and the Save button.
         expect(text).toContain('email');
         expect((fixture.nativeElement as HTMLElement).querySelector('button.btn-primary')).not.toBeNull();

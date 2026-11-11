@@ -125,11 +125,11 @@
 }
 
 .metric-change.positive {
-    color: #4CAF50;
+    color: #2e7d32;
 }
 
 .metric-change.negative {
-    color: #f44336;
+    color: #c62828;
 }
 
 .metric-subtitle {
@@ -180,6 +180,66 @@
 .scrollable-card {
     flex: 0 0 220px;
     min-width: 220px;
+}
+
+// Cards and activity rows are links: no link colour or underline, a visible focus ring.
+.dash-card-link,
+a.activity-item {
+    color: inherit;
+    text-decoration: none;
+
+    &:focus-visible {
+        outline: 2px solid var(--arc-admin-accent);
+        outline-offset: 2px;
+        border-radius: 12px;
+    }
+}
+
+// Bootstrap's text-success and text-warning read below 4.5:1 on white.
+.count-published { color: #1e7e34; }
+.count-draft { color: #8a5a00; }
+.count-week { color: var(--arc-admin-accent-dark); }
+
+// ── First run: nothing written yet ──
+.first-run-card {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+    h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem;
+    }
+
+    p {
+        color: #495057;
+        margin: 0 0 1rem;
+        max-width: 36rem;
+    }
+}
+
+.first-run-icon {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 1.5rem;
+    background: color-mix(in srgb, var(--arc-admin-accent) 15%, #fff);
+    color: var(--arc-admin-accent-dark);
+}
+
+@media (max-width: 575.98px) {
+    .first-run-card {
+        flex-direction: column;
+    }
 }
 
 // ── Clickable Card ──
@@ -287,7 +347,7 @@
 }
 
 .activity-separator {
-    color: #adb5bd;
+    color: #6c757d;
 }
 
 .activity-status {

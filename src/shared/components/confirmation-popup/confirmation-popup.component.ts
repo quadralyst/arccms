@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { TranslocoService } from '@jsverse/transloco';
 import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import {
@@ -11,15 +11,50 @@ import {
     MatDialogTitle,
 } from '@angular/material/dialog';
 
+/**
+ * What the confirmation dialog shows. Every field is optional so the callers
+ * written before this type keep working unchanged.
+ */
+export interface ConfirmationDialogData {
+    /**
+     * The heading as plain text. Some callers also switch on it ('Delete',
+     * 'Logout'), so it stays; `titleKey` wins when both are given.
+     */
+    dialogType?: string;
+    /** The heading as a translation key. */
+    titleKey?: string;
+    /**
+     * The body, rendered as HTML. Escape every name or title a person typed
+     * (`escapeHtml` in src/shared/utils/escape-html.ts).
+     */
+    dialogMessage?: string;
+    /** The confirm button's text. */
+    btnText?: string;
+    /** 'warn' makes the confirm button red. */
+    panelType?: string;
+    /** The cancel button's text. "Cancel", translated, when left out. */
+    cancelText?: string;
+}
+
+/**
+ * Arc CMS's question dialog, in place of the browser's `confirm()`.
+ *
+ * It closes with `true` on the confirm button and with nothing on Cancel,
+ * Escape or a click outside. Focus starts on Cancel, so pressing Enter by
+ * reflex never deletes anything.
+ *
+ * Open it through `ConfirmService.ask()` (confirm.service.ts), or directly with
+ * `MatDialog.open(ConfirmationPopupComponent, { data })`.
+ */
 @Component({
     selector: 'arc-confirmation-popup',
     standalone: true,
-    imports: [MatButtonModule, MatDialogActions, MatDialogClose, MatDialogTitle, MatDialogContent, CommonModule, TranslocoPipe],
+    imports: [MatButtonModule, MatDialogActions, MatDialogClose, MatDialogTitle, MatDialogContent, CommonModule],
     templateUrl: './confirmation-popup.component.html',
     styleUrl: './confirmation-popup.component.scss',
 })
 export class ConfirmationPopupComponent {
-    readonly _DIALOG_DATA = inject<any>(MAT_DIALOG_DATA);
+    readonly _DIALOG_DATA = inject<ConfirmationDialogData>(MAT_DIALOG_DATA);
     readonly dialogRef = inject(MatDialogRef<ConfirmationPopupComponent>);
     private transloco = inject(TranslocoService);
 
@@ -34,7 +69,12 @@ export class ConfirmationPopupComponent {
      */
     get title(): string {
         const key = this._DIALOG_DATA?.titleKey;
-        return key ? this.transloco.translate(key) : this._DIALOG_DATA?.dialogType;
+        return key ? this.transloco.translate(key) : (this._DIALOG_DATA?.dialogType ?? '');
+    }
+
+    /** The cancel button's text: the caller's, else "Cancel" in the admin's language. */
+    get cancelText(): string {
+        return this._DIALOG_DATA?.cancelText || this.transloco.translate('common.actions.cancel');
     }
 
     confirm() {

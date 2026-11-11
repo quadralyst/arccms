@@ -110,7 +110,7 @@ export class SmsSettingsService {
 
     /**
      * The form values, whether an auth key is saved, and whether phone sign-in is on
-     * (`Settings/users.phoneSignIn`, switched in User Settings), so the page can say so.
+     * (`Settings/users.phoneSignIn`, switched in Sign-up and roles), so the page can say so.
      */
     async load(): Promise<{ form: SmsSettingsForm; hasAuthKey: boolean; phoneSignIn: boolean }> {
         const [snap, users] = await Promise.all([

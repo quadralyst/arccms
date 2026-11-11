@@ -1,57 +1,55 @@
-<!-- Waitlist Tags Management Page -->
+<!-- Form tags page -->
 <mat-drawer-container class="page-container" hasBackdrop="true">
     <mat-drawer #drawer mode="over" position="end" class="drawer">
         @if(currentAction() === 'edit' && editingTag()) {
         <div class="drawer-content">
             <div class="drawer-header">
-                <h5>Edit Tag</h5>
-                <button mat-icon-button (click)="closeDrawer()">
-                    <mat-icon>close</mat-icon>
+                <h5>{{ 'admin.forms.tags.edit_title' | transloco }}</h5>
+                <button mat-icon-button type="button" (click)="closeDrawer()" [attr.aria-label]="'common.actions.close' | transloco">
+                    <mat-icon aria-hidden="true">close</mat-icon>
                 </button>
             </div>
 
             <div class="drawer-body">
-                <!-- Label Input -->
                 <div class="mb-4">
-                    <label class="form-label">Tag Label <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" placeholder="Enter tag label..." [value]="editLabel()"
+                    <label class="form-label" for="tag-edit-label">{{ 'admin.forms.tags.name' | transloco }} <span class="text-danger" aria-hidden="true">*</span></label>
+                    <input id="tag-edit-label" type="text" class="form-control" [value]="editLabel()" required
                         (input)="editLabel.set($any($event.target).value)">
                 </div>
 
-                <!-- Color Picker -->
                 <div class="mb-4">
-                    <label class="form-label">Tag Color</label>
-                    <div class="color-picker-grid">
+                    <span class="form-label d-block" id="tag-edit-color">{{ 'admin.forms.tags.color' | transloco }}</span>
+                    <div class="color-picker-grid" role="group" aria-labelledby="tag-edit-color">
                         @for(option of constantVariables.tagsColorOptions; track option.color) {
                         <button type="button" class="color-option" [class.selected]="editColor() === option.color"
                             [style.background-color]="option.color" [title]="option.title"
+                            [attr.aria-label]="option.title" [attr.aria-pressed]="editColor() === option.color"
                             (click)="selectColor(option.color)">
                             @if(editColor() === option.color) {
-                            <mat-icon>check</mat-icon>
+                            <mat-icon aria-hidden="true">check</mat-icon>
                             }
                         </button>
                         }
                     </div>
                 </div>
 
-                <!-- Preview -->
                 <div class="mb-4">
-                    <label class="form-label">Preview</label>
+                    <span class="form-label d-block">{{ 'admin.forms.tags.preview' | transloco }}</span>
                     <div class="tag-preview">
                         <span class="tag-badge" [style.background-color]="editColor()">
-                            {{ editLabel() || 'Tag Label' }}
+                            {{ editLabel() || ('admin.forms.tags.name' | transloco) }}
                         </span>
                     </div>
                 </div>
             </div>
 
             <div class="drawer-footer">
-                <button class="btn btn-outline-secondary" (click)="closeDrawer()">Cancel</button>
-                <button class="btn btn-primary" [disabled]="isSubmitting() || !editLabel().trim()" (click)="saveEdit()">
+                <button type="button" class="btn btn-outline-secondary" (click)="closeDrawer()">{{ 'common.actions.cancel' | transloco }}</button>
+                <button type="button" class="btn btn-primary" [disabled]="isSubmitting() || !editLabel().trim()" (click)="saveEdit()">
                     @if(isSubmitting()) {
-                    <span class="spinner-border spinner-border-sm me-1"></span>
+                    <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
                     }
-                    Save Changes
+                    {{ 'common.actions.save' | transloco }}
                 </button>
             </div>
         </div>
@@ -60,44 +58,34 @@
 
     <mat-drawer-content>
         <div class="page-wrapper">
-            <!-- Header -->
-            <arc-page-header title="Manage Tags" [subtitle]="waitlistName || waitlistId"
+            <arc-page-header [title]="'admin.forms.tags.title' | transloco" [subtitle]="waitlistName || waitlistId"
                 [showBack]="true" (back)="goBack()">
             </arc-page-header>
 
-            <!-- Quick Add -->
+            <!-- Quick add -->
             <div class="quick-add-bar mb-3">
                 <div class="input-group">
-                    <input type="text" class="form-control" placeholder="Enter new tag name..."
+                    <input type="text" class="form-control" [placeholder]="'admin.forms.tags.add_placeholder' | transloco"
+                        [attr.aria-label]="'admin.forms.tags.add_placeholder' | transloco"
                         [(ngModel)]="newTagLabel" (keyup.enter)="quickAddTag()">
                     <button class="btn btn-primary" type="button" [disabled]="!newTagLabel?.trim()"
                         (click)="quickAddTag()">
-                        <mat-icon>add</mat-icon> Add Tag
+                        <mat-icon aria-hidden="true">add</mat-icon> {{ 'admin.forms.tags.add' | transloco }}
                     </button>
                 </div>
             </div>
 
-            <!-- Tags Table -->
             <app-global-table [data]="tagsStore.items()" [columns]="tableColumns" [loading]="tagsStore.isLoading()"
+                [error]="tagsStore.error() ? true : null" (retry)="fetchData()"
                 [sortField]="sortField()" [sortOrder]="sortOrder()" (sortChange)="setSortField($event)"
-                [pageIndex]="currentPage()" [pageSize]="pageSize()" emptyTitle="No Tags Found"
-                emptyDescription="Use the input above to create your first tag." [showEmptyAction]="false">
+                [pageIndex]="currentPage()" [pageSize]="pageSize()" emptyTitle="admin.forms.tags.empty_title"
+                emptyDescription="admin.forms.tags.empty_text" [showEmptyAction]="false">
             </app-global-table>
 
-            <!-- Pagination -->
             @if(tagsStore.items().length > 0) {
             <div class="pagination-footer d-flex justify-content-between align-items-center p-3 border-top">
                 <div class="record-count text-muted">
-                    @if(tagsStore.totalRecords() > 0) {
-                    Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
-                    <strong>{{ tagsStore.totalRecords() }}</strong>
-                    @if(hasActiveFilters()) {
-                    <span class="text-primary ms-2">filtered</span>
-                    }
-                    tags
-                    } @else {
-                    No tags found
-                    }
+                    {{ 'common.table.showing_range' | transloco: { start: getStartRecord(), end: getEndRecord(), total: tagsStore.totalRecords() } }}
                 </div>
                 <mat-paginator [length]="tagsStore.totalRecords()" [pageSize]="pageSize()" [pageIndex]="currentPage()"
                     [pageSizeOptions]="[5, 10, 25, 50]" [showFirstLastButtons]="true" (page)="onPageChange($event)">

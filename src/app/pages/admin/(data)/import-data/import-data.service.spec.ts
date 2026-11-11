@@ -100,7 +100,7 @@ describe('ImportDataService', () => {
                 { type: 'application/json' },
             );
 
-            await expect(service.parseExportFile(file)).rejects.toThrow('Invalid JSON file');
+            await expect(service.parseExportFile(file)).rejects.toThrow('This is not an export file');
         });
 
         it('should reject non-JSON content', async () => {
@@ -110,7 +110,7 @@ describe('ImportDataService', () => {
                 { type: 'text/html' },
             );
 
-            await expect(service.parseExportFile(file)).rejects.toThrow('Invalid JSON file');
+            await expect(service.parseExportFile(file)).rejects.toThrow('This is not an export file');
         });
     });
 
@@ -143,7 +143,7 @@ describe('ImportDataService', () => {
                 },
             };
             const result = service.validateExportData(data);
-            expect(result.warnings.some((w) => w.includes('Unknown collection'))).toBe(true);
+            expect(result.warnings.some((w) => w.includes('is not a collection Arc CMS knows'))).toBe(true);
         });
 
         it('should warn about users collection Auth UID dependency', () => {
@@ -155,7 +155,7 @@ describe('ImportDataService', () => {
                 },
             };
             const result = service.validateExportData(data);
-            expect(result.warnings.some((w) => w.includes('Auth UID'))).toBe(true);
+            expect(result.warnings.some((w) => w.includes('tied to their sign-in accounts'))).toBe(true);
         });
 
         it('should return correct collection summary', () => {
@@ -291,6 +291,31 @@ describe('ImportDataService', () => {
             );
         });
 
+        it('keeps the role, sign-in and block of users already on the site, and adds no new users (RF4)', async () => {
+            const { getDoc } = await import('@angular/fire/firestore');
+            (getDoc as any).mockImplementation(async (ref: { id: string }) => ref.id === 'here'
+                ? { exists: () => true, data: () => ({ uid: 'uid-here', role: 'admin', isActive: true }) }
+                : { exists: () => false });
+            const data: ExportFormat = {
+                ...validExportData,
+                collections: {
+                    users: {
+                        here: { uid: 'uid-file', name: 'Asha', role: 'user', isActive: false, status: 'Disable' },
+                        new: { uid: 'uid-new', name: 'Ravi', role: 'admin' },
+                    },
+                },
+            };
+
+            const result = await service.importCollections(data, ['users'], defaultOptions, vi.fn());
+
+            expect(mockBatchSet).toHaveBeenCalledTimes(1);
+            expect(mockBatchSet.mock.calls[0][1]).toEqual({ uid: 'uid-here', name: 'Asha', role: 'admin', isActive: true });
+            expect(result.totalImported).toBe(1);
+            expect(result.totalSkipped).toBe(1);
+            expect(result.errors.join(' ')).toContain('Add people in Users');
+            (getDoc as any).mockReset().mockResolvedValue({ exists: () => false });
+        });
+
         it('should respect skipExisting option', async () => {
             const { getDoc } = await import('@angular/fire/firestore');
             (getDoc as any).mockResolvedValue({ exists: () => true });
@@ -373,7 +398,7 @@ describe('ImportDataService', () => {
             );
 
             expect(result.errors.length).toBeGreaterThan(0);
-            expect(result.errors[0]).toContain('Batch commit failed');
+            expect(result.errors[0]).toMatch(/documents were not saved\.$/);
         });
 
         it('should return correct import result summary', async () => {
@@ -406,7 +431,7 @@ describe('ImportDataService', () => {
 
                 expect(writtenIds()).toEqual(['ct2']);
                 expect(result.totalImported).toBe(1);
-                expect(result.errors).toEqual(['ContentTypes/ct1: not imported, the content type articles already uses the slug "blog"']);
+                expect(result.errors).toEqual(['ContentTypes/ct1: not imported, the content type articles already uses the address "blog".']);
             });
 
             it('imports the same type again, by id, over itself', async () => {
@@ -432,7 +457,9 @@ describe('ImportDataService', () => {
 
                 expect(mockBatchSet).not.toHaveBeenCalled();
                 expect(result.totalImported).toBe(0);
-                expect(result.errors[0]).toContain('offline');
+                // A plain sentence for the admin; the technical detail is in the console.
+                expect(result.errors[0]).toContain('could not be read to check their addresses');
+                expect(result.errors[0]).not.toContain('offline');
             });
 
             it('refuses a type on the site under another slug while items are stored under its slug', async () => {
@@ -445,7 +472,7 @@ describe('ImportDataService', () => {
                 expect(writtenIds()).toEqual(['ct2']);
                 expect(result.totalImported).toBe(1);
                 expect(result.errors).toEqual([
-                    'ContentTypes/ct1: not imported, it would change its slug from "blog" to "posts", which would leave the entries, drafts and tags stored under "blog" behind',
+                    'ContentTypes/ct1: not imported, it would change its address from "blog" to "posts", which would leave the entries, drafts and tags stored under "blog" behind.',
                 ]);
             });
 
@@ -468,7 +495,8 @@ describe('ImportDataService', () => {
                 expect(mockBatchSet).not.toHaveBeenCalled();
                 expect(result.errors).toHaveLength(1);
                 expect(result.errors[0]).toContain('ContentTypes/ct1: not imported');
-                expect(result.errors[0]).toContain('offline');
+                expect(result.errors[0]).toContain('could not be checked for entries stored under "blog"');
+                expect(result.errors[0]).not.toContain('offline');
             });
 
             it('refuses an overwrite that removes the slug of a type with stored items', async () => {
@@ -478,7 +506,7 @@ describe('ImportDataService', () => {
                 const result = await importTypes({ ct1: {} });
 
                 expect(mockBatchSet).not.toHaveBeenCalled();
-                expect(result.errors[0]).toContain('remove its slug "blog"');
+                expect(result.errors[0]).toContain('remove its address "blog"');
             });
 
             it('lets a merge without a slug keep the site slug', async () => {

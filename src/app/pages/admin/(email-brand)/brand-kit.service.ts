@@ -1,7 +1,7 @@
 import { inject, Injectable, Injector, PLATFORM_ID, runInInjectionContext } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Firestore, doc, getDoc, setDoc, serverTimestamp } from '@angular/fire/firestore';
-import { from, map, Observable, of, catchError } from 'rxjs';
+import { from, map, Observable, of, catchError, throwError } from 'rxjs';
 import { IEmailBrandKit, DEFAULT_BRAND_KIT } from '../../../../shared/email-compiler/email-design.model';
 
 const SETTINGS_COLLECTION = 'Settings';
@@ -14,8 +14,13 @@ export class BrandKitService {
     private platformId = inject(PLATFORM_ID);
     private injector = inject(Injector);
 
-    getBrandKit(): Observable<IEmailBrandKit> {
-        // Reads require an authenticated admin (Firestore rules), which SSR never has —
+    /**
+     * The saved brand kit, or the default one when none is saved. A failed read also
+     * gives the default, unless `surfaceErrors` is set: the Brand kit page needs to
+     * know, or saving would replace the real kit with the default.
+     */
+    getBrandKit(opts: { surfaceErrors?: boolean } = {}): Observable<IEmailBrandKit> {
+        // Reads require an authenticated admin (Firestore rules), which SSR never has:
         // skip the doomed request instead of letting it fail with permission-denied.
         if (!isPlatformBrowser(this.platformId)) {
             return of({ ...DEFAULT_BRAND_KIT });
@@ -27,7 +32,7 @@ export class BrandKitService {
             map((snap) => (snap.exists() ? { ...DEFAULT_BRAND_KIT, ...(snap.data() as IEmailBrandKit) } : { ...DEFAULT_BRAND_KIT })),
             catchError((err) => {
                 console.error('Error fetching brand kit:', err);
-                return of({ ...DEFAULT_BRAND_KIT });
+                return opts.surfaceErrors ? throwError(() => err) : of({ ...DEFAULT_BRAND_KIT });
             }),
         );
     }

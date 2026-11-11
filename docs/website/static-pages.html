@@ -17,8 +17,8 @@
     <p>The setup wizard creates a content type called <strong>Info Pages</strong>, at <code>/info</code>, with six drafts: About, Contact, Frequently asked questions, Privacy Policy, Terms and Cookie Policy. Each is an ordinary entry, so you get the editor, drafts, version history, SEO fields, the sitemap, search and translations.</p>
     <ol class="steps">
       <li><p>Open <strong>Content</strong>, then <strong>Info Pages</strong>. On an install from before the standard pages, open <strong>Content types</strong> and choose <strong>Add standard pages</strong> first; it adds only what is missing.</p></li>
-      <li><p>Open each page and replace every prompt that starts with <code>[Replace:</code>. The policies start from an outline of the usual sections, filled with your name, email and address from Settings, <strong>About</strong> where it can. They are not legal advice: have them checked for where you work.</p></li>
-      <li><p>Fill in Settings, <strong>About</strong>: the contact email, public phone, address and social links. The Contact page prints them, so they are typed once.</p></li>
+      <li><p>Open each page and replace every prompt that starts with <code>[Replace:</code>. The policies start from an outline of the usual sections, filled with your name, email and address from Settings, <strong>Site details</strong> where it can. They are not legal advice: have them checked for where you work.</p></li>
+      <li><p>Fill in Settings, <strong>Site details</strong>: the contact email, public phone, address and social links. The Contact page prints them, so they are typed once.</p></li>
       <li><p>Publish the pages you want. The editor asks before publishing a page that still has a <code>[Replace:</code> prompt. Delete a page you do not need, or leave it unpublished.</p></li>
       <li><p>To change their order in the footer, choose <strong>Arrange</strong> on the Info Pages list and drag them into place.</p></li>
     </ol>
@@ -28,7 +28,7 @@
       <tbody>
         <tr><td><strong>Locations</strong></td><td>A map card for each place you add</td><td>None; add your office to the Contact page</td></tr>
         <tr><td><strong>FAQ</strong></td><td>Questions and answers, with FAQPage structured data</td><td>Frequently asked questions</td></tr>
-        <tr><td><strong>Show contact details</strong></td><td>Your email, phone, address and social links from Settings, <strong>About</strong>; only those that are filled in</td><td>Contact</td></tr>
+        <tr><td><strong>Show contact details</strong></td><td>Your email, phone, address and social links from Settings, <strong>Site details</strong>; only those that are filled in</td><td>Contact</td></tr>
         <tr><td><strong>Show contact form</strong></td><td>A contact form whose messages land in <strong>Messages</strong> (see <a href="../features/contact.html">Contact form</a>). Only with the <code>contact</code> feature on.</td><td>Contact</td></tr>
         <tr><td><strong>Info boxes</strong></td><td>Boxes of your own, each an icon or image, a headline and a short text, such as opening hours. Shown by the Contact layout.</td><td>Contact, with an Opening hours box to fill in</td></tr>
       </tbody>
@@ -39,14 +39,14 @@
     <ol>
       <li>The title and your text, full width.</li>
       <li>Each place under <strong>Locations</strong>: the map on the left, the place's name, address and a directions link on the right. Add your office there; the map comes from the address you pick.</li>
-      <li>On the left, boxes for your email and phone from Settings, <strong>About</strong>, your social links, and your <strong>Info boxes</strong>. On the right, the contact form.</li>
+      <li>On the left, boxes for your email and phone from Settings, <strong>Site details</strong>, your social links, and your <strong>Info boxes</strong>. On the right, the contact form.</li>
     </ol>
     <p>Rows and boxes with nothing to show are left out, and on a phone everything stacks. A Contact page created before the layout existed keeps the standard look until you pick <strong>Layout: Contact</strong>; on such an install, choose <strong>Add standard pages</strong> on <strong>Content types</strong> first to add the Info boxes field. To change the layout itself, put your own <code class="new">src/custom/site/templates/info/detail-contact.html</code> in place (see <a href="../features/templates.html#layouts">Layouts</a>).</p>
     <p>Once published, the pages are linked for you:</p>
     <ul>
       <li>The default footer lists every published standard page, in their arranged order and in the page's language, above a copyright line with the year and your site name. Your own footer can do the same with <code>data-arc-site-loop="pages"</code> (see <a href="templates.html">Design templates</a>).</li>
       <li>The terms notice on every signup form links "Terms of Service" to <code>/info/terms</code> and "Privacy Policy" to <code>/info/privacy-policy</code>, and the contact form's privacy line links to the privacy page.</li>
-      <li>The cookie banner links to <code>/info/cookie-policy</code>, unless you set its link yourself in Settings, <strong>Site Usage</strong>.</li>
+      <li>The cookie banner links to <code>/info/cookie-policy</code>, unless you set its link yourself in Settings, <strong>Cookie notice</strong>.</li>
     </ul>
     <p>Publishing or unpublishing a standard page, changing its title or arranging them republishes the whole site, so every footer lists the same pages. The pages use the <code>info</code> template folder; restyle them with the <code>.arc-page</code> classes in your <code class="new">src/custom/site/site.css</code>, or replace the template with <code class="new">src/custom/site/templates/info/detail.html</code>.</p>
     <div class="note"><p>The standard pages live at <code>/info/about</code>, not <code>/about</code>. If a type of your own already uses the slug <code>info</code>, <strong>Add standard pages</strong> adds nothing and says so.</p></div>

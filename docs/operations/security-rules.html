@@ -44,7 +44,7 @@
         <tr><td>Only Cloud Functions</td><td>Every client is refused (<code>allow read, write: if false</code>)</td></tr>
       </tbody>
     </table>
-    <p>The <code>onUserRoleChange</code> function copies the <code>role</code> field of a <code>users</code> record into the <code>arccms_role</code> claim, and only admins or the Admin SDK may change that field, so nobody can make themselves staff.</p>
+    <p>The <code>onUserRoleChange</code> function copies the <code>role</code> field of a <code>users</code> record into the <code>arccms_role</code> claim, and only the Admin SDK may change that field (admins do it through the <code>adminSetUserRole</code> callable), so nobody can make themselves staff.</p>
 
     <h3>Firestore, by kind of data</h3>
     <table>
@@ -71,8 +71,9 @@
     <h3>Users</h3>
     <ul>
       <li><strong>Read:</strong> your own record, or any as an admin. A browser query on <code>users</code> must filter on <code>uid == request.auth.uid</code>, or the rules refuse the whole query.</li>
-      <li><strong>Create:</strong> admins only. Every sign-up creates its record on the server, which checks the email, sets the site's default role and refuses when sign-ups are closed.</li>
-      <li><strong>Update:</strong> your own record, but never <code>role</code>, <code>uid</code>, <code>isActive</code>, <code>status</code>, <code>authOwner</code>, <code>by</code>, <code>selfService</code>, <code>email</code>, <code>phone</code>, <code>phoneVerified</code>, the detach fields, the premium and credit fields (with <code>premiumProductId</code> and <code>premiumPaymentId</code>, which say what granted the access), and <code>emailVerified</code> only to <code>false</code>. A locked app account (<code>by: 'app'</code> without <code>selfService: true</code>, see <a href="../app/app-accounts.html#locked">App accounts</a>) also never changes its <code>name</code>, <code>photo</code> or <code>emailVerified</code>. Admins may update any record. No record may hold a <code>password</code>.</li>
+      <li><strong>Create:</strong> never from a browser. Every sign-up creates its record on the server, which checks the email, sets the site's default role and refuses when sign-ups are closed; Add User does too (<code>adminCreateUser</code>).</li>
+      <li><strong>Update:</strong> your own record, but never <code>role</code>, <code>uid</code>, <code>isActive</code>, <code>status</code>, <code>authOwner</code>, <code>by</code>, <code>selfService</code>, <code>email</code>, <code>phone</code>, <code>phoneVerified</code>, the detach fields, the premium and credit fields (with <code>premiumProductId</code> and <code>premiumPaymentId</code>, which say what granted the access), <code>adminPasswordAt</code>, and <code>emailVerified</code> only to <code>false</code>. A locked app account (<code>by: 'app'</code> without <code>selfService: true</code>, see <a href="../app/app-accounts.html#locked">App accounts</a>) also never changes its <code>name</code>, <code>photo</code> or <code>emailVerified</code>. Admins may update any record except its <code>role</code>, <code>uid</code>, <code>isActive</code>, <code>status</code>, <code>phone</code>, <code>phoneVerified</code>, <code>by</code>, <code>authOwner</code> and <code>adminPasswordAt</code>: those, and deleting a record, go through the callables <code>adminSetUserRole</code>, <code>adminSetUserBlocked</code>, <code>adminDeleteUser</code> and <code>adminSetPhone</code>, which never leave the site without an active admin and check a new number. <code>by</code>, <code>authOwner</code> and <code>adminPasswordAt</code> say whether the admins hold a sign-in's password, which raising an unverified email relies on. No record may hold a <code>password</code>.</li>
+      <li><strong>Delete:</strong> never from a browser (<code>adminDeleteUser</code>, or <code>deleteMyAccount</code> for your own).</li>
       <li><strong>Delete:</strong> admins only.</li>
     </ul>
 
@@ -80,7 +81,7 @@
     <table>
       <thead><tr><th>Path</th><th>Read</th><th>Write</th></tr></thead>
       <tbody>
-        <tr><td>Everything not listed below (the media library's images, imported files)</td><td>Anyone, by the file's path</td><td>Staff, only images (JPEG, PNG, WebP, GIF, AVIF), PDF, video, audio, fonts, plain text, CSV and JSON (<code>isStaffFileType</code>; Import Files checks a file against the same list, <code>src/shared/utils/staff-files.ts</code>, before it uploads). Never HTML, SVG, scripts or archives</td></tr>
+        <tr><td>Everything not listed below (the media library's images, imported files)</td><td>Anyone, by the file's path</td><td>Staff, only images (JPEG, PNG, WebP, GIF, AVIF), PDF, video, audio, fonts, plain text, CSV and JSON (<code>isStaffFileType</code>; Import files checks a file against the same list, <code>src/shared/utils/staff-files.ts</code>, before it uploads). Never HTML, SVG, scripts or archives</td></tr>
         <tr><td><code>mediaFiles/...</code>, at the bucket root or under the upload folder</td><td>Anyone, by the file's path</td><td>Staff, only PDF, Word, Excel, PowerPoint, CSV and text, each extension with its own content type, up to 20 MB (<code>isLibraryFile</code>)</td></tr>
         <tr><td><code>users/{userDocId}/...</code>, at the bucket root or under the upload folder</td><td>The owner (<code>arccms_uid</code>) or an admin. Never public</td><td>Only what the app's <code class="new">storage.app.rules</code> allows</td></tr>
         <tr><td><code>users/{userDocId}/feedback/{feedbackId}/...</code></td><td>The owner or an admin</td><td>The owner may create <code>screenshot.jpg</code> (JPEG, under 5 MB) or a voice note (<code>voice.mp4</code>, <code>.webm</code> or <code>.ogg</code>, under 10 MB), never overwrite. Admins delete them with the feedback</td></tr>

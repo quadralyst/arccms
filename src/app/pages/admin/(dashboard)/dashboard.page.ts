@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, DestroyRef, effect, inject, Injector, runInInjectionContext, signal } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { Firestore, collection, query, where, getCountFromServer } from '@angular/fire/firestore';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
@@ -79,7 +79,6 @@ export default class DashboardComponent extends BaseComponent {
   userService = inject(UserService);
   private audienceService = inject(AudienceService);
   private destroyRef = inject(DestroyRef);
-  private appRouter = inject(Router);
   private firestore = inject(Firestore);
   private injector = inject(Injector);
 
@@ -113,6 +112,45 @@ export default class DashboardComponent extends BaseComponent {
 
   // Content counts per type (will be populated after loading)
   contentCounts = signal<Record<string, { total: number; published: number; draft: number }>>({});
+  /**
+   * Content types whose published count really arrived. A failed count is not
+   * an answer, so a read that fails never makes an established site look new.
+   */
+  private publishedKnown = signal<ReadonlySet<string>>(new Set());
+
+  /**
+   * A new install: the content feature is on and nothing is live yet (no content
+   * type, or every type counted with nothing published). Setup writes the
+   * standard pages as drafts, so drafts alone still count as a new install. The
+   * dashboard then opens with one clear first step above everything else.
+   */
+  firstRun = computed(() => {
+    if (!this.contentOn) return false;
+    // Trust the type list only once the store has really answered: a failed
+    // read also leaves it empty.
+    if (this.contentTypesStore.isLoading() || !this.contentTypesStore.isSuccess()) return false;
+    const types = this.contentTypesStore.items() ?? [];
+    if (!types.length) return true;
+    const known = this.publishedKnown();
+    if (!types.every((t) => known.has(t.slug))) return false;
+    const counts = this.contentCounts();
+    return types.every((t) => (counts[t.slug]?.published ?? 0) === 0);
+  });
+
+  /** The standard pages type, else the first type: where the first page waits as a draft. */
+  private firstPageType = computed(() => {
+    const types = this.contentTypesStore.items() ?? [];
+    return types.find((t) => t.standard === 'pages') ?? types[0];
+  });
+
+  /** The first step's button: that type's entries, or the types page (Add standard pages) when there is none. */
+  firstPageLink = computed(() => {
+    const type = this.firstPageType();
+    return type ? ['/admin/contents', type.slug] : ['/admin/contents/content-types'];
+  });
+
+  /** Whether there is a type to open, which decides the first step's words. */
+  hasFirstPageType = computed(() => !!this.firstPageType());
 
   // Growth & Leads counts
   totalWaitlistCount = signal(0);
@@ -184,34 +222,15 @@ export default class DashboardComponent extends BaseComponent {
     // types from the cards and the "Managing N content types" line on a
     // site with more than ten (the same bug the public pages had).
     // Each read feeds a section of its feature, so a feature that is off costs none.
-    if (this.contentOn) this.contentTypesStore.getAll();
+    // Every type, first page, no filter: the content types page may have left its
+    // status filter on the shared store. limitCount 0 is "no limit" (DbService.getAll).
+    if (this.contentOn) this.contentTypesStore.getAll({ whereConditions: [], limitCount: 0, currentPageNumber: 0, previousPageNumber: 0 });
     if (this.formsOn) this.waitlistAdminStore.subscribe();
     this.loadMediaCount();
     this.loadGrowthAndLeadsCounts();
     if (this.formsOn) this.loadRecentWaitlistSignups();
     if (this.pwaEnabled) void this.pwaStats.load();
     // Auto-refresh is handled reactively by the effect in the constructor
-  }
-
-  // Navigation helpers for clickable cards
-  navigateToContentType(slug: string): void {
-    this.appRouter.navigate(['/admin/contents', slug]);
-  }
-
-  navigateToMedia(): void {
-    this.appRouter.navigate(['/admin/media']);
-  }
-
-  navigateToWaitlistDashboard(waitlistId: string): void {
-    this.appRouter.navigate(['/admin/waitlists/dashboard', waitlistId]);
-  }
-
-  navigateToWaitlists(): void {
-    this.appRouter.navigate([this.formsOn ? '/admin/waitlists' : '/admin/contacts']);
-  }
-
-  navigateToUsers(): void {
-    this.appRouter.navigate(['/admin/users']);
   }
 
   /**
@@ -269,23 +288,27 @@ export default class DashboardComponent extends BaseComponent {
         this.contentCounts.set({ ...counts });
       });
 
-      // Get published count — filter by status only (no type filter needed, collection is per-type)
-      this.contentsService.getCollectionTotalCount({
-        whereConditions: [
-          { field: 'status', operator: '==', value: 'publish' }
-        ],
-        limitCount: 0,
-        currentPageNumber: 0,
-        previousPageNumber: 0
-      }, slug).subscribe((published) => {
+      // Published count, read here so a failed read is told apart from "none published".
+      this.countPublished(slug).then((published) => {
         if (!counts[slug]) {
           counts[slug] = { total: 0, published: 0, draft: 0 };
         }
         counts[slug].published = published;
         counts[slug].draft = Math.max(0, counts[slug].total - published);
         this.contentCounts.set({ ...counts });
+        this.publishedKnown.update((known) => new Set([...known, slug]));
+      }).catch((err) => {
+        console.error(`Counting published entries of ${slug} failed:`, err);
       });
     });
+  }
+
+  /** Published entries of one type (the per-type collection, so no type filter). Rejects when the read fails. */
+  protected async countPublished(slug: string): Promise<number> {
+    const ref = this.contentsService.getCollectionRef(slug);
+    const published = runInInjectionContext(this.injector, () => query(ref, where('status', '==', 'publish')));
+    const snap = await runInInjectionContext(this.injector, () => getCountFromServer(published));
+    return snap.data().count;
   }
 
   getContentCount(slug: string): { total: number; published: number; draft: number } {
@@ -354,6 +377,27 @@ export default class DashboardComponent extends BaseComponent {
 
   getMetricColor(title: string): string {
     return this.metricStyleMap[title]?.color || 'blue';
+  }
+
+  /** The server names the Google Analytics numbers and panels in English; these have keys. */
+  private metricTitleKeys: Record<string, string> = {
+    'Users': 'users', 'New Users': 'new_users', 'Sessions': 'sessions', 'Bounce Rate': 'bounce_rate',
+    'Avg. Duration': 'avg_duration', 'Pages/Session': 'pages_per_session', 'Pageviews': 'pageviews',
+    'Event Count': 'event_count', 'Engaged Sessions': 'engaged_sessions',
+    'Top Pages': 'top_pages', 'Traffic Sources': 'traffic_sources', 'Devices': 'devices',
+    'Top Countries': 'top_countries', 'AI assistants': 'ai_assistants',
+  };
+
+  /** A Google Analytics number or panel title in the admin's language. */
+  metricTitle(title: string): string {
+    const key = this.metricTitleKeys[title];
+    return key ? this.transloco.translate(`admin.dashboard.metric.${key}`) : title;
+  }
+
+  /** The form a recent sign-up came through, by name. */
+  formName(waitlistId: string | undefined): string {
+    if (!waitlistId) return this.t('admin.dashboard.no_form');
+    return this.waitlists().find((w) => w.id === waitlistId)?.name || waitlistId;
   }
 
   getContentTypeColor(index: number): string {
@@ -461,10 +505,10 @@ export default class DashboardComponent extends BaseComponent {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return dateObj.toLocaleDateString();
+    if (diffMins < 60) return this.t('admin.dashboard.ago_minutes', { count: diffMins });
+    if (diffHours < 24) return this.t('admin.dashboard.ago_hours', { count: diffHours });
+    if (diffDays < 7) return this.t('admin.dashboard.ago_days', { count: diffDays });
+    return dateObj.toLocaleDateString(this.locale());
   }
 
   /**
@@ -528,7 +572,7 @@ export default class DashboardComponent extends BaseComponent {
       d = new Date(date);
     }
     if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return d.toLocaleDateString(this.locale(), { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   /**
@@ -556,7 +600,7 @@ export default class DashboardComponent extends BaseComponent {
       return '';
     }
 
-    return dateObj.toLocaleDateString('en-US', {
+    return dateObj.toLocaleDateString(this.locale(), {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -564,6 +608,12 @@ export default class DashboardComponent extends BaseComponent {
       minute: '2-digit',
       hour12: true
     });
+  }
+
+  /** Dates follow the admin's language (English stays en-US, as before). */
+  private locale(): string {
+    const lang = this.transloco.getActiveLang();
+    return !lang || lang === 'en' ? 'en-US' : lang;
   }
 
   // ── Google Analytics OAuth ──
@@ -579,8 +629,9 @@ export default class DashboardComponent extends BaseComponent {
     try {
       await this.googleOAuthService.refreshAnalyticsData();
     } catch (error: any) {
+      // The server's reason stays in the console; the admin gets a plain sentence.
       console.error('Refresh analytics error:', error);
-      error?.message ? this.notify.raw(error.message, 'error') : this.notify.error('admin.dashboard.refresh_failed');
+      this.notify.error('admin.dashboard.refresh_failed');
     } finally {
       this.isRefreshing.set(false);
     }

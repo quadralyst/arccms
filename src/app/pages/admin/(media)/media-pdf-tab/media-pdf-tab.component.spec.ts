@@ -186,5 +186,22 @@ describe('MediaPdfTabComponent (PI3)', () => {
         expect(memory.place()?.fileId).toBe('a');
         expect(notify.error).not.toHaveBeenCalled();
     });
+
+    it('says the PDFs did not load, with Retry, instead of "No PDFs yet" (RF5)', async () => {
+        files.listAll.mockRejectedValueOnce(new Error('permission-denied'));
+        const fixture = create();
+        await flush();
+        fixture.detectChanges();
+        const el: HTMLElement = fixture.nativeElement;
+        expect(el.querySelector('#pdfRetryBtn')).not.toBeNull();
+        expect(el.textContent).not.toContain('admin.media.pdf_tab.empty');
+        expect(notify.error).not.toHaveBeenCalled();
+
+        el.querySelector<HTMLButtonElement>('#pdfRetryBtn')!.click();
+        await flush();
+        fixture.detectChanges();
+        expect(el.querySelector('#pdfRetryBtn')).toBeNull();
+        expect(el.querySelectorAll('.pdf-card')).toHaveLength(3);
+    });
 });
 

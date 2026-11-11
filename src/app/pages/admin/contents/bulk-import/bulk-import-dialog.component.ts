@@ -3,7 +3,10 @@ import { fieldKeyFromLabel, fullFieldKey } from '../content-types/collection-ref
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { NotifyService } from '../../../../../shared/services/notify.service';
+import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
@@ -13,7 +16,6 @@ import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDividerModule } from '@angular/material/divider';
-import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { BulkImportService, ColumnMapping, ImportValidationSummary, ParsedFile } from './bulk-import.service';
 import { AuthorsService } from '../../(authors)/authors.service';
@@ -28,6 +30,7 @@ import { isRepeaterType } from '../../../../../shared/models/repeater.model';
 @Component({
     selector: 'app-bulk-import-dialog',
     imports: [
+        TranslocoPipe,
         CommonModule,
         FormsModule,
         MatDialogModule,
@@ -52,7 +55,9 @@ export class BulkImportDialogComponent {
     private contentTypesStore = inject(ContentTypesStore);
     private draftContentsStore = inject(DraftContentsStore);
     private publishQueueService = inject(PublishQueueService);
-    private snackBar = inject(MatSnackBar);
+    private dialog = inject(MatDialog);
+    private transloco = inject(TranslocoService);
+    private notify = inject(NotifyService);
     private authorsService = inject(AuthorsService);
 
     // Steps: 1=File, 2=Mapping, 3=Preview, 4=Importing
@@ -87,13 +92,13 @@ export class BulkImportDialogComponent {
         if (!ct) return [];
         
         const standard = [
-            { key: 'title', label: 'Title (Required)' },
-            { key: 'content', label: 'Content' },
-            { key: 'summary', label: 'Summary' },
-            { key: 'urlSlug', label: 'URL Slug' },
-            { key: 'tags', label: 'Tags' },
-            { key: 'coverImage', label: 'Cover Image URL' },
-            { key: 'isFeatured', label: 'Featured' }
+            { key: 'title', label: this.transloco.translate('admin.contents.bulk_import.field_title') },
+            { key: 'content', label: this.transloco.translate('admin.contents.bulk_import.field_content') },
+            { key: 'summary', label: this.transloco.translate('admin.contents.editor.summary') },
+            { key: 'urlSlug', label: this.transloco.translate('admin.contents.editor.address') },
+            { key: 'tags', label: this.transloco.translate('admin.contents.editor.tags') },
+            { key: 'coverImage', label: this.transloco.translate('admin.contents.bulk_import.field_cover') },
+            { key: 'isFeatured', label: this.transloco.translate('common.status.featured') }
         ];
         
         // Repeating fields hold rows of sub-fields; a single spreadsheet cell
@@ -153,7 +158,7 @@ export class BulkImportDialogComponent {
             this.nextStep();
         } catch (error) {
             console.error('File parsing failed:', error);
-            this.snackBar.open('Failed to parse file. Please check format.', 'Close', { duration: 3000 });
+            this.notify.error('admin.contents.bulk_import.parse_failed');
             this.selectedFile.set(null);
         }
     }
@@ -214,11 +219,11 @@ export class BulkImportDialogComponent {
         // Save to store and subscribe to ensure it completes
         this.contentTypesStore.update(ct.id, { fields: updatedFields }).subscribe({
             next: () => {
-                this.snackBar.open(`Created new field: ${newField.label} (${newField.type})`, 'Close', { duration: 2000 });
+                this.notify.success('admin.contents.bulk_import.field_created', { label: newField.label });
             },
             error: (err) => {
                 console.error('Failed to create custom field:', err);
-                this.snackBar.open('Failed to create custom field', 'Close', { duration: 3000 });
+                this.notify.error('admin.contents.bulk_import.field_create_failed');
             }
         });
         
@@ -267,7 +272,8 @@ export class BulkImportDialogComponent {
         
         if (!file || !ct || !summary) return;
         
-        if (importAs === 'publish' && !confirm('Are you sure you want to publish these items immediately?')) {
+        // Arc CMS's own question, never the browser's (RF4 4.10).
+        if (importAs === 'publish' && !(await this.confirmPublish(summary.validCount))) {
             return;
         }
 
@@ -298,19 +304,33 @@ export class BulkImportDialogComponent {
                         this.publishQueueService.enqueue('publish', ct.slug, id);
                     });
                 }
-                this.snackBar.open(
-                    `Successfully imported ${ids.length} items as ${importAs === 'publish' ? 'Published' : 'Drafts'}`,
-                    'Close',
-                    { duration: 4000 }
-                );
+                this.notify.success(importAs === 'publish'
+                    ? 'admin.contents.bulk_import.imported_published'
+                    : 'admin.contents.bulk_import.imported_drafts', { count: ids.length });
                 this.dialogRef.close(true);
             },
             error: (err) => {
                 console.error('Import failed', err);
-                this.snackBar.open('Import failed: ' + err.message, 'Close', { duration: 5000 });
+                // A plain sentence for the admin; the detail stays in the console (RF5 5.2).
+                this.notify.error('admin.contents.bulk_import.import_failed');
                 this.isImporting.set(false);
             }
         });
+    }
+
+    /** "Publish now?" before the rows go live at once. True for Publish. */
+    private async confirmPublish(count: number): Promise<boolean> {
+        const ref = this.dialog.open(ConfirmationPopupComponent, {
+            width: '380px',
+            maxWidth: '92vw',
+            data: {
+                titleKey: 'admin.contents.bulk_import.publish_title',
+                dialogMessage: this.transloco.translate('admin.contents.bulk_import.publish_message', { count }),
+                btnText: this.transloco.translate('admin.contents.bulk_import.publish_button'),
+                panelType: 'primary',
+            },
+        });
+        return (await firstValueFrom(ref.afterClosed(), { defaultValue: undefined })) === true;
     }
 
     // -- Navigation --

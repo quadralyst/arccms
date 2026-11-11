@@ -7,7 +7,7 @@
 // own panel, which sits outside the component, is styled from outside it.
 arc-media-manager {
     --primary-color: var(--arc-admin-accent);
-    --secondary-color: #6c757d;
+    --secondary-color: #5c636a; // 4.5:1 or more on the light panels (RF5 5.8)
     --success-color: #10b981;
     --danger-color: #ef4444;
     --dark-color: #1f2937;
@@ -1010,7 +1010,7 @@ arc-media-manager {
         width: 100%;
         text-align: center;
         font-size: 20px;
-        color: #6c757d;
+        color: #5c636a;
     }
 
     .centered-input-group {
@@ -1023,6 +1023,45 @@ arc-media-manager {
 
     figure:hover .d-none {
         display: block !important;
+    }
+
+    // Delete on an upload: a real button, so a keyboard reaches it and a screen reader names
+    // it. Shown on hover or focus; always shown on a touch screen, which has no hover.
+    .media-delete-btn {
+        background: transparent;
+        border: 0;
+        padding: 0;
+        line-height: 1;
+        z-index: 2;
+        opacity: 0;
+
+        @media (hover: none) {
+            opacity: 1;
+        }
+    }
+
+    figure:hover .media-delete-btn,
+    .media-delete-btn:focus-visible,
+    .media-delete-btn.is-checking {
+        opacity: 1;
+    }
+
+    .media-delete-btn:disabled {
+        cursor: progress;
+    }
+
+    .media-delete-btn {
+        &:focus-visible {
+            outline: 3px solid var(--primary-color);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+    }
+
+    .media-load-failed {
+        text-align: center;
+        color: var(--dark-color);
+        padding: 12px 0 16px;
     }
 
     figure:hover {
@@ -1456,7 +1495,7 @@ arc-media-manager {
 
     .size-hint {
         text-align: right;
-        color: #6c757d;
+        color: #5c636a;
         font-size: 0.72rem;
         padding-top: 0.25rem;
     }

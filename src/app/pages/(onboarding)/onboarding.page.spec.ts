@@ -267,6 +267,7 @@ describe('OnboardingComponent', () => {
             const confirmPasswordReset = vi.fn();
             const ctx = {
                 errorMessage: signal('some error'),
+                t: (k: string) => k,
                 currentStep: signal<1 | 2>(2),
                 onboardingForm: {
                     get: (field: string) => ({
@@ -296,6 +297,7 @@ describe('OnboardingComponent', () => {
                 hasPasswordMismatch: vi.fn().mockReturnValue(false),
                 hasEmailMismatch: vi.fn().mockReturnValue(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 isSubmitted: signal(false),
                 authStore: { clearList: vi.fn(), signup },
                 constantVariables: { ADMIN: 'admin' },
@@ -315,6 +317,7 @@ describe('OnboardingComponent', () => {
                 hasPasswordMismatch: vi.fn().mockReturnValue(true),
                 hasEmailMismatch: vi.fn().mockReturnValue(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 isSubmitted: signal(false),
                 authStore: { clearList: vi.fn(), signup },
                 constantVariables: { ADMIN: 'admin' },
@@ -339,6 +342,7 @@ describe('OnboardingComponent', () => {
                 hasPasswordMismatch: vi.fn().mockReturnValue(false),
                 hasEmailMismatch: vi.fn().mockReturnValue(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 isSubmitted: signal(false),
                 authStore: { clearList: vi.fn(), signup },
                 constantVariables: { ADMIN: 'admin' },
@@ -433,6 +437,7 @@ describe('OnboardingComponent', () => {
                 ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 setupService: { saveSiteInfo, saveDefaultSettings: vi.fn() },
                 currentStep: signal<number>(3),
             };
@@ -453,9 +458,10 @@ describe('OnboardingComponent', () => {
                 ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 setupService: { saveSiteInfo: mockSaveSiteInfo, saveDefaultSettings: mockSaveDefaults },
                 currentStep: signal<number>(3),
-                toastService: { error: vi.fn() },
+                notify: { error: vi.fn() },
             };
             await OnboardingComponent.prototype.saveSiteInfo.call(ctx);
             expect(mockSaveSiteInfo).toHaveBeenCalledWith('Test Site', 'https://test.com');
@@ -474,12 +480,13 @@ describe('OnboardingComponent', () => {
                 ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal('old error'),
+                t: (k: string) => k,
                 setupService: {
                     saveSiteInfo: vi.fn().mockResolvedValue(undefined),
                     saveDefaultSettings: vi.fn().mockResolvedValue(undefined),
                 },
                 currentStep: signal<number>(3),
-                toastService: { error: vi.fn() },
+                notify: { error: vi.fn() },
             };
             await OnboardingComponent.prototype.saveSiteInfo.call(ctx);
             expect(ctx.errorMessage()).toBe('');
@@ -496,17 +503,18 @@ describe('OnboardingComponent', () => {
                 ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 setupService: {
                     saveSiteInfo: vi.fn().mockRejectedValue(new Error('Firestore write failed')),
                     saveDefaultSettings: vi.fn().mockResolvedValue(undefined),
                 },
                 currentStep: signal<number>(3),
-                toastService: { error: vi.fn() },
+                notify: { error: vi.fn() },
             };
             await OnboardingComponent.prototype.saveSiteInfo.call(ctx);
             expect(ctx.currentStep()).toBe(3);
-            expect(ctx.errorMessage()).toContain('Failed to save site information');
-            expect(ctx.toastService.error).toHaveBeenCalled();
+            expect(ctx.errorMessage()).toBe('admin.onboarding.errors.site_failed');
+            expect(ctx.notify.error).toHaveBeenCalledWith('admin.onboarding.errors.site_failed');
         });
 
         it('stays on step 3 and shows error when saveDefaultSettings fails', async () => {
@@ -520,16 +528,17 @@ describe('OnboardingComponent', () => {
                 ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 setupService: {
                     saveSiteInfo: vi.fn().mockResolvedValue(undefined),
                     saveDefaultSettings: vi.fn().mockRejectedValue(new Error('Firestore write failed')),
                 },
                 currentStep: signal<number>(3),
-                toastService: { error: vi.fn() },
+                notify: { error: vi.fn() },
             };
             await OnboardingComponent.prototype.saveSiteInfo.call(ctx);
             expect(ctx.currentStep()).toBe(3);
-            expect(ctx.errorMessage()).toContain('Failed to save site information');
+            expect(ctx.errorMessage()).toBe('admin.onboarding.errors.site_failed');
         });
 
         it('resets isSavingSiteInfo after error', async () => {
@@ -543,12 +552,13 @@ describe('OnboardingComponent', () => {
                 ...adminClaimCtx(),
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 setupService: {
                     saveSiteInfo: vi.fn().mockRejectedValue(new Error('fail')),
                     saveDefaultSettings: vi.fn(),
                 },
                 currentStep: signal<number>(3),
-                toastService: { error: vi.fn() },
+                notify: { error: vi.fn() },
             };
             await OnboardingComponent.prototype.saveSiteInfo.call(ctx);
             expect(ctx.isSavingSiteInfo()).toBe(false);
@@ -694,6 +704,7 @@ describe('OnboardingComponent', () => {
                 ...adminClaimCtx(),
                 isSavingEmail: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 setupService: { saveEmailConfig: vi.fn().mockResolvedValue(undefined) },
                 currentStep: signal<number>(4),
                 selectedProvider: signal('gmail'),
@@ -708,7 +719,7 @@ describe('OnboardingComponent', () => {
                     },
                 },
                 siteInfoForm: { get: () => ({ value: 'My Site' }) },
-                toastService: { error: vi.fn() },
+                notify: { error: vi.fn() },
                 ...overrides,
             };
             // Attach the private method so this.buildEmailSettings() works
@@ -725,7 +736,7 @@ describe('OnboardingComponent', () => {
             await OnboardingComponent.prototype.saveEmailAndContinue.call(ctx);
             expect(mockSaveConfig).not.toHaveBeenCalled();
             expect(ctx.currentStep()).toBe(4);
-            expect(ctx.toastService.error).toHaveBeenCalledWith('Please test the connection first');
+            expect(ctx.notify.error).toHaveBeenCalledWith('admin.onboarding.errors.test_first');
         });
 
         it('saves email settings and advances to step 5 on success', async () => {
@@ -742,8 +753,8 @@ describe('OnboardingComponent', () => {
             const ctx = makeEmailCtx({ setupService: { saveEmailConfig: mockSaveConfig } });
             await OnboardingComponent.prototype.saveEmailAndContinue.call(ctx);
             expect(ctx.currentStep()).toBe(4);
-            expect(ctx.errorMessage()).toContain('Failed to save email settings');
-            expect(ctx.toastService.error).toHaveBeenCalled();
+            expect(ctx.errorMessage()).toBe('admin.onboarding.errors.email_failed');
+            expect(ctx.notify.error).toHaveBeenCalled();
         });
 
         it('resets isSavingEmail after completion', async () => {
@@ -762,9 +773,10 @@ describe('OnboardingComponent', () => {
                 ...adminClaimCtx(),
                 isSavingEmail: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 setupService: { saveEmailSkipped: mockSkip },
                 currentStep: signal<number>(4),
-                toastService: { error: vi.fn() },
+                notify: { error: vi.fn() },
             };
             await OnboardingComponent.prototype.skipEmail.call(ctx);
             expect(mockSkip).toHaveBeenCalled();
@@ -778,14 +790,15 @@ describe('OnboardingComponent', () => {
                 ...adminClaimCtx(),
                 isSavingEmail: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 setupService: { saveEmailSkipped: mockSkip },
                 currentStep: signal<number>(4),
-                toastService: { error: vi.fn() },
+                notify: { error: vi.fn() },
             };
             await OnboardingComponent.prototype.skipEmail.call(ctx);
             expect(ctx.currentStep()).toBe(4);
-            expect(ctx.errorMessage()).toContain('Failed to save settings');
-            expect(ctx.toastService.error).toHaveBeenCalled();
+            expect(ctx.errorMessage()).toBe('admin.onboarding.errors.skip_failed');
+            expect(ctx.notify.error).toHaveBeenCalled();
         });
 
         it('resets isSavingEmail after error', async () => {
@@ -793,9 +806,10 @@ describe('OnboardingComponent', () => {
                 ...adminClaimCtx(),
                 isSavingEmail: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 setupService: { saveEmailSkipped: vi.fn().mockRejectedValue(new Error('fail')) },
                 currentStep: signal<number>(4),
-                toastService: { error: vi.fn() },
+                notify: { error: vi.fn() },
             };
             await OnboardingComponent.prototype.skipEmail.call(ctx);
             expect(ctx.isSavingEmail()).toBe(false);
@@ -813,6 +827,7 @@ describe('OnboardingComponent', () => {
                 isTesting: signal(false),
                 testPassed: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 selectedProvider: signal('gmail'),
                 isProviderConfigValid: () => true,
                 emailForm: {
@@ -834,7 +849,7 @@ describe('OnboardingComponent', () => {
                 emailSettingService: {
                     testEmailConnection: vi.fn().mockResolvedValue({ success: true, message: 'ok' }),
                 },
-                toastService: { success: vi.fn(), error: vi.fn() },
+                notify: { success: vi.fn(), error: vi.fn() },
                 ...overrides,
             };
             ctx['buildEmailSettings'] = buildEmailSettings.bind(ctx);
@@ -872,7 +887,10 @@ describe('OnboardingComponent', () => {
             await OnboardingComponent.prototype.testConnection.call(ctx);
 
             expect(ctx['testPassed']()).toBe(false);
-            expect(ctx['toastService'].error).toHaveBeenCalledWith('Invalid login');
+            // The server's own words are technical: the admin reads a plain sentence,
+            // the console keeps the detail.
+            expect(ctx['notify'].error).toHaveBeenCalledWith('admin.onboarding.errors.test_failed');
+            expect(ctx['notify'].error).not.toHaveBeenCalledWith('Invalid login');
             expect(ctx['isTesting']()).toBe(false);
         });
 
@@ -910,7 +928,7 @@ describe('OnboardingComponent', () => {
             expect(ctx['emailSettingService'].testEmailConnection).not.toHaveBeenCalled();
             expect(ctx['testPassed']()).toBe(false);
             expect(ctx['isTesting']()).toBe(false);
-            expect(ctx['errorMessage']()).toContain('propagating');
+            expect(ctx['errorMessage']()).toBe('admin.onboarding.errors.claim_pending');
         });
 
         it('clears the testing flag when the callable rejects', async () => {
@@ -924,6 +942,9 @@ describe('OnboardingComponent', () => {
 
             expect(ctx['isTesting']()).toBe(false);
             expect(ctx['testPassed']()).toBe(false);
+            // Never the raw error text (here a Firebase code) in front of the admin.
+            expect(ctx['notify'].error).toHaveBeenCalledWith('admin.onboarding.errors.test_failed');
+            expect(ctx['notify'].error).not.toHaveBeenCalledWith('unauthenticated');
         });
     });
 
@@ -934,6 +955,7 @@ describe('OnboardingComponent', () => {
                 needsSignIn: signal(false),
                 adminClaimPending: signal(true),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 hasAdminClaim: vi.fn(),
                 claimAdmin: vi.fn(),
             };
@@ -952,6 +974,7 @@ describe('OnboardingComponent', () => {
                 needsSignIn: signal(false),
                 adminClaimPending: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 hasAdminClaim: vi.fn(),
             };
 
@@ -965,6 +988,7 @@ describe('OnboardingComponent', () => {
             const ctx = {
                 adminClaimPending: signal(true),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 auth: {
                     currentUser: {
                         getIdTokenResult: vi.fn().mockResolvedValue({ claims: { arccms_role: 'admin' } }),
@@ -984,6 +1008,7 @@ describe('OnboardingComponent', () => {
             const ctx = {
                 adminClaimPending: signal(true),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 auth: { currentUser: { getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }) } },
                 hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
                 claimAdmin: vi.fn().mockResolvedValue(undefined),
@@ -994,7 +1019,7 @@ describe('OnboardingComponent', () => {
             expect(ctx.claimAdmin).toHaveBeenCalledTimes(1);
             expect(ok).toBe(false);
             expect(ctx.adminClaimPending()).toBe(true);
-            expect(ctx.errorMessage()).toContain('propagating');
+            expect(ctx.errorMessage()).toBe('admin.onboarding.errors.claim_pending');
         });
 
         it('retries claimFirstAdmin once and proceeds when that grants the claim', async () => {
@@ -1004,6 +1029,7 @@ describe('OnboardingComponent', () => {
             const ctx = {
                 adminClaimPending: signal(true),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 auth: { currentUser: { getIdTokenResult } },
                 hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
                 claimAdmin: vi.fn().mockResolvedValue(undefined),
@@ -1037,9 +1063,10 @@ describe('OnboardingComponent', () => {
                 },
                 isSavingSiteInfo: signal(false),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 setupService: { saveSiteInfo, saveDefaultSettings: vi.fn() },
                 currentStep: signal<number>(3),
-                toastService: { error: vi.fn() },
+                notify: { error: vi.fn() },
             };
 
             await OnboardingComponent.prototype.saveSiteInfo.call(ctx);
@@ -1059,13 +1086,15 @@ describe('OnboardingComponent', () => {
         const completeSetupCtx = (setupService: any, overrides: any = {}) => ({
             isCompleting: signal(false),
             errorMessage: signal(''),
+            t: (k: string) => k,
             setupFailed: signal(false),
             adminClaimPending: signal(false),
             // `this.hasAdminClaim()` is reached through `this`, and these ctx
             // objects are plain literals rather than instances.
             hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
             setupService,
-            toastService: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+            productName: 'Arc CMS',
+            notify: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
             router: { navigate: vi.fn() },
             ...overrides,
         });
@@ -1079,7 +1108,7 @@ describe('OnboardingComponent', () => {
             expect(mockComplete).toHaveBeenCalled();
             expect(ctx.router.navigate).toHaveBeenCalledWith(['/admin/dashboard'], { replaceUrl: true });
             expect(ctx.setupFailed()).toBe(false);
-            expect(ctx.toastService.success).toHaveBeenCalled();
+            expect(ctx.notify.success).toHaveBeenCalledWith('admin.onboarding.toasts.setup_done', expect.objectContaining({ name: expect.any(String) }));
         });
 
         it('still reaches the dashboard when the waitlist was skipped', async () => {
@@ -1094,8 +1123,8 @@ describe('OnboardingComponent', () => {
 
             expect(ctx.setupFailed()).toBe(false);
             expect(ctx.router.navigate).toHaveBeenCalledWith(['/admin/dashboard'], { replaceUrl: true });
-            expect(ctx.toastService.warning).toHaveBeenCalled();
-            expect(ctx.toastService.success).not.toHaveBeenCalled();
+            expect(ctx.notify.warning).toHaveBeenCalledWith('admin.onboarding.toasts.setup_done_no_form');
+            expect(ctx.notify.success).not.toHaveBeenCalled();
         });
 
         it('flags the missing admin claim when the token carries no role', async () => {
@@ -1153,8 +1182,8 @@ describe('OnboardingComponent', () => {
 
             await OnboardingComponent.prototype.completeSetup.call(ctx);
 
-            expect(ctx.errorMessage()).toContain('Failed to create default content');
-            expect(ctx.toastService.error).toHaveBeenCalled();
+            expect(ctx.errorMessage()).toBe('admin.onboarding.errors.setup_failed');
+            expect(ctx.notify.error).toHaveBeenCalledWith('admin.onboarding.toasts.setup_failed');
         });
 
         it('resets isCompleting after failure', async () => {
@@ -1241,6 +1270,7 @@ describe('OnboardingComponent', () => {
                 },
                 currentStep: signal<number>(2),
                 errorMessage: signal('some error'),
+                t: (k: string) => k,
                 adminClaimPending: signal(true),
                 hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
             };
@@ -1261,6 +1291,7 @@ describe('OnboardingComponent', () => {
                 },
                 currentStep: signal<number>(2),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 signupTimeoutId: null,
                 hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
             };
@@ -1290,6 +1321,7 @@ describe('OnboardingComponent', () => {
                 },
                 currentStep: signal<number>(2),
                 errorMessage: signal('error'),
+                t: (k: string) => k,
                 signupTimeoutId: null,
                 adminClaimPending: signal(false),
                 hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
@@ -1313,6 +1345,7 @@ describe('OnboardingComponent', () => {
                 },
                 currentStep: signal<number>(2),
                 errorMessage: signal(''),
+                t: (k: string) => k,
                 signupTimeoutId: null,
                 hasAdminClaim: (OnboardingComponent.prototype as any).hasAdminClaim,
             };

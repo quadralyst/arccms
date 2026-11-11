@@ -62,8 +62,8 @@ service cloud.firestore {
     // publish queue. Admins, plus an `editor` role that CO1 reserves
     // (specs/coexistence-spec.md). Nothing in the app grants `editor` today and
     // every admin route is admin-only, so in practice this is admins. The claim
-    // comes from onUserRoleChange, and only admins or the Admin SDK can set a
-    // user's `role` (see the users rules below), so nobody can self-assign it.
+    // comes from onUserRoleChange, and only the Admin SDK can set a user's
+    // `role` (see the users rules below), so nobody can self-assign it.
     function isEditor() {
       return isAdmin() || (isAuthenticated() && arcRole() == 'editor');
     }
@@ -259,15 +259,25 @@ service cloud.firestore {
     // `role` is the source of the Auth custom claim that isAdmin() checks
     // (functions/src/users/syncUserRole.ts copies it). So a user must never be
     // able to set it:
-    //   - create: admins only. Every sign-up creates its record on the server
-    //     (createAccountRecord, ensureGoogleAccount, the phone callables,
+    //   - create: never from a browser. Every sign-up creates its record on the
+    //     server (createAccountRecord, ensureGoogleAccount, the phone callables,
     //     adminCreateUser), which checks the email, the role and whether
     //     sign-ups are open. A client-created record could carry another
-    //     person's email, a plan or credits (review F).
+    //     person's email, a plan or credits (review F), or another person's
+    //     `uid`, whose claims it would then replace.
     //   - update: never `role`, `uid`, the admin switches (`isActive`,
     //     `status`), `by`, `selfService`, or the premium fields; `emailVerified`
     //     may only go to false. A locked app account (isLockedAppRecord) also
     //     never changes its `name` or `photo`.
+    //   - admins too never write `role`, `uid`, `isActive`, `status`, `phone`,
+    //     `phoneVerified`, `by`, `authOwner` or `adminPasswordAt`, and never
+    //     delete a record: Users does those through the callables
+    //     adminSetUserRole, adminSetUserBlocked, adminDeleteUser
+    //     (functions/src/users/adminUserAccess.ts) and adminSetPhone, which
+    //     refuse to leave the site without an active admin and check the number.
+    //     In the rules, those checks could be skipped. `by`, `authOwner` and
+    //     `adminPasswordAt` say whether the admins hold a sign-in's password,
+    //     which a raise above a member's relies on.
     //   - the first admin of a fresh install comes from the `claimFirstAdmin`
     //     callable, which grants admin once and only while no admin exists.
     // Reads are own doc or admin. Client queries on `users` must therefore
@@ -291,15 +301,18 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAdmin() || isOwnUserDoc();
-      allow create: if hasNoPassword(request.resource.data) && isAdmin();
-      // Admin can update any user doc (migration re-keying, role changes). A
+      allow create: if false;
+      // Admin can update a user doc, except who it is and their access (role,
+      // block, sign-in: the callables above). A
       // user may update their own doc EXCEPT the fields above. `phone` and
       // `email` are sign-in methods, changed only by the server after a code
       // (functions/src/auth/linkIdentifiers.ts); authOwner is Admin SDK only
       // (CO-D16). The premium
       // entitlement fields are written only by Cloud Functions (Admin SDK
       // bypasses rules) so users cannot self-grant access.
-      allow update: if hasNoPassword(request.resource.data) && (isAdmin() ||
+      allow update: if hasNoPassword(request.resource.data) && ((isAdmin()
+         && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['role', 'uid', 'isActive', 'status', 'phone', 'phoneVerified', 'by', 'authOwner', 'adminPasswordAt'])) ||
         (isOwnUserDoc()
          && !request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['role', 'uid', 'isActive', 'status', 'authOwner', 'by', 'selfService',
@@ -308,12 +321,12 @@ service cloud.firestore {
                        'premiumExpiresAt', 'provider', 'providerSubscriptionId', 'providerCustomerId',
                        'premiumTrialReminderSent', 'premiumEventAt', 'updatesUntil',
                        'premiumTierLabel', 'premiumDiscountCode', 'premiumProductId', 'premiumPaymentId',
-                       'creditBalance'])
+                       'creditBalance', 'adminPasswordAt'])
          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['emailVerified'])
              || request.resource.data.emailVerified == false)
          && !(isLockedAppRecord(resource.data)
               && request.resource.data.diff(resource.data).affectedKeys().hasAny(['name', 'photo', 'emailVerified']))));
-      allow delete: if isAdmin();
+      allow delete: if false;
     }
 
     // First-admin sentinel, written once by the claimFirstAdmin callable.

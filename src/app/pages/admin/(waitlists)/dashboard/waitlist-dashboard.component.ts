@@ -4,6 +4,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Firestore, collection, getDocs, orderBy, query, doc, getDoc, getCountFromServer, updateDoc } from '@angular/fire/firestore';
 import { WaitlistEditDrawerComponent, WaitlistEditInput, WaitlistFormData } from '../edit-drawer/waitlist-edit-drawer.component';
 import { PageHeaderComponent } from '../../../../../shared/components/page-header/page-header.component';
+import { NotifyService } from '../../../../../shared/services/notify.service';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 interface WaitlistUser {
     id: string;
@@ -39,12 +42,16 @@ interface WaitlistInfo {
     templateUrl: './waitlist-dashboard.component.html',
     styleUrls: ['./waitlist-dashboard.component.scss'],
     standalone: true,
-    imports: [CommonModule, RouterLink, WaitlistEditDrawerComponent, PageHeaderComponent],
+    imports: [CommonModule, RouterLink, WaitlistEditDrawerComponent, PageHeaderComponent, TranslocoPipe],
 })
 export default class WaitlistDashboardComponent implements OnInit {
     private route = inject(ActivatedRoute);
     private firestore = inject(Firestore);
     private injector = inject(Injector);
+    private notify = inject(NotifyService);
+    private transloco = inject(TranslocoService);
+    /** The admin language, so the computed labels below follow a change of it. */
+    private lang = toSignal(this.transloco.langChanges$, { initialValue: this.transloco.getActiveLang() });
 
     waitlistId = signal('');
     waitlist = signal<WaitlistInfo | null>(null);
@@ -77,9 +84,11 @@ export default class WaitlistDashboardComponent implements OnInit {
 
     // Source Breakdown
     sourceBreakdown = computed(() => {
+        this.lang();
+        const direct = this.transloco.translate('admin.forms.dash.direct');
         const sources: Record<string, number> = {};
         this.users().forEach(u => {
-            const source = u.signupMetadata?.utmSource || u.source || 'Direct / Unknown';
+            const source = u.signupMetadata?.utmSource || u.source || direct;
             sources[source] = (sources[source] || 0) + 1;
         });
         const total = this.users().length || 1;
@@ -90,10 +99,12 @@ export default class WaitlistDashboardComponent implements OnInit {
 
     // Device Breakdown
     deviceBreakdown = computed(() => {
+        this.lang();
+        const unknown = this.transloco.translate('admin.forms.detail.unknown');
         const devices: Record<string, number> = {};
         this.users().forEach(u => {
-            const device = u.signupMetadata?.deviceType || 'Unknown';
-            const label = device.charAt(0).toUpperCase() + device.slice(1);
+            const device = u.signupMetadata?.deviceType;
+            const label = device ? device.charAt(0).toUpperCase() + device.slice(1) : unknown;
             devices[label] = (devices[label] || 0) + 1;
         });
         const total = this.users().length || 1;
@@ -176,6 +187,7 @@ export default class WaitlistDashboardComponent implements OnInit {
             this.users.set(usersList);
         } catch (error) {
             console.error('Error loading users:', error);
+            this.notify.error('admin.forms.dash.load_failed');
         } finally {
             this.loading.set(false);
         }
@@ -197,8 +209,10 @@ export default class WaitlistDashboardComponent implements OnInit {
             // Refresh local state
             this.waitlist.update(w => w ? { ...w, ...formData } : w);
             this.closeDrawer();
+            this.notify.success('admin.forms.saved');
         } catch (error) {
-            console.error('Error saving waitlist:', error);
+            console.error('Saving the form failed:', error);
+            this.notify.error('admin.forms.save_failed');
         }
     }
 
@@ -212,10 +226,10 @@ export default class WaitlistDashboardComponent implements OnInit {
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
 
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
-        return dateObj.toLocaleDateString();
+        if (diffMins < 60) return this.transloco.translate('admin.forms.dash.minutes_ago', { count: diffMins });
+        if (diffHours < 24) return this.transloco.translate('admin.forms.dash.hours_ago', { count: diffHours });
+        if (diffDays < 7) return this.transloco.translate('admin.forms.dash.days_ago', { count: diffDays });
+        return dateObj.toLocaleDateString(this.transloco.getActiveLang());
     }
 
     private toDate(date: any): Date | null {
@@ -227,24 +241,22 @@ export default class WaitlistDashboardComponent implements OnInit {
     }
 
     exportUsers(): void {
-        const data = this.users().map(u => ({
-            Name: u.firstName,
-            Email: u.email,
-            Status: u.emailVerified ? 'Verified' : (u.isConfirmed ? 'Confirmed' : 'Pending'),
-            SignedUp: this.toDate(u.signupTimestamp)?.toISOString() || '',
-        }));
-
-        const headers = Object.keys(data[0] || {});
-        const csv = [
-            headers.join(','),
-            ...data.map(row => headers.map(h => `"${row[h as keyof typeof row] || ''}"`).join(','))
-        ].join('\n');
+        const t = (key: string) => this.transloco.translate(key);
+        const headers = [t('admin.forms.signups.csv.name'), t('admin.forms.signups.csv.email'), t('common.table.status'), t('admin.forms.signups.col.signed_up')];
+        const rows = this.users().map(u => [
+            u.firstName,
+            u.email,
+            t(u.emailVerified ? 'admin.forms.status.verified' : (u.isConfirmed ? 'admin.forms.status.confirmed' : 'admin.forms.status.pending')),
+            this.toDate(u.signupTimestamp)?.toISOString() || '',
+        ]);
+        const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const csv = [headers, ...rows].map(r => r.map(cell).join(',')).join('\n');
 
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `waitlist-${this.waitlistId()}-users.csv`;
+        a.download = `form-${this.waitlistId()}-sign-ups.csv`;
         a.click();
         window.URL.revokeObjectURL(url);
     }

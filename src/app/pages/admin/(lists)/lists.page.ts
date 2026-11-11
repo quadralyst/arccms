@@ -1,21 +1,21 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { injectT } from '../../../core/i18n/inject-t';
 import { roleGuard } from '../../../guards/role.guard';
-import { ToastService } from '../../../../shared/services/toast.service';
+import { NotifyService } from '../../../../shared/services/notify.service';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
-import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
+import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
 import { AudienceService } from '../(audience)/audience.service';
 import { IList } from '../(audience)/audience.model';
 import { ListDrawerComponent, ListDrawerMode } from './(list-drawer)/list-drawer.component';
@@ -41,15 +41,19 @@ export default class ListsPageComponent implements OnInit {
     @ViewChild('drawer') drawer!: MatDrawer;
 
     private audience = inject(AudienceService);
-    private toast = inject(ToastService);
-    private dialog = inject(MatDialog);
-    private sanitizer = inject(DomSanitizer);
+    private notify = inject(NotifyService);
+    private confirm = inject(ConfirmService);
+    private transloco = inject(TranslocoService);
+    private t = injectT();
     private destroyRef = inject(DestroyRef);
     private router = inject(Router);
 
     lists = signal<IList[]>([]);
     loading = signal(true);
+    /** Set when the lists did not load; the table shows it with Retry. */
+    loadError = signal<boolean>(false);
     busy = signal(false);
+    private loadSub?: { unsubscribe(): void };
 
     currentAction = signal<ListDrawerMode | ''>('');
     currentList = signal<IList | null>(null);
@@ -60,14 +64,17 @@ export default class ListsPageComponent implements OnInit {
         {
             key: 'type', header: 'common.table.type', type: 'html',
             // Static markup only — never interpolate list-supplied values here.
+            // Translated text from our own files; the list's own values never go in.
             transformFn: (r) => r.formId
-                ? '<span class="status-badge is-info">Form</span>'
+                ? `<span class="status-badge is-info">${escapeHtml(this.t('admin.audience.lists.type_form'))}</span>`
                 : r.type === 'app'
-                    ? '<span class="status-badge is-success">App users (live)</span>'
-                    : `<span class="status-badge ${r.type === 'system' ? 'is-info' : 'is-neutral'}">${r.type}</span>`,
+                    ? `<span class="status-badge is-success">${escapeHtml(this.t('admin.audience.lists.type_app'))}</span>`
+                    : r.type === 'system'
+                        ? `<span class="status-badge is-info">${escapeHtml(this.t('admin.audience.lists.type_system'))}</span>`
+                        : `<span class="status-badge is-neutral">${escapeHtml(this.t('admin.audience.lists.type_manual'))}</span>`,
         },
         // A live list stores no members; its hub counts who matches now.
-        { key: 'memberCount', header: 'admin.audience.lists.members', type: 'text', transformFn: (r) => (r.type === 'app' ? 'live' : r.memberCount || 0) },
+        { key: 'memberCount', header: 'admin.audience.lists.members', type: 'text', transformFn: (r) => (r.type === 'app' ? this.t('admin.audience.lists.live') : r.memberCount || 0) },
         {
             key: 'actions', header: 'common.table.actions', type: 'actions',
             actions: [
@@ -95,11 +102,24 @@ export default class ListsPageComponent implements OnInit {
     ];
 
     ngOnInit(): void {
-        this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((lists) => {
-            this.lists.set(lists);
-            this.loading.set(false);
-        });
+        this.load();
     }
+
+    /** Listen to the lists; called again by Retry. */
+    load(): void {
+        this.loadSub?.unsubscribe();
+        this.loading.set(true);
+        this.loadError.set(false);
+        let failed = false;
+        this.loadSub = this.audience.getLists(() => { failed = true; })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe((lists) => {
+                this.lists.set(lists);
+                this.loadError.set(failed);
+                this.loading.set(false);
+            });
+    }
+
 
     openAdd(): void {
         this.currentAction.set('add');
@@ -122,10 +142,10 @@ export default class ListsPageComponent implements OnInit {
         try {
             const res = await this.audience.backfillFormLists();
             const d: any = res?.data || {};
-            this.toast.success(`Synced ${d.forms ?? 0} forms: ${d.created ?? 0} created, ${d.repaired ?? 0} updated`);
+            this.notify.success('admin.audience.lists.synced', { forms: d.forms ?? 0, created: d.created ?? 0, repaired: d.repaired ?? 0 });
         } catch (e) {
-            console.error(e);
-            this.toast.error('Failed to sync form lists');
+            console.error('Syncing form lists failed', e);
+            this.notify.error('admin.audience.lists.sync_failed');
         } finally {
             this.busy.set(false);
         }
@@ -148,26 +168,24 @@ export default class ListsPageComponent implements OnInit {
         this.currentList.set(null);
     }
 
-    confirmDelete(list: IList): void {
+    async confirmDelete(list: IList): Promise<void> {
         if (list.type === 'system') {
-            this.toast.error('System lists cannot be deleted');
+            this.notify.error('admin.audience.lists.system_no_delete');
             return;
         }
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to delete <strong>${escapeHtml(list.name)}</strong>?`,
-        );
-        this.dialog.open(ConfirmationPopupComponent, {
-            width: '350px',
-            data: { dialogType: 'Delete', dialogMessage: msg, btnText: 'Delete', panelType: 'warn' },
-        }).afterClosed().subscribe(async (result: boolean) => {
-            if (!result) return;
-            try {
-                await this.audience.deleteList(list.id);
-                this.toast.success('List deleted');
-            } catch (e) {
-                console.error(e);
-                this.toast.error('Failed to delete list');
-            }
+        const ok = await this.confirm.ask({
+            titleKey: 'common.dialog.delete',
+            dialogMessage: this.t('admin.audience.lists.delete_confirm', { name: escapeHtml(list.name) }),
+            btnText: this.t('common.actions.delete'),
+            panelType: 'warn',
         });
+        if (!ok) return;
+        try {
+            await this.audience.deleteList(list.id);
+            this.notify.success('admin.audience.lists.deleted');
+        } catch (e) {
+            console.error('Deleting the list failed', e);
+            this.notify.error('admin.audience.lists.delete_failed');
+        }
     }
 }

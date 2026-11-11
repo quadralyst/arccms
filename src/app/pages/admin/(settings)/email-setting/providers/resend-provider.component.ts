@@ -8,6 +8,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { IResendConfig } from '../email-setting.model';
 import { IEmailProviderComponent } from './email-provider-base';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { sentenceParts } from '../../../../../core/i18n/sentence-parts';
+import type { TranslationKey } from '../../../../../core/i18n/translation-keys';
 
 @Component({
     selector: 'app-resend-provider',
@@ -20,70 +23,91 @@ import { IEmailProviderComponent } from './email-provider-base';
         MatButtonModule,
         MatIconModule,
         MatTooltipModule,
+        TranslocoPipe,
     ],
+    // The provider help shares its words with onboarding's email step (admin.onboarding.email.*).
     template: `
         <mat-card class="mb-4" [formGroup]="formGroup">
             <mat-card-header>
                 <mat-card-title>
-                    <i class="fa-solid fa-paper-plane me-2"></i>
-                    Resend Configuration
+                    <i class="fa-solid fa-paper-plane me-2" aria-hidden="true"></i>
+                    {{ 'admin.settings.email.resend_title' | transloco }}
                 </mat-card-title>
             </mat-card-header>
             <mat-card-content class="pt-3">
                 <div class="alert alert-light border small mb-3" style="padding: 0; overflow: hidden;">
-                    <div style="display: flex; align-items: center; padding: 0.5rem 0.75rem; cursor: pointer; user-select: none;"
-                         (click)="showInfoBox.set(!showInfoBox())">
-                        <i class="fa-solid fa-circle-info text-primary me-1"></i>
-                        <strong>How to get your Resend API Key:</strong>
-                        <mat-icon style="margin-left: auto; font-size: 20px; width: 20px; height: 20px;">
+                    <button type="button" class="info-toggle" (click)="showInfoBox.set(!showInfoBox())"
+                        [attr.aria-expanded]="showInfoBox()" aria-controls="resend-help">
+                        <i class="fa-solid fa-circle-info text-primary me-1" aria-hidden="true"></i>
+                        <strong>{{ 'admin.onboarding.email.resend_help_title' | transloco }}</strong>
+                        <mat-icon aria-hidden="true" style="margin-left: auto; font-size: 20px; width: 20px; height: 20px;">
                             {{ showInfoBox() ? 'expand_less' : 'expand_more' }}
                         </mat-icon>
-                    </div>
+                    </button>
                     @if (showInfoBox()) {
-                    <div style="padding: 0 0.75rem 0.5rem;">
+                    <div id="resend-help" style="padding: 0 0.75rem 0.5rem;">
                         <ol class="mb-0 mt-1">
                             <li>
-                                <a href="https://resend.com/signup" target="_blank" rel="noopener">Create a free Resend account</a>
-                                (if you don't have one)
+                                @let account = parts('admin.onboarding.email.resend_step_account');
+                                {{ account[0] }}<a href="https://resend.com/signup" target="_blank" rel="noopener">{{ 'admin.onboarding.email.resend_step_account_link' | transloco }}</a>{{ account[1] }}
                             </li>
                             <li>
-                                Go to
-                                <a href="https://resend.com/api-keys" target="_blank" rel="noopener"><strong>API Keys</strong></a>
-                                in your Resend dashboard
+                                @let keys = parts('admin.onboarding.email.resend_step_keys');
+                                {{ keys[0] }}<a href="https://resend.com/api-keys" target="_blank" rel="noopener"><strong>{{ 'admin.onboarding.email.resend_step_keys_link' | transloco }}</strong></a>{{ keys[1] }}
                             </li>
-                            <li>Click <strong>Create API Key</strong>, give it a name, and copy the key</li>
+                            <li>{{ 'admin.onboarding.email.resend_step_create' | transloco }}</li>
                         </ol>
-                        <span class="text-muted">
-                            <i class="fa-solid fa-circle-check text-success me-1"></i>
-                            Free plan: 100 emails/day, 3,000/month. Works right away with <code>onboarding&#64;resend.dev</code>.
-                            To send from your own domain,
-                            <a href="https://resend.com/domains" target="_blank" rel="noopener">add &amp; verify it here</a>.
+                        <span class="provider-note">
+                            <i class="fa-solid fa-circle-check text-success me-1" aria-hidden="true"></i>
+                            @let tip = parts('admin.onboarding.email.resend_tip');
+                            {{ 'admin.onboarding.email.providers.resend.free_tier' | transloco }}. {{ tip[0] }}<a href="https://resend.com/domains" target="_blank" rel="noopener">{{ 'admin.onboarding.email.resend_tip_link' | transloco }}</a>{{ tip[1] }}
                         </span>
                     </div>
                     }
                 </div>
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>API Key</mat-label>
+                    <mat-label>{{ 'admin.onboarding.email.api_key' | transloco }}</mat-label>
                     <input matInput [type]="showApiKey() ? 'text' : 'password'" formControlName="apiKey"
-                        placeholder="re_xxxxxxxx...">
+                        placeholder="re_xxxxxxxx..." autocomplete="off">
                     <button mat-icon-button matSuffix type="button" (click)="showApiKey.set(!showApiKey())"
-                        [matTooltip]="showApiKey() ? 'Hide API key' : 'Show API key'">
-                        <mat-icon>{{ showApiKey() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                        [attr.aria-label]="'admin.settings.email.show_key' | transloco"
+                        [attr.aria-pressed]="showApiKey()"
+                        [matTooltip]="'admin.settings.email.show_key' | transloco">
+                        <mat-icon aria-hidden="true">{{ showApiKey() ? 'visibility_off' : 'visibility' }}</mat-icon>
                     </button>
                     <mat-hint>
-                        Starts with <code>re_</code>. Get it from
-                        <a href="https://resend.com/api-keys" target="_blank" rel="noopener">resend.com/api-keys</a>
+                        @let keyHint = parts('admin.onboarding.email.api_key_hint');
+                        {{ keyHint[0] }}<a href="https://resend.com/api-keys" target="_blank" rel="noopener">resend.com/api-keys</a>{{ keyHint[1] }}
                     </mat-hint>
                 </mat-form-field>
             </mat-card-content>
         </mat-card>
     `,
+    styles: [`
+        .info-toggle {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+        .provider-note {
+            color: #495057;
+        }
+    `],
 })
 export class ResendProviderComponent implements IEmailProviderComponent, OnInit {
     private fb = inject(FormBuilder);
 
     initialData = input<Partial<IResendConfig>>();
     componentReady = output<IEmailProviderComponent>();
+
+    private transloco = inject(TranslocoService);
 
     showApiKey = signal(false);
     showInfoBox = signal(true);
@@ -107,5 +131,10 @@ export class ResendProviderComponent implements IEmailProviderComponent, OnInit 
 
     getSenderEmailConstraint(): string | null {
         return null;
+    }
+
+    /** A sentence split around its value, for the template to link the value. */
+    parts(key: TranslationKey, params: Record<string, unknown> = {}): [string, string] {
+        return sentenceParts((k, p) => this.transloco.translate(k, p), key, params);
     }
 }

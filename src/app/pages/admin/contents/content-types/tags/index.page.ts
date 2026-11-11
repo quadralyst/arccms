@@ -1,12 +1,12 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, inject, signal, ViewChild, Input, computed, effect } from '@angular/core';
+import { Component, inject, signal, ViewChild, Input, computed, effect, untracked } from '@angular/core';
 import { MatSidenavModule, MatDrawer } from '@angular/material/sidenav';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { DomSanitizer } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 
@@ -22,6 +22,9 @@ import EditTagComponent from './(edit-tag)/edit.[tagId].page';
 import { ViewTagComponent } from './(view-tag)/view.[tagId].page';
 import { roleGuard } from '../../../../../guards/role.guard';
 import { escapeHtml } from '../../../../../../shared/utils/escape-html';
+import { DraftContentsStore } from '../../draft-content-store/draft-contents.store';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { NotifyService } from '../../../../../../shared/services/notify.service';
 
 export const routeMeta: RouteMeta = {
     title: 'Tags Management',
@@ -44,7 +47,8 @@ export const routeMeta: RouteMeta = {
         EditTagComponent,
         ViewTagComponent,
         GlobalTableComponent,
-        PageHeaderComponent
+        PageHeaderComponent,
+        TranslocoPipe,
     ],
     templateUrl: './index.html',
     styleUrl: './index.scss',
@@ -57,6 +61,9 @@ export default class TagsPageComponent {
     datePipe = inject(DatePipe);
     route = inject(ActivatedRoute);
     router = inject(Router);
+    private draftContentsStore = inject(DraftContentsStore);
+    private transloco = inject(TranslocoService);
+    private notify = inject(NotifyService);
 
     @ViewChild('drawer') drawer!: MatDrawer;
 
@@ -92,7 +99,7 @@ export default class TagsPageComponent {
     // Filtering state
     filters = signal<{ [key: string]: string }>({});
     filterableColumns = [
-        { field: 'label', label: 'Label' },
+        { field: 'label', label: 'admin.contents.tags.label' },
     ];
 
     // Inline tag creation
@@ -100,8 +107,23 @@ export default class TagsPageComponent {
 
     tableColumns: TableColumn[] = [];
 
+    /** The list did not load (RF5 5.1): the table says so, with Retry; the detail goes to the console. */
+    readonly loadFailed = signal(false);
+    private fetching = false;
+
     constructor() {
         followLandedPage(this.tagsStore.currentPageNumber, this.currentPage);
+
+        effect(() => {
+            const loading = this.tagsStore.isLoading();
+            const error = this.tagsStore.error();
+            untracked(() => {
+                if (loading || !this.fetching) return;
+                this.fetching = false;
+                if (error) console.error('Loading the tags failed:', error);
+                this.loadFailed.set(!!error);
+            });
+        });
 
         effect(() => {
             // Re-fetch when pagination/sorting changes
@@ -130,41 +152,41 @@ export default class TagsPageComponent {
             { key: 'index', header: '#', type: 'index' },
             {
                 key: 'color',
-                header: 'Color',
+                header: 'admin.contents.tags.colour',
                 type: 'tags',
                 transformFn: (row) => [{ color: row.color, label: '' }],
                 tagConfig: { class: 'color-badge' }
             },
             {
                 key: 'label',
-                header: 'Label',
+                header: 'admin.contents.tags.label',
                 type: 'tags',
                 transformFn: (row) => [row],
                 tagConfig: { class: 'tag-label' }
             },
-            { key: 'usageCount', header: 'Usage' },
-            { key: 'createdAt', header: 'Created', type: 'date', dateFormat: 'MMM d, y' },
+            { key: 'usageCount', header: 'admin.contents.tags.usage' },
+            { key: 'createdAt', header: 'admin.contents.preview.created', type: 'date', dateFormat: 'MMM d, y' },
             {
                 key: 'actions',
-                header: 'Actions',
+                header: 'common.table.actions',
                 type: 'actions',
                 actions: [
                     {
                         action: 'view',
                         icon: 'fas fa-eye',
-                        label: 'View',
+                        label: 'common.actions.view',
                         onAction: (row) => this.openView(row.id)
                     },
                     {
                         action: 'edit',
                         icon: 'fas fa-pen text-primary',
-                        label: 'Edit',
+                        label: 'common.actions.edit',
                         onAction: (row) => this.openEdit(row.id)
                     },
                     {
                         action: 'delete',
                         icon: 'fas fa-trash text-danger',
-                        label: 'Delete',
+                        label: 'common.actions.delete',
                         onAction: (row) => this.deleteItem(row)
                     }
                 ]
@@ -216,18 +238,35 @@ export default class TagsPageComponent {
         this.fetchData(); // Refresh after close
     }
 
-    // Delete with confirmation
-    deleteItem(item: ITag): void {
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to delete the tag <strong>"${escapeHtml(item.label)}"</strong>?`
-        );
+    // Delete with confirmation. The question says how many entries use the
+    // tag, and a failure shows a message (RF4 4.11).
+    async deleteItem(item: ITag): Promise<void> {
+        const label = escapeHtml(item.label);
+        let message: string;
+        // Counted where the tag lives: its own content type, else the page's.
+        // Without either, the count would read the wrong collection, so the
+        // question says it cannot tell (RF4 review L10).
+        const typeSlug = item.contentTypeSlug || this._contentTypeSlug();
+        try {
+            if (!typeSlug) throw new Error('No content type to count in');
+            const count = await this.draftContentsStore.countWithTag(typeSlug, item.label);
+            const key = count === 0 ? 'admin.contents.tags.delete_confirm_none'
+                : count === 1 ? 'admin.contents.tags.delete_confirm_one'
+                : 'admin.contents.tags.delete_confirm_many';
+            message = this.transloco.translate(key, { label, count });
+        } catch (error) {
+            console.error('Error counting the entries with a tag:', error);
+            message = this.transloco.translate('admin.contents.tags.delete_confirm_unknown', { label });
+        }
 
         const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
             width: '400px',
+            maxWidth: '92vw',
             data: {
                 dialogType: 'Delete',
-                dialogMessage: msg,
-                btnText: 'Delete',
+                titleKey: 'common.dialog.delete',
+                dialogMessage: message,
+                btnText: this.transloco.translate('common.actions.delete'),
                 panelType: 'warn',
             },
         });
@@ -236,7 +275,10 @@ export default class TagsPageComponent {
             if (result) {
                 this.tagsStore.delete(item.id).subscribe({
                     next: () => this.fetchData(),
-                    error: (error) => console.error('Error deleting tag:', error),
+                    error: (error) => {
+                        console.error('Error deleting tag:', error);
+                        this.notify.error('admin.contents.tags.delete_failed');
+                    },
                 });
             }
         });
@@ -262,7 +304,10 @@ export default class TagsPageComponent {
                 this.newTagLabel = '';
                 this.fetchData();
             },
-            error: (error) => console.error('Error adding tag:', error),
+            error: (error) => {
+                console.error('Error adding tag:', error);
+                this.notify.error('admin.contents.tags.create_failed');
+            },
         });
     }
 
@@ -288,6 +333,8 @@ export default class TagsPageComponent {
             params.whereConditions = [];
         }
 
+        this.loadFailed.set(false);
+        this.fetching = true;
         this.tagsStore.getAll(params);
         this.tagsStore.updateUsedColors();
     }

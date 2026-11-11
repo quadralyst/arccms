@@ -3,18 +3,18 @@ import { highlightSegments } from './search.model';
 
 describe('highlightSegments', () => {
     it('splits text into plain and hit segments', () => {
-        expect(highlightSegments('Gunjan Karun', [[7, 12]])).toEqual([
-            { text: 'Gunjan ', hit: false },
-            { text: 'Karun', hit: true },
+        expect(highlightSegments('Anjali Verma', [[7, 12]])).toEqual([
+            { text: 'Anjali ', hit: false },
+            { text: 'Verma', hit: true },
         ]);
     });
 
     it('handles several ranges and a leading hit', () => {
-        expect(highlightSegments('Gunjan Karun', [[0, 6], [7, 10]])).toEqual([
-            { text: 'Gunjan', hit: true },
+        expect(highlightSegments('Anjali Verma', [[0, 6], [7, 10]])).toEqual([
+            { text: 'Anjali', hit: true },
             { text: ' ', hit: false },
-            { text: 'Kar', hit: true },
-            { text: 'un', hit: false },
+            { text: 'Ver', hit: true },
+            { text: 'ma', hit: false },
         ]);
     });
 

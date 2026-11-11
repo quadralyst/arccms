@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { roleGuard } from './guards/role.guard';
+import { unsavedChangesGuard } from './guards/unsaved-changes.guard';
 import { languageRedirect, languageRouteGuard } from './guards/language.guard';
 import { publicContentTypeGuard } from './core/site/public-content-types';
 import { memberPagesGuard, entitledGuard } from './pages/user/user.guards';
@@ -39,15 +40,15 @@ export const routes: Routes = [
         path: 'dashboard',
         title: 'Dashboard',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.dashboard', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/(dashboard)/dashboard.page').then((m) => m.default),
       },
       {
         path: 'media',
-        title: 'Media Manager',
+        title: 'Media',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.media_manager', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/(media)/media.page').then((m) => m.default),
       },
@@ -70,7 +71,7 @@ export const routes: Routes = [
         path: 'settings',
         title: 'Settings',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.settings', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -80,81 +81,113 @@ export const routes: Routes = [
               { path: '', redirectTo: 'about', pathMatch: 'full' },
               {
                 path: 'about',
+                title: 'Site details',
+                data: { titleKey: 'admin.settings.hub.about.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/about/about-settings.page').then((m) => m.default),
               },
               {
                 path: 'email',
+                title: 'Email sending',
+                data: { titleKey: 'admin.settings.hub.email.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/email-setting/email-setting.page').then((m) => m.default),
               },
               {
                 path: 'integrations',
+                title: 'Integrations',
+                data: { titleKey: 'admin.settings.hub.integrations.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/integrations-setting/integrations-setting.page').then((m) => m.default),
               },
               {
                 path: 'user',
+                title: 'Sign-up and roles',
+                data: { titleKey: 'admin.settings.hub.user.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/user-setting/user-setting.page').then((m) => m.default),
               },
               {
                 path: 'sms',
+                title: 'Text messages',
+                data: { titleKey: 'admin.settings.hub.sms.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/sms/sms-settings.page').then((m) => m.SmsSettingsPage),
               },
               {
                 path: 'ai',
+                title: 'AI',
+                data: { titleKey: 'admin.settings.hub.ai.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/ai/ai-settings.page').then((m) => m.AiSettingsPage),
               },
               {
                 path: 'message',
+                title: 'Announcement',
+                data: { titleKey: 'admin.settings.hub.message.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/message/message.page').then((m) => m.default),
               },
               {
                 path: 'site-usage',
+                title: 'Cookie notice',
+                data: { titleKey: 'admin.settings.hub.site-usage.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/site-usage/site-usage.page').then((m) => m.default),
               },
               {
                 path: 'analytics',
+                title: 'Analytics',
+                data: { titleKey: 'admin.settings.hub.analytics.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/analytics-setting/analytics-setting.page').then((m) => m.default),
               },
               {
                 path: 'payments',
+                title: 'Payments',
+                data: { titleKey: 'admin.settings.hub.payments.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/payments/payments-setting.page').then((m) => m.default),
               },
               {
                 path: 'localization',
+                title: 'Languages',
+                data: { titleKey: 'admin.settings.hub.localization.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/localization/localization-settings.page').then((m) => m.LocalizationSettingsPage),
               },
               {
                 path: 'search',
+                title: 'Search',
+                data: { titleKey: 'admin.settings.hub.search.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/search/search-settings.page').then((m) => m.SearchSettingsPage),
               },
               {
                 path: 'app-audience',
+                title: 'App users',
+                data: { titleKey: 'admin.settings.hub.app-audience.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/app-audience/app-audience-settings.page').then((m) => m.AppAudienceSettingsPage),
               },
               {
                 path: 'automations',
+                title: 'Automations',
+                data: { titleKey: 'admin.settings.hub.automations.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/automations/automations-settings.page').then((m) => m.AutomationsSettingsPage),
               },
               {
                 path: 'discoverability',
+                title: 'Search engines and AI',
+                data: { titleKey: 'admin.settings.hub.discoverability.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/discoverability/discoverability-settings.page').then((m) => m.DiscoverabilitySettingsPage),
               },
               {
                 path: 'misc',
+                title: 'Branding and uploads',
+                data: { titleKey: 'admin.settings.hub.misc.label' },
                 loadComponent: () =>
                   import('./pages/admin/(settings)/misc/misc-settings.page').then((m) => m.MiscSettingsPage),
               },
@@ -167,7 +200,7 @@ export const routes: Routes = [
         path: 'data',
         title: 'Data',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.data', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -202,9 +235,9 @@ export const routes: Routes = [
       // Admin Waitlist Routes (Angular router-based for admin area)
       {
         path: 'waitlists',
-        title: 'Signup Forms',
+        title: 'Forms',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.signup_forms', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -237,7 +270,7 @@ export const routes: Routes = [
         path: 'contacts',
         title: 'Contacts',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.contacts', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/(contacts)/contacts.page').then((m) => m.default),
       },
@@ -245,7 +278,7 @@ export const routes: Routes = [
         path: 'lists',
         title: 'Lists',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.lists', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/(lists)/lists.page').then((m) => m.default),
       },
@@ -254,7 +287,7 @@ export const routes: Routes = [
         path: 'lists/:listId',
         title: 'List',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.titles.list', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -268,33 +301,33 @@ export const routes: Routes = [
       { path: 'contents', redirectTo: '/admin/contents/content-types', pathMatch: 'full' },
       {
         path: 'contents/content-types',
-        title: 'Content Types',
+        title: 'Content types',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.content_types', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/contents/content-types/index.page').then((m) => m.default),
       },
       {
         path: 'contents/content-types/add',
-        title: 'Add Content Type',
+        title: 'New content type',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.titles.new_content_type', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/contents/content-types/(add-content-type)/add.page').then((m) => m.default),
       },
       {
         path: 'contents/content-types/edit/:contentTypeId',
-        title: 'Edit Content Type',
+        title: 'Edit content type',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.titles.edit_content_type', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/contents/content-types/(edit-content-type)/edit.[contentTypeId].page').then((m) => m.default),
       },
       {
         path: 'contents/content-types/tags',
-        title: 'Tags Management',
+        title: 'Tags',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.tags', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/contents/content-types/tags/index.page').then((m) => m.default),
       },
@@ -314,25 +347,27 @@ export const routes: Routes = [
       },
       {
         path: 'contents/:slug',
-        title: 'Contents List',
+        title: 'Entries',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.titles.entries', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/contents/[slug]/index.page').then((m) => m.default),
       },
       {
         path: 'contents/:slug/add',
-        title: 'Add Content',
+        title: 'New entry',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        canDeactivate: [unsavedChangesGuard],
+        data: { titleKey: 'admin.titles.new_entry', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/contents/[slug]/add.page').then((m) => m.default),
       },
       {
         path: 'contents/:slug/edit/:contentId',
-        title: 'Edit Content',
+        title: 'Edit entry',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        canDeactivate: [unsavedChangesGuard],
+        data: { titleKey: 'admin.titles.edit_entry', allowedRoles: ['admin'] },
         loadComponent: () =>
           import('./pages/admin/contents/[slug]/edit.[contentId].page').then((m) => m.default),
       },
@@ -342,7 +377,7 @@ export const routes: Routes = [
         path: 'authors',
         title: 'Authors',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.authors', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -354,9 +389,9 @@ export const routes: Routes = [
       // Admin Audience Route (custom Fields, U4.5).
       {
         path: 'contact-fields',
-        title: 'Contact Fields',
+        title: 'Contact fields',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.titles.contact_fields', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -368,9 +403,9 @@ export const routes: Routes = [
       // Admin Audience Route (App users, CO6.3): the host app's users, read live.
       {
         path: 'app-users',
-        title: 'App Users',
+        title: 'App users',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.app_users', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -386,9 +421,9 @@ export const routes: Routes = [
       // renders "Content Not Found" in the public shell.
       {
         path: 'contact-tags',
-        title: 'Contact Tags',
+        title: 'Contact tags',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.titles.contact_tags', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -403,7 +438,7 @@ export const routes: Routes = [
         path: 'search',
         title: 'Search',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.search.title', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -415,9 +450,9 @@ export const routes: Routes = [
       // Admin Email Logs Route
       {
         path: 'email-logs',
-        title: 'Email Logs',
+        title: 'Email logs',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.email_logs', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -431,7 +466,7 @@ export const routes: Routes = [
         path: 'feedback',
         title: 'Feedback',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.feedback', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -445,7 +480,7 @@ export const routes: Routes = [
         path: 'messages',
         title: 'Messages',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.messages', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -457,9 +492,9 @@ export const routes: Routes = [
       // Admin SMS Logs Route (Email + SMS menu): every text message, like Email Logs.
       {
         path: 'sms-logs',
-        title: 'SMS Logs',
+        title: 'SMS logs',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.sms_logs', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -475,36 +510,41 @@ export const routes: Routes = [
         path: 'email',
         title: 'Email',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.email_only', allowedRoles: ['admin'] },
         children: [
           { path: '', redirectTo: 'brand-kit', pathMatch: 'full' },
           {
             path: 'brand-kit',
-            title: 'Brand Kit',
+            title: 'Brand kit',
+            data: { titleKey: 'admin.nav.brand_kit' },
             loadComponent: () =>
               import('./pages/admin/(email-brand)/brand-kit.page').then((m) => m.default),
           },
           {
             path: 'composer',
             title: 'Composer',
+            data: { titleKey: 'admin.nav.composer' },
             loadComponent: () =>
               import('./pages/admin/(email-composer)/email-composer.page').then((m) => m.default),
           },
           {
             path: 'broadcasts',
             title: 'Broadcasts',
+            data: { titleKey: 'admin.nav.broadcasts' },
             loadComponent: () =>
               import('./pages/admin/(broadcasts)/broadcasts.page').then((m) => m.default),
           },
           {
             path: 'drip-campaigns',
-            title: 'Drip Campaigns',
+            title: 'Drip campaigns',
+            data: { titleKey: 'admin.nav.drip_campaigns' },
             loadComponent: () =>
               import('./pages/admin/(drips)/drips.page').then((m) => m.default),
           },
           {
             path: 'announcements',
             title: 'Announcements',
+            data: { titleKey: 'admin.nav.announcements' },
             loadComponent: () =>
               import('./pages/admin/(announcements)/announcements.page').then((m) => m.default),
           },
@@ -515,7 +555,7 @@ export const routes: Routes = [
         path: 'users',
         title: 'Users',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.users', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -524,19 +564,22 @@ export const routes: Routes = [
           },
           {
             path: 'add',
-            title: 'Add User',
+            title: 'New user',
+            data: { titleKey: 'admin.titles.new_user' },
             loadComponent: () =>
               import('./pages/admin/users/(add-user)/add.page').then((m) => m.default),
           },
           {
             path: 'edit/:userId',
-            title: 'Edit User',
+            title: 'Edit user',
+            data: { titleKey: 'admin.titles.edit_user' },
             loadComponent: () =>
               import('./pages/admin/users/(edit-user)/edit.[userId].page').then((m) => m.default),
           },
           {
             path: 'view/:userId',
-            title: 'View User',
+            title: 'User',
+            data: { titleKey: 'admin.titles.view_user' },
             loadComponent: () =>
               import('./pages/admin/users/(view-user)/view.[userId].page').then((m) => m.default),
           },
@@ -552,7 +595,7 @@ export const routes: Routes = [
         path: 'products',
         title: 'Products',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.products', allowedRoles: ['admin'] },
         children: [
           {
             path: '',
@@ -566,7 +609,7 @@ export const routes: Routes = [
         path: 'transactions',
         title: 'Transactions',
         canActivate: [roleGuard],
-        data: { allowedRoles: ['admin'] },
+        data: { titleKey: 'admin.nav.transactions', allowedRoles: ['admin'] },
         children: [
           {
             path: '',

@@ -1,5 +1,6 @@
 
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { TranslocoService } from '@jsverse/transloco';
 import { read, utils, writeFile } from 'xlsx';
 import { ContentTypeField, ContentTypeFieldType } from '../content-types/content-types.model';
 import { DraftContentsData } from '../draft-content-store/draft-contents.model';
@@ -33,6 +34,8 @@ export interface ImportValidationSummary {
     providedIn: 'root'
 })
 export class BulkImportService {
+    private transloco = inject(TranslocoService);
+
 
     /**
      * Parse XLSX or CSV file
@@ -157,7 +160,7 @@ export class BulkImportService {
         const titleMapping = mapping.find(m => m.targetField === 'title');
         const titleVal = titleMapping ? row[titleMapping.fileHeader] : null;
         if (!titleVal || String(titleVal).trim() === '') {
-            errors['title'] = 'Title is required';
+            errors['title'] = this.transloco.translate('common.validation.required', { field: this.transloco.translate('admin.contents.editor.title_label') });
         }
 
         // 2. Required Custom Fields
@@ -166,7 +169,7 @@ export class BulkImportService {
             const val = fieldMapping ? row[fieldMapping.fileHeader] : null;
 
             if (val === undefined || val === null || String(val).trim() === '') {
-                errors[field.key] = `${field.label} is required`;
+                errors[field.key] = this.transloco.translate('common.validation.required', { field: field.label });
             }
         });
 
@@ -178,20 +181,20 @@ export class BulkImportService {
             if (fieldDef && rawVal !== undefined && rawVal !== '' && rawVal !== null) {
                 if (fieldDef.type === 'number') {
                     if (isNaN(Number(rawVal))) {
-                        errors[fieldDef.key] = 'Invalid number';
+                        errors[fieldDef.key] = this.transloco.translate('admin.contents.bulk_import.bad_number');
                     }
                 } else if (fieldDef.type === 'date') {
                     if (isNaN(Date.parse(String(rawVal)))) {
-                        errors[fieldDef.key] = 'Invalid date';
+                        errors[fieldDef.key] = this.transloco.translate('admin.contents.bulk_import.bad_date');
                     }
                 } else if (fieldDef.type === 'boolean') {
                     const norm = String(rawVal).toLowerCase();
                     if (!['true', 'false', 'yes', 'no', '1', '0'].includes(norm)) {
-                        errors[fieldDef.key] = 'Invalid boolean (use true/false, yes/no, 1/0)';
+                        errors[fieldDef.key] = this.transloco.translate('admin.contents.bulk_import.bad_boolean');
                     }
                 } else if (fieldDef.type === 'color') {
                     if (!isHexColor(String(rawVal))) {
-                        errors[fieldDef.key] = 'Invalid colour (use hex, e.g. #1a73e8)';
+                        errors[fieldDef.key] = this.transloco.translate('admin.contents.bulk_import.bad_colour');
                     }
                 }
             }

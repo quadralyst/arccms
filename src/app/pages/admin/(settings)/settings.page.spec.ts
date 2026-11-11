@@ -2,12 +2,16 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { headerTestProviders } from '../../../../test/header-test-providers';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { provideRouter } from '@angular/router';
-import SettingsPageComponent from './settings.page';
+import { provideRouter, Router } from '@angular/router';
+import { Component } from '@angular/core';
+import SettingsPageComponent, { SETTING_GROUPS } from './settings.page';
 import { featureOfPath, isCorePath } from '../../../core/features/feature-routes';
 import { Firestore } from '@angular/fire/firestore';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+@Component({ standalone: true, template: '' })
+class BlankComponent {}
 
 describe('SettingsPageComponent', () => {
     let component: SettingsPageComponent;
@@ -21,7 +25,7 @@ describe('SettingsPageComponent', () => {
             ],
             providers: [
                 ...headerTestProviders(),
-                provideRouter([]),
+                provideRouter([{ path: '**', component: BlankComponent }]),
                 { provide: Firestore, useValue: {} },
             ],
         }).compileComponents();
@@ -35,82 +39,104 @@ describe('SettingsPageComponent', () => {
         expect(component).toBeTruthy();
     });
 
-    it('should have sixteen setting categories, AI included (on by default)', () => {
+    it('has sixteen settings, AI included (on by default), none lost to the grouping', () => {
         expect(component.settingCategories().length).toBe(16);
+        const grouped = component.settingGroups().flatMap((g) => g.items.map((c) => c.id));
+        expect(grouped).toEqual(component.settingCategories().map((c) => c.id));
+        expect(new Set(grouped).size).toBe(16);
     });
 
-    it('should have about as first category', () => {
+    it('groups them as agreed: Site, Sign-in and members, Email and texts, Payments, Connections, Data', () => {
+        const groups = Object.fromEntries(component.settingGroups().map((g) => [g.id, g.items.map((c) => c.id)]));
+        expect(Object.keys(groups)).toEqual([...SETTING_GROUPS]);
+        expect(groups).toEqual({
+            site: ['about', 'localization', 'misc', 'message', 'site-usage', 'discoverability'],
+            members: ['user', 'app-audience'],
+            email: ['email', 'sms', 'automations'],
+            payments: ['payments'],
+            connections: ['analytics', 'ai', 'integrations'],
+            data: ['search'],
+        });
+    });
+
+    it('opens on Site details, the first setting', () => {
         expect(component.settingCategories()[0].id).toBe('about');
-        expect(component.settingCategories()[0].label).toBe('About');
+        expect(component.settingCategories()[0].route).toBe('/admin/settings/about');
     });
 
-    it('should have email settings as second category', () => {
-        expect(component.settingCategories()[1].id).toBe('email');
-        expect(component.settingCategories()[1].label).toBe('Email Settings');
+    it('routes every setting to /admin/settings/<page>', () => {
+        const routes = Object.fromEntries(component.settingCategories().map((c) => [c.id, c.route]));
+        expect(routes).toEqual({
+            about: '/admin/settings/about',
+            localization: '/admin/settings/localization',
+            misc: '/admin/settings/misc',
+            message: '/admin/settings/message',
+            'site-usage': '/admin/settings/site-usage',
+            discoverability: '/admin/settings/discoverability',
+            user: '/admin/settings/user',
+            'app-audience': '/admin/settings/app-audience',
+            email: '/admin/settings/email',
+            sms: '/admin/settings/sms',
+            automations: '/admin/settings/automations',
+            payments: '/admin/settings/payments',
+            analytics: '/admin/settings/analytics',
+            ai: '/admin/settings/ai',
+            integrations: '/admin/settings/integrations',
+            search: '/admin/settings/search',
+        });
     });
 
-    it('should have integrations as third category', () => {
-        expect(component.settingCategories()[2].id).toBe('integrations');
-        expect(component.settingCategories()[2].label).toBe('Integrations');
+    it('uses plain names: Email sending, not SMTP configuration', () => {
+        const hub = JSON.parse(readFileSync(join(__dirname, '../../../../assets/i18n/en.json'), 'utf8')).admin.settings.hub;
+        expect(hub.email.label).toBe('Email sending');
+        const text = JSON.stringify(hub);
+        expect(text).not.toMatch(/SMTP|OAuth|Miscellaneous|Localization|Global Messages/);
     });
 
-    it('should have analytics as fourth category', () => {
-        expect(component.settingCategories()[3].id).toBe('analytics');
-        expect(component.settingCategories()[3].label).toBe('Analytics');
+    it('shows a heading for each group and a link for each setting', () => {
+        const el: HTMLElement = fixture.nativeElement;
+        const headings = [...el.querySelectorAll('.setting-group-title')].map((h) => h.textContent?.trim());
+        expect(headings.length).toBe(6);
+        expect(el.querySelectorAll('a.setting-item').length).toBe(16);
+        // Each group's list is named by its heading.
+        for (const list of el.querySelectorAll('.setting-group ul')) {
+            const id = list.getAttribute('aria-labelledby');
+            expect(id && el.querySelector('#' + id)).toBeTruthy();
+        }
     });
 
-    it('should have payments as fifth category', () => {
-        expect(component.settingCategories()[4].id).toBe('payments');
-        expect(component.settingCategories()[4].label).toBe('Payments');
+    it('folds the phone menu under one button that says where you are', async () => {
+        const el: HTMLElement = fixture.nativeElement;
+        const toggle = el.querySelector<HTMLButtonElement>('.settings-menu-toggle')!;
+        expect(toggle.getAttribute('aria-controls')).toBe('settings-menu');
+        expect(toggle.getAttribute('aria-expanded')).toBe('false');
+        toggle.click();
+        fixture.detectChanges();
+        expect(toggle.getAttribute('aria-expanded')).toBe('true');
+        expect(el.querySelector('.settings-sidebar')!.classList).toContain('open');
+        // Choosing a setting folds it away again.
+        el.querySelector<HTMLAnchorElement>('a[data-setting="email"]')!.click();
+        fixture.detectChanges();
+        expect(component.menuOpen()).toBe(false);
     });
 
-    it('should have user settings as sixth category', () => {
-        expect(component.settingCategories()[5].id).toBe('user');
-        expect(component.settingCategories()[5].label).toBe('User Settings');
+    it('names the setting on screen on the phone menu button', async () => {
+        await TestBed.inject(Router).navigateByUrl('/admin/settings/email');
+        fixture.detectChanges();
+        expect(component.current()?.id).toBe('email');
+        expect(fixture.nativeElement.querySelector('.toggle-current')?.textContent).toBeTruthy();
     });
 
-    it('should have correct routes for all categories', () => {
-        const categories = component.settingCategories();
-        expect(categories[0].route).toBe('/admin/settings/about');
-        expect(categories[1].route).toBe('/admin/settings/email');
-        expect(categories[2].route).toBe('/admin/settings/integrations');
-        expect(categories[3].route).toBe('/admin/settings/analytics');
-        expect(categories[4].route).toBe('/admin/settings/payments');
-        expect(categories[5].route).toBe('/admin/settings/user');
-        expect(categories[6].route).toBe('/admin/settings/sms');
-        expect(categories[7].route).toBe('/admin/settings/ai');
-        expect(categories[8].route).toBe('/admin/settings/message');
-        expect(categories[9].route).toBe('/admin/settings/site-usage');
-        expect(categories[10].route).toBe('/admin/settings/localization');
-        expect(categories[11].route).toBe('/admin/settings/search');
-        expect(categories[12].route).toBe('/admin/settings/discoverability');
-        expect(categories[13].route).toBe('/admin/settings/app-audience');
-        expect(categories[14].route).toBe('/admin/settings/automations');
-        expect(categories[15].route).toBe('/admin/settings/misc');
-    });
-
-    it('should have SMS right after user settings (phone sign-in)', () => {
-        expect(component.settingCategories()[6].id).toBe('sms');
-    });
-
-    it('should have AI right after SMS', () => {
-        expect(component.settingCategories()[7].id).toBe('ai');
-        expect(component.settingCategories()[7].feature).toBe('ai');
-    });
-
-    it('should have discoverability as thirteenth category (D3)', () => {
-        expect(component.settingCategories()[12].id).toBe('discoverability');
-        expect(component.settingCategories()[12].label).toBe('Discoverability');
-    });
-
-    it('should have search as twelfth category', () => {
-        expect(component.settingCategories()[11].id).toBe('search');
-        expect(component.settingCategories()[11].label).toBe('Search');
-    });
-
-    it('should have localization as eleventh category', () => {
-        expect(component.settingCategories()[10].id).toBe('localization');
-        expect(component.settingCategories()[10].label).toBe('Localization');
+    it('names each setting in the browser tab by its hub name (app.routes.ts titleKey)', () => {
+        const routes = readFileSync(join(__dirname, '../../../app.routes.ts'), 'utf8');
+        const block = routes.slice(routes.indexOf('// Admin Settings Routes'), routes.indexOf('// Admin Data Routes'));
+        const en = JSON.parse(readFileSync(join(__dirname, '../../../../assets/i18n/en.json'), 'utf8')).admin.settings.hub;
+        for (const c of component.settingCategories()) {
+            const path = c.route.split('/').pop()!;
+            const entry = new RegExp(`path: '${path}',\\n\\s*title: '([^']+)',\\n\\s*data: \\{ titleKey: 'admin\\.settings\\.hub\\.${path}\\.label' \\}`).exec(block);
+            expect(entry, path).toBeTruthy();
+            expect(entry![1], path).toBe(en[path].label);
+        }
     });
 
     it('gives every tab the feature of its page, or none for core (specs/feature-flags-spec.md 8)', () => {
@@ -130,19 +156,18 @@ describe('SettingsPageComponent', () => {
             source.match(new RegExp(`\\n {8}${selector.replace('.', '\\.')} \\{([^}]*)\\}`))?.[1] ?? '';
         expect(rule('.settings-sidebar')).toMatch(/overflow-y: auto/);
         expect(rule('.settings-sidebar')).toMatch(/min-height: 0/);
-        expect(rule('.settings-sidebar mat-nav-list')).toMatch(/flex: 1 0 auto/);
-        expect(rule('.setting-item')).toMatch(/flex: 1 0 auto/);
     });
 
-    // Up to 992px wide the menu is a row of chips. Each must keep its own width, or
-    // the wide layout's flex: 1 0 auto !important and Material's width: 100% make
-    // the first chip fill the row and hide the others.
-    it('keeps each chip its own width in the narrow layout, so every setting can be reached', () => {
+    // Up to 992px wide the menu folds under a button and opens as a list: no
+    // sideways scrolling row of chips, which hid most settings on a phone.
+    it('has no sideways scrolling row on a phone', () => {
         const source = readFileSync(join(__dirname, 'settings.page.ts'), 'utf8');
         const narrow = source.slice(source.indexOf('@media (max-width: 992px)'));
-        const chip = narrow.match(/\n {12}\.setting-item \{([^}]*)\}/)?.[1] ?? '';
-        expect(chip).toMatch(/flex: 0 0 auto !important/);
-        expect(chip).toMatch(/width: auto !important/);
+        expect(narrow).not.toMatch(/overflow-x: auto/);
+        expect(narrow).not.toMatch(/white-space: nowrap;\s*\n\s*overflow: hidden/);
+        expect(narrow).toMatch(/\.settings-menu-toggle \{[^}]*display: flex/);
+        expect(narrow).toMatch(/\.settings-sidebar\.open \.settings-menu \{[^}]*display: block/);
+        expect(narrow).toMatch(/grid-template-columns: repeat\(auto-fill, minmax\(150px, 1fr\)\)/);
     });
 });
 

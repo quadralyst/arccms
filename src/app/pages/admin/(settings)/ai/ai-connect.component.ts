@@ -112,7 +112,7 @@ type Phase = 'idle' | 'saving' | 'testing' | 'done' | 'failed';
                                     <input id="aiConnectKey" class="form-control" autocomplete="off" spellcheck="false" [type]="showKey() ? 'text' : 'password'"
                                         [placeholder]="guide()?.keyPrefix ? ('admin.settings.ai.key_placeholder' | transloco: { prefix: guide()?.keyPrefix }) : ''"
                                         [ngModel]="key()" (ngModelChange)="key.set($event)" />
-                                    <button type="button" class="btn btn-outline-secondary" (click)="showKey.set(!showKey())" [attr.aria-label]="(showKey() ? 'admin.settings.ai.hide_key' : 'admin.settings.ai.show_key') | transloco">
+                                    <button type="button" class="btn btn-outline-secondary" (click)="showKey.set(!showKey())" [attr.aria-label]="'admin.settings.ai.show_key' | transloco" [attr.aria-pressed]="showKey()">
                                         <i class="fa-solid" [class.fa-eye]="!showKey()" [class.fa-eye-slash]="showKey()"></i>
                                     </button>
                                 </div>

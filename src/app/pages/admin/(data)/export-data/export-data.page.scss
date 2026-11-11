@@ -72,7 +72,7 @@
 
 .selection-summary {
     font-size: 0.85rem;
-    color: #6c757d;
+    color: #5c636a;
     white-space: nowrap;
 }
 
@@ -116,7 +116,7 @@
 
 .chevron-icon {
     font-size: 0.75rem;
-    color: #6c757d;
+    color: #5c636a;
     width: 12px;
     text-align: center;
 }
@@ -184,13 +184,13 @@
 
 .collection-path {
     font-size: 0.75rem;
-    color: #6c757d;
+    color: #5c636a;
     font-family: monospace;
 }
 
 .collection-count {
     font-size: 0.85rem;
-    color: #6c757d;
+    color: #5c636a;
     white-space: nowrap;
 }
 
@@ -210,12 +210,12 @@
 }
 
 .sub-icon {
-    color: #adb5bd;
+    color: #6c757d;
     font-size: 0.75rem;
 }
 
 .loading-dots {
-    color: #adb5bd;
+    color: #6c757d;
 }
 
 // ---------------------------------------------------------------------------
@@ -271,7 +271,7 @@
 
 .bundle-refs {
     font-size: 0.7rem;
-    color: #6c757d;
+    color: #5c636a;
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -294,7 +294,7 @@
     border: none;
     border-radius: 4px;
     background: transparent;
-    color: #6c757d;
+    color: #5c636a;
     cursor: pointer;
     font-size: 0.75rem;
 
@@ -336,7 +336,7 @@
 .progress-text {
     margin: 8px 0 0 0;
     font-size: 0.85rem;
-    color: #6c757d;
+    color: #5c636a;
 }
 
 .export-complete {

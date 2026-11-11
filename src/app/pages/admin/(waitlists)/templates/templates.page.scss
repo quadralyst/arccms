@@ -128,7 +128,8 @@
 .form-group {
     margin-bottom: 20px;
 
-    label {
+    label,
+    .field-label {
         display: block;
         margin-bottom: 8px;
         font-size: 14px;
@@ -169,7 +170,8 @@
     align-items: center;
     margin-bottom: 8px;
 
-    label {
+    label,
+    .field-label {
         margin-bottom: 0;
     }
 
@@ -492,7 +494,7 @@
         .preview-text {
             display: block;
             font-size: 12px;
-            color: #999;
+            color: #666;
             margin-top: 4px;
         }
     }

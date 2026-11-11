@@ -1,4 +1,4 @@
-// Onboarding Wizard — reuses signup screen CSS classes from global styles.
+// Onboarding wizard: reuses signup screen CSS classes from global styles.
 // Only onboarding-specific overrides and additions are defined here.
 
 .arc-onboarding {
@@ -25,7 +25,8 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--arc-admin-accent);
+  // Small text: the dark accent keeps it at 4.5:1 or more (the accent itself is about 4.1:1 on white)
+  color: var(--arc-admin-accent-dark);
   margin-bottom: 0.5rem;
   text-align: center;
 }
@@ -40,7 +41,6 @@
   li {
     padding: 0.5rem 0;
     font-size: 1rem;
-    opacity: 0.9;
     display: flex;
     align-items: center;
     gap: 0.6rem;
@@ -66,7 +66,7 @@
   display: none;
 }
 
-// Right panel — flex column so cards can be vertically centered
+// Right panel: a flex column so cards can be vertically centered
 .wizard-right-panel {
   display: flex;
   flex-direction: column;
@@ -160,7 +160,7 @@
 
 .copyright {
   text-align: center;
-  color: #9ca3af;
+  color: #6b7280; // 4.8:1 on white; #9ca3af read at 2.5:1
   font-size: 0.8rem;
   padding: 20px 0;
   margin-top: auto;
@@ -188,9 +188,12 @@
   color: #4b5563;
 }
 
-// ─── Skip link ───
+// ─── Skip link (a button: it acts, it goes nowhere) ───
 .skip-link {
-  color: var(--arc-admin-accent);
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--arc-admin-accent-dark); // small text: the dark accent reads at 4.5:1 or more
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -199,14 +202,19 @@
   white-space: nowrap;
 
   &:hover {
-    color: var(--arc-admin-accent-dark);
     text-decoration: underline;
   }
 
-  &.disabled {
+  &:disabled {
     pointer-events: none;
     opacity: 0.5;
   }
+}
+
+// The labels of the name and email summary on step 2: on the light box, Bootstrap's
+// muted grey reads just under 4.5:1.
+.summary-label {
+  color: #4b5563;
 }
 
 // ─── Step 5: Review section ───

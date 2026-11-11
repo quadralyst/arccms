@@ -236,7 +236,7 @@ describe('EditContentTypeComponent', () => {
             expect(component.errorSlug()).toBe(true);
             expect(component.isEditingSlug()).toBe(true);
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                expect.stringContaining('already exists'),
+                expect.stringContaining('already has the address'),
                 'error',
                 'error'
             );
@@ -270,7 +270,7 @@ describe('EditContentTypeComponent', () => {
             component.errorSlug.set(true);
             await component.onSubmit();
             expect(mockStore.update).not.toHaveBeenCalled();
-            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(expect.stringContaining('fix the slug'), 'error', 'error');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(expect.stringContaining('Fix the address'), 'error', 'error');
         });
 
         it('clears a refused slug once it is typed over, so Update checks it again', () => {
@@ -310,7 +310,7 @@ describe('EditContentTypeComponent', () => {
             await new Promise((resolve) => setTimeout(resolve, 0));
             fixture.detectChanges();
         };
-        const pencil = () => fixture.nativeElement.querySelector('[aria-label="Edit slug"]');
+        const pencil = () => fixture.nativeElement.querySelector('[aria-label="Edit address"]');
         const lockNote = () => fixture.nativeElement.querySelector('[data-testid="slug-locked"]');
         const reopen = async () => {
             fixture = TestBed.createComponent(EditContentTypeComponent);
@@ -367,7 +367,7 @@ describe('EditContentTypeComponent', () => {
             component.editForm.get('slug')?.setValue('new-slug');
             await component.onSubmit();
             expect(mockStore.update).not.toHaveBeenCalled();
-            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(expect.stringContaining('Could not check'), 'error', 'error');
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(expect.stringContaining('could not be checked'), 'error', 'error');
         });
     });
 
@@ -611,7 +611,7 @@ describe('EditContentTypeComponent', () => {
             await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                'Content type updated successfully',
+                'Content type saved.',
                 'success',
                 'check_circle'
             );
@@ -636,7 +636,7 @@ describe('EditContentTypeComponent', () => {
             await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                'Error updating content type',
+                'The content type could not be saved. Try again.',
                 'error',
                 'error'
             );

@@ -196,6 +196,26 @@ describe('ImportFilesPageComponent', () => {
         expect(fixture.nativeElement.textContent).not.toContain('unauthorized');
     });
 
+    it('says a file that failed did not upload, in plain words, not the storage error', async () => {
+        mockImportFilesService.uploadFiles.mockResolvedValue([
+            { fileName: 'a.jpg', storagePath: 'mediaImages/a.jpg', downloadURL: '', success: false, error: 'Firebase Storage: User does not have permission (storage/unauthorized)' },
+        ]);
+        component.selectedFiles.set([new File(['1'], 'a.jpg')]);
+
+        await component.startUpload();
+        fixture.detectChanges();
+
+        expect(component.uploadResults()![0].error).toBe('Did not upload. Try again.');
+        expect(fixture.nativeElement.textContent).not.toContain('storage/unauthorized');
+    });
+
+    it('names the button that takes a file off the list', () => {
+        component.selectedFiles.set([new File(['1'], 'a.jpg')]);
+        fixture.detectChanges();
+        const remove = (fixture.nativeElement as HTMLElement).querySelector('.remove-btn')!;
+        expect(remove.getAttribute('aria-label')).toBe('Remove a.jpg from the list');
+    });
+
     it('should reset all state on resetUpload', () => {
         component.selectedFiles.set([new File(['1'], 'img1.jpg')]);
         component.uploadResults.set([{ fileName: 'img1.jpg', storagePath: '', downloadURL: '', success: true }]);

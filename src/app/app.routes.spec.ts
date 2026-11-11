@@ -173,3 +173,35 @@ describe('App Routes', () => {
         return Array.isArray(val);
     }
 });
+
+/** RF5 5.4: every admin tab title uses the agreed words, in the admin's language. */
+describe('admin tab titles', () => {
+    const en = JSON.parse(readFileSync(resolve(__dirname, '../assets/i18n/en.json'), 'utf8'));
+    const lookup = (key: string) => key.split('.').reduce((node: any, part) => node?.[part], en);
+    const admin = routes.find((r) => r.path === 'admin')!;
+    const titled: { path: string; title: string; titleKey?: string }[] = [];
+    const walk = (list: Routes, base: string) => {
+        for (const r of list) {
+            const path = `${base}/${r.path ?? ''}`;
+            if (typeof r.title === 'string') titled.push({ path, title: r.title, titleKey: r.data?.['titleKey'] });
+            if (r.children) walk(r.children, path);
+        }
+    };
+    walk(admin.children ?? [], '/admin');
+
+    it('has a translated title for every admin page with a title', () => {
+        expect(titled.length).toBeGreaterThan(30);
+        for (const t of titled) {
+            expect(t.titleKey, t.path).toBeTruthy();
+            expect(typeof lookup(t.titleKey!), `${t.path}: ${t.titleKey}`).toBe('string');
+        }
+    });
+
+    it('says Forms, Media and Entries, never the old words', () => {
+        const titles = titled.map((t) => t.title);
+        expect(titles).toEqual(expect.arrayContaining(['Forms', 'Media', 'Entries', 'New entry', 'Tags']));
+        for (const old of ['Signup Forms', 'Media Manager', 'Contents List', 'Add Content', 'Tags Management', 'Waitlist']) {
+            expect(titles.some((t) => t.includes(old)), old).toBe(false);
+        }
+    });
+});

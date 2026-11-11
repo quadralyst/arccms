@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, Injector, OnDestroy, OnInit, runInInjectionContext, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, Injector, OnDestroy, OnInit, runInInjectionContext, signal, untracked, ViewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,6 +15,9 @@ import { Functions } from '@angular/fire/functions';
 import { followLandedPage } from '../../../../shared/services/generic-store.service';
 import { statusBadgeClass, statusBadgeLabel } from '../../../../shared/utils/status-badge';
 import { Subscription } from 'rxjs';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { injectT } from '../../../core/i18n/inject-t';
+import { isTranslationKey } from '../../../core/i18n/translatable.pipe';
 
 import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
@@ -53,6 +56,7 @@ interface ActiveBroadcast {
         ViewEmailLogComponent,
         EmailHealthCardComponent,
         PageHeaderComponent,
+        TranslocoPipe,
     ],
     providers: [DatePipe],
     templateUrl: './email-logs.html',
@@ -72,6 +76,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
     dialog = inject(MatDialog);
     sanitizer = inject(DomSanitizer);
     toastService = inject(ToastService);
+    private readonly t = injectT();
 
     // State signals
     currentId = signal('');
@@ -82,6 +87,13 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
     statusFilter = signal('');
     isPurging = signal(false);
     retentionDays = signal(60);
+
+    /**
+     * Set when the list did not load: the table says so and offers Retry. Kept here, not
+     * read from the store's error, which the log drawer's own read also sets.
+     */
+    loadError = signal<string | boolean | null>(null);
+    private awaitingList = false;
 
     // Active broadcast progress
     activeBroadcasts = signal<ActiveBroadcast[]>([]);
@@ -95,6 +107,13 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
     constructor() {
         // The page the list landed on, which a removed record can change.
         followLandedPage(this.emailLogStore.currentPageNumber, this.currentPage);
+
+        // When a read of the list ends, whether it failed.
+        effect(() => {
+            const loading = this.emailLogStore.isLoading();
+            const error = this.emailLogStore.error();
+            untracked(() => this.noteListRead(loading, error));
+        });
 
         // Initialize from URL query params (Fix 10: plain code instead of effect). A list opens on
         // its first page: a page in the middle cannot be reached without the ones before it (page-cursors.ts).
@@ -143,7 +162,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
                 this.activeBroadcasts.set(
                     typedDocs.map((d) => ({
                         id: d['id'] as string,
-                        subject: d['subject'] || '(no subject)',
+                        subject: d['subject'] || this.t('admin.email_logs.no_subject'),
                         status: d['status'],
                         totalCount: d['totalCount'] || 0,
                         sentCount: d['sentCount'] || 0,
@@ -157,7 +176,10 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
         });
     }
 
-    private fetchData(): void {
+    /** Read the current page of logs. Retry calls it again after a failed read. */
+    fetchData(): void {
+        this.loadError.set(null);
+        this.awaitingList = true;
         const whereConditions: any[] = [];
 
         if (this.statusFilter()) {
@@ -176,6 +198,13 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
             orderByDirection: this.sortOrder(),
             whereConditions,
         });
+    }
+
+    /** Once the list's read ends, keep whether it failed. Later reads (the drawer's) change nothing. */
+    noteListRead(loading: boolean, error: string): void {
+        if (!this.awaitingList || loading) return;
+        this.awaitingList = false;
+        this.loadError.set(error ? true : null);
     }
 
     // Drawer
@@ -247,15 +276,16 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
     purgeOldLogs(): void {
         const days = this.retentionDays();
         const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to delete all email logs older than <strong>${days} days</strong>? This action cannot be undone.`,
+            this.t('admin.email_logs.purge_confirm', { days }),
         );
 
         const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
             width: '400px',
             data: {
                 dialogType: 'Purge',
+                titleKey: 'admin.email_logs.purge_title',
                 dialogMessage: msg,
-                btnText: 'Purge Old Logs',
+                btnText: this.t('admin.email_logs.purge'),
                 panelType: 'warn',
             },
         });
@@ -266,17 +296,31 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
                 const callable = arcCallable(this.functions, 'purgeEmailLogs');
                 callable({ daysOld: days })
                     .then((res: any) => {
-                        this.toastService.success(`Purged ${res.data.deletedCount} email log(s) older than ${days} days.`);
+                        this.toastService.success(this.t('admin.email_logs.purged', { count: res.data.deletedCount, days }));
                         this.fetchData();
                     })
                     .catch((err) => {
-                        this.toastService.error('Failed to purge logs: ' + err.message);
+                        console.error('Purging email logs failed:', err);
+                        this.toastService.error(this.t('admin.email_logs.purge_failed'));
                     })
                     .finally(() => {
                         this.isPurging.set(false);
                     });
             }
         });
+    }
+
+    /** A log's status in the admin's language. */
+    statusText(status?: string): string {
+        if (!status) return this.t('admin.email_logs.status.pending');
+        const key = `admin.email_logs.status.${status}`;
+        return isTranslationKey(key) ? this.t(key) : statusBadgeLabel(status);
+    }
+
+    /** A running broadcast's status in the admin's language. */
+    broadcastStatus(status: string): string {
+        const key = `admin.broadcasts.status.${status}`;
+        return isTranslationKey(key) ? this.t(key) : statusBadgeLabel(status);
     }
 
     // Cell click handler
@@ -295,19 +339,19 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
             },
             {
                 key: 'toEmail',
-                header: 'Recipient',
+                header: 'admin.email_logs.col_recipient',
                 clickable: true,
                 classFn: () => 'fw-bold cursor-pointer text-primary',
             },
             {
                 key: 'processedSubject',
-                header: 'Subject',
+                header: 'admin.email_logs.col_subject',
                 type: 'text',
-                transformFn: (row: IEmailLog) => sentSubject(row),
+                transformFn: (row: IEmailLog) => sentSubject(row, this.t('admin.email_logs.no_subject')),
             },
             {
                 key: 'type',
-                header: 'Type',
+                header: 'common.table.type',
                 type: 'text',
                 transformFn: (row: IEmailLog) =>
                     (row.type || '')
@@ -317,40 +361,36 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
             {
                 // A delivery status is not a boolean. This column used to collapse all
                 // seven states into Success/Failed, and because the badge read the raw
-                // field it showed a green "Success" for `skipped` — the exact status a
+                // field it showed a green "Success" for `skipped`: the exact status a
                 // queueEmail gate writes when it deliberately withholds a message. The
                 // health strip above the table counted those skips correctly, so the
                 // two disagreed on the same page.
                 key: 'status',
-                header: 'Status',
+                header: 'common.table.status',
                 type: 'badge',
-                badgeConfig: { textFn: (row: IEmailLog) => statusBadgeLabel(row.status) },
+                badgeConfig: { textFn: (row: IEmailLog) => this.statusText(row.status) },
                 classFn: (row: IEmailLog) => statusBadgeClass(row.status),
             },
             {
                 key: 'activeProvider',
-                header: 'Provider',
+                header: 'admin.email_logs.col_provider',
                 type: 'text',
                 transformFn: (row: IEmailLog) =>
                     (row.activeProvider || '').toUpperCase() || '-',
             },
             {
                 key: 'createdAt',
-                header: 'Sent Date',
+                header: 'admin.email_logs.col_sent',
                 type: 'date',
                 sortable: true,
                 dateFormat: 'MMM d, y HH:mm',
             },
             {
                 key: 'isOpened',
-                header: 'Opened',
+                header: 'admin.email_logs.col_opened',
                 type: 'badge',
-                badgeConfig: {
-                    trueClass: 'active',
-                    falseClass: 'inactive',
-                    trueText: 'Yes',
-                    falseText: 'No',
-                },
+                badgeConfig: { textFn: (row: IEmailLog) => this.t(row.isOpened ? 'common.yes' : 'common.no') },
+                classFn: (row: IEmailLog) => (row.isOpened ? 'active' : 'inactive'),
             },
             {
                 key: 'actions',
@@ -360,7 +400,7 @@ export default class EmailLogsComponent implements OnInit, OnDestroy {
                     {
                         action: 'view',
                         icon: 'fas fa-eye text-secondary',
-                        label: 'View',
+                        label: 'common.actions.view',
                         class: 'view',
                         onAction: (row: IEmailLog) => this.openView(row.id),
                     },

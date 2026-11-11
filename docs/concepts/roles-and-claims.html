@@ -11,7 +11,7 @@
 <body data-root="../" data-page="concepts/roles-and-claims.html">
   <main>
     <h1>Roles and claims</h1>
-    <p class="lead">Every person has one role, stored on their <code>users</code> record and copied onto their sign-in account as a custom claim. The security rules and the Cloud Functions read the claim, and only an admin or the server can change it.</p>
+    <p class="lead">Every person has one role, stored on their <code>users</code> record and copied onto their sign-in account as a custom claim. The security rules and the Cloud Functions read the claim, and only the server can change it: an admin asks it to, from Users.</p>
 
     <h2>The roles</h2>
     <table>
@@ -39,16 +39,16 @@
     <h2>How a role is granted and changed</h2>
     <ul>
       <li><strong>The first admin</strong> of a fresh install comes from the setup wizard, which calls <code>claimFirstAdmin</code>. It grants admin once, and only while no admin exists. See <a href="../getting-started/first-admin.html">Create the first admin</a>.</li>
-      <li><strong>A sign-up</strong> gets <code>user</code>, or the site's default role if an admin set one (Settings, User Settings, Default Role for New Users).</li>
+      <li><strong>A sign-up</strong> gets <code>user</code>, or the site's default role if an admin set one (Settings, Sign-up and roles, Role for new users).</li>
       <li><strong>An admin adds a person</strong> with a role, under Users. The <code>adminCreateUser</code> callable creates the account and the record and sets the claims at once.</li>
-      <li><strong>An admin or the server changes</strong> <code>role</code> on a <code>users</code> record. The Firebase console writes as the server, so it can repair a lost admin.</li>
+      <li><strong>An admin changes the role</strong> on Users, Edit. The <code>adminSetUserRole</code> callable writes it. It acts only for an admin whose own record is still an active admin's (a token keeps the old claim for up to an hour), never on your own record, never demoting the last active admin, and never raising an email sign-in whose email was never verified unless the admins hold its password (Add user made it, or Edit user set a new password since). A demoted admin's sessions end, so the old claim goes within the hour. The server writes <code>role</code> directly too, and the Firebase console writes as the server, so it can repair a lost admin.</li>
     </ul>
     <p>Whenever a record is created or its role changes, the <code>onUserRoleChange</code> function copies the role and the record id onto the account as claims. A blocked record gets no claims, and its sessions are ended. The admin screens are described in <a href="../features/users-and-roles.html">Users and roles</a>.</p>
     <p>At every sign-in the browser compares the token's claims with the record and, when they differ, asks the server to set them again (<code>refreshMyClaims</code>) before it lets the person in. Someone already signed in gets a new role when their ID token refreshes, within the hour, or at their next sign-in. An admin can re-apply every account's claims with the <code>syncAllUserRoles</code> callable.</p>
 
     <h2>Why nobody can promote themselves</h2>
     <ol class="steps">
-      <li><p><strong>The rules.</strong> Only admins create <code>users</code> records from the browser; every sign-up creates its record on the server. A person may update their own record, but never <code>role</code>, <code>uid</code>, the block switches (<code>isActive</code>, <code>status</code>), their email or phone, or the premium fields, and <code>emailVerified</code> may only go to false. <code>Settings/users</code>, which holds the default role for sign-ups, is admin write only.</p></li>
+      <li><p><strong>The rules.</strong> No browser creates or deletes a <code>users</code> record, or writes its <code>role</code>, <code>uid</code>, <code>isActive</code> or <code>status</code>, an admin's included: every sign-up creates its record on the server, and admins change these through callables that keep an active admin. A person may update their own record, but never <code>role</code>, <code>uid</code>, the block switches (<code>isActive</code>, <code>status</code>), their email or phone, or the premium fields, and <code>emailVerified</code> may only go to false. <code>Settings/users</code>, which holds the default role for sign-ups, is admin write only.</p></li>
       <li><p><strong>The role trigger.</strong> If a role other than <code>user</code> is ever written by someone who is not an admin (by the claim) and not the server, <code>onUserRoleChange</code> refuses it, logs an error and puts the old role back. The claim does not follow. The server here means a write the database reports as a service account or the system, or one made by this project's own service accounts (such as <code>&lt;project-number&gt;-compute@developer.gserviceaccount.com</code>, which 2nd gen functions run as). Another project's service account is not trusted.</p></li>
       <li><p><strong>The first admin, once.</strong> <code>claimFirstAdmin</code> checks, in one transaction, that no admin has ever been made, and leaves a marker that no browser can read or write.</p></li>
     </ol>

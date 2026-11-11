@@ -57,7 +57,7 @@ export const CUSTOM_NAV: MenuItem[] = [
       </tbody>
     </table>
     <div class="trap"><p>An item without <code>allowRoles</code> is never shown, for anyone. Set it on every top-level item. Sub-items are shown to whoever sees their group.</p></div>
-    <div class="trap"><p>The menu finds Profile and Logout by their <code>id</code>, and clicking the item with the id <code>logout</code> opens the sign-out dialog. Never give your own item a core item's id: the test suite fails on it. A group's open or closed state is kept by its <code>id</code>, or by its label when it has none, so give every group of yours an id or a unique label.</p></div>
+    <div class="trap"><p>The menu finds Profile and Sign out by their <code>id</code>, and clicking the item with the id <code>logout</code> opens the sign-out dialog. Never give your own item a core item's id: the test suite fails on it. A group's open or closed state is kept by its <code>id</code>, or by its label when it has none, so give every group of yours an id or a unique label.</p></div>
 
     <h2>Group items</h2>
     <pre><code>export const CUSTOM_NAV: MenuItem[] = [
@@ -91,7 +91,7 @@ export const CUSTOM_NAV_CHANGES: NavChanges = {
   admin: [
     // Dashboard opens the app's own page
     { id: 'dashboard', route: '/admin/extension-dashboard' },
-    // Media Manager is gone from the menu
+    // Media is gone from the menu
     { id: 'media', hide: true },
     // Users is reworded with the app's own key
     { id: 'users', labelKey: 'custom.nav.people' },
@@ -120,17 +120,17 @@ export const CUSTOM_NAV_CHANGES: NavChanges = {
       <li>A change can name an item at the top level or inside a group (such as <code>contacts</code> in Audience). <code>before</code> and <code>after</code> put the item in the same list as the item they name, so you can move a link into a group or out of one. A group never goes inside another group.</li>
       <li>Setting <code>route</code> drops the item's <code>externalUrl</code>, and setting <code>externalUrl</code> drops its <code>route</code>: an item opens one or the other. Setting <code>label</code> without <code>labelKey</code> shows your label as written, untranslated; to reword an item in every admin language, set <code>labelKey</code> to a key of yours in <code>src/custom/i18n/</code>, or reword the core key there (<a href="custom-space.html#styles-and-translations">Styles and translations</a>).</li>
       <li>A change that names an id the menu does not have is ignored when the app runs (the test suite reports it first, see <a href="#what-the-test-suite-checks">below</a>). An add whose <code>before</code> or <code>after</code> item is not in the menu goes at the end; a move whose item is not there leaves the item where it was.</li>
-      <li>Profile and Logout cannot be hidden: people must always be able to reach their profile and sign out. A change to their <code>allowRoles</code> can only add roles, and Logout always opens the sign-out dialog, so its <code>route</code>, <code>queryParams</code> and <code>externalUrl</code> cannot be changed. You can still reword and move them.</li>
+      <li>Profile and Sign out cannot be hidden: people must always be able to reach their profile and sign out. A change to their <code>allowRoles</code> can only add roles, and Sign out always opens the sign-out dialog, so its <code>route</code>, <code>queryParams</code> and <code>externalUrl</code> cannot be changed. You can still reword and move them.</li>
       <li>A dividing line is kept before Profile, wherever it is, and lines never lead, trail or come two in a row, so hiding items leaves no gaps.</li>
     </ul>
 
     <h3>Change the menu for some roles</h3>
     <p>A change with <code>roles</code> applies only when the signed-in person's role is one of them. Without <code>roles</code> it applies to every role. This is how one app shows admins, editors and its own roles different menus:</p>
     <pre><code>admin: [
-  // Editors see Media Manager, without Settings
+  // Editors see Media, without Settings
   { id: 'media', allowRoles: ['admin', 'editor'], roles: ['editor'] },
   { id: 'settings', hide: true, roles: ['editor'] },
-  // Profile and Logout for editors too
+  // Profile and Sign out for editors too
   { id: 'profile', allowRoles: ['editor'] },
   { id: 'logout', allowRoles: ['editor'] },
 ],</code></pre>
@@ -142,7 +142,7 @@ export const CUSTOM_NAV_CHANGES: NavChanges = {
       <li>a change, <code>before</code> or <code>after</code> that names an id the menu does not have (core's, your <code>CUSTOM_NAV</code> items', or one an add in the same list brings);</li>
       <li>a <code>route</code> that is not a path on this site starting with <code>/</code>, or an <code>externalUrl</code> that is not an <code>https://</code> address;</li>
       <li>an add without an <code>id</code> or <code>label</code>, or with an id the menu already has; both <code>before</code> and <code>after</code> on one change; an empty <code>roles</code>;</li>
-      <li>hiding Profile or Logout, or changing where Logout leads;</li>
+      <li>hiding Profile or Sign out, or changing where Sign out leads;</li>
       <li>a <code>labelKey</code> that no English file has, and an admin label key missing from <code>src/custom/i18n/hi.json</code>.</li>
     </ul>
 
@@ -152,21 +152,21 @@ export const CUSTOM_NAV_CHANGES: NavChanges = {
       <thead><tr><th>Id</th><th>Item</th><th>Opens</th><th>Sub-items</th></tr></thead>
       <tbody>
         <tr><td><code>dashboard</code></td><td>Dashboard</td><td><code>/admin/dashboard</code></td><td></td></tr>
-        <tr><td><code>signup-forms</code></td><td>Signup Forms</td><td><code>/admin/waitlists</code></td><td></td></tr>
-        <tr><td><code>media</code></td><td>Media Manager</td><td><code>/admin/media</code></td><td></td></tr>
+        <tr><td><code>signup-forms</code></td><td>Forms</td><td><code>/admin/waitlists</code></td><td></td></tr>
+        <tr><td><code>media</code></td><td>Media</td><td><code>/admin/media</code></td><td></td></tr>
         <tr><td><code>content</code></td><td>Content</td><td></td><td><code>content-types</code> (Content types), <code>authors</code> (Authors)</td></tr>
         <tr><td><code>users</code></td><td>Users</td><td><code>/admin/users</code></td><td></td></tr>
         <tr><td><code>audience</code></td><td>Audience</td><td></td><td><code>contacts</code> (Contacts), <code>lists</code> (Lists), <code>contact-tags</code> (Tags), <code>contact-fields</code> (Fields), <code>app-users</code> (App users)</td></tr>
-        <tr><td><code>email</code></td><td>Email + SMS</td><td></td><td><code>brand-kit</code> (Brand Kit), <code>composer</code> (Composer), <code>broadcasts</code> (Broadcasts), <code>drip-campaigns</code> (Drip Campaigns), <code>announcements</code> (Announcements), <code>email-logs</code> (Email Logs), <code>sms-logs</code> (SMS Logs)</td></tr>
+        <tr><td><code>email</code></td><td>Email + SMS</td><td></td><td><code>brand-kit</code> (Brand kit), <code>composer</code> (Composer), <code>broadcasts</code> (Broadcasts), <code>drip-campaigns</code> (Drip campaigns), <code>announcements</code> (Announcements), <code>email-logs</code> (Email logs), <code>sms-logs</code> (SMS logs)</td></tr>
         <tr><td><code>feedback</code></td><td>Feedback</td><td><code>/admin/feedback</code></td><td></td></tr>
         <tr><td><code>messages</code></td><td>Messages</td><td><code>/admin/messages</code></td><td></td></tr>
         <tr><td><code>products</code></td><td>Products</td><td><code>/admin/products</code></td><td></td></tr>
         <tr><td><code>transactions</code></td><td>Transactions</td><td><code>/admin/transactions</code></td><td></td></tr>
-        <tr><td><code>data</code></td><td>Data</td><td></td><td><code>export-data</code> (Export Data), <code>import-data</code> (Import Data), <code>export-files</code> (Export Files), <code>import-files</code> (Import Files)</td></tr>
+        <tr><td><code>data</code></td><td>Data</td><td></td><td><code>export-data</code> (Export data), <code>import-data</code> (Import data), <code>export-files</code> (Export files), <code>import-files</code> (Import files)</td></tr>
         <tr><td><code>profile</code></td><td>Profile</td><td><code>/admin/profile</code></td><td></td></tr>
         <tr><td><code>settings</code></td><td>Settings</td><td><code>/admin/settings</code></td><td></td></tr>
         <tr><td><code>about</code></td><td>About</td><td><code>https://arccms.com/about</code></td><td></td></tr>
-        <tr><td><code>logout</code></td><td>Logout</td><td>The sign-out dialog</td><td></td></tr>
+        <tr><td><code>logout</code></td><td>Sign out</td><td>The sign-out dialog</td><td></td></tr>
       </tbody>
     </table>
     <p>The ids are in <code>src/app/core/nav/admin-menu.ts</code>; the changes are made by <code>applyNavChanges()</code> in <code>src/app/core/nav/nav-changes.ts</code>.</p>

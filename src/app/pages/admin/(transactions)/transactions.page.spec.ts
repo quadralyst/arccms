@@ -84,7 +84,8 @@ describe('TransactionsPageComponent', () => {
 
         expect(rows()).toHaveLength(1);
         expect(rows()[0]).toContain('a@b.com');
-        expect(rows()[0]).toContain('succeeded');
+        // The status in the admin's language, not the stored word.
+        expect(rows()[0]).toContain('Succeeded');
     });
 
     it('marks an admin test charge with a test badge', () => {
@@ -127,5 +128,35 @@ describe('TransactionsPageComponent', () => {
     it('shows an empty state when there are no transactions', () => {
         fixture.detectChanges();
         expect(fixture.nativeElement.textContent).toContain('No transactions.');
+    });
+
+    it('a read that fails says so in plain words, with Retry, not "no transactions"', () => {
+        mockStore.error.set('FirebaseError: [code=unavailable]: Failed to get document because the client is offline.');
+        fixture.detectChanges();
+
+        const alert = fixture.nativeElement.querySelector('.alert-danger');
+        expect(alert).not.toBeNull();
+        expect(alert.getAttribute('role')).toBe('alert');
+        expect(alert.textContent).toContain('This list did not load');
+        expect(fixture.nativeElement.textContent).not.toContain('FirebaseError');
+        expect(fixture.nativeElement.textContent).not.toContain('No transactions.');
+
+        component.statusFilter.set('failed');
+        mockStore.getAll.mockClear();
+        (alert.querySelector('button') as HTMLButtonElement).click();
+        expect(mockStore.getAll).toHaveBeenCalledWith(expect.objectContaining({
+            whereConditions: [{ field: 'status', operator: '==', value: 'failed' }],
+        }));
+    });
+
+    it('a filter with no rows says nothing matches, and Clear filters reads everything again', () => {
+        component.statusFilter.set('refunded');
+        fixture.detectChanges();
+
+        expect(fixture.nativeElement.textContent).toContain('No transactions match this filter.');
+        const clear = [...fixture.nativeElement.querySelectorAll('button')].find((b: HTMLButtonElement) => b.textContent!.includes('Clear filters')) as HTMLButtonElement;
+        clear.click();
+        expect(component.statusFilter()).toBe('');
+        expect(mockStore.getAll).toHaveBeenLastCalledWith(expect.objectContaining({ whereConditions: [] }));
     });
 });

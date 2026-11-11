@@ -4,7 +4,7 @@
         <div class="side-panel">
             <div class="panel-header">
                 <h5>{{ (editing() ? 'admin.contents.authors.edit' : 'admin.contents.authors.new') | transloco }}</h5>
-                <button class="close-btn" (click)="closeDrawer()"><i class="fas fa-times"></i></button>
+                <button type="button" class="close-btn" (click)="closeDrawer()" [attr.aria-label]="'admin.authors.close' | transloco"><i class="fas fa-times" aria-hidden="true"></i></button>
             </div>
 
             <div class="flex-grow-1">
@@ -50,7 +50,7 @@
                 <button mat-stroked-button (click)="closeDrawer()">{{ 'common.actions.cancel' | transloco }}</button>
                 <button mat-flat-button color="primary" [disabled]="busy() || !form.name.trim()" (click)="save()"
                     data-testid="author-save">
-                    <mat-icon>{{ editing() ? 'save' : 'add' }}</mat-icon>
+                    <mat-icon aria-hidden="true">{{ editing() ? 'save' : 'add' }}</mat-icon>
                     {{ (editing() ? 'admin.contents.authors.save' : 'admin.contents.authors.create') | transloco }}
                 </button>
             </div>
@@ -62,11 +62,12 @@
             <arc-page-header [title]="'admin.contents.authors.page_title' | transloco"
                 [subtitle]="'admin.contents.authors.page_subtitle' | transloco">
                 <button mat-flat-button color="primary" (click)="openAdd()" data-testid="author-add">
-                    <mat-icon>add</mat-icon> {{ 'admin.contents.authors.new' | transloco }}
+                    <mat-icon aria-hidden="true">add</mat-icon> {{ 'admin.contents.authors.new' | transloco }}
                 </button>
             </arc-page-header>
 
             <app-global-table [data]="rows()" [columns]="columns" [loading]="loading()"
+                [error]="loadError()" (retry)="load()"
                 emptyIcon="fas fa-user-pen" [emptyTitle]="'admin.contents.authors.empty_title' | transloco"
                 [emptyDescription]="'admin.contents.authors.empty_description' | transloco"
                 [emptyActionLabel]="'admin.contents.authors.new' | transloco" emptyActionIcon="fas fa-plus"

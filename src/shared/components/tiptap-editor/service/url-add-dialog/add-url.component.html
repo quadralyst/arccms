@@ -1,14 +1,14 @@
 <mat-dialog-content>
-    <p>{{ data.msg }}</p>
+    <p>{{ data.msg | translatable }}</p>
     <mat-form-field style="width: 100%">
-        <mat-label>{{ data.placeholder }}</mat-label>
-        <input matInput [(ngModel)]="url" />
+        <mat-label>{{ data.placeholder | translatable }}</mat-label>
+        <input matInput type="url" [(ngModel)]="url" placeholder="https://" />
     </mat-form-field>
 </mat-dialog-content>
 <mat-dialog-actions>
 
     <div class="d-flex justify-content-end">
-        <button matTooltip="Close" class="btn secondary_button mx-2" (click)="onNoClick()">Close</button>&nbsp;
-        <button matTooltip="Save" type="button" class="btn default-button" [mat-dialog-close]="url()">Ok</button>
+        <button type="button" class="btn secondary_button mx-2" (click)="onNoClick()">{{ 'common.actions.cancel' | transloco }}</button>&nbsp;
+        <button type="button" class="btn default-button" [mat-dialog-close]="url()">{{ 'common.add_url.add' | transloco }}</button>
     </div>
 </mat-dialog-actions>

@@ -9,16 +9,16 @@
     <button class="btn btn-outline-secondary" (click)="refreshAnalytics()"
         [disabled]="isRefreshing()">
         @if (isRefreshing()) {
-        <span class="spinner-border spinner-border-sm me-1"></span> {{ 'admin.dashboard.refreshing' | transloco }}
+        <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> {{ 'admin.dashboard.refreshing' | transloco }}
         } @else {
-        <i class="bi bi-arrow-clockwise"></i> {{ 'admin.dashboard.refresh' | transloco }}
+        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> {{ 'admin.dashboard.refresh' | transloco }}
         }
     </button>
     }
     @if (analyticsConnectionStatus.isConnected() && analyticsConnectionStatus.propertyId()) {
     <a [href]="getGa4Url()" target="_blank" rel="noopener noreferrer"
         class="btn btn-link text-decoration-none p-0">
-        {{ 'admin.dashboard.view_full_analytics' | transloco }} <i class="bi bi-box-arrow-up-right"></i>
+        {{ 'admin.dashboard.view_full_analytics' | transloco }} <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
     </a>
     }
 </arc-page-header>
@@ -27,11 +27,11 @@
 @if (emailConfigService.debugMode()) {
 <div class="alert alert-danger d-flex align-items-center justify-content-between mb-4" role="alert">
     <div class="d-flex align-items-center gap-2">
-        <i class="bi bi-bug-fill"></i>
+        <i class="bi bi-bug-fill" aria-hidden="true"></i>
         <span [innerHTML]="'admin.dashboard.debug_banner' | transloco"></span>
     </div>
     <a routerLink="/admin/settings/email" class="btn btn-danger btn-sm text-nowrap">
-        <i class="bi bi-gear me-1"></i> {{ 'admin.dashboard.email_settings' | transloco }}
+        <i class="bi bi-gear me-1" aria-hidden="true"></i> {{ 'admin.dashboard.email_settings' | transloco }}
     </a>
 </div>
 }
@@ -40,20 +40,34 @@
 @if (emailConfigService.shouldShowBanner()) {
 <div class="alert alert-warning d-flex align-items-center justify-content-between mb-4" role="alert">
     <div class="d-flex align-items-center gap-2">
-        <i class="bi bi-exclamation-triangle-fill"></i>
+        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
         <span><strong>{{ 'admin.dashboard.email_not_configured' | transloco }}</strong> {{ 'admin.dashboard.email_disabled_note' | transloco }}</span>
     </div>
     <div class="d-flex align-items-center gap-2">
         <a routerLink="/admin/settings/email" class="btn btn-warning btn-sm">
-            <i class="bi bi-gear me-1"></i> {{ 'admin.dashboard.configure_email' | transloco }}
+            <i class="bi bi-gear me-1" aria-hidden="true"></i> {{ 'admin.dashboard.configure_email' | transloco }}
         </a>
-        <button type="button" class="btn-close" aria-label="Dismiss"
+        <button type="button" class="btn-close" [attr.aria-label]="'admin.dashboard.dismiss' | transloco"
             (click)="emailConfigService.dismissBanner()"></button>
     </div>
 </div>
 }
 
 <div class="arc p-4">
+    <!-- A new install with nothing live yet: one clear first step on top; analytics stays below it -->
+    @if (firstRun()) {
+    <div class="first-run-card mb-4" data-testid="first-run">
+        <div class="first-run-icon" aria-hidden="true"><i class="bi bi-pencil-square"></i></div>
+        <div class="first-run-body">
+            <h2>{{ 'admin.dashboard.first_page_title' | transloco }}</h2>
+            <p>{{ (hasFirstPageType() ? 'admin.dashboard.first_page_text' : 'admin.dashboard.first_page_text_no_type') | transloco }}</p>
+            <a class="btn btn-primary" [routerLink]="firstPageLink()">
+                <i class="bi bi-file-earmark-text me-1" aria-hidden="true"></i> {{ (hasFirstPageType() ? 'admin.dashboard.first_page_button' : 'admin.dashboard.first_page_button_no_type') | transloco }}
+            </a>
+        </div>
+    </div>
+    }
+
     @if (analyticsOn) {
     <!-- Analytics Summary Section (the analytics feature) -->
     <arc-analytics-tracking-status />
@@ -74,15 +88,15 @@
             @for (metric of analyticsData()[0]?.metrics; track metric.title) {
             <div class="metric-card">
                 <div class="metric-card-header">
-                    <div class="metric-icon" [ngClass]="getMetricColor(metric.title)">
+                    <div class="metric-icon" [ngClass]="getMetricColor(metric.title)" aria-hidden="true">
                         <i [class]="metric.icon"></i>
                     </div>
-                    <div class="metric-title">{{ metric.title }}</div>
+                    <div class="metric-title">{{ metricTitle(metric.title) }}</div>
                 </div>
                 <div class="metric-value">{{ metric.value }}</div>
                 <div class="metric-change" [ngClass]="metric.changeType === 'positive' ? 'positive' : 'negative'">
                     @if (metric.change && metric.changeType) {
-                    <i [class]="metric.changeType === 'positive' ? 'bi bi-arrow-up' : 'bi bi-arrow-down'"></i>
+                    <i [class]="metric.changeType === 'positive' ? 'bi bi-arrow-up' : 'bi bi-arrow-down'" aria-hidden="true"></i>
                     {{ metric.change }}
                     } @else {
                     <span class="text-muted">--</span>
@@ -97,10 +111,10 @@
             @for (panel of analyticsData()[0]?.acquisitionPanels; track panel.title) {
             <div class="metric-card">
                 <div class="metric-card-header">
-                    <div class="metric-icon blue">
+                    <div class="metric-icon blue" aria-hidden="true">
                         <i [class]="panel.icon"></i>
                     </div>
-                    <div class="metric-title">{{ panel.title }}</div>
+                    <div class="metric-title">{{ metricTitle(panel.title) }}</div>
                 </div>
                 <div class="list-panel-items">
                     @for (item of panel.items; track item.name) {
@@ -156,14 +170,14 @@
             } @else if (!analyticsConnectionStatus.isConnected()) {
             <div class="analytics-connect-card text-center py-5">
                 <div class="mb-3">
-                    <i class="fa-solid fa-chart-line" style="font-size: 2.5rem; color: #94a3b8;"></i>
+                    <i class="fa-solid fa-chart-line" style="font-size: 2.5rem; color: #94a3b8;" aria-hidden="true"></i>
                 </div>
                 <h5>{{ 'admin.dashboard.ga_not_connected' | transloco }}</h5>
                 <p class="text-muted mb-4" style="max-width: 400px; margin: 0 auto;">
                     {{ 'admin.dashboard.ga_setup_hint' | transloco }}
                 </p>
                 <a routerLink="/admin/settings/analytics" class="btn btn-primary">
-                    <i class="bi bi-gear me-2"></i> {{ 'admin.dashboard.setup_analytics' | transloco }}
+                    <i class="bi bi-gear me-2" aria-hidden="true"></i> {{ 'admin.dashboard.setup_analytics' | transloco }}
                 </a>
                 <p class="text-muted mt-4 mb-0" style="font-size: 0.875rem;">
                     <span [innerHTML]="'admin.dashboard.firebase_console_note' | transloco: { url: getGa4Url() }"></span>
@@ -171,7 +185,7 @@
             </div>
             } @else {
             <div class="alert alert-info">
-                <i class="bi bi-info-circle me-2"></i>
+                <i class="bi bi-info-circle me-2" aria-hidden="true"></i>
                 <span [innerHTML]="'admin.dashboard.no_analytics_yet' | transloco: { refresh: ('admin.dashboard.refresh' | transloco) }"></span>
             </div>
             }
@@ -188,34 +202,33 @@
         </div>
         @if (contentOn) {
         <div class="alert alert-info py-1 px-3 mb-0" style="font-size: 0.9rem;">
-            Managing {{ contentTypes().length + 1 }} content type{{ contentTypes().length + 1 > 1 ? 's' : '' }}
-            ({{ contentTypeNames() ? contentTypeNames() + ', ' : '' }}Media).
+            {{ (contentTypes().length + 1 === 1 ? 'admin.dashboard.managing_types_one' : 'admin.dashboard.managing_types') | transloco: { count: contentTypes().length + 1, names: (contentTypeNames() ? contentTypeNames() + ', ' : '') + ('admin.dashboard.media' | transloco) } }}
         </div>
         }
     </div>
 
     <div class="scrollable-row mb-4">
         @for (contentType of (contentOn ? contentTypes() : []); track contentType.id; let i = $index) {
-        <div class="scrollable-card" (click)="navigateToContentType(contentType.slug)">
+        <a class="scrollable-card dash-card-link" [routerLink]="['/admin/contents', contentType.slug]">
             <div class="metric-card clickable">
                 <div class="metric-card-header">
-                    <div class="metric-icon" [ngClass]="getContentTypeColor(i)">
+                    <div class="metric-icon" [ngClass]="getContentTypeColor(i)" aria-hidden="true">
                         <i [class]="contentType.icon || 'bi bi-file-text'"></i>
                     </div>
                     <div class="metric-title">{{ contentType.name }}</div>
                 </div>
                 <div class="metric-value">{{ getContentCount(contentType.slug).total }}</div>
                 <div class="metric-subtitle">
-                    <span class="text-success">{{ 'admin.dashboard.count_published' | transloco: { count: getContentCount(contentType.slug).published } }}</span> •
-                    <span class="text-warning">{{ 'admin.dashboard.count_draft' | transloco: { count: getContentCount(contentType.slug).draft } }}</span>
+                    <span class="count-published">{{ 'admin.dashboard.count_published' | transloco: { count: getContentCount(contentType.slug).published } }}</span> •
+                    <span class="count-draft">{{ 'admin.dashboard.count_draft' | transloco: { count: getContentCount(contentType.slug).draft } }}</span>
                 </div>
             </div>
-        </div>
+        </a>
         }
-        <div class="scrollable-card" (click)="navigateToMedia()">
+        <a class="scrollable-card dash-card-link" routerLink="/admin/media">
             <div class="metric-card clickable">
                 <div class="metric-card-header">
-                    <div class="metric-icon green">
+                    <div class="metric-icon green" aria-hidden="true">
                         <i class="bi bi-image"></i>
                     </div>
                     <div class="metric-title">{{ 'admin.dashboard.media' | transloco }}</div>
@@ -225,7 +238,7 @@
                     {{ 'admin.dashboard.media_files' | transloco }}
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     <!-- Growth & Leads Section -->
@@ -236,10 +249,10 @@
 
     <div class="scrollable-row mb-4">
         <!-- Users: every app has them -->
-        <div class="scrollable-card" (click)="navigateToUsers()">
+        <a class="scrollable-card dash-card-link" routerLink="/admin/users">
             <div class="metric-card clickable">
                 <div class="metric-card-header">
-                    <div class="metric-icon green">
+                    <div class="metric-icon green" aria-hidden="true">
                         <i class="bi bi-person-fill"></i>
                     </div>
                     <div class="metric-title">{{ 'admin.dashboard.total_users' | transloco }}</div>
@@ -249,37 +262,37 @@
                     <span class="text-muted">{{ 'admin.dashboard.total_users_note' | transloco }}</span>
                 </div>
             </div>
-        </div>
+        </a>
         <!-- Total signups: contacts, so only with the audience feature -->
         @if (audienceOn) {
-        <div class="scrollable-card" (click)="navigateToWaitlists()">
+        <a class="scrollable-card dash-card-link" [routerLink]="formsOn ? '/admin/waitlists' : '/admin/contacts'">
             <div class="metric-card clickable">
                 <div class="metric-card-header">
-                    <div class="metric-icon teal">
+                    <div class="metric-icon teal" aria-hidden="true">
                         <i class="bi bi-people-fill"></i>
                     </div>
                     <div class="metric-title">{{ 'admin.dashboard.total_signups' | transloco }}</div>
                 </div>
                 <div class="metric-value">{{ totalWaitlistCount() | number }}</div>
                 <div class="metric-subtitle card-footer-row">
-                    <span class="text-primary">{{ 'admin.dashboard.count_this_week' | transloco: { count: (last7DaysWaitlistCount() | number) } }}</span>
+                    <span class="count-week">{{ 'admin.dashboard.count_this_week' | transloco: { count: (last7DaysWaitlistCount() | number) } }}</span>
                 </div>
             </div>
-        </div>
+        </a>
         }
-        <!-- Individual Waitlist Cards -->
+        <!-- One card per form -->
         @for (waitlist of (formsOn ? waitlists() : []); track waitlist.id) {
-        <div class="scrollable-card" (click)="navigateToWaitlistDashboard(waitlist.id!)">
+        <a class="scrollable-card dash-card-link" [routerLink]="['/admin/waitlists/dashboard', waitlist.id]">
             <div class="metric-card clickable">
                 <div class="metric-card-header">
-                    <div class="metric-icon navy">
+                    <div class="metric-icon navy" aria-hidden="true">
                         <i class="bi bi-clipboard-data"></i>
                     </div>
                     <div class="metric-title">{{ waitlist.name }}</div>
                 </div>
                 <div class="metric-value">{{ getWaitlistCount(waitlist.id!).total | number }}</div>
                 <div class="metric-subtitle card-footer-row">
-                    <span class="text-primary">
+                    <span class="count-week">
                         @if (getWaitlistCount(waitlist.id!).thisWeek > 0) {
                         {{ 'admin.dashboard.count_this_week' | transloco: { count: (getWaitlistCount(waitlist.id!).thisWeek | number) } }}
                         }
@@ -291,7 +304,7 @@
                     }
                 </div>
             </div>
-        </div>
+        </a>
         }
     </div>
 
@@ -305,7 +318,7 @@
         <div class="scrollable-card">
             <div class="metric-card">
                 <div class="metric-card-header">
-                    <div class="metric-icon blue"><i class="bi bi-phone"></i></div>
+                    <div class="metric-icon blue" aria-hidden="true"><i class="bi bi-phone"></i></div>
                     <div class="metric-title">{{ 'admin.dashboard.installs_30d' | transloco }}</div>
                 </div>
                 <div class="metric-value">{{ pwa.installs | number }}</div>
@@ -319,7 +332,7 @@
         <div class="scrollable-card">
             <div class="metric-card">
                 <div class="metric-card-header">
-                    <div class="metric-icon green"><i class="bi bi-graph-up-arrow"></i></div>
+                    <div class="metric-icon green" aria-hidden="true"><i class="bi bi-graph-up-arrow"></i></div>
                     <div class="metric-title">{{ 'admin.dashboard.install_rate' | transloco }}</div>
                 </div>
                 <div class="metric-value">{{ pwa.rate }}%</div>
@@ -331,7 +344,7 @@
         <div class="scrollable-card">
             <div class="metric-card">
                 <div class="metric-card-header">
-                    <div class="metric-icon teal"><i class="bi bi-house-door"></i></div>
+                    <div class="metric-icon teal" aria-hidden="true"><i class="bi bi-house-door"></i></div>
                     <div class="metric-title">{{ 'admin.dashboard.opened_30d' | transloco }}</div>
                 </div>
                 <div class="metric-value">{{ pwa.opened | number }}</div>
@@ -340,7 +353,7 @@
     </div>
     }
 
-    <!-- Recent waitlist signups (forms) & recent activity (content): each takes the full width alone -->
+    <!-- Recent sign-ups (forms) and recent activity (content): each takes the full width alone -->
     @if (formsOn || contentOn) {
     <div class="row g-3 mb-4">
         @if (formsOn) {
@@ -363,7 +376,7 @@
                         <tr>
                             <td>{{ signup.email }}</td>
                             <td>{{ getTimeAgo(signup.createdAt || signup.signupTimestamp) }}</td>
-                            <td><span class="badge bg-secondary">{{ signup.waitlistId || 'Default' }}</span></td>
+                            <td><span class="badge bg-secondary">{{ formName(signup.waitlistId) }}</span></td>
                         </tr>
                         } @empty {
                         <tr>
@@ -382,8 +395,8 @@
             </div>
             <div class="activity-log-card flex-grow-1">
                 @for (activity of recentActivity(); track activity.id) {
-                <div class="activity-item" (click)="navigateToContentType(activity._contentTypeSlug)">
-                    <div class="activity-icon-col">
+                <a class="activity-item" [routerLink]="['/admin/contents', activity._contentTypeSlug, 'edit', activity.id]">
+                    <div class="activity-icon-col" aria-hidden="true">
                         <div class="activity-dot" [ngClass]="activity.status === 'publish' ? 'dot-published' : 'dot-draft'"></div>
                         @if (!$last) {
                         <div class="activity-line"></div>
@@ -392,17 +405,17 @@
                     <div class="activity-content">
                         <div class="activity-title">{{ activity.title }}</div>
                         <div class="activity-meta">
-                            <i [class]="activity._contentTypeIcon" class="activity-type-icon"></i>
+                            <i [class]="activity._contentTypeIcon" class="activity-type-icon" aria-hidden="true"></i>
                             <span>{{ activity._contentTypeName }}</span>
-                            <span class="activity-separator">·</span>
-                            <span class="activity-status" [class.text-success]="activity.status === 'publish'" [class.text-warning]="activity.status !== 'publish'">
+                            <span class="activity-separator" aria-hidden="true">·</span>
+                            <span class="activity-status" [class.count-published]="activity.status === 'publish'" [class.count-draft]="activity.status !== 'publish'">
                                 {{ (activity.status === 'publish' ? 'common.status.published' : 'common.status.draft') | transloco }}
                             </span>
-                            <span class="activity-separator">·</span>
+                            <span class="activity-separator" aria-hidden="true">·</span>
                             <span>{{ getTimeAgo(activity.modifiedAt) }}</span>
                         </div>
                     </div>
-                </div>
+                </a>
                 } @empty {
                 <div class="text-center text-muted py-4">{{ 'admin.dashboard.no_recent_activity' | transloco }}</div>
                 }

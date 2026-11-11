@@ -7,49 +7,37 @@
           <div class="auth-left">
             <div class="auth-left-content">
               @if (currentStep() <= 2) {
-              <h1 class="auth-left-title">Welcome to {{ productName }}</h1>
-              <p class="auth-left-description">
-                Let's get your platform set up. You're creating the first admin
-                account: the person who will have full control of the CMS.
-              </p>
+              <h1 class="auth-left-title">{{ 'admin.onboarding.intro.welcome_title' | transloco: { name: productName } }}</h1>
+              <p class="auth-left-description">{{ 'admin.onboarding.intro.welcome_text' | transloco }}</p>
               <ul class="auth-left-features">
-                <li>Manage content types and entries</li>
-                <li>Configure site settings and email</li>
-                <li>Manage waitlist users</li>
-                <li>Monitor analytics and waitlists</li>
+                <li>{{ 'admin.onboarding.intro.welcome_content' | transloco }}</li>
+                <li>{{ 'admin.onboarding.intro.welcome_settings' | transloco }}</li>
+                <li>{{ 'admin.onboarding.intro.welcome_forms' | transloco }}</li>
+                <li>{{ 'admin.onboarding.intro.welcome_analytics' | transloco }}</li>
               </ul>
               } @else if (currentStep() === 3) {
-              <h1 class="auth-left-title">About Your Site</h1>
-              <p class="auth-left-description">
-                Tell us a bit about your site. This information is used in
-                emails, SEO metadata, and page headers.
-              </p>
+              <h1 class="auth-left-title">{{ 'admin.onboarding.intro.site_title' | transloco }}</h1>
+              <p class="auth-left-description">{{ 'admin.onboarding.intro.site_text' | transloco }}</p>
               <ul class="auth-left-features">
-                <li>Used in email footers and headers</li>
-                <li>Final URL used in emails and SEO</li>
-                <li>Configurable anytime from Settings</li>
+                <li>{{ 'admin.onboarding.intro.site_name' | transloco }}</li>
+                <li>{{ 'admin.onboarding.intro.site_address' | transloco }}</li>
+                <li>{{ 'admin.onboarding.intro.site_later' | transloco }}</li>
               </ul>
               } @else if (currentStep() === 4) {
-              <h1 class="auth-left-title">Email Configuration</h1>
-              <p class="auth-left-description">
-                Configure email sending so your waitlist and notifications work
-                out of the box.
-              </p>
+              <h1 class="auth-left-title">{{ 'admin.onboarding.intro.email_title' | transloco }}</h1>
+              <p class="auth-left-description">{{ 'admin.onboarding.intro.email_text' | transloco }}</p>
               <ul class="auth-left-features">
-                <li>Send OTP and welcome emails</li>
-                <li>Broadcast to waitlist subscribers</li>
-                <li>Multiple providers supported</li>
+                <li>{{ 'admin.onboarding.intro.email_codes' | transloco }}</li>
+                <li>{{ 'admin.onboarding.intro.email_broadcasts' | transloco }}</li>
+                <li>{{ 'admin.onboarding.intro.email_services' | transloco }}</li>
               </ul>
               } @else if (currentStep() === 5) {
-              <h1 class="auth-left-title">You're All Set!</h1>
-              <p class="auth-left-description">
-                Congratulations! Your CMS is configured and ready to go. Head
-                to the dashboard to start managing your content.
-              </p>
+              <h1 class="auth-left-title">{{ 'admin.onboarding.intro.done_title' | transloco }}</h1>
+              <p class="auth-left-description">{{ 'admin.onboarding.intro.done_text' | transloco }}</p>
               <ul class="auth-left-features">
-                <li>Explore the admin dashboard</li>
-                <li>Create and publish content</li>
-                <li>Customize settings anytime</li>
+                <li>{{ 'admin.onboarding.intro.done_dashboard' | transloco }}</li>
+                <li>{{ 'admin.onboarding.intro.done_publish' | transloco }}</li>
+                <li>{{ 'admin.onboarding.intro.done_settings' | transloco }}</li>
               </ul>
               }
             </div>
@@ -57,7 +45,7 @@
         </div>
       </div>
 
-      <!-- Right Panel — Wizard forms -->
+      <!-- Right Panel: the wizard's forms -->
       <div class="col-lg-6 wizard-right-panel">
         <!-- Progress bar -->
         <div class="onboarding-progress">
@@ -73,13 +61,10 @@
         <div class="request-container">
           <div class="card request-card border-0">
             <div class="card-body customPadding">
-              <h2 class="auth-title">Finish setting up</h2>
-              <p class="auth-subtitle">
-                Setup for this site was started but not finished. Sign in with
-                the administrator account you created to continue where you left off.
-              </p>
+              <h2 class="auth-title">{{ 'admin.onboarding.resume.title' | transloco }}</h2>
+              <p class="auth-subtitle">{{ 'admin.onboarding.resume.text' | transloco }}</p>
               <a class="btn btn-primary w-100 mt-4" routerLink="/signup">
-                Sign in to continue <i class="fas fa-arrow-right ms-1"></i>
+                {{ 'admin.onboarding.resume.sign_in' | transloco }} <i class="fas fa-arrow-right ms-1" aria-hidden="true"></i>
               </a>
             </div>
           </div>
@@ -92,16 +77,16 @@
                 <!-- ─── STEP 1: Name & Email ─── -->
                 @if (currentStep() === 1) {
                 <div class="wizard-step-indicator">
-                  Step 1 of {{ totalSteps }}
+                  {{ 'admin.onboarding.step' | transloco: { step: 1, total: totalSteps } }}
                 </div>
-                <h2 class="auth-title">Create Admin Account</h2>
-                <p class="auth-subtitle">Tell us who you are</p>
+                <h2 class="auth-title">{{ 'admin.onboarding.account.title' | transloco }}</h2>
+                <p class="auth-subtitle">{{ 'admin.onboarding.account.subtitle' | transloco }}</p>
 
                 <!-- Name -->
                 <div class="mb-3 mt-4">
-                  <label for="name" class="form-label">Full Name</label>
+                  <label for="name" class="form-label">{{ 'admin.onboarding.account.name' | transloco }}</label>
                   <div class="input-group">
-                    <span class="input-group-text"
+                    <span class="input-group-text" aria-hidden="true"
                       ><i class="fas fa-user"></i
                     ></span>
                     <input
@@ -109,23 +94,26 @@
                       formControlName="name"
                       class="form-control"
                       id="name"
-                      placeholder="Your full name"
+                      autocomplete="name"
+                      [placeholder]="'admin.onboarding.account.name_placeholder' | transloco"
                       [class.is-invalid]="isFieldInvalid('name')"
+                      [attr.aria-invalid]="isFieldInvalid('name')"
+                      [attr.aria-describedby]="isFieldInvalid('name') ? 'nameError' : null"
                       [readOnly]="isLoading()"
                     />
                   </div>
                   @if (isFieldInvalid('name')) {
-                  <div class="text-danger mt-1 small">
-                    Name must be at least 2 characters
+                  <div id="nameError" class="text-danger mt-1 small">
+                    {{ 'admin.onboarding.account.name_error' | transloco }}
                   </div>
                   }
                 </div>
 
                 <!-- Email -->
                 <div class="mb-3">
-                  <label for="email" class="form-label">Email</label>
+                  <label for="email" class="form-label">{{ 'admin.onboarding.account.email' | transloco }}</label>
                   <div class="input-group">
-                    <span class="input-group-text"
+                    <span class="input-group-text" aria-hidden="true"
                       ><i class="fas fa-envelope"></i
                     ></span>
                     <input
@@ -133,25 +121,26 @@
                       formControlName="email"
                       class="form-control"
                       id="email"
+                      autocomplete="email"
                       placeholder="admin@yourcompany.com"
                       [class.is-invalid]="isFieldInvalid('email')"
+                      [attr.aria-invalid]="isFieldInvalid('email')"
+                      [attr.aria-describedby]="isFieldInvalid('email') ? 'emailError' : null"
                       [readOnly]="isLoading()"
                     />
                   </div>
                   @if (isFieldInvalid('email')) {
-                  <div class="text-danger mt-1 small">
-                    Please enter a valid email address
+                  <div id="emailError" class="text-danger mt-1 small">
+                    {{ 'admin.onboarding.account.email_error' | transloco }}
                   </div>
                   }
                 </div>
 
                 <!-- Confirm Email -->
                 <div class="mb-3">
-                  <label for="confirmEmail" class="form-label"
-                    >Confirm Email</label
-                  >
+                  <label for="confirmEmail" class="form-label">{{ 'admin.onboarding.account.confirm_email' | transloco }}</label>
                   <div class="input-group">
-                    <span class="input-group-text"
+                    <span class="input-group-text" aria-hidden="true"
                       ><i class="fas fa-envelope"></i
                     ></span>
                     <input
@@ -159,18 +148,21 @@
                       formControlName="confirmEmail"
                       class="form-control"
                       id="confirmEmail"
-                      placeholder="Repeat your email"
+                      autocomplete="email"
+                      [placeholder]="'admin.onboarding.account.confirm_email_placeholder' | transloco"
                       [class.is-invalid]="isFieldInvalid('confirmEmail') || hasEmailMismatch()"
+                      [attr.aria-invalid]="isFieldInvalid('confirmEmail') || hasEmailMismatch()"
+                      [attr.aria-describedby]="hasEmailMismatch() ? 'confirmEmailError confirmEmailHint' : 'confirmEmailHint'"
                       [readOnly]="isLoading()"
                     />
                   </div>
                   @if (hasEmailMismatch()) {
-                  <div class="text-danger mt-1 small">
-                    Email addresses do not match
+                  <div id="confirmEmailError" class="text-danger mt-1 small" role="alert">
+                    {{ 'admin.onboarding.account.email_mismatch' | transloco }}
                   </div>
                   }
-                  <div class="form-text">
-                    This email will be used to log in to the admin area and recover forgotten passwords. Please use an active email.
+                  <div id="confirmEmailHint" class="form-text">
+                    {{ 'admin.onboarding.account.email_hint' | transloco }}
                   </div>
                 </div>
 
@@ -179,29 +171,27 @@
                   class="btn btn-primary w-100 mt-4"
                   (click)="goToStep2()"
                 >
-                  Continue <i class="fas fa-arrow-right ms-1"></i>
+                  {{ 'admin.onboarding.continue' | transloco }} <i class="fas fa-arrow-right ms-1" aria-hidden="true"></i>
                 </button>
                 }
 
                 <!-- ─── STEP 2: Password ─── -->
                 @if (currentStep() === 2) {
                 <div class="wizard-step-indicator">
-                  Step 2 of {{ totalSteps }}
+                  {{ 'admin.onboarding.step' | transloco: { step: 2, total: totalSteps } }}
                 </div>
-                <h2 class="auth-title">Set Your Password</h2>
-                <p class="auth-subtitle">
-                  Choose a secure password for your account
-                </p>
+                <h2 class="auth-title">{{ 'admin.onboarding.password.title' | transloco }}</h2>
+                <p class="auth-subtitle">{{ 'admin.onboarding.password.subtitle' | transloco }}</p>
 
                 <!-- Name & Email summary (read-only) -->
                 <div class="mb-4 mt-4 p-3 bg-light rounded border">
                   <div class="d-flex justify-content-between align-items-start">
                     <div>
-                      <div class="text-muted small mb-1">Name</div>
+                      <div class="summary-label small mb-1">{{ 'admin.onboarding.password.name' | transloco }}</div>
                       <div class="fw-semibold">
                         {{ onboardingForm.get('name')?.value }}
                       </div>
-                      <div class="text-muted small mt-2 mb-1">Email</div>
+                      <div class="summary-label small mt-2 mb-1">{{ 'admin.onboarding.password.email' | transloco }}</div>
                       <div class="fw-semibold">
                         {{ onboardingForm.get('email')?.value }}
                       </div>
@@ -210,18 +200,19 @@
                       type="button"
                       class="btn btn-link btn-sm p-0 text-primary"
                       (click)="goBack()"
-                      title="Edit name and email"
+                      [title]="'admin.onboarding.password.edit_title' | transloco"
+                      [attr.aria-label]="'admin.onboarding.password.edit_title' | transloco"
                     >
-                      <i class="fas fa-pen me-1"></i> Edit
+                      <i class="fas fa-pen me-1" aria-hidden="true"></i> {{ 'admin.onboarding.password.edit' | transloco }}
                     </button>
                   </div>
                 </div>
 
                 <!-- Password -->
                 <div class="mb-3">
-                  <label for="password" class="form-label">Password</label>
+                  <label for="password" class="form-label">{{ 'admin.onboarding.password.label' | transloco }}</label>
                   <div class="input-group">
-                    <span class="input-group-text"
+                    <span class="input-group-text" aria-hidden="true"
                       ><i class="fas fa-lock"></i
                     ></span>
                     <input
@@ -229,23 +220,29 @@
                       formControlName="password"
                       class="form-control"
                       id="password"
-                      placeholder="Min. 8 characters"
+                      autocomplete="new-password"
+                      [placeholder]="'admin.onboarding.password.placeholder' | transloco"
                       [class.is-invalid]="isFieldInvalid('password')"
+                      [attr.aria-invalid]="isFieldInvalid('password')"
+                      [attr.aria-describedby]="isFieldInvalid('password') ? 'passwordError' : null"
                       [readOnly]="isLoading()"
                     />
-                    <span
+                    <button
+                      type="button"
                       class="input-group-text password-toggle eye_btn"
                       (click)="showPassword.set(!showPassword())"
-                      style="cursor: pointer"
+                      [attr.aria-label]="'admin.onboarding.show_password' | transloco"
+                      [attr.aria-pressed]="showPassword()"
                     >
                       <i
                         class="fas"
+                        aria-hidden="true"
                         [ngClass]="showPassword() ? 'fa-eye' : 'fa-eye-slash'"
                       ></i>
-                    </span>
+                    </button>
                   </div>
                   @if (isFieldInvalid('password')) {
-                  <div class="text-danger mt-1 small">
+                  <div id="passwordError" class="text-danger mt-1 small">
                     {{ passwordError() }}
                   </div>
                   }
@@ -253,11 +250,9 @@
 
                 <!-- Confirm Password -->
                 <div class="mb-3">
-                  <label for="confirmPassword" class="form-label"
-                    >Confirm Password</label
-                  >
+                  <label for="confirmPassword" class="form-label">{{ 'admin.onboarding.password.confirm' | transloco }}</label>
                   <div class="input-group">
-                    <span class="input-group-text"
+                    <span class="input-group-text" aria-hidden="true"
                       ><i class="fas fa-lock"></i
                     ></span>
                     <input
@@ -265,47 +260,49 @@
                       formControlName="confirmPassword"
                       class="form-control"
                       id="confirmPassword"
-                      placeholder="Repeat your password"
+                      [attr.aria-describedby]="hasPasswordMismatch() ? 'confirmPasswordError' : null"
+                      autocomplete="new-password"
+                      [placeholder]="'admin.onboarding.password.confirm_placeholder' | transloco"
                       [class.is-invalid]="isFieldInvalid('confirmPassword') || hasPasswordMismatch()"
+                      [attr.aria-invalid]="isFieldInvalid('confirmPassword') || hasPasswordMismatch()"
                       [readOnly]="isLoading()"
                     />
-                    <span
+                    <button
+                      type="button"
                       class="input-group-text password-toggle eye_btn"
                       (click)="showConfirmPassword.set(!showConfirmPassword())"
-                      style="cursor: pointer"
+                      [attr.aria-label]="'admin.onboarding.show_password' | transloco"
+                      [attr.aria-pressed]="showConfirmPassword()"
                     >
                       <i
                         class="fas"
+                        aria-hidden="true"
                         [ngClass]="showConfirmPassword() ? 'fa-eye' : 'fa-eye-slash'"
                       ></i>
-                    </span>
+                    </button>
                   </div>
                   @if (hasPasswordMismatch()) {
-                  <div class="text-danger mt-1 small">
-                    Passwords do not match
+                  <div id="confirmPasswordError" class="text-danger mt-1 small" role="alert">
+                    {{ 'admin.onboarding.password.mismatch' | transloco }}
                   </div>
                   }
                 </div>
 
                 @if (authStore.errorCode() === 'auth/operation-not-allowed') {
-                <div class="alert alert-danger mt-3 small">
-                  <strong>Authentication Disabled</strong><br />
-                  <span class="mt-1 d-block"
-                    >Please enable
-                    <strong>Email/Password</strong> authentication for your
-                    project to create an admin account.</span
-                  >
+                <div class="alert alert-danger mt-3 small" role="alert">
+                  <strong>{{ 'admin.onboarding.password.sign_in_off_title' | transloco }}</strong><br />
+                  <span class="mt-1 d-block">{{ 'admin.onboarding.password.sign_in_off_text' | transloco }}</span>
                   <a
                     [href]="'https://console.firebase.google.com/u/0/project/' + projectId + '/authentication/providers'"
                     target="_blank"
                     rel="noopener"
                     class="d-inline-block mt-2"
-                    >Open Firebase Console
-                    <i class="fas fa-external-link-alt ms-1"></i
+                    >{{ 'admin.onboarding.password.open_console' | transloco }}
+                    <i class="fas fa-external-link-alt ms-1" aria-hidden="true"></i
                   ></a>
                 </div>
                 } @else if (errorMessage()) {
-                <div class="alert alert-danger mt-3">{{ errorMessage() }}</div>
+                <div class="alert alert-danger mt-3" role="alert">{{ errorMessage() }}</div>
                 }
 
                 <button
@@ -313,12 +310,15 @@
                   class="btn btn-primary w-100 mt-4"
                   [disabled]="isLoading() || isSubmitted()"
                 >
-                  @if (isSubmitted() && !errorMessage()) { Creating your
-                  account… } @else { Create Admin Account }
+                  @if (isSubmitted() && !errorMessage()) {
+                  {{ 'admin.onboarding.password.creating' | transloco }}
+                  } @else {
+                  {{ 'admin.onboarding.password.create' | transloco }}
+                  }
                   <span
                     [hidden]="!(isLoading() || isSubmitted())"
                     class="spinner-border spinner-border-sm ms-2"
-                    role="status"
+                    aria-hidden="true"
                   ></span>
                 </button>
                 <arc-legal-notice></arc-legal-notice>
@@ -335,19 +335,17 @@
           <div class="card request-card border-0">
             <div class="card-body customPadding">
               <div class="wizard-step-indicator">
-                Step 3 of {{ totalSteps }}
+                {{ 'admin.onboarding.step' | transloco: { step: 3, total: totalSteps } }}
               </div>
-              <h2 class="auth-title">About Your Site</h2>
-              <p class="auth-subtitle">
-                This information is used in emails, SEO, and page headers
-              </p>
+              <h2 class="auth-title">{{ 'admin.onboarding.site.title' | transloco }}</h2>
+              <p class="auth-subtitle">{{ 'admin.onboarding.site.subtitle' | transloco }}</p>
 
               <form [formGroup]="siteInfoForm" (ngSubmit)="saveSiteInfo()">
                 <!-- Site Name -->
                 <div class="mb-3 mt-4">
-                  <label for="siteName" class="form-label">Site Name</label>
+                  <label for="siteName" class="form-label">{{ 'admin.onboarding.site.name' | transloco }}</label>
                   <div class="input-group">
-                    <span class="input-group-text"
+                    <span class="input-group-text" aria-hidden="true"
                       ><i class="fas fa-globe"></i
                     ></span>
                     <input
@@ -355,22 +353,24 @@
                       formControlName="siteName"
                       class="form-control"
                       id="siteName"
-                      placeholder="My Awesome Site"
+                      [placeholder]="'admin.onboarding.site.name_placeholder' | transloco"
                       [class.is-invalid]="isFieldInvalid('siteName', siteInfoForm)"
+                      [attr.aria-invalid]="isFieldInvalid('siteName', siteInfoForm)"
+                      [attr.aria-describedby]="isFieldInvalid('siteName', siteInfoForm) ? 'siteNameError' : null"
                     />
                   </div>
                   @if (isFieldInvalid('siteName', siteInfoForm)) {
-                  <div class="text-danger mt-1 small">
-                    Site name must be at least 2 characters
+                  <div id="siteNameError" class="text-danger mt-1 small">
+                    {{ 'admin.onboarding.site.name_error' | transloco }}
                   </div>
                   }
                 </div>
 
                 <!-- Site URL -->
                 <div class="mb-3">
-                  <label for="siteUrl" class="form-label">Final Site URL</label>
+                  <label for="siteUrl" class="form-label">{{ 'admin.onboarding.site.address' | transloco }}</label>
                   <div class="input-group">
-                    <span class="input-group-text"
+                    <span class="input-group-text" aria-hidden="true"
                       ><i class="fas fa-link"></i
                     ></span>
                     <input
@@ -380,21 +380,22 @@
                       id="siteUrl"
                       placeholder="https://yourcompany.com"
                       [class.is-invalid]="isFieldInvalid('siteUrl', siteInfoForm)"
+                      [attr.aria-invalid]="isFieldInvalid('siteUrl', siteInfoForm)"
+                      [attr.aria-describedby]="isFieldInvalid('siteUrl', siteInfoForm) ? 'siteUrlError siteUrlHint' : 'siteUrlHint'"
                     />
                   </div>
                   @if (isFieldInvalid('siteUrl', siteInfoForm)) {
-                  <div class="text-danger mt-1 small">
-                    Please enter a valid URL
+                  <div id="siteUrlError" class="text-danger mt-1 small" role="alert">
+                    {{ 'admin.onboarding.site.address_error' | transloco }}
                   </div>
                   }
-                  <div class="form-text">
-                    Used in email footers, SEO canonical links, and page
-                    headers. You can update this later from Settings.
+                  <div id="siteUrlHint" class="form-text">
+                    {{ 'admin.onboarding.site.address_hint' | transloco }}
                   </div>
                 </div>
 
                 @if (errorMessage()) {
-                <div class="alert alert-danger mt-3">{{ errorMessage() }}</div>
+                <div class="alert alert-danger mt-3" role="alert">{{ errorMessage() }}</div>
                 }
 
                 <button
@@ -402,12 +403,14 @@
                   class="btn btn-primary w-100 mt-4"
                   [disabled]="isSavingSiteInfo()"
                 >
-                  @if (isSavingSiteInfo()) { Saving…
+                  @if (isSavingSiteInfo()) {
+                  {{ 'admin.onboarding.saving' | transloco }}
                   <span
                     class="spinner-border spinner-border-sm ms-2"
-                    role="status"
+                    aria-hidden="true"
                   ></span>
-                  } @else { Continue <i class="fas fa-arrow-right ms-1"></i>
+                  } @else {
+                  {{ 'admin.onboarding.continue' | transloco }} <i class="fas fa-arrow-right ms-1" aria-hidden="true"></i>
                   }
                 </button>
               </form>
@@ -422,37 +425,36 @@
           <div class="card request-card border-0">
             <div class="card-body customPadding">
               <div class="wizard-step-indicator">
-                Step 4 of {{ totalSteps }}
+                {{ 'admin.onboarding.step' | transloco: { step: 4, total: totalSteps } }}
               </div>
-              <h2 class="auth-title">Set Up Email</h2>
-              <p class="auth-subtitle">
-                Choose how your site sends emails for waitlist confirmations, notifications, and more.
-                Don't worry, you can change this later in Settings.
-              </p>
+              <h2 class="auth-title">{{ 'admin.onboarding.email.title' | transloco }}</h2>
+              <p class="auth-subtitle">{{ 'admin.onboarding.email.subtitle' | transloco }}</p>
 
               <div class="skip-banner">
-                <span class="skip-banner-text">Not ready to set up email?</span>
-                <a
+                <span class="skip-banner-text">{{ 'admin.onboarding.email.skip_question' | transloco }}</span>
+                <button
+                  type="button"
                   class="skip-link"
                   (click)="skipEmail()"
-                  [class.disabled]="isSavingEmail()"
+                  [disabled]="isSavingEmail()"
                 >
-                  Skip for now <i class="fas fa-arrow-right ms-1"></i>
-                </a>
+                  {{ 'admin.onboarding.email.skip' | transloco }} <i class="fas fa-arrow-right ms-1" aria-hidden="true"></i>
+                </button>
               </div>
 
               <form [formGroup]="emailForm">
                 <!-- Provider Selection -->
                 <div class="mb-4 mt-4">
-                  <label class="form-label fw-semibold">Choose an Email Provider</label>
+                  <label for="emailProvider" class="form-label fw-semibold">{{ 'admin.onboarding.email.service' | transloco }}</label>
                   <select
+                    id="emailProvider"
                     class="form-select provider-select"
                     [value]="selectedProvider()"
                     (change)="selectProvider($event)"
                   >
                     @for (provider of providers; track provider.id) {
                     <option [value]="provider.id">
-                      {{ provider.name }}: {{ provider.description }}
+                      {{ providerKey(provider.id, 'name') | transloco }}: {{ providerKey(provider.id, 'description') | transloco }}
                     </option>
                     }
                   </select>
@@ -460,10 +462,10 @@
                   @for (provider of providers; track provider.id) {
                     @if (provider.id === selectedProvider()) {
                     <div class="alert alert-light border mt-2 mb-0 small">
-                      <i class="fas fa-lightbulb text-warning me-1"></i>
-                      <strong>Best for:</strong> {{ provider.bestFor }}<br />
-                      <i class="fas fa-gift text-success me-1"></i>
-                      <strong>Free tier:</strong> {{ provider.freeLimit }}
+                      <i class="fas fa-lightbulb text-warning me-1" aria-hidden="true"></i>
+                      <strong>{{ 'admin.onboarding.email.best_for' | transloco }}</strong> {{ providerKey(provider.id, 'best_for') | transloco }}<br />
+                      <i class="fas fa-gift text-success me-1" aria-hidden="true"></i>
+                      <strong>{{ 'admin.onboarding.email.free_tier' | transloco }}</strong> {{ providerKey(provider.id, 'free_tier') | transloco }}
                     </div>
                     }
                   }
@@ -475,50 +477,48 @@
                 @if (selectedProvider() === 'smtp') {
                 <div formGroupName="smtp">
                   <div class="alert alert-info small mb-3">
-                    <i class="fas fa-info-circle me-1"></i>
-                    <strong>Where do I get these details?</strong>
-                    Check your email provider's help docs for "SMTP settings." Here are some common ones:
+                    <i class="fas fa-info-circle me-1" aria-hidden="true"></i>
+                    <strong>{{ 'admin.onboarding.email.smtp_help_title' | transloco }}</strong>
+                    {{ 'admin.onboarding.email.smtp_help_text' | transloco }}
                     <ul class="mb-0 mt-1">
                       <li>
-                        <a href="https://support.microsoft.com/en-us/office/pop-imap-and-smtp-settings-8361e398-8af4-4e97-b147-6c6c4ac95353" target="_blank" rel="noopener">
-                          Outlook / Microsoft 365
-                        </a>:
-                        host <code>smtp.office365.com</code>, port <code>587</code>
+                        <a href="https://support.microsoft.com/en-us/office/pop-imap-and-smtp-settings-8361e398-8af4-4e97-b147-6c6c4ac95353" target="_blank" rel="noopener">Outlook / Microsoft 365</a>:
+                        {{ 'admin.onboarding.email.host_word' | transloco }} <code>smtp.office365.com</code>, {{ 'admin.onboarding.email.port_word' | transloco }} <code>587</code>
                       </li>
                       <li>
-                        <a href="https://help.yahoo.com/kb/SLN4724.html" target="_blank" rel="noopener">
-                          Yahoo Mail
-                        </a>:
-                        host <code>smtp.mail.yahoo.com</code>, port <code>465</code> (SSL)
+                        <a href="https://help.yahoo.com/kb/SLN4724.html" target="_blank" rel="noopener">Yahoo Mail</a>:
+                        {{ 'admin.onboarding.email.host_word' | transloco }} <code>smtp.mail.yahoo.com</code>, {{ 'admin.onboarding.email.port_word' | transloco }} <code>465</code> (SSL)
                       </li>
                       <li>
-                        <a href="https://www.zoho.com/mail/help/zoho-smtp.html" target="_blank" rel="noopener">
-                          Zoho Mail
-                        </a>:
-                        host <code>smtp.zoho.com</code>, port <code>465</code> (SSL)
+                        <a href="https://www.zoho.com/mail/help/zoho-smtp.html" target="_blank" rel="noopener">Zoho Mail</a>:
+                        {{ 'admin.onboarding.email.host_word' | transloco }} <code>smtp.zoho.com</code>, {{ 'admin.onboarding.email.port_word' | transloco }} <code>465</code> (SSL)
                       </li>
                     </ul>
                   </div>
                   <div class="mb-3">
-                    <label class="form-label">SMTP Host</label>
+                    <label for="smtpHost" class="form-label">{{ 'admin.onboarding.email.smtp_host' | transloco }}</label>
                     <input
                       type="text"
+                      id="smtpHost"
                       formControlName="host"
                       class="form-control"
-                      placeholder="e.g. smtp.office365.com"
+                      aria-describedby="smtpHostHint"
+                      [placeholder]="'admin.onboarding.email.smtp_host_placeholder' | transloco"
                     />
-                    <div class="form-text">The server address provided by your email host</div>
+                    <div id="smtpHostHint" class="form-text">{{ 'admin.onboarding.email.smtp_host_hint' | transloco }}</div>
                   </div>
                   <div class="row mb-3">
                     <div class="col-8">
-                      <label class="form-label">Port</label>
+                      <label for="smtpPort" class="form-label">{{ 'admin.onboarding.email.port' | transloco }}</label>
                       <input
                         type="number"
+                        id="smtpPort"
                         formControlName="port"
                         class="form-control"
+                        aria-describedby="smtpPortHint"
                         placeholder="587"
                       />
-                      <div class="form-text">Usually <strong>587</strong> (TLS) or <strong>465</strong> (SSL)</div>
+                      <div id="smtpPortHint" class="form-text">{{ 'admin.onboarding.email.port_hint' | transloco }}</div>
                     </div>
                     <div class="col-4 d-flex align-items-end">
                       <div class="form-check">
@@ -528,43 +528,50 @@
                           class="form-check-input"
                           id="smtpSecure"
                         />
-                        <label class="form-check-label" for="smtpSecure"
-                          >SSL/TLS</label
-                        >
+                        <label class="form-check-label" for="smtpSecure">{{ 'admin.onboarding.email.secure' | transloco }}</label>
                       </div>
                     </div>
                   </div>
                   <div class="mb-3">
-                    <label class="form-label">Username</label>
+                    <label for="smtpUser" class="form-label">{{ 'admin.onboarding.email.username' | transloco }}</label>
                     <input
                       type="text"
+                      id="smtpUser"
                       formControlName="user"
                       class="form-control"
-                      placeholder="your-email@example.com"
+                      autocomplete="off"
+                      aria-describedby="smtpUserHint"
+                      placeholder="you@example.com"
                     />
-                    <div class="form-text">Usually your full email address</div>
+                    <div id="smtpUserHint" class="form-text">{{ 'admin.onboarding.email.username_hint' | transloco }}</div>
                   </div>
                   <div class="mb-3">
-                    <label class="form-label">Password</label>
+                    <label for="smtpPassword" class="form-label">{{ 'admin.onboarding.email.password' | transloco }}</label>
                     <div class="input-group">
                       <input
                         [type]="showSmtpPassword() ? 'text' : 'password'"
+                        id="smtpPassword"
                         formControlName="password"
                         class="form-control"
-                        placeholder="Your email account password"
+                        autocomplete="off"
+                        aria-describedby="smtpPasswordHint"
+                        [placeholder]="'admin.onboarding.email.password_placeholder' | transloco"
                       />
-                      <span
+                      <button
+                        type="button"
                         class="input-group-text eye_btn"
                         (click)="showSmtpPassword.set(!showSmtpPassword())"
-                        style="cursor: pointer"
+                        [attr.aria-label]="'admin.onboarding.show_password' | transloco"
+                        [attr.aria-pressed]="showSmtpPassword()"
                       >
                         <i
                           class="fas"
+                          aria-hidden="true"
                           [ngClass]="showSmtpPassword() ? 'fa-eye' : 'fa-eye-slash'"
                         ></i>
-                      </span>
+                      </button>
                     </div>
-                    <div class="form-text">Your email password or app-specific password</div>
+                    <div id="smtpPasswordHint" class="form-text">{{ 'admin.onboarding.email.password_hint' | transloco }}</div>
                   </div>
                 </div>
                 }
@@ -573,73 +580,73 @@
                 @if (selectedProvider() === 'gmail') {
                 <div formGroupName="gmail">
                   <div class="alert alert-info small mb-3">
-                    <i class="fas fa-info-circle me-1"></i>
-                    <strong>How to get a Gmail App Password:</strong>
+                    <i class="fas fa-info-circle me-1" aria-hidden="true"></i>
+                    <strong>{{ 'admin.onboarding.email.gmail_help_title' | transloco }}</strong>
                     <ol class="mb-0 mt-1">
                       <li>
-                        Go to your
-                        <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">Google Account Security</a>
-                        page
+                        @let security = parts('admin.onboarding.email.gmail_step_security');
+                        {{ security[0] }}<a href="https://myaccount.google.com/security" target="_blank" rel="noopener">{{ 'admin.onboarding.email.gmail_step_security_link' | transloco }}</a>{{ security[1] }}
                       </li>
                       <li>
-                        Make sure <strong>2-Step Verification</strong> is turned on
-                        (<a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" rel="noopener">enable it here</a>
-                        if not)
+                        @let twoStep = parts('admin.onboarding.email.gmail_step_two_step');
+                        {{ twoStep[0] }}<a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" rel="noopener">{{ 'admin.onboarding.email.gmail_step_two_step_link' | transloco }}</a>{{ twoStep[1] }}
                       </li>
                       <li>
-                        Then visit
-                        <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener"><strong>App Passwords</strong></a>,
-                        name it "Arc CMS", and click <strong>Create</strong>
+                        @let create = parts('admin.onboarding.email.gmail_step_create', { name: productName });
+                        {{ create[0] }}<a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener"><strong>{{ 'admin.onboarding.email.gmail_step_create_link' | transloco }}</strong></a>{{ create[1] }}
                       </li>
-                      <li>Copy the 16-character password and paste it below</li>
+                      <li>{{ 'admin.onboarding.email.gmail_step_copy' | transloco }}</li>
                     </ol>
                   </div>
                   <div class="mb-3">
-                    <label class="form-label">Gmail Address</label>
+                    <label for="gmailUser" class="form-label">{{ 'admin.onboarding.email.gmail_address' | transloco }}</label>
                     <div class="input-group">
-                      <span class="input-group-text"
+                      <span class="input-group-text" aria-hidden="true"
                         ><i class="fas fa-envelope"></i
                       ></span>
                       <input
                         type="email"
+                        id="gmailUser"
                         formControlName="user"
                         class="form-control"
+                        aria-describedby="gmailUserHint"
                         placeholder="you@gmail.com"
                       />
                     </div>
-                    <div class="form-text">The Gmail address you want to send emails from</div>
+                    <div id="gmailUserHint" class="form-text">{{ 'admin.onboarding.email.gmail_address_hint' | transloco }}</div>
                   </div>
                   <div class="mb-3">
-                    <label class="form-label">App Password</label>
+                    <label for="gmailPassword" class="form-label">{{ 'admin.onboarding.email.app_password' | transloco }}</label>
                     <div class="input-group">
-                      <span class="input-group-text"
+                      <span class="input-group-text" aria-hidden="true"
                         ><i class="fas fa-key"></i
                       ></span>
                       <input
                         [type]="showGmailPassword() ? 'text' : 'password'"
+                        id="gmailPassword"
                         formControlName="password"
                         class="form-control"
+                        autocomplete="off"
+                        aria-describedby="gmailPasswordHint"
                         placeholder="xxxx xxxx xxxx xxxx"
                       />
-                      <span
+                      <button
+                        type="button"
                         class="input-group-text eye_btn"
                         (click)="showGmailPassword.set(!showGmailPassword())"
-                        style="cursor: pointer"
+                        [attr.aria-label]="'admin.onboarding.show_password' | transloco"
+                        [attr.aria-pressed]="showGmailPassword()"
                       >
                         <i
                           class="fas"
+                          aria-hidden="true"
                           [ngClass]="showGmailPassword() ? 'fa-eye' : 'fa-eye-slash'"
                         ></i>
-                      </span>
+                      </button>
                     </div>
-                    <div class="form-text">
-                      The 16-character password from
-                      <a
-                        href="https://myaccount.google.com/apppasswords"
-                        target="_blank"
-                        rel="noopener"
-                      >Google App Passwords</a>
-                      (not your regular Gmail password)
+                    <div id="gmailPasswordHint" class="form-text">
+                      @let appPassword = parts('admin.onboarding.email.app_password_hint');
+                      {{ appPassword[0] }}<a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">{{ 'admin.onboarding.email.app_password_link' | transloco }}</a>{{ appPassword[1] }}
                     </div>
                   </div>
                 </div>
@@ -649,52 +656,54 @@
                 @if (selectedProvider() === 'resend') {
                 <div formGroupName="resend">
                   <div class="alert alert-info small mb-3">
-                    <i class="fas fa-info-circle me-1"></i>
-                    <strong>How to get your Resend API Key:</strong>
+                    <i class="fas fa-info-circle me-1" aria-hidden="true"></i>
+                    <strong>{{ 'admin.onboarding.email.resend_help_title' | transloco }}</strong>
                     <ol class="mb-0 mt-1">
                       <li>
-                        <a href="https://resend.com/signup" target="_blank" rel="noopener">Create a free Resend account</a>
-                        (if you don't have one)
+                        @let account = parts('admin.onboarding.email.resend_step_account');
+                        {{ account[0] }}<a href="https://resend.com/signup" target="_blank" rel="noopener">{{ 'admin.onboarding.email.resend_step_account_link' | transloco }}</a>{{ account[1] }}
                       </li>
                       <li>
-                        Go to
-                        <a href="https://resend.com/api-keys" target="_blank" rel="noopener"><strong>API Keys</strong></a>
-                        in your Resend dashboard
+                        @let keys = parts('admin.onboarding.email.resend_step_keys');
+                        {{ keys[0] }}<a href="https://resend.com/api-keys" target="_blank" rel="noopener"><strong>{{ 'admin.onboarding.email.resend_step_keys_link' | transloco }}</strong></a>{{ keys[1] }}
                       </li>
-                      <li>Click <strong>Create API Key</strong>, give it a name, and copy the key</li>
+                      <li>{{ 'admin.onboarding.email.resend_step_create' | transloco }}</li>
                     </ol>
-                    <span class="text-muted">
-                      Tip: Resend works right away with their <code>onboarding&#64;resend.dev</code> sender.
-                      To send from your own domain,
-                      <a href="https://resend.com/domains" target="_blank" rel="noopener">add &amp; verify your domain</a>.
-                    </span>
+                    @let tip = parts('admin.onboarding.email.resend_tip');
+                    <span>{{ tip[0] }}<a href="https://resend.com/domains" target="_blank" rel="noopener">{{ 'admin.onboarding.email.resend_tip_link' | transloco }}</a>{{ tip[1] }}</span>
                   </div>
                   <div class="mb-3">
-                    <label class="form-label">API Key</label>
+                    <label for="resendApiKey" class="form-label">{{ 'admin.onboarding.email.api_key' | transloco }}</label>
                     <div class="input-group">
-                      <span class="input-group-text"
+                      <span class="input-group-text" aria-hidden="true"
                         ><i class="fas fa-key"></i
                       ></span>
                       <input
                         [type]="showApiKey() ? 'text' : 'password'"
+                        id="resendApiKey"
                         formControlName="apiKey"
                         class="form-control"
+                        autocomplete="off"
+                        aria-describedby="resendApiKeyHint"
                         placeholder="re_xxxxxxxx..."
                       />
-                      <span
+                      <button
+                        type="button"
                         class="input-group-text eye_btn"
                         (click)="showApiKey.set(!showApiKey())"
-                        style="cursor: pointer"
+                        [attr.aria-label]="'admin.onboarding.show_password' | transloco"
+                        [attr.aria-pressed]="showApiKey()"
                       >
                         <i
                           class="fas"
+                          aria-hidden="true"
                           [ngClass]="showApiKey() ? 'fa-eye' : 'fa-eye-slash'"
                         ></i>
-                      </span>
+                      </button>
                     </div>
-                    <div class="form-text">
-                      Starts with <code>re_</code>. Get it from
-                      <a href="https://resend.com/api-keys" target="_blank" rel="noopener">resend.com/api-keys</a>
+                    <div id="resendApiKeyHint" class="form-text">
+                      @let apiKey = parts('admin.onboarding.email.api_key_hint');
+                      {{ apiKey[0] }}<a href="https://resend.com/api-keys" target="_blank" rel="noopener">resend.com/api-keys</a>{{ apiKey[1] }}
                     </div>
                   </div>
                 </div>
@@ -703,53 +712,58 @@
 
                 <!-- Sender fields -->
                 <hr class="my-3" />
-                <p class="form-label fw-semibold mb-1">Sender Information</p>
-                <p class="form-text mt-0 mb-3">This is how your emails will appear to recipients.</p>
+                <p class="form-label fw-semibold mb-1">{{ 'admin.onboarding.email.sender_title' | transloco }}</p>
+                <p class="form-text mt-0 mb-3">{{ 'admin.onboarding.email.sender_text' | transloco }}</p>
 
                 <div class="mb-3">
-                  <label class="form-label">Sender Email</label>
+                  <label for="senderEmail" class="form-label">{{ 'admin.onboarding.email.sender_email' | transloco }}</label>
                   <div class="input-group">
-                    <span class="input-group-text"
+                    <span class="input-group-text" aria-hidden="true"
                       ><i class="fas fa-at"></i
                     ></span>
                     <input
                       type="email"
+                      id="senderEmail"
                       formControlName="senderEmail"
                       class="form-control"
                       placeholder="noreply@yoursite.com"
+                      [attr.aria-describedby]="isFieldInvalid('senderEmail', emailForm) ? 'senderEmailError senderEmailHint' : 'senderEmailHint'"
                       [class.is-invalid]="isFieldInvalid('senderEmail', emailForm)"
+                      [attr.aria-invalid]="isFieldInvalid('senderEmail', emailForm)"
                       [readonly]="gmailSenderLocked()"
                     />
                   </div>
                   @if (isFieldInvalid('senderEmail', emailForm)) {
-                  <div class="text-danger mt-1 small">
-                    Please enter a valid sender email
+                  <div id="senderEmailError" class="text-danger mt-1 small" role="alert">
+                    {{ 'admin.onboarding.email.sender_email_error' | transloco }}
                   </div>
                   }
                   @if (gmailSenderLocked()) {
-                  <div class="form-text">
-                    <i class="fas fa-lock me-1"></i>
-                    Locked to your Gmail address (Gmail requires this)
+                  <div id="senderEmailHint" class="form-text">
+                    <i class="fas fa-lock me-1" aria-hidden="true"></i>
+                    {{ 'admin.onboarding.email.sender_locked' | transloco }}
                   </div>
                   } @else {
-                  <div class="form-text">The "from" address recipients will see</div>
+                  <div id="senderEmailHint" class="form-text">{{ 'admin.onboarding.email.sender_email_hint' | transloco }}</div>
                   }
                 </div>
 
                 <div class="mb-3">
-                  <label class="form-label">Sender Display Name</label>
+                  <label for="senderName" class="form-label">{{ 'admin.onboarding.email.sender_name' | transloco }}</label>
                   <div class="input-group">
-                    <span class="input-group-text"
+                    <span class="input-group-text" aria-hidden="true"
                       ><i class="fas fa-user-tag"></i
                     ></span>
                     <input
                       type="text"
+                      id="senderName"
                       formControlName="senderName"
                       class="form-control"
-                      [placeholder]="siteInfoForm.get('siteName')?.value || 'Your Site Name'"
+                      aria-describedby="senderNameHint"
+                      [placeholder]="siteInfoForm.get('siteName')?.value || ('admin.onboarding.email.sender_name_placeholder' | transloco)"
                     />
                   </div>
-                  <div class="form-text">The name shown next to your email address (e.g. "My Awesome Site")</div>
+                  <div id="senderNameHint" class="form-text">{{ 'admin.onboarding.email.sender_name_hint' | transloco }}</div>
                 </div>
 
                 <!-- Test Connection -->
@@ -760,20 +774,22 @@
                     (click)="testConnection()"
                     [disabled]="isTesting() || !isProviderConfigValid()"
                   >
-                    @if (isTesting()) { Testing…
+                    @if (isTesting()) {
+                    {{ 'admin.onboarding.email.testing' | transloco }}
                     <span
                       class="spinner-border spinner-border-sm ms-2"
-                      role="status"
+                      aria-hidden="true"
                     ></span>
                     } @else if (testPassed()) {
-                    <i class="fas fa-check-circle text-success me-1"></i> Test
-                    Passed } @else {
-                    <i class="fas fa-paper-plane me-1"></i> Send a Test Email }
+                    <i class="fas fa-check-circle text-success me-1" aria-hidden="true"></i> {{ 'admin.onboarding.email.test_passed' | transloco }}
+                    } @else {
+                    <i class="fas fa-paper-plane me-1" aria-hidden="true"></i> {{ 'admin.onboarding.email.send_test' | transloco }}
+                    }
                   </button>
                 </div>
 
                 @if (errorMessage()) {
-                <div class="alert alert-danger mt-3">{{ errorMessage() }}</div>
+                <div class="alert alert-danger mt-3" role="alert">{{ errorMessage() }}</div>
                 }
 
                 <button
@@ -782,12 +798,14 @@
                   (click)="saveEmailAndContinue()"
                   [disabled]="!testPassed() || isSavingEmail()"
                 >
-                  @if (isSavingEmail()) { Saving…
+                  @if (isSavingEmail()) {
+                  {{ 'admin.onboarding.saving' | transloco }}
                   <span
                     class="spinner-border spinner-border-sm ms-2"
-                    role="status"
+                    aria-hidden="true"
                   ></span>
-                  } @else { Continue <i class="fas fa-arrow-right ms-1"></i>
+                  } @else {
+                  {{ 'admin.onboarding.continue' | transloco }} <i class="fas fa-arrow-right ms-1" aria-hidden="true"></i>
                   }
                 </button>
 
@@ -803,75 +821,76 @@
           <div class="card request-card border-0">
             <div class="card-body customPadding">
               <div class="wizard-step-indicator">
-                Step 5 of {{ totalSteps }}
+                {{ 'admin.onboarding.step' | transloco: { step: 5, total: totalSteps } }}
               </div>
 
-              <div class="completion-icon">
+              <div class="completion-icon" aria-hidden="true">
                 <i class="fas fa-check"></i>
               </div>
-              <h2 class="auth-title">Setup Complete!</h2>
-              <p class="auth-subtitle">
-                Congratulations! Your CMS is configured and ready to go.
-              </p>
+              <h2 class="auth-title">{{ 'admin.onboarding.done.title' | transloco }}</h2>
+              <p class="auth-subtitle">{{ 'admin.onboarding.done.subtitle' | transloco }}</p>
 
               <!-- What we configured -->
               <div class="review-section mt-4">
-                <h6 class="review-section-title">
-                  <i class="fas fa-clipboard-check me-2"></i>What we configured
-                </h6>
+                <h3 class="review-section-title">
+                  <i class="fas fa-clipboard-check me-2" aria-hidden="true"></i>{{ 'admin.onboarding.done.configured' | transloco }}
+                </h3>
                 <ul class="configured-list">
                   <li>
-                    <i class="fas fa-user-shield"></i>
-                    <span>Admin account created for <strong>{{ onboardingForm.get('email')?.value }}</strong></span>
+                    <i class="fas fa-user-shield" aria-hidden="true"></i>
+                    @let adminFor = parts('admin.onboarding.done.admin_for');
+                    <span>{{ adminFor[0] }}<strong>{{ onboardingForm.get('email')?.value }}</strong>{{ adminFor[1] }}</span>
                   </li>
                   <li>
-                    <i class="fas fa-globe"></i>
-                    <span>Site information set up for <strong>{{ siteInfoForm.get('siteName')?.value }}</strong></span>
+                    <i class="fas fa-globe" aria-hidden="true"></i>
+                    @let siteFor = parts('admin.onboarding.done.site_for');
+                    <span>{{ siteFor[0] }}<strong>{{ siteInfoForm.get('siteName')?.value }}</strong>{{ siteFor[1] }}</span>
                   </li>
                   <li>
-                    <i class="fas fa-envelope"></i>
+                    <i class="fas fa-envelope" aria-hidden="true"></i>
                     @if (testPassed()) {
-                    <span>Email delivery configured via <strong>{{ selectedProvider() | titlecase }}</strong></span>
+                    @let emailVia = parts('admin.onboarding.done.email_via');
+                    <span>{{ emailVia[0] }}<strong>{{ providerKey(selectedProvider(), 'name') | transloco }}</strong>{{ emailVia[1] }}</span>
                     } @else {
-                    <span>Email delivery <strong>skipped</strong>: set up later from Settings</span>
+                    <span>{{ 'admin.onboarding.done.email_skipped' | transloco }}</span>
                     }
                   </li>
                   <li>
-                    <i class="fas fa-folder-open"></i>
-                    <span>Default content type: <strong>Articles</strong></span>
+                    <i class="fas fa-folder-open" aria-hidden="true"></i>
+                    @let contentType = parts('admin.onboarding.done.content_type');
+                    <span>{{ contentType[0] }}<strong>{{ firstContentType }}</strong>{{ contentType[1] }}</span>
                   </li>
                   <li>
-                    <i class="fas fa-list"></i>
-                    <span>Default waitlist ready for signups</span>
+                    <i class="fas fa-list" aria-hidden="true"></i>
+                    <span>{{ 'admin.onboarding.done.form_ready' | transloco }}</span>
                   </li>
                   <li>
-                    <i class="fas fa-location-dot"></i>
-                    <span>Geolocation enabled via <strong>ipapi.co</strong>. Captures country, region &amp; city for leads. Disable anytime from <strong>Settings &rarr; Integrations</strong></span>
+                    <i class="fas fa-location-dot" aria-hidden="true"></i>
+                    @let geo = parts('admin.onboarding.done.geo');
+                    <span>{{ geo[0] }}<strong>ipapi.co</strong>{{ geo[1] }}</span>
                   </li>
                 </ul>
               </div>
 
               <!-- Next steps -->
               <div class="review-section mt-4">
-                <h6 class="review-section-title">
-                  <i class="fas fa-arrow-right me-2"></i>Next steps
-                </h6>
+                <h3 class="review-section-title">
+                  <i class="fas fa-arrow-right me-2" aria-hidden="true"></i>{{ 'admin.onboarding.done.next' | transloco }}
+                </h3>
                 <ul class="next-steps-list">
-                  <li>Explore the admin dashboard to see everything in action</li>
-                  <li>Create your first content entry</li>
-                  <li>Customize settings to suit your requirements</li>
+                  <li>{{ 'admin.onboarding.done.next_dashboard' | transloco }}</li>
+                  <li>{{ 'admin.onboarding.done.next_entry' | transloco }}</li>
+                  <li>{{ 'admin.onboarding.done.next_settings' | transloco }}</li>
                 </ul>
               </div>
 
               @if (adminClaimPending()) {
               <div class="alert alert-warning mt-3">
-                <i class="fas fa-triangle-exclamation me-1"></i>
-                Your admin permissions are still propagating. Setup will finish
-                either way: the default waitlist may be skipped, and you can add
-                one later from Waitlists.
+                <i class="fas fa-triangle-exclamation me-1" aria-hidden="true"></i>
+                {{ 'admin.onboarding.done.claim_pending' | transloco }}
               </div>
               } @if (errorMessage()) {
-              <div class="alert alert-danger mt-3">{{ errorMessage() }}</div>
+              <div class="alert alert-danger mt-3" role="alert">{{ errorMessage() }}</div>
               } @if (setupFailed()) {
               <div class="d-flex gap-2 mt-4">
                 <button
@@ -880,20 +899,22 @@
                   (click)="completeSetup()"
                   [disabled]="isCompleting()"
                 >
-                  @if (isCompleting()) { Retrying…
+                  @if (isCompleting()) {
+                  {{ 'admin.onboarding.done.retrying' | transloco }}
                   <span
                     class="spinner-border spinner-border-sm ms-2"
-                    role="status"
+                    aria-hidden="true"
                   ></span>
                   } @else {
-                  <i class="fas fa-redo me-1"></i> Retry }
+                  <i class="fas fa-redo me-1" aria-hidden="true"></i> {{ 'admin.onboarding.done.retry' | transloco }}
+                  }
                 </button>
                 <button
                   type="button"
                   class="btn btn-outline-secondary flex-fill"
                   (click)="skipSetupAndGo()"
                 >
-                  Skip &amp; Go to Dashboard
+                  {{ 'admin.onboarding.done.skip' | transloco }}
                 </button>
               </div>
               } @else {
@@ -903,12 +924,14 @@
                 (click)="completeSetup()"
                 [disabled]="isCompleting()"
               >
-                @if (isCompleting()) { Setting up your dashboard…
+                @if (isCompleting()) {
+                {{ 'admin.onboarding.done.setting_up' | transloco }}
                 <span
                   class="spinner-border spinner-border-sm ms-2"
-                  role="status"
+                  aria-hidden="true"
                 ></span>
-                } @else { Go to Dashboard <i class="fas fa-arrow-right ms-1"></i>
+                } @else {
+                {{ 'admin.onboarding.done.go' | transloco }} <i class="fas fa-arrow-right ms-1" aria-hidden="true"></i>
                 }
               </button>
               }

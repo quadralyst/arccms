@@ -49,7 +49,7 @@
         <table>
           <thead><tr><th>Field</th><th>What to enter</th></tr></thead>
           <tbody>
-            <tr><td>Enable Dodo Payments</td><td>On. With it off, checkout and test links fail.</td></tr>
+            <tr><td>Turn on Dodo Payments</td><td>On. With it off, checkout and test links fail.</td></tr>
             <tr><td>Mode</td><td>Test while you try it, Live for real sales.</td></tr>
             <tr><td>Test API Key, Live API Key</td><td>From Dodo. The key for the selected mode is used.</td></tr>
             <tr><td>Webhook Signing Secret</td><td>The secret from the step before.</td></tr>
@@ -57,7 +57,7 @@
             <tr><td>Cancel URL</td><td><code>https://your-site/checkout/cancel</code></td></tr>
           </tbody>
         </table>
-        <p>Save, then press <strong>Test Connection</strong>. Saved keys and the secret show as dots; they are only replaced when you type a new value.</p>
+        <p>Save, then press <strong>Test connection</strong>. Saved keys and the secret show as dots; they are only replaced when you type a new value.</p>
       </li>
       <li><p><strong>Open Products, New Product</strong> for each Dodo product: its name, the <strong>Dodo Product ID</strong> (<code>prod_...</code>), the type, and the plan it grants (<strong>Premium type</strong> such as <code>gold</code>, and <strong>Tier rank</strong>, higher means more access). Mark it Active to show it on the pricing page. The other fields are below.</p></li>
       <li><p><strong>Try it in Test mode.</strong> Buy from <code>/pricing</code> with a test card, then check Transactions and the buyer's <code>/account</code> page.</p></li>
@@ -160,7 +160,7 @@
         <tr><td>Read webhook events</td><td>Admins</td></tr>
         <tr><td>Write transactions, ledger, webhook events</td><td>Cloud Functions only</td></tr>
         <tr><td>Start a checkout, spend own credits</td><td>Any signed-in person</td></tr>
-        <tr><td>Test payment link, Test Connection, move old codes off products</td><td>Admins</td></tr>
+        <tr><td>Test payment link, Test connection, move old codes off products</td><td>Admins</td></tr>
       </tbody>
     </table>
     <p>People cannot write their own plan or credit fields: the rules refuse it. See <a href="../concepts/roles-and-claims.html">Roles and claims</a>.</p>
@@ -173,7 +173,7 @@
         <tr><td>Dodo shows 500 "Webhook not configured"</td><td>No signing secret is saved. Paste it in Settings, Payments and save.</td></tr>
         <tr><td>Dodo shows 500 "Webhook configuration unavailable"</td><td>The payment settings were never saved, or there is no API key for the selected Mode. Fill them in and save.</td></tr>
         <tr><td>Paid, but the plan never arrived</td><td>Open the event in <code>WebhookEvents</code>: <code>processingError</code> says why. After 5 failed tries it is marked <code>processingFailedPermanently</code>. The buyer is found by the uid sent at checkout, then by email; the product by its id in the checkout metadata, so a deleted product grants nothing. A warning in the function log, "paid for a different product than its metadata names", means Dodo's product for the payment is not the product's <strong>Dodo Product ID</strong>: correct the ID in Products, then grant the plan by hand. A subscription's own charge never grants: its <code>subscription.active</code> or <code>.renewed</code> event does.</td></tr>
-        <tr><td>Pressing buy on <code>/pricing</code> does nothing</td><td>The page shows no message; the browser console has the reason. "Your account has no email address": checkout needs an email for Dodo, so a person who signed up with a phone number adds an email under Profile, Sign-in methods. "Product is not linked to a Dodo product": give the product its Dodo Product ID in Products. "Failed to create checkout session.": check that Enable Dodo Payments is on and the key for the selected mode is saved (Test Connection).</td></tr>
+        <tr><td>Pressing buy on <code>/pricing</code> does nothing</td><td>The page shows no message; the browser console has the reason. "Your account has no email address": checkout needs an email for Dodo, so a person who signed up with a phone number adds an email under Profile, Sign-in methods. "Product is not linked to a Dodo product": give the product its Dodo Product ID in Products. "Failed to create checkout session.": check that Turn on Dodo Payments is on and the key for the selected mode is saved (Test Connection).</td></tr>
         <tr><td><code>/checkout/success</code> shows "Payment received" instead of "You're all set!"</td><td>The webhook took longer than about 45 seconds, or failed. <strong>Check again</strong> starts checking again; the plan appears on <code>/account</code> once the event is processed.</td></tr>
         <tr><td>A test purchase gave no access</td><td>Purchases through a Test payment link never do. Buy from <code>/pricing</code> in Test mode instead.</td></tr>
       </tbody>

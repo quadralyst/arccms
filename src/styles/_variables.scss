@@ -1,5 +1,6 @@
 $theme-color: #ececec;
 $text-main-color: #24292e;
 $text-color-yellow: linear-gradient(to bottom, rgba(244, 178, 93, 1) 0%, rgba(219, 91, 31, 1) 100%);
+// Despite its name, used only as a drawer border (users.scss, email-logs.scss), never for text.
 $text-secondary-color: #ccc;
 $drawer-background: #fff;

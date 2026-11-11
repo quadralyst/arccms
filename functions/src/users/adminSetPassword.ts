@@ -3,8 +3,12 @@
  *
  * The password goes to their sign-in account only; nothing named password is
  * ever written to Firestore (the rules refuse it on a user record). It meets the
- * rule every new password meets (shared/password-rule.ts). Firebase signs the
- * person out of their other sessions when the password changes.
+ * rule every new password meets (shared/password-rule.ts). Every session of the
+ * person ends, so only someone told the new password signs in from now on.
+ *
+ * The record keeps when (`adminPasswordAt`, ADMIN_PASSWORD_FIELD): from then on the
+ * admins hold the password of that sign-in, so it may be given a role above a
+ * member's even with an unverified email (adminSetUserRole). Only the server writes it.
  *
  * Refused for an account Arc CMS does not own (a sign-in shared with another
  * app: that app changes it), a locked app account (its app manages it), an
@@ -13,6 +17,7 @@
  * whose sign-in account is gone.
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { Timestamp } from 'firebase-admin/firestore';
 import { db, owner } from '../init.js';
 import { requireAdmin } from '../search/auth.js';
 import { arccmsOwnsAuthAccount } from './authOwner.js';
@@ -24,6 +29,9 @@ import { readSignInSettings } from '../auth/accounts.js';
 export const SHARED_ACCOUNT = "This person's sign-in is shared with another app, so their password is changed there.";
 export const NO_ACCOUNT = 'This person has no sign-in account, so there is no password to set.';
 export const NO_EMAIL = 'This person has no email to sign in with, so a password would not work.';
+/** When an admin last set this record's password (Admin SDK only; the rules refuse it from browsers). */
+export const ADMIN_PASSWORD_FIELD = 'adminPasswordAt';
+
 export const PIN_SIGN_IN = 'This site signs email accounts in with a PIN, so this person has no password to set.';
 
 export const adminSetPassword = onCall(async (request) => {
@@ -32,7 +40,8 @@ export const adminSetPassword = onCall(async (request) => {
     const password = typeof request.data?.password === 'string' ? request.data.password : '';
     if (!id || id.includes('/')) throw new HttpsError('invalid-argument', 'Which user? The record id is missing.');
 
-    const snap = await db.collection('users').doc(id).get();
+    const ref = db.collection('users').doc(id);
+    const snap = await ref.get();
     const record = snap.data();
     if (!snap.exists || !record) throw new HttpsError('not-found', 'That user no longer exists.');
     if (!arccmsOwnsAuthAccount(record)) throw refuse('failed-precondition', 'shared-account', SHARED_ACCOUNT);
@@ -51,5 +60,7 @@ export const adminSetPassword = onCall(async (request) => {
     refuseWeakPassword(password, { email: account.email, name: typeof record['name'] === 'string' ? record['name'] : '' });
 
     await owner.updateUser(uid, { password });
+    await owner.revokeRefreshTokens(uid);
+    await ref.update({ [ADMIN_PASSWORD_FIELD]: Timestamp.now(), modifiedAt: Timestamp.now(), modifiedBy: request.auth!.uid });
     return { updated: true };
 });

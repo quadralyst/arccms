@@ -44,4 +44,15 @@ describe('SmsLogsComponent', () => {
         const source = readFileSync(resolve(__dirname, 'sms-logs.page.ts'), 'utf8');
         expect(source).toContain('<mat-option value="limited">{{ \'admin.settings.sms.status_limited\' | transloco }}</mat-option>');
     });
+
+    it('passes its load error to the table, with Retry, and says when the filter finds nothing', () => {
+        const source = readFileSync(resolve(__dirname, 'sms-logs.page.ts'), 'utf8');
+        expect(source).toContain('[error]="store.error() ? true : null" (retry)="refresh()"');
+        expect(source).toContain(`[filtered]="!!statusFilter()" (clearFilters)="onStatusFilterChange('')"`);
+        const c = ctx();
+        c['onStatusFilterChange'] = proto['onStatusFilterChange'].bind(c);
+        c['onStatusFilterChange']('');
+        expect(c['statusFilter']()).toBe('');
+        expect(c['store'].getAll).toHaveBeenLastCalledWith(expect.objectContaining({ currentPageNumber: 0, whereConditions: [] }));
+    });
 });

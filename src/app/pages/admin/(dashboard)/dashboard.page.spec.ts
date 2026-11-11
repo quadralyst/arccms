@@ -9,7 +9,7 @@ import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { DomSanitizer } from '@angular/platform-browser';
 import { of } from 'rxjs';
 import { signal } from '@angular/core';
-import { vi, describe, beforeEach, it, expect } from 'vitest';
+import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
 import { AnalyticsStore } from './analytics.store';
 import { AnalyticsConnectionStatusService } from '../../../../shared/services/analytics-connection-status.service';
 import { SiteUsageService } from '../(settings)/site-usage/site-usage.service';
@@ -55,6 +55,7 @@ describe('DashboardComponent', () => {
     const mockContentTypesStore = {
         items: signal([]),
         isLoading: signal(false),
+        isSuccess: signal(true),
         getAll: vi.fn(),
         unsubscribeStore: vi.fn()
     };
@@ -106,7 +107,12 @@ describe('DashboardComponent', () => {
         destroy: vi.fn()
     };
     const mockFirestore = {};
+    /** What counting a type's published entries answers: a number, or a failed read. */
+    let publishedAnswer: number | Error = 0;
     beforeEach(async () => {
+        publishedAnswer = 0;
+        vi.spyOn(DashboardComponent.prototype as never, 'countPublished' as never).mockImplementation((() =>
+            publishedAnswer instanceof Error ? Promise.reject(publishedAnswer) : Promise.resolve(publishedAnswer)) as never);
         await TestBed.configureTestingModule({
             imports: [DashboardComponent],
             providers: [
@@ -139,9 +145,10 @@ describe('DashboardComponent', () => {
     });
 
     it('loads every content type through the store default, not the ten-row page helper', () => {
-        // getAll() with no arguments uses the store's own limit (0 = no limit);
-        // any limitCount here would reintroduce the "oldest types missing" bug.
-        expect(mockContentTypesStore.getAll).toHaveBeenCalledWith();
+        // limitCount 0 is "no limit"; any other limit would reintroduce the "oldest
+        // types missing" bug. No filter either, so a status filter left by the
+        // content types page does not hide types here.
+        expect(mockContentTypesStore.getAll).toHaveBeenCalledWith({ whereConditions: [], limitCount: 0, currentPageNumber: 0, previousPageNumber: 0 });
     });
 
     it('shows the recent waitlist signups table while signup forms are on', () => {
@@ -331,6 +338,105 @@ describe('DashboardComponent', () => {
 
         it('should map Engaged Sessions to green', () => {
             expect(component.getMetricColor('Engaged Sessions')).toBe('green');
+        });
+    });
+
+    // RF5 5.6: a new install opens on one clear first step; analytics stays below it.
+    describe('first run', () => {
+        const settle = async () => {
+            fixture.detectChanges();
+            await fixture.whenStable();
+            fixture.detectChanges();
+        };
+        const el = () => fixture.nativeElement as HTMLElement;
+        const card = () => el().querySelector('[data-testid="first-run"]');
+        const pagesType = { id: 'i', slug: 'info', name: 'Pages', standard: 'pages' };
+
+        afterEach(() => {
+            mockContentTypesStore.items.set([]);
+            mockContentTypesStore.isSuccess.set(true);
+            mockDraftContentsService.getCollectionTotalCount.mockReturnValue(of(0));
+        });
+
+        it('with no content types, shows the first step above the analytics section, linking to Add standard pages', async () => {
+            await settle();
+            expect(component.firstRun()).toBe(true);
+            expect(card()?.textContent).toContain('Finish and publish your first page');
+            // Analytics is not hidden: a site with no CMS entries still uses it.
+            expect(el().textContent).toContain('Google Analytics is not connected');
+            expect(component.firstPageLink()).toEqual(['/admin/contents/content-types']);
+        });
+
+        it('after a normal setup (standard pages as drafts, nothing published), opens the pages to finish', async () => {
+            mockDraftContentsService.getCollectionTotalCount.mockReturnValue(of(6));
+            publishedAnswer = 0;
+            mockContentTypesStore.items.set([{ id: 'b', slug: 'blog', name: 'Blog' }, pagesType] as never);
+            await settle();
+            expect(component.firstRun()).toBe(true);
+            expect(component.firstPageLink()).toEqual(['/admin/contents', 'info']);
+            expect(card()?.textContent).toContain('Your pages are waiting as drafts');
+        });
+
+        it('once something is published, the first step is gone', async () => {
+            publishedAnswer = 2;
+            mockContentTypesStore.items.set([pagesType] as never);
+            await settle();
+            expect(component.firstRun()).toBe(false);
+            expect(card()).toBeNull();
+            expect(el().textContent).toContain('Google Analytics is not connected');
+        });
+
+        it('a failed published count does not make an established site look new', async () => {
+            publishedAnswer = new Error('unavailable');
+            const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            try {
+                mockContentTypesStore.items.set([pagesType] as never);
+                await settle();
+                expect(component.firstRun()).toBe(false);
+                expect(card()).toBeNull();
+            } finally {
+                error.mockRestore();
+            }
+        });
+
+        it('a failed content types read (empty, not a success) is not a new install', async () => {
+            mockContentTypesStore.isSuccess.set(false);
+            await settle();
+            expect(component.firstRun()).toBe(false);
+            expect(card()).toBeNull();
+        });
+
+        it('says "1 kind of content" for one kind', async () => {
+            await settle();
+            expect(el().textContent).toContain('1 kind of content: Media.');
+        });
+    });
+
+    describe('cards and words', () => {
+        it('makes the cards real links, so a keyboard can reach them', () => {
+            const cards = fixture.nativeElement.querySelectorAll('.scrollable-card');
+            expect(cards.length).toBeGreaterThan(0);
+            cards.forEach((card: HTMLElement) => expect(card.tagName).toBe('A'));
+        });
+
+        it('names the Google Analytics numbers in the admin language', () => {
+            expect(component.metricTitle('Bounce Rate')).toBe('Bounce rate');
+            expect(component.metricTitle('Something new')).toBe('Something new');
+        });
+
+        it('shows a plain sentence when refreshing analytics fails, not the server text', async () => {
+            mockAnalyticsConnectionStatus.isConnected.mockReturnValue(true);
+            mockGoogleOAuthService.refreshAnalyticsData.mockRejectedValueOnce(new Error('internal: invalid_grant'));
+            const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            try {
+                await component.refreshAnalytics();
+                const shown = mockToast.openCustomSnackbar.mock.calls.at(-1)?.[0];
+                expect(shown).toContain('Could not refresh the numbers');
+                expect(shown).not.toContain('invalid_grant');
+            } finally {
+                error.mockRestore();
+                mockAnalyticsConnectionStatus.isConnected.mockReturnValue(false);
+            }
         });
     });
 

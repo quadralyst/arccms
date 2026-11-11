@@ -8,6 +8,7 @@ import { db, owner } from '../init.js';
 import { canSignIn, findUserByUid, newUserRecord } from '../auth/accounts.js';
 import { APP_ACCOUNT_BY, SELF_SERVICE } from '../users/lockedAppAccount.js';
 import { appClaimProblems, mergeClaims, MAX_CLAIMS_BYTES, ROLE_CLAIM, USER_RECORD_CLAIM } from '../users/claims.js';
+import { isActiveAdmin, requireAnotherActiveAdmin } from '../users/activeAdmins.js';
 
 /** What sets an app account apart in the users list. */
 export const APP_ACCOUNT = APP_ACCOUNT_BY;
@@ -84,12 +85,23 @@ export async function createAppAccount(input: CreateAppAccountInput): Promise<Ap
 /**
  * Deletes a person's account by their Auth uid: their `users` record goes, and ArcCMS's
  * account deletion does the rest (the sign-in, a PIN, contact data), then announces
- * `user.deleted` (docs/app/account-contract.html).
+ * `user.deleted` (docs/app/account-contract.html). Refused (`last-admin`) for the
+ * site's last active admin: the site always keeps one (users/activeAdmins.ts).
  */
 export async function deleteAppAccount(uid: string): Promise<void> {
     const record = await findUserByUid(uid);
     if (!record) throw new HttpsError('not-found', 'No account has this uid.');
-    await record.ref.delete();
+    if (!isActiveAdmin(record.data)) {
+        await record.ref.delete();
+        return;
+    }
+    // In one transaction with the list of admins, so two deletes at once cannot both pass.
+    await db.runTransaction(async (tx) => {
+        const snap = await tx.get(record.ref);
+        if (!snap.exists) return;
+        if (isActiveAdmin(snap.data())) await requireAnotherActiveAdmin(tx, record.ref.id, snap.data()?.['uid']);
+        tx.delete(record.ref);
+    });
 }
 
 /**

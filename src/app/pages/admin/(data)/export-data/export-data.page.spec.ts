@@ -315,7 +315,8 @@ describe('ExportDataPageComponent', () => {
             component.toggleCollection('content', 'ContentTypes');
             await component.startExport();
 
-            expect(component.exportError()).toBe('Firestore error');
+            // A plain sentence for the admin; the technical detail is in the console.
+            expect(component.exportError()).toBe('The export did not finish. Check your connection and try again.');
             expect(component.isExporting()).toBe(false);
         });
 

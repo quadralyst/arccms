@@ -69,8 +69,9 @@
                             <span class="file-name">{{ file.name }}</span>
                             <span class="file-size">{{ formatSize(file.size) }}</span>
                         </div>
-                        <button class="remove-btn" (click)="removeFile($index)" [disabled]="isUploading()">
-                            <i class="fa-solid fa-xmark"></i>
+                        <button type="button" class="remove-btn" (click)="removeFile($index)" [disabled]="isUploading()"
+                            [attr.aria-label]="'admin.data.import_files.remove_file' | transloco: { name: file.name }">
+                            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                         </button>
                     </div>
                 }

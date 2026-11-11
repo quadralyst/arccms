@@ -1,12 +1,12 @@
 import { ArcTimePipe } from '../../../../core/time/arc-time.pipe';
 import { Component, inject, input, output, signal } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
+import { ConfirmService } from '../../../../../shared/components/confirmation-popup/confirm.service';
+import { MediaManagerService, type MediaUsage } from '../media-manager.service';
+import { mediaDeleteMessage } from '../media-delete-message';
 import { NotifyService } from '../../../../../shared/services/notify.service';
 import { escapeHtml } from '../../../../../shared/utils/escape-html';
 import { formatBytes, MEDIA_FILE_TYPE_ICONS, MEDIA_FILE_TYPE_LABELS } from '../../../../../shared/utils/media-files';
-import { DomSanitizer } from '@angular/platform-browser';
 import { MediaDetailsChange, MediaDetailsComponent } from '../media-details/media-details.component';
 import { IMediaFile } from '../media-files.model';
 import { MediaFilesService } from '../media-files.service';
@@ -25,9 +25,9 @@ import { MediaFilesService } from '../media-files.service';
 export class MediaFilePanelComponent {
     private files = inject(MediaFilesService);
     private notify = inject(NotifyService);
-    private dialog = inject(MatDialog);
+    private confirmDialog = inject(ConfirmService);
+    private media = inject(MediaManagerService);
     private i18n = inject(TranslocoService);
-    private sanitizer = inject(DomSanitizer);
 
     readonly file = input.required<IMediaFile>();
     /** Take an image is offered only where it can be used (not while a crop saves). */
@@ -76,21 +76,25 @@ export class MediaFilePanelComponent {
         window.open(this.file().downloadURL, '_blank', 'noopener');
     }
 
-    confirmDelete(): void {
+    /** Ask before deleting, saying how many content entries link to the file (mediaUsage). */
+    async confirmDelete(): Promise<void> {
         const file = this.file();
-        const message = this.i18n.translate('admin.media.files.delete_confirm', { title: escapeHtml(file.title) });
-        const ref = this.dialog.open(ConfirmationPopupComponent, {
-            width: '380px',
-            data: {
-                dialogType: 'Delete',
-                dialogMessage: this.sanitizer.bypassSecurityTrustHtml(message),
-                btnText: this.i18n.translate('common.actions.delete'),
-                panelType: 'warn',
-            },
+        if (this.deleting()) return;
+        this.deleting.set(true);
+        let usage: MediaUsage | null;
+        try {
+            usage = await this.media.mediaUsage({ fileId: file.id });
+        } finally {
+            this.deleting.set(false);
+        }
+        const question = this.i18n.translate('admin.media.files.delete_confirm', { title: escapeHtml(file.title) });
+        const confirmed = await this.confirmDialog.ask({
+            titleKey: 'common.dialog.delete',
+            dialogMessage: mediaDeleteMessage((key, params) => this.i18n.translate(key, params), question, usage, 'file'),
+            btnText: this.i18n.translate('common.actions.delete'),
+            panelType: 'warn',
         });
-        ref.afterClosed().subscribe((confirmed) => {
-            if (confirmed) void this.delete(file);
-        });
+        if (confirmed) await this.delete(file);
     }
 
     private async delete(file: IMediaFile): Promise<void> {

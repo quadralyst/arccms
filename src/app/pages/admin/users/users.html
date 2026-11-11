@@ -25,17 +25,14 @@
                         <button mat-stroked-button (click)="toggleDetached()"
                             [attr.aria-pressed]="showDetached()"
                             [title]="'admin.users.detached_hint' | transloco">
-                            <mat-icon>{{ showDetached() ? 'group' : 'person_off' }}</mat-icon>
+                            <mat-icon aria-hidden="true">{{ showDetached() ? 'group' : 'person_off' }}</mat-icon>
                             {{ (showDetached() ? 'admin.users.show_all' : 'admin.users.show_detached') | transloco }}
                         </button>
                         <button mat-raised-button color="primary" (click)="openAdd()">
-                            <mat-icon>add</mat-icon>
-                            @for (roles of constantVariables.roles; track roles.userType) {
-                            @if(roles.userType === role) {
-                            Add {{roles.userTypeLabel}}
-                            }
-                            }
-                            @if(!role) {
+                            <mat-icon aria-hidden="true">add</mat-icon>
+                            @if (role) {
+                            {{ 'admin.users.add_role' | transloco: { role: roleName(role) } }}
+                            } @else {
                             {{ 'admin.users.add' | transloco }}
                             }
                         </button>
@@ -50,14 +47,14 @@
                         </mat-button-toggle-group>
 
                         <mat-form-field appearance="outline" class="users-search" subscriptSizing="dynamic">
-                            <mat-icon matPrefix>search</mat-icon>
+                            <mat-icon matPrefix aria-hidden="true">search</mat-icon>
                             <input matInput type="search" [value]="searchTerm()" (input)="onSearch($any($event.target).value)"
                                 [attr.aria-label]="'admin.users.search' | transloco"
                                 [placeholder]="'admin.users.search' | transloco" autocomplete="off">
                             @if (searching()) {
                             <button matSuffix mat-icon-button type="button" (click)="onSearch('')"
                                 [attr.aria-label]="'admin.users.search_clear' | transloco">
-                                <mat-icon>close</mat-icon>
+                                <mat-icon aria-hidden="true">close</mat-icon>
                             </button>
                             }
                         </mat-form-field>
@@ -73,8 +70,13 @@
                         [loading]="loading()" [sortField]="sortField()" [sortOrder]="sortOrder()"
                         (sortChange)="setSortField($event)" (cellClick)="onCellClick($event)"
                         [pageIndex]="page()" [pageSize]="pageSize()"
-                        [emptyTitle]="(searching() ? 'admin.users.search_empty_title' : 'admin.users.empty_title') | transloco"
-                        [emptyDescription]="(searching() ? 'admin.users.search_empty_description' : 'admin.users.empty_description') | transloco"
+                        [error]="loadError()" (retry)="retryLoad()"
+                        [filtered]="hasActiveFilters()" (clearFilters)="clearAllFilters()"
+                        [noMatchTitle]="searching() ? 'admin.users.search_empty_title' : 'common.table.no_match_title'"
+                        [noMatchDescription]="searching() ? 'admin.users.search_empty_description' : 'common.table.no_match_text'"
+                        emptyTitle="admin.users.empty_title"
+                        emptyDescription="admin.users.empty_description"
+                        emptyIcon="fas fa-users"
                         [showEmptyAction]="false">
                     </app-global-table>
                     <!-- </div> -->

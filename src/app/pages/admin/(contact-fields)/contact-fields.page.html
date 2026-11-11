@@ -3,63 +3,58 @@
         (closedStart)="closeDrawer()">
         <div class="side-panel">
             <div class="panel-header">
-                <h5>{{ editing() ? 'Edit field' : 'New field' }}</h5>
-                <button class="close-btn" (click)="closeDrawer()"><i class="fas fa-times"></i></button>
+                <h5>{{ (editing() ? 'admin.audience.fields.edit' : 'admin.audience.fields.new') | transloco }}</h5>
+                <button type="button" class="close-btn" (click)="closeDrawer()" [attr.aria-label]="'common.actions.close' | transloco"><i class="fas fa-times" aria-hidden="true"></i></button>
             </div>
 
             <div class="flex-grow-1">
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Label</mat-label>
-                    <input matInput [(ngModel)]="label" placeholder="e.g. Company" />
+                    <mat-label>{{ 'admin.audience.fields.label' | transloco }}</mat-label>
+                    <input matInput [(ngModel)]="label" [placeholder]="'admin.audience.fields.label_placeholder' | transloco" />
                     @if (previewKey()) {
-                        <mat-hint>Merge tag: <code>##FIELD:{{ previewKey() }}##</code></mat-hint>
+                        <mat-hint>{{ 'admin.audience.fields.merge_tag' | transloco }}: <code>##FIELD:{{ previewKey() }}##</code></mat-hint>
                     }
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Type</mat-label>
+                    <mat-label>{{ 'common.table.type' | transloco }}</mat-label>
                     <mat-select [(ngModel)]="type">
-                        <mat-option value="text">Text</mat-option>
-                        <mat-option value="number">Number</mat-option>
-                        <mat-option value="date">Date</mat-option>
-                        <mat-option value="boolean">Yes / no</mat-option>
-                        <mat-option value="select">Choice</mat-option>
+                        <mat-option value="text">{{ 'admin.audience.fields.type_text' | transloco }}</mat-option>
+                        <mat-option value="number">{{ 'admin.audience.fields.type_number' | transloco }}</mat-option>
+                        <mat-option value="date">{{ 'admin.audience.fields.type_date' | transloco }}</mat-option>
+                        <mat-option value="boolean">{{ 'admin.audience.fields.type_boolean' | transloco }}</mat-option>
+                        <mat-option value="select">{{ 'admin.audience.fields.type_select' | transloco }}</mat-option>
                     </mat-select>
                 </mat-form-field>
 
                 @if (type === 'select') {
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Choices (comma separated)</mat-label>
-                    <input matInput [(ngModel)]="optionsText" placeholder="Founder, Engineer, Other" />
+                    <mat-label>{{ 'admin.audience.fields.choices' | transloco }}</mat-label>
+                    <input matInput [(ngModel)]="optionsText" [placeholder]="'admin.audience.fields.choices_placeholder' | transloco" />
                 </mat-form-field>
                 }
 
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>On re-submit</mat-label>
+                    <mat-label>{{ 'admin.audience.fields.on_resubmit' | transloco }}</mat-label>
                     <mat-select [(ngModel)]="writePolicy">
-                        <mat-option value="fill">Keep the existing value</mat-option>
-                        <mat-option value="overwrite">Overwrite with the newer value</mat-option>
+                        <mat-option value="fill">{{ 'admin.audience.fields.policy_fill' | transloco }}</mat-option>
+                        <mat-option value="overwrite">{{ 'admin.audience.fields.policy_overwrite' | transloco }}</mat-option>
                     </mat-select>
-                    <mat-hint>
-                        "Keep" means a second form can never replace what someone told you first.
-                    </mat-hint>
+                    <mat-hint>{{ 'admin.audience.fields.policy_hint' | transloco }}</mat-hint>
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Fallback for emails (optional)</mat-label>
-                    <input matInput [(ngModel)]="defaultValue" placeholder="e.g. your company" />
-                    <mat-hint>
-                        Use as <code>##FIELD:{{ previewKey() || 'key' }}|{{ defaultValue || 'fallback' }}##</code>
-                        so contacts without a value never see a blank gap.
-                    </mat-hint>
+                    <mat-label>{{ 'admin.audience.fields.fallback_label' | transloco }}</mat-label>
+                    <input matInput [(ngModel)]="defaultValue" [placeholder]="'admin.audience.fields.fallback_placeholder' | transloco" />
+                    <mat-hint>{{ 'admin.audience.fields.fallback_hint' | transloco: { tag: '##FIELD:' + (previewKey() || 'key') + '|' + (defaultValue || ('admin.audience.fields.fallback' | transloco)) + '##' } }}</mat-hint>
                 </mat-form-field>
             </div>
 
             <div class="panel-actions">
-                <button mat-stroked-button (click)="closeDrawer()">Cancel</button>
+                <button mat-stroked-button (click)="closeDrawer()">{{ 'common.actions.cancel' | transloco }}</button>
                 <button mat-flat-button color="primary" [disabled]="busy() || !previewKey()" (click)="save()">
                     <mat-icon>{{ editing() ? 'save' : 'add' }}</mat-icon>
-                    {{ editing() ? 'Save' : 'Create field' }}
+                    {{ (editing() ? 'common.actions.save' : 'admin.audience.fields.create') | transloco }}
                 </button>
             </div>
         </div>
@@ -70,8 +65,8 @@
             <arc-page-header [title]="'admin.audience.fields.title' | transloco"
                 [subtitle]="'admin.audience.fields.subtitle' | transloco">
                 <button mat-stroked-button (click)="runMigration()" [disabled]="busy()"
-                    matTooltip="Copy values from past form submissions onto contacts, using each form's field mapping. Safe to run more than once.">
-                    <mat-icon>download</mat-icon> {{ 'admin.audience.fields.import' | transloco }}
+                    [matTooltip]="'admin.audience.fields.import_hint' | transloco">
+                    <mat-icon aria-hidden="true">download</mat-icon> {{ 'admin.audience.fields.import' | transloco }}
                 </button>
                 <button mat-flat-button color="primary" (click)="openAdd()">
                     <mat-icon>add</mat-icon> {{ 'admin.audience.fields.new' | transloco }}
@@ -79,16 +74,15 @@
             </arc-page-header>
 
             <p class="fields-note">
-                <i class="fas fa-circle-info"></i>
-                Map a form's inputs to these fields in the form's edit panel. Values arrive on the
-                contact at signup, so they work in broadcasts and sequences to any list, including
-                lists fed by several forms.
+                <i class="fas fa-circle-info" aria-hidden="true"></i>
+                {{ 'admin.audience.fields.note' | transloco }}
             </p>
 
             <app-global-table [data]="fields()" [columns]="columns" [loading]="loading()"
+                [error]="loadError()" (retry)="load()"
                 emptyIcon="fas fa-table-columns" [emptyTitle]="'admin.audience.fields.empty_title' | transloco"
                 [emptyDescription]="'admin.audience.fields.empty_description' | transloco"
-                emptyActionLabel="New field" emptyActionIcon="fas fa-plus"
+                emptyActionLabel="admin.audience.fields.new" emptyActionIcon="fas fa-plus"
                 (emptyActionClick)="openAdd()">
             </app-global-table>
         </div>

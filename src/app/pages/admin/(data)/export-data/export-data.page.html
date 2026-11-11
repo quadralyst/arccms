@@ -64,15 +64,15 @@
                                     (change)="toggleCollection(group.id, col.name)"
                                     [disabled]="isExporting()">
                                     <div class="collection-info">
-                                        <span class="collection-name">{{ col.displayName }}</span>
+                                        <span class="collection-name">{{ col.displayName | translatable }}</span>
                                         <span class="collection-path">{{ col.name }}</span>
                                     </div>
                                 </mat-checkbox>
                                 <span class="collection-count">
                                     @if (col.loadingCount) {
-                                        <span class="loading-dots">...</span>
+                                        <span class="loading-dots" role="status"><span aria-hidden="true">...</span><span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span></span>
                                     } @else {
-                                        {{ col.count }} docs
+                                        {{ 'admin.data.docs' | transloco: { count: col.count } }}
                                     }
                                 </span>
                             </div>
@@ -82,11 +82,11 @@
                                 @for (sub of col.subcollections; track sub.name) {
                                     <div class="collection-row subcollection" [class.selected]="col.selected">
                                         <div class="sub-indent">
-                                            <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon"></i>
-                                            <span class="collection-name">{{ sub.displayName }}</span>
+                                            <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon" aria-hidden="true"></i>
+                                            <span class="collection-name">{{ sub.displayName | translatable }}</span>
                                             <span class="collection-path">{{ col.name }}/*/{{ sub.name }}</span>
                                         </div>
-                                        <span class="collection-count auto-tag">auto</span>
+                                        <span class="collection-count auto-tag">{{ 'admin.data.export.auto' | transloco }}</span>
                                     </div>
                                 }
                             }
@@ -117,13 +117,15 @@
                                     <div class="bundle-right">
                                         <span class="collection-count">
                                             @if (sb.loadingCounts) {
-                                                <span class="loading-dots">...</span>
+                                                <span class="loading-dots" role="status"><span aria-hidden="true">...</span><span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span></span>
                                             } @else {
-                                                {{ (sb.counts.drafts || 0) + (sb.counts.published || 0) + (sb.counts.tags || 0) }} docs
+                                                {{ 'admin.data.docs' | transloco: { count: (sb.counts.drafts || 0) + (sb.counts.published || 0) + (sb.counts.tags || 0) } }}
                                             }
                                         </span>
-                                        <button class="expand-btn" (click)="toggleBundleExpanded(group.id, sb.bundle.contentTypeSlug); $event.stopPropagation()">
-                                            <i class="fa-solid"
+                                        <button type="button" class="expand-btn" (click)="toggleBundleExpanded(group.id, sb.bundle.contentTypeSlug); $event.stopPropagation()"
+                                            [attr.aria-expanded]="!!sb.expanded"
+                                            [attr.aria-label]="(sb.expanded ? 'admin.data.export.hide_parts' : 'admin.data.export.show_parts') | transloco">
+                                            <i class="fa-solid" aria-hidden="true"
                                                [class.fa-chevron-right]="!sb.expanded"
                                                [class.fa-chevron-down]="sb.expanded"></i>
                                         </button>
@@ -135,43 +137,43 @@
                                     <div class="bundle-details">
                                         <div class="bundle-sub-row">
                                             <div class="sub-indent">
-                                                <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon"></i>
+                                                <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon" aria-hidden="true"></i>
                                                 <span class="collection-name">{{ 'admin.data.export.drafts' | transloco }}</span>
                                                 <span class="collection-path">{{ sb.bundle.draftsCollection.name }}</span>
                                             </div>
                                             <span class="collection-count">
                                                 @if (sb.loadingCounts) {
-                                                    <span class="loading-dots">...</span>
+                                                    <span class="loading-dots" role="status"><span aria-hidden="true">...</span><span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span></span>
                                                 } @else {
-                                                    {{ sb.counts.drafts || 0 }} docs
+                                                    {{ 'admin.data.docs' | transloco: { count: sb.counts.drafts || 0 } }}
                                                 }
                                             </span>
                                         </div>
                                         <div class="bundle-sub-row">
                                             <div class="sub-indent">
-                                                <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon"></i>
+                                                <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon" aria-hidden="true"></i>
                                                 <span class="collection-name">{{ 'admin.data.export.published' | transloco }}</span>
                                                 <span class="collection-path">{{ sb.bundle.publishedCollection.name }}</span>
                                             </div>
                                             <span class="collection-count">
                                                 @if (sb.loadingCounts) {
-                                                    <span class="loading-dots">...</span>
+                                                    <span class="loading-dots" role="status"><span aria-hidden="true">...</span><span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span></span>
                                                 } @else {
-                                                    {{ sb.counts.published || 0 }} docs
+                                                    {{ 'admin.data.docs' | transloco: { count: sb.counts.published || 0 } }}
                                                 }
                                             </span>
                                         </div>
                                         <div class="bundle-sub-row">
                                             <div class="sub-indent">
-                                                <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon"></i>
+                                                <i class="fa-solid fa-turn-up fa-rotate-90 sub-icon" aria-hidden="true"></i>
                                                 <span class="collection-name">{{ 'admin.data.export.tags' | transloco }}</span>
                                                 <span class="collection-path">{{ sb.bundle.tagsCollection.name }}</span>
                                             </div>
                                             <span class="collection-count">
                                                 @if (sb.loadingCounts) {
-                                                    <span class="loading-dots">...</span>
+                                                    <span class="loading-dots" role="status"><span aria-hidden="true">...</span><span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span></span>
                                                 } @else {
-                                                    {{ sb.counts.tags || 0 }} docs
+                                                    {{ 'admin.data.docs' | transloco: { count: sb.counts.tags || 0 } }}
                                                 }
                                             </span>
                                         </div>
@@ -214,8 +216,8 @@
     <!-- Error -->
     @if (exportError()) {
         <div class="export-error">
-            <i class="fa-solid fa-circle-exclamation"></i>
-            <span>{{ exportError() }}</span>
+            <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+            <span role="alert">{{ exportError() }}</span>
         </div>
     }
 

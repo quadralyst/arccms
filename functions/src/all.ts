@@ -57,6 +57,10 @@ export * from './users/syncUserRole.js';
 export * from './users/adminCreateUser.js';
 // Edit user: an admin sets a person's password, never stored in Firestore.
 export * from './users/adminSetPassword.js';
+// Users: role, block and delete, never leaving the site without an active admin.
+export * from './users/adminUserAccess.js';
+// Edit user: an admin changes a member's phone number (a lost phone).
+export * from './users/adminSetPhone.js';
 // The account's own: claim refresh and deleting it (docs/app/account-contract.html).
 export * from './users/accountCallables.js';
 // A fresh code before a sensitive action, for an app's own functions (docs/app/fresh-code.html).
@@ -88,6 +92,8 @@ export * from './integrations/searchUnsplash.js';
 export * from './integrations/readMediaImage.js';
 // Library PDFs, in parts, for taking an image from a page in the browser
 export * from './integrations/readMediaFile.js';
+// How many content entries use a media file, asked before it is deleted
+export * from './integrations/mediaUsage.js';
 
 // The features this app has (generated from src/custom/features.ts).
 export * from './feature-exports.gen.js';

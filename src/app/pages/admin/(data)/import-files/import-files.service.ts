@@ -1,4 +1,5 @@
 import { inject, Injectable } from '@angular/core';
+import { injectT } from '../../../../core/i18n/inject-t';
 import { collection, doc, Firestore, setDoc } from '@angular/fire/firestore';
 import {
     getDownloadURL,
@@ -30,6 +31,8 @@ export class ImportFilesService {
     private arcStorage = inject(ArcStorage);
     private db = inject(Firestore);
     private fileUpload = inject(FileUploadService);
+    /** Progress words in the admin's language. */
+    private t = injectT();
 
     /**
      * Upload a single file to Firebase Storage, stored with the content type its
@@ -100,6 +103,7 @@ export class ImportFilesService {
                 });
                 bytesUploaded += file.size;
             } catch (error: any) {
+                console.error(`Uploading ${file.name} failed:`, error);
                 results.push({
                     fileName: file.name,
                     storagePath,
@@ -113,7 +117,7 @@ export class ImportFilesService {
         }
 
         progressCallback({
-            currentFile: 'Complete',
+            currentFile: this.t('admin.data.progress_done'),
             filesCompleted: files.length,
             totalFiles: files.length,
             bytesUploaded,
@@ -156,11 +160,12 @@ export class ImportFilesService {
                 results.push({ fileName: file.name, storagePath: uploaded.path, downloadURL: uploaded.downloadURL, success: true, collection: 'mediaFiles' });
                 bytesUploaded += file.size;
             } catch (error: any) {
+                console.error(`Uploading ${file.name} failed:`, error);
                 results.push({ fileName: file.name, storagePath: '', downloadURL: '', success: false, error: error?.message || 'Upload failed', collection: 'mediaFiles' });
             }
         }
 
-        progressCallback({ currentFile: 'Complete', filesCompleted: documents.length, totalFiles: documents.length, bytesUploaded });
+        progressCallback({ currentFile: this.t('admin.data.progress_done'), filesCompleted: documents.length, totalFiles: documents.length, bytesUploaded });
         return results;
     }
 

@@ -25,7 +25,7 @@
       <tbody>
         <tr><td><code>/waitlist/{form}</code></td><td>The form's own signup page (the form is found by id or slug)</td></tr>
         <tr><td><code>/leaderboard/{form}</code>, <code>/leaderboard/{form}/{member}</code>, <code>/user/{form}/{member}</code></td><td>Open <code>/waitlist/{form}</code>. These were the leaderboard and member pages of older versions; their links in emails already sent still lead somewhere</td></tr>
-        <tr><td><code>/admin/waitlists</code></td><td>Signup Forms in the admin menu</td></tr>
+        <tr><td><code>/admin/waitlists</code></td><td>Forms in the admin menu</td></tr>
       </tbody>
     </table>
 
@@ -36,7 +36,7 @@
 };</code></pre>
     <p>When it is off:</p>
     <ul>
-      <li>The Signup Forms menu item and every form page (<code>/waitlist</code>, <code>/leaderboard</code>, <code>/user/{form}/{member}</code>, <code>/admin/waitlists</code>) are gone and show the not-found page.</li>
+      <li>The Forms menu item and every form page (<code>/waitlist</code>, <code>/leaderboard</code>, <code>/user/{form}/{member}</code>, <code>/admin/waitlists</code>) are gone and show the not-found page.</li>
       <li>Form markup on your pages stays as you wrote it, but nothing reads, counts or submits it.</li>
       <li>The functions in <code>functions/src/features/forms.ts</code> are not built, so the next deploy of all functions removes them.</li>
       <li>The forms, members and templates stay in Firestore. Turn the feature back on to have them again.</li>
@@ -45,9 +45,9 @@
 
     <h2>Set it up</h2>
     <ol class="steps">
-      <li><p>Set up email in Settings, Email Settings (see <a href="email.html">Email engine</a>). Without a working provider no code can be sent, so every form confirms people without one.</p></li>
-      <li><p>Open <strong>Signup Forms</strong> and click the add button. Give it a name. The slug is filled in from the name and becomes the form's id, the <code>{form}</code> in every address above. Editing the slug later changes the slug only, never the id, and breaks links that used the old slug.</p></li>
-      <li><p>Creating the form also creates its list under Audience, Lists and its two email templates. Open the form's <strong>Email Templates</strong> to adjust them.</p></li>
+      <li><p>Set up email in Settings, Email sending (see <a href="email.html">Email engine</a>). Without a working provider no code can be sent, so every form confirms people without one.</p></li>
+      <li><p>Open <strong>Forms</strong> and click <strong>Add form</strong>. Give it a name. Its <strong>Address</strong> (stored as <code>slug</code>) is filled in from the name and becomes the form's id, the <code>{form}</code> in every address above. An address another form already has is refused, so a new form never replaces an old one. Changing the address later changes the slug only, never the id, and breaks links that used the old one.</p></li>
+      <li><p>Creating the form also creates its list under Audience, Lists and its two email templates. Open the form's <strong>Emails</strong> to adjust them.</p></li>
       <li><p>Link to <code>/waitlist/{form}</code>, or put the form on a page of your site (next section).</p></li>
     </ol>
 
@@ -87,7 +87,7 @@
       <li><p>The contact becomes <code>subscribed</code>, the <code>waitlist.joined</code> event fires (see <a href="automations.html">Automations</a>), and the welcome email goes out.</p></li>
       <li><p>The form shows a tick, "You're on the list!" and the address. Someone who was already on the list, and proved it with the code, sees "You're already on the list." instead.</p></li>
     </ol>
-    <p>The code step is skipped, and the member confirmed at once, when email is not set up, when the <strong>Waitlist emails</strong> switch in Settings, Email Settings is off, or when the form's verification template is inactive. Such a member is confirmed but not verified.</p>
+    <p>The code step is skipped, and the member confirmed at once, when email is not set up, when the <strong>Form emails</strong> switch in Settings, Email sending is off, or when the form's verification template is inactive. Such a member is confirmed but not verified.</p>
 
     <h3>Limits</h3>
     <p>The sign-up functions are public, so the server limits what they take. A closed form (<strong>Active</strong> off) takes no sign-ups and sends no codes.</p>
@@ -104,20 +104,20 @@
     </table>
 
     <h3>Form settings</h3>
-    <p>Edit a form from its row or its dashboard (<strong>Settings</strong>):</p>
+    <p>Edit a form from its row or its dashboard (<strong>Edit form</strong>):</p>
     <table>
       <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td>Name, Description, Cover Image</td><td>Shown on the form's page. Renaming the form renames its list</td></tr>
+        <tr><td>Name, Description, Cover image</td><td>Shown on the form's page. Renaming the form renames its list</td></tr>
         <tr><td>Active</td><td>Off: the form shows your message instead of accepting sign-ups</td></tr>
-        <tr><td>Default Tag</td><td>Given to every new member</td></tr>
-        <tr><td>Feeds lists</td><td>Other Contacts lists every member joins. The form's own list is always included</td></tr>
+        <tr><td>Tag for new sign-ups</td><td>Given to every new member</td></tr>
+        <tr><td>Adds sign-ups to lists</td><td>Other Contacts lists every member joins. The form's own list is always included</td></tr>
         <tr><td>Save form answers as</td><td>Maps a form input to a contact field, so emails to any list can use the answer (see <a href="audience.html">Audience</a>)</td></tr>
       </tbody>
     </table>
 
     <h3>Emails</h3>
-    <p>Each form has its own two templates, on its <strong>Email Templates</strong> page (<code>/admin/waitlists/templates/{form}</code>):</p>
+    <p>Each form has its own two templates, on its <strong>Emails</strong> page (<code>/admin/waitlists/templates/{form}</code>), under the tabs <strong>Sign-up code</strong> and <strong>Welcome email</strong>:</p>
     <table>
       <thead><tr><th>Template</th><th>Kind</th><th>Sent</th></tr></thead>
       <tbody>
@@ -129,7 +129,7 @@
     <p>To turn a form's code step off, make its verification template inactive. For more emails after the welcome, add a sequence on the form's list (<a href="email-marketing.html">Email marketing</a>). Every tag is listed in <a href="../reference/email-tags.html">Email merge tags</a>.</p>
     <div class="trap"><p>Deleting the verification template does not turn the code step off: the default template is created again the next time a code is needed. Switch it to inactive instead.</p></div>
     <div class="trap"><p>The welcome template goes out when an address is verified. A form that confirms people without a code never sends it. For a welcome on such a form, use a sequence on the form's list with a first step at 0 hours.</p></div>
-    <div class="trap"><p>Older versions seeded a welcome with a referral link button and a leaderboard button. A form whose welcome is still exactly that default gets the plain one the next time a template is needed. A welcome you edited keeps your text, and its two buttons now lead nowhere: open the form's Email Templates and remove them.</p></div>
+    <div class="trap"><p>Older versions seeded a welcome with a referral link button and a leaderboard button. A form whose welcome is still exactly that default gets the plain one the next time a template is needed. A welcome you edited keeps your text, and its two buttons now lead nowhere: open the form's Emails and remove them.</p></div>
 
     <h3>Upgrading from referrals and the leaderboard</h3>
     <p>Older versions gave every member a referral code and link, a queue position and a public leaderboard. Signup forms have none of these now. After updating an install that used them:</p>
@@ -141,10 +141,12 @@
     <p>The old fields on member records (<code>referralCode</code>, <code>referralLink</code>, <code>leaderboardLink</code>, <code>queuePosition</code>, <code>totalReferrals</code>, <code>referredBy</code>) stay where they are and are not read any more. Old <code>?ref=</code> links open the page as usual.</p>
 
     <h3>Members</h3>
-    <p><strong>View Users</strong> on a form lists its members, with notes and the form's own tags. Each form's dashboard shows sign-up numbers, traffic sources, devices and recent sign-ups, and exports the members.</p>
+    <p><strong>Sign-ups</strong> on a form lists its members, newest first, with notes and the form's own tags. It reads one page at a time (a Firestore <code>limit</code>, the next page starting after the last member of the one before), and its two totals are aggregate counts, so a form with many thousands of members opens as fast as a small one. <strong>Export CSV</strong> is the one action that reads every member. On the forms list, each form's total is counted once when the page opens and again only when its confirmed count changes. Each form's dashboard shows sign-up numbers, traffic sources, devices and recent sign-ups, and exports the members.</p>
     <ul>
       <li>Deleting a member takes the contact off the form's own list. The contact itself stays, and so do the other lists the form fed.</li>
-      <li>Deleting a form deletes all its members and their notes, takes every contact off the form's list and deletes that list.</li>
+      <li>Deleting a form says how many members go with it. The server (<code>adminDeleteForm</code>) then deletes the form's tags, then the form, then its members and their notes. The form goes before its members so the form's list is cleared once, by <code>onWaitlistsDelete</code>, which takes every contact off it and deletes it, rather than once for each member.</li>
+      <li>A form delete that stops halfway can be finished. Stopped before the form went: the form is still listed, so press <strong>Delete</strong> again. Stopped after: <code>onWaitlistsDelete</code>, which runs because the form was deleted, also deletes its members, and calling <code>adminDeleteForm</code> again with the same form id deletes whatever is left.</li>
+      <li>Deleting a tag says how many members have it; they lose it.</li>
       <li>To remove a person everywhere, erase the contact (see <a href="audience.html">Audience</a>): that deletes their member records too.</li>
     </ul>
 
@@ -172,7 +174,7 @@
       <thead><tr><th>Kind</th><th>Functions</th></tr></thead>
       <tbody>
         <tr><td>Public callables</td><td><code>joinForm</code>, <code>requestFormOtp</code>, <code>verifyFormOtp</code>, <code>finalizeFormSignup</code>, <code>ensureWaitlistExists</code> (anyone for the default form, an admin for any other)</td></tr>
-        <tr><td>Admin callables</td><td><code>getWaitlistTemplateDefaults</code>, <code>backfillWaitlistTemplates</code>, and the one-time upgrade helpers <code>normalizeWaitlistTemplateIds</code>, <code>stampFormTargetLists</code></td></tr>
+        <tr><td>Admin callables</td><td><code>adminDeleteForm</code> (Delete on a form: its tags, the form, then its members; safe to call again), <code>getWaitlistTemplateDefaults</code>, <code>backfillWaitlistTemplates</code>, and the one-time upgrade helpers <code>normalizeWaitlistTemplateIds</code>, <code>stampFormTargetLists</code></td></tr>
         <tr><td>Triggers</td><td><code>onWaitlistsCreate</code>, <code>onWaitlistsUpdate</code>, <code>onWaitlistsDelete</code> (forms); <code>onWaitlistUserCreate</code>, <code>onWaitlistUserUpdate</code> (members); <code>syncOtpEnabledFlag</code> (on templates)</td></tr>
       </tbody>
     </table>
@@ -196,11 +198,11 @@
       <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
       <tbody>
         <tr><td>"Please wait 42s before requesting another code"</td><td>The one-code-a-minute limit per address and form. Wait and resend.</td></tr>
-        <tr><td>No code arrives</td><td>Open Email Logs: a skipped log names the reason, such as <code>email_disabled</code> or <code>feature_disabled</code>. See <a href="email.html">Email engine</a>.</td></tr>
-        <tr><td>"This form has no verification email template, so signups cannot be confirmed"</td><td>Email is on but the form's code template could not be found or made. Open the form's Email Templates page to restore the defaults.</td></tr>
+        <tr><td>No code arrives</td><td>Open Email logs: a skipped log names the reason, such as <code>email_disabled</code> or <code>feature_disabled</code>. See <a href="email.html">Email engine</a>.</td></tr>
+        <tr><td>"This form has no verification email template, so signups cannot be confirmed"</td><td>Email is on but the form's code template could not be found or made. Open the form's Email templates page to restore the defaults.</td></tr>
         <tr><td>"This email has not been verified"</td><td>The form needs a code and none was verified for that address. Request a new code.</td></tr>
         <tr><td>A form on the site does nothing</td><td>It lacks <code>data-waitlist-form</code>, the published page was built before the form was added (publish it again), the form is not Active, or <code>forms</code> is off.</td></tr>
-        <tr><td>A welcome email has buttons that lead nowhere</td><td>It still has the referral and leaderboard buttons of older versions, edited by someone, so it was not upgraded. Remove them on the form's Email Templates page.</td></tr>
+        <tr><td>A welcome email has buttons that lead nowhere</td><td>It still has the referral and leaderboard buttons of older versions, edited by someone, so it was not upgraded. Remove them on the form's Email templates page.</td></tr>
         <tr><td>"Save form answers as" is missing from the form's settings</td><td>It lists the input names held in the form document's <code>fields</code> list, and nothing fills that list for you. The mapping itself is the form's <code>fieldMap</code> (input name to contact field key), which an admin can also write directly.</td></tr>
       </tbody>
     </table>

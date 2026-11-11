@@ -430,9 +430,9 @@ export class BaseComponent {
         const endRecord = Math.min(currentPage * count, total);
 
         if (total === 0) {
-            this.paginationMessage = 'No records found';
+            this.paginationMessage = this.t('common.table.no_records');
         } else {
-            this.paginationMessage = `Showing ${startRecord} to ${endRecord} of ${total}`;
+            this.paginationMessage = this.t('common.table.showing_range', { start: startRecord, end: endRecord, total });
         }
     }
 

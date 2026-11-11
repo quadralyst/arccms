@@ -11,6 +11,7 @@ import {
     MatDialogRef,
     MatDialogTitle,
 } from '@angular/material/dialog';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 export interface TestSendDialogData {
     /** Subject shown for context (read-only). */
@@ -29,27 +30,27 @@ export interface TestSendDialogData {
     imports: [
         ReactiveFormsModule, MatButtonModule, MatIconModule,
         MatFormFieldModule, MatInputModule,
-        MatDialogTitle, MatDialogContent, MatDialogActions,
+        MatDialogTitle, MatDialogContent, MatDialogActions, TranslocoPipe,
     ],
     template: `
-        <h2 mat-dialog-title>Send test email</h2>
+        <h2 mat-dialog-title>{{ 'common.test_send.title' | transloco }}</h2>
         <mat-dialog-content>
             @if (data.subject) {
-            <p class="text-muted mb-3 small">Subject: <strong>{{ data.subject }}</strong></p>
+            <p class="text-muted mb-3 small">{{ 'common.test_send.subject' | transloco }} <strong>{{ data.subject }}</strong></p>
             }
             <mat-form-field appearance="outline" class="w-100">
-                <mat-label>Send to</mat-label>
+                <mat-label>{{ 'common.test_send.send_to' | transloco }}</mat-label>
                 <input matInput type="email" [formControl]="email" placeholder="you@example.com"
                     (keyup.enter)="confirm()" cdkFocusInitial />
                 @if (email.touched && email.invalid) {
-                <mat-error>Enter a valid email address</mat-error>
+                <mat-error>{{ 'common.test_send.invalid' | transloco }}</mat-error>
                 }
             </mat-form-field>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-stroked-button (click)="cancel()">Cancel</button>
+            <button mat-stroked-button (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
             <button mat-flat-button color="primary" (click)="confirm()">
-                <mat-icon>send</mat-icon> Send test
+                <mat-icon aria-hidden="true">send</mat-icon> {{ 'common.test_send.send' | transloco }}
             </button>
         </mat-dialog-actions>
     `,

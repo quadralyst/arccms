@@ -44,8 +44,8 @@
 
             @if (parseError()) {
                 <div class="error-message">
-                    <i class="fa-solid fa-circle-exclamation"></i>
-                    <span>{{ parseError() }}</span>
+                    <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+                    <span role="alert">{{ parseError() }}</span>
                 </div>
             }
         </div>
@@ -111,9 +111,9 @@
                                     (change)="toggleCollection(col.path)">
                                     <span class="col-path">{{ col.path }}</span>
                                 </mat-checkbox>
-                                <span class="col-count">{{ col.documentCount }} docs</span>
+                                <span class="col-count">{{ 'admin.data.docs' | transloco: { count: col.documentCount } }}</span>
                                 @if (!col.isKnown) {
-                                    <span class="unknown-badge">unknown</span>
+                                    <span class="unknown-badge">{{ 'admin.data.import.unknown' | transloco }}</span>
                                 }
                             </div>
                         }

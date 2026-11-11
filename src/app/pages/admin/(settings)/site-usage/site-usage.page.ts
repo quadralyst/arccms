@@ -6,9 +6,9 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Site Usage',
+    title: 'Cookie notice',
     canActivate: [roleGuard],
-    data: { allowedRoles: ['admin'] },
+    data: { titleKey: 'admin.settings.hub.site-usage.label', allowedRoles: ['admin'] },
 };
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -74,7 +74,7 @@ export default class SiteUsagePageComponent extends BaseComponent implements OnI
             },
             error: (error) => {
                 console.error('Failed to load site usage settings:', error);
-                this.toastService.openCustomSnackbar('Failed to load settings', 'error', 'error');
+                this.notify.error('admin.settings.load_failed');
                 this.isLoading.set(false);
             },
         });
@@ -107,15 +107,11 @@ export default class SiteUsagePageComponent extends BaseComponent implements OnI
                 isEnabled: enabled,
             };
             await this.siteUsageService.saveSettings(settings);
-            this.toastService.openCustomSnackbar(
-                enabled ? 'Site usage banner enabled' : 'Site usage banner disabled',
-                'success',
-                'check_circle'
-            );
+            this.notify.success(enabled ? 'admin.settings.site_usage.turned_on' : 'admin.settings.site_usage.turned_off');
             this.consentForm.markAsPristine();
         } catch (error) {
             console.error('Failed to toggle site usage:', error);
-            this.toastService.openCustomSnackbar('Failed to update banner status', 'error', 'error');
+            this.notify.error('admin.settings.banner_switch_failed');
             // Revert the toggle on error
             this.consentEnabled.set(!enabled);
             this.consentForm.patchValue({ isEnabled: !enabled });
@@ -135,11 +131,11 @@ export default class SiteUsagePageComponent extends BaseComponent implements OnI
                 isEnabled: this.consentEnabled(),
             };
             await this.siteUsageService.saveSettings(settings);
-            this.toastService.openCustomSnackbar('Site usage settings saved successfully', 'success', 'check_circle');
+            this.notify.success('common.messages.saved');
             this.consentForm.markAsPristine();
         } catch (error) {
             console.error('Failed to save site usage settings:', error);
-            this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
+            this.notify.error('common.messages.save_failed');
         } finally {
             this.isSaving.set(false);
         }

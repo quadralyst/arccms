@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, model } from '@angular/core';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { APP_BRAND, ARC_CMS_NAME } from '../../../../core/brand/site-brand';
 import { Auth } from '@angular/fire/auth';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -32,7 +33,7 @@ import { MatInputModule } from '@angular/material/input';
     template: `
         <h2 mat-dialog-title>{{ 'admin.settings.test_connection.title' | transloco }}</h2>
         <mat-dialog-content>
-            <p class="mb-3 text-muted">
+            <p class="mb-3 intro">
                 {{ 'admin.settings.test_connection.intro' | transloco }}
             </p>
             <mat-form-field appearance="outline" class="w-100">
@@ -48,16 +49,16 @@ import { MatInputModule } from '@angular/material/input';
 
             <mat-form-field appearance="outline" class="w-100">
                 <mat-label>{{ 'admin.settings.test_connection.subject' | transloco }}</mat-label>
-                <input matInput [formControl]="subjectControl" placeholder="SMTP Test">
+                <input matInput [formControl]="subjectControl" [placeholder]="'admin.settings.test_connection.subject_placeholder' | transloco">
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="w-100">
                 <mat-label>{{ 'admin.settings.test_connection.message' | transloco }}</mat-label>
-                <textarea matInput [formControl]="messageControl" rows="4" placeholder="Enter test message"></textarea>
+                <textarea matInput [formControl]="messageControl" rows="4" [placeholder]="'admin.settings.test_connection.message_placeholder' | transloco"></textarea>
             </mat-form-field>
 
             <div class="alert alert-info d-flex align-items-center mb-0 mt-2">
-                <i class="fa-solid fa-circle-info me-2 fs-5"></i>
+                <i class="fa-solid fa-circle-info me-2 fs-5" aria-hidden="true"></i>
                 <div class="small">
                     <span [innerHTML]="'admin.settings.test_connection.check_folders' | transloco"></span>
                 </div>
@@ -68,15 +69,18 @@ import { MatInputModule } from '@angular/material/input';
             <button mat-flat-button color="primary" 
                 [disabled]="emailControl.invalid"
                 (click)="onSend()">
-                <mat-icon class="me-2">send</mat-icon>
+                <mat-icon class="me-2" aria-hidden="true">send</mat-icon>
                 {{ 'admin.settings.test_connection.send' | transloco }}
             </button>
         </mat-dialog-actions>
     `,
     styles: [`
         mat-dialog-content {
-            min-width: 400px;
+            min-width: min(400px, 100%);
             max-width: 500px;
+        }
+        .intro {
+            color: #495057;
         }
         .alert-info {
             background-color: #cff4fc;
@@ -91,16 +95,14 @@ export class TestConnectionDialogComponent {
     private dialogRef = inject(MatDialogRef<TestConnectionDialogComponent>);
     private auth = inject(Auth);
 
+    private transloco = inject(TranslocoService);
+    /** The name the test email signs with. */
+    private readonly productName = APP_BRAND.name || ARC_CMS_NAME;
+
     emailControl = new FormControl('', [Validators.required, Validators.email]);
-    subjectControl = new FormControl('It works! 🎉 - Arc CMS Connection Test');
-    messageControl = new FormControl(`Hey there! 🎉
-
-Woohoo! If you're reading this, your email configuration is working like a charm!
-
-One quick heads-up: your settings are NOT saved yet! Don't forget to click the "Save Settings" button back in Arc CMS to lock them in.
-
-Happy emailing! ✉️
-Arc CMS`);
+    // A ready test email, in the admin's language; they can change either before sending.
+    subjectControl = new FormControl(this.transloco.translate('admin.settings.test_connection.default_subject', { name: this.productName }));
+    messageControl = new FormControl(this.transloco.translate('admin.settings.test_connection.default_message', { name: this.productName }));
 
     constructor() {
         // Pre-populate with current user's email if available

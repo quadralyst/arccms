@@ -18,7 +18,7 @@
       <thead><tr><th>Tool</th><th>What it does</th><th>Admin screen</th></tr></thead>
       <tbody>
         <tr><td>Broadcasts</td><td>One email to the people on chosen lists, now or scheduled</td><td>Email, Broadcasts (<code>/admin/email/broadcasts</code>)</td></tr>
-        <tr><td>Drip campaigns</td><td>A sequence of emails, each a set number of hours after the one before, for everyone who joins a list</td><td>Email, Drip Campaigns (<code>/admin/email/drip-campaigns</code>)</td></tr>
+        <tr><td>Drip campaigns</td><td>A sequence of emails, each a set number of hours after the one before, for everyone who joins a list</td><td>Email, Drip campaigns (<code>/admin/email/drip-campaigns</code>)</td></tr>
         <tr><td>Announcements</td><td>An in-app notification to users, with an optional email copy</td><td>Email, Announcements (<code>/admin/email/announcements</code>)</td></tr>
       </tbody>
     </table>
@@ -31,16 +31,16 @@
 };</code></pre>
     <p>When it is off:</p>
     <ul>
-      <li>Broadcasts, Drip Campaigns and Announcements leave the Email menu, their addresses show the not-found page, and list pages lose their Broadcasts and Sequence tabs.</li>
+      <li>Broadcasts, Drip campaigns and Announcements leave the Email menu, their addresses show the not-found page, and list pages lose their Broadcasts and Sequence tabs.</li>
       <li>The functions in <code>functions/src/features/email-marketing.ts</code> are not built, so the next deploy of all functions removes them, the scheduled jobs included.</li>
       <li>Joining or leaving a list does not start or end a sequence, and an unsubscribe does not touch sequences.</li>
       <li>Campaigns, enrollments and past broadcasts stay in Firestore.</li>
     </ul>
-    <p>A lighter switch exists too: Settings, Email Settings has a <strong>Broadcasts</strong> and a <strong>Drip campaigns</strong> switch that pause those sends without removing anything (see <a href="email.html">Email engine</a>). See <a href="../reference/feature-ids.html">Feature ids</a> for every feature.</p>
+    <p>A lighter switch exists too: Settings, Email sending has a <strong>Broadcasts</strong> and a <strong>Drip campaigns</strong> switch that pause those sends without removing anything (see <a href="email.html">Email engine</a>). See <a href="../reference/feature-ids.html">Feature ids</a> for every feature.</p>
 
     <h2>Set it up</h2>
     <ol class="steps">
-      <li><p>Set up an email provider and turn email on in Settings, Email Settings (<a href="email.html">Email engine</a>). Until then every send is logged as skipped with <code>email_disabled</code>.</p></li>
+      <li><p>Set up an email provider and turn email on in Settings, Email sending (<a href="email.html">Email engine</a>). Until then every send is logged as skipped with <code>email_disabled</code>.</p></li>
       <li><p>Set the brand kit, so every email carries your logo, colors and footer with the unsubscribe link.</p></li>
       <li><p>Have at least one list with subscribed people (<a href="audience.html">Audience</a>).</p></li>
       <li><p>Open Email, Announcements once. It seeds the default templates, notification types, event mappings and the system lists. Seeding only adds what is missing.</p></li>
@@ -51,10 +51,10 @@
     <h3>Send a broadcast</h3>
     <ol class="steps">
       <li><p>Open Email, Broadcasts (or a list's page, Broadcasts tab). Write the subject.</p></li>
-      <li><p>Pick <strong>Send to lists</strong>. Optionally pick <strong>Exclude lists</strong> (anyone on them is skipped) and a <strong>premiumType</strong> filter (only contacts whose user account has that plan).</p></li>
-      <li><p>Click <strong>Preview count</strong> for the number of subscribed people it will reach.</p></li>
+      <li><p>Pick <strong>Send to lists</strong>. Optionally pick <strong>Leave out lists</strong> (anyone on them is skipped) and a <strong>premiumType</strong> filter (only contacts whose user account has that plan).</p></li>
+      <li><p>Click <strong>Count people</strong> for the number of subscribed people it will reach.</p></li>
       <li><p>Build the email from blocks and send yourself a test.</p></li>
-      <li><p>Click <strong>Send broadcast</strong>, or turn on <strong>Schedule for later</strong>, pick a time and click <strong>Schedule broadcast</strong>. A scheduled broadcast can be cancelled until it starts.</p></li>
+      <li><p>Click <strong>Send broadcast</strong>, or turn on <strong>Send later</strong>, pick a time and click <strong>Schedule broadcast</strong>. A scheduled broadcast can be cancelled until it starts.</p></li>
     </ol>
     <p>How it sends:</p>
     <ul>
@@ -64,12 +64,12 @@
       <li>It sends at the provider's rate limit. When the run reaches its time limit or the daily or hourly quota, the broadcast is <code>paused</code> and carries on in a new run from where it stopped.</li>
       <li>A scheduled broadcast starts within 5 minutes of its time. One more than 24 hours overdue (for example because email was off) is marked <code>failed</code> instead of sent late.</li>
     </ul>
-    <p>Broadcast states: <code>scheduled</code>, <code>queued</code>, <code>processing</code>, <code>paused</code>, <code>completed</code>, <code>failed</code>, <code>cancelled</code>. Each email is also in Email Logs.</p>
+    <p>Broadcast states: <code>scheduled</code>, <code>queued</code>, <code>processing</code>, <code>paused</code>, <code>completed</code>, <code>failed</code>, <code>cancelled</code>. Each email is also in Email logs.</p>
 
     <h3>Run a drip sequence</h3>
     <ol class="steps">
-      <li><p>Open Email, Drip Campaigns and create a campaign: a name and the list it runs on. The list cannot change afterwards.</p></li>
-      <li><p>Add steps. Each step is a template and a <strong>Delay (h)</strong>: the hours after the previous step (for the first step, after joining). Pick an existing template, or create a new email for the step and refine it later in the Composer.</p></li>
+      <li><p>Open Email, Drip campaigns and create a campaign: a name and the list it runs on. The list cannot change afterwards.</p></li>
+      <li><p>Add steps. Each step is a template and a <strong>Wait (hours)</strong>: the hours after the previous step (for the first step, after joining). Pick an existing template, or create a new email for the step and refine it later in the Composer.</p></li>
       <li><p>Choose <strong>Enroll existing members on activate</strong> if people already on the list should get it too. Otherwise only people who join after activation do.</p></li>
       <li><p>Click <strong>Activate</strong>. A campaign needs at least one step.</p></li>
     </ol>
@@ -88,10 +88,10 @@
     <h3>Post an announcement</h3>
     <ol class="steps">
       <li><p>Open Email, Announcements, tab <strong>Send announcement</strong>. Write a title, a body and an optional link.</p></li>
-      <li><p>Choose the audience: All users, By role (type the role, such as <code>user</code>), or By list. Optionally pick <strong>Exclude lists</strong>: anyone on them is skipped.</p></li>
+      <li><p>Choose the audience: All users, By role (type the role, such as <code>user</code>), or By list. Optionally pick <strong>Leave out lists</strong>: anyone on them is skipped.</p></li>
       <li><p>Turn on <strong>Also send email</strong> for an email copy, then click <strong>Publish announcement</strong>.</p></li>
     </ol>
-    <p>An announcement is an in-app notification, so only people with an account get it: a contact on a list without an account is skipped. The email copy is marketing, so it respects unsubscribes. One announcement reads at most 2,000 people from each list, or 2,000 users for All users or a role. The other two tabs, Notification types and Event mappings, belong to <a href="notifications.html">Notifications</a> and <a href="automations.html">Automations</a>.</p>
+    <p>An announcement is an in-app notification, so only people with an account get it: a contact on a list without an account is skipped. The email copy is marketing, so it respects unsubscribes. One announcement reads at most 2,000 people from each list, or 2,000 users for All users or a role. The other two tabs, Notification types and Event actions, belong to <a href="notifications.html">Notifications</a> and <a href="automations.html">Automations</a>.</p>
 
     <h2>Extend it</h2>
     <ul>
@@ -143,10 +143,10 @@
     <table>
       <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
       <tbody>
-        <tr><td>Preview count is lower than the list's member count</td><td>Only subscribed people count. Pending and unsubscribed contacts, and people on an excluded list, are left out.</td></tr>
-        <tr><td>A broadcast completed with everyone skipped</td><td>Email is off or the Broadcasts switch is off: open Email Logs for the skip reason.</td></tr>
+        <tr><td>Count people is lower than the list's member count</td><td>Only subscribed people count. Pending and unsubscribed contacts, and people on an excluded list, are left out.</td></tr>
+        <tr><td>A broadcast completed with everyone skipped</td><td>Email is off or the Broadcasts switch is off: open Email logs for the skip reason.</td></tr>
         <tr><td>A scheduled broadcast shows <code>failed</code>, "overdue by more than 24h"</td><td>It could not start within a day of its time. Create it again.</td></tr>
-        <tr><td>A broadcast fails with "Exceeded maximum processing chunks (200)"</td><td>It paused and carried on 200 times without finishing, usually a very low rate limit or an exhausted quota. Raise the provider limits in Settings, Email Settings and send it again.</td></tr>
+        <tr><td>A broadcast fails with "Exceeded maximum processing chunks (200)"</td><td>It paused and carried on 200 times without finishing, usually a very low rate limit or an exhausted quota. Raise the provider limits in Settings, Email sending and send it again.</td></tr>
         <tr><td>People on the list got nothing after activation</td><td>Only people who join after activation are enrolled, unless <strong>Enroll existing members on activate</strong> was on when the campaign was activated. Activate is offered only once, on a draft.</td></tr>
         <tr><td>People who joined the list got nothing</td><td>They joined while the campaign was paused or a draft: only an active campaign enrolls people.</td></tr>
         <tr><td>An announcement reached fewer people than the list</td><td>Contacts without an account are skipped.</td></tr>

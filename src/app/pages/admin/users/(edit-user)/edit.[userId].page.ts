@@ -1,7 +1,9 @@
 /**
  * Edit User Component
- * 
- * Form component for editing existing users.
+ *
+ * Form component for editing existing users: name and email in the record; the
+ * password, the role and the phone number through admin callables, which check
+ * what the record alone cannot (adminSetPassword, adminSetUserRole, adminSetPhone).
  */
 
 import { RouteMeta } from '@analogjs/router';
@@ -10,20 +12,24 @@ import { ChangeDetectionStrategy, Component, effect, EventEmitter, inject, Input
 import { Functions } from '@angular/fire/functions';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
-import { UserFormData } from '../user.model';
+import { passwordProblemMessage, roleChoices, roleLabel, userActionError, UserFormData } from '../user.model';
+import type { TranslationKey } from '../../../../core/i18n/translation-keys';
+import { UserService } from '../user.service';
 import { UserStore } from '../user.store';
+import { AuthState } from '../../../(auth)/auth.store';
 import { roleGuard } from '../../../../guards/role.guard';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { isLockedAppAccount } from '../../../../core/app-accounts/app-account-lock';
 import { newPasswordValidator, passwordProblemOf, sameAsValidator } from '../../../../../shared/utils/password-validator';
-import { passwordProblemText } from '../../../../../shared/utils/password-rule';
+import { minPasswordLength } from '../../../../../shared/utils/password-rule';
 import { SIGN_IN_STRENGTH } from '../../../../core/sign-in/sign-in-strength';
 import { UserSettingService } from '../../(settings)/user-setting/user-setting.service';
-import { emailPinOn } from '../../(settings)/user-setting/user-setting.model';
+import { AVAILABLE_ROLES, emailPinOn } from '../../(settings)/user-setting/user-setting.model';
 
 export const routeMeta: RouteMeta = {
-    title: 'Edit User',
+    title: 'Edit user',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -31,7 +37,7 @@ export const routeMeta: RouteMeta = {
 @Component({
     selector: 'arc-edit-user',
     standalone: true,
-    imports: [ReactiveFormsModule, MatSlideToggleModule],
+    imports: [ReactiveFormsModule, MatSlideToggleModule, TranslocoPipe],
     templateUrl: './edit-user.html',
     styleUrl: './edit-user.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -44,6 +50,7 @@ export default class EditUserComponent extends BaseComponent {
     action = input('edit');
 
     userStore = inject(UserStore);
+    private userService = inject(UserService);
     private functions = inject(Functions);
     private userSettings = inject(UserSettingService);
     /** The site signs email accounts in with a PIN: a member then has no password to set (specs/sign-in-pin-spec.md). */
@@ -57,9 +64,32 @@ export default class EditUserComponent extends BaseComponent {
      * their sign-in is Arc CMS's own (adminSetPassword refuses the rest).
      */
     canSetPassword = signal(false);
-    /** Why their password is changed elsewhere, or empty. */
-    passwordElsewhere = signal('');
+    /** Why their password is changed elsewhere (a translation key), or empty. */
+    passwordElsewhere = signal<TranslationKey | ''>('');
     alreadyExist: any;
+
+    /**
+     * The roles to choose from (Settings, Users lists them), and whether this record's
+     * role can be changed here: a locked app account's role is its app's.
+     */
+    readonly roleOptions = signal<string[]>(roleChoices(AVAILABLE_ROLES));
+    readonly canSetRole = signal(true);
+    /** The signed-in admin's own record: another admin changes their role (the server refuses it too). */
+    readonly ownRecord = signal(false);
+    private authState = inject(AuthState);
+    readonly roleName = (role: string) => roleLabel(role, (key) => this.t(key));
+
+    /**
+     * The member's phone number, which an admin can change for a member who lost
+     * their phone (adminSetPhone): shown for a record with a number and a sign-in
+     * that is Arc CMS's own.
+     */
+    readonly currentPhone = signal('');
+    readonly canSetPhone = signal(false);
+    readonly phoneOpen = signal(false);
+    readonly phoneSaving = signal(false);
+    readonly phoneError = signal('');
+    readonly newPhone = new FormControl('', { nonNullable: true });
 
     // Edit form
     editForm: FormGroup = new FormGroup({
@@ -68,6 +98,7 @@ export default class EditUserComponent extends BaseComponent {
         password: new FormControl('', []),
         // The new password typed twice, while Update Password is on.
         confirmPassword: new FormControl('', []),
+        role: new FormControl('user', { nonNullable: true }),
     });
 
     // Getter methods for form controls
@@ -83,9 +114,12 @@ export default class EditUserComponent extends BaseComponent {
     get confirmPassword() {
         return this.editForm.get('confirmPassword');
     }
-    /** Why the new password was refused. */
+    /** The shortest password the site takes, for the hint in the box. */
+    readonly minPassword = minPasswordLength(SIGN_IN_STRENGTH);
+
+    /** Why the new password was refused, in the admin's language. */
     passwordError(): string {
-        return passwordProblemText(passwordProblemOf(this.password) ?? 'short', SIGN_IN_STRENGTH);
+        return passwordProblemMessage(passwordProblemOf(this.password), (key, params) => this.t(key, params), SIGN_IN_STRENGTH);
     }
 
     // Fill the form when this user's record arrives (an effect: nothing reads a computed here).
@@ -126,10 +160,10 @@ export default class EditUserComponent extends BaseComponent {
     private updatePasswordNote(currentItem: any): void {
         const shared = currentItem.authOwner === 'shared' || currentItem.authOwner === 'host';
         this.passwordElsewhere.set(isLockedAppAccount(currentItem)
-            ? 'This account is managed by the app that made it, so its password is changed there.'
-            : shared ? "This person's sign-in is shared with another app, so their password is changed there."
+            ? 'admin.users.password_elsewhere.app_managed'
+            : shared ? 'admin.users.password_elsewhere.shared'
             : this.emailPin() && currentItem.role !== 'admin'
-                ? 'This site signs email accounts in with a PIN, so this person has no password. They choose a new PIN with Forgot PIN on the sign-in page.'
+                ? 'admin.users.password_elsewhere.pin'
                 : '');
         this.canSetPassword.set(!!currentItem.email && !this.passwordElsewhere());
     }
@@ -138,6 +172,15 @@ export default class EditUserComponent extends BaseComponent {
         this.lastItem = currentItem;
         this.emailRequired.set(!!currentItem.email);
         this.updatePasswordNote(currentItem);
+        const role = typeof currentItem.role === 'string' && currentItem.role ? currentItem.role : 'user';
+        this.roleOptions.set(roleChoices(AVAILABLE_ROLES, role));
+        const me = this.authState.currentUser() as { id?: string; uid?: string } | null;
+        this.ownRecord.set(!!me && ((!!me.uid && currentItem.uid === me.uid) || (!!me.id && currentItem.id === me.id)));
+        this.canSetRole.set(!isLockedAppAccount(currentItem) && !this.ownRecord());
+        const shared = currentItem.authOwner === 'shared' || currentItem.authOwner === 'host';
+        this.currentPhone.set(typeof currentItem.phone === 'string' ? currentItem.phone : '');
+        this.canSetPhone.set(!!this.currentPhone() && !!currentItem.uid && !shared && !isLockedAppAccount(currentItem));
+        this.closePhone();
         const check = this.globalService.emailValidator();
         this.editForm.controls['email'].setValidators(this.emailRequired()
             ? [Validators.required, check]
@@ -145,6 +188,7 @@ export default class EditUserComponent extends BaseComponent {
         this.editForm.patchValue({
             email: currentItem.email ?? '',
             name: currentItem.name,
+            role,
         });
         this.editForm.controls['email'].updateValueAndValidity({ emitEvent: false });
     }
@@ -185,21 +229,41 @@ export default class EditUserComponent extends BaseComponent {
             email: this.editForm.value.email,
         };
         const password = this.isPasswordUpdateEnabled ? String(this.editForm.value.password ?? '') : '';
-        void this.save(updatedUser, password);
+        const role = String(this.editForm.value.role ?? '');
+        const roleChange = this.canSetRole() && role && role !== (this.lastItem?.role || 'user') ? role : '';
+        void this.save(updatedUser, password, roleChange);
     }
 
     /**
      * The password first, on the sign-in account only (adminSetPassword): never in
-     * the record, which the rules refuse. A refused password saves nothing.
+     * the record, which the rules refuse. A refused password saves nothing. It goes
+     * first because an unverified email may be raised above a member once the admins
+     * hold its password. Then the role (adminSetUserRole), which the server may refuse:
+     * the last active admin, or an unverified sign-in nobody set a password for. A
+     * refused role saves nothing more, and says whether the password was set. Then
+     * the name and email in the record.
      */
-    private async save(updatedUser: Partial<UserFormData>, password: string): Promise<void> {
+    private async save(updatedUser: Partial<UserFormData>, password: string, role: string): Promise<void> {
         this.saving.set(true);
+        const t = (key: TranslationKey, params?: Record<string, unknown>) => this.t(key, params);
         if (password) {
             try {
                 await arcCallable<{ id: string; password: string }, { updated: boolean }>(this.functions, 'adminSetPassword')({ id: this.id, password });
             } catch (error: any) {
                 console.error('Error setting password:', error);
-                this.toastService.error(error?.message || 'Failed to set the password.');
+                // The server refuses in English; the admin reads why in their own language.
+                this.toastService.error(userActionError(error, t, 'admin.users.password_failed'));
+                this.saving.set(false);
+                return;
+            }
+        }
+        if (role) {
+            try {
+                await this.userService.setRole(this.id, role);
+            } catch (error) {
+                console.error('Error changing the role:', error);
+                const reason = userActionError(error, t, 'admin.users.role_failed');
+                this.toastService.error(password ? this.t('admin.users.password_set_role_failed', { reason }) : reason);
                 this.saving.set(false);
                 return;
             }
@@ -207,16 +271,55 @@ export default class EditUserComponent extends BaseComponent {
         this.userStore.update(this.id, updatedUser).subscribe({
             next: () => {
                 this.saving.set(false);
-                this.toastService.success(password ? 'User updated. Share the new password with them.' : 'User updated successfully.');
+                this.toastService.success(this.t(password ? 'admin.users.updated_password' : 'admin.users.updated'));
                 this.editForm.reset();
                 this.close.emit();
             },
             error: (error) => {
                 console.error('Error updating user:', error);
                 this.saving.set(false);
-                this.toastService.error(password ? 'The password is set, but the other changes were not saved.' : 'Failed to update user.');
+                this.toastService.error(this.t(password ? 'admin.users.password_set_rest_failed' : 'admin.users.update_failed'));
             },
         });
+    }
+
+    openPhone(): void {
+        this.newPhone.setValue('');
+        this.phoneError.set('');
+        this.phoneOpen.set(true);
+    }
+
+    closePhone(): void {
+        this.phoneOpen.set(false);
+        this.phoneError.set('');
+    }
+
+    /** The new number goes to the server, which checks it and clears the PIN (adminSetPhone). */
+    async savePhone(): Promise<void> {
+        const phone = this.newPhone.value.trim();
+        if (!phone) {
+            this.phoneError.set(this.t('admin.users.errors.invalid_number'));
+            return;
+        }
+        this.phoneSaving.set(true);
+        this.phoneError.set('');
+        try {
+            const result = await this.userService.setPhone(this.id, phone);
+            if (!result.updated) {
+                this.phoneError.set(this.t('admin.users.phone_same'));
+                return;
+            }
+            // Not read again: that would refill the form over what is typed in it.
+            this.currentPhone.set(result.phone);
+            if (this.lastItem) this.lastItem = { ...this.lastItem, phone: result.phone, phoneVerified: false };
+            this.closePhone();
+            this.toastService.success(this.t('admin.users.phone_saved'));
+        } catch (error) {
+            console.error('Error changing the phone number:', error);
+            this.phoneError.set(userActionError(error, (key, params) => this.t(key, params), 'admin.users.phone_failed'));
+        } finally {
+            this.phoneSaving.set(false);
+        }
     }
 
     showPasswordInput(event: any): void {

@@ -15,7 +15,7 @@ import { FileWithPath, ImportFilesService } from './import-files.service';
 import { isLibraryDocument } from '../../../../../shared/utils/media-files';
 
 export const routeMeta: RouteMeta = {
-    title: 'Import Files',
+    title: 'Import files',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -157,13 +157,11 @@ export default class ImportFilesPageComponent extends BaseComponent {
             const successCount = results.filter((r) => r.success).length;
             const failCount = results.filter((r) => !r.success).length;
 
-            this.toastService.openCustomSnackbar(
-                `Uploaded ${successCount} files. ${failCount} failed.`,
-                failCount > 0 ? 'warning' : 'success',
-                failCount > 0 ? 'warning' : 'check_circle',
-            );
+            if (failCount > 0) this.notify.warning('admin.data.import_files.done_with_failures', { done: successCount, failed: failCount });
+            else this.notify.success('admin.data.import_files.done', { count: successCount });
         } catch (error: any) {
-            this.notify.error('admin.data.import_files.upload_failed', { error: error.message || this.t('common.unknown_error') });
+            console.error('The upload failed:', error);
+            this.notify.error('admin.data.import_files.upload_failed');
         } finally {
             this.isUploading.set(false);
         }
@@ -194,17 +192,24 @@ export default class ImportFilesPageComponent extends BaseComponent {
             }
 
             const successCount = results.filter((r) => r.success).length;
-            this.toastService.openCustomSnackbar(`Restored ${successCount} files from manifest.`, 'success', 'check_circle');
+            this.notify.success('admin.data.import_files.restored', { count: successCount });
         } catch (error: any) {
-            this.notify.error('admin.data.import_files.restore_failed', { error: error.message || this.t('common.unknown_error') });
+            console.error('Restoring from the manifest failed:', error);
+            this.notify.error('admin.data.import_files.restore_failed');
         } finally {
             this.isUploading.set(false);
         }
     }
 
-    /** A file of a type the bucket does not take says so in plain words. */
+    /**
+     * Each failed file says why in plain words: a type the bucket does not take, else that it
+     * did not upload. The technical detail is in the console (the service logs it).
+     */
     private withMessages(results: UploadResult[]): UploadResult[] {
-        return results.map((r) => (r.refusedType ? { ...r, error: this.t('admin.data.import_files.type_refused') } : r));
+        return results.map((r) => {
+            if (r.success) return r;
+            return { ...r, error: this.t(r.refusedType ? 'admin.data.import_files.type_refused' : 'admin.data.import_files.file_failed') };
+        });
     }
 
     resetUpload(): void {

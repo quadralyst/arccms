@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, Injector, runInInjectionContext, signal } from '@angular/core';
 import { Firestore, collection, query, where, getDocs, Timestamp } from '@angular/fire/firestore';
 import { MatIconModule } from '@angular/material/icon';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 interface HealthCounts {
     success: number; failed: number; retrying: number; deferred: number;
@@ -16,25 +17,29 @@ interface HealthCounts {
 @Component({
     selector: 'arc-email-health-card',
     standalone: true,
-    imports: [CommonModule, MatIconModule],
+    imports: [CommonModule, MatIconModule, TranslocoPipe],
     template: `
     <div class="border rounded p-3 mb-3">
         <div class="d-flex justify-content-between align-items-center mb-2">
-            <strong><mat-icon class="align-middle">monitor_heart</mat-icon> Email health: last 24h</strong>
-            @if (loading()) { <span class="small text-muted">loading…</span> }
+            <strong><mat-icon class="align-middle" aria-hidden="true">monitor_heart</mat-icon> {{ 'common.email_health.title' | transloco }}</strong>
+            @if (loading()) { <span class="small text-muted" role="status">{{ 'common.state.loading' | transloco }}</span> }
         </div>
+        @if (loadFailed()) {
+        <div class="small text-danger" role="alert">{{ 'common.email_health.load_failed' | transloco }}</div>
+        } @else {
         <div class="d-flex gap-3 flex-wrap">
-            <span class="badge bg-success">{{ counts().success }} sent</span>
-            <span class="badge bg-danger">{{ counts().failed }} failed</span>
-            <span class="badge bg-warning text-dark">{{ counts().retrying }} retrying</span>
-            <span class="badge bg-info text-dark">{{ counts().deferred }} deferred</span>
-            <span class="badge bg-secondary">{{ counts().skipped }} skipped</span>
-            <span class="badge bg-dark">{{ counts().suppressed }} suppressed</span>
-            <span class="badge bg-light text-dark">{{ counts().pending }} pending</span>
-            <span class="ms-auto small text-muted">{{ counts().total }} total</span>
+            <span class="badge bg-success">{{ 'common.email_health.sent' | transloco: { count: counts().success } }}</span>
+            <span class="badge bg-danger">{{ 'common.email_health.failed' | transloco: { count: counts().failed } }}</span>
+            <span class="badge bg-warning text-dark">{{ 'common.email_health.retrying' | transloco: { count: counts().retrying } }}</span>
+            <span class="badge bg-info text-dark">{{ 'common.email_health.deferred' | transloco: { count: counts().deferred } }}</span>
+            <span class="badge bg-secondary">{{ 'common.email_health.skipped' | transloco: { count: counts().skipped } }}</span>
+            <span class="badge bg-dark">{{ 'common.email_health.suppressed' | transloco: { count: counts().suppressed } }}</span>
+            <span class="badge bg-light text-dark">{{ 'common.email_health.pending' | transloco: { count: counts().pending } }}</span>
+            <span class="ms-auto small text-muted">{{ 'common.email_health.total' | transloco: { count: counts().total } }}</span>
         </div>
         @if (counts().failed > 0) {
-        <div class="small text-danger mt-2">⚠ {{ counts().failed }} email(s) failed in the last 24h. Check the logs below.</div>
+        <div class="small text-danger mt-2">{{ 'common.email_health.failed_note' | transloco: { count: counts().failed } }}</div>
+        }
         }
     </div>`,
 })
@@ -42,6 +47,8 @@ export class EmailHealthCardComponent implements OnInit {
     private firestore = inject(Firestore);
     private injector = inject(Injector);
     loading = signal(true);
+    /** The counts did not load: says so, rather than showing zeros. */
+    loadFailed = signal(false);
     counts = signal<HealthCounts>({ success: 0, failed: 0, retrying: 0, deferred: 0, skipped: 0, suppressed: 0, pending: 0, total: 0 });
 
     async ngOnInit(): Promise<void> {
@@ -58,6 +65,7 @@ export class EmailHealthCardComponent implements OnInit {
             this.counts.set(c);
         } catch (e) {
             console.error('EmailHealthCard: failed to load', e);
+            this.loadFailed.set(true);
         } finally {
             this.loading.set(false);
         }

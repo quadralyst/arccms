@@ -24,9 +24,9 @@ import { IEmailTemplate, PaymentEmailType } from '../../(waitlists)/email-templa
 import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
-    title: 'Payments Settings',
+    title: 'Payments',
     canActivate: [roleGuard],
-    data: { allowedRoles: ['admin'] },
+    data: { titleKey: 'admin.settings.hub.payments.label', allowedRoles: ['admin'] },
 };
 
 @Component({
@@ -149,9 +149,9 @@ export const routeMeta: RouteMeta = {
                             @for (def of emailDefs; track def.type) {
                                 <mat-expansion-panel>
                                     <mat-expansion-panel-header>
-                                        <mat-panel-title>{{ def.label }}</mat-panel-title>
+                                        <mat-panel-title>{{ 'admin.settings.payments.types.' + def.type | transloco }}</mat-panel-title>
                                         <mat-panel-description>
-                                            {{ templates[def.type].isActive ? 'Enabled' : 'Disabled' }}
+                                            {{ (templates[def.type].isActive ? 'admin.settings.payments.template_on' : 'admin.settings.payments.template_off') | transloco }}
                                         </mat-panel-description>
                                     </mat-expansion-panel-header>
 
@@ -189,7 +189,7 @@ export const routeMeta: RouteMeta = {
                                     <div class="template-footer">
                                         @if (awaitingConfirm()[def.type]) {
                                             <div class="confirm-box">
-                                                <span class="confirm-q"><mat-icon class="me-1">mark_email_read</mat-icon> {{ 'admin.settings.payments.received_question' | transloco }}</span>
+                                                <span class="confirm-q"><mat-icon class="me-1" aria-hidden="true">mark_email_read</mat-icon> {{ 'admin.settings.payments.received_question' | transloco }}</span>
                                                 <span class="confirm-actions">
                                                     <button mat-stroked-button type="button" (click)="confirmReceived(def.type, false)">{{ 'admin.settings.payments.not_yet' | transloco }}</button>
                                                     <button mat-raised-button color="primary" type="button" (click)="confirmReceived(def.type, true)">{{ 'admin.settings.payments.received_yes' | transloco }}</button>
@@ -199,14 +199,14 @@ export const routeMeta: RouteMeta = {
                                         <div class="footer-row">
                                             <span class="confirm-hint">
                                                 @if (confirmed()[def.type]) {
-                                                    <mat-icon class="ok">check_circle</mat-icon> {{ 'admin.settings.payments.test_confirmed' | transloco }}
+                                                    <mat-icon class="ok" aria-hidden="true">check_circle</mat-icon> {{ 'admin.settings.payments.test_confirmed' | transloco }}
                                                 } @else {
                                                     {{ 'admin.settings.payments.test_prompt' | transloco }}
                                                 }
                                             </span>
                                             <span class="footer-actions">
                                                 <button mat-stroked-button type="button" (click)="sendTest(def)" [disabled]="!templates[def.type].template">
-                                                    <mat-icon class="me-1">send</mat-icon> {{ 'admin.settings.payments.test_email' | transloco }}
+                                                    <mat-icon class="me-1" aria-hidden="true">send</mat-icon> {{ 'admin.settings.payments.test_email' | transloco }}
                                                 </button>
                                                 <button mat-raised-button color="primary" type="button" (click)="saveTemplate(def.type)" [disabled]="savingType() === def.type || !confirmed()[def.type]">
                                                     @if (savingType() === def.type) { <mat-spinner diameter="18" class="me-2"></mat-spinner> {{ 'common.actions.saving' | transloco }} }
@@ -349,11 +349,13 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
             if (result.success) {
                 this.notify.success('admin.settings.payments.connected', { mode: result.mode });
             } else {
-                this.notify.error('admin.settings.payments.connect_failed', { error: result.error ?? this.t('admin.settings.payments.unknown_error') });
+                // Dodo's own words stay in the console; the admin reads what to check.
+                console.warn('Dodo connection test refused:', result.error);
+                this.notify.error('admin.settings.payments.connect_failed');
             }
         } catch (e) {
             console.error(e);
-            this.toastService.error('Connection test failed. Check your API key and that the integration is enabled.');
+            this.notify.error('admin.settings.payments.test_failed');
         } finally {
             this.isTesting.set(false);
         }
@@ -365,10 +367,10 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
             await this.service.savePaymentTemplate(this.templates[type]);
             const refreshed = await this.service.getPaymentTemplates();
             if (refreshed[type]) this.templates[type] = refreshed[type];
-            this.toastService.success('Template saved.');
+            this.notify.success('admin.settings.payments.template_saved');
         } catch (e) {
             console.error(e);
-            this.toastService.error('Failed to save template.');
+            this.notify.error('admin.settings.payments.template_save_failed');
         } finally {
             this.savingType.set(null);
         }
@@ -387,7 +389,7 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
     sendTest(def: { type: PaymentEmailType }): void {
         const tpl = this.templates[def.type];
         if (!tpl?.template) {
-            this.toastService.error('Add email content before sending a test.');
+            this.notify.error('admin.settings.payments.test_needs_content');
             return;
         }
         const ref = this.dialog.open(TestEmailComponent, {
@@ -417,9 +419,9 @@ export default class PaymentsSettingPageComponent extends BaseComponent implemen
         this.awaitingConfirm.update((m) => ({ ...m, [type]: false }));
         if (received) {
             this.confirmed.update((m) => ({ ...m, [type]: true }));
-            this.toastService.success('Confirmed. You can now save this template.');
+            this.notify.success('admin.settings.payments.test_received');
         } else {
-            this.toastService.error('No test received. Check your Email settings, then send another test.');
+            this.notify.error('admin.settings.payments.test_not_received');
         }
     }
 }

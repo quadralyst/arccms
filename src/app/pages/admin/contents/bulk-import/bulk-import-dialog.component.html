@@ -3,9 +3,9 @@
     mat-dialog-title
     class="d-flex justify-content-between align-items-center p-4 border-bottom"
   >
-    <h2 class="m-0">Bulk Import {{ contentType()?.singularName }}</h2>
-    <button mat-icon-button (click)="cancel()">
-      <mat-icon>close</mat-icon>
+    <h2 class="m-0">{{ 'admin.contents.bulk_import.heading' | transloco: { type: contentType()?.name || '' } }}</h2>
+    <button mat-icon-button type="button" (click)="cancel()" [attr.aria-label]="'common.actions.close' | transloco">
+      <mat-icon aria-hidden="true">close</mat-icon>
     </button>
   </div>
 
@@ -13,7 +13,9 @@
     <!-- Step 1: File Upload -->
     @if (currentStep() === 1) {
       <div
-        class="upload-zone"
+        class="upload-zone" role="button" tabindex="0"
+        [attr.aria-label]="'admin.contents.bulk_import.drop_title' | transloco"
+        (keydown.enter)="fileInput.click()" (keydown.space)="$event.preventDefault(); fileInput.click()"
         (click)="fileInput.click()"
         (drop)="onDrop($event)"
         (dragover)="onDragOver($event)"
@@ -25,27 +27,26 @@
           accept=".xlsx, .csv"
           hidden
         />
-        <mat-icon>cloud_upload</mat-icon>
-        <h3>Drag and drop file here</h3>
-        <p>or click to browse</p>
-        <small class="text-muted">Supports .xlsx and .csv files</small>
+        <mat-icon aria-hidden="true">cloud_upload</mat-icon>
+        <h3>{{ 'admin.contents.bulk_import.drop_title' | transloco }}</h3>
+        <p>{{ 'admin.contents.bulk_import.drop_browse' | transloco }}</p>
+        <small class="text-muted">{{ 'admin.contents.bulk_import.drop_types' | transloco }}</small>
       </div>
     }
 
     <!-- Step 2: Field Mapping -->
     @if (currentStep() === 2) {
       <p class="mb-3 text-muted">
-        Map your file columns to content fields. You can create new custom
-        fields for unmapped columns.
+        {{ 'admin.contents.bulk_import.map_intro' | transloco }}
       </p>
 
       <div class="table-container">
         <table>
           <thead>
             <tr>
-              <th>File Column</th>
-              <th>Target Field</th>
-              <th>Preview (Row 1)</th>
+              <th>{{ 'admin.contents.bulk_import.col_file' | transloco }}</th>
+              <th>{{ 'admin.contents.bulk_import.col_field' | transloco }}</th>
+              <th>{{ 'admin.contents.bulk_import.col_preview' | transloco }}</th>
             </tr>
           </thead>
           <tbody>
@@ -62,11 +63,11 @@
                     subscriptSizing="dynamic"
                     class="mapping-select"
                   >
-                    <mat-select
+                    <mat-select [attr.aria-label]="'admin.contents.bulk_import.col_field_for' | transloco: { column: mapping.fileHeader }"
                       [value]="mapping.targetField"
                       (selectionChange)="updateMapping(i, $event.value)"
                     >
-                      <mat-option [value]="''">-- Do Not Import --</mat-option>
+                      <mat-option [value]="''">{{ 'admin.contents.bulk_import.skip_column' | transloco }}</mat-option>
                       @for (field of availableFields(); track field.key) {
                         <mat-option [value]="field.key">
                           {{ field.label }}
@@ -82,7 +83,7 @@
                         [value]="'__create_custom__'"
                         (onSelectionChange)="$event.isUserInput && createCustomField(mapping.fileHeader)"
                       >
-                        <mat-icon>add</mat-icon> Create Custom Field
+                        <mat-icon aria-hidden="true">add</mat-icon> {{ 'admin.contents.bulk_import.create_field' | transloco }}
                       </mat-option>
                     </mat-select>
                   </mat-form-field>
@@ -107,16 +108,10 @@
         >
           @if ((validationSummary()?.errorCount ?? 0) === 0) {
             <mat-icon class="me-2">check_circle</mat-icon>
-            <span
-              >All {{ validationSummary()?.validCount ?? 0 }} rows are valid. Ready
-              to import!</span
-            >
+            <span>{{ 'admin.contents.bulk_import.all_valid' | transloco: { count: validationSummary()?.validCount ?? 0 } }}</span>
           } @else {
             <mat-icon class="me-2">warning</mat-icon>
-            <span
-              >Found {{ validationSummary()?.errorCount ?? 0 }} rows with errors.
-              Only valid rows will be imported.</span
-            >
+            <span>{{ 'admin.contents.bulk_import.some_invalid' | transloco: { count: validationSummary()?.errorCount ?? 0 } }}</span>
           }
         </div>
       </div>
@@ -125,7 +120,7 @@
         <table>
           <thead>
             <tr>
-              <th>Row #</th>
+              <th>{{ 'admin.contents.bulk_import.col_row' | transloco }}</th>
               @for (col of columnMappings(); track col.fileHeader) {
                 @if (col.targetField) {
                   <th>{{ col.fileHeader }}</th>
@@ -164,12 +159,14 @@
       </div>
       @if ((parsedFile()?.totalRows ?? 0) > 50) {
         <div class="d-flex justify-content-center align-items-center mt-2 gap-2">
-          <button mat-icon-button [disabled]="previewPage() === 0" (click)="previewPage.set(previewPage() - 1)">
-            <mat-icon>chevron_left</mat-icon>
+          <button mat-icon-button type="button" [disabled]="previewPage() === 0" (click)="previewPage.set(previewPage() - 1)"
+            [attr.aria-label]="'common.paginator.previous_page' | transloco">
+            <mat-icon aria-hidden="true">chevron_left</mat-icon>
           </button>
-          <span>Page {{ previewPage() + 1 }} of {{ Math.ceil((parsedFile()?.totalRows ?? 0) / 50) }}</span>
-          <button mat-icon-button [disabled]="(previewPage() + 1) * 50 >= (parsedFile()?.totalRows ?? 0)" (click)="previewPage.set(previewPage() + 1)">
-            <mat-icon>chevron_right</mat-icon>
+          <span>{{ 'admin.contents.bulk_import.page_of' | transloco: { page: previewPage() + 1, pages: Math.ceil((parsedFile()?.totalRows ?? 0) / 50) } }}</span>
+          <button mat-icon-button type="button" [disabled]="(previewPage() + 1) * 50 >= (parsedFile()?.totalRows ?? 0)" (click)="previewPage.set(previewPage() + 1)"
+            [attr.aria-label]="'common.paginator.next_page' | transloco">
+            <mat-icon aria-hidden="true">chevron_right</mat-icon>
           </button>
         </div>
       }
@@ -179,7 +176,7 @@
     @if (isImporting()) {
       <div class="progress-container">
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-        <p class="mt-3">Importing items... Please wait.</p>
+        <p class="mt-3" role="status">{{ 'admin.contents.bulk_import.importing' | transloco }}</p>
       </div>
     }
   </div>
@@ -189,16 +186,16 @@
       <div>
         @if (currentStep() === 1) {
           <button mat-stroked-button (click)="downloadTemplate()">
-            <mat-icon>download</mat-icon> Download Template
+            <mat-icon aria-hidden="true">download</mat-icon> {{ 'admin.contents.bulk_import.download_template' | transloco }}
           </button>
         }
       </div>
 
       <div class="d-flex gap-2">
-        <button mat-button (click)="cancel()">Cancel</button>
+        <button mat-button type="button" (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
 
         @if (currentStep() > 1) {
-          <button mat-button (click)="prevStep()">Back</button>
+          <button mat-button type="button" (click)="prevStep()">{{ 'common.actions.back' | transloco }}</button>
         }
 
         @if (currentStep() === 1) {
@@ -208,7 +205,7 @@
             [disabled]="!parsedFile()"
             (click)="nextStep()"
           >
-            Next: Map Fields
+            {{ 'admin.contents.bulk_import.next_map' | transloco }}
           </button>
         }
 
@@ -218,7 +215,7 @@
             color="primary"
             (click)="validateAndPreview()"
           >
-            Next: Review & Validate
+            {{ 'admin.contents.bulk_import.next_review' | transloco }}
           </button>
         }
 
@@ -229,7 +226,7 @@
             [disabled]="(validationSummary()?.validCount ?? 0) === 0"
             (click)="importContent('draft')"
           >
-            Import as Drafts
+            {{ 'admin.contents.bulk_import.import_drafts' | transloco }}
           </button>
           <button
             mat-stroked-button
@@ -237,7 +234,7 @@
             [disabled]="(validationSummary()?.validCount ?? 0) === 0"
             (click)="importContent('publish')"
           >
-            Import & Publish
+            {{ 'admin.contents.bulk_import.import_publish' | transloco }}
           </button>
         }
       </div>

@@ -16,6 +16,7 @@ import { ProductsStore } from './products.store';
 import { ProductsService } from './products.service';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { RowActionsComponent } from '../../../../shared/components/row-actions/row-actions.component';
+import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
 
 function productsService() {
     let next = 0;
@@ -41,7 +42,7 @@ describe('ProductsPageComponent pricing tiers', () => {
         await TestBed.configureTestingModule({
             imports: [ProductsPageComponent, NoopAnimationsModule],
             providers: [
-                { provide: ProductsStore, useValue: { getAll: vi.fn(), isLoading: signal(false), items: signal([]) } },
+                { provide: ProductsStore, useValue: { getAll: vi.fn(), isLoading: signal(false), items: signal([]), error: signal('') } },
                 { provide: ProductsService, useValue: productsService() },
                 { provide: Functions, useValue: {} },
                 { provide: Router, useValue: { navigate: vi.fn() } },
@@ -99,7 +100,7 @@ describe('ProductsPageComponent pricing tiers', () => {
 describe('ProductsPageComponent tier discount codes', () => {
     let page: ProductsPageComponent;
     let service: ReturnType<typeof productsService>;
-    let store: { getAll: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; add: ReturnType<typeof vi.fn>; isLoading: ReturnType<typeof signal<boolean>>; items: ReturnType<typeof signal<any[]>> };
+    let store: { getAll: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; add: ReturnType<typeof vi.fn>; isLoading: ReturnType<typeof signal<boolean>>; items: ReturnType<typeof signal<any[]>>; error: ReturnType<typeof signal<string>> };
 
     const legacyProduct = {
         id: 'p1', name: 'Gold', active: true, type: 'one_time', premiumType: 'gold', tierRank: 1, purchaseCount: 0,
@@ -112,7 +113,7 @@ describe('ProductsPageComponent tier discount codes', () => {
         service.loadCodes.mockResolvedValue(codes);
         tweak?.(service);
         store = {
-            getAll: vi.fn(), isLoading: signal(false), items: signal(items),
+            getAll: vi.fn(), isLoading: signal(false), items: signal(items), error: signal(''),
             update: vi.fn(() => of(undefined)), add: vi.fn(() => of('new1')),
         };
         await TestBed.configureTestingModule({
@@ -200,5 +201,114 @@ describe('ProductsPageComponent tier discount codes', () => {
         service = productsService();
         await setUp([legacyProduct], { p1: ['EARLY'] }, (s) => s.moveLegacyCodes.mockRejectedValue(new Error('offline')));
         expect(page.codes()).toEqual({ p1: ['EARLY'] });
+    });
+});
+
+describe('ProductsPageComponent delete (RF4, 4.10)', () => {
+    let page: ProductsPageComponent;
+    let service: ReturnType<typeof productsService>;
+    const store = {
+        getAll: vi.fn(), isLoading: signal(false), items: signal<any[]>([]), error: signal(''),
+        delete: vi.fn(() => of(undefined)),
+    };
+    const confirmDialog = { ask: vi.fn(async () => true) };
+    const product = { id: 'p1', name: 'Gold <b>plan</b>' } as any;
+
+    beforeEach(async () => {
+        vi.clearAllMocks();
+        service = productsService();
+        await TestBed.configureTestingModule({
+            imports: [ProductsPageComponent, NoopAnimationsModule],
+            providers: [
+                { provide: ProductsStore, useValue: store },
+                { provide: ProductsService, useValue: service },
+                { provide: ConfirmService, useValue: confirmDialog },
+                { provide: Functions, useValue: {} },
+                { provide: Router, useValue: { navigate: vi.fn() } },
+                { provide: ActivatedRoute, useValue: { snapshot: { params: {} }, params: of({}), queryParams: of({}) } },
+            ],
+        })
+            .overrideComponent(ProductsPageComponent, {
+                remove: { imports: [PageHeaderComponent, RowActionsComponent] },
+                add: { schemas: [CUSTOM_ELEMENTS_SCHEMA] },
+            })
+            .compileComponents();
+        page = TestBed.createComponent(ProductsPageComponent).componentInstance;
+    });
+
+    it('asks with the dialog, never the browser confirm(), naming the product safely', async () => {
+        const nativeConfirm = vi.spyOn(window, 'confirm');
+        confirmDialog.ask.mockResolvedValueOnce(false);
+        await page.remove(product);
+        expect(store.delete).not.toHaveBeenCalled();
+
+        await page.remove(product);
+        expect(store.delete).toHaveBeenCalledWith('p1');
+        expect(service.deleteCodes).toHaveBeenCalledWith('p1');
+        expect(nativeConfirm).not.toHaveBeenCalled();
+        const asked = (confirmDialog.ask.mock.calls[0] as any[])[0];
+        expect(asked.panelType).toBe('warn');
+        expect(asked.dialogMessage).toContain('Gold &lt;b&gt;plan&lt;/b&gt;');
+        expect(asked.dialogMessage).toContain('and its codes');
+        nativeConfirm.mockRestore();
+    });
+});
+
+describe('ProductsPageComponent load error and names (RF5)', () => {
+    let fixture: ComponentFixture<ProductsPageComponent>;
+    const store = { getAll: vi.fn(), isLoading: signal(false), items: signal<any[]>([]), error: signal('') };
+
+    beforeEach(async () => {
+        vi.clearAllMocks();
+        store.items.set([]);
+        store.error.set('');
+        await TestBed.configureTestingModule({
+            imports: [ProductsPageComponent, NoopAnimationsModule],
+            providers: [
+                { provide: ProductsStore, useValue: store },
+                { provide: ProductsService, useValue: productsService() },
+                { provide: Functions, useValue: {} },
+                { provide: Router, useValue: { navigate: vi.fn() } },
+                { provide: ActivatedRoute, useValue: { snapshot: { params: {} }, params: of({}), queryParams: of({}) } },
+            ],
+        })
+            .overrideComponent(ProductsPageComponent, {
+                remove: { imports: [PageHeaderComponent, RowActionsComponent] },
+                add: { schemas: [CUSTOM_ELEMENTS_SCHEMA] },
+            })
+            .compileComponents();
+        fixture = TestBed.createComponent(ProductsPageComponent);
+        fixture.detectChanges();
+    });
+
+    it('a read that fails says so in plain words, with Retry, not "no products"', () => {
+        store.error.set('FirebaseError: Missing or insufficient permissions.');
+        fixture.detectChanges();
+        const root = fixture.nativeElement as HTMLElement;
+        const alert = root.querySelector('.alert-danger')!;
+        expect(alert.getAttribute('role')).toBe('alert');
+        expect(alert.textContent).toContain('This list did not load');
+        expect(root.textContent).not.toContain('FirebaseError');
+        expect(root.textContent).not.toContain('No products yet.');
+        store.getAll.mockClear();
+        (alert.querySelector('button') as HTMLButtonElement).click();
+        expect(store.getAll).toHaveBeenCalled();
+    });
+
+    it('names its icon-only buttons and shows the type in words', () => {
+        store.items.set([{ id: 'p1', name: 'Gold', active: true, type: 'one_time', premiumType: 'gold', tierRank: 1, tiers: [] }]);
+        fixture.detectChanges();
+        const root = fixture.nativeElement as HTMLElement;
+        expect(root.querySelector('tbody')!.textContent).toContain('One-time');
+        expect(root.querySelector('tbody')!.textContent).not.toContain('one_time');
+        const page = fixture.componentInstance;
+        page.openCreate();
+        page.addTier();
+        fixture.detectChanges();
+        const remove = root.querySelector('.tier-row button[color="warn"]')!;
+        expect(remove.getAttribute('aria-label')).toBe('Delete tier 1');
+        for (const button of Array.from(root.querySelectorAll('button[mat-icon-button]'))) {
+            expect(button.getAttribute('aria-label'), button.outerHTML).toBeTruthy();
+        }
     });
 });

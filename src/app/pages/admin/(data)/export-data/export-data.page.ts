@@ -19,7 +19,7 @@ import { ExportDataService } from './export-data.service';
 import { isOn } from '../../../../core/features/features';
 
 export const routeMeta: RouteMeta = {
-    title: 'Export Data',
+    title: 'Export data',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -437,14 +437,11 @@ export default class ExportDataPageComponent extends BaseComponent implements On
             this.exportService.downloadAsJson(result, filename);
 
             this.exportComplete.set(true);
-            this.toastService.openCustomSnackbar(
-                `Exported ${result.metadata.totalDocuments} documents from ${result.metadata.collectionSummary.length} collections.`,
-                'success',
-                'check_circle',
-            );
+            this.notify.success('admin.data.export.done', { docs: result.metadata.totalDocuments, collections: result.metadata.collectionSummary.length });
         } catch (error: any) {
-            this.exportError.set(error.message || 'Export failed');
-            this.notify.error('admin.data.export.failed', { error: error.message || this.t('common.unknown_error') });
+            console.error('The export failed:', error);
+            this.exportError.set(this.t('admin.data.export.failed'));
+            this.notify.error('admin.data.export.failed');
         } finally {
             this.isExporting.set(false);
         }

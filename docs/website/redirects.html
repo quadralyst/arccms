@@ -35,7 +35,7 @@
     <ul>
       <li><strong>Yours come first.</strong> The deploy puts your redirects ahead of Arc CMS's own (<code>/p/{name}</code> to <code>/pages/{name}</code>), in the order you wrote them, and Hosting answers with the first one that matches. So list the specific ones before the wide patterns, and know that a redirect of yours can take over an address Arc CMS's own would otherwise send elsewhere, such as an old <code>/p/about.html</code>.</li>
       <li><strong>A redirect wins over a file.</strong> Hosting checks redirects before it looks for a file, so a redirect whose <code>source</code> matches a published page hides that page. Redirect only addresses your new site does not use.</li>
-      <li><strong>They are live with the website.</strong> The redirects change only when you deploy the website (<code>npm run deploy</code>, choosing the website or everything, <code>deploy:dev</code>, <code>deploy:prod</code> or CI). Publishing a page does not change them.</li>
+      <li><strong>They are live with the website.</strong> The redirects change only when you deploy the website (<code>npm run deploy</code>, choosing the website or everything, <code>deploy:dev</code>, <code>deploy:prod</code> or CI). Publishing a page does not change them. For an entry whose address changes after it went live, the editor moves the old address itself (see <a href="../features/content.html#change-address">Change a published entry's address</a>); this file is for addresses from before Arc CMS.</li>
     </ul>
 
     <h2>What is refused</h2>

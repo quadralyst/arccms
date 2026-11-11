@@ -1,8 +1,8 @@
 <div class="drawer-content">
     <div class="drawer-header">
-        <h5>View Tag</h5>
-        <button mat-icon-button (click)="onClose()">
-            <mat-icon>close</mat-icon>
+        <h5>{{ 'admin.contents.tags.view_heading' | transloco }}</h5>
+        <button mat-icon-button type="button" (click)="onClose()" [attr.aria-label]="'common.actions.close' | transloco">
+            <mat-icon aria-hidden="true">close</mat-icon>
         </button>
     </div>
 
@@ -10,7 +10,7 @@
     <div class="drawer-body p-3"><arc-loader></arc-loader></div>
     } @else if(errorMessage()) {
     <div class="drawer-body">
-        <div class="alert alert-danger">{{ errorMessage() }}</div>
+        <div class="alert alert-danger" role="alert">{{ errorMessage() | transloco }}</div>
     </div>
     } @else if(currentTag()) {
     <div class="drawer-body">
@@ -24,11 +24,11 @@
         <!-- Details -->
         <div class="detail-section">
             <div class="detail-row">
-                <div class="detail-label">Label</div>
+                <div class="detail-label">{{ 'admin.contents.tags.label' | transloco }}</div>
                 <div class="detail-value">{{ currentTag()?.label }}</div>
             </div>
             <div class="detail-row">
-                <div class="detail-label">Color</div>
+                <div class="detail-label">{{ 'admin.contents.tags.colour' | transloco }}</div>
                 <div class="detail-value d-flex align-items-center gap-2">
                     <span class="color-swatch" [style.background-color]="currentTag()?.color">
                     </span>
@@ -36,25 +36,25 @@
                 </div>
             </div>
             <div class="detail-row">
-                <div class="detail-label">Usage Count</div>
+                <div class="detail-label">{{ 'admin.contents.tags.usage' | transloco }}</div>
                 <div class="detail-value">
-                    <span class="badge bg-secondary">{{ currentTag()?.usageCount || 0 }} content(s)</span>
+                    <span class="badge bg-secondary">{{ 'admin.contents.tags.usage_count' | transloco: { count: currentTag()?.usageCount || 0 } }}</span>
                 </div>
             </div>
             <div class="detail-row">
-                <div class="detail-label">Created</div>
+                <div class="detail-label">{{ 'admin.contents.preview.created' | transloco }}</div>
                 <div class="detail-value">{{ formatDate(currentTag()?.createdAt) }}</div>
             </div>
             <div class="detail-row">
-                <div class="detail-label">Last Modified</div>
+                <div class="detail-label">{{ 'common.table.last_updated' | transloco }}</div>
                 <div class="detail-value">{{ formatDate(currentTag()?.modifiedAt) }}</div>
             </div>
         </div>
     </div>
 
     <div class="drawer-footer">
-        <button class="btn btn-outline-secondary" (click)="onClose()">
-            Close
+        <button type="button" class="btn btn-outline-secondary" (click)="onClose()">
+            {{ 'common.actions.close' | transloco }}
         </button>
     </div>
     }

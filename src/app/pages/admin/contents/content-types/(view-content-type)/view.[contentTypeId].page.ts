@@ -1,3 +1,4 @@
+import { TranslocoPipe } from '@jsverse/transloco';
 import { RouteMeta } from '@analogjs/router';
 import { SiteBrandService } from '../../../../../core/brand/site-brand';
 import { CommonModule } from '@angular/common';
@@ -20,7 +21,7 @@ import { layoutLabel, siteLayouts, siteManifest } from '../../../../../core/site
 @Component({
     selector: 'arc-view-content-type',
     standalone: true,
-    imports: [CommonModule, MatIconModule],
+    imports: [CommonModule, MatIconModule, TranslocoPipe],
     templateUrl: './view-content-type.html',
     styleUrl: './view-content-type.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,

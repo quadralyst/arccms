@@ -11,6 +11,7 @@ import { signal } from '@angular/core';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PublishQueueService } from '../publish-queue/publish-queue.service';
+import { NotifyService } from '../../../../../shared/services/notify.service';
 import { AuthorsService } from '../../(authors)/authors.service';
 
 // Mocks
@@ -59,6 +60,9 @@ describe('BulkImportDialogComponent', () => {
     let component: BulkImportDialogComponent;
     let fixture: ComponentFixture<BulkImportDialogComponent>;
 
+    // The publish question is Arc CMS's own dialog (RF4 4.10); yes unless a test says not.
+    const mockConfirmDialog = { open: vi.fn((..._args: unknown[]) => ({ afterClosed: () => of(true as unknown) })) };
+
     beforeEach(async () => {
         await TestBed.configureTestingModule({
             imports: [BulkImportDialogComponent, NoopAnimationsModule],
@@ -76,6 +80,9 @@ describe('BulkImportDialogComponent', () => {
 
         fixture = TestBed.createComponent(BulkImportDialogComponent);
         component = fixture.componentInstance;
+        // The dialog component brings its own MatDialog; its question is answered here.
+        (component as any).dialog = mockConfirmDialog;
+        mockConfirmDialog.open.mockClear();
         fixture.detectChanges();
     });
     
@@ -106,9 +113,10 @@ describe('BulkImportDialogComponent', () => {
         mockBulkImportService.parseFile.mockRejectedValue(new Error('Invalid file'));
         const file = new File([''], 'bad.txt');
         
+        const notify = vi.spyOn(TestBed.inject(NotifyService), 'error').mockImplementation(() => undefined);
         await component.processFile(file);
-        
-        expect(mockSnackBar.open).toHaveBeenCalledWith(expect.stringContaining('Failed'), expect.any(String), expect.any(Object));
+
+        expect(notify).toHaveBeenCalledWith('admin.contents.bulk_import.parse_failed');
         expect(component.selectedFile()).toBeNull();
     });
 
@@ -160,33 +168,44 @@ describe('BulkImportDialogComponent', () => {
         
         mockBulkImportService.buildContentItem.mockReturnValue({ title: 'A', status: 'draft' });
         
+        const notify = vi.spyOn(TestBed.inject(NotifyService), 'success').mockImplementation(() => undefined);
         const pending = component.importContent('draft');
         expect(component.isImporting()).toBe(true);
         await pending;
         
         expect(mockDraftContentsStore.addBatch).toHaveBeenCalled();
         
-        expect(mockSnackBar.open).toHaveBeenCalledWith(expect.stringContaining('Successfully imported'), expect.any(String), expect.any(Object));
+        expect(notify).toHaveBeenCalledWith('admin.contents.bulk_import.imported_drafts', { count: expect.any(Number) });
         expect(mockDialogRef.close).toHaveBeenCalledWith(true);
     });
 
-    it('should import and publish', () => {
-        // Setup valid state
+    it('should import and publish, after asking in Arc CMS\'s own dialog', async () => {
         component.currentStep.set(3);
         const mockParsed: ParsedFile = { headers: ['Title'], rows: [{'Title': 'A'}], totalRows: 1 };
         component.parsedFile.set(mockParsed);
         component.columnMappings.set([{ fileHeader: 'Title', targetField: 'title', isCustomField: false }]);
         component.validationSummary.set({ validCount: 1, errorCount: 0, rowResults: [{valid: true, errors: {}}] });
-        
+
         mockBulkImportService.buildContentItem.mockReturnValue({ title: 'A', status: 'publish' });
-        
-        // Mock confirm
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
-        
-        component.importContent('publish');
-        
-        // Should verify that buildContentItem was called with 'publish'
+        const confirm = vi.spyOn(window, 'confirm');
+
+        await component.importContent('publish');
+
+        expect(confirm).not.toHaveBeenCalled();
+        expect((mockConfirmDialog.open.mock.calls.at(-1) as any)[1].data.titleKey).toBe('admin.contents.bulk_import.publish_title');
         expect(mockBulkImportService.buildContentItem).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything(), 'publish');
+    });
+
+    it('imports nothing when the publish question is cancelled', async () => {
+        component.currentStep.set(3);
+        component.parsedFile.set({ headers: ['Title'], rows: [{ Title: 'A' }], totalRows: 1 });
+        component.columnMappings.set([{ fileHeader: 'Title', targetField: 'title', isCustomField: false }]);
+        component.validationSummary.set({ validCount: 1, errorCount: 0, rowResults: [{ valid: true, errors: {} }] });
+        mockConfirmDialog.open.mockReturnValueOnce({ afterClosed: () => of(undefined) } as any);
+
+        await component.importContent('publish');
+
+        expect(mockBulkImportService.buildContentItem).not.toHaveBeenCalled();
     });
 
     it('resolves author names to Authors references before saving (D2)', async () => {

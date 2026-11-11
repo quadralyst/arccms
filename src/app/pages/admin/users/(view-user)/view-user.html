@@ -1,9 +1,9 @@
 <!-- View User Details -->
 <div class="side-panel">
     <div class="panel-header">
-        <h5 class="mb-0">User Details</h5>
-        <button class="close-btn" (click)="closeView()">
-            <i class="fas fa-times"></i>
+        <h5 class="mb-0">{{ 'admin.users.view.title' | transloco }}</h5>
+        <button type="button" class="close-btn" (click)="closeView()" [attr.aria-label]="'admin.users.close' | transloco">
+            <i class="fas fa-times" aria-hidden="true"></i>
         </button>
     </div>
 
@@ -11,82 +11,82 @@
     <div class="user-details">
         <!-- Name -->
         <div class="detail-row">
-            <label class="detail-label">Full Name</label>
-            <p class="detail-value">{{ currentItem.name || 'N/A' }}</p>
+            <h6 class="detail-label">{{ 'admin.users.view.name' | transloco }}</h6>
+            <p class="detail-value">{{ currentItem.name || ('admin.users.view.none' | transloco) }}</p>
         </div>
 
         <!-- Email -->
         <div class="detail-row">
-            <label class="detail-label">Email</label>
+            <h6 class="detail-label">{{ 'admin.users.view.email' | transloco }}</h6>
             <p class="detail-value">
                 @if (currentItem.email) {
                 <a href="mailto:{{ currentItem.email }}">{{ currentItem.email }}</a>
                 } @else {
-                <span>N/A</span>
+                <span>{{ 'admin.users.view.none' | transloco }}</span>
                 }
             </p>
         </div>
 
         <!-- Status -->
         <div class="detail-row">
-            <label class="detail-label">Status</label>
+            <h6 class="detail-label">{{ 'admin.users.view.status' | transloco }}</h6>
             <p class="detail-value">
                 <span class="badge" [class]="getStatusBadgeClass()">
-                    {{ currentItem.status || 'N/A' }}
+                    {{ statusText() }}
                 </span>
             </p>
         </div>
 
         <!-- Role -->
         <div class="detail-row">
-            <label class="detail-label">Role</label>
-            <p class="detail-value">{{ currentItem.role || 'N/A' }}</p>
+            <h6 class="detail-label">{{ 'admin.users.view.role' | transloco }}</h6>
+            <p class="detail-value">{{ currentItem.role ? roleName(currentItem.role) : ('admin.users.view.none' | transloco) }}</p>
         </div>
 
         <!-- Active Status -->
         <div class="detail-row">
-            <label class="detail-label">Account Status</label>
+            <h6 class="detail-label">{{ 'admin.users.view.account' | transloco }}</h6>
             <p class="detail-value">
                 @if(currentItem.isActive) {
-                <span class="badge bg-success">Active</span>
+                <span class="badge bg-success">{{ 'admin.users.status_active' | transloco }}</span>
                 } @else {
-                <span class="badge bg-danger">Blocked</span>
+                <span class="badge bg-danger">{{ 'admin.users.status_blocked' | transloco }}</span>
                 }
             </p>
         </div>
 
         <!-- Email Verified -->
         <div class="detail-row">
-            <label class="detail-label">Email Verified</label>
+            <h6 class="detail-label">{{ 'admin.users.view.email_verified' | transloco }}</h6>
             <p class="detail-value">
                 @if(currentItem.emailVerified) {
-                <span class="text-success"><i class="fas fa-check-circle me-1"></i>Verified</span>
+                <span class="text-success"><i class="fas fa-check-circle me-1" aria-hidden="true"></i>{{ 'admin.users.view.verified' | transloco }}</span>
                 } @else {
-                <span class="text-warning"><i class="fas fa-exclamation-circle me-1"></i>Not Verified</span>
+                <span class="not-verified"><i class="fas fa-exclamation-circle me-1" aria-hidden="true"></i>{{ 'admin.users.view.not_verified' | transloco }}</span>
                 }
             </p>
         </div>
 
         <!-- Created At -->
         <div class="detail-row">
-            <label class="detail-label">Date Joined</label>
+            <h6 class="detail-label">{{ 'admin.users.view.joined' | transloco }}</h6>
             <p class="detail-value">{{ formatDisplayDate(currentItem.createdAt) }}</p>
         </div>
 
         <!-- Updated At -->
         @if(currentItem.updatedAt) {
         <div class="detail-row">
-            <label class="detail-label">Last Updated</label>
+            <h6 class="detail-label">{{ 'admin.users.view.updated' | transloco }}</h6>
             <p class="detail-value">{{ formatDisplayDate(currentItem.updatedAt) }}</p>
         </div>
         }
     </div>
     } @else {
-    <div class="alert alert-info">Loading user details...</div>
+    <div class="alert alert-info" role="status">{{ 'admin.users.view.loading' | transloco }}</div>
     }
 
     <div class="d-grid gap-2 d-flex justify-content-end mt-4">
-        <button type="button" class="btn btn-light btn-sm" (click)="closeView()">Close</button>
+        <button type="button" class="btn btn-light btn-sm" (click)="closeView()">{{ 'admin.users.close' | transloco }}</button>
     </div>
 
     <div class="copyright">

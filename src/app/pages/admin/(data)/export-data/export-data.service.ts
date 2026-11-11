@@ -1,4 +1,6 @@
 import { inject, Injectable } from '@angular/core';
+import { injectT } from '../../../../core/i18n/inject-t';
+import { isTranslationKey } from '../../../../core/i18n/translatable.pipe';
 import {
     collection,
     CollectionReference,
@@ -31,6 +33,8 @@ import { serializeFirestoreValue } from '../data-serialization';
 export class ExportDataService {
     private db = inject(Firestore);
     private contentTypesStore = inject(ContentTypesStore);
+    /** Collection names as the admin reads them; the stored and exported names stay as they are. */
+    private t = injectT();
 
     /**
      * Get the full list of available collections
@@ -45,7 +49,7 @@ export class ExportDataService {
                 // Drafts collection: arc_{slug}_drafts
                 collections.push({
                     name: `arc_${ct.slug}_drafts`,
-                    displayName: `${ct.name} (Drafts)`,
+                    displayName: this.t('admin.data.collections.drafts_of', { name: ct.name }),
                     isDynamic: true,
                     dynamicPattern: 'arc_',
                 });
@@ -53,7 +57,7 @@ export class ExportDataService {
                 // Published collection: arc_{slug}
                 collections.push({
                     name: `arc_${ct.slug}`,
-                    displayName: `${ct.name} (Published)`,
+                    displayName: this.t('admin.data.collections.published_of', { name: ct.name }),
                     isDynamic: true,
                     dynamicPattern: 'arc_',
                 });
@@ -61,7 +65,7 @@ export class ExportDataService {
                 // Tags collection: Tags_{slug}
                 collections.push({
                     name: getTagsCollectionName(ct.slug),
-                    displayName: `Tags (${ct.name})`,
+                    displayName: this.t('admin.data.collections.tags_of', { name: ct.name }),
                     isDynamic: true,
                     dynamicPattern: DYNAMIC_COLLECTION_PATTERNS[0]?.pattern,
                 });
@@ -69,6 +73,11 @@ export class ExportDataService {
         }
 
         return collections;
+    }
+
+    /** A collection's name in the admin's language: a key is translated, a name as typed is kept. */
+    private label(displayName: string): string {
+        return isTranslationKey(displayName) ? this.t(displayName) : displayName;
     }
 
     /**
@@ -94,17 +103,17 @@ export class ExportDataService {
                     contentTypeIcon: (ct as any).icon,
                     draftsCollection: {
                         name: `arc_${ct.slug}_drafts`,
-                        displayName: `${ct.name} (Drafts)`,
+                        displayName: this.t('admin.data.collections.drafts_of', { name: ct.name }),
                         isDynamic: true,
                     },
                     publishedCollection: {
                         name: `arc_${ct.slug}`,
-                        displayName: `${ct.name} (Published)`,
+                        displayName: this.t('admin.data.collections.published_of', { name: ct.name }),
                         isDynamic: true,
                     },
                     tagsCollection: {
                         name: getTagsCollectionName(ct.slug),
-                        displayName: `Tags (${ct.name})`,
+                        displayName: this.t('admin.data.collections.tags_of', { name: ct.name }),
                         isDynamic: true,
                     },
                     referencedSlugs,
@@ -181,7 +190,7 @@ export class ExportDataService {
 
         for (const config of selectedCollections) {
             progressCallback({
-                currentCollection: config.displayName,
+                currentCollection: this.label(config.displayName),
                 collectionsCompleted,
                 totalCollections: selectedCollections.length,
                 documentsExported: totalDocsExported,
@@ -207,7 +216,7 @@ export class ExportDataService {
                         const subPath = `${config.name}/${parentId}/${subConfig.name}`;
 
                         progressCallback({
-                            currentCollection: `${config.displayName} > ${subConfig.displayName} (${parentId})`,
+                            currentCollection: `${this.label(config.displayName)} > ${this.label(subConfig.displayName)} (${parentId})`,
                             collectionsCompleted,
                             totalCollections: selectedCollections.length,
                             documentsExported: totalDocsExported,
@@ -234,7 +243,7 @@ export class ExportDataService {
         exportData.metadata.totalDocuments = totalDocsExported;
 
         progressCallback({
-            currentCollection: 'Complete',
+            currentCollection: this.t('admin.data.progress_done'),
             collectionsCompleted: selectedCollections.length,
             totalCollections: selectedCollections.length,
             documentsExported: totalDocsExported,

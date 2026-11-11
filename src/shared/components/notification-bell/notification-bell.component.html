@@ -1,19 +1,19 @@
-<button mat-icon-button (click)="togglePanel()" [attr.aria-label]="unreadCount() > 0 ? 'Notifications, ' + badgeText() + ' unread' : 'Notifications'">
+<button mat-icon-button (click)="togglePanel()" [attr.aria-label]="unreadCount() > 0 ? ('common.notifications.unread' | transloco: { count: badgeText() }) : ('common.notifications.title' | transloco)">
     <mat-icon [matBadge]="badgeText()" [matBadgeHidden]="unreadCount() === 0" matBadgeColor="warn" matBadgeSize="small" aria-hidden="false">
         notifications
     </mat-icon>
 </button>
 
 <ng-template #panelTpl>
-    <aside class="notif-panel" role="dialog" aria-modal="true" aria-label="Notifications">
+    <aside class="notif-panel" role="dialog" aria-modal="true" [attr.aria-label]="'common.notifications.title' | transloco">
         <div class="panel-header">
-            <h2>Notifications</h2>
+            <h2>{{ 'common.notifications.title' | transloco }}</h2>
             <div class="header-actions">
                 @if (unreadCount() > 0) {
-                <button type="button" class="btn-mark-all" (click)="markAllRead()">Mark all read</button>
+                <button type="button" class="btn-mark-all" (click)="markAllRead()">{{ 'common.notifications.mark_all_read' | transloco }}</button>
                 }
-                <button type="button" class="close-icon-btn" (click)="closePanel()" aria-label="Close notifications">
-                    <mat-icon>close</mat-icon>
+                <button type="button" class="close-icon-btn" (click)="closePanel()" [attr.aria-label]="'common.notifications.close' | transloco">
+                    <mat-icon aria-hidden="true">close</mat-icon>
                 </button>
             </div>
         </div>
@@ -25,12 +25,12 @@
                 <div class="notif-body-text">{{ n.body }}</div>
             </button>
             } @empty {
-            <div class="notif-empty">You're all caught up.</div>
+            <div class="notif-empty">{{ 'common.notifications.empty' | transloco }}</div>
             }
         </div>
 
         <div class="panel-footer">
-            <button type="button" class="btn-view-all" (click)="viewAll()">View all notifications</button>
+            <button type="button" class="btn-view-all" (click)="viewAll()">{{ 'common.notifications.view_all' | transloco }}</button>
         </div>
     </aside>
 </ng-template>

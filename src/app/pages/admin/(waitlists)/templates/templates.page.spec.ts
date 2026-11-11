@@ -21,7 +21,7 @@ import TemplatesComponent from './templates.page';
 import { BroadcastEmailStore } from '../../../../../shared/components/broadcast-email-editor/send-broadcast-email/send-broadcast-email.store';
 import { EmailConfigStatusService } from '../../../../../shared/services/email-config-status.service';
 import { EmailSettingService } from '../../(settings)/email-setting/email-setting.service';
-import { ToastService } from '../../../../../shared/services/toast.service';
+import { NotifyService } from '../../../../../shared/services/notify.service';
 import { headerTestProviders } from '../../../../../test/header-test-providers';
 
 describe('TemplatesComponent', () => {
@@ -67,12 +67,12 @@ describe('TemplatesComponent', () => {
         dismissBanner: vi.fn()
     };
 
-    const mockToastService = {
+    const mockNotify = {
         success: vi.fn(),
         error: vi.fn(),
         warning: vi.fn(),
         info: vi.fn(),
-        openCustomSnackbar: vi.fn()
+        raw: vi.fn(),
     };
 
     const mockEmailSettingsService = {
@@ -104,7 +104,7 @@ describe('TemplatesComponent', () => {
                 { provide: Router, useValue: mockRouter },
                 { provide: BroadcastEmailStore, useValue: mockBroadcastStore },
                 { provide: EmailConfigStatusService, useValue: mockEmailConfigService },
-                { provide: ToastService, useValue: mockToastService },
+                { provide: NotifyService, useValue: mockNotify },
                 { provide: EmailSettingService, useValue: mockEmailSettingsService },
             ],
         }).compileComponents();
@@ -516,9 +516,9 @@ describe('TemplatesComponent', () => {
                 component.onTemplateActiveChange(uncheck());
 
                 const msg = (open.mock.calls[0][1] as any).data.dialogMessage as string;
-                expect(msg).toMatch(/verification/i);
+                expect(msg).toMatch(/sign-up code/i);
                 // The immediacy is the part that surprised a reader of the old code.
-                expect(msg).toMatch(/immediately/i);
+                expect(msg).toMatch(/straight away/i);
             });
         });
 
@@ -545,33 +545,16 @@ describe('TemplatesComponent', () => {
         });
     });
 
-    describe('loadWaitlistUsers — Firestore collection path', () => {
-        /**
-         * Regression: loadWaitlistUsers previously queried a non-existent
-         * top-level 'WaitlistUsers' collection instead of the subcollection
-         * 'Waitlists/{waitlistId}/users'. This caused the Recipients tab
-         * in the Broadcast Email editor to always show "No users".
-         */
-        it('should query the Waitlists/{id}/users subcollection, not a top-level WaitlistUsers collection', () => {
-            const fs = require('fs');
-            const source = fs.readFileSync(
-                'src/app/pages/admin/(waitlists)/templates/templates.page.ts',
-                'utf8',
-            );
-            // Must use the subcollection path
-            expect(source).toContain('`Waitlists/${waitlistId}/users`');
-            // Must NOT use the old top-level collection
-            expect(source).not.toContain("'WaitlistUsers'");
-        });
-
-        it('should map firstName to name for broadcast editor compatibility', () => {
-            const fs = require('fs');
-            const source = fs.readFileSync(
-                'src/app/pages/admin/(waitlists)/templates/templates.page.ts',
-                'utf8',
-            );
-            // The broadcast editor template expects user.name, but subcollection uses firstName
-            expect(source).toContain("data['firstName']");
+    describe('Whole-collection reads (RF5, 5.10)', () => {
+        it('does not read every sign-up or the old broadcast history when the page opens', () => {
+            mockActivatedRoute.snapshot.paramMap.get.mockReturnValueOnce('form-1');
+            const history = vi.spyOn(component, 'loadBroadcastHistory').mockResolvedValue(undefined);
+            vi.spyOn(component, 'loadTemplates').mockResolvedValue(undefined);
+            vi.spyOn(component, 'loadWaitlist').mockResolvedValue(undefined);
+            component.ngOnInit();
+            expect(component.waitlistId()).toBe('form-1');
+            expect(history).not.toHaveBeenCalled();
+            expect((component as any).loadWaitlistUsers).toBeUndefined();
         });
     });
 
@@ -589,7 +572,7 @@ describe('TemplatesComponent', () => {
 
             component.openTestEmailDialog();
 
-            expect(mockToastService.error).toHaveBeenCalledWith('Please add template content before sending a test email.');
+            expect(mockNotify.error).toHaveBeenCalledWith('admin.forms.emails.test_needs_body');
         });
 
         // Skip this test as it triggers Firestore in the TestEmailComponent initialization

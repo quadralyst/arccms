@@ -60,9 +60,10 @@ export const EMAIL_LOGS_COLLECTION = 'EmailLogs';
  * The subject as the person received it. Once sent, `processedSubject` is the
  * truth even when it came out blank (a tag with nothing to fill it); showing the
  * template's subject then, as the log used to, displays raw `##TAGS##` that were
- * never sent. Not yet sent, the template's subject is all there is.
+ * never sent. Not yet sent, the template's subject is all there is. `none` is shown
+ * for a blank one: pass it in the admin's language.
  */
-export function sentSubject(log: Pick<IEmailLog, 'subject' | 'processedSubject'>): string {
+export function sentSubject(log: Pick<IEmailLog, 'subject' | 'processedSubject'>, none = '(no subject)'): string {
     const subject = log.processedSubject !== undefined && log.processedSubject !== null ? log.processedSubject : log.subject;
-    return subject || '(no subject)';
+    return subject || none;
 }

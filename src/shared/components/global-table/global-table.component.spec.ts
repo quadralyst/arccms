@@ -8,6 +8,7 @@ import { GlobalTableComponent, TableColumn, TableAction } from './global-table.c
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { CommonModule } from '@angular/common';
 import { ArcZones } from '../../../app/core/time/arc-zones.service';
+import { translocoTestingModule } from '../../../test/transloco-test-providers';
 
 describe('GlobalTableComponent', () => {
     let component: GlobalTableComponent;
@@ -651,5 +652,183 @@ describe('GlobalTableComponent date columns in a zone (specs/clock-and-zones-spe
         component.data = [{ id: '1', at, zone: 'America/Phoenix' }];
         fixture.detectChanges();
         expect(cells()).toEqual(expect.arrayContaining(['22:00', '13:00']));
+    });
+});
+
+describe('GlobalTableComponent: error, nothing matches, sorting and the actions column (RF5)', () => {
+    let component: GlobalTableComponent;
+    let fixture: ComponentFixture<GlobalTableComponent>;
+    const el = () => fixture.nativeElement as HTMLElement;
+    const text = (selector: string) => el().querySelector(selector)?.textContent?.replace(/\s+/g, ' ').trim();
+
+    beforeEach(async () => {
+        TestBed.resetTestingModule();
+        await TestBed.configureTestingModule({
+            imports: [GlobalTableComponent, translocoTestingModule()],
+        }).compileComponents();
+        fixture = TestBed.createComponent(GlobalTableComponent);
+        component = fixture.componentInstance;
+        component.columns = [{ key: 'name', header: 'Name', sortable: true }];
+    });
+
+    describe('error state', () => {
+        it('shows the standard sentence instead of the empty state', () => {
+            component.error = true;
+            fixture.detectChanges();
+            expect(el().querySelector('.error-state[role="alert"]')).toBeTruthy();
+            expect(text('.error-state h3')).toBe('This list did not load');
+            expect(text('.error-state p')).toBe('Check your connection and try again.');
+            expect(el().querySelector('.empty-state')).toBeNull();
+        });
+
+        it("shows the page's own sentence, a key or plain text", () => {
+            component.error = 'common.table.no_match_text';
+            fixture.detectChanges();
+            expect(text('.error-state p')).toBe('Try other words, or clear the filters.');
+            fixture.componentRef.setInput('error', 'The server is busy.');
+            fixture.detectChanges();
+            expect(text('.error-state p')).toBe('The server is busy.');
+        });
+
+        it('has Retry only when the page listens, and Retry emits', () => {
+            component.error = true;
+            fixture.detectChanges();
+            expect(el().querySelector('.retry-btn')).toBeNull();
+
+            const retry = vi.fn();
+            component.retry.subscribe(retry);
+            fixture.componentRef.setInput('error', 'common.table.load_failed_text');
+            fixture.detectChanges();
+            const button = el().querySelector('.retry-btn') as HTMLButtonElement;
+            expect(button.textContent?.trim()).toBe('Retry');
+            button.click();
+            expect(retry).toHaveBeenCalledTimes(1);
+        });
+
+        it('keeps rows already shown, with the error as a line above them', () => {
+            component.data = [{ id: '1', name: 'Kept' }];
+            component.error = true;
+            fixture.detectChanges();
+            expect(el().querySelector('.error-state.error-inline')).toBeTruthy();
+            expect(el().querySelector('tbody tr')?.textContent).toContain('Kept');
+        });
+
+        it('waits while loading', () => {
+            component.error = true;
+            component.loading = true;
+            fixture.detectChanges();
+            expect(el().querySelector('.error-state')).toBeNull();
+            expect(el().querySelector('.loading-state')).toBeTruthy();
+        });
+    });
+
+    describe('nothing matches', () => {
+        it('says "Nothing matches" when a filter is on, not "create your first"', () => {
+            component.filtered = true;
+            fixture.detectChanges();
+            expect(text('.no-match-state h3')).toBe('Nothing matches');
+            expect(text('.no-match-state p')).toBe('Try other words, or clear the filters.');
+            expect(el().querySelectorAll('.empty-state').length).toBe(1);
+            expect(text('.empty-state h3')).not.toBe(component.emptyTitle);
+        });
+
+        it('shows the empty state when no filter is on', () => {
+            fixture.detectChanges();
+            expect(el().querySelector('.no-match-state')).toBeNull();
+            expect(text('.empty-state h3')).toBe('No Items Yet');
+        });
+
+        it('takes its own wording', () => {
+            component.filtered = true;
+            component.noMatchTitle = 'No orders match';
+            component.noMatchDescription = 'common.table.load_failed_text';
+            fixture.detectChanges();
+            expect(text('.no-match-state h3')).toBe('No orders match');
+            expect(text('.no-match-state p')).toBe('Check your connection and try again.');
+        });
+
+        it('has Clear filters only when the page listens, and it emits', () => {
+            component.filtered = true;
+            fixture.detectChanges();
+            expect(el().querySelector('.clear-filters-btn')).toBeNull();
+            const clear = vi.fn();
+            component.clearFilters.subscribe(clear);
+            fixture.componentRef.setInput('noMatchTitle', 'Nothing here');
+            fixture.detectChanges();
+            const button = el().querySelector('.clear-filters-btn') as HTMLButtonElement;
+            expect(button.textContent?.trim()).toBe('Clear filters');
+            button.click();
+            expect(clear).toHaveBeenCalled();
+        });
+
+        it('an error wins over "nothing matches"', () => {
+            component.filtered = true;
+            component.error = true;
+            fixture.detectChanges();
+            expect(el().querySelector('.no-match-state')).toBeNull();
+            expect(el().querySelector('.error-state')).toBeTruthy();
+        });
+    });
+
+    describe('sortable headers', () => {
+        beforeEach(() => {
+            component.data = [{ id: '1', name: 'A', email: 'a@x' }];
+            component.columns = [
+                { key: 'name', header: 'Name', sortable: true },
+                { key: 'email', header: 'Email', sortable: true },
+                { key: 'note', header: 'Note' },
+            ];
+            component.sortField = 'name';
+            component.sortOrder = 'asc';
+        });
+
+        it('are buttons, with aria-sort on the heading cell', () => {
+            fixture.detectChanges();
+            const ths = el().querySelectorAll('th');
+            expect(ths[0].getAttribute('aria-sort')).toBe('ascending');
+            expect(ths[1].getAttribute('aria-sort')).toBe('none');
+            expect(ths[2].hasAttribute('aria-sort')).toBe(false);
+            expect(ths[0].querySelector('button.sort-btn')?.textContent?.trim()).toBe('Name');
+            expect(ths[2].querySelector('button')).toBeNull();
+        });
+
+        it('says descending, and the button sorts', () => {
+            component.sortOrder = 'desc';
+            fixture.detectChanges();
+            expect(el().querySelector('th')?.getAttribute('aria-sort')).toBe('descending');
+            const sort = vi.fn();
+            component.sortChange.subscribe(sort);
+            (el().querySelectorAll('th button.sort-btn')[1] as HTMLButtonElement).click();
+            expect(sort).toHaveBeenCalledWith('email');
+        });
+    });
+
+    describe('actions column on a phone', () => {
+        it('the actions column at the end of the row is pinned', () => {
+            component.data = [{ id: '1', name: 'A' }];
+            component.columns = [
+                { key: 'name', header: 'Name' },
+                { key: 'actions', header: 'Actions', type: 'actions', actions: [{ action: 'edit', icon: 'fas fa-pen' }] },
+            ];
+            fixture.detectChanges();
+            expect(el().querySelector('th:last-child')?.classList.contains('sticky-actions')).toBe(true);
+            expect(el().querySelector('td:last-child')?.classList.contains('sticky-actions')).toBe(true);
+            expect(el().querySelector('td:first-child')?.classList.contains('sticky-actions')).toBe(false);
+        });
+
+        it('an actions column that is not last is left alone', () => {
+            const actions: TableColumn = { key: 'actions', header: 'Actions', type: 'actions', actions: [{ action: 'edit', icon: 'fas fa-pen' }] };
+            expect(component.isStickyActions(actions, false)).toBe(false);
+            expect(component.isStickyActions({ key: 'name', header: 'Name' }, true)).toBe(false);
+        });
+
+        it('an unlabelled icon action still has a name', () => {
+            component.data = [{ id: '1', name: 'A' }];
+            component.columns = [
+                { key: 'actions', header: 'Actions', type: 'actions', actions: [{ action: 'edit', icon: 'fas fa-pen' }] },
+            ];
+            fixture.detectChanges();
+            expect(el().querySelector('.action-btn')?.getAttribute('aria-label')).toBe('Edit');
+        });
     });
 });

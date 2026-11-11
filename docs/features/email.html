@@ -18,12 +18,12 @@
     <table>
       <thead><tr><th>Piece</th><th>Where</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td>Provider settings</td><td>Admin, Settings, Email Settings (<code>/admin/settings/email</code>)</td><td>Which service sends the mail, the sender identity, rate limits, log retention, and a switch per kind of email</td></tr>
-        <tr><td>Brand kit</td><td>Admin, Email, Brand Kit</td><td>Logo, colors, font, footer and social links wrapped around every block-built email</td></tr>
+        <tr><td>Provider settings</td><td>Admin, Settings, Email sending (<code>/admin/settings/email</code>)</td><td>Which service sends the mail, the sender identity, rate limits, log retention, and a switch per kind of email</td></tr>
+        <tr><td>Brand kit</td><td>Admin, Email, Brand kit</td><td>Logo, colors, font, footer and social links wrapped around every block-built email</td></tr>
         <tr><td>Composer</td><td>Admin, Email, Composer</td><td>A block editor for every email template, with a test send</td></tr>
         <tr><td>Transactional emails</td><td>Cloud Functions</td><td>Sign-up codes, the welcome email, payment receipts, notification emails, the admin digest</td></tr>
         <tr><td>Queue and retries</td><td>Cloud Functions</td><td>Checks each send against the switches, consent and suppression, sends it, and retries failures</td></tr>
-        <tr><td>Email log</td><td>Admin, Email, Email Logs (<code>/admin/email-logs</code>)</td><td>One record per email, including the ones that were blocked</td></tr>
+        <tr><td>Email log</td><td>Admin, Email, Email logs (<code>/admin/email-logs</code>)</td><td>One record per email, including the ones that were blocked</td></tr>
         <tr><td>Unsubscribe and preferences</td><td>Public links in each email</td><td>One-click unsubscribe and a page to turn marketing email off or back on</td></tr>
       </tbody>
     </table>
@@ -31,15 +31,15 @@
     <p>Every email has a <strong>category</strong>. <code>transactional</code> email (codes, receipts) ignores marketing consent. <code>marketing</code> email needs the recipient to be subscribed and must contain an unsubscribe link. Broadcasts, drip sequences and announcements are <a href="email-marketing.html">Email marketing</a>; form emails are <a href="forms.html">Signup forms</a>. Both send through this engine.</p>
 
     <h2>Turn it on or off</h2>
-    <p>The engine is always on: it is core, not a switchable feature, and every app has it. What you control is at run time, on Admin, Settings, Email Settings:</p>
+    <p>The engine is always on: it is core, not a switchable feature, and every app has it. What you control is at run time, on Admin, Settings, Email sending:</p>
     <ul>
       <li><strong>The master switch</strong> (<strong>Email Enabled</strong>) turns all sending on or off. It cannot be turned on until a provider is set up. While it is off, every send is written to the email log as <code>skipped</code> with the reason <code>email_disabled</code>.</li>
-      <li><strong>Email Features</strong> turns one kind of email off and leaves the rest alone. A blocked send is logged as <code>skipped</code>, reason <code>feature_disabled</code>. Admin alerts is the exception: while it is off, the alerts are not created at all, in the app or by email.</li>
+      <li><strong>Email types</strong> turns one kind of email off and leaves the rest alone. A blocked send is logged as <code>skipped</code>, reason <code>feature_disabled</code>. Admin alerts is the exception: while it is off, the alerts are not created at all, in the app or by email.</li>
     </ul>
     <table>
       <thead><tr><th>Switch</th><th>Stops</th></tr></thead>
       <tbody>
-        <tr><td>Waitlist emails</td><td>Signup form codes and welcome emails</td></tr>
+        <tr><td>Form emails</td><td>Signup form codes and welcome emails</td></tr>
         <tr><td>Account emails</td><td>The sign-up code and the welcome email for new accounts</td></tr>
         <tr><td>Payment emails</td><td>Receipts, failed payments, subscription changes, trial and updates reminders</td></tr>
         <tr><td>Notification emails</td><td>The email copy of in-app notifications, and the admin digest</td></tr>
@@ -49,39 +49,39 @@
         <tr><td>App emails</td><td>The emails the app sends itself with <code>sendAppEmail</code>, such as reports and receipts (see <a href="../app/app-email.html">Send email from your app</a>)</td></tr>
       </tbody>
     </table>
-    <p>Test sends and emails sent by <a href="automations.html">Automations</a> have no switch of their own under Email Features; the master switch still stops them.</p>
+    <p>Test sends and emails sent by <a href="automations.html">Automations</a> have no switch of their own under Email types; the master switch still stops them.</p>
 
     <h2>Set it up</h2>
     <ol class="steps">
       <li>
-        <p><strong>Choose a provider.</strong> Open Admin, Settings, Email Settings and pick one:</p>
+        <p><strong>Choose a provider.</strong> Open Admin, Settings, Email sending and pick one:</p>
         <table>
           <thead><tr><th>Provider</th><th>What it needs</th><th>Default limits</th></tr></thead>
           <tbody>
             <tr><td>SMTP</td><td>Host, port (587 by default), secure on or off, user, password</td><td>1 per second</td></tr>
             <tr><td>Gmail</td><td>A Gmail address and a Google app password</td><td>1 per second, 500 a day</td></tr>
             <tr><td>Resend</td><td>An API key</td><td>2 per second, 100 a day</td></tr>
-            <tr><td>Debug Provider (Log Only)</td><td>Nothing</td><td>None</td></tr>
+            <tr><td>Debug provider (log only)</td><td>Nothing</td><td>None</td></tr>
           </tbody>
         </table>
-        <p>For a real provider, click <strong>Send a Test Email</strong> and give an address: the test sends a real message through the provider, and <strong>Save Settings</strong> stays disabled until it passes. The Debug Provider needs no test.</p>
+        <p>For a real provider, click <strong>Send a test email</strong> and give an address: the test sends a real message through the provider, and <strong>Save Settings</strong> stays disabled until it passes. The Debug Provider needs no test.</p>
       </li>
       <li>
-        <p><strong>Fill in the sender.</strong> While the name is blank, or still says "Arc CMS" on a site with a name of its own, the field offers your site's name; what is saved is what emails go out as until you change it, and a blank name saves as the site's. Sender name and email are copied into the default templates when they are created, and used for test sends. An email whose template has no sender goes out under this one, then the company name, then the site's name in Settings, About, and from the address alone when there is no name at all. "Arc CMS" left on a template from an older version gives way to any of these; saved here, it stays until you change it. Reply-to applies to every send; BCC (a copy of every email) applies with SMTP and Gmail. Change the per-second, per-hour and per-day limits if your plan allows more. A send over the limit waits and is tried again later.</p>
+        <p><strong>Fill in the sender.</strong> While the name is blank, or still says "Arc CMS" on a site with a name of its own, the field offers your site's name; what is saved is what emails go out as until you change it, and a blank name saves as the site's. Sender name and email are copied into the default templates when they are created, and used for test sends. An email whose template has no sender goes out under this one, then the company name, then the site's name in Settings, Site details, and from the address alone when there is no name at all. "Arc CMS" left on a template from an older version gives way to any of these; saved here, it stays until you change it. Reply-to applies to every send; BCC (a copy of every email) applies with SMTP and Gmail. Change the per-second, per-hour and per-day limits if your plan allows more. A send over the limit waits and is tried again later.</p>
       </li>
       <li>
-        <p><strong>Save.</strong> Choosing a provider (or clicking <strong>Configure Email</strong>) and then saving also turns email on, so the master switch needs no separate click. Switch it off with the toggle at the top of the page; saving after that leaves it off.</p>
+        <p><strong>Save.</strong> Choosing a provider (or clicking <strong>Set up email</strong>) and then saving also turns email on, so the master switch needs no separate click. Switch it off with the toggle at the top of the page; saving after that leaves it off.</p>
       </li>
       <li>
         <p><strong>Set the public address for email links, if you use your own domain.</strong> Unsubscribe and preference links are built on <code>liveUrl</code> in the <code>Settings/email</code> document, or, when that is empty, on <code>live_url</code> in <code>functions/src/constant.ts</code>, or, when that is empty too, on the install's Hosting address, <code>https://&lt;hosting site&gt;.web.app/</code>. So a new install needs nothing here until it has a custom domain. The admin page has no field for it: add <code>liveUrl</code> (for example <code>https://example.com/</code>) to the document in the Firebase console. Saving the page keeps it. With Hosting turned off and nothing set, the links come out relative and do not work.</p>
       </li>
       <li>
-        <p><strong>Set the brand kit</strong> on Admin, Email, Brand Kit: logo URL and width, colors, font, footer text, postal address and social links. The preview updates as you type. A link in it stays on the page, here and in every email preview, so a click never leaves unsaved work.</p>
+        <p><strong>Set the brand kit</strong> on Admin, Email, Brand kit: logo URL and width, colors, font, footer text, postal address and social links. The preview updates as you type. A link in it stays on the page, here and in every email preview, so a click never leaves unsaved work.</p>
       </li>
     </ol>
     <p>Templates need no setup step. The default templates are created the first time something needs one (the first sign-up, the first notification email, the first digest), and opening Email, Announcements creates any that are missing. Creating them never overwrites a template that exists.</p>
     <div class="note"><p>Provider secrets (the SMTP or Gmail password, the Resend API key) are stored in the <code>Settings/email</code> document, which only admins can read. The secret that signs unsubscribe links is created on first use in <code>_system/unsubscribe_secret</code>, which no browser can read. A key made from it, for that use only, seals the tickets of <a href="forms.html">signup forms</a>.</p></div>
-    <div class="note"><p>Use the Debug Provider (Log Only) while you build and test: every email is composed in full and recorded in the email log, and nothing is sent. The sign-up page shows the sign-up code on screen, so you (or a test script) can sign up without an inbox, and so can anyone with any address. Codes for adding an email to an account stay in the email log, and so do password reset codes, unless you turn on <strong>Show password reset codes on screen</strong>, which appears beside the Debug Provider: Forgot password then shows the code on the sign-in page (off by default; anyone who knows an email could then reset its password; see <a href="sign-in.html#forgot-password">Forgot password</a>). The admin dashboard shows a banner while it is active. Switch to a real provider, and test the connection, before real people sign up.</p></div>
+    <div class="note"><p>Use the Debug provider (log only) while you build and test: every email is composed in full and recorded in the email log, and nothing is sent. The sign-up page shows the sign-up code on screen, so you (or a test script) can sign up without an inbox, and so can anyone with any address. Codes for adding an email to an account stay in the email log, and so do password reset codes, unless you turn on <strong>Show password reset codes on screen</strong>, which appears beside the Debug Provider: Forgot password then shows the code on the sign-in page (off by default; anyone who knows an email could then reset its password; see <a href="sign-in.html#forgot-password">Forgot password</a>). The admin dashboard shows a banner while it is active. Switch to a real provider, and test the connection, before real people sign up.</p></div>
 
     <h2>Use it</h2>
     <h3>Edit templates in the composer</h3>
@@ -94,7 +94,7 @@
       <li><p>Click <strong>Send test</strong> to send the compiled email to an address. Its subject starts with <code>[TEST]</code>, and it is logged like any other email.</p></li>
     </ol>
     <p>A marketing template cannot be saved without <code>##UNSUBSCRIBE_LINK##</code>. The brand kit footer carries it by default.</p>
-    <div class="trap"><p>A template keeps the sender it was given when it was saved, and changing Settings, Email does not change it. A template made with <strong>New email</strong>, here or from a drip step, has no sender of its own, so drip steps and <a href="automations.html">Automations</a> send it from Settings, Email.</p></div>
+    <div class="trap"><p>A template keeps the sender it was given when it was saved, and changing Settings, Email sending does not change it. A template made with <strong>New email</strong>, here or from a drip step, has no sender of its own, so drip steps and <a href="automations.html">Automations</a> send it from Settings, Email sending.</p></div>
     <div class="trap"><p>The brand kit is applied when a template is saved, not when it is sent. After changing the brand kit, open each block template in the composer and save it again, or its emails keep the old look.</p></div>
     <div class="trap"><p>The default templates are plain HTML and open read-only in the composer. <strong>Upgrade to blocks</strong> starts a new starter block design (a heading and a paragraph); it does not convert the old content. Copy the text you want to keep before you upgrade.</p></div>
 
@@ -114,7 +114,7 @@
       </tbody>
     </table>
     <p>The two code emails go in the member's language when the app words them in it (<a href="../app/app-email.html#account-emails">Arc CMS's account emails in your languages</a>); otherwise they are the English templates here.</p>
-    <p>To stop one of these emails without touching code, turn its template off: payment emails have a switch each on Settings, Payments, and form emails on the form's Email Templates page. For the others, set the template's <code>isActive</code> field to <code>false</code> in the Firebase console. Its sends are then logged as <code>skipped</code>, reason <code>template_inactive</code>.</p>
+    <p>To stop one of these emails without touching code, turn its template off: payment emails have a switch each on Settings, Payments, and form emails on the form's Email templates page. For the others, set the template's <code>isActive</code> field to <code>false</code> in the Firebase console. Its sends are then logged as <code>skipped</code>, reason <code>template_inactive</code>.</p>
     <p>The admin digest emails every admin a count of new sign-ups, successful payments and failed emails from the last 24 hours. It has no switch on the admin page: set <code>adminDigest</code> to <code>{ enabled: true, hourUtc: 8 }</code> in the <code>Settings/email</code> document. The job runs every hour and sends in that hour (UTC).</p>
 
     <h3>How a send works</h3>
@@ -122,21 +122,21 @@
     <p>A failed send is retried with growing delays (10, then 20 minutes) up to 3 attempts, then marked <code>failed</code>. A send over the rate limit is marked <code>deferred</code> and tried again after 15 minutes. The <code>retryPendingEmails</code> job picks both up every 5 minutes.</p>
 
     <h3>Read the email log</h3>
-    <p>Admin, Email, Email Logs lists every email with its status. Open one to see the exact subject and HTML that were sent, the merge tags used, any tag that had no value, its language and Reply-To when it set them, and, for an app's email, the app's reference and the files it carried, each with an Open link. With the Debug Provider, that is how an email and its files are checked on a test install. A one-time code (the <code>##OTP##</code> tag of a sign-in or form code email) is kept only while the email is being sent: once a real provider accepted it, or every attempt failed, the log shows dots in its place, in the subject and the body. An email that is never sent (held back by a gate, such as email turned off, a switched-off feature or a suppressed address, or stopped by the kill switch) is never retried, so its log shows dots from the start (<code>functions/src/email-core/codeHidden.ts</code>). With the Debug Provider the code stays, since nothing was sent and the log is where a tester reads it. The email shows in a frame with no scripts, and a link in it opens in a new tab, as in a mail app. The unsubscribe and preference links do not open, and a line under the email says why: they act for the recipient, and one click would unsubscribe them. A log that kept no content says so (&quot;The content of this email was not stored&quot;) instead of showing an empty frame, and a file whose link does not answer within 10 seconds says it could not be reached.</p>
+    <p>Admin, Email, Email logs lists every email with its status. Open one to see the exact subject and HTML that were sent, the merge tags used, any tag that had no value, its language and Reply-To when it set them, and, for an app's email, the app's reference and the files it carried, each with an Open link. With the Debug Provider, that is how an email and its files are checked on a test install. A one-time code (the <code>##OTP##</code> tag of a sign-in or form code email) is kept only while the email is being sent: once a real provider accepted it, or every attempt failed, the log shows dots in its place, in the subject and the body. An email that is never sent (held back by a gate, such as email turned off, a switched-off feature or a suppressed address, or stopped by the kill switch) is never retried, so its log shows dots from the start (<code>functions/src/email-core/codeHidden.ts</code>). With the Debug Provider the code stays, since nothing was sent and the log is where a tester reads it. The email shows in a frame with no scripts, and a link in it opens in a new tab, as in a mail app. The unsubscribe and preference links do not open, and a line under the email says why: they act for the recipient, and one click would unsubscribe them. A log that kept no content says so (&quot;The content of this email was not stored&quot;) instead of showing an empty frame, and a file whose link does not answer within 10 seconds says it could not be reached.</p>
     <table>
       <thead><tr><th>Status</th><th>Means</th></tr></thead>
       <tbody>
         <tr><td><code>pending</code></td><td>Queued, about to be sent</td></tr>
-        <tr><td><code>success</code></td><td>The provider accepted it (with the Debug Provider: recorded, not sent)</td></tr>
+        <tr><td><code>success</code></td><td>The provider accepted it (with the Debug Provider: recorded, not sent). Shown as <strong>Sent</strong></td></tr>
         <tr><td><code>retrying</code></td><td>A send failed; another attempt is scheduled</td></tr>
         <tr><td><code>deferred</code></td><td>Over the rate limit; waiting</td></tr>
         <tr><td><code>failed</code></td><td>Every attempt failed; the error is on the record</td></tr>
         <tr><td><code>skipped</code></td><td>Blocked before sending: <code>email_disabled</code>, <code>feature_disabled</code>, <code>template_inactive</code>, <code>contact_disabled</code> or <code>unsubscribed</code></td></tr>
         <tr><td><code>suppressed</code></td><td>The address is on the suppression list</td></tr>
-        <tr><td><code>delivered</code>, <code>bounced</code>, <code>complained</code></td><td>Set later by the provider webhook, when one is connected</td></tr>
+        <tr><td><code>delivered</code>, <code>bounced</code>, <code>complained</code></td><td>Set later by the provider webhook, when one is connected. <code>complained</code> is shown as <strong>Marked as spam</strong></td></tr>
       </tbody>
     </table>
-    <p>Logs older than 60 days are deleted every night at 02:00 UTC, with the files kept beside them. Change the number of days, or turn this off, under <strong>Auto-Purge Email Logs</strong> on the Email Settings page. <strong>Purge Old Logs</strong> on the log page deletes them now.</p>
+    <p>Logs older than 60 days are deleted every night at 02:00 UTC, with the files kept beside them. Change the number of days, or turn this off, under <strong>Delete old email logs</strong> on the Email sending page. <strong>Delete old logs</strong> on the log page deletes them now.</p>
 
     <h3>Unsubscribe and preferences</h3>
     <p>The brand kit footer carries two links by default: <code>##UNSUBSCRIBE_LINK##</code> and <code>##PREFERENCES_LINK##</code>. Each carries a token signed with the site's secret, so nobody can build one for someone else's address.</p>
@@ -145,7 +145,7 @@
       <li><strong>Preferences</strong> (<code>/email-preferences?e=...&amp;t=...</code>) shows whether the person gets marketing email and lets them turn it off or back on.</li>
     </ul>
     <p>An unsubscribed address gets no marketing email and still gets transactional email, such as codes and receipts. With <a href="audience.html">Audience</a> on, the contact's consent changes as well, and with <a href="email-marketing.html">Email marketing</a> on, an unsubscribe ends their drip sequences. A hard bounce or a complaint reported by the provider webhook suppresses the address for every email, transactional too, when the webhook names the email by the provider's message id (a report that only names an address could come from anyone). Subscribing again does not lift that; erasing the contact in Audience does.</p>
-    <p>Form emails sent before 2026-07-26 carried older links, <code>/unsubscribe/:waitlistId/:userId</code>, with a member id instead of a token. An id proves nothing, so that page asks for the email address and <code>unsubscribeLegacyLink</code> sends that address an email (<code>unsubscribe_link_email</code>) with the signed one-click link. It goes only to an address the site has emailed, keeps as a contact or finds on the old link's record, and not to one already suppressed. The page says the same thing either way, and takes as long: every request makes the same reads and none answers in under 2 seconds. The email goes as an account email (source <code>auth</code>), so it still goes when <strong>Waitlist emails</strong> is off. Requests are limited to 10 an hour per connection and 3 a day per address. The page is in the member's language (<code>member.unsubscribe.*</code>).</p>
+    <p>Form emails sent before 2026-07-26 carried older links, <code>/unsubscribe/:waitlistId/:userId</code>, with a member id instead of a token. An id proves nothing, so that page asks for the email address and <code>unsubscribeLegacyLink</code> sends that address an email (<code>unsubscribe_link_email</code>) with the signed one-click link. It goes only to an address the site has emailed, keeps as a contact or finds on the old link's record, and not to one already suppressed. The page says the same thing either way, and takes as long: every request makes the same reads and none answers in under 2 seconds. The email goes as an account email (source <code>auth</code>), so it still goes when <strong>Form emails</strong> is off. Requests are limited to 10 an hour per connection and 3 a day per address. The page is in the member's language (<code>member.unsubscribe.*</code>).</p>
     <div class="note"><p>Both links open on the site's own address. The shipped <code>firebase.json</code> has Hosting rewrites that send the exact paths <code>/unsubscribe</code> and <code>/email-preferences</code> to the <code>arccms-handleUnsubscribe</code> and <code>arccms-handleEmailPreferences</code> functions, ahead of the rewrite that sends every other path to the app. The links therefore do not depend on the functions' own <code>cloudfunctions.net</code> or <code>run.app</code> addresses, which differ per project and region. The rewrites take effect when Hosting is deployed, and they reach functions in the same project. The older <code>/unsubscribe/:waitlistId/:userId</code> pages are not affected. Never set <code>liveUrl</code> to a function address. Before launch, click both links in a real email.</p></div>
 
     <h2>Extend it</h2>
@@ -224,11 +224,11 @@ export async function sendShippedEmail(toEmail: string, tracking: string, orderI
       <tbody>
         <tr><td>Log says <code>success</code> but nothing arrives</td><td>The Debug Provider is active (the log has <code>logOnly</code>). Pick a real provider.</td></tr>
         <tr><td><code>skipped</code>, <code>email_disabled</code></td><td>The master switch is off, or no provider is set.</td></tr>
-        <tr><td><code>skipped</code>, <code>feature_disabled</code></td><td>That kind of email is off under Email Features.</td></tr>
+        <tr><td><code>skipped</code>, <code>feature_disabled</code></td><td>That kind of email is off under Email types.</td></tr>
         <tr><td><code>skipped</code>, <code>template_inactive</code></td><td>The template is turned off.</td></tr>
         <tr><td><code>skipped</code>, <code>contact_disabled</code></td><td>An admin disabled the contact in Audience. A disabled contact gets no email at all, not even a sign-up code.</td></tr>
         <tr><td><code>skipped</code> with <code>unsubscribed</code>, or <code>suppressed</code></td><td>The person opted out of marketing, or the address is on the suppression list. A suppressed address that bounced or complained gets no email at all.</td></tr>
-        <tr><td>Many <code>deferred</code> logs</td><td>The provider's daily or hourly limit is used up. They go out when it resets, or raise the limit on Email Settings.</td></tr>
+        <tr><td>Many <code>deferred</code> logs</td><td>The provider's daily or hourly limit is used up. They go out when it resets, or raise the limit on Email sending.</td></tr>
         <tr><td><code>failed</code></td><td>Read <code>errorMessage</code> on the log, fix the provider settings, and test the connection again.</td></tr>
         <tr><td>An empty gap where a merge tag should be</td><td>The tag had no value. The log lists it under unmapped tags.</td></tr>
         <tr><td>Unsubscribe link opens the not-found page, or links are missing</td><td>Deploy Hosting so the rewrites in <code>firebase.json</code> are live (see <a href="#unsubscribe-and-preferences">Unsubscribe and preferences</a>), and check <code>liveUrl</code>: it must be the site's own address, not a function address.</td></tr>

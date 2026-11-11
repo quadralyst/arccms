@@ -12,7 +12,7 @@ import { FileExportProgress, MediaDocInfo } from '../data-constants';
 import { ExportFilesService } from './export-files.service';
 
 export const routeMeta: RouteMeta = {
-    title: 'Export Files',
+    title: 'Export files',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -82,7 +82,7 @@ export default class ExportFilesPageComponent extends BaseComponent implements O
     // Data loading
     // -----------------------------------------------------------------------
 
-    private async loadMedia(): Promise<void> {
+    async loadMedia(): Promise<void> {
         this.isLoading.set(true);
         this.loadError.set(null);
 
@@ -90,7 +90,8 @@ export default class ExportFilesPageComponent extends BaseComponent implements O
             const items = await this.exportFilesService.getMediaItems();
             this.mediaItems.set(items.map((m) => ({ ...m, selected: false })));
         } catch (error: any) {
-            this.loadError.set(error.message || 'Failed to load media');
+            console.error('Loading the media list failed:', error);
+            this.loadError.set(this.t('admin.data.export_files.load_failed'));
         } finally {
             this.isLoading.set(false);
         }
@@ -131,13 +132,10 @@ export default class ExportFilesPageComponent extends BaseComponent implements O
             const timestamp = new Date().toISOString().split('T')[0];
             this.exportFilesService.triggerDownload(zipBlob, `arccms-media-${timestamp}.zip`);
 
-            this.toastService.openCustomSnackbar(
-                `Downloaded ${selected.length} media files as ZIP (includes manifest).`,
-                'success',
-                'check_circle',
-            );
+            this.notify.success('admin.data.export_files.done', { count: selected.length });
         } catch (error: any) {
-            this.notify.error('admin.data.export_files.failed', { error: error.message || this.t('common.unknown_error') });
+            console.error('Downloading the media failed:', error);
+            this.notify.error('admin.data.export_files.failed');
         } finally {
             this.isDownloading.set(false);
             this.downloadProgress.set(null);
@@ -151,7 +149,7 @@ export default class ExportFilesPageComponent extends BaseComponent implements O
     formatUploadDate(isoString: string): string {
         if (!isoString) return '';
         try {
-            return new Date(isoString).toLocaleDateString('en-US', {
+            return new Date(isoString).toLocaleDateString(this.transloco.getActiveLang(), {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',

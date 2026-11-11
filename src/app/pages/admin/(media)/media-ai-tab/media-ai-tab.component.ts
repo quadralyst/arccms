@@ -2,6 +2,7 @@ import { DecimalPipe } from '@angular/common';
 import { Component, computed, effect, inject, input, OnDestroy, output, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { uploadProblem } from '../media-upload-problem';
 import { firstValueFrom } from 'rxjs';
 import { FileUploadService, type MediaUploadSettings, type UploadedMedia } from '../../../../../shared/services/file-upload.service';
 import type { CropRatio } from '../../../../../shared/utils/image-crop';
@@ -288,7 +289,7 @@ export class MediaAiTabComponent implements OnDestroy {
         } catch (err) {
             if (this.destroyed || asked !== this.asked) return;
             console.error('Create with AI: the pictures could not be made', err);
-            this.error.set(this.t('admin.media.ai.failed', { reason: String((err as Error)?.message ?? '') }));
+            this.error.set(this.t('admin.media.ai.failed_connection'));
         } finally {
             if (!this.destroyed && asked === this.asked) {
                 this.busy.set(false);
@@ -368,7 +369,8 @@ export class MediaAiTabComponent implements OnDestroy {
             console.error('Create with AI: the picture could not be saved', err);
             if (this.destroyed) return;
             this.patch(p, { saving: false });
-            this.error.set(this.t('admin.media.ai.save_failed', { reason: String((err as Error)?.message ?? '') }));
+            const problem = uploadProblem(err, this.uploadSettings().maxFileSize);
+            this.error.set(this.t('admin.media.ai.save_failed', { reason: this.t(problem.key, problem.params) }));
         }
     }
 

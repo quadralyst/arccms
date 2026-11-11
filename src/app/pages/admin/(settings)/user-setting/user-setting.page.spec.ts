@@ -127,8 +127,9 @@ describe('UserSettingPageComponent', () => {
             expect(component.getRoleLabel('user')).toBe('User');
         });
 
-        it('should return roleId if role not found', () => {
-            expect(component.getRoleLabel('unknown')).toBe('unknown');
+        it('names a role without a translation in plain words, sentence case', () => {
+            expect(component.getRoleLabel('unknown')).toBe('Unknown');
+            expect(component.getRoleLabel('propertyOwner')).toBe('Property owner');
         });
 
         it('should return empty string for null value', () => {

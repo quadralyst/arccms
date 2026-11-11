@@ -18,10 +18,10 @@
     <table>
       <thead><tr><th>Where</th><th>What the admin gets</th></tr></thead>
       <tbody>
-        <tr><td>Settings, App audience</td><td>How to read one person: unique key, email, phone and name fields, and the fields to watch</td></tr>
+        <tr><td>Settings, App users</td><td>How to read one person: unique key, email, phone and name fields, and the fields to watch</td></tr>
         <tr><td>Audience, App users</td><td>Every app user, live, with search and a panel showing all their fields, email status and recent events</td></tr>
         <tr><td>Audience, Lists</td><td>App users (live) lists: conditions on the app's fields, no stored members</td></tr>
-        <tr><td>Email, Broadcasts and Drip Campaigns</td><td>Send to live lists, alone or with contact lists; sequences that start when someone starts matching</td></tr>
+        <tr><td>Email, Broadcasts and Drip campaigns</td><td>Send to live lists, alone or with contact lists; sequences that start when someone starts matching</td></tr>
         <tr><td>Settings, Automations</td><td>Rules on app user events, such as "<code>isPro</code> becomes true sends the upgrade email"</td></tr>
         <tr><td>Any template</td><td><code>##APP.&lt;field&gt;##</code> merge tags, such as <code>##APP.plan.tier|free##</code></td></tr>
       </tbody>
@@ -29,7 +29,7 @@
     <p>The host can be another app sharing the Firebase project (see <a href="../concepts/shared-firebase-project.html">Sharing a Firebase project</a>), or the install's own <code>users</code> collection, for a site or app built on Arc CMS that wants live lists and automations on its own members' data. <a href="../app/app-audience.html">Connect your app's users</a> is the short path through this page.</p>
 
     <h2>Turn it on or off</h2>
-    <p>App audience is part of the <code>audience</code> feature (<a href="audience.html">Audience</a>): with <code>audience</code> off, the App users page, the Settings, App audience tab and every function on this page are gone. Broadcasts and sequences to live lists also need <code>email-marketing</code> (<a href="email-marketing.html">Email marketing</a>).</p>
+    <p>App audience is part of the <code>audience</code> feature (<a href="audience.html">Audience</a>): with <code>audience</code> off, the App users page, the Settings, App users tab and every function on this page are gone. Broadcasts and sequences to live lists also need <code>email-marketing</code> (<a href="email-marketing.html">Email marketing</a>).</p>
     <p>Within the feature it is off until a host collection is configured. An install with none points the trigger at a collection nothing writes to, so it costs nothing.</p>
 
     <h2>Set it up</h2>
@@ -55,7 +55,7 @@
         <p>If only the collection changed on an install that is already deployed, deploying the trigger alone is enough (<a href="../operations/targeted-deploys.html">Deploy only what changed</a>):</p>
         <pre><code>npm run deploy -- --only functions:arccms:arccms.onAppUserWritten</code></pre>
       </li>
-      <li><p>Open Settings, App audience. The top shows the database and collection from the deploy. Choose the <strong>Unique key</strong>: the document id or a field. Never assume it is the email; apps with phone sign-in have none.</p></li>
+      <li><p>Open Settings, App users. The top shows the database and collection from the deploy. Choose the <strong>Unique key</strong>: the document id or a field. Never assume it is the email; apps with phone sign-in have none.</p></li>
       <li><p>Pick the <strong>Email field</strong>, <strong>Phone field</strong> and <strong>Name field</strong>. The choices come from a sample of 20 real documents; nested fields are dot paths such as <code>profile.name</code>.</p></li>
       <li><p>Under <strong>Watch for changes</strong>, tick the fields whose changes should become events, such as <code>isPro</code> or <code>plan.tier</code>. Leave out counters and timestamps: they change all the time and mean nothing.</p></li>
       <li><p>Click <strong>Test with a document</strong> (with a document id, or none for the first document) to see the person as Arc CMS reads them, then <strong>Save</strong>.</p></li>
@@ -109,7 +109,7 @@
       <tbody>
         <tr><td><code>##APP.&lt;path&gt;##</code></td><td>The host field when the email is queued, such as <code>##APP.plan.tier##</code></td></tr>
         <tr><td><code>##APP.&lt;path&gt;|fallback##</code></td><td>The same, with a fallback when it is empty or missing</td></tr>
-        <tr><td><code>##NAME##</code></td><td>The name field from Settings, App audience, or the part of the address before the @ when it is empty</td></tr>
+        <tr><td><code>##NAME##</code></td><td>The name field from Settings, App users, or the part of the address before the @ when it is empty</td></tr>
         <tr><td><code>##FIELD##</code>, <code>##FROM##</code>, <code>##TO##</code></td><td>In an email from a field-change rule: the field, its old value and its new value</td></tr>
       </tbody>
     </table>
@@ -148,7 +148,7 @@
       <thead><tr><th>Function</th><th>Kind</th><th>Does</th></tr></thead>
       <tbody>
         <tr><td><code>onAppUserWritten</code></td><td>Trigger on the host collection</td><td>Emits the events, keeps <code>AppAudience</code> in step, joins and leaves live-list sequences. A failed run is retried for up to an hour</td></tr>
-        <tr><td><code>appAudienceStatus</code>, <code>sampleAppUsers</code>, <code>testAppUser</code></td><td>Admin callables</td><td>Behind Settings, App audience</td></tr>
+        <tr><td><code>appAudienceStatus</code>, <code>sampleAppUsers</code>, <code>testAppUser</code></td><td>Admin callables</td><td>Behind Settings, App users</td></tr>
         <tr><td><code>listAppUsers</code>, <code>getAppUser</code></td><td>Admin callables</td><td>Behind Audience, App users</td></tr>
         <tr><td><code>previewAppList</code></td><td>Admin callable</td><td>Who a live list matches</td></tr>
       </tbody>
@@ -173,9 +173,9 @@
         <tr><td>"No host collection is configured"</td><td>The functions were deployed without <code>ARC_APP_USERS_PATH</code>. Run <code>npm run arc:configure</code> with <code>--app-users-path</code> and deploy the functions.</td></tr>
         <tr><td>The App users page fails with "internal"</td><td>The callables are missing or still starting. Deploy the functions again and reload after a minute.</td></tr>
         <tr><td>"N documents have no value in the unique key field"</td><td>Those documents lack the key field and are left out. Pick another key, or fix the documents.</td></tr>
-        <tr><td>Recent activity stays empty after a change in the app</td><td>The field is not watched, or the trigger is bound to another database or collection. Check Settings, App audience and the project's functions environment file.</td></tr>
+        <tr><td>Recent activity stays empty after a change in the app</td><td>The field is not watched, or the trigger is bound to another database or collection. Check Settings, App users and the project's functions environment file.</td></tr>
         <tr><td>An event says "No rule set up for this event"</td><td>Add a rule for it in Settings, Automations.</td></tr>
-        <tr><td>A rule ran but no email arrived</td><td>Email is off, the template is inactive, the person has no address, or a marketing email met an unsubscribe. Email Logs gives the skip reason; with no address, no log is written.</td></tr>
+        <tr><td>A rule ran but no email arrived</td><td>Email is off, the template is inactive, the person has no address, or a marketing email met an unsubscribe. Email logs gives the skip reason; with no address, no log is written.</td></tr>
         <tr><td>A live list matches nobody</td><td>A condition names a field most documents lack, or a value in another format. Compare with the values on the list's page.</td></tr>
         <tr><td>"Only the first 2,000 users in your app are checked"</td><td>The host collection has more than 2,000 documents; people after them are left out of lists, counts and broadcasts.</td></tr>
       </tbody>

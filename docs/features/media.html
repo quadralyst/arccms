@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Media | Arc CMS docs</title>
   <meta name="description" content="Images and documents in the media manager: four sizes, WebP, cropping, PDFs and other files, images taken from a PDF, pictures made with AI, titles, alt text, notes and search, Unsplash, limits and rules.">
-  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/services/file-upload.service.ts, src/shared/components/tiptap-editor/service/editor-image-upload.service.ts, src/shared/components/tiptap-editor/service/file-handler-extension.ts, src/shared/utils/image-sizes.ts, src/shared/utils/image-crop.ts, src/shared/components/image-cropper, src/shared/utils/media-files.ts, src/shared/utils/file-rows.ts, src/shared/utils/media-search.ts, src/shared/utils/pdf-pages.ts, src/shared/components/tiptap-editor/service/file-card-node.ts, functions/src/shared/image-sizes.ts, functions/src/integrations/searchUnsplash.ts, functions/src/integrations/readMediaImage.ts, functions/src/integrations/readMediaFile.ts, src/app/pages/admin/(settings)/misc/misc-settings.model.ts, src/app/core/config/arc-config.ts, functions/src/ai/callables/generateMediaImages.ts, storage.rules, firestore.rules">
+  <meta name="docs:sources" content="src/app/pages/admin/(media), src/shared/services/file-upload.service.ts, src/shared/components/tiptap-editor/service/editor-image-upload.service.ts, src/shared/components/tiptap-editor/service/file-handler-extension.ts, src/shared/utils/image-sizes.ts, src/shared/utils/image-crop.ts, src/shared/components/image-cropper, src/shared/utils/media-files.ts, src/shared/utils/file-rows.ts, src/shared/utils/media-search.ts, src/shared/utils/pdf-pages.ts, src/shared/components/tiptap-editor/service/file-card-node.ts, functions/src/shared/image-sizes.ts, functions/src/integrations/searchUnsplash.ts, functions/src/integrations/readMediaImage.ts, functions/src/integrations/readMediaFile.ts, functions/src/integrations/mediaUsage.ts, src/app/pages/admin/(settings)/misc/misc-settings.model.ts, src/app/core/config/arc-config.ts, functions/src/ai/callables/generateMediaImages.ts, storage.rules, firestore.rules">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="features/media.html">
@@ -14,15 +14,15 @@
     <p class="lead">Upload images and documents once and use them everywhere: the media manager stores each image at four sizes, converts it to WebP, crops to a ratio or a free shape, keeps PDFs, Word, Excel, PowerPoint, CSV and text files for pages to link to, takes images from the pages of a PDF, and finds anything by its title, notes or alt text.</p>
 
     <h2>What it is</h2>
-    <p>The media manager is at <strong>Media Manager</strong> in the admin menu (<code>/admin/media</code>) and opens as a picker from every image field. It has these tabs:</p>
+    <p>The media manager is at <strong>Media</strong> in the admin menu (<code>/admin/media</code>) and opens as a picker from every image field. It has these tabs:</p>
     <table>
       <thead><tr><th>Tab</th><th>Gives</th></tr></thead>
       <tbody>
         <tr><td>My Uploads</td><td>Every image in the library, newest first, 20 per page. Drop or choose several files at once. A PDF dropped here opens <a href="#take-image">Take an image</a> (in a picker, on <strong>From a PDF</strong>) and is kept in Files; any other document goes to Files.</td></tr>
         <tr><td>Create with AI</td><td>Make pictures from a prompt, and change a library picture with <strong>Edit with AI</strong>. See <a href="#create-with-ai">Create with AI</a>. Shown to admins when the <code>ai</code> feature is on and Settings, AI has a picture model.</td></tr>
-        <tr><td>From a PDF</td><td>Take an image from a PDF and insert it in one go. See <a href="#from-a-pdf">From a PDF</a>. In every image picker; not on the Media Manager page, where <strong>Files</strong> has <strong>Take an image</strong>.</td></tr>
-        <tr><td>Files</td><td>Documents: PDF, Word, Excel, PowerPoint, CSV and text files, newest first. See <a href="#files">Files</a>. Always shown on the Media Manager page; in a picker only when the caller asks for files.</td></tr>
-        <tr><td>Free Images</td><td>Search Unsplash photos, once an Unsplash key is set in <strong>Settings &gt; Integrations</strong>. A chosen photo is used from Unsplash by its URL; it is not copied into your storage.</td></tr>
+        <tr><td>From a PDF</td><td>Take an image from a PDF and insert it in one go. See <a href="#from-a-pdf">From a PDF</a>. In every image picker; not on the Media page, where <strong>Files</strong> has <strong>Take an image</strong>.</td></tr>
+        <tr><td>Files</td><td>Documents: PDF, Word, Excel, PowerPoint, CSV and text files, newest first. See <a href="#files">Files</a>. Always shown on the Media page; in a picker only when the caller asks for files.</td></tr>
+        <tr><td>Free images</td><td>Search Unsplash photos, once an Unsplash key is set in <strong>Settings</strong>, <strong>Integrations</strong>. A chosen photo is used from Unsplash by its URL; it is not copied into your storage.</td></tr>
         <tr><td>Icons</td><td>The Font Awesome icon picker. Shown only when an <code>icon</code> field opens the picker.</td></tr>
       </tbody>
     </table>
@@ -31,25 +31,25 @@
       <li>The content editor: cover image, <code>image</code> fields, images in the body, and rows of gallery and info card fields (a gallery can take several images in one pick). An image dropped or pasted into the body goes to the library without the picker; see <a href="#drop-or-paste">Drop or paste into the editor</a>.</li>
       <li>The content editor's <code>file</code> fields and the body's <strong>Attach files</strong> command (type <code>/</code> in the body), which open it on Files. See <a href="content.html#file-fields">File fields</a>.</li>
       <li>The signup form editor.</li>
-      <li>The logo in <strong>Settings</strong>, <strong>About</strong>.</li>
+      <li>The logo in <strong>Settings</strong>, <strong>Site details</strong>.</li>
       <li>An admin's profile photo. Members upload their photo to their own folder instead (<code>avatars/{uid}/</code>); they never see the library.</li>
     </ul>
-    <p>The picker is as wide as the window is tall (a wide dialog on a computer) but never wider than the screen. On a phone (and any window up to 768px wide) it takes the screen's width and the tabs become a dropdown. Choosing an image, icon or file opens its details over the images, with <strong>Insert</strong>; <strong>Back</strong> returns to the images. When the picker takes several at once, picking keeps the images in view and <strong>Insert</strong> is in a bar below them. <strong>Crop</strong> and <strong>Take an image</strong> open their step at the top, and <strong>Cancel</strong> in the crop step returns to the details. The Media Manager page works the same way.</p>
+    <p>The picker is as wide as the window is tall (a wide dialog on a computer) but never wider than the screen. On a phone (and any window up to 768px wide) it takes the screen's width and the tabs become a dropdown. Choosing an image, icon or file opens its details over the images, with <strong>Insert</strong>; <strong>Back</strong> returns to the images. When the picker takes several at once, picking keeps the images in view and <strong>Insert</strong> is in a bar below them. <strong>Crop</strong> and <strong>Take an image</strong> open their step at the top, and <strong>Cancel</strong> in the crop step returns to the details. The Media page works the same way.</p>
 
     <h2>Turn it on or off</h2>
     <p>Media is always on. It is core and belongs to no switchable feature.</p>
 
     <h2>Set it up</h2>
-    <p>Nothing is needed: uploads work on a new install. To change the limits, open <strong>Settings &gt; Misc</strong>, <strong>Media Upload</strong>:</p>
+    <p>Nothing is needed: uploads work on a new install. To change the limits, open <strong>Settings</strong>, <strong>Branding and uploads</strong>, <strong>Media upload</strong>:</p>
     <table>
       <thead><tr><th>Setting</th><th>Default</th><th>Stored as</th></tr></thead>
       <tbody>
-        <tr><td>Max File Size (MB)</td><td>5</td><td><code>Settings/misc.mediaMaxFileSize</code></td></tr>
+        <tr><td>Largest file (MB)</td><td>5</td><td><code>Settings/misc.mediaMaxFileSize</code></td></tr>
         <tr><td>Max image size (px, longest side)</td><td>1200</td><td><code>Settings/misc.mediaMaxSize</code></td></tr>
         <tr><td>Convert all images to WebP</td><td>On</td><td><code>Settings/misc.mediaConvertToWebp</code></td></tr>
       </tbody>
     </table>
-    <p>To offer Unsplash, add an Unsplash access key under <strong>Settings &gt; Integrations</strong>; the page has a setup guide. For choosing and organizing a website's images, see <a href="../website/media.html">Manage media</a>.</p>
+    <p>To offer Unsplash, add an Unsplash access key under <strong>Settings</strong>, <strong>Integrations</strong>; the page has a setup guide. For choosing and organizing a website's images, see <a href="../website/media.html">Manage media</a>.</p>
 
     <h2>Use it</h2>
 
@@ -98,7 +98,7 @@
     <p>Pull a photo or a chart out of a brochure without another program. Open a PDF one of these ways:</p>
     <ul>
       <li>In any image picker (Insert image in the body, an image or gallery field): the <strong>From a PDF</strong> tab. See <a href="#from-a-pdf">From a PDF</a>.</li>
-      <li>On the Media Manager page: drop or choose a PDF on <strong>My Uploads</strong>, or select one in <strong>Files</strong> and press <strong>Take an image</strong>.</li>
+      <li>On the Media page: drop or choose a PDF on <strong>My Uploads</strong>, or select one in <strong>Files</strong> and press <strong>Take an image</strong>.</li>
     </ul>
     <p>A PDF from your computer opens at once and is kept in <strong>Files</strong> once it has opened, so you can come back to it. The same PDF (same file name and size) is not stored twice, and a PDF that will not open (locked or broken) is not kept. Each image records the PDF and page it came from, when the PDF is in Files.</p>
     <ol class="steps">
@@ -106,7 +106,7 @@
       <li><p>Click a page. It opens in the same crop step as <a href="#crop">Crop</a>, with the frame centred on the page. Drag the frame over the part you want, and drag its corners and edges to fit it: a photo, a label, a chart or part of a photo.</p></li>
       <li><p>Zoom with the minus and plus buttons, Ctrl or Cmd with the mouse wheel (a trackpad pinch works the same way in Chrome, Edge and Firefox, not in Safari), a two-finger pinch on a touch screen, or the <kbd>+</kbd> and <kbd>-</kbd> keys while the frame has focus; drag outside the frame to move around. The page is drawn again with more detail as you zoom. Move between pages with the arrows, by typing a page number, or with <kbd>Page Up</kbd> and <kbd>Page Down</kbd>; <strong>All pages</strong> goes back to the grid.</p></li>
       <li><p><strong>Save as image</strong> (in a picker, <strong>Insert</strong> or <strong>Save, take another</strong>) draws only the framed part again, at the XL size, and uploads it like any image: every size, WebP when that is on, named after the PDF and the page ("Brochure, page 3"; a second one from the page is "Brochure, page 3 (2)"). Text and drawings come out sharp; a photo inside the PDF is only as sharp as the photo the PDF holds, and the usual note says when the result is smaller than the size picked.</p></li>
-      <li><p>After a save the page stays open, with the frame where it was. On the Media Manager page, <strong>Done</strong> on the page grid opens My Uploads with the newest image selected.</p></li>
+      <li><p>After a save the page stays open, with the frame where it was. On the Media page, <strong>Done</strong> on the page grid opens My Uploads with the newest image selected.</p></li>
     </ol>
     <p>The PDF is never changed, and what is saved is always the framed part as the page shows it: never text, and never a picture's own file pulled out of the PDF. A PDF locked with a password says so and asks you to remove the password first; there is no password box.</p>
 
@@ -128,7 +128,7 @@
       <li><p>Choose the model (when there are several), the shape, the resolution, the quality and how many pictures, 1 to 4. Only what the chosen model takes is shown: Gemini has no quality, only OpenAI's models take a quality, and <strong>More</strong> offers a negative prompt and a seed only for a model that takes them. Changing the model keeps what you typed. In a picker the shape starts at the field's crop ratio and the resolution at its size (S and M standard, L and XL high).</p></li>
       <li><p>Read the line above <strong>Generate</strong>: "Cost: $0.21. Pictures left today: 16. $12.40 of this month's $20.00 left." The cost is the price list's figure for all the pictures asked ("about" for a model billed by tokens). Generate is off, with the reason, when your pictures for today would run out, or when the cost is more than the month's budget has left.</p></li>
       <li><p>Press <strong>Generate</strong>. The pictures come in a grid, newest first. <strong>Generate again</strong> keeps every setting. <strong>Stop waiting</strong> stops waiting, but the provider may still finish and bill.</p></li>
-      <li><p>Press <strong>Save to library</strong> (on the Media Manager page) or <strong>Use this picture</strong> (in a picker). The picture is saved as an ordinary upload, at every size and as WebP when that setting is on, titled with the prompt's first words. In a picker, My Uploads then opens with it selected, so the crop step, the size and <strong>Insert</strong> work as for any upload. When the field has a ratio and the picture is not already that shape, the crop step opens at once; a cropped copy keeps the "Made with AI" note and the title.</p></li>
+      <li><p>Press <strong>Save to library</strong> (on the Media page) or <strong>Use this picture</strong> (in a picker). The picture is saved as an ordinary upload, at every size and as WebP when that setting is on, titled with the prompt's first words. In a picker, My Uploads then opens with it selected, so the crop step, the size and <strong>Insert</strong> work as for any upload. When the field has a ratio and the picture is not already that shape, the crop step opens at once; a cropped copy keeps the "Made with AI" note and the title.</p></li>
     </ol>
     <p>A library picture made in the tab shows <strong>Made with AI</strong> under its preview: the prompt, the model, the shape and quality, its cost and the day, and <strong>Generate again</strong>, which opens the tab with those settings. Give it alt text yourself: the prompt is not a description.</p>
     <p><strong>Edit with AI</strong>, under a selected library picture, opens the tab to change that picture: say what should change and press <strong>Make the change</strong>. Only models that edit are offered. The result is a new picture, saved like any other with the original's id in its note; the original stays as it is.</p>
@@ -178,18 +178,20 @@
       <thead><tr><th>Image</th><th>Applying the crop</th></tr></thead>
       <tbody>
         <tr><td>An upload (<strong>My Uploads</strong>)</td><td><strong>Save cropped copy</strong> saves the crop as a new image, at all four sizes, and selects it. The original is not changed, because content may already use it. The copy is cut from the original's XL file, the largest one kept, and goes through the same size, WebP and file size rules as an upload.</td></tr>
-        <tr><td>An Unsplash photo (<strong>Free Images</strong>, in the picker only)</td><td><strong>Apply crop</strong> keeps the crop for this pick. Nothing is copied: the inserted URL asks Unsplash for the cropped photo (its <code>rect</code> setting, in the photo's original pixels), so the photo is still used from Unsplash. Every size a template derives keeps the crop. <strong>Remove crop</strong> goes back to the whole photo.</td></tr>
+        <tr><td>An Unsplash photo (<strong>Free images</strong>, in the picker only)</td><td><strong>Apply crop</strong> keeps the crop for this pick. Nothing is copied: the inserted URL asks Unsplash for the cropped photo (its <code>rect</code> setting, in the photo's original pixels), so the photo is still used from Unsplash. Every size a template derives keeps the crop. <strong>Remove crop</strong> goes back to the whole photo.</td></tr>
       </tbody>
     </table>
     <p>Either way the preview then shows the cropped image. It can take a few seconds to download (Unsplash cuts the photo when asked, and a saved copy is new), so until it has, the old preview is dimmed under a spinner; the same happens whenever a new image is selected.</p>
     <p>Crop is not offered for GIFs (it would drop the animation), or when the picker is choosing several images at once.</p>
 
     <h3>Delete</h3>
+    <p>To delete an image, point at it in <strong>My Uploads</strong> (or reach it with Tab) and press the bin in its corner; on a touch screen the bin always shows. A file has <strong>Delete</strong> in its panel.</p>
     <p>Deleting an image removes every stored size from Storage and the <code>media</code> document. Deleting a file removes it, its first-page picture and its <code>mediaFiles</code> document; images taken from it stay.</p>
-    <div class="warn"><p>Delete does not check whether content uses the image or file. Pages that show or link to it break, including published pages. Search your content before deleting.</p></div>
+    <p>Before it asks, Delete checks which content entries use the image or file, drafts and published, and says how many, with the first few titles; past 20 it says "20 or more" and stops counting. You can still delete it: those entries then show a broken image or a broken link, including on published pages. When the check cannot run (the function is not deployed, or it takes longer than 8 seconds), the question says it could not check.</p>
+    <div class="warn"><p>The check finds an image or file by its stored address in the cover image, the body, and image, gallery, file and rich text fields. It does not look in translations or in the published history, and it cannot see a copy saved outside the library, such as an image pasted from another site.</p></div>
 
     <h3>Move media to another project</h3>
-    <p><strong>Data &gt; Export Files</strong> and <strong>Import Files</strong> copy images and files, with their titles, alt text and notes; see <a href="data.html">Data import and export</a>.</p>
+    <p><strong>Data &gt; Export files</strong> and <strong>Import files</strong> copy images and files, with their titles, alt text and notes; see <a href="data.html">Data import and export</a>.</p>
 
     <h2>Extend it</h2>
     <ul>
@@ -219,6 +221,7 @@
         <tr><td><code>searchUnsplash</code></td><td>Callable</td><td>Searches Unsplash with the key kept server-side, 20 results per page</td></tr>
         <tr><td><code>readMediaImage</code></td><td>Callable</td><td>Admins only: returns the bytes of an upload's XL file (from its <code>media</code> document, never a path the caller names) so the browser can crop it. GIFs and files over 7 MB are refused.</td></tr>
         <tr><td><code>generateMediaImages</code></td><td>Callable</td><td>Admins only, with the <code>ai</code> feature: makes Create with AI's pictures as purpose <code>arc-media-image</code> (or an app purpose with <code>mediaManager: true</code>), kept in <code>ai-files/</code> until saved; with <code>estimate: true</code>, the models, the estimate, the pictures left today and the budget. Edit with AI sends the library picture's largest size.</td></tr>
+        <tr><td><code>mediaUsage</code></td><td>Callable</td><td>Admins only: how many content entries use a library image (<code>{ mediaId }</code>) or file (<code>{ fileId }</code>), and the first three titles. It reads the cover image, body and custom fields of every content type's drafts and published entries, one type at a time in pages of 100, and matches the file's Storage path in any of its sizes, so an entry using the M size counts. It stops at 20 entries and replies <code>more: true</code>, so a file used widely is found quickly.</td></tr>
         <tr><td><code>readMediaFile</code></td><td>Callable</td><td>Admins only: returns a library PDF (from its <code>mediaFiles</code> document) in parts of 6 MB, so the browser can draw its pages for <strong>Take an image</strong>. One reply holds about 10 MB, so a 20 MB PDF takes four calls. Other types and files over 20 MB are refused.</td></tr>
       </tbody>
     </table>
@@ -240,9 +243,9 @@
     <table>
       <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
       <tbody>
-        <tr><td>"... exceeds the maximum allowed size"</td><td>The XL file is over the limit. Raise <strong>Max File Size</strong>, or lower <strong>Max image size</strong>.</td></tr>
-        <tr><td>"Invalid file type"</td><td>Only JPEG, PNG, WebP and GIF are accepted. Convert SVG, HEIC or other files first.</td></tr>
-        <tr><td>"Could not add photo.jpg: the upload did not finish"</td><td>An image dropped or pasted into the editor could not reach Storage: the network dropped, or the account may not write to Storage. Try again; if it keeps failing, upload it from <strong>Media Manager</strong> to see the full error.</td></tr>
+        <tr><td>"... is larger than 5 MB, even after resizing"</td><td>The XL file is over the limit. Raise <strong>Largest file</strong>, or lower <strong>Max image size</strong>.</td></tr>
+        <tr><td>"this type of picture can't be uploaded"</td><td>Only JPEG, PNG, WebP and GIF are accepted. Convert SVG, HEIC or other files first.</td></tr>
+        <tr><td>"Could not add photo.jpg: the upload did not finish"</td><td>An image dropped or pasted into the editor could not reach Storage: the network dropped, or the account may not write to Storage. Try again; if it keeps failing, upload it from <strong>Media</strong> and look in the browser console for the full error.</td></tr>
         <tr><td>"The image is in place, but it could not be added to My Uploads"</td><td>A dropped or pasted image was stored and inserted, but its <code>media</code> document was refused (often the Firestore rules are not deployed). The page shows the image; only the library does not list it.</td></tr>
         <tr><td>"this type of file can't be uploaded"</td><td>Files takes PDF, Word, Excel, PowerPoint, CSV and text files. Save other documents in one of those formats; put images in <strong>My Uploads</strong>.</td></tr>
         <tr><td>"... is 24.9 MB. Files can be up to 20 MB."</td><td>Make the file smaller (in a PDF program, save a reduced-size copy) or split it.</td></tr>
@@ -255,12 +258,13 @@
         <tr><td>"This PDF is locked with a password"</td><td>Remove the password (print or export an unlocked copy), then upload or drop that.</td></tr>
         <tr><td>"Could not read the PDF" on Take an image</td><td>The network dropped, the functions are not deployed since files were added (<code>readMediaFile</code> is missing), or the account is not an admin.</td></tr>
         <tr><td>A search finds nothing you expected</td><td>Every word must match. Older images have no title or notes until you add them; their file name still matches.</td></tr>
-        <tr><td>Free Images asks for setup</td><td>No Unsplash access key in <strong>Settings &gt; Integrations</strong>.</td></tr>
-        <tr><td>Upload fails with a permission error</td><td>The account is not an admin, or the Storage rules are not deployed.</td></tr>
+        <tr><td>Free images asks for setup</td><td>No Unsplash access key in <strong>Settings</strong>, <strong>Integrations</strong>.</td></tr>
+        <tr><td>"the upload did not finish"</td><td>The network dropped, the account is not an admin, or the Storage rules are not deployed. The screen says it in plain words; the browser console has the full error.</td></tr>
+        <tr><td>"Your uploads did not load", or "The files did not load"</td><td>The list could not be read: the network dropped, or the Firestore rules or indexes are not deployed. Press <strong>Retry</strong>; the browser console has the full error.</td></tr>
         <tr><td>A size binding such as <code>{{ coverImage_l }}</code> shows a broken image</td><td>The upload was smaller than that size's limit, so that size shares a larger size's file and the derived address has no file. Upload images at least as large as <strong>Max image size</strong>.</td></tr>
-        <tr><td>Size bindings are empty</td><td>They are derived only for Media Manager uploads (under <code>mediaImages/</code>, in the install's upload folder if it has one) and for Unsplash photos. An image pasted from elsewhere gets none: bind the stored URL.</td></tr>
+        <tr><td>Size bindings are empty</td><td>They are derived only for uploads to Media (under <code>mediaImages/</code>, in the install's upload folder if it has one) and for Unsplash photos. An image pasted from elsewhere gets none: bind the stored URL.</td></tr>
         <tr><td>Changing Max image size did nothing to old images</td><td>Settings apply to new uploads only.</td></tr>
-        <tr><td>No <strong>Crop</strong> button</td><td>The image is a GIF, the picker is choosing several images, or it is an Unsplash photo on the Media Manager page itself (crop it in the picker, where it is inserted).</td></tr>
+        <tr><td>No <strong>Crop</strong> button</td><td>The image is a GIF, the picker is choosing several images, or it is an Unsplash photo on the Media page itself (crop it in the picker, where it is inserted).</td></tr>
         <tr><td>"Could not load the image to crop"</td><td>The image's file is gone from Storage or Unsplash, or the network dropped. Reload and try again.</td></tr>
         <tr><td>"Could not save the cropped image" with a permission or not-found error</td><td>The functions are not deployed since cropping was added (<code>readMediaImage</code> is missing), or the account is not an admin. Deploy the functions.</td></tr>
         <tr><td>A cropped copy looks soft</td><td>The crop is smaller than the size used where it shows. Crop a larger area, or upload a larger original.</td></tr>

@@ -23,7 +23,9 @@ describe('IconPickerComponent', () => {
 
     describe('Initialization', () => {
         it('should initialize with default placeholder', () => {
-            expect(component.placeholder).toBe('Search icons... (e.g., folder, file, image)');
+            expect(component.placeholder).toBe('');
+            fixture.detectChanges();
+            expect(fixture.nativeElement.querySelector('input').getAttribute('placeholder')).toBe('Search icons, such as folder, file, image');
         });
 
         it('should initialize with all Font Awesome icons', () => {

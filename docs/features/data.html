@@ -18,10 +18,10 @@
     <table>
       <thead><tr><th>Screen</th><th>Address</th><th>Does</th></tr></thead>
       <tbody>
-        <tr><td>Export Data</td><td><code>/admin/data/export-data</code></td><td>Downloads chosen Firestore collections as one JSON file</td></tr>
-        <tr><td>Import Data</td><td><code>/admin/data/import-data</code></td><td>Writes the collections of such a file back into Firestore</td></tr>
-        <tr><td>Export Files</td><td><code>/admin/data/export-files</code></td><td>Downloads media library images and files as a ZIP with a manifest</td></tr>
-        <tr><td>Import Files</td><td><code>/admin/data/import-files</code></td><td>Uploads files to Storage and adds them to the media library; documents go to its Files</td></tr>
+        <tr><td>Export data</td><td><code>/admin/data/export-data</code></td><td>Downloads chosen Firestore collections as one JSON file</td></tr>
+        <tr><td>Import data</td><td><code>/admin/data/import-data</code></td><td>Writes the collections of such a file back into Firestore</td></tr>
+        <tr><td>Export files</td><td><code>/admin/data/export-files</code></td><td>Downloads media library images and files as a ZIP with a manifest</td></tr>
+        <tr><td>Import files</td><td><code>/admin/data/import-files</code></td><td>Uploads files to Storage and adds them to the media library; documents go to its Files</td></tr>
       </tbody>
     </table>
     <p>Everything runs in the admin's browser, with the admin's own permissions. There are no Cloud Functions involved.</p>
@@ -41,7 +41,7 @@
 
     <h3>Export data</h3>
     <ol class="steps">
-      <li><p>Open <strong>Data &gt; Export Data</strong>.</p></li>
+      <li><p>Open <strong>Data &gt; Export data</strong>.</p></li>
       <li><p>Pick a preset (<strong>Everything</strong>, <strong>All Content</strong>, <strong>All Settings</strong>) or tick collections by group. Picking a content type takes its drafts, its published entries and its tags together.</p></li>
       <li><p>Export. The browser downloads <code>arccms-export-{date}.json</code>.</p></li>
     </ol>
@@ -72,7 +72,7 @@
 
     <h3>Import data</h3>
     <ol class="steps">
-      <li><p>Open <strong>Data &gt; Import Data</strong> and choose an export file. It is checked for a <code>version</code> and a <code>collections</code> object; unknown collections are flagged but can still be imported.</p></li>
+      <li><p>Open <strong>Data &gt; Import data</strong> and choose an export file. It is checked for a <code>version</code> and a <code>collections</code> object; unknown collections are flagged but can still be imported.</p></li>
       <li><p>Tick the collections to import.</p></li>
       <li><p>Choose what happens to a document that already exists:</p>
         <table>
@@ -87,13 +87,13 @@
     </ol>
     <div class="trap"><p>Importing published entries restores the data, not the pages. Rebuild the pages on Hosting after an import with <code>npm run seed:dev</code> (or <code>npm run seed:prod</code>); see <a href="content.html#how-publishing-works">How publishing works</a>.</p></div>
     <div class="trap"><p><code>Contacts</code> and <code>Suppression</code> can only be written by Cloud Functions, so importing them fails with a permission error even for an admin. Rebuild an audience with the contact CSV import on the <a href="audience.html">Audience</a> page.</p></div>
-    <div class="trap"><p>Importing <code>users</code> into another Firebase project creates the records but not the sign-in accounts, so those people cannot sign in until their accounts exist again. See <a href="users-and-roles.html">Users and roles</a>.</p></div>
+    <div class="trap"><p>Importing <code>users</code> only updates people already on the site, and each keeps the role, sign-in (<code>uid</code>, <code>by</code>, <code>authOwner</code>, <code>adminPasswordAt</code>), phone number (<code>phone</code>, <code>phoneVerified</code>) and block (<code>isActive</code>, <code>status</code>) it has here: the rules refuse those writes, and new records, from the browser, so a role or a block only changes under Users, which keeps the site an active admin. A record the site does not have is skipped, and the result says how many: add those people under Users, which makes their sign-in too. See <a href="users-and-roles.html">Users and roles</a>.</p></div>
 
     <h3>Export files</h3>
-    <p><strong>Data &gt; Export Files</strong> lists the media library: its images, then its files (PDFs and other documents, shown with their first page or an icon). Select items and download <code>arccms-media-{date}.zip</code>: one file per item (the largest stored size of an image) and <code>media-manifest.json</code> with each item's name, URL, Storage path and upload time, its title, alt text and notes when it has them, and <code>"collection": "mediaFiles"</code> for a file.</p>
+    <p><strong>Data &gt; Export files</strong> lists the media library: its images, then its files (PDFs and other documents, shown with their first page or an icon). Select items and download <code>arccms-media-{date}.zip</code>: one file per item (the largest stored size of an image) and <code>media-manifest.json</code> with each item's name, URL, Storage path and upload time, its title, alt text and notes when it has them, and <code>"collection": "mediaFiles"</code> for a file.</p>
 
     <h3>Import files</h3>
-    <p><strong>Data &gt; Import Files</strong> has two modes:</p>
+    <p><strong>Data &gt; Import files</strong> has two modes:</p>
     <table>
       <thead><tr><th>Mode</th><th>Does</th></tr></thead>
       <tbody>
@@ -119,7 +119,7 @@
     <table>
       <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
       <tbody>
-        <tr><td><code>Invalid JSON file</code> or <code>Missing "version" field</code></td><td>The file is not an Arc CMS export. Use a file from Export Data, unedited.</td></tr>
+        <tr><td><code>Invalid JSON file</code> or <code>Missing "version" field</code></td><td>The file is not an Arc CMS export. Use a file from Export data, unedited.</td></tr>
         <tr><td>Some documents report "Missing or insufficient permissions"</td><td>The collection is written only by Cloud Functions (<code>Contacts</code>, <code>Suppression</code>), or the rules are not deployed. A failure fails its whole batch of up to 500 documents.</td></tr>
         <tr><td>Imported entries are not on the site</td><td>Run the seed to rebuild the pages.</td></tr>
         <tr><td>Nothing is skipped although documents exist</td><td>Merge or Overwrite was chosen. Skip existing is the only mode that leaves them alone.</td></tr>

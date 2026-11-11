@@ -1,87 +1,73 @@
-<!-- Email Templates Page -->
+<!-- A form's emails: the sign-up code, the welcome email, and where broadcasts went -->
 <div class="page-container">
-    <!-- Header -->
-    <arc-page-header title="Email Templates" [subtitle]="waitlistName()"
+    <arc-page-header [title]="'admin.forms.emails.title' | transloco" [subtitle]="waitlistName()"
         [showBack]="true" (back)="goBack()">
     </arc-page-header>
 
     <!-- Tabs -->
-    <div class="tabs">
+    <div class="tabs" role="tablist">
         @for (tab of tabs; track tab.key) {
-        <button class="tab" [class.active]="activeTab() === tab.key" (click)="setActiveTab(tab.key)">
-            <i class="fas {{ tab.icon }}"></i>
-            {{ tab.label }}
+        <button type="button" class="tab" role="tab" [class.active]="activeTab() === tab.key"
+            [attr.aria-selected]="activeTab() === tab.key" (click)="setActiveTab(tab.key)">
+            <i class="fas {{ tab.icon }}" aria-hidden="true"></i>
+            {{ tab.label | transloco }}
         </button>
         }
     </div>
 
-    <!-- Content -->
     @if (loading()) {
     <div class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading templates...</p>
+        <div class="spinner" aria-hidden="true"></div>
+        <p>{{ 'admin.forms.emails.loading' | transloco }}</p>
     </div>
     } @else {
 
-    <!-- Email Not Configured Overlay -->
+    <!-- Email not set up -->
     <div class="content-wrapper" [class.has-overlay]="!emailConfigService.isEmailConfigured()">
         @if (!emailConfigService.isEmailConfigured()) {
         <div class="email-overlay">
             <div class="overlay-content">
-                <i class="fas fa-envelope-open-text overlay-icon"></i>
-                <h3>Email Not Configured</h3>
-                <p>Configure your email settings to enable OTP verification, welcome emails, and broadcasts.</p>
+                <i class="fas fa-envelope-open-text overlay-icon" aria-hidden="true"></i>
+                <h3>{{ 'admin.forms.emails.email_off_title' | transloco }}</h3>
+                <p>{{ 'admin.forms.emails.email_off_text' | transloco }}</p>
                 <a routerLink="/admin/settings/email" class="btn btn-primary">
-                    <i class="fas fa-cog me-2"></i> Configure Email Settings
+                    <i class="fas fa-cog me-2" aria-hidden="true"></i> {{ 'admin.forms.email_setup' | transloco }}
                 </a>
             </div>
         </div>
         }
 
-        <!-- Broadcast Tab - Show History Table -->
         @if (activeTab() === 'waitlist_broadcast_email') {
         <!-- U4: broadcasts moved to the list hub, where recipients (and their
              consent) resolve at send time from the audience instead of being
              frozen into the document at compose time. -->
         <div class="broadcast-moved">
-            <div class="moved-icon"><i class="fa-solid fa-tower-broadcast"></i></div>
-            <h3>Broadcasts have moved</h3>
-            <p>
-                This form's audience now lives in its list, alongside its broadcast history
-                and any automated sequence. Sending from there means recipients and their
-                consent are resolved at send time, not frozen when you write the email.
-            </p>
+            <div class="moved-icon"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i></div>
+            <h3>{{ 'admin.forms.emails.moved_title' | transloco }}</h3>
+            <p>{{ 'admin.forms.emails.moved_text' | transloco }}</p>
             <button type="button" class="btn btn-primary" (click)="goToListHub()">
-                <i class="fa-solid fa-arrow-right me-2"></i> Open this form's audience
+                <i class="fa-solid fa-arrow-right me-2" aria-hidden="true"></i> {{ 'admin.forms.emails.moved_open' | transloco }}
             </button>
         </div>
         } @else {
-        <!-- OTP and Welcome Tabs - Show Template Editor with WYSIWYG -->
         <div class="template-editor">
-            <!-- Disabled State Panel -->
             @if (!templateForm.get('isActive')?.value) {
             <div class="template-disabled-state">
                 <div class="disabled-content">
                     <div class="disabled-icon">
-                        <i class="fa-solid"
+                        <i class="fa-solid" aria-hidden="true"
                             [ngClass]="activeTab() === 'waitlist_verify_otp_email' ? 'fa-lock' : 'fa-envelope'"></i>
                     </div>
                     @if (activeTab() === 'waitlist_verify_otp_email') {
-                    <h3>One Time Password Disabled</h3>
-                    <p class="text-muted">
-                        Emails will not be verified with a One Time Password.
-                        Users joining the waitlist will have their email status set to "Pending".
-                    </p>
+                    <h3>{{ 'admin.forms.emails.code_off_title' | transloco }}</h3>
+                    <p class="text-muted">{{ 'admin.forms.emails.code_off_text' | transloco }}</p>
                     } @else {
-                    <h3>Welcome Email Disabled</h3>
-                    <p class="text-muted">
-                        Welcome emails will not be sent to users joining the waitlist.
-                    </p>
+                    <h3>{{ 'admin.forms.emails.welcome_off_title' | transloco }}</h3>
+                    <p class="text-muted">{{ 'admin.forms.emails.welcome_off_text' | transloco }}</p>
                     }
                     <button type="button" class="btn btn-primary" (click)="enableTemplateAndSave()">
-                        <i class="fa-solid fa-power-off me-2"></i>
-                        Enable {{ activeTab() === 'waitlist_verify_otp_email' ? 'Email Verification' : 'Welcome Email'
-                        }}
+                        <i class="fa-solid fa-power-off me-2" aria-hidden="true"></i>
+                        {{ (activeTab() === 'waitlist_verify_otp_email' ? 'admin.forms.emails.code_turn_on' : 'admin.forms.emails.welcome_turn_on') | transloco }}
                     </button>
                 </div>
             </div>
@@ -90,41 +76,37 @@
                 <div class="form-grid">
                     <div class="form-column">
                         <div class="form-group">
-                            <label>Sender Name</label>
+                            <span class="field-label">{{ 'admin.forms.emails.sender_name' | transloco }}</span>
                             <p class="text-muted">{{ templateForm.get('senderName')?.value || siteName() }}</p>
-                            <!-- <input type="text" formControlName="senderName" placeholder="Arc CMS"> -->
                         </div>
 
                         <div class="form-group">
-                            <label>Sender Email</label>
+                            <span class="field-label">{{ 'admin.forms.emails.sender_email' | transloco }}</span>
                             <p class="text-muted">{{ templateForm.get('senderEmail')?.value }}</p>
-                            <!-- <input type="email" formControlName="senderEmail" placeholder="noreply@arccms.com"> -->
                         </div>
 
-                        <p class="text-warning mb-4 text-detail">Sender name and sender email can only be edited from
-                            email
-                            settings
-                        </p>
+                        <p class="text-warning mb-4 text-detail">{{ 'admin.forms.emails.sender_note' | transloco }}</p>
 
                         <div class="form-group">
                             <div class="field-header">
-                                <label>Subject <span class="required">*</span></label>
-                                <!-- Subject Placeholder Dropdown -->
-                                <select class="placeholder-dropdown" (change)="onSubjectPlaceholderSelect($event)">
-                                    <option value="">Insert Placeholder</option>
+                                <label for="email-subject">{{ 'admin.forms.emails.subject' | transloco }} <span class="required" aria-hidden="true">*</span></label>
+                                <select class="placeholder-dropdown" (change)="onSubjectPlaceholderSelect($event)"
+                                    [attr.aria-label]="'admin.forms.emails.insert_tag_subject' | transloco">
+                                    <option value="">{{ 'admin.forms.emails.insert_tag' | transloco }}</option>
                                     @for (placeholder of getPlaceholders(); track placeholder) {
                                     <option [value]="placeholder">{{ placeholder }}</option>
                                     }
                                 </select>
                             </div>
-                            <input type="text" formControlName="subject" placeholder="Email subject line"
+                            <input id="email-subject" type="text" formControlName="subject"
+                                [placeholder]="'admin.forms.emails.subject_placeholder' | transloco"
                                 [arcHashtagAutocomplete]="getPlaceholders()">
                         </div>
 
                         <div class="form-group">
-                            <label>Preview Text</label>
-                            <input type="text" formControlName="previewText"
-                                placeholder="Preview text shown in email clients"
+                            <label for="email-preview-text">{{ 'admin.forms.emails.preview_text' | transloco }}</label>
+                            <input id="email-preview-text" type="text" formControlName="previewText"
+                                [placeholder]="'admin.forms.emails.preview_placeholder' | transloco"
                                 [arcHashtagAutocomplete]="getPlaceholders()">
                         </div>
 
@@ -132,10 +114,7 @@
                             <label class="checkbox-label">
                                 <input type="checkbox" formControlName="isActive"
                                     (change)="onTemplateActiveChange($event)">
-                                <span>{{ activeTab() === 'waitlist_verify_otp_email' ? 'Verify waitlist emails with a
-                                    One
-                                    time
-                                    Password' : 'Send a welcome email to new signups' }}</span>
+                                <span>{{ (activeTab() === 'waitlist_verify_otp_email' ? 'admin.forms.emails.code_on' : 'admin.forms.emails.welcome_on') | transloco }}</span>
                             </label>
                         </div>
                     </div>
@@ -143,22 +122,21 @@
                     <div class="form-column template-column">
                         <div class="form-group">
                             <div class="field-header">
-                                <label>Email Template <span class="required">*</span></label>
+                                <span class="field-label">{{ 'admin.forms.emails.body' | transloco }} <span class="required" aria-hidden="true">*</span></span>
                                 <div class="field-actions">
-                                    <!-- Body Placeholder Dropdown -->
-                                    <select class="placeholder-dropdown" (change)="onBodyPlaceholderSelect($event)">
-                                        <option value="">Insert Placeholder</option>
+                                    <select class="placeholder-dropdown" (change)="onBodyPlaceholderSelect($event)"
+                                        [attr.aria-label]="'admin.forms.emails.insert_tag_body' | transloco">
+                                        <option value="">{{ 'admin.forms.emails.insert_tag' | transloco }}</option>
                                         @for (placeholder of getPlaceholders(); track placeholder) {
                                         <option [value]="placeholder">{{ placeholder }}</option>
                                         }
                                     </select>
                                     <button type="button" class="btn-small" (click)="resetToDefault()">
-                                        <i class="fas fa-undo"></i> Reset to Default
+                                        <i class="fas fa-undo" aria-hidden="true"></i> {{ 'admin.forms.emails.reset' | transloco }}
                                     </button>
                                 </div>
                             </div>
 
-                            <!-- WYSIWYG Email Template Editor -->
                             <arc-email-template-editor [placeholders]="getPlaceholders()"
                                 [value]="templateForm.get('template')?.value"
                                 (contentChange)="onTemplateContentChange($event)">
@@ -168,23 +146,23 @@
                 </div>
 
                 <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" (click)="goBack()">Cancel</button>
+                    <button type="button" class="btn btn-secondary" (click)="goBack()">{{ 'common.actions.cancel' | transloco }}</button>
                     <button type="button" class="btn btn-outline" (click)="openTestEmailDialog()">
-                        <i class="fas fa-paper-plane"></i> Send Test Email
+                        <i class="fas fa-paper-plane" aria-hidden="true"></i> {{ 'admin.forms.emails.send_test' | transloco }}
                     </button>
                     <button type="submit" class="btn btn-primary" [disabled]="templateForm.invalid || saving()">
                         @if (saving()) {
-                        <i class="fas fa-spinner fa-spin"></i> Saving...
+                        <i class="fas fa-spinner fa-spin" aria-hidden="true"></i> {{ 'common.actions.saving' | transloco }}
                         } @else {
-                        <i class="fas fa-save"></i> Save Template
+                        <i class="fas fa-save" aria-hidden="true"></i> {{ 'admin.forms.emails.save' | transloco }}
                         }
                     </button>
                 </div>
             </form>
-            } <!-- Close @if templateForm.isActive -->
+            }
         </div>
         }
 
-    </div> <!-- Close content-wrapper -->
+    </div>
     }
 </div>

@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed, fakeAsync, flush } from '@angular/core/testi
 import { Location } from '@angular/common';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { of, NEVER, Subject } from 'rxjs';
+import { of, NEVER, Subject, throwError } from 'rxjs';
 import MediaManagerComponent from './media.page';
 import { MediaManagerService } from './media-manager.service';
 import { MediaManagerStore } from './media-manager.store';
@@ -78,6 +78,8 @@ describe('MediaManagerComponent', () => {
             isUnsplashConfigured: vi.fn().mockResolvedValue(true),
             // Use NEVER to prevent emissions that cause detectChanges after component destruction
             getMediaListFromFirestore: vi.fn().mockReturnValue(NEVER),
+            // Asked before a delete (RF4 4.13); null is "could not check".
+            mediaUsage: vi.fn().mockResolvedValue(null),
         };
 
         mockMediaManagerStore = {
@@ -295,7 +297,8 @@ describe('MediaManagerComponent', () => {
             const { ToastService: RealToastService } = await vi.importActual<
                 typeof import('../../../../shared/services/toast.service')
             >('../../../../shared/services/toast.service');
-            component.toastService = new RealToastService();
+            // The translated toast goes through NotifyService: give it a real toast to render.
+            (component.notify as any).toast = new RealToastService();
             mockFileUploadService.validateFileType.mockReturnValue('Unsupported file type.');
 
             const name = '<img src=x onerror="window.__mediaToastXss = true">.png';
@@ -304,7 +307,7 @@ describe('MediaManagerComponent', () => {
             component.onFileChange(event);
 
             const toast = document.querySelector('#toast-container .toast-error');
-            expect(toast?.textContent).toContain(`${name}: Unsupported file type.`);
+            expect(toast?.textContent).toContain(`${name}: this type of picture can't be uploaded. Use JPEG, PNG, WebP or GIF.`);
             expect(toast?.querySelector('img')).toBeNull();
             expect((window as any).__mediaToastXss).toBeUndefined();
             expect(mockFileUploadService.uploadFile).not.toHaveBeenCalled();
@@ -353,9 +356,9 @@ describe('MediaManagerComponent', () => {
     });
 
     describe('confirmationToDeleteItem', () => {
-        it('should open confirmation dialog', () => {
+        it('should open confirmation dialog', async () => {
             const media = { id: '1', name: 'test.jpg' };
-            component.confirmationToDeleteItem(media);
+            await component.confirmationToDeleteItem(media);
             expect(mockDialog.open).toHaveBeenCalled();
         });
     });
@@ -466,22 +469,38 @@ describe('MediaManagerComponent', () => {
     });
 
     describe('confirmationToDeleteItem - dialog outcomes', () => {
-        it('should NOT delete when dialog is cancelled', () => {
+        it('should NOT delete when dialog is cancelled', async () => {
             mockDialog.open.mockReturnValue({ afterClosed: () => of(false) });
             const deleteSpy = vi.spyOn(component, 'deleteUploadedMedia').mockResolvedValue(undefined);
 
-            component.confirmationToDeleteItem({ id: '1', name: 'test.jpg', url: '' });
+            await component.confirmationToDeleteItem({ id: '1', name: 'test.jpg', url: '' });
 
             expect(deleteSpy).not.toHaveBeenCalled();
         });
 
-        it('should delete with correct ID when dialog is confirmed', () => {
+        it('should delete with correct ID when dialog is confirmed', async () => {
             mockDialog.open.mockReturnValue({ afterClosed: () => of(true) });
             const deleteSpy = vi.spyOn(component, 'deleteUploadedMedia').mockResolvedValue(undefined);
 
-            component.confirmationToDeleteItem({ id: 'media-42', name: 'photo.png', url: '' });
+            await component.confirmationToDeleteItem({ id: 'media-42', name: 'photo.png', url: '' });
 
             expect(deleteSpy).toHaveBeenCalledWith('media-42');
+        });
+
+        it('shows the image as busy while the usage check runs, and a second click waits', async () => {
+            let answer!: (v: null) => void;
+            mockMediaManagerService.mediaUsage.mockReturnValueOnce(new Promise((r) => { answer = r; }));
+            mockDialog.open.mockReturnValue({ afterClosed: () => of(false) });
+            mockMediaManagerService.mediaUsage.mockClear();
+
+            const first = component.confirmationToDeleteItem({ id: 'media-7', name: 'a.png', url: '' });
+            expect(component.checkingUsageId()).toBe('media-7');
+            await component.confirmationToDeleteItem({ id: 'media-8', name: 'b.png', url: '' });
+            expect(mockMediaManagerService.mediaUsage).toHaveBeenCalledTimes(1);
+
+            answer(null);
+            await first;
+            expect(component.checkingUsageId()).toBeNull();
         });
     });
 
@@ -517,7 +536,7 @@ describe('MediaManagerComponent', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
 
             expect(toastService.openCustomSnackbar).toHaveBeenCalledWith(
-                'Failed to search images. Please try again.', 'error', 'error');
+                'Could not search the free images. Try again.', 'error', 'error');
         });
 
         it('should reset isSearching flag on error', async () => {
@@ -538,7 +557,47 @@ describe('MediaManagerComponent', () => {
             await component.deleteUploadedMedia('media-id');
 
             expect(toastService.openCustomSnackbar).toHaveBeenCalledWith(
-                'Failed to delete media item. Please try again.', 'error', 'error');
+                'Could not delete the image. Try again.', 'error', 'error');
+        });
+    });
+
+    describe('plain words (RF5)', () => {
+        it('says My Uploads did not load, with Retry, instead of "No images yet"', () => {
+            mockMediaManagerService.getMediaListFromFirestore.mockReturnValueOnce(throwError(() => new Error('permission-denied')));
+            const notifyError = vi.spyOn(component.notify, 'error');
+            fixture.detectChanges();
+            (component.ref.detectChanges as any).mockRestore();
+            component.ref.detectChanges();
+
+            const el: HTMLElement = fixture.nativeElement;
+            expect(component.loadFailed).toBe(true);
+            expect(el.querySelector('.media-load-failed')?.textContent).toContain('Your uploads did not load.');
+            expect(el.querySelector('.media-load-failed')?.textContent).not.toContain('permission-denied');
+            expect(el.querySelector('.empty_upload_label')).toBeNull();
+            // Nothing was on screen, so the grid says it: no toast on top.
+            expect(notifyError).not.toHaveBeenCalled();
+
+            el.querySelector<HTMLButtonElement>('#mediaRetryBtn')!.click();
+            expect(mockMediaManagerService.getMediaListFromFirestore).toHaveBeenCalledTimes(2);
+            expect(component.loadFailed).toBe(false);
+        });
+
+        it('names the tabs in the admin language', () => {
+            expect(component.menuItems.map((item) => item.name)).toEqual(['My Uploads', 'Files', 'Free images']);
+        });
+
+        it('says an upload was too large in plain words, not the service text', async () => {
+            const notifyError = vi.spyOn(component.notify, 'error');
+            const created = URL.createObjectURL;
+            URL.createObjectURL = vi.fn(() => 'blob:x');
+            mockFileUploadService.uploadFile.mockRejectedValueOnce(new Error('File size (6.0 MB) exceeds the maximum allowed size (5 MB).'));
+            const file = new File(['x'], 'big.png', { type: 'image/png' });
+            component.onFileChange({ target: { files: { length: 1, 0: file }, value: '' } } as any);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            URL.createObjectURL = created;
+
+            expect(notifyError).toHaveBeenCalledWith('admin.media.problem.too_large_named', { name: 'big.png', max: 5 });
         });
     });
 
@@ -633,7 +692,7 @@ describe('MediaManagerComponent as Dialog', () => {
             fixture.detectChanges();
             const insertBtn = fixture.nativeElement.querySelector('#insertMediaBtn');
             expect(insertBtn).not.toBeNull();
-            expect(insertBtn.textContent).toContain('Insert Media');
+            expect(insertBtn.textContent).toContain('Insert image');
         });
 
         it('should render Cancel button when isDialogOpen is true', () => {

@@ -1,7 +1,7 @@
 <!-- Templates for Global Table -->
 <ng-template #titleTemplate let-row>
     <a href="javascript:void(0)" (click)="openContent(row.id)">
-        {{ row.title || 'Untitled' }}
+        {{ row.title || ('admin.contents.untitled' | transloco) }}
     </a>
     @if (row.isFeatured) {
     <span class="badge bg-warning ms-1">{{ 'common.status.featured' | transloco }}</span>
@@ -73,7 +73,7 @@
                                        [checked]="col.checked"
                                        (change)="toggleColumn(col.key)">
                                 <label class="form-check-label" [for]="'col-' + col.key" style="cursor: pointer;">
-                                    {{ col.label }}
+                                    {{ col.label | transloco }}
                                 </label>
                             </div>
                         }
@@ -91,11 +91,21 @@
     <!-- Filter Bar -->
     <div class="filter-bar mb-3">
         <div class="row g-2 align-items-center">
+            <!-- Title search (RF5 5.9): matches anywhere in the title, in any case. -->
+            <div class="col-12 col-md-4">
+                <label class="visually-hidden" for="entrySearch">{{ 'admin.contents.list.search_label' | transloco }}</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
+                    <input type="search" id="entrySearch" class="form-control" data-testid="entry-search"
+                        [value]="searchTerm()" (input)="onSearchInput($any($event.target).value)"
+                        [placeholder]="'admin.contents.list.search_placeholder' | transloco: { type: (getContentTypePluralName() | lowercase) }">
+                </div>
+            </div>
             <div class="col-auto">
-                <label class="form-label mb-0 me-2">{{ 'common.filters.status' | transloco }}</label>
+                <label class="form-label mb-0 me-2" for="statusFilter">{{ 'common.filters.status' | transloco }}</label>
             </div>
             <div class="col-md-3">
-                <select class="form-select form-select-sm" [value]="statusFilter()"
+                <select id="statusFilter" class="form-select form-select-sm" [value]="statusFilter()"
                     (change)="onStatusFilterChange($event)">
                     <option value="">{{ 'common.filters.all' | transloco }}</option>
                     <option value="published">{{ 'common.status.published' | transloco }}</option>
@@ -133,10 +143,12 @@
         </div>
     </div>
 
-    <app-global-table [data]="draftContentsData()" [columns]="tableColumns" [loading]="draftContentStore.isLoading()"
+    <app-global-table [data]="draftContentsData()" [columns]="tableColumns" [loading]="isSearching() ? searching() : draftContentStore.isLoading()"
         [sortField]="sortField()" [sortOrder]="sortOrder()" (sortChange)="setSortField($event)"
-        (cellClick)="onCellClick($event)" emptyTitle="No Items Found"
-        [emptyDescription]="'No ' + (getContentTypePluralName() | lowercase) + ' yet. Click Add New to get started.'"
+        [error]="listError()" (retry)="retryLoad()"
+        [filtered]="hasActiveFilters()" (clearFilters)="clearFilters()"
+        (cellClick)="onCellClick($event)" [emptyTitle]="'admin.contents.list.empty_title' | transloco: { type: (getContentTypePluralName() | lowercase) }"
+        [emptyDescription]="'admin.contents.list.empty_text' | transloco: { type: getContentTypeSingularName() }"
         [emptyActionLabel]="'admin.contents.list.add_item' | transloco: { type: getContentTypeSingularName() }" (emptyActionClick)="openContent('')"
         [showEmptyAction]="true"
         [trackByFn]="trackByContentId">
@@ -148,14 +160,9 @@
         @if(!draftContentStore.isLoading()) {
         <div class="record-count text-muted">
             @if(filteredTotalRecords() > 0) {
-            Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
-            <strong>{{ filteredTotalRecords() }}</strong>
-            @if(hasActiveFilters()) {
-            <span class="text-primary ms-2">{{ 'common.filters.filtered' | transloco }}</span>
-            }
-            records
+            {{ (hasActiveFilters() ? 'common.table.showing_range_filtered' : 'common.table.showing_range') | transloco: { start: getStartRecord(), end: getEndRecord(), total: filteredTotalRecords() } }}
             } @else {
-            No records found
+            {{ 'common.table.no_records' | transloco }}
             }
         </div>
         <mat-paginator [length]="filteredTotalRecords()" [pageSize]="pageSizeSignal()"

@@ -17,22 +17,22 @@ import {
 
 describe('normalize', () => {
     it('lowercases and folds Latin accents', () => {
-        expect(normalize('GUNJÁN Karún')).toBe('gunjan karun');
+        expect(normalize('ANJÁLI Vérma')).toBe('anjali verma');
         expect(normalize('Café Résumé')).toBe('cafe resume');
     });
 
     it('leaves Devanagari marks untouched (S-D6)', () => {
-        expect(normalize('गुंजन करुण')).toBe('गुंजन करुण');
+        expect(normalize('अंजलि वर्मा')).toBe('अंजलि वर्मा');
         expect(normalize('हिन्दी')).toBe('हिन्दी');
     });
 
     it('removes apostrophes rather than splitting on them', () => {
-        expect(normalize("karun's")).toBe('karuns');
-        expect(normalize('Karun’s')).toBe('karuns');
+        expect(normalize("verma's")).toBe('vermas');
+        expect(normalize('Verma’s')).toBe('vermas');
     });
 
     it('turns punctuation into spaces and collapses whitespace', () => {
-        expect(normalize('Interview: Gunjan, on Firebase!')).toBe('interview gunjan on firebase');
+        expect(normalize('Interview: Anjali, on Firebase!')).toBe('interview anjali on firebase');
         expect(normalize('  a   b\n\tc ')).toBe('a b c');
     });
 
@@ -52,11 +52,11 @@ describe('normalize', () => {
 
 describe('tokenize', () => {
     it('emits whole words without prefixes by default', () => {
-        expect(tokenize('Gunjan Karun')).toEqual(['gunjan', 'karun']);
+        expect(tokenize('Anjali Verma')).toEqual(['anjali', 'verma']);
     });
 
     it('emits prefixes from 2 characters up to length minus one', () => {
-        expect(tokenize('Karun', { prefix: true })).toEqual(['karun', 'ka', 'kar', 'karu']);
+        expect(tokenize('Verma', { prefix: true })).toEqual(['verma', 've', 'ver', 'verm']);
     });
 
     it('caps prefixes at PREFIX_MAX characters', () => {
@@ -68,11 +68,11 @@ describe('tokenize', () => {
 
     it('drops stop words and single characters', () => {
         expect(tokenize('The guide to a Firebase site')).toEqual(['guide', 'firebase', 'site']);
-        expect(tokenize('a b c gunjan')).toEqual(['gunjan']);
+        expect(tokenize('a b c anjali')).toEqual(['anjali']);
     });
 
     it('dedupes tokens across words', () => {
-        expect(tokenize('Karun Karun Kar', { prefix: true })).toEqual(['karun', 'ka', 'kar', 'karu']);
+        expect(tokenize('Verma Verma Ver', { prefix: true })).toEqual(['verma', 've', 'ver', 'verm']);
     });
 
     it('keeps only the first maxWords words', () => {
@@ -87,11 +87,11 @@ describe('queryTokens', () => {
     });
 
     it('never emits prefixes', () => {
-        expect(queryTokens('kar').tokens).toEqual(['kar']);
+        expect(queryTokens('ver').tokens).toEqual(['ver']);
     });
 
     it('is order-free and deduped', () => {
-        expect(queryTokens('Karun Gunjan Karun').tokens.sort()).toEqual(['gunjan', 'karun']);
+        expect(queryTokens('Verma Anjali Verma').tokens.sort()).toEqual(['anjali', 'verma']);
     });
 
     it('keeps the longest tokens when there are too many', () => {
@@ -102,7 +102,7 @@ describe('queryTokens', () => {
     });
 
     it('produces the phrase for the title bonus', () => {
-        expect(queryTokens('Gunjan Karun').phrase).toBe('gunjan karun');
+        expect(queryTokens('Anjali Verma').phrase).toBe('anjali verma');
     });
 
     it('is empty for an empty or single-character query', () => {
@@ -113,7 +113,7 @@ describe('queryTokens', () => {
 
 describe('words and isStopWord', () => {
     it('splits normalized words', () => {
-        expect(words("Karun's guide")).toEqual(['karuns', 'guide']);
+        expect(words("Verma's guide")).toEqual(['vermas', 'guide']);
     });
 
     it('knows the English stop list only', () => {

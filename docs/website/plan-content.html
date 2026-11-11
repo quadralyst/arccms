@@ -21,7 +21,7 @@
         <tr><td><strong>Standard page</strong></td><td>About, Contact, FAQ, Privacy Policy, Terms, Cookie Policy: ready-made, with the contact form and your contact details on the Contact page</td><td>The admin area, by editors, under <strong>Content</strong>, <strong>Info Pages</strong> (<a href="static-pages.html">Write static pages</a>)</td></tr>
         <tr><td><strong>Static page</strong></td><td>Hand-written pages that never change and need no editor</td><td>HTML files in <code class="new">src/custom/site/pages/</code></td></tr>
         <tr><td><strong>Home page</strong></td><td>Your landing page, with its signup form</td><td><code class="new">src/custom/site/home.html</code>, published as a static page (<a href="home-page.html">Build your home page</a>)</td></tr>
-        <tr><td><strong>Signup form</strong></td><td>Waitlists, newsletters, early access</td><td>Admin, Signup Forms; the form markup sits on a page of your site, or visitors use the form's own page</td></tr>
+        <tr><td><strong>Signup form</strong></td><td>Waitlists, newsletters, early access</td><td>Admin, Forms; the form markup sits on a page of your site, or visitors use the form's own page</td></tr>
       </tbody>
     </table>
     <p>When in doubt, make it a content type. Content types get the editor, drafts, version history, SEO fields, the sitemap, search and translations. Static pages get none of those. About, Contact and the policies are already a content type, the standard pages.</p>
@@ -47,10 +47,10 @@
         <tr><td>Search results</td><td><code>/search</code></td></tr>
       </tbody>
     </table>
-    <p>Slugs are lowercase letters, numbers and hyphens. Choose them for readers and search engines, and keep them.</p>
+    <p>Slugs are lowercase letters, numbers and hyphens. Choose them for readers and search engines, and keep them. A new item's address follows its title until it is first published, while it is still the one made from the title. When a published item's address changes, the editor offers to send the old address to the new one (see <a href="../features/content.html#change-address">Change a published entry's address</a>); a content type's own slug has no such help.</p>
     <ul>
       <li><strong>A content type slug</strong> also names the place its items are stored (<code>arc_{slug}</code>). Changing it later hides every existing item of the type, in the admin area and on the site, not only the links to it.</li>
-      <li><strong>An item's URL slug</strong> is made from its title when you first write it. A slug you type by hand is cleaned the same way: lowercase letters a to z, digits and single hyphens, so <code>My Post!</code> becomes <code>my-post</code>. Other letters are dropped, so give an item with a title in another script a slug in English. When the slug is taken, <code>-2</code>, <code>-3</code> and so on are added. Changing it later breaks every link to the old address.</li>
+      <li><strong>An item's address</strong> (its URL slug) is made from its title until it is first published. A slug you type by hand is cleaned the same way: lowercase letters a to z, digits and single hyphens, so <code>My Post!</code> becomes <code>my-post</code>. Other letters are dropped, so give an item with a title in another script a slug in English. When the slug is taken, <code>-2</code>, <code>-3</code> and so on are added. Changing it after publishing breaks links to the old address, unless you let the editor send the old address to the new one.</li>
     </ul>
     <div class="trap"><p>Arc CMS does not stop you from giving a content type a slug that is already a site address. Never use <code>admin</code>, <code>p</code>, <code>pages</code>, <code>search</code>, <code>waitlist</code>, <code>leaderboard</code>, <code>unsubscribe</code>, <code>signup</code>, <code>onboarding</code>, <code>notifications</code>, <code>pricing</code>, <code>account</code>, <code>user</code>, <code>checkout</code>, <code>assets</code>, <code>templates</code>, <code>i18n</code>, <code>profile</code>, <code>email-preferences</code>, <code>site</code>, <code>_site</code>, <code>info</code> (the standard pages), <code>checkout-success</code> or a language code: the content pages and the built-in page then fight over the same URL.</p></div>
 

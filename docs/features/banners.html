@@ -17,9 +17,9 @@
     <table>
       <thead><tr><th>Banner</th><th>Shows</th><th>Set on</th></tr></thead>
       <tbody>
-        <tr><td>Global message</td><td>At the top of every page: public, member and admin. Not on an app's full-screen pages.</td><td>Admin, Settings, Global Messages (<code>/admin/settings/message</code>)</td></tr>
-        <tr><td>Site usage</td><td>At the bottom of every page except admin pages, until the visitor accepts or rejects. On an app's full-screen page it waits for the next normal page.</td><td>Admin, Settings, Site Usage (<code>/admin/settings/site-usage</code>)</td></tr>
-        <tr><td>Email not configured</td><td>On the admin dashboard and, with the <a href="forms.html">Signup forms</a> feature on, the Signup Forms page, while email is off</td><td>Shown by itself (see <a href="#use-it">Use it</a>)</td></tr>
+        <tr><td>Global message</td><td>At the top of every page: public, member and admin. Not on an app's full-screen pages.</td><td>Admin, Settings, Announcement (<code>/admin/settings/message</code>)</td></tr>
+        <tr><td>Site usage</td><td>At the bottom of every page except admin pages, until the visitor accepts or rejects. On an app's full-screen page it waits for the next normal page.</td><td>Admin, Settings, Cookie notice (<code>/admin/settings/site-usage</code>)</td></tr>
+        <tr><td>Email not configured</td><td>On the admin dashboard and, with the <a href="forms.html">Signup forms</a> feature on, the Forms page, while email is off</td><td>Shown by itself (see <a href="#use-it">Use it</a>)</td></tr>
         <tr><td>Debug Provider active</td><td>On the admin dashboard, while the Debug Provider is the email provider</td><td>Shown by itself</td></tr>
       </tbody>
     </table>
@@ -27,19 +27,19 @@
     <p>Announcements are something else: with the Email marketing feature on, under Admin, Email, Announcements, an admin sends a message to chosen users as an in-app notification, and optionally by email. See <a href="email-marketing.html">Email marketing</a> and <a href="notifications.html">Notifications</a>.</p>
 
     <h2>Turn it on or off</h2>
-    <p>Banners are always on: they are core, not a switchable feature. Each of your two banners is turned on with <strong>Enable Banner</strong> on its settings page and off with the <strong>Banner Enabled</strong> switch; both start switched off.</p>
+    <p>Banners are always on: they are core, not a switchable feature. Each of your two banners is turned on with <strong>Turn on the banner</strong> on its settings page and off with the <strong>Banner Enabled</strong> switch; both start switched off.</p>
 
     <h2>Set it up</h2>
     <h3>Global message</h3>
     <ol class="steps">
-      <li><p>Open Admin, Settings, Global Messages and click <strong>Enable Banner</strong>.</p></li>
+      <li><p>Open Admin, Settings, Announcement and click <strong>Turn on the banner</strong>.</p></li>
       <li><p>Write a heading and a message (both required).</p></li>
       <li><p>Optionally add a button label and URL. The button shows only when both are filled in, and opens the URL in a new tab.</p></li>
       <li><p>Pick a background style: Info Blue, Warning Amber, Success Green, Urgent Red, Ocean Blue or Ocean Teal. Check the preview, and click <strong>Save Settings</strong>.</p></li>
     </ol>
     <h3>Site usage</h3>
     <ol class="steps">
-      <li><p>Open Admin, Settings, Site Usage and click <strong>Enable Banner</strong>.</p></li>
+      <li><p>Open Admin, Settings, Cookie notice and click <strong>Turn on the banner</strong>.</p></li>
       <li><p>Edit the message and the accept and reject button texts, or keep the defaults. A button text left empty shows Arc CMS's own wording, "Accept All" or "Reject All", in the visitor's language, as does the "Learn more" link; the message is always yours.</p></li>
       <li><p>Set the policy link. While it is the default, <code>/p/cookie-policy</code>, the banner links to the published <strong>Cookie Policy</strong> standard page (<code>/info/cookie-policy</code>, see <a href="content.html#standard-pages">Standard pages</a>) once there is one, so publishing that page is all it takes. Until then the default opens the built-in page from <code>public/_site/pages/cookie-policy.html</code>, a sample that names Arc CMS and <code>support@example.com</code>. A link you set yourself is always kept.</p></li>
       <li><p>Pick a background style and click <strong>Save Settings</strong>.</p></li>

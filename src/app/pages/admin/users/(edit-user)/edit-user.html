@@ -2,104 +2,147 @@
 <div class="side-panel">
     <div class="panel-header">
         <h5 class="mb-0">
-            @for (roles of constantVariables.roles; track roles.userType) {
-            @if(roles.userType === role) {
-            Update {{roles.userTypeLabel}}
-            }
-            }
-            @if(!role) {
-            Update User
+            @if (role) {
+            {{ 'admin.users.form.edit_title_role' | transloco: { role: roleName(role) } }}
+            } @else {
+            {{ 'admin.users.form.edit_title' | transloco }}
             }
         </h5>
-        <button class="close-btn" (click)="closeEdit()">
-            <i class="fas fa-times"></i>
+        <button type="button" class="close-btn" (click)="closeEdit()" [attr.aria-label]="'admin.users.close' | transloco">
+            <i class="fas fa-times" aria-hidden="true"></i>
         </button>
     </div>
 
     <form [formGroup]="editForm" (ngSubmit)="onSubmit()" class="centered-form rounded">
         <div class="row mb-4">
             <div class="col-12">
-                <label for="name" class="form-label">Full name <span class="required">*</span></label>
-                <input type="text" placeholder="Enter full name" formControlName="name" class="form-control" id="name"
+                <label for="name" class="form-label">{{ 'admin.users.form.name' | transloco }} <span class="required" aria-hidden="true">*</span></label>
+                <input type="text" [placeholder]="'admin.users.form.name_placeholder' | transloco" formControlName="name" class="form-control" id="name"
+                    aria-required="true" aria-describedby="name-error"
                     (blur)="trimUnwantedSpace(editForm.controls['name'])" [class]="{
                         'is-invalid': name?.invalid && (name?.dirty || name?.touched),
                         'is-valid': name?.valid && (name?.dirty || name?.touched)
                     }" />
-                <div class="invalid-feedback">Full name is required.</div>
+                <div class="invalid-feedback" id="name-error">{{ 'admin.users.form.name_required' | transloco }}</div>
             </div>
         </div>
 
         <div class="row mb-4">
             <div class="col-12">
-                <label for="email" class="form-label">Email @if (emailRequired()) {<span class="required">*</span>}</label>
-                <input type="email" placeholder="Enter valid email" formControlName="email" class="form-control"
+                <label for="email" class="form-label">{{ 'admin.users.form.email' | transloco }} @if (emailRequired()) {<span class="required" aria-hidden="true">*</span>}</label>
+                <input type="email" [placeholder]="'admin.users.form.email_placeholder' | transloco" formControlName="email" class="form-control"
+                    [attr.aria-required]="emailRequired()" aria-describedby="email-error"
                     (blur)="trimUnwantedSpace(editForm.controls['email'])" id="email" [class]="{
                         'is-invalid': email?.invalid && (email?.dirty || email?.touched),
                         'is-valid': email?.valid && (email?.dirty || email?.touched)
                     }" />
 
                 @if(editForm.get('email')?.errors?.['required']) {
-                <div class="invalid-feedback">Email is required.</div>
+                <div class="invalid-feedback" id="email-error">{{ 'admin.users.form.email_required' | transloco }}</div>
                 } @else {
-                <div class="invalid-feedback">Please enter a valid email.</div>
+                <div class="invalid-feedback" id="email-error">{{ 'admin.users.form.email_invalid' | transloco }}</div>
                 }
 
                 @if (alreadyExist) {
-                <label class="text-danger small mt-1">Email already exists.</label>
+                <div class="text-danger small mt-1" role="alert">{{ 'admin.users.form.email_taken' | transloco }}</div>
                 }
             </div>
         </div>
+
+        @if (ownRecord()) {
+        <p class="form-text mb-4">{{ 'admin.users.own_role_hint' | transloco }}</p>
+        }
+
+        @if (canSetRole()) {
+        <div class="row mb-4">
+            <div class="col-12">
+                <label for="role" class="form-label">{{ 'admin.users.role' | transloco }}</label>
+                <select id="role" class="form-select" formControlName="role" aria-describedby="role-hint">
+                    @for (option of roleOptions(); track option) {
+                    <option [value]="option">{{ roleName(option) }}</option>
+                    }
+                </select>
+                <div class="form-text" id="role-hint">{{ 'admin.users.role_hint' | transloco }}</div>
+            </div>
+        </div>
+        }
+
+        @if (canSetPhone()) {
+        <div class="row mb-4">
+            <div class="col-12">
+                <label class="form-label" [attr.for]="phoneOpen() ? 'newPhone' : null">{{ 'admin.users.phone' | transloco }}</label>
+                @if (!phoneOpen()) {
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="phone-current">{{ currentPhone() }}</span>
+                    <button type="button" class="btn btn-light btn-sm" (click)="openPhone()">{{ 'admin.users.phone_change' | transloco }}</button>
+                </div>
+                } @else {
+                <input type="tel" id="newPhone" class="form-control" [formControl]="newPhone" autocomplete="off"
+                    [placeholder]="'admin.users.phone_new' | transloco" [class.is-invalid]="!!phoneError()"
+                    aria-describedby="phone-hint" (keydown.enter)="$event.preventDefault(); savePhone()" />
+                @if (phoneError()) {
+                <div class="invalid-feedback" role="alert">{{ phoneError() }}</div>
+                }
+                <div class="form-text" id="phone-hint">{{ 'admin.users.phone_hint' | transloco }}</div>
+                <div class="d-flex gap-2 mt-2">
+                    <button type="button" class="btn btn-light btn-sm" (click)="closePhone()" [disabled]="phoneSaving()">{{ 'common.actions.cancel' | transloco }}</button>
+                    <button type="button" class="btn btn-primary btn-sm" (click)="savePhone()" [disabled]="phoneSaving()">{{ 'admin.users.phone_save' | transloco }}</button>
+                </div>
+                }
+            </div>
+        </div>
+        }
 
         @if (canSetPassword()) {
         <div class="row mb-4">
             <div class="col-12">
-                <mat-slide-toggle (change)="showPasswordInput($event)">Update Password</mat-slide-toggle>
+                <mat-slide-toggle (change)="showPasswordInput($event)">{{ 'admin.users.form.set_password' | transloco }}</mat-slide-toggle>
             </div>
         </div>
         } @else if (passwordElsewhere()) {
-        <p class="form-text mb-4">{{ passwordElsewhere() }}</p>
+        <p class="form-text mb-4">{{ passwordElsewhere() | transloco }}</p>
         }
 
         @if(canSetPassword() && isPasswordUpdateEnabled) {
         <div class="row mb-4">
             <div class="col-12">
-                <label for="password" class="form-label">New Password <span class="required">*</span></label>
-                <input type="password" formControlName="password" class="form-control" id="password"
-                    placeholder="At least 8 characters, hard to guess" [class]="{
+                <label for="password" class="form-label">{{ 'admin.users.form.new_password' | transloco }} <span class="required" aria-hidden="true">*</span></label>
+                <input type="password" formControlName="password" class="form-control" id="password" autocomplete="new-password"
+                    aria-required="true" aria-describedby="password-error password-hint"
+                    [placeholder]="'admin.users.form.password_placeholder' | transloco: { min: minPassword }" [class]="{
                         'is-invalid': password?.invalid && (password?.dirty || password?.touched),
                         'is-valid': password?.valid && (password?.dirty || password?.touched)
                     }" />
 
                 @if(editForm.get('password')?.errors?.['required']) {
-                <div class="invalid-feedback">Password is required.</div>
+                <div class="invalid-feedback" id="password-error">{{ 'admin.users.form.password_required' | transloco }}</div>
                 } @else {
-                <div class="invalid-feedback">{{ passwordError() }}</div>
+                <div class="invalid-feedback" id="password-error">{{ passwordError() }}</div>
                 }
-                <div class="form-text">
-                    It goes to their sign-in only, never the user record. Share it with them.
-                </div>
+                <div class="form-text" id="password-hint">{{ 'admin.users.form.new_password_hint' | transloco }}</div>
             </div>
         </div>
         <div class="row mb-4">
             <div class="col-12">
-                <label for="confirmPassword" class="form-label">Type it again <span class="required">*</span></label>
+                <label for="confirmPassword" class="form-label">{{ 'admin.users.form.confirm_password' | transloco }} <span class="required" aria-hidden="true">*</span></label>
                 <input type="password" formControlName="confirmPassword" class="form-control" id="confirmPassword"
+                    aria-required="true" aria-describedby="confirm-error"
                     autocomplete="new-password" [class]="{
                         'is-invalid': confirmPassword?.invalid && (confirmPassword?.dirty || confirmPassword?.touched),
                         'is-valid': confirmPassword?.valid && (confirmPassword?.dirty || confirmPassword?.touched)
                     }" />
                 @if(confirmPassword?.errors?.['required']) {
-                <div class="invalid-feedback">Type the password again.</div>
+                <div class="invalid-feedback" id="confirm-error">{{ 'admin.users.form.confirm_required' | transloco }}</div>
                 } @else {
-                <div class="invalid-feedback">The two passwords do not match.</div>
+                <div class="invalid-feedback" id="confirm-error">{{ 'admin.users.form.confirm_mismatch' | transloco }}</div>
                 }
             </div>
         </div>
         }
 
         @if(errorMessages && errorMessages.length) {
-        <div class="mt-4 alert alert-danger mb-0">
-            <label>Please fix these errors:</label>
+        <div class="mt-4 alert alert-danger mb-0" role="alert">
+            <p class="mb-1">{{ 'admin.users.form.fix_errors' | transloco }}</p>
             <ul class="mb-0 ps-3">
                 @for(error of errorMessages; track error; let i = $index) {
                 <li>{{ error }}</li>
@@ -109,8 +152,8 @@
         }
 
         <div class="d-grid gap-2 d-flex justify-content-end mt-4">
-            <button type="button" class="btn btn-light btn-sm" (click)="closeEdit()">Cancel</button>
-            <button type="submit" class="btn btn-primary btn-sm ms-2" [disabled]="saving()">Update User</button>
+            <button type="button" class="btn btn-light btn-sm" (click)="closeEdit()">{{ 'common.actions.cancel' | transloco }}</button>
+            <button type="submit" class="btn btn-primary btn-sm ms-2" [disabled]="saving()">{{ 'admin.users.form.save_edit' | transloco }}</button>
         </div>
     </form>
 

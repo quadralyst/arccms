@@ -130,6 +130,31 @@ export class GlobalTableComponent implements DoCheck {
     @Input() emptyActionLabel = 'Create Item';
     @Input() emptyActionIcon = 'fas fa-plus';
 
+    // Error state (load failure) and "nothing matches" state. See README.md.
+
+    /**
+     * The list failed to load. `true` shows the standard sentence; a string is
+     * shown instead (a translation key, or a plain sentence: keep technical
+     * detail in the console). With rows already on screen it shows as a line
+     * above them, and the rows stay.
+     */
+    @Input() error: string | boolean | null | undefined = null;
+    /** Emits when Retry is pressed. The Retry button shows only when this is bound. */
+    @Output() retry = new EventEmitter<void>();
+
+    /**
+     * A search or filter is narrowing the rows. With no rows, the table then
+     * says "Nothing matches" instead of the empty state, whose "create your
+     * first" wording would be wrong.
+     */
+    @Input() filtered = false;
+    /** Heading when `filtered` and no rows match: a translation key or plain text. */
+    @Input() noMatchTitle = 'common.table.no_match_title';
+    /** Line under it: a translation key or plain text. */
+    @Input() noMatchDescription = 'common.table.no_match_text';
+    /** Emits when "Clear filters" is pressed. The button shows only when this is bound. */
+    @Output() clearFilters = new EventEmitter<void>();
+
     @Input() trackByFn: (index: number, item: any) => any = (index, item) => item.id || index;
 
     @Output() actionClick = new EventEmitter<{ action: string, row: any }>();
@@ -184,6 +209,36 @@ export class GlobalTableComponent implements DoCheck {
         if (col.sortable) {
             this.sortChange.emit(col.key);
         }
+    }
+
+    /** The error sentence: the page's own, else the standard one. */
+    get errorText(): string {
+        return typeof this.error === 'string' && this.error.trim() ? this.error : 'common.table.load_failed_text';
+    }
+
+    /** Retry shows only when the page listens for it. */
+    get canRetry(): boolean {
+        return this.retry.observed;
+    }
+
+    /** "Clear filters" shows only when the page listens for it. */
+    get canClearFilters(): boolean {
+        return this.clearFilters.observed;
+    }
+
+    /** `aria-sort` for a header: its direction when the table is sorted by it, else none. Null when it cannot sort. */
+    ariaSort(col: TableColumn): 'ascending' | 'descending' | 'none' | null {
+        if (!col.sortable) return null;
+        if (this.sortField !== col.key) return 'none';
+        return this.sortOrder === 'asc' ? 'ascending' : 'descending';
+    }
+
+    /**
+     * Whether a column is the actions column at the end of the row. That one
+     * stays pinned to the right edge when the table scrolls sideways on a phone.
+     */
+    isStickyActions(col: TableColumn, last: boolean): boolean {
+        return col.type === 'actions' && last;
     }
 
     onEmptyActionClick() {

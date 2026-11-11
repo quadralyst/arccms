@@ -45,29 +45,36 @@ describe('firestore.rules: users', () => {
         expect(users).not.toMatch(/allow create:\s*if isAuthenticated\(\)\s*\|\|/);
     });
 
-    it('lets only admins create a record: sign-ups create theirs on the server (review F)', () => {
-        expect(users).toMatch(/allow create: if hasNoPassword\(request\.resource\.data\) && isAdmin\(\);/);
+    // The two guards on update, in order: what an admin may not change, then what a person
+    // may not change on their own record.
+    const guards = [...users.matchAll(/affectedKeys\(\)\s*\.hasAny\(\[([^\]]+)\]\)/g)].map((m) => m[1]);
+    const [adminBlocked = '', selfBlocked = ''] = guards;
+
+    it('lets no browser create or delete a record: sign-ups and Add user run on the server (review F, RF4 4.7)', () => {
+        expect(users).toMatch(/allow create: if false;/);
+        expect(users).toMatch(/allow delete: if false;/);
         expect(rules).not.toMatch(/isSelfAssignableRole|selfSignupOpen/);
     });
 
     it('never accepts a password in a record (CO6.6)', () => {
-        expect(users).toMatch(/allow create: if hasNoPassword\(request\.resource\.data\) && isAdmin\(\);/);
-        expect(users).toMatch(/allow update: if hasNoPassword\(request\.resource\.data\) && \(isAdmin\(\) \|\|/);
+        expect(users).toMatch(/allow update: if hasNoPassword\(request\.resource\.data\) && \(\(isAdmin\(\)/);
+    });
+
+    it('keeps role, block, sign-in and who holds the password away from an admin browser (RF4 4.7, 4.8, 4.16)', () => {
+        for (const key of ['role', 'uid', 'isActive', 'status', 'phone', 'phoneVerified', 'by', 'authOwner', 'adminPasswordAt']) {
+            expect(adminBlocked).toContain(`'${key}'`);
+        }
     });
 
     it('blocks role, uid and the admin switches on self-update', () => {
-        // The self-update guard: the hasAny() list following affectedKeys().
-        const blocked = users.match(/affectedKeys\(\)\s*\.hasAny\(\[([^\]]+)\]\)/)?.[1] ?? '';
-        for (const key of ['role', 'uid', 'isActive', 'status', 'isPro', 'creditBalance']) {
-            expect(blocked).toContain(`'${key}'`);
+        for (const key of ['role', 'uid', 'isActive', 'status', 'isPro', 'creditBalance', 'adminPasswordAt']) {
+            expect(selfBlocked).toContain(`'${key}'`);
         }
     });
 
     it('keeps authOwner (CO-D16) for the Admin SDK only', () => {
-        // Create is admin-only, so only updates need to leave it out.
-        expect(users).toMatch(/allow create: if hasNoPassword\(request\.resource\.data\) && isAdmin\(\);/);
-        const blocked = users.match(/affectedKeys\(\)\s*\.hasAny\(\[([^\]]+)\]\)/)?.[1] ?? '';
-        expect(blocked).toContain(`'authOwner'`);
+        expect(adminBlocked).toContain(`'authOwner'`);
+        expect(selfBlocked).toContain(`'authOwner'`);
     });
 
     it('limits reads to admins and the owner', () => {

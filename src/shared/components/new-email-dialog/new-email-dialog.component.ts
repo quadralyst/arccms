@@ -11,6 +11,7 @@ import {
     MatDialogRef,
     MatDialogTitle,
 } from '@angular/material/dialog';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { NewEmailMeta } from '../../email-compiler/new-template';
 
 /**
@@ -25,39 +26,39 @@ import { NewEmailMeta } from '../../email-compiler/new-template';
     imports: [
         ReactiveFormsModule, MatButtonModule, MatIconModule,
         MatFormFieldModule, MatInputModule, MatSelectModule,
-        MatDialogTitle, MatDialogContent, MatDialogActions,
+        MatDialogTitle, MatDialogContent, MatDialogActions, TranslocoPipe,
     ],
     template: `
-        <h2 mat-dialog-title>New email</h2>
+        <h2 mat-dialog-title>{{ 'common.new_email.title' | transloco }}</h2>
         <mat-dialog-content>
             <form [formGroup]="form">
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Title</mat-label>
-                    <input matInput formControlName="title" placeholder="Welcome, day 1" cdkFocusInitial />
+                    <mat-label>{{ 'common.new_email.name' | transloco }}</mat-label>
+                    <input matInput formControlName="title" [placeholder]="'common.new_email.name_placeholder' | transloco" cdkFocusInitial />
                     @if (form.controls.title.touched && form.controls.title.invalid) {
-                    <mat-error>Give the email a title</mat-error>
+                    <mat-error>{{ 'common.new_email.name_required' | transloco }}</mat-error>
                     }
                 </mat-form-field>
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Subject</mat-label>
-                    <input matInput formControlName="subject" placeholder="Welcome aboard 👋" />
+                    <mat-label>{{ 'common.new_email.subject' | transloco }}</mat-label>
+                    <input matInput formControlName="subject" [placeholder]="'common.new_email.subject_placeholder' | transloco" />
                 </mat-form-field>
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Category</mat-label>
+                    <mat-label>{{ 'common.new_email.category' | transloco }}</mat-label>
                     <mat-select formControlName="category">
-                        <mat-option value="marketing">Marketing</mat-option>
-                        <mat-option value="transactional">Transactional</mat-option>
+                        <mat-option value="marketing">{{ 'common.new_email.marketing' | transloco }}</mat-option>
+                        <mat-option value="transactional">{{ 'common.new_email.transactional' | transloco }}</mat-option>
                     </mat-select>
                 </mat-form-field>
                 <p class="text-muted small mb-0">
-                    Creates a starter email you can refine in the Email Composer.
+                    {{ 'common.new_email.note' | transloco }}
                 </p>
             </form>
         </mat-dialog-content>
         <mat-dialog-actions align="end">
-            <button mat-stroked-button (click)="cancel()">Cancel</button>
+            <button mat-stroked-button (click)="cancel()">{{ 'common.actions.cancel' | transloco }}</button>
             <button mat-flat-button color="primary" (click)="confirm()">
-                <mat-icon>add</mat-icon> Create email
+                <mat-icon aria-hidden="true">add</mat-icon> {{ 'common.new_email.create' | transloco }}
             </button>
         </mat-dialog-actions>
     `,

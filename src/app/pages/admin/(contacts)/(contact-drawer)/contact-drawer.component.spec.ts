@@ -5,7 +5,7 @@ import { of } from 'rxjs';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ContactDrawerComponent } from './contact-drawer.component';
 import { AudienceService } from '../../(audience)/audience.service';
-import { ToastService } from '../../../../../shared/services/toast.service';
+import { NotifyService } from '../../../../../shared/services/notify.service';
 
 describe('ContactDrawerComponent', () => {
     let component: ContactDrawerComponent;
@@ -39,7 +39,7 @@ describe('ContactDrawerComponent', () => {
             imports: [ContactDrawerComponent, NoopAnimationsModule],
             providers: [
                 { provide: AudienceService, useValue: audience },
-                { provide: ToastService, useValue: toast },
+                { provide: NotifyService, useValue: toast },
             ],
         })
             // MatDialogModule sits in the component's own imports (page idiom), so its
@@ -159,6 +159,15 @@ describe('ContactDrawerComponent', () => {
                 .toContain('a&lt;script&gt;@b.com');
         });
 
+        it('asks in the admin\'s words, with a translated title and button', () => {
+            component.contact = { id: 'hash1', email: 'a@b.com' };
+            component.confirmErase();
+            const data = dialogOpen.mock.calls[0][1].data;
+            expect(data.titleKey).toBe('admin.audience.contacts.erase');
+            expect(data.btnText).toBe('Erase');
+            expect(data.dialogMessage).toContain('cannot be undone');
+        });
+
         it('reports a failed erasure instead of claiming success', async () => {
             audience.deleteContact.mockRejectedValue(new Error('permission-denied'));
             const events: string[] = [];
@@ -170,7 +179,8 @@ describe('ContactDrawerComponent', () => {
             await Promise.resolve();
             await Promise.resolve();
 
-            expect(toast.error).toHaveBeenCalled();
+            // A plain sentence from the translation files, never the server's text.
+            expect(toast.error).toHaveBeenCalledWith('admin.audience.contacts.erase_failed');
             expect(events).toEqual([]);
         });
     });

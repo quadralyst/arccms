@@ -68,6 +68,17 @@ const RECORD_ORDER = '__name__';
 /** The sort a filtered list has an index for (functions/src/content-types/contentListIndexes.ts). */
 const FILTERED_SORT_FIELD = 'modifiedAt';
 
+/** Orders two stored values for the search's matches: times, numbers, then text. */
+function compareValues(a: unknown, b: unknown): number {
+  const time = (v: any) => (typeof v?.toMillis === 'function' ? v.toMillis()
+    : typeof v?.seconds === 'number' ? v.seconds * 1000 : v instanceof Date ? v.getTime() : null);
+  const ta = time(a);
+  const tb = time(b);
+  if (ta !== null || tb !== null) return (ta ?? 0) - (tb ?? 0);
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  return String(a ?? '').localeCompare(String(b ?? ''));
+}
+
 @Component({
   selector: 'arc-draft-contents-table',
   standalone: true,
@@ -212,7 +223,8 @@ export class DraftContentsTableComponent
   // Get error message for invalid slug
   invalidSlugMessage = computed(() => {
     if (this.isValidSlug()) return '';
-    return `Content type "${this.contentTypeSlug}" does not exist. Please check the URL or create this content type first.`;
+    this.adminLang();
+    return this.transloco.translate('admin.contents.list.type_missing', { slug: this.contentTypeSlug });
   });
 
   // Format slug as title case
@@ -221,15 +233,95 @@ export class DraftContentsTableComponent
     return slug.charAt(0).toUpperCase() + slug.slice(1);
   }
 
-  public draftContentsData = computed(() => {
+  /** The page of entries the server returned, for the list without a title search. */
+  private pageData = computed(() => {
     const items = this.draftContentStore.items() || [];
     return this.contentTypeSlug ? items.filter((item: any) => item.type === this.contentTypeSlug) : items;
   });
 
-  /** The server's count of what the list holds, filtered or not. */
-  public filteredTotalRecords = computed(() => this.draftContentStore.totalRecords());
-
+  // ── Title search (specs/dev-review-fixes-spec.md, RF5 5.9) ─────────────
+  // Firestore cannot search inside a title, so a search reads the type's
+  // entries once and matches here, in any case and anywhere in the title.
+  // The status filter and the sort apply to the matches too.
   searchTerm = signal<string>('');
+  /** Every entry of the type, read for the search; null until it is needed. */
+  private searchPool = signal<any[] | null>(null);
+  readonly searching = signal(false);
+  readonly searchFailed = signal(false);
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** The entries matching the search and the status filter, sorted, every page. */
+  private searchMatches = computed(() => {
+    const term = this.searchTerm().trim().toLowerCase();
+    const pool = this.searchPool();
+    if (!term || !pool) return [];
+    const status = this.statusFilter();
+    const field = this.sortField();
+    const direction = this.sortOrder() === 'asc' ? 1 : -1;
+    return pool
+      .filter((item: any) => String(item.title || '').toLowerCase().includes(term))
+      .filter((item: any) => !status || !!item.publishedStatus === (status === 'published'))
+      .sort((a: any, b: any) => direction * compareValues(a?.[field], b?.[field]));
+  });
+
+  /** A search is narrowing the list. */
+  readonly isSearching = computed(() => !!this.searchTerm().trim());
+
+  /** The rows on screen: the server's page, or a page of the search's matches. */
+  public draftContentsData = computed(() => {
+    if (!this.isSearching()) return this.pageData();
+    const start = this.currentPageNum() * this.pageSizeSignal();
+    return this.searchMatches().slice(start, start + this.pageSizeSignal());
+  });
+
+  /** The server's count of what the list holds, filtered or not; the matches while searching. */
+  public filteredTotalRecords = computed(() =>
+    this.isSearching() ? this.searchMatches().length : this.draftContentStore.totalRecords());
+
+  /** The list did not load (RF5 5.1): a plain sentence in the table, the detail in the console. */
+  readonly loadFailed = signal(false);
+  /** A read of the list is under way, so its outcome can be told from other store work. */
+  private fetching = false;
+
+  /** The table's error state: the search's read, or the list's. */
+  readonly listError = computed<boolean | null>(() =>
+    (this.isSearching() ? this.searchFailed() : this.loadFailed()) || null);
+
+  /** Typing in the search box: matched after a short pause. */
+  onSearchInput(value: string): void {
+    this.searchTerm.set(value);
+    this.currentPageNum.set(0);
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => void this.loadSearchPool(), 250);
+  }
+
+  /** Reads the type's entries for the search, once; Retry reads them again. */
+  async loadSearchPool(force = false): Promise<void> {
+    if (!this.isSearching() || !this.contentTypeSlug) return;
+    if (this.searchPool() && !force) return;
+    this.searching.set(true);
+    this.searchFailed.set(false);
+    try {
+      this.searchPool.set(await this.draftContentsService.listForSearch(this.contentTypeSlug));
+    } catch (error) {
+      console.error('Reading the entries for the search failed:', error);
+      this.searchFailed.set(true);
+    } finally {
+      this.searching.set(false);
+    }
+  }
+
+  /** The search's copy of the entries is read again after a change made here (RF4 review L9). */
+  private refreshSearch(): void {
+    this.searchPool.set(null);
+    if (this.isSearching()) void this.loadSearchPool();
+  }
+
+  /** Retry in the table's error state. */
+  retryLoad(): void {
+    if (this.isSearching()) void this.loadSearchPool(true);
+    else this.fetchData();
+  }
 
   // Table Config
   tableColumns: TableColumn[] = [];
@@ -333,6 +425,20 @@ export class DraftContentsTableComponent
       });
     });
 
+    // A read of the list that ended with an error: the table says so, with
+    // Retry. A missing index is not a failure: the list reads without it.
+    effect(() => {
+      const loading = this.draftContentStore.isLoading();
+      const error = this.draftContentStore.error();
+      untracked(() => {
+        if (loading || !this.fetching) return;
+        this.fetching = false;
+        const failed = !!error && !NEEDS_INDEX.test(error);
+        if (failed) console.error('Loading the entries failed:', error);
+        this.loadFailed.set(failed);
+      });
+    });
+
     effect(() => {
       // Ensure Content Types are loaded
       const types = this.contentTypesStore.items();
@@ -361,6 +467,10 @@ export class DraftContentsTableComponent
   readonly adminLang = signal<string>(this.transloco.getActiveLang());
 
   ngOnInit(): void {
+    // A search still waiting for its pause must not run after the page is gone (RF4 review L9).
+    this.destroyRef.onDestroy(() => {
+      if (this.searchTimer) clearTimeout(this.searchTimer);
+    });
     this.transloco.langChanges$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(lang => this.adminLang.set(lang));
@@ -632,6 +742,10 @@ export class DraftContentsTableComponent
     const status = this.statusFilter();
     const inRecordOrder = !!status && this.orderPending();
 
+    this.loadFailed.set(false);
+    this.fetching = true;
+    // A change to the list since the search read it is read again on the next search.
+    this.searchPool.set(null);
     this.draftContentStore.getAll({
       orderByField: inRecordOrder ? RECORD_ORDER : this.sortField(),
       orderByDirection: inRecordOrder ? 'asc' : this.sortOrder(),
@@ -696,7 +810,8 @@ export class DraftContentsTableComponent
     this.currentPageNum.set(event.pageIndex);
     this.pageSizeSignal.set(event.pageSize);
     this.updateUrl();
-    this.fetchData();
+    // The search's matches are all here already; only the server's list reads a page.
+    if (!this.isSearching()) this.fetchData();
   }
 
   /**
@@ -704,6 +819,8 @@ export class DraftContentsTableComponent
    */
   clearFilters(): void {
     this.statusFilter.set('');
+    this.searchTerm.set('');
+    this.searchFailed.set(false);
     this.orderPending.set(false);
     this.currentPageNum.set(0);
     this.updateUrl();
@@ -714,7 +831,7 @@ export class DraftContentsTableComponent
    * Check if any filters are active
    */
   hasActiveFilters(): boolean {
-    return this.statusFilter() !== '';
+    return this.statusFilter() !== '' || this.isSearching();
   }
 
   /**
@@ -730,7 +847,7 @@ export class DraftContentsTableComponent
       this.updateUrl();
     }
     this.currentPageNum.set(0); // Reset to first page on filter change
-    this.fetchData();
+    if (!this.isSearching()) this.fetchData();
   }
 
   /**
@@ -769,7 +886,7 @@ export class DraftContentsTableComponent
     this.currentPageNum.set(0); // Another order is another list, which opens on its first page
 
     this.updateUrl();
-    this.fetchData();
+    if (!this.isSearching()) this.fetchData();
   }
 
   /**
@@ -823,11 +940,17 @@ export class DraftContentsTableComponent
   }
 
   public deleteItem(item: any) {
+    // The wording says what goes with it: a published entry's live page too (RF4 4.11).
+    const live = !!(item.publishedStatus || item.status === this.constantVariables.PUBLISH);
     const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-      this.transloco.translate('admin.contents.list.remove_confirm', { title: escapeHtml(item.title) }),
+      this.transloco.translate(
+        live ? 'admin.contents.list.delete_confirm_live' : 'admin.contents.list.delete_confirm_draft',
+        { title: escapeHtml(item.title || '') },
+      ),
     );
     const dialogRef = this.dialogService.open(ConfirmationPopupComponent, {
-      width: '350px',
+      width: '380px',
+      maxWidth: '92vw',
       data: {
         dialogType: 'Delete',
         titleKey: 'common.dialog.delete',
@@ -837,21 +960,37 @@ export class DraftContentsTableComponent
       },
     });
     dialogRef.afterClosed().subscribe((result: any) => {
-      if (result) {
-        this.draftContentStore.delete(item.id, this.contentTypeSlug || undefined).subscribe({
-          next: () => {
-            // If the item was published, enqueue delete to remove from published collection
-            if (item.publishedStatus || item.status === this.constantVariables.PUBLISH) {
-              this.publishQueueService.enqueue('delete', this.contentTypeSlug, item.id);
-            }
-            this.notify.success('admin.contents.list.deleted');
-          },
-          error: (error) => {
-            console.error('Error deleting content:', error);
-            this.notify.error('admin.contents.list.delete_failed');
-          },
-        });
+      if (result) void this.removeEntry(item, live);
+    });
+  }
+
+  /**
+   * Deletes an entry. A published one's page is taken down first: when that
+   * cannot start, nothing is deleted, so no live page is left without its
+   * entry. Every failure tells the admin, not only the console.
+   */
+  private async removeEntry(item: any, live: boolean): Promise<void> {
+    if (live) {
+      try {
+        await this.publishQueueService.enqueue('delete', this.contentTypeSlug, item.id);
+      } catch (error) {
+        console.error('Error taking down the live page:', error);
+        this.notify.error('admin.contents.list.delete_page_failed');
+        return;
       }
+    }
+    this.draftContentStore.delete(item.id, this.contentTypeSlug || undefined).subscribe({
+      next: () => {
+        this.notify.success('admin.contents.list.deleted');
+        this.refreshSearch();
+      },
+      error: (error) => {
+        // The publish function's delete also removes the draft, so a live
+        // entry is gone either way; a draft is not.
+        console.error('Error deleting content:', error);
+        if (!live) this.notify.error('admin.contents.list.delete_failed');
+        else this.notify.success('admin.contents.list.deleted');
+      },
     });
   }
 
@@ -960,19 +1099,17 @@ export class DraftContentsTableComponent
 
   public makeItemFeatured(item: any) {
     const isCurrentlyFeatured = item.isFeatured;
-    const actionText = isCurrentlyFeatured
-      ? 'remove from featured'
-      : 'add to featured';
-
-    const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-      `Are you sure you want to ${actionText}?`,
-    );
     const dialogRef = this.dialogService.open(ConfirmationPopupComponent, {
       width: '350px',
+      maxWidth: '92vw',
       data: {
         dialogType: isCurrentlyFeatured ? 'Remove Featured' : 'Add Featured',
-        dialogMessage: msg,
-        btnText: isCurrentlyFeatured ? 'Remove' : 'Add',
+        titleKey: isCurrentlyFeatured ? 'admin.contents.list.unfeature_title' : 'admin.contents.list.feature_title',
+        dialogMessage: escapeHtml(this.transloco.translate(
+          isCurrentlyFeatured ? 'admin.contents.list.unfeature_confirm' : 'admin.contents.list.feature_confirm',
+          { title: item.title || '' },
+        )),
+        btnText: this.transloco.translate(isCurrentlyFeatured ? 'common.actions.remove' : 'common.actions.add'),
         panelType: 'primary',
       },
     });
@@ -981,10 +1118,8 @@ export class DraftContentsTableComponent
         this.draftContentStore
           .update(item.id, { isFeatured: !isCurrentlyFeatured })
           .subscribe(() => {
-            const successMessage = !isCurrentlyFeatured
-              ? 'Content added to featured successfully.'
-              : 'Content removed from featured successfully.';
-            this.toastService.success(successMessage);
+            this.notify.success(!isCurrentlyFeatured ? 'admin.contents.list.featured' : 'admin.contents.list.unfeatured');
+            this.refreshSearch();
           });
       }
     });

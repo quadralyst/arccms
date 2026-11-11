@@ -1,7 +1,7 @@
 <div class="side-panel">
   <div class="panel-header">
     <h5 class="mb-0">{{ 'admin.contents.types.form.add_title' | transloco }}</h5>
-    <button class="close-btn" (click)="closeAdd()">
+    <button type="button" class="close-btn" (click)="closeAdd()" [attr.aria-label]="'common.actions.close' | transloco">
       <i class="fas fa-times"></i>
     </button>
   </div>
@@ -45,8 +45,8 @@
     </div>
 
     <div class="form-group">
-      <label class="form-label"> {{ 'admin.contents.types.form.description' | transloco }} </label>
-      <textarea
+      <label class="form-label" for="ctadd-1"> {{ 'admin.contents.types.form.description' | transloco }} </label>
+      <textarea id="ctadd-1"
         class="form-control"
         rows="3"
         formControlName="description"
@@ -159,6 +159,7 @@
                     type="button"
                     class="btn btn-outline-danger btn-sm"
                     (click)="removeField(fieldIndex)"
+                    [attr.aria-label]="'admin.contents.types.form.remove_field' | transloco: { n: fieldIndex + 1 }"
                 >
                     <i class="fas fa-trash"></i>
                 </button>
@@ -166,8 +167,8 @@
 
             <div class="row">
                 <div class="col-md-8 form-group">
-                    <label class="form-label">{{ 'admin.contents.types.form.field_name' | transloco }} <span class="required">*</span></label>
-                    <input
+                    <label class="form-label" [attr.for]="'ctadd-2-' + fieldIndex">{{ 'admin.contents.types.form.field_name' | transloco }} <span class="required">*</span></label>
+                    <input [id]="'ctadd-2-' + fieldIndex"
                         type="text"
                         [placeholder]="'admin.contents.types.form.field_name_placeholder' | transloco"
                         formControlName="label"
@@ -179,8 +180,8 @@
                     }
                 </div>
                 <div class="col-md-4 form-group">
-                    <label class="form-label">{{ 'admin.contents.types.form.field_type' | transloco }} <span class="required">*</span></label>
-                    <select formControlName="type" class="form-select">
+                    <label class="form-label" [attr.for]="'ctadd-3-' + fieldIndex">{{ 'admin.contents.types.form.field_type' | transloco }} <span class="required">*</span></label>
+                    <select [id]="'ctadd-3-' + fieldIndex" formControlName="type" class="form-select">
                         @for(type of fieldTypes; track type) {
                         <option [value]="type">{{ type }}</option>
                         }
@@ -233,8 +234,8 @@
             @if (!field.get('useCollectionRef')?.value) {
             <div class="row">
                 <div class="col-12 form-group">
-                    <label class="form-label">{{ 'admin.contents.types.form.options' | transloco }} <span class="required">*</span></label>
-                    <textarea
+                    <label class="form-label" [attr.for]="'ctadd-4-' + fieldIndex">{{ 'admin.contents.types.form.options' | transloco }} <span class="required">*</span></label>
+                    <textarea [id]="'ctadd-4-' + fieldIndex"
                         formControlName="options"
                         class="form-control"
                         rows="2"
@@ -249,10 +250,10 @@
               <!-- Step 1: Select Collection -->
               <div class="row">
                 <div class="col-12 form-group">
-                  <label class="form-label"
+                  <label class="form-label" [attr.for]="'ctadd-5-' + fieldIndex"
                     >{{ 'admin.contents.types.form.source_collection' | transloco }} <span class="required">*</span></label
                   >
-                  <select formControlName="collectionRefSlug" class="form-select">
+                  <select [id]="'ctadd-5-' + fieldIndex" formControlName="collectionRefSlug" class="form-select">
                     <option value="">{{ 'admin.contents.types.form.select_collection' | transloco }}</option>
                     @for(ct of availableCollections(); track ct.slug) {
                     <option [value]="ct.slug">{{ ct.name }}</option>
@@ -265,11 +266,11 @@
               <!-- Step 2: Select Display Field -->
               <div class="row">
                 <div class="col-12 form-group">
-                  <label class="form-label">{{ 'admin.contents.types.form.display_field' | transloco }} <span class="required">*</span></label>
-                  <select formControlName="collectionRefDisplayField" class="form-select">
+                  <label class="form-label" [attr.for]="'ctadd-6-' + fieldIndex">{{ 'admin.contents.types.form.display_field' | transloco }} <span class="required">*</span></label>
+                  <select [id]="'ctadd-6-' + fieldIndex" formControlName="collectionRefDisplayField" class="form-select">
                     <option value="">{{ 'admin.contents.types.form.select_display_field' | transloco }}</option>
                     @for(f of getCollectionFields(field.get('collectionRefSlug')?.value); track f.key) {
-                    <option [value]="f.key">{{ f.label }} ({{ f.key }})</option>
+                    <option [value]="f.key">{{ fieldPickLabel(f) }} ({{ f.key }})</option>
                     }
                   </select>
                   <small class="text-muted">{{ 'admin.contents.types.form.display_field_hint' | transloco }}</small>
@@ -281,8 +282,7 @@
                 <div class="col-12 form-group">
                   <label class="form-label">{{ 'admin.contents.types.form.denormalize' | transloco }}</label>
                   <small class="text-muted d-block mb-2">
-                    Select which fields from "{{ field.get('collectionRefSlug')?.value }}"
-                    to store in this collection. Published pages show the linked entry as it is published now.
+                    {{ 'admin.contents.types.form.denormalize_hint' | transloco: { type: field.get('collectionRefSlug')?.value } }}
                   </small>
                   <div class="sync-fields-list">
                     @for(f of getCollectionFields(field.get('collectionRefSlug')?.value); track f.key) {
@@ -292,7 +292,7 @@
                         [disabled]="f.key === 'id' || f.key === field.get('collectionRefDisplayField')?.value"
                         (change)="toggleSyncField(fieldIndex, f.key, $any($event.target).checked)">
                       <label class="form-check-label" [for]="'sync_' + fieldIndex + '_' + f.key">
-                        {{ f.label }} <code>({{ f.key }})</code>
+                        {{ fieldPickLabel(f) }} <code>({{ f.key }})</code>
                         @if(f.key === 'id' || f.key === field.get('collectionRefDisplayField')?.value) {
                           <span class="badge bg-secondary ms-2" style="font-size: 0.7em;">{{ 'admin.contents.types.form.field_required' | transloco }}</span>
                         }

@@ -8,14 +8,25 @@ import { RouteMeta } from '@analogjs/router';
 import { SiteBrandService } from '../../../../core/brand/site-brand';
 import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, input, Output } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { ArcTime } from '../../../../core/time/arc-time.service';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { UserStore } from '../user.store';
-import { IUser } from '../user.model';
+import { IUser, roleLabel } from '../user.model';
+import type { TranslationKey } from '../../../../core/i18n/translation-keys';
 import { roleGuard } from '../../../../guards/role.guard';
 
+/** The statuses a user record can have (UserStatus, and Detached), by their stored value in lower case. */
+const VIEW_STATUSES: Record<string, TranslationKey> = {
+    active: 'admin.users.status_active',
+    pending: 'admin.users.status_pending',
+    disable: 'admin.users.status_blocked',
+    disabled: 'admin.users.status_blocked',
+    detached: 'admin.users.status_detached',
+};
+
 export const routeMeta: RouteMeta = {
-    title: 'View User',
+    title: 'User details',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -23,7 +34,7 @@ export const routeMeta: RouteMeta = {
 @Component({
     selector: 'arc-view-user',
     standalone: true,
-    imports: [ReactiveFormsModule],
+    imports: [ReactiveFormsModule, TranslocoPipe],
     templateUrl: './view-user.html',
     styleUrl: './view-user.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,14 +65,24 @@ export default class ViewUserComponent extends BaseComponent {
         return this.userStore.currentItem() || null;
     }
 
+    readonly roleName = (role: string) => roleLabel(role, (key) => this.t(key));
+
+    /** The record's status in the admin's language; one the page does not know shows as stored. */
+    statusText(): string {
+        const status = String(this.currentItem?.status ?? '').toLowerCase();
+        const key = VIEW_STATUSES[status];
+        return key ? this.t(key) : (this.currentItem?.status || this.t('admin.users.view.none'));
+    }
+
     closeView(): void {
         this.close.emit();
     }
 
     formatDisplayDate(date: any): string {
-        if (!date) return 'N/A';
+        const none = this.t('admin.users.view.none');
+        if (!date) return none;
         const newDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-        return this.arcTime.format(newDate, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) || 'N/A';
+        return this.arcTime.format(newDate, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) || none;
     }
 
     getStatusBadgeClass(): string {

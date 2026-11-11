@@ -1,7 +1,7 @@
 <div class="side-panel">
   <div class="panel-header">
-    <h5 class="mb-0">View Content Type</h5>
-    <button class="close-btn" (click)="closeView()">
+    <h5 class="mb-0">{{ 'admin.contents.types.view.heading' | transloco }}</h5>
+    <button type="button" class="close-btn" (click)="closeView()" [attr.aria-label]="'common.actions.close' | transloco">
       <i class="fas fa-times"></i>
     </button>
   </div>
@@ -9,48 +9,48 @@
   @if(currentItem) {
   <div class="view-content">
     <div class="detail-row">
-      <label>Name:</label>
+      <label>{{ 'common.table.name' | transloco }}</label>
       <span>{{ currentItem.name }}</span>
     </div>
 
     <div class="detail-row">
-      <label>Slug:</label>
+      <label>{{ 'admin.contents.types.col_address' | transloco }}</label>
       <span>{{ currentItem.slug }}</span>
     </div>
 
     @if(currentItem.description) {
     <div class="detail-row">
-      <label>Description:</label>
+      <label>{{ 'admin.contents.types.form.description' | transloco }}</label>
       <span>{{ currentItem.description }}</span>
     </div>
     } @if(currentItem.singularName) {
     <div class="detail-row">
-      <label>Singular Name:</label>
+      <label>{{ 'admin.contents.types.form.singular_name' | transloco }}</label>
       <span>{{ currentItem.singularName }}</span>
     </div>
     } @if(currentItem.icon) {
     <div class="detail-row">
-      <label>Icon:</label>
+      <label>{{ 'admin.contents.types.form.icon' | transloco }}</label>
       <span><i [class]="currentItem.icon"></i> {{ currentItem.icon }}</span>
     </div>
     }
 
     <div class="detail-row">
-      <label>Template:</label>
+      <label>{{ 'admin.contents.types.view.template' | transloco }}</label>
       @if(templateSource(currentItem.templateFolder); as source) {
       <span class="template-path">{{ source.path }}</span>
       @if(source.missing) {
-      <span class="text-warning ms-2">Not on this site: pages use the default templates</span>
+      <span class="text-warning-emphasis ms-2">{{ 'admin.contents.types.view.template_missing' | transloco }}</span>
       }
       } @else {
-      <span class="text-muted">Default</span>
+      <span class="text-muted">{{ 'admin.contents.types.view.template_default' | transloco }}</span>
       }
     </div>
     @if(layoutsOf(currentItem.templateFolder); as layouts) {
     @if(layouts.length) {
     <!-- SS8: other detail pages an entry can choose with Layout in the editor. -->
     <div class="detail-row" data-testid="template-layouts">
-      <label>Layouts:</label>
+      <label>{{ 'admin.contents.types.view.layouts' | transloco }}</label>
       <span>
         @for (layout of layouts; track layout.name; let last = $last) {
         {{ layout.label }} <span class="template-path">detail-{{ layout.name }}.html</span>@if (!last) {, }
@@ -62,7 +62,7 @@
 
     <hr />
 
-    <div class="form-section-title">Fields</div>
+    <div class="form-section-title">{{ 'admin.contents.types.col_fields' | transloco }}</div>
 
     @if(currentItem.fields && currentItem.fields.length > 0) {
     <div class="fields-list">
@@ -75,7 +75,7 @@
         <div class="field-meta">
           <span class="badge badge-type">{{ field.type }}</span>
           @if(field.required) {
-          <span class="badge badge-required">Required</span>
+          <span class="badge badge-required">{{ 'admin.contents.types.view.required' | transloco }}</span>
           }
         </div>
 
@@ -83,21 +83,21 @@
         <div class="ref-info">
           <div class="ref-header">
             <i class="fa-solid fa-link me-1"></i>
-            References:
+            {{ 'admin.contents.types.view.references' | transloco }}
             <strong>{{ field.collectionRef.collectionName }}</strong>
           </div>
           <div class="ref-details">
             <span class="ref-detail-item"
-              >Display:
+              >{{ 'admin.contents.types.view.display' | transloco }}
               <code>{{ field.collectionRef.displayField }}</code></span
             >
             <span class="ref-detail-item"
-              >Value: <code>{{ field.collectionRef.valueField }}</code></span
+              >{{ 'admin.contents.types.view.value' | transloco }} <code>{{ field.collectionRef.valueField }}</code></span
             >
             <span class="ref-detail-item"
-              >Synced:
+              >{{ 'admin.contents.types.view.synced' | transloco }}
               <code
-                >{{ field.collectionRef.syncFields?.join(', ') || 'None'
+                >{{ field.collectionRef.syncFields?.join(', ') || ('admin.contents.types.view.none' | transloco)
                 }}</code
               ></span
             >
@@ -108,16 +108,16 @@
       }
     </div>
     } @else {
-    <p class="text-muted">No fields defined</p>
+    <p class="text-muted">{{ 'admin.contents.types.view.no_fields' | transloco }}</p>
     }
 
     <hr />
 
     <div class="template-ref">
-      <div class="form-section-title">Template Reference</div>
+      <div class="form-section-title">{{ 'admin.contents.types.view.reference' | transloco }}</div>
 
       <div class="attr-subsection-hint mb-2">
-        Click a binding to copy it. The full syntax is in the developer docs under Templates.
+        {{ 'admin.contents.types.view.reference_hint' | transloco }}
       </div>
       @for(section of referenceSections; track section.id) {
       <div class="attr-subsection">
@@ -131,8 +131,9 @@
         <div class="attr-row">
           <span class="attr-label">{{ attr.label }}</span>
           <code class="attr-code" [class.copied]="copiedKey === section.id + attr.key"
+            role="button" tabindex="0" (keydown.enter)="copyToClipboard(attr.syntax, section.id + attr.key)"
             (click)="copyToClipboard(attr.syntax, section.id + attr.key)"
-            title="Click to copy">{{ copiedKey === section.id + attr.key ? 'Copied!' : attr.syntax }}</code>
+            [title]="'admin.contents.types.view.copy' | transloco">{{ copiedKey === section.id + attr.key ? ('admin.contents.types.view.copied' | transloco) : attr.syntax }}</code>
           @if(attr.note) {
           <span class="attr-note">{{ attr.note }}</span>
           }
@@ -144,16 +145,16 @@
 
     <hr />
     <div class="metadata">
-      <div class="form-section-title">Metadata</div>
+      <div class="form-section-title">{{ 'admin.contents.preview.details' | transloco }}</div>
 
       @if(currentItem.createdBy) {
       <div class="detail-row">
-        <label>Created By:</label>
+        <label>{{ 'admin.contents.types.view.created_by' | transloco }}</label>
         <span>{{ currentItem.createdBy }}</span>
       </div>
       } @if(currentItem.createdAt) {
       <div class="detail-row">
-        <label>Created At:</label>
+        <label>{{ 'admin.contents.preview.created' | transloco }}</label>
         <span
           >{{
           globalService.convertMillisecondsToFormatDate(currentItem.createdAt,
@@ -162,12 +163,12 @@
       </div>
       } @if(currentItem.modifiedBy) {
       <div class="detail-row">
-        <label>Updated By:</label>
+        <label>{{ 'admin.contents.types.view.updated_by' | transloco }}</label>
         <span>{{ currentItem.modifiedBy }}</span>
       </div>
       } @if(currentItem.modifiedAt) {
       <div class="detail-row">
-        <label>Updated At:</label>
+        <label>{{ 'common.table.last_updated' | transloco }}</label>
         <span
           >{{
           globalService.convertMillisecondsToFormatDate(currentItem.modifiedAt,
@@ -178,7 +179,7 @@
     </div>
   </div>
   } @else {
-  <p class="text-muted">Loading...</p>
+  <p class="text-muted" role="status">{{ 'admin.contents.types.view.loading' | transloco }}</p>
   }
 
   <div class="copyright">

@@ -19,13 +19,14 @@ import {
     signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslocoPipe } from '@jsverse/transloco';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-markup';
 
 @Component({
     selector: 'arc-html-code-editor',
     standalone: true,
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, TranslocoPipe],
     template: `
         <div class="code-editor-container" [style.height]="height">
             <!-- Line numbers -->
@@ -51,6 +52,7 @@ import 'prismjs/components/prism-markup';
                     (keydown)="onKeyDown($event)"
                     (scroll)="syncScroll($event)"
                     [placeholder]="placeholder"
+                    [attr.aria-label]="'common.html_editor.label' | transloco"
                     spellcheck="false"
                     autocomplete="off"
                     autocapitalize="off">
@@ -75,7 +77,7 @@ import 'prismjs/components/prism-markup';
         .line-numbers {
             padding: 12px 8px;
             background: #252526;
-            color: #858585;
+            color: #a0a0a0;
             text-align: right;
             user-select: none;
             // min-width: 40px;
@@ -148,7 +150,7 @@ import 'prismjs/components/prism-markup';
             }
 
             .token.punctuation {
-                color: #808080;
+                color: #9a9a9a;
             }
 
             .token.property,

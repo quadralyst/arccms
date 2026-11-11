@@ -30,7 +30,7 @@ describe('AuthorsService', () => {
     let authState: { currentUser: ReturnType<typeof vi.fn> };
     let about: { load: ReturnType<typeof vi.fn> };
 
-    const ADMIN = { uid: 'u1', name: 'Gunjan Karun', email: 'gunjan@example.com', role: 'admin', photo: 'https://x.com/me.jpg' };
+    const ADMIN = { uid: 'u1', name: 'Anjali Verma', email: 'anjali@example.com', role: 'admin', photo: 'https://x.com/me.jpg' };
 
     beforeEach(() => {
         authState = { currentUser: vi.fn().mockReturnValue(ADMIN) };
@@ -57,14 +57,14 @@ describe('AuthorsService', () => {
 
             expect(author).toEqual(expect.objectContaining({
                 id: 'admin-u1',
-                name: 'Gunjan Karun',
-                slug: 'gunjan-karun',
+                name: 'Anjali Verma',
+                slug: 'anjali-verma',
                 bio: 'Admin of Arc CMS.',
                 photoUrl: 'https://x.com/me.jpg',
             }));
             expect(setDoc).toHaveBeenCalledWith(
                 { path: 'Authors/admin-u1' },
-                expect.objectContaining({ name: 'Gunjan Karun', bio: 'Admin of Arc CMS.', createdBy: 'u1' }),
+                expect.objectContaining({ name: 'Anjali Verma', bio: 'Admin of Arc CMS.', createdBy: 'u1' }),
             );
             expect(setDoc).toHaveBeenCalledWith(
                 { path: 'Settings/discoverability' },

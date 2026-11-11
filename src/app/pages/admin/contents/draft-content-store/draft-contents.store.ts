@@ -3,12 +3,64 @@ import { createGenericStore } from '../../../../../shared/services/generic-store
 import { IDraftContents, INextContentReference } from './draft-contents.model';
 import { DraftContentsService } from './draft-contents.service';
 import { BacklinkChange, BacklinkResult } from './series-links';
+import { Observable, defer } from 'rxjs';
+import { WritableStateSource, patchState } from '@ngrx/signals';
+import { AuthState } from '../../../(auth)/auth.store';
 
 const DraftContentsStoreBase = createGenericStore<IDraftContents>(DraftContentsService);
 
 @Injectable({ providedIn: 'root' })
 export class DraftContentsStore extends DraftContentsStoreBase {
     private draftService = inject(DraftContentsService);
+    private authState = inject(AuthState);
+
+    /**
+     * Writes a new entry and emits its id; a failure is an error, never an
+     * empty id (RF4 4.1, 4.4). `data` may carry its own createdAt and modifiedAt.
+     */
+    createDraft(data: Record<string, unknown>, contentType: string, id?: string): Observable<string> {
+        const userId = this.authState.currentUser()?.id || '';
+        return defer(() => this.draftService.createDraft(contentType, { ...data, createdBy: userId, modifiedBy: userId }, id));
+    }
+
+    /** An id for a new entry, chosen before its first write (see DraftContentsService.newDraftId). */
+    newDraftId(contentType: string): string {
+        return this.draftService.newDraftId(contentType);
+    }
+
+    /**
+     * Makes an entry the editor has just created the current item, as if it
+     * had been loaded, so a later publish and the reference sync compare with
+     * what is stored (RF4 review M4).
+     */
+    adoptCreated(item: IDraftContents): void {
+        patchState(this as unknown as WritableStateSource<{ currentItem: IDraftContents }>, { currentItem: item });
+    }
+
+    /**
+     * Saves an entry's changes, refused with an EntryChangedError when the
+     * stored entry no longer carries `openedModifiedAt` (null: overwrite).
+     * A failure is an error (RF4 4.4, 4.5).
+     */
+    saveDraft(id: string, data: Record<string, unknown>, contentType: string, openedModifiedAt: unknown): Observable<void> {
+        const modifiedBy = this.authState.currentUser()?.id || '';
+        return defer(() => this.draftService.saveDraft(contentType, id, { ...data, modifiedBy }, openedModifiedAt));
+    }
+
+    /** Whether another entry of the type has this address, asked of the server (RF4 4.6). */
+    isSlugTaken(slug: string, contentType: string, ownId?: string): Promise<boolean> {
+        return this.draftService.isSlugTaken(slug, contentType, ownId);
+    }
+
+    /** The address of the entry's live page, '' when it has none. */
+    publishedSlug(contentType: string, id: string): Promise<string> {
+        return this.draftService.publishedSlug(contentType, id);
+    }
+
+    /** How many entries of the type carry a tag. */
+    countWithTag(contentType: string, label: string): Promise<number> {
+        return this.draftService.countWithTag(contentType, label);
+    }
 
     /**
      * Check if a URL slug already exists

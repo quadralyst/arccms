@@ -3,10 +3,13 @@ import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, Injec
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Firestore, collection, doc, getDoc, getDocs } from '@angular/fire/firestore';
 import { MatDialog } from '@angular/material/dialog';
-import { TranslocoService } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import MediaManagerComponent from '../../(media)/media.page';
 import { mediaPickerDialogConfig } from '../../(media)/media-picker-dialog';
 import { getWaitlistUserTagsCollectionName, IWaitlistUserTag } from '../joined-users/waitlist-user-tags.model';
+
+/** What visitors read on a closed form until the admin writes their own (site content, so not translated here). */
+const CLOSED_MESSAGE = 'This form is not taking sign-ups right now. Please check back later.';
 
 export interface WaitlistFormData {
     name: string;
@@ -41,7 +44,7 @@ export interface WaitlistEditInput {
     templateUrl: './waitlist-edit-drawer.component.html',
     styleUrls: ['./waitlist-edit-drawer.component.scss'],
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule],
+    imports: [CommonModule, ReactiveFormsModule, TranslocoPipe],
 })
 export class WaitlistEditDrawerComponent implements OnChanges {
     private fb = inject(FormBuilder);
@@ -84,7 +87,7 @@ export class WaitlistEditDrawerComponent implements OnChanges {
             description: [''],
             coverImage: [''],
             isActive: [true],
-            disabledMessage: ['This waitlist is currently full. Please check back later for updates.'],
+            disabledMessage: [CLOSED_MESSAGE],
             defaultTagId: [''],
             // Manual lists this form additionally feeds; own system list is implicit.
             targetListIds: [[] as string[]],
@@ -119,7 +122,7 @@ export class WaitlistEditDrawerComponent implements OnChanges {
         } else {
             this.waitlistForm.reset({
                 isActive: true,
-                disabledMessage: 'This waitlist is currently full. Please check back later for updates.',
+                disabledMessage: CLOSED_MESSAGE,
                 targetListIds: [],
             });
             this.coverImage.set('');

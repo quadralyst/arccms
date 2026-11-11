@@ -10,6 +10,8 @@ import {
     bareFieldKey,
     fullFieldKey,
     hasSlugPrefix,
+    collectionRefProblems,
+    systemFieldLabelKey,
 } from './collection-ref-helpers';
 import { FormArray, FormControl, FormGroup } from '@angular/forms';
 
@@ -904,3 +906,21 @@ describe('collection-ref-helpers', () => {
         });
     });
 });
+
+// RF5 5.3: the checks and the built-in names, ready for the admin's language.
+describe('collectionRefProblems and systemFieldLabelKey', () => {
+    it('names the missing parts of a link field as translation keys with the field\'s name', () => {
+        expect(collectionRefProblems({ useCollectionRef: true, label: 'Speaker' })).toEqual([
+            { key: 'admin.contents.types.form.ref_source_required', field: 'Speaker' },
+            { key: 'admin.contents.types.form.ref_display_required', field: 'Speaker' },
+        ]);
+        expect(collectionRefProblems({ useCollectionRef: false })).toEqual([]);
+        expect(collectionRefProblems({ useCollectionRef: true, key: 'k', collectionRefSlug: 'a', collectionRefDisplayField: 'title' })).toEqual([]);
+    });
+
+    it('gives built-in fields a translated name and leaves custom ones as typed', () => {
+        expect(systemFieldLabelKey({ key: 'urlSlug', order: -2 })).toBe('admin.contents.editor.address');
+        expect(systemFieldLabelKey({ key: 'title', order: 3 })).toBeNull();
+    });
+});
+

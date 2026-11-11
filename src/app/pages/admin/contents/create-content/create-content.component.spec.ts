@@ -1,8 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CreateContentComponent, toDateInputValue, fromDateInputValue } from './create-content.component';
-import { ActivatedRoute, Router } from '@angular/router';
-import { of, Subject } from 'rxjs';
+import { CreateContentComponent, toDateInputValue, fromDateInputValue, AUTO_SAVE_DELAY_MS, SLUG_CHECK_DELAY_MS, addressFromTitle } from './create-content.component';
+import { ActivatedRoute, NavigationCancel, Router } from '@angular/router';
+import { of, Subject, throwError } from 'rxjs';
 import { signal, NgZone } from '@angular/core';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
@@ -64,6 +64,7 @@ describe('CreateContentComponent', () => {
     beforeEach(async () => {
         mockRouter = {
             navigate: vi.fn().mockResolvedValue(true),
+            events: new Subject<unknown>(),
         };
 
         mockDraftContentsStore = {
@@ -76,6 +77,13 @@ describe('CreateContentComponent', () => {
             clearList: vi.fn(),
             add: vi.fn().mockReturnValue(of('new-id')),
             update: vi.fn().mockReturnValue(of(undefined)),
+            // The editor's own writes (RF4): failures and someone else's save reach it.
+            createDraft: vi.fn().mockReturnValue(of('new-id')),
+            newDraftId: vi.fn().mockReturnValue('pre-id'),
+            adoptCreated: vi.fn((item: any) => mockDraftContentsStore.currentItem.set(item)),
+            saveDraft: vi.fn().mockReturnValue(of(undefined)),
+            isSlugTaken: vi.fn().mockResolvedValue(false),
+            publishedSlug: vi.fn().mockResolvedValue(''),
             refreshCurrentItem: vi.fn((id: string, saved: any) => {
                 const current: any = mockDraftContentsStore.currentItem();
                 if (current?.id === id) mockDraftContentsStore.currentItem.set({ ...current, ...saved });
@@ -310,35 +318,52 @@ describe('CreateContentComponent', () => {
     });
 
     describe('Slug Generation', () => {
-        it('should create slug from title', () => {
+        it('should create slug from title', async () => {
             component.pageTitle = 'Test Article Title';
             component.createSlag();
+            await new Promise((resolve) => setTimeout(resolve, SLUG_CHECK_DELAY_MS + 5));
 
-            expect(mockDraftContentsStore.checkExistingSlugUrl).toHaveBeenCalledWith('test-article-title', '');
+            expect(mockDraftContentsStore.isSlugTaken).toHaveBeenCalledWith('test-article-title', '', undefined);
         });
 
-        it('should handle special characters in title', () => {
+        it('should handle special characters in title', async () => {
             component.pageTitle = "Test's Article! With? Special@Characters";
             component.createSlag();
+            await new Promise((resolve) => setTimeout(resolve, SLUG_CHECK_DELAY_MS + 5));
 
-            expect(mockDraftContentsStore.checkExistingSlugUrl).toHaveBeenCalled();
+            expect(mockDraftContentsStore.isSlugTaken).toHaveBeenCalled();
         });
 
-        it('should not create slug if contentId exists', () => {
-            component.contentId = 'existing-id';
+        it('keeps a stored entry\'s address when its title changes', async () => {
+            mockDraftContentsStore.currentItem.set({ id: 'existing-id', title: 'Old', urlSlug: 'old', publishedStatus: true });
+            fixture.detectChanges();
+            mockDraftContentsStore.isSlugTaken.mockClear();
             component.pageTitle = 'Test Title';
             component.createSlag();
+            await new Promise((resolve) => setTimeout(resolve, SLUG_CHECK_DELAY_MS + 5));
 
-            expect(mockDraftContentsStore.checkExistingSlugUrl).not.toHaveBeenCalled();
+            expect(mockDraftContentsStore.isSlugTaken).not.toHaveBeenCalled();
+        });
+
+        it('a new entry\'s address follows its title after its first input saved it (RF4 4.1)', async () => {
+            component.contentTypeSlug = 'article';
+            component.pageTitle = 'H';
+            component.triggerAutoSave();
+            for (let i = 0; i < 5; i++) await Promise.resolve();
+            expect(component.contentId).toBe('new-id');
+            component.pageTitle = 'Hello world';
+            component.createSlag();
+            await new Promise((resolve) => setTimeout(resolve, SLUG_CHECK_DELAY_MS + 5));
+            expect(mockDraftContentsStore.isSlugTaken).toHaveBeenLastCalledWith('hello-world', 'article', 'new-id');
         });
 
         it('numbers a taken slug without spaces: guide, guide-2, guide-3', async () => {
-            mockDraftContentsStore.checkExistingSlugUrl.mockImplementation(async (slug: string) =>
-                ({ exists: slug === 'guide' || slug === 'guide-2', slug }));
+            mockDraftContentsStore.isSlugTaken.mockImplementation(async (slug: string) => slug === 'guide' || slug === 'guide-2');
             component.pageTitle = 'Guide';
             component.createSlag();
+            await new Promise((resolve) => setTimeout(resolve, SLUG_CHECK_DELAY_MS + 5));
             for (let i = 0; i < 5; i++) await Promise.resolve();
-            expect(mockDraftContentsStore.checkExistingSlugUrl.mock.calls.map((c: unknown[]) => c[0])).toEqual(['guide', 'guide-2', 'guide-3']);
+            expect(mockDraftContentsStore.isSlugTaken.mock.calls.map((c: unknown[]) => c[0])).toEqual(['guide', 'guide-2', 'guide-3']);
             expect(component.publishForm.get('urlSlug')?.value).toBe('guide-3');
         });
 
@@ -346,12 +371,13 @@ describe('CreateContentComponent', () => {
             component.publishForm.patchValue({ urlSlug: '  My Pricing Guide ' });
             component.saveSlug();
             expect(component.publishForm.get('urlSlug')?.value).toBe('my-pricing-guide');
-            expect(mockDraftContentsStore.checkExistingSlugUrl).toHaveBeenCalledWith('my-pricing-guide', expect.anything());
+            expect(mockDraftContentsStore.isSlugTaken).toHaveBeenCalledWith('my-pricing-guide', expect.anything(), undefined);
         });
 
-        it('should set SEO title when creating slug', () => {
+        it('should set SEO title when creating slug', async () => {
             component.pageTitle = 'My Article';
             component.createSlag();
+            await new Promise((resolve) => setTimeout(resolve, SLUG_CHECK_DELAY_MS + 5));
 
             expect(component.seoForm.get('seoTitle')?.value).toBe('My Article');
         });
@@ -388,7 +414,7 @@ describe('CreateContentComponent', () => {
         it('should not check existence if slug is empty when saving', () => {
             component.publishForm.patchValue({ urlSlug: '' });
             component.saveSlug();
-            expect(mockDraftContentsStore.checkExistingSlugUrl).not.toHaveBeenCalled();
+            expect(mockDraftContentsStore.isSlugTaken).not.toHaveBeenCalled();
         });
 
         it('should check existence and close edit mode when saving valid slug', () => {
@@ -398,23 +424,37 @@ describe('CreateContentComponent', () => {
 
             component.saveSlug();
 
-            expect(mockDraftContentsStore.checkExistingSlugUrl).toHaveBeenCalledWith(newSlug, '');
+            expect(mockDraftContentsStore.isSlugTaken).toHaveBeenCalledWith(newSlug, '', undefined);
             expect(component.isEditingSlug()).toBe(false);
         });
     });
 
     describe('Check Existing Slug', () => {
-        it('should not check if contentId exists', () => {
+        it('asks the server for a stored entry too, leaving the entry itself out (RF4 4.6)', () => {
             component.contentId = 'existing-id';
 
             component.checkExist('my-slug');
 
-            expect(mockDraftContentsStore.checkExistingSlugUrl).not.toHaveBeenCalled();
+            expect(mockDraftContentsStore.isSlugTaken).toHaveBeenCalledWith('my-slug', '', 'existing-id');
         });
 
         it('should check if slug exists', () => {
             component.checkExist('my-slug');
-            expect(mockDraftContentsStore.checkExistingSlugUrl).toHaveBeenCalledWith('my-slug', '');
+            expect(mockDraftContentsStore.isSlugTaken).toHaveBeenCalledWith('my-slug', '', undefined);
+        });
+
+        it('stops a save whose changed address another entry has, asked of the server', async () => {
+            component.contentId = 'doc-1';
+            component.pageTitle = 'A';
+            component.publishForm.patchValue({ urlSlug: 'taken' });
+            mockDraftContentsStore.isSlugTaken.mockResolvedValue(true);
+
+            await component.saveAsDraft();
+
+            expect(mockDraftContentsStore.isSlugTaken).toHaveBeenCalledWith('taken', '', 'doc-1');
+            expect(mockDraftContentsStore.saveDraft).not.toHaveBeenCalled();
+            expect(component.errorSlug).toBe(true);
+            expect(component.isSavingDraft).toBe(false);
         });
     });
 
@@ -424,7 +464,7 @@ describe('CreateContentComponent', () => {
             component.handleFile(file);
 
             expect(component.coverImage).toBeNull();
-            expect(component.errorMessage).toBe('Please upload a valid image file.');
+            expect(component.errorMessage).toBe('Choose an image file.');
         });
 
         it('should remove cover image', () => {
@@ -523,17 +563,17 @@ describe('CreateContentComponent', () => {
             ]);
         });
 
-        it('saves the chosen layout with the draft, and Standard as empty', () => {
+        it('saves the chosen layout with the draft, and Standard as empty', async () => {
             withType('pagesx-folder', { 'pagesx-folder': { contact: 'core' } });
             component.pageTitle = 'Contact';
             component.publishForm.get('layout')?.setValue('contact');
-            component.saveAsDraft();
-            expect(mockDraftContentsStore.add.mock.calls[0][0]).toMatchObject({ layout: 'contact' });
+            await component.saveAsDraft();
+            expect(mockDraftContentsStore.createDraft.mock.calls[0][0]).toMatchObject({ layout: 'contact' });
 
             component.contentId = 'contact';
             component.publishForm.get('layout')?.setValue('');
-            component.saveAsDraft();
-            expect(mockDraftContentsStore.update.mock.calls[0][1]).toMatchObject({ layout: '' });
+            await component.saveAsDraft();
+            expect(mockDraftContentsStore.saveDraft.mock.calls[0][1]).toMatchObject({ layout: '' });
         });
     });
 
@@ -671,27 +711,27 @@ describe('CreateContentComponent', () => {
     });
 
     describe('Save as Draft', () => {
-        it('should save new content as draft when title is provided', () => {
+        it('should save new content as draft when title is provided', async () => {
             component.pageTitle = 'Test Title';
-            component.saveAsDraft();
+            await component.saveAsDraft();
 
-            expect(mockDraftContentsStore.add).toHaveBeenCalled();
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
         });
 
-        it('a new draft carries its status, which the list\'s server filter needs', () => {
+        it('a new draft carries its status, which the list\'s server filter needs', async () => {
             component.pageTitle = 'Test Title';
-            component.saveAsDraft();
+            await component.saveAsDraft();
 
-            expect(mockDraftContentsStore.add.mock.calls[0][0]).toMatchObject({ publishedStatus: false });
+            expect(mockDraftContentsStore.createDraft.mock.calls[0][0]).toMatchObject({ publishedStatus: false });
         });
 
-        it('should execute afterSave callback upon successful save', () => {
+        it('should execute afterSave callback upon successful save', async () => {
             component.pageTitle = 'Test Title';
             const afterSaveSpy = vi.fn();
             
-            component.saveAsDraft(afterSaveSpy);
+            await component.saveAsDraft(afterSaveSpy);
 
-            expect(mockDraftContentsStore.add).toHaveBeenCalled();
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
             expect(afterSaveSpy).toHaveBeenCalled();
         });
 
@@ -700,25 +740,25 @@ describe('CreateContentComponent', () => {
             component.pageTitle = 'Test Title';
             const afterSaveSpy = vi.fn();
             
-            component.saveAsDraft(afterSaveSpy);
+            await component.saveAsDraft(afterSaveSpy);
 
-            expect(mockDraftContentsStore.update).toHaveBeenCalled();
+            expect(mockDraftContentsStore.saveDraft).toHaveBeenCalled();
             // Wait for async updateReferencingContents in ngZone.run
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(afterSaveSpy).toHaveBeenCalled();
         });
 
-        it('should NOT save draft when title is empty', () => {
+        it('should NOT save draft when title is empty', async () => {
              // ...
              // existing code
              component.pageTitle = '';
-            component.saveAsDraft();
+            await component.saveAsDraft();
 
-            expect(mockDraftContentsStore.add).not.toHaveBeenCalled();
-            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith('Title is required', 'error', 'error');
+            expect(mockDraftContentsStore.createDraft).not.toHaveBeenCalled();
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith('Title is required.', 'error', 'error');
         });
         
-        it('should save draft even when required custom fields are empty', () => {
+        it('should save draft even when required custom fields are empty', async () => {
             // ... (existing code)
              mockContentTypesStore.items.set([
                 {
@@ -736,78 +776,80 @@ describe('CreateContentComponent', () => {
             fixture.detectChanges();
 
             component.pageTitle = 'Test Product';
-            component.saveAsDraft();
+            await component.saveAsDraft();
 
-            expect(mockDraftContentsStore.add).toHaveBeenCalled();
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
         });
     });
 
     describe('Publish Content', () => {
-        it('should publish new content when all required fields are provided', () => {
+        it('should publish new content when all required fields are provided', async () => {
             component.pageTitle = 'Test Title';
-            component.directPublishContent();
+            await component.directPublishContent();
 
-            expect(mockDraftContentsStore.add).toHaveBeenCalled();
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
         });
 
-        it('should set publishedStatus to true', () => {
+        it('should set publishedStatus to true', async () => {
             component.pageTitle = 'Test Title';
-            component.directPublishContent();
+            await component.directPublishContent();
 
-            const addCall = mockDraftContentsStore.add.mock.calls[0][0];
+            const addCall = mockDraftContentsStore.createDraft.mock.calls[0][0];
             expect(addCall.publishedStatus).toBe(true);
         });
 
-        it('should set publishedOn date on first publish', () => {
+        it('should set publishedOn date on first publish', async () => {
             component.pageTitle = 'Test Title';
-            component.directPublishContent();
+            await component.directPublishContent();
 
-            const addCall = mockDraftContentsStore.add.mock.calls[0][0];
+            const addCall = mockDraftContentsStore.createDraft.mock.calls[0][0];
             expect(addCall.publishedOn).toBeInstanceOf(Date);
         });
 
-        it('should preserve existing publishedOn when re-publishing', () => {
+        it('should preserve existing publishedOn when re-publishing', async () => {
             const originalDate = new Date('2025-01-15');
             component.pageTitle = 'Test Title';
             component.contentId = 'existing-123';
             mockDraftContentsStore.currentItem.set({ publishedOn: originalDate });
 
-            component.directPublishContent();
+            await component.directPublishContent();
 
-            const updateCall = mockDraftContentsStore.update.mock.calls[0][1];
+            const updateCall = mockDraftContentsStore.saveDraft.mock.calls[0][1];
             expect(updateCall.publishedOn).toEqual(originalDate);
         });
 
         // SS6: the standard pages start with outline text to replace.
-        it('asks before publishing outline text, and publishes only on yes', () => {
-            const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
-            component.pageTitle = '[Replace: a title]';
-            component.directPublishContent();
-            expect(confirm).toHaveBeenCalledTimes(1);
-            expect(mockDraftContentsStore.add).not.toHaveBeenCalled();
-
-            component.directPublishContent();
-            expect(mockDraftContentsStore.add).toHaveBeenCalled();
-            confirm.mockRestore();
-        });
-
-        it('publishes without asking when nothing is left to replace', () => {
+        it('asks before publishing outline text in Arc CMS\'s own dialog, and publishes only on yes (RF4 4.10)', async () => {
             const confirm = vi.spyOn(window, 'confirm');
-            component.pageTitle = 'Finished page';
-            component.directPublishContent();
+            mockDialog.open.mockReturnValueOnce({ afterClosed: () => of(undefined) })
+                .mockReturnValueOnce({ afterClosed: () => of(true) });
+            component.pageTitle = '[Replace: a title]';
+            await component.directPublishContent();
+            expect(mockDialog.open).toHaveBeenCalledTimes(1);
+            expect(mockDialog.open.mock.calls[0][1].data.titleKey).toBe('admin.contents.editor.replace_prompt_title');
+            expect(mockDraftContentsStore.createDraft).not.toHaveBeenCalled();
+
+            await component.directPublishContent();
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
             expect(confirm).not.toHaveBeenCalled();
             confirm.mockRestore();
         });
 
-        it('should NOT publish when title is empty', () => {
-            component.pageTitle = '';
-            component.directPublishContent();
-
-            expect(mockDraftContentsStore.add).not.toHaveBeenCalled();
-            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith('Title is required', 'error', 'error');
+        it('publishes without asking when nothing is left to replace', async () => {
+            component.pageTitle = 'Finished page';
+            await component.directPublishContent();
+            expect(mockDialog.open).not.toHaveBeenCalled();
         });
 
-        it('should NOT publish when required custom fields are empty', () => {
+        it('should NOT publish when title is empty', async () => {
+            component.pageTitle = '';
+            await component.directPublishContent();
+
+            expect(mockDraftContentsStore.createDraft).not.toHaveBeenCalled();
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith('Title is required.', 'error', 'error');
+        });
+
+        it('should NOT publish when required custom fields are empty', async () => {
             // Set up a content type with required custom field
             mockContentTypesStore.items.set([
                 {
@@ -827,13 +869,13 @@ describe('CreateContentComponent', () => {
 
             // Set title but not the required custom field
             component.pageTitle = 'Test Product';
-            component.directPublishContent();
+            await component.directPublishContent();
 
-            expect(mockDraftContentsStore.add).not.toHaveBeenCalled();
-            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith('Price is required', 'error', 'error');
+            expect(mockDraftContentsStore.createDraft).not.toHaveBeenCalled();
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith('Price is required.', 'error', 'error');
         });
 
-        it('should publish when required custom fields are filled', () => {
+        it('should publish when required custom fields are filled', async () => {
             // Set up a content type with required custom field
             mockContentTypesStore.items.set([
                 {
@@ -854,9 +896,9 @@ describe('CreateContentComponent', () => {
             // Set title AND required custom field
             component.pageTitle = 'Test Product';
             component.customFieldValues = { price: 99.99 };
-            component.directPublishContent();
+            await component.directPublishContent();
 
-            expect(mockDraftContentsStore.add).toHaveBeenCalled();
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
         });
     });
 
@@ -872,14 +914,14 @@ describe('CreateContentComponent', () => {
             component.pageTitle = '';
             const result = component.validateForDraft();
             expect(result.valid).toBe(false);
-            expect(result.errors).toContain('Title is required');
+            expect(result.errors).toContain('Title is required.');
         });
 
         it('validateForDraft should fail when title is whitespace only', () => {
             component.pageTitle = '   ';
             const result = component.validateForDraft();
             expect(result.valid).toBe(false);
-            expect(result.errors).toContain('Title is required');
+            expect(result.errors).toContain('Title is required.');
         });
 
         it('validateForPublish should check required custom fields', () => {
@@ -902,7 +944,7 @@ describe('CreateContentComponent', () => {
             component.pageTitle = 'Test';
             const result = component.validateForPublish();
             expect(result.valid).toBe(false);
-            expect(result.errors).toContain('Price is required');
+            expect(result.errors).toContain('Price is required.');
         });
 
         it('validateForPublish should pass when all required fields are filled', () => {
@@ -981,8 +1023,8 @@ describe('CreateContentComponent', () => {
                 component.activeTab = 'seo';
                 fixture.detectChanges();
 
-                component.directPublishContent();
-                expect(mockDraftContentsStore.add).not.toHaveBeenCalled();
+                await component.directPublishContent();
+                expect(mockDraftContentsStore.createDraft).not.toHaveBeenCalled();
                 expect(component.isRequiredMissing('price')).toBe(true);
                 expect(component.isRequiredMissing('sku')).toBe(true);
                 expect(component.isRequiredMissing('title')).toBe(false);
@@ -998,10 +1040,10 @@ describe('CreateContentComponent', () => {
                 expect(document.activeElement).toBe(wrapper.querySelector('input'));
             });
 
-            it('clears the outline as soon as the field has a value', () => {
+            it('clears the outline as soon as the field has a value', async () => {
                 component.pageTitle = 'Test';
                 component.customFieldValues = {};
-                component.directPublishContent();
+                await component.directPublishContent();
                 expect(component.isRequiredMissing('price')).toBe(true);
 
                 component.onCustomFieldChange('price', 5);
@@ -1051,7 +1093,7 @@ describe('CreateContentComponent', () => {
     });
 
     describe('Navigation', () => {
-        it('should save draft and open preview tab in navigateBySlug', () => {
+        it('should save draft and open preview tab in navigateBySlug', async () => {
             // Mock window.open
             const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
             
@@ -1063,22 +1105,23 @@ describe('CreateContentComponent', () => {
             component.pageTitle = 'Test Title';
 
             component.navigateBySlug();
+            await new Promise((resolve) => setTimeout(resolve));
 
             // navigateBySlug calls saveAsDraft, which calls afterSave
             // afterSave should call window.open
             
-            expect(mockDraftContentsStore.add).toHaveBeenCalled();
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
             expect(openSpy).toHaveBeenCalledWith('/articles/my-article?preview=true', '_blank');
             
             openSpy.mockRestore();
         });
 
-        it('should NOT open preview if save fails', () => {
+        it('should NOT open preview if save fails, and says Not saved (RF4 4.4)', async () => {
              // Mock window.open
             const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
             
             // Mock save failure
-            mockDraftContentsStore.add.mockReturnValue(of(null)); // or throw error
+            mockDraftContentsStore.createDraft.mockReturnValue(of(null)); // or throw error
             // Actually implementation calls callback only on success (next with newId)
             
             component.publishForm.patchValue({ 
@@ -1089,18 +1132,17 @@ describe('CreateContentComponent', () => {
             component.pageTitle = 'Title'; // valid title
 
             // Override behavior to simulate failure (no callback execution)
-             mockDraftContentsStore.add.mockImplementation(() => {
-                return {
-                    subscribe: (observer: any) => {
-                        observer.error('Failed');
-                    }
-                }
-            });
+            mockDraftContentsStore.createDraft.mockReturnValue(throwError(() => new Error('Failed')));
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
             component.navigateBySlug();
+            await new Promise((resolve) => setTimeout(resolve));
 
-            expect(mockDraftContentsStore.add).toHaveBeenCalled();
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
             expect(openSpy).not.toHaveBeenCalled();
+            expect(component.saveFailed()).toBe(true);
+            // Never left disabled after a failed write.
+            expect(component.isSavingDraft).toBe(false);
             
             openSpy.mockRestore();
         });
@@ -1356,21 +1398,21 @@ describe('CreateContentComponent', () => {
             expect(component.isCheckboxOptionSelected('nonexistent', 'Option')).toBe(false);
         });
 
-        it('should include customFields in save data', () => {
+        it('should include customFields in save data', async () => {
             component.pageTitle = 'Test';
             component.customFieldValues = { color: 'Red', featured: true };
-            component.saveAsDraft();
+            await component.saveAsDraft();
 
-            const addCall = mockDraftContentsStore.add.mock.calls[0][0];
+            const addCall = mockDraftContentsStore.createDraft.mock.calls[0][0];
             expect(addCall.customFields).toEqual({ color: 'Red', featured: true });
         });
 
-        it('should include customFields in publish data', () => {
+        it('should include customFields in publish data', async () => {
             component.pageTitle = 'Test';
             component.customFieldValues = { status: 'Active' };
-            component.directPublishContent();
+            await component.directPublishContent();
 
-            const addCall = mockDraftContentsStore.add.mock.calls[0][0];
+            const addCall = mockDraftContentsStore.createDraft.mock.calls[0][0];
             expect(addCall.customFields).toEqual({ status: 'Active' });
         });
     });
@@ -1520,27 +1562,27 @@ describe('CreateContentComponent', () => {
             expect(component.publishForm.get('content')?.value).toBe(existingContent);
         });
 
-        it('should include TipTap content in save draft payload', () => {
+        it('should include TipTap content in save draft payload', async () => {
             component.pageTitle = 'Test Article';
             const tiptapContent = '<p>Content from TipTap editor</p>';
             component.passEditorContentToParent(tiptapContent);
 
-            component.saveAsDraft();
+            await component.saveAsDraft();
 
-            expect(mockDraftContentsStore.add).toHaveBeenCalled();
-            const addCall = mockDraftContentsStore.add.mock.calls[0][0];
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
+            const addCall = mockDraftContentsStore.createDraft.mock.calls[0][0];
             expect(addCall.content).toBe(tiptapContent);
         });
 
-        it('should include TipTap content in publish payload', () => {
+        it('should include TipTap content in publish payload', async () => {
             component.pageTitle = 'Test Article';
             const tiptapContent = '<h1>Published Article</h1><p>Article body</p>';
             component.passEditorContentToParent(tiptapContent);
 
-            component.directPublishContent();
+            await component.directPublishContent();
 
-            expect(mockDraftContentsStore.add).toHaveBeenCalled();
-            const addCall = mockDraftContentsStore.add.mock.calls[0][0];
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
+            const addCall = mockDraftContentsStore.createDraft.mock.calls[0][0];
             expect(addCall.content).toBe(tiptapContent);
         });
 
@@ -1779,27 +1821,27 @@ describe('CreateContentComponent', () => {
         });
 
         describe('saving', () => {
-            it('saves both links in the draft payload', () => {
+            it('saves both links in the draft payload', async () => {
                 loadStored();
                 component.selectedNextContent = ref('n1');
                 component.selectedPreviousContent = ref('p1');
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
 
-                expect(mockDraftContentsStore.update).toHaveBeenCalledWith('doc-1', expect.objectContaining({
+                expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledWith('doc-1', expect.objectContaining({
                     nextContent: ref('n1'),
                     previousContent: ref('p1'),
-                }), 'article');
+                }), 'article', null);
             });
 
-            it('saves a cleared link as null, so the stored one goes', () => {
+            it('saves a cleared link as null, so the stored one goes', async () => {
                 loadStored({ previousContent: ref('p1') });
                 component.removePreviousContent();
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
 
-                expect(mockDraftContentsStore.update).toHaveBeenCalledWith('doc-1',
-                    expect.objectContaining({ previousContent: null }), 'article');
+                expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledWith('doc-1',
+                    expect.objectContaining({ previousContent: null }), 'article', null);
             });
 
             it('links a new entry\'s Next back only after the save gives it an id, never as "temp-id"', async () => {
@@ -1808,20 +1850,25 @@ describe('CreateContentComponent', () => {
                 component.publishForm.patchValue({ urlSlug: 'part-one' });
                 component.selectedNextContent = ref('n1');
 
-                component.saveAsDraft();
                 // Nothing touches another entry before the entry exists.
-                expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
-                expect(mockDraftContentsStore.applyBacklinks).not.toHaveBeenCalled();
+                let createdWhenLinked: unknown[] = [];
+                mockDraftContentsStore.applyBacklinks.mockImplementation(async () => {
+                    createdWhenLinked = mockDraftContentsStore.createDraft.mock.calls;
+                    return { changed: [], failed: [] };
+                });
+                await component.saveAsDraft();
                 await flush();
+                expect(mockDraftContentsStore.saveDraft).not.toHaveBeenCalled();
+                expect(createdWhenLinked.length).toBe(1);
 
-                expect(mockDraftContentsStore.add).toHaveBeenCalled();
+                expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
                 expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith(
                     'article',
                     expect.objectContaining({ id: 'new-id', title: 'Part one', slug: 'part-one' }),
                     [{ targetId: 'n1', field: 'previousContent', action: 'set' }],
                 );
                 const everyCall = JSON.stringify([
-                    mockDraftContentsStore.update.mock.calls,
+                    mockDraftContentsStore.saveDraft.mock.calls,
                     mockDraftContentsStore.applyBacklinks.mock.calls,
                 ]);
                 expect(everyCall).not.toContain('temp-id');
@@ -1831,15 +1878,15 @@ describe('CreateContentComponent', () => {
                 component.contentTypeSlug = 'article';
                 component.pageTitle = 'Part one';
                 component.selectedNextContent = ref('n1');
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
                 mockDraftContentsStore.applyBacklinks.mockClear();
 
                 component.selectNextContent(option('n2', 'Part three'));
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
 
-                expect(mockDraftContentsStore.update).toHaveBeenCalledWith('new-id', expect.anything(), 'article');
+                expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledWith('new-id', expect.anything(), 'article', expect.any(Date));
                 expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith('article', expect.objectContaining({ id: 'new-id' }), [
                     { targetId: 'n1', field: 'previousContent', action: 'clear' },
                     { targetId: 'n2', field: 'previousContent', action: 'set' },
@@ -1851,7 +1898,7 @@ describe('CreateContentComponent', () => {
                 component.selectNextContent(option('n1', 'Part three'));
                 component.selectPreviousContent(option('p1', 'Part one'));
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
 
                 expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith(
@@ -1868,7 +1915,7 @@ describe('CreateContentComponent', () => {
                 loadStored({ nextContent: ref('old') });
                 component.selectNextContent(option('new', 'Part three'));
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
 
                 expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith('article', expect.anything(), [
@@ -1882,7 +1929,7 @@ describe('CreateContentComponent', () => {
                 component.removeNextContent();
                 component.removePreviousContent();
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
 
                 expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith('article', expect.anything(), [
@@ -1895,7 +1942,7 @@ describe('CreateContentComponent', () => {
                 loadStored({ nextContent: ref('old') });
                 component.selectNextContent(option('new', 'Part three'));
 
-                component['performAutoSave']();
+                await component['performAutoSave']();
                 await flush();
 
                 expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledWith('article', expect.anything(), [
@@ -1909,7 +1956,7 @@ describe('CreateContentComponent', () => {
                 component.pageTitle = 'Part two, renamed';
                 component.publishForm.patchValue({ urlSlug: 'part-two-renamed' });
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
 
                 const renamed = { title: 'Part two, renamed', summary: 'The second part', slug: 'part-two-renamed' };
@@ -1922,10 +1969,10 @@ describe('CreateContentComponent', () => {
                 component.selectNextContent(option('n2', 'Part three'));
                 vi.spyOn(component as any, 'validateForPublish').mockReturnValue({ valid: true, errors: [], missing: [] });
 
-                component.directPublishContent();
+                await component.directPublishContent();
                 await flush();
 
-                const written = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+                const written = mockDraftContentsStore.saveDraft.mock.calls.at(-1)[1];
                 expect(written).toMatchObject({ nextContent: { id: 'n2' }, status: 'publish' });
                 expect(written).not.toHaveProperty('previousContent');
             });
@@ -1937,10 +1984,10 @@ describe('CreateContentComponent', () => {
                     loadStored({ nextContent: null, previousContent: null });
                     component.pageTitle = 'Part two, edited';
 
-                    component['performAutoSave']();
+                    await component['performAutoSave']();
                     await flush();
 
-                    const written = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+                    const written = mockDraftContentsStore.saveDraft.mock.calls.at(-1)[1];
                     expect(written.title).toBe('Part two, edited');
                     expect(written).not.toHaveProperty('previousContent');
                     expect(written).not.toHaveProperty('nextContent');
@@ -1953,10 +2000,10 @@ describe('CreateContentComponent', () => {
                     loadStored({ nextContent: ref('b'), previousContent: ref('p') });
                     component.pageTitle = 'Part two, edited';
 
-                    component.saveAsDraft();
+                    await component.saveAsDraft();
                     await flush();
 
-                    const written = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+                    const written = mockDraftContentsStore.saveDraft.mock.calls.at(-1)[1];
                     expect(written).not.toHaveProperty('nextContent');
                     expect(written).not.toHaveProperty('previousContent');
                     expect(mockDraftContentsStore.applyBacklinks).not.toHaveBeenCalled();
@@ -1965,16 +2012,16 @@ describe('CreateContentComponent', () => {
                 it('still writes a link this tab changed, and compares the next save with it', async () => {
                     loadStored({ nextContent: ref('b') });
                     component.selectNextContent(option('c', 'Part C'));
-                    component.saveAsDraft();
+                    await component.saveAsDraft();
                     await flush();
-                    expect(mockDraftContentsStore.update.mock.calls.at(-1)[1].nextContent).toMatchObject({ id: 'c' });
+                    expect(mockDraftContentsStore.saveDraft.mock.calls.at(-1)[1].nextContent).toMatchObject({ id: 'c' });
 
                     mockDraftContentsStore.applyBacklinks.mockClear();
                     component.pageTitle = 'Renamed';
-                    component.saveAsDraft();
+                    await component.saveAsDraft();
                     await flush();
 
-                    expect(mockDraftContentsStore.update.mock.calls.at(-1)[1]).not.toHaveProperty('nextContent');
+                    expect(mockDraftContentsStore.saveDraft.mock.calls.at(-1)[1]).not.toHaveProperty('nextContent');
                     expect(mockDraftContentsStore.applyBacklinks).not.toHaveBeenCalled();
                 });
             });
@@ -1986,11 +2033,11 @@ describe('CreateContentComponent', () => {
                 mockDraftContentsStore.applyBacklinks.mockResolvedValueOnce({
                     changed: [], failed: [{ targetId: 'n1', field: 'previousContent', action: 'clear' }],
                 });
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
 
                 component.pageTitle = 'Renamed';
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
 
                 expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledTimes(2);
@@ -2000,7 +2047,7 @@ describe('CreateContentComponent', () => {
 
                 // Once it went through, it is not asked for again.
                 component.pageTitle = 'Renamed again';
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
                 expect(mockDraftContentsStore.applyBacklinks).toHaveBeenCalledTimes(2);
             });
@@ -2008,7 +2055,8 @@ describe('CreateContentComponent', () => {
 
         describe('restoring a version', () => {
             beforeEach(() => {
-                vi.spyOn(window, 'confirm').mockReturnValue(true);
+                // Restore asks in Arc CMS's own dialog (RF4 4.10); yes here.
+                mockDialog.open.mockReturnValue({ afterClosed: () => of(true) });
             });
 
             const version = (extra: Record<string, unknown> = {}) => ({
@@ -2263,18 +2311,18 @@ describe('CreateContentComponent', () => {
         it('does not save when nothing has changed since loading', async () => {
             await loadSavedItem();
 
-            component['performAutoSave']();
+            await component['performAutoSave']();
 
-            expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+            expect(mockDraftContentsStore.saveDraft).not.toHaveBeenCalled();
         });
 
         it('saves once a field actually changes', async () => {
             await loadSavedItem();
             component.pageTitle = 'Hello world, edited';
 
-            component['performAutoSave']();
+            await component['performAutoSave']();
 
-            expect(mockDraftContentsStore.update).toHaveBeenCalled();
+            expect(mockDraftContentsStore.saveDraft).toHaveBeenCalled();
         });
 
         it('ignores the editor reserializing the same body', async () => {
@@ -2282,20 +2330,20 @@ describe('CreateContentComponent', () => {
             // Same content, re-emitted — e.g. on a re-render.
             component.passEditorContentToParent('<p>Body</p>');
 
-            component['performAutoSave']();
+            await component['performAutoSave']();
 
-            expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+            expect(mockDraftContentsStore.saveDraft).not.toHaveBeenCalled();
         });
 
         it('stops reporting changes after a save completes', async () => {
             await loadSavedItem();
             component.pageTitle = 'Edited once';
-            component['performAutoSave']();
-            expect(mockDraftContentsStore.update).toHaveBeenCalledTimes(1);
+            await component['performAutoSave']();
+            expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledTimes(1);
 
-            component['performAutoSave']();
+            await component['performAutoSave']();
 
-            expect(mockDraftContentsStore.update).toHaveBeenCalledTimes(1);
+            expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledTimes(1);
         });
 
         it('does not auto-save again right after a manual save', async () => {
@@ -2306,12 +2354,12 @@ describe('CreateContentComponent', () => {
             await loadSavedItem();
             component.pageTitle = 'Edited then published';
 
-            component.saveAsDraft();
-            mockDraftContentsStore.update.mockClear();
+            await component.saveAsDraft();
+            mockDraftContentsStore.saveDraft.mockClear();
 
-            component['performAutoSave']();
+            await component['performAutoSave']();
 
-            expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+            expect(mockDraftContentsStore.saveDraft).not.toHaveBeenCalled();
         });
 
         it('saves an item whose baseline was never captured', async () => {
@@ -2320,9 +2368,9 @@ describe('CreateContentComponent', () => {
             component.contentId = 'doc-1';
             component.pageTitle = 'Fresh';
 
-            component['performAutoSave']();
+            await component['performAutoSave']();
 
-            expect(mockDraftContentsStore.update).toHaveBeenCalled();
+            expect(mockDraftContentsStore.saveDraft).toHaveBeenCalled();
         });
     });
 
@@ -2355,6 +2403,7 @@ describe('CreateContentComponent', () => {
 
             it('leaves auto-save on the base document', async () => {
                 await component['initLanguages']();
+                component.contentId = 'doc-1';
                 const trigger = vi.spyOn(component['autoSaveTrigger$'], 'next');
 
                 component.triggerAutoSave();
@@ -2460,10 +2509,10 @@ describe('CreateContentComponent', () => {
                 component.pageTitle = 'नमस्ते';
                 component.triggerAutoSave();
 
-                component['performAutoSave']();
+                await component['performAutoSave']();
                 await Promise.resolve();
 
-                const [, payload] = mockDraftContentsStore.update.mock.calls[0];
+                const [, payload] = mockDraftContentsStore.saveDraft.mock.calls[0];
                 expect(payload.title).toBe('Hello world');
                 expect(payload.content).toBe('<p>English body</p>');
             });
@@ -2511,11 +2560,61 @@ describe('CreateContentComponent', () => {
                 await component.switchLanguage('hi');
                 component.pageTitle = 'नमस्ते';
 
-                component['performAutoSave']();
+                await component['performAutoSave']();
                 await Promise.resolve();
 
-                const [, payload] = mockDraftContentsStore.update.mock.calls[0];
+                const [, payload] = mockDraftContentsStore.saveDraft.mock.calls[0];
                 expect(payload.title).toBe('Hello world');
+            });
+
+            // RF4 review H2: text typed while a translation is written stays unsaved.
+            it('keeps a translation dirty when it was typed in while its write ran', async () => {
+                await loadEnglishContent();
+                await component.switchLanguage('hi');
+                component.pageTitle = 'नमस्ते';
+                component.triggerAutoSave();
+                let release!: () => void;
+                mockDraftContentsService.saveTranslation.mockImplementationOnce(() => new Promise<void>((resolve) => (release = resolve)));
+                const trigger = vi.spyOn(component['autoSaveTrigger$'], 'next');
+
+                const saving = component.saveAsDraft();
+                await new Promise((resolve) => setTimeout(resolve));
+                component.pageTitle = 'नमस्ते दुनिया';
+                release();
+                await saving;
+
+                expect(component['dirtyTranslations'].has('hi')).toBe(true);
+                expect(component.translationDirty()).toBe(true);
+                expect(trigger).toHaveBeenCalled();
+            });
+
+            // RF4 review M6: a translation that did not land says Not saved, with Retry.
+            it('shows Not saved with Retry when a translation write fails', async () => {
+                vi.spyOn(console, 'error').mockImplementation(() => undefined);
+                await loadEnglishContent();
+                await component.switchLanguage('hi');
+                component.pageTitle = 'नमस्ते';
+                component.triggerAutoSave();
+                mockDraftContentsService.saveTranslation.mockRejectedValueOnce(new Error('offline'));
+
+                await component.saveAsDraft();
+                expect(component.saveFailed()).toBe(true);
+                expect(component.isSavingDraft).toBe(false);
+
+                component.retrySave();
+                await new Promise((resolve) => setTimeout(resolve));
+                expect(mockDraftContentsService.saveTranslation).toHaveBeenCalledTimes(2);
+                expect(component.saveFailed()).toBe(false);
+            });
+
+            // RF4 review L11.
+            it('counts unsaved translation work on a new entry as unsaved', async () => {
+                await component['initLanguages']();
+                enableHindi();
+                await component.switchLanguage('hi');
+                component.pageTitle = 'नमस्ते';
+                component.markTranslationDirty();
+                expect(component.hasUnsavedChanges()).toBe(true);
             });
 
             it('saves from a translation tab without corrupting the base document', async () => {
@@ -2524,11 +2623,11 @@ describe('CreateContentComponent', () => {
                 component.pageTitle = 'नमस्ते';
                 component.triggerAutoSave();
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await Promise.resolve();
                 await Promise.resolve();
 
-                const [, payload] = mockDraftContentsStore.update.mock.calls[0];
+                const [, payload] = mockDraftContentsStore.saveDraft.mock.calls[0];
                 expect(payload.title).toBe('Hello world');
                 expect(mockDraftContentsService.saveTranslation).toHaveBeenCalled();
             });
@@ -2537,10 +2636,10 @@ describe('CreateContentComponent', () => {
                 await loadEnglishContent();
                 await component.switchLanguage('hi');
 
-                component.directPublishContent();
+                await component.directPublishContent();
                 await Promise.resolve();
 
-                const [, payload] = mockDraftContentsStore.update.mock.calls[0];
+                const [, payload] = mockDraftContentsStore.saveDraft.mock.calls[0];
                 expect(payload.publishedStatus).toBe(true);
                 expect(payload.title).toBe('Hello world');
             });
@@ -2594,13 +2693,13 @@ describe('CreateContentComponent', () => {
                 component.customFieldValues = { blurb: 'हिन्दी सारांश', readingLevel: 9 };
                 component.triggerAutoSave();
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await Promise.resolve();
                 await Promise.resolve();
 
                 // Base document keeps the default-language content...
-                expect(mockDraftContentsStore.update).toHaveBeenCalled();
-                const [, basePayload] = mockDraftContentsStore.update.mock.calls[0];
+                expect(mockDraftContentsStore.saveDraft).toHaveBeenCalled();
+                const [, basePayload] = mockDraftContentsStore.saveDraft.mock.calls[0];
                 expect(basePayload.title).toBe('Hello world');
                 // ...and the translation is written alongside it.
                 const [slug, docId, translation] = mockDraftContentsService.saveTranslation.mock.calls[0];
@@ -2617,11 +2716,11 @@ describe('CreateContentComponent', () => {
                 component.pageTitle = 'नमस्ते';
                 component.triggerAutoSave();
 
-                component.directPublishContent();
+                await component.directPublishContent();
                 await Promise.resolve();
                 await Promise.resolve();
 
-                const [, payload] = mockDraftContentsStore.update.mock.calls[0];
+                const [, payload] = mockDraftContentsStore.saveDraft.mock.calls[0];
                 expect(payload.publishedStatus).toBe(true);
                 expect(payload.title).toBe('Hello world');
                 expect(mockDraftContentsService.saveTranslation).toHaveBeenCalled();
@@ -2642,7 +2741,7 @@ describe('CreateContentComponent', () => {
                 component.pageTitle = 'नमस्ते';
                 component.triggerAutoSave();
 
-                component.directPublishContent();
+                await component.directPublishContent();
                 await Promise.resolve();
                 await Promise.resolve();
 
@@ -2657,11 +2756,11 @@ describe('CreateContentComponent', () => {
                 component.pageTitle = 'नया';
                 component.triggerAutoSave();
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await Promise.resolve();
                 await Promise.resolve();
 
-                expect(mockDraftContentsStore.add).toHaveBeenCalled();
+                expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
                 const [, docId] = mockDraftContentsService.saveTranslation.mock.calls[0];
                 expect(docId).toBe('new-id');
             });
@@ -2678,7 +2777,7 @@ describe('CreateContentComponent', () => {
                 component.customFieldValues = {};
                 component.triggerAutoSave();
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await Promise.resolve();
                 await Promise.resolve();
 
@@ -2694,7 +2793,7 @@ describe('CreateContentComponent', () => {
                 await component.switchLanguage('en');
                 component.pageTitle = 'English edit only';
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await Promise.resolve();
                 await Promise.resolve();
 
@@ -2709,16 +2808,13 @@ describe('CreateContentComponent', () => {
                 component.pageTitle = 'नमस्ते';
                 component.triggerAutoSave();
 
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await Promise.resolve();
                 await Promise.resolve();
 
-                expect(mockDraftContentsStore.update).toHaveBeenCalled();
-                expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                    expect.stringContaining('translation'),
-                    'error',
-                    'error',
-                );
+                expect(mockDraftContentsStore.saveDraft).toHaveBeenCalled();
+                // The entry itself was saved; the translation says Not saved, with Retry (RF4 review M6).
+                expect(component.saveFailed()).toBe(true);
                 consoleSpy.mockRestore();
             });
 
@@ -2762,24 +2858,24 @@ describe('CreateContentComponent', () => {
     // ─── Last updated date (specs/discoverability-spec.md, D-D3) ────────────
 
     describe('updatedOn', () => {
-        it('starts empty and is saved as null', () => {
+        it('starts empty and is saved as null', async () => {
             expect(component.seoForm.get('updatedOn')?.value).toBe('');
             component.pageTitle = 'T';
             component.contentId = 'existing-id';
-            component.saveAsDraft();
-            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            await component.saveAsDraft();
+            const payload = mockDraftContentsStore.saveDraft.mock.calls.at(-1)[1];
             expect(payload.updatedOn).toBeNull();
         });
 
-        it('markUpdatedToday stamps today and saves it as a Date', () => {
+        it('markUpdatedToday stamps today and saves it as a Date', async () => {
             component.markUpdatedToday();
             const value = component.seoForm.get('updatedOn')?.value as string;
             expect(value).toBe(toDateInputValue(new Date()));
 
             component.pageTitle = 'T';
             component.contentId = 'existing-id';
-            component.saveAsDraft();
-            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            await component.saveAsDraft();
+            const payload = mockDraftContentsStore.saveDraft.mock.calls.at(-1)[1];
             expect(payload.updatedOn).toBeInstanceOf(Date);
             expect(toDateInputValue(payload.updatedOn)).toBe(value);
         });
@@ -2827,18 +2923,18 @@ describe('CreateContentComponent', () => {
             component.publishForm.get('authorId')?.setValue('a2');
             component.pageTitle = 'T';
             component.contentId = 'existing-id';
-            component.saveAsDraft();
-            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            await component.saveAsDraft();
+            const payload = mockDraftContentsStore.saveDraft.mock.calls.at(-1)[1];
             expect(payload.authorId).toBe('a2');
             expect(payload.authorName).toBe('John Roe');
         });
 
-        it('saves null and an empty name when no author is chosen', () => {
+        it('saves null and an empty name when no author is chosen', async () => {
             component.publishForm.get('authorId')?.setValue('');
             component.pageTitle = 'T';
             component.contentId = 'existing-id';
-            component.saveAsDraft();
-            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            await component.saveAsDraft();
+            const payload = mockDraftContentsStore.saveDraft.mock.calls.at(-1)[1];
             expect(payload.authorId).toBeNull();
             expect(payload.authorName).toBe('');
         });
@@ -2847,7 +2943,7 @@ describe('CreateContentComponent', () => {
     // ─── Sources (specs/discoverability-spec.md, D-D11) ─────────────────────
 
     describe('references', () => {
-        it('starts empty, adds and edits rows, and saves only clean entries', () => {
+        it('starts empty, adds and edits rows, and saves only clean entries', async () => {
             expect(component.references()).toEqual([]);
             component.addReference();
             component.addReference();
@@ -2858,8 +2954,8 @@ describe('CreateContentComponent', () => {
 
             component.pageTitle = 'T';
             component.contentId = 'existing-id';
-            component.saveAsDraft();
-            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            await component.saveAsDraft();
+            const payload = mockDraftContentsStore.saveDraft.mock.calls.at(-1)[1];
             expect(payload.references).toEqual([{ title: 'Spec', url: 'https://spec.example/one' }]);
         });
 
@@ -2921,11 +3017,11 @@ describe('CreateContentComponent', () => {
             expect(component.selectedTags().map(t => t.label)).toEqual(['stored-tag']);
         });
 
-        it('keeps saved SEO edits and adds the row when Add source is pressed', () => {
+        it('keeps saved SEO edits and adds the row when Add source is pressed', async () => {
             loadFromStore();
             editSeo();
             component.pageTitle = 'Stored title';
-            component.saveAsDraft();
+            await component.saveAsDraft();
 
             component.addReference();
             settle();
@@ -2980,7 +3076,7 @@ describe('CreateContentComponent', () => {
             await component['initLanguages']();
             editSeo();
             component.pageTitle = 'Edited title';
-            component.saveAsDraft();
+            await component.saveAsDraft();
 
             await component.switchLanguage('hi');
             settle();
@@ -2991,7 +3087,7 @@ describe('CreateContentComponent', () => {
             expect(component.pageTitle).toBe('Edited title');
         });
 
-        it('shapes repeating fields when the content type arrives after the item', () => {
+        it('shapes repeating fields when the content type arrives after the item', async () => {
             mockContentTypesStore.items.set([]);
             settle();
             loadFromStore({
@@ -3009,11 +3105,11 @@ describe('CreateContentComponent', () => {
             expect(rows.map((r: any) => r.question)).toEqual(['First?', 'Second?']);
             expect(rows.every((r: any) => typeof r.id === 'string' && r.id)).toBe(true);
             // Shaping the rows is not an edit, so nothing is auto-saved.
-            component['performAutoSave']();
-            expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+            await component['performAutoSave']();
+            expect(mockDraftContentsStore.saveDraft).not.toHaveBeenCalled();
         });
 
-        it('still saves an edit made before the content type arrived', () => {
+        it('still saves an edit made before the content type arrived', async () => {
             mockContentTypesStore.items.set([]);
             settle();
             loadFromStore({ ...STORED, customFields: { questions: [{ question: 'Only?' }] } });
@@ -3024,9 +3120,9 @@ describe('CreateContentComponent', () => {
                 { name: 'Article', slug: 'article', fields: [{ key: 'questions', label: 'FAQ', type: 'faq' }] },
             ]);
             settle();
-            component['performAutoSave']();
+            await component['performAutoSave']();
 
-            expect(mockDraftContentsStore.update).toHaveBeenCalled();
+            expect(mockDraftContentsStore.saveDraft).toHaveBeenCalled();
         });
 
         it('does not count the author name arriving after load as an edit', async () => {
@@ -3034,9 +3130,9 @@ describe('CreateContentComponent', () => {
             component.passEditorContentToParent('<p>Body</p>');
 
             await (component as any).initAuthors();
-            component['performAutoSave']();
+            await component['performAutoSave']();
 
-            expect(mockDraftContentsStore.update).not.toHaveBeenCalled();
+            expect(mockDraftContentsStore.saveDraft).not.toHaveBeenCalled();
         });
 
         // Any body edit replaced a stored, hand-written summary with the body's
@@ -3114,7 +3210,7 @@ describe('CreateContentComponent', () => {
                 const patch = vi.spyOn(component as any, 'patchForms');
 
                 component.pageTitle = 'Stored title';
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
                 settle();
 
@@ -3126,14 +3222,15 @@ describe('CreateContentComponent', () => {
             it('keeps text typed while the save was running', async () => {
                 loadFromStore();
                 const written = new Subject<void>();
-                mockDraftContentsStore.update.mockReturnValueOnce(written);
+                mockDraftContentsStore.saveDraft.mockReturnValueOnce(written);
 
                 component.pageTitle = 'Stored title';
                 editSeo();
-                component.saveAsDraft();
+                const saving = component.saveAsDraft();
                 component.seoForm.get('seoTitle')?.setValue('Typed during the save');
                 written.next();
                 written.complete();
+                await saving;
                 await flush();
                 settle();
 
@@ -3145,29 +3242,29 @@ describe('CreateContentComponent', () => {
                 component.pageTitle = 'Stored title';
                 component.passEditorContentToParent('<p>Body</p>');
 
-                component.directPublishContent();
+                await component.directPublishContent();
                 await flush();
                 settle();
-                const first = mockDraftContentsStore.update.mock.calls[0][1].publishedOn;
+                const first = mockDraftContentsStore.saveDraft.mock.calls[0][1].publishedOn;
 
                 await new Promise((resolve) => setTimeout(resolve, 5));
-                component.directPublishContent();
+                await component.directPublishContent();
                 await flush();
 
                 expect(first).toBeInstanceOf(Date);
-                expect(mockDraftContentsStore.update.mock.calls[1][1].publishedOn).toBe(first);
+                expect(mockDraftContentsStore.saveDraft.mock.calls[1][1].publishedOn).toBe(first);
             });
 
             it('gives the reference sync what was stored before each save', async () => {
                 loadFromStore();
                 component.pageTitle = 'Stored title';
                 editSeo();
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
                 settle();
 
                 component.seoForm.get('seoTitle')?.setValue('Second SEO title');
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
 
                 const calls = mockCollectionRefSyncService.syncReferencedData.mock.calls;
@@ -3191,10 +3288,10 @@ describe('CreateContentComponent', () => {
                 loadFromStore({ ...STORED, canonicalUrl: 'http://localhost:5173/article/stored-title' });
                 component.pageTitle = 'Stored title';
                 editSeo();
-                component.saveAsDraft();
+                await component.saveAsDraft();
                 await flush();
 
-                expect(mockDraftContentsStore.update.mock.calls[0][1].canonicalUrl).toBe('');
+                expect(mockDraftContentsStore.saveDraft.mock.calls[0][1].canonicalUrl).toBe('');
             });
         });
     });
@@ -3229,9 +3326,9 @@ describe('CreateContentComponent', () => {
             await component.createInlineTag();
             component.pageTitle = 'T';
 
-            component.saveAsDraft();
+            await component.saveAsDraft();
 
-            const payload = mockDraftContentsStore.update.mock.calls.at(-1)[1];
+            const payload = mockDraftContentsStore.saveDraft.mock.calls.at(-1)[1];
             expect(payload.tags).toEqual(['Fresh']);
             expect(payload.tagsWithColors).toEqual([{ name: 'Fresh', color: '#FFB3BA' }]);
         });
@@ -3344,6 +3441,444 @@ describe('CreateContentComponent', () => {
 
     // Copy URL used the address the admin was open on, so a local admin
     // copied http://localhost:5173/... for a page on the live site.
+    // specs/dev-review-fixes-spec.md, RF4: no lost work in the editor.
+    describe('no lost work (RF4)', () => {
+        const flush = async () => { for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0)); };
+        const opened = new Date('2026-11-01T10:00:00Z');
+
+        function loadEntry(extra: Record<string, unknown> = {}): void {
+            component.contentTypeSlug = 'article';
+            component.contentId = 'doc-1';
+            mockDraftContentsStore.currentItem.set({
+                id: 'doc-1', title: 'Guide', content: '<p>Body</p>', urlSlug: 'guide', type: 'article',
+                tags: [], modifiedAt: opened, ...extra,
+            });
+            fixture.detectChanges(false);
+            (component as any).captureDraftBaseline();
+        }
+
+        describe('4.1 a new entry is written on its first input', () => {
+            it('writes the draft on the first title input and moves the address bar to the entry', async () => {
+                const replace = vi.spyOn(component.location, 'replaceState');
+                vi.spyOn(component.location, 'path').mockReturnValue('/admin/contents/article/add');
+                component.contentTypeSlug = 'article';
+                component.pageTitle = 'H';
+                component.triggerAutoSave();
+                await flush();
+
+                expect(mockDraftContentsStore.createDraft).toHaveBeenCalledTimes(1);
+                expect(mockDraftContentsStore.createDraft.mock.calls[0][0]).toMatchObject({ title: 'H', publishedStatus: false });
+                expect(component.contentId).toBe('new-id');
+                expect(replace).toHaveBeenCalledWith('/admin/contents/article/edit/new-id', '', history.state);
+                // Not reloaded into the forms: what was typed meanwhile stays.
+                expect(mockDraftContentsStore.getByCustomField).not.toHaveBeenCalled();
+            });
+
+            it('writes nothing for an empty entry, and only once while the first write runs', async () => {
+                component.contentTypeSlug = 'article';
+                component.triggerAutoSave();
+                expect(mockDraftContentsStore.createDraft).not.toHaveBeenCalled();
+
+                component.pageTitle = 'Hello';
+                component.triggerAutoSave();
+                component.triggerAutoSave();
+                await flush();
+                expect(mockDraftContentsStore.createDraft).toHaveBeenCalledTimes(1);
+            });
+        });
+
+        describe('4.2 the leave question', () => {
+            it('counts a new entry with text, an edit not saved yet, and a failed write as unsaved', async () => {
+                expect(component.hasUnsavedChanges()).toBe(false);
+                component.pageTitle = 'Draft title';
+                expect(component.hasUnsavedChanges()).toBe(true);
+
+                component.pageTitle = '';
+                loadEntry();
+                expect(component.hasUnsavedChanges()).toBe(false);
+                component.pageTitle = 'Guide, edited';
+                expect(component.hasUnsavedChanges()).toBe(true);
+
+                await (component as any).performAutoSave();
+                expect(component.hasUnsavedChanges()).toBe(false);
+                component.saveFailed.set(true);
+                expect(component.hasUnsavedChanges()).toBe(true);
+            });
+
+            it('asks the browser before closing the tab only with unsaved work', () => {
+                const quiet = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent;
+                component.onBeforeUnload(quiet);
+                expect(quiet.defaultPrevented).toBe(false);
+
+                component.pageTitle = 'Unsaved';
+                const asked = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent;
+                component.onBeforeUnload(asked);
+                expect(asked.defaultPrevented).toBe(true);
+            });
+        });
+
+        describe('4.3 publishing', () => {
+            it('waits for the queue write and shows Publishing until the page is live', async () => {
+                const deploy$ = new Subject<any>();
+                const contents = TestBed.inject(ContentsService) as any;
+                contents.pollDeployStatus.mockReturnValue(deploy$);
+                const queue = TestBed.inject(PublishQueueService) as any;
+                loadEntry();
+
+                await component.directPublishContent();
+
+                expect(queue.enqueue).toHaveBeenCalledWith('publish', 'article', 'doc-1');
+                expect(component.deployStatus()).toBe('pending');
+                deploy$.next({ deployStatus: null, deployError: '' });
+                expect(component.deployStatus()).toBe('pending');
+                deploy$.next({ deployStatus: 'deployed', deployError: '' });
+                expect(component.deployStatus()).toBe('deployed');
+            });
+
+            it('shows a failure that stays when publishing cannot start, and Publish again tries again', async () => {
+                const queue = TestBed.inject(PublishQueueService) as any;
+                queue.enqueue.mockRejectedValueOnce(new Error('offline'));
+                vi.spyOn(console, 'error').mockImplementation(() => undefined);
+                loadEntry();
+
+                await component.directPublishContent();
+
+                expect(component.deployStatus()).toBe('failed');
+                expect(component.publishProblem()).toBe('start');
+                expect(component.isSavingDraft).toBe(false);
+                component.retryDeployment();
+                await flush();
+                expect(queue.enqueue).toHaveBeenCalledTimes(2);
+            });
+
+            it('counts no answer within the wait as a failure, not as nothing', async () => {
+                const contents = TestBed.inject(ContentsService) as any;
+                contents.pollDeployStatus.mockReturnValue(of({ deployStatus: null, deployErrorCode: 'TIMEOUT', deployError: 'No result' }));
+                loadEntry();
+                await component.directPublishContent();
+                expect(component.deployStatus()).toBe('failed');
+                expect(component.publishProblem()).toBe('no_answer');
+            });
+        });
+
+        describe('4.4 a failed write', () => {
+            it('shows Not saved until a write works, keeps Save and Publish usable, and Retry writes again', async () => {
+                vi.spyOn(console, 'error').mockImplementation(() => undefined);
+                loadEntry();
+                component.pageTitle = 'Guide, edited';
+                mockDraftContentsStore.saveDraft.mockReturnValueOnce(throwError(() => new Error('unavailable')));
+
+                await (component as any).performAutoSave();
+                expect(component.saveFailed()).toBe(true);
+                expect(component.isSavingDraft).toBe(false);
+                fixture.detectChanges(false);
+                expect(fixture.nativeElement.querySelector('[data-testid="not-saved"]')).toBeTruthy();
+
+                component.retrySave();
+                await flush();
+                expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledTimes(2);
+                expect(component.saveFailed()).toBe(false);
+            });
+
+            it('says when there is no connection, and tries again when it is back', async () => {
+                loadEntry();
+                component.onOffline();
+                fixture.detectChanges(false);
+                expect(fixture.nativeElement.querySelector('[data-testid="offline"]')).toBeTruthy();
+
+                vi.spyOn(console, 'error').mockImplementation(() => undefined);
+                component.pageTitle = 'Edited offline';
+                mockDraftContentsStore.saveDraft.mockReturnValueOnce(throwError(() => new Error('offline')));
+                await (component as any).performAutoSave();
+                component.onOnline();
+                await flush();
+                expect(component.offline()).toBe(false);
+                expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledTimes(2);
+                expect(component.saveFailed()).toBe(false);
+            });
+        });
+
+        describe('4.5 two admins on one entry', () => {
+            const changed = () => throwError(() => Object.assign(new Error('changed'), { code: 'arc/entry-changed' }));
+
+            it('saves against the modifiedAt the editor opened, then against its own', async () => {
+                loadEntry();
+                component.pageTitle = 'Mine';
+                await component.saveAsDraft();
+                const [, written, , expected] = mockDraftContentsStore.saveDraft.mock.calls[0];
+                expect(expected).toBe(opened);
+                component.pageTitle = 'Mine again';
+                await component.saveAsDraft();
+                expect(mockDraftContentsStore.saveDraft.mock.calls[1][3]).toBe(written.modifiedAt);
+            });
+
+            it('stops an auto-save over their change and asks; Keep mine overwrites', async () => {
+                loadEntry();
+                component.pageTitle = 'Mine';
+                mockDraftContentsStore.saveDraft.mockReturnValueOnce(changed());
+
+                await (component as any).performAutoSave();
+                expect(component.entryChanged()).toBe(true);
+                expect(component.saveFailed()).toBe(false);
+                fixture.detectChanges(false);
+                expect(fixture.nativeElement.querySelector('[data-testid="entry-changed"]')).toBeTruthy();
+
+                // Auto-save waits for the answer.
+                await (component as any).performAutoSave();
+                expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledTimes(1);
+
+                component.keepMine();
+                await flush();
+                expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledTimes(2);
+                expect(mockDraftContentsStore.saveDraft.mock.calls[1][3]).toBeNull();
+                expect(component.entryChanged()).toBe(false);
+            });
+
+            it('Reload theirs reads the entry again into the editor', async () => {
+                loadEntry();
+                component.pageTitle = 'Mine';
+                mockDraftContentsStore.saveDraft.mockReturnValueOnce(changed());
+                await component.saveAsDraft();
+                expect(component.entryChanged()).toBe(true);
+
+                await component.reloadTheirs();
+                expect(component.entryChanged()).toBe(false);
+                expect(mockDraftContentsStore.getByCustomField).toHaveBeenLastCalledWith('id', '==', 'doc-1', 'article');
+            });
+        });
+
+        describe('4.6 a published entry\'s address', () => {
+            it('offers to send the old address to the new one, ticked, and publishes the choice', async () => {
+                mockDraftContentsStore.publishedSlug.mockResolvedValue('guide');
+                loadEntry({ publishedStatus: true });
+                await flush();
+                expect(component.addressMoved()).toBe(false);
+
+                component.publishForm.patchValue({ urlSlug: 'new-guide' });
+                expect(component.addressMoved()).toBe(true);
+                expect(component.redirectOldAddress()).toBe(true);
+
+                await component.directPublishContent();
+                expect(mockDraftContentsStore.isSlugTaken).toHaveBeenCalledWith('new-guide', 'article', 'doc-1');
+                expect(mockDraftContentsStore.saveDraft.mock.calls[0][1]).toMatchObject({ urlSlug: 'new-guide', redirectOldAddress: true });
+            });
+        });
+
+        describe('4.10 restoring a version', () => {
+            it('asks in Arc CMS\'s own dialog and changes nothing on Cancel', async () => {
+                const confirm = vi.spyOn(window, 'confirm');
+                component.pageTitle = 'Now';
+                await component.restoreVersion({ historyId: 'h1', versionNumber: 3, title: 'Then', content: '', publishedOn: null } as any);
+                expect(confirm).not.toHaveBeenCalled();
+                expect(mockDialog.open.mock.calls[0][1].data.titleKey).toBe('admin.contents.editor.restore_title');
+                expect(component.pageTitle).toBe('Now');
+            });
+        });
+    });
+
+    // The independent review of the RF4 editor work.
+    describe('RF4 review fixes', () => {
+        const flush = async () => { for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0)); };
+        const opened = new Date('2026-11-01T10:00:00Z');
+        function loadEntry(extra: Record<string, unknown> = {}): void {
+            component.contentTypeSlug = 'article';
+            component.contentId = 'doc-1';
+            mockDraftContentsStore.currentItem.set({
+                id: 'doc-1', title: 'Guide', content: '<p>Body</p>', urlSlug: 'guide', type: 'article',
+                tags: [], modifiedAt: opened, publishedStatus: true, ...extra,
+            });
+            fixture.detectChanges(false);
+            (component as any).captureDraftBaseline();
+        }
+
+        it('H1: Save while the first write runs waits for it and updates, never a second entry', async () => {
+            const created = new Subject<string>();
+            mockDraftContentsStore.createDraft.mockReturnValueOnce(created);
+            component.contentTypeSlug = 'article';
+            component.pageTitle = 'Hello';
+            component.triggerAutoSave();
+            await flush();
+            expect(component.creating()).toBe(true);
+
+            const saving = component.saveAsDraft();
+            await flush();
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalledTimes(1);
+            created.next('pre-id');
+            created.complete();
+            await saving;
+
+            expect(mockDraftContentsStore.createDraft).toHaveBeenCalledTimes(1);
+            expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledWith('pre-id', expect.anything(), 'article', expect.anything());
+        });
+
+        it('H1: a retried first write uses the same id', async () => {
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            mockDraftContentsStore.createDraft.mockReturnValueOnce(throwError(() => new Error('timeout')));
+            component.contentTypeSlug = 'article';
+            component.pageTitle = 'Hello';
+            await component.saveAsDraft();
+            expect(component.saveFailed()).toBe(true);
+            component.retrySave();
+            await flush();
+            expect(mockDraftContentsStore.createDraft.mock.calls.map((c: any[]) => c[2])).toEqual(['pre-id', 'pre-id']);
+        });
+
+        it('M4: the created entry becomes the current item, so a second publish keeps publishedOn', async () => {
+            component.contentTypeSlug = 'article';
+            component.pageTitle = 'Hello';
+            await component.directPublishContent();
+            const firstPublishedOn = mockDraftContentsStore.createDraft.mock.calls[0][0].publishedOn;
+            expect(mockDraftContentsStore.adoptCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 'new-id', title: 'Hello' }));
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            await component.directPublishContent();
+            expect(mockDraftContentsStore.saveDraft.mock.calls[0][1].publishedOn).toBe(firstPublishedOn);
+        });
+
+        it('M1: a cancelled navigation puts the entry address back, and Close goes through the router', async () => {
+            const location = component.location;
+            vi.spyOn(location, 'path').mockReturnValue('/admin/contents/article/add');
+            const replace = vi.spyOn(location, 'replaceState');
+            component.contentTypeSlug = 'article';
+            component.pageTitle = 'Hello';
+            component.triggerAutoSave();
+            await flush();
+            replace.mockClear();
+
+            mockRouter.events.next(new NavigationCancel(1, '/admin/contents/article', ''));
+            expect(replace).toHaveBeenCalledWith('/admin/contents/article/edit/new-id', '', history.state);
+
+            component.close();
+            expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/contents', 'article']);
+            expect(mockGlobalService.goBack).not.toHaveBeenCalled();
+        });
+
+        it('M2: an entry begun in the body keeps saving while it has no title', async () => {
+            loadEntry({ title: '' });
+            component.pageTitle = '';
+            component.publishForm.get('content')?.setValue('<p>Only a body, edited</p>');
+            expect(component.validateForDraft().valid).toBe(false);
+            // Through the real auto-save timer: the pipeline itself must not hold it back.
+            component.triggerAutoSave();
+            await new Promise((resolve) => setTimeout(resolve, AUTO_SAVE_DELAY_MS + 50));
+            await flush();
+            expect(mockDraftContentsStore.saveDraft).toHaveBeenCalled();
+        }, AUTO_SAVE_DELAY_MS + 5_000);
+
+        it('M3: an edit made while Save ran is saved by the next auto-save', async () => {
+            loadEntry();
+            const written = new Subject<void>();
+            mockDraftContentsStore.saveDraft.mockReturnValueOnce(written);
+            const trigger = vi.spyOn(component['autoSaveTrigger$'], 'next');
+            component.pageTitle = 'First';
+            const saving = component.saveAsDraft();
+            await flush();
+            component.pageTitle = 'Second, typed during the save';
+            written.next();
+            written.complete();
+            await saving;
+            expect(trigger).toHaveBeenCalled();
+        });
+
+        it('M6: Save is free again before the batched cascades finish', async () => {
+            loadEntry();
+            mockDraftContentsStore.updateNextContentReferences.mockReturnValueOnce(new Promise(() => undefined));
+            component.pageTitle = 'Renamed';
+            await component.saveAsDraft();
+            expect(component.isSavingDraft).toBe(false);
+        });
+
+        it('M7: a rich text field giving back its stored HTML after a load is not an edit', async () => {
+            mockContentTypesStore.items.set([{ name: 'Article', slug: 'article', fields: [{ key: 'notes', label: 'Notes', type: 'richtext', order: 0 }] }]);
+            loadEntry({ customFields: { notes: '<b>x</b>' } });
+            const trigger = vi.spyOn(component, 'triggerAutoSave');
+            component.onRichTextFieldChange('notes', '<p><strong>x</strong></p>');
+            expect(trigger).not.toHaveBeenCalled();
+            expect(component.hasUnsavedChanges()).toBe(false);
+
+            component.onRichTextFieldChange('notes', '<p>typed</p>');
+            expect(trigger).toHaveBeenCalled();
+        });
+
+        it('M8: an unpublished entry whose address came from its title still follows it after a reload', () => {
+            loadEntry({ publishedStatus: false, title: 'Guide', urlSlug: 'guide-2' });
+            expect(component['slugFollowsTitle']).toBe(true);
+            loadEntry({ id: 'doc-1', publishedStatus: false, title: 'Guide', urlSlug: 'my-own' });
+            expect(component['slugFollowsTitle']).toBe(false);
+            expect(addressFromTitle('guide-12', 'Guide')).toBe(true);
+            expect(addressFromTitle('guides', 'Guide')).toBe(false);
+        });
+
+        it('L3: an entry deleted by someone else says so, with no Retry', async () => {
+            loadEntry();
+            mockDraftContentsStore.saveDraft.mockReturnValueOnce(throwError(() => Object.assign(new Error('gone'), { code: 'arc/entry-gone' })));
+            component.pageTitle = 'Edited';
+            await component.saveAsDraft();
+            expect(component.entryGone()).toBe(true);
+            expect(component.saveFailed()).toBe(false);
+            fixture.detectChanges(false);
+            expect(fixture.nativeElement.querySelector('[data-testid="entry-gone"]')).toBeTruthy();
+            await component.saveAsDraft();
+            expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledTimes(1);
+        });
+
+        it('L5: Publish again does nothing while a publish is under way', async () => {
+            loadEntry();
+            const queue = TestBed.inject(PublishQueueService) as any;
+            component.deployStatus.set('pending');
+            await component.retryDeployment();
+            expect(queue.enqueue).not.toHaveBeenCalled();
+            component.deployStatus.set('failed');
+            await component.retryDeployment();
+            expect(queue.enqueue).toHaveBeenCalledTimes(1);
+        });
+
+        it('L6: a retry of a Preview save does not open the preview again', async () => {
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+            loadEntry();
+            component.pageTitle = 'Edited';
+            mockDraftContentsStore.saveDraft.mockReturnValueOnce(throwError(() => new Error('offline')));
+            component.navigateBySlug();
+            await flush();
+            component.retrySave();
+            await flush();
+            expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledTimes(2);
+            expect(open).not.toHaveBeenCalled();
+            open.mockRestore();
+        });
+
+        it('L7: the address is checked after a pause in typing, once', () => {
+            vi.useFakeTimers();
+            try {
+                component.pageTitle = 'H';
+                component.createSlag();
+                component.pageTitle = 'He';
+                component.createSlag();
+                component.pageTitle = 'Hello';
+                component.createSlag();
+                expect(mockDraftContentsStore.isSlugTaken).not.toHaveBeenCalled();
+                vi.advanceTimersByTime(SLUG_CHECK_DELAY_MS);
+                expect(mockDraftContentsStore.isSlugTaken).toHaveBeenCalledTimes(1);
+                expect(mockDraftContentsStore.isSlugTaken).toHaveBeenCalledWith('hello', expect.anything(), undefined);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('L8: a taken address typed by hand is kept and the admin is told', async () => {
+            loadEntry();
+            mockDraftContentsStore.isSlugTaken.mockResolvedValue(true);
+            component.toggleSlugEdit();
+            component.publishForm.patchValue({ urlSlug: 'taken' });
+            component.saveSlug();
+            await flush();
+            expect(component.publishForm.get('urlSlug')?.value).toBe('taken');
+            expect(component.errorSlug).toBe(true);
+            expect(component.isEditingSlug()).toBe(true);
+            expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(expect.stringContaining('taken'), 'error', 'error');
+        });
+    });
+
     describe('page address', () => {
         async function openWith(finalUrl: string): Promise<void> {
             mockSiteIdentity.load.mockResolvedValue({ finalUrl });

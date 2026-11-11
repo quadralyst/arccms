@@ -73,7 +73,7 @@ interface TestResult {
         }
 
         @if (error()) {
-          <div class="alert alert-danger">{{ 'admin.settings.app_audience.load_failed' | transloco: { error: error() } }}</div>
+          <div class="alert alert-danger" role="alert">{{ 'admin.settings.app_audience.load_failed' | transloco }}</div>
         }
 
         @if (location()?.configured && !error()) {
@@ -175,7 +175,7 @@ interface TestResult {
             </button>
           </div>
           @if (testError()) {
-            <div class="alert alert-warning mb-4">{{ 'admin.settings.app_audience.test_failed' | transloco: { error: testError() } }}</div>
+            <div class="alert alert-warning mb-4" role="alert">{{ 'admin.settings.app_audience.test_failed' | transloco }}</div>
           }
           @if (testResult(); as t) {
             @if (t.resolved; as r) {
@@ -286,7 +286,8 @@ export class AppAudienceSettingsPage implements OnInit {
                 this.sampleSize.set(sample.sampleSize);
             }
         } catch (err) {
-            this.error.set(err instanceof Error ? err.message : String(err));
+            console.error('App users settings did not load:', err);
+            this.error.set('failed');
         } finally {
             this.loading.set(false);
         }
@@ -340,7 +341,9 @@ export class AppAudienceSettingsPage implements OnInit {
             this.testResult.set(res.data);
         } catch (err) {
             this.testResult.set(null);
-            this.testError.set(err instanceof Error ? err.message : String(err));
+            // The server's reason (no such document, say) stays in the console.
+            console.error('App user test did not run:', err);
+            this.testError.set('failed');
         } finally {
             this.testing.set(false);
         }

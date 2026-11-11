@@ -13,6 +13,7 @@ import { roleGuard } from '../../../../guards/role.guard';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { UserSettingService } from './user-setting.service';
 import { AVAILABLE_ROLES, emailPinOn, IUserSettings, newDeviceCodeOn } from './user-setting.model';
+import { roleLabel } from '../../users/user.model';
 import { SIGN_IN_FIXED } from '../../../../core/sign-in/sign-in-strength';
 import { EmailConfigStatusService } from '../../../../../shared/services/email-config-status.service';
 import { PhoneSignInCheck, PhoneSignInCheckService } from './phone-sign-in-check.service';
@@ -22,9 +23,9 @@ import { RouterLink } from '@angular/router';
 import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
-    title: 'User Settings',
+    title: 'Sign-up and roles',
     canActivate: [roleGuard],
-    data: { allowedRoles: ['admin'] },
+    data: { titleKey: 'admin.settings.hub.user.label', allowedRoles: ['admin'] },
 };
 
 @Component({
@@ -92,7 +93,7 @@ export default class UserSettingPageComponent extends BaseComponent implements O
             },
             error: (error) => {
                 console.error('Failed to load user settings:', error);
-                this.toastService.openCustomSnackbar('Failed to load settings', 'error', 'error');
+                this.notify.error('admin.settings.load_failed');
                 this.isLoading.set(false);
             },
         });
@@ -103,14 +104,10 @@ export default class UserSettingPageComponent extends BaseComponent implements O
         try {
             const updatedSettings = { ...this.userSettingsForm.value, isSignupEnabled: enabled };
             await this.userSettingService.saveSettings(updatedSettings);
-            this.toastService.openCustomSnackbar(
-                enabled ? 'User signups enabled' : 'User signups disabled',
-                'success',
-                'check_circle'
-            );
+            this.notify.success(enabled ? 'admin.settings.user.signups_on' : 'admin.settings.user.signups_off');
         } catch (error) {
             console.error('Failed to update signup setting:', error);
-            this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
+            this.notify.error('common.messages.save_failed');
         } finally {
             this.isSaving.set(false);
         }
@@ -121,14 +118,10 @@ export default class UserSettingPageComponent extends BaseComponent implements O
         try {
             const updatedSettings = { ...this.userSettingsForm.value, defaultRole: role };
             await this.userSettingService.saveSettings(updatedSettings);
-            this.toastService.openCustomSnackbar(
-                `Default role set to ${this.getRoleLabel(role)}`,
-                'success',
-                'check_circle'
-            );
+            this.notify.success('admin.settings.user.default_role_set', { role: this.getRoleLabel(role) });
         } catch (error) {
             console.error('Failed to update default role:', error);
-            this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
+            this.notify.error('common.messages.save_failed');
         } finally {
             this.isSaving.set(false);
         }
@@ -143,7 +136,7 @@ export default class UserSettingPageComponent extends BaseComponent implements O
             this.toastService.openCustomSnackbar(this.t('admin.settings.user.sign_in_saved'), 'success', 'check_circle');
         } catch (error) {
             console.error('Failed to update sign-in methods:', error);
-            this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
+            this.notify.error('common.messages.save_failed');
         } finally {
             this.isSaving.set(false);
         }
@@ -214,7 +207,7 @@ export default class UserSettingPageComponent extends BaseComponent implements O
             this.toastService.openCustomSnackbar(this.t('admin.settings.user.sign_in_saved'), 'success', 'check_circle');
         } catch (error) {
             console.error('Failed to update sign-in methods:', error);
-            this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
+            this.notify.error('common.messages.save_failed');
         } finally {
             this.isSaving.set(false);
         }
@@ -252,8 +245,7 @@ export default class UserSettingPageComponent extends BaseComponent implements O
 
     getRoleLabel(roleId: string | undefined | null): string {
         if (!roleId) return '';
-        const role = this.availableRoles.find(r => r.id === roleId);
-        return role?.label || roleId;
+        return roleLabel(roleId, (key) => this.t(key));
     }
 
     enableUserSetting(): void {

@@ -12,6 +12,9 @@ import { AiSettingsService, type AiVoice } from './ai-settings.service';
 
 const SHOWN = 40;
 
+/** error() when the call itself failed, as opposed to the server's own reason. */
+const FAILED = '\u0000failed';
+
 @Component({
     selector: 'arc-ai-voices',
     standalone: true,
@@ -29,7 +32,7 @@ const SHOWN = 40;
             @if (loading()) {
                 <div class="small text-muted"><i class="fas fa-spinner fa-spin me-1"></i>{{ 'admin.settings.ai.voices_loading' | transloco }}</div>
             } @else if (error()) {
-                <div class="small text-danger voices-error"><i class="fa-solid fa-circle-exclamation me-1"></i>{{ 'admin.settings.ai.voices_failed' | transloco: { error: error() } }}</div>
+                <div class="small text-danger voices-error"><i class="fa-solid fa-circle-exclamation me-1"></i>@if (error() === FAILED) { {{ 'admin.settings.ai.voices_failed_plain' | transloco }} } @else { {{ 'admin.settings.ai.voices_failed' | transloco: { error: error() } }} }</div>
             } @else if (!voices().length) {
                 <div class="small text-muted">{{ 'admin.settings.ai.voices_none' | transloco }}</div>
             } @else {
@@ -70,6 +73,8 @@ const SHOWN = 40;
     `],
 })
 export class AiVoicesComponent implements OnInit, OnDestroy {
+    /** The list could not be asked for at all: a plain sentence, the detail is in the console. */
+    protected readonly FAILED = FAILED;
     private readonly service = inject(AiSettingsService);
     private readonly transloco = inject(TranslocoService);
 
@@ -120,9 +125,11 @@ export class AiVoicesComponent implements OnInit, OnDestroy {
         try {
             const r = await this.service.voices(this.connection(), fresh);
             if (r.ok) this.voices.set(r.voices);
+            // The server's reply is written to be read: it says why.
             else this.error.set(r.detail);
         } catch (err: any) {
-            this.error.set(err?.message ?? '');
+            console.error('AI voices not read:', err);
+            this.error.set(FAILED);
         } finally {
             this.loading.set(false);
         }
@@ -186,7 +193,8 @@ export class AiVoicesComponent implements OnInit, OnDestroy {
             if (r.test) this.say(true, this.transloco.translate('admin.settings.ai.voice_sample_test'));
             else if (!r.cached && r.costUsd > 0) this.say(true, this.transloco.translate('admin.settings.ai.voice_sample_cost', { cost: r.costUsd < 0.0001 ? '< $0.0001' : `$${r.costUsd.toFixed(4)}` }));
         } catch (err: any) {
-            if (!late()) this.say(false, this.transloco.translate('admin.settings.ai.voice_sample_failed', { error: err?.message ?? '' }));
+            console.error('AI voice sample not made:', err);
+            if (!late()) this.say(false, this.transloco.translate('admin.settings.ai.voice_sample_failed_plain'));
         } finally {
             if (this.busyId() === v.id) this.busyId.set(null);
         }

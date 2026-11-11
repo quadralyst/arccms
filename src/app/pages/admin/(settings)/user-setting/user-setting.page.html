@@ -60,11 +60,11 @@
                 </div>
                 <div class="setting-control">
                     <mat-form-field appearance="outline" class="role-select">
-                        <mat-select [value]="userSettings?.defaultRole"
+                        <mat-select [value]="userSettings?.defaultRole" [aria-label]="'admin.settings.user.default_role' | transloco"
                             (selectionChange)="changeDefaultRole($event.value)" [disabled]="isSaving()">
                             @for (role of availableRoles; track role.id) {
                             <mat-option [value]="role.id">
-                                {{ role.label }}
+                                {{ getRoleLabel(role.id) }}
                             </mat-option>
                             }
                         </mat-select>

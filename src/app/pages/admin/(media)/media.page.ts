@@ -10,6 +10,7 @@ import {
     inject,
     Injector,
     runInInjectionContext,
+    signal,
     ViewChild,
     ViewEncapsulation,
 } from '@angular/core';
@@ -23,18 +24,18 @@ import { MatInputModule } from '@angular/material/input';
 import { MatListModule } from '@angular/material/list';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatProgressSpinnerModule, ProgressSpinnerMode } from '@angular/material/progress-spinner';
-import { SafeHtml } from '@angular/platform-browser';
 import { doc, DocumentSnapshot, Firestore, getDoc } from '@angular/fire/firestore';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { DEFAULT_MISC_SETTINGS, IMiscSettings } from '../(settings)/misc/misc-settings.model';
 import { DEFAULT_UPLOAD_SETTINGS, MediaUploadSettings, UploadedMedia, uploadSettingsFromMisc } from '../../../../shared/services/file-upload.service';
 import { ImageVariant } from '../../../../shared/services/file-upload.service';
 import { DEFAULT_IMAGE_SIZE, IMAGE_SIZE_LABELS, IMAGE_SIZES, ImageSize, imageSizeUrls, imageSizeLimits } from '../../../../shared/utils/image-sizes';
-import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
+import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
+import { mediaDeleteMessage } from './media-delete-message';
 import { FileUploadService } from '../../../../shared/services/file-upload.service';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { MediaItem, PaginationInfo } from '../../../../shared/models/media-manage-modal';
-import { MediaManagerService } from './media-manager.service';
+import { MediaManagerService, type MediaUsage } from './media-manager.service';
 import { MediaManagerStore } from './media-manager.store';
 import { roleGuard } from '../../../guards/role.guard';
 import { IconBrowserComponent } from '../../../../shared/components/icon-browser/icon-browser.component';
@@ -58,9 +59,11 @@ import { localPdfSource } from './local-pdf-source';
 import { MediaAiTabComponent, type MediaAiEditSource, type MediaAiSaved } from './media-ai-tab/media-ai-tab.component';
 import { MEDIA_IMAGE_PURPOSE, MediaAiService, type MediaAiNote, type MediaAiPreset } from './media-ai.service';
 import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
+import { uploadProblem } from './media-upload-problem';
+import { TranslationKey } from '../../../core/i18n/translation-keys';
 
 export const routeMeta: RouteMeta = {
-    title: 'Media Manager',
+    title: 'Media',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -246,6 +249,7 @@ export default class MediaManagerComponent extends BaseComponent {
     private mediaAi = inject(MediaAiService);
     private firestore = inject(Firestore);
     private injector = inject(Injector);
+    private confirmDialog = inject(ConfirmService);
     private host = inject<ElementRef<HTMLElement>>(ElementRef);
 
     selectedItem: MediaMenuItem | null = null;
@@ -320,6 +324,9 @@ export default class MediaManagerComponent extends BaseComponent {
     librarySearch = '';
     private allImages: LibraryImage[] | null = null;
 
+    /** My Uploads did not load and nothing is on screen: the grid shows a sentence and Retry. */
+    loadFailed = false;
+
     // Multi-file upload tracking
     uploadCurrent = 0;
     uploadTotal = 0;
@@ -356,13 +363,19 @@ export default class MediaManagerComponent extends BaseComponent {
         const allowImages = data.allowImages !== false || (!allowIcons && data.allowFiles !== true);
 
         const menu = this.constantVariables.mediaManagerMenu as MediaMenuItem[];
-        return menu.filter(item => {
+        return menu.map((item) => ({ ...item, name: this.tabName(item) })).filter(item => {
             // From a PDF is for pickers; the Media page has Files > Take an image (PI-D1).
             if (item.value === 'pdf') return allowImages && data.isDialogOpen;
             // Create with AI only with a picture model set up (AM-D21).
             if (item.value === 'ai') return allowImages && this.aiAvailable;
             return item.kind === 'icon' ? allowIcons : item.kind === 'file' ? allowFiles : allowImages;
         });
+    }
+
+    /** A tab's name in the admin's language; the constant's English name for a tab this page does not know. */
+    private tabName(item: MediaMenuItem): string {
+        const known = ['upload', 'ai', 'pdf', 'files', 'search', 'icons'];
+        return known.includes(item.value) ? this.t(`admin.media.tabs.${item.value}` as TranslationKey) : item.name;
     }
 
     /**
@@ -968,7 +981,8 @@ export default class MediaManagerComponent extends BaseComponent {
             console.error('Failed to save the cropped image:', error);
             this.isSavingCrop = false;
             if (this.destroyed) return;
-            this.notify.error('admin.media.crop.save_failed', { reason: error instanceof Error ? error.message : '' });
+            const problem = uploadProblem(error, this.mediaSettings.maxFileSize);
+            this.notify.error('admin.media.crop.save_failed', { reason: this.t(problem.key, problem.params) });
         }
         this.ref.detectChanges();
     }
@@ -1238,7 +1252,7 @@ export default class MediaManagerComponent extends BaseComponent {
             }
             const typeError = this.fileUploadService.validateFileType(file);
             if (typeError) {
-                this.toastService.error(`${file.name}: ${typeError}`);
+                this.notify.error('admin.media.problem.type', { name: file.name });
             } else {
                 validFiles.push(file);
             }
@@ -1318,8 +1332,8 @@ export default class MediaManagerComponent extends BaseComponent {
                 results.push(data);
             } catch (error) {
                 console.error(`Failed to upload ${file.name}:`, error);
-                const message = error instanceof Error ? error.message : 'Upload failed.';
-                this.toastService.error(`${file.name}: ${message}`);
+                const problem = uploadProblem(error, this.mediaSettings.maxFileSize, file.name);
+                this.notify.error(problem.key, problem.params);
             }
         }
 
@@ -1357,19 +1371,33 @@ export default class MediaManagerComponent extends BaseComponent {
             this.allImages = null;
             if (this.librarySearch.trim()) void this.onLibrarySearch(this.librarySearch);
         }
+        this.loadFailed = false;
         const sub = this.mediaManagerService.getMediaListFromFirestore(pageSize, lastVisible).subscribe({
             next: (response) => {
                 // Always replace items (we handle stack-based navigation)
                 this.searchResults = response.items;
                 this.pagination = response.pagination;
+                this.loadFailed = false;
                 this.ref.detectChanges();
             },
             error: (error) => {
-                console.error(error);
-                this.notify.error('admin.media.load_failed');
+                console.error('Failed to load the uploads:', error);
+                // With nothing on screen the grid says so in place of "No images yet", with
+                // Retry; a later page that fails keeps the rows shown and tells by toast.
+                if (this.searchResults.length) this.notify.error('admin.media.load_failed');
+                this.loadFailed = true;
+                this.ref.detectChanges();
             },
         });
         this.subscriptions.push(sub);
+    }
+
+    /** Retry on the "did not load" line: the first page of My Uploads again. */
+    retryLoad(): void {
+        this.pagination = null;
+        this.pageDocumentStack = [];
+        this.currentPageIndex = 0;
+        this.loadMediaItems();
     }
 
     public async getPaginatorData(event: any) {
@@ -1415,22 +1443,33 @@ export default class MediaManagerComponent extends BaseComponent {
         this.loadMediaItems(pageSize, startAfterDoc);
     }
 
-    public confirmationToDeleteItem(media: SelectableMedia) {
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(`Are you sure you want to delete ${escapeHtml(this.imageTitle(media))}?`);
-        const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
-            width: '350px',
-            data: {
-                dialogType: 'Delete',
-                dialogMessage: msg,
-                btnText: this.t('common.actions.delete'),
-                panelType: 'warn',
-            },
+    /**
+     * The image whose delete question waits for the "used in content" check (up to
+     * a few seconds). Its button spins and every delete button waits meanwhile.
+     */
+    readonly checkingUsageId = signal<string | null>(null);
+
+    /**
+     * Ask before deleting an image, saying how many content entries use it
+     * (mediaUsage). The admin can still delete it.
+     */
+    public async confirmationToDeleteItem(media: SelectableMedia): Promise<void> {
+        if (this.checkingUsageId() !== null) return;
+        this.checkingUsageId.set(media.id);
+        let usage: MediaUsage | null;
+        try {
+            usage = await this.mediaManagerService.mediaUsage({ mediaId: media.id });
+        } finally {
+            this.checkingUsageId.set(null);
+        }
+        const question = this.t('admin.media.delete_confirm', { name: escapeHtml(this.imageTitle(media)) });
+        const confirmed = await this.confirmDialog.ask({
+            titleKey: 'common.dialog.delete',
+            dialogMessage: mediaDeleteMessage((key, params) => this.t(key, params), question, usage, 'image'),
+            btnText: this.t('common.actions.delete'),
+            panelType: 'warn',
         });
-        dialogRef.afterClosed().subscribe((result: any) => {
-            if (result) {
-                this.deleteUploadedMedia(media.id);
-            }
-        });
+        if (confirmed) await this.deleteUploadedMedia(media.id);
     }
 
     async deleteUploadedMedia(mediaId: string) {
@@ -1454,8 +1493,10 @@ export default class MediaManagerComponent extends BaseComponent {
         return element?.urls?.regular ?? '';
     }
 
+    /** A preview that would not download shows a plain grey panel, with no words in it to translate. */
     handleImageError(event: any) {
-        event.target.src = 'https://placehold.co/600x400/CCCCCC/FFFFFF?text=Preview';
+        const blank = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><rect width="600" height="400" fill="#e9ecef"/></svg>');
+        if (event?.target && event.target.src !== blank) event.target.src = blank;
     }
 
     /** Open the selected media's full-size image in a new browser tab */

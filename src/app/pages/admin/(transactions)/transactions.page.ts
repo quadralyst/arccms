@@ -51,15 +51,26 @@ export const routeMeta: RouteMeta = {
                                 <a class="btn btn-sm btn-outline-secondary" [href]="indexConsoleLink()" target="_blank" rel="noopener noreferrer">{{ 'admin.contents.list.index_open_console' | transloco }}</a>
                             }
                         </div>
+                    } @else if (store.error()) {
+                        <!-- The detail is in the console; the admin reads a plain sentence and can try again. -->
+                        <div class="alert alert-danger d-flex flex-wrap align-items-center gap-2 mb-0" role="alert">
+                            <span class="flex-grow-1"><strong>{{ 'common.table.load_failed_title' | transloco }}.</strong> {{ 'common.table.load_failed_text' | transloco }}</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger" (click)="reload()">{{ 'common.table.retry' | transloco }}</button>
+                        </div>
                     } @else if (store.items().length === 0) {
-                        <p class="text-muted">{{ 'admin.transactions.none' | transloco }}</p>
+                        @if (statusFilter()) {
+                            <p class="text-muted mb-2">{{ 'admin.transactions.none_match' | transloco }}</p>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="onStatusChange('')">{{ 'common.table.clear_filters' | transloco }}</button>
+                        } @else {
+                            <p class="text-muted">{{ 'admin.transactions.none' | transloco }}</p>
+                        }
                     } @else {
                         <table mat-table [dataSource]="store.items()" class="w-100">
                             <ng-container matColumnDef="createdAt"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_date' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.createdAt | arcTime: 'short' }}</td></ng-container>
                             <ng-container matColumnDef="userEmail"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_customer' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.userEmail }}</td></ng-container>
                             <ng-container matColumnDef="amount"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_amount' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.currency }} {{ t.amount }}</td></ng-container>
                             <ng-container matColumnDef="premiumType"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_plan' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.premiumType }}</td></ng-container>
-                            <ng-container matColumnDef="status"><th mat-header-cell *matHeaderCellDef>{{ 'common.table.status' | transloco }}</th><td mat-cell *matCellDef="let t"><span class="status status-{{ t.status }}">{{ t.status }}</span>@if (t.isTest) {<span class="status status-test" [title]="'admin.transactions.test_badge_hint' | transloco">{{ 'admin.transactions.test_badge' | transloco }}</span>}@if (t.productMismatch) {<span class="status status-failed" [title]="'admin.transactions.mismatch_badge_hint' | transloco">{{ 'admin.transactions.mismatch_badge' | transloco }}</span>}</td></ng-container>
+                            <ng-container matColumnDef="status"><th mat-header-cell *matHeaderCellDef>{{ 'common.table.status' | transloco }}</th><td mat-cell *matCellDef="let t"><span class="status status-{{ t.status }}">{{ statusLabel(t.status) }}</span>@if (t.isTest) {<span class="status status-test" [title]="'admin.transactions.test_badge_hint' | transloco">{{ 'admin.transactions.test_badge' | transloco }}</span>}@if (t.productMismatch) {<span class="status status-failed" [title]="'admin.transactions.mismatch_badge_hint' | transloco">{{ 'admin.transactions.mismatch_badge' | transloco }}</span>}</td></ng-container>
                             <ng-container matColumnDef="eventType"><th mat-header-cell *matHeaderCellDef>{{ 'admin.transactions.col_event' | transloco }}</th><td mat-cell *matCellDef="let t">{{ t.eventType }}</td></ng-container>
                             <tr mat-header-row *matHeaderRowDef="columns"></tr>
                             <tr mat-row *matRowDef="let row; columns: columns"></tr>
@@ -90,6 +101,22 @@ export default class TransactionsPageComponent extends BaseComponent implements 
 
     ngOnInit(): void {
         this.store.getAll();
+    }
+
+    /** The status in the admin's language; one this page does not know shows as stored. */
+    statusLabel(status: string): string {
+        switch (status) {
+            case 'succeeded': return this.t('admin.transactions.succeeded');
+            case 'failed': return this.t('admin.transactions.failed');
+            case 'refunded': return this.t('admin.transactions.refunded');
+            case 'pending': return this.t('admin.transactions.pending');
+            default: return status;
+        }
+    }
+
+    /** Retry after a failed read, with the filter the admin chose. */
+    reload(): void {
+        this.onStatusChange(this.statusFilter());
     }
 
     /** On the server: the page holds the latest 50, and a filter is over all of them. */

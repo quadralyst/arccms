@@ -8,6 +8,7 @@ import { FileUploadService, MediaFileUploadError, MediaUploadSettings, uploadSet
 import { NotifyService } from '../../../services/notify.service';
 import { MediaFilesService } from '../../../../app/pages/admin/(media)/media-files.service';
 import { formatBytes, MediaFileRef } from '../../../utils/media-files';
+import { uploadProblem } from '../../../../app/pages/admin/(media)/media-upload-problem';
 
 /**
  * Uploads an image dropped or pasted into the rich text editor the way the
@@ -35,7 +36,9 @@ export class EditorImageUploadService {
         const typeError = this.fileUpload.validateFileType(file);
         if (typeError) throw new Error(typeError);
 
-        const uploaded = await this.fileUpload.uploadFile(file, await this.readSettings(), onProgress);
+        const settings = await this.readSettings();
+        this.maxFileSizeMb = settings.maxFileSize;
+        const uploaded = await this.fileUpload.uploadFile(file, settings, onProgress);
 
         // The image is stored whatever happens here, so it still goes in the
         // page; only its library entry is missing.
@@ -92,12 +95,15 @@ export class EditorImageUploadService {
             else this.notify.error('admin.media.files.error_size', { name, size: formatBytes(error.bytes) });
             return;
         }
-        const firebaseError = typeof (error as { code?: unknown })?.code === 'string';
-        const reason = error instanceof Error && error.message && !firebaseError
-            ? error.message
-            : this.transloco.translate('admin.media.editor_upload_failed_reason');
-        this.notify.error('admin.media.editor_upload_failed', { name: file.name, reason });
+        // FileUploadService's own checks (type, size, GIF) in the admin's language; anything
+        // else is a plain "try again", with the detail in the console.
+        console.error('Editor upload failed:', error);
+        const problem = uploadProblem(error, this.maxFileSizeMb, file.name);
+        this.notify.error(problem.key, problem.params);
     }
+
+    /** The size limit of the last upload's settings, for the "too large" sentence. */
+    private maxFileSizeMb = uploadSettingsFromMisc(undefined).maxFileSize;
 
     /** Read on every upload, so a change in Settings → Misc applies at once. */
     private async readSettings(): Promise<MediaUploadSettings> {

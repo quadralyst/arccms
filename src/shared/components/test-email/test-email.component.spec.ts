@@ -10,6 +10,7 @@ import { of } from 'rxjs';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { TestEmailComponent } from './test-email.component';
 import { TestEmailStore } from './test-email.store';
+import { translocoTestingModule } from '../../../test/transloco-test-providers';
 
 describe('TestEmailComponent', () => {
     let component: TestEmailComponent;
@@ -40,6 +41,7 @@ describe('TestEmailComponent', () => {
                 TestEmailComponent,
                 ReactiveFormsModule,
                 NoopAnimationsModule,
+                translocoTestingModule(),
             ],
             providers: [
                 { provide: MAT_DIALOG_DATA, useValue: mockDialogData },

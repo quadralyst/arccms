@@ -12,10 +12,20 @@ interface SlashCommandsPluginState {
 
 export const SlashCommandsKey = new PluginKey<SlashCommandsPluginState>('slash-commands');
 
-export const SlashCommands = Extension.create({
+export interface SlashCommandsOptions {
+  /** Translates a common.slash_commands key into the admin's language; the editor passes Transloco's. */
+  translate: (key: string) => string;
+}
+
+export const SlashCommands = Extension.create<SlashCommandsOptions>({
   name: 'slashCommands',
 
+  addOptions() {
+    return { translate: (key: string) => key };
+  },
+
   addProseMirrorPlugins() {
+    const t = (key: string) => this.options.translate(`common.slash_commands.${key}`);
     let tippyInstance: Instance | null = null;
     let currentView: EditorView | null = null;
 
@@ -111,21 +121,21 @@ export const SlashCommands = Extension.create({
 
       const allCommands = [
         {
-          title: 'Heading 1',
+          title: t('heading_1'),
           type: `'heading', { level: 1 }`,
           icon: 'bi bi-type-h1',
           shortcut: 'ctrl + alt + 1',
           command: () => this.editor.chain().focus().toggleHeading({ level: 1 }).run(),
         },
         {
-          title: 'Heading 2',
+          title: t('heading_2'),
           type: `'heading', { level: 2 }`,
           icon: 'bi bi-type-h2',
           shortcut: 'ctrl + alt + 2',
           command: () => this.editor.chain().focus().toggleHeading({ level: 2 }).run(),
         },
         {
-          title: 'Heading 3',
+          title: t('heading_3'),
           type: `'heading', { level: 3 }`,
           icon: 'bi bi-type-h3',
           shortcut: 'ctrl + alt + 3',
@@ -133,21 +143,21 @@ export const SlashCommands = Extension.create({
         },
         {},
         {
-          title: 'Bullet List',
+          title: t('bullet_list'),
           type: 'bulletList',
           icon: 'bi bi-list-ul',
           shortcut: 'ctrl + shift + 8',
           command: () => this.editor.chain().focus().toggleBulletList().run(),
         },
         {
-          title: 'Numbered List',
+          title: t('numbered_list'),
           type: 'listItem',
           icon: 'bi bi-list-ol',
           shortcut: 'ctrl + shift + 7',
           command: () => this.editor.chain().focus().toggleOrderedList().run(),
         },
         {
-          title: 'Task List',
+          title: t('task_list'),
           type: 'taskList',
           icon: 'bi bi-ui-checks',
           shortcut: 'ctrl + alt + 9',
@@ -155,7 +165,7 @@ export const SlashCommands = Extension.create({
         },
         {},
         {
-          title: 'Insert image',
+          title: t('image'),
           type: 'image',
           icon: 'bi bi-image',
           shortcut: '',
@@ -164,7 +174,7 @@ export const SlashCommands = Extension.create({
           },
         },
         {
-          title: 'Insert gif',
+          title: t('gif'),
           type: 'gif',
           icon: 'bi bi-filetype-gif',
           shortcut: '',
@@ -173,7 +183,7 @@ export const SlashCommands = Extension.create({
           },
         },
         {
-          title: 'Attach files',
+          title: t('files'),
           type: 'files',
           icon: 'bi bi-paperclip',
           shortcut: '',
@@ -182,7 +192,7 @@ export const SlashCommands = Extension.create({
           },
         },
         {
-          title: 'YouTube url',
+          title: t('youtube'),
           type: 'files',
           icon: 'bi bi-youtube',
           shortcut: '',
@@ -191,7 +201,7 @@ export const SlashCommands = Extension.create({
           },
         },
         {
-          title: 'Add url',
+          title: t('link'),
           type: 'files',
           icon: 'bi bi-link-45deg',
           shortcut: '',
@@ -201,28 +211,28 @@ export const SlashCommands = Extension.create({
         },
         {},
         {
-          title: 'Code Block',
+          title: t('code_block'),
           type: 'code',
           icon: 'bi bi-code',
           shortcut: 'ctrl + alt + C',
           command: () => this.editor.chain().focus().toggleCodeBlock().run(),
         },
         {
-          title: 'Divider',
+          title: t('divider'),
           type: '',
           icon: 'bi bi-hr',
           shortcut: '',
           command: () => this.editor.chain().focus().setHorizontalRule().run(),
         },
         {
-          title: 'Blockquote',
+          title: t('quote'),
           type: '',
           icon: 'bi bi-quote',
           shortcut: 'ctrl + shift + B',
           command: () => this.editor.chain().focus().toggleBlockquote().run(),
         },
         {
-          title: 'Table',
+          title: t('table'),
           type: '',
           icon: 'bi bi-table',
           shortcut: '',
@@ -231,14 +241,14 @@ export const SlashCommands = Extension.create({
         {},
         // Structured blocks (specs/discoverability-spec.md, D-D10)
         ...ARC_BLOCKS.map(block => ({
-          title: block.title,
+          title: t(`block_${block.kind}`),
           type: '',
           icon: block.icon,
           shortcut: '',
           command: () => this.editor.chain().focus().insertArcBlock(block.kind).run(),
         })),
         {
-          title: 'Remove block',
+          title: t('remove_block'),
           type: '',
           icon: 'bi bi-x-square',
           shortcut: '',
@@ -246,14 +256,14 @@ export const SlashCommands = Extension.create({
         },
         {},
         {
-          title: 'Undo',
+          title: t('undo'),
           type: '',
           icon: 'bi bi-arrow-counterclockwise',
           shortcut: 'ctrl + Z',
           command: () => this.editor.chain().focus().undo().run(),
         },
         {
-          title: 'Redo',
+          title: t('redo'),
           type: '',
           icon: 'bi bi-arrow-clockwise',
           shortcut: 'ctrl + Y',
@@ -291,10 +301,10 @@ export const SlashCommands = Extension.create({
         noResults.style.cssText = `
           padding: 16px;
           text-align: center;
-          color: #9b9b9b;
+          color: #6b6b6b;
           font-size: 14px;
         `;
-        noResults.textContent = 'No matching commands';
+        noResults.textContent = t('no_match');
         element.appendChild(noResults);
       }
 
@@ -362,7 +372,7 @@ export const SlashCommands = Extension.create({
           const shortcutSpan = document.createElement('span');
           shortcutSpan.style.cssText = `
             font-size: 11px;
-            color: #9b9b9b;
+            color: #6b6b6b;
             background: #f5f5f5;
             padding: 2px 6px;
             border-radius: 4px;

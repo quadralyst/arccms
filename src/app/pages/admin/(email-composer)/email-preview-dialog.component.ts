@@ -4,6 +4,7 @@ import { emailPreviewDocument } from '../../../../shared/utils/email-preview';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 export interface EmailPreviewData {
     title: string;
@@ -17,7 +18,7 @@ export interface EmailPreviewData {
 
 @Component({
     standalone: true,
-    imports: [MatButtonModule, MatIconModule, MatDialogModule],
+    imports: [MatButtonModule, MatIconModule, MatDialogModule, TranslocoPipe],
     template: `
         <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
             <div>
@@ -27,15 +28,16 @@ export interface EmailPreviewData {
                 }
             </div>
             @if ((data.languages?.length ?? 0) > 1) {
-            <div class="btn-group btn-group-sm ms-auto me-2" role="group" aria-label="Language">
+            <div class="btn-group btn-group-sm ms-auto me-2" role="group" [attr.aria-label]="'admin.email_composer.language' | transloco">
                 @for (l of data.languages; track l.code; let i = $index) {
                 <button type="button" class="btn" [class.btn-primary]="i === chosen()" [class.btn-outline-secondary]="i !== chosen()"
                     [attr.aria-pressed]="i === chosen()" (click)="chosen.set(i)">{{ l.code }}</button>
                 }
             </div>
             }
-            <button mat-icon-button mat-dialog-close aria-label="Close preview">
-                <mat-icon>close</mat-icon>
+            <!-- mat-dialog-close sets aria-label from its own input, so the name goes there. -->
+            <button mat-icon-button mat-dialog-close [aria-label]="'admin.email_composer.close_preview' | transloco">
+                <mat-icon aria-hidden="true">close</mat-icon>
             </button>
         </div>
         @if (data.note) {
@@ -43,12 +45,10 @@ export interface EmailPreviewData {
         }
         <div mat-dialog-content class="p-0" style="max-height: 70vh;">
             @if (html()) {
-            <iframe [srcdoc]="frameHtml()" sandbox="allow-popups allow-popups-to-escape-sandbox" title="Email preview"
+            <iframe [srcdoc]="frameHtml()" sandbox="allow-popups allow-popups-to-escape-sandbox" [title]="'admin.email_composer.preview_frame' | transloco"
                 style="width: 100%; height: 70vh; border: 0;"></iframe>
             } @else {
-            <div class="alert alert-info m-3">
-                This template has no compiled HTML yet. Open it in the editor and save to generate a preview.
-            </div>
+            <div class="alert alert-info m-3">{{ 'admin.email_composer.no_preview' | transloco }}</div>
             }
         </div>
     `,

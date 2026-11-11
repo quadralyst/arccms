@@ -199,4 +199,24 @@ describe('BroadcastEmailEditorComponent', () => {
             expect(component.showEmailInput()).toBe(false);
         });
     });
+
+    describe('Plain words', () => {
+        it('lists what is missing as plain sentences, not field names', () => {
+            component.broadcastForm.patchValue({ senderEmail: '', subject: '', sendTo: '' });
+            component.onSubmit();
+            expect(component.errorMessages).toEqual([
+                'common.broadcast_editor.choose_recipients_hint',
+                'common.broadcast_editor.sender_email_missing',
+                'common.broadcast_editor.subject_required',
+            ]);
+            fixture.detectChanges();
+            const alert = fixture.nativeElement.querySelector('[role="alert"]');
+            expect(alert.textContent).toContain('Add a subject.');
+            expect(alert.textContent).not.toContain('is required');
+        });
+
+        it('names the close button', () => {
+            expect(fixture.nativeElement.querySelector('.btn-close-editor').getAttribute('aria-label')).toBe('Close');
+        });
+    });
 });

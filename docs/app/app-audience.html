@@ -45,7 +45,7 @@
         <pre><code>npm run deploy -- --only functions --project default</code></pre>
       </li>
       <li>
-        <p><strong>Tell Arc CMS how to read a person</strong> in Settings, App audience. The top shows the database and collection you deployed. Then choose:</p>
+        <p><strong>Tell Arc CMS how to read a person</strong> in Settings, App users. The top shows the database and collection you deployed. Then choose:</p>
         <table>
           <thead><tr><th>Setting</th><th>Choose</th></tr></thead>
           <tbody>
@@ -75,7 +75,7 @@
     <ol class="steps">
       <li><p>Create the email template first. It can use the person's own fields as <code>##APP.&lt;field&gt;##</code>, with a fallback after a bar: <code>##APP.plan.tier|free##</code>. All tags are in <a href="../reference/email-tags.html">Email merge tags</a>.</p></li>
       <li><p>In Settings, Automations, switch the event on and add a rule: a name, for a field change an optional condition on the old and the new value, and the email to send (transactional reaches everyone; marketing respects unsubscribes).</p></li>
-      <li><p>Change the field in your app and check the person's recent activity and Email Logs.</p></li>
+      <li><p>Change the field in your app and check the person's recent activity and Email logs.</p></li>
     </ol>
     <p>Values compare as text, ignoring case, and a missing field counts as empty: <code>isPro</code> becoming <code>true</code> is "becomes exactly <code>true</code>". These rules only send emails; the people are not contacts, so rules never add them to ordinary lists.</p>
 
@@ -93,7 +93,7 @@
     <pre><code>npm run arc:configure -- --project=default --app-users=own</code></pre>
     <pre><code>npm run deploy -- --only functions --project default</code></pre>
     <ul>
-      <li>Settings, App audience starts with the fields filled in: the document id as the key, and <code>email</code>, <code>phone</code> and <code>name</code>. Add the fields to watch.</li>
+      <li>Settings, App users starts with the fields filled in: the document id as the key, and <code>email</code>, <code>phone</code> and <code>name</code>. Add the fields to watch.</li>
       <li>These people are also contacts, on the "All Users" list. An address on an ordinary list and a live list gets a broadcast once, and a contact's unsubscribe applies to both.</li>
       <li>One sign-up fires two events, <code>user.signed_up</code> and <code>app_user.created</code>. Put a welcome email on one of them, not both.</li>
     </ul>
@@ -110,7 +110,7 @@
     <table>
       <thead><tr><th>Change</th><th>What to do</th></tr></thead>
       <tbody>
-        <tr><td>Unique key, email, phone or name field, watched fields</td><td>Settings, App audience. No deploy.</td></tr>
+        <tr><td>Unique key, email, phone or name field, watched fields</td><td>Settings, App users. No deploy.</td></tr>
         <tr><td>The collection or its database</td><td>Run <code>npm run arc:configure</code> with the new <code>--app-users-path</code> or <code>--app-users-database</code>, then deploy the functions.</td></tr>
         <tr><td>Your app's database was deleted and created again</td><td>The trigger stays bound to the old one and never fires. Delete <code>arccms-onAppUserWritten</code>, then deploy it again: an update does not rebind it. For the Arc CMS database, see <a href="shared-project.html">Share a Firebase project</a>.</td></tr>
       </tbody>

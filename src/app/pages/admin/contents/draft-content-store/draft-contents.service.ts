@@ -1,5 +1,6 @@
 import { Injectable, runInInjectionContext } from '@angular/core';
-import { CollectionReference, collection, getDocs, getDoc, query, where, limit, doc, writeBatch, orderBy, runTransaction } from '@angular/fire/firestore';
+import { CollectionReference, collection, getDocs, getDoc, getDocsFromServer, getCountFromServer, query, where, limit, doc, writeBatch, orderBy, runTransaction } from '@angular/fire/firestore';
+import { EntryChangedError, EntryGoneError, changedSinceOpened } from './entry-changed';
 import { draftQueueEntry } from '../../../../../shared/services/search-queue';
 import { DbService } from '../../../../../shared/services/db.service';
 import { IDraftContents, INextContentReference } from './draft-contents.model';
@@ -97,13 +98,13 @@ export class DraftContentsService extends DbService<IDraftContents> {
         // Not a merge write: pruned-away fields must actually disappear so that
         // clearing a field in the editor restores the default-language value.
         // The draft is queued for search with it (specs/feature-flags-spec.md 6.5).
-        await runInInjectionContext(this.injector, () => {
-            const batch = writeBatch(this.firestore);
-            batch.set(ref, { ...pruned, lang: translation.lang });
+        // A transaction, not a batch: without a connection it fails at once
+        // instead of waiting, so the editor can say "Not saved" (RF4 review M6).
+        await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
+            transaction.set(ref, { ...pruned, lang: translation.lang });
             const entry = draftQueueEntry(this.firestore, ref.path);
-            if (entry) batch.set(entry.ref, entry.data);
-            return batch.commit();
-        });
+            if (entry) transaction.set(entry.ref, entry.data);
+        }));
     }
 
     /** Removes a language variant entirely, reverting it to the base content. */
@@ -111,13 +112,115 @@ export class DraftContentsService extends DbService<IDraftContents> {
         const ref = runInInjectionContext(this.injector, () =>
             doc(this.translationsRef(contentTypeSlug, docId), lang),
         );
-        await runInInjectionContext(this.injector, () => {
-            const batch = writeBatch(this.firestore);
-            batch.delete(ref);
+        await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
+            transaction.delete(ref);
             const entry = draftQueueEntry(this.firestore, ref.path);
-            if (entry) batch.set(entry.ref, entry.data);
-            return batch.commit();
-        });
+            if (entry) transaction.set(entry.ref, entry.data);
+        }));
+    }
+
+    /**
+     * An id for a new entry, chosen before its first write so a retry writes
+     * the same entry again rather than a second one (RF4 review H1, L1).
+     */
+    newDraftId(contentType: string): string {
+        return runInInjectionContext(this.injector, () => doc(this.getCollectionRef(contentType))).id;
+    }
+
+    /**
+     * Writes a new entry and returns its id (RF4 4.1). Unlike `add`, a failure
+     * reaches the caller, so the editor can say "Not saved". A transaction, so
+     * it fails at once without a connection instead of waiting in the queue.
+     */
+    async createDraft(contentType: string, data: Record<string, unknown>, id?: string): Promise<string> {
+        const collectionRef = this.getCollectionRef(contentType);
+        const ref = runInInjectionContext(this.injector, () => (id ? doc(collectionRef, id) : doc(collectionRef)));
+        const now = new Date();
+        const written = { createdAt: now, modifiedAt: now, ...data, id: ref.id };
+        await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
+            transaction.set(ref, written);
+            const entry = draftQueueEntry(this.firestore, ref.path);
+            if (entry) transaction.set(entry.ref, entry.data);
+        }));
+        return ref.id;
+    }
+
+    /**
+     * Saves an entry's changes (RF4 4.4, 4.5). With `openedModifiedAt`, the
+     * stored entry must still carry that time: when someone else saved it
+     * since, nothing is written and an EntryChangedError is thrown. Without it
+     * (Keep mine), the write goes ahead. `data.modifiedAt` is the new mark;
+     * the caller keeps it for its next save. Failures reach the caller.
+     */
+    async saveDraft(
+        contentType: string,
+        id: string,
+        data: Record<string, unknown>,
+        openedModifiedAt: unknown,
+    ): Promise<void> {
+        const ref = runInInjectionContext(this.injector, () => doc(this.getCollectionRef(contentType), id));
+        const written = { ...data, modifiedAt: data['modifiedAt'] ?? new Date() };
+        await runInInjectionContext(this.injector, () => runTransaction(this.firestore, async (transaction) => {
+            const snap = await transaction.get(ref);
+            if (!snap.exists()) throw new EntryGoneError();
+            if (changedSinceOpened(openedModifiedAt, (snap.data() as { modifiedAt?: unknown }).modifiedAt)) {
+                throw new EntryChangedError();
+            }
+            transaction.update(ref, written);
+            const entry = draftQueueEntry(this.firestore, ref.path);
+            if (entry) transaction.set(entry.ref, entry.data);
+        }));
+    }
+
+    /**
+     * Whether another entry of the type already has this address (RF4 4.6).
+     * Asked of the server, for a new entry and an existing one alike; the
+     * entry itself (`ownId`) does not count. A failed read throws, so a save
+     * never goes ahead on a guess.
+     */
+    async isSlugTaken(slug: string, contentType: string, ownId?: string): Promise<boolean> {
+        // Drafts, and live pages too: an entry whose draft moved to another
+        // address still holds its old one on the site until it is published
+        // again (RF4 server review M1).
+        const drafts = this.getCollectionRef(contentType);
+        const live = runInInjectionContext(this.injector, () => collection(this.firestore, `arc_${contentType}`));
+        const [draftSnap, liveSnap] = await Promise.all([drafts, live].map((ref) => {
+            const q = runInInjectionContext(this.injector, () => query(ref, where('urlSlug', '==', slug), limit(2)));
+            return runInInjectionContext(this.injector, () => getDocsFromServer(q));
+        }));
+        return [...draftSnap.docs, ...liveSnap.docs].some((d) => d.id !== ownId);
+    }
+
+    /**
+     * The address of an entry's live page, '' when it has none. The editor
+     * offers a redirect from it when the address changes (RF4 4.6).
+     */
+    async publishedSlug(contentType: string, id: string): Promise<string> {
+        try {
+            const ref = runInInjectionContext(this.injector, () => doc(this.firestore, `arc_${contentType}`, id));
+            const snap = await runInInjectionContext(this.injector, () => getDoc(ref));
+            return snap.exists() ? String((snap.data() as { urlSlug?: string }).urlSlug || '') : '';
+        } catch (error) {
+            console.error('Error reading the published address:', error);
+            return '';
+        }
+    }
+
+    /**
+     * Every entry of a type, for the entries list's title search (RF5 5.9),
+     * which Firestore cannot do inside a title. Throws when it cannot be read.
+     */
+    async listForSearch(contentType: string): Promise<IDraftContents[]> {
+        const snapshot = await runInInjectionContext(this.injector, () => getDocs(this.getCollectionRef(contentType)));
+        return snapshot.docs.map((d) => ({ ...(d.data() as unknown as Record<string, unknown>), id: d.id }) as IDraftContents);
+    }
+
+    /** How many entries of the type carry a tag (RF4 4.11). Throws when it cannot be counted. */
+    async countWithTag(contentType: string, label: string): Promise<number> {
+        const q = runInInjectionContext(this.injector, () =>
+            query(this.getCollectionRef(contentType), where('tags', 'array-contains', label)));
+        const snapshot = await runInInjectionContext(this.injector, () => getCountFromServer(q));
+        return snapshot.data().count;
     }
 
     /**

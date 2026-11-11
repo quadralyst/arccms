@@ -1,4 +1,5 @@
 import { inject, Injectable } from '@angular/core';
+import { injectT } from '../../../../core/i18n/inject-t';
 import { collection, Firestore, getDocs, orderBy, query } from '@angular/fire/firestore';
 import {
     getBlob,
@@ -12,6 +13,8 @@ import { FileExportProgress, MediaDocInfo } from '../data-constants';
 export class ExportFilesService {
     private arcStorage = inject(ArcStorage);
     private db = inject(Firestore);
+    /** Progress words in the admin's language. */
+    private t = injectT();
 
     /**
      * Load every library item: images from `media`, then documents from
@@ -136,7 +139,7 @@ export class ExportFilesService {
         zip.file('media-manifest.json', JSON.stringify(manifest, null, 2));
 
         progressCallback({
-            currentFile: 'Creating ZIP...',
+            currentFile: this.t('admin.data.export_files.making_zip'),
             filesCompleted: items.length,
             totalFiles: items.length,
             bytesDownloaded,

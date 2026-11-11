@@ -26,6 +26,7 @@ describe('ContentTypesPage', () => {
         getAll: vi.fn(() => of([])),
         unsubscribeStore: () => { },
         isLoading: vi.fn().mockReturnValue(false),
+        error: vi.fn().mockReturnValue(''),
         totalRecords: vi.fn().mockReturnValue(100),
     };
 
@@ -126,7 +127,7 @@ describe('ContentTypesPage', () => {
         it('says the entries stay when another type shares the slug', async () => {
             mockContentTypesService.deleteImpact.mockResolvedValue({ entries: 12, shared: true });
             await component.deleteItem(type);
-            expect(message()).toContain('Another content type uses the slug <strong>articles</strong>');
+            expect(message()).toContain('Another content type uses the address <strong>articles</strong>');
             expect(message()).not.toContain('permanently');
         });
 

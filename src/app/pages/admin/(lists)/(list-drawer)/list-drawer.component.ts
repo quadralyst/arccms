@@ -5,7 +5,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { ToastService } from '../../../../../shared/services/toast.service';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { NotifyService } from '../../../../../shared/services/notify.service';
 import { AudienceService } from '../../(audience)/audience.service';
 import { AppListCondition, IList } from '../../(audience)/audience.model';
 import { Functions } from '@angular/fire/functions';
@@ -24,41 +25,41 @@ export type ListDrawerMode = 'add' | 'edit';
 @Component({
     selector: 'arc-list-drawer',
     standalone: true,
-    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatRadioModule, AppListConditionsComponent],
+    imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule, MatFormFieldModule, MatRadioModule, AppListConditionsComponent, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <div class="side-panel">
         <div class="panel-header">
-            <h5>{{ mode === 'edit' ? 'Edit list' : 'Create list' }}</h5>
-            <button class="close-btn" (click)="close.emit()"><i class="fas fa-times"></i></button>
+            <h5>{{ (mode === 'edit' ? 'admin.audience.lists.edit' : 'admin.audience.lists.create') | transloco }}</h5>
+            <button type="button" class="close-btn" (click)="close.emit()" [attr.aria-label]="'common.actions.close' | transloco"><i class="fas fa-times" aria-hidden="true"></i></button>
         </div>
 
         <div class="flex-grow-1">
             @if (mode === 'add' && appConnected()) {
-                <mat-radio-group class="d-flex flex-column gap-1 mb-3" [(ngModel)]="kind" aria-label="List type">
-                    <mat-radio-button value="manual">Contacts: people you add, import or collect with forms</mat-radio-button>
-                    <mat-radio-button value="app">App users (live): people from your app who match conditions</mat-radio-button>
+                <mat-radio-group class="d-flex flex-column gap-1 mb-3" [(ngModel)]="kind" [attr.aria-label]="'admin.audience.lists.kind_label' | transloco">
+                    <mat-radio-button value="manual">{{ 'admin.audience.lists.kind_manual' | transloco }}</mat-radio-button>
+                    <mat-radio-button value="app">{{ 'admin.audience.lists.kind_app' | transloco }}</mat-radio-button>
                 </mat-radio-group>
             }
             <mat-form-field appearance="outline" class="w-100">
-                <mat-label>List name</mat-label>
-                <input matInput [(ngModel)]="name" (keyup.enter)="submit()" placeholder="e.g. Newsletter" />
+                <mat-label>{{ 'admin.audience.lists.name_label' | transloco }}</mat-label>
+                <input matInput [(ngModel)]="name" (keyup.enter)="submit()" [placeholder]="'admin.audience.lists.name_placeholder' | transloco" />
             </mat-form-field>
             <mat-form-field appearance="outline" class="w-100">
-                <mat-label>Description (optional)</mat-label>
+                <mat-label>{{ 'admin.audience.lists.description_label' | transloco }}</mat-label>
                 <textarea matInput rows="3" [(ngModel)]="description"></textarea>
             </mat-form-field>
             @if (kind === 'app') {
-                <h6 class="mb-1">Who is in this list</h6>
+                <h6 class="mb-1">{{ 'admin.audience.lists.who_heading' | transloco }}</h6>
                 <arc-app-list-conditions [conditions]="conditions" (conditionsChange)="conditions = $event" />
             }
         </div>
 
         <div class="panel-actions">
-            <button mat-stroked-button (click)="close.emit()">Cancel</button>
+            <button mat-stroked-button (click)="close.emit()">{{ 'common.actions.cancel' | transloco }}</button>
             <button mat-flat-button color="primary" [disabled]="busy() || !name.trim()" (click)="submit()">
                 <mat-icon>{{ mode === 'edit' ? 'save' : 'add' }}</mat-icon>
-                {{ mode === 'edit' ? 'Save' : 'Create list' }}
+                {{ (mode === 'edit' ? 'common.actions.save' : 'admin.audience.lists.create') | transloco }}
             </button>
         </div>
     </div>
@@ -71,7 +72,7 @@ export class ListDrawerComponent implements OnChanges {
     @Output() saved = new EventEmitter<void>();
 
     private audience = inject(AudienceService);
-    private toast = inject(ToastService);
+    private notify = inject(NotifyService);
     private functions = inject(Functions);
 
     busy = signal(false);
@@ -105,17 +106,17 @@ export class ListDrawerComponent implements OnChanges {
                 await this.audience.updateList(this.list.id, {
                     name, description: this.description.trim(), ...(live ? { conditions: this.conditions } : {}),
                 });
-                this.toast.success('List updated');
+                this.notify.success('admin.audience.lists.updated');
             } else {
                 if (live) await this.audience.createList(name, this.description.trim(), this.conditions);
                 else await this.audience.createList(name, this.description.trim());
-                this.toast.success('List created');
+                this.notify.success('admin.audience.lists.created');
             }
             this.saved.emit();
             this.close.emit();
         } catch (e) {
-            console.error(e);
-            this.toast.error(this.mode === 'edit' ? 'Failed to update list' : 'Failed to create list');
+            console.error('Saving the list failed', e);
+            this.notify.error(this.mode === 'edit' ? 'admin.audience.lists.update_failed' : 'admin.audience.lists.create_failed');
         } finally {
             this.busy.set(false);
         }

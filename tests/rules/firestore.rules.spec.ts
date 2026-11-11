@@ -66,8 +66,9 @@ describe('users: create (review F: sign-ups create records on the server)', () =
         await assertFails(addDoc(collection(anon(), 'users'), { uid: ALICE, role: 'user' }));
     });
 
-    it('lets an admin create a user with any role', async () => {
-        await assertSucceeds(addDoc(collection(admin(), 'users'), { uid: 'new', role: 'admin' }));
+    it('refuses an admin too: Add user is a callable (adminCreateUser), and a record on someone\'s uid would replace their claims', async () => {
+        await assertFails(addDoc(collection(admin(), 'users'), { uid: 'new', role: 'admin' }));
+        await assertFails(setDoc(doc(admin(), 'users', 'twin-doc'), { uid: BOB, role: 'user', isActive: false }));
     });
 
     it('never accepts a password in a user record, from anyone', async () => {
@@ -115,8 +116,22 @@ describe('users: update', () => {
         await assertFails(updateDoc(doc(alice(), 'users', 'bob-doc'), { name: 'pwned' }));
     });
 
-    it('lets an admin change a role', async () => {
-        await assertSucceeds(updateDoc(doc(admin(), 'users', 'alice-doc'), { role: 'admin' }));
+    it('refuses an admin changing a role, a block or the sign-in: those go through the callables, which keep an active admin (RF4)', async () => {
+        await assertFails(updateDoc(doc(admin(), 'users', 'alice-doc'), { role: 'admin' }));
+        await assertFails(updateDoc(doc(admin(), 'users', 'alice-doc'), { isActive: false }));
+        await assertFails(updateDoc(doc(admin(), 'users', 'alice-doc'), { status: 'Disable' }));
+        await assertFails(updateDoc(doc(admin(), 'users', 'alice-doc'), { uid: BOB }));
+    });
+
+    it('keeps who holds the password server-only: by, authOwner and adminPasswordAt, from an admin or the person (RF4)', async () => {
+        await assertFails(updateDoc(doc(admin(), 'users', 'alice-doc'), { by: 'admin' }));
+        await assertFails(updateDoc(doc(admin(), 'users', 'alice-doc'), { authOwner: 'arccms' }));
+        await assertFails(updateDoc(doc(admin(), 'users', 'alice-doc'), { adminPasswordAt: new Date() }));
+        await assertFails(updateDoc(doc(alice(), 'users', 'alice-doc'), { adminPasswordAt: new Date() }));
+    });
+
+    it('lets an admin edit the rest of a record, writing the same role and block back included', async () => {
+        await assertSucceeds(updateDoc(doc(admin(), 'users', 'alice-doc'), { name: 'Alice A', role: 'user', isActive: true, status: 'Active' }));
     });
 });
 
@@ -140,6 +155,10 @@ describe('users: read', () => {
 
     it('does not let a user delete any user doc', async () => {
         await assertFails(deleteDoc(doc(alice(), 'users', 'alice-doc')));
+    });
+
+    it('does not let an admin delete one either: Users deletes through adminDeleteUser (RF4)', async () => {
+        await assertFails(deleteDoc(doc(admin(), 'users', 'bob-doc')));
     });
 });
 
@@ -302,8 +321,10 @@ describe('phone and email sign-in fields (item 1: Google and phone sign-in)', ()
         await assertSucceeds(updateDoc(doc(alice(), 'users', 'alice-doc'), { name: 'Alice B' }));
     });
 
-    it('lets an admin set them', async () => {
-        await assertSucceeds(updateDoc(doc(admin(), 'users', 'alice-doc'), { email: 'new@x.com', phone: '+919876543210' }));
+    it('lets an admin set the email, but the number only through adminSetPhone, which checks it (RF4)', async () => {
+        await assertSucceeds(updateDoc(doc(admin(), 'users', 'alice-doc'), { email: 'new@x.com' }));
+        await assertFails(updateDoc(doc(admin(), 'users', 'alice-doc'), { phone: '+919876543210' }));
+        await assertFails(updateDoc(doc(admin(), 'users', 'alice-doc'), { phoneVerified: true }));
     });
 
     it('keeps codes, PINs, the number index and rate limits closed to everyone', async () => {

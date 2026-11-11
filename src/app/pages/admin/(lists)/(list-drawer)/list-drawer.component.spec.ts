@@ -12,7 +12,7 @@ vi.mock('@angular/fire/functions', () => ({
 }));
 import { ListDrawerComponent } from './list-drawer.component';
 import { AudienceService } from '../../(audience)/audience.service';
-import { ToastService } from '../../../../../shared/services/toast.service';
+import { NotifyService } from '../../../../../shared/services/notify.service';
 
 describe('ListDrawerComponent', () => {
     let component: ListDrawerComponent;
@@ -27,7 +27,7 @@ describe('ListDrawerComponent', () => {
             imports: [ListDrawerComponent, NoopAnimationsModule],
             providers: [
                 { provide: AudienceService, useValue: audience },
-                { provide: ToastService, useValue: toast },
+                { provide: NotifyService, useValue: toast },
                 { provide: Functions, useValue: {} },
             ],
         }).compileComponents();

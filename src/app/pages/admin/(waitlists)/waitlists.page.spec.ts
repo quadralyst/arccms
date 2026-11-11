@@ -11,7 +11,17 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import * as FirestoreSDK from '@angular/fire/firestore';
 import { NO_ERRORS_SCHEMA, Component, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
+import { Functions } from '@angular/fire/functions';
+import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
+import { NotifyService } from '../../../../shared/services/notify.service';
+
+const { deleteForm } = vi.hoisted(() => ({ deleteForm: vi.fn() }));
+vi.mock('@angular/fire/functions', () => ({
+    Functions: class { },
+    httpsCallable: vi.fn((_f: unknown, name: string) => (data: unknown) => deleteForm(name, data)),
+}));
 
 // Mock Firestore SDK functions
 vi.mock('@angular/fire/firestore', () => {
@@ -27,6 +37,7 @@ vi.mock('@angular/fire/firestore', () => {
         updateDoc: vi.fn(),
         deleteDoc: vi.fn(),
         getCountFromServer: vi.fn(),
+        getDoc: vi.fn().mockResolvedValue({ exists: () => false }),
         getDocs: vi.fn().mockResolvedValue({ docs: [] }),
     };
 });
@@ -66,7 +77,14 @@ describe('WaitlistsComponent', () => {
         dismissBanner: vi.fn()
     };
 
+    const confirmDialog = { ask: vi.fn(async () => true) };
+    const notify = { error: vi.fn(), success: vi.fn() };
+
     beforeEach(async () => {
+        confirmDialog.ask.mockClear();
+        notify.error.mockClear();
+        notify.success.mockClear();
+        deleteForm.mockReset().mockResolvedValue({ data: { deleted: true, signups: 3, tags: 1 } });
         mockRouter = { navigate: vi.fn() };
         mockFirestore = {};
 
@@ -75,11 +93,13 @@ describe('WaitlistsComponent', () => {
             selector: 'app-global-table',
             template: '',
             standalone: true,
-            inputs: ['data', 'columns', 'loading', 'emptyTitle', 'emptyDescription', 'emptyActionLabel'],
-            outputs: ['emptyActionClick']
+            inputs: ['data', 'columns', 'loading', 'error', 'emptyTitle', 'emptyDescription', 'emptyActionLabel'],
+            outputs: ['emptyActionClick', 'retry']
         })
         class MockGlobalTableComponent {
             emptyActionClick = new EventEmitter<void>();
+            retry = new EventEmitter<void>();
+            error: unknown = null;
         }
 
         // Mock WaitlistEditDrawerComponent
@@ -101,13 +121,16 @@ describe('WaitlistsComponent', () => {
                 { provide: Firestore, useValue: mockFirestore },
                 { provide: Router, useValue: mockRouter },
                 { provide: MatDialog, useClass: MatDialog },
-                { provide: EmailConfigStatusService, useValue: mockEmailConfigService }
+                { provide: EmailConfigStatusService, useValue: mockEmailConfigService },
+                { provide: Functions, useValue: {} },
+                { provide: ConfirmService, useValue: confirmDialog },
+                { provide: NotifyService, useValue: notify },
             ],
             schemas: [NO_ERRORS_SCHEMA]
         })
             .overrideComponent(WaitlistsComponent, {
                 set: {
-                    imports: [CommonModule, MockGlobalTableComponent, MockWaitlistEditDrawerComponent]
+                    imports: [CommonModule, TranslocoPipe, MockGlobalTableComponent, MockWaitlistEditDrawerComponent]
                 }
             })
             .compileComponents();
@@ -245,19 +268,139 @@ describe('WaitlistsComponent', () => {
         });
     });
 
-    describe('Delete Operation', () => {
-        it('should show confirmation and delete', async () => {
-            const mockWaitlist = {
-                id: '123',
-                name: 'Test',
-                slug: 'test',
-                isActive: true,
-                totalSignups: 0
-            };
+    describe('Address already in use', () => {
+        it('refuses a new form whose address another form has, and writes nothing', async () => {
+            vi.mocked(FirestoreSDK.setDoc).mockClear();
+            vi.mocked(FirestoreSDK.getDoc).mockResolvedValueOnce({ exists: () => true } as any);
+            component.currentAction.set('add');
+            component.isDrawerOpen.set(true);
+            await component.onDrawerSaved({
+                name: 'Beta', slug: 'beta', description: '', coverImage: '',
+                isActive: true, disabledMessage: '', defaultTagId: '', targetListIds: [], fieldMap: {},
+            });
+            expect(FirestoreSDK.setDoc).not.toHaveBeenCalled();
+            expect(notify.error).toHaveBeenCalledWith('admin.forms.address_taken');
+            expect(component.isDrawerOpen()).toBe(true);
+        });
 
-            await component.deleteWaitlist(mockWaitlist);
+        it('shows a plain message when a save fails', async () => {
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            vi.mocked(FirestoreSDK.updateDoc).mockRejectedValueOnce(new Error('permission-denied'));
+            component.currentAction.set('edit');
+            component.currentId.set('x');
+            await component.onDrawerSaved({
+                name: 'Beta', slug: 'beta', description: '', coverImage: '',
+                isActive: true, disabledMessage: '', defaultTagId: '', targetListIds: [], fieldMap: {},
+            });
+            expect(notify.error).toHaveBeenCalledWith('admin.forms.save_failed');
+        });
+    });
 
-            expect(FirestoreSDK.deleteDoc).toHaveBeenCalled();
+    describe('Sign-up counts (RF5, 5.10)', () => {
+        type Snap = { docs: { id: string; data: () => any }[] };
+        const forms = (...f: [string, number][]): Snap => ({
+            docs: f.map(([id, totalSignups]) => ({ id, data: () => ({ name: id, slug: id, isActive: true, totalSignups }) })),
+        });
+        let next: (s: Snap) => Promise<void>;
+        let fail: (e: unknown) => void;
+
+        beforeEach(() => {
+            vi.mocked(FirestoreSDK.getCountFromServer).mockReset().mockResolvedValue({ data: () => ({ count: 7 }) } as any);
+            vi.mocked(FirestoreSDK.onSnapshot).mockReset().mockImplementation(((_q: unknown, ok: any, bad: any) => {
+                next = ok; fail = bad;
+                return () => undefined;
+            }) as any);
+            component.loadWaitlists();
+        });
+
+        it('counts each form once, not again on every snapshot', async () => {
+            await next(forms(['a', 1], ['b', 2]));
+            expect(FirestoreSDK.getCountFromServer).toHaveBeenCalledTimes(2);
+            expect(component.waitlists().map((w) => w.allUsersCount)).toEqual([7, 7]);
+
+            // A snapshot where nothing about the sign-ups changed (a rename, say).
+            await next(forms(['a', 1], ['b', 2]));
+            expect(FirestoreSDK.getCountFromServer).toHaveBeenCalledTimes(2);
+        });
+
+        it('counts a form again only when its confirmed count moves, and counts a new form', async () => {
+            await next(forms(['a', 1], ['b', 2]));
+            vi.mocked(FirestoreSDK.getCountFromServer).mockResolvedValue({ data: () => ({ count: 9 }) } as any);
+            await next(forms(['a', 2], ['b', 2], ['c', 0]));
+            expect(FirestoreSDK.getCountFromServer).toHaveBeenCalledTimes(4);
+            expect(component.waitlists().map((w) => w.allUsersCount)).toEqual([9, 7, 9]);
+        });
+
+        it('a fresh load (Retry) counts every form again, so unconfirmed sign-ups show up', async () => {
+            await next(forms(['a', 1]));
+            expect(FirestoreSDK.getCountFromServer).toHaveBeenCalledTimes(1);
+            component.loadWaitlists();
+            await next(forms(['a', 1]));
+            expect(FirestoreSDK.getCountFromServer).toHaveBeenCalledTimes(2);
+        });
+
+        it('shows the load error with Retry, keeping the detail in the console', () => {
+            const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            fail(new Error('permission-denied'));
+            expect(component.loadError()).toBe(true);
+            expect(component.loading()).toBe(false);
+            expect(log).toHaveBeenCalled();
+
+            fixture.detectChanges();
+            const table = fixture.debugElement.query((el) => el.name === 'app-global-table').componentInstance;
+            expect(table.error).toBe(true);
+            table.retry.emit();
+            expect(FirestoreSDK.onSnapshot).toHaveBeenCalledTimes(2);
+            expect(component.loadError()).toBeNull();
+        });
+    });
+
+    describe('Words (RF5, 5.3 and 5.4)', () => {
+        it('names every column and action with a translation key, and says Address, not Slug', () => {
+            component.initTableColumns();
+            const headers = component.tableColumns.map((c) => c.header);
+            expect(headers.every((h) => /^(admin|common)\./.test(h))).toBe(true);
+            expect(headers).toContain('admin.forms.col.address');
+            const labels = component.tableColumns.find((c) => c.type === 'actions')!.actions!.map((a: any) => a.label);
+            expect(labels.every((l: string) => /^(admin|common)\./.test(l))).toBe(true);
+        });
+
+        it('says Forms on the page, not Waitlists', () => {
+            fixture.detectChanges();
+            const text = (fixture.nativeElement as HTMLElement).textContent || '';
+            expect(text).toContain('Add form');
+            expect(text).not.toMatch(/waitlist/i);
+        });
+    });
+
+    describe('Delete Operation (RF4, 4.11 and 4.12)', () => {
+        const form = { id: '123', name: 'Spring <b>sale</b>', slug: 'test', isActive: true, totalSignups: 2, allUsersCount: 3 };
+
+        it('deletes the form, its sign-ups and its tags on the server, never from the browser', async () => {
+            await component.deleteWaitlist(form);
+            expect(deleteForm).toHaveBeenCalledWith('arccms-adminDeleteForm', { formId: '123' });
+            expect(FirestoreSDK.deleteDoc).not.toHaveBeenCalled();
+            expect(notify.success).toHaveBeenCalledWith('admin.forms.deleted');
+        });
+
+        it('says how many sign-ups go with it, naming the form safely', async () => {
+            await component.deleteWaitlist(form);
+            const asked = (confirmDialog.ask.mock.calls[0] as any[])[0];
+            expect(asked.panelType).toBe('warn');
+            expect(asked.dialogMessage).toContain('Spring &lt;b&gt;sale&lt;/b&gt;');
+            expect(asked.dialogMessage).toContain('3 sign-ups and its tags');
+        });
+
+        it('deletes nothing when cancelled', async () => {
+            confirmDialog.ask.mockResolvedValueOnce(false);
+            await component.deleteWaitlist(form);
+            expect(deleteForm).not.toHaveBeenCalled();
+        });
+
+        it('shows a message when the delete fails', async () => {
+            deleteForm.mockRejectedValueOnce(new Error('internal'));
+            await component.deleteWaitlist(form);
+            expect(notify.error).toHaveBeenCalledWith('admin.forms.delete_failed');
         });
     });
 

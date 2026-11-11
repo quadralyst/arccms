@@ -45,14 +45,14 @@
     <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
     off: ['seo'],
 };</code></pre>
-    <p>When it is off, Admin, Settings, Discoverability goes, the <code>regenerateSeoFiles</code> function goes at the next deploy of the whole functions codebase, and neither publishing nor <code>npm run seed</code> writes the sitemap, robots.txt, llms.txt, llms-full.txt, feeds or IndexNow key, and nothing is pinged. Files an earlier publish or seed wrote stay on Hosting until the next website deploy: with <code>seo</code> off it leaves them out of the release, which removes them. So after turning it off, deploy the website once (<code>npm run deploy -- --only hosting --project &lt;alias&gt;</code>), then check that <code>/robots.txt</code> and <code>/sitemap.xml</code> no longer show the old files. Head tags, structured data, Markdown twins, authors, sources and the Checks tab are part of <a href="content.html">Content</a> and stay. See <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+    <p>When it is off, Admin, Settings, Search engines and AI goes, the <code>regenerateSeoFiles</code> function goes at the next deploy of the whole functions codebase, and neither publishing nor <code>npm run seed</code> writes the sitemap, robots.txt, llms.txt, llms-full.txt, feeds or IndexNow key, and nothing is pinged. Files an earlier publish or seed wrote stay on Hosting until the next website deploy: with <code>seo</code> off it leaves them out of the release, which removes them. So after turning it off, deploy the website once (<code>npm run deploy -- --only hosting --project &lt;alias&gt;</code>), then check that <code>/robots.txt</code> and <code>/sitemap.xml</code> no longer show the old files. Head tags, structured data, Markdown twins, authors, sources and the Checks tab are part of <a href="content.html">Content</a> and stay. See <a href="../reference/feature-ids.html">Feature ids</a>.</p>
 
     <h2>Set it up</h2>
     <ol class="steps">
-      <li><p><strong>Say who owns the site.</strong> In Admin, Settings, About, fill in the site name, the production URL, whether the site is an organization or a person, the logo, a description, the <strong>Social and profile links</strong> (one URL per line), a contact email and a public phone. They become the Organization or Person node on every page (the phone as <code>telephone</code>, the links as <code>sameAs</code>), and the same details can be printed on the site itself (see <a href="templates.html#site-info">Site info</a>), and the production URL is the base of every absolute link in the files above. Empty fields are left out, never guessed.</p></li>
+      <li><p><strong>Say who owns the site.</strong> In Admin, Settings, Site details, fill in the site name, the production URL, whether the site is an organization or a person, the logo, a description, the <strong>Social and profile links</strong> (one URL per line), a contact email and a public phone. They become the Organization or Person node on every page (the phone as <code>telephone</code>, the links as <code>sameAs</code>), and the same details can be printed on the site itself (see <a href="templates.html#site-info">Site info</a>), and the production URL is the base of every absolute link in the files above. Empty fields are left out, never guessed.</p></li>
       <li><p><strong>Add authors.</strong> Content, Authors. Mark one as the default and new content gets that author. See <a href="authors-and-tags.html">Authors and tags</a>.</p></li>
       <li><p><strong>Map content types (optional).</strong> Add or edit a content type and choose its <strong>Structured data</strong> type: Article (the default), Blog post, News article, Web page, Product, Service, Event, Person, Recipe or How-to guide. Web page suits pages that are not articles, such as About or a policy; the standard pages use it. Map the type's properties to your custom fields; anything unmapped is left out.</p></li>
-      <li><p><strong>Choose the crawler policy.</strong> Admin, Settings, Discoverability. Every crawler is allowed until you switch it off. Choose whether to publish <code>/llms.txt</code> and <code>/llms-full.txt</code> and whether to use IndexNow (both on by default). Press <strong>Save and apply to site</strong> to write the files now, or <strong>Save</strong> to let the next publish write them.</p></li>
+      <li><p><strong>Choose the crawler policy.</strong> Admin, Settings, Search engines and AI. Every crawler is allowed until you switch it off. Choose whether to publish <code>/llms.txt</code> and <code>/llms-full.txt</code> and whether to use IndexNow (both on by default). Press <strong>Save and apply to site</strong> to write the files now, or <strong>Save</strong> to let the next publish write them.</p></li>
       <li><p><strong>Verify from the outside.</strong> Arc CMS keeps no crawler log, so register the site in Google Search Console and Bing Webmaster Tools (which also shows IndexNow submissions).</p></li>
     </ol>
     <p>The crawlers on the settings page come in two groups:</p>
@@ -153,7 +153,7 @@
     <table>
       <thead><tr><th>Action</th><th>Who</th></tr></thead>
       <tbody>
-        <tr><td>Read and change Discoverability settings, run <code>regenerateSeoFiles</code></td><td>Admins.</td></tr>
+        <tr><td>Read and change Search engines and AI settings, run <code>regenerateSeoFiles</code></td><td>Admins.</td></tr>
         <tr><td>Change About settings, add and edit authors</td><td>Admins.</td></tr>
         <tr><td>Read authors and About</td><td>Anyone: the same details are printed on every public page.</td></tr>
         <tr><td>Set author, sources and dates on content; see the Checks tab</td><td>Admins: the content screens are admin only (see <a href="users-and-roles.html">Users and roles</a>).</td></tr>
@@ -167,8 +167,8 @@
     <table>
       <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
       <tbody>
-        <tr><td>Absolute links point at the wrong host</td><td>Without a production URL in Admin, Settings, About, the Hosting default address is used. Set it, then publish.</td></tr>
-        <tr><td>IndexNow sends nothing</td><td>Check it is on in Discoverability. Each submission, and each refusal with its status, is in the function log under "IndexNow". A 4xx means the key file is not served at the production URL: press <strong>Save and apply to site</strong>.</td></tr>
+        <tr><td>Absolute links point at the wrong host</td><td>Without a production URL in Admin, Settings, Site details, the Hosting default address is used. Set it, then publish.</td></tr>
+        <tr><td>IndexNow sends nothing</td><td>Check it is on in Search engines and AI. Each submission, and each refusal with its status, is in the function log under "IndexNow". A 4xx means the key file is not served at the production URL: press <strong>Save and apply to site</strong>.</td></tr>
         <tr><td>A structured data property is missing</td><td>Its source field is empty or unmapped. Nothing is invented.</td></tr>
         <tr><td>No Related items or link suggestions</td><td>Search is off, or the index is empty: rebuild it in Admin, Settings, Search.</td></tr>
         <tr><td>A page is missing from llms.txt</td><td>It has no URL slug or title, its type has no public pages, or the 500-page limit was reached before it.</td></tr>

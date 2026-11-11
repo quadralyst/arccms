@@ -4,9 +4,11 @@
             [ngModel]="query()" (ngModelChange)="query.set($event)"
             [disabled]="disabled()"
             [placeholder]="'admin.contents.editor.map.search_placeholder' | transloco"
+            [attr.aria-label]="'admin.contents.editor.map.search_placeholder' | transloco"
             (keyup.enter)="runSearch()">
         <button type="button" class="btn btn-outline-primary btn-sm"
             [disabled]="disabled() || searching() || !query().trim()"
+            [attr.aria-label]="'common.map_picker.search' | transloco"
             (click)="runSearch()">
             @if (searching()) {
             <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>

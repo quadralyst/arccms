@@ -37,6 +37,8 @@ import { EmailSettingService } from '../../../app/pages/admin/(settings)/email-s
 import { HashtagAutocompleteDirective } from '../../directives/hashtag-autocomplete/hashtag-autocomplete.directive';
 import { getEmailTags } from '../../constants/email-tags';
 import { SiteBrandService } from '../../../app/core/brand/site-brand';
+import { injectT } from '../../../app/core/i18n/inject-t';
+import type { TranslationKey } from '../../../app/core/i18n/translation-keys';
 
 type SendToOption = 'all' | 'some' | 'new' | '';
 
@@ -77,6 +79,7 @@ export class BroadcastEmailEditorComponent {
     private readonly globalService = inject(GlobalService);
     private readonly toastService = inject(ToastService);
     private readonly emailSettingService = inject(EmailSettingService);
+    private readonly t = injectT();
     /** The name shown and sent while Settings, Email names no sender. */
     readonly siteName = inject(SiteBrandService).name;
 
@@ -84,7 +87,8 @@ export class BroadcastEmailEditorComponent {
 
     // Form
     broadcastForm!: FormGroup;
-    errorMessages: string[] = [];
+    /** Translation keys of what is missing, shown as a list above the buttons. */
+    errorMessages: TranslationKey[] = [];
 
     // Editor state
     activeTab = signal<'editor' | 'html'>('editor');
@@ -367,25 +371,23 @@ export class BroadcastEmailEditorComponent {
 
         dialogRef.afterClosed().subscribe((result: any) => {
             if (result?.success) {
-                this.toastService.success('Broadcast email sent successfully!');
+                this.toastService.success(this.t('common.broadcast_editor.sent'));
                 this.broadcastSent.emit();
                 this.closeModal();
             }
         });
     }
 
-    private getFormErrors(): string[] {
-        const errors: string[] = [];
+    private getFormErrors(): TranslationKey[] {
+        const missing: Record<string, TranslationKey> = {
+            sendTo: 'common.broadcast_editor.choose_recipients_hint',
+            senderEmail: 'common.broadcast_editor.sender_email_missing',
+            subject: 'common.broadcast_editor.subject_required',
+        };
         const controls = this.broadcastForm.controls;
-
-        for (const name in controls) {
-            if (controls[name].invalid) {
-                const friendlyName = name.replace(/([A-Z])/g, ' $1').trim();
-                errors.push(`${friendlyName.charAt(0).toUpperCase() + friendlyName.slice(1)} is required`);
-            }
-        }
-
-        return errors;
+        return Object.keys(controls)
+            .filter((name) => controls[name].invalid)
+            .map((name) => missing[name] ?? 'common.broadcast_editor.field_missing');
     }
 
     closeModal(): void {
@@ -421,7 +423,7 @@ export class BroadcastEmailEditorComponent {
     // Open test email dialog
     openTestEmailDialog(): void {
         if (!this.htmlContent) {
-            this.toastService.error('Please add email content before sending a test email.');
+            this.toastService.error(this.t('common.broadcast_editor.no_content'));
             return;
         }
 

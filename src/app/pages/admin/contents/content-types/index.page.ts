@@ -3,7 +3,7 @@ import { StandardPagesService } from '../standard-pages/standard-pages.service';
 import { standardPagesFields } from '../standard-pages/standard-pages';
 import { isOn } from '../../../../core/features/features';
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, inject, signal, ViewChild, TemplateRef, computed } from '@angular/core';
+import { Component, inject, signal, ViewChild, TemplateRef, computed, effect, untracked } from '@angular/core';
 import { MatSidenavModule, MatDrawer } from '@angular/material/sidenav';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -152,7 +152,26 @@ export default class ContentTypeComponent {
   tableColumns: TableColumn[] = [];
 
 
+  /** The list did not load (RF5 5.1): the table says so, with Retry; the detail goes to the console. */
+  readonly loadFailed = signal(false);
+  private fetching = false;
+
   constructor() {
+    effect(() => {
+      const loading = this.contentTypesStore.isLoading();
+      const error = this.contentTypesStore.error();
+      untracked(() => {
+        if (loading || !this.fetching) return;
+        this.fetching = false;
+        if (error) console.error('Loading the content types failed:', error);
+        this.loadFailed.set(!!error);
+      });
+    });
+  }
+
+  /** Retry in the table's error state. */
+  retryLoad(): void {
+    this.fetchData();
   }
 
   ngOnInit(): void {
@@ -319,6 +338,8 @@ export default class ContentTypeComponent {
     // No limit and no cursors: the store is shared with the content editor,
     // which needs every type present to resolve its custom fields. Paging is
     // done below over what is already loaded.
+    this.loadFailed.set(false);
+    this.fetching = true;
     this.contentTypesStore.getAll({
       orderByField: this.sortField(),
       orderByDirection: this.sortOrder(),
@@ -461,7 +482,7 @@ export default class ContentTypeComponent {
       },
       {
         key: 'slug',
-        header: 'common.table.slug',
+        header: 'admin.contents.types.col_address',
         type: 'text',
         sortable: true
       },

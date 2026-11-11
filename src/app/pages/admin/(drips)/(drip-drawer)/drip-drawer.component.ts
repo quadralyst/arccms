@@ -10,6 +10,8 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { firstValueFrom } from 'rxjs';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { injectT } from '../../../../core/i18n/inject-t';
 import { ToastService } from '../../../../../shared/services/toast.service';
 import { NewEmailDialogComponent } from '../../../../../shared/components/new-email-dialog/new-email-dialog.component';
 import { NewEmailMeta } from '../../../../../shared/email-compiler/new-template';
@@ -30,74 +32,76 @@ export type DripDrawerMode = 'add' | 'edit';
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatInputModule,
         MatFormFieldModule, MatSelectModule, MatSlideToggleModule, MatTooltipModule,
-        MatDialogModule,
+        MatDialogModule, TranslocoPipe,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
     <div class="side-panel">
         <div class="panel-header">
-            <h5>{{ mode === 'edit' ? 'Edit campaign' : 'New campaign' }}</h5>
-            <button class="close-btn" (click)="close.emit()"><i class="fas fa-times"></i></button>
+            <h5>{{ (mode === 'edit' ? 'admin.drips.edit_title' : 'admin.drips.new_title') | transloco }}</h5>
+            <button type="button" class="close-btn" (click)="close.emit()" [attr.aria-label]="'common.actions.close' | transloco">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
         </div>
 
         <div class="flex-grow-1">
             <mat-form-field appearance="outline" class="w-100">
-                <mat-label>Campaign name</mat-label>
+                <mat-label>{{ 'admin.drips.name' | transloco }}</mat-label>
                 <input matInput [(ngModel)]="name" />
             </mat-form-field>
 
             @if (mode === 'add') {
             <mat-form-field appearance="outline" class="w-100">
-                <mat-label>List</mat-label>
+                <mat-label>{{ 'admin.drips.col_list' | transloco }}</mat-label>
                 <mat-select [(ngModel)]="listId">
                     @for (l of lists; track l.id) { <mat-option [value]="l.id">{{ l.name }}</mat-option> }
                 </mat-select>
             </mat-form-field>
             } @else {
-            <p class="small text-muted mb-3">List: <strong>{{ listName }}</strong> <span class="ms-1">(fixed after creation)</span></p>
+            <p class="small text-muted mb-3">{{ 'admin.drips.list_label' | transloco }} <strong>{{ listName }}</strong> <span class="ms-1">{{ 'admin.drips.list_fixed' | transloco }}</span></p>
             }
 
             <mat-slide-toggle class="mb-3" [(ngModel)]="enrollExisting" color="primary">
-                Enroll existing members on activate
+                {{ 'admin.drips.enroll_existing' | transloco }}
             </mat-slide-toggle>
 
             <!-- Steps -->
-            <h6 class="text-uppercase text-muted mt-2 mb-2" style="font-size: 0.75rem;">Steps</h6>
+            <h6 class="text-uppercase text-muted mt-2 mb-2" style="font-size: 0.75rem;">{{ 'admin.drips.col_steps' | transloco }}</h6>
             @for (s of steps(); track s.id; let i = $index) {
             <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
                 <span class="status-badge is-neutral">{{ i + 1 }}</span>
                 <mat-form-field appearance="outline" class="flex-grow-1 mb-0" style="min-width: 150px;">
-                    <mat-label>Template</mat-label>
+                    <mat-label>{{ 'admin.drips.template' | transloco }}</mat-label>
                     <mat-select [(ngModel)]="s.templateId">
                         @for (t of templates; track t.id) { <mat-option [value]="t.id">{{ t.label }}</mat-option> }
                     </mat-select>
                 </mat-form-field>
-                <button mat-icon-button color="primary" [disabled]="busy()"
-                    matTooltip="Create a new email for this step" (click)="newEmailForStep(i)">
-                    <mat-icon>note_add</mat-icon>
+                <button mat-icon-button type="button" color="primary" [disabled]="busy()"
+                    [matTooltip]="'admin.drips.new_email_for_step' | transloco"
+                    [attr.aria-label]="'admin.drips.new_email_for_step' | transloco" (click)="newEmailForStep(i)">
+                    <mat-icon aria-hidden="true">note_add</mat-icon>
                 </button>
                 <mat-form-field appearance="outline" style="width: 110px;" class="mb-0">
-                    <mat-label>Delay (h)</mat-label>
+                    <mat-label>{{ 'admin.drips.delay_hours' | transloco }}</mat-label>
                     <input matInput type="number" [(ngModel)]="s.delayHours" />
                 </mat-form-field>
-                <button mat-icon-button color="warn" (click)="removeStep(i)"><mat-icon>delete</mat-icon></button>
+                <button mat-icon-button type="button" color="warn" (click)="removeStep(i)"
+                    [attr.aria-label]="'admin.drips.delete_step' | transloco: { number: i + 1 }">
+                    <mat-icon aria-hidden="true">delete</mat-icon>
+                </button>
             </div>
             } @empty {
-            <p class="small text-muted">No steps yet. Add the first email below.</p>
+            <p class="small text-muted">{{ 'admin.drips.no_steps' | transloco }}</p>
             }
-            <button mat-stroked-button (click)="addStep()"><mat-icon>add</mat-icon> Add step</button>
-            <p class="small text-muted mt-2 mb-0">
-                Pick an existing template, or use
-                <mat-icon class="align-middle" style="font-size: 1rem; width: 1rem; height: 1rem;">note_add</mat-icon>
-                to create a new email inline (refine its content later in the Email Composer).
-            </p>
+            <button mat-stroked-button type="button" (click)="addStep()"><mat-icon aria-hidden="true">add</mat-icon> {{ 'admin.drips.add_step' | transloco }}</button>
+            <p class="small text-muted mt-2 mb-0">{{ 'admin.drips.step_hint' | transloco }}</p>
         </div>
 
         <div class="panel-actions">
-            <button mat-stroked-button (click)="close.emit()">Cancel</button>
-            <button mat-flat-button color="primary" [disabled]="busy() || !name.trim()" (click)="submit()">
-                <mat-icon>{{ mode === 'edit' ? 'save' : 'add' }}</mat-icon>
-                {{ mode === 'edit' ? 'Save campaign' : 'Create campaign' }}
+            <button mat-stroked-button type="button" (click)="close.emit()">{{ 'common.actions.cancel' | transloco }}</button>
+            <button mat-flat-button type="button" color="primary" [disabled]="busy() || !name.trim()" (click)="submit()">
+                <mat-icon aria-hidden="true">{{ mode === 'edit' ? 'save' : 'add' }}</mat-icon>
+                {{ (mode === 'edit' ? 'admin.drips.save' : 'admin.drips.create') | transloco }}
             </button>
         </div>
     </div>
@@ -114,6 +118,7 @@ export class DripDrawerComponent implements OnChanges {
     private service = inject(DripService);
     private toast = inject(ToastService);
     private dialog = inject(MatDialog);
+    private readonly t = injectT();
 
     busy = signal(false);
     name = '';
@@ -123,7 +128,7 @@ export class DripDrawerComponent implements OnChanges {
     steps = signal<DripStep[]>([]);
 
     ngOnChanges(changes: SimpleChanges): void {
-        // Re-seed local form state only when the campaign being edited changes —
+        // Re-seed local form state only when the campaign being edited changes:
         // NOT on every input change. The realtime `templates` input updates when
         // an inline "New email" is created, and a blanket reset here would wipe
         // unsaved step edits (including the freshly created step's template).
@@ -159,10 +164,10 @@ export class DripDrawerComponent implements OnChanges {
         try {
             const id = await this.service.createTemplate(meta);
             this.steps.update((arr) => arr.map((s, i) => (i === index ? { ...s, templateId: id } : s)));
-            this.toast.success('Email created and linked to this step');
+            this.toast.success(this.t('admin.drips.email_created'));
         } catch (e) {
             console.error(e);
-            this.toast.error('Failed to create email');
+            this.toast.error(this.t('admin.drips.email_create_failed'));
         } finally {
             this.busy.set(false);
         }
@@ -176,24 +181,24 @@ export class DripDrawerComponent implements OnChanges {
         const name = this.name.trim();
         if (!name) return;
         const steps = this.steps();
-        if (steps.some((s) => !s.templateId)) { this.toast.error('Every step needs a template'); return; }
+        if (steps.some((s) => !s.templateId)) { this.toast.error(this.t('admin.drips.step_needs_template')); return; }
         this.busy.set(true);
         try {
             if (this.mode === 'edit' && this.campaign) {
                 await this.service.updateCampaign(this.campaign.id, { name, enrollExistingOnActivate: this.enrollExisting });
                 await this.service.saveSteps(this.campaign.id, steps);
-                this.toast.success('Campaign saved');
+                this.toast.success(this.t('admin.drips.saved'));
             } else {
-                if (!this.listId) { this.toast.error('Pick a list'); this.busy.set(false); return; }
+                if (!this.listId) { this.toast.error(this.t('admin.drips.pick_list')); this.busy.set(false); return; }
                 const id = await this.service.createCampaign(name, this.listId, this.enrollExisting);
                 if (steps.length) await this.service.saveSteps(id, steps);
-                this.toast.success('Campaign created (draft)');
+                this.toast.success(this.t('admin.drips.created'));
             }
             this.saved.emit();
             this.close.emit();
         } catch (e) {
             console.error(e);
-            this.toast.error(this.mode === 'edit' ? 'Failed to save campaign' : 'Failed to create campaign');
+            this.toast.error(this.t(this.mode === 'edit' ? 'admin.drips.save_failed' : 'admin.drips.create_failed'));
         } finally {
             this.busy.set(false);
         }

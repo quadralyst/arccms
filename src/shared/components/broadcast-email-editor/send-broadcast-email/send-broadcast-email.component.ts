@@ -13,6 +13,8 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Firestore, collection, addDoc, serverTimestamp } from '@angular/fire/firestore';
 import { ToastService } from '../../../services/toast.service';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { injectT } from '../../../../app/core/i18n/inject-t';
 import { BroadcastEmailStore } from './send-broadcast-email.store';
 import { IBroadcastEmail, IBroadcastRecipient } from './send-broadcast-email.model';
 
@@ -31,7 +33,7 @@ interface DialogData {
 @Component({
     selector: 'arc-send-broadcast-email',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, PreviewLinksDirective],
+    imports: [CommonModule, ReactiveFormsModule, PreviewLinksDirective, TranslocoPipe],
     templateUrl: './send-broadcast-email.component.html',
     styleUrls: ['./send-broadcast-email.component.scss'],
 })
@@ -43,6 +45,7 @@ export class SendBroadcastEmailComponent {
     private readonly broadcastStore = inject(BroadcastEmailStore);
     private readonly fb = inject(FormBuilder);
     private readonly firestore = inject(Firestore);
+    private readonly t = injectT();
 
     confirmForm: FormGroup;
     previewContent: SafeHtml;
@@ -83,7 +86,7 @@ export class SendBroadcastEmailComponent {
 
         // Fix 6: Validate recipients before proceeding
         if (!this.dialogData.selectedUsers?.length) {
-            this.toastService.error('No recipients selected.');
+            this.toastService.error(this.t('common.send_broadcast.no_recipients'));
             return;
         }
 
@@ -118,13 +121,11 @@ export class SendBroadcastEmailComponent {
                 broadcastData,
             );
 
-            this.toastService.success(
-                `Broadcast queued for ${recipients.length} recipients. Processing will begin shortly.`,
-            );
+            this.toastService.success(this.t('common.send_broadcast.queued', { count: recipients.length }));
             this.dialogRef.close({ success: true, broadcastId: broadcastRef.id });
         } catch (error) {
             console.error('Error queuing broadcast:', error);
-            this.toastService.error('Failed to queue broadcast email. Please try again.');
+            this.toastService.error(this.t('common.send_broadcast.queue_failed'));
         } finally {
             this.isSending = false;
         }

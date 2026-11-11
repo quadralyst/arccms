@@ -18,7 +18,7 @@
     <table>
       <thead><tr><th>Zone</th><th>What it is</th><th>Where it is set</th><th>Used for</th></tr></thead>
       <tbody>
-        <tr><td>Site zone</td><td>The site's own, one for everyone</td><td>Admin, Settings, Localization, <strong>Time zone</strong>. The setup wizard fills it from the browser of the person setting up the site. Stored as <code>timeZone</code> on <code>Settings/localization</code></td><td>Dates on published pages, so every visitor sees the same day. UTC until an admin sets one</td></tr>
+        <tr><td>Site zone</td><td>The site's own, one for everyone</td><td>Admin, Settings, Languages, <strong>Time zone</strong>. The setup wizard fills it from the browser of the person setting up the site. Stored as <code>timeZone</code> on <code>Settings/localization</code></td><td>Dates on published pages, so every visitor sees the same day. UTC until an admin sets one</td></tr>
         <tr><td>Member zone</td><td>Each person's own, in the admin area too</td><td>Follows the device. A person can choose another on the profile page (<strong>Time zone</strong>), kept on that device like the member language</td><td>Every time on the admin and member screens: "Draft saved", created dates, feedback, transactions</td></tr>
         <tr><td>Place zone</td><td>The zone of something your app owns, such as a shop or an office</td><td>Your app stores it on its own records, for example with <code>&lt;arc-zone-picker&gt;</code></td><td>A time that belongs to the place: "22:00 Zurich (01:30 for you)"</td></tr>
       </tbody>
@@ -104,7 +104,7 @@ export const CUSTOM_CLOCK: CustomClock = {
     <p>From code, <code>setMemberZone('Europe/Zurich')</code> in <code>src/app/core/time/arc-zones.service.ts</code> chooses a person's zone on this device, and <code>setMemberZone(null)</code> follows the device again. <code>ArcZones</code> there has <code>member()</code>, <code>memberChoice()</code>, <code>device()</code> and <code>site()</code>.</p>
 
     <h2 id="site-zone">The site zone and published pages</h2>
-    <p>The publish functions write dates into your pages, the cards of a list and a page's published and updated dates, in the site zone (<code>functions/src/shared/time-zone.ts</code>), and the browser shows the same when it renders a page itself. An article published at 00:30 in Zurich shows that day. A site set up before the time zone existed uses UTC until an admin sets one: Settings, Localization says so and offers the admin's own zone in one click. Pages published before the change keep their dates until they are published again.</p>
+    <p>The publish functions write dates into your pages, the cards of a list and a page's published and updated dates, in the site zone (<code>functions/src/shared/time-zone.ts</code>), and the browser shows the same when it renders a page itself. An article published at 00:30 in Zurich shows that day. A site set up before the time zone existed uses UTC until an admin sets one: Settings, Languages says so and offers the admin's own zone in one click. Pages published before the change keep their dates until they are published again.</p>
 
     <h2 id="testing">Testing a wrong clock</h2>
     <ul>

@@ -27,7 +27,7 @@ import { SearchService } from '../../../../../core/services/search.service';
 import { ContentTypeNames, TranslatableTypeText, pruneNameTranslations, pruneFieldLabelTranslations, ContentType, ContentTypeField, ContentTypeFieldType } from '../content-types.model';
 import { ARTICLE_FAMILY, ContentTypeSchema, SCHEMA_TYPES, SchemaProperty, SchemaTypeId, schemaTypeMeta } from '../../../../../../shared/constants/schema-types';
 import { ContentTypesStore } from '../content-types.store';
-import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, validateCollectionRefField, duplicateFieldKeyValidator, bareFieldKey, fieldKeyFromLabel, fullFieldKey, hasSlugPrefix } from '../collection-ref-helpers';
+import { getCollectionFields, isSyncFieldSelected, toggleSyncField, mapFieldWithCollectionRef, collectionRefProblems, systemFieldLabelKey, duplicateFieldKeyValidator, bareFieldKey, fieldKeyFromLabel, fullFieldKey, hasSlugPrefix } from '../collection-ref-helpers';
 import { roleGuard } from '../../../../../guards/role.guard';
 import type { TranslationKey } from '../../../../../core/i18n/translation-keys';
 import { TemplateFolderService, TemplateFolder } from '../../../../../core/services/template-folder.service';
@@ -59,6 +59,12 @@ export default class EditContentTypeComponent extends BaseComponent implements O
     private searchService = inject(SearchService);
     action = input('action');
     errorMessages: string[] = [];
+
+    /** A field's name in the field pickers: a built-in one in the admin's language. */
+    fieldPickLabel(field: { key: string; label: string; order?: number }): string {
+        const key = systemFieldLabelKey(field);
+        return key ? this.transloco.translate(key) : field.label;
+    }
     public domain: string = '';
 
     // Template folders signal
@@ -476,7 +482,8 @@ export default class EditContentTypeComponent extends BaseComponent implements O
         const formValue = this.editForm.getRawValue();
 
         // Validate collection reference fields
-        const refErrors = (formValue.fields || []).flatMap((f: any) => validateCollectionRefField(f));
+        const refErrors = (formValue.fields || []).flatMap((f: any) => collectionRefProblems(f))
+            .map((problem: { key: string; field: string }) => this.transloco.translate(problem.key, { field: problem.field }));
         if (refErrors.length > 0) {
             this.errorMessages = refErrors;
             return;

@@ -9,14 +9,13 @@
             <i class="fa-solid fa-file-lines text-primary me-2"></i>
             @if(getContentTypeName()){
             <span class="content-type-label">
-                {{ contentId ? 'Edit' : 'Add a new' }}
-                <strong>{{ getContentTypeName() }}</strong>
+                {{ (contentId ? 'admin.contents.editor.heading_edit' : 'admin.contents.editor.heading_add') | transloco: { type: getContentTypeName() } }}
             </span>
             }
         </div>
 
         <div class="nav-right">
-            <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="globalService.goBack()"
+            <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="close()"
                 [disabled]="isSavingDraft" [title]="'common.actions.close' | transloco">
                 <i class="fa-solid fa-xmark"></i> <span class="btn-text">{{ 'common.actions.close' | transloco }}</span>
             </button>
@@ -31,13 +30,13 @@
                  language; saving and publishing always cover them all. -->
             <button type="button" class="btn btn-outline-danger btn-sm me-2" (click)="clearTranslation()"
                 [disabled]="isSavingTranslation() || isSavingDraft || !hasTranslation(activeLang())"
-                [title]="'Delete the ' + activeLanguageLabel() + ' translation'">
+                [title]="'admin.contents.editor.clear_translation_title' | transloco: { language: activeLanguageLabel() }">
                 <i class="fa-solid fa-eraser"></i> <span class="btn-text">{{ 'admin.contents.editor.clear_translation' | transloco }}</span>
             </button>
             }
 
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="saveAsDraft()"
-                [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid" [title]="'admin.contents.editor.save_draft' | transloco">
+                [disabled]="isSavingDraft || creating() || !publishForm.valid || !seoForm.valid" [title]="'admin.contents.editor.save_draft' | transloco">
                 @if(isSavingDraft){
                 <i class="fas fa-spinner fa-spin"></i> <span class="btn-text">{{ 'common.actions.saving' | transloco }}</span>
                 }
@@ -49,11 +48,67 @@
             <arc-site-drift-notice [compact]="true" />
 
             <button type="button" class="btn btn-primary btn-sm" (click)="directPublishContent()"
-                [disabled]="isSavingDraft || !publishForm.valid || !seoForm.valid">
+                [disabled]="isSavingDraft || creating() || !publishForm.valid || !seoForm.valid">
                 <i class="fa-solid fa-upload"></i> <span class="btn-text">{{ 'admin.contents.editor.publish' | transloco }}</span>
             </button>
         </div>
     </nav>
+
+    <!-- What did not land, and what is still going on: lines that stay until
+         they are resolved (specs/dev-review-fixes-spec.md, RF4 4.3 to 4.5). -->
+    @if(entryGone()){
+    <div class="editor-alert error" role="alert" data-testid="entry-gone">
+        <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+        <span class="editor-alert-text">{{ 'admin.contents.editor.entry_gone' | transloco }}</span>
+    </div>
+    } @else if(entryChanged()){
+    <div class="editor-alert warn" role="alert" data-testid="entry-changed">
+        <i class="fa-solid fa-user-pen" aria-hidden="true"></i>
+        <span class="editor-alert-text">{{ 'admin.contents.editor.changed_elsewhere' | transloco }}</span>
+        <span class="editor-alert-actions">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="reloadTheirs()"
+                [title]="'admin.contents.editor.reload_theirs_title' | transloco">{{ 'admin.contents.editor.reload_theirs' | transloco }}</button>
+            <button type="button" class="btn btn-primary btn-sm" (click)="keepMine()"
+                [title]="'admin.contents.editor.keep_mine_title' | transloco">{{ 'admin.contents.editor.keep_mine' | transloco }}</button>
+        </span>
+    </div>
+    } @else if(saveFailed()){
+    <div class="editor-alert error" role="alert" data-testid="not-saved">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <span class="editor-alert-text">
+            {{ 'admin.contents.editor.not_saved' | transloco }}
+            @if(offline()){ {{ 'admin.contents.editor.offline' | transloco }} }
+        </span>
+        <span class="editor-alert-actions">
+            <button type="button" class="btn btn-outline-danger btn-sm" (click)="retrySave()">{{ 'admin.contents.editor.retry' | transloco }}</button>
+        </span>
+    </div>
+    } @else if(offline()){
+    <div class="editor-alert info" role="status" data-testid="offline">
+        <i class="fa-solid fa-wifi" aria-hidden="true"></i>
+        <span class="editor-alert-text">{{ 'admin.contents.editor.offline' | transloco }}</span>
+    </div>
+    }
+    @if(deployStatus() === 'pending'){
+    <div class="editor-alert info" role="status" data-testid="publishing">
+        <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+        <span class="editor-alert-text">{{ 'admin.contents.editor.publishing' | transloco }}</span>
+    </div>
+    } @else if(deployStatus() === 'failed'){
+    <div class="editor-alert error" role="alert" data-testid="publish-failed">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <span class="editor-alert-text">
+            {{ 'admin.contents.editor.publish_failed' | transloco }}
+            @if(publishProblem() === 'start'){ {{ 'admin.contents.editor.publish_start_failed' | transloco }} }
+            @else if(publishProblem() === 'no_answer'){ {{ 'admin.contents.editor.publish_no_answer' | transloco }} }
+            @else if(publishProblem() === 'template'){ {{ 'admin.contents.editor.publish_template_missing' | transloco }} }
+            @else if(publishProblem() === 'build'){ {{ 'admin.contents.editor.publish_build_failed' | transloco }} }
+        </span>
+        <span class="editor-alert-actions">
+            <button type="button" class="btn btn-outline-danger btn-sm" (click)="retryDeployment()" [disabled]="isSavingDraft">{{ 'admin.contents.editor.publish_again' | transloco }}</button>
+        </span>
+    </div>
+    }
 
     <!-- Save Status Overlay -->
     @if(saveStatusMessage){
@@ -81,7 +136,7 @@
                     </button>
                     <span class="version-preview-label">
                         <i class="fa-solid fa-clock-rotate-left me-1"></i>
-                        Version {{ previewingVersion()!.versionNumber }} &middot;
+                        {{ 'admin.contents.editor.version_number' | transloco: { number: previewingVersion()!.versionNumber } }} &middot;
                         {{ formatVersionDate(previewingVersion()!.publishedOn) }}
                     </span>
                 </div>
@@ -96,7 +151,7 @@
                 <div class="version-preview-content">
                     @if(previewingVersion()!.coverImage){
                     <div class="version-preview-cover">
-                        <img [src]="previewingVersion()!.coverImage" alt="Cover image" />
+                        <img [src]="previewingVersion()!.coverImage" [alt]="'admin.contents.editor.cover_image' | transloco" />
                     </div>
                     }
                     <h1 class="version-preview-title">{{ previewingVersion()!.title }}</h1>
@@ -130,7 +185,7 @@
                         @if(previewingVersion()!.coverImage){
                         <div class="meta-field">
                             <label>{{ 'admin.contents.editor.cover_image' | transloco }}</label>
-                            <img [src]="previewingVersion()!.coverImage" alt="Cover" class="meta-thumb" />
+                            <img [src]="previewingVersion()!.coverImage" [alt]="'admin.contents.editor.cover_image' | transloco" class="meta-thumb" />
                         </div>
                         }
 
@@ -170,7 +225,7 @@
 
                     <!-- SEO Info -->
                     <div class="meta-section">
-                        <h6 class="meta-section-title"><i class="fa-solid fa-magnifying-glass me-1"></i> SEO</h6>
+                        <h6 class="meta-section-title"><i class="fa-solid fa-magnifying-glass me-1"></i> {{ 'admin.contents.editor.tab_seo' | transloco }}</h6>
 
                         <div class="meta-field">
                             <label>{{ 'admin.contents.editor.seo_title' | transloco }}</label>
@@ -197,12 +252,12 @@
                     @for(lang of enabledLanguages(); track lang.code){
                     <button type="button" class="lang-tab" [class.active]="activeLang() === lang.code"
                         (click)="switchLanguage(lang.code)"
-                        [title]="lang.code === defaultLang() ? lang.label + ' (default language)' : lang.label">
+                        [title]="lang.code === defaultLang() ? ('admin.contents.editor.default_language_title' | transloco: { language: lang.label }) : lang.label">
                         {{ lang.label }}
                         @if(lang.code === defaultLang()){
                         <span class="lang-badge default">{{ 'admin.contents.editor.default_badge' | transloco }}</span>
                         } @else if(hasTranslation(lang.code)){
-                        <span class="lang-badge translated" title="Translated"><i
+                        <span class="lang-badge translated" [title]="'admin.contents.editor.translated_title' | transloco"><i
                                 class="fa-solid fa-check"></i></span>
                         }
                     </button>
@@ -230,7 +285,8 @@
             <div class="title-input-wrapper" id="req-title" [class.has-error]="isRequiredMissing('title')">
                 <div class="title-input-row">
                     <input type="text"
-                        [placeholder]="isTranslating() ? (basePlaceholder('title') || 'Enter title here...') : 'Enter title here...'"
+                        [placeholder]="isTranslating() ? (basePlaceholder('title') || ('admin.contents.editor.title_placeholder' | transloco)) : ('admin.contents.editor.title_placeholder' | transloco)"
+                        [attr.aria-label]="'admin.contents.editor.title_label' | transloco"
                         [(ngModel)]="pageTitle" class="page-title-input" (input)="createSlag(); triggerAutoSave()"
                         [disabled]="checkingSlug" [attr.aria-required]="true" />
                     <span class="required-marker" [title]="'admin.contents.editor.required_marker' | transloco">*</span>
@@ -287,14 +343,14 @@
                         @if(lastDraftSavedDate){
                         <span class="status-badge draft">
                             <i class="fa-solid fa-floppy-disk"></i>
-                            Draft saved: {{ lastDraftSavedDate | arcTime: 'dateTime' }}
+                            {{ 'admin.contents.editor.draft_saved_at' | transloco: { time: (lastDraftSavedDate | arcTime: 'dateTime') } }}
                         </span>
                         }
 
                         @if(lastPublishedDate){
                         <span class="status-badge published">
                             <i class="fa-solid fa-globe"></i>
-                            Published: {{ lastPublishedDate | arcTime: 'dateTime' }}
+                            {{ 'admin.contents.editor.published_at' | transloco: { time: (lastPublishedDate | arcTime: 'dateTime') } }}
                         </span>
                         }
 
@@ -306,7 +362,7 @@
                         }
 
                         <!-- Auto-save Status -->
-                        @if(saveStatusMessage === 'Auto-saved'){
+                        @if(justAutoSaved()){
                         <span class="status-badge auto-saved">
                             <i class="fa-solid fa-cloud-arrow-up"></i>
                             {{ 'admin.contents.editor.auto_saved' | transloco }}
@@ -317,26 +373,26 @@
                         @if(deployStatus() === 'pending'){
                         <span class="status-badge deploying">
                             <i class="fa-solid fa-spinner fa-spin"></i>
-                            {{ 'admin.contents.editor.deploying' | transloco }}
+                            {{ 'admin.contents.editor.publishing' | transloco }}
                         </span>
                         }
                         @if(deployStatus() === 'deployed'){
                         <span class="status-badge deploy-success">
                             <i class="fa-solid fa-check-circle"></i>
-                            {{ 'admin.contents.editor.deployed' | transloco }}
+                            {{ 'admin.contents.editor.live' | transloco }}
                         </span>
                         }
                         @if(deployStatus() === 'skipped'){
-                        <span class="status-badge deploying" [title]="deployError()">
+                        <span class="status-badge deploying">
                             <i class="fa-solid fa-circle-info"></i>
                             {{ 'admin.contents.editor.deploy_skipped' | transloco }}
                         </span>
                         }
                         @if(deployStatus() === 'failed'){
-                        <span class="status-badge deploy-failed" [title]="deployError()">
+                        <span class="status-badge deploy-failed">
                             <i class="fa-solid fa-exclamation-triangle"></i>
                             {{ 'admin.contents.editor.deploy_failed' | transloco }}
-                            <button class="retry-btn" (click)="retryDeployment()" title="Retry deployment">
+                            <button type="button" class="retry-btn" (click)="retryDeployment()" [disabled]="isSavingDraft" [title]="'admin.contents.editor.publish_again' | transloco" [attr.aria-label]="'admin.contents.editor.publish_again' | transloco">
                                 <i class="fa-solid fa-rotate-right"></i>
                             </button>
                         </span>
@@ -352,9 +408,9 @@
                         <!-- Cover Image (shared across languages) -->
                         <div class="form-group">
                             <label class="form-label">
-                                Cover Image
+                                {{ 'admin.contents.editor.cover_image' | transloco }}
                                 @if(isTranslating()){
-                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                <span class="shared-badge" [title]="'admin.contents.editor.shared_title' | transloco">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                             </label>
                             @if(isTranslating()){
@@ -365,7 +421,7 @@
                                 } @else {
                                 <span class="text-muted">{{ 'admin.contents.editor.no_cover_image' | transloco }}</span>
                                 }
-                                <small class="text-muted d-block mt-1">Edit on the {{ defaultLang() }} tab.</small>
+                                <small class="text-muted d-block mt-1">{{ 'admin.contents.editor.edit_on_default_tab' | transloco: { language: defaultLang() } }}</small>
                             </div>
                             } @else {
                             <div class="cover-image-upload" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
@@ -396,20 +452,20 @@
 
                         <!-- Summary -->
                         <div class="form-group mb-3">
-                            <label class="form-label">{{ 'admin.contents.editor.summary' | transloco }}</label>
+                            <label class="form-label" for="summaryInput">{{ 'admin.contents.editor.summary' | transloco }}</label>
                             <textarea class="form-control form-control-sm" formControlName="summary" rows="3"
-                                [placeholder]="isTranslating() ? (basePlaceholder('summary') || 'Enter content summary') : 'Enter content summary (auto-generated from content)'"
-                                (input)="markTranslationDirty()"></textarea>
+                                id="summaryInput" [placeholder]="isTranslating() ? (basePlaceholder('summary') || ('admin.contents.editor.summary' | transloco)) : ('admin.contents.editor.summary_placeholder' | transloco)"
+                                (input)="triggerAutoSave()"></textarea>
                             <small class="text-muted">{{ 'admin.contents.editor.summary_hint' | transloco }}</small>
                         </div>
 
                         <!-- URL Slug (Read-only display) -->
                         <!-- URL Slug -->
                         <div class="form-group">
-                            <label class="form-label">
-                                URL
+                            <label class="form-label" for="urlSlugInput">
+                                {{ 'admin.contents.editor.address' | transloco }}
                                 @if(isTranslating()){
-                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                <span class="shared-badge" [title]="'admin.contents.editor.shared_title' | transloco">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                                 @if (isEditingSlug()) {
                                 <span class="text-danger ms-2" style="font-size: 0.8em;">
@@ -436,41 +492,56 @@
                                     {{ domain }}{{ contentTypeSlug }}/{{ publishForm.get('urlSlug')?.value }}
                                 </a>
                                 <button type="button" class="btn btn-link btn-sm p-0 ms-2"
-                                    (click)="copyUrlToClipboard()" title="Copy URL">
+                                    (click)="copyUrlToClipboard()" [title]="'admin.contents.editor.copy_address' | transloco" [attr.aria-label]="'admin.contents.editor.copy_address' | transloco">
                                     <i class="fa-regular fa-copy"></i>
                                 </button>
                                 <button type="button" class="btn btn-link btn-sm p-0 ms-2 text-primary"
-                                    (click)="toggleSlugEdit()" title="Edit URL">
+                                    (click)="toggleSlugEdit()" [title]="'admin.contents.editor.edit_address' | transloco" [attr.aria-label]="'admin.contents.editor.edit_address' | transloco">
                                     <i class="fa-solid fa-pen"></i>
                                 </button>
                             </div>
                             } @else {
                             <div class="input-group input-group-sm">
-                                <input type="text" class="form-control" formControlName="urlSlug"
-                                    placeholder="enter-slug-here">
-                                <button class="btn btn-outline-secondary" type="button" (click)="toggleSlugEdit()" *ngIf="publishForm.get('urlSlug')?.value">
+                                <input type="text" class="form-control" formControlName="urlSlug" id="urlSlugInput"
+                                    [attr.aria-label]="'admin.contents.editor.address' | transloco"
+                                    [placeholder]="'admin.contents.editor.address_placeholder' | transloco">
+                                <button class="btn btn-outline-secondary" type="button" (click)="toggleSlugEdit()" *ngIf="publishForm.get('urlSlug')?.value"
+                                    [title]="'admin.contents.editor.address_undo' | transloco" [attr.aria-label]="'admin.contents.editor.address_undo' | transloco">
                                     <i class="fa-solid fa-rotate-left"></i>
                                 </button>
-                                <button class="btn btn-outline-primary" type="button" (click)="saveSlug()">
+                                <button class="btn btn-outline-primary" type="button" (click)="saveSlug()"
+                                    [title]="'admin.contents.editor.address_use' | transloco" [attr.aria-label]="'admin.contents.editor.address_use' | transloco">
                                     <i class="fa-solid fa-check"></i>
                                 </button>
                             </div>
                             <small class="text-muted d-block mt-1">
-                                Full URL: {{ domain }}{{ contentTypeSlug }}/{{ publishForm.get('urlSlug')?.value }}
+                                {{ 'admin.contents.editor.full_address' | transloco: { url: domain + contentTypeSlug + '/' + (publishForm.get('urlSlug')?.value || '') } }}
                             </small>
+                            }
+                            <!-- A live page's address changed: its old address sends people on (RF4 4.6). -->
+                            @if(addressMoved() && !isTranslating()){
+                            <div class="form-check mt-2 redirect-offer" data-testid="redirect-offer">
+                                <input class="form-check-input" type="checkbox" id="redirectOldAddress"
+                                    [checked]="redirectOldAddress()" (change)="redirectOldAddress.set($any($event.target).checked)">
+                                <label class="form-check-label" for="redirectOldAddress">
+                                    {{ 'admin.contents.editor.redirect_old_address' | transloco }}
+                                </label>
+                                <small class="text-muted d-block">/{{ contentTypeSlug }}/{{ publishedSlug() }} &rarr; /{{ contentTypeSlug }}/{{ publishForm.get('urlSlug')?.value }}.
+                                    {{ 'admin.contents.editor.redirect_old_address_hint' | transloco }}</small>
+                            </div>
                             }
                         </div>
 
                         <!-- Author (specs/discoverability-spec.md, D2) -->
                         <div class="form-group">
-                            <label class="form-label">
+                            <label class="form-label" for="authorSelect">
                                 {{ 'admin.contents.editor.author' | transloco }}
                                 @if(isTranslating()){
-                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                <span class="shared-badge" [title]="'admin.contents.editor.shared_title' | transloco">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                             </label>
                             <div class="d-flex gap-2 align-items-center">
-                                <select class="form-select form-select-sm author-select" formControlName="authorId"
+                                <select id="authorSelect" class="form-select form-select-sm author-select" formControlName="authorId"
                                     (change)="triggerAutoSave()" [attr.disabled]="isTranslating() ? '' : null" data-testid="author-select">
                                     <option value="">{{ 'admin.contents.editor.author_none' | transloco }}</option>
                                     @for (author of authors(); track author.id) {
@@ -488,7 +559,7 @@
                             <label class="form-label" for="layoutSelect">
                                 {{ 'admin.contents.editor.layout' | transloco }}
                                 @if(isTranslating()){
-                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                <span class="shared-badge" [title]="'admin.contents.editor.shared_title' | transloco">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                             </label>
                             <select id="layoutSelect" class="form-select form-select-sm" formControlName="layout"
@@ -504,7 +575,7 @@
 
                         <!-- Tags with Autocomplete -->
                         <div class="form-group">
-                            <label class="form-label">{{ 'admin.contents.editor.tags' | transloco }}</label>
+                            <label class="form-label" for="tagSearchInput">{{ 'admin.contents.editor.tags' | transloco }}</label>
 
                             <!-- Selected Tags with Colors -->
                             <div class="tags-container mb-2">
@@ -512,7 +583,7 @@
                                 @for (tag of selectedTags(); track tag.label) {
                                 <span class="tag-badge me-1 mb-1" [style.background-color]="tag.color">
                                     {{ tag.label }}
-                                    <button type="button" class="tag-remove-btn" (click)="removeTag(tag)">×</button>
+                                    <button type="button" class="tag-remove-btn" (click)="removeTag(tag)" [attr.aria-label]="'admin.contents.editor.remove_tag' | transloco: { label: tag.label }">×</button>
                                 </span>
                                 }
                                 }
@@ -520,8 +591,8 @@
 
                             <!-- Tag Search Input -->
                             <div class="tag-search-wrapper position-relative">
-                                <input type="text" class="form-control form-control-sm"
-                                    placeholder="Search or create tags..." [value]="tagSearchTerm()"
+                                <input type="text" class="form-control form-control-sm" id="tagSearchInput"
+                                    [placeholder]="'admin.contents.editor.tags_placeholder' | transloco" [value]="tagSearchTerm()"
                                     (input)="onTagSearchInput($event)" (focus)="onTagSearchFocus()"
                                     (blur)="onTagSearchBlur()" (keyup.enter)="createInlineTag()">
 
@@ -541,7 +612,7 @@
                                     @if (tagSearchTerm() && !hasMatchingTag()) {
                                     <div class="tag-option create-new" (mousedown)="createInlineTag()">
                                         <i class="fa-solid fa-plus me-2"></i>
-                                        Create "{{ tagSearchTerm() }}"
+                                        {{ 'admin.contents.editor.create_tag' | transloco: { label: tagSearchTerm() } }}
                                     </div>
                                     }
 
@@ -562,13 +633,13 @@
 
                         @for (field of currentFields; track field.key) {
                         <div class="form-group mb-3" [id]="'req-' + field.key" [class.has-error]="isRequiredMissing(field.key)">
-                            <label class="form-label">
+                            <label class="form-label" [attr.for]="'cf-' + field.key">
                                 {{ fieldLabel(field) }}
                                 @if (field.required) {
                                 <span class="text-danger required-marker" [title]="'admin.contents.editor.required_marker' | transloco">*</span>
                                 }
                                 @if(isFieldLocked(field)){
-                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                <span class="shared-badge" [title]="'admin.contents.editor.shared_title' | transloco">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                             </label>
 
@@ -577,7 +648,7 @@
                                  language-independent, so they stay on the base document. -->
                             <div class="shared-field-preview">
                                 <span class="text-muted">{{ baseCustomFieldValue(field.key) || '-' }}</span>
-                                <small class="text-muted d-block mt-1">Edit on the {{ defaultLang() }} tab.</small>
+                                <small class="text-muted d-block mt-1">{{ 'admin.contents.editor.edit_on_default_tab' | transloco: { language: defaultLang() } }}</small>
                             </div>
                             }
 
@@ -585,8 +656,8 @@
                             @else if (field.type === 'text') {
                             <input type="text" class="form-control form-control-sm"
                                 [value]="customFieldValues[field.key] || ''"
-                                (input)="onCustomFieldChange(field.key, $any($event.target).value)"
-                                [placeholder]="isTranslating() ? (baseCustomFieldValue(field.key) || ('Enter ' + field.label)) : ('Enter ' + field.label)">
+                                (input)="onCustomFieldChange(field.key, $any($event.target).value)" [id]="'cf-' + field.key"
+                                [placeholder]="isTranslating() ? (baseCustomFieldValue(field.key) || ('admin.contents.editor.enter_field' | transloco: { field: fieldLabel(field) })) : ('admin.contents.editor.enter_field' | transloco: { field: fieldLabel(field) })">
                             }
                             
                             <!-- Number input -->
@@ -594,19 +665,19 @@
                             <input type="number" class="form-control form-control-sm"
                                 [value]="customFieldValues[field.key] || ''"
                                 (input)="onCustomFieldChange(field.key, $any($event.target).value)"
-                                placeholder="Enter {{ field.label | lowercase }}">
+                                [id]="'cf-' + field.key" [placeholder]="'admin.contents.editor.enter_field' | transloco: { field: fieldLabel(field) }">
                             }
 
                             <!-- Date: a day only (YYYY-MM-DD) -->
                             @else if (field.type === 'date') {
-                            <input type="date" class="form-control form-control-sm"
+                            <input type="date" class="form-control form-control-sm" [id]="'cf-' + field.key"
                                 [value]="customDateValue(customFieldValues[field.key])"
                                 (input)="onCustomFieldChange(field.key, $any($event.target).value)">
                             }
 
                             <!-- Date and time (YYYY-MM-DDTHH:mm) -->
                             @else if (field.type === 'datetime') {
-                            <input type="datetime-local" class="form-control form-control-sm"
+                            <input type="datetime-local" class="form-control form-control-sm" [id]="'cf-' + field.key"
                                 [value]="customFieldValues[field.key] || ''"
                                 (input)="onCustomFieldChange(field.key, $any($event.target).value)">
                             }
@@ -614,14 +685,14 @@
                             <!-- Colour: native picker beside an editable hex box -->
                             @else if (field.type === 'color') {
                             <div class="color-field-row">
-                                <input type="color" class="form-control form-control-color form-control-sm"
+                                <input type="color" class="form-control form-control-color form-control-sm" [id]="'cf-' + field.key"
                                     [value]="colorPickerValue(customFieldValues[field.key])"
                                     (input)="onCustomFieldChange(field.key, $any($event.target).value)"
                                     [title]="fieldLabel(field)">
                                 <input type="text" class="form-control form-control-sm color-hex-input"
                                     [value]="customFieldValues[field.key] || ''"
                                     (input)="onCustomFieldChange(field.key, $any($event.target).value)"
-                                    placeholder="#000000" maxlength="7" spellcheck="false">
+                                    placeholder="#000000" maxlength="7" spellcheck="false" [attr.aria-label]="fieldLabel(field)">
                                 @if (colorRgbText(customFieldValues[field.key]); as rgb) {
                                 <span class="text-muted small color-rgb-text">{{ rgb }}</span>
                                 }
@@ -631,7 +702,7 @@
                             <!-- Boolean (checkbox toggle) -->
                             @else if (field.type === 'boolean') {
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox"
+                                <input class="form-check-input" type="checkbox" [id]="'cf-' + field.key"
                                     [checked]="customFieldValues[field.key] === true"
                                     (change)="onCustomFieldChange(field.key, $any($event.target).checked)">
                             </div>
@@ -643,7 +714,7 @@
                                 <div class="richtext-toolbar">
                                     <button type="button" class="btn btn-outline-secondary btn-sm"
                                         (click)="openFullscreenEditor(field.key, fieldLabel(field))"
-                                        title="Open in fullscreen editor">
+                                        [title]="'admin.contents.editor.open_fullscreen' | transloco">
                                         <i class="fa-solid fa-expand me-1"></i> {{ 'admin.contents.editor.expand' | transloco }}
                                     </button>
                                 </div>
@@ -662,11 +733,11 @@
                                 @if (field.useCollectionRef) {
                                     <!-- Collection Reference Dropdown -->
                                     <div class="collection-ref-wrapper">
-                                        <select class="form-select form-select-sm"
+                                        <select class="form-select form-select-sm" [id]="'cf-' + field.key"
                                             [value]="customFieldValues[field.key] || ''"
                                             (change)="onReferenceChange(field.key, $any($event.target).value)"
                                             [disabled]="loadingReferences()">
-                                            <option value="">Select {{ field.label | lowercase }}</option>
+                                            <option value="">{{ 'admin.contents.editor.select_field' | transloco: { field: fieldLabel(field) } }}</option>
                                             @for (option of referenceOptions()[field.key] || []; track option.id) {
                                             <option [value]="option.id" [selected]="customFieldValues[field.key] === option.id">
                                                 {{ option[field.collectionRef!.displayField] || option.id }}
@@ -679,9 +750,9 @@
                                     </div>
                                 } @else {
                                     <!-- Manual Options Dropdown -->
-                                    <select class="form-select form-select-sm" [value]="customFieldValues[field.key] || ''"
+                                    <select class="form-select form-select-sm" [id]="'cf-' + field.key" [value]="customFieldValues[field.key] || ''"
                                         (change)="onCustomFieldChange(field.key, $any($event.target).value)">
-                                        <option value="">Select {{ field.label | lowercase }}</option>
+                                        <option value="">{{ 'admin.contents.editor.select_field' | transloco: { field: fieldLabel(field) } }}</option>
                                         @for (option of parseOptions(field.options); track option) {
                                         <option [value]="option" [selected]="customFieldValues[field.key] === option">{{ option
                                             }}</option>
@@ -710,7 +781,7 @@
                                             </div>
                                         }
                                         @if(!(referenceOptions()[field.key] || []).length && !loadingReferences()) {
-                                            <small class="text-muted">No items found in {{ field.collectionRef?.collectionName }}.</small>
+                                            <small class="text-muted">{{ 'admin.contents.editor.no_items_in' | transloco: { name: field.collectionRef?.collectionName } }}</small>
                                         }
                                     </div>
                                 } @else {
@@ -750,7 +821,7 @@
                                             </div>
                                         }
                                         @if(!(referenceOptions()[field.key] || []).length && !loadingReferences()) {
-                                            <small class="text-muted">No items found in {{ field.collectionRef?.collectionName }}.</small>
+                                            <small class="text-muted">{{ 'admin.contents.editor.no_items_in' | transloco: { name: field.collectionRef?.collectionName } }}</small>
                                         }
                                     </div>
                                 } @else {
@@ -1048,38 +1119,38 @@
                 <div class="tab-panel">
                     <form [formGroup]="seoForm">
                         <div class="form-group">
-                            <label class="form-label">{{ 'admin.contents.editor.seo_title' | transloco }}</label>
+                            <label class="form-label" for="seoTitleInput">{{ 'admin.contents.editor.seo_title' | transloco }}</label>
                             <input type="text" class="form-control form-control-sm" formControlName="seoTitle"
-                                [placeholder]="isTranslating() ? (basePlaceholder('seoTitle') || 'Enter SEO title') : 'Enter SEO title'"
+                                id="seoTitleInput" [placeholder]="isTranslating() ? (basePlaceholder('seoTitle') || ('admin.contents.editor.seo_title' | transloco)) : ('admin.contents.editor.seo_title' | transloco)"
                                 (input)="triggerAutoSave()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">{{ 'admin.contents.editor.meta_description' | transloco }}</label>
+                            <label class="form-label" for="metaDescriptionInput">{{ 'admin.contents.editor.meta_description' | transloco }}</label>
                             <textarea class="form-control form-control-sm" formControlName="metaDescription" rows="3"
-                                [placeholder]="isTranslating() ? (basePlaceholder('metaDescription') || 'Enter meta description') : 'Enter meta description'"
+                                id="metaDescriptionInput" [placeholder]="isTranslating() ? (basePlaceholder('metaDescription') || ('admin.contents.editor.meta_description' | transloco)) : ('admin.contents.editor.meta_description' | transloco)"
                                 (input)="triggerAutoSave()"></textarea>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">
-                                Canonical URL
+                            <label class="form-label" for="canonicalUrlInput">
+                                {{ 'admin.contents.editor.canonical_url' | transloco }}
                                 @if(isTranslating()){
-                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                <span class="shared-badge" [title]="'admin.contents.editor.shared_title' | transloco">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                             </label>
                             <input type="url" class="form-control form-control-sm" formControlName="canonicalUrl"
-                                placeholder="https://yourdomain.com/original-post-url" (input)="triggerAutoSave()"
+                                id="canonicalUrlInput" placeholder="https://example.com/original-post" (input)="triggerAutoSave()"
                                 [readonly]="isTranslating()" data-testid="canonical-url">
                             <p class="text-muted small mt-1 mb-0">{{ 'admin.contents.editor.canonical_hint' | transloco }}</p>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">
+                            <label class="form-label" for="updatedOnInput">
                                 {{ 'admin.contents.editor.updated_on' | transloco }}
                                 @if(isTranslating()){
-                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                <span class="shared-badge" [title]="'admin.contents.editor.shared_title' | transloco">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                             </label>
                             <div class="d-flex gap-2 align-items-center flex-wrap">
-                                <input type="date" class="form-control form-control-sm updated-on-input" formControlName="updatedOn"
+                                <input type="date" id="updatedOnInput" class="form-control form-control-sm updated-on-input" formControlName="updatedOn"
                                     (change)="triggerAutoSave()" [readonly]="isTranslating()" data-testid="updated-on">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" (click)="markUpdatedToday()"
                                     [disabled]="isTranslating()" data-testid="mark-updated-today">
@@ -1100,7 +1171,7 @@
                             <label class="form-label">
                                 {{ 'admin.contents.editor.references' | transloco }}
                                 @if(isTranslating()){
-                                <span class="shared-badge" title="Shared across all languages">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
+                                <span class="shared-badge" [title]="'admin.contents.editor.shared_title' | transloco">{{ 'admin.contents.editor.shared_badge' | transloco }}</span>
                                 }
                             </label>
                             @for (ref of references(); track $index) {
@@ -1132,13 +1203,12 @@
                                 <i class="fa-solid fa-share-nodes me-1"></i>
                                 {{ 'admin.contents.editor.social_preview' | transloco }}
                             </label>
-                            <p class="text-muted small mb-2">Preview how this content may appear when shared on social
-                                media</p>
+                            <p class="text-muted small mb-2">{{ 'admin.contents.editor.social_preview_hint' | transloco }}</p>
 
                             <div class="social-preview-card">
                                 <div class="social-preview-image">
                                     @if (coverImage) {
-                                    <img [src]="coverImage" alt="Cover preview">
+                                    <img [src]="coverImage" [alt]="'admin.contents.editor.cover_image' | transloco">
                                     } @else {
                                     <div class="image-placeholder">
                                         <i class="fa-solid fa-image"></i>
@@ -1149,11 +1219,11 @@
                                 <div class="social-preview-content">
                                     <div class="social-preview-domain">{{ domain || 'yourdomain.com' }}</div>
                                     <div class="social-preview-title">
-                                        {{ seoForm.get('seoTitle')?.value || pageTitle || 'Page Title' }}
+                                        {{ seoForm.get('seoTitle')?.value || pageTitle || ('admin.contents.editor.social_title_fallback' | transloco) }}
                                     </div>
                                     <div class="social-preview-description">
                                         {{ seoForm.get('metaDescription')?.value ||
-                                        'Add a meta description to see how it will appear in social shares...' }}
+                                        ('admin.contents.editor.social_description_fallback' | transloco) }}
                                     </div>
                                 </div>
                             </div>

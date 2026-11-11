@@ -220,7 +220,9 @@ describe('MediaAiTabComponent', () => {
         el.querySelector<HTMLButtonElement>('.ai-save')!.click();
         await flush();
         expect(upload.removeStored).toHaveBeenCalled();
-        expect(el.querySelector('.ai-error')?.textContent).toContain('The picture could not be saved');
+        expect(el.querySelector('.ai-error')?.textContent).toContain('The picture could not be saved. Try again.');
+        // The raw error stays in the console (RF5 5.2).
+        expect(el.querySelector('.ai-error')?.textContent).not.toContain('denied');
     });
 
     it('says why nothing was made, and drops an answer after Stop waiting', async () => {

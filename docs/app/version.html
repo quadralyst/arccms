@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Version and build number | Arc CMS docs</title>
-  <meta name="description" content="Give your app a version and build number, such as v1.2.0.25 android: set the version in custom/package.json and every build counts. It shows under Logout and in feedback.">
+  <meta name="description" content="Give your app a version and build number, such as v1.2.0.25 android: set the version in custom/package.json and every build counts. It shows under Sign out and in feedback.">
   <meta name="docs:sources" content="scripts/arc-version.mjs, scripts/arc-website-build.mjs, scripts/arc-build.mjs, scripts/arc-deploy.mjs, vite.config.ts, src/app/core/version/app-version.ts, src/app/core/brand/site-brand.ts, src/shared/components/side-navbar/side-navbar.component.html, src/shared/components/feedback/feedback.component.ts, src/app/core/feedback/feedback.service.ts, src/app/pages/admin/(feedback)/feedback.page.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/version.html">
   <main>
     <h1>Version and build number</h1>
-    <p class="lead">When someone reports a problem, the first question is which build they are on. Give your app a version, and every build says so: <code>v1.2.0.25 android</code> is version <code>1.2.0</code>, build <code>25</code>, built for Android. It shows under Logout in the admin's side panel, at the foot of the feedback panel, and it is saved with every feedback report, so nobody has to read it out.</p>
+    <p class="lead">When someone reports a problem, the first question is which build they are on. Give your app a version, and every build says so: <code>v1.2.0.25 android</code> is version <code>1.2.0</code>, build <code>25</code>, built for Android. It shows under Sign out in the admin's side panel, at the foot of the feedback panel, and it is saved with every feedback report, so nobody has to read it out.</p>
 
     <h2 id="the-file">Set the version</h2>
     <p>The version lives in <code>custom/package.json</code>, in the app's own folder at the root (<a href="scripts-and-data.html">Run scripts and keep data</a>). Arc CMS ships it with version <code>0.0.1</code> and no build yet, so every app has a version from the start and its first build is 1. From then on the file is the app's: Arc CMS never changes it again, and Arc CMS's own builds never count. Set your version and add the fields you need:</p>
@@ -64,7 +64,7 @@ This is build v1.2.0.25 web. custom/package.json now says "build": 25: commit it
 
     <h2 id="where-it-shows">Where it shows</h2>
     <ul>
-      <li><strong>Under Logout</strong> in the admin's side panel, small and muted, while the panel is open. A screen reader reads "Version v1.2.0.25 web". To turn it off there, set <code>showVersion: false</code> in <code>src/custom/brand.ts</code> (<a href="admin-look.html">Brand the admin</a>).</li>
+      <li><strong>Under Sign out</strong> in the admin's side panel, small and muted, while the panel is open. A screen reader reads "Version v1.2.0.25 web". To turn it off there, set <code>showVersion: false</code> in <code>src/custom/brand.ts</code> (<a href="admin-look.html">Brand the admin</a>).</li>
       <li><strong>At the foot of the feedback panel</strong>, so the person sees what they are reporting from (<a href="../features/feedback.html">Feedback button</a>).</li>
       <li><strong>Anywhere you like</strong>, from <code>APP_VERSION</code>:</li>
     </ul>

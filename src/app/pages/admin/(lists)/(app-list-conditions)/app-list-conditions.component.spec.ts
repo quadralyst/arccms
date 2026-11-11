@@ -34,7 +34,10 @@ describe('AppListConditionsComponent', () => {
         expect(c.fields()).toEqual(['isPro', 'plan.tier']);
         expect(m.calls.filter((x) => x.name === 'arccms-previewAppList').at(-1)?.data).toEqual({ conditions: [{ field: 'isPro', op: 'is', value: 'true' }] });
         expect((fixture.nativeElement as HTMLElement).textContent).toContain('Matches 3');
-        expect((fixture.nativeElement as HTMLElement).textContent).toContain('1 can be emailed now (1 unsubscribed)');
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('1 can be emailed now.');
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('1 unsubscribed.');
+        // The operators are translated, not shown as their stored codes.
+        expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('admin.audience');
         c.ngOnDestroy();
     });
 

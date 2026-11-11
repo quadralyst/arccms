@@ -116,4 +116,23 @@ describe('MediaFilesTabComponent', () => {
         tab.clearSearch();
         expect(tab.searching()).toBe(false);
     });
+
+    it('says the files did not load, with Retry, instead of "No files yet" (RF5)', async () => {
+        files.listPage.mockRejectedValueOnce(new Error('permission-denied'));
+        const fixture = create();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        const el: HTMLElement = fixture.nativeElement;
+        expect(el.querySelector('.files-load-failed')).not.toBeNull();
+        expect(el.textContent).not.toContain('admin.media.files.empty');
+        expect(el.textContent).not.toContain('permission-denied');
+        expect(notify.error).not.toHaveBeenCalled();
+
+        el.querySelector<HTMLButtonElement>('#filesRetryBtn')!.click();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        expect(files.listPage).toHaveBeenCalledTimes(2);
+        expect(el.querySelector('.files-load-failed')).toBeNull();
+        expect(el.querySelectorAll('.file-card:not(.file-upload-card)')).toHaveLength(2);
+    });
 });

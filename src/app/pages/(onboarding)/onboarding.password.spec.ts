@@ -16,6 +16,7 @@ describe('OnboardingComponent: the first admin\'s password', () => {
             fb: new FormBuilder(),
             passwordMatchValidator: proto.passwordMatchValidator,
             emailMatchValidator: proto.emailMatchValidator,
+            t: (key: string, params?: Record<string, unknown>) => `${key} ${JSON.stringify(params ?? {})}`,
         };
         proto.initForm.call(page);
         page.onboardingForm.patchValue({ name: 'Asha Rao', email: 'asha@example.com' });
@@ -26,7 +27,8 @@ describe('OnboardingComponent: the first admin\'s password', () => {
         const { password, passwordError } = form();
         password.setValue('abc123');
         expect(password.errors).toEqual({ password: 'short' });
-        expect(passwordError()).toBe('Use at least 8 characters.');
+        // In the admin's language, with the strict length.
+        expect(passwordError()).toBe('member.auth.password_error.short {"min":8}');
         password.setValue('12345678');
         expect(password.errors).toEqual({ password: 'sequence' });
         password.setValue('Monsoon-Train-42');

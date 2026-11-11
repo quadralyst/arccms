@@ -8,7 +8,10 @@
     @if(errorMessage()){
     <div class="error-state">
         <i class="fa-solid fa-exclamation-circle"></i>
-        <span>{{ errorMessage() }}</span>
+        <span>{{ errorMessage() | transloco }}</span>
+        @if(errorMessage() === 'admin.contents.versions.load_failed'){
+        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" (click)="loadHistory()">{{ 'common.table.retry' | transloco }}</button>
+        }
     </div>
     }
 
@@ -16,8 +19,8 @@
     @if(!isLoading() && !errorMessage() && versions().length === 0){
     <div class="empty-state">
         <i class="fa-solid fa-clock-rotate-left"></i>
-        <p>No version history available yet.</p>
-        <small>Version snapshots are created each time content is published.</small>
+        <p>{{ 'admin.contents.versions.empty' | transloco }}</p>
+        <small>{{ 'admin.contents.versions.empty_hint' | transloco }}</small>
     </div>
     }
 
@@ -25,16 +28,17 @@
     @if(!isLoading() && versions().length > 0){
     <div class="timeline-panel">
         <div class="timeline-header">
-            <h6><i class="fa-solid fa-clock-rotate-left"></i> Versions ({{ versions().length }})</h6>
+            <h6><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> {{ 'admin.contents.versions.count' | transloco: { count: versions().length } }}</h6>
         </div>
         <div class="timeline-list">
             @for(version of versions(); track version.historyId){
             <div class="timeline-item"
                  [class.selected]="selectedVersion()?.historyId === version.historyId"
+                 role="button" tabindex="0" (keydown.enter)="selectVersion(version)" (keydown.space)="$event.preventDefault(); selectVersion(version)"
                  (click)="selectVersion(version)">
                 <div class="version-badge">v{{ version.versionNumber }}</div>
                 <div class="version-info">
-                    <span class="version-title">{{ version.title || 'Untitled' }}</span>
+                    <span class="version-title">{{ version.title || ('admin.contents.untitled' | transloco) }}</span>
                     <span class="version-date">{{ formatDate(version.publishedOn) }}</span>
                 </div>
             </div>

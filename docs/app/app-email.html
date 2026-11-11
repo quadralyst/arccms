@@ -11,7 +11,7 @@
 <body data-root="../" data-page="app/app-email.html">
   <main>
     <h1>Send email from your app</h1>
-    <p class="lead">Your own Cloud Functions can send transactional email, such as a receipt, a report or a reminder, with <code>sendAppEmail</code> from the app kit. It sends one of your templates in the language you ask for, or a subject and body you built, inside the site's email layout, to the addresses you hold, with files attached. It goes through the same engine as Arc CMS's own email: the switches in Settings, Email, suppression of bounced addresses, retries, and a log for each address in Email Logs. When each email is sent, fails or bounces, an <code>AppEvents</code> entry with your reference tells your app, so it can show "Sent" or "Not delivered" on its own screen.</p>
+    <p class="lead">Your own Cloud Functions can send transactional email, such as a receipt, a report or a reminder, with <code>sendAppEmail</code> from the app kit. It sends one of your templates in the language you ask for, or a subject and body you built, inside the site's email layout, to the addresses you hold, with files attached. It goes through the same engine as Arc CMS's own email: the switches in Settings, Email sending, suppression of bounced addresses, retries, and a log for each address in Email logs. When each email is sent, fails or bounces, an <code>AppEvents</code> entry with your reference tells your app, so it can show "Sent" or "Not delivered" on its own screen.</p>
     <p>Marketing email stays with lists and consent (<a href="../features/email.html">Email</a>): <code>sendAppEmail</code> sends transactional email only.</p>
 
     <h2>An example: a shop's daily closing</h2>
@@ -82,7 +82,7 @@ export const onClosingDone = onDocumentUpdated(arcDocument('businesses/{bid}/clo
         <tr><td><code>sample</code></td><td>Tag data for the admin's preview, such as <code>{ DATE: '20 October 2026' }</code>.</td></tr>
       </tbody>
     </table>
-    <p>Write the body only: Arc CMS wraps it in the site's email layout, with the logo, colours and font from Email, Brand Kit, and a footer with the company name and address. <code>##TAG##</code> tokens are filled from the <code>data</code> you send; a tag is capitals and <code>_</code> only, and its data key is the same (<code>DATE</code> fills <code>##DATE##</code>). Text is shown as text, so a name with <code>&lt;</code> in it cannot break the email. For HTML you build, such as a table of figures, pass <code>{ html: '...' }</code>: it goes in as written, so escape what you put inside it with <code>escapeEmailHtml</code>. The site's own tags work too, such as <code>##COMPANY_NAME##</code> (see <a href="../reference/email-tags.html">Email tags</a>).</p>
+    <p>Write the body only: Arc CMS wraps it in the site's email layout, with the logo, colours and font from Email, Brand kit, and a footer with the company name and address. <code>##TAG##</code> tokens are filled from the <code>data</code> you send; a tag is capitals and <code>_</code> only, and its data key is the same (<code>DATE</code> fills <code>##DATE##</code>). Text is shown as text, so a name with <code>&lt;</code> in it cannot break the email. For HTML you build, such as a table of figures, pass <code>{ html: '...' }</code>: it goes in as written, so escape what you put inside it with <code>escapeEmailHtml</code>. The site's own tags work too, such as <code>##COMPANY_NAME##</code> (see <a href="../reference/email-tags.html">Email tags</a>).</p>
     <p>A mistake in the file (a key used twice, a language with no subject or body) stops the functions from loading, so the deploy fails with a message naming the file and what to change. The admin cannot edit your templates: they are your code, changed in this file and live with the next functions deploy.</p>
 
     <h2>What sendAppEmail takes</h2>
@@ -95,12 +95,12 @@ export const onClosingDone = onDocumentUpdated(arcDocument('businesses/{bid}/clo
         <tr><td><code>subject</code>, <code>html</code>, <code>text</code></td><td>A subject and body you built (the body wrapped in the site's layout), and a plain-text version if you have one. The body, and the <code>data</code> all together, may each be up to 150,000 characters: the log keeps them under Firestore's 1 MB per document. Send a bigger table as a file.</td></tr>
         <tr><td><code>language</code></td><td>The language to send in, such as <code>de</code> or <code>de-CH</code>. Leave it out for the site's default language.</td></tr>
         <tr><td><code>attachments</code></td><td>Files: <code>{ name, contentType, content }</code>, the content as text (sent as UTF-8), a <code>Buffer</code>, or base64 text with <code>encoding: 'base64'</code>. Up to 10 files and 5 MB in all.</td></tr>
-        <tr><td><code>replyTo</code></td><td>Where replies go. Default: the reply-to address in Settings, Email.</td></tr>
+        <tr><td><code>replyTo</code></td><td>Where replies go. Default: the reply-to address in Settings, Email sending.</td></tr>
         <tr><td><code>dedupeKey</code></td><td>A key stable for this email, such as <code>closing-c9</code>: calling again with it sends nothing new. Use one in every trigger, since a trigger can run twice.</td></tr>
         <tr><td><code>ref</code></td><td>Your own reference, such as <code>businesses/b1/closings/c9</code>, kept on the log and returned in the outcome events.</td></tr>
       </tbody>
     </table>
-    <p>The sender is the name and address in Settings, Email. <code>sendAppEmail</code> throws, saying what to fix, when the input is wrong (no address, an unknown template, files over 5 MB); nothing is sent then. Otherwise it returns one entry per address:</p>
+    <p>The sender is the name and address in Settings, Email sending. <code>sendAppEmail</code> throws, saying what to fix, when the input is wrong (no address, an unknown template, files over 5 MB); nothing is sent then. Otherwise it returns one entry per address:</p>
     <pre><code>{
   logs: [
     { to: 'owner@example.com', id: 'aB3...', status: 'pending' },
@@ -114,7 +114,7 @@ export const onClosingDone = onDocumentUpdated(arcDocument('businesses/{bid}/clo
     <p>The version for the language you ask for (<code>de-CH</code> finds <code>de</code>), else the site's default language (Settings, Languages), else English, else the first language the template has. The log records the language sent.</p>
 
     <h2>Attachments</h2>
-    <p>Files are kept in Storage beside the log, not in the log itself: each log has its own copy in <code>email-logs/{logId}/</code>, under the install's upload folder. A retry sends the same files again. They are deleted with the log when Email Logs are purged (Settings, Email, Auto-Purge Email Logs, or Purge Old Logs in Email Logs). Only admins can read them, in Email Logs, and no browser can write them. An email that was stopped lists its files but stores none.</p>
+    <p>Files are kept in Storage beside the log, not in the log itself: each log has its own copy in <code>email-logs/{logId}/</code>, under the install's upload folder. A retry sends the same files again. They are deleted with the log when Email logs are purged (Settings, Email sending, Auto-Purge Email logs, or Delete old logs in Email logs). Only admins can read them, in Email logs, and no browser can write them. An email that was stopped lists its files but stores none.</p>
 
     <h2 id="outcome">The outcome back to your app</h2>
     <p>For each of your emails, Arc CMS writes one <code>AppEvents</code> entry when its fate is known:</p>
@@ -138,7 +138,7 @@ export const onClosingDone = onDocumentUpdated(arcDocument('businesses/{bid}/clo
     <p>A bounced or complaining address is suppressed: the next email to it, from your app or from Arc CMS, is stopped with <code>suppressed</code>. Subscribing again does not lift a bounce; erasing the contact in Audience, Contacts does.</p>
 
     <h2>The switch</h2>
-    <p>Settings, Email, Features has <strong>App emails</strong>, on unless an admin switches it off. Off, every <code>sendAppEmail</code> writes a <code>skipped</code> log with <code>feature_disabled</code> and an <code>email.failed</code> event, and sends nothing. Turning email off as a whole (the switch at the top of Settings, Email) stops it too.</p>
+    <p>Settings, Email sending, Features has <strong>App emails</strong>, on unless an admin switches it off. Off, every <code>sendAppEmail</code> writes a <code>skipped</code> log with <code>feature_disabled</code> and an <code>email.failed</code> event, and sends nothing. Turning email off as a whole (the switch at the top of Settings, Email sending) stops it too.</p>
 
     <h2 id="account-emails">Arc CMS's account emails in your languages</h2>
     <p>The sign-up code, password reset code and PIN reset code emails, and the codes for adding an email to an account, for a new device and before a sensitive action (which use the sign-up template), go in the member's language: the sign-in page sends the language it shows (see <a href="member-languages.html">Member languages</a>). Arc CMS writes them in English, in Settings, where an admin edits them. Word them in your languages in <code>ACCOUNT_EMAIL_LANGUAGES</code>, in the same file:</p>
@@ -155,12 +155,12 @@ export const onClosingDone = onDocumentUpdated(arcDocument('businesses/{bid}/clo
     <h2>In the admin</h2>
     <ul>
       <li><strong>Email, Composer</strong> lists your templates, marked <em>App</em>, with their languages. They open as a preview, in each language, filled with their <code>sample</code> data, and cannot be edited there. Opening the composer brings the list up to date with your file (the <code>syncAppEmailTemplates</code> function), and so does each send.</li>
-      <li><strong>Email Logs</strong> shows each email as it was sent, its language, Reply-To and your reference, and lists its files with an Open link. A link in the email opens in a new tab when an admin clicks it, except Arc CMS's unsubscribe and preference links. Arc CMS cannot tell which of your own links act for the recipient, so a link that signs them in, confirms an order or changes their account would act for the admin who clicks it there: give such a link a short life, or have its page ask who is there.</li>
+      <li><strong>Email logs</strong> shows each email as it was sent, its language, Reply-To and your reference, and lists its files with an Open link. A link in the email opens in a new tab when an admin clicks it, except Arc CMS's unsubscribe and preference links. Arc CMS cannot tell which of your own links act for the recipient, so a link that signs them in, confirms an order or changes their account would act for the admin who clicks it there: give such a link a short life, or have its page ask who is there.</li>
       <li><strong>Settings, Automations</strong> does not offer your templates for rules: they need your data.</li>
     </ul>
 
     <h2>Test it</h2>
-    <p><strong>On a dev project</strong>, choose the Simulated provider in Settings, Email. Nothing is sent: each email is recorded in Email Logs as it would have gone, files included, so you can open it there and check the whole flow, events included, with no real provider.</p>
+    <p><strong>On a dev project</strong>, choose the Simulated provider in Settings, Email sending. Nothing is sent: each email is recorded in Email logs as it would have gone, files included, so you can open it there and check the whole flow, events included, with no real provider.</p>
     <p><strong>In your unit tests</strong>, <code>captureAppEmails</code> from the app kit records what would be sent, without Firestore, Storage or a provider. <code>sendAppEmail</code> still checks its input as for real, so a mistake fails the test:</p>
     <pre><code>import { captureAppEmails } from '../../app-kit/index.js';
 

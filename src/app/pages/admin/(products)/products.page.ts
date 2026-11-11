@@ -26,6 +26,8 @@ import { ProductsService } from './products.service';
 import { IProduct, tiersWithoutCodes } from './product.model';
 import { arcCallable } from '../../../core/config/arc-functions';
 import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
+import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
 
 export const routeMeta: RouteMeta = {
     title: 'Products',
@@ -50,7 +52,7 @@ export const routeMeta: RouteMeta = {
                   <h5 class="m-0">{{ p.name }}</h5>
                   <span class="status-badge" [class.on]="p.active">{{ (p.active ? 'admin.products.active' : 'admin.products.inactive') | transloco }}</span>
                 </div>
-                <button mat-icon-button (click)="closeDetail()"><mat-icon>close</mat-icon></button>
+                <button mat-icon-button (click)="closeDetail()" [attr.aria-label]="'common.actions.close' | transloco"><mat-icon aria-hidden="true">close</mat-icon></button>
               </div>
 
               <div class="detail-body">
@@ -75,27 +77,27 @@ export const routeMeta: RouteMeta = {
                 <div class="section-label">{{ 'admin.products.pricing_tiers' | transloco }}</div>
                 @if (p.tiers.length) {
                   <table class="tiers-table">
-                    <thead><tr><th>{{ 'admin.products.tier' | transloco }}</th><th>Up to</th><th>{{ 'admin.products.code' | transloco }}</th><th>{{ 'admin.products.off' | transloco }}</th><th>{{ 'admin.products.test_link' | transloco }}</th></tr></thead>
+                    <thead><tr><th>{{ 'admin.products.tier' | transloco }}</th><th>{{ 'admin.products.up_to' | transloco }}</th><th>{{ 'admin.products.code' | transloco }}</th><th>{{ 'admin.products.off' | transloco }}</th><th>{{ 'admin.products.test_link' | transloco }}</th></tr></thead>
                     <tbody>
                       @for (t of p.tiers; track $index; let i = $index) {
                         <tr>
                           <td>{{ t.label || '-' }}</td>
-                          <td>{{ t.maxCount && t.maxCount > 0 ? t.maxCount : 'Everyone else' }}</td>
+                          <td>{{ t.maxCount && t.maxCount > 0 ? t.maxCount : ('admin.products.everyone_else' | transloco) }}</td>
                           <td>{{ codeAt(p, i) || '-' }}</td>
                           <td>{{ t.discountPct ? t.discountPct + '%' : '-' }}</td>
                           <td class="link-cell">
                             @if (testLinks()[i]; as url) {
                               <div class="link-row">
-                                <input class="link-input" readonly [value]="url" (click)="selectAll($event)" />
-                                <button mat-icon-button [matTooltip]="'admin.products.copy_link' | transloco" (click)="copyLink(url)"><mat-icon>content_copy</mat-icon></button>
-                                <a mat-icon-button [matTooltip]="'admin.products.open_new_tab' | transloco" [href]="url" target="_blank" rel="noopener"><mat-icon>open_in_new</mat-icon></a>
+                                <input class="link-input" readonly [value]="url" (click)="selectAll($event)" [attr.aria-label]="'admin.products.test_link' | transloco" />
+                                <button mat-icon-button [matTooltip]="'admin.products.copy_link' | transloco" [attr.aria-label]="'admin.products.copy_link' | transloco" (click)="copyLink(url)"><mat-icon aria-hidden="true">content_copy</mat-icon></button>
+                                <a mat-icon-button [matTooltip]="'admin.products.open_new_tab' | transloco" [attr.aria-label]="'admin.products.open_new_tab' | transloco" [href]="url" target="_blank" rel="noopener"><mat-icon aria-hidden="true">open_in_new</mat-icon></a>
                               </div>
                             } @else {
                               <button mat-stroked-button class="gen-btn" (click)="generateTestLink(p, i)" [disabled]="generatingTier() === i">
                                 @if (generatingTier() === i) {
                                   <span class="btn-inner"><mat-spinner diameter="16" class="me-1"></mat-spinner> {{ 'admin.products.generating' | transloco }}</span>
                                 } @else {
-                                  <span class="btn-inner"><mat-icon class="me-1">link</mat-icon> {{ 'admin.products.generate' | transloco }}</span>
+                                  <span class="btn-inner"><mat-icon class="me-1" aria-hidden="true">link</mat-icon> {{ 'admin.products.generate' | transloco }}</span>
                                 }
                               </button>
                             }
@@ -112,7 +114,7 @@ export const routeMeta: RouteMeta = {
 
               <div class="detail-footer">
                 <button mat-stroked-button (click)="closeDetail()">{{ 'common.actions.close' | transloco }}</button>
-                <button mat-raised-button color="primary" (click)="editFromDetail(p)"><mat-icon>edit</mat-icon> {{ 'common.actions.edit' | transloco }}</button>
+                <button mat-raised-button color="primary" (click)="editFromDetail(p)"><mat-icon aria-hidden="true">edit</mat-icon> {{ 'common.actions.edit' | transloco }}</button>
               </div>
             </div>
           }
@@ -123,7 +125,7 @@ export const routeMeta: RouteMeta = {
             <arc-page-header [title]="'admin.products.title' | transloco"
                 [subtitle]="'admin.products.subtitle' | transloco">
                 @if (!showForm()) {
-                    <button mat-raised-button color="primary" (click)="openCreate()"><i class="fa-solid fa-plus me-2"></i>{{ 'admin.products.new' | transloco }}</button>
+                    <button mat-raised-button color="primary" (click)="openCreate()"><i class="fa-solid fa-plus me-2" aria-hidden="true"></i>{{ 'admin.products.new' | transloco }}</button>
                 }
             </arc-page-header>
 
@@ -189,7 +191,7 @@ export const routeMeta: RouteMeta = {
                                     <mat-form-field appearance="outline" class="w-100">
                                         <mat-label>{{ 'admin.products.credits' | transloco }}</mat-label>
                                         <input matInput type="number" formControlName="creditsGranted" />
-                                        <mat-hint>{{ form.get('type')?.value === 'subscription' ? 'Per renewal' : 'Per purchase' }} {{ 'admin.products.credits_hint' | transloco }}</mat-hint>
+                                        <mat-hint>{{ (form.get('type')?.value === 'subscription' ? 'admin.products.credits_hint_renewal' : 'admin.products.credits_hint_purchase') | transloco }}</mat-hint>
                                     </mat-form-field>
                                 </div>
                             </div>
@@ -232,11 +234,11 @@ export const routeMeta: RouteMeta = {
                             <div class="tiers-section">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h6 class="m-0">{{ 'admin.products.pricing_tiers' | transloco }}</h6>
-                                    <button mat-stroked-button type="button" (click)="addTier()"><i class="fa-solid fa-plus me-1"></i>{{ 'admin.products.add_tier' | transloco }}</button>
+                                    <button mat-stroked-button type="button" (click)="addTier()"><i class="fa-solid fa-plus me-1" aria-hidden="true"></i>{{ 'admin.products.add_tier' | transloco }}</button>
                                 </div>
                                 <p class="text-muted small">{{ 'admin.products.tier_note' | transloco }} {{ 'admin.products.code_note' | transloco }}</p>
                                 @if (form.get('type')?.value === 'subscription') {
-                                    <p class="text-warning small"><i class="fa-solid fa-triangle-exclamation me-1"></i><span [innerHTML]="'admin.products.grandfathering_note' | transloco"></span></p>
+                                    <p class="text-warning-emphasis small"><i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i><span [innerHTML]="'admin.products.grandfathering_note' | transloco"></span></p>
                                 }
                                 <div formArrayName="tiers">
                                     @for (tier of tiers.controls; track tier; let i = $index) {
@@ -246,7 +248,7 @@ export const routeMeta: RouteMeta = {
                                             <div class="col-md-3"><mat-form-field appearance="outline" class="w-100"><mat-label>{{ 'admin.products.discount_code' | transloco }}</mat-label><input matInput formControlName="discountCode" /></mat-form-field></div>
                                             <div class="col-md-1"><mat-form-field appearance="outline" class="w-100"><mat-label>{{ 'admin.products.off_percent' | transloco }}</mat-label><input matInput type="number" formControlName="discountPct" /></mat-form-field></div>
                                             <div class="col-md-2"><mat-form-field appearance="outline" class="w-100"><mat-label>{{ 'admin.products.price' | transloco }}</mat-label><input matInput type="number" formControlName="price" /></mat-form-field></div>
-                                            <div class="col-md-2 d-flex align-items-center"><button mat-icon-button color="warn" type="button" (click)="removeTier(i)"><mat-icon>delete</mat-icon></button></div>
+                                            <div class="col-md-2 d-flex align-items-center"><button mat-icon-button color="warn" type="button" (click)="removeTier(i)" [attr.aria-label]="'admin.products.delete_tier' | transloco: { number: i + 1 }"><mat-icon aria-hidden="true">delete</mat-icon></button></div>
                                         </div>
                                     }
                                 </div>
@@ -265,17 +267,23 @@ export const routeMeta: RouteMeta = {
                 <mat-card-content class="pt-3">
                     @if (store.isLoading()) {
                         <arc-loader kind="rows"></arc-loader>
+                    } @else if (store.error() && store.items().length === 0) {
+                        <!-- The detail is in the console; the admin reads a plain sentence and can try again. -->
+                        <div class="alert alert-danger d-flex flex-wrap align-items-center gap-2 mb-0" role="alert">
+                            <span class="flex-grow-1"><strong>{{ 'common.table.load_failed_title' | transloco }}.</strong> {{ 'common.table.load_failed_text' | transloco }}</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger" (click)="store.getAll()">{{ 'common.table.retry' | transloco }}</button>
+                        </div>
                     } @else if (store.items().length === 0) {
                         <p class="text-muted">{{ 'admin.products.none' | transloco }}</p>
                     } @else {
                         <table mat-table [dataSource]="store.items()" class="w-100">
                             <ng-container matColumnDef="name"><th mat-header-cell *matHeaderCellDef>{{ 'admin.products.name' | transloco }}</th><td mat-cell *matCellDef="let p">{{ p.name }}</td></ng-container>
-                            <ng-container matColumnDef="type"><th mat-header-cell *matHeaderCellDef>{{ 'admin.products.type' | transloco }}</th><td mat-cell *matCellDef="let p">{{ p.type }}</td></ng-container>
+                            <ng-container matColumnDef="type"><th mat-header-cell *matHeaderCellDef>{{ 'admin.products.type' | transloco }}</th><td mat-cell *matCellDef="let p">{{ (p.type === 'subscription' ? 'admin.products.subscription' : 'admin.products.one_time') | transloco }}</td></ng-container>
                             <ng-container matColumnDef="premiumType"><th mat-header-cell *matHeaderCellDef>{{ 'admin.products.tier' | transloco }}</th><td mat-cell *matCellDef="let p">{{ p.premiumType }} (#{{ p.tierRank }})</td></ng-container>
                             <ng-container matColumnDef="purchaseCount"><th mat-header-cell *matHeaderCellDef>{{ 'admin.products.sold' | transloco }}</th><td mat-cell *matCellDef="let p">{{ p.purchaseCount || 0 }}</td></ng-container>
-                            <ng-container matColumnDef="active"><th mat-header-cell *matHeaderCellDef>{{ 'admin.products.active' | transloco }}</th><td mat-cell *matCellDef="let p">{{ p.active ? 'Yes' : 'No' }}</td></ng-container>
+                            <ng-container matColumnDef="active"><th mat-header-cell *matHeaderCellDef>{{ 'admin.products.active' | transloco }}</th><td mat-cell *matCellDef="let p">{{ (p.active ? 'common.yes' : 'common.no') | transloco }}</td></ng-container>
                             <ng-container matColumnDef="actions">
-                                <th mat-header-cell *matHeaderCellDef></th>
+                                <th mat-header-cell *matHeaderCellDef><span class="visually-hidden">{{ 'common.table.actions' | transloco }}</span></th>
                                 <td mat-cell *matCellDef="let p" class="text-end">
                                     <arc-row-actions [actions]="rowActions" [row]="p" [rows]="store.items()"></arc-row-actions>
                                 </td>
@@ -329,6 +337,7 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
     private fb = inject(FormBuilder);
     private functions = inject(Functions);
     private productsService = inject(ProductsService);
+    private confirmDialog = inject(ConfirmService);
     store = inject(ProductsStore);
     /** Tier discount codes by product id, from the admin-only ProductCodes documents. */
     codes = signal<Record<string, string[]>>({});
@@ -546,8 +555,14 @@ export default class ProductsPageComponent extends BaseComponent implements OnIn
         this.store.getAll();
     }
 
-    remove(p: IProduct): void {
-        if (!confirm(`Delete product "${p.name}"?`)) return;
+    async remove(p: IProduct): Promise<void> {
+        const confirmed = await this.confirmDialog.ask({
+            titleKey: 'common.dialog.delete',
+            dialogMessage: this.transloco.translate('admin.products.delete_confirm', { name: escapeHtml(p.name) }),
+            btnText: this.transloco.translate('common.actions.delete'),
+            panelType: 'warn',
+        });
+        if (!confirmed) return;
         this.store.delete(p.id).subscribe({
             next: () => {
                 this.notify.success('admin.products.deleted');

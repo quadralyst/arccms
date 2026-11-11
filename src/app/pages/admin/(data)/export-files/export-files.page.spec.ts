@@ -153,7 +153,17 @@ describe('ExportFilesPageComponent', () => {
         fixture.detectChanges();
         await fixture.whenStable();
 
-        expect(component.loadError()).toBe('Network error');
+        expect(component.loadError()).toBe('The media list did not load. Check your connection and try again.');
         expect(component.mediaItems().length).toBe(0);
+
+        // Retry reads the list again.
+        fixture.detectChanges();
+        const retry = (fixture.nativeElement as HTMLElement).querySelector('.error-message button') as HTMLButtonElement;
+        expect(retry.textContent).toContain('Retry');
+        const before = mockExportFilesService.getMediaItems.mock.calls.length;
+        retry.click();
+        await fixture.whenStable();
+        expect(mockExportFilesService.getMediaItems).toHaveBeenCalledTimes(before + 1);
+        expect(component.loadError()).toBeNull();
     });
 });

@@ -9,6 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ISmtpConfig } from '../email-setting.model';
 import { IEmailProviderComponent } from './email-provider-base';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 @Component({
     selector: 'app-smtp-provider',
@@ -22,46 +23,42 @@ import { IEmailProviderComponent } from './email-provider-base';
         MatIconModule,
         MatCheckboxModule,
         MatTooltipModule,
+        TranslocoPipe,
     ],
+    // The provider help shares its words with onboarding's email step (admin.onboarding.email.*).
     template: `
         <mat-card class="mb-4" [formGroup]="formGroup">
             <mat-card-header>
                 <mat-card-title>
-                    <i class="fa-solid fa-server me-2"></i>
-                    SMTP Configuration
+                    <i class="fa-solid fa-server me-2" aria-hidden="true"></i>
+                    {{ 'admin.settings.email.smtp_title' | transloco }}
                 </mat-card-title>
             </mat-card-header>
             <mat-card-content class="pt-3">
                 <div class="alert alert-light border small mb-3" style="padding: 0; overflow: hidden;">
-                    <div style="display: flex; align-items: center; padding: 0.5rem 0.75rem; cursor: pointer; user-select: none;"
-                         (click)="showInfoBox.set(!showInfoBox())">
-                        <i class="fa-solid fa-circle-info text-primary me-1"></i>
-                        <strong>Where do I find my SMTP settings?</strong>
-                        <mat-icon style="margin-left: auto; font-size: 20px; width: 20px; height: 20px;">
+                    <button type="button" class="info-toggle" (click)="showInfoBox.set(!showInfoBox())"
+                        [attr.aria-expanded]="showInfoBox()" aria-controls="smtp-help">
+                        <i class="fa-solid fa-circle-info text-primary me-1" aria-hidden="true"></i>
+                        <strong>{{ 'admin.onboarding.email.smtp_help_title' | transloco }}</strong>
+                        <mat-icon aria-hidden="true" style="margin-left: auto; font-size: 20px; width: 20px; height: 20px;">
                             {{ showInfoBox() ? 'expand_less' : 'expand_more' }}
                         </mat-icon>
-                    </div>
+                    </button>
                     @if (showInfoBox()) {
-                    <div style="padding: 0 0.75rem 0.5rem;">
-                        Check your email provider's help docs. Common settings:
+                    <div id="smtp-help" style="padding: 0 0.75rem 0.5rem;">
+                        {{ 'admin.onboarding.email.smtp_help_text' | transloco }}
                         <ul class="mb-0 mt-1">
                             <li>
-                                <a href="https://support.microsoft.com/en-us/office/pop-imap-and-smtp-settings-8361e398-8af4-4e97-b147-6c6c4ac95353" target="_blank" rel="noopener">
-                                    Outlook / Microsoft 365
-                                </a>:
-                                host <code>smtp.office365.com</code>, port <code>587</code>
+                                <a href="https://support.microsoft.com/en-us/office/pop-imap-and-smtp-settings-8361e398-8af4-4e97-b147-6c6c4ac95353" target="_blank" rel="noopener">Outlook / Microsoft 365</a>:
+                                {{ 'admin.onboarding.email.host_word' | transloco }} <code>smtp.office365.com</code>, {{ 'admin.onboarding.email.port_word' | transloco }} <code>587</code>
                             </li>
                             <li>
-                                <a href="https://help.yahoo.com/kb/SLN4724.html" target="_blank" rel="noopener">
-                                    Yahoo Mail
-                                </a>:
-                                host <code>smtp.mail.yahoo.com</code>, port <code>465</code> (SSL)
+                                <a href="https://help.yahoo.com/kb/SLN4724.html" target="_blank" rel="noopener">Yahoo Mail</a>:
+                                {{ 'admin.onboarding.email.host_word' | transloco }} <code>smtp.mail.yahoo.com</code>, {{ 'admin.onboarding.email.port_word' | transloco }} <code>465</code> (SSL)
                             </li>
                             <li>
-                                <a href="https://www.zoho.com/mail/help/zoho-smtp.html" target="_blank" rel="noopener">
-                                    Zoho Mail
-                                </a>:
-                                host <code>smtp.zoho.com</code>, port <code>465</code> (SSL)
+                                <a href="https://www.zoho.com/mail/help/zoho-smtp.html" target="_blank" rel="noopener">Zoho Mail</a>:
+                                {{ 'admin.onboarding.email.host_word' | transloco }} <code>smtp.zoho.com</code>, {{ 'admin.onboarding.email.port_word' | transloco }} <code>465</code> (SSL)
                             </li>
                         </ul>
                     </div>
@@ -70,16 +67,16 @@ import { IEmailProviderComponent } from './email-provider-base';
                 <div class="row">
                     <div class="col-md-8">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>SMTP Host</mat-label>
-                            <input matInput formControlName="host" placeholder="e.g. smtp.office365.com">
-                            <mat-hint>The server address provided by your email host</mat-hint>
+                            <mat-label>{{ 'admin.onboarding.email.smtp_host' | transloco }}</mat-label>
+                            <input matInput formControlName="host" [placeholder]="'admin.onboarding.email.smtp_host_placeholder' | transloco">
+                            <mat-hint>{{ 'admin.onboarding.email.smtp_host_hint' | transloco }}</mat-hint>
                         </mat-form-field>
                     </div>
                     <div class="col-md-4">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>Port</mat-label>
+                            <mat-label>{{ 'admin.onboarding.email.port' | transloco }}</mat-label>
                             <input matInput type="number" formControlName="port" placeholder="587">
-                            <mat-hint>587 (TLS) or 465 (SSL)</mat-hint>
+                            <mat-hint>{{ 'admin.onboarding.email.port_hint' | transloco }}</mat-hint>
                         </mat-form-field>
                     </div>
                 </div>
@@ -87,7 +84,7 @@ import { IEmailProviderComponent } from './email-provider-base';
                 <div class="row mt-3">
                     <div class="col-12">
                         <mat-checkbox formControlName="secure" color="primary">
-                            Use secure connection (TLS/SSL)
+                            {{ 'admin.settings.email.secure' | transloco }}
                         </mat-checkbox>
                     </div>
                 </div>
@@ -95,27 +92,43 @@ import { IEmailProviderComponent } from './email-provider-base';
                 <div class="row mt-3">
                     <div class="col-md-6">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>Username</mat-label>
-                            <input matInput formControlName="user" placeholder="your-email@example.com">
-                            <mat-hint>Usually your full email address</mat-hint>
+                            <mat-label>{{ 'admin.onboarding.email.username' | transloco }}</mat-label>
+                            <input matInput formControlName="user" placeholder="your-email@example.com" autocomplete="off">
+                            <mat-hint>{{ 'admin.onboarding.email.username_hint' | transloco }}</mat-hint>
                         </mat-form-field>
                     </div>
                     <div class="col-md-6">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>Password</mat-label>
+                            <mat-label>{{ 'admin.onboarding.email.password' | transloco }}</mat-label>
                             <input matInput [type]="showPassword() ? 'text' : 'password'" formControlName="password"
-                                placeholder="••••••••">
+                                placeholder="••••••••" autocomplete="off">
                             <button mat-icon-button matSuffix type="button" (click)="showPassword.set(!showPassword())"
-                                [matTooltip]="showPassword() ? 'Hide password' : 'Show password'">
-                                <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                [attr.aria-label]="'admin.onboarding.show_password' | transloco"
+                                [attr.aria-pressed]="showPassword()"
+                                [matTooltip]="'admin.onboarding.show_password' | transloco">
+                                <mat-icon aria-hidden="true">{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
                             </button>
-                            <mat-hint>Your email password or app-specific password</mat-hint>
+                            <mat-hint>{{ 'admin.onboarding.email.password_hint' | transloco }}</mat-hint>
                         </mat-form-field>
                     </div>
                 </div>
             </mat-card-content>
         </mat-card>
     `,
+    styles: [`
+        .info-toggle {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+    `],
 })
 export class SmtpProviderComponent implements IEmailProviderComponent, OnInit {
     private fb = inject(FormBuilder);

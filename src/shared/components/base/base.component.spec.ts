@@ -691,21 +691,21 @@ describe('BaseComponent', () => {
             component.currentPage.set(1);
             component.updatePaginationMessage(100);
 
-            expect(component.paginationMessage).toBe('Showing 1 to 10 of 100');
+            expect(component.paginationMessage).toBe('Showing 1 to 10 of 100 records');
         });
 
         it('should show correct message for middle page', () => {
             component.currentPage.set(2);
             component.updatePaginationMessage(100);
 
-            expect(component.paginationMessage).toBe('Showing 11 to 20 of 100');
+            expect(component.paginationMessage).toBe('Showing 11 to 20 of 100 records');
         });
 
         it('should show correct message for last page', () => {
             component.currentPage.set(10);
             component.updatePaginationMessage(95);
 
-            expect(component.paginationMessage).toBe('Showing 91 to 95 of 95');
+            expect(component.paginationMessage).toBe('Showing 91 to 95 of 95 records');
         });
 
         it('should show no records message for zero total', () => {
@@ -718,7 +718,7 @@ describe('BaseComponent', () => {
             component.currentPage.set(1);
             component.updatePaginationMessage(50, 5);
 
-            expect(component.paginationMessage).toBe('Showing 1 to 5 of 50');
+            expect(component.paginationMessage).toBe('Showing 1 to 5 of 50 records');
         });
     });
 

@@ -19,11 +19,12 @@ import { AnalyticsSettingService } from './analytics-setting.service';
 import { AnalyticsTrackingStatusComponent } from '../../../../core/analytics/analytics-status.component';
 import { DEFAULT_ANALYTICS_SETTINGS, IAnalyticsSettings } from './analytics-setting.model';
 import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
+import { ConfirmService } from '../../../../../shared/components/confirmation-popup/confirm.service';
 
 export const routeMeta: RouteMeta = {
-    title: 'Analytics Settings',
+    title: 'Analytics',
     canActivate: [roleGuard],
-    data: { allowedRoles: ['admin'] },
+    data: { titleKey: 'admin.settings.hub.analytics.label', allowedRoles: ['admin'] },
 };
 
 @Component({
@@ -44,7 +45,7 @@ export const routeMeta: RouteMeta = {
             @if (isLoading()) {
                 <arc-loader kind="block" [count]="2"></arc-loader>
             } @else if (!connectionStatus.isConnected() && !hasCredentials() && !showSetup()) {
-                <!-- Disabled State — matches Email Settings pattern -->
+                <!-- Disabled State: matches Email Settings pattern -->
                 <div class="disabled-state">
                     <div class="disabled-content">
                         <div class="disabled-icon">
@@ -69,8 +70,8 @@ export const routeMeta: RouteMeta = {
                     <div class="setup-guide-header" (click)="showSetupGuide.set(!showSetupGuide())">
                         <i class="fa-solid fa-book-open me-2"></i>
                         <span class="setup-guide-title">{{ 'admin.settings.analytics.guide' | transloco }}</span>
-                        <button mat-icon-button type="button" class="toggle-btn">
-                            <mat-icon>{{ showSetupGuide() ? 'expand_less' : 'expand_more' }}</mat-icon>
+                        <button mat-icon-button type="button" class="toggle-btn" [attr.aria-label]="'admin.settings.analytics.guide' | transloco" [attr.aria-expanded]="showSetupGuide()">
+                            <mat-icon aria-hidden="true">{{ showSetupGuide() ? 'expand_less' : 'expand_more' }}</mat-icon>
                         </button>
                     </div>
 
@@ -236,10 +237,11 @@ export const routeMeta: RouteMeta = {
                                             matSuffix
                                             type="button"
                                             (click)="showSecret.set(!showSecret())"
-                                            [matTooltip]="showSecret() ? 'Hide' : 'Show'"
-                                            aria-label="Toggle client secret visibility"
+                                            [matTooltip]="(showSecret() ? 'common.actions.hide' : 'common.actions.show') | transloco"
+                                            [attr.aria-label]="'admin.settings.analytics.show_secret' | transloco"
+                                            [attr.aria-pressed]="showSecret()"
                                         >
-                                            <mat-icon>{{ showSecret() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                            <mat-icon aria-hidden="true">{{ showSecret() ? 'visibility_off' : 'visibility' }}</mat-icon>
                                         </button>
                                         @if (analyticsForm.get('oauth.clientSecret')?.hasError('required') &&
                                              analyticsForm.get('oauth.clientSecret')?.touched) {
@@ -585,6 +587,7 @@ export default class AnalyticsSettingPageComponent extends BaseComponent impleme
     private analyticsSettingService = inject(AnalyticsSettingService);
     private googleOAuthService = inject(GoogleOAuthService);
     private dialog = inject(MatDialog);
+    private confirmDialog = inject(ConfirmService);
     connectionStatus = inject(AnalyticsConnectionStatusService);
 
     analyticsForm!: FormGroup;
@@ -666,9 +669,13 @@ export default class AnalyticsSettingPageComponent extends BaseComponent impleme
     }
 
     async onDisconnect(): Promise<void> {
-        if (!confirm('Are you sure you want to disconnect Google Analytics? This will revoke access and clear all cached analytics data.')) {
-            return;
-        }
+        const confirmed = await this.confirmDialog.ask({
+            titleKey: 'admin.settings.analytics.disconnect',
+            dialogMessage: this.transloco.translate('admin.settings.analytics.disconnect_confirm'),
+            btnText: this.transloco.translate('admin.settings.analytics.disconnect'),
+            panelType: 'warn',
+        });
+        if (!confirmed) return;
 
         this.isDisconnecting.set(true);
         try {
@@ -713,7 +720,8 @@ export default class AnalyticsSettingPageComponent extends BaseComponent impleme
         } catch (error: any) {
             if (error?.message === 'popup_closed_by_user') return;
             console.error('Connect GA error:', error);
-            error?.message ? this.notify.raw(error.message, 'error') : this.notify.error('admin.settings.analytics.connect_failed');
+            // Google's own words stay in the console above.
+            this.notify.error('admin.settings.analytics.connect_failed');
         } finally {
             this.isConnecting.set(false);
         }
@@ -734,7 +742,8 @@ export default class AnalyticsSettingPageComponent extends BaseComponent impleme
                         });
                         this.notify.success('admin.settings.analytics.connected_to', { property: selected.displayName });
                     } catch (error: any) {
-                        error?.message ? this.notify.raw(error.message, 'error') : this.notify.error('admin.settings.analytics.select_property_failed');
+                        console.error('Select GA property error:', error);
+                        this.notify.error('admin.settings.analytics.select_property_failed');
                     }
                 }
             });

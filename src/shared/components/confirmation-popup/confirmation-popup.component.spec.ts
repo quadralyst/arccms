@@ -1,118 +1,122 @@
 /**
- * Tests for Confirmation Popup Component
- *
- * Tests verify the ConfirmationPopupComponent functionality including:
- * - Component creation
- * - Dialog data injection
- * - Confirm action
+ * Tests for the confirmation dialog: its buttons, where focus starts, and the
+ * ConfirmService that opens it in place of the browser's confirm().
  */
 
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { ConfirmationPopupComponent } from './confirmation-popup.component';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { of } from 'rxjs';
+import { ConfirmationDialogData, ConfirmationPopupComponent } from './confirmation-popup.component';
+import { ConfirmService } from './confirm.service';
+import { translocoTestingModule } from '../../../test/transloco-test-providers';
+
+async function setUp(data: ConfirmationDialogData, lang?: string) {
+    const dialogRef = { close: vi.fn() };
+    await TestBed.configureTestingModule({
+        imports: [ConfirmationPopupComponent, NoopAnimationsModule, translocoTestingModule(lang ? { lang } : {})],
+        providers: [
+            { provide: MatDialogRef, useValue: dialogRef },
+            { provide: MAT_DIALOG_DATA, useValue: data },
+        ],
+    }).compileComponents();
+    const fixture: ComponentFixture<ConfirmationPopupComponent> = TestBed.createComponent(ConfirmationPopupComponent);
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    return { fixture, component: fixture.componentInstance, dialogRef, el };
+}
 
 describe('ConfirmationPopupComponent', () => {
-    let component: ConfirmationPopupComponent;
-    let fixture: ComponentFixture<ConfirmationPopupComponent>;
-    let mockDialogRef: any;
-    let mockDialogData: any;
+    const data: ConfirmationDialogData = {
+        dialogType: 'Delete',
+        dialogMessage: 'Delete <strong>Spring sale</strong>?',
+        btnText: 'Delete',
+        panelType: 'warn',
+    };
 
-    beforeEach(async () => {
-        mockDialogRef = {
-            close: vi.fn()
-        };
-
-        mockDialogData = {
-            title: 'Confirm Action',
-            message: 'Are you sure you want to proceed?',
-            confirmText: 'Yes',
-            cancelText: 'No'
-        };
-
-        await TestBed.configureTestingModule({
-            imports: [
-                ConfirmationPopupComponent,
-                NoopAnimationsModule
-            ],
-            providers: [
-                { provide: MatDialogRef, useValue: mockDialogRef },
-                { provide: MAT_DIALOG_DATA, useValue: mockDialogData }
-            ]
-        }).compileComponents();
-
-        fixture = TestBed.createComponent(ConfirmationPopupComponent);
-        component = fixture.componentInstance;
-        fixture.detectChanges();
+    it('has the arc-confirmation-popup selector', () => {
+        const componentDef = (ConfirmationPopupComponent as any).ɵcmp;
+        expect(componentDef.selectors[0][0]).toBe('arc-confirmation-popup');
     });
 
-    describe('Component Creation', () => {
-        it('should create', () => {
-            expect(component).toBeTruthy();
+    describe('buttons', () => {
+        beforeEach(() => TestBed.resetTestingModule());
+
+        it('the cancel button says "Cancel", not "Close"', async () => {
+            const { el } = await setUp(data);
+            expect(el.querySelector('.cancel-btn')?.textContent?.trim()).toBe('Cancel');
         });
 
-        it('should inject dialog data', () => {
-            expect(component._DIALOG_DATA).toBeDefined();
+        it('the cancel button is translated', async () => {
+            const { el } = await setUp(data, 'hi');
+            expect(el.querySelector('.cancel-btn')?.textContent?.trim()).toBe('रद्द करें');
         });
 
-        it('should inject dialog ref', () => {
-            expect(component.dialogRef).toBeDefined();
-        });
-    });
-
-    describe('Dialog Data', () => {
-        it('should have access to title', () => {
-            expect(component._DIALOG_DATA.title).toBe('Confirm Action');
+        it('a caller can name the cancel button', async () => {
+            const { el } = await setUp({ ...data, cancelText: 'Keep it' });
+            expect(el.querySelector('.cancel-btn')?.textContent?.trim()).toBe('Keep it');
         });
 
-        it('should have access to message', () => {
-            expect(component._DIALOG_DATA.message).toBe('Are you sure you want to proceed?');
+        it('focus starts on Cancel, not on the confirm button', async () => {
+            const { el } = await setUp(data);
+            const initial = el.querySelectorAll('[cdkFocusInitial], [cdkfocusinitial]');
+            expect(initial.length).toBe(1);
+            expect(initial[0].classList.contains('cancel-btn')).toBe(true);
+            expect(el.querySelector('.confirm-btn')?.hasAttribute('cdkfocusinitial')).toBe(false);
         });
 
-        it('should have access to confirmText', () => {
-            expect(component._DIALOG_DATA.confirmText).toBe('Yes');
+        it('the confirm button closes with true, and only once', async () => {
+            const { el, dialogRef } = await setUp(data);
+            (el.querySelector('.confirm-btn') as HTMLButtonElement).click();
+            expect(dialogRef.close).toHaveBeenCalledTimes(1);
+            expect(dialogRef.close).toHaveBeenCalledWith(true);
         });
 
-        it('should have access to cancelText', () => {
-            expect(component._DIALOG_DATA.cancelText).toBe('No');
+        it('a warn dialog has a red confirm button', async () => {
+            const { el } = await setUp(data);
+            expect(el.querySelector('.confirm-btn')?.classList.contains('btn-danger')).toBe(true);
+        });
+
+        it('shows the message and the confirm text', async () => {
+            const { el } = await setUp(data);
+            expect(el.querySelector('mat-dialog-content strong')?.textContent).toBe('Spring sale');
+            expect(el.querySelector('.confirm-btn')?.textContent?.trim()).toBe('Delete');
         });
     });
 
-    describe('confirm Method', () => {
-        it('should close dialog with true', () => {
-            component.confirm();
-            expect(mockDialogRef.close).toHaveBeenCalledWith(true);
+    describe('title', () => {
+        beforeEach(() => TestBed.resetTestingModule());
+
+        it('falls back to dialogType', async () => {
+            const { component } = await setUp(data);
+            expect(component.title).toBe('Delete');
         });
 
-        it('should be callable', () => {
-            expect(typeof component.confirm).toBe('function');
+        it('translates titleKey', async () => {
+            const { component } = await setUp({ ...data, titleKey: 'common.dialog.confirm' });
+            expect(component.title).toBe('Confirm');
         });
     });
+});
 
-    describe('Dialog Close', () => {
-        it('should have MatDialogClose for cancel button', () => {
-            // The cancel button uses [mat-dialog-close] directive
-            // We verify the dialogRef is properly injected
-            expect(component.dialogRef.close).toBeDefined();
-        });
+describe('ConfirmService', () => {
+    function serviceAnswering(answer: unknown) {
+        TestBed.resetTestingModule();
+        const open = vi.fn().mockReturnValue({ afterClosed: () => of(answer) });
+        TestBed.configureTestingModule({ providers: [{ provide: MatDialog, useValue: { open } }] });
+        return { service: TestBed.inject(ConfirmService), open };
+    }
+
+    it('resolves true only on the confirm button', async () => {
+        const { service, open } = serviceAnswering(true);
+        const data = { dialogMessage: 'Sure?', btnText: 'Delete' };
+        expect(await service.ask(data)).toBe(true);
+        expect(open).toHaveBeenCalledWith(ConfirmationPopupComponent, expect.objectContaining({ data }));
     });
 
-    describe('Different Dialog Data', () => {
-        it('should accept different data structures', () => {
-            // Verify the dialog data structure can contain various fields
-            const dialogData = component._DIALOG_DATA;
-            expect(dialogData).toHaveProperty('title');
-            expect(dialogData).toHaveProperty('message');
-            expect(dialogData).toHaveProperty('confirmText');
-            expect(dialogData).toHaveProperty('cancelText');
-        });
-    });
-
-    describe('Component Selector', () => {
-        it('should have arc-confirmation-popup selector', () => {
-            const componentDef = (ConfirmationPopupComponent as any).ɵcmp;
-            expect(componentDef.selectors[0][0]).toBe('arc-confirmation-popup');
-        });
+    it('resolves false on Cancel, Escape or a click outside', async () => {
+        expect(await serviceAnswering(undefined).service.ask({})).toBe(false);
+        expect(await serviceAnswering('').service.ask({})).toBe(false);
     });
 });

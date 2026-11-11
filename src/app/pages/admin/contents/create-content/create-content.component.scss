@@ -19,6 +19,59 @@
     min-height: 60px;
 }
 
+// Lines that stay until resolved: not saved, someone else's change, offline,
+// publishing and a failed publish (RF4). Text at 4.5:1 or more on its tint.
+.editor-alert {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    padding: 0.6rem 1.5rem;
+    font-size: 0.875rem;
+    border-bottom: 1px solid;
+
+    .editor-alert-text {
+        flex: 1 1 16rem;
+        min-width: 0;
+    }
+
+    .editor-alert-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+
+        .btn {
+            min-height: 36px;
+        }
+    }
+
+    &.error {
+        background-color: #fdecea;
+        border-color: #f5c2c0;
+        color: #8a1c14;
+    }
+
+    &.warn {
+        background-color: #fff4e0;
+        border-color: #f3d29b;
+        color: #6b4100;
+    }
+
+    &.info {
+        background-color: #eef4fb;
+        border-color: #c8dbf0;
+        color: #1d4268;
+    }
+
+    @media (max-width: 575.98px) {
+        padding-inline: 1rem;
+    }
+}
+
+.redirect-offer .form-check-label {
+    font-size: 0.875rem;
+}
+
 // Save Status Overlay Toast
 .save-status-overlay {
     position: fixed;
@@ -102,7 +155,7 @@
     }
 
     &::placeholder {
-        color: #adb5bd;
+        color: #5c636a;
     }
 }
 
@@ -262,7 +315,7 @@
     }
 
     &::placeholder {
-        color: #adb5bd;
+        color: #5c636a;
         font-weight: 400;
     }
 }
@@ -424,7 +477,7 @@
         display: block;
         font-size: 0.7rem;
         font-weight: 600;
-        color: #868e96;
+        color: #5c636a;
         text-transform: uppercase;
         letter-spacing: 0.02em;
         margin-bottom: 0.2rem;
@@ -610,7 +663,7 @@
 //     outline: none;
 
 //     &::placeholder {
-//         color: #adb5bd;
+//         color: #5c636a;
 //     }
 // }
 
@@ -875,7 +928,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: #8899a6;
+            color: #5c636a;
             gap: 0.5rem;
 
             i {
@@ -894,7 +947,7 @@
 
     .social-preview-domain {
         font-size: 0.7rem;
-        color: #8899a6;
+        color: #5c636a;
         text-transform: lowercase;
         margin-bottom: 0.25rem;
     }

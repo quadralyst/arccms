@@ -21,10 +21,10 @@ import {
     ImportResult,
     ImportValidationResult,
 } from '../data-constants';
-import { ImportDataService } from './import-data.service';
+import { ImportDataService, ImportFileError } from './import-data.service';
 
 export const routeMeta: RouteMeta = {
-    title: 'Import Data',
+    title: 'Import data',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -165,10 +165,12 @@ export default class ImportDataPageComponent extends BaseComponent {
                 this.selectedCollections.set(new Set(paths));
                 this.currentStep.set(2);
             } else {
-                this.parseError.set(validation.errors.join('; '));
+                this.parseError.set(validation.errors.join(' '));
             }
         } catch (error: any) {
-            this.parseError.set(error.message || 'Failed to parse file');
+            // The service's own sentences are plain and translated; anything else is not shown.
+            console.error('Reading the file failed:', error);
+            this.parseError.set(this.readError(error));
             this.parsedData.set(null);
             this.validationResult.set(null);
         }
@@ -202,10 +204,12 @@ export default class ImportDataPageComponent extends BaseComponent {
                 this.selectedCollections.set(new Set(paths));
                 this.currentStep.set(2);
             } else {
-                this.parseError.set(validation.errors.join('; '));
+                this.parseError.set(validation.errors.join(' '));
             }
         } catch (error: any) {
-            this.parseError.set(error.message || 'Failed to parse file');
+            // The service's own sentences are plain and translated; anything else is not shown.
+            console.error('Reading the file failed:', error);
+            this.parseError.set(this.readError(error));
         }
     }
 
@@ -266,16 +270,20 @@ export default class ImportDataPageComponent extends BaseComponent {
             );
 
             this.importResult.set(result);
-            this.toastService.openCustomSnackbar(
-                `Imported ${result.totalImported} documents. ${result.totalSkipped} skipped. ${result.totalErrored} errors.`,
-                result.totalErrored > 0 ? 'warning' : 'success',
-                result.totalErrored > 0 ? 'warning' : 'check_circle',
-            );
+            const counts = { imported: result.totalImported, skipped: result.totalSkipped, errors: result.totalErrored };
+            if (result.totalErrored > 0) this.notify.warning('admin.data.import.done_with_errors', counts);
+            else this.notify.success('admin.data.import.done', counts);
         } catch (error: any) {
-            this.notify.error('admin.data.import.failed', { error: error.message || this.t('common.unknown_error') });
+            console.error('The import failed:', error);
+            this.notify.error('admin.data.import.failed');
         } finally {
             this.isImporting.set(false);
         }
+    }
+
+    /** What a file that could not be read says: the service's own sentence, else a plain one. */
+    private readError(error: unknown): string {
+        return error instanceof ImportFileError ? error.message : this.t('admin.data.import.err_read');
     }
 
     resetImport(): void {

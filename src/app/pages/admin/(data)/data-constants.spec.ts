@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
+    KNOWN_COLLECTIONS,
     isKnownCollectionName,
     getCollectionGroupId,
     sortByImportOrder,
@@ -128,5 +131,27 @@ describe('data-constants helpers', () => {
             const sorted = sortByImportOrder(paths);
             expect(sorted.indexOf('Waitlists')).toBeLessThan(sorted.indexOf('Waitlists/wl1/users'));
         });
+    });
+});
+
+describe('collection names people read (RF5)', () => {
+    const lookup = (file: string, key: string) =>
+        key.split('.').reduce((node: any, part) => node?.[part], JSON.parse(readFileSync(resolve(__dirname, `../../../../assets/i18n/${file}.json`), 'utf8')));
+
+    it('are translation keys with English and Hindi, while the stored names stay', () => {
+        const names = KNOWN_COLLECTIONS.flatMap((c) => [c.displayName, ...(c.subcollections ?? []).map((s) => s.displayName)]);
+        for (const key of names) {
+            expect(key).toMatch(/^admin\.data\.collections\./);
+            expect(typeof lookup('en', key), key).toBe('string');
+            expect(typeof lookup('hi', key), key).toBe('string');
+        }
+        expect(KNOWN_COLLECTIONS.map((c) => c.name)).toContain('Waitlists');
+    });
+
+    it('show a loading count as a status with words, not a label on a plain span', () => {
+        const html = readFileSync(resolve(__dirname, 'export-data/export-data.page.html'), 'utf8');
+        expect(html).not.toContain('loading-dots" [attr.aria-label]');
+        expect(html).toContain(`<span class="loading-dots" role="status"><span aria-hidden="true">...</span><span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span></span>`);
+        expect(html).toContain('{{ col.displayName | translatable }}');
     });
 });

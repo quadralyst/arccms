@@ -2,12 +2,13 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { EmailBlockEditorComponent } from './email-block-editor.component';
 import { DEFAULT_BRAND_KIT } from '../../email-compiler/email-design.model';
+import { translocoTestingModule } from '../../../test/transloco-test-providers';
 
 describe('EmailBlockEditorComponent', () => {
     let component: EmailBlockEditorComponent;
 
     beforeEach(() => {
-        TestBed.configureTestingModule({ imports: [EmailBlockEditorComponent] });
+        TestBed.configureTestingModule({ imports: [EmailBlockEditorComponent, translocoTestingModule()] });
         component = TestBed.createComponent(EmailBlockEditorComponent).componentInstance;
         component.design = { blocks: [{ id: '1', type: 'heading', text: 'Hi', level: 1 }] };
         component.brandKit = { ...DEFAULT_BRAND_KIT };
@@ -42,7 +43,7 @@ describe('EmailBlockEditorComponent', () => {
         component.brandKit = { ...DEFAULT_BRAND_KIT, footerText: 'no unsubscribe here' };
         component.save();
         expect(emitted).toBe(false);
-        expect(component.error()).toContain('##UNSUBSCRIBE_LINK##');
+        expect(component.error()).toBe('common.email_editor.needs_unsubscribe');
     });
 
     it('marketing save succeeds with the default footer (has unsubscribe)', () => {
@@ -62,5 +63,19 @@ describe('EmailBlockEditorComponent', () => {
         component.brandKit = { ...DEFAULT_BRAND_KIT, footerText: 'no unsubscribe' };
         component.save();
         expect(emitted).toBe(true);
+    });
+
+    it('names its icon-only buttons and shows the plain guard message', () => {
+        const fixture = TestBed.createComponent(EmailBlockEditorComponent);
+        fixture.componentInstance.design = { blocks: [{ id: '1', type: 'heading', text: 'Hi', level: 1 }] };
+        fixture.componentInstance.category = 'marketing';
+        fixture.componentInstance.brandKit = { ...DEFAULT_BRAND_KIT, footerText: 'none' };
+        fixture.detectChanges();
+        const labels = Array.from(fixture.nativeElement.querySelectorAll('.block-controls button'))
+            .map((b: any) => b.getAttribute('aria-label'));
+        expect(labels).toEqual(['Move up', 'Move down', 'Delete block']);
+        fixture.componentInstance.save();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('A marketing email needs ##UNSUBSCRIBE_LINK##');
     });
 });

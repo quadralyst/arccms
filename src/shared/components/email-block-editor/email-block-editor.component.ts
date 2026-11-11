@@ -13,6 +13,8 @@ import { EmailBlock, EmailBlockType, EmailDesign, IEmailBrandKit, DEFAULT_BRAND_
 import { compileEmailDesign, compiledHtmlHasUnsubscribe } from '../../email-compiler/compiler';
 import { createBlock, moveBlock, removeBlock, appendTag } from './block-ops';
 import { HashtagAutocompleteDirective } from '../../directives/hashtag-autocomplete/hashtag-autocomplete.directive';
+import { TranslocoPipe } from '@jsverse/transloco';
+import type { TranslationKey } from '../../../app/core/i18n/translation-keys';
 
 export interface BlockEditorSaveEvent {
     design: EmailDesign;
@@ -29,7 +31,7 @@ export interface BlockEditorSaveEvent {
     standalone: true,
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule, MatMenuModule,
-        MatFormFieldModule, MatInputModule, MatSelectModule, HashtagAutocompleteDirective, PreviewLinksDirective,
+        MatFormFieldModule, MatInputModule, MatSelectModule, HashtagAutocompleteDirective, PreviewLinksDirective, TranslocoPipe,
     ],
     templateUrl: './email-block-editor.component.html',
 })
@@ -50,7 +52,8 @@ export class EmailBlockEditorComponent {
 
     blocks = signal<EmailBlock[]>([]);
     previewMode = signal<'desktop' | 'mobile'>('desktop');
-    error = signal('');
+    /** What stops a save, as a translation key; '' for nothing. */
+    error = signal<TranslationKey | ''>('');
 
     readonly blockTypes: EmailBlockType[] = [
         'heading', 'paragraph', 'image', 'button', 'divider', 'spacer', 'columns', 'social', 'raw',
@@ -97,7 +100,7 @@ export class EmailBlockEditorComponent {
 
     private guard(): boolean {
         if (this.category === 'marketing' && !compiledHtmlHasUnsubscribe(this.compiledHtml())) {
-            this.error.set('Marketing emails must include an ##UNSUBSCRIBE_LINK##. Restore it in the brand-kit footer.');
+            this.error.set('common.email_editor.needs_unsubscribe');
             return false;
         }
         this.error.set('');

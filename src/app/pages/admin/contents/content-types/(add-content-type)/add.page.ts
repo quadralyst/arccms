@@ -18,6 +18,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { BaseComponent } from '../../../../../../shared/components/base/base.component';
 import { IconPickerComponent } from '../../../../../../shared/components/icon-picker/icon-picker.component';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { collectionRefProblems, systemFieldLabelKey } from '../collection-ref-helpers';
 import { roleGuard } from '../../../../../guards/role.guard';
 import { ContentTypesStore } from '../content-types.store';
 import { ContentType, ContentTypeField, CollectionReferenceConfig } from '../content-types.model';
@@ -62,6 +63,12 @@ export default class AddContentTypeComponent extends BaseComponent {
     availableCollections = computed(() => this.contentTypesStore.items());
 
     public errorMessages: string[] = [];
+
+    /** A field's name in the field pickers: a built-in one in the admin's language. */
+    fieldPickLabel(field: { key: string; label: string; order?: number }): string {
+        const key = systemFieldLabelKey(field);
+        return key ? this.transloco.translate(key) : field.label;
+    }
     public domain: string = '';
     public errorSlug = signal(false);
     public checkingSlug = signal(false);
@@ -439,7 +446,8 @@ export default class AddContentTypeComponent extends BaseComponent {
         const formValue = this.addForm.value;
 
         // Validate collection reference fields
-        const refErrors = (formValue.fields || []).flatMap((f: any) => this.validateCollectionRefField(f));
+        const refErrors = (formValue.fields || []).flatMap((f: any) => collectionRefProblems(f))
+            .map((problem: { key: string; field: string }) => this.transloco.translate(problem.key, { field: problem.field }));
         if (refErrors.length > 0) {
             this.errorMessages = refErrors;
             return;
@@ -501,19 +509,6 @@ export default class AddContentTypeComponent extends BaseComponent {
             this.checkingSlug.set(false);
         }
         return false;
-    }
-
-    private validateCollectionRefField(field: any): string[] {
-        const errors: string[] = [];
-        if (field.useCollectionRef) {
-            if (!field.collectionRefSlug) {
-                errors.push(`Field "${field.label || field.key}": Source collection is required.`);
-            }
-            if (!field.collectionRefDisplayField) {
-                errors.push(`Field "${field.label || field.key}": Display field is required.`);
-            }
-        }
-        return errors;
     }
 
     private mapFieldWithCollectionRef(field: any, index: number): any {

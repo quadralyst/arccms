@@ -35,9 +35,9 @@
     <p>Leaving <code>forms</code> or <code>email-marketing</code> on without <code>audience</code> stops <code>npm run dev</code> and <code>npm run build</code> with a message saying what to change.</p>
     <p>When it is off:</p>
     <ul>
-      <li>The Audience menu, its pages and the Settings, App audience tab are gone. Their addresses show the not-found page.</li>
+      <li>The Audience menu, its pages and the Settings, App users tab are gone. Their addresses show the not-found page.</li>
       <li>The functions in <code>functions/src/features/audience.ts</code> are not built, so the next deploy of all functions removes them. New users, form sign-ups and payments do not create contacts.</li>
-      <li>Email ignores contacts: a contact's consent or disabled switch does not block a send. An unsubscribe still stops marketing email through the Suppression list.</li>
+      <li>Email ignores contacts: a contact's consent or <strong>Turn off emails</strong> does not block a send. An unsubscribe still stops marketing email through the Suppression list.</li>
       <li>The data stays. Turn the feature back on, build and deploy, and it all comes back.</li>
     </ul>
     <p>See <a href="../reference/feature-ids.html">Feature ids</a> for every feature, and <a href="../app/choose-features.html">Choose your app's features</a> for choosing them in an app.</p>
@@ -47,7 +47,7 @@
     <ol class="steps">
       <li><p>Open Audience, Contacts and click <strong>Backfill</strong>. It makes a contact for every user (and joins paying ones to All Customers), for every verified form member, and a <code>pending</code> contact for every unverified form member. It is safe to run again.</p></li>
       <li><p>Open Audience, Lists and click <strong>Sync form lists</strong>. It creates the list of any signup form that has none.</p></li>
-      <li><p>If your forms carried their own tags, open Audience, Tags and click <strong>Import waitlist tags</strong>. If forms collected extra answers, open Audience, Fields and click <strong>Import past form data</strong> after creating the fields.</p></li>
+      <li><p>If your forms carried their own tags, open Audience, Tags and click <strong>Import form tags</strong>. If forms collected extra answers, open Audience, Fields and click <strong>Import past form data</strong> after creating the fields.</p></li>
     </ol>
     <p>To send email at all, set up a provider first: see <a href="email.html">Email engine</a>.</p>
 
@@ -94,7 +94,7 @@
         <tr><td>App users (live)</td><td>Whoever in a connected app matches its conditions, each time it is used</td><td>Only its conditions: see <a href="app-audience.html">App audience</a></td></tr>
       </tbody>
     </table>
-    <p>Click a list to open its page. It has three tabs: <strong>Members</strong>, <strong>Broadcasts</strong> sent to it, and its <strong>Sequence</strong> (the last two need <a href="email-marketing.html">Email marketing</a>). On a form's list, members cannot be removed, because the form decides who is in it. Use <strong>Disable emails</strong> on a member instead.</p>
+    <p>Click a list to open its page. It has three tabs: <strong>Members</strong>, <strong>Broadcasts</strong> sent to it, and its <strong>Sequence</strong> (the last two need <a href="email-marketing.html">Email marketing</a>). On a form's list, members cannot be removed, because the form decides who is in it. Use <strong>Turn off emails</strong> on a member instead.</p>
 
     <h3>Tags</h3>
     <p>Create a tag on Audience, Tags with a label and a color. Its id is the label in lowercase with dashes (<code>VIP Customer</code> becomes <code>vip-customer</code>), so two admins adding "VIP" get one tag. Put tags on a contact in the contact's panel; changes save at once. Filter the Contacts table by tag to see everyone carrying it. Deleting a tag takes it off every contact. A signup form can give every new member a default tag: see <a href="forms.html">Signup forms</a>.</p>
@@ -107,19 +107,19 @@
       <tbody>
         <tr><td>Label</td><td>The name. Its key is the label in lowercase with underscores, at most 40 characters (<code>Company Name</code> becomes <code>company_name</code>). Keys the contact already uses, such as <code>email</code>, <code>name</code>, <code>tags</code> or <code>consent</code>, are refused.</td></tr>
         <tr><td>Type</td><td>Text, Number, Date, Yes / no, or Choice (with comma-separated choices)</td></tr>
-        <tr><td>On re-submit</td><td>"Keep the existing value" (the default) or "Overwrite with the newer value", for when a second form sends the same field</td></tr>
+        <tr><td>On re-submit</td><td>"Keep the value already there" (the default) or "Replace it with the newer value", for when a second form sends the same field</td></tr>
         <tr><td>Fallback for emails</td><td>Shown in an email when a contact has no value</td></tr>
       </tbody>
     </table>
     <p>Use a field in any email as <code>##FIELD:company##</code>, or with an inline fallback as <code>##FIELD:company|your company##</code>. Values arrive from form answers mapped to the field (see <a href="forms.html">Signup forms</a>) or from an admin editing the contact's panel, which always overwrites. Deleting a field keeps the values already on contacts; creating it again shows them again. All merge tags are listed in <a href="../reference/email-tags.html">Email merge tags</a>.</p>
 
     <h3>Stop emailing someone</h3>
-    <p>Three actions look alike and are not interchangeable. Suppress and Erase are in the contact's panel on the Contacts page; Disable is on a list's page:</p>
+    <p>Three actions look alike and are not interchangeable. Suppress and Erase are in the contact's panel on the Contacts page; Turn off emails is on a list's page:</p>
     <table>
       <thead><tr><th>Action</th><th>What happens</th><th>Use when</th></tr></thead>
       <tbody>
         <tr><td><strong>Suppress</strong></td><td>Consent becomes <code>unsubscribed</code> and the address goes on the Suppression list, so no later import or form can make it mailable again. <strong>Subscribe</strong> reverses it.</td><td>They opted out of marketing</td></tr>
-        <tr><td><strong>Disable emails</strong></td><td>Blocks every email to them, transactional included, and keeps them visible and counted. Reversible.</td><td>You must stop all mail, for example to someone on a form's list</td></tr>
+        <tr><td><strong>Turn off emails</strong></td><td>Blocks every email to them, transactional included, and keeps them visible and counted. Reversible.</td><td>You must stop all mail, for example to someone on a form's list</td></tr>
         <tr><td><strong>Erase contact</strong></td><td>Removes them from every list and sequence, deletes their form member records and any open verification code, removes their Suppression entry, then deletes the contact. Leaves a receipt in <code>ErasureLog</code> keyed by the address's hash, with no address in it. Irreversible.</td><td>They asked to be deleted</td></tr>
       </tbody>
     </table>
@@ -179,9 +179,11 @@ if (isFeatureOn('audience')) {
       <tbody>
         <tr><td>A contact stays <code>pending</code> and gets no broadcasts</td><td>They signed up on a form and never entered the code, or were added without affirmed consent. Pending contacts never get marketing email. If you do have their consent, click <strong>Subscribe</strong> in their panel.</td></tr>
         <tr><td>A signup form has no list under Lists</td><td>Click <strong>Sync form lists</strong> on the Lists page.</td></tr>
-        <tr><td>"Remove from list" is missing on a list page</td><td>It is a form's list: the form decides who is in it. Use <strong>Disable emails</strong>, or delete the person from the form's members.</td></tr>
+        <tr><td>"Remove from list" is missing on a list page</td><td>It is a form's list: the form decides who is in it. Use <strong>Turn off emails</strong>, or delete the person from the form's sign-ups.</td></tr>
         <tr><td>Adding a contact or importing fails with "is an App users (live) list"</td><td>A live list has no stored members, so contacts cannot be put on it. Choose a Contacts list.</td></tr>
-        <tr><td>A contact gets no email at all, not even a sign-in code</td><td>Their emails are disabled. The email log shows <code>contact_disabled</code>. Re-enable them on the list page.</td></tr>
+        <tr><td>A contact gets no email at all, not even a sign-in code</td><td>Their emails are turned off. The email log shows <code>contact_disabled</code>. Use <strong>Turn emails back on</strong> on the list page.</td></tr>
+        <tr><td>Lists, Contacts, Fields, Tags or a list's members say "This list did not load"</td><td>The read failed, most often a lost connection or a signed-out session. Click <strong>Retry</strong>. The reason is in the browser console.</td></tr>
+        <tr><td>Contacts says "Nothing matches"</td><td>A search, consent or tag filter is on and no contact fits it. Click <strong>Clear filters</strong>.</td></tr>
       </tbody>
     </table>
     <div class="trap"><p>The Contacts table loads the 500 most recently updated contacts, and its search, consent and tag filters work on those 500 only. On a larger audience a search can miss someone who exists. Open the list they are on instead, or look them up in the Firebase console by the hash of their address.</p></div>

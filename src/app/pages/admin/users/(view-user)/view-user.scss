@@ -53,6 +53,10 @@
     margin-bottom: 4px;
 }
 
+.not-verified {
+    color: #8a5a00; /* the warning colour, dark enough to read: 5.6:1 on white */
+}
+
 .detail-value {
     margin: 0;
     font-size: 0.95rem;
@@ -92,7 +96,7 @@
 .copyright {
     text-align: center;
     font-size: 0.75rem;
-    color: #8898aa;
+    color: #5c636a;
     margin-top: auto;
     padding-top: 20px;
 }

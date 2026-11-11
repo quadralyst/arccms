@@ -17,7 +17,7 @@
             @if (drawerMode() === 'over') {
             <div class="arc-mobile-bar d-flex align-items-center">
                 <button type="button" class="btn d-flex border-0" (click)="drawer.toggle()" [attr.aria-label]="'admin.nav.open_menu' | transloco">
-                    <mat-icon>menu</mat-icon>
+                    <mat-icon aria-hidden="true">menu</mat-icon>
                 </button>
                 <span class="ms-1">{{ brandName() }}</span>
             </div>

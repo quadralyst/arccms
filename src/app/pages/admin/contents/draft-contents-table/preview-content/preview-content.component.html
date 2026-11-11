@@ -1,8 +1,8 @@
 <div class="side-panel">
   <div class="panel-header">
-    <h5 class="mb-0">Preview Content</h5>
-    <button class="close-btn" (click)="closeView()">
-      <mat-icon>close</mat-icon>
+    <h5 class="mb-0">{{ 'admin.contents.preview.heading' | transloco }}</h5>
+    <button type="button" class="close-btn" (click)="closeView()" [attr.aria-label]="'common.actions.close' | transloco">
+      <mat-icon aria-hidden="true">close</mat-icon>
     </button>
   </div>
 
@@ -11,27 +11,27 @@
     
     <!-- Header Info -->
     <div class="detail-row">
-      <label>Title:</label>
-      <span class="fw-bold">{{ contentItem().title || 'Untitled' }}</span>
+      <label>{{ 'admin.contents.preview.title' | transloco }}</label>
+      <span class="fw-bold">{{ contentItem().title || ('admin.contents.untitled' | transloco) }}</span>
     </div>
 
     <div class="detail-row">
-      <label>Status:</label>
+      <label>{{ 'common.table.status' | transloco }}</label>
       @if (contentItem().publishedStatus) {
-        <span class="badge bg-success">Published</span>
+        <span class="badge bg-success">{{ 'common.status.published' | transloco }}</span>
       } @else {
-        <span class="badge bg-secondary">Draft</span>
+        <span class="badge bg-secondary">{{ 'common.status.draft' | transloco }}</span>
       }
     </div>
 
     <hr />
     
     <!-- Custom Fields -->
-    <div class="form-section-title">Fields</div>
+    <div class="form-section-title">{{ 'admin.contents.preview.fields' | transloco }}</div>
     
     @for(field of getDisplayFields(); track field.key) {
       <div class="detail-row">
-        <label>{{ field.label }}:</label>
+        <label>{{ field.label }}</label>
         
         <!-- Handle specific types for better rendering -->
         <!-- Trigger Rebuild -->
@@ -40,9 +40,9 @@
         } 
         @else if (field.type === 'image') {
            @if(contentItem().customFields?.[field.key]) {
-             <img [src]="contentItem().customFields?.[field.key]" class="img-fluid preview-image" alt="Field Image">
+             <img [src]="contentItem().customFields?.[field.key]" class="img-fluid preview-image" [alt]="field.label">
            } @else {
-             <span class="text-muted">No image</span>
+             <span class="text-muted">{{ 'admin.contents.preview.no_image' | transloco }}</span>
            }
         }
         @else {
@@ -55,20 +55,20 @@
     
     <!-- Metadata -->
     <div class="metadata">
-      <div class="form-section-title">Metadata</div>
+      <div class="form-section-title">{{ 'admin.contents.preview.details' | transloco }}</div>
 
       <div class="detail-row">
-        <label>Created At:</label>
+        <label>{{ 'admin.contents.preview.created' | transloco }}</label>
         <span>{{ globalService.convertMillisecondsToFormatDate(contentItem().createdAt, 'dd MMM yyyy, HH:mm:ss') }}</span>
       </div>
       
       <div class="detail-row">
-        <label>Updated At:</label>
+        <label>{{ 'common.table.last_updated' | transloco }}</label>
         <span>{{ globalService.convertMillisecondsToFormatDate(contentItem().modifiedAt, 'dd MMM yyyy, HH:mm:ss') }}</span>
       </div>
 
        <div class="detail-row">
-        <label>ID:</label>
+        <label>{{ 'common.table.id' | transloco }}</label>
         <span class="text-muted small">{{ contentItem().id }}</span>
       </div>
     </div>
@@ -76,7 +76,7 @@
   </div>
   } @else {
     <div class="p-3 text-center text-muted">
-      Select an item to preview
+      {{ 'admin.contents.preview.pick' | transloco }}
     </div>
   }
 </div>

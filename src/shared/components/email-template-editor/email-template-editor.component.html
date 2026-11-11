@@ -3,7 +3,7 @@
     <!-- Placeholders Section -->
     @if (placeholders.length > 0) {
     <div class="placeholders-section">
-        <label>Insert Placeholder:</label>
+        <label>{{ 'common.broadcast_editor.insert_tag' | transloco }}</label>
         <mat-chip-set class="placeholder-chips">
             @for (placeholder of placeholders; track placeholder) {
             <mat-chip (click)="insertPlaceholder(placeholder)" class="placeholder-chip">
@@ -18,14 +18,14 @@
     @if (showHtmlToggle) {
     <ul class="nav nav-tabs editor-tabs">
         <li class="nav-item">
-            <a class="nav-link" [class.active]="activeTab() === 'editor'" (click)="setActiveTab('editor')">
-                <i class="fas fa-edit"></i> Visual Editor
-            </a>
+            <button type="button" class="nav-link" [class.active]="activeTab() === 'editor'" (click)="setActiveTab('editor')">
+                <i class="fas fa-edit" aria-hidden="true"></i> {{ 'common.broadcast_editor.visual' | transloco }}
+            </button>
         </li>
         <li class="nav-item">
-            <a class="nav-link" [class.active]="activeTab() === 'html'" (click)="setActiveTab('html')">
-                <i class="fas fa-code"></i> HTML
-            </a>
+            <button type="button" class="nav-link" [class.active]="activeTab() === 'html'" (click)="setActiveTab('html')">
+                <i class="fas fa-code" aria-hidden="true"></i> HTML
+            </button>
         </li>
     </ul>
     }

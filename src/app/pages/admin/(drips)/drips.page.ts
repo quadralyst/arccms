@@ -6,19 +6,24 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { Subscription } from 'rxjs';
 import { roleGuard } from '../../../guards/role.guard';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
-import { statusBadgeClass } from '../../../../shared/utils/status-badge';
+import { statusBadgeClass, statusBadgeLabel } from '../../../../shared/utils/status-badge';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
+import { injectT } from '../../../core/i18n/inject-t';
+import { isTranslationKey } from '../../../core/i18n/translatable.pipe';
 import { DripService, DripCampaign, TemplateOption } from './drip.service';
 import { AudienceService } from '../(audience)/audience.service';
 import { IList } from '../(audience)/audience.model';
 import { DripDrawerComponent, DripDrawerMode } from './(drip-drawer)/drip-drawer.component';
-import { APP_USERS_LIMIT_NOTE } from '../(app-users)/app-users-limit';
+import { MAX_APP_USERS } from '../(app-users)/app-users-limit';
 
 export const routeMeta: RouteMeta = {
-    title: 'Drip Campaigns',
+    title: 'Drip campaigns',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -27,7 +32,7 @@ export const routeMeta: RouteMeta = {
     standalone: true,
     imports: [
         CommonModule, MatButtonModule, MatIconModule, MatSidenavModule,
-        GlobalTableComponent, DripDrawerComponent, PageHeaderComponent,
+        GlobalTableComponent, DripDrawerComponent, PageHeaderComponent, TranslocoPipe,
     ],
     templateUrl: './drips.page.html',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -41,48 +46,54 @@ export default class DripsPageComponent implements OnInit, AfterViewInit {
     private toast = inject(ToastService);
     private destroyRef = inject(DestroyRef);
     private route = inject(ActivatedRoute);
+    private readonly t = injectT();
 
     campaigns = signal<DripCampaign[]>([]);
     lists = signal<IList[]>([]);
     templates = signal<TemplateOption[]>([]);
     loading = signal(true);
+    /** Set when the campaigns did not load: the table says so and offers Retry. */
+    loadError = signal<string | boolean | null>(null);
+    private campaignsSub?: Subscription;
 
     currentAction = signal<DripDrawerMode | ''>('');
     currentCampaign = signal<DripCampaign | null>(null);
 
     columns: TableColumn[] = [
-        { key: 'name', header: 'Campaign', type: 'text', classFn: () => 'fw-medium' },
+        { key: 'name', header: 'admin.drips.col_campaign', type: 'text', classFn: () => 'fw-medium' },
         {
-            key: 'status', header: 'Status', type: 'html',
-            transformFn: (r) => `<span class="${statusBadgeClass(r.status)}">${r.status}</span>`,
+            key: 'status', header: 'common.table.status', type: 'html',
+            transformFn: (r) => `<span class="${statusBadgeClass(r.status)}">${escapeHtml(this.statusText(r.status))}</span>`,
         },
-        { key: 'listId', header: 'List', type: 'text', classFn: () => 'small', transformFn: (r) => this.listName(r.listId) },
+        { key: 'listId', header: 'admin.drips.col_list', type: 'text', classFn: () => 'small', transformFn: (r) => this.listName(r.listId) },
         {
-            key: 'counts', header: 'Enrollment', type: 'text', classFn: () => 'small',
-            transformFn: (r) => `${r.counts?.enrolled || 0} enrolled · ${r.counts?.completed || 0} completed · ${r.counts?.exited || 0} exited`,
+            key: 'counts', header: 'admin.drips.col_enrollment', type: 'text', classFn: () => 'small',
+            transformFn: (r) => this.t('admin.drips.enrollment', {
+                enrolled: r.counts?.enrolled || 0, completed: r.counts?.completed || 0, exited: r.counts?.exited || 0,
+            }),
         },
-        { key: 'steps', header: 'Steps', type: 'text', transformFn: (r) => (r.steps || []).length },
+        { key: 'steps', header: 'admin.drips.col_steps', type: 'text', transformFn: (r) => (r.steps || []).length },
         {
-            key: 'actions', header: 'Actions', type: 'actions',
+            key: 'actions', header: 'common.table.actions', type: 'actions',
             actions: [
                 {
-                    action: 'edit', icon: 'fas fa-pen text-primary', label: 'Edit', class: 'edit',
+                    action: 'edit', icon: 'fas fa-pen text-primary', label: 'common.actions.edit', class: 'edit',
                     isRowClick: true, onAction: (row) => this.openEdit(row),
                 },
                 {
-                    action: 'activate', slot: 'status', icon: 'fas fa-play text-success', label: 'Activate', class: 'edit',
+                    action: 'activate', slot: 'status', icon: 'fas fa-play text-success', label: 'admin.drips.activate', class: 'edit',
                     hide: (row) => row.status !== 'draft', onAction: (row) => this.activate(row),
                 },
                 {
-                    action: 'resume', slot: 'status', icon: 'fas fa-play text-success', label: 'Resume', class: 'edit',
+                    action: 'resume', slot: 'status', icon: 'fas fa-play text-success', label: 'admin.drips.resume', class: 'edit',
                     hide: (row) => row.status !== 'paused', onAction: (row) => this.resume(row),
                 },
                 {
-                    action: 'pause', slot: 'status', icon: 'fas fa-pause', label: 'Pause', class: 'edit',
+                    action: 'pause', slot: 'status', icon: 'fas fa-pause', label: 'admin.drips.pause', class: 'edit',
                     hide: (row) => row.status !== 'active', onAction: (row) => this.pause(row),
                 },
                 {
-                    action: 'archive', icon: 'fas fa-box-archive text-danger', label: 'Archive', class: 'delete',
+                    action: 'archive', icon: 'fas fa-box-archive text-danger', label: 'admin.drips.archive', class: 'delete',
                     hide: (row) => row.status === 'archived', onAction: (row) => this.archive(row),
                 },
             ],
@@ -93,14 +104,38 @@ export default class DripsPageComponent implements OnInit, AfterViewInit {
     private presetListId = '';
 
     ngOnInit(): void {
-        this.service.watchCampaigns().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((c) => {
-            this.campaigns.set(c);
-            this.loading.set(false);
-        });
+        this.load();
         this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(l));
         this.service.watchTemplates().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((t) => this.templates.set(t));
 
         this.presetListId = this.route.snapshot.queryParamMap.get('listId') || '';
+    }
+
+    /** Read the campaigns (live). Retry calls it again after a failed read. */
+    load(): void {
+        this.campaignsSub?.unsubscribe();
+        this.loading.set(true);
+        this.loadError.set(null);
+        this.campaignsSub = this.service.watchCampaigns({ surfaceErrors: true })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+                next: (c) => {
+                    this.campaigns.set(c);
+                    this.loadError.set(null);
+                    this.loading.set(false);
+                },
+                error: () => {
+                    // The service logged the detail.
+                    this.loadError.set(true);
+                    this.loading.set(false);
+                },
+            });
+    }
+
+    /** A campaign's status in the admin's language. */
+    statusText(status: string): string {
+        const key = `admin.drips.status.${status}`;
+        return isTranslationKey(key) ? this.t(key) : statusBadgeLabel(status);
     }
 
     ngAfterViewInit(): void {
@@ -119,7 +154,7 @@ export default class DripsPageComponent implements OnInit, AfterViewInit {
     // Drawer
     openAdd(presetListId = ''): void {
         this.currentAction.set('add');
-        // A partial campaign is enough to preselect the list — the drawer seeds
+        // A partial campaign is enough to preselect the list: the drawer seeds
         // its form from `campaign.listId`.
         this.currentCampaign.set(presetListId ? ({ listId: presetListId } as DripCampaign) : null);
         this.drawer?.open();
@@ -141,24 +176,27 @@ export default class DripsPageComponent implements OnInit, AfterViewInit {
     async activate(c: DripCampaign): Promise<void> {
         try {
             const res: any = await this.service.activate(c.id);
-            this.toast.success(`Activated${res?.data?.enrolled ? `, enrolled ${res.data.enrolled}` : ''}`);
+            const enrolled = res?.data?.enrolled;
+            this.toast.success(enrolled ? this.t('admin.drips.activated_count', { count: enrolled }) : this.t('admin.drips.activated'));
             // A live list read only the first app users: the rest join when their record changes (review C2).
-            if (res?.data?.appUsersCapped) this.toast.warning(`${APP_USERS_LIMIT_NOTE} They join the sequence when their record in your app changes.`);
-        } catch (e) { console.error(e); this.toast.error('Failed to activate'); }
+            if (res?.data?.appUsersCapped) {
+                this.toast.warning(this.t('admin.drips.app_users_capped', { count: MAX_APP_USERS.toLocaleString() }));
+            }
+        } catch (e) { console.error(e); this.toast.error(this.t('admin.drips.activate_failed')); }
     }
 
     async pause(c: DripCampaign): Promise<void> {
-        try { await this.service.setStatus(c.id, 'paused'); this.toast.success('Paused'); }
-        catch (e) { console.error(e); this.toast.error('Failed to pause'); }
+        try { await this.service.setStatus(c.id, 'paused'); this.toast.success(this.t('admin.drips.paused')); }
+        catch (e) { console.error(e); this.toast.error(this.t('admin.drips.pause_failed')); }
     }
 
     async resume(c: DripCampaign): Promise<void> {
-        try { await this.service.setStatus(c.id, 'active'); this.toast.success('Resumed'); }
-        catch (e) { console.error(e); this.toast.error('Failed to resume'); }
+        try { await this.service.setStatus(c.id, 'active'); this.toast.success(this.t('admin.drips.resumed')); }
+        catch (e) { console.error(e); this.toast.error(this.t('admin.drips.resume_failed')); }
     }
 
     async archive(c: DripCampaign): Promise<void> {
-        try { await this.service.archive(c.id); this.toast.success('Archived. Active enrollments exited.'); }
-        catch (e) { console.error(e); this.toast.error('Failed to archive'); }
+        try { await this.service.archive(c.id); this.toast.success(this.t('admin.drips.archived')); }
+        catch (e) { console.error(e); this.toast.error(this.t('admin.drips.archive_failed')); }
     }
 }

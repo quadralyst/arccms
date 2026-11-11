@@ -11,6 +11,10 @@ describe('sentSubject (App audience test, 2026-09-29)', () => {
         expect(sentSubject({ subject: 'Hi ##NAME##' })).toBe('Hi ##NAME##');
         expect(sentSubject({ subject: '' })).toBe('(no subject)');
     });
+
+    it('says a blank subject in the words it is given', () => {
+        expect(sentSubject({ subject: '' }, '(कोई विषय नहीं)')).toBe('(कोई विषय नहीं)');
+    });
 });
 
 describe('fileSize (an email\'s attachments, specs/app-email-spec.md)', () => {

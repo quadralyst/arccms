@@ -21,6 +21,13 @@ import { AppListCondition, IContact, IList, ITag, IContactField, ICsvPreview, Ma
 import { arcCallable } from '../../../core/config/arc-functions';
 
 /**
+ * Called when a live read fails. The stream still ends with an empty value, so
+ * pages that only fill a picker keep working; a page that lists the data passes
+ * this to show the table's error with Retry (the detail is logged here).
+ */
+export type LoadErrorHandler = (err: unknown) => void;
+
+/**
  * Admin data access for the unified audience layer (Phase 3).
  *
  * Reads Contacts/Lists directly (admins have read access); all Contact
@@ -34,7 +41,7 @@ export class AudienceService {
     private platformId = inject(PLATFORM_ID);
 
     /** Live list of Lists. */
-    getLists(): Observable<IList[]> {
+    getLists(onError?: LoadErrorHandler): Observable<IList[]> {
         // Admin-only Firestore rules; SSR has no authenticated user, so skip
         // the doomed request instead of letting it fail with permission-denied.
         if (!isPlatformBrowser(this.platformId)) {
@@ -44,6 +51,7 @@ export class AudienceService {
         return (collectionData(query(ref, orderBy('name')), { idField: 'id' }) as Observable<IList[]>).pipe(
             catchError((err) => {
                 console.error('Error fetching lists:', err);
+                onError?.(err);
                 return of([]);
             }),
         );
@@ -52,7 +60,7 @@ export class AudienceService {
     // ── Custom contact fields (U4.5) ──
 
     /** Live field registry, as an array for tables and pickers. */
-    getFields(): Observable<IContactField[]> {
+    getFields(onError?: LoadErrorHandler): Observable<IContactField[]> {
         if (!isPlatformBrowser(this.platformId)) {
             return of([]);
         }
@@ -60,6 +68,7 @@ export class AudienceService {
             map((d) => Object.values(d?.fields || {})),
             catchError((err) => {
                 console.error('Error fetching contact fields:', err);
+                onError?.(err);
                 return of([] as IContactField[]);
             }),
         );
@@ -129,13 +138,14 @@ export class AudienceService {
     }
 
     /** Live single list (for the List hub). */
-    getList(listId: string): Observable<IList | null> {
+    getList(listId: string, onError?: LoadErrorHandler): Observable<IList | null> {
         if (!isPlatformBrowser(this.platformId)) {
             return of(null);
         }
         return (docData(doc(this.firestore, 'Lists', listId), { idField: 'id' }) as Observable<IList>).pipe(
             catchError((err) => {
                 console.error('Error fetching list:', err);
+                onError?.(err);
                 return of(null);
             }),
         );
@@ -145,7 +155,7 @@ export class AudienceService {
      * Live members of one list. Served by the automatic single-field index on
      * `listIds` — no composite index needed.
      */
-    getContactsInList(listId: string, max = 500): Observable<IContact[]> {
+    getContactsInList(listId: string, max = 500, onError?: LoadErrorHandler): Observable<IContact[]> {
         if (!isPlatformBrowser(this.platformId)) {
             return of([]);
         }
@@ -156,6 +166,7 @@ export class AudienceService {
         ) as Observable<IContact[]>).pipe(
             catchError((err) => {
                 console.error('Error fetching list members:', err);
+                onError?.(err);
                 return of([]);
             }),
         );
@@ -188,7 +199,7 @@ export class AudienceService {
     }
 
     /** Live (capped) list of Contacts for the admin table. */
-    getContacts(max = 500): Observable<IContact[]> {
+    getContacts(max = 500, onError?: LoadErrorHandler): Observable<IContact[]> {
         if (!isPlatformBrowser(this.platformId)) {
             return of([]);
         }
@@ -198,6 +209,7 @@ export class AudienceService {
         }) as Observable<IContact[]>).pipe(
             catchError((err) => {
                 console.error('Error fetching contacts:', err);
+                onError?.(err);
                 return of([]);
             }),
         );
@@ -236,7 +248,7 @@ export class AudienceService {
     // ── Global contact tags (`ContactTags`) ──
 
     /** Live list of audience tags. */
-    getTags(): Observable<ITag[]> {
+    getTags(onError?: LoadErrorHandler): Observable<ITag[]> {
         if (!isPlatformBrowser(this.platformId)) {
             return of([]);
         }
@@ -244,6 +256,7 @@ export class AudienceService {
         return (collectionData(query(ref, orderBy('label')), { idField: 'id' }) as Observable<ITag[]>).pipe(
             catchError((err) => {
                 console.error('Error fetching tags:', err);
+                onError?.(err);
                 return of([]);
             }),
         );

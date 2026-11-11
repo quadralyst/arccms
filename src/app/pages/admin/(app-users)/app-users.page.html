@@ -4,14 +4,14 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">{{ 'admin.audience.app_users.detail_title' | transloco }}</h5>
                 <button mat-icon-button type="button" (click)="closeDetail()" [attr.aria-label]="'admin.audience.app_users.close' | transloco">
-                    <mat-icon>close</mat-icon>
+                    <mat-icon aria-hidden="true">close</mat-icon>
                 </button>
             </div>
 
             @if (detailLoading()) {
                 <arc-loader [count]="5"></arc-loader>
             } @else if (detailError()) {
-                <div class="alert alert-danger">{{ detailError() }}</div>
+                <div class="alert alert-danger" role="alert">{{ detailError() | transloco }}</div>
             } @else if (detail(); as d) {
                 <dl class="row small mb-3">
                     <dt class="col-4">{{ 'admin.audience.app_users.name' | transloco }}</dt><dd class="col-8">{{ d.person.name || '-' }}</dd>
@@ -63,14 +63,12 @@
                 [subtitle]="(location()?.own ? 'admin.audience.app_users.subtitle_own' : 'admin.audience.app_users.subtitle') | transloco">
                 @if (location()?.configured) {
                     <button mat-stroked-button [disabled]="loading()" (click)="load()">
-                        <mat-icon>refresh</mat-icon> {{ 'admin.audience.app_users.refresh' | transloco }}
+                        <mat-icon aria-hidden="true">refresh</mat-icon> {{ 'admin.audience.app_users.refresh' | transloco }}
                     </button>
                 }
             </arc-page-header>
 
-            @if (error()) {
-                <div class="alert alert-danger">{{ 'admin.audience.app_users.load_failed' | transloco: { error: error() } }}</div>
-            } @else if (!loading() && location() && !location()!.configured) {
+            @if (!error() && !loading() && location() && !location()!.configured) {
                 <div class="alert alert-info">
                     <p class="mb-2">{{ 'admin.audience.app_users.not_configured' | transloco }}</p>
                     <a routerLink="/admin/settings/app-audience">{{ 'admin.audience.app_users.open_settings' | transloco }}</a>
@@ -92,6 +90,8 @@
 
                 <app-global-table [data]="paged()" [columns]="columns" [loading]="loading()"
                     [pageIndex]="currentPage()" [pageSize]="pageSize()" [trackByFn]="trackRow"
+                    [error]="error() || null" (retry)="load()"
+                    [filtered]="!!search().trim()" (clearFilters)="onSearch('')"
                     emptyIcon="fas fa-mobile-screen" [emptyTitle]="'admin.audience.app_users.empty_title' | transloco"
                     [emptyDescription]="'admin.audience.app_users.empty_description' | transloco"
                     [showEmptyAction]="false">

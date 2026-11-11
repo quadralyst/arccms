@@ -185,3 +185,44 @@ RF1, RF2 and RF3 run together on one branch and merge once.
 - Every other recommendation accepted, as written into the tables above.
 - Dodo (2.4): fixed without first proving the hole.
 - Analytics default stays as it is; term list (5.4) waits for RF5.
+
+## Decisions (2026-11-11): RF4 and RF5
+
+RF4 and RF5 run together on `fix/admin-rf45` (worktree `../arccms-admin-rf45`) and merge once. The
+recommendations below were accepted as a whole.
+
+From the RF1 to RF3 review, left open:
+
+- 4.16 (new): an admin can change a member's phone number from Edit user, for a phone-only member who
+  lost their phone (the fresh code would go to the old number). The new number must not be on another
+  account; the member proves it with a code at their next phone sign-in.
+- The service worker's own CSP, the role names `propertyOwner` and `facilityManager`, and the English
+  server messages on `/waitlist/{id}` stay where they were put: a later release, later, and RF6.
+
+RF4:
+
+- 4.2 Leave guard: "Leave without saving?" with **Stay** (focused) and **Leave**. Tab close uses the
+  browser's own question. With 4.1, the guard only shows in the few seconds before an autosave lands,
+  or after a failed one.
+- 4.5 Two admins: before a save, the entry's `modifiedAt` is compared with the one the editor opened.
+  Changed: "Someone else changed this entry since you opened it." with **Reload theirs** and
+  **Keep mine** (overwrites). Autosave never overwrites silently: it stops and shows the same choice.
+- 4.6 Address change on a published entry: a ticked box "Send the old address to the new one". As
+  built, the publish leaves a small moved page at the old address (zero-second refresh, canonical link,
+  noindex), not a Hosting redirect: `src/custom/site/redirects.json` is app-owned and only changes with a
+  website deploy. Unticked, the old page is removed. Never written over another entry's live page.
+- 4.7 and 4.8: role, block and delete go through admin callables that refuse to leave the site without
+  an active admin; the rules stop a browser from writing `role`, `isActive` and `status` on `users` or
+  deleting a user, so the check cannot be skipped. Apps that write these fields from the browser must
+  call the callables instead (changelog, "Apps must").
+- 4.12 Form delete is one callable that removes the form, its sign-ups and its tags.
+
+RF5:
+
+- 5.4 Words, admin-wide: Forms (not Waitlists), Sign-ups, Users, Entries, Delete, Cancel, Sign in and
+  Sign out, Publish, Address (not slug), Code (not OTP), Media. Routes and stored field names keep their
+  old names; only what people read changes.
+- 5.5 Settings groups: Site, Sign-in and members, Email and texts, Payments, Connections (analytics, AI,
+  integrations), Data. Every setting stays.
+- Hindi strings are written with the English ones, as in earlier phases.
+- Order inside the branch: RF4 and the shared table first, then the RF5 sweep page group by page group.

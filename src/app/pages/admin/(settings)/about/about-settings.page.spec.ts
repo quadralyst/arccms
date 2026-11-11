@@ -115,7 +115,7 @@ describe('AboutSettingsPage', () => {
         it('should show success message after save', async () => {
             await component.saveSettings();
 
-            expect(component.saveMessage()).toBe('Settings saved successfully');
+            expect(component.saveMessage()).toBe('Settings saved.');
             expect(component.saveError()).toBe(false);
             expect(component.isSaving()).toBe(false);
         });
@@ -138,7 +138,7 @@ describe('AboutSettingsPage', () => {
 
             await component.saveSettings();
 
-            expect(component.saveMessage()).toBe('Failed to save settings');
+            expect(component.saveMessage()).toBe('Settings were not saved. Try again.');
             expect(component.saveError()).toBe(true);
             expect(component.isSaving()).toBe(false);
             consoleSpy.mockRestore();

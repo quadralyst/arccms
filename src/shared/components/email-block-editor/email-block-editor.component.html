@@ -4,34 +4,34 @@
     <div class="editor-toolbar">
         <div class="toolbar-group">
             <button mat-flat-button color="primary" [matMenuTriggerFor]="addMenu">
-                <mat-icon>add</mat-icon> Add block
+                <mat-icon aria-hidden="true">add</mat-icon> {{ 'common.email_editor.add_block' | transloco }}
             </button>
             <mat-menu #addMenu>
                 @for (t of blockTypes; track t) {
-                <button mat-menu-item (click)="add(t)"><span class="text-capitalize">{{ t }}</span></button>
+                <button mat-menu-item (click)="add(t)"><span>{{ ('common.email_editor.type_' + t) | transloco }}</span></button>
                 }
             </mat-menu>
 
-            <div class="device-toggle" role="group" aria-label="Preview device">
+            <div class="device-toggle" role="group" [attr.aria-label]="'common.email_editor.preview_device' | transloco">
                 <button type="button" [class.active]="previewMode() === 'desktop'"
                     (click)="previewMode.set('desktop')">
-                    <mat-icon>desktop_windows</mat-icon> Desktop
+                    <mat-icon aria-hidden="true">desktop_windows</mat-icon> {{ 'common.email_editor.desktop' | transloco }}
                 </button>
                 <button type="button" [class.active]="previewMode() === 'mobile'"
                     (click)="previewMode.set('mobile')">
-                    <mat-icon>smartphone</mat-icon> Mobile
+                    <mat-icon aria-hidden="true">smartphone</mat-icon> {{ 'common.email_editor.mobile' | transloco }}
                 </button>
             </div>
         </div>
 
         <div class="toolbar-group">
-            <button mat-stroked-button (click)="sendTest()"><mat-icon>send</mat-icon> Send test</button>
-            <button mat-flat-button color="primary" (click)="save()"><mat-icon>save</mat-icon> Save</button>
+            <button mat-stroked-button (click)="sendTest()"><mat-icon aria-hidden="true">send</mat-icon> {{ 'common.email_editor.send_test' | transloco }}</button>
+            <button mat-flat-button color="primary" (click)="save()"><mat-icon aria-hidden="true">save</mat-icon> {{ 'common.actions.save' | transloco }}</button>
         </div>
     </div>
 
     @if (error()) {
-    <div class="alert alert-danger m-3">{{ error() }}</div>
+    <div class="alert alert-danger m-3" role="alert">{{ error() | transloco }}</div>
     }
 
     <div class="editor-split">
@@ -41,26 +41,26 @@
             <div class="block-card">
                 <div class="block-head">
                     <span class="block-tag">
-                        <span class="block-index">{{ i + 1 }}</span>{{ block.type }}
+                        <span class="block-index">{{ i + 1 }}</span>{{ ('common.email_editor.type_' + block.type) | transloco }}
                     </span>
                     <div class="block-controls">
                         <button mat-icon-button (click)="move(i, -1)" [disabled]="i === 0"
-                            aria-label="Move up"><mat-icon>arrow_upward</mat-icon></button>
+                            [attr.aria-label]="'common.email_editor.move_up' | transloco"><mat-icon aria-hidden="true">arrow_upward</mat-icon></button>
                         <button mat-icon-button (click)="move(i, 1)" [disabled]="i === blocks().length - 1"
-                            aria-label="Move down"><mat-icon>arrow_downward</mat-icon></button>
+                            [attr.aria-label]="'common.email_editor.move_down' | transloco"><mat-icon aria-hidden="true">arrow_downward</mat-icon></button>
                         <button mat-icon-button color="warn" (click)="remove(i)"
-                            aria-label="Delete block"><mat-icon>delete</mat-icon></button>
+                            [attr.aria-label]="'common.email_editor.delete_block' | transloco"><mat-icon aria-hidden="true">delete</mat-icon></button>
                     </div>
                 </div>
 
                 @switch (block.type) {
                 @case ('heading') {
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Heading text</mat-label>
+                    <mat-label>{{ 'common.email_editor.heading_text' | transloco }}</mat-label>
                     <input matInput [arcHashtagAutocomplete]="placeholders" [ngModel]="block.text" (ngModelChange)="patch(i, { text: $event })" />
                 </mat-form-field>
                 <mat-form-field appearance="outline" style="width: 120px;">
-                    <mat-label>Level</mat-label>
+                    <mat-label>{{ 'common.email_editor.level' | transloco }}</mat-label>
                     <mat-select [ngModel]="block.level" (ngModelChange)="setHeadingLevel(i, $event)">
                         <mat-option [value]="1">H1</mat-option>
                         <mat-option [value]="2">H2</mat-option>
@@ -70,10 +70,10 @@
                 }
                 @case ('paragraph') {
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Paragraph text (basic HTML allowed)</mat-label>
+                    <mat-label>{{ 'common.email_editor.paragraph_text' | transloco }}</mat-label>
                     <textarea matInput rows="3" [arcHashtagAutocomplete]="placeholders" [ngModel]="block.html" (ngModelChange)="patch(i, { html: $event })"></textarea>
                 </mat-form-field>
-                <button mat-button [matMenuTriggerFor]="tagMenu"><mat-icon>tag</mat-icon> Insert tag</button>
+                <button mat-button [matMenuTriggerFor]="tagMenu"><mat-icon aria-hidden="true">tag</mat-icon> {{ 'common.email_editor.insert_tag' | transloco }}</button>
                 <mat-menu #tagMenu>
                     @for (p of placeholders; track p) {
                     <button mat-menu-item (click)="insertTag(i, 'html', p)">{{ p }}</button>
@@ -82,49 +82,49 @@
                 }
                 @case ('image') {
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Image URL</mat-label>
+                    <mat-label>{{ 'common.email_editor.image_url' | transloco }}</mat-label>
                     <input matInput [ngModel]="block.src" (ngModelChange)="patch(i, { src: $event })" />
                 </mat-form-field>
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Alt text</mat-label>
+                    <mat-label>{{ 'common.email_editor.alt_text' | transloco }}</mat-label>
                     <input matInput [ngModel]="block.alt" (ngModelChange)="patch(i, { alt: $event })" />
                 </mat-form-field>
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Link URL (optional)</mat-label>
+                    <mat-label>{{ 'common.email_editor.link_url' | transloco }}</mat-label>
                     <input matInput [ngModel]="block.href" (ngModelChange)="patch(i, { href: $event })" />
                 </mat-form-field>
                 }
                 @case ('button') {
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Button label</mat-label>
+                    <mat-label>{{ 'common.email_editor.button_label' | transloco }}</mat-label>
                     <input matInput [arcHashtagAutocomplete]="placeholders" [ngModel]="block.text" (ngModelChange)="patch(i, { text: $event })" />
                 </mat-form-field>
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Button URL</mat-label>
+                    <mat-label>{{ 'common.email_editor.button_url' | transloco }}</mat-label>
                     <input matInput [ngModel]="block.href" (ngModelChange)="patch(i, { href: $event })" />
                 </mat-form-field>
                 }
                 @case ('spacer') {
                 <mat-form-field appearance="outline" style="width: 160px;">
-                    <mat-label>Height (px)</mat-label>
+                    <mat-label>{{ 'common.email_editor.height' | transloco }}</mat-label>
                     <input matInput type="number" [ngModel]="block.height" (ngModelChange)="patch(i, { height: +$event })" />
                 </mat-form-field>
                 }
                 @case ('raw') {
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Raw HTML</mat-label>
+                    <mat-label>{{ 'common.email_editor.raw_html' | transloco }}</mat-label>
                     <textarea matInput class="font-monospace" rows="4" [arcHashtagAutocomplete]="placeholders" [ngModel]="block.html" (ngModelChange)="patch(i, { html: $event })"></textarea>
                 </mat-form-field>
                 }
-                @case ('social') { <p class="small text-muted mb-0">Uses the social links from your brand kit.</p> }
-                @case ('divider') { <p class="small text-muted mb-0">A horizontal divider.</p> }
-                @case ('columns') { <p class="small text-muted mb-0">Two-column layout (edit nested blocks in a future iteration).</p> }
+                @case ('social') { <p class="small text-muted mb-0">{{ 'common.email_editor.social_note' | transloco }}</p> }
+                @case ('divider') { <p class="small text-muted mb-0">{{ 'common.email_editor.divider_note' | transloco }}</p> }
+                @case ('columns') { <p class="small text-muted mb-0">{{ 'common.email_editor.columns_note' | transloco }}</p> }
                 }
             </div>
             } @empty {
             <div class="blocks-empty">
-                <mat-icon>dashboard_customize</mat-icon>
-                <p class="mb-0">No blocks yet. Click <strong>Add block</strong> to start building your email.</p>
+                <mat-icon aria-hidden="true">dashboard_customize</mat-icon>
+                <p class="mb-0">{{ 'common.email_editor.empty' | transloco }}</p>
             </div>
             }
         </div>

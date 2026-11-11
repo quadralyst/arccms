@@ -8,9 +8,11 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
-import { ToastService } from '../../../../../shared/services/toast.service';
+import { NotifyService } from '../../../../../shared/services/notify.service';
+import { escapeHtml } from '../../../../../shared/utils/escape-html';
+import { audienceStatusText } from '../../(audience)/audience-status-text';
 import { AudienceService } from '../../(audience)/audience.service';
 import { IContact, IList, ITag, IContactField, ICsvPreview, MarketingConsent } from '../../(audience)/audience.model';
 
@@ -28,7 +30,7 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
     imports: [
         CommonModule, FormsModule, MatButtonModule, MatIconModule,
         MatInputModule, MatFormFieldModule, MatSelectModule, MatCheckboxModule,
-        MatDialogModule,
+        MatDialogModule, TranslocoPipe,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -36,31 +38,31 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
         <div class="panel-header">
             <h5>
                 @switch (mode) {
-                    @case ('add') { Add contact }
-                    @case ('import') { Import from CSV }
-                    @default { Contact }
+                    @case ('add') { {{ 'admin.audience.contacts.add' | transloco }} }
+                    @case ('import') { {{ 'admin.audience.contacts.import_title' | transloco }} }
+                    @default { {{ 'admin.audience.contacts.contact' | transloco }} }
                 }
             </h5>
-            <button class="close-btn" (click)="close.emit()"><i class="fas fa-times"></i></button>
+            <button type="button" class="close-btn" (click)="close.emit()" [attr.aria-label]="'common.actions.close' | transloco"><i class="fas fa-times" aria-hidden="true"></i></button>
         </div>
 
         <!-- Add -->
         @if (mode === 'add') {
         <div class="flex-grow-1">
             <mat-form-field appearance="outline" class="w-100">
-                <mat-label>Email</mat-label>
-                <input matInput type="email" [(ngModel)]="newEmail" placeholder="person@example.com" />
+                <mat-label>{{ 'common.table.email' | transloco }}</mat-label>
+                <input matInput type="email" [(ngModel)]="newEmail" placeholder="person&#64;example.com" />
             </mat-form-field>
             <mat-form-field appearance="outline" class="w-100">
-                <mat-label>Name (optional)</mat-label>
+                <mat-label>{{ 'admin.audience.contacts.name_optional' | transloco }}</mat-label>
                 <input matInput [(ngModel)]="newName" />
             </mat-form-field>
-            <mat-checkbox [(ngModel)]="newConsent">I have consent to email them</mat-checkbox>
+            <mat-checkbox [(ngModel)]="newConsent">{{ 'admin.audience.contacts.have_consent' | transloco }}</mat-checkbox>
         </div>
         <div class="panel-actions">
-            <button mat-stroked-button (click)="close.emit()">Cancel</button>
+            <button mat-stroked-button (click)="close.emit()">{{ 'common.actions.cancel' | transloco }}</button>
             <button mat-flat-button color="primary" [disabled]="busy()" (click)="addContact()">
-                <mat-icon>person_add</mat-icon> Add contact
+                <mat-icon aria-hidden="true">person_add</mat-icon> {{ 'admin.audience.contacts.add' | transloco }}
             </button>
         </div>
         }
@@ -68,37 +70,37 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
         <!-- Import -->
         @if (mode === 'import') {
         <div class="flex-grow-1">
-            <p class="small text-muted">Paste rows as <code>email,name</code> (a header row is optional).</p>
+            <p class="small text-muted" [innerHTML]="'admin.audience.contacts.import_hint' | transloco"></p>
             <textarea class="form-control mb-2" rows="6" [(ngModel)]="csvText"
+                [attr.aria-label]="'admin.audience.contacts.import_rows' | transloco"
                 placeholder="email,name&#10;alice&#64;example.com,Alice"></textarea>
-            <button mat-stroked-button [disabled]="busy() || !csvText.trim()" (click)="previewCsv()">Preview</button>
+            <button mat-stroked-button [disabled]="busy() || !csvText.trim()" (click)="previewCsv()">{{ 'admin.audience.contacts.preview' | transloco }}</button>
 
             @if (csvPreview(); as p) {
             <div class="mt-3">
                 <p class="mb-2">
-                    <span class="text-success">{{ p.validCount }} valid</span> ·
-                    <span class="text-warning">{{ p.duplicateCount }} duplicate</span> ·
-                    <span class="text-danger">{{ p.invalidCount }} invalid</span>
+                    <span class="text-success">{{ 'admin.audience.contacts.valid_count' | transloco: { count: p.validCount } }}</span> ·
+                    <span class="text-warning">{{ 'admin.audience.contacts.duplicate_count' | transloco: { count: p.duplicateCount } }}</span> ·
+                    <span class="text-danger">{{ 'admin.audience.contacts.invalid_count' | transloco: { count: p.invalidCount } }}</span>
                 </p>
                 <mat-form-field appearance="outline" class="w-100">
-                    <mat-label>Add to list</mat-label>
+                    <mat-label>{{ 'admin.audience.contacts.add_to_list' | transloco }}</mat-label>
                     <mat-select [(ngModel)]="importListId">
                         @for (list of lists; track list.id) {
                         <mat-option [value]="list.id">{{ list.name }}</mat-option>
                         }
                     </mat-select>
                 </mat-form-field>
-                <mat-checkbox [(ngModel)]="importConsent">These contacts have consented to marketing</mat-checkbox>
-                <p class="small text-muted mt-2">Without affirming consent, imported contacts are marked
-                    <em>pending</em> and excluded from marketing sends.</p>
+                <mat-checkbox [(ngModel)]="importConsent">{{ 'admin.audience.contacts.import_consent' | transloco }}</mat-checkbox>
+                <p class="small text-muted mt-2">{{ 'admin.audience.contacts.import_consent_hint' | transloco }}</p>
             </div>
             }
         </div>
         <div class="panel-actions">
-            <button mat-stroked-button (click)="close.emit()">Cancel</button>
+            <button mat-stroked-button (click)="close.emit()">{{ 'common.actions.cancel' | transloco }}</button>
             @if (csvPreview(); as p) {
             <button mat-flat-button color="primary" [disabled]="busy() || !p.validCount || !importListId" (click)="importCsv()">
-                Import {{ p.validCount }} contacts
+                {{ 'admin.audience.contacts.import_n' | transloco: { count: p.validCount } }}
             </button>
             }
         </div>
@@ -108,29 +110,29 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
         @if (mode === 'view' && contact) {
         <div class="flex-grow-1">
             <dl class="row mb-3">
-                <dt class="col-4 text-muted small">Email</dt>
+                <dt class="col-4 text-muted small">{{ 'common.table.email' | transloco }}</dt>
                 <dd class="col-8">{{ contact.email }}</dd>
-                <dt class="col-4 text-muted small">Name</dt>
+                <dt class="col-4 text-muted small">{{ 'common.table.name' | transloco }}</dt>
                 <dd class="col-8">{{ contact.name || '-' }}</dd>
-                <dt class="col-4 text-muted small">Sources</dt>
+                <dt class="col-4 text-muted small">{{ 'admin.audience.contacts.sources' | transloco }}</dt>
                 <dd class="col-8">{{ (contact.sources || []).join(', ') || '-' }}</dd>
-                <dt class="col-4 text-muted small">Lists</dt>
+                <dt class="col-4 text-muted small">{{ 'admin.audience.contacts.lists' | transloco }}</dt>
                 <dd class="col-8">{{ (contact.listIds || []).length }}</dd>
-                <dt class="col-4 text-muted small">Consent</dt>
+                <dt class="col-4 text-muted small">{{ 'admin.audience.contacts.consent' | transloco }}</dt>
                 <dd class="col-8">
-                    <span [class]="consentBadge(contact)">{{ contact.consent?.marketing || 'pending' }}</span>
+                    <span [class]="consentBadge(contact)">{{ consentText(contact) }}</span>
                 </dd>
             </dl>
 
             @if (contact.consent?.marketing === 'pending') {
             <p class="small text-muted mb-3">
-                <i class="fas fa-circle-info me-1"></i>
-                Signed up but hasn't confirmed their email. They're excluded from marketing sends until they verify.
+                <i class="fas fa-circle-info me-1" aria-hidden="true"></i>
+                {{ 'admin.audience.contacts.pending_note' | transloco }}
             </p>
             }
 
             @if (allFields.length) {
-            <label class="form-label small text-muted d-block">Fields</label>
+            <h6 class="form-label small text-muted d-block">{{ 'admin.audience.fields.title' | transloco }}</h6>
             <div class="mb-3">
                 @for (f of allFields; track f.key) {
                     <mat-form-field appearance="outline" class="w-100">
@@ -140,12 +142,12 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
                     </mat-form-field>
                 }
                 <button mat-stroked-button color="primary" [disabled]="busy()" (click)="saveFields()">
-                    <mat-icon>save</mat-icon> Save fields
+                    <mat-icon aria-hidden="true">save</mat-icon> {{ 'admin.audience.contacts.save_fields' | transloco }}
                 </button>
             </div>
             }
 
-            <label class="form-label small text-muted d-block">Tags</label>
+            <h6 class="form-label small text-muted d-block">{{ 'admin.audience.tags.title' | transloco }}</h6>
             @if (allTags.length) {
             <div class="d-flex flex-wrap gap-2 mb-3">
                 @for (t of allTags; track t.id) {
@@ -153,32 +155,29 @@ export type ContactDrawerMode = 'add' | 'import' | 'view';
                         [style.background]="selectedTags.includes(t.id) ? t.color : 'transparent'"
                         [style.border-color]="t.color"
                         [style.color]="selectedTags.includes(t.id) ? '#fff' : t.color"
+                        [attr.aria-pressed]="selectedTags.includes(t.id)"
                         [disabled]="busy()" (click)="toggleTag(t.id)">
                         {{ t.label }}
                     </button>
                 }
             </div>
             } @else {
-            <p class="small text-muted mb-3">No tags yet. Create them under Audience → Tags.</p>
+            <p class="small text-muted mb-3">{{ 'admin.audience.contacts.no_tags' | transloco }}</p>
             }
 
             <hr class="my-3" />
-            <label class="form-label small text-muted d-block">Erase</label>
-            <p class="small text-muted mb-2">
-                Deletes this address from the audience, the signup form's member list and any
-                pending verification. Use this to honour a deletion request. To just stop
-                emailing someone, suppress them instead.
-            </p>
+            <h6 class="form-label small text-muted d-block">{{ 'admin.audience.contacts.erase_heading' | transloco }}</h6>
+            <p class="small text-muted mb-2">{{ 'admin.audience.contacts.erase_hint' | transloco }}</p>
             <button mat-stroked-button color="warn" [disabled]="busy()" (click)="confirmErase()">
-                <mat-icon>delete_forever</mat-icon> Erase contact
+                <mat-icon aria-hidden="true">delete_forever</mat-icon> {{ 'admin.audience.contacts.erase' | transloco }}
             </button>
         </div>
         <div class="panel-actions">
             @if (contact.consent?.marketing !== 'subscribed') {
-            <button mat-stroked-button color="primary" [disabled]="busy()" (click)="setConsent('subscribed')">Subscribe</button>
+            <button mat-stroked-button color="primary" [disabled]="busy()" (click)="setConsent('subscribed')">{{ 'admin.audience.contacts.subscribe' | transloco }}</button>
             }
             @if (contact.consent?.marketing !== 'unsubscribed') {
-            <button mat-stroked-button color="warn" [disabled]="busy()" (click)="setConsent('unsubscribed')">Suppress</button>
+            <button mat-stroked-button color="warn" [disabled]="busy()" (click)="setConsent('unsubscribed')">{{ 'admin.audience.contacts.suppress' | transloco }}</button>
             }
         </div>
         }
@@ -195,9 +194,9 @@ export class ContactDrawerComponent implements OnChanges {
     @Output() saved = new EventEmitter<void>();
 
     private audience = inject(AudienceService);
-    private toast = inject(ToastService);
+    private notify = inject(NotifyService);
     private dialog = inject(MatDialog);
-    private sanitizer = inject(DomSanitizer);
+    private transloco = inject(TranslocoService);
 
     busy = signal(false);
 
@@ -224,10 +223,10 @@ export class ContactDrawerComponent implements OnChanges {
         this.busy.set(true);
         try {
             await this.audience.setContactFields(this.contact.id, { ...this.fieldValues });
-            this.toast.success('Fields saved');
+            this.notify.success('admin.audience.contacts.fields_saved');
         } catch (e) {
-            console.error(e);
-            this.toast.error('Failed to save fields');
+            console.error('Saving contact fields failed', e);
+            this.notify.error('admin.audience.contacts.fields_save_failed');
         } finally {
             this.busy.set(false);
         }
@@ -247,9 +246,9 @@ export class ContactDrawerComponent implements OnChanges {
             // Deliberately no `saved` emit: the host closes the drawer on it, and
             // the contacts table is realtime, so it already reflects the change.
         } catch (e) {
-            console.error(e);
+            console.error('Saving contact tags failed', e);
             this.selectedTags = previous;
-            this.toast.error('Failed to update tags');
+            this.notify.error('admin.audience.contacts.tags_save_failed');
         } finally {
             this.busy.set(false);
         }
@@ -272,18 +271,22 @@ export class ContactDrawerComponent implements OnChanges {
         return `status-badge ${tone}`;
     }
 
+    consentText(c: IContact): string {
+        return audienceStatusText(this.transloco, c.consent?.marketing || 'pending');
+    }
+
     async addContact(): Promise<void> {
         const email = this.newEmail.trim().toLowerCase();
-        if (!email.includes('@')) { this.toast.error('Enter a valid email'); return; }
+        if (!email.includes('@')) { this.notify.error('admin.audience.contacts.email_invalid'); return; }
         this.busy.set(true);
         try {
             await this.audience.addContact(email, this.newName.trim(), [], this.newConsent);
-            this.toast.success('Contact added');
+            this.notify.success('admin.audience.contacts.added');
             this.saved.emit();
             this.close.emit();
         } catch (e) {
-            console.error(e);
-            this.toast.error('Failed to add contact');
+            console.error('Adding the contact failed', e);
+            this.notify.error('admin.audience.contacts.add_failed');
         } finally {
             this.busy.set(false);
         }
@@ -296,8 +299,8 @@ export class ContactDrawerComponent implements OnChanges {
             const res = await this.audience.previewCsv(this.csvText);
             this.csvPreview.set(res.data);
         } catch (e) {
-            console.error(e);
-            this.toast.error('Failed to parse CSV');
+            console.error('Reading the CSV failed', e);
+            this.notify.error('admin.audience.contacts.csv_failed');
         } finally {
             this.busy.set(false);
         }
@@ -305,16 +308,16 @@ export class ContactDrawerComponent implements OnChanges {
 
     async importCsv(): Promise<void> {
         const preview = this.csvPreview();
-        if (!preview || !this.importListId) { this.toast.error('Pick a list first'); return; }
+        if (!preview || !this.importListId) { this.notify.error('admin.audience.contacts.pick_list'); return; }
         this.busy.set(true);
         try {
             const res: any = await this.audience.importContacts(preview.valid, this.importListId, this.importConsent);
-            this.toast.success(`Imported ${res?.data?.imported || 0} contacts`);
+            this.notify.success('admin.audience.contacts.imported', { count: res?.data?.imported || 0 });
             this.saved.emit();
             this.close.emit();
         } catch (e) {
-            console.error(e);
-            this.toast.error('Import failed');
+            console.error('Importing contacts failed', e);
+            this.notify.error('admin.audience.contacts.import_failed');
         } finally {
             this.busy.set(false);
         }
@@ -328,21 +331,18 @@ export class ContactDrawerComponent implements OnChanges {
     confirmErase(): void {
         const c = this.contact;
         if (!c?.id) return;
-        // The address is user-supplied and goes into trusted HTML, so it takes the
-        // same escape as the tag label in the Tags page.
-        const email = (c.email || '').replace(/[&<>"']/g, (ch) => (
-            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] as string
-        ));
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Permanently erase <strong>${email}</strong>?<br><br>`
-            + 'This deletes the contact, its signup form member record and any pending '
-            + 'verification. It cannot be undone, and it is not the same as suppressing '
-            + 'them: an erased person can sign up again later.',
-        );
+        // The address is user-supplied and goes into the dialog's HTML, so it is escaped.
+        const msg = this.transloco.translate('admin.audience.contacts.erase_confirm', { email: escapeHtml(c.email || '') });
 
         this.dialog.open(ConfirmationPopupComponent, {
             width: '400px',
-            data: { dialogType: 'Erase contact', dialogMessage: msg, btnText: 'Erase', panelType: 'warn' },
+            maxWidth: '92vw',
+            data: {
+                titleKey: 'admin.audience.contacts.erase',
+                dialogMessage: msg,
+                btnText: this.transloco.translate('admin.audience.contacts.erase_button'),
+                panelType: 'warn',
+            },
         }).afterClosed().subscribe(async (confirmed: boolean) => {
             if (!confirmed) return;
             await this.erase();
@@ -355,12 +355,12 @@ export class ContactDrawerComponent implements OnChanges {
         this.busy.set(true);
         try {
             await this.audience.deleteContact(c.id);
-            this.toast.success('Contact erased');
+            this.notify.success('admin.audience.contacts.erased');
             this.saved.emit();
             this.close.emit();
         } catch (e) {
-            console.error(e);
-            this.toast.error('Failed to erase contact');
+            console.error('Erasing the contact failed', e);
+            this.notify.error('admin.audience.contacts.erase_failed');
         } finally {
             this.busy.set(false);
         }
@@ -372,12 +372,12 @@ export class ContactDrawerComponent implements OnChanges {
         this.busy.set(true);
         try {
             await this.audience.setConsent(c.id, marketing);
-            this.toast.success(`Consent set to ${marketing}`);
+            this.notify.success('admin.audience.contacts.consent_set', { consent: audienceStatusText(this.transloco, marketing) });
             this.saved.emit();
             this.close.emit();
         } catch (e) {
-            console.error(e);
-            this.toast.error('Failed to update consent');
+            console.error('Changing consent failed', e);
+            this.notify.error('admin.audience.contacts.consent_failed');
         } finally {
             this.busy.set(false);
         }

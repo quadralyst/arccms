@@ -156,7 +156,7 @@ export interface AiPurposeInfo {
     arc?: boolean;
     /** Arc's own purpose that takes no settings: the voice sample. */
     fixed?: boolean;
-    /** Offered in the Media Manager's Create with AI tab (AM-D24). */
+    /** Offered in Media's Create with AI tab (AM-D24). */
     mediaManager?: boolean;
     /** A speech purpose's named voices, with the app's voice ids by provider (AM-D17). */
     voices?: Array<{ name: string; ids: Record<string, string> }>;

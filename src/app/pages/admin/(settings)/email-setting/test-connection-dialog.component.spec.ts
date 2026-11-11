@@ -39,8 +39,10 @@ describe('TestConnectionDialogComponent', () => {
 
     it('should pre-populate email, subject and message', () => {
         expect(component.emailControl.value).toBe('test@example.com');
-        expect(component.subjectControl.value).toBe('It works! 🎉 - Arc CMS Connection Test');
-        expect(component.messageControl.value).toContain('Hey there!');
+        // In the admin's language, signed with the product's name.
+        expect(component.subjectControl.value).toBe('It works: a test email from Arc CMS');
+        expect(component.messageControl.value).toContain('your email settings work');
+        expect(component.messageControl.value).toContain('Save settings');
     });
 
     it('should close dialog with all fields when valid', () => {
@@ -49,7 +51,7 @@ describe('TestConnectionDialogComponent', () => {
         component.onSend();
         expect(mockDialogRef.close).toHaveBeenCalledWith({
             testEmail: 'valid@test.com',
-            subject: 'It works! 🎉 - Arc CMS Connection Test',
+            subject: 'It works: a test email from Arc CMS',
             message: component.messageControl.value
         });
     });

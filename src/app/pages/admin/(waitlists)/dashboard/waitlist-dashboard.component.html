@@ -1,5 +1,5 @@
-<!-- Page Header -->
-<arc-page-header [title]="waitlist()?.name || 'Waitlist Dashboard'"></arc-page-header>
+<!-- One form's dashboard -->
+<arc-page-header [title]="waitlist()?.name || ('admin.forms.dash.title' | transloco)"></arc-page-header>
 
 @if (loading()) {
 <div class="dashboard-content">
@@ -27,7 +27,7 @@
         <p class="mb-0 text-muted">{{ waitlist()?.description }}</p>
         }
         <span class="badge rounded-pill ms-auto" [class]="waitlist()?.isActive ? 'bg-success' : 'bg-secondary'">
-            {{ waitlist()?.isActive ? 'Active' : 'Inactive' }}
+            {{ (waitlist()?.isActive ? 'admin.forms.active' : 'admin.forms.inactive') | transloco }}
         </span>
     </div>
     }
@@ -35,16 +35,16 @@
     <!-- Key Metrics -->
     <section class="dashboard-section">
         <div class="section-header">
-            <h2>Key Metrics</h2>
+            <h2>{{ 'admin.forms.dash.key_numbers' | transloco }}</h2>
         </div>
         <div class="row g-2">
             <div class="col-md-4 col-6">
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon blue">
-                            <i class="bi bi-people-fill"></i>
+                            <i class="bi bi-people-fill" aria-hidden="true"></i>
                         </div>
-                        <div class="metric-title">Total Signups</div>
+                        <div class="metric-title">{{ 'admin.forms.signups.total' | transloco }}</div>
                     </div>
                     <div class="metric-value">{{ totalCount() | number }}</div>
                 </div>
@@ -53,9 +53,9 @@
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon green">
-                            <i class="bi bi-check-circle-fill"></i>
+                            <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
                         </div>
-                        <div class="metric-title">Verified Users</div>
+                        <div class="metric-title">{{ 'admin.forms.signups.confirmed' | transloco }}</div>
                     </div>
                     <div class="metric-value">{{ verifiedCount() | number }}</div>
                 </div>
@@ -64,9 +64,9 @@
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon orange">
-                            <i class="bi bi-hourglass-split"></i>
+                            <i class="bi bi-hourglass-split" aria-hidden="true"></i>
                         </div>
-                        <div class="metric-title">Pending Verification</div>
+                        <div class="metric-title">{{ 'admin.forms.dash.pending' | transloco }}</div>
                     </div>
                     <div class="metric-value">{{ pendingCount() | number }}</div>
                 </div>
@@ -77,29 +77,29 @@
     <!-- Quick Actions -->
     <section class="dashboard-section">
         <div class="section-header">
-            <h2>Quick Actions</h2>
+            <h2>{{ 'admin.forms.dash.quick' | transloco }}</h2>
         </div>
         <div class="quick-actions">
             <a [routerLink]="['/admin/waitlists/users', waitlistId()]"
                 [queryParams]="{ returnUrl: '/admin/waitlists/dashboard/' + waitlistId() }"
                 class="btn btn-outline-primary quick-action-btn">
-                <i class="bi bi-people me-2"></i> Users
+                <i class="bi bi-people me-2" aria-hidden="true"></i> {{ 'admin.forms.actions.signups' | transloco }}
             </a>
             <a [routerLink]="['/admin/waitlists/tags']"
                 [queryParams]="{ waitlistId: waitlistId(), waitlistName: waitlist()?.name, returnUrl: '/admin/waitlists/dashboard/' + waitlistId() }"
                 class="btn btn-outline-secondary quick-action-btn">
-                <i class="bi bi-tags me-2"></i> Tags
+                <i class="bi bi-tags me-2" aria-hidden="true"></i> {{ 'admin.forms.actions.tags' | transloco }}
             </a>
             <a [routerLink]="['/admin/waitlists/templates', waitlistId()]"
                 [queryParams]="{ returnUrl: '/admin/waitlists/dashboard/' + waitlistId() }"
                 class="btn btn-outline-success quick-action-btn">
-                <i class="bi bi-envelope me-2"></i> Email Templates
+                <i class="bi bi-envelope me-2" aria-hidden="true"></i> {{ 'admin.forms.actions.emails' | transloco }}
             </a>
-            <button class="btn btn-outline-info quick-action-btn" (click)="exportUsers()">
-                <i class="bi bi-download me-2"></i> Export
+            <button type="button" class="btn btn-outline-info quick-action-btn" (click)="exportUsers()">
+                <i class="bi bi-download me-2" aria-hidden="true"></i> {{ 'admin.forms.signups.export' | transloco }}
             </button>
-            <button class="btn btn-outline-dark quick-action-btn" (click)="openSettings()">
-                <i class="bi bi-gear me-2"></i> Settings
+            <button type="button" class="btn btn-outline-dark quick-action-btn" (click)="openSettings()">
+                <i class="bi bi-gear me-2" aria-hidden="true"></i> {{ 'admin.forms.actions.edit' | transloco }}
             </button>
         </div>
     </section>
@@ -107,16 +107,16 @@
     <!-- Growth Insights -->
     <section class="dashboard-section">
         <div class="section-header">
-            <h2>Growth Insights</h2>
+            <h2>{{ 'admin.forms.dash.growth' | transloco }}</h2>
         </div>
         <div class="row g-2">
             <div class="col-6">
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon teal">
-                            <i class="bi bi-graph-up-arrow"></i>
+                            <i class="bi bi-graph-up-arrow" aria-hidden="true"></i>
                         </div>
-                        <div class="metric-title">Signups This Week</div>
+                        <div class="metric-title">{{ 'admin.forms.dash.this_week' | transloco }}</div>
                     </div>
                     <div class="metric-value">{{ signupsThisWeek() | number }}</div>
                 </div>
@@ -125,9 +125,9 @@
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon green">
-                            <i class="bi bi-percent"></i>
+                            <i class="bi bi-percent" aria-hidden="true"></i>
                         </div>
-                        <div class="metric-title">Verification Rate</div>
+                        <div class="metric-title">{{ 'admin.forms.dash.confirmed_rate' | transloco }}</div>
                     </div>
                     <div class="metric-value">{{ verificationRate() }}%</div>
                 </div>
@@ -138,12 +138,12 @@
     <!-- Source, Device & Behavioral Breakdown -->
     <section class="dashboard-section">
         <div class="section-header">
-            <h2>User Insights</h2>
+            <h2>{{ 'admin.forms.dash.insights' | transloco }}</h2>
         </div>
         <div class="row g-2">
             <div class="col-md-3 d-flex flex-column">
                 <div class="metric-card flex-grow-1">
-                    <h6 class="breakdown-label mb-2">Traffic Sources</h6>
+                    <h6 class="breakdown-label mb-2">{{ 'admin.forms.dash.sources' | transloco }}</h6>
                     @if (sourceBreakdown().length) {
                     @for (source of sourceBreakdown(); track source.name) {
                     <div class="breakdown-item">
@@ -157,13 +157,13 @@
                     </div>
                     }
                     } @else {
-                    <div class="text-center text-muted py-3">No data</div>
+                    <div class="text-center text-muted py-3">{{ 'admin.forms.dash.no_data' | transloco }}</div>
                     }
                 </div>
             </div>
             <div class="col-md-3 d-flex flex-column">
                 <div class="metric-card flex-grow-1">
-                    <h6 class="breakdown-label mb-2">Device Types</h6>
+                    <h6 class="breakdown-label mb-2">{{ 'admin.forms.dash.devices' | transloco }}</h6>
                     @if (deviceBreakdown().length) {
                     @for (device of deviceBreakdown(); track device.name) {
                     <div class="breakdown-item">
@@ -177,7 +177,7 @@
                     </div>
                     }
                     } @else {
-                    <div class="text-center text-muted py-3">No data</div>
+                    <div class="text-center text-muted py-3">{{ 'admin.forms.dash.no_data' | transloco }}</div>
                     }
                 </div>
             </div>
@@ -185,9 +185,9 @@
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon teal">
-                            <i class="bi bi-arrow-repeat"></i>
+                            <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
                         </div>
-                        <div class="metric-title">Avg. Return Visits</div>
+                        <div class="metric-title">{{ 'admin.forms.dash.avg_visits' | transloco }}</div>
                     </div>
                     <div class="metric-value">{{ avgReturnVisits() }}</div>
                 </div>
@@ -196,9 +196,9 @@
                 <div class="metric-card">
                     <div class="metric-card-header">
                         <div class="metric-icon orange">
-                            <i class="bi bi-clock-history"></i>
+                            <i class="bi bi-clock-history" aria-hidden="true"></i>
                         </div>
-                        <div class="metric-title">Avg. Time on Page</div>
+                        <div class="metric-title">{{ 'admin.forms.dash.avg_time' | transloco }}</div>
                     </div>
                     <div class="metric-value">{{ avgTimeOnPage() }}</div>
                 </div>
@@ -211,17 +211,17 @@
         <div class="row g-2">
             <div class="col-12 d-flex flex-column">
                 <div class="section-header">
-                    <h2>Recent Signups</h2>
-                    <a [routerLink]="['/admin/waitlists/users', waitlistId()]">View All &rarr;</a>
+                    <h2>{{ 'admin.forms.dash.recent' | transloco }}</h2>
+                    <a [routerLink]="['/admin/waitlists/users', waitlistId()]">{{ 'admin.forms.dash.view_all' | transloco }}</a>
                 </div>
                 <div class="activity-table flex-grow-1">
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Status</th>
-                                <th>Signed Up</th>
+                                <th>{{ 'common.table.name' | transloco }}</th>
+                                <th>{{ 'common.table.email' | transloco }}</th>
+                                <th>{{ 'common.table.status' | transloco }}</th>
+                                <th>{{ 'admin.forms.signups.col.signed_up' | transloco }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -232,14 +232,14 @@
                                 <td>
                                     <span class="badge"
                                         [class]="user.emailVerified ? 'bg-success' : (user.isConfirmed ? 'bg-info' : 'bg-warning text-dark')">
-                                        {{ user.emailVerified ? 'Verified' : (user.isConfirmed ? 'Confirmed' : 'Pending') }}
+                                        {{ (user.emailVerified ? 'admin.forms.status.verified' : (user.isConfirmed ? 'admin.forms.status.confirmed' : 'admin.forms.status.pending')) | transloco }}
                                     </span>
                                 </td>
                                 <td>{{ getTimeAgo(user.signupTimestamp) }}</td>
                             </tr>
                             } @empty {
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">No signups yet</td>
+                                <td colspan="4" class="text-center text-muted py-4">{{ 'admin.forms.signups.empty_title' | transloco }}</td>
                             </tr>
                             }
                         </tbody>

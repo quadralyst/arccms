@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Brand the admin | Arc CMS docs</title>
-  <meta name="description" content="Give the admin your app's colours, name and logo, and every browser tab your site's name, from the custom space and Settings, About.">
+  <meta name="description" content="Give the admin your app's colours, name and logo, and every browser tab your site's name, from the custom space and Settings, Site details.">
   <meta name="docs:sources" content="src/admin-theme.css, src/styles.css, src/shared/components/side-navbar/side-navbar.component.html, src/shared/components/side-navbar/side-navbar.component.scss, src/shared/components/side-navbar/side-navbar.component.ts, src/app/core/brand/site-brand.ts, src/app/core/version/app-version.ts, src/app/core/brand/app-brand-files.ts, src/app/core/brand/brand-title.strategy.ts, src/custom/brand.ts, scripts/vite-app-title.ts, index.html, src/app/pages/admin/(settings)/about/about-settings.page.ts, src/app/pages/(onboarding)/onboarding.page.scss">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/admin-look.html">
   <main>
     <h1>Brand the admin</h1>
-    <p class="lead">The admin at <code>/admin</code> is Arc CMS's blue, with Arc CMS's name and logo at the top of its side panel, until you change them. Colours come from your stylesheet in the custom space, the name and logo from Settings, About or the custom space, and none of it is a core file.</p>
+    <p class="lead">The admin at <code>/admin</code> is Arc CMS's blue, with Arc CMS's name and logo at the top of its side panel, until you change them. Colours come from your stylesheet in the custom space, the name and logo from Settings, Site details or the custom space, and none of it is a core file.</p>
 
     <h2 id="colours">Colours</h2>
     <p>Set these on <code>:root</code> in <code class="new">src/custom/styles.css</code>, which loads after Arc CMS's styles. For a teal app:</p>
@@ -44,7 +44,7 @@
     <h2 id="name-and-logo">Name and logo</h2>
     <p>The top of the side panel, the sign-in page, the member area, every browser tab and the <code>og:site_name</code> of content pages show the same name and logo. Each is taken from the first of these that has one:</p>
     <ol>
-      <li><strong>Settings, About</strong>: the site name, and the logo URL (with <strong>Choose from media</strong> to pick it from the media library). An admin changes them there, with no code and no deploy; after saving, the panel shows them at once.</li>
+      <li><strong>Settings, Site details</strong>: the site name, and the logo URL (with <strong>Choose from media</strong> to pick it from the media library). An admin changes them there, with no code and no deploy; after saving, the panel shows them at once.</li>
       <li><strong>The app's default</strong>: <code>name</code> in <code>src/custom/brand.ts</code>, and the logo file <code class="new">src/custom/logo.svg</code>, <code class="new">logo.png</code> or <code class="new">logo.webp</code>.</li>
       <li><strong>Arc CMS's</strong> name and logo, only when nothing above gives a name or a logo. A name with no logo shows the name alone, never beside Arc CMS's logo.</li>
     </ol>
@@ -53,10 +53,10 @@
 export const CUSTOM_BRAND: CustomBrand = {
     name: 'Acme Studio',
 };</code></pre>
-    <p>Your app's name and logo are known when it is built, so they show at once, with the menu; Settings, About replaces them when it has loaded and differs. With neither, nothing shows until Settings, About has loaded, so Arc CMS's name never flashes before a site's own.</p>
+    <p>Your app's name and logo are known when it is built, so they show at once, with the menu; Settings, Site details replaces them when it has loaded and differs. With neither, nothing shows until Settings, Site details has loaded, so Arc CMS's name never flashes before a site's own.</p>
 
-    <h3 id="version">The version under Logout</h3>
-    <p>When the app has a version, the open side panel shows it under Logout, such as <code>v1.2.0.25 web</code> (<a href="version.html">Version and build number</a>). An app that shows it somewhere of its own can turn this one off:</p>
+    <h3 id="version">The version under Sign out</h3>
+    <p>When the app has a version, the open side panel shows it under Sign out, such as <code>v1.2.0.25 web</code> (<a href="version.html">Version and build number</a>). An app that shows it somewhere of its own can turn this one off:</p>
     <pre><code>export const CUSTOM_BRAND: CustomBrand = {
     name: 'Acme Studio',
     showVersion: false,

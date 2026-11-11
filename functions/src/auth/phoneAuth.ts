@@ -291,6 +291,8 @@ export const resetPin = onCall(async (request) => {
     }
     const uid = String(account.data['uid']);
     await storePin(uid, pin);
+    // The code proved the number: one an admin put in (adminSetPhone) is verified now.
+    if (account.data['phoneVerified'] !== true) await account.ref.update({ phoneVerified: true });
     // A reset is how someone who lost control of their PIN gets it back, so end
     // every other session and forget every device: whoever used the old PIN is
     // signed out within the hour, and needs a code to try a PIN again.

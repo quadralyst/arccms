@@ -10,6 +10,8 @@ import {
 } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslatablePipe } from '../../../../../app/core/i18n/translatable.pipe';
 
 @Component({
   selector: 'app-add-youtube',
@@ -30,6 +32,8 @@ import { MatInputModule } from '@angular/material/input';
     MatDialogContent,
     MatDialogActions,
     MatDialogClose,
+    TranslocoPipe,
+    TranslatablePipe,
   ],
 })
 export class UrlAddDialog {

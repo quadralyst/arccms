@@ -12,7 +12,7 @@ import { PageHeaderComponent } from '../../../../shared/components/page-header/p
 import { roleGuard } from '../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Data Management',
+    title: 'Data',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };

@@ -6,6 +6,9 @@
 
 import { UserRole, UserStatus } from '../../../../shared/components/base/base.component';
 import { IBaseModel, OmitCommonFields } from '../../../../shared/models/base-model';
+import type { TranslationKey } from '../../../core/i18n/translation-keys';
+import { minPasswordLength, type PasswordProblem } from '../../../../shared/utils/password-rule';
+import type { SignInStrength } from '../../../../shared/utils/sign-in-strength';
 
 export interface IUser extends IBaseModel {
     email: string;
@@ -32,12 +35,12 @@ export interface IUser extends IBaseModel {
     selfService?: boolean;
     /**
      * The admin UI language this person reads (M-D11). Independent of the
-     * languages the site publishes in — see core/i18n/admin-language.service.ts.
+     * languages the site publishes in: see core/i18n/admin-language.service.ts.
      */
     preferredLanguage?: string;
 
     // ── Premium entitlement (written ONLY by Cloud Functions; clients cannot set these) ──
-    /** Master gate — true when the user currently holds a paid entitlement. */
+    /** Master gate: true when the user currently holds a paid entitlement. */
     isPro?: boolean;
     /** The single active tier key, e.g. 'plus' | 'gold' | 'platinum'. */
     premiumType?: string;
@@ -47,7 +50,7 @@ export interface IUser extends IBaseModel {
     premiumExpiresAt?: Date;
     /** One-time purchases: end of the included free-updates window (access is lifetime). */
     updatesUntil?: Date;
-    /** Grandfathering audit trail — the deal locked in at purchase. */
+    /** Grandfathering audit trail: the deal locked in at purchase. */
     premiumTierLabel?: string;
     premiumDiscountCode?: string;
     /** Prepaid credit balance (sum of the CreditLedger; written only by Cloud Functions). */
@@ -106,4 +109,82 @@ export function accountKindConditions(kind: AccountKind): Array<{ field: string;
     if (kind === 'people') return [{ field: 'by', operator: '!=', value: APP_ACCOUNT_SOURCE }];
     if (kind === 'app') return [{ field: 'by', operator: '==', value: APP_ACCOUNT_SOURCE }];
     return [];
+}
+
+/**
+ * The reasons the users callables refuse with (functions/src/users/adminUserAccess.ts,
+ * adminSetPhone.ts, adminCreateUser.ts, adminSetPassword.ts), and what the page says.
+ */
+const USER_REFUSALS: Record<string, TranslationKey> = {
+    'last-admin': 'admin.users.errors.last_admin',
+    'own-account': 'admin.users.errors.own_account',
+    'unverified-account': 'admin.users.errors.unverified_account',
+    'app-managed': 'admin.users.errors.app_managed',
+    'shared-account': 'admin.users.errors.shared_account',
+    'no-account': 'admin.users.errors.no_account',
+    'no-email': 'admin.users.errors.no_email',
+    'pin-sign-in': 'admin.users.errors.pin_sign_in',
+    'number-taken': 'admin.users.errors.number_taken',
+    'invalid-number': 'admin.users.errors.invalid_number',
+    'country-not-allowed': 'admin.users.errors.country_not_allowed',
+    'not-active-admin': 'admin.users.errors.not_active_admin',
+    'detached': 'admin.users.errors.detached',
+};
+
+/** Refusals that carry no reason, known by their code alone. */
+const USER_REFUSAL_CODES: Record<string, TranslationKey> = {
+    'functions/already-exists': 'admin.users.errors.already_exists',
+    'functions/not-found': 'admin.users.errors.not_found',
+    'functions/invalid-argument': 'admin.users.errors.check_details',
+};
+
+/** What is wrong with a password an admin typed, in the admin's words (the member's are member.auth.password_error). */
+const PASSWORD_PROBLEMS: Record<PasswordProblem, TranslationKey> = {
+    short: 'admin.users.password_errors.short',
+    repeated: 'admin.users.password_errors.repeated',
+    sequence: 'admin.users.password_errors.sequence',
+    common: 'admin.users.password_errors.common',
+    personal: 'admin.users.password_errors.personal',
+};
+
+/** The translated reason a password an admin typed for someone is refused. */
+export function passwordProblemMessage(problem: PasswordProblem | null | undefined, t: (key: TranslationKey, params?: Record<string, unknown>) => string, strength: SignInStrength = 'strict'): string {
+    return t(PASSWORD_PROBLEMS[problem ?? 'short'] ?? PASSWORD_PROBLEMS.short, { min: minPasswordLength(strength) });
+}
+
+/**
+ * What to tell an admin when a users callable failed: the refusal's reason in their
+ * language (a weak password says what is wrong with it), or what its code means,
+ * or else `fallback`. Never the server's English: the technical detail stays in the console.
+ */
+export function userActionError(error: unknown, t: (key: TranslationKey, params?: Record<string, unknown>) => string, fallback: TranslationKey): string {
+    const failure = error as { code?: unknown; details?: { reason?: unknown; problem?: unknown; min?: unknown } } | null;
+    const details = failure?.details;
+    const reason = typeof details?.reason === 'string' ? details.reason : '';
+    if (reason === 'weak-password') {
+        const problem = typeof details?.problem === 'string' && details.problem in PASSWORD_PROBLEMS ? details.problem as PasswordProblem : 'short';
+        return t(PASSWORD_PROBLEMS[problem], { min: typeof details?.min === 'number' ? details.min : minPasswordLength() });
+    }
+    const key = USER_REFUSALS[reason] ?? (reason ? undefined : USER_REFUSAL_CODES[typeof failure?.code === 'string' ? failure.code : '']);
+    return t(key ?? fallback, details as Record<string, unknown> | undefined);
+}
+
+/**
+ * The roles Add user and Edit user offer: the known roles (Settings, Users), and the
+ * role the record has now when it is another one, so saving never changes it unasked.
+ */
+export function roleChoices(known: ReadonlyArray<{ id: string }>, current?: string | null): string[] {
+    const ids = known.map((role) => role.id);
+    return current && !ids.includes(current) ? [...ids, current] : ids;
+}
+
+/**
+ * The translated name of a role. One the admin pages do not name reads as words from
+ * its id, in sentence case: `propertyOwner` is "Property owner".
+ */
+export function roleLabel(role: string, t: (key: TranslationKey) => string): string {
+    if (role === 'admin') return t('admin.users.roles.admin');
+    if (role === 'user') return t('admin.users.roles.user');
+    const words = role.replace(/([a-z\d])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim().toLowerCase();
+    return words ? words.charAt(0).toUpperCase() + words.slice(1) : role;
 }

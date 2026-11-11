@@ -26,7 +26,7 @@ import { DEFAULT_SMS_FORM, MAX_SMS_DAILY_LIMIT, SmsSettingsForm, SmsSettingsServ
         <div class="settings-section">
             <h3 class="mb-2">{{ 'admin.settings.sms.title' | transloco }}</h3>
             <p class="text-muted mb-2">{{ 'admin.settings.sms.intro' | transloco }}</p>
-            <!-- The phone sign-in switch is in User Settings: say where it stands, and link to it. -->
+            <!-- The phone sign-in switch is in Sign-up and roles: say where it stands, and link to it. -->
             <p class="mb-4 phone-status">
                 @if (phoneSignIn()) {
                     <i class="fa-solid fa-circle-check text-success me-1"></i>{{ 'admin.settings.sms.phone_on' | transloco }}
@@ -233,15 +233,18 @@ export class SmsSettingsPage implements OnInit {
         try {
             const result = await this.service.sendTest(this.testNumber());
             this.testFailed.set(result.status === 'failed' || result.status === 'limited');
+            // The provider's own reply stays in the console; the admin reads what to check.
+            if (result.status === 'failed') console.warn('SMS test not sent:', result.error);
             this.testMessage.set(
-                result.status === 'failed' ? this.t('admin.settings.sms.test_failed', { error: result.error ?? '' })
+                result.status === 'failed' ? this.t('admin.settings.sms.test_failed')
                     : result.status === 'limited' ? this.t('admin.settings.sms.test_limited')
                         : result.status === 'logged' ? this.t('admin.settings.sms.test_logged')
                             : this.t('admin.settings.sms.test_sent'),
             );
         } catch (err: any) {
+            console.error('SMS test failed:', err);
             this.testFailed.set(true);
-            this.testMessage.set(this.t('admin.settings.sms.test_failed', { error: err?.message ?? '' }));
+            this.testMessage.set(this.t('admin.settings.sms.test_failed'));
         } finally {
             this.testing.set(false);
         }

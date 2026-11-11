@@ -135,29 +135,22 @@ describe('EditorImageUploadService', () => {
     });
 
     describe('showError', () => {
-        it("shows the upload's own reason for a wrong type or a file too large", () => {
+        it('says a file is too large, or the wrong type, in the admin language, not the English check text', () => {
             service.showError(file, new Error('File size (9.0 MB) exceeds the maximum allowed size (5 MB).'));
-            expect(notify.error).toHaveBeenCalledWith('admin.media.editor_upload_failed', {
-                name: 'Team Photo.jpg',
-                reason: 'File size (9.0 MB) exceeds the maximum allowed size (5 MB).',
-            });
+            expect(notify.error).toHaveBeenCalledWith('admin.media.problem.too_large_named', expect.objectContaining({ name: 'Team Photo.jpg' }));
+            service.showError(file, new Error('Invalid file type. Allowed types: JPEG, PNG, WebP, GIF.'));
+            expect(notify.error).toHaveBeenCalledWith('admin.media.problem.type', { name: 'Team Photo.jpg' });
         });
 
         it('passes a file name that looks like HTML through unchanged, since the toast shows it as text', () => {
             service.showError(new File(['x'], '<img src=x onerror=alert(1)>.png', { type: 'image/png' }), new Error('Failed to load image.'));
-            expect(notify.error).toHaveBeenCalledWith('admin.media.editor_upload_failed', {
-                name: '<img src=x onerror=alert(1)>.png',
-                reason: 'Failed to load image.',
-            });
+            expect(notify.error).toHaveBeenCalledWith('admin.media.problem.upload_named', { name: '<img src=x onerror=alert(1)>.png' });
         });
 
         it('shows a plain sentence, not a Firebase code, when Storage fails', () => {
             const storageError = Object.assign(new Error('Firebase Storage: An unknown error occurred (storage/unknown)'), { code: 'storage/unknown' });
             service.showError(file, storageError);
-            expect(notify.error).toHaveBeenCalledWith('admin.media.editor_upload_failed', {
-                name: 'Team Photo.jpg',
-                reason: 'the upload did not finish. Check your connection and try again.',
-            });
+            expect(notify.error).toHaveBeenCalledWith('admin.media.problem.upload_named', { name: 'Team Photo.jpg' });
         });
     });
 

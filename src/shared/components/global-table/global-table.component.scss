@@ -21,13 +21,61 @@
         padding: 16px;
 
         &.sortable-header {
-            cursor: pointer;
-            user-select: none;
+            // The button fills the cell, so the whole heading is the target.
+            padding: 0;
 
             &:hover {
                 background: #f1f3f5;
             }
         }
+    }
+
+    // A sortable heading is a real button (keyboard, screen readers), styled as the heading.
+    .sort-btn {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        min-height: 44px;
+        padding: 16px;
+        border: none;
+        background: none;
+        font: inherit;
+        color: inherit;
+        text-transform: inherit;
+        text-align: start;
+        cursor: pointer;
+        user-select: none;
+
+        &:focus-visible {
+            outline: 2px solid var(--arc-admin-accent);
+            outline-offset: -2px;
+        }
+
+        .sort-idle {
+            opacity: 0.45;
+        }
+    }
+
+    // The actions column at the end of a row stays pinned to the right edge
+    // while a wide table scrolls sideways on a phone, so the actions stay in reach.
+    th.sticky-actions,
+    td.sticky-actions {
+        position: sticky;
+        right: 0;
+        z-index: 1;
+    }
+
+    th.sticky-actions {
+        background: #f9fafb;
+    }
+
+    td.sticky-actions {
+        background: #fff;
+        box-shadow: -6px 0 6px -6px rgba(0, 0, 0, 0.18);
+    }
+
+    tbody tr:hover td.sticky-actions {
+        background: #f8fafc;
     }
 
     td {
@@ -115,6 +163,46 @@ code {
 /* Empty & Loading States */
 .loading-state {
     padding: 12px 16px;
+}
+
+/* Error state: the list did not load. Full size with no rows; one line above the rows otherwise. */
+.error-state {
+    padding: 48px 20px;
+    text-align: center;
+
+    .main_icon {
+        display: block;
+        font-size: 40px;
+        color: #b45309;
+        margin: 0 auto 16px;
+    }
+
+    h3 {
+        margin: 0 0 8px;
+        color: #333;
+    }
+
+    p {
+        color: #555;
+        margin: 0 0 20px;
+    }
+
+    &.error-inline {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px 16px;
+        padding: 12px 16px;
+        text-align: start;
+        background: #fff7ed;
+        border-bottom: 1px solid #fed7aa;
+
+        p {
+            margin: 0;
+            color: #7c2d12;
+        }
+    }
 }
 
 .empty-state {

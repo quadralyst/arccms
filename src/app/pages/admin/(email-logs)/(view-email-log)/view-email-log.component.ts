@@ -6,6 +6,10 @@ import { ArcStorage } from '../../../../core/config/arc-storage';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { injectT } from '../../../../core/i18n/inject-t';
+import { isTranslationKey } from '../../../../core/i18n/translatable.pipe';
+import { statusBadgeLabel } from '../../../../../shared/utils/status-badge';
 
 import { EmailLogStore } from '../email-log.store';
 import { fileSize, IEmailLog, sentSubject } from '../email-log.model';
@@ -31,7 +35,7 @@ function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
 @Component({
     selector: 'arc-view-email-log',
     standalone: true,
-    imports: [LoaderComponent, CommonModule, MatIconModule, MatButtonModule],
+    imports: [LoaderComponent, CommonModule, MatIconModule, MatButtonModule, TranslocoPipe],
     templateUrl: './view-email-log.component.html',
     styleUrl: './view-email-log.component.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -45,6 +49,7 @@ export default class ViewEmailLogComponent implements OnChanges {
     private readonly arcTime = inject(ArcTime);
     private readonly arcStorage = inject(ArcStorage);
     private readonly injector = inject(Injector);
+    private readonly t = injectT();
 
     log = computed<IEmailLog | null>(() => this.emailLogStore.currentItem() as IEmailLog | null);
     /** The email as stored: what was sent when the log has it, else the template it was made from. */
@@ -87,8 +92,14 @@ export default class ViewEmailLogComponent implements OnChanges {
     }
 
     getStatusLabel(status?: string): string {
-        if (!status) return 'Pending';
-        return status.charAt(0).toUpperCase() + status.slice(1);
+        if (!status) return this.t('admin.email_logs.status.pending');
+        const key = `admin.email_logs.status.${status}`;
+        return isTranslationKey(key) ? this.t(key) : statusBadgeLabel(status);
+    }
+
+    /** Shown for a blank subject. */
+    noSubject(): string {
+        return this.t('admin.email_logs.no_subject');
     }
 
     formatDate(date: any): string {

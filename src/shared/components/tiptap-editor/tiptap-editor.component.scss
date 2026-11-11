@@ -162,7 +162,7 @@
 ::ng-deep .ProseMirror.is-editor-empty::before {
   content: attr(data-placeholder);
   float: left;
-  color: #adb5bd;
+  color: #6c757d;
   pointer-events: none;
   height: 0;
   font-style: normal;
@@ -171,7 +171,7 @@
 ::ng-deep .ProseMirror .is-empty::before {
   content: attr(data-placeholder);
   float: left;
-  color: #adb5bd;
+  color: #6c757d;
   pointer-events: none;
   height: 0;
   font-style: normal;
@@ -180,7 +180,7 @@
 ::ng-deep .ProseMirror p.is-empty::before {
   content: attr(data-placeholder);
   float: left;
-  color: #adb5bd;
+  color: #6c757d;
   pointer-events: none;
   height: 0;
   font-style: normal;
@@ -232,7 +232,7 @@
 ::ng-deep .ProseMirror .is-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #ADB5BD;
+  color: #6c757d;
   pointer-events: none;
   height: 0;
   font-style: normal;

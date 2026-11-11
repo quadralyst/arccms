@@ -1,3 +1,4 @@
+import { TranslocoPipe } from '@jsverse/transloco';
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnDestroy, OnInit, computed, forwardRef, inject, signal } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
@@ -30,7 +31,7 @@ const MAX_OPTIONS = 60;
 @Component({
     selector: 'arc-icon-picker',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, TranslocoPipe],
     templateUrl: './icon-picker.component.html',
     styleUrl: './icon-picker.component.scss',
     providers: [
@@ -42,7 +43,8 @@ const MAX_OPTIONS = 60;
     ]
 })
 export class IconPickerComponent implements ControlValueAccessor, OnInit, OnDestroy {
-    @Input() placeholder = 'Search icons... (e.g., folder, file, image)';
+    /** The search box's hint; '' for the standard one (common.icon_picker.search). */
+    @Input() placeholder = '';
 
     private icons = inject(IconLibraryService);
 

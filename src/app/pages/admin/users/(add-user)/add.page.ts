@@ -13,16 +13,19 @@ import { SiteBrandService } from '../../../../core/brand/site-brand';
 import { ChangeDetectionStrategy, Component, EventEmitter, inject, Input, input, Output, signal } from '@angular/core';
 import { Functions } from '@angular/fire/functions';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { BaseComponent } from '../../../../../shared/components/base/base.component';
+import { BaseComponent, UserRole } from '../../../../../shared/components/base/base.component';
 import { UserStore } from '../user.store';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { roleGuard } from '../../../../guards/role.guard';
 import { newPasswordValidator, passwordProblemOf, sameAsValidator } from '../../../../../shared/utils/password-validator';
-import { passwordProblemText } from '../../../../../shared/utils/password-rule';
+import { minPasswordLength } from '../../../../../shared/utils/password-rule';
 import { SIGN_IN_STRENGTH } from '../../../../core/sign-in/sign-in-strength';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { AVAILABLE_ROLES } from '../../(settings)/user-setting/user-setting.model';
+import { passwordProblemMessage, roleChoices, roleLabel, userActionError } from '../user.model';
 
 export const routeMeta: RouteMeta = {
-    title: 'Add User',
+    title: 'Add user',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -30,7 +33,7 @@ export const routeMeta: RouteMeta = {
 @Component({
     selector: 'arc-add-user',
     standalone: true,
-    imports: [ReactiveFormsModule],
+    imports: [ReactiveFormsModule, TranslocoPipe],
     templateUrl: './add-user.html',
     styleUrl: './add-user.scss',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -47,6 +50,21 @@ export default class AddUserComponent extends BaseComponent {
     saving = signal(false);
     errorMessages: string[] = [];
     alreadyExist: any;
+    /** The roles to choose from (Settings, Users lists them): a second admin can be made here. */
+    /**
+     * The known roles, and the role of the list this was opened from (users/[role],
+     * such as propertyOwner) when it is another role Arc CMS knows, so the person is
+     * added to the list the admin is looking at.
+     */
+    get roleOptions(): string[] {
+        return roleChoices(AVAILABLE_ROLES, this.listRole());
+    }
+
+    /** The role of the list this was opened from, when it is one Arc CMS knows. */
+    private listRole(): string | null {
+        return this.role && (Object.values(UserRole) as string[]).includes(this.role) ? this.role : null;
+    }
+    readonly roleName = (role: string) => roleLabel(role, (key) => this.t(key));
 
     // Add form
     addForm: FormGroup = new FormGroup({
@@ -56,6 +74,7 @@ export default class AddUserComponent extends BaseComponent {
         password: new FormControl('', [Validators.required, newPasswordValidator(() => ({ email: this.addForm?.value.email, name: this.addForm?.value.name }))]),
         // Typed twice, so a typo never sets a password nobody knows.
         confirmPassword: new FormControl('', [Validators.required, sameAsValidator(() => this.addForm?.get('password')?.value)]),
+        role: new FormControl('user', { nonNullable: true }),
     });
 
     // Getter methods for form controls
@@ -65,9 +84,12 @@ export default class AddUserComponent extends BaseComponent {
     get email() {
         return this.addForm.get('email');
     }
-    /** Why the temporary password was refused. */
+    /** The shortest password the site takes, for the hint in the box. */
+    readonly minPassword = minPasswordLength(SIGN_IN_STRENGTH);
+
+    /** Why the temporary password was refused, in the admin's language. */
     passwordError(): string {
-        return passwordProblemText(passwordProblemOf(this.password) ?? 'short', SIGN_IN_STRENGTH);
+        return passwordProblemMessage(passwordProblemOf(this.password), (key, params) => this.t(key, params), SIGN_IN_STRENGTH);
     }
 
     get password() {
@@ -78,6 +100,9 @@ export default class AddUserComponent extends BaseComponent {
     }
 
     ngOnInit(): void {
+        // A list opened for one role (users/[role]) adds that role unless the admin picks another.
+        const listRole = this.listRole();
+        if (listRole) this.addForm.controls['role'].setValue(listRole);
         // A change to the password checks the copy again.
         this.password?.valueChanges.subscribe(() => this.confirmPassword?.updateValueAndValidity({ emitEvent: false }));
         this.addForm.valueChanges.subscribe((value) => {
@@ -109,22 +134,25 @@ export default class AddUserComponent extends BaseComponent {
     }
 
     private async create(): Promise<void> {
-        const { name, email, password } = this.addForm.value;
+        const { name, email, password, role } = this.addForm.value;
         this.saving.set(true);
         try {
             const res = await arcCallable<
                 { name: string; email: string; password: string; role: string },
                 { id: string; uid: string; reusedAccount: boolean }
-            >(this.functions, 'adminCreateUser')({ name, email, password, role: this.role || 'user' });
-            this.toastService.success(res.data.reusedAccount
-                ? 'User added. This address already had a sign-in account, so they keep their existing password.'
-                : 'User created. Share the temporary password with them.');
+            >(this.functions, 'adminCreateUser')({ name, email, password, role: role || 'user' });
+            this.toastService.success(this.t(res.data.reusedAccount ? 'admin.users.created_reused' : 'admin.users.created'));
             this.addForm.reset();
             this.close.emit();
         } catch (error: any) {
             console.error('Error creating user:', error);
             if (error?.code === 'functions/already-exists') this.alreadyExist = true;
-            this.toastService.error(error?.message || 'Failed to create user.');
+            // The server refuses in English; the admin reads why in their own language.
+            // An unverified sign-in can still be added as a User: say so, not Edit user's way out.
+            const unverified = (error as { details?: { reason?: unknown } } | null)?.details?.reason === 'unverified-account';
+            this.toastService.error(unverified
+                ? this.t('admin.users.errors.unverified_add')
+                : userActionError(error, (key, params) => this.t(key, params), 'admin.users.create_failed'));
         } finally {
             this.saving.set(false);
         }

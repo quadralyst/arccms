@@ -11,6 +11,9 @@ const SHOWN = 24;
  * AM-D33): each look's picture, name and gender, with a search. In choose mode each has Use,
  * which hands its id to the purpose's avatar it is being chosen for.
  */
+/** error() when the call itself failed, as opposed to the server's own reason. */
+const FAILED = '\u0000failed';
+
 @Component({
     selector: 'arc-ai-avatars',
     standalone: true,
@@ -20,7 +23,7 @@ const SHOWN = 24;
             @switch (state()) {
                 @case ('loading') { <div class="small text-muted"><i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'admin.settings.ai.avatars_loading' | transloco }}</div> }
                 @case ('failed') {
-                    <div class="small text-danger avatars-error" role="alert">{{ 'admin.settings.ai.avatars_failed' | transloco: { detail: error() } }}</div>
+                    <div class="small text-danger avatars-error" role="alert">@if (error() === FAILED) { {{ 'admin.settings.ai.avatars_failed_plain' | transloco }} } @else { {{ 'admin.settings.ai.avatars_failed' | transloco: { detail: error() } }} }</div>
                     <button type="button" class="btn btn-link btn-sm p-0 avatars-retry" (click)="load(true)">{{ 'admin.settings.ai.refresh' | transloco }}</button>
                 }
                 @default {
@@ -42,7 +45,7 @@ const SHOWN = 24;
                                 </div>
                                 @if (mode() === 'choose') {
                                     <button type="button" class="btn btn-sm btn-outline-primary use" (click)="picked.emit(a.id)" [disabled]="a.id === chosen()">
-                                        {{ (a.id === chosen() ? 'admin.settings.ai.voice_in_use' : 'admin.settings.ai.voice_use') | transloco }}
+                                        {{ (a.id === chosen() ? 'admin.settings.ai.voice_chosen' : 'admin.settings.ai.voice_use') | transloco }}
                                     </button>
                                 }
                             </div>
@@ -66,6 +69,8 @@ const SHOWN = 24;
     `],
 })
 export class AiAvatarsComponent implements OnDestroy {
+    /** The list could not be asked for at all: a plain sentence, the detail is in the console. */
+    protected readonly FAILED = FAILED;
     private readonly service = inject(AiSettingsService);
 
     readonly connection = input.required<string>();
@@ -108,6 +113,7 @@ export class AiAvatarsComponent implements OnDestroy {
             const r = await this.service.avatars(this.connection(), fresh);
             if (this.destroyed || asked !== this.asked) return;
             if (!r.ok) {
+                // The server's reply is written to be read: it says why.
                 this.error.set(r.detail);
                 this.state.set('failed');
                 return;
@@ -116,7 +122,8 @@ export class AiAvatarsComponent implements OnDestroy {
             this.state.set('ready');
         } catch (err) {
             if (this.destroyed || asked !== this.asked) return;
-            this.error.set(String((err as Error)?.message ?? ''));
+            console.error('AI avatars not read:', err);
+            this.error.set(FAILED);
             this.state.set('failed');
         }
     }

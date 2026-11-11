@@ -38,6 +38,13 @@ export const routeMeta: RouteMeta = {
                     <p class="text-muted mb-0">{{ 'admin.search.no_query' | transloco }}</p>
                 } @else {
                     <h5 class="mb-1">{{ 'admin.search.results_for' | transloco: { query: query() } }}</h5>
+                    @if (failed() && !loading()) {
+                        <!-- The detail is in the console; the admin reads a plain sentence and can try again. -->
+                        <div class="alert alert-danger d-flex flex-wrap align-items-center gap-2 mt-3 mb-0" role="alert">
+                            <span class="flex-grow-1">{{ 'admin.search.failed' | transloco }}</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger" (click)="run(query())">{{ 'common.table.retry' | transloco }}</button>
+                        </div>
+                    } @else {
                     @if (!loading()) {
                         <p class="text-muted small mb-3">{{ 'admin.search.count' | transloco: { count: results().length, ms: tookMs() } }}</p>
                     }
@@ -49,6 +56,7 @@ export const routeMeta: RouteMeta = {
                         [loadingText]="'common.state.loading' | transloco"
                         [emptyText]="'admin.search.empty' | transloco: { query: query() }"
                         [showingForText]="'common.search.showing_for' | transloco"></arc-search-results>
+                    }
                 }
             </div>
         </div>
@@ -64,6 +72,8 @@ export default class AdminSearchPage implements OnInit, OnDestroy {
     readonly loading = signal(false);
     readonly tookMs = signal(0);
     readonly fallbackUsed = signal<string | null>(null);
+    /** The search did not run: the page says so with Retry, not "nothing matched". */
+    readonly failed = signal(false);
 
     ngOnInit(): void {
         this.subscription = this.route.queryParamMap.subscribe(params => {
@@ -75,10 +85,16 @@ export default class AdminSearchPage implements OnInit, OnDestroy {
         this.subscription?.unsubscribe();
     }
 
+    /** Each run's number: only the latest may change the page, so a slow older one never overwrites it. */
+    private runs = 0;
+
     async run(q: string): Promise<void> {
+        const run = ++this.runs;
         this.query.set(q);
+        this.failed.set(false);
         if (!this.searchService.isSearchable(q)) {
             this.results.set([]);
+            this.loading.set(false);
             return;
         }
         this.loading.set(true);
@@ -88,15 +104,17 @@ export default class AdminSearchPage implements OnInit, OnDestroy {
                 // drafts it already finds (specs/feature-flags-spec.md 6.4).
                 q, lang: 'all', scope: 'admin', except: ['content'], limit: 20,
             });
-            if (!response) return;
+            if (run !== this.runs || !response) return;
             this.results.set(response.results);
             this.tookMs.set(response.tookMs);
             this.fallbackUsed.set(response.fallbackUsed ?? null);
         } catch (error) {
             console.error('Search failed:', error);
+            if (run !== this.runs) return;
             this.results.set([]);
+            this.failed.set(true);
         } finally {
-            this.loading.set(false);
+            if (run === this.runs) this.loading.set(false);
         }
     }
 }

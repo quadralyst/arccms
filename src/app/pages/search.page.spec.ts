@@ -19,7 +19,7 @@ describe('PublicSearchPage', () => {
         searchMock = {
             isSearchable: (value: string) => value.trim().length >= 2,
             search: vi.fn().mockResolvedValue({
-                results: [{ source: 'content', docId: 'a', lang: lang || 'en', title: 'Gunjan Karun', link: '/people/gunjan', badge: 'People', score: 1, highlights: { title: [[0, 3]], snippet: [] } }],
+                results: [{ source: 'content', docId: 'a', lang: lang || 'en', title: 'Anjali Verma', link: '/people/anjali', badge: 'People', score: 1, highlights: { title: [[0, 3]], snippet: [] } }],
                 tookMs: 4,
             }),
         };
@@ -61,12 +61,12 @@ describe('PublicSearchPage', () => {
     beforeEach(() => TestBed.resetTestingModule());
 
     it('searches the default language on /search', async () => {
-        await setup('', 'kar');
+        await setup('', 'ver');
         expect(uiStrings.use).toHaveBeenCalledWith('');
-        expect(searchMock.search).toHaveBeenCalledWith({ q: 'kar', lang: 'en', scope: 'public', limit: 20 });
+        expect(searchMock.search).toHaveBeenCalledWith({ q: 'ver', lang: 'en', scope: 'public', limit: 20 });
         expect(component.results()).toHaveLength(1);
         expect(localization.languageVariants()).toEqual(['en', 'hi']);
-        expect(fixture.nativeElement.querySelector('.lead').textContent).toContain('"kar"');
+        expect(fixture.nativeElement.querySelector('.lead').textContent).toContain('"ver"');
     });
 
     it('searches the route language on /{lang}/search', async () => {

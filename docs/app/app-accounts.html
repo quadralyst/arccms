@@ -157,7 +157,7 @@ const { pos } = sessionClaims(request); // 'pos-2', or undefined when the sessio
     <p><code>revokeSessions(uid)</code> signs the person out on every device: their refresh tokens are revoked, so each session ends at its next token refresh, within the hour. Use it when a member of staff leaves or a device is lost. They can sign in again as usual afterwards.</p>
 
     <h2 id="delete-an-account">Delete an account</h2>
-    <p><code>deleteAppAccount(uid)</code> deletes the person's <code>users</code> record. Arc CMS's account deletion then does what it does for anyone (see <a href="account-contract.html#what-deleting-an-account-removes">Follow the account contract</a>): it ends their access, deletes the sign-in, their PIN and their data under the record, and last emits <code>user.deleted</code> with <code>userId</code> (the Auth uid) and <code>data.userDocId</code>. Clean up your own data from that event:</p>
+    <p><code>deleteAppAccount(uid)</code> deletes the person's <code>users</code> record, unless it is the site's last active admin: then it throws with the reason <code>last-admin</code>, since the site always keeps an admin. Arc CMS's account deletion then does what it does for anyone (see <a href="account-contract.html#what-deleting-an-account-removes">Follow the account contract</a>): it ends their access, deletes the sign-in, their PIN and their data under the record, and last emits <code>user.deleted</code> with <code>userId</code> (the Auth uid) and <code>data.userDocId</code>. Clean up your own data from that event:</p>
     <pre><code>export const onStaffDeleted = onDocumentCreated(arcDocument('AppEvents/{id}'), async (event) =&gt; {
   const e = event.data?.data();
   if (e?.['type'] !== 'user.deleted') return;

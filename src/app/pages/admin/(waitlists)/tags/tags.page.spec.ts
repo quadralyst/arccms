@@ -17,6 +17,8 @@ import WaitlistTagsComponent from './tags.page';
 import { WaitlistUserTagsStore } from '../joined-users/waitlist-user-tags.store';
 import { WaitlistUserTagsService } from '../joined-users/waitlist-user-tags.service';
 import { ConstantVariables } from '../../../../../shared/constants/common-constants';
+import { ConfirmService } from '../../../../../shared/components/confirmation-popup/confirm.service';
+import { NotifyService } from '../../../../../shared/services/notify.service';
 
 // Create mock store
 class MockWaitlistUserTagsStore {
@@ -24,6 +26,7 @@ class MockWaitlistUserTagsStore {
     items = signal<any[]>([]);
     isLoading = signal(false);
     totalRecords = signal(0);
+    error = signal('');
 
     setWaitlistId = vi.fn();
     getAll = vi.fn();
@@ -48,6 +51,8 @@ describe('WaitlistTagsComponent', () => {
     let mockDialog: any;
 
     const mockFirestore = {};
+    const confirmDialog = { ask: vi.fn(async () => true) };
+    const notify = { error: vi.fn(), success: vi.fn() };
     const mockAuth = {
         currentUser: { uid: 'test-user' }
     };
@@ -74,6 +79,8 @@ describe('WaitlistTagsComponent', () => {
                 { provide: Auth, useValue: mockAuth },
                 { provide: Router, useValue: mockRouter },
                 { provide: MatDialog, useValue: mockDialog },
+                { provide: ConfirmService, useValue: confirmDialog },
+                { provide: NotifyService, useValue: notify },
                 {
                     provide: ActivatedRoute,
                     useValue: {
@@ -187,8 +194,91 @@ describe('WaitlistTagsComponent', () => {
     });
 
 
-    // Delete item tests skipped - requires proper dialog mock integration
-    // The component uses inject(MatDialog) which makes mocking complex
+    describe('delete (RF4, 4.11)', () => {
+        const tag = { id: 't1', label: 'VIP <i>x</i>', color: '#FF0000' } as any;
+        const asked = () => (confirmDialog.ask.mock.calls.at(-1) as any[])[0];
+
+        beforeEach(() => {
+            confirmDialog.ask.mockClear();
+            notify.error.mockClear();
+        });
+
+        it('says how many sign-ups lose the tag, naming it safely', async () => {
+            vi.spyOn(component, 'signupsWithTag').mockResolvedValue(12);
+            await component.deleteItem(tag);
+            expect(asked().panelType).toBe('warn');
+            expect(asked().dialogMessage).toContain('12 sign-ups have it and will lose it');
+            expect(asked().dialogMessage).toContain('VIP &lt;i&gt;x&lt;/i&gt;');
+        });
+
+        it('has wording for one, none, and a count it could not read', async () => {
+            const spy = vi.spyOn(component, 'signupsWithTag');
+            spy.mockResolvedValueOnce(1);
+            await component.deleteItem(tag);
+            expect(asked().dialogMessage).toContain('1 sign-up has it');
+            spy.mockResolvedValueOnce(0);
+            await component.deleteItem(tag);
+            expect(asked().dialogMessage).toContain('No sign-ups have it');
+            spy.mockResolvedValueOnce(null);
+            await component.deleteItem(tag);
+            expect(asked().dialogMessage).toContain('Sign-ups that have it will lose it');
+        });
+
+        it('deletes only when confirmed, and says so when it fails', async () => {
+            vi.spyOn(component, 'signupsWithTag').mockResolvedValue(0);
+            const store = TestBed.inject(WaitlistUserTagsStore) as any;
+            confirmDialog.ask.mockResolvedValueOnce(false);
+            await component.deleteItem(tag);
+            expect(store.delete).not.toHaveBeenCalled();
+
+            store.delete.mockReturnValueOnce({ subscribe: (o: any) => o.error(new Error('denied')) });
+            await component.deleteItem(tag);
+            expect(store.delete).toHaveBeenCalledWith('t1');
+            expect(notify.error).toHaveBeenCalledWith('admin.forms.tag_delete_failed');
+        });
+    });
+
+    describe('load error and Retry (RF5, 5.1)', () => {
+        const table = () => fixture.debugElement.query((el) => el.name === 'app-global-table').componentInstance;
+
+        it('passes a failed load to the table as the standard error', () => {
+            expect(table().error).toBeNull();
+            (component.tagsStore as any).error.set('Missing or insufficient permissions.');
+            fixture.detectChanges();
+            expect(table().error).toBe(true);
+        });
+
+        it('Retry reads the tags again', () => {
+            const store = component.tagsStore as any;
+            store.getAll.mockClear();
+            table().retry.emit();
+            expect(store.getAll).toHaveBeenCalledTimes(1);
+        });
+
+        it('says so when adding or saving a tag fails, and reads the list again', () => {
+            const store = component.tagsStore as any;
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            notify.error.mockClear();
+            store.add.mockReturnValueOnce({ subscribe: (o: any) => o.error(new Error('denied')) });
+            component.newTagLabel = 'VIP';
+            store.getAll.mockClear();
+            component.quickAddTag();
+            expect(notify.error).toHaveBeenCalledWith('admin.forms.tags.add_failed');
+            expect(store.getAll).toHaveBeenCalled();
+
+            component.editingTag.set({ id: 't1', label: 'VIP', color: '#f00' } as any);
+            component.editLabel.set('VIP 2');
+            store.update.mockReturnValueOnce({ subscribe: (o: any) => o.error(new Error('denied')) });
+            component.saveEdit();
+            expect(notify.error).toHaveBeenCalledWith('admin.forms.tags.save_failed');
+        });
+
+        it('reads in the admin language, with column names as translation keys', () => {
+            const text = (fixture.nativeElement as HTMLElement).textContent || '';
+            expect(text).toContain('Add tag');
+            expect(component.tableColumns.filter((c) => c.header !== '#').every((c) => /^(admin|common)\./.test(c.header))).toBe(true);
+        });
+    });
 
     describe('record count', () => {
         it('should return 0 for start record when no records', () => {

@@ -5,6 +5,9 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { signal } from '@angular/core';
+import { Subject } from 'rxjs';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const sampleAppUsers = vi.hoisted(() => vi.fn());
 vi.mock('../../../core/config/arc-functions', () => ({ arcCallable: () => sampleAppUsers }));
@@ -46,5 +49,45 @@ describe('BroadcastsPage tags', () => {
         const c = page(['live']);
         await proto['refreshTags'].call(c);
         expect(c['broadcastTags']()).toEqual(BASE);
+    });
+});
+
+describe('BroadcastsPage list (RF5)', () => {
+    function list() {
+        const streams: Subject<unknown[]>[] = [];
+        const c: Record<string, any> = {
+            service: { watchRecent: vi.fn(() => { const s = new Subject<unknown[]>(); streams.push(s); return s; }) },
+            destroyRef: { onDestroy: () => () => undefined },
+            recent: signal<unknown[]>([]),
+            loading: signal(true),
+            loadError: signal<string | boolean | null>(null),
+        };
+        return { c, streams };
+    }
+
+    it('shows a failed read with Retry, and reads again on Retry', () => {
+        const { c, streams } = list();
+        (proto as any)['load'].call(c);
+        expect(c['service'].watchRecent).toHaveBeenCalledWith(20, { surfaceErrors: true });
+        streams[0].error(new Error('offline'));
+        expect(c['loadError']()).toBe(true);
+        expect(c['loading']()).toBe(false);
+        (proto as any)['load'].call(c);
+        expect(c['loadError']()).toBeNull();
+        streams[1].next([{ id: 'b1' }]);
+        expect(c['recent']()).toEqual([{ id: 'b1' }]);
+        expect(streams[0].observed).toBe(false);
+    });
+
+    it('passes the error and Retry to the table, and names the back button', () => {
+        const html = readFileSync(resolve(__dirname, 'broadcasts.page.html'), 'utf8');
+        expect(html).toContain('[error]="loadError()" (retry)="load()"');
+        expect(html).toContain(`[attr.aria-label]="'admin.broadcasts.back' | transloco"`);
+    });
+
+    it('names a status in the admin language', () => {
+        const c = { t: (key: string) => key };
+        expect((proto as any)['statusText'].call(c, 'completed')).toBe('admin.broadcasts.status.completed');
+        expect((proto as any)['statusText'].call(c, 'odd')).toBe('Odd');
     });
 });

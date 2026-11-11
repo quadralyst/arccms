@@ -8,6 +8,7 @@ import { chromeCardsSignature, chromeShowsType } from '../pages/card-blocks.js';
 import { generateAndDeployContentDetailPage, removeContentPage } from '../pages/deployContentPage.js';
 import { HostingBatch, deployBatchToHosting, type DeployBatchOptions } from '../pages/deployToHosting.js';
 import { generateAndDeployContentListPage } from '../pages/deployContentListPage.js';
+import { moveContentPage } from '../pages/moved-page.js';
 import { rebuildPagesShowingItemsOf, typesShowingItemsOf } from '../pages/items-from-type-pages.js';
 import { generateAndDeployStaticPage, staticPageSlugs } from '../pages/deployStaticPage.js';
 import { generateAndDeploySitemap } from '../pages/generateSitemap.js';
@@ -376,6 +377,68 @@ async function addDiscoverabilityFiles(batch: HostingBatch): Promise<void> {
     }
 }
 
+/** The address of an entry's live page, '' when it has none. */
+async function publishedSlug(publishedRef: DocumentReference): Promise<string> {
+    try {
+        const snap = await publishedRef.get();
+        return snap.exists ? String(snap.data()?.['urlSlug'] || '') : '';
+    } catch (error) {
+        console.error(`Could not read the live address of ${publishedRef.path}:`, error);
+        return '';
+    }
+}
+
+/**
+ * The entry's address changed since its page went live: the old address sends
+ * visitors to the new one, or comes down when the editor's "Send the old
+ * address to the new one" was unticked (moved-page.ts). A failure here never
+ * holds back the new page.
+ */
+async function moveOldAddress(
+    publishedRef: DocumentReference,
+    contentTypeSlug: string,
+    docId: string,
+    from: string,
+    to: unknown,
+    redirect: unknown,
+    batch: HostingBatch,
+    movedPaths: Set<string>,
+): Promise<void> {
+    const next = typeof to === 'string' ? to : '';
+    if (!from || !next || from === next) return;
+    try {
+        // Another published entry may hold the old address by now (this one's
+        // draft moved before it was published again): its page is left alone.
+        const holders = await publishedRef.parent.where('urlSlug', '==', from).limit(2).get();
+        if (holders.docs.some((holder) => holder.id !== docId)) {
+            console.log(`${contentTypeSlug}/${docId} moved from ${from}, which another entry now has: left as it is`);
+            return;
+        }
+        // Only the languages this entry had a page in: the default one and its translations.
+        const translations = await publishedRef.collection('translations').get();
+        const added = await moveContentPage(contentTypeSlug, from, next, redirect !== false, batch,
+            translations.docs.map((translation) => translation.id));
+        for (const path of added) movedPaths.add(path);
+        console.log(`${contentTypeSlug}/${docId} moved from ${from} to ${next}`
+            + (redirect !== false ? ', the old address sends visitors on' : ', the old address removed'));
+    } catch (error) {
+        console.error(`Could not move the old address of ${contentTypeSlug}/${docId}:`, error);
+    }
+}
+
+/**
+ * The editor's "Send the old address to the new one" applies to the publish it
+ * came with only: a later publish from anywhere else uses the default again.
+ */
+async function clearRedirectChoice(draftCollection: string, docId: string, choice: unknown): Promise<void> {
+    if (choice === undefined) return;
+    try {
+        await db.collection(draftCollection).doc(docId).update({ redirectOldAddress: FieldValue.delete() });
+    } catch (error) {
+        console.warn(`Could not clear the redirect choice on ${draftCollection}/${docId}:`, error);
+    }
+}
+
 /**
  * Marks an item whose page could not be built as failed, with the reason, for the
  * editor to show (its deploy status badge). A template folder the live site does
@@ -429,6 +492,8 @@ export const processPublishQueue = onDocumentCreated({
     const batch = new HostingBatch();
     /** Why this item's own page could not be built, if it could not (recordPageFailure). */
     let pageError: unknown = null;
+    /** Pages left at an old address (moved-page.ts): not sent to IndexNow as new pages. */
+    const movedPaths = new Set<string>();
 
     // The home page alone, after a setting it shows changed (onSiteSettingsWritten).
     if (action === 'home') {
@@ -599,8 +664,10 @@ export const processPublishQueue = onDocumentCreated({
                     console.warn(`Draft not found: ${draftCollection}/${docId}`);
                     break;
                 }
-                const draftData = draftDoc.data()!;
+                const { redirectOldAddress, ...draftData } = draftDoc.data()!;
                 draftData.publishedOn = Timestamp.now();
+                // The live page's address before this publish, to move it when it changed.
+                const liveSlug = await publishedSlug(publishedRef);
 
                 // Batch the publish + history writes for atomicity
                 const publishBatch = db.batch();
@@ -610,6 +677,7 @@ export const processPublishQueue = onDocumentCreated({
                 console.log(`Published: ${publishedCollection}/${docId}`);
                 await syncTranslations(draftCollection, publishedCollection, docId);
                 await stampLastPublishedAt(draftCollection, docId);
+                await clearRedirectChoice(draftCollection, docId, redirectOldAddress);
                 await indexPublished(publishedCollection, docId);
 
                 // Deploy static HTML (detail + list pages)
@@ -621,6 +689,10 @@ export const processPublishQueue = onDocumentCreated({
                     } catch (deployErr) {
                         pageError = deployErr;
                         console.error(`Static HTML deployment failed for publish ${contentTypeSlug}/${docId}:`, deployErr);
+                    }
+                    // Only once the new page is built: a failed build leaves the old address as it was.
+                    if (!pageError) {
+                        await moveOldAddress(publishedRef, contentTypeSlug, docId, liveSlug, draftData['urlSlug'], redirectOldAddress, batch, movedPaths);
                     }
                 }
                 break;
@@ -658,7 +730,8 @@ export const processPublishQueue = onDocumentCreated({
                     break;
                 }
 
-                const draftFields = draftSnap.data()!;
+                const { redirectOldAddress, ...draftFields } = draftSnap.data()!;
+                const liveSlug = publishedSnap.exists ? String(publishedSnap.data()?.urlSlug || '') : '';
 
                 // Batch the update + history writes for atomicity
                 const updateBatch = db.batch();
@@ -689,6 +762,7 @@ export const processPublishQueue = onDocumentCreated({
                 await updateBatch.commit();
                 await syncTranslations(draftCollection, publishedCollection, docId);
                 await stampLastPublishedAt(draftCollection, docId);
+                await clearRedirectChoice(draftCollection, docId, redirectOldAddress);
                 await indexPublished(publishedCollection, docId);
 
                 // Deploy static HTML (detail + list pages)
@@ -700,6 +774,9 @@ export const processPublishQueue = onDocumentCreated({
                     } catch (deployErr) {
                         pageError = deployErr;
                         console.error(`Static HTML deployment failed for update ${contentTypeSlug}/${docId}:`, deployErr);
+                    }
+                    if (!pageError) {
+                        await moveOldAddress(publishedRef, contentTypeSlug, docId, liveSlug, draftFields['urlSlug'], redirectOldAddress, batch, movedPaths);
                     }
                 }
                 break;
@@ -824,7 +901,9 @@ export const processPublishQueue = onDocumentCreated({
             // answer has to come from its return value.
             if (released) {
                 console.log(`Released ${batch.size} file(s) for ${action} ${contentTypeSlug}/${docId}`);
-                if (isFeatureOn('seo')) await submitBatchToIndexNow(batch.files.map(f => f.path), batch.removedPaths);
+                if (isFeatureOn('seo')) {
+                    await submitBatchToIndexNow(batch.files.map(f => f.path).filter((path) => !movedPaths.has(path)), batch.removedPaths);
+                }
             }
         } catch (deployErr) {
             console.error(`Hosting release failed for ${action} ${contentTypeSlug}/${docId}:`, deployErr);

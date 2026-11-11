@@ -385,6 +385,12 @@ arc-content-partials {
   padding: 24px;
 }
 
+/* Bootstrap's .text-secondary grey (#6c757d) reads at 4.4:1 on its light grey panels
+   (#f8f9fa); a shade darker reads at 4.5:1 or more on every admin background. */
+.arc-admin {
+  --bs-secondary-rgb: 92, 99, 106;
+}
+
 .arc-admin .page-header {
   display: flex;
   justify-content: space-between;

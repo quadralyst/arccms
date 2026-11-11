@@ -20,18 +20,18 @@
       <thead><tr><th>Method</th><th>Default</th><th>Needs</th></tr></thead>
       <tbody>
         <tr><td>Email and password</td><td>On</td><td>The Email/Password provider on in the Firebase console. New accounts confirm their address with an emailed code.</td></tr>
-        <tr><td>Email and a 6-digit PIN (a code the first time, as phone)</td><td>Off: email uses a password</td><td>Email set up, and the same Google Cloud setting as phone sign-in. Chosen in Settings, User Settings, or fixed by the app (<a href="#email-pin">below</a>)</td></tr>
-        <tr><td>Phone number (SMS code the first time, then a 6-digit PIN)</td><td>Off</td><td>The <code>sms</code> feature on (it is unless <code>src/custom/features.ts</code> turns it off), and an SMS provider in Settings, SMS</td></tr>
+        <tr><td>Email and a 6-digit PIN (a code the first time, as phone)</td><td>Off: email uses a password</td><td>Email set up, and the same Google Cloud setting as phone sign-in. Chosen in Settings, Sign-up and roles, or fixed by the app (<a href="#email-pin">below</a>)</td></tr>
+        <tr><td>Phone number (SMS code the first time, then a 6-digit PIN)</td><td>Off</td><td>The <code>sms</code> feature on (it is unless <code>src/custom/features.ts</code> turns it off), and an SMS provider in Settings, Text messages</td></tr>
         <tr><td>Google</td><td>Off</td><td>The Google provider turned on in the Firebase console</td></tr>
       </tbody>
     </table>
 
     <ol class="steps">
       <li><p><strong>In the Firebase console</strong>, Authentication, Sign-in method: make sure Email/Password is on, and enable Google if you want it.</p></li>
-      <li><p><strong>For email codes:</strong> keep the Debug Provider (Log Only) under Settings, Email Settings while you build: no email is sent, and the sign-up page shows the sign-up code, so an automated test can sign up without an inbox. Forgot password emails a reset code, which is then in Email Logs; to have the sign-in page show it, turn on <strong>Show password reset codes on screen</strong> beside the provider, and turn it off again when you are done. Switch to a real provider before launch. See <a href="../features/email.html">Email engine</a>.</p></li>
-      <li><p><strong>For phone:</strong> in the admin, open Settings, SMS. Keep the Test provider while you build: no SMS is sent, and the sign-up page shows the code. To test a PIN reset, turn on <strong>Show PIN reset codes on screen</strong> on the same page, and turn it off again when you are done. Switch to a real provider before launch. See <a href="../features/sms.html">SMS</a>.</p></li>
-      <li><p><strong>Turn the methods on:</strong> Settings, User Settings, under Sign-in methods, switch on Phone number and Google as you want them, choose what email accounts sign in with (Password or 6-digit PIN), and whether a PIN needs a code on a new device. The Phone number switch only appears while the <code>sms</code> feature is on.</p></li>
-      <li><p><strong>Decide on sign-ups:</strong> "Enable User Signups" on the same page lets people create their own accounts. Turn it off for an invite-only app: admins then add people under Users, Add User.</p></li>
+      <li><p><strong>For email codes:</strong> keep the Debug provider (log only) under Settings, Email sending while you build: no email is sent, and the sign-up page shows the sign-up code, so an automated test can sign up without an inbox. Forgot password emails a reset code, which is then in Email logs; to have the sign-in page show it, turn on <strong>Show password reset codes on screen</strong> beside the provider, and turn it off again when you are done. Switch to a real provider before launch. See <a href="../features/email.html">Email engine</a>.</p></li>
+      <li><p><strong>For phone:</strong> in the admin, open Settings, Text messages. Keep the Test provider while you build: no SMS is sent, and the sign-up page shows the code. To test a PIN reset, turn on <strong>Show PIN reset codes on screen</strong> on the same page, and turn it off again when you are done. Switch to a real provider before launch. See <a href="../features/sms.html">SMS</a>.</p></li>
+      <li><p><strong>Turn the methods on:</strong> Settings, Sign-up and roles, under Sign-in methods, switch on Phone number and Google as you want them, choose what email accounts sign in with (Password or 6-digit PIN), and whether a PIN needs a code on a new device. The Phone number switch only appears while the <code>sms</code> feature is on.</p></li>
+      <li><p><strong>Decide on sign-ups:</strong> "Let people sign up" on the same page lets people create their own accounts. Turn it off for an invite-only app: admins then add people under Users, Add User.</p></li>
     </ol>
     <div class="trap"><p>Phone sign-in needs one Google Cloud permission on the functions' service account, or every phone sign-in fails after the code is accepted. See the trap in <a href="../features/sign-in.html#set-it-up">Sign-in methods</a>.</p></div>
 
@@ -61,7 +61,7 @@ export const CUSTOM_SIGN_IN: SignInChoice = {
       <li><strong>Email accounts sign in with a PIN.</strong> An email works as a phone number: a code by email the first time, then the person's PIN, with Forgot PIN by an emailed code, and the same lockout, limits and strength rule as phone PINs. A person with both an email and a number has one PIN. Accounts keep what they have: a password account is asked to choose a PIN at its next sign-in, and loses its password when it does; admins keep their passwords.</li>
       <li><strong>Ask for a code on a new device.</strong> A PIN signs in only on a device the person proved before with a code by email or SMS. Turn it on when PINs are typed where others can see them, such as on a shared till (see <a href="pin.html#member-pin">Sign a member in with their own sign-in PIN</a>): a PIN someone saw is then no use on their own phone.</li>
     </ul>
-    <p>An admin chooses both in Settings, User Settings. When your app depends on them, fix them in <code>src/custom/sign-in.ts</code>; the admin then sees them as set by the app and cannot change them:</p>
+    <p>An admin chooses both in Settings, Sign-up and roles. When your app depends on them, fix them in <code>src/custom/sign-in.ts</code>; the admin then sees them as set by the app and cannot change them:</p>
     <pre><code>export const CUSTOM_SIGN_IN: SignInChoice = {
     strength: 'simple',
     emailSignIn: 'pin',     // or 'password'; leave it out for the admin to choose
@@ -154,7 +154,7 @@ if (!claims['arccms_uid']) {
       <li><p><code>arccms-createAccountRecord</code> with <code>{ name, ticket }</code> creates the record with the site's default role and sets the claims. It returns <code>{ id, created }</code>. Refresh the token.</p></li>
     </ol>
     <p>Send the ticket back from the same client that entered the code: it is what marks the address as verified on the record. New phone accounts go through <code>arccms-requestPhoneOtp</code>, <code>arccms-verifyPhoneOtp</code> and <code>arccms-completePhoneSignup</code> in the same way; the browser code in <code>src/app/pages/(auth)/sign-in.service.ts</code> shows every call and its input.</p>
-    <div class="note"><p>Every sign-up path refuses new accounts while "Enable User Signups" is off. An outside app then only signs in people who already have an account, such as those an admin adds under Users.</p></div>
+    <div class="note"><p>Every sign-up path refuses new accounts while "Let people sign up" is off. An outside app then only signs in people who already have an account, such as those an admin adds under Users.</p></div>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

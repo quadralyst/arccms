@@ -22,3 +22,11 @@ describe('the page header on a phone', () => {
         expect(phone).toContain('.actions:has(.search-slot:not(:empty)) { flex: 1 1 100%; }');
     });
 });
+
+describe('the page header back button (RF5 5.8)', () => {
+    it('has a translated name, and its arrow is hidden from screen readers', () => {
+        expect(source).toContain(`[attr.aria-label]="backLabel || ('common.actions.back' | transloco)"`);
+        expect(source).toContain('<i class="fas fa-arrow-left" aria-hidden="true"></i>');
+        expect(source).not.toContain('aria-label="Back"');
+    });
+});

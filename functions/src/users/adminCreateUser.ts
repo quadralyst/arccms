@@ -73,6 +73,18 @@ export function canTakeOver(account: Pick<UserRecord, 'emailVerified' | 'provide
     return ownProject || authOwnerFor(account.metadata?.creationTime, now) === AUTH_OWNER.ARCCMS;
 }
 
+/**
+ * An email sign-in nobody verified and that Arc CMS did not make (canTakeOver):
+ * whoever typed the address may hold it, so it never gets more than a member's
+ * role, neither from Add user nor later from Edit user (adminSetUserRole).
+ */
+export function unverifiedForeignSignIn(account: Pick<UserRecord, 'emailVerified' | 'providerData' | 'customClaims' | 'metadata'>, now = Date.now()): boolean {
+    return !account.emailVerified && !canTakeOver(account, now);
+}
+
+/** Why an unverified sign-in gets no role above a member's (reason `unverified-account`). */
+export const UNVERIFIED_ACCOUNT_REASON = 'unverified-account';
+
 function isUserNotFound(err: unknown): boolean {
     return (err as { code?: string })?.code === 'auth/user-not-found';
 }
@@ -122,12 +134,12 @@ export const adminCreateUser = onCall(async (request) => {
             await owner.updateUser(uid, { password: input.password });
             await owner.revokeRefreshTokens(uid);
             passwordSet = true;
-        } else if (!found.emailVerified && input.role !== 'user') {
+        } else if (input.role !== 'user' && unverifiedForeignSignIn(found)) {
             // Kept untouched, whoever typed the address keeps its password; so it never
             // gets more than a member's role this way. Verified, it is the person's own.
             throw new HttpsError('failed-precondition',
                 'This address already has a sign-in that was never verified, so it could belong to someone else. Ask the person to verify their email first, or add them as a User.',
-                { reason: 'unverified-account' });
+                { reason: UNVERIFIED_ACCOUNT_REASON });
         }
     } else {
         checkTemporaryPassword(input);

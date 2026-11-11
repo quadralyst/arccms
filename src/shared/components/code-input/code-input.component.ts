@@ -11,6 +11,7 @@ import {
     untracked,
     viewChildren,
 } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { extractCode } from '../../utils/identifier.util';
 
 /**
@@ -29,6 +30,7 @@ import { extractCode } from '../../utils/identifier.util';
 @Component({
     selector: 'arc-code-input',
     standalone: true,
+    imports: [TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="code-boxes" role="group" [attr.aria-label]="label()">
@@ -40,7 +42,7 @@ import { extractCode } from '../../utils/identifier.util';
                     inputmode="numeric"
                     pattern="[0-9]*"
                     [attr.autocomplete]="$index === 0 && oneTimeCode() ? 'one-time-code' : 'off'"
-                    [attr.aria-label]="label() + ' digit ' + ($index + 1)"
+                    [attr.aria-label]="'common.code_input.digit' | transloco: { label: label(), n: $index + 1, total: length() }"
                     [attr.maxlength]="$index === 0 ? length() : 1"
                     [value]="digit"
                     [disabled]="disabled()"

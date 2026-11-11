@@ -2,7 +2,7 @@
 <div class="send-broadcast-dialog">
     <!-- Header -->
     <div class="dialog-header">
-        <h2><i class="fas fa-paper-plane"></i> Confirm Broadcast Email</h2>
+        <h2><i class="fas fa-paper-plane" aria-hidden="true"></i> {{ 'common.send_broadcast.title' | transloco }}</h2>
     </div>
 
     <!-- Content -->
@@ -10,22 +10,22 @@
         <!-- Summary -->
         <div class="broadcast-summary">
             <div class="summary-item">
-                <label>Recipients:</label>
-                <span class="value highlight">{{ recipientCount }} users</span>
+                <label>{{ 'common.send_broadcast.recipients' | transloco }}</label>
+                <span class="value highlight">{{ 'common.send_broadcast.people' | transloco: { count: recipientCount } }}</span>
             </div>
             <div class="summary-item">
-                <label>Subject:</label>
+                <label>{{ 'common.send_broadcast.subject' | transloco }}</label>
                 <span class="value">{{ subject }}</span>
             </div>
             <div class="summary-item">
-                <label>From:</label>
+                <label>{{ 'common.send_broadcast.from' | transloco }}</label>
                 <span class="value">{{ senderName }} &lt;{{ senderEmail }}&gt;</span>
             </div>
         </div>
 
         <!-- Preview -->
         <div class="email-preview">
-            <h4>Email Preview</h4>
+            <h4>{{ 'common.send_broadcast.preview' | transloco }}</h4>
             <div class="preview-container">
                 <div class="preview-content" arcPreviewLinks [innerHTML]="previewContent"></div>
             </div>
@@ -33,22 +33,21 @@
 
         <!-- Warning -->
         <div class="warning-box">
-            <i class="fas fa-exclamation-triangle"></i>
-            <p>This action will send emails to <strong>{{ recipientCount }}</strong> recipients. This cannot be undone.
-            </p>
+            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+            <p>{{ 'common.send_broadcast.warning' | transloco: { count: recipientCount } }}</p>
         </div>
     </div>
 
     <!-- Footer -->
     <div class="dialog-footer">
-        <button class="btn btn-light" (click)="dismissModal()" [disabled]="isSending">
-            Cancel
+        <button type="button" class="btn btn-light" (click)="dismissModal()" [disabled]="isSending">
+            {{ 'common.actions.cancel' | transloco }}
         </button>
-        <button class="btn btn-primary" (click)="sendBroadcastEmail()" [disabled]="isSending || recipientCount === 0">
+        <button type="button" class="btn btn-primary" (click)="sendBroadcastEmail()" [disabled]="isSending || recipientCount === 0">
             @if (isSending) {
-            <i class="fas fa-spinner fa-spin"></i> Sending...
+            <i class="fas fa-spinner fa-spin" aria-hidden="true"></i> {{ 'common.send_broadcast.sending' | transloco }}
             } @else {
-            <i class="fas fa-paper-plane"></i> Send to {{ recipientCount }} users
+            <i class="fas fa-paper-plane" aria-hidden="true"></i> {{ 'common.send_broadcast.send' | transloco: { count: recipientCount } }}
             }
         </button>
     </div>

@@ -21,8 +21,9 @@ import { Router, RouterLink } from '@angular/router';
 import { take, firstValueFrom } from 'rxjs';
 import { Auth } from '@angular/fire/auth';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { AuthState } from '../(auth)/auth.store';
-import { ToastService } from '../../../shared/services/toast.service';
+import { NotifyService } from '../../../shared/services/notify.service';
 import { ConstantVariables } from '../../../shared/constants/common-constants';
 import { OnboardingSetupService } from './onboarding-setup.service';
 import { EmailSettingService } from '../admin/(settings)/email-setting/email-setting.service';
@@ -30,6 +31,7 @@ import { TestConnectionDialogComponent } from '../admin/(settings)/email-setting
 import {
     EMAIL_PROVIDERS,
     EmailProvider,
+    IEmailProviderInfo,
     IEmailSettings,
     DEFAULT_EMAIL_SETTINGS,
     PROVIDER_DEFAULT_LIMITS,
@@ -39,7 +41,11 @@ import { useAdminOverlay } from '../../core/brand/admin-overlay';
 import { APP_BRAND, ARC_CMS_NAME } from '../../core/brand/site-brand';
 import { LegalNoticeComponent } from '../../../shared/components/legal-notice/legal-notice.component';
 import { newPasswordValidator, passwordProblemOf } from '../../../shared/utils/password-validator';
-import { passwordProblemText } from '../../../shared/utils/password-rule';
+import { minPasswordLength } from '../../../shared/utils/password-rule';
+import { injectT } from '../../core/i18n/inject-t';
+import { sentenceParts } from '../../core/i18n/sentence-parts';
+import { TranslationKey } from '../../core/i18n/translation-keys';
+import { DEFAULT_CONTENT_TYPES } from './onboarding-defaults';
 
 export const routeMeta: RouteMeta = {
     title: 'Setup',
@@ -48,18 +54,22 @@ export const routeMeta: RouteMeta = {
 @Component({
     selector: 'arc-onboarding',
     standalone: true,
-    imports: [ReactiveFormsModule, CommonModule, MatDialogModule, RouterLink, LegalNoticeComponent],
+    imports: [ReactiveFormsModule, CommonModule, MatDialogModule, RouterLink, LegalNoticeComponent, TranslocoPipe],
     templateUrl: './onboarding.page.html',
     styleUrls: ['./onboarding.page.scss'],
 })
 export default class OnboardingComponent implements OnInit {
     /** What is being set up: the app's name (src/custom/brand.ts), else Arc CMS. */
     readonly productName = APP_BRAND.name || ARC_CMS_NAME;
+    /** The content type setup creates: a name stored in the CMS, so data, not UI text. */
+    readonly firstContentType = DEFAULT_CONTENT_TYPES[0]?.name ?? '';
     private auth = inject(Auth);
     authStore = inject(AuthState);
     private router = inject(Router);
     private fb = inject(FormBuilder);
-    private toastService = inject(ToastService);
+    private notify = inject(NotifyService);
+    private transloco = inject(TranslocoService);
+    private t = injectT();
     private setupService = inject(OnboardingSetupService);
     private emailSettingService = inject(EmailSettingService);
     private dialog = inject(MatDialog);
@@ -93,8 +103,8 @@ export default class OnboardingComponent implements OnInit {
     isCompleting = signal(false);
     setupFailed = signal(false);
     // True once we have given up waiting for the `admin` custom claim to reach
-    // the ID token. Every remaining step writes something isAdmin() guards —
-    // Settings/site, Settings/integrations, Settings/email, the default waitlist —
+    // the ID token. Every remaining step writes something isAdmin() guards
+    // (Settings/site, Settings/integrations, Settings/email, the default form),
     // and the connection-test callable refuses a claimless caller, so each of
     // those entry points re-checks through `ensureAdminClaim()` before acting.
     adminClaimPending = signal(false);
@@ -141,7 +151,7 @@ export default class OnboardingComponent implements OnInit {
             // isSuccess false for that role, so it can race the signup's own flag.
             if ((success || this.isSubmitted()) && currentUser && !error && !this.signupHandled) {
                 this.signupHandled = true;
-                this.toastService.success('Admin account created! Setting up your site…');
+                this.notify.success('admin.onboarding.toasts.account_created');
                 // claimFirstAdmin also marks setup as started, so an abandoned
                 // wizard is detected and only this admin may resume it.
                 this.claimAdmin().then(() => this.checkAdminClaim(0));
@@ -180,7 +190,7 @@ export default class OnboardingComponent implements OnInit {
                     this.currentStep.set(3);
                 });
             }
-            // 'first-run' — stay on step 1 and create the admin account.
+            // 'first-run': stay on step 1 and create the admin account.
         });
     }
 
@@ -219,7 +229,7 @@ export default class OnboardingComponent implements OnInit {
 
     /**
      * Force-refresh the ID token and report whether it carries `arccms_role: admin`.
-     * The refresh is the point — the claim is set server-side by
+     * The refresh is the point: the claim is set server-side by
      * `claimFirstAdmin` after signup, and a cached token will not show it.
      */
     private async hasAdminClaim(): Promise<boolean> {
@@ -238,7 +248,7 @@ export default class OnboardingComponent implements OnInit {
      * `checkAdminClaim` gives up after ten attempts and lets the wizard advance
      * with `adminClaimPending` set, so from step 3 on the visitor may be holding a
      * claimless token. Each of those steps now writes something `isAdmin()` guards
-     * — `Settings/site`, `Settings/integrations`, `Settings/email` — and the
+     * (`Settings/site`, `Settings/integrations`, `Settings/email`), and the
      * connection-test callable rejects a claimless caller outright.
      *
      * So try one more forced token refresh at the point of use. The claim usually
@@ -267,9 +277,7 @@ export default class OnboardingComponent implements OnInit {
             return true;
         }
 
-        this.errorMessage.set(
-            'Your administrator permissions have not finished propagating. Wait a few seconds and try again.',
-        );
+        this.errorMessage.set(this.t('admin.onboarding.errors.claim_pending'));
         return false;
     }
 
@@ -290,9 +298,20 @@ export default class OnboardingComponent implements OnInit {
         );
     }
 
-    /** Why the password was refused. */
+    /** Why the password was refused, in the admin's language (the first admin always gets the strict rule). */
     passwordError(): string {
-        return passwordProblemText(passwordProblemOf(this.onboardingForm.get('password')) ?? 'short', 'strict');
+        const problem = passwordProblemOf(this.onboardingForm.get('password')) ?? 'short';
+        return this.t(`member.auth.password_error.${problem}` as TranslationKey, { min: minPasswordLength('strict') });
+    }
+
+    /** A sentence split around its value, for the template to style or link the value. */
+    parts(key: TranslationKey, params: Record<string, unknown> = {}): [string, string] {
+        return sentenceParts((k, p) => this.transloco.translate(k, p), key, params);
+    }
+
+    /** The translation key of one of an email provider's texts. */
+    providerKey(id: IEmailProviderInfo['id'], text: 'name' | 'description' | 'best_for' | 'free_tier'): TranslationKey {
+        return `admin.onboarding.email.providers.${id}.${text}` as TranslationKey;
     }
 
     private passwordMatchValidator(g: AbstractControl): ValidationErrors | null {
@@ -405,8 +424,8 @@ export default class OnboardingComponent implements OnInit {
             this.currentStep.set(4);
         } catch (error) {
             console.error('Failed to save site info:', error);
-            this.errorMessage.set('Failed to save site information. Please try again.');
-            this.toastService.error('Failed to save site information');
+            this.errorMessage.set(this.t('admin.onboarding.errors.site_failed'));
+            this.notify.error('admin.onboarding.errors.site_failed');
         } finally {
             this.isSavingSiteInfo.set(false);
         }
@@ -485,7 +504,7 @@ export default class OnboardingComponent implements OnInit {
 
     async testConnection(): Promise<void> {
         if (!this.isProviderConfigValid()) {
-            this.toastService.error('Please fill in the required provider configuration');
+            this.notify.error('admin.onboarding.errors.fill_provider');
             return;
         }
 
@@ -506,12 +525,12 @@ export default class OnboardingComponent implements OnInit {
             // landed, refresh the token here rather than letting it come back as
             // an opaque `unauthenticated`.
             if (!(await this.ensureAdminClaim())) {
-                this.toastService.error('Administrator permissions are still propagating. Try again in a moment.');
+                this.notify.error('admin.onboarding.errors.claim_pending');
                 return;
             }
 
             const settings = this.buildEmailSettings();
-            // The callable returns its verdict directly — no document to poll.
+            // The callable returns its verdict directly: no document to poll.
             const result = await this.emailSettingService.testEmailConnection({
                 config: settings,
                 activeProvider: settings.activeProvider,
@@ -522,17 +541,16 @@ export default class OnboardingComponent implements OnInit {
 
             if (result.success) {
                 this.testPassed.set(true);
-                this.toastService.success('Connection successful! Test email sent.');
+                this.notify.success('admin.onboarding.toasts.test_sent');
             } else {
-                this.toastService.error(result.message || 'Connection failed');
+                // The server's reason is technical (an SMTP reply, a provider code):
+                // the console keeps it, the admin reads a plain sentence.
+                console.error('Connection test refused:', result.message);
+                this.notify.error('admin.onboarding.errors.test_failed');
             }
         } catch (error) {
             console.error('Connection test failed:', error);
-            this.toastService.error(
-                error instanceof Error && error.message
-                    ? error.message
-                    : 'Connection test failed. Please check your settings.',
-            );
+            this.notify.error('admin.onboarding.errors.test_failed');
         } finally {
             this.isTesting.set(false);
         }
@@ -557,7 +575,7 @@ export default class OnboardingComponent implements OnInit {
 
     async saveEmailAndContinue(): Promise<void> {
         if (!this.testPassed()) {
-            this.toastService.error('Please test the connection first');
+            this.notify.error('admin.onboarding.errors.test_first');
             return;
         }
 
@@ -573,8 +591,8 @@ export default class OnboardingComponent implements OnInit {
             this.currentStep.set(5);
         } catch (error) {
             console.error('Failed to save email settings:', error);
-            this.errorMessage.set('Failed to save email settings. Please try again.');
-            this.toastService.error('Failed to save email settings');
+            this.errorMessage.set(this.t('admin.onboarding.errors.email_failed'));
+            this.notify.error('admin.onboarding.errors.email_failed');
         } finally {
             this.isSavingEmail.set(false);
         }
@@ -592,8 +610,8 @@ export default class OnboardingComponent implements OnInit {
             this.errorMessage.set('');
         } catch (error) {
             console.error('Failed to save email settings:', error);
-            this.errorMessage.set('Failed to save settings. Please try again.');
-            this.toastService.error('Failed to save settings');
+            this.errorMessage.set(this.t('admin.onboarding.errors.skip_failed'));
+            this.notify.error('admin.onboarding.errors.skip_failed');
         } finally {
             this.isSavingEmail.set(false);
         }
@@ -613,17 +631,15 @@ export default class OnboardingComponent implements OnInit {
 
             const { waitlistCreated } = await this.setupService.completeSetup();
             if (waitlistCreated) {
-                this.toastService.success('Setup complete! Welcome to Arc CMS.');
+                this.notify.success('admin.onboarding.toasts.setup_done', { name: this.productName });
             } else {
-                this.toastService.warning(
-                    'Setup complete, but the default waitlist could not be created. You can add one from Waitlists.',
-                );
+                this.notify.warning('admin.onboarding.toasts.setup_done_no_form');
             }
             this.router.navigate(['/admin/dashboard'], { replaceUrl: true });
         } catch (error) {
             console.error('Failed to complete setup:', error);
-            this.errorMessage.set('Failed to create default content. Please try again.');
-            this.toastService.error('Setup failed. Please retry.');
+            this.errorMessage.set(this.t('admin.onboarding.errors.setup_failed'));
+            this.notify.error('admin.onboarding.toasts.setup_failed');
             this.setupFailed.set(true);
         } finally {
             this.isCompleting.set(false);

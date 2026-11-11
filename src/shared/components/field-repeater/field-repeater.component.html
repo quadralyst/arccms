@@ -40,7 +40,8 @@
             @if (!isLocked()) {
             <button type="button" class="btn btn-outline-danger btn-sm repeater-remove"
                 (click)="removeRow(row.id)"
-                [title]="'common.actions.remove' | transloco">
+                [title]="'common.actions.remove' | transloco"
+                [attr.aria-label]="'common.actions.remove' | transloco">
                 <i class="fa-solid fa-trash" aria-hidden="true"></i>
             </button>
             }

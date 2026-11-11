@@ -8,9 +8,9 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Email Settings',
+    title: 'Email sending',
     canActivate: [roleGuard],
-    data: { allowedRoles: ['admin'] },
+    data: { titleKey: 'admin.settings.hub.email.label', allowedRoles: ['admin'] },
 };
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -25,7 +25,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { EmailSettingService } from './email-setting.service';
 import { TestConnectionDialogComponent } from './test-connection-dialog.component';
-import { DEFAULT_EMAIL_FEATURES, EMAIL_FEATURE_META, EMAIL_PROVIDERS, EmailProvider, IEmailSettings, PROVIDER_DEFAULT_LIMITS, suggestedSender } from './email-setting.model';
+import { DEFAULT_EMAIL_FEATURES, EMAIL_FEATURE_META, EMAIL_PROVIDERS, EmailProvider, IEmailProviderInfo, IEmailSettings, PROVIDER_DEFAULT_LIMITS, suggestedSender } from './email-setting.model';
+import type { TranslationKey } from '../../../../core/i18n/translation-keys';
 import { SiteBrandService } from '../../../../core/brand/site-brand';
 import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 import { IEmailProviderComponent } from './providers/email-provider-base';
@@ -154,7 +155,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
         });
     }
 
-    /** The features FormGroup — used by the template's toggle rows. */
+    /** The features FormGroup: used by the template's toggle rows. */
     get featuresGroup(): FormGroup {
         return this.emailForm.get('features') as FormGroup;
     }
@@ -314,14 +315,20 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
         this.enableOnSave.set(true);
     }
 
+    /** The translation key of one of an email provider's texts (shared with onboarding's email step). */
+    providerKey(id: IEmailProviderInfo['id'], text: 'name' | 'description' | 'free_tier'): TranslationKey {
+        return `admin.onboarding.email.providers.${id}.${text}` as TranslationKey;
+    }
+
+    /** The translation key of an email type's name or line. */
+    featureKey(key: string, text: 'label' | 'description'): TranslationKey {
+        return `admin.settings.email.types.${key}.${text}` as TranslationKey;
+    }
+
     toggleEmail(enabled: boolean): void {
         // Invariant: email cannot be enabled unless a valid provider is configured.
         if (enabled && !this.isProviderConfigValid()) {
-            this.toastService.openCustomSnackbar(
-                'Configure a valid email provider before enabling email.',
-                'warning',
-                'warning',
-            );
+            this.notify.warning('admin.settings.email.need_provider');
             this.emailEnabled.set(false);
             this.emailForm.patchValue({ isEnabled: false });
             this.configuring.set(true); // keep the form open so they can finish configuring
@@ -338,7 +345,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
         return this.activeProviderComponent()?.isConfigValid() ?? false;
     }
 
-    /** True when the simulated Debug Provider is selected — it needs no connection test. */
+    /** True when the simulated Debug Provider is selected: it needs no connection test. */
     isDebugProvider(): boolean {
         return this.emailForm.get('activeProvider')?.value === 'debug_log';
     }
@@ -380,9 +387,9 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
             this.emailEnabled.set(false);
         }
 
-        // The simulated Debug Provider has no connection to test — never gate its save.
+        // The simulated Debug Provider has no connection to test: never gate its save.
         if (!this.testPassed() && !type && !this.isDebugProvider()) {
-            this.toastService.openCustomSnackbar('Please test the connection first', 'warning', 'warning');
+            this.notify.warning('admin.settings.email.test_first');
             return;
         }
 
@@ -402,11 +409,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
             const settings: IEmailSettings = this.buildSettings();
             await this.emailSettingService.saveEmailSettings(settings);
             this.enableOnSave.set(false);
-            this.toastService.openCustomSnackbar(
-                turnsOn ? 'Email settings saved and email is on' : 'Email settings saved successfully',
-                'success',
-                'check_circle',
-            );
+            this.notify.success(turnsOn ? 'admin.settings.email.saved_on' : 'common.messages.saved');
             this.emailForm.markAsPristine();
         } catch (error) {
             console.error('Failed to save email settings:', error);
@@ -414,7 +417,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
                 this.emailForm.patchValue({ isEnabled: false });
                 this.emailEnabled.set(false);
             }
-            this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
+            this.notify.error('common.messages.save_failed');
         } finally {
             this.isSaving.set(false);
         }
@@ -422,7 +425,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
 
     async testConnection(): Promise<void> {
         if (!this.isProviderConfigValid()) {
-            this.toastService.openCustomSnackbar('Please fill in the required provider configuration', 'warning', 'warning');
+            this.notify.warning('admin.settings.email.fill_provider');
             return;
         }
 
@@ -441,7 +444,7 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
 
         try {
             const settings: IEmailSettings = this.buildSettings();
-            // The callable returns its verdict directly — no document to poll.
+            // The callable returns its verdict directly: no document to poll.
             const result = await this.emailSettingService.testEmailConnection({
                 config: settings,
                 activeProvider: settings.activeProvider,
@@ -452,17 +455,15 @@ export default class EmailSettingPageComponent extends BaseComponent implements 
 
             if (result.success) {
                 this.testPassed.set(true);
-                this.toastService.openCustomSnackbar('Connection successful! Test email sent.', 'success', 'check_circle');
+                this.notify.success('admin.settings.email.test_sent');
             } else {
-                this.toastService.openCustomSnackbar(result.message || 'Connection failed', 'error', 'error');
+                // The provider's own words (an SMTP reply, say) stay in the console.
+                console.error('Connection test failed:', result.message);
+                this.notify.error('admin.settings.email.test_failed');
             }
         } catch (error) {
             console.error('Connection test failed:', error);
-            this.toastService.openCustomSnackbar(
-                error instanceof Error && error.message ? error.message : 'Connection test failed',
-                'error',
-                'error',
-            );
+            this.notify.error('admin.settings.email.test_failed');
         } finally {
             this.isTesting.set(false);
         }

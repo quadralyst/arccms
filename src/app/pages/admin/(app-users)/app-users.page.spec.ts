@@ -79,11 +79,45 @@ describe('AppUsersPage', () => {
         expect((fixture.nativeElement as HTMLElement).textContent).toContain("This site's own users, read live.");
     });
 
-    it('shows the error when the list cannot be read', async () => {
+    it('says in a plain sentence when the list cannot be read, with Retry, never the server\'s text', async () => {
         m.responses['arccms-appAudienceStatus'] = { location: { configured: true, path: 'users/{id}' } };
         m.responses['arccms-listAppUsers'] = new Error('permission-denied');
         const fixture = await open();
-        expect((fixture.nativeElement as HTMLElement).textContent).toContain('Could not read app users: permission-denied');
+        const el = fixture.nativeElement as HTMLElement;
+        expect(el.textContent).toContain("Your app's users did not load.");
+        expect(el.textContent).not.toContain('permission-denied');
+        const retry = [...el.querySelectorAll('button')].find((b) => /Retry/.test(b.textContent ?? ''));
+        expect(retry).toBeTruthy();
+        m.responses['arccms-listAppUsers'] = { rows: [row('a', 'Amy', 'amy@x.com')], scanned: 1, withoutKey: 0, truncated: false };
+        retry!.click();
+        await new Promise((r) => setTimeout(r));
+        fixture.detectChanges();
+        expect(fixture.componentInstance.error()).toBe('');
+        expect(fixture.componentInstance.total()).toBe(1);
+    });
+
+    it('says Nothing matches for a search with no rows, and Clear filters empties the search', async () => {
+        m.responses['arccms-appAudienceStatus'] = { location: { configured: true, path: 'users/{id}' } };
+        m.responses['arccms-listAppUsers'] = { rows: [row('a', 'Amy', 'amy@x.com')], scanned: 1, withoutKey: 0, truncated: false };
+        const fixture = await open();
+        fixture.componentInstance.onSearch('nobody');
+        fixture.detectChanges();
+        const el = fixture.nativeElement as HTMLElement;
+        expect(el.textContent).toContain('Nothing matches');
+        [...el.querySelectorAll('button')].find((b) => /Clear filters/.test(b.textContent ?? ''))!.click();
+        expect(fixture.componentInstance.search()).toBe('');
+    });
+
+    it('shows the consent in the admin\'s language, and a plain sentence when one user cannot be read', async () => {
+        m.responses['arccms-appAudienceStatus'] = { location: { configured: true, path: 'users/{id}' } };
+        m.responses['arccms-listAppUsers'] = { rows: [row('a', 'Amy', 'amy@x.com')], scanned: 1, withoutKey: 0, truncated: false };
+        const fixture = await open();
+        const consent = fixture.componentInstance.columns.find((c) => c.key === 'consent')!;
+        expect(consent.transformFn!(row('a', 'Amy', 'amy@x.com'))).toContain('>Subscribed<');
+        m.responses['arccms-getAppUser'] = new Error('internal');
+        await fixture.componentInstance.openDetail(row('a', 'Amy', 'amy@x.com'));
+        fixture.detectChanges();
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain("This user's details did not load.");
     });
 
     it('opens one person with every field from the app', async () => {
@@ -103,5 +137,17 @@ describe('AppUsersPage', () => {
         const text = (fixture.nativeElement as HTMLElement).textContent;
         expect(text).toContain('false → true');
         expect(text).toContain('No rule set up for this event');
+    });
+
+    it('has the limit warning in every language, with the limit filled in (RF5)', async () => {
+        const { APP_USERS_LIMIT_NOTE_KEY, APP_USERS_LIMIT_PARAMS } = await import('./app-users-limit');
+        const { readFileSync } = await import('node:fs');
+        const { join } = await import('node:path');
+        for (const lang of ['en', 'hi']) {
+            const json = JSON.parse(readFileSync(join(__dirname, `../../../../assets/i18n/${lang}.json`), 'utf8'));
+            const text = APP_USERS_LIMIT_NOTE_KEY.split('.').reduce((o: any, k) => o?.[k], json);
+            expect(text, lang).toContain('{{ max }}');
+        }
+        expect(APP_USERS_LIMIT_PARAMS.max).toBe('2,000');
     });
 });

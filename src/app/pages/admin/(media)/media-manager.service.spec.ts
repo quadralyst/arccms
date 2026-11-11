@@ -107,6 +107,27 @@ describe('MediaManagerService', () => {
         });
     });
 
+    describe('mediaUsage (RF4, 4.13)', () => {
+        it('asks the mediaUsage function, for an image or a document', async () => {
+            mockSearchUnsplashCallable.mockResolvedValueOnce({ data: { count: 2, titles: ['Home'] } });
+            expect(await service.mediaUsage({ mediaId: 'm1' })).toEqual({ count: 2, titles: ['Home'], more: false });
+            expect(mockSearchUnsplashCallable).toHaveBeenCalledWith({ mediaId: 'm1' });
+            mockSearchUnsplashCallable.mockResolvedValueOnce({ data: { count: 20, titles: ['A'], more: true } });
+            expect(await service.mediaUsage({ fileId: 'f1' })).toEqual({ count: 20, titles: ['A'], more: true });
+        });
+
+        it('is null, not zero, when the check fails', async () => {
+            mockSearchUnsplashCallable.mockRejectedValueOnce(new Error('not-found'));
+            vi.spyOn(console, 'error').mockImplementation(() => undefined);
+            expect(await service.mediaUsage({ mediaId: 'm1' })).toBeNull();
+        });
+
+        it('is null when the check is too slow, so the delete never waits long', async () => {
+            mockSearchUnsplashCallable.mockReturnValueOnce(new Promise(() => undefined));
+            expect(await service.mediaUsage({ mediaId: 'm1' }, 10)).toBeNull();
+        });
+    });
+
     describe('warmupUnsplash', () => {
         it('should call the Cloud Function with warmup: true', () => {
             mockSearchUnsplashCallable.mockResolvedValueOnce({ data: { ok: true } });

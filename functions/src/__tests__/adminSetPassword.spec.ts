@@ -13,6 +13,7 @@ const m = vi.hoisted(() => {
                 return account;
             }),
             updateUser: vi.fn(async () => undefined),
+            revokeRefreshTokens: vi.fn(async () => undefined),
         },
         db: {
             collection: vi.fn(() => ({
@@ -66,12 +67,16 @@ describe('adminSetPassword', () => {
         expect(m.owner.updateUser).toHaveBeenCalledWith('uid-1', { password: 'asha12' });
     });
 
-    it('sets the password on the sign-in account, and writes nothing to Firestore', async () => {
+    it('sets the password on the sign-in account, never in Firestore, ends every session and records that the admins hold it (H2)', async () => {
         expect(await call({ id: 'doc-1', password: GOOD })).toEqual({ updated: true });
         expect(m.owner.updateUser).toHaveBeenCalledWith('uid-1', { password: GOOD });
+        expect(m.owner.revokeRefreshTokens).toHaveBeenCalledWith('uid-1');
         const doc = vi.mocked(m.db.collection).mock.results[0].value.doc.mock.results[0].value;
         expect(doc.set).not.toHaveBeenCalled();
-        expect(doc.update).not.toHaveBeenCalled();
+        expect(doc.update).toHaveBeenCalledTimes(1);
+        const written = doc.update.mock.calls[0][0];
+        expect(Object.keys(written).sort()).toEqual(['adminPasswordAt', 'modifiedAt', 'modifiedBy']);
+        expect(JSON.stringify(written)).not.toContain(GOOD);
     });
 
     it('sets no password for a member while the site signs email accounts in with a PIN; an admin still gets one (F31)', async () => {

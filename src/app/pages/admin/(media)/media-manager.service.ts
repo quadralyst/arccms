@@ -8,6 +8,14 @@ import { DocumentSnapshot } from '@angular/fire/firestore';
 import { from, map, Observable, of, switchMap, take } from 'rxjs';
 import { arcCallable } from '../../../core/config/arc-functions';
 
+/** How many content entries use a media file, and the first few of their titles (mediaUsage function). */
+export interface MediaUsage {
+    count: number;
+    titles: string[];
+    /** True when the check stopped counting at its cap (20): there may be more. */
+    more?: boolean;
+}
+
 @Injectable({
     providedIn: 'root',
 })
@@ -18,6 +26,7 @@ export class MediaManagerService extends DbService<IMediaManager> {
 
     private searchUnsplashFn = arcCallable(this.functions, 'searchUnsplash');
     private readMediaImageFn = arcCallable<{ mediaId: string }, { data: string; contentType: string }>(this.functions, 'readMediaImage');
+    private mediaUsageFn = arcCallable<{ mediaId: string } | { fileId: string }, MediaUsage>(this.functions, 'mediaUsage');
 
     constructor() {
         super('media');
@@ -48,6 +57,25 @@ export class MediaManagerService extends DbService<IMediaManager> {
         const { data, contentType } = result.data;
         const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
         return new Blob([bytes], { type: contentType });
+    }
+
+    /**
+     * How many content entries use a library image (`{ mediaId }`) or document
+     * (`{ fileId }`), asked before it is deleted. Null when the check fails or
+     * takes longer than `waitMs`: the delete must never wait on it for long.
+     */
+    async mediaUsage(target: { mediaId: string } | { fileId: string }, waitMs = 8000): Promise<MediaUsage | null> {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+            const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), waitMs); });
+            const result = await Promise.race([this.mediaUsageFn(target).then((r) => r.data), timeout]);
+            return result && typeof result.count === 'number' ? { count: result.count, titles: result.titles ?? [], more: !!result.more } : null;
+        } catch (error) {
+            console.error('Checking where the file is used failed:', error);
+            return null;
+        } finally {
+            clearTimeout(timer);
+        }
     }
 
     /**

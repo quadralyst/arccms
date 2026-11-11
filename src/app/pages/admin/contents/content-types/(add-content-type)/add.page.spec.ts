@@ -462,7 +462,7 @@ describe('AddContentTypeComponent', () => {
             await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                'Content type created successfully',
+                'Content type created.',
                 'success',
                 'check_circle'
             );
@@ -487,7 +487,7 @@ describe('AddContentTypeComponent', () => {
             await component.onSubmit();
             await new Promise(resolve => setTimeout(resolve, 50));
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(
-                'Error creating content type',
+                'The content type could not be created. Try again.',
                 'error',
                 'error'
             );

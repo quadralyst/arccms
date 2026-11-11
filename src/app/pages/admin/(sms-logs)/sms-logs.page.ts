@@ -1,5 +1,5 @@
 /**
- * Email + SMS, SMS Logs: every text message, newest first, like Email Logs.
+ * Email + SMS, SMS logs: every text message, newest first, like Email logs.
  * With the Test provider the full message (code included) is here; with a real
  * provider the code is blanked.
  */
@@ -29,10 +29,10 @@ import { ISmsLog } from './sms-log.model';
         <div class="content-area">
             <arc-page-header [title]="'admin.sms_logs.title' | transloco" [subtitle]="'admin.sms_logs.subtitle' | transloco">
                 <a mat-stroked-button routerLink="/admin/settings/sms">
-                    <mat-icon>settings</mat-icon> {{ 'admin.sms_logs.settings' | transloco }}
+                    <mat-icon aria-hidden="true">settings</mat-icon> {{ 'admin.sms_logs.settings' | transloco }}
                 </a>
                 <button mat-stroked-button (click)="refresh()">
-                    <mat-icon>refresh</mat-icon> {{ 'admin.sms_logs.refresh' | transloco }}
+                    <mat-icon aria-hidden="true">refresh</mat-icon> {{ 'admin.sms_logs.refresh' | transloco }}
                 </button>
             </arc-page-header>
 
@@ -51,6 +51,8 @@ import { ISmsLog } from './sms-log.model';
 
             <app-global-table [data]="store.items()" [columns]="columns" [loading]="store.isLoading()"
                 [pageIndex]="currentPage()" [pageSize]="pageSize()" [sortField]="'createdAt'" [sortOrder]="'desc'"
+                [error]="store.error() ? true : null" (retry)="refresh()"
+                [filtered]="!!statusFilter()" (clearFilters)="onStatusFilterChange('')"
                 [emptyTitle]="'admin.sms_logs.empty_title' | transloco"
                 [emptyDescription]="'admin.sms_logs.empty_description' | transloco" [showEmptyAction]="false">
             </app-global-table>

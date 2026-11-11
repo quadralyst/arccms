@@ -1,21 +1,21 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { roleGuard } from '../../../guards/role.guard';
-import { ToastService } from '../../../../shared/services/toast.service';
+import { NotifyService } from '../../../../shared/services/notify.service';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
-import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
+import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
 import { AudienceService } from '../(audience)/audience.service';
 import { ITag } from '../(audience)/audience.model';
 import { TagDrawerComponent, TagDrawerMode } from './(tag-drawer)/tag-drawer.component';
@@ -40,15 +40,18 @@ export default class ContactTagsPageComponent implements OnInit {
     @ViewChild('drawer') drawer!: MatDrawer;
 
     private audience = inject(AudienceService);
-    private toast = inject(ToastService);
-    private dialog = inject(MatDialog);
-    private sanitizer = inject(DomSanitizer);
+    private notify = inject(NotifyService);
+    private confirm = inject(ConfirmService);
+    private transloco = inject(TranslocoService);
     private destroyRef = inject(DestroyRef);
     private router = inject(Router);
 
     tags = signal<ITag[]>([]);
     loading = signal(true);
+    /** The tags did not load; the table shows it with Retry. */
+    loadError = signal(false);
     busy = signal(false);
+    private loadSub?: { unsubscribe(): void };
 
     currentAction = signal<TagDrawerMode | ''>('');
     currentTag = signal<ITag | null>(null);
@@ -86,10 +89,22 @@ export default class ContactTagsPageComponent implements OnInit {
     ];
 
     ngOnInit(): void {
-        this.audience.getTags().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((tags) => {
-            this.tags.set(tags);
-            this.loading.set(false);
-        });
+        this.load();
+    }
+
+    /** Listen to the tags; called again by Retry. */
+    load(): void {
+        this.loadSub?.unsubscribe();
+        this.loading.set(true);
+        this.loadError.set(false);
+        let failed = false;
+        this.loadSub = this.audience.getTags(() => { failed = true; })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe((tags) => {
+                this.tags.set(tags);
+                this.loadError.set(failed);
+                this.loading.set(false);
+            });
     }
 
     openAdd(): void {
@@ -116,7 +131,7 @@ export default class ContactTagsPageComponent implements OnInit {
     }
 
     /**
-     * Import per-waitlist tags into the global layer. Idempotent, so it is safe
+     * Import per-form tags into the global layer. Idempotent, so it is safe
      * to re-run after new contacts are backfilled.
      */
     async runMigration(): Promise<void> {
@@ -124,43 +139,41 @@ export default class ContactTagsPageComponent implements OnInit {
         try {
             const res: any = await this.audience.migrateTagsToContacts();
             const d = res?.data || {};
-            this.toast.success(
-                `Imported ${(d.tagsCreated || 0) + (d.tagsMerged || 0)} tags (${d.tagsCreated || 0} new), ` +
-                `${d.assignmentsCopied || 0} assignments across ${d.contactsTagged || 0} contacts`,
-            );
+            this.notify.success('admin.audience.tags.imported', {
+                tags: (d.tagsCreated || 0) + (d.tagsMerged || 0),
+                created: d.tagsCreated || 0,
+                assignments: d.assignmentsCopied || 0,
+                contacts: d.contactsTagged || 0,
+            });
         } catch (e) {
-            console.error(e);
-            this.toast.error('Failed to import waitlist tags');
+            console.error('Importing form tags failed', e);
+            this.notify.error('admin.audience.tags.import_failed');
         } finally {
             this.busy.set(false);
         }
     }
 
-    confirmDelete(tag: ITag): void {
+    async confirmDelete(tag: ITag): Promise<void> {
         const used = tag.usageCount || 0;
-        const warning = used
-            ? `<br><br>It is currently on <strong>${used}</strong> contact${used === 1 ? '' : 's'}, and will be removed from them.`
-            : '';
         // Label is admin-authored, but it still goes through the same escape as
-        // any other value bound into trusted HTML.
-        const label = (tag.label || '').replace(/[&<>"']/g, (c) => (
-            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string
-        ));
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to delete <strong>${label}</strong>?${warning}`,
-        );
-        this.dialog.open(ConfirmationPopupComponent, {
-            width: '350px',
-            data: { dialogType: 'Delete', dialogMessage: msg, btnText: 'Delete', panelType: 'warn' },
-        }).afterClosed().subscribe(async (result: boolean) => {
-            if (!result) return;
-            try {
-                await this.audience.deleteTag(tag.id);
-                this.toast.success('Tag deleted');
-            } catch (e) {
-                console.error(e);
-                this.toast.error('Failed to delete tag');
-            }
+        // any other value bound into the dialog's HTML.
+        const name = escapeHtml(tag.label || '');
+        const key = used === 0 ? 'admin.audience.tags.delete_confirm_none'
+            : used === 1 ? 'admin.audience.tags.delete_confirm_one'
+            : 'admin.audience.tags.delete_confirm';
+        const ok = await this.confirm.ask({
+            titleKey: 'common.dialog.delete',
+            dialogMessage: this.transloco.translate(key, { name, count: used }),
+            btnText: this.transloco.translate('common.actions.delete'),
+            panelType: 'warn',
         });
+        if (!ok) return;
+        try {
+            await this.audience.deleteTag(tag.id);
+            this.notify.success('admin.audience.tags.deleted');
+        } catch (e) {
+            console.error('Deleting the tag failed', e);
+            this.notify.error('admin.audience.tags.delete_failed');
+        }
     }
 }

@@ -17,6 +17,7 @@ import {
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { uploadProblem } from '../media-upload-problem';
 import { firstValueFrom } from 'rxjs';
 import { CropImageSize, ImageCropperComponent } from '../../../../../shared/components/image-cropper/image-cropper.component';
 import { FileUploadService, MediaUploadSettings, UploadedMedia } from '../../../../../shared/services/file-upload.service';
@@ -600,7 +601,8 @@ export class PdfImageTakerComponent {
             if (this.destroyed) return null;
             this.saving.set(false);
             this.waitingForStore.set(false);
-            this.notify.error('admin.media.pdf.save_failed', { reason: error instanceof Error ? error.message : '' });
+            const problem = uploadProblem(error, this.uploadSettings().maxFileSize);
+            this.notify.error('admin.media.pdf.save_failed', { reason: this.i18n.translate(problem.key, problem.params) });
             return null;
         }
     }

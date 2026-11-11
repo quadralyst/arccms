@@ -1,103 +1,107 @@
 <div class="page-container">
-    <arc-page-header [title]="list()?.name || 'List'"
-        [subtitle]="isLive()
-            ? 'App users (live): people from your app who match this list\'s conditions right now'
+    <arc-page-header [title]="list()?.name || ('admin.audience.hub.list' | transloco)"
+        [subtitle]="(isLive()
+            ? 'admin.audience.hub.subtitle_live'
             : isFormFed()
-            ? 'Fed by a signup form: membership syncs automatically'
-            : 'Manual list: add or remove members freely'">
+            ? 'admin.audience.hub.subtitle_form'
+            : 'admin.audience.hub.subtitle_manual') | transloco">
         @if (isFormFed()) {
             <button mat-stroked-button (click)="viewForm()">
-                <mat-icon>open_in_new</mat-icon> View form
+                <mat-icon aria-hidden="true">open_in_new</mat-icon> {{ 'admin.audience.lists.view_form' | transloco }}
             </button>
         }
         <a mat-stroked-button routerLink="/admin/lists">
-            <mat-icon>arrow_back</mat-icon> All lists
+            <mat-icon aria-hidden="true">arrow_back</mat-icon> {{ 'admin.audience.hub.all_lists' | transloco }}
         </a>
     </arc-page-header>
 
     @if (loading()) {
-        <p class="text-muted">Loading…</p>
+        <p class="text-muted">{{ 'common.state.loading' | transloco }}</p>
+    } @else if (listError()) {
+        <div class="empty-state" role="alert">
+            <h5>{{ 'common.table.load_failed_title' | transloco }}</h5>
+            <p class="text-muted">{{ 'common.table.load_failed_text' | transloco }}</p>
+            <button type="button" mat-flat-button color="primary" class="list-retry-btn" (click)="retryList()">{{ 'common.table.retry' | transloco }}</button>
+        </div>
     } @else if (!list()) {
         <div class="empty-state">
-            <h5>List not found</h5>
-            <p class="text-muted">It may have been deleted, or the form that fed it was removed.</p>
-            <a mat-flat-button color="primary" routerLink="/admin/lists">Back to Lists</a>
+            <h5>{{ 'admin.audience.hub.not_found' | transloco }}</h5>
+            <p class="text-muted">{{ 'admin.audience.hub.not_found_text' | transloco }}</p>
+            <a mat-flat-button color="primary" routerLink="/admin/lists">{{ 'admin.audience.hub.back_to_lists' | transloco }}</a>
         </div>
     } @else {
         @if (isLive()) {
         <div class="hub-counts">
             @if (livePreview(); as p) {
-                <span class="count-chip"><strong>{{ p.matched }}</strong> match now</span>
-                <span class="count-chip"><strong>{{ p.subscribed }}</strong> can be emailed</span>
-                <span class="count-chip"><strong>{{ unsubscribedOf(p) }}</strong> unsubscribed</span>
+                <span class="count-chip"><strong>{{ p.matched }}</strong> {{ 'admin.audience.hub.match_now' | transloco }}</span>
+                <span class="count-chip"><strong>{{ p.subscribed }}</strong> {{ 'admin.audience.hub.can_be_emailed' | transloco }}</span>
+                <span class="count-chip"><strong>{{ unsubscribedOf(p) }}</strong> {{ 'admin.audience.status.unsubscribed' | transloco }}</span>
                 @if (p.matched > p.withEmail) {
-                    <span class="count-chip"><strong>{{ p.matched - p.withEmail }}</strong> no email</span>
+                    <span class="count-chip"><strong>{{ p.matched - p.withEmail }}</strong> {{ 'admin.audience.hub.no_email' | transloco }}</span>
                 }
                 @if (p.sharedEmail) {
-                    <span class="count-chip" title="Each address gets one email"><strong>{{ p.sharedEmail }}</strong> share an address</span>
+                    <span class="count-chip" [title]="'admin.audience.hub.share_address_hint' | transloco"><strong>{{ p.sharedEmail }}</strong> {{ 'admin.audience.hub.share_address' | transloco }}</span>
                 }
             }
-            <button mat-stroked-button (click)="loadLive()"><mat-icon>refresh</mat-icon> Refresh</button>
+            <button mat-stroked-button (click)="loadLive()"><mat-icon aria-hidden="true">refresh</mat-icon> {{ 'admin.audience.hub.refresh' | transloco }}</button>
         </div>
         @if (livePreview()?.truncated) {
-        <p class="hub-note text-warning"><i class="fas fa-triangle-exclamation"></i> {{ limitNote }}</p>
+        <p class="hub-note text-warning"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ limitNoteKey | transloco: limitNoteParams }}</p>
         }
         <p class="hub-note">
-            <i class="fas fa-circle-info"></i>
-            @if (conditionSummary().length) {
-                Everyone in your app where {{ conditionSummary().join(' and ') }}.
+            <i class="fas fa-circle-info" aria-hidden="true"></i>
+            @if (conditionSummary()) {
+                {{ 'admin.audience.hub.everyone_where' | transloco: { conditions: conditionSummary() } }}
             } @else {
-                No conditions: everyone in your app.
+                {{ 'admin.audience.hub.no_conditions' | transloco }}
             }
-            Change the conditions with Edit on the Lists page.
+            {{ 'admin.audience.hub.change_conditions' | transloco }}
         </p>
-        @if (liveError()) {
-            <div class="alert alert-danger">Could not read your app's users: {{ liveError() }}</div>
-        }
         } @else {
         <!-- Headline counts: pending members exist but are never mailable -->
         <div class="hub-counts">
-            <span class="count-chip"><strong>{{ counts().subscribed }}</strong> subscribed</span>
+            <span class="count-chip"><strong>{{ counts().subscribed }}</strong> {{ 'admin.audience.status.subscribed' | transloco }}</span>
             <span class="count-chip"
-                matTooltip="Signed up but haven't confirmed their email, so they are excluded from marketing sends">
-                <strong>{{ counts().pending }}</strong> pending
+                [matTooltip]="'admin.audience.hub.pending_hint' | transloco">
+                <strong>{{ counts().pending }}</strong> {{ 'admin.audience.status.pending' | transloco }}
             </span>
-            <span class="count-chip"><strong>{{ counts().unsubscribed }}</strong> unsubscribed</span>
+            <span class="count-chip"><strong>{{ counts().unsubscribed }}</strong> {{ 'admin.audience.status.unsubscribed' | transloco }}</span>
             @if (counts().disabled) {
-                <span class="count-chip" matTooltip="Admin-disabled: these receive no email at all">
-                    <strong>{{ counts().disabled }}</strong> disabled
+                <span class="count-chip" [matTooltip]="'admin.audience.hub.disabled_hint' | transloco">
+                    <strong>{{ counts().disabled }}</strong> {{ 'admin.audience.status.disabled' | transloco }}
                 </span>
             }
         </div>
         }
 
         <mat-tab-group animationDuration="0ms" class="hub-tabs">
-            <!-- ── Members ─────────────────────────────────────────── -->
-            <mat-tab label="Members">
+            <!-- Members -->
+            <mat-tab [label]="'admin.audience.lists.members' | transloco">
                 <div class="tab-body">
                     @if (isFormFed()) {
                         <p class="hub-note">
-                            <i class="fas fa-circle-info"></i>
-                            Membership comes from the signup form, so it can't be edited here.
-                            To stop emailing someone, <strong>disable</strong> them. They keep their
-                            place in the funnel and can be re-enabled at any time.
+                            <i class="fas fa-circle-info" aria-hidden="true"></i>
+                            <span [innerHTML]="'admin.audience.hub.form_fed_note' | transloco"></span>
                         </p>
                     }
                     @if (isLive()) {
                     @if (livePreview()?.matched && livePreview()!.matched > liveMembers().length) {
-                        <p class="hub-note">Showing the first {{ liveMembers().length }} of {{ livePreview()!.matched }}.</p>
+                        <p class="hub-note">{{ 'admin.audience.hub.showing_first' | transloco: { shown: liveMembers().length, total: livePreview()!.matched } }}</p>
                     }
                     <app-global-table [data]="liveMembers()" [columns]="liveColumns" [loading]="!livePreview() && !liveError()"
-                        emptyIcon="fas fa-mobile-screen" emptyTitle="Nobody matches right now"
-                        emptyDescription="People appear here as soon as your app's data matches the conditions."
+                        [error]="liveError() ? 'admin.audience.hub.live_failed' : null" (retry)="loadLive()"
+                        emptyIcon="fas fa-mobile-screen" emptyTitle="admin.audience.hub.live_empty_title"
+                        emptyDescription="admin.audience.hub.live_empty_text"
                         [showEmptyAction]="false">
                     </app-global-table>
                     } @else {
                     <app-global-table [data]="members()" [columns]="memberColumns" [loading]="loading()"
-                        emptyIcon="fas fa-user-group" emptyTitle="No members yet"
+                        [error]="membersError()" (retry)="loadMembers()"
+                        emptyIcon="fas fa-user-group" emptyTitle="admin.audience.hub.members_empty_title"
                         [emptyDescription]="isFormFed()
-                            ? 'Members appear here as soon as someone signs up through the form.'
-                            : 'Add contacts to this list from Audience → Contacts.'">
+                            ? 'admin.audience.hub.members_empty_form'
+                            : 'admin.audience.hub.members_empty_manual'"
+                        [showEmptyAction]="false">
                     </app-global-table>
                     }
                 </div>
@@ -105,45 +109,41 @@
 
             <!-- Broadcasts and the sequence are email marketing's, so they go with it. -->
             @if (emailMarketingOn) {
-            <!-- ── Broadcasts ──────────────────────────────────────── -->
-            <mat-tab label="Broadcasts">
+            <!-- Broadcasts -->
+            <mat-tab [label]="'admin.audience.hub.broadcasts' | transloco">
                 <div class="tab-body">
                     <div class="tab-actions">
                         <button mat-flat-button color="primary" (click)="newBroadcast()">
-                            <mat-icon>send</mat-icon> New broadcast to this list
+                            <mat-icon aria-hidden="true">send</mat-icon> {{ 'admin.audience.hub.new_broadcast_here' | transloco }}
                         </button>
                     </div>
                     <app-global-table [data]="listBroadcasts()" [columns]="broadcastColumns"
-                        emptyIcon="fas fa-tower-broadcast" emptyTitle="No broadcasts to this list yet"
-                        emptyDescription="One-off sends to this list will appear here."
-                        emptyActionLabel="New broadcast" emptyActionIcon="fas fa-plus"
+                        [error]="broadcastsError()" (retry)="loadBroadcasts()"
+                        emptyIcon="fas fa-tower-broadcast" emptyTitle="admin.audience.hub.broadcasts_empty_title"
+                        emptyDescription="admin.audience.hub.broadcasts_empty_text"
+                        emptyActionLabel="admin.audience.hub.new_broadcast" emptyActionIcon="fas fa-plus"
                         (emptyActionClick)="newBroadcast()">
                     </app-global-table>
                 </div>
             </mat-tab>
 
-            <!-- ── Sequence ────────────────────────────────────────── -->
-            <mat-tab label="Sequence">
+            <!-- Sequence -->
+            <mat-tab [label]="'admin.audience.hub.sequence' | transloco">
                 <div class="tab-body">
                     <p class="hub-note">
-                        <i class="fas fa-circle-info"></i>
-                        @if (isLive()) {
-                        A sequence sends automatically when someone starts matching this list, for example when a
-                        change in your app makes them match. Day 0 fires on join. They leave the sequence when they
-                        stop matching, unsubscribe or are deleted in your app.
-                        } @else {
-                        A sequence sends automatically when someone joins this list. Day 0 fires on join.
-                        }
+                        <i class="fas fa-circle-info" aria-hidden="true"></i>
+                        {{ (isLive() ? 'admin.audience.hub.sequence_note_live' : 'admin.audience.hub.sequence_note') | transloco }}
                     </p>
                     <div class="tab-actions">
                         <button mat-flat-button color="primary" (click)="newSequence()">
-                            <mat-icon>add</mat-icon> New sequence for this list
+                            <mat-icon aria-hidden="true">add</mat-icon> {{ 'admin.audience.hub.new_sequence_here' | transloco }}
                         </button>
                     </div>
                     <app-global-table [data]="listCampaigns()" [columns]="campaignColumns"
-                        emptyIcon="fas fa-droplet" emptyTitle="No sequence yet"
-                        emptyDescription="Add a sequence to email people automatically after they join."
-                        emptyActionLabel="New sequence" emptyActionIcon="fas fa-plus"
+                        [error]="campaignsError()" (retry)="loadCampaigns()"
+                        emptyIcon="fas fa-droplet" emptyTitle="admin.audience.hub.sequence_empty_title"
+                        emptyDescription="admin.audience.hub.sequence_empty_text"
+                        emptyActionLabel="admin.audience.hub.new_sequence" emptyActionIcon="fas fa-plus"
                         (emptyActionClick)="newSequence()">
                     </app-global-table>
                 </div>

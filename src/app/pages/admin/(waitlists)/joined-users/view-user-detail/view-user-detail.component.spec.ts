@@ -166,8 +166,8 @@ describe('ViewUserDetailComponent', () => {
     });
 
     describe('formatDate', () => {
-        it('should return N/A for null', () => {
-            expect(component.formatDate(null)).toBe('N/A');
+        it('shows a dash for no date', () => {
+            expect(component.formatDate(null)).toBe('-');
         });
 
         it('should format Date objects', () => {

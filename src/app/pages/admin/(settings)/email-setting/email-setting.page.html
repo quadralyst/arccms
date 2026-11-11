@@ -55,7 +55,7 @@
                 <i [class]="getSelectedProvider().icon + ' provider-icon-sm'"></i>
                 <div class="provider-selected-info">
                     <span class="provider-selected-label">{{ 'admin.settings.email.provider' | transloco }}</span>
-                    <span class="provider-selected-name">{{ getSelectedProvider().name }}</span>
+                    <span class="provider-selected-name">{{ providerKey(getSelectedProvider().id, 'name') | transloco }}</span>
                 </div>
             </div>
             <button mat-stroked-button type="button" (click)="showProviderList.set(true)">
@@ -87,9 +87,9 @@
                             <div class="provider-info">
                                 <i [class]="provider.icon + ' provider-icon'"></i>
                                 <div class="provider-text">
-                                    <span class="provider-name">{{ provider.name }}</span>
-                                    <span class="provider-desc">{{ provider.description }}</span>
-                                    <span class="provider-desc text-muted"><small>{{ provider.freeLimit }}</small></span>
+                                    <span class="provider-name">{{ providerKey(provider.id, 'name') | transloco }}</span>
+                                    <span class="provider-desc">{{ providerKey(provider.id, 'description') | transloco }}</span>
+                                    <span class="provider-desc provider-limit"><small>{{ providerKey(provider.id, 'free_tier') | transloco }}</small></span>
                                 </div>
                             </div>
                         </mat-radio-button>
@@ -289,11 +289,12 @@
                     @for (f of featureMeta; track f.key) {
                     <div class="feature-toggle-row d-flex align-items-start justify-content-between gap-3 py-2">
                         <div class="feature-toggle-label">
-                            <div class="fw-medium">{{ f.label }}</div>
-                            <div class="text-muted small">{{ f.description }}</div>
+                            <div class="fw-medium" [id]="'email-feature-' + f.key">{{ featureKey(f.key, 'label') | transloco }}</div>
+                            <div class="text-muted small">{{ featureKey(f.key, 'description') | transloco }}</div>
                         </div>
                         <mat-slide-toggle
                             [formControlName]="f.key"
+                            [aria-labelledby]="'email-feature-' + f.key"
                             color="primary"
                             [disabled]="!emailEnabled()"
                             (change)="onFeatureToggleChange()">

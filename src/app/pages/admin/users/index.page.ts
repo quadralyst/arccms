@@ -18,7 +18,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
@@ -32,18 +31,18 @@ import { ToastService } from '../../../../shared/services/toast.service';
 import AddUserComponent from './(add-user)/add.page';
 import EditUserComponent from './(edit-user)/edit.[userId].page';
 import ViewUserComponent from './(view-user)/view.[userId].page';
-import { ACCOUNT_KINDS, AccountKind, accountKindConditions, IUser, isAppAccount, matchesUserSearch, MAX_SEARCHED_USERS } from './user.model';
+import { ACCOUNT_KINDS, AccountKind, accountKindConditions, IUser, isAppAccount, matchesUserSearch, MAX_SEARCHED_USERS, roleLabel, userActionError } from './user.model';
 import { UserService } from './user.service';
 import { injectT } from '../../../core/i18n/inject-t';
 import { UserStore } from './user.store';
 import { roleGuard } from '../../../guards/role.guard';
-import { AuthService } from '../../(auth)/auth.service';
 import { AuthState } from '../../(auth)/auth.store';
 import { escapeHtml } from '../../../../shared/utils/escape-html';
+import { isLockedAppAccount } from '../../../core/app-accounts/app-account-lock';
 import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
-    title: 'Users Management',
+    title: 'Users',
     canActivate: [roleGuard],
     data: { allowedRoles: ['admin'] },
 };
@@ -82,9 +81,7 @@ export default class UsersComponent implements OnDestroy {
     private userService = inject(UserService);
     private t = injectT();
     private authStore = inject(AuthState);
-    private authService = inject(AuthService);
     dialog = inject(MatDialog);
-    sanitizer = inject(DomSanitizer);
     datePipe = inject(DatePipe);
     toastService = inject(ToastService);
     route = inject(ActivatedRoute);
@@ -143,6 +140,18 @@ export default class UsersComponent implements OnDestroy {
     readonly total = computed(() => (this.searching() ? this.matches().length : this.userStore.totalRecords()));
     readonly page = computed(() => (this.searching() ? this.lastMatchPage() : this.currentPage()));
     readonly loading = computed(() => (this.searching() ? this.searchLoading() : this.userStore.isLoading()));
+    /** The search's own read failed; typing again or Retry reads again. */
+    readonly searchFailed = signal(false);
+    /**
+     * The list did not load: the table says so in a plain sentence with Retry. The
+     * store keeps Firestore's own message, which stays in the console.
+     */
+    readonly loadError = computed<string | boolean | null>(() => {
+        if (this.searching()) return this.searchFailed() ? 'admin.users.search_failed' : null;
+        // A record not found by the drawer leaves an error with isSuccess true: the list itself is fine.
+        return this.userStore.error() && !this.userStore.isSuccess() ? true : null;
+    });
+    readonly roleName = (role: string) => roleLabel(role, (key) => this.t(key));
 
     // Table Config
     tableColumns: TableColumn[] = [];
@@ -192,7 +201,7 @@ export default class UsersComponent implements OnDestroy {
     /**
      * Fetch data with current filter, sort, and pagination settings
      */
-    private fetchData(): void {
+    fetchData(): void {
         this.userStore.getAll({
             limitCount: this.pageSize(),
             currentPageNumber: this.currentPage(),
@@ -263,6 +272,7 @@ export default class UsersComponent implements OnDestroy {
         this.closeSearchRead();
         this.searchReadKey = key;
         this.searchLoading.set(true);
+        this.searchFailed.set(false);
         this.searchRead = this.userService.getAll({
             limitCount: MAX_SEARCHED_USERS,
             currentPageNumber: 0,
@@ -282,7 +292,7 @@ export default class UsersComponent implements OnDestroy {
                 // Typing again tries again.
                 this.searchRead = undefined;
                 this.searchReadKey = '';
-                this.toastService.error(this.t('admin.users.search_failed'));
+                this.searchFailed.set(true);
             },
         });
     }
@@ -412,6 +422,28 @@ export default class UsersComponent implements OnDestroy {
         this.fetchData();
     }
 
+    /** Clear filters in the table's "Nothing matches": the search, Detached and the kind, all back to everyone. */
+    clearAllFilters(): void {
+        if (this.searching()) {
+            this.searchTerm.set('');
+            this.searchPage.set(0);
+            this.closeSearchRead();
+        }
+        this.showDetached.set(false);
+        this.accountKind.set('all');
+        this.clearFilters();
+    }
+
+    /** Retry in the table's error state: the search reads again, or the list does. */
+    retryLoad(): void {
+        if (this.searching()) {
+            this.closeSearchRead();
+            this.openSearchRead();
+        } else {
+            this.fetchData();
+        }
+    }
+
     hasActiveFilters(): boolean {
         return this.searching() || this.showDetached() || this.accountKind() !== 'all' || Object.values(this.filters()).some((v) => v && v.trim());
     }
@@ -427,79 +459,66 @@ export default class UsersComponent implements OnDestroy {
         return Math.min(end, this.total());
     }
 
-    // User actions
-    deleteItem(item: IUser): void {
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to delete <strong>${escapeHtml(item.name)}</strong>?`
-        );
+    /** The admin's own row: they cannot block or delete themselves here (another admin can). */
+    isMe(row: Pick<IUser, 'id' | 'uid'>): boolean {
+        const me = this.authStore.currentUser() as { id?: string; uid?: string } | null;
+        if (!me) return false;
+        return (!!me.uid && row.uid === me.uid) || (!!me.id && row.id === me.id);
+    }
 
+    // User actions: through the server, which keeps the site an active admin (adminUserAccess.ts).
+    deleteItem(item: IUser): void {
+        const name = `<strong>${escapeHtml(item.name || item.email || item.phone || '')}</strong>`;
         const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
-            width: '350px',
+            width: '400px',
             data: {
                 dialogType: 'Delete',
-                dialogMessage: msg,
-                btnText: 'Delete',
+                titleKey: 'admin.users.delete_title',
+                dialogMessage: this.t('admin.users.delete_message', { name }),
+                btnText: this.t('common.actions.delete'),
                 panelType: 'warn',
             },
         });
 
-        dialogRef.afterClosed().subscribe((result: boolean) => {
-            if (result) {
-                this.userStore.delete(item.id).subscribe({
-                    next: () => {
-                        // Clean up hashed email from email_lookup collection
-                        if (item.email) {
-                            this.authService.removeEmailLookup(item.email).catch((err) =>
-                                console.error('Failed to remove email lookup:', err)
-                            );
-                        }
-                        this.toastService.success('User deleted successfully.');
-                        this.fetchData();
-                    },
-                    error: (error) => {
-                        console.error('Error deleting user:', error);
-                        this.toastService.error('Failed to delete user.');
-                    },
-                });
+        dialogRef.afterClosed().subscribe(async (result: boolean) => {
+            if (!result) return;
+            try {
+                await this.userService.deleteUser(item.id);
+                this.toastService.success(this.t('admin.users.deleted', { name: item.name || item.email || item.phone || '' }));
+                this.fetchData();
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                this.toastService.error(userActionError(error, this.t, 'admin.users.delete_failed'));
             }
         });
     }
 
     onActiveDeactivate(item: IUser): void {
-        const action = item.isActive ? 'block' : 'unblock';
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Are you sure you want to ${action} <strong>${escapeHtml(item.name)}</strong>?`
-        );
-
+        const blocking = item.isActive !== false;
+        const name = `<strong>${escapeHtml(item.name || item.email || item.phone || '')}</strong>`;
         const dialogRef = this.dialog.open(ConfirmationPopupComponent, {
-            width: '350px',
+            width: '400px',
             data: {
                 dialogType: 'Confirm',
-                dialogMessage: msg,
-                btnText: 'Confirm',
-                panelType: 'warn',
+                titleKey: blocking ? 'admin.users.block_title' : 'admin.users.unblock_title',
+                dialogMessage: this.t(blocking ? 'admin.users.block_message' : 'admin.users.unblock_message', { name }),
+                btnText: this.t(blocking ? 'admin.users.block' : 'admin.users.unblock'),
+                panelType: blocking ? 'warn' : '',
             },
         });
 
-        dialogRef.afterClosed().subscribe((result: boolean) => {
-            if (result) {
-                this.userStore.update(item.id, { isActive: !item.isActive }).subscribe({
-                    next: () => {
-                        this.toastService.success(`User ${action}ed successfully.`);
-                        this.fetchData();
-                    },
-                    error: (error) => {
-                        console.error(`Error ${action}ing user:`, error);
-                        this.toastService.error(`Failed to ${action} user.`);
-                    },
-                });
+        dialogRef.afterClosed().subscribe(async (result: boolean) => {
+            if (!result) return;
+            const shown = item.name || item.email || item.phone || '';
+            try {
+                await this.userService.setBlocked(item.id, blocking);
+                this.toastService.success(this.t(blocking ? 'admin.users.blocked' : 'admin.users.unblocked', { name: shown }));
+                this.fetchData();
+            } catch (error) {
+                console.error(`Error ${blocking ? 'blocking' : 'unblocking'} user:`, error);
+                this.toastService.error(userActionError(error, this.t, blocking ? 'admin.users.block_failed' : 'admin.users.unblock_failed'));
             }
         });
-    }
-
-    openVerify(item: IUser): void {
-        // Placeholder for email verification functionality
-        this.toastService.info('Email verification not yet implemented.');
     }
 
     initColumns() {
@@ -531,7 +550,8 @@ export default class UsersComponent implements OnDestroy {
             {
                 key: 'role',
                 header: 'common.table.role',
-                type: 'text'
+                type: 'text',
+                transformFn: (row: IUser) => (row.role ? this.roleName(row.role) : ''),
             },
             {
                 key: 'isActive',
@@ -540,9 +560,10 @@ export default class UsersComponent implements OnDestroy {
                 badgeConfig: {
                     trueClass: 'active',
                     falseClass: 'inactive',
-                    trueText: 'Active',
-                    falseText: 'Inactive'
-                }
+                    // Read at each render, so a change of language shows at once.
+                    textFn: (row: IUser) => this.t(row.isActive !== false ? 'admin.users.status_active' : 'admin.users.status_blocked'),
+                },
+                classFn: (row: IUser) => (row.isActive !== false ? 'active' : 'inactive'),
             },
             {
                 key: 'createdAt', // Using creationTime directly
@@ -572,24 +593,21 @@ export default class UsersComponent implements OnDestroy {
                     {
                         action: 'toggleActive',
                         icon: 'fas fa-ban', // Default icon
-                        iconFn: (row) => row.isActive ? 'fas fa-ban' : 'fas fa-check',
-                        labelFn: (row) => row.isActive ? 'Block' : 'Unblock',
+                        iconFn: (row) => row.isActive !== false ? 'fas fa-ban' : 'fas fa-check',
+                        labelFn: (row) => row.isActive !== false ? 'admin.users.block' : 'admin.users.unblock',
                         class: 'edit', // or custom class
+                        // Never on your own row: another admin blocks you (the server refuses it too).
+                        // Not on a detached record: unblocking it could not let it sign in.
+                        hide: (row) => this.isMe(row) || row.status === 'Detached',
                         onAction: (row) => this.onActiveDeactivate(row)
                     },
                     {
-                        action: 'verify',
-                        icon: 'fas fa-user-check',
-                        label: 'admin.users.verify',
-                        class: 'verify',
-                        hide: (row) => !!row.emailVerified,
-                        onAction: (row) => this.openVerify(row)
-                    },
-                    {
                         action: 'delete',
-                        icon: 'fas fa-trash text-danger', // Using fas as in Waitlists
+                        icon: 'fas fa-trash text-danger',
                         label: 'common.actions.delete',
                         class: 'delete',
+                        // A locked app account is its app's to delete (the server refuses it too).
+                        hide: (row) => this.isMe(row) || isLockedAppAccount(row),
                         onAction: (row) => this.deleteItem(row)
                     }
                 ]
@@ -598,16 +616,9 @@ export default class UsersComponent implements OnDestroy {
     }
 
     onCellClick(event: { key: string, row: any }) {
-        if (event.key === 'displayName') {
+        if (event.key === 'name') {
             this.openView(event.row.id);
         }
-    }
-
-    // Date formatting
-    formatNewDate(date: any): string {
-        if (!date) return 'N/A';
-        const newDate = date.seconds ? new Date(date.seconds * 1000) : new Date(date);
-        return this.datePipe.transform(newDate, 'EEE, MMM d, y') || 'N/A';
     }
 
     // Set sort field from table event

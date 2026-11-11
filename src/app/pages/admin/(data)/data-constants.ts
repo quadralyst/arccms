@@ -162,27 +162,29 @@ export type CollectionGroupId = 'content' | 'users-waitlists' | 'audience' | 'se
 // Static collection registry
 // ---------------------------------------------------------------------------
 
+// displayName is a translation key: the page shows it with `| translatable`, the export
+// progress line with ExportDataService. The collection `name` is what is stored and exported.
 export const KNOWN_COLLECTIONS: CollectionConfig[] = [
-    { name: 'ContentTypes', displayName: 'Content Types', feature: 'content' },
-    { name: 'users', displayName: 'Users' },
-    { name: 'Settings', displayName: 'Settings' },
-    { name: 'media', displayName: 'Media Metadata' },
-    { name: 'mediaFiles', displayName: 'Media Files Metadata' },
-    { name: 'EmailTemplate', displayName: 'Email Templates' },
-    { name: 'BroadcastEmails', displayName: 'Broadcast Emails', feature: 'email-marketing' },
-    { name: 'EmailLogs', displayName: 'Email Logs' },
+    { name: 'ContentTypes', displayName: 'admin.data.collections.content_types', feature: 'content' },
+    { name: 'users', displayName: 'admin.data.collections.users' },
+    { name: 'Settings', displayName: 'admin.data.collections.settings' },
+    { name: 'media', displayName: 'admin.data.collections.media' },
+    { name: 'mediaFiles', displayName: 'admin.data.collections.media_files' },
+    { name: 'EmailTemplate', displayName: 'admin.data.collections.email_templates' },
+    { name: 'BroadcastEmails', displayName: 'admin.data.collections.broadcast_emails', feature: 'email-marketing' },
+    { name: 'EmailLogs', displayName: 'admin.data.collections.email_logs' },
     {
-        name: 'Waitlists', displayName: 'Waitlists', feature: 'forms',
-        subcollections: [{ name: 'users', displayName: 'Waitlist Users' }],
+        name: 'Waitlists', displayName: 'admin.data.collections.forms', feature: 'forms',
+        subcollections: [{ name: 'users', displayName: 'admin.data.collections.sign_ups' }],
     },
-    { name: 'WaitlistedUsers', displayName: 'Waitlisted Users', feature: 'forms' },
+    { name: 'WaitlistedUsers', displayName: 'admin.data.collections.sign_ups_old', feature: 'forms' },
     // Unified audience layer (U1/U2). Contacts carry consent, so exports of this
     // group contain marketing-permission state — treat as sensitive.
-    { name: 'Contacts', displayName: 'Contacts', feature: 'audience' },
-    { name: 'Lists', displayName: 'Lists', feature: 'audience' },
-    { name: 'ContactTags', displayName: 'Contact Tags', feature: 'audience' },
+    { name: 'Contacts', displayName: 'admin.data.collections.contacts', feature: 'audience' },
+    { name: 'Lists', displayName: 'admin.data.collections.lists', feature: 'audience' },
+    { name: 'ContactTags', displayName: 'admin.data.collections.contact_tags', feature: 'audience' },
     // Unsubscribes are the email engine's, so every app keeps them.
-    { name: 'Suppression', displayName: 'Suppression List' },
+    { name: 'Suppression', displayName: 'admin.data.collections.suppression' },
 ];
 
 /** The known collections of the features this app has (specs/feature-flags-spec.md). */

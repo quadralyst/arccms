@@ -110,15 +110,15 @@ describe('ViewUserComponent', () => {
             const timestamp = { seconds: 1702500000 };
             const result = component.formatDisplayDate(timestamp);
             expect(result).toBeTruthy();
-            expect(result).not.toBe('N/A');
+            expect(result).not.toBe('None');
         });
 
-        it('should return N/A for null date', () => {
-            expect(component.formatDisplayDate(null)).toBe('N/A');
+        it('says None for a missing date', () => {
+            expect(component.formatDisplayDate(null)).toBe('None');
         });
 
-        it('should return N/A for undefined date', () => {
-            expect(component.formatDisplayDate(undefined)).toBe('N/A');
+        it('says None for an undefined date', () => {
+            expect(component.formatDisplayDate(undefined)).toBe('None');
         });
 
         it('should format regular Date object', () => {
@@ -157,12 +157,22 @@ describe('ViewUserComponent', () => {
     });
 
     describe('A person with no email (docs/app/app-accounts.html)', () => {
-        it('shows N/A and no empty mailto: link', () => {
+        it('shows None and no empty mailto: link', () => {
             mockUserStore.currentItem.set({ ...mockUser, email: '', by: 'app' });
             fixture.detectChanges();
             const el: HTMLElement = fixture.nativeElement;
             expect(el.querySelector('a[href^="mailto:"]')).toBeNull();
-            expect(el.textContent).toContain('N/A');
+            expect(el.textContent).toContain('None');
+        });
+
+        it('says the status and role in the admin\'s language, and names the close button', () => {
+            mockUserStore.currentItem.set({ ...mockUser, status: 'Detached', role: 'admin', isActive: false });
+            fixture.detectChanges();
+            const el: HTMLElement = fixture.nativeElement;
+            expect(component.statusText()).toBe('Detached');
+            expect(el.textContent).toContain('Admin');
+            expect(el.textContent).toContain('Blocked');
+            expect(el.querySelector('.close-btn')!.getAttribute('aria-label')).toBe('Close');
         });
 
         it('links an email that is there', () => {

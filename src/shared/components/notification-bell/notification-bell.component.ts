@@ -6,6 +6,7 @@ import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Subscription } from 'rxjs';
 import { NotificationService } from '../../services/notification.service';
 import { INotification } from '../../services/notification.model';
@@ -24,7 +25,7 @@ import { AuthState } from '../../../app/pages/(auth)/auth.store';
 @Component({
     selector: 'arc-notification-bell',
     standalone: true,
-    imports: [CommonModule, MatIconModule, MatBadgeModule, MatButtonModule],
+    imports: [CommonModule, MatIconModule, MatBadgeModule, MatButtonModule, TranslocoPipe],
     templateUrl: './notification-bell.component.html',
     styleUrl: './notification-bell.component.scss',
 })

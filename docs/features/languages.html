@@ -19,14 +19,14 @@
       <tbody>
         <tr><td>Who reads it</td><td>Visitors</td><td>Admins, and signed-in members unless the app gives them languages of their own</td></tr>
         <tr><td>What it translates</td><td>Content, content type names, and the words in templates and partials</td><td>Buttons, labels, menus, messages</td></tr>
-        <tr><td>Language list</td><td>Admin, Settings, Localization (<code>Settings/localization</code>)</td><td><code>ADMIN_LANGUAGES</code> in <code>src/app/core/i18n/admin-languages.ts</code></td></tr>
+        <tr><td>Language list</td><td>Admin, Settings, Languages (<code>Settings/localization</code>)</td><td><code>ADMIN_LANGUAGES</code> in <code>src/app/core/i18n/admin-languages.ts</code></td></tr>
         <tr><td>Chosen by</td><td>The URL</td><td>The language picker in the page header (in the admin area only, when the app declares member languages)</td></tr>
         <tr><td>Mechanism</td><td>Translation documents, plus <code>data-arc-t</code> and the site's strings files (<code>/_site/strings/{lang}.json</code>)</td><td>Transloco, with <code>src/assets/i18n/{lang}.json</code></td></tr>
       </tbody>
     </table>
     <p>Arc CMS ships English and Hindi for both. An app can give its members, and people on the sign-in page, a language Arc CMS does not ship, such as German, while the admin keeps English and Hindi: see <a href="../app/member-languages.html">Member languages</a>.</p>
     <div class="note"><p>Emails are English only, and so are the unsubscribe and email preferences pages. Nothing in the email engine reads a language.</p></div>
-    <p>Settings, Localization also holds the site's <strong>time zone</strong>, saved with its own button. Dates on published pages use it, so every visitor sees the same day; each person sees other times in their own zone. See <a href="../app/clock-and-zones.html">Clock and time zones</a>.</p>
+    <p>Settings, Languages also holds the site's <strong>time zone</strong>, saved with its own button. Dates on published pages use it, so every visitor sees the same day; each person sees other times in their own zone. See <a href="../app/clock-and-zones.html">Clock and time zones</a>.</p>
 
     <h3>URLs</h3>
     <p>The default language keeps unprefixed URLs. Every other language gets its code as a prefix, with the same slug:</p>
@@ -47,7 +47,7 @@ arc_articles/{id}/translations/hi     Hindi: only what is translated</code></pre
     <h3>Add a public language</h3>
     <p>For example French (<code>fr</code>):</p>
     <ol class="steps">
-      <li><p><strong>Enable it.</strong> Admin, Settings, Localization, <strong>Add a language</strong>, then <strong>Save Languages</strong>. Pick it from the list, or choose <strong>Other</strong> and enter a code such as <code>sw</code> or <code>pt-br</code>. A code that a page already has as its address, such as <code>pay</code> when the app has <code>/pay</code>, is refused. The editor offers a French tab straight away. The same page sets the default language and the order of the switcher.</p></li>
+      <li><p><strong>Enable it.</strong> Admin, Settings, Languages, <strong>Add a language</strong>, then <strong>Save languages</strong>. Pick it from the list, or choose <strong>Other</strong> and enter a code such as <code>sw</code> or <code>pt-br</code>. A code that a page already has as its address, such as <code>pay</code> when the app has <code>/pay</code>, is refused. The editor offers a French tab straight away. The same page sets the default language and the order of the switcher.</p></li>
       <li><p><strong>Translate the words in templates.</strong> Create <code class="new">src/custom/site/strings/fr.json</code>, using <code>public/_site/strings/hi.json</code> as the list of keys. A partial file is fine: a missing key keeps the English.</p></li>
       <li><p><strong>Translate content type names.</strong> Content, Content types, edit each type and use its French tab: name, singular name, description and custom field labels.</p></li>
       <li><p><strong>Translate the content.</strong> Open each entry, pick the French tab, fill in what matters and publish. <strong>Save</strong> and <strong>Publish</strong> apply to every language at once.</p></li>
@@ -89,7 +89,7 @@ arc_articles/{id}/translations/hi     Hindi: only what is translated</code></pre
       <li>Any other first segment is checked against the list this browser kept from its last read of <code>Settings/localization</code>, and the list is read again in the background. If the fresh list changes the answer for the page on screen, the page opens again.</li>
       <li>Only a first visit, with no list kept, waits for the read, and only for an address such as <code>/de</code> that could be a language and that no route uses. A single-language site, once its list is kept, never waits.</li>
     </ul>
-    <p>So the language routes can only claim a first segment that is a language code, enabled, not the default, and not used by any route. The Localization settings page refuses a code that a route uses, and <code>npm run dev</code> and <code>npm run build</code> warn when an app page's address is a language code in the catalogue (<code>scripts/vite-language-routes.ts</code>).</p>
+    <p>So the language routes can only claim a first segment that is a language code, enabled, not the default, and not used by any route. The Languages settings page refuses a code that a route uses, and <code>npm run dev</code> and <code>npm run build</code> warn when an app page's address is a language code in the catalogue (<code>scripts/vite-language-routes.ts</code>).</p>
     <div class="trap"><p>A translated page links back to English. The directive only covers the header and footer. A new component that links to a public page must add the prefix itself, taking the language from the route's <code>:lang</code> or from <code>UiStringsService.activeLang()</code>, with <code>withLangPrefix(href, prefix, contentTypes)</code> so a page that exists once keeps its address.</p></div>
 
     <h3>What search engines see</h3>

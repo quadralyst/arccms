@@ -24,6 +24,9 @@ import { PageHeaderComponent } from '../../../../shared/components/page-header/p
 import { statusBadgeClass } from '../../../../shared/utils/status-badge';
 import { MAX_APP_USERS } from './app-users-limit';
 import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
+import { injectT } from '../../../core/i18n/inject-t';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
+import type { TranslationKey } from '../../../core/i18n/translation-keys';
 
 /** Mirrors functions/src/app-audience/listAppUsers.ts. */
 export interface AppUserRow {
@@ -86,10 +89,12 @@ export default class AppUsersPageComponent implements OnInit {
     @ViewChild('drawer') drawer?: MatDrawer;
 
     private functions = inject(Functions);
+    private t = injectT();
 
     readonly maxAppUsers = MAX_APP_USERS;
     loading = signal(true);
-    error = signal('');
+    /** The list did not load: a translation key the table shows with Retry, or empty. */
+    error = signal<TranslationKey | ''>('');
     location = signal<AppUsersLocation | null>(null);
     list = signal<AppUserList | null>(null);
     search = signal('');
@@ -98,7 +103,8 @@ export default class AppUsersPageComponent implements OnInit {
 
     detail = signal<AppUserDetail | null>(null);
     detailLoading = signal(false);
-    detailError = signal('');
+    /** One user's details did not load: a translation key, or empty. */
+    detailError = signal<TranslationKey | ''>('');
 
     filtered = computed(() => {
         const term = this.search().trim().toLowerCase();
@@ -120,7 +126,8 @@ export default class AppUsersPageComponent implements OnInit {
         { key: 'key', header: 'admin.audience.app_users.key', type: 'code' },
         {
             key: 'consent', header: 'admin.audience.app_users.consent', type: 'html',
-            transformFn: (r) => `<span class="${statusBadgeClass(r.consent)}">${r.consent}</span>`,
+            // The consent in the admin's language; the stored word picks the colour.
+            transformFn: (r) => `<span class="${statusBadgeClass(r.consent)}">${escapeHtml(this.consentText(r.consent))}</span>`,
         },
         {
             key: 'actions', header: 'common.table.actions', type: 'actions',
@@ -132,6 +139,11 @@ export default class AppUsersPageComponent implements OnInit {
     ];
 
     badge = statusBadgeClass;
+
+    /** Subscribed or Unsubscribed, translated; anything else as stored. */
+    consentText(consent: string): string {
+        return consent === 'subscribed' || consent === 'unsubscribed' ? this.t(`admin.audience.app_users.${consent}`) : consent;
+    }
 
     /** The translation key for an event's outcome. */
     activityStatusKey(status: string): string {
@@ -154,8 +166,10 @@ export default class AppUsersPageComponent implements OnInit {
                 const res = await arcCallable<unknown, AppUserList>(this.functions, 'listAppUsers')({});
                 this.list.set(res.data);
             }
-        } catch (e: any) {
-            this.error.set(e?.message || String(e));
+        } catch (e) {
+            // A plain sentence for the admin; the server's message stays here.
+            console.error('Could not read app users:', e);
+            this.error.set('admin.app_users.load_failed');
         } finally {
             this.loading.set(false);
         }
@@ -182,8 +196,9 @@ export default class AppUsersPageComponent implements OnInit {
         try {
             const res = await arcCallable<{ docId: string }, AppUserDetail>(this.functions, 'getAppUser')({ docId: row.docId });
             this.detail.set(res.data);
-        } catch (e: any) {
-            this.detailError.set(e?.message || String(e));
+        } catch (e) {
+            console.error('Could not read this app user:', e);
+            this.detailError.set('admin.app_users.detail_failed');
         } finally {
             this.detailLoading.set(false);
         }

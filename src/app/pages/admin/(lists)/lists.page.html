@@ -12,7 +12,7 @@
             <arc-page-header [title]="'admin.audience.lists.title' | transloco"
                 [subtitle]="'admin.audience.lists.subtitle' | transloco">
                 <button mat-stroked-button (click)="syncFormLists()" [disabled]="busy()"
-                    matTooltip="Create the missing list for any signup form that doesn't have one yet">
+                    [matTooltip]="'admin.audience.lists.sync_hint' | transloco">
                     <mat-icon>sync</mat-icon> {{ 'admin.audience.lists.sync' | transloco }}
                 </button>
                 <button mat-flat-button color="primary" (click)="openAdd()">
@@ -21,9 +21,10 @@
             </arc-page-header>
 
             <app-global-table [data]="lists()" [columns]="columns" [loading]="loading()"
+                [error]="loadError()" (retry)="load()"
                 emptyIcon="fas fa-list-ul" [emptyTitle]="'admin.audience.lists.empty_title' | transloco"
                 [emptyDescription]="'admin.audience.lists.empty_description' | transloco"
-                emptyActionLabel="Create list" emptyActionIcon="fas fa-plus"
+                emptyActionLabel="admin.audience.lists.create" emptyActionIcon="fas fa-plus"
                 (emptyActionClick)="openAdd()">
             </app-global-table>
         </div>

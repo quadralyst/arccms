@@ -19,7 +19,7 @@ describe('SearchBoxComponent', () => {
         vi.useFakeTimers();
         searchMock = {
             isSearchable: (q: string) => q.trim().length >= 2,
-            search: vi.fn().mockResolvedValue({ results: [result('a', 'Gunjan Karun'), result('b', 'Guide')], tookMs: 2 }),
+            search: vi.fn().mockResolvedValue({ results: [result('a', 'Anjali Verma'), result('b', 'Guide')], tookMs: 2 }),
         };
         router = { navigateByUrl: vi.fn().mockResolvedValue(true) };
 
@@ -64,17 +64,17 @@ describe('SearchBoxComponent', () => {
     });
 
     it('renders results with highlighted segments and badges', async () => {
-        await type('gun');
+        await type('anj');
         expect(component.isOpen()).toBe(true);
-        expect(component.results()[0].titleSegments).toEqual([{ text: 'Gun', hit: true }, { text: 'jan Karun', hit: false }]);
+        expect(component.results()[0].titleSegments).toEqual([{ text: 'Anj', hit: true }, { text: 'ali Verma', hit: false }]);
         const items = fixture.nativeElement.querySelectorAll('.arc-search__item');
         expect(items).toHaveLength(2);
-        expect(items[0].querySelector('mark').textContent).toBe('Gun');
+        expect(items[0].querySelector('mark').textContent).toBe('Anj');
         expect(items[0].querySelector('.arc-search__badge').textContent).toBe('Articles');
     });
 
     it('navigates through the keyboard and opens the active result with the router', async () => {
-        await type('gun');
+        await type('anj');
         component.onKeydown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
         component.onKeydown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
         expect(component.activeIndex()).toBe(1);
@@ -89,9 +89,9 @@ describe('SearchBoxComponent', () => {
     });
 
     it('goes to the results page on Enter with nothing selected', async () => {
-        await type('gun jan');
+        await type('anj ali');
         component.onKeydown(new KeyboardEvent('keydown', { key: 'Enter' }));
-        expect(router.navigateByUrl).toHaveBeenCalledWith('/admin/search?q=gun%20jan');
+        expect(router.navigateByUrl).toHaveBeenCalledWith('/admin/search?q=anj%20ali');
     });
 
     it('shows the empty state and the fallback note', async () => {
@@ -99,17 +99,17 @@ describe('SearchBoxComponent', () => {
         await type('zzz');
         expect(fixture.nativeElement.querySelector('.arc-search__empty').textContent).toBe('No results');
 
-        searchMock.search.mockResolvedValueOnce({ results: [result('a', 'Gunjan')], tookMs: 1, fallbackUsed: 'gunja' });
-        await type('gunjam');
-        expect(fixture.nativeElement.querySelector('.arc-search__note').textContent).toContain('gunja');
+        searchMock.search.mockResolvedValueOnce({ results: [result('a', 'Anjali')], tookMs: 1, fallbackUsed: 'anjal' });
+        await type('anjalo');
+        expect(fixture.nativeElement.querySelector('.arc-search__note').textContent).toContain('anjal');
     });
 
     it('ignores a stale (null) response and clears on Escape', async () => {
         searchMock.search.mockResolvedValueOnce(null);
-        await type('gun');
+        await type('anj');
         expect(component.results()).toEqual([]);
 
-        await type('gun');
+        await type('anj');
         expect(component.results()).toHaveLength(2);
         component.onKeydown(new KeyboardEvent('keydown', { key: 'Escape' }));
         expect(component.query()).toBe('');
@@ -117,7 +117,7 @@ describe('SearchBoxComponent', () => {
     });
 
     it('closes when focus leaves', async () => {
-        await type('gun');
+        await type('anj');
         expect(component.isOpen()).toBe(true);
         component.onBlur();
         expect(component.isOpen()).toBe(false);

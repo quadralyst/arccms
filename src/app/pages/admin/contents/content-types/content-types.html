@@ -63,7 +63,8 @@
                         (sortChange)="setSortField($event)" [pageIndex]="currentPage()" [pageSize]="pageSize()"
                         [emptyTitle]="'admin.contents.types.empty_title' | transloco"
                         [emptyDescription]="'admin.contents.types.empty_description' | transloco"
-                        [showEmptyAction]="false">
+                        [showEmptyAction]="false"
+                        [error]="loadFailed() || null" (retry)="retryLoad()">
                     </app-global-table>
 
                     <!-- Pagination and Record Count -->

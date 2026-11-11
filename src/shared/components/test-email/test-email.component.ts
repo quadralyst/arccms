@@ -18,6 +18,8 @@ import { ToastService } from '../../services/toast.service';
 import { TestEmailStore } from './test-email.store';
 import { ITestEmail } from './test-email.model';
 import { HashtagAutocompleteDirective } from '../../directives/hashtag-autocomplete/hashtag-autocomplete.directive';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { injectT } from '../../../app/core/i18n/inject-t';
 
 interface DialogData {
     formValue: {
@@ -35,7 +37,7 @@ interface DialogData {
 @Component({
     selector: 'arc-test-email',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, HashtagAutocompleteDirective, PreviewLinksDirective],
+    imports: [CommonModule, ReactiveFormsModule, HashtagAutocompleteDirective, PreviewLinksDirective, TranslocoPipe],
     templateUrl: './test-email.component.html',
     styleUrls: ['./test-email.component.scss'],
 })
@@ -46,6 +48,7 @@ export class TestEmailComponent {
     private readonly sanitizer = inject(DomSanitizer);
     private readonly toastService = inject(ToastService);
     readonly testEmailStore = inject(TestEmailStore);
+    private readonly t = injectT();
 
     testEmailForm: FormGroup;
     previewContent: SafeHtml;
@@ -153,7 +156,7 @@ export class TestEmailComponent {
 
         this.testEmailStore.add(emailObj as any).subscribe({
             next: (id) => {
-                this.toastService.success('Test email sent successfully!');
+                this.toastService.success(this.t('common.test_email.sent'));
 
                 // Reset form for another test email
                 this.testEmailForm.get('toEmail')?.setValue('');
@@ -166,7 +169,7 @@ export class TestEmailComponent {
             },
             error: (error) => {
                 console.error('Error sending test email:', error);
-                this.toastService.error('Failed to send test email. Please try again.');
+                this.toastService.error(this.t('common.test_email.send_failed'));
             },
         });
     }

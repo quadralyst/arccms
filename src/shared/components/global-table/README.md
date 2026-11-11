@@ -127,16 +127,83 @@ The layout lives in `arc-row-actions` (`src/shared/components/row-actions/`). A 
 |-------|------|---------|-------------|
 | `data` | `any[]` | `[]` | Array of data objects. |
 | `columns` | `TableColumn[]` | `[]` | Column configuration. |
-| `loading` | `boolean` | `false` | data loading state. |
+| `loading` | `boolean` | `false` | Shows the loading rows in place of the table. |
 | `pageIndex` | `number` | `0` | Current page index (0-based). |
 | `pageSize` | `number` | `10` | Items per page. |
 | `sortField` | `string` | `''` | Current sort key. |
 | `sortOrder` | `'asc' \| 'desc'` | `'desc'` | Current sort order. |
-| `emptyTitle` | `string` | ... | Title for empty state. |
+| `emptyTitle` | `string` | `'No Items Yet'` | Empty state heading. A translation key or plain text. |
+| `emptyDescription` | `string` | `'Create your first item to get started.'` | Empty state line. A translation key or plain text. |
+| `emptyIcon` | `string` | `'fas fa-list-alt'` | Empty state icon class. |
+| `showEmptyAction` | `boolean` | `true` | Shows the empty state button. |
+| `emptyActionLabel` | `string` | `'Create Item'` | Empty state button text. A translation key or plain text. |
+| `emptyActionIcon` | `string` | `'fas fa-plus'` | Empty state button icon class. |
+| `error` | `string \| boolean \| null` | `null` | The list failed to load. `true` shows the standard sentence; a string (a translation key or a plain sentence) is shown instead. See below. |
+| `filtered` | `boolean` | `false` | A search or filter is narrowing the rows. With no rows, the table says "Nothing matches" instead of the empty state. |
+| `noMatchTitle` | `string` | `'common.table.no_match_title'` ("Nothing matches") | Heading when `filtered` and no rows. A translation key or plain text. |
+| `noMatchDescription` | `string` | `'common.table.no_match_text'` ("Try other words, or clear the filters.") | Line under it. A translation key or plain text. |
+| `trackByFn` | `(index, item) => any` | `item.id \|\| index` | Row identity. |
 
 ## Outputs
 
-- **actionClick**: Emits `{ action: string, row: any }` when an action button is clicked.
-- **cellClick**: Emits `{ key: string, row: any }` when a `clickable` cell is clicked.
-- **sortChange**: Emits `string` (column key) when a header is clicked.
-- **emptyActionClick**: Emits `void` when the empty state button is clicked.
+| Output | Emits | When |
+|--------|-------|------|
+| `actionClick` | `{ action: string, row: any }` | A row action without its own `onAction` is pressed. |
+| `cellClick` | `{ key: string, row: any }` | A `clickable` cell is pressed. |
+| `sortChange` | `string` (the column key) | A sortable heading is pressed. |
+| `emptyActionClick` | `void` | The empty state button is pressed. |
+| `retry` | `void` | **Retry** in the error state is pressed. The button shows only when this output is bound. |
+| `clearFilters` | `void` | **Clear filters** in the "nothing matches" state is pressed. The button shows only when this output is bound. |
+
+## Error, nothing matches, and nothing yet
+
+A list has three ways to show no rows, and each needs different words:
+
+| State | Shown when | What it says |
+|-------|-----------|--------------|
+| Error | `error` is set and `loading` is false | "This list did not load", your sentence or "Check your connection and try again.", and **Retry** when `(retry)` is bound. Announced to screen readers (`role="alert"`). |
+| Nothing matches | `filtered` is true, there are no rows, and no error | "Nothing matches", "Try other words, or clear the filters.", and **Clear filters** when `(clearFilters)` is bound. |
+| Nothing yet | No rows, not filtered, no error | The `empty*` inputs: the "create your first" state. |
+
+An error wins over the other two. When rows are already on screen (a refresh failed), the error shows as one line above them and the rows stay. While `loading` is true, only the loading rows show.
+
+Pass a plain sentence as `error`, never the raw error: keep the technical detail in the console.
+
+```html
+<app-global-table
+    [data]="rows()"
+    [columns]="columns"
+    [loading]="loading()"
+    [error]="loadError()"
+    (retry)="load()"
+    [filtered]="!!search() || status() !== 'all'"
+    (clearFilters)="clearFilters()"
+    emptyTitle="admin.things.empty_title"
+    emptyDescription="admin.things.empty_text">
+</app-global-table>
+```
+
+```typescript
+readonly loadError = signal<string | boolean | null>(null);
+
+async load(): Promise<void> {
+    this.loading.set(true);
+    this.loadError.set(null);
+    try {
+        this.rows.set(await this.service.list());
+    } catch (e) {
+        console.error('Loading things failed', e);
+        this.loadError.set(true); // or 'admin.things.load_failed' for your own sentence
+    } finally {
+        this.loading.set(false);
+    }
+}
+```
+
+The app has no zone.js: change these inputs through signals (as above) or by replacing values, so the page's view refreshes and passes them in.
+
+## Accessibility and phones
+
+- A sortable heading is a `<button>` inside the heading cell, and the cell carries `aria-sort` (`ascending`, `descending` or `none`). Headings that cannot sort have neither.
+- Row actions are at least 44px on a touch screen, and every icon has a name: its `label`, else the common name for its action (`edit` is read as "Edit"), else the action itself. Give each action a `label`.
+- When the actions column is the last column, it stays pinned to the right edge while a wide table scrolls sideways, so the actions stay in reach on a phone.

@@ -3,6 +3,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { TestSendDialogComponent } from './test-send-dialog.component';
+import { translocoTestingModule } from '../../../test/transloco-test-providers';
 
 describe('TestSendDialogComponent', () => {
     let component: TestSendDialogComponent;
@@ -47,5 +48,22 @@ describe('TestSendDialogComponent', () => {
     it('closes with undefined on cancel', () => {
         component.cancel();
         expect(mockDialogRef.close).toHaveBeenCalledWith(undefined);
+    });
+
+    it('reads in the admin language', () => {
+        TestBed.resetTestingModule();
+        TestBed.configureTestingModule({
+            imports: [TestSendDialogComponent, NoopAnimationsModule, translocoTestingModule({ lang: 'hi' })],
+            providers: [
+                { provide: MAT_DIALOG_DATA, useValue: { subject: 'Hello world' } },
+                { provide: MatDialogRef, useValue: mockDialogRef },
+            ],
+        });
+        const fixture = TestBed.createComponent(TestSendDialogComponent);
+        fixture.detectChanges();
+        const text = fixture.nativeElement.textContent as string;
+        expect(text).toContain('टेस्ट ईमेल भेजें');
+        expect(text).not.toContain('Send test email');
+        expect(text).not.toContain('Cancel');
     });
 });

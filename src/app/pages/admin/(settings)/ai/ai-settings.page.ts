@@ -71,7 +71,7 @@ export function usd(n: number): string {
             <p class="text-muted mb-3">{{ 'admin.settings.ai.intro' | transloco }}</p>
 
             @if (loadError()) {
-                <div class="alert alert-danger">{{ 'admin.settings.ai.load_failed' | transloco }} {{ loadError() }}</div>
+                <div class="alert alert-danger" role="alert">{{ 'admin.settings.ai.load_failed' | transloco }}</div>
             } @else if (!loaded() || !setup()) {
                 <arc-loader kind="block" [count]="2" [label]="'admin.settings.ai.loading' | transloco"></arc-loader>
             } @else {
@@ -977,7 +977,7 @@ export class AiSettingsPage implements OnInit, OnDestroy {
      */
     readonly shownLists = computed(() => {
         const f = this.form();
-        // Arc's Media image counts too, so a picture model is ready for the Media Manager (AM-D21).
+        // Arc's Media image counts too, so a picture model is ready for Media (AM-D21).
         const kinds = new Set((this.setup()?.purposes ?? []).filter((p) => !p.fixed).map((p) => this.kindOf(p)));
         return AI_FILE_KINDS.filter((k) => f.lists[k].length || kinds.has(k) || f.connections.some((c) => this.modelChoices(c.id, k).length));
     });
@@ -1017,7 +1017,7 @@ export class AiSettingsPage implements OnInit, OnDestroy {
             this.loaded.set(structuredClone(form));
         }).catch((err) => {
             console.error('AI settings: load failed', err);
-            this.loadError.set(err?.message ?? '');
+            this.loadError.set('failed');
         });
     }
 
@@ -1133,11 +1133,12 @@ export class AiSettingsPage implements OnInit, OnDestroy {
                 this.onSaved({ ...c, balance: r.balance, balanceUnit: r.unit, balanceAt: new Date().toISOString() });
                 this.testResults.update((x) => { const { [c.id]: _, ...rest } = x; return rest; });
             } else {
+                // The server's reply is written to be read: it says why.
                 this.testResults.update((x) => ({ ...x, [c.id]: { ok: false, text: this.t('admin.settings.ai.balance_failed', { detail: r.detail }) } }));
             }
         } catch (err: any) {
             console.error('AI settings: balance not read', err);
-            this.testResults.update((x) => ({ ...x, [c.id]: { ok: false, text: this.t('admin.settings.ai.balance_failed', { detail: err?.message ?? '' }) } }));
+            this.testResults.update((x) => ({ ...x, [c.id]: { ok: false, text: this.t('admin.settings.ai.balance_failed_plain') } }));
         } finally {
             this.refreshing.set(null);
         }
@@ -1236,7 +1237,7 @@ export class AiSettingsPage implements OnInit, OnDestroy {
             await this.service.savePart(removalData(c.id, savedAfter, loaded));
         } catch (err: any) {
             console.error('AI settings: provider not removed', err);
-            this.notice.set({ ok: false, text: this.t('admin.settings.ai.save_failed', { error: err?.message ?? '' }) });
+            this.notice.set({ ok: false, text: this.t('admin.settings.ai.save_failed') });
             return;
         }
         this.form.update(without);
@@ -1299,7 +1300,8 @@ export class AiSettingsPage implements OnInit, OnDestroy {
         try {
             await this.service.savePart({ tiers: savedTiers, lists: savedLists });
         } catch (err: any) {
-            this.notice.set({ ok: false, text: this.t('admin.settings.ai.save_failed', { error: err?.message ?? '' }) });
+            console.error('AI settings: models not saved', err);
+            this.notice.set({ ok: false, text: this.t('admin.settings.ai.save_failed') });
             return;
         }
         this.form.update((f) => ({
@@ -1404,7 +1406,7 @@ export class AiSettingsPage implements OnInit, OnDestroy {
      * makes no speech, nor replaces another provider's list.
      */
     private listsToFill(connectionId: string, preset: AiPresetInfo, form: AiSettingsForm = this.form()): Record<AiFileKind, AiModelRef[]> {
-        // Arc's Media image counts too, so a picture model is ready for the Media Manager (AM-D21).
+        // Arc's Media image counts too, so a picture model is ready for Media (AM-D21).
         const kinds = new Set((this.setup()?.purposes ?? []).filter((p) => !p.fixed).map((p) => this.kindOf(p)));
         const rec = recommendedLists(connectionId, preset);
         return Object.fromEntries(AI_FILE_KINDS.map((k) => [k, kinds.has(k) && !form.lists[k].length ? rec[k] : []])) as Record<AiFileKind, AiModelRef[]>;
@@ -1640,7 +1642,7 @@ export class AiSettingsPage implements OnInit, OnDestroy {
             return true;
         } catch (err: any) {
             console.error('AI settings: save failed', err);
-            this.saveMessage.set(this.t('admin.settings.ai.save_failed', { error: err?.message ?? '' }));
+            this.saveMessage.set(this.t('admin.settings.ai.save_failed'));
             this.saveFailed.set(true);
             return false;
         } finally {
@@ -1745,9 +1747,10 @@ export class AiSettingsPage implements OnInit, OnDestroy {
                 const { url, contentType } = await this.service.aiFileUrl(f.path);
                 view = { state: 'ready', url, type: contentType || f.mimeType };
             } catch (err: any) {
+                if (!/not-found/.test(String(err?.code ?? ''))) console.error('AI settings: file not loaded', err);
                 view = /not-found/.test(String(err?.code ?? ''))
                     ? { state: 'gone' }
-                    : { state: 'failed', message: this.t('admin.settings.ai.file_failed', { detail: err?.message ?? '' }) };
+                    : { state: 'failed', message: this.t('admin.settings.ai.file_failed') };
             }
             // Closed, or another call opened, while it loaded: let the file go.
             if (this.fileLoad !== load || this.openCall() !== call.id) {

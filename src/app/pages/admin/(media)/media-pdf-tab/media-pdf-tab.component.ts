@@ -47,6 +47,8 @@ export class MediaPdfTabComponent {
 
     readonly pdfs = signal<IMediaFile[]>([]);
     readonly loading = signal(true);
+    /** The PDFs did not load: the tab says so, with Retry, in place of "No PDFs in Files yet". */
+    readonly loadFailed = signal(false);
     readonly query = signal('');
     readonly limit = signal(PAGE_SIZE);
     readonly dragOver = signal(false);
@@ -94,14 +96,21 @@ export class MediaPdfTabComponent {
         }
     }
 
+    /** Retry on the "did not load" line. */
+    retry(): void {
+        void this.load();
+    }
+
     private async load(): Promise<void> {
         this.loading.set(true);
+        this.loadFailed.set(false);
         try {
             const all = await this.files.listAll();
             this.pdfs.set(all.filter((f) => f.type === 'pdf'));
         } catch (error) {
             console.error('Failed to load the PDFs:', error);
-            this.notify.error('admin.media.pdf_tab.load_failed');
+            if (this.pdfs().length) this.notify.error('admin.media.pdf_tab.load_failed');
+            else this.loadFailed.set(true);
         } finally {
             this.loading.set(false);
         }

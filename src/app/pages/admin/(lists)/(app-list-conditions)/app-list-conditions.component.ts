@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnDestroy, OnInit, Output, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Functions } from '@angular/fire/functions';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -8,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { arcCallable } from '../../../../core/config/arc-functions';
 import { AppListCondition, AppListOp } from '../../(audience)/audience.model';
-import { APP_USERS_LIMIT_NOTE } from '../../(app-users)/app-users-limit';
+import { APP_USERS_LIMIT_NOTE_KEY, APP_USERS_LIMIT_PARAMS } from '../../(app-users)/app-users-limit';
 
 export interface AppListPreview {
     matched: number;
@@ -23,14 +24,14 @@ export interface AppListPreview {
 
 /** Operators in the order the admin sees them. `value` says what the value box expects. */
 export const APP_LIST_OPERATORS: Array<{ op: AppListOp; label: string; value: 'text' | 'list' | 'none' }> = [
-    { op: 'is', label: 'is', value: 'text' },
-    { op: 'is_not', label: 'is not', value: 'text' },
-    { op: 'any_of', label: 'is any of', value: 'list' },
-    { op: 'contains', label: 'contains', value: 'text' },
-    { op: 'gt', label: 'is greater than', value: 'text' },
-    { op: 'lt', label: 'is less than', value: 'text' },
-    { op: 'empty', label: 'is empty', value: 'none' },
-    { op: 'not_empty', label: 'is not empty', value: 'none' },
+    { op: 'is', label: 'admin.audience.lists.op.is', value: 'text' },
+    { op: 'is_not', label: 'admin.audience.lists.op.is_not', value: 'text' },
+    { op: 'any_of', label: 'admin.audience.lists.op.any_of', value: 'list' },
+    { op: 'contains', label: 'admin.audience.lists.op.contains', value: 'text' },
+    { op: 'gt', label: 'admin.audience.lists.op.gt', value: 'text' },
+    { op: 'lt', label: 'admin.audience.lists.op.lt', value: 'text' },
+    { op: 'empty', label: 'admin.audience.lists.op.empty', value: 'none' },
+    { op: 'not_empty', label: 'admin.audience.lists.op.not_empty', value: 'none' },
 ];
 
 /** A condition row as edited: `any of` values are typed comma-separated. */
@@ -51,18 +52,15 @@ const PREVIEW_DELAY_MS = 600;
 @Component({
     selector: 'arc-app-list-conditions',
     standalone: true,
-    imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule],
+    imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule, TranslocoPipe],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
-    <p class="small text-muted mb-2">
-        People from your app who match <strong>all</strong> of these conditions. Nobody is added by hand:
-        the list follows your app's data, and is checked again every time it is used.
-    </p>
+    <p class="small text-muted mb-2" [innerHTML]="'admin.audience.lists.conditions_intro' | transloco"></p>
 
     @for (row of rows(); track $index; let i = $index) {
         <div class="condition-row d-flex gap-2 align-items-start flex-wrap mb-1">
             <mat-form-field appearance="outline" class="cond-field">
-                <mat-label>Field</mat-label>
+                <mat-label>{{ 'admin.audience.lists.cond_field' | transloco }}</mat-label>
                 @if (fields().length) {
                     <mat-select [ngModel]="row.field" (ngModelChange)="update(i, { field: $event })">
                         @for (f of fields(); track f) { <mat-option [value]="f">{{ f }}</mat-option> }
@@ -70,37 +68,38 @@ const PREVIEW_DELAY_MS = 600;
                     </mat-select>
                 } @else {
                     <!-- No sample of the app's fields (still loading, or none): type the path. -->
-                    <input matInput placeholder="for example plan.tier" [ngModel]="row.field" (ngModelChange)="update(i, { field: $event.trim() })" />
+                    <input matInput [placeholder]="'admin.audience.lists.cond_field_placeholder' | transloco" [ngModel]="row.field" (ngModelChange)="update(i, { field: $event.trim() })" />
                 }
             </mat-form-field>
             <mat-form-field appearance="outline" class="cond-op">
-                <mat-label>Condition</mat-label>
+                <mat-label>{{ 'admin.audience.lists.cond_op' | transloco }}</mat-label>
                 <mat-select [ngModel]="row.op" (ngModelChange)="update(i, { op: $event })">
-                    @for (o of operators; track o.op) { <mat-option [value]="o.op">{{ o.label }}</mat-option> }
+                    @for (o of operators; track o.op) { <mat-option [value]="o.op">{{ o.label | transloco }}</mat-option> }
                 </mat-select>
             </mat-form-field>
             @if (valueKind(row.op) !== 'none') {
                 <mat-form-field appearance="outline" class="cond-value">
-                    <mat-label>{{ valueKind(row.op) === 'list' ? 'Values, comma-separated' : 'Value' }}</mat-label>
+                    <mat-label>{{ (valueKind(row.op) === 'list' ? 'admin.audience.lists.cond_values' : 'admin.audience.lists.cond_value') | transloco }}</mat-label>
                     <input matInput [ngModel]="row.text" (ngModelChange)="update(i, { text: $event })" />
                 </mat-form-field>
             }
-            <button mat-icon-button type="button" (click)="remove(i)" aria-label="Remove condition"><mat-icon>close</mat-icon></button>
+            <button mat-icon-button type="button" (click)="remove(i)" [attr.aria-label]="'admin.audience.lists.cond_remove' | transloco"><mat-icon aria-hidden="true">close</mat-icon></button>
         </div>
     }
-    <button mat-stroked-button type="button" (click)="add()"><mat-icon>add</mat-icon> Add condition</button>
+    <button mat-stroked-button type="button" (click)="add()"><mat-icon>add</mat-icon> {{ 'admin.audience.lists.cond_add' | transloco }}</button>
 
     <div class="app-list-preview small mt-3" aria-live="polite">
         @if (previewError()) {
-            <span class="text-danger">Could not count matches: {{ previewError() }}</span>
+            <span class="text-danger">{{ 'admin.audience.lists.count_failed' | transloco }}</span>
         } @else if (preview(); as p) {
-            <strong>Matches {{ p.matched }}</strong> of {{ p.scanned }} people in your app;
-            {{ p.subscribed }} can be emailed now{{ unsubscribedOf(p) ? ' (' + unsubscribedOf(p) + ' unsubscribed)' : '' }}.
-            @if (p.matched > p.withEmail) { {{ p.matched - p.withEmail }} have no email address. }
-            @if (p.sharedEmail) { {{ p.sharedEmail }} share an address with someone else here, and each address gets one email. }
-            @if (p.truncated) { <div class="text-warning mt-1"><i class="fas fa-triangle-exclamation me-1"></i>{{ limitNote }}</div> }
+            <strong>{{ 'admin.audience.lists.matches' | transloco: { count: p.matched } }}</strong>
+            {{ 'admin.audience.lists.matches_of' | transloco: { scanned: p.scanned, subscribed: p.subscribed } }}
+            @if (unsubscribedOf(p)) { {{ 'admin.audience.lists.matches_unsubscribed' | transloco: { count: unsubscribedOf(p) } }} }
+            @if (p.matched > p.withEmail) { {{ 'admin.audience.lists.matches_no_email' | transloco: { count: p.matched - p.withEmail } }} }
+            @if (p.sharedEmail) { {{ 'admin.audience.lists.matches_shared' | transloco: { count: p.sharedEmail } }} }
+            @if (p.truncated) { <div class="text-warning mt-1"><i class="fas fa-triangle-exclamation me-1" aria-hidden="true"></i>{{ limitNoteKey | transloco: limitNoteParams }}</div> }
         } @else {
-            <span class="text-muted">Counting matches...</span>
+            <span class="text-muted">{{ 'admin.audience.lists.counting' | transloco }}</span>
         }
     </div>
     `,
@@ -111,7 +110,8 @@ const PREVIEW_DELAY_MS = 600;
     `],
 })
 export class AppListConditionsComponent implements OnInit, OnDestroy {
-    readonly limitNote = APP_USERS_LIMIT_NOTE;
+    readonly limitNoteKey = APP_USERS_LIMIT_NOTE_KEY;
+    readonly limitNoteParams = APP_USERS_LIMIT_PARAMS;
 
     /** Addresses that unsubscribed: one per address, as a send counts them. */
     unsubscribedOf(p: AppListPreview): number {
@@ -138,6 +138,7 @@ export class AppListConditionsComponent implements OnInit, OnDestroy {
     rows = signal<Row[]>([]);
     fields = signal<string[]>([]);
     preview = signal<AppListPreview | null>(null);
+    /** Set when counting failed; the detail goes to the console, the screen says it plainly. */
     previewError = signal('');
 
     async ngOnInit(): Promise<void> {
@@ -202,7 +203,8 @@ export class AppListConditionsComponent implements OnInit, OnDestroy {
             const res = await arcCallable<{ conditions: AppListCondition[] }, AppListPreview>(this.functions, 'previewAppList')({ conditions: this.current() });
             if (run === this.previewRun) this.preview.set(res.data);
         } catch (e: any) {
-            if (run === this.previewRun) this.previewError.set(e?.message || String(e));
+            console.error('Counting the list matches failed', e);
+            if (run === this.previewRun) this.previewError.set(e?.message || String(e) || 'failed');
         }
     }
 }

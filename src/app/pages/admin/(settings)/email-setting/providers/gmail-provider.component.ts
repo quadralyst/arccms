@@ -9,6 +9,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { IGmailConfig } from '../email-setting.model';
 import { IEmailProviderComponent } from './email-provider-base';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { APP_BRAND, ARC_CMS_NAME } from '../../../../../core/brand/site-brand';
+import { sentenceParts } from '../../../../../core/i18n/sentence-parts';
+import type { TranslationKey } from '../../../../../core/i18n/translation-keys';
 
 @Component({
     selector: 'app-gmail-provider',
@@ -21,46 +25,47 @@ import { IEmailProviderComponent } from './email-provider-base';
         MatButtonModule,
         MatIconModule,
         MatTooltipModule,
+        TranslocoPipe,
     ],
+    // The provider help shares its words with onboarding's email step (admin.onboarding.email.*).
     template: `
         <mat-card class="mb-4" [formGroup]="formGroup">
             <mat-card-header>
                 <mat-card-title>
-                    <i class="fa-solid fa-envelope me-2"></i>
-                    Gmail Configuration
+                    <i class="fa-solid fa-envelope me-2" aria-hidden="true"></i>
+                    {{ 'admin.settings.email.gmail_title' | transloco }}
                 </mat-card-title>
             </mat-card-header>
             <mat-card-content class="pt-3">
                 <div class="alert alert-light border small mb-3" style="padding: 0; overflow: hidden;">
-                    <div style="display: flex; align-items: center; padding: 0.5rem 0.75rem; cursor: pointer; user-select: none;"
-                         (click)="showInfoBox.set(!showInfoBox())">
-                        <i class="fa-solid fa-circle-info text-primary me-1"></i>
-                        <strong>How to get a Gmail App Password:</strong>
-                        <mat-icon style="margin-left: auto; font-size: 20px; width: 20px; height: 20px;">
+                    <button type="button" class="info-toggle" (click)="showInfoBox.set(!showInfoBox())"
+                        [attr.aria-expanded]="showInfoBox()" aria-controls="gmail-help">
+                        <i class="fa-solid fa-circle-info text-primary me-1" aria-hidden="true"></i>
+                        <strong>{{ 'admin.onboarding.email.gmail_help_title' | transloco }}</strong>
+                        <mat-icon aria-hidden="true" style="margin-left: auto; font-size: 20px; width: 20px; height: 20px;">
                             {{ showInfoBox() ? 'expand_less' : 'expand_more' }}
                         </mat-icon>
-                    </div>
+                    </button>
                     @if (showInfoBox()) {
-                    <div style="padding: 0 0.75rem 0.5rem;">
+                    <div id="gmail-help" style="padding: 0 0.75rem 0.5rem;">
                         <ol class="mb-0 mt-1">
                             <li>
-                                Go to your
-                                <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">Google Account Security</a> page
+                                @let security = parts('admin.onboarding.email.gmail_step_security');
+                                {{ security[0] }}<a href="https://myaccount.google.com/security" target="_blank" rel="noopener">{{ 'admin.onboarding.email.gmail_step_security_link' | transloco }}</a>{{ security[1] }}
                             </li>
                             <li>
-                                Make sure <strong>2-Step Verification</strong> is turned on
-                                (<a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" rel="noopener">enable it here</a> if not)
+                                @let twoStep = parts('admin.onboarding.email.gmail_step_two_step');
+                                {{ twoStep[0] }}<a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" rel="noopener">{{ 'admin.onboarding.email.gmail_step_two_step_link' | transloco }}</a>{{ twoStep[1] }}
                             </li>
                             <li>
-                                Then visit
-                                <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener"><strong>App Passwords</strong></a>,
-                                name it "Arc CMS", and click <strong>Create</strong>
+                                @let create = parts('admin.onboarding.email.gmail_step_create', { name: productName });
+                                {{ create[0] }}<a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener"><strong>{{ 'admin.onboarding.email.gmail_step_create_link' | transloco }}</strong></a>{{ create[1] }}
                             </li>
-                            <li>Copy the 16-character password and paste it below</li>
+                            <li>{{ 'admin.onboarding.email.gmail_step_copy' | transloco }}</li>
                         </ol>
-                        <span class="text-muted">
-                            <i class="fa-solid fa-circle-check text-success me-1"></i>
-                            Gmail lets you send up to 500 emails per day for free.
+                        <span class="gmail-limit">
+                            <i class="fa-solid fa-circle-check text-success me-1" aria-hidden="true"></i>
+                            {{ 'admin.settings.email.gmail_limit' | transloco }}
                         </span>
                     </div>
                     }
@@ -68,32 +73,34 @@ import { IEmailProviderComponent } from './email-provider-base';
 
                 @if (formGroup.get('user')?.value) {
                 <div class="alert alert-warning border small mb-3">
-                    <i class="fa-solid fa-triangle-exclamation me-1"></i>
-                    <strong>Note:</strong> Gmail requires the "Sender Email" to match your Gmail address.
-                    It will be set automatically to <code>{{ formGroup.get('user')?.value }}</code>.
+                    <i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i>
+                    @let locked = parts('admin.settings.email.gmail_sender_note');
+                    {{ locked[0] }}<code>{{ formGroup.get('user')?.value }}</code>{{ locked[1] }}
                 </div>
                 }
 
                 <div class="row mt-3">
                     <div class="col-md-6">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>Gmail Address</mat-label>
-                            <input matInput formControlName="user" placeholder="you@gmail.com">
-                            <mat-hint>The Gmail address you want to send from</mat-hint>
+                            <mat-label>{{ 'admin.onboarding.email.gmail_address' | transloco }}</mat-label>
+                            <input matInput formControlName="user" placeholder="you@gmail.com" autocomplete="off">
+                            <mat-hint>{{ 'admin.onboarding.email.gmail_address_hint' | transloco }}</mat-hint>
                         </mat-form-field>
                     </div>
                     <div class="col-md-6">
                         <mat-form-field appearance="outline" class="w-100">
-                            <mat-label>App Password</mat-label>
+                            <mat-label>{{ 'admin.onboarding.email.app_password' | transloco }}</mat-label>
                             <input matInput [type]="showPassword() ? 'text' : 'password'" formControlName="password"
-                                placeholder="xxxx xxxx xxxx xxxx">
+                                placeholder="xxxx xxxx xxxx xxxx" autocomplete="off">
                             <button mat-icon-button matSuffix type="button" (click)="showPassword.set(!showPassword())"
-                                [matTooltip]="showPassword() ? 'Hide password' : 'Show password'">
-                                <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                [attr.aria-label]="'admin.onboarding.show_password' | transloco"
+                                [attr.aria-pressed]="showPassword()"
+                                [matTooltip]="'admin.onboarding.show_password' | transloco">
+                                <mat-icon aria-hidden="true">{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
                             </button>
                             <mat-hint>
-                                16-character password from
-                                <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Google App Passwords</a>
+                                @let appPassword = parts('admin.onboarding.email.app_password_hint');
+                                {{ appPassword[0] }}<a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">{{ 'admin.onboarding.email.app_password_link' | transloco }}</a>{{ appPassword[1] }}
                             </mat-hint>
                         </mat-form-field>
                     </div>
@@ -101,6 +108,23 @@ import { IEmailProviderComponent } from './email-provider-base';
             </mat-card-content>
         </mat-card>
     `,
+    styles: [`
+        .info-toggle {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+        .gmail-limit {
+            color: #495057;
+        }
+    `],
 })
 export class GmailProviderComponent implements IEmailProviderComponent, OnInit {
     private fb = inject(FormBuilder);
@@ -109,6 +133,10 @@ export class GmailProviderComponent implements IEmailProviderComponent, OnInit {
     initialData = input<Partial<IGmailConfig>>();
     componentReady = output<IEmailProviderComponent>();
     userChanged = output<string>();
+
+    private transloco = inject(TranslocoService);
+    /** The name the help asks to give the app password. */
+    readonly productName = APP_BRAND.name || ARC_CMS_NAME;
 
     showPassword = signal(false);
     showInfoBox = signal(true);
@@ -143,6 +171,11 @@ export class GmailProviderComponent implements IEmailProviderComponent, OnInit {
     isConfigValid(): boolean {
         return !!this.formGroup.get('user')?.value
             && !!this.formGroup.get('password')?.value;
+    }
+
+    /** A sentence split around its value, for the template to link or style the value. */
+    parts(key: TranslationKey, params: Record<string, unknown> = {}): [string, string] {
+        return sentenceParts((k, p) => this.transloco.translate(k, p), key, params);
     }
 
     getSenderEmailConstraint(): string | null {

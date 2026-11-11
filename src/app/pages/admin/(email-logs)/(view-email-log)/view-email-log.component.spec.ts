@@ -11,6 +11,11 @@ import { ArcStorage } from '../../../../core/config/arc-storage';
 import { EmailLogStore } from '../email-log.store';
 import ViewEmailLogComponent from './view-email-log.component';
 import { EMAIL_FRAME_SANDBOX } from '../../../../../shared/utils/email-preview';
+import { TranslocoTestingModule } from '@jsverse/transloco';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const en = JSON.parse(readFileSync(resolve(__dirname, '../../../../../assets/i18n/en.json'), 'utf8'));
 
 const getDownloadURL = vi.fn();
 vi.mock('@angular/fire/storage', () => ({ getDownloadURL: (...a: unknown[]) => getDownloadURL(...a), ref: (_s: unknown, p: string) => ({ path: p }) }));
@@ -30,7 +35,7 @@ describe('ViewEmailLogComponent', () => {
         getDownloadURL.mockReset();
         storageGet = vi.fn(() => Promise.resolve({}));
         TestBed.configureTestingModule({
-            imports: [ViewEmailLogComponent],
+            imports: [ViewEmailLogComponent, TranslocoTestingModule.forRoot({ langs: { en }, translocoConfig: { availableLangs: ['en'], defaultLang: 'en' }, preloadLangs: true })],
             providers: [
                 { provide: EmailLogStore, useValue: { currentItem: item, getById: vi.fn() } },
                 { provide: ArcStorage, useValue: { get: storageGet } },
@@ -40,6 +45,18 @@ describe('ViewEmailLogComponent', () => {
     });
 
     afterEach(() => vi.useRealTimers());
+
+    it('names the close button, and the tags heading is a button a keyboard reaches', () => {
+        item.set({ status: 'success', processedTemplate: '<p>x</p>' });
+        const fixture = open();
+        const close = fixture.nativeElement.querySelector('.header button') as HTMLButtonElement;
+        expect(close.getAttribute('aria-label')).toBe('Close');
+        const toggle = fixture.nativeElement.querySelector('button.section-toggle') as HTMLButtonElement;
+        expect(toggle.getAttribute('aria-expanded')).toBe('false');
+        toggle.click();
+        fixture.detectChanges();
+        expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    });
 
     it('shows the stored email in a frame', () => {
         item.set({ status: 'success', processedTemplate: '<p>Hello</p>' });

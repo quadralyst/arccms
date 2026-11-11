@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { IUser, UserFormData, COMPONENT_NAME, accountKindConditions, ACCOUNT_KINDS, isAppAccount } from './user.model';
-import { matchesUserSearch } from './user.model';
+import { matchesUserSearch, roleLabel, userActionError } from './user.model';
 import { UserRole, UserStatus } from '../../../../shared/components/base/base.component';
 import { IBaseModel } from '../../../../shared/models/base-model';
 
@@ -239,5 +239,24 @@ describe('matchesUserSearch', () => {
         expect(matchesUserSearch(app, 'till')).toBe(true);
         expect(matchesUserSearch(app, '987')).toBe(false);
         expect(matchesUserSearch(app, '   ')).toBe(true);
+    });
+});
+
+describe('roleLabel and userActionError (RF4)', () => {
+    const t = (key: string) => key;
+
+    it('names Admin and User by translation, and any other role in plain words, sentence case', () => {
+        expect(roleLabel('admin', t as never)).toBe('admin.users.roles.admin');
+        expect(roleLabel('user', t as never)).toBe('admin.users.roles.user');
+        expect(roleLabel('propertyOwner', t as never)).toBe('Property owner');
+        expect(roleLabel('facility_manager', t as never)).toBe('Facility manager');
+        expect(roleLabel('editor', t as never)).toBe('Editor');
+    });
+
+    it('says why the server refused, for the new reasons too', () => {
+        const refusal = (reason: string) => Object.assign(new Error('x'), { details: { reason } });
+        expect(userActionError(refusal('not-active-admin'), t as never, 'admin.users.update_failed')).toBe('admin.users.errors.not_active_admin');
+        expect(userActionError(refusal('detached'), t as never, 'admin.users.update_failed')).toBe('admin.users.errors.detached');
+        expect(userActionError(refusal('something-new'), t as never, 'admin.users.update_failed')).toBe('admin.users.update_failed');
     });
 });

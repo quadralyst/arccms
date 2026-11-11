@@ -18,7 +18,7 @@
       <thead><tr><th>Check</th><th>Where</th></tr></thead>
       <tbody>
         <tr><td>[ ] Only the people who run the site have the admin role. There are two roles, admin and user, and an admin can do everything.</td><td><strong>Users</strong>; see <a href="../features/users-and-roles.html">Users and roles</a></td></tr>
-        <tr><td>[ ] Visitors can create accounts only if your site needs them. Signing up to a form needs no account.</td><td>Settings, <strong>User Settings</strong>, <strong>Enable User Signups</strong></td></tr>
+        <tr><td>[ ] Visitors can create accounts only if your site needs them. Signing up to a form needs no account.</td><td>Settings, <strong>Sign-up and roles</strong>, <strong>Let people sign up</strong></td></tr>
       </tbody>
     </table>
 
@@ -26,10 +26,10 @@
     <table>
       <thead><tr><th>Check</th><th>Where</th></tr></thead>
       <tbody>
-        <tr><td>[ ] A real provider is active (not the Debug Provider, which only logs; leaving it also turns off Show password reset codes on screen), the connection test passed, and the sender name and address are yours.</td><td>Settings, <strong>Email Settings</strong></td></tr>
-        <tr><td>[ ] Logo, colors, footer text and physical address are set for Composer and broadcast emails, and each signup form's two emails carry your logo and address too.</td><td><strong>Brand Kit</strong>, under Email + SMS (or Email); each form's <strong>Email Templates</strong></td></tr>
+        <tr><td>[ ] A real provider is active (not the Debug Provider, which only logs; leaving it also turns off Show password reset codes on screen), the connection test passed, and the sender name and address are yours.</td><td>Settings, <strong>Email sending</strong></td></tr>
+        <tr><td>[ ] Logo, colors, footer text and physical address are set for Composer and broadcast emails, and each signup form's two emails carry your logo and address too.</td><td><strong>Brand kit</strong>, under Email + SMS (or Email); each form's <strong>Email templates</strong></td></tr>
         <tr><td>[ ] The provider reports bounces and complaints to the <code>handleEmailWebhook</code> function, so an address that bounced is not mailed again. Without it a bounce stays unknown.</td><td>The provider's own webhook settings (see <a href="../features/email.html">Email engine</a>)</td></tr>
-        <tr><td>[ ] A test email arrives in an inbox, not in spam.</td><td>Settings, Email Settings, <strong>Send a Test Email</strong>; then <strong>Email Logs</strong></td></tr>
+        <tr><td>[ ] A test email arrives in an inbox, not in spam.</td><td>Settings, Email sending, <strong>Send a test email</strong>; then <strong>Email logs</strong></td></tr>
         <tr><td>[ ] The unsubscribe and preferences links in a list email open a working page, and unsubscribing stops further marketing email.</td><td>Send a broadcast to a list with only yourself on it; see <a href="../features/email.html">Email engine</a></td></tr>
       </tbody>
     </table>
@@ -50,13 +50,13 @@
       <tbody>
         <tr><td>[ ] The Privacy Policy, Terms and Cookie Policy are written for your site, checked for where you work, and published.</td><td><strong>Content</strong>, <strong>Info Pages</strong>; <a href="static-pages.html#standard-pages">The standard pages</a></td></tr>
         <tr><td>[ ] No published page still holds a <code>[Replace:</code> prompt. Open each standard page you published and search it for <code>[Replace:</code>.</td><td><strong>Content</strong>, <strong>Info Pages</strong></td></tr>
-        <tr><td>[ ] The sign-in page shows your name, logo and colours, not Arc CMS's.</td><td>Settings, <strong>About</strong>; <code class="new">src/custom/site/sign-in.html</code>, <code class="new">src/custom/site/site.css</code>; <a href="sign-in-page.html">Brand the sign-in page</a></td></tr>
+        <tr><td>[ ] The sign-in page shows your name, logo and colours, not Arc CMS's.</td><td>Settings, <strong>Site details</strong>; <code class="new">src/custom/site/sign-in.html</code>, <code class="new">src/custom/site/site.css</code>; <a href="sign-in-page.html">Brand the sign-in page</a></td></tr>
         <tr><td>[ ] About and Contact are filled in and published, and the footer lists them.</td><td><strong>Content</strong>, <strong>Info Pages</strong>; <a href="static-pages.html#standard-pages">The standard pages</a></td></tr>
-        <tr><td>[ ] Settings, About has the contact email, public phone, address and social links you want shown; the Contact page and your footer print them.</td><td>Settings, <strong>About</strong>; <a href="editable-sections.html">Let editors change your home page</a></td></tr>
+        <tr><td>[ ] Settings, Site details has the contact email, public phone, address and social links you want shown; the Contact page and your footer print them.</td><td>Settings, <strong>Site details</strong>; <a href="editable-sections.html">Let editors change your home page</a></td></tr>
         <tr><td>[ ] Sending the contact form on the live Contact page puts the message in Messages and alerts you.</td><td><code>/info/contact</code>; <strong>Messages</strong>; <a href="../features/contact.html">Contact form</a></td></tr>
-        <tr><td>[ ] The cookie banner has your wording and links to your cookie policy (the published Cookie Policy page, unless you set a link). It shows only on pages the app draws (sign-in, form pages, search, the member area), not on published pages.</td><td>Settings, <strong>Site Usage</strong></td></tr>
-        <tr><td>[ ] You have chosen whether to show the "Built with Arc CMS" line on pages and emails.</td><td>Settings, <strong>Miscellaneous</strong>, <strong>Branding</strong></td></tr>
-        <tr><td>[ ] The site's time zone is where you work, so the dates on your pages fall on the right day. A site set up before time zones existed uses UTC until you set one; publish your pages again afterwards.</td><td>Settings, <strong>Localization</strong>, <strong>Time zone</strong>; see <a href="../app/clock-and-zones.html#site-zone">Clock and time zones</a></td></tr>
+        <tr><td>[ ] The cookie banner has your wording and links to your cookie policy (the published Cookie Policy page, unless you set a link). It shows only on pages the app draws (sign-in, form pages, search, the member area), not on published pages.</td><td>Settings, <strong>Cookie notice</strong></td></tr>
+        <tr><td>[ ] You have chosen whether to show the "Built with Arc CMS" line on pages and emails.</td><td>Settings, <strong>Branding and uploads</strong>, <strong>Branding</strong></td></tr>
+        <tr><td>[ ] The site's time zone is where you work, so the dates on your pages fall on the right day. A site set up before time zones existed uses UTC until you set one; publish your pages again afterwards.</td><td>Settings, <strong>Languages</strong>, <strong>Time zone</strong>; see <a href="../app/clock-and-zones.html#site-zone">Clock and time zones</a></td></tr>
       </tbody>
     </table>
 
@@ -64,12 +64,12 @@
     <table>
       <thead><tr><th>Check</th><th>Where</th></tr></thead>
       <tbody>
-        <tr><td>[ ] Site Name, Production URL (your real domain) and the publisher identity are filled in.</td><td>Settings, <strong>About</strong>; <a href="seo.html">Get found by search engines and AI</a></td></tr>
-        <tr><td>[ ] Crawler choices are saved and applied.</td><td>Settings, <strong>Discoverability</strong>, <strong>Save and apply to site</strong></td></tr>
+        <tr><td>[ ] Site name, Production URL (your real domain) and the publisher identity are filled in.</td><td>Settings, <strong>Site details</strong>; <a href="seo.html">Get found by search engines and AI</a></td></tr>
+        <tr><td>[ ] Crawler choices are saved and applied.</td><td>Settings, <strong>Search engines and AI</strong>, <strong>Save and apply to site</strong></td></tr>
         <tr><td>[ ] <code>/robots.txt</code> and <code>/sitemap.xml</code> open on the live site and list addresses on your domain.</td><td>Your browser</td></tr>
         <tr><td>[ ] Each published page has a meta description, and the main pages score 80 or more in the Checks tab.</td><td>The editor's SEO and Checks tabs</td></tr>
         <tr><td>[ ] Replacing a live site: every old address that is in search results or linked from elsewhere redirects (301) to its new page, and a few tried on the production project answer 301 with the right location.</td><td><code class="new">src/custom/site/redirects.json</code>; <a href="redirects.html">Redirect old addresses</a></td></tr>
-        <tr><td>[ ] The site is added to Google Search Console and Bing Webmaster Tools, with the sitemap submitted.</td><td>Links on the Discoverability screen</td></tr>
+        <tr><td>[ ] The site is added to Google Search Console and Bing Webmaster Tools, with the sitemap submitted.</td><td>Links on the Search engines and AI screen</td></tr>
         <tr><td>[ ] The search index is complete and a search on the live site finds your pages.</td><td>Settings, <strong>Search</strong>, <strong>Rebuild everything</strong></td></tr>
       </tbody>
     </table>
@@ -91,7 +91,7 @@
         <tr><td>[ ] Everything is deployed to the production project: functions, database rules and indexes, storage rules, and the website. The guided deploy then publishes every page again by itself.</td><td><code>npm run deploy</code>, then Everything; <a href="../operations/deploy.html">Deploy</a></td></tr>
         <tr><td>[ ] The security rules on the project are the ones in the repository.</td><td><a href="../operations/security-rules.html">Security rules</a></td></tr>
         <tr><td>[ ] Your domain is connected to the project's Firebase Hosting site. Arc CMS has no command for this: add the domain in the Firebase console, under Hosting.</td><td>Firebase console</td></tr>
-        <tr><td>[ ] After the domain works, the Production URL is set to it and every page is published again, so every page, the sitemap and the feeds use the domain.</td><td>Settings, About; then <strong>Content</strong>, <strong>Content types</strong>, <strong>Republish website</strong> (or <code>npm run deploy</code>, then Website)</td></tr>
+        <tr><td>[ ] After the domain works, the Production URL is set to it and every page is published again, so every page, the sitemap and the feeds use the domain.</td><td>Settings, Site details; then <strong>Content</strong>, <strong>Content types</strong>, <strong>Republish website</strong> (or <code>npm run deploy</code>, then Website)</td></tr>
       </tbody>
     </table>
 

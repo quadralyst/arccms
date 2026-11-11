@@ -1,6 +1,6 @@
 import { RouteMeta } from '@analogjs/router';
 import { CommonModule } from '@angular/common';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, OnInit, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,7 +14,9 @@ import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { roleGuard } from '../../../guards/role.guard';
-import { ToastService } from '../../../../shared/services/toast.service';
+import { NotifyService } from '../../../../shared/services/notify.service';
+import { audienceStatusText } from '../(audience)/audience-status-text';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AudienceService } from '../(audience)/audience.service';
@@ -44,7 +46,8 @@ export default class ContactsPageComponent implements OnInit {
     @ViewChild('drawer') drawer!: MatDrawer;
 
     private audience = inject(AudienceService);
-    private toast = inject(ToastService);
+    private notify = inject(NotifyService);
+    private transloco = inject(TranslocoService);
     private destroyRef = inject(DestroyRef);
     private route = inject(ActivatedRoute);
     private router = inject(Router);
@@ -59,6 +62,9 @@ export default class ContactsPageComponent implements OnInit {
     tagFilter = signal<string>('');
     busy = signal(false);
     loading = signal(true);
+    /** The contacts did not load; the table shows it with Retry. */
+    loadError = signal(false);
+    private contactsSub?: { unsubscribe(): void };
 
     tagsById = computed(() => new Map(this.tags().map((t) => [t.id, t])));
 
@@ -120,7 +126,7 @@ export default class ContactsPageComponent implements OnInit {
             type: 'html',
             transformFn: (r) => {
                 const c = r.consent?.marketing || 'pending';
-                return `<span class="${statusBadgeClass(c)}">${c}</span>`;
+                return `<span class="${statusBadgeClass(c)}">${escapeHtml(audienceStatusText(this.transloco, c))}</span>`;
             },
         },
         {
@@ -144,14 +150,26 @@ export default class ContactsPageComponent implements OnInit {
         if (qp['tag']) this.tagFilter.set(qp['tag']);
         if (qp['consent']) this.consentFilter.set(qp['consent']);
 
-        this.audience.getContacts().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((c) => {
-            this.contacts.set(c);
-            this.loading.set(false);
-        });
+        this.load();
         // Contacts are added to, imported into and filtered by stored lists only (not live ones).
         this.audience.getLists().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => this.lists.set(contactLists(l)));
         this.audience.getTags().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((t) => this.tags.set(t));
         this.audience.getFields().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((f) => this.fields.set(f));
+    }
+
+    /** Listen to the contacts; called again by Retry. */
+    load(): void {
+        this.contactsSub?.unsubscribe();
+        this.loading.set(true);
+        this.loadError.set(false);
+        let failed = false;
+        this.contactsSub = this.audience.getContacts(500, () => { failed = true; })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe((c) => {
+                this.contacts.set(c);
+                this.loadError.set(failed);
+                this.loading.set(false);
+            });
     }
 
     onSearch(term: string): void {
@@ -237,13 +255,12 @@ export default class ContactsPageComponent implements OnInit {
             const pendingRes: any = await this.audience.backfillPendingContacts();
             const p = pendingRes?.data || {};
 
-            this.toast.success(
-                `Backfill done: ${d.users || 0} users, ${d.waitlistMembers || 0} verified members, ` +
-                `${p.created || 0} pending signups`,
-            );
+            this.notify.success('admin.audience.contacts.backfill_done', {
+                users: d.users || 0, members: d.waitlistMembers || 0, pending: p.created || 0,
+            });
         } catch (e) {
-            console.error(e);
-            this.toast.error('Backfill failed');
+            console.error('Backfill failed', e);
+            this.notify.error('admin.audience.contacts.backfill_failed');
         } finally {
             this.busy.set(false);
         }

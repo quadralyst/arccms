@@ -2,15 +2,15 @@
 <div class="test-email-dialog">
     <!-- Header -->
     <div class="dialog-header">
-        <h2><i class="fas fa-envelope"></i> Send Test Email</h2>
+        <h2><i class="fas fa-envelope" aria-hidden="true"></i> {{ 'common.test_email.title' | transloco }}</h2>
         <div class="header-actions">
-            <button class="btn btn-link" (click)="dismissModal()">Dismiss</button>
+            <button type="button" class="btn btn-link" (click)="dismissModal()">{{ 'common.actions.close' | transloco }}</button>
             <button type="button" class="btn btn-primary" (click)="onSubmit()"
                 [disabled]="!testEmailForm.valid || testEmailStore.isLoading()">
                 @if (testEmailStore.isLoading()) {
-                <span class="spinner-border spinner-border-sm"></span> Sending...
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {{ 'common.test_email.sending' | transloco }}
                 } @else {
-                <i class="fas fa-paper-plane"></i> Send
+                <i class="fas fa-paper-plane" aria-hidden="true"></i> {{ 'common.test_email.send' | transloco }}
                 }
             </button>
         </div>
@@ -20,7 +20,7 @@
     <div class="dialog-content">
         <!-- Preview Column -->
         <div class="preview-column">
-            <h4>Template Preview</h4>
+            <h4>{{ 'common.test_email.preview' | transloco }}</h4>
             <div class="template-preview-wrapper">
                 <div class="template-preview" arcPreviewLinks [innerHTML]="previewContent"></div>
             </div>
@@ -31,35 +31,35 @@
             <form [formGroup]="testEmailForm">
                 <!-- Subject -->
                 <div class="form-group">
-                    <label for="subject">Subject</label>
+                    <label for="subject">{{ 'common.test_email.subject' | transloco }}</label>
                     <input type="text" class="form-control" id="subject" formControlName="subject"
-                        placeholder="Enter email subject" [arcHashtagAutocomplete]="mergeTags">
+                        [placeholder]="'common.test_email.subject_placeholder' | transloco" [arcHashtagAutocomplete]="mergeTags">
                 </div>
 
                 <!-- Receiver Email -->
                 <div class="form-group">
-                    <label for="toEmail">Receiver's Email <span class="required">*</span></label>
+                    <label for="toEmail">{{ 'common.test_email.to_email' | transloco }} <span class="required" aria-hidden="true">*</span></label>
                     <input type="email" class="form-control" id="toEmail" formControlName="toEmail"
-                        placeholder="Enter receiver's email">
+                        [placeholder]="'common.test_email.to_email_placeholder' | transloco">
                 </div>
 
                 <!-- Receiver Name -->
                 <div class="form-group">
-                    <label for="toName">Receiver's Name <span class="required">*</span></label>
+                    <label for="toName">{{ 'common.test_email.to_name' | transloco }} <span class="required" aria-hidden="true">*</span></label>
                     <input type="text" class="form-control" id="toName" formControlName="toName"
-                        placeholder="Enter receiver's name">
+                        [placeholder]="'common.test_email.to_name_placeholder' | transloco">
                 </div>
 
                 <!-- Variables -->
                 @if (variables.length > 0) {
                 <div class="form-group variables-section">
-                    <label>Template Variables</label>
+                    <label>{{ 'common.test_email.tags' | transloco }}</label>
                     <div class="variables-table">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Variable</th>
-                                    <th>Value</th>
+                                    <th>{{ 'common.test_email.tag' | transloco }}</th>
+                                    <th>{{ 'common.test_email.value' | transloco }}</th>
                                 </tr>
                             </thead>
                             <tbody formArrayName="variables">
@@ -71,7 +71,8 @@
                                     </td>
                                     <td>
                                         <input type="text" class="form-control" formControlName="value"
-                                            [placeholder]="'Enter ' + variable.get('name')?.value"
+                                            [placeholder]="'common.test_email.value_for' | transloco: { tag: variable.get('name')?.value }"
+                                            [attr.aria-label]="'common.test_email.value_for' | transloco: { tag: variable.get('name')?.value }"
                                             (input)="updatePreview()">
                                     </td>
                                 </tr>

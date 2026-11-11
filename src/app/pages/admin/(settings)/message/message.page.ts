@@ -6,9 +6,9 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { roleGuard } from '../../../../guards/role.guard';
 
 export const routeMeta: RouteMeta = {
-    title: 'Global Messages',
+    title: 'Announcement',
     canActivate: [roleGuard],
-    data: { allowedRoles: ['admin'] },
+    data: { titleKey: 'admin.settings.hub.message.label', allowedRoles: ['admin'] },
 };
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -74,7 +74,7 @@ export default class MessageSettingPageComponent extends BaseComponent implement
             },
             error: (error) => {
                 console.error('Failed to load global message settings:', error);
-                this.toastService.openCustomSnackbar('Failed to load settings', 'error', 'error');
+                this.notify.error('admin.settings.load_failed');
                 this.isLoading.set(false);
             },
         });
@@ -107,15 +107,11 @@ export default class MessageSettingPageComponent extends BaseComponent implement
                 isEnabled: enabled,
             };
             await this.globalMessageService.saveSettings(settings);
-            this.toastService.openCustomSnackbar(
-                enabled ? 'Banner enabled' : 'Banner disabled',
-                'success',
-                'check_circle'
-            );
+            this.notify.success(enabled ? 'admin.settings.message.turned_on' : 'admin.settings.message.turned_off');
             this.messageForm.markAsPristine();
         } catch (error) {
             console.error('Failed to toggle global message:', error);
-            this.toastService.openCustomSnackbar('Failed to update banner status', 'error', 'error');
+            this.notify.error('admin.settings.banner_switch_failed');
             // Revert the toggle on error
             this.messageEnabled.set(!enabled);
             this.messageForm.patchValue({ isEnabled: !enabled });
@@ -135,11 +131,11 @@ export default class MessageSettingPageComponent extends BaseComponent implement
                 isEnabled: this.messageEnabled(),
             };
             await this.globalMessageService.saveSettings(settings);
-            this.toastService.openCustomSnackbar('Global message settings saved successfully', 'success', 'check_circle');
+            this.notify.success('common.messages.saved');
             this.messageForm.markAsPristine();
         } catch (error) {
             console.error('Failed to save global message settings:', error);
-            this.toastService.openCustomSnackbar('Failed to save settings', 'error', 'error');
+            this.notify.error('common.messages.save_failed');
         } finally {
             this.isSaving.set(false);
         }

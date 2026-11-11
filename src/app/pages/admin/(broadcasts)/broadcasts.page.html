@@ -1,44 +1,45 @@
 <div class="page-container">
     @if (mode() === 'list') {
-    <!-- ── List view ── -->
-    <arc-page-header title="Broadcasts"
-        subtitle="One-off emails to a list. Past and scheduled broadcasts appear below.">
+    <!-- List view -->
+    <arc-page-header [title]="'admin.broadcasts.title' | transloco"
+        [subtitle]="'admin.broadcasts.subtitle' | transloco">
         <button mat-flat-button color="primary" (click)="startCompose()">
-            <mat-icon>add</mat-icon> New broadcast
+            <mat-icon aria-hidden="true">add</mat-icon> {{ 'admin.broadcasts.new' | transloco }}
         </button>
     </arc-page-header>
 
     <app-global-table [data]="recent()" [columns]="columns" [loading]="loading()"
-        emptyIcon="fas fa-tower-broadcast" emptyTitle="No broadcasts yet"
-        emptyDescription="Send your first broadcast to a list of contacts."
-        emptyActionLabel="New broadcast" emptyActionIcon="fas fa-plus"
+        [error]="loadError()" (retry)="load()"
+        emptyIcon="fas fa-tower-broadcast" emptyTitle="admin.broadcasts.empty_title"
+        emptyDescription="admin.broadcasts.empty_text"
+        emptyActionLabel="admin.broadcasts.new" emptyActionIcon="fas fa-plus"
         (emptyActionClick)="startCompose()">
     </app-global-table>
     }
 
     @if (mode() === 'compose') {
-    <!-- ── Compose view ── -->
+    <!-- Compose view -->
     <div class="broadcast-composer">
         <!-- Sticky action bar -->
         <div class="composer-topbar">
             <div class="topbar-left">
-                <button mat-icon-button class="back-btn" (click)="backToList()" aria-label="Back to broadcasts">
-                    <mat-icon>arrow_back</mat-icon>
+                <button mat-icon-button type="button" class="back-btn" (click)="backToList()" [attr.aria-label]="'admin.broadcasts.back' | transloco">
+                    <mat-icon aria-hidden="true">arrow_back</mat-icon>
                 </button>
                 <div>
-                    <h1 class="composer-title">New broadcast</h1>
-                    <p class="composer-subtitle">Compose a one-off email and send it to a list.</p>
+                    <h1 class="composer-title">{{ 'admin.broadcasts.new' | transloco }}</h1>
+                    <p class="composer-subtitle">{{ 'admin.broadcasts.compose_subtitle' | transloco }}</p>
                 </div>
             </div>
             <div class="topbar-right">
                 @if (content()) {
-                <span class="capture-hint is-ready"><mat-icon>check_circle</mat-icon> Content captured</span>
+                <span class="capture-hint is-ready"><mat-icon aria-hidden="true">check_circle</mat-icon> {{ 'admin.broadcasts.content_ready' | transloco }}</span>
                 } @else {
-                <span class="capture-hint"><mat-icon>edit_note</mat-icon> Save your content to enable sending</span>
+                <span class="capture-hint"><mat-icon aria-hidden="true">edit_note</mat-icon> {{ 'admin.broadcasts.content_not_ready' | transloco }}</span>
                 }
                 <button mat-flat-button color="primary" class="send-btn" [disabled]="sending() || !content()"
                     (click)="send()">
-                    <mat-icon>send</mat-icon> {{ schedule ? 'Schedule broadcast' : 'Send broadcast' }}
+                    <mat-icon aria-hidden="true">send</mat-icon> {{ (schedule ? 'admin.broadcasts.schedule_button' : 'admin.broadcasts.send_button') | transloco }}
                 </button>
             </div>
         </div>
@@ -47,73 +48,73 @@
             <!-- Settings card -->
             <section class="composer-card">
                 <header class="card-head">
-                    <span class="head-icon"><mat-icon>tune</mat-icon></span>
+                    <span class="head-icon"><mat-icon aria-hidden="true">tune</mat-icon></span>
                     <div>
-                        <h2>Broadcast settings</h2>
-                        <p>Who receives this email and when it goes out.</p>
+                        <h2>{{ 'admin.broadcasts.settings_title' | transloco }}</h2>
+                        <p>{{ 'admin.broadcasts.settings_text' | transloco }}</p>
                     </div>
                 </header>
                 <div class="card-body">
                     <div class="settings-grid">
                         <mat-form-field appearance="outline" class="grid-full">
-                            <mat-label>Subject</mat-label>
-                            <input matInput [(ngModel)]="subject" placeholder="Your subject line"
+                            <mat-label>{{ 'admin.broadcasts.subject' | transloco }}</mat-label>
+                            <input matInput [(ngModel)]="subject" [placeholder]="'admin.broadcasts.subject_placeholder' | transloco"
                                 [arcHashtagAutocomplete]="broadcastTags()" />
                         </mat-form-field>
 
-                        <div class="grid-full field-label">Audience</div>
+                        <div class="grid-full field-label">{{ 'admin.broadcasts.audience' | transloco }}</div>
 
                         <mat-form-field appearance="outline">
-                            <mat-label>Send to lists</mat-label>
+                            <mat-label>{{ 'admin.broadcasts.send_to' | transloco }}</mat-label>
                             <mat-select multiple [(ngModel)]="includeListIds" (ngModelChange)="onIncludeChange()">
                                 @for (l of lists(); track l.id) {
-                                <mat-option [value]="l.id">{{ l.name }} ({{ l.type === 'app' ? 'App users, live' : (l.memberCount || 0) }})</mat-option>
+                                <mat-option [value]="l.id">{{ l.name }} ({{ l.type === 'app' ? ('admin.broadcasts.app_users_live' | transloco) : (l.memberCount || 0) }})</mat-option>
                                 }
                             </mat-select>
-                            <mat-hint>Pick several to reach everyone across them. Nobody is emailed twice.</mat-hint>
+                            <mat-hint>{{ 'admin.broadcasts.send_to_hint' | transloco }}</mat-hint>
                         </mat-form-field>
 
                         <mat-form-field appearance="outline">
-                            <mat-label>Exclude lists (optional)</mat-label>
+                            <mat-label>{{ 'admin.broadcasts.exclude' | transloco }}</mat-label>
                             <mat-select multiple [(ngModel)]="excludeListIds" (ngModelChange)="eligible.set(null)">
                                 @for (l of lists(); track l.id) {
                                 <mat-option [value]="l.id" [disabled]="includeListIds.includes(l.id)">
-                                    {{ l.name }} ({{ l.type === 'app' ? 'App users, live' : (l.memberCount || 0) }})
+                                    {{ l.name }} ({{ l.type === 'app' ? ('admin.broadcasts.app_users_live' | transloco) : (l.memberCount || 0) }})
                                 </mat-option>
                                 }
                             </mat-select>
-                            <mat-hint>Anyone on these is skipped, even if an included list has them.</mat-hint>
+                            <mat-hint>{{ 'admin.broadcasts.exclude_hint' | transloco }}</mat-hint>
                         </mat-form-field>
 
                         <mat-form-field appearance="outline">
-                            <mat-label>Filter: premiumType (optional)</mat-label>
+                            <mat-label>{{ 'admin.broadcasts.premium_filter' | transloco }}</mat-label>
                             <input matInput [(ngModel)]="premiumType" (ngModelChange)="eligible.set(null)"
-                                placeholder="e.g. pro" />
+                                [placeholder]="'admin.broadcasts.premium_placeholder' | transloco" />
                         </mat-form-field>
 
                         <div class="grid-full audience-actions">
                             <button mat-stroked-button [disabled]="previewing() || !includeListIds.length" (click)="preview()">
-                                <mat-icon>groups</mat-icon> {{ previewing() ? 'Counting…' : 'Preview count' }}
+                                <mat-icon aria-hidden="true">groups</mat-icon> {{ (previewing() ? 'admin.broadcasts.counting' : 'admin.broadcasts.preview_count') | transloco }}
                             </button>
                             @if (eligible() !== null) {
-                            <span class="status-badge is-info">{{ eligible() }} eligible (consented)</span>
+                            <span class="status-badge is-info">{{ 'admin.broadcasts.eligible' | transloco: { count: eligible() } }}</span>
                             }
                         </div>
                         @if (eligible() !== null && appUsersCapped()) {
-                        <p class="grid-full small text-warning mb-0"><i class="fas fa-triangle-exclamation me-1"></i>{{ limitNote }}</p>
+                        <p class="grid-full small text-warning mb-0"><i class="fas fa-triangle-exclamation me-1" aria-hidden="true"></i>{{ 'admin.broadcasts.app_users_limit' | transloco: { count: maxAppUsers } }}</p>
                         }
 
                         <div class="settings-divider"></div>
 
                         <div class="schedule-block">
-                            <mat-slide-toggle [(ngModel)]="schedule" color="primary">Schedule for later</mat-slide-toggle>
+                            <mat-slide-toggle [(ngModel)]="schedule" color="primary">{{ 'admin.broadcasts.schedule_later' | transloco }}</mat-slide-toggle>
                             @if (schedule) {
                             <mat-form-field appearance="outline" class="w-100 mt-3">
-                                <mat-label>Send at</mat-label>
+                                <mat-label>{{ 'admin.broadcasts.send_at' | transloco }}</mat-label>
                                 <input matInput type="datetime-local" [(ngModel)]="scheduledAt" />
                             </mat-form-field>
                             } @else {
-                            <p class="schedule-note">Off: the broadcast is queued and sent immediately.</p>
+                            <p class="schedule-note">{{ 'admin.broadcasts.schedule_off' | transloco }}</p>
                             }
                         </div>
                     </div>
@@ -123,10 +124,10 @@
             <!-- Content card -->
             <section class="composer-card">
                 <header class="card-head">
-                    <span class="head-icon"><mat-icon>edit_note</mat-icon></span>
+                    <span class="head-icon"><mat-icon aria-hidden="true">edit_note</mat-icon></span>
                     <div>
-                        <h2>Email content</h2>
-                        <p>Build your email from blocks and preview it live before sending.</p>
+                        <h2>{{ 'admin.broadcasts.content_title' | transloco }}</h2>
+                        <p>{{ 'admin.broadcasts.content_text' | transloco }}</p>
                     </div>
                 </header>
                 <div class="card-body is-flush">

@@ -10,9 +10,10 @@
  *
  * Because the claim IS the admin gate, this file is security critical:
  *
- * - The rules are the first line: only admins create user documents (every sign-up creates
- *   its record on the server), and a person may never change their own `role`. Only admins
- *   (by the claim) and the Admin SDK can set a role.
+ * - The rules are the first line: no browser creates or deletes a user document, or writes
+ *   its `role`, an admin's included. Every sign-up creates its record on the server, and an
+ *   admin changes a role through adminSetUserRole (adminUserAccess.ts), which keeps the site
+ *   an active admin.
  * - `onUserRoleChange` is the second line. It still refuses to grant an elevated role unless
  *   the write came from the Admin SDK or from someone who already holds the admin claim, and
  *   reverts the document if it did not. If the rules ever regress, the claim does not follow.
@@ -191,8 +192,24 @@ export const onUserRoleChange = onDocumentWrittenWithAuthContext(
         } catch (error) {
             console.error(`Failed to set custom claims for user ${uid}:`, error);
         }
+
+        // A role taken away (an admin demoted): end the sessions, so the old claim is gone
+        // within the hour instead of riding on a refresh token for as long as they stay signed in.
+        if (isDemotion(oldRole, newRole) && !isCreate) {
+            try {
+                await owner.revokeRefreshTokens(uid);
+                console.log(`Role of ${userDocId} lowered from ${oldRole}: sessions ended for ${uid}.`);
+            } catch (error) {
+                console.error(`Failed to end the sessions of demoted user ${uid}:`, error);
+            }
+        }
     }
 );
+
+/** A role above a member's changed to another one: what it allowed must stop. */
+export function isDemotion(oldRole: string, newRole: string): boolean {
+    return !SELF_ASSIGNABLE_ROLES.includes(oldRole) && newRole !== oldRole;
+}
 
 async function readDefaultRole(): Promise<string | null> {
     try {
@@ -293,7 +310,7 @@ export const syncAllUserRoles = onCall(async (request) => {
         throw new HttpsError('unauthenticated', 'Must be authenticated');
     }
 
-    // Safe because the rules let only admins and the Admin SDK write `role` and `isActive`.
+    // Safe because the rules let only the Admin SDK write `role` and `isActive`.
     const callerRecords = await db.collection('users')
         .where('uid', '==', request.auth.uid)
         .where('role', '==', 'admin')

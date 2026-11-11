@@ -1,3 +1,4 @@
+import { TranslocoPipe } from '@jsverse/transloco';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, inject, Input, Output, signal, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -13,6 +14,7 @@ import { LoaderComponent } from '../../../../../../../shared/components/loader/l
     selector: 'arc-edit-tag',
     standalone: true,
     imports: [
+        TranslocoPipe,
         LoaderComponent, CommonModule,
         FormsModule,
         ReactiveFormsModule,
@@ -53,7 +55,7 @@ export default class EditTagComponent implements OnInit {
     private loadTag(): void {
         if (!this.id) {
             this.isLoading.set(false);
-            this.errorMessage.set('Invalid tag ID');
+            this.errorMessage.set('admin.contents.tags.not_found');
             return;
         }
 
@@ -75,7 +77,7 @@ export default class EditTagComponent implements OnInit {
                     this.tagForm.patchValue({ label: fetched.label });
                     this.selectedColor.set(fetched.color);
                 } else {
-                    this.errorMessage.set('Tag not found');
+                    this.errorMessage.set('admin.contents.tags.not_found');
                 }
                 this.isLoading.set(false);
             }, 500);
@@ -98,7 +100,7 @@ export default class EditTagComponent implements OnInit {
         // Check for duplicate (excluding current)
         const isDuplicate = await this.tagsStore.isDuplicateLabel(label, this.id);
         if (isDuplicate) {
-            this.errorMessage.set('A tag with this label already exists.');
+            this.errorMessage.set('admin.contents.tags.exists');
             return;
         }
 
@@ -117,7 +119,7 @@ export default class EditTagComponent implements OnInit {
             },
             error: (error) => {
                 this.isSubmitting.set(false);
-                this.errorMessage.set('Failed to update tag. Please try again.');
+                this.errorMessage.set('admin.contents.tags.update_failed');
                 console.error('Error updating tag:', error);
             },
         });

@@ -5,14 +5,17 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { MatDialogModule } from '@angular/material/dialog';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { injectT } from '../../../core/i18n/inject-t';
 import { GlobalTableComponent, TableColumn } from '../../../../shared/components/global-table/global-table.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
-import { ConfirmationPopupComponent } from '../../../../shared/components/confirmation-popup/confirmation-popup.component';
-import { ToastService } from '../../../../shared/services/toast.service';
+import { ConfirmService } from '../../../../shared/components/confirmation-popup/confirm.service';
+import { NotifyService } from '../../../../shared/services/notify.service';
+import { escapeHtml } from '../../../../shared/utils/escape-html';
+import { audienceStatusText } from '../(audience)/audience-status-text';
 import { statusBadgeClass } from '../../../../shared/utils/status-badge';
 import { AudienceService } from '../(audience)/audience.service';
 import { IContact, IList, ITag } from '../(audience)/audience.model';
@@ -22,7 +25,11 @@ import { isOn } from '../../../core/features/features';
 import { Functions } from '@angular/fire/functions';
 import { arcCallable } from '../../../core/config/arc-functions';
 import { APP_LIST_OPERATORS, AppListPreview } from '../(lists)/(app-list-conditions)/app-list-conditions.component';
-import { APP_USERS_LIMIT_NOTE } from '../(app-users)/app-users-limit';
+import { APP_USERS_LIMIT_NOTE_KEY, APP_USERS_LIMIT_PARAMS } from '../(app-users)/app-users-limit';
+
+/** Statuses with words under admin.broadcasts.status and admin.drips.status. */
+const BROADCAST_STATUSES = ['queued', 'scheduled', 'processing', 'sending', 'paused', 'completed', 'cancelled', 'failed'] as const;
+const DRIP_STATUSES = ['draft', 'active', 'paused', 'archived'] as const;
 
 /** A person an App users (live) list matches, as `previewAppList` returns them. */
 interface LiveMember {
@@ -45,7 +52,7 @@ interface LiveMember {
     standalone: true,
     imports: [
         CommonModule, FormsModule, RouterLink, MatButtonModule, MatIconModule, MatTabsModule,
-        MatTooltipModule, MatDialogModule, GlobalTableComponent, PageHeaderComponent,
+        MatTooltipModule, MatDialogModule, GlobalTableComponent, PageHeaderComponent, TranslocoPipe,
     ],
     templateUrl: './list-hub.page.html',
     styleUrls: ['./list-hub.page.scss'],
@@ -59,9 +66,12 @@ export default class ListHubPageComponent implements OnInit {
     private route = inject(ActivatedRoute);
     readonly emailMarketingOn = isOn('email-marketing');
     private router = inject(Router);
-    private toast = inject(ToastService);
-    private dialog = inject(MatDialog);
-    private sanitizer = inject(DomSanitizer);
+    private notify = inject(NotifyService);
+    private confirm = inject(ConfirmService);
+    private transloco = inject(TranslocoService);
+    private t = injectT();
+    /** The admin language as a signal, so computed text follows a language switch. */
+    private lang = toSignal(this.transloco.langChanges$, { initialValue: this.transloco.getActiveLang() });
     private destroyRef = inject(DestroyRef);
     private functions = inject(Functions);
 
@@ -72,7 +82,18 @@ export default class ListHubPageComponent implements OnInit {
     allBroadcasts = signal<BroadcastRow[]>([]);
     allCampaigns = signal<DripCampaign[]>([]);
     loading = signal(true);
+    /** The list itself did not load: say so with Retry, not "List not found". */
+    listError = signal(false);
+    private listSub?: { unsubscribe(): void };
+    /** The list's members did not load; the table shows it with Retry. */
+    membersError = signal(false);
+    /** The Broadcasts or Sequence tab did not load; each table shows it with Retry. */
+    broadcastsError = signal(false);
+    campaignsError = signal(false);
     busy = signal(false);
+    private membersSub?: { unsubscribe(): void };
+    private broadcastsSub?: { unsubscribe(): void };
+    private campaignsSub?: { unsubscribe(): void };
 
     /** A form-fed list mirrors a signup form; membership is derived, not edited. */
     isFormFed = computed(() => !!this.list()?.formId);
@@ -85,28 +106,34 @@ export default class ListHubPageComponent implements OnInit {
     isLive = computed(() => this.list()?.type === 'app');
     liveMembers = signal<LiveMember[]>([]);
     livePreview = signal<AppListPreview | null>(null);
-    readonly limitNote = APP_USERS_LIMIT_NOTE;
+    readonly limitNoteKey = APP_USERS_LIMIT_NOTE_KEY;
+    readonly limitNoteParams = APP_USERS_LIMIT_PARAMS;
 
     /** Addresses that unsubscribed: one per address, as a send counts them. */
     unsubscribedOf(p: AppListPreview): number {
         return Math.max(0, p.withEmail - (p.sharedEmail ?? 0) - p.subscribed);
     }
-    liveError = signal('');
+    /** Reading the app's users failed: a plain sentence shows, the detail is in the console. */
+    liveError = signal(false);
 
-    /** The conditions in words: "isPro is true and plan.tier is any of pro, business". */
-    conditionSummary = computed(() => (this.list()?.conditions ?? []).map((c) => {
-        const label = APP_LIST_OPERATORS.find((o) => o.op === c.op)?.label ?? c.op;
-        const value = Array.isArray(c.value) ? c.value.join(', ') : c.value ?? '';
-        return `${c.field} ${label}${value ? ` ${value}` : ''}`;
-    }));
+    /** The conditions in words, in the admin's language: "isPro is true and plan.tier is any of pro, business". */
+    conditionSummary = computed(() => {
+        this.lang(); // recompute on a language switch
+        return (this.list()?.conditions ?? []).map((c) => {
+            const key = APP_LIST_OPERATORS.find((o) => o.op === c.op)?.label;
+            const label = key ? this.transloco.translate(key) : c.op;
+            const value = Array.isArray(c.value) ? c.value.join(', ') : c.value ?? '';
+            return `${c.field} ${label}${value ? ` ${value}` : ''}`;
+        }).join(` ${this.t('admin.audience.hub.and')} `);
+    });
 
     liveColumns: TableColumn[] = [
-        { key: 'name', header: 'Name', type: 'text', transformFn: (r) => r.name || '-' },
-        { key: 'email', header: 'Email', type: 'text', transformFn: (r) => r.email || '(no email)' },
-        { key: 'key', header: 'Unique key', type: 'code' },
+        { key: 'name', header: 'common.table.name', type: 'text', transformFn: (r) => r.name || '-' },
+        { key: 'email', header: 'common.table.email', type: 'text', transformFn: (r) => r.email || this.t('admin.audience.hub.no_email_value') },
+        { key: 'key', header: 'admin.audience.hub.unique_key', type: 'code' },
         {
-            key: 'consent', header: 'Status', type: 'html',
-            transformFn: (r) => `<span class="${statusBadgeClass(r.consent)}">${r.consent}</span>`,
+            key: 'consent', header: 'common.table.status', type: 'html',
+            transformFn: (r) => this.badge(r.consent, this.status(r.consent)),
         },
     ];
 
@@ -142,33 +169,33 @@ export default class ListHubPageComponent implements OnInit {
     listCampaigns = computed(() => this.allCampaigns().filter((c) => c.listId === this.listId()));
 
     memberColumns: TableColumn[] = [
-        { key: 'email', header: 'Email', type: 'text' },
-        { key: 'name', header: 'Name', type: 'text', transformFn: (r) => r.name || '-' },
+        { key: 'email', header: 'common.table.email', type: 'text' },
+        { key: 'name', header: 'common.table.name', type: 'text', transformFn: (r) => r.name || '-' },
         {
-            key: 'tags', header: 'Tags', type: 'tags',
+            key: 'tags', header: 'admin.audience.tags.title', type: 'tags',
             transformFn: (r) => (r.tags || []).map((id: string) => this.tagsById().get(id)).filter(Boolean),
         },
         {
-            key: 'consent', header: 'Status', type: 'html',
+            key: 'consent', header: 'common.table.status', type: 'html',
             transformFn: (r) => {
-                if (r.disabled) return '<span class="status-badge is-dark">disabled</span>';
+                if (r.disabled) return `<span class="status-badge is-dark">${escapeHtml(this.status('disabled'))}</span>`;
                 const c = r.consent?.marketing || 'subscribed';
-                return `<span class="${statusBadgeClass(c)}">${c}</span>`;
+                return this.badge(c, this.status(c));
             },
         },
         {
-            key: 'actions', header: 'Actions', type: 'actions',
+            key: 'actions', header: 'common.table.actions', type: 'actions',
             actions: [
                 {
-                    action: 'disable', slot: 'emails', icon: 'fas fa-ban text-danger', label: 'Disable emails', class: 'delete',
+                    action: 'disable', slot: 'emails', icon: 'fas fa-ban text-danger', label: 'admin.audience.hub.disable_emails', class: 'delete',
                     hide: (row) => !!row.disabled, onAction: (row) => this.confirmDisable(row),
                 },
                 {
-                    action: 'enable', slot: 'emails', icon: 'fas fa-circle-check text-success', label: 'Re-enable emails', class: 'edit',
+                    action: 'enable', slot: 'emails', icon: 'fas fa-circle-check text-success', label: 'admin.audience.hub.enable_emails', class: 'edit',
                     hide: (row) => !row.disabled, onAction: (row) => this.setDisabled(row, false),
                 },
                 {
-                    action: 'remove', icon: 'fas fa-user-minus text-danger', label: 'Remove from list', class: 'delete',
+                    action: 'remove', icon: 'fas fa-user-minus text-danger', label: 'admin.audience.hub.remove_from_list', class: 'delete',
                     // Form-fed membership is derived from the form's member docs —
                     // removing it here would desync the two. Disable instead.
                     hide: () => this.isFormFed(), onAction: (row) => this.confirmRemove(row),
@@ -178,24 +205,26 @@ export default class ListHubPageComponent implements OnInit {
     ];
 
     broadcastColumns: TableColumn[] = [
-        { key: 'subject', header: 'Subject', type: 'text', classFn: () => 'fw-medium' },
+        { key: 'subject', header: 'admin.audience.hub.subject', type: 'text', classFn: () => 'fw-medium' },
         {
-            key: 'status', header: 'Status', type: 'html',
-            transformFn: (r) => `<span class="${statusBadgeClass(r.status)}">${r.status}</span>`,
+            key: 'status', header: 'common.table.status', type: 'html',
+            // The words the Broadcasts page uses ("Sent", not "completed").
+            transformFn: (r) => this.badge(r.status, this.knownStatus('admin.broadcasts.status', BROADCAST_STATUSES, r.status)),
         },
-        { key: 'sentCount', header: 'Sent', type: 'text', transformFn: (r) => r.sentCount ?? 0 },
-        { key: 'skippedCount', header: 'Skipped', type: 'text', transformFn: (r) => r.skippedCount ?? 0 },
-        { key: 'createdAt', header: 'Created', type: 'date', dateFormat: 'MMM d, y' },
+        { key: 'sentCount', header: 'admin.audience.hub.sent', type: 'text', transformFn: (r) => r.sentCount ?? 0 },
+        { key: 'skippedCount', header: 'admin.audience.hub.skipped', type: 'text', transformFn: (r) => r.skippedCount ?? 0 },
+        { key: 'createdAt', header: 'admin.audience.hub.created', type: 'date', dateFormat: 'MMM d, y' },
     ];
 
     campaignColumns: TableColumn[] = [
-        { key: 'name', header: 'Sequence', type: 'text', classFn: () => 'fw-medium' },
+        { key: 'name', header: 'admin.audience.hub.sequence', type: 'text', classFn: () => 'fw-medium' },
         {
-            key: 'status', header: 'Status', type: 'html',
-            transformFn: (r) => `<span class="${statusBadgeClass(r.status)}">${r.status}</span>`,
+            key: 'status', header: 'common.table.status', type: 'html',
+            // The words the Sequences page uses.
+            transformFn: (r) => this.badge(r.status, this.knownStatus('admin.drips.status', DRIP_STATUSES, r.status)),
         },
-        { key: 'steps', header: 'Steps', type: 'text', transformFn: (r) => (r.steps || []).length },
-        { key: 'enrolled', header: 'Enrolled', type: 'text', transformFn: (r) => r.counts?.enrolled ?? 0 },
+        { key: 'steps', header: 'admin.audience.hub.steps', type: 'text', transformFn: (r) => (r.steps || []).length },
+        { key: 'enrolled', header: 'admin.audience.hub.enrolled', type: 'text', transformFn: (r) => r.counts?.enrolled ?? 0 },
     ];
 
     ngOnInit(): void {
@@ -206,32 +235,94 @@ export default class ListHubPageComponent implements OnInit {
             return;
         }
 
-        this.audience.getList(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((l) => {
-            const conditionsChanged = JSON.stringify(l?.conditions) !== JSON.stringify(this.list()?.conditions);
-            this.list.set(l);
-            this.loading.set(false);
-            if (l?.type === 'app' && (conditionsChanged || !this.livePreview())) void this.loadLive();
-        });
-        this.audience.getContactsInList(id).pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe((c) => this.members.set(c));
+        this.loadList();
+        this.loadMembers();
         this.audience.getTags().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((t) => this.tags.set(t));
         if (!this.emailMarketingOn) return;
-        this.broadcasts.watchRecent(100).pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe((b) => this.allBroadcasts.set(b));
-        this.drips.watchCampaigns().pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe((c) => this.allCampaigns.set(c));
+        this.loadBroadcasts();
+        this.loadCampaigns();
+    }
+
+    /** Listen to the list itself; called again by Retry. */
+    loadList(): void {
+        this.listSub?.unsubscribe();
+        this.loading.set(true);
+        this.listError.set(false);
+        let failed = false;
+        this.listSub = this.audience.getList(this.listId(), () => { failed = true; })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe((l) => {
+                const conditionsChanged = JSON.stringify(l?.conditions) !== JSON.stringify(this.list()?.conditions);
+                this.list.set(l);
+                this.listError.set(failed);
+                this.loading.set(false);
+                if (l?.type === 'app' && (conditionsChanged || !this.livePreview())) void this.loadLive();
+            });
+    }
+
+    /** Retry for the whole page: the list and its members. */
+    retryList(): void {
+        this.loadList();
+        this.loadMembers();
+    }
+
+    /** The Broadcasts tab; called again by Retry. */
+    loadBroadcasts(): void {
+        this.broadcastsSub?.unsubscribe();
+        this.broadcastsError.set(false);
+        this.broadcastsSub = this.broadcasts.watchRecent(100, {
+            onError: (err) => { console.error('List broadcasts did not load', err); this.broadcastsError.set(true); },
+        }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((b) => this.allBroadcasts.set(b));
+    }
+
+    /** The Sequence tab; called again by Retry. */
+    loadCampaigns(): void {
+        this.campaignsSub?.unsubscribe();
+        this.campaignsError.set(false);
+        this.campaignsSub = this.drips.watchCampaigns({
+            onError: (err) => { console.error('List sequences did not load', err); this.campaignsError.set(true); },
+        }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((c) => this.allCampaigns.set(c));
+    }
+
+    /** Listen to the list's members; called again by Retry. */
+    loadMembers(): void {
+        this.membersSub?.unsubscribe();
+        this.membersError.set(false);
+        let failed = false;
+        this.membersSub = this.audience.getContactsInList(this.listId(), 500, () => { failed = true; })
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe((c) => {
+                this.members.set(c);
+                this.membersError.set(failed);
+            });
     }
 
     /** Who the live list matches now. */
     async loadLive(): Promise<void> {
-        this.liveError.set('');
+        this.liveError.set(false);
         try {
             const res = await arcCallable<{ listId: string }, AppListPreview & { rows: LiveMember[] }>(this.functions, 'previewAppList')({ listId: this.listId() });
             this.livePreview.set(res.data);
             this.liveMembers.set(res.data.rows);
-        } catch (e: any) {
-            this.liveError.set(e?.message || String(e));
+        } catch (e) {
+            console.error('Reading the live list failed', e);
+            this.liveError.set(true);
         }
+    }
+
+    /** A stored status (subscribed, pending...) in the admin's language. */
+    private status(value: string): string {
+        return audienceStatusText(this.transloco, value);
+    }
+
+    /** A status badge for an html column: the text is escaped, the class comes from a fixed map. */
+    private badge(status: string, text: string): string {
+        return `<span class="${statusBadgeClass(status)}">${escapeHtml(text)}</span>`;
+    }
+
+    /** A status from another page's own word list (`<prefix>.<status>`), else the audience words. */
+    private knownStatus(prefix: string, known: readonly string[], value: string): string {
+        return known.includes(value) ? this.transloco.translate(`${prefix}.${value}`) : this.status(value);
     }
 
     /** Compose a broadcast with this list pre-selected as the audience. */
@@ -249,18 +340,14 @@ export default class ListHubPageComponent implements OnInit {
         if (formId) this.router.navigate(['/admin/waitlists/dashboard', formId]);
     }
 
-    confirmDisable(contact: IContact): void {
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Stop sending <strong>all</strong> email to <strong>${this.escape(contact.email)}</strong>?` +
-            `<br><br>They stay in the list and keep their history. This also blocks verification ` +
-            `emails, so they can't confirm a new signup until re-enabled.`,
-        );
-        this.dialog.open(ConfirmationPopupComponent, {
-            width: '380px',
-            data: { dialogType: 'Disable', dialogMessage: msg, btnText: 'Disable emails', panelType: 'warn' },
-        }).afterClosed().subscribe((ok: boolean) => {
-            if (ok) this.setDisabled(contact, true);
+    async confirmDisable(contact: IContact): Promise<void> {
+        const ok = await this.confirm.ask({
+            titleKey: 'admin.audience.hub.disable_title',
+            dialogMessage: this.t('admin.audience.hub.disable_confirm', { email: escapeHtml(contact.email) }),
+            btnText: this.t('admin.audience.hub.disable_emails'),
+            panelType: 'warn',
         });
+        if (ok) await this.setDisabled(contact, true);
     }
 
     async setDisabled(contact: IContact, disabled: boolean): Promise<void> {
@@ -268,40 +355,32 @@ export default class ListHubPageComponent implements OnInit {
         this.busy.set(true);
         try {
             await this.audience.setContactDisabled(contact.id, disabled);
-            this.toast.success(disabled ? 'Emails disabled for this contact' : 'Emails re-enabled');
+            this.notify.success(disabled ? 'admin.audience.hub.disabled_done' : 'admin.audience.hub.enabled_done');
         } catch (e) {
-            console.error(e);
-            this.toast.error('Failed to update the contact');
+            console.error('Changing the contact\'s emails failed', e);
+            this.notify.error('admin.audience.hub.update_failed');
         } finally {
             this.busy.set(false);
         }
     }
 
-    confirmRemove(contact: IContact): void {
-        const msg: SafeHtml = this.sanitizer.bypassSecurityTrustHtml(
-            `Remove <strong>${this.escape(contact.email)}</strong> from <strong>${this.escape(this.list()?.name || '')}</strong>?`,
-        );
-        this.dialog.open(ConfirmationPopupComponent, {
-            width: '360px',
-            data: { dialogType: 'Remove', dialogMessage: msg, btnText: 'Remove', panelType: 'warn' },
-        }).afterClosed().subscribe(async (ok: boolean) => {
-            if (!ok || !contact.id) return;
-            this.busy.set(true);
-            try {
-                await this.audience.updateContactLists(contact.id, [], [this.listId()]);
-                this.toast.success('Removed from list');
-            } catch (e) {
-                console.error(e);
-                this.toast.error('Failed to remove from list');
-            } finally {
-                this.busy.set(false);
-            }
-        });
-    }
-
-    private escape(value: string): string {
-        return (value || '').replace(/[&<>"']/g, (c) => (
-            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string
-        ));
+    async confirmRemove(contact: IContact): Promise<void> {
+        const ok = await this.confirm.ask({
+            titleKey: 'common.actions.remove',
+            dialogMessage: this.t('admin.audience.hub.remove_confirm', { email: escapeHtml(contact.email), list: escapeHtml(this.list()?.name || '') }),
+            btnText: this.t('common.actions.remove'),
+            panelType: 'warn',
+        }, '360px');
+        if (!ok || !contact.id) return;
+        this.busy.set(true);
+        try {
+            await this.audience.updateContactLists(contact.id, [], [this.listId()]);
+            this.notify.success('admin.audience.hub.removed');
+        } catch (e) {
+            console.error('Removing the contact from the list failed', e);
+            this.notify.error('admin.audience.hub.remove_failed');
+        } finally {
+            this.busy.set(false);
+        }
     }
 }

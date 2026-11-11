@@ -1,28 +1,52 @@
 <div class="table-container">
 
+    <!-- Error State: the list did not load. Above the rows when some are already shown. -->
+    @if (!loading && error) {
+    <div class="error-state" [class.error-inline]="data.length > 0" role="alert">
+        @if (data.length === 0) {
+        <i class="fas fa-triangle-exclamation main_icon" aria-hidden="true"></i>
+        <h3>{{ 'common.table.load_failed_title' | transloco }}</h3>
+        <p>{{ errorText | translatable }}</p>
+        } @else {
+        <p><strong>{{ 'common.table.load_failed_title' | transloco }}.</strong> {{ errorText | translatable }}</p>
+        }
+        @if (canRetry) {
+        <button type="button" class="btn btn-primary retry-btn" (click)="retry.emit()">
+            <i class="fas fa-rotate-right" aria-hidden="true"></i> {{ 'common.table.retry' | transloco }}
+        </button>
+        }
+    </div>
+    }
+
     <!-- Table State -->
     @if(!loading && data.length > 0){
     <div class="table-responsive">
         <table class="table table-hover mb-0">
             <thead>
                 <tr>
-                    <th *ngFor="let col of columns" [class.sortable-header]="col.sortable" (click)="onHeaderClick(col)"
+                    <th *ngFor="let col of columns; let last = last" [class.sortable-header]="col.sortable"
+                        [attr.aria-sort]="ariaSort(col)" [class.sticky-actions]="isStickyActions(col, last)"
                         [class.text-center]="col.type === 'actions'">
-                        <div class="d-flex align-items-center">
+                        @if (col.sortable) {
+                        <button type="button" class="sort-btn" (click)="onHeaderClick(col)">
                             <span>{{ col.header | translatable }}</span>
-                            <i *ngIf="col.sortable && sortField === col.key" class="fas ms-2"
+                            <i *ngIf="sortField === col.key" class="fas ms-2" aria-hidden="true"
                                 [class.fa-arrow-up]="sortOrder === 'asc'" [class.fa-arrow-down]="sortOrder === 'desc'">
                             </i>
-                            <i *ngIf="col.sortable && sortField !== col.key" class="fas fa-sort ms-2 text-muted"
-                                style="opacity: 0.3;">
-                            </i>
+                            <i *ngIf="sortField !== col.key" class="fas fa-sort ms-2 sort-idle" aria-hidden="true"></i>
+                        </button>
+                        } @else {
+                        <div class="d-flex align-items-center">
+                            <span>{{ col.header | translatable }}</span>
                         </div>
+                        }
                     </th>
                 </tr>
             </thead>
             <tbody>
                 <tr *ngFor="let row of data; let i = index; trackBy: trackByFn" (click)="onRowClick(row, $event)">
-                    <td *ngFor="let col of columns" [class.text-center]="col.type === 'actions' || col.type === 'icon'">
+                    <td *ngFor="let col of columns; let last = last" [class.sticky-actions]="isStickyActions(col, last)"
+                        [class.text-center]="col.type === 'actions' || col.type === 'icon'">
                         <!-- Icon Type -->
                         <ng-container *ngIf="col.type === 'icon'">
                              <i [class]="col.classFn ? col.classFn(row) : ''" 
@@ -117,16 +141,31 @@
     </div>
     }
 
-    <!-- Empty State -->
+    <!-- No rows: the error above says why, or a search found nothing, or there is nothing yet -->
     @else if(!loading && data.length === 0){
+    @if (error) {
+    <!-- The error state above stands alone. -->
+    } @else if (filtered) {
+    <div class="empty-state no-match-state">
+        <i class="fas fa-magnifying-glass main_icon" aria-hidden="true"></i>
+        <h3>{{ noMatchTitle | translatable }}</h3>
+        <p>{{ noMatchDescription | translatable }}</p>
+        @if (canClearFilters) {
+        <button type="button" class="btn btn-primary clear-filters-btn" (click)="clearFilters.emit()">
+            <i class="fas fa-xmark" aria-hidden="true"></i> {{ 'common.table.clear_filters' | transloco }}
+        </button>
+        }
+    </div>
+    } @else {
     <div class="empty-state">
-        <i [class]="emptyIcon" class="main_icon"></i>
-        <h3>{{ emptyTitle }}</h3>
-        <p>{{ emptyDescription }}</p>
-        <button *ngIf="showEmptyAction" class="btn btn-primary" (click)="onEmptyActionClick()">
-            <i [class]="emptyActionIcon"></i> {{ emptyActionLabel }}
+        <i [class]="emptyIcon" class="main_icon" aria-hidden="true"></i>
+        <h3>{{ emptyTitle | translatable }}</h3>
+        <p>{{ emptyDescription | translatable }}</p>
+        <button type="button" *ngIf="showEmptyAction" class="btn btn-primary" (click)="onEmptyActionClick()">
+            <i [class]="emptyActionIcon" aria-hidden="true"></i> {{ emptyActionLabel | translatable }}
         </button>
     </div>
+    }
     }
 
     <!-- Loading State -->

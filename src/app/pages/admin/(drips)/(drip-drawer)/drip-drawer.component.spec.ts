@@ -1,5 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { TranslocoTestingModule } from '@jsverse/transloco';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const en = JSON.parse(readFileSync(resolve(__dirname, '../../../../../assets/i18n/en.json'), 'utf8'));
+const transloco = TranslocoTestingModule.forRoot({ langs: { en }, translocoConfig: { availableLangs: ['en'], defaultLang: 'en' }, preloadLangs: true });
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { DripDrawerComponent } from './drip-drawer.component';
 import { DripService, DripCampaign } from '../drip.service';
@@ -23,7 +29,7 @@ describe('DripDrawerComponent', () => {
         toast = { success: vi.fn(), error: vi.fn() };
 
         await TestBed.configureTestingModule({
-            imports: [DripDrawerComponent, NoopAnimationsModule],
+            imports: [DripDrawerComponent, NoopAnimationsModule, transloco],
             providers: [
                 { provide: DripService, useValue: service },
                 { provide: ToastService, useValue: toast },
@@ -42,7 +48,18 @@ describe('DripDrawerComponent', () => {
         component.listId = '';
         await component.submit();
         expect(service.createCampaign).not.toHaveBeenCalled();
-        expect(toast.error).toHaveBeenCalled();
+        expect(toast.error).toHaveBeenCalledWith('Pick a list.');
+    });
+
+    it('names its icon buttons', async () => {
+        const fixture = TestBed.createComponent(DripDrawerComponent);
+        fixture.detectChanges();
+        fixture.componentInstance.addStep();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        const iconOnly = [...fixture.nativeElement.querySelectorAll('button[mat-icon-button], button.close-btn')] as HTMLButtonElement[];
+        expect(iconOnly.length).toBe(3);
+        for (const b of iconOnly) expect(b.getAttribute('aria-label')).toBeTruthy();
     });
 
     it('rejects a step with no template', async () => {

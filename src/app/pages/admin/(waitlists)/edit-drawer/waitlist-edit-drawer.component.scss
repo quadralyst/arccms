@@ -269,3 +269,34 @@
     font-size: 11px;
     color: #94a3b8;
 }
+
+// Hints under a field, at 4.5:1 or better on white.
+.field-hint {
+    display: block;
+    color: #64748b;
+    margin-top: 5px;
+
+    &.before {
+        margin: 2px 0 8px;
+    }
+}
+
+.upload-icon {
+    font-size: 2rem;
+    color: #64748b;
+    margin-bottom: 10px;
+}
+
+.upload-title {
+    margin: 0 0 5px 0;
+    color: #475569;
+}
+
+.cover-preview {
+    max-height: 150px;
+    object-fit: cover;
+}
+
+.address-warning {
+    font-size: 0.8em;
+}

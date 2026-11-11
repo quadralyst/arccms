@@ -74,15 +74,15 @@ beforeEach(() => {
 
 describe('buildEntry', () => {
     it('indexes every field with its weight and reads dotted paths', () => {
-        const doc = { name: 'Gunjan Karun', tagline: 'Builder', address: { city: 'Bhopal' }, slug: 'gk', status: 'active' };
+        const doc = { name: 'Anjali Verma', tagline: 'Builder', address: { city: 'Bhopal' }, slug: 'gk', status: 'active' };
         const entry = buildEntry(source, { lang: '*', doc }, source.fields as never, ctx);
 
-        expect(entry.fields).toEqual({ name: 'Gunjan Karun', tagline: 'Builder', 'address.city': 'Bhopal' });
+        expect(entry.fields).toEqual({ name: 'Anjali Verma', tagline: 'Builder', 'address.city': 'Bhopal' });
         expect(entry.weights).toEqual({ name: 3, tagline: 2, 'address.city': 1 });
-        expect(entry.tokens).toContain('kar');
+        expect(entry.tokens).toContain('ver');
         expect(entry.tokens).toContain('bhopal');
         expect(entry.tokens).not.toContain('bh');
-        expect(entry.title).toBe('Gunjan Karun');
+        expect(entry.title).toBe('Anjali Verma');
         expect(entry.link).toBe('/directory/gk');
         expect(entry.badge).toBe('Directory');
         expect(entry.source).toBe('directory');
@@ -95,12 +95,12 @@ describe('buildEntry', () => {
 
     it('caps tokens and keeps the title tokens when it does', () => {
         const longTagline = Array.from({ length: 400 }, (_, i) => `word${i}`).join(' ');
-        const doc = { name: 'Gunjan Karun', tagline: longTagline, status: 'active' };
+        const doc = { name: 'Anjali Verma', tagline: longTagline, status: 'active' };
         const entry = buildEntry(source, { lang: '*', doc }, source.fields as never, ctx);
 
         expect(entry.tokens.length).toBeLessThanOrEqual(MAX_TOKENS_PER_ENTRY);
-        expect(entry.tokens[0]).toBe('gunjan');
-        expect(entry.tokens).toContain('karun');
+        expect(entry.tokens[0]).toBe('anjali');
+        expect(entry.tokens).toContain('verma');
     });
 
     it('strips HTML from the fields and the snippet', () => {
@@ -124,13 +124,13 @@ describe('buildEntries', () => {
             include: undefined,
             variants: async doc => [
                 { lang: 'en', doc },
-                { lang: 'hi', doc: { ...doc, name: 'गुंजन' } },
+                { lang: 'hi', doc: { ...doc, name: 'अंजलि' } },
             ],
         };
-        const entries = await buildEntries(multilingual, { name: 'Gunjan', slug: 'g' }, ctx);
+        const entries = await buildEntries(multilingual, { name: 'Anjali', slug: 'g' }, ctx);
         expect(entries.map(e => e.lang)).toEqual(['en', 'hi']);
-        expect(entries[1].title).toBe('गुंजन');
-        expect(entries[1].tokens).toContain('गुंजन');
+        expect(entries[1].title).toBe('अंजलि');
+        expect(entries[1].tokens).toContain('अंजलि');
     });
 
     it('drops variants with nothing to index', async () => {
@@ -142,7 +142,7 @@ describe('buildEntries', () => {
 describe('upsertSearchEntries', () => {
     it('writes the new entries and deletes stale language entries of the same document', async () => {
         existingDocs.push({ id: 'directory:Directory:d1:hi', ref: 'ref-hi' });
-        const entries = await buildEntries({ ...source, include: undefined }, { name: 'Gunjan', slug: 'g' }, ctx);
+        const entries = await buildEntries({ ...source, include: undefined }, { name: 'Anjali', slug: 'g' }, ctx);
         await upsertSearchEntries('directory', 'Directory', 'd1', entries);
 
         expect(batch.set).toHaveBeenCalledTimes(1);

@@ -363,16 +363,16 @@ describe('processEmailTemplate (##NAME## tag)', () => {
     const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
 
     const emailLogsData = {
-      toName: 'Gunjan Karun',
-      toEmail: 'gunjan+test2@example.com',
+      toName: 'Anjali Verma',
+      toEmail: 'anjali+test2@example.com',
       otp: '123456',
       subject: 'Your Arc CMS verification code ##NAME##',
       template: '<p>Hi ##NAME##, your code is ##OTP##.</p>',
     };
 
     const result = await processEmailTemplate(emailLogsData as any, {});
-    expect(result.subject).toBe('Your Arc CMS verification code Gunjan Karun');
-    expect(result.template).toContain('Hi Gunjan Karun');
+    expect(result.subject).toBe('Your Arc CMS verification code Anjali Verma');
+    expect(result.template).toContain('Hi Anjali Verma');
     expect(result.template).not.toContain('##NAME##');
   });
 
@@ -380,28 +380,28 @@ describe('processEmailTemplate (##NAME## tag)', () => {
     const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
 
     const emailLogsData = {
-      toName: 'Gunjan Karun',
-      toEmail: 'gunjan+test2@example.com',
+      toName: 'Anjali Verma',
+      toEmail: 'anjali+test2@example.com',
       subject: 'Hello ##NAME##',
       template: '<p>Hi ##NAME##</p>',
     };
 
     const result = await processEmailTemplate(emailLogsData as any, {});
-    expect(result.subject).not.toContain('gunjan+test2');
-    expect(result.subject).toBe('Hello Gunjan Karun');
+    expect(result.subject).not.toContain('anjali+test2');
+    expect(result.subject).toBe('Hello Anjali Verma');
   });
 
   it('should fall back to email prefix when toName is absent', async () => {
     const { processEmailTemplate } = await import('../mail-config/mailConfig.js');
 
     const emailLogsData = {
-      toEmail: 'gunjan+test2@example.com',
+      toEmail: 'anjali+test2@example.com',
       subject: 'Hello ##NAME##',
       template: '<p>Hi ##NAME##</p>',
     };
 
     const result = await processEmailTemplate(emailLogsData as any, {});
-    expect(result.subject).toBe('Hello gunjan+test2');
+    expect(result.subject).toBe('Hello anjali+test2');
   });
 });
 

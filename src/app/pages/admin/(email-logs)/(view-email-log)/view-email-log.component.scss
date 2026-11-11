@@ -40,7 +40,7 @@
 
 .type-label {
     font-size: 0.85rem;
-    color: #6c757d;
+    color: #5c636a;
 }
 
 .provider-chip {
@@ -69,17 +69,27 @@
     margin-bottom: 10px;
     color: #495057;
 
-    &.clickable {
-        cursor: pointer;
-        user-select: none;
-        display: flex;
-        align-items: center;
-        gap: 4px;
+}
 
-        &:hover {
-            color: #212529;
-        }
+// The Template tags heading opens and closes its section: a real button, so a keyboard reaches it.
+.section-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover {
+        color: #212529;
     }
+}
+
+.unmapped-label {
+    color: #856404;
 }
 
 .toggle-icon {
@@ -191,7 +201,7 @@
 
 .meta-label {
     font-weight: 600;
-    color: #6c757d;
+    color: #5c636a;
     min-width: 100px;
     flex-shrink: 0;
 }

@@ -3,7 +3,7 @@
         @if(currentId()) {
         <arc-view-email-log [id]="currentId()" (close)="closeDrawer()"></arc-view-email-log>
         } @else {
-        <div class="alert alert-info m-3">No email log selected</div>
+        <div class="alert alert-info m-3">{{ 'admin.email_logs.none_selected' | transloco }}</div>
         }
     </mat-drawer>
 
@@ -13,36 +13,36 @@
                 <!-- Content Area -->
                 <div class="content-area">
                     <!-- Top Bar -->
-                    <arc-page-header title="Email Logs"></arc-page-header>
+                    <arc-page-header [title]="'admin.email_logs.title' | transloco"></arc-page-header>
 
                     <!-- Email health summary (last 24h) -->
                     <arc-email-health-card></arc-email-health-card>
 
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <div>
-                            <h6 class="mb-0">All Email Logs</h6>
-                            <small class="text-muted">View sent email history and delivery status</small>
+                            <h2 class="h6 mb-0">{{ 'admin.email_logs.all_title' | transloco }}</h2>
+                            <small class="text-muted">{{ 'admin.email_logs.all_text' | transloco }}</small>
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <!-- Status Filter -->
                             <mat-form-field appearance="outline" class="status-filter">
-                                <mat-label>Status</mat-label>
+                                <mat-label>{{ 'common.table.status' | transloco }}</mat-label>
                                 <mat-select [value]="statusFilter()"
                                     (selectionChange)="onStatusFilterChange($event.value)">
-                                    <mat-option value="">All</mat-option>
-                                    <mat-option value="success">Success</mat-option>
-                                    <mat-option value="failed">Failed</mat-option>
-                                    <mat-option value="delivered">Delivered</mat-option>
-                                    <mat-option value="bounced">Bounced</mat-option>
-                                    <mat-option value="complained">Complained</mat-option>
+                                    <mat-option value="">{{ 'common.filters.all' | transloco }}</mat-option>
+                                    <mat-option value="success">{{ 'admin.email_logs.status.success' | transloco }}</mat-option>
+                                    <mat-option value="failed">{{ 'admin.email_logs.status.failed' | transloco }}</mat-option>
+                                    <mat-option value="delivered">{{ 'admin.email_logs.status.delivered' | transloco }}</mat-option>
+                                    <mat-option value="bounced">{{ 'admin.email_logs.status.bounced' | transloco }}</mat-option>
+                                    <mat-option value="complained">{{ 'admin.email_logs.status.complained' | transloco }}</mat-option>
                                 </mat-select>
                             </mat-form-field>
 
                             <!-- Purge Button -->
                             <button mat-raised-button color="warn" (click)="purgeOldLogs()"
                                 [disabled]="isPurging()">
-                                <mat-icon>delete_sweep</mat-icon>
-                                {{ isPurging() ? 'Purging...' : 'Purge Old Logs' }}
+                                <mat-icon aria-hidden="true">delete_sweep</mat-icon>
+                                {{ (isPurging() ? 'admin.email_logs.purging' : 'admin.email_logs.purge') | transloco }}
                             </button>
                         </div>
                     </div>
@@ -53,12 +53,12 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <strong>{{ broadcast.subject }}</strong>
-                                <span class="badge bg-primary ms-2">{{ broadcast.status }}</span>
+                                <span class="badge bg-primary ms-2">{{ broadcastStatus(broadcast.status) }}</span>
                             </div>
                             <span class="text-muted small">
-                                {{ broadcast.sentCount }} / {{ broadcast.totalCount }} sent
+                                {{ 'admin.email_logs.progress_sent' | transloco: { sent: broadcast.sentCount, total: broadcast.totalCount } }}
                                 @if(broadcast.failedCount) {
-                                <span class="text-danger ms-1">&middot; {{ broadcast.failedCount }} failed</span>
+                                <span class="text-danger ms-1">&middot; {{ 'admin.email_logs.progress_failed' | transloco: { count: broadcast.failedCount } }}</span>
                                 }
                             </span>
                         </div>
@@ -71,9 +71,11 @@
 
                     <app-global-table [data]="emailLogStore.items()" [columns]="tableColumns"
                         [loading]="emailLogStore.isLoading()" [sortField]="sortField()" [sortOrder]="sortOrder()"
+                        [error]="loadError()" (retry)="fetchData()"
+                        [filtered]="!!statusFilter()" (clearFilters)="onStatusFilterChange('')"
                         (sortChange)="setSortField($event)" (cellClick)="onCellClick($event)"
-                        [pageIndex]="currentPage()" [pageSize]="pageSize()" emptyTitle="No Email Logs"
-                        emptyDescription="No emails have been sent yet." [showEmptyAction]="false">
+                        [pageIndex]="currentPage()" [pageSize]="pageSize()" emptyTitle="admin.email_logs.empty_title"
+                        emptyDescription="admin.email_logs.empty_text" [showEmptyAction]="false">
                     </app-global-table>
 
                     <!-- Pagination -->
@@ -82,14 +84,9 @@
                         @if(!emailLogStore.isLoading()) {
                         <div class="record-count text-muted">
                             @if(emailLogStore.totalRecords() > 0) {
-                            Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
-                            <strong>{{ emailLogStore.totalRecords() }}</strong>
-                            @if(statusFilter()) {
-                            <span class="text-primary ms-2">filtered</span>
-                            }
-                            records
+                            {{ (statusFilter() ? 'common.table.showing_range_filtered' : 'common.table.showing_range') | transloco: { start: getStartRecord(), end: getEndRecord(), total: emailLogStore.totalRecords() } }}
                             } @else {
-                            No records found
+                            {{ 'common.table.no_records' | transloco }}
                             }
                         </div>
                         <mat-paginator [length]="emailLogStore.totalRecords()" [pageSize]="pageSize()"

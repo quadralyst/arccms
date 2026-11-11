@@ -1,19 +1,20 @@
 <div class="icon-picker">
     <div class="icon-input-wrapper">
-        <i [class]="selectedIconClass()" class="selected-icon-preview"></i>
-        <input type="text" [placeholder]="placeholder" class="form-control" (input)="onIconInputChange($event)"
+        <i [class]="selectedIconClass()" class="selected-icon-preview" aria-hidden="true"></i>
+        <input type="text" [placeholder]="placeholder || ('common.icon_picker.search' | transloco)"
+            [attr.aria-label]="placeholder || ('common.icon_picker.search' | transloco)" class="form-control" (input)="onIconInputChange($event)"
             (focus)="onInputFocus()" (blur)="onInputBlur()" [value]="iconSearchTerm()" />
     </div>
     @if(showIconDropdown()) {
     <div class="icon-dropdown">
         @for(icon of filteredIcons(); track icon.class) {
         <div class="icon-option" (click)="selectIcon(icon.class)">
-            <i [class]="icon.class"></i>
+            <i [class]="icon.class" aria-hidden="true"></i>
             <span class="icon-name">{{ icon.name }}</span>
         </div>
         }
         @if(!filteredIcons().length) {
-        <div class="no-results">No icons found</div>
+        <div class="no-results">{{ 'common.icon_picker.none' | transloco }}</div>
         }
     </div>
     }

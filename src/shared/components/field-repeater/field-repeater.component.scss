@@ -113,7 +113,7 @@
 
     i {
         font-size: 1.25rem;
-        color: #adb5bd;
+        color: var(--rep-muted);
     }
 
     &:hover:not(:disabled) {
@@ -187,7 +187,7 @@
     display: block;
     margin-top: 0.2rem;
     font-size: 0.72rem;
-    color: #ef4444;
+    color: #dc2626;
 }
 
 .repeater-actions {

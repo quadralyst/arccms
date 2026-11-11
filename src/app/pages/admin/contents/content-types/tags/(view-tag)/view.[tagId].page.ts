@@ -1,3 +1,4 @@
+import { TranslocoPipe } from '@jsverse/transloco';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, inject, Input, Output, signal, OnInit } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,6 +12,7 @@ import { LoaderComponent } from '../../../../../../../shared/components/loader/l
     selector: 'arc-view-tag',
     standalone: true,
     imports: [
+        TranslocoPipe,
         LoaderComponent, CommonModule,
         MatButtonModule,
         MatIconModule,
@@ -36,7 +38,7 @@ export class ViewTagComponent implements OnInit {
     private loadTag(): void {
         if (!this.id) {
             this.isLoading.set(false);
-            this.errorMessage.set('Invalid tag ID');
+            this.errorMessage.set('admin.contents.tags.not_found');
             return;
         }
 
@@ -54,7 +56,7 @@ export class ViewTagComponent implements OnInit {
                 if (fetched && fetched.id === this.id) {
                     this.currentTag.set(fetched as ITag);
                 } else {
-                    this.errorMessage.set('Tag not found');
+                    this.errorMessage.set('admin.contents.tags.not_found');
                 }
                 this.isLoading.set(false);
             }, 500);

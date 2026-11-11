@@ -11,6 +11,22 @@ import { RowAction, RowActionSlot, RowActionsPlan, isDangerAction, planRowAction
 /** Below this width tables keep fewer icons inline. */
 export const ROW_ACTIONS_COMPACT_QUERY = '(max-width: 767.98px)';
 
+/** Names for actions a page left unlabelled, so no icon button is nameless. */
+const COMMON_ACTION_LABELS: Record<string, string> = {
+    edit: 'common.actions.edit',
+    view: 'common.actions.view',
+    open: 'common.actions.open',
+    delete: 'common.actions.delete',
+    remove: 'common.actions.remove',
+    copy: 'common.actions.copy',
+    add: 'common.actions.add',
+};
+
+/** A translation key for a common action name, else the name itself. */
+export function defaultActionLabel(action: string): string {
+    return COMMON_ACTION_LABELS[action] ?? action;
+}
+
 /**
  * The actions cell of a list row: a few icons, and a "more" menu when a table
  * has more actions than fit. See row-actions.ts for the rule.
@@ -92,6 +108,15 @@ export const ROW_ACTIONS_COMPACT_QUERY = '(max-width: 767.98px)';
             height: 32px;
             flex: 0 0 32px;
         }
+        /* A finger needs a 44px target (WCAG 2.5.5). */
+        @media (pointer: coarse) {
+            .action-btn,
+            .action-slot {
+                width: 44px;
+                height: 44px;
+                flex: 0 0 44px;
+            }
+        }
         .action-btn {
             display: inline-flex;
             align-items: center;
@@ -159,8 +184,13 @@ export class RowActionsComponent {
         return slotAction(slot, this.row());
     }
 
+    /**
+     * The action's name, shown in the menu and read out for an icon. An action
+     * with no label still gets a real name: the common one for its action
+     * (`edit` is "Edit"), else the action itself.
+     */
     labelOf(a: RowAction): string {
-        return a.labelFn ? a.labelFn(this.row()) : (a.label || a.action);
+        return a.labelFn ? a.labelFn(this.row()) : (a.label || defaultActionLabel(a.action));
     }
 
     iconOf(a: RowAction): string {

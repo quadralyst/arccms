@@ -358,3 +358,37 @@ describe('a fresh code before adding or changing a way in (a session alone is no
         expect(mocks.queueEmail).not.toHaveBeenCalled();
     });
 });
+
+describe("never detaching the site's last active admin (RF4, M3)", () => {
+    beforeEach(() => {
+        // B, whose only way in is the number, is the site's only admin.
+        mem.seed('users', 'b-doc', { ...mem.read('users', 'b-doc'), role: 'admin' });
+    });
+
+    it('refuses to move the number off it, before any code is used up', async () => {
+        await verifyPhoneForA();
+        await expect(linked(link.linkPhone, { phone: '9876543210', pin: '246810' }, 'uid-a')).rejects.toMatchObject({
+            code: 'failed-precondition', message: link.LAST_ADMIN_SIGN_IN, details: { reason: 'last-admin' },
+        });
+        expect(mem.read('users', 'b-doc')).toMatchObject({ phone: B_PHONE, isActive: true, status: 'Active' });
+        expect(mem.read('phone_index', phoneHash(B_PHONE))).toMatchObject({ userDocId: 'b-doc' });
+        expect(mem.read('auth_pins', 'uid-b')).toBeDefined();
+    });
+
+    it('moves it once another admin is active, or when the admin keeps another way in', async () => {
+        mem.seed('users', 'c-doc', { uid: 'uid-c', role: 'admin', isActive: true, status: 'Active' });
+        await verifyPhoneForA();
+        await expect(linked(link.linkPhone, { phone: '9876543210', pin: '246810' }, 'uid-a')).resolves.toMatchObject({ moved: true });
+        expect(mem.read('users', 'b-doc')).toMatchObject({ status: 'Detached' });
+    });
+
+    it('refuses to move the only email off the last admin too', async () => {
+        mem.seed('users', 'b-doc', { uid: 'uid-b', name: 'Boss', email: 'boss@example.com', phone: '', role: 'admin', isActive: true, status: 'Active' });
+        owner.getUserByEmail.mockResolvedValue({ uid: 'uid-b', providerData: [{ providerId: 'password' }] });
+        await call(link.requestEmailLinkOtp, { email: 'boss@example.com' }, 'uid-a');
+        await call(verifySignupOtp, { email: 'boss@example.com', code: lastEmailCode(), purpose: 'link' }, 'uid-a');
+        await expect(linked(link.linkEmail, { email: 'boss@example.com' }, 'uid-a')).rejects.toMatchObject({ details: { reason: 'last-admin' } });
+        expect(mem.read('users', 'b-doc')).toMatchObject({ email: 'boss@example.com', status: 'Active' });
+        expect(owner.updateUser).not.toHaveBeenCalled();
+    });
+});

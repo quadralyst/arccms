@@ -13,7 +13,7 @@
             <arc-page-header [title]="'admin.audience.contacts.title' | transloco"
                 [subtitle]="'admin.audience.contacts.subtitle' | transloco">
                 <button mat-stroked-button [disabled]="busy()" (click)="runBackfill()">
-                    <mat-icon>sync</mat-icon> {{ 'admin.audience.contacts.backfill' | transloco }}
+                    <mat-icon aria-hidden="true">sync</mat-icon> {{ 'admin.audience.contacts.backfill' | transloco }}
                 </button>
                 <button mat-stroked-button (click)="openImport()">
                     <mat-icon>upload_file</mat-icon> {{ 'admin.audience.contacts.import_csv' | transloco }}
@@ -27,14 +27,14 @@
             @if (!loading() && contacts().length) {
             <div class="audience-counts d-flex gap-3 align-items-center mb-2">
                 <button type="button" class="count-chip" (click)="onConsentFilter('subscribed')">
-                    <strong>{{ counts().subscribed }}</strong> subscribed
+                    <strong>{{ counts().subscribed }}</strong> {{ 'admin.audience.status.subscribed' | transloco }}
                 </button>
                 <button type="button" class="count-chip" (click)="onConsentFilter('pending')"
-                    matTooltip="Signed up but haven't confirmed their email, so they are excluded from all marketing sends">
-                    <strong>{{ counts().pending }}</strong> pending
+                    [matTooltip]="'admin.audience.hub.pending_hint' | transloco">
+                    <strong>{{ counts().pending }}</strong> {{ 'admin.audience.status.pending' | transloco }}
                 </button>
                 <button type="button" class="count-chip" (click)="onConsentFilter('unsubscribed')">
-                    <strong>{{ counts().unsubscribed }}</strong> unsubscribed
+                    <strong>{{ counts().unsubscribed }}</strong> {{ 'admin.audience.status.unsubscribed' | transloco }}
                 </button>
             </div>
             }
@@ -42,24 +42,24 @@
             <!-- Search + filters -->
             <div class="d-flex gap-2 flex-wrap align-items-center">
                 <mat-form-field appearance="outline" style="width: 320px;">
-                    <mat-label>Search contacts</mat-label>
-                    <input matInput [ngModel]="search()" (ngModelChange)="onSearch($event)" placeholder="email or name" />
+                    <mat-label>{{ 'admin.audience.contacts.search' | transloco }}</mat-label>
+                    <input matInput [ngModel]="search()" (ngModelChange)="onSearch($event)" [placeholder]="'admin.audience.contacts.search_placeholder' | transloco" />
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" style="width: 180px;">
-                    <mat-label>Consent</mat-label>
+                    <mat-label>{{ 'admin.audience.contacts.consent' | transloco }}</mat-label>
                     <mat-select [ngModel]="consentFilter()" (ngModelChange)="onConsentFilter($event)">
-                        <mat-option value="">Any</mat-option>
-                        <mat-option value="subscribed">Subscribed</mat-option>
-                        <mat-option value="pending">Pending</mat-option>
-                        <mat-option value="unsubscribed">Unsubscribed</mat-option>
+                        <mat-option value="">{{ 'admin.audience.contacts.any' | transloco }}</mat-option>
+                        <mat-option value="subscribed">{{ 'admin.audience.contacts.subscribed' | transloco }}</mat-option>
+                        <mat-option value="pending">{{ 'admin.audience.contacts.pending' | transloco }}</mat-option>
+                        <mat-option value="unsubscribed">{{ 'admin.audience.contacts.unsubscribed' | transloco }}</mat-option>
                     </mat-select>
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" style="width: 200px;">
-                    <mat-label>Tag</mat-label>
+                    <mat-label>{{ 'admin.audience.tags.tag' | transloco }}</mat-label>
                     <mat-select [ngModel]="tagFilter()" (ngModelChange)="onTagFilter($event)">
-                        <mat-option value="">Any</mat-option>
+                        <mat-option value="">{{ 'admin.audience.contacts.any' | transloco }}</mat-option>
                         @for (t of tags(); track t.id) {
                             <mat-option [value]="t.id">{{ t.label }}</mat-option>
                         }
@@ -68,17 +68,19 @@
 
                 @if (hasFilters()) {
                     <button mat-stroked-button (click)="clearFilters()">
-                        <mat-icon>close</mat-icon> Clear
+                        <mat-icon aria-hidden="true">close</mat-icon> {{ 'common.table.clear_filters' | transloco }}
                     </button>
                 }
             </div>
 
             <!-- Table -->
             <app-global-table [data]="paged()" [columns]="columns" [loading]="loading()"
+                [error]="loadError()" (retry)="load()"
+                [filtered]="hasFilters()" (clearFilters)="clearFilters()"
                 [pageIndex]="currentPage()" [pageSize]="pageSize()"
                 emptyIcon="fas fa-address-book" [emptyTitle]="'admin.audience.contacts.empty_title' | transloco"
                 [emptyDescription]="'admin.audience.contacts.empty_description' | transloco"
-                emptyActionLabel="Add contact" emptyActionIcon="fas fa-user-plus"
+                emptyActionLabel="admin.audience.contacts.add" emptyActionIcon="fas fa-user-plus"
                 (emptyActionClick)="openAdd()">
             </app-global-table>
 
@@ -86,7 +88,7 @@
             @if (total()) {
             <div class="pagination-footer d-flex justify-content-between align-items-center">
                 <div class="record-count text-muted">
-                    Showing {{ getStartRecord() }} to {{ getEndRecord() }} of <strong>{{ total() }}</strong> contacts
+                    {{ 'admin.audience.contacts.showing' | transloco: { start: getStartRecord(), end: getEndRecord(), total: total() } }}
                 </div>
                 <mat-paginator [length]="total()" [pageSize]="pageSize()" [pageIndex]="currentPage()"
                     [pageSizeOptions]="[5, 10, 25, 50]" [showFirstLastButtons]="true" (page)="onPageChange($event)">

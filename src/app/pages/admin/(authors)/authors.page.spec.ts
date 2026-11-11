@@ -5,7 +5,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { MatDialog } from '@angular/material/dialog';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import AuthorsPageComponent from './authors.page';
 import { AuthorsService } from './authors.service';
 import { ToastService } from '../../../../shared/services/toast.service';
@@ -57,12 +57,33 @@ describe('AuthorsPageComponent', () => {
 
     it('seeds the admin author on init and adopts it as the default when none is set', async () => {
         service.loadSettings.mockResolvedValue({ defaultAuthorId: '' });
-        service.ensureAdminAuthor.mockResolvedValue({ id: 'admin-u1', name: 'Gunjan Karun' });
+        service.ensureAdminAuthor.mockResolvedValue({ id: 'admin-u1', name: 'Anjali Verma' });
         const f = TestBed.createComponent(AuthorsPageComponent);
         f.detectChanges();
         await f.whenStable();
         expect(service.ensureAdminAuthor).toHaveBeenCalled();
         expect(f.componentInstance.defaultAuthorId()).toBe('admin-u1');
+    });
+
+    it('says the list did not load in the table, with Retry that reads it again', async () => {
+        service.list.mockReturnValueOnce(throwError(() => new Error('Missing or insufficient permissions.')));
+        const f = TestBed.createComponent(AuthorsPageComponent);
+        f.detectChanges();
+        await f.whenStable();
+        f.detectChanges();
+        const el = f.nativeElement as HTMLElement;
+        expect(f.componentInstance.loadError()).toBe('admin.authors.load_failed');
+        expect(el.textContent).toContain('The authors did not load.');
+        expect(el.textContent).not.toContain('insufficient permissions');
+        [...el.querySelectorAll('button')].find((b) => /Retry/.test(b.textContent ?? ''))!.click();
+        expect(f.componentInstance.loadError()).toBeNull();
+        expect(f.componentInstance.authors().length).toBe(2);
+    });
+
+    it('names the Default badge in the admin\'s language and the close button', () => {
+        const col = component.columns.find((c) => c.key === 'isDefault')!;
+        expect(col.badgeConfig!.textFn!({ isDefault: true })).toBe('Default');
+        expect((fixture.nativeElement as HTMLElement).querySelector('.close-btn')?.getAttribute('aria-label')).toBe('Close');
     });
 
     it('lists authors and marks the default', () => {

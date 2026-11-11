@@ -62,7 +62,7 @@ export interface SearchBoxResult extends SearchResult {
                 } @else if (hotkey && !query()) {
                     <kbd class="arc-search__kbd">{{ hotkeyLabel }}</kbd>
                 } @else if (query()) {
-                    <button type="button" class="arc-search__clear" (mousedown)="$event.preventDefault()" (click)="clear()" aria-label="Clear">
+                    <button type="button" class="arc-search__clear" (mousedown)="$event.preventDefault()" (click)="clear()" [attr.aria-label]="clearText">
                         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                     </button>
                 }
@@ -110,18 +110,18 @@ export interface SearchBoxResult extends SearchResult {
             transition: border-color .15s, box-shadow .15s;
         }
         .arc-search__field:focus-within { border-color: #0066cc; box-shadow: 0 0 0 3px rgba(0, 102, 204, .12); }
-        .arc-search__icon { color: #8a8f98; font-size: 13px; flex-shrink: 0; }
+        .arc-search__icon { color: #6b7280; font-size: 13px; flex-shrink: 0; }
         .arc-search__input {
             flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
             font: inherit; font-size: 14px; color: #1a1a1a;
         }
         .arc-search__input::-webkit-search-cancel-button { display: none; }
-        .arc-search__spinner { color: #8a8f98; font-size: 12px; }
+        .arc-search__spinner { color: #6b7280; font-size: 12px; }
         .arc-search__kbd {
             font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: #6e6e73;
             background: #f1f3f5; border: 1px solid #e0e0e0; border-radius: 4px; padding: 3px 5px;
         }
-        .arc-search__clear { border: 0; background: transparent; color: #8a8f98; cursor: pointer; padding: 0 2px; }
+        .arc-search__clear { border: 0; background: transparent; color: #6b7280; cursor: pointer; padding: 0 2px; }
         .arc-search__clear:hover { color: #1a1a1a; }
         .arc-search__panel {
             position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 1000;
@@ -177,6 +177,8 @@ export class SearchBoxComponent implements OnInit, OnDestroy {
     @Input() emptyText = 'No results';
     @Input() showingForText = 'Showing results for "{{term}}"';
     @Input() allResultsText = 'See all results';
+    /** The name of the button that empties the box. */
+    @Input() clearText = 'Clear';
 
     @Output() picked = new EventEmitter<SearchResult>();
 

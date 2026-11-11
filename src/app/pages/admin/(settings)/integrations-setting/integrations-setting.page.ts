@@ -20,9 +20,9 @@ import { isOn } from '../../../../core/features/features';
 import { LoaderComponent } from '../../../../../shared/components/loader/loader.component';
 
 export const routeMeta: RouteMeta = {
-    title: 'Integrations Settings',
+    title: 'Integrations',
     canActivate: [roleGuard],
-    data: { allowedRoles: ['admin'] },
+    data: { titleKey: 'admin.settings.hub.integrations.label', allowedRoles: ['admin'] },
 };
 
 @Component({
@@ -66,8 +66,8 @@ export const routeMeta: RouteMeta = {
                             <div class="setup-guide-header" (click)="showUnsplashGuide.set(!showUnsplashGuide())">
                                 <i class="fa-solid fa-image guide-icon unsplash-accent me-2"></i>
                                 <span class="setup-guide-title">{{ 'admin.settings.integrations.unsplash_guide' | transloco }}</span>
-                                <button mat-icon-button type="button" class="toggle-btn">
-                                    <mat-icon>{{ showUnsplashGuide() ? 'expand_less' : 'expand_more' }}</mat-icon>
+                                <button mat-icon-button type="button" class="toggle-btn" [attr.aria-label]="'admin.settings.integrations.unsplash_guide' | transloco" [attr.aria-expanded]="showUnsplashGuide()">
+                                    <mat-icon aria-hidden="true">{{ showUnsplashGuide() ? 'expand_less' : 'expand_more' }}</mat-icon>
                                 </button>
                             </div>
 
@@ -141,9 +141,10 @@ export const routeMeta: RouteMeta = {
                                                 type="button"
                                                 (click)="showAccessKey.set(!showAccessKey())"
                                                 [matTooltip]="(showAccessKey() ? 'common.actions.hide' : 'common.actions.show') | transloco"
-                                                aria-label="Toggle access key visibility"
+                                                [attr.aria-label]="'admin.settings.integrations.show_access_key' | transloco"
+                                                [attr.aria-pressed]="showAccessKey()"
                                             >
-                                                <mat-icon>{{ showAccessKey() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                                <mat-icon aria-hidden="true">{{ showAccessKey() ? 'visibility_off' : 'visibility' }}</mat-icon>
                                             </button>
                                         </mat-form-field>
                                     </div>
@@ -164,9 +165,10 @@ export const routeMeta: RouteMeta = {
                                                 type="button"
                                                 (click)="showSecretKey.set(!showSecretKey())"
                                                 [matTooltip]="(showSecretKey() ? 'common.actions.hide' : 'common.actions.show') | transloco"
-                                                aria-label="Toggle secret key visibility"
+                                                [attr.aria-label]="'admin.settings.integrations.show_secret_key' | transloco"
+                                                [attr.aria-pressed]="showSecretKey()"
                                             >
-                                                <mat-icon>{{ showSecretKey() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                                <mat-icon aria-hidden="true">{{ showSecretKey() ? 'visibility_off' : 'visibility' }}</mat-icon>
                                             </button>
                                         </mat-form-field>
                                     </div>
@@ -227,8 +229,8 @@ export const routeMeta: RouteMeta = {
                             <div class="setup-guide-header" (click)="showGeoGuide.set(!showGeoGuide())">
                                 <i class="fa-solid fa-location-dot guide-icon geo-accent me-2"></i>
                                 <span class="setup-guide-title">{{ 'admin.settings.integrations.geo_guide' | transloco }}</span>
-                                <button mat-icon-button type="button" class="toggle-btn">
-                                    <mat-icon>{{ showGeoGuide() ? 'expand_less' : 'expand_more' }}</mat-icon>
+                                <button mat-icon-button type="button" class="toggle-btn" [attr.aria-label]="'admin.settings.integrations.geo_guide' | transloco" [attr.aria-expanded]="showGeoGuide()">
+                                    <mat-icon aria-hidden="true">{{ showGeoGuide() ? 'expand_less' : 'expand_more' }}</mat-icon>
                                 </button>
                             </div>
 

@@ -11,7 +11,7 @@
         <arc-view-tag [id]="currentId()" [contentTypeSlug]="contentTypeSlug" (close)="closeDrawer()">
         </arc-view-tag>
         } @else {
-        <div class="alert alert-info m-3">No action selected</div>
+        <div class="alert alert-info m-3">{{ 'admin.contents.types.no_action' | transloco }}</div>
         }
     </mat-drawer>
 
@@ -20,15 +20,16 @@
             <div class="flex-grow-1">
 
                 <div class="content-area">
-                    <arc-page-header title="Tags Management" [subtitle]="contentTypeName ? ('for ' + contentTypeName) : ''"></arc-page-header>
+                    <arc-page-header [title]="'admin.contents.tags.page_title' | transloco" [subtitle]="contentTypeName ? ('admin.contents.tags.page_subtitle' | transloco: { type: contentTypeName }) : ''"></arc-page-header>
                     <!-- Quick Add Tag -->
                     <div class="quick-add-bar mb-3">
                         <div class="input-group">
-                            <input type="text" class="form-control" placeholder="Enter new tag name..."
+                            <input type="text" class="form-control" [placeholder]="'admin.contents.tags.quick_placeholder' | transloco"
+                                [attr.aria-label]="'admin.contents.tags.quick_placeholder' | transloco"
                                 [(ngModel)]="newTagLabel" (keyup.enter)="quickAddTag()" />
                             <button class="btn btn-primary" type="button" [disabled]="!newTagLabel?.trim()"
                                 (click)="quickAddTag()">
-                                <mat-icon>add</mat-icon> Add Tag
+                                <mat-icon aria-hidden="true">add</mat-icon> {{ 'admin.contents.tags.add' | transloco }}
                             </button>
                         </div>
                     </div>
@@ -37,19 +38,20 @@
                     <div class="filter-bar mb-3">
                         <div class="row g-2 align-items-center">
                             <div class="col-md-4">
-                                <input type="text" class="form-control form-control-sm" placeholder="Filter by label..."
+                                <input type="search" class="form-control form-control-sm" [placeholder]="'admin.contents.tags.filter_placeholder' | transloco"
+                                    [attr.aria-label]="'admin.contents.tags.filter_placeholder' | transloco"
                                     [value]="filters()['label'] || ''" (input)="onFilterChange('label', $event)" />
                             </div>
                             @if(hasActiveFilters()) {
                             <div class="col-auto">
                                 <button class="btn btn-sm btn-outline-secondary" (click)="clearFilters()">
-                                    Clear Filters
+                                    {{ 'common.table.clear_filters' | transloco }}
                                 </button>
                             </div>
                             }
                             <div class="col-auto ms-auto">
                                 <button mat-raised-button color="primary" (click)="openAdd()">
-                                    <mat-icon>add</mat-icon> Add Tag (Advanced)
+                                    <mat-icon aria-hidden="true">add</mat-icon> {{ 'admin.contents.tags.add_with_colour' | transloco }}
                                 </button>
                             </div>
                         </div>
@@ -61,8 +63,10 @@
                     <app-global-table [data]="tagsStore.items()" [columns]="tableColumns"
                         [loading]="tagsStore.isLoading()" [sortField]="sortField()" [sortOrder]="sortDirection()"
                         (sortChange)="setSortField($event)" [pageIndex]="currentPage()" [pageSize]="pageSize()"
-                        emptyTitle="No Tags Found" emptyDescription="Use the input above to create your first tag."
-                        [showEmptyAction]="false">
+                        [emptyTitle]="'admin.contents.tags.empty_title' | transloco" [emptyDescription]="'admin.contents.tags.empty_text' | transloco"
+                        [showEmptyAction]="false"
+                        [error]="loadFailed() || null" (retry)="fetchData()"
+                        [filtered]="hasActiveFilters()" (clearFilters)="clearFilters()">
                     </app-global-table>
                     <!-- </div> -->
 
@@ -70,14 +74,9 @@
                     <div class="pagination-footer d-flex justify-content-between align-items-center p-3 border-top">
                         <div class="record-count text-muted">
                             @if(tagsStore.totalRecords() > 0) {
-                            Showing {{ getStartRecord() }} to {{ getEndRecord() }} of
-                            <strong>{{ tagsStore.totalRecords() }}</strong>
-                            @if(hasActiveFilters()) {
-                            <span class="text-primary ms-2">filtered</span>
-                            }
-                            tags
+                            {{ (hasActiveFilters() ? 'common.table.showing_range_filtered' : 'common.table.showing_range') | transloco: { start: getStartRecord(), end: getEndRecord(), total: tagsStore.totalRecords() } }}
                             } @else {
-                            No tags found
+                            {{ 'common.table.no_records' | transloco }}
                             }
                         </div>
                         <mat-paginator [length]="tagsStore.totalRecords()" [pageSize]="pageSize()"

@@ -1,3 +1,4 @@
+import { TranslocoPipe } from '@jsverse/transloco';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, inject, Input, Output, signal } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -12,6 +13,7 @@ import { ConstantVariables } from '../../../../../../../shared/constants/common-
     selector: 'arc-add-tag',
     standalone: true,
     imports: [
+        TranslocoPipe,
         CommonModule,
         FormsModule,
         ReactiveFormsModule,
@@ -62,7 +64,7 @@ export default class AddTagComponent {
         // Check for duplicate
         const isDuplicate = await this.tagsStore.isDuplicateLabel(label);
         if (isDuplicate) {
-            this.errorMessage.set('A tag with this label already exists.');
+            this.errorMessage.set('admin.contents.tags.exists');
             return;
         }
 
@@ -83,7 +85,7 @@ export default class AddTagComponent {
             },
             error: (error) => {
                 this.isSubmitting.set(false);
-                this.errorMessage.set('Failed to create tag. Please try again.');
+                this.errorMessage.set('admin.contents.tags.create_failed');
                 console.error('Error creating tag:', error);
             },
         });

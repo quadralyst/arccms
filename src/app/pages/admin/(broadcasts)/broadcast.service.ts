@@ -5,8 +5,9 @@ import {
     Firestore, collection, collectionData, addDoc, doc, updateDoc, getDoc, serverTimestamp, query, orderBy, limit, Timestamp,
 } from '@angular/fire/firestore';
 import { Functions } from '@angular/fire/functions';
-import { Observable, catchError, of } from 'rxjs';
+import { Observable, catchError, of, throwError } from 'rxjs';
 import { arcCallable } from '../../../core/config/arc-functions';
+import type { LoadErrorHandler } from '../(audience)/audience.service';
 
 export interface BroadcastAudience {
     /** Legacy single-target shape, still present on pre-U4 docs. */
@@ -20,7 +21,7 @@ export interface BroadcastAudience {
     filters?: Array<{ field: 'premiumType' | 'source' | 'createdAfter'; op: '==' | '>='; value: any }>;
 }
 
-/** Every list an audience targets — mirrors `audienceListIds` on the server. */
+/** Every list an audience targets: mirrors `audienceListIds` on the server. */
 export function audienceListIds(audience?: BroadcastAudience): string[] {
     if (!audience) return [];
     const ids = [...(audience.include || [])];
@@ -41,7 +42,7 @@ export interface BroadcastRow {
     /** Needed to filter history to a single list in the List hub (U4). */
     audience?: BroadcastAudience;
     /**
-     * Legacy per-waitlist broadcasts carry only this — no `audience`. The List hub
+     * Legacy per-waitlist broadcasts carry only this: no `audience`. The List hub
      * matches on it too so history survives the composer's retirement.
      */
     waitlistId?: string;
@@ -61,7 +62,12 @@ export class BroadcastService {
         )({ audience });
     }
 
-    watchRecent(max = 20): Observable<BroadcastRow[]> {
+    /**
+     * The latest broadcasts, live. A failed read gives an empty list and calls `onError`
+     * (as AudienceService does), so a page such as a list's Broadcasts tab can show the
+     * table's error; with `surfaceErrors` it errors instead, for the Broadcasts page.
+     */
+    watchRecent(max = 20, opts: { surfaceErrors?: boolean; onError?: LoadErrorHandler } = {}): Observable<BroadcastRow[]> {
         // Admin-only Firestore rules; SSR has no authenticated user, so skip
         // the doomed request instead of letting it fail with permission-denied.
         if (!isPlatformBrowser(this.platformId)) {
@@ -71,6 +77,8 @@ export class BroadcastService {
         return (collectionData(query(ref, orderBy('createdAt', 'desc'), limit(max)), { idField: 'id' }) as Observable<BroadcastRow[]>).pipe(
             catchError((err) => {
                 console.error('Error fetching recent broadcasts:', err);
+                if (opts.surfaceErrors) return throwError(() => err);
+                opts.onError?.(err);
                 return of([]);
             }),
         );
