@@ -1,4 +1,3 @@
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
@@ -20,7 +19,7 @@ const MAX_PER_RUN = 100;
  * it retries when re-enabled. Leaving the list / unsubscribing / suppression ⇒
  * the enrollment exits.
  */
-export const processDripQueue = onSchedule({ schedule: 'every 15 minutes', timeZone: 'UTC' }, async () => {
+export async function processDripQueue(): Promise<void> {
   const now = Timestamp.now();
   let snap;
   try {
@@ -48,4 +47,4 @@ export const processDripQueue = onSchedule({ schedule: 'every 15 minutes', timeZ
     `processDripQueue: sent=${tally.sent} completed=${tally.completed} `
     + `exited=${tally.exited} held=${tally.held} (${snap.size} due).`,
   );
-});
+}

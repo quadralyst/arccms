@@ -1,4 +1,3 @@
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { db } from '../init.js';
@@ -25,7 +24,7 @@ const ACTIVE_STATUSES = ['active', 'trialing', 'past_due'] as const;
  * Reuses the existing users composite index (premiumStatus + premiumExpiresAt).
  * Reads and writes are paged so the scan does not grow unbounded with the user base.
  */
-export const scanExpiredEntitlements = onSchedule({ schedule: 'every day 08:00', timeZone: 'UTC' }, async () => {
+export async function scanExpiredEntitlements(): Promise<void> {
   const cutoff = Timestamp.fromDate(new Date(Date.now() - GRACE_DAYS * 24 * 60 * 60 * 1000));
   let expired = 0;
 
@@ -87,4 +86,4 @@ export const scanExpiredEntitlements = onSchedule({ schedule: 'every day 08:00',
   }
 
   logger.info(`Entitlement expiry scan complete: ${expired} subscription(s) force-expired (grace ${GRACE_DAYS}d).`);
-});
+}

@@ -1,4 +1,3 @@
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { recoverStaleCoalesced, STALE_MS } from './coalesced-items.js';
 
 /**
@@ -9,9 +8,9 @@ import { recoverStaleCoalesced, STALE_MS } from './coalesced-items.js';
  * counts as a failed run, so an item that keeps dying stops after
  * MAX_FAILED_RUNS.
  */
-export const recoverPublishQueue = onSchedule({ schedule: 'every 10 minutes', timeZone: 'UTC' }, async () => {
+export async function recoverPublishQueue(): Promise<void> {
     const recovered = await recoverStaleCoalesced();
     if (recovered.length) {
         console.warn(`Ran again ${recovered.length} queue item(s) older than ${STALE_MS / 60000} minutes: ${recovered.join(', ')}`);
     }
-});
+}

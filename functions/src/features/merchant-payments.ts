@@ -5,5 +5,3 @@
  */
 export * from '../merchant-payments/webhook.js';
 export * from '../merchant-payments/onEvent.js';
-export * from '../merchant-payments/sweep.js';
-export * from '../merchant-payments/checkAccounts.js';

@@ -29,8 +29,8 @@
     <pre><code>export const CUSTOM_FEATURES: FeatureChoice = {
     off: ['ai'],
 };</code></pre>
-    <p>On, it adds twelve small functions to every deploy, among them a daily cleanup job and <code>checkAiJobs</code>, which runs every minute and costs one Firestore read when no video is being made, and Settings, AI to the admin. Nothing is sent to a provider and nothing is spent until an admin connects one and switches to Live.</p>
-    <p>With it off, Settings, AI and its card are gone and the URL shows the not-found page; the functions <code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code>, <code>cleanUpAi</code>, <code>readAiFile</code>, <code>refreshAiBalance</code>, <code>aiVoices</code>, <code>aiVoiceSample</code>, <code>generateMediaImages</code>, <code>checkAiJobs</code> and <code>aiAvatars</code> are not built (and Media has no Create with AI tab); and <code>askAi</code> answers <code>off</code> without throwing, so the same app code runs in a project with AI and one without. Records, totals and keys stay in Firestore. How the switch works for every feature: <a href="../reference/feature-ids.html">Feature ids</a>.</p>
+    <p>On, it adds ten small functions to every deploy and two <a href="../reference/cloud-functions.html#scheduled-tasks">scheduled tasks</a>, a daily cleanup and <code>checkAiJobs</code>, which runs every minute and costs one Firestore read when no video is being made, and Settings, AI to the admin. Nothing is sent to a provider and nothing is spent until an admin connects one and switches to Live.</p>
+    <p>With it off, Settings, AI and its card are gone and the URL shows the not-found page; the functions <code>setAiKey</code>, <code>removeAiKey</code>, <code>testAiConnection</code>, <code>aiSetupInfo</code>, <code>readAiFile</code>, <code>refreshAiBalance</code>, <code>aiVoices</code>, <code>aiVoiceSample</code>, <code>generateMediaImages</code> and <code>aiAvatars</code> are not built, and the scheduled tasks <code>cleanUpAi</code> and <code>checkAiJobs</code> do not run (and Media has no Create with AI tab); and <code>askAi</code> answers <code>off</code> without throwing, so the same app code runs in a project with AI and one without. Records, totals and keys stay in Firestore. How the switch works for every feature: <a href="../reference/feature-ids.html">Feature ids</a>.</p>
 
     <h2>Set it up</h2>
     <p>Settings, AI starts with a <strong>Get started</strong> checklist: connect a provider, choose models, check the monthly budget, switch to Live. Each step ticks itself when it is done. While the app declares no purposes and no provider is added, the page says instead that nothing on the site uses AI yet, so there is nothing to set up or pay for. A new site is in <strong>Test</strong> mode: nothing is sent and nothing is spent, and every call gets its purpose's sample answer.</p>
@@ -92,13 +92,13 @@
         <tr><td><code>aiSetupInfo</code></td><td>The app's purposes (never their instructions) and the providers, for Settings, AI (admin)</td></tr>
         <tr><td><code>setAiKey</code>, <code>removeAiKey</code></td><td>Set or remove a provider's key (admin)</td></tr>
         <tr><td><code>testAiConnection</code></td><td>One tiny live call to a provider and model (admin)</td></tr>
-        <tr><td><code>cleanUpAi</code></td><td>Every day: records after 60 days with their files, totals after 24 months, spent allowance counters, and keys whose provider is gone; files in <code>ai-files/</code> past their purpose's days, test files after a day, cache entries past their days; and each balance a provider's key can read</td></tr>
+        <tr><td><code>cleanUpAi</code></td><td>Scheduled task, every day: records after 60 days with their files, totals after 24 months, spent allowance counters, and keys whose provider is gone; files in <code>ai-files/</code> past their purpose's days, test files after a day, cache entries past their days; and each balance a provider's key can read</td></tr>
         <tr><td><code>readAiFile</code></td><td>One picture, sound or video of a call, for the Calls tab (admin)</td></tr>
         <tr><td><code>refreshAiBalance</code></td><td>Reads one provider's balance now (admin)</td></tr>
         <tr><td><code>aiVoices</code></td><td>A speech provider's voices, kept 10 minutes (admin)</td></tr>
         <tr><td><code>aiVoiceSample</code></td><td>A one-sentence sample of a voice with no sample of its own (admin)</td></tr>
         <tr><td><code>generateMediaImages</code></td><td>The the Media page's Create with AI pictures and their estimate, as purpose <code>arc-media-image</code> (admin)</td></tr>
-        <tr><td><code>checkAiJobs</code></td><td>Every minute: how each long job (a video) is doing; a finished one's file is saved and its record and month brought up to date</td></tr>
+        <tr><td><code>checkAiJobs</code></td><td>Scheduled task, every minute: how each long job (a video) is doing; a finished one's file is saved and its record and month brought up to date</td></tr>
         <tr><td><code>aiAvatars</code></td><td>A presenter provider's avatars, with their pictures (admin)</td></tr>
       </tbody>
     </table>

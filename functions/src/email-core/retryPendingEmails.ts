@@ -1,4 +1,3 @@
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
@@ -15,41 +14,38 @@ const MAX_PER_RUN = 100;
  * logs whose `nextAttemptAt` has passed and re-runs `sendMail`, which re-checks
  * the kill-switch and quota on each attempt.
  */
-export const retryPendingEmails = onSchedule(
-  { schedule: 'every 5 minutes', timeZone: 'UTC' },
-  async () => {
-    const now = Timestamp.now();
-    const seen = new Set<string>();
-    let processed = 0;
+export async function retryPendingEmails(): Promise<void> {
+  const now = Timestamp.now();
+  const seen = new Set<string>();
+  let processed = 0;
 
-    for (const status of ['retrying', 'deferred'] as const) {
-      if (processed >= MAX_PER_RUN) break;
+  for (const status of ['retrying', 'deferred'] as const) {
+    if (processed >= MAX_PER_RUN) break;
 
-      let snap;
-      try {
-        snap = await db
-          .collection('EmailLogs')
-          .where('status', '==', status)
-          .where('nextAttemptAt', '<=', now)
-          .limit(MAX_PER_RUN - processed)
-          .get();
-      } catch (err) {
-        logger.error(`retryPendingEmails: query failed for status='${status}'`, err);
-        continue;
-      }
-
-      for (const doc of snap.docs) {
-        if (seen.has(doc.id)) continue;
-        seen.add(doc.id);
-        processed++;
-        try {
-          await sendMail(doc.data() as EmailLogData, doc.id);
-        } catch (err) {
-          logger.error(`retryPendingEmails: sendMail failed for ${doc.id}`, err);
-        }
-      }
+    let snap;
+    try {
+      snap = await db
+        .collection('EmailLogs')
+        .where('status', '==', status)
+        .where('nextAttemptAt', '<=', now)
+        .limit(MAX_PER_RUN - processed)
+        .get();
+    } catch (err) {
+      logger.error(`retryPendingEmails: query failed for status='${status}'`, err);
+      continue;
     }
 
-    logger.info(`retryPendingEmails: processed ${processed} due email(s).`);
-  },
-);
+    for (const doc of snap.docs) {
+      if (seen.has(doc.id)) continue;
+      seen.add(doc.id);
+      processed++;
+      try {
+        await sendMail(doc.data() as EmailLogData, doc.id);
+      } catch (err) {
+        logger.error(`retryPendingEmails: sendMail failed for ${doc.id}`, err);
+      }
+    }
+  }
+
+  logger.info(`retryPendingEmails: processed ${processed} due email(s).`);
+}

@@ -120,7 +120,7 @@ function isUnlocked(user, minRank) {
     </ul>
 
     <h2>What it stores</h2>
-    <p>The fields above, on <code>users/{docId}</code>, plus a few the functions keep for themselves: <code>premiumEventAt</code> (the last event applied, so late events cannot undo newer ones), <code>premiumTrialReminderSent</code> and <code>updatesEndingReminderSent</code>. Credit changes go to <code>CreditLedger</code>. They are written by the payment functions (<code>handlePaymentEvent</code>, <code>consumeCredits</code>, <code>scanExpiredEntitlements</code>, <code>scanTrialEndings</code>, <code>scanUpdatesEnding</code>); see <a href="payments.html#what-it-stores">Payments</a> and <a href="../reference/data-model.html">Data model</a>.</p>
+    <p>The fields above, on <code>users/{docId}</code>, plus a few the functions keep for themselves: <code>premiumEventAt</code> (the last event applied, so late events cannot undo newer ones), <code>premiumTrialReminderSent</code> and <code>updatesEndingReminderSent</code>. Credit changes go to <code>CreditLedger</code>. They are written by the payment functions (<code>handlePaymentEvent</code>, <code>consumeCredits</code>) and the payments feature's <a href="../reference/cloud-functions.html#scheduled-tasks">scheduled tasks</a> (<code>scanExpiredEntitlements</code>, <code>scanTrialEndings</code>, <code>scanUpdatesEnding</code>); see <a href="payments.html#what-it-stores">Payments</a> and <a href="../reference/data-model.html">Data model</a>.</p>
 
     <h2>Who can do what</h2>
     <table>

@@ -12,12 +12,11 @@
 
 export * from './email-log/createEmailLog.js';
 
-// Email-core (Phase 1): one-click unsubscribe endpoint + retry scheduler.
+// Email-core (Phase 1): one-click unsubscribe endpoint. Retries run as a scheduled task.
 // queueEmail() is a library helper (imported by senders), not an exported trigger.
 export * from './email-core/handleUnsubscribe.js';
 // U5: legacy /unsubscribe/:waitlistId/:userId links, server-side.
 export * from './email-core/unsubscribeLegacyLink.js';
-export * from './email-core/retryPendingEmails.js';
 
 // Email-core (Phase 2): default-template seeding callable + signup OTP callables
 // + welcome-on-signup trigger.
@@ -46,10 +45,9 @@ export * from './email-core/handleEmailPreferences.js';
 // Email-core (Phase 4): test-send for the block editor.
 export * from './email-core/sendTestEmail.js';
 
-// Email-core (Phase 5): notifications, event bus, admin digest.
+// Email-core (Phase 5): notifications and the event bus. The admin digest is a scheduled task.
 export * from './email-core/onNotificationCreate.js';
 export * from './email-core/appEvents.js';
-export * from './email-core/sendAdminDigest.js';
 export * from './email-core/notificationPrefs.js';
 
 // User role sync to Firebase Auth custom claims
@@ -81,7 +79,6 @@ export * from './users/onSignInDeleted.js';
 export * from './email-log/handleEmailWebhook.js';
 export * from './email-log/trackEmailOpen.js';
 export * from './email-log/purgeEmailLogs.js';
-export * from './email-log/scheduledPurgeEmailLogs.js';
 
 export * from './mail-config/testSmtpConfigConnection.js';
 export * from './mail-config/testProviderConnection.js';
@@ -94,6 +91,9 @@ export * from './integrations/readMediaImage.js';
 export * from './integrations/readMediaFile.js';
 // How many content entries use a media file, asked before it is deleted
 export * from './integrations/mediaUsage.js';
+
+// The one scheduled function: every minute, the scheduled tasks due (scheduled/tasks.ts).
+export * from './scheduled/scheduledTasks.js';
 
 // The features this app has (generated from src/custom/features.ts).
 export * from './feature-exports.gen.js';

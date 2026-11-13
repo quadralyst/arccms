@@ -33,7 +33,6 @@ vi.mock('../init', () => ({
 
 vi.mock('../email-core/queueEmail', () => ({ queueEmail: mockQueueEmail }));
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
-vi.mock('firebase-functions/v2/scheduler', () => ({ onSchedule: vi.fn((_o: any, h: any) => h) }));
 vi.mock('firebase-admin/firestore', () => ({
   Timestamp: { now: vi.fn(() => ({ toMillis: () => 1_000_000 })), fromMillis: vi.fn((ms: number) => ({ __ms: ms })) },
   FieldValue: {

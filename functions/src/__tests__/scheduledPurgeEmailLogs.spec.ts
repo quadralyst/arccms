@@ -80,9 +80,6 @@ vi.mock('firebase-admin/firestore', () => ({
     },
 }));
 
-vi.mock('firebase-functions/v2/scheduler', () => ({
-    onSchedule: vi.fn((_opts: any, handler: any) => handler),
-}));
 
 // ─── Import after mocks ─────────────────────────────────────────────────────
 
@@ -124,48 +121,25 @@ describe('scheduledPurgeEmailLogs', () => {
     });
 
     describe('source code structure', () => {
-        it('should use onSchedule from firebase-functions/v2/scheduler', async () => {
+        it('should run daily at 02:00 UTC as a core scheduled task', async () => {
             const fs = await import('fs');
             const path = await import('path');
             const { fileURLToPath } = await import('node:url');
             const { dirname } = await import('node:path');
-            const __filename = fileURLToPath(import.meta.url);
-            const __dirname = dirname(__filename);
-            const fileContent = fs.readFileSync(
-                path.resolve(__dirname, '../email-log/scheduledPurgeEmailLogs.ts'),
-                'utf-8',
-            );
-            expect(fileContent).toContain("from 'firebase-functions/v2/scheduler'");
-            expect(fileContent).toContain('onSchedule');
+            const __dirname = dirname(fileURLToPath(import.meta.url));
+            const tasks = fs.readFileSync(path.resolve(__dirname, '../scheduled/core-tasks.ts'), 'utf-8');
+            expect(tasks).toContain("{ name: 'scheduledPurgeEmailLogs', when: { daily: '02:00' }, run: scheduledPurgeEmailLogs }");
         });
 
-        it('should schedule at 2:00 AM UTC daily', async () => {
+        it('should export scheduledPurgeEmailLogs as a plain function', async () => {
             const fs = await import('fs');
             const path = await import('path');
             const { fileURLToPath } = await import('node:url');
             const { dirname } = await import('node:path');
-            const __filename = fileURLToPath(import.meta.url);
-            const __dirname = dirname(__filename);
-            const fileContent = fs.readFileSync(
-                path.resolve(__dirname, '../email-log/scheduledPurgeEmailLogs.ts'),
-                'utf-8',
-            );
-            expect(fileContent).toContain("schedule: 'every day 02:00'");
-            expect(fileContent).toContain("timeZone: 'UTC'");
-        });
-
-        it('should export scheduledPurgeEmailLogs', async () => {
-            const fs = await import('fs');
-            const path = await import('path');
-            const { fileURLToPath } = await import('node:url');
-            const { dirname } = await import('node:path');
-            const __filename = fileURLToPath(import.meta.url);
-            const __dirname = dirname(__filename);
-            const fileContent = fs.readFileSync(
-                path.resolve(__dirname, '../email-log/scheduledPurgeEmailLogs.ts'),
-                'utf-8',
-            );
-            expect(fileContent).toContain('export const scheduledPurgeEmailLogs');
+            const __dirname = dirname(fileURLToPath(import.meta.url));
+            const fileContent = fs.readFileSync(path.resolve(__dirname, '../email-log/scheduledPurgeEmailLogs.ts'), 'utf-8');
+            expect(fileContent).toContain('export async function scheduledPurgeEmailLogs(): Promise<void>');
+            expect(fileContent).not.toContain('onSchedule');
         });
 
         it('should query EmailLogs collection with createdAt filter', async () => {

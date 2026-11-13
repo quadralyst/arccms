@@ -22,9 +22,6 @@ const { mockGet, mockStartAfter, mockSendEmail, FakeTimestamp } = vi.hoisted(() 
   return { mockGet: vi.fn(), mockStartAfter: vi.fn(), mockSendEmail: vi.fn(), FakeTimestamp };
 });
 
-vi.mock('firebase-functions/v2/scheduler', () => ({
-  onSchedule: (_opts: unknown, handler: unknown) => handler,
-}));
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock('firebase-admin/firestore', () => ({ Timestamp: FakeTimestamp, QueryDocumentSnapshot: class {} }));
 vi.mock('../dodo-payments/paymentEmailHelper', () => ({ sendPaymentEmail: mockSendEmail }));

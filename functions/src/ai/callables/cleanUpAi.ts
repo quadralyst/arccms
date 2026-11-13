@@ -5,7 +5,6 @@
  * after a day, cache entries past their days, and each connection's balance where its key
  * can read one (specs/ai-media-spec.md, AM-D10, AM-D16, AM-D32).
  */
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { Timestamp } from 'firebase-admin/firestore';
 import { arcStorageBucket } from '../../arc-config.js';
 import { db, storage } from '../../init.js';
@@ -117,7 +116,7 @@ export async function refreshBalances(): Promise<number> {
     return read;
 }
 
-export const cleanUpAi = onSchedule({ schedule: 'every day 03:15', timeZone: 'UTC' }, async () => {
+export async function cleanUpAi(): Promise<void> {
     const records = await purgeAiCalls();
     await purgeAiUsage();
     const keys = await purgeOrphanKeys();
@@ -126,4 +125,4 @@ export const cleanUpAi = onSchedule({ schedule: 'every day 03:15', timeZone: 'UT
     const cached = await purgeAiCache().catch((err: unknown) => (console.error('cleanUpAi: cache not purged', err), 0));
     const balances = await refreshBalances().catch((err: unknown) => (console.error('cleanUpAi: balances not read', err), 0));
     console.log(`cleanUpAi: ${records} records, ${keys} unused keys, ${files} files and ${cached} cache entries deleted; ${balances} balances read`);
-});
+}

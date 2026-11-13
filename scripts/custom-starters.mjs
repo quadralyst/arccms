@@ -43,6 +43,7 @@ export const CUSTOM_STARTERS = [
     { file: 'functions/src/custom/email-templates.ts', exports: { APP_EMAIL_TEMPLATES: [], ACCOUNT_EMAIL_LANGUAGES: {} } },
     { file: 'functions/src/custom/ai.ts', exports: { AI_PURPOSES: {} } },
     { file: 'functions/src/custom/payments.ts', exports: { PAYMENT_HOOKS: {} } },
+    { file: 'functions/src/custom/tasks.ts', exports: { CUSTOM_TASKS: [] } },
 ];
 
 /**
@@ -64,6 +65,7 @@ export const SHIPPED_FILES = {
     'functions/src/custom/payments.ts': '04a936ba0d3523a1',
     'functions/src/custom/public-callables.txt': 'bd3f72e171f12f56',
     'functions/src/custom/search-sources.ts': '74da7f252bd88529',
+    'functions/src/custom/tasks.ts': 'f85645f72f973f77',
     'src/custom/README.md': '19d24bc0d239b2e1',
     'src/custom/admin-routes.ts': '6aff666bfefdd201',
     'src/custom/app-accounts.ts': '98766b44091a8f0c',

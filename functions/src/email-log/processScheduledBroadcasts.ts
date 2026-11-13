@@ -1,4 +1,3 @@
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
@@ -14,7 +13,7 @@ const STALE_GRACE_MS = 24 * 60 * 60 * 1000;
  * the create trigger). Broadcasts left un-activated for >24h (e.g. email was
  * disabled across the window) are parked as `failed` rather than firing stale.
  */
-export const processScheduledBroadcasts = onSchedule({ schedule: 'every 5 minutes', timeZone: 'UTC' }, async () => {
+export async function processScheduledBroadcasts(): Promise<void> {
   const now = Timestamp.now();
   const snap = await db
     .collection('BroadcastEmails')
@@ -44,4 +43,4 @@ export const processScheduledBroadcasts = onSchedule({ schedule: 'every 5 minute
   }
 
   if (activated || parked) logger.info(`processScheduledBroadcasts: activated ${activated}, parked ${parked}.`);
-});
+}

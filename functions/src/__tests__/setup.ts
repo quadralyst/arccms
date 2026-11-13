@@ -20,6 +20,7 @@ vi.mock('../custom/search-sources.js', (actual) => starter('functions/src/custom
 vi.mock('../custom/email-templates.js', (actual) => starter('functions/src/custom/email-templates.ts', actual));
 vi.mock('../custom/ai.js', (actual) => starter('functions/src/custom/ai.ts', actual));
 vi.mock('../custom/payments.js', (actual) => starter('functions/src/custom/payments.ts', actual));
+vi.mock('../custom/tasks.js', (actual) => starter('functions/src/custom/tasks.ts', actual));
 
 /**
  * Core function specs run with every feature on (specs/feature-flags-spec.md),

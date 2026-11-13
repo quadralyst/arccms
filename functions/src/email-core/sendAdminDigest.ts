@@ -1,4 +1,3 @@
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp } from 'firebase-admin/firestore';
 import { db } from '../init.js';
@@ -11,7 +10,7 @@ import { ensureDefaultTemplates } from './defaultTemplates.js';
  * configured `adminDigest.hourUtc` hour (default 08:00), when enabled. Emails
  * every admin a 24h summary: new signups, succeeded payments, failed emails.
  */
-export const sendAdminDigest = onSchedule({ schedule: 'every 1 hours', timeZone: 'UTC' }, async () => {
+export async function sendAdminDigest(): Promise<void> {
   const settings = (await db.collection('Settings').doc('email').get()).data() as EmailSettings | undefined;
   const digest = settings?.adminDigest;
   if (!digest?.enabled) return;
@@ -67,7 +66,7 @@ export const sendAdminDigest = onSchedule({ schedule: 'every 1 hours', timeZone:
   }
 
   logger.info(`sendAdminDigest: sent to ${sent} admin(s). signups=${signups} payments=${payments} failedEmails=${failedEmails}`);
-});
+}
 
 async function countSince(collection: string, field: string, cutoff: Timestamp): Promise<number> {
   try {

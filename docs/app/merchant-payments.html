@@ -20,7 +20,7 @@
     on: ['merchant-payments'],
 };</code></pre>
     <p>Then deploy its four functions:</p>
-    <pre><code>npm run deploy -- --only functions:arccms:arccms.merchantPaymentWebhook,functions:arccms:arccms.onMerchantPaymentEvent,functions:arccms:arccms.sweepMerchantPayments,functions:arccms:arccms.checkMerchantAccounts,firestore:rules</code></pre>
+    <pre><code>npm run deploy -- --only functions:arccms:arccms.merchantPaymentWebhook,functions:arccms:arccms.onMerchantPaymentEvent,functions:arccms:arccms.scheduledTasks,firestore:rules</code></pre>
     <p>While it is off, every helper below answers <code>{ ok: false, reason: 'off' }</code>.</p>
 
     <h2 id="connectors">Which providers</h2>
@@ -156,8 +156,8 @@ export const PAYMENT_HOOKS: PaymentHooks = {
     <ol>
       <li><code>merchantPaymentWebhook</code> takes a delivery at the account's address. Where the provider signs, it checks the signature over the exact bytes, with a key the server holds, before reading the body. It finds the payment, writes the event's id once, and answers.</li>
       <li><code>onMerchantPaymentEvent</code> reads the payment back from the provider. Only that answer can say what happened. Amount, currency, reference and system are compared with your record.</li>
-      <li><code>sweepMerchantPayments</code>, every 2 minutes, reads what is still unfinished (further apart each time, up to 15 minutes) and retries results your app has not taken. A lost webhook recovers with no browser. A page nobody paid on is cancelled once it closes. A payment under way is never closed as unpaid: it is read on for 3 days, then held for a person. A cancelled or failed payment goes on being read until its page has closed.</li>
-      <li><code>checkMerchantAccounts</code>, daily, warns of keys ending, tries each account's keys, and clears event records older than 7 days.</li>
+      <li><code>sweepMerchantPayments</code>, a <a href="../reference/cloud-functions.html#scheduled-tasks">scheduled task</a> every 2 minutes, reads what is still unfinished (further apart each time, up to 15 minutes) and retries results your app has not taken. A lost webhook recovers with no browser. A page nobody paid on is cancelled once it closes. A payment under way is never closed as unpaid: it is read on for 3 days, then held for a person. A cancelled or failed payment goes on being read until its page has closed.</li>
+      <li><code>checkMerchantAccounts</code>, a scheduled task daily at 06:00 UTC, warns of keys ending, tries each account's keys, and clears event records older than 7 days.</li>
     </ol>
 
     <h2 id="rules">The rules that always hold</h2>

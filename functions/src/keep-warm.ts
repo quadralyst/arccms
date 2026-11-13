@@ -95,3 +95,15 @@ export function applyKeepWarm(group: Record<string, unknown>, counts: Map<string
     visit(group, '');
     return [...counts.keys()].filter((name) => !found.has(name));
 }
+
+/**
+ * What a deploy says about the instances it keeps running, or null when it keeps none
+ * (the default: no function is kept warm unless the project sets ARC_KEEP_WARM). Only
+ * the names the build has; applyKeepWarm's answer lists the others.
+ */
+export function keptWarmNotice(counts: Map<string, number>, missing: readonly string[] = []): string | null {
+    const kept = [...counts].filter(([name]) => !missing.includes(name));
+    if (!kept.length) return null;
+    const list = kept.map(([name, count]) => `${name} ×${count}`).join(', ');
+    return `${KEEP_WARM_KEY} keeps instances running, each billed all day whether it is used or not: ${list}.`;
+}

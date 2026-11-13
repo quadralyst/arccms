@@ -25,9 +25,6 @@ const { mockGet, mockStartAfter, mockBatchSet, mockBatchCommit, FakeTimestamp } 
   };
 });
 
-vi.mock('firebase-functions/v2/scheduler', () => ({
-  onSchedule: (_opts: unknown, handler: unknown) => handler,
-}));
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock('firebase-admin/firestore', () => ({ Timestamp: FakeTimestamp, QueryDocumentSnapshot: class {} }));
 

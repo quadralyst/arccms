@@ -50,6 +50,7 @@
         <tr><td><code>functions/src/custom/email-templates.ts</code></td><td><code>APP_EMAIL_TEMPLATES</code>: the app's email templates, a subject and body per language. <code>ACCOUNT_EMAIL_LANGUAGES</code>: its wording of the sign-up and password reset code emails in its languages</td><td><a href="app-email.html">Send email from your app</a></td></tr>
         <tr><td><code>functions/src/custom/ai.ts</code></td><td><code>AI_PURPOSES</code>: the app's AI purposes, what each takes, its instruction and the shape of its answer</td><td><a href="ai.html">Use AI in your app</a></td></tr>
         <tr><td><code>functions/src/custom/payments.ts</code></td><td><code>PAYMENT_HOOKS</code>: what the app does when a merchant's payment finishes, and when someone should be told something</td><td><a href="merchant-payments.html">Take payments on a merchant's account</a></td></tr>
+        <tr><td><code>functions/src/custom/tasks.ts</code></td><td><code>CUSTOM_TASKS</code>: the app's own scheduled work, each task on its own timetable</td><td><a href="#scheduled-tasks">Scheduled tasks</a></td></tr>
       </tbody>
     </table>
     <p>At the root and in the test and docs folders. Arc CMS ships nothing in these beyond a README; you create the files when you need them:</p>
@@ -94,11 +95,31 @@
         <tr><td><code>functions/src/custom/search-sources.ts</code></td><td><code>functions/src/search/</code></td><td>Each named collection gets a search trigger</td></tr>
         <tr><td><code>functions/src/custom/email-templates.ts</code></td><td><code>functions/src/email-core/appEmailTemplates.ts</code></td><td>Checked when the functions load (a mistake stops them, naming the file). <code>sendAppEmail</code> sends the templates; the sign-up and password reset code emails use the wording for the member's language; the admin's template list shows them read-only. Empty: no app templates, account emails as the English templates in Settings</td></tr>
         <tr><td><code>functions/src/custom/ai.ts</code></td><td><code>functions/src/ai/purposes.ts</code></td><td>Checked when the functions load (a mistake stops them, naming the file). <code>askAi</code> asks as a purpose says; Settings, AI lists the purposes without their instructions. Empty: no purposes, nothing to set up</td></tr>
+        <tr><td><code>functions/src/custom/tasks.ts</code></td><td><code>functions/src/scheduled/all-tasks.ts</code></td><td>Checked when the functions load (a mistake stops them). Each task runs in Arc CMS's one scheduled function, after core's, named <code>custom-&lt;name&gt;</code>. Empty: no tasks of the app's own</td></tr>
         <tr><td><code class="new">firestore.app.rules</code>, <code class="new">storage.app.rules</code>, <code class="new">firestore.app.indexes.json</code></td><td><code>scripts/arc-rules-build.mjs</code></td><td>Combined with the core files before every rules or indexes deploy</td></tr>
         <tr><td><code class="new">tests/rules/custom/</code></td><td><code>vitest.rules.config.ts</code></td><td>Run with the core rules tests by <code>npm run test:rules</code></td></tr>
             <tr><td><code>custom/</code></td><td><code>vitest.config.ts</code>; your scripts import <code>scripts/arc-admin-script.mjs</code></td><td>Its <code>*.spec.ts</code> files run with <code>npm run test</code>; <code>runAdminScript</code> gives a script the project, database and credentials</td></tr>
       </tbody>
     </table>
+
+    <h2 id="scheduled-tasks">Scheduled tasks</h2>
+    <p>Work the app wants done on a timetable, such as a nightly clean-up or a reminder every 15 minutes, goes in <code>functions/src/custom/tasks.ts</code>. Each task runs inside Arc CMS's one scheduled function, <code>scheduledTasks</code>, which runs every minute and starts the tasks due in that minute (see <a href="../reference/cloud-functions.html#scheduled-tasks">Scheduled tasks</a>). Times are UTC.</p>
+    <pre><code>import type { ArcTask } from '../app-kit/index.js';
+import { sendLessonReminders } from './reminders.js';
+import { clearOldDrafts } from './drafts.js';
+
+export const CUSTOM_TASKS: ArcTask[] = [
+  { name: 'lessonReminders', when: { every: 15 }, run: sendLessonReminders },
+  { name: 'clearOldDrafts', when: { daily: '04:30' }, run: clearOldDrafts },
+];</code></pre>
+    <ul>
+      <li><strong>Timetables:</strong> <code>{ every: n }</code> minutes, counted from midnight, where <code>n</code> divides a day (1, 2, 5, 10, 15, 30, 60, 120 and so on); <code>{ hourly: m }</code> at minute <code>m</code> of every hour; <code>{ daily: 'HH:MM' }</code> once a day.</li>
+      <li><strong>A task's <code>run</code></strong> is an async function. A one-line summary it returns goes in its log line. It may take up to 540 seconds and shares 1GiB with the tasks running beside it.</li>
+      <li><strong>A task that throws</strong> is logged as <code>failed</code> and the others carry on. Make each task pick up where the last run left off, as the next run may come a minute or a day later.</li>
+      <li><strong>Names</strong> are letters, digits, <code>-</code> and <code>_</code>, starting with a letter, and unique. In logs they read <code>custom-&lt;name&gt;</code>.</li>
+      <li><strong>A mistake</strong> (a name used twice, a timetable that does not divide a day) stops the functions from loading, so the deploy fails with the reason.</li>
+    </ul>
+    <p>Prefer a task to a scheduled function of the app's own (<code>onSchedule</code> exported from <code>functions/src/custom/index.ts</code>). That still works, but each one is a Cloud Scheduler job, billed about $0.10 a month however rarely it runs. A task costs nothing more.</p>
 
     <h2>Styles and translations</h2>
     <p>Put global styles in <code>src/custom/styles.css</code>. Styles for one page belong in that page's component. Styles for the public website (header, footer, templates) go in <code class="new">src/custom/site/site.css</code>, and so does the sign-in page's look, set through its <code>--arc-sign-in-*</code> variables (see <a href="../website/sign-in-page.html#look">Brand the sign-in page</a>), unless the sign-in page has a stylesheet of its own, <code class="new">src/custom/site/sign-in.css</code>; the words of the website's templates go in <code class="new">src/custom/site/strings/</code> (see <a href="../website/languages.html">Publish in more than one language</a>).</p>

@@ -20,9 +20,6 @@ vi.mock('../dodo-payments/paymentEmailHelper', () => ({ sendPaymentEmail: mockSe
 
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 
-vi.mock('firebase-functions/v2/scheduler', () => ({
-  onSchedule: vi.fn((_opts: any, handler: any) => handler),
-}));
 
 vi.mock('firebase-admin/firestore', () => ({
   Timestamp: {

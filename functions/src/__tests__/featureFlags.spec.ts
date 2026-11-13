@@ -78,9 +78,20 @@ describe('arc-features generator', () => {
     });
 
     it('writes a module even with no optional features', () => {
-        const { enabledFile, exportsFile } = renderFeatureFiles([], ['content']);
+        const { enabledFile, exportsFile, tasksFile } = renderFeatureFiles([], ['content'], ['content']);
         expect(enabledFile).toContain('= [];');
         expect(exportsFile).toContain('export {};');
+        expect(tasksFile).toContain('export const FEATURE_TASKS: readonly ArcTask[] = [];');
+        expect(tasksFile).not.toContain('feature-tasks/');
+    });
+
+    it('lists the scheduled tasks of the feature-tasks files whose features are all on (specs/scheduled-tasks-spec.md)', () => {
+        const { tasksFile } = renderFeatureFiles(['ai', 'content', 'search'], [], ['ai', 'merchant-payments', 'search+content']);
+        expect(tasksFile).toContain("import type { ArcTask } from './scheduled/tasks.js';");
+        expect(tasksFile).toContain("import { TASKS as tasks0 } from './feature-tasks/ai.js';");
+        expect(tasksFile).toContain("import { TASKS as tasks1 } from './feature-tasks/search+content.js';");
+        expect(tasksFile).not.toContain('merchant-payments');
+        expect(tasksFile).toContain('export const FEATURE_TASKS: readonly ArcTask[] = [...tasks0, ...tasks1];');
     });
 
     it('runs before every functions build', () => {

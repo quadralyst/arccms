@@ -41,9 +41,6 @@ vi.mock('firebase-functions/v2', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('firebase-functions/v2/scheduler', () => ({
-  onSchedule: vi.fn((_opts: any, handler: any) => handler),
-}));
 
 import { retryPendingEmails } from '../email-core/retryPendingEmails.js';
 
@@ -85,13 +82,12 @@ describe('retryPendingEmails', () => {
     expect(mockSendMail).toHaveBeenCalledTimes(2);
   });
 
-  it('schedules every 5 minutes (source check)', async () => {
+  it('runs every 5 minutes as a core scheduled task (source check)', async () => {
     const { readFileSync } = await import('node:fs');
     const { fileURLToPath } = await import('node:url');
     const { dirname, resolve } = await import('node:path');
     const dir = dirname(fileURLToPath(import.meta.url));
-    const src = readFileSync(resolve(dir, '../email-core/retryPendingEmails.ts'), 'utf-8');
-    expect(src).toContain("schedule: 'every 5 minutes'");
-    expect(src).toContain("from 'firebase-functions/v2/scheduler'");
+    const src = readFileSync(resolve(dir, '../scheduled/core-tasks.ts'), 'utf-8');
+    expect(src).toContain("{ name: 'retryPendingEmails', when: { every: 5 }, run: retryPendingEmails }");
   });
 });

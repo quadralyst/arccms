@@ -4,7 +4,6 @@
  * the merchant's to type in where the provider has no call for it, as Worldline does not.
  */
 import { logger } from 'firebase-functions/v2';
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { db } from '../init.js';
 import { clearAccountProblem, raiseAccountAlert } from './alerts.js';
 import { connectorFor } from './connectors/index.js';
@@ -97,6 +96,6 @@ export async function runAccountCheck(nowMs = Date.now()): Promise<{ accounts: n
     return { accounts, eventsCleared };
 }
 
-export const checkMerchantAccounts = onSchedule({ schedule: 'every day 06:00', timeZone: 'UTC', timeoutSeconds: 540 }, async () => {
+export async function checkMerchantAccounts(): Promise<void> {
     await runAccountCheck();
-});
+}

@@ -119,9 +119,9 @@
       <tbody>
         <tr><td><code>processBroadcast</code></td><td>Trigger on <code>BroadcastEmails</code></td><td>Starts a broadcast created as <code>queued</code></td></tr>
         <tr><td><code>continueBroadcast</code></td><td>Trigger on <code>_broadcast_continue</code></td><td>Carries on a paused broadcast, and starts a scheduled one that is due</td></tr>
-        <tr><td><code>processScheduledBroadcasts</code></td><td>Every 5 minutes</td><td>Queues due scheduled broadcasts</td></tr>
+        <tr><td><code>processScheduledBroadcasts</code></td><td>Scheduled task, every 5 minutes</td><td>Queues due scheduled broadcasts</td></tr>
         <tr><td><code>previewBroadcastAudience</code></td><td>Admin callable</td><td>The eligible count</td></tr>
-        <tr><td><code>processDripQueue</code></td><td>Every 15 minutes</td><td>Sends up to 100 due steps per run</td></tr>
+        <tr><td><code>processDripQueue</code></td><td>Scheduled task, every 15 minutes</td><td>Sends up to 100 due steps per run</td></tr>
         <tr><td><code>activateDripCampaign</code>, <code>archiveDripCampaign</code></td><td>Admin callables</td><td>Activate (and enroll existing members); archive (and end every enrollment)</td></tr>
         <tr><td><code>migrateWelcomeToSequences</code></td><td>Admin callable</td><td>Turns each form's welcome into a sequence step</td></tr>
         <tr><td><code>sendAnnouncement</code></td><td>Admin callable</td><td>Creates the announcement and its notifications</td></tr>

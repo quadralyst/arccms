@@ -4,7 +4,6 @@
  * results the app has not taken yet.
  */
 import { logger } from 'firebase-functions/v2';
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { STARTING_MS } from './payments.js';
@@ -99,6 +98,6 @@ export async function runPaymentSweep(nowMs = Date.now()): Promise<{ read: numbe
     return { read: due.size, delivered: waiting.size };
 }
 
-export const sweepMerchantPayments = onSchedule({ schedule: 'every 2 minutes', timeZone: 'UTC', timeoutSeconds: 300 }, async () => {
+export async function sweepMerchantPayments(): Promise<void> {
     await runPaymentSweep();
-});
+}

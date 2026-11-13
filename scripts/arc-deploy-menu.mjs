@@ -221,7 +221,7 @@ function closure(graph, file, seen = new Set()) {
  * a change to them.
  */
 export const GENERATED_FROM = {
-    'src/custom/features.ts': ['enabled-features.gen.ts', 'feature-exports.gen.ts'],
+    'src/custom/features.ts': ['enabled-features.gen.ts', 'feature-exports.gen.ts', 'feature-tasks.gen.ts'],
     'src/custom/sign-in.ts': ['sign-in.gen.ts'],
 };
 

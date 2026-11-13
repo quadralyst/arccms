@@ -75,3 +75,7 @@ export { capturePaymentHooks } from '../merchant-payments/alerts.js';
 export { pretendPayment } from '../merchant-payments/pretendControl.js';
 export type { PretendInput, PretendOutcome } from '../merchant-payments/pretendControl.js';
 export type { ConnectPaymentAccountInput, PaymentAlert, PaymentAlertType, PaymentConnectorInfo, PaymentFailure, PaymentFailureReason, PaymentField, PaymentHooks, PaymentMode, PaymentResult, PaymentResultStatus, PaymentStatus, PaymentView, PublicPaymentAccount, StartedPayment, StartPaymentInput } from '../merchant-payments/types.js';
+
+// Scheduled work of the app's own, run on a timetable inside Arc CMS's one scheduled function:
+// listed in functions/src/custom/tasks.ts (docs/app/custom-space.html#scheduled-tasks)
+export type { ArcTask, ArcTimetable } from '../scheduled/tasks.js';

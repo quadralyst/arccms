@@ -1,4 +1,3 @@
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions/v2';
 import { Timestamp, QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { db } from '../init.js';
@@ -18,7 +17,7 @@ const PAGE_SIZE = 200;
  * This scan finds those within the reminder window and sends the (toggleable)
  * `trial_ending_email` once, marked via `premiumTrialReminderSent`.
  */
-export const scanTrialEndings = onSchedule({ schedule: 'every day 09:00', timeZone: 'UTC' }, async () => {
+export async function scanTrialEndings(): Promise<void> {
   const now = new Date();
   const windowEnd = new Date(now.getTime() + REMINDER_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
@@ -67,4 +66,4 @@ export const scanTrialEndings = onSchedule({ schedule: 'every day 09:00', timeZo
   }
 
   logger.info(`Trial-ending scan complete: ${sent} reminder(s) sent.`);
-});
+}

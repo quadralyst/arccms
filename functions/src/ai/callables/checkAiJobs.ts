@@ -4,10 +4,9 @@
  * finished job's file is streamed into Storage, its record and the month's totals are brought
  * up to date, and the purpose's onJobDone runs.
  */
-import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { checkJobs } from '../jobs.js';
 
-export const checkAiJobs = onSchedule({ schedule: 'every 1 minutes', timeoutSeconds: 540, memory: '1GiB' }, async () => {
+export async function checkAiJobs(): Promise<void> {
     const { looked, ended } = await checkJobs();
     if (looked) console.log(`checkAiJobs: ${looked} pending, ${ended} ended`);
-});
+}

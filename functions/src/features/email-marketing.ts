@@ -6,9 +6,7 @@
 // Email marketing: broadcasts, drip campaigns and announcements.
 export * from '../email-log/processBroadcast.js';
 export * from '../email-log/continueBroadcast.js';
-export * from '../email-log/processScheduledBroadcasts.js';
 export * from '../email-log/previewBroadcastAudience.js';
-export * from '../email-core/processDripQueue.js';
 export * from '../email-core/dripCampaigns.js';
 export * from '../email-core/migrateWelcomeToSequences.js';
 export * from '../email-core/announcements.js';

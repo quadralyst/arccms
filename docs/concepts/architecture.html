@@ -21,7 +21,7 @@
         <tr><td>Firestore</td><td>All data: content, settings, people, lists, logs. One database per install, <code>(default)</code> unless the install names another.</td><td>Rules in <code>firestore.rules</code></td></tr>
         <tr><td>Firebase Auth</td><td>Sign-in. A person's role travels as a custom claim on their ID token (see <a href="roles-and-claims.html">Roles and claims</a>).</td><td><code>functions/src/auth/</code>, <code>functions/src/users/</code></td></tr>
         <tr><td>Cloud Storage</td><td>Media, imports and exports, and each person's own folder.</td><td>Rules in <code>storage.rules</code></td></tr>
-        <tr><td>Cloud Functions</td><td>Triggers on database writes, callables the browser calls, scheduled jobs and a few public HTTP endpoints (webhooks, unsubscribe, email tracking). Node.js 22.</td><td><code>functions/src/</code></td></tr>
+        <tr><td>Cloud Functions</td><td>Triggers on database writes, callables the browser calls, one scheduled function that runs every scheduled task (<a href="../reference/cloud-functions.html#scheduled-tasks">Scheduled tasks</a>) and a few public HTTP endpoints (webhooks, unsubscribe, email tracking). Node.js 22.</td><td><code>functions/src/</code></td></tr>
         <tr><td>Firebase Hosting</td><td>Serves the built app and the pages the functions publish.</td><td><code>firebase.json</code></td></tr>
       </tbody>
     </table>

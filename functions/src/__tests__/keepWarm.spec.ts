@@ -3,8 +3,8 @@
  * read when the functions are deployed from the environment or the project's .env
  * file, sets minInstances on the named functions only.
  */
-import { describe, expect, it } from 'vitest';
-import { applyKeepWarm, envFileValue, keepWarmSetting, MAX_KEPT, parseKeepWarm } from '../keep-warm.js';
+import { describe, expect, it, vi } from 'vitest';
+import { applyKeepWarm, envFileValue, keepWarmSetting, keptWarmNotice, MAX_KEPT, parseKeepWarm } from '../keep-warm.js';
 
 /** A second generation function as firebase-functions makes one: its endpoint is a plain value. */
 function v2(): { (): void; __endpoint: { platform: string; minInstances: unknown } } {
@@ -67,4 +67,44 @@ describe('applyKeepWarm', () => {
         const group = { onSignInDeleted: v1(), signInWithPin: v2() };
         expect(applyKeepWarm(group, new Map([['onSignInDeleted', 1], ['gone', 1]]))).toEqual(['onSignInDeleted', 'gone']);
     });
+});
+
+describe('keptWarmNotice', () => {
+    it('says nothing when no function is kept warm, the default', () => {
+        expect(keptWarmNotice(parseKeepWarm(undefined))).toBeNull();
+        expect(keptWarmNotice(new Map([['gone', 1]]), ['gone'])).toBeNull();
+    });
+
+    it('names each kept function and its count, and that each is billed all day', () => {
+        const notice = keptWarmNotice(new Map([['signInWithPin', 1], ['custom-pinSignIn', 2], ['gone', 1]]), ['gone']);
+        expect(notice).toBe('ARC_KEEP_WARM keeps instances running, each billed all day whether it is used or not: signInWithPin ×1, custom-pinSignIn ×2.');
+    });
+});
+
+describe('a default install (specs/scheduled-tasks-spec.md, T-D11)', () => {
+    it('keeps no instance of any function running', async () => {
+        // As a deploy reads it, but never from this checkout's own .env files.
+        expect(keepWarmSetting({}, () => null)).toBeUndefined();
+        vi.stubEnv('GCLOUD_PROJECT', 'demo-test');
+        try {
+            const arccms = await (await import('../load-functions.js')).loadFunctions(undefined);
+            expect(applyKeepWarm(arccms as Record<string, unknown>, parseKeepWarm(keepWarmSetting({}, () => null)))).toEqual([]);
+            const kept: string[] = [];
+            let seen = 0;
+            const visit = (node: Record<string, unknown>, prefix: string) => {
+                for (const [key, value] of Object.entries(node)) {
+                    const endpoint = typeof value === 'function' ? (value as { __endpoint?: { minInstances?: unknown } }).__endpoint : undefined;
+                    if (endpoint) {
+                        seen++;
+                        if (Number(endpoint.minInstances ?? 0) > 0) kept.push(prefix + key);
+                    } else if (value && typeof value === 'object' && !Array.isArray(value)) visit(value as Record<string, unknown>, `${prefix}${key}-`);
+                }
+            };
+            visit(arccms as Record<string, unknown>, '');
+            expect(seen).toBeGreaterThan(100);
+            expect(kept).toEqual([]);
+        } finally {
+            vi.unstubAllEnvs();
+        }
+    }, 60_000);
 });

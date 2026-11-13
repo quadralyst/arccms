@@ -156,6 +156,7 @@ export const createWorkspace = onCall(async (request) =&gt; {
       <li>Names are the ones the browser calls with <code>arcCallable</code>: Arc CMS's own as they are, your functions with <code>custom-</code> in front. Add <code>:2</code> or more to a name for more than one instance, up to 10.</li>
       <li>It is read when the functions are deployed (<code>functions/src/keep-warm.ts</code>), from the environment first and then from the project's file, since Firebase reads what to deploy without the file's values. Deploy the named functions after changing it; a function taken off the list goes back to none running at its next deploy.</li>
       <li>A name the build does not have is said in the deploy's output; a name or count that cannot be read stops the deploy, saying what to write.</li>
+      <li>Every deploy that keeps any instance says so in its output, naming each function and its count, since each is billed all day. A default install keeps none: a test fails if any function of the default build would keep one.</li>
     </ul>
     <div class="trap"><p>Google bills a kept instance every second, at a lower rate while it is idle: roughly 5 to 10 US dollars a month for each, at the default size. Check Google's Cloud Run prices before turning it on, and set it only on the live project, for the one or two functions people wait on, such as the PIN sign-in.</p></div>
 

@@ -15,7 +15,7 @@
 // First, so every function below is defined in the install's region.
 import './region.js';
 import { loadFunctions } from './load-functions.js';
-import { applyKeepWarm, keepWarmSetting, parseKeepWarm } from './keep-warm.js';
+import { applyKeepWarm, keepWarmSetting, keptWarmNotice, parseKeepWarm } from './keep-warm.js';
 
 const target = process.env.FUNCTION_TARGET;
 
@@ -24,6 +24,10 @@ export const arccms = await loadFunctions(target);
 // Every function loaded: a deploy reading what to deploy, so the ones the project
 // keeps running get their instances (ARC_KEEP_WARM, keep-warm.ts).
 if (!target) {
-    const missing = applyKeepWarm(arccms, parseKeepWarm(keepWarmSetting()));
+    const counts = parseKeepWarm(keepWarmSetting());
+    const missing = applyKeepWarm(arccms, counts);
     if (missing.length) console.warn(`ARC_KEEP_WARM names functions this build does not have: ${missing.join(', ')}.`);
+    // Said on every deploy that keeps any, so the running cost is never a surprise.
+    const notice = keptWarmNotice(counts, missing);
+    if (notice) console.warn(notice);
 }

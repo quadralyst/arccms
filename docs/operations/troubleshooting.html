@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Troubleshooting | Arc CMS docs</title>
   <meta name="description" content="Known problems with Arc CMS in development, deploys, sign-in, email, search and features, with the cause and the fix for each.">
-  <meta name="docs:sources" content="vite.config.ts, scripts/arc-redirects.mjs, src/app/app.config.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, scripts/arc-deploy.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-configure.mjs, functions/scripts/check-callable-access.sh, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, functions/src/email-core/queueEmail.ts, functions/src/custom/search-sources.ts, src/shared/components/row-actions/row-actions.component.ts, firebase.json">
+  <meta name="docs:sources" content="vite.config.ts, scripts/arc-redirects.mjs, src/app/app.config.ts, src/app/app.routes.ts, src/app/core/features/feature-routes.ts, scripts/arc-deploy.mjs, scripts/arc-artifact-cleanup.mjs, scripts/arc-configure.mjs, functions/src/scheduled/tasks.ts, functions/scripts/check-callable-access.sh, functions/src/auth/emailAccount.ts, functions/src/auth/accounts.ts, functions/src/email-core/queueEmail.ts, functions/src/custom/search-sources.ts, src/shared/components/row-actions/row-actions.component.ts, firebase.json">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="operations/troubleshooting.html">
@@ -208,8 +208,20 @@
           <td>The feature is off, so its functions are not in the build, and a deploy of every function deleted them</td>
           <td>Turn the feature on and deploy every function</td>
         </tr>
+        <tr>
+          <td>A scheduled task (a digest, a retry, a clean-up) did not run, or you want to know how long one takes</td>
+          <td>Every scheduled task runs inside the one <code>scheduledTasks</code> function, which leaves one log line per task run (see <a href="../reference/cloud-functions.html#scheduled-tasks">Scheduled tasks</a>). A feature's tasks run only while the feature is on</td>
+          <td>Read the lines below. No line at the task's time: check that its feature is on and that Cloud Scheduler shows the job <code>firebase-schedule-arccms-scheduledTasks-&lt;region&gt;</code>, enabled</td>
+        </tr>
       </tbody>
     </table>
+
+    <h2 id="scheduled-tasks">How long each scheduled task takes</h2>
+    <p>Each scheduled task run leaves one line in the log of <code>arccms-scheduledTasks</code>, with three fields: <code>arcTask</code> (the task's name; an app's own read <code>custom-&lt;name&gt;</code>), <code>ms</code> (how long it took) and <code>outcome</code> (<code>ok</code> or <code>failed</code>, with <code>error</code> and <code>stack</code> on a failure). In the Google Cloud console, Logs Explorer, these queries find them:</p>
+    <pre><code>jsonPayload.arcTask="cleanUpAi"
+jsonPayload.arcTask:* AND jsonPayload.outcome="failed"
+jsonPayload.arcTask:* AND jsonPayload.ms&gt;30000</code></pre>
+    <p>The first lists one task's runs, the second every failure, the third every run over 30 seconds. One scheduled function means billing can no longer split scheduled work by function; these lines say which task takes the time.</p>
   </main>
   <script src="../assets/nav.js"></script>
   <script src="../assets/search-index.js"></script>

@@ -6,13 +6,17 @@
  *                                           whose features are all on, which all.ts
  *                                           re-exports: `forms.ts` needs forms,
  *                                           `search+content.ts` needs both
+ *   functions/src/feature-tasks.gen.ts      FEATURE_TASKS: the scheduled tasks of each
+ *                                           functions/src/feature-tasks file whose
+ *                                           features are all on, by the same naming
+ *                                           (specs/scheduled-tasks-spec.md)
  *   functions/src/sign-in.gen.ts            the password and PIN strength, and the sign-in
  *                                           choices the app fixed, in src/custom/sign-in.ts
  *                                           (specs/sign-in-strength-spec.md)
  *
  * The functions cannot import src/custom/features.ts (they compile only
  * functions/src), so this runs before every functions build (the `prebuild`
- * script) and every test run. Both files are gitignored: no app ever has a merge
+ * script) and every test run. The files are gitignored: no app ever has a merge
  * conflict on them. A file is only rewritten when its content changes.
  *
  * Needs Node 22.18 or later, which loads the TypeScript files directly.
@@ -27,26 +31,32 @@ const REGISTRY = resolve(ROOT, 'src/app/core/features/feature-registry.ts');
 const FUNCTIONS_SRC = resolve(ROOT, 'functions/src');
 const ENABLED_OUT = resolve(FUNCTIONS_SRC, 'enabled-features.gen.ts');
 const EXPORTS_OUT = resolve(FUNCTIONS_SRC, 'feature-exports.gen.ts');
+const TASKS_OUT = resolve(FUNCTIONS_SRC, 'feature-tasks.gen.ts');
 const SIGN_IN = resolve(ROOT, 'src/custom/sign-in.ts');
 const STRENGTH = resolve(ROOT, 'src/shared/utils/sign-in-strength.ts');
 const SIGN_IN_OUT = resolve(FUNCTIONS_SRC, 'sign-in.gen.ts');
 
 const HEADER = '// Generated from src/custom/features.ts by scripts/arc-features.mjs. Do not edit.\n';
 
-const featureFiles = () => readdirSync(resolve(FUNCTIONS_SRC, 'features'))
+/** The files of a folder of functions/src, by name without `.ts`. */
+const filesIn = (folder) => readdirSync(resolve(FUNCTIONS_SRC, folder))
     .filter((file) => file.endsWith('.ts'))
     .map((file) => file.slice(0, -3))
     .sort();
 
-/** The two files' content for a set of enabled feature ids and the feature files there are. */
-export function renderFeatureFiles(enabled, files = featureFiles()) {
+/** The three files' content for a set of enabled feature ids, the feature files and the feature task files there are. */
+export function renderFeatureFiles(enabled, files = filesIn('features'), taskFiles = filesIn('feature-tasks')) {
     const ids = [...enabled];
+    const on = (name) => name.split('+').every((id) => ids.includes(id));
     const enabledFile = `${HEADER}export const ENABLED_FEATURES: readonly string[] = ${JSON.stringify(ids)};\n`;
-    const exportLines = files
-        .filter((name) => name.split('+').every((id) => ids.includes(id)))
-        .map((name) => `export * from './features/${name}.js';`);
+    const exportLines = files.filter(on).map((name) => `export * from './features/${name}.js';`);
     const exportsFile = `${HEADER}${exportLines.length ? exportLines.join('\n') : 'export {};'}\n`;
-    return { enabledFile, exportsFile };
+    const tasks = taskFiles.filter(on);
+    const tasksFile = HEADER
+        + "import type { ArcTask } from './scheduled/tasks.js';\n"
+        + tasks.map((name, i) => `import { TASKS as tasks${i} } from './feature-tasks/${name}.js';\n`).join('')
+        + `\nexport const FEATURE_TASKS: readonly ArcTask[] = [${tasks.map((_, i) => `...tasks${i}`).join(', ')}];\n`;
+    return { enabledFile, exportsFile, tasksFile };
 }
 
 /** The sign-in file's content: the strength, and the choices the app fixed (null: the admin's). */
@@ -103,13 +113,13 @@ async function main() {
     // Only the functions folder is uploaded on deploy; if a build ever runs there,
     // keep the files generated locally.
     if (!existsSync(CUSTOM) || !existsSync(REGISTRY)) {
-        if (existsSync(ENABLED_OUT) && existsSync(EXPORTS_OUT) && existsSync(SIGN_IN_OUT)) return;
+        if (existsSync(ENABLED_OUT) && existsSync(EXPORTS_OUT) && existsSync(TASKS_OUT) && existsSync(SIGN_IN_OUT)) return;
         throw new Error(`arc-features: ${CUSTOM} not found, and no generated files to keep.`);
     }
 
     const enabled = await enabledFeatures();
-    const { enabledFile, exportsFile } = renderFeatureFiles(enabled);
-    const changed = [writeIfChanged(ENABLED_OUT, enabledFile), writeIfChanged(EXPORTS_OUT, exportsFile)].some(Boolean);
+    const { enabledFile, exportsFile, tasksFile } = renderFeatureFiles(enabled);
+    const changed = [writeIfChanged(ENABLED_OUT, enabledFile), writeIfChanged(EXPORTS_OUT, exportsFile), writeIfChanged(TASKS_OUT, tasksFile)].some(Boolean);
     if (changed) console.log(`arc-features: functions build with ${[...enabled].join(', ') || 'no optional features'}`);
     const strength = await signInStrength();
     if (writeIfChanged(SIGN_IN_OUT, renderSignInFile(strength, await fixedSignIn()))) console.log(`arc-features: ${strength} passwords and PINs`);

@@ -10,7 +10,4 @@ export * from '../dodo-payments/moveProductCodes.js';
 export * from '../dodo-payments/dodoWebhook.js';
 export * from '../dodo-payments/handlePaymentEvent.js';
 export * from '../dodo-payments/testDodoConnection.js';
-export * from '../dodo-payments/scanTrialEndings.js';
-export * from '../dodo-payments/scanUpdatesEnding.js';
-export * from '../dodo-payments/scanExpiredEntitlements.js';
 export * from '../dodo-payments/consumeCredits.js';
