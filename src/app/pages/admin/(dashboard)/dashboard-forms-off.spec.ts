@@ -18,6 +18,7 @@ import DashboardComponent from './dashboard.page';
 import { AnalyticsStore } from './analytics.store';
 import { AnalyticsConnectionStatusService } from '../../../../shared/services/analytics-connection-status.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
+import { SetupStatusService } from '../../../core/setup/setup-status.service';
 import { GoogleOAuthService } from '../../../../shared/services/google-oauth.service';
 import { SiteUsageService } from '../(settings)/site-usage/site-usage.service';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
@@ -75,6 +76,7 @@ describe('dashboard with signup forms off', () => {
                 { provide: GoogleOAuthService, useValue: {} },
                 { provide: WaitlistAdminStore, useValue: waitlists },
                 { provide: Firestore, useValue: {} },
+                { provide: SetupStatusService, useValue: { rows: signal([]), loaded: signal(false), load: vi.fn() } },
             ],
         }).compileComponents();
         fixture = TestBed.createComponent(DashboardComponent);

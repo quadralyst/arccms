@@ -120,6 +120,7 @@ window.ARC_DOCS_NAV = [
       { path: "features/notifications.html", title: "Notifications" },
       { path: "features/analytics.html", title: "Analytics" },
       { path: "features/banners.html", title: "Banners" },
+      { path: "features/setup-panel.html", title: "Setup panel" },
       { path: "features/data.html", title: "Data import and export" }
     ]
   },

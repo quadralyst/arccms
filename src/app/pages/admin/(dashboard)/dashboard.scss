@@ -647,3 +647,37 @@ a.activity-item {
         min-width: 180px;
     }
 }
+// ── Finish setting up: a right-hand column while anything is pending ──
+.dashboard-layout.with-setup {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.dashboard-layout.with-setup .dashboard-main {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+}
+
+.dashboard-layout.with-setup .dashboard-setup {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+// Phone and tablet: the panel sits above the dashboard, full width.
+@media (max-width: 991.98px) {
+    .dashboard-layout.with-setup {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dashboard-layout.with-setup .dashboard-setup {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .dashboard-layout.with-setup .dashboard-main {
+        grid-row: 2;
+    }
+}

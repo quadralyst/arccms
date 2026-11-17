@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Setup panel | Arc CMS docs</title>
+  <meta name="description" content="The Finish setting up panel on the admin dashboard: which outside services still need connecting, why each one matters, and how an app adds its own.">
+  <meta name="docs:sources" content="src/app/core/setup, src/custom/setup-items.ts, src/app/pages/admin/(dashboard)/dashboard.html, src/app/pages/admin/(dashboard)/dashboard.page.ts, src/app/pages/admin/(dashboard)/dashboard.scss">
+  <link rel="stylesheet" href="../assets/docs.css">
+</head>
+<body data-root="../" data-page="features/setup-panel.html">
+  <main>
+    <h1>Setup panel</h1>
+    <p class="lead">The admin dashboard lists, on its right, each outside service that still needs connecting, says why it matters, and links to the settings page that connects it. It lists only what is still to do, and goes away once everything is done.</p>
+
+    <h2>What it is</h2>
+    <p>A panel titled <strong>Finish setting up</strong> on <code>/admin/dashboard</code>. Each row has the service's name, a <strong>Needed</strong> or <strong>Optional</strong> tag, one line on why to set it up, and a button to its settings page: <strong>Set up</strong> for something not connected yet, <strong>Check</strong> (on an amber row) for something connected but not working for real yet, such as a test provider.</p>
+    <table>
+      <thead><tr><th>Row</th><th>Shows while</th><th>Tag</th><th>Feature</th><th>Settings page</th></tr></thead>
+      <tbody>
+        <tr><td>Email</td><td>Email is off, or on the Debug Provider (log only), which sends nothing</td><td>Needed</td><td>Always on</td><td><a href="email.html">Email engine</a></td></tr>
+        <tr><td>SMS</td><td>The provider is the test one, or MSG91 has no auth key. Needed, and amber, once phone sign-in is on, since sign-in codes then reach no one.</td><td>Optional, or Needed with phone sign-in</td><td><code>sms</code></td><td><a href="sms.html">SMS</a></td></tr>
+        <tr><td>Payments</td><td>Payments are off, the key for the current mode or the webhook secret is missing, or (amber) everything is set but the mode is test</td><td>Optional</td><td><code>payments</code></td><td><a href="payments.html">Payments</a></td></tr>
+        <tr><td>AI</td><td>No connection can answer (no key saved; Vertex AI needs none), or (amber) a key failed since it last worked, or the mode is test</td><td>Optional</td><td><code>ai</code></td><td><a href="ai.html">AI</a></td></tr>
+        <tr><td>Free stock photos</td><td>No Unsplash access key is saved</td><td>Optional</td><td>Always on</td><td><a href="media.html">Media</a></td></tr>
+      </tbody>
+    </table>
+    <p>Needed rows come first, then optional ones, each group in the order above, then the app's own rows.</p>
+    <p>Google Analytics is not a row: the dashboard's analytics card already asks for it, right beside the panel. Geolocation is not one either: it is off unless you turn it on, and works without a key.</p>
+
+    <h2>Turn it on or off</h2>
+    <p>The panel is core, always there for admins (the dashboard is admin-only). A row whose feature is off in <code>src/custom/features.ts</code> is never checked or shown (see <a href="../app/choose-features.html">Choose your app's features</a>). There is no switch for the panel itself, and no button to hide a row: it lists strictly what is pending.</p>
+
+    <h2>Set it up</h2>
+    <p>Nothing to set up for the panel itself. Open the admin dashboard, and for each row click <strong>Set up</strong> or <strong>Check</strong>: it opens that service's settings page, which explains the rest. Come back to the dashboard and the row is gone once the service is connected.</p>
+
+    <h2>Use it</h2>
+    <ul>
+      <li>The panel reads the settings each time the dashboard opens. Connect a service, come back to the dashboard, and its row is gone.</li>
+      <li>While the checks run, nothing is shown, so a site that is set up never sees the panel flash.</li>
+      <li>On a wide screen it is a column on the right. Below 992 pixels it sits above the dashboard cards, full width.</li>
+      <li>A check that cannot read its settings (offline, or a permission error) leaves its row out rather than raising a false alarm, and logs the error in the browser console.</li>
+      <li>The checks only ask whether a key is saved. No key's value is shown or sent anywhere.</li>
+    </ul>
+    <div class="note"><p>The panel replaced the dashboard's "Email not configured" and "Debug Provider active" banners. The Forms page keeps its own email banner, because there it explains why that page's email controls are off (see <a href="banners.html">Banners</a>).</p></div>
+
+    <h2>Extend it</h2>
+    <h3>Add the app's own items</h3>
+    <p>An app that needs an admin to connect a service of its own adds a row in <code>src/custom/setup-items.ts</code>, which Arc CMS ships empty:</p>
+<pre><code>import type { SetupItem } from '../app/core/setup/setup-items';
+
+export const CUSTOM_SETUP_ITEMS: SetupItem[] = [
+    {
+        id: 'maps',
+        icon: 'fa-solid fa-map',
+        route: '/admin/maps-settings',
+        pending: async (read) => {
+            const maps = await read('maps');           // the Settings/maps document
+            return maps?.['apiKey'] ? null : {
+                required: false,
+                title: 'Maps',
+                titleKey: 'app.setup.maps_title',       // optional, from src/custom/i18n
+                why: 'Show each shop on a map.',
+                whyKey: 'app.setup.maps_why',
+            };
+        },
+    },
+];</code></pre>
+    <table>
+      <thead><tr><th>Field</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>Unique among Arc CMS's rows (<code>email</code>, <code>sms</code>, <code>payments</code>, <code>ai</code>, <code>unsplash</code>) and the app's. A repeated id is left out, with a console error.</td></tr>
+        <tr><td><code>feature</code></td><td>Optional: a feature id; the row is left out while that feature is off.</td></tr>
+        <tr><td><code>icon</code>, <code>route</code></td><td>A Font Awesome class, and where the button goes.</td></tr>
+        <tr><td><code>pending(read)</code></td><td>Returns <code>null</code> when nothing is to do, or what is. <code>read(id)</code> gives the <code>Settings/&lt;id&gt;</code> document, read once for all rows; a check may read anything else it needs. A check that throws is left out.</td></tr>
+      </tbody>
+    </table>
+    <p>What <code>pending</code> returns: <code>required</code> (Needed or Optional), <code>title</code> and <code>why</code> as written, with optional <code>titleKey</code> and <code>whyKey</code> translation keys (the written text shows when a key has no translation), and <code>warning: true</code> for an amber row with a Check button.</p>
+
+    <h3>Arc CMS's own rows</h3>
+    <p>Arc CMS's own rows are in <code>src/app/core/setup/setup-items.ts</code>, one rule per service, and <code>SetupStatusService</code> in <code>src/app/core/setup/setup-status.service.ts</code> runs them. A new outside service in core gets its row there, with a test in <code>setup-items.spec.ts</code>.</p>
+
+    <h2>What it stores</h2>
+    <p>Nothing. The panel reads the <code>Settings</code> documents the settings pages already write: <code>email_status</code>, <code>sms</code>, <code>users</code> (whether phone sign-in is on), <code>dodo-payments</code>, <code>ai</code> and <code>integrations</code>, each once when the dashboard opens, plus whatever an app's own rows read.</p>
+
+    <h2>Who can do what</h2>
+    <table>
+      <thead><tr><th>Who</th><th>Can</th></tr></thead>
+      <tbody>
+        <tr><td>Admin</td><td>See the panel on the dashboard, and open each settings page from it</td></tr>
+        <tr><td>Everyone else</td><td>Nothing: the dashboard, and the settings documents it reads, are for admins only</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Problem</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>A service is connected but its row is still there</td><td>Read the row's line: an amber row means connected but not live yet (a test provider, test mode, or a key that failed since it last worked). Switch to the real provider or live mode, or test the key on its settings page, then reopen the dashboard.</td></tr>
+        <tr><td>A row you expected is missing</td><td>Its feature may be off in <code>src/custom/features.ts</code>, or its check could not read its settings: look in the browser console for "could not be checked".</td></tr>
+        <tr><td>An app's row does not show</td><td>Look in the browser console for "is listed twice": another row has its id. Check that its <code>feature</code>, if set, is on, and that <code>pending</code> returns an object, not <code>true</code>.</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <script src="../assets/nav.js"></script>
+  <script src="../assets/search-index.js"></script>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

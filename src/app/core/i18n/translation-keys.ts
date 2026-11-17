@@ -919,19 +919,12 @@ export type TranslationKey =
     | 'admin.dashboard.col_date'
     | 'admin.dashboard.col_details'
     | 'admin.dashboard.col_waitlist'
-    | 'admin.dashboard.configure_email'
     | 'admin.dashboard.connect'
     | 'admin.dashboard.content_media'
     | 'admin.dashboard.count_draft'
     | 'admin.dashboard.count_published'
     | 'admin.dashboard.count_this_week'
     | 'admin.dashboard.date_range'
-    | 'admin.dashboard.debug_banner'
-    | 'admin.dashboard.debug_provider_active'
-    | 'admin.dashboard.dismiss'
-    | 'admin.dashboard.email_disabled_note'
-    | 'admin.dashboard.email_not_configured'
-    | 'admin.dashboard.email_settings'
     | 'admin.dashboard.firebase_console_note'
     | 'admin.dashboard.first_page_button'
     | 'admin.dashboard.first_page_button_no_type'
@@ -982,6 +975,27 @@ export type TranslationKey =
     | 'admin.dashboard.refresh'
     | 'admin.dashboard.refresh_failed'
     | 'admin.dashboard.refreshing'
+    | 'admin.dashboard.setup.ai_error'
+    | 'admin.dashboard.setup.ai_off'
+    | 'admin.dashboard.setup.ai_test'
+    | 'admin.dashboard.setup.ai_title'
+    | 'admin.dashboard.setup.check'
+    | 'admin.dashboard.setup.email_off'
+    | 'admin.dashboard.setup.email_test'
+    | 'admin.dashboard.setup.email_title'
+    | 'admin.dashboard.setup.heading'
+    | 'admin.dashboard.setup.intro'
+    | 'admin.dashboard.setup.needed'
+    | 'admin.dashboard.setup.optional'
+    | 'admin.dashboard.setup.payments_off'
+    | 'admin.dashboard.setup.payments_test'
+    | 'admin.dashboard.setup.payments_title'
+    | 'admin.dashboard.setup.set_up'
+    | 'admin.dashboard.setup.sms_off'
+    | 'admin.dashboard.setup.sms_signin'
+    | 'admin.dashboard.setup.sms_title'
+    | 'admin.dashboard.setup.unsplash_off'
+    | 'admin.dashboard.setup.unsplash_title'
     | 'admin.dashboard.setup_analytics'
     | 'admin.dashboard.this_week'
     | 'admin.dashboard.title'
@@ -5149,19 +5163,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.col_date',
     'admin.dashboard.col_details',
     'admin.dashboard.col_waitlist',
-    'admin.dashboard.configure_email',
     'admin.dashboard.connect',
     'admin.dashboard.content_media',
     'admin.dashboard.count_draft',
     'admin.dashboard.count_published',
     'admin.dashboard.count_this_week',
     'admin.dashboard.date_range',
-    'admin.dashboard.debug_banner',
-    'admin.dashboard.debug_provider_active',
-    'admin.dashboard.dismiss',
-    'admin.dashboard.email_disabled_note',
-    'admin.dashboard.email_not_configured',
-    'admin.dashboard.email_settings',
     'admin.dashboard.firebase_console_note',
     'admin.dashboard.first_page_button',
     'admin.dashboard.first_page_button_no_type',
@@ -5212,6 +5219,27 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.refresh',
     'admin.dashboard.refresh_failed',
     'admin.dashboard.refreshing',
+    'admin.dashboard.setup.ai_error',
+    'admin.dashboard.setup.ai_off',
+    'admin.dashboard.setup.ai_test',
+    'admin.dashboard.setup.ai_title',
+    'admin.dashboard.setup.check',
+    'admin.dashboard.setup.email_off',
+    'admin.dashboard.setup.email_test',
+    'admin.dashboard.setup.email_title',
+    'admin.dashboard.setup.heading',
+    'admin.dashboard.setup.intro',
+    'admin.dashboard.setup.needed',
+    'admin.dashboard.setup.optional',
+    'admin.dashboard.setup.payments_off',
+    'admin.dashboard.setup.payments_test',
+    'admin.dashboard.setup.payments_title',
+    'admin.dashboard.setup.set_up',
+    'admin.dashboard.setup.sms_off',
+    'admin.dashboard.setup.sms_signin',
+    'admin.dashboard.setup.sms_title',
+    'admin.dashboard.setup.unsplash_off',
+    'admin.dashboard.setup.unsplash_title',
     'admin.dashboard.setup_analytics',
     'admin.dashboard.this_week',
     'admin.dashboard.title',

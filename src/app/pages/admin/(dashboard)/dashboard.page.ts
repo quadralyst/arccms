@@ -8,7 +8,6 @@ import { environment } from '../../../../environments/environment';
 import { BaseComponent } from '../../../../shared/components/base/base.component';
 import { PageHeaderComponent } from '../../../../shared/components/page-header/page-header.component';
 import { AnalyticsConnectionStatusService } from '../../../../shared/services/analytics-connection-status.service';
-import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
 import { GoogleOAuthService } from '../../../../shared/services/google-oauth.service';
 import { AnalyticsStore } from './analytics.store';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
@@ -24,6 +23,8 @@ import { isOn } from '../../../core/features/features';
 import { AnalyticsTrackingStatusComponent } from '../../../core/analytics/analytics-status.component';
 import { PwaStatsService } from '../../../core/pwa/pwa-stats.service';
 import { LoaderComponent } from '../../../../shared/components/loader/loader.component';
+import { SetupPanelComponent } from '../../../core/setup/setup-panel.component';
+import { SetupStatusService } from '../../../core/setup/setup-status.service';
 
 export const routeMeta: RouteMeta = {
   title: 'Dashboard',
@@ -34,7 +35,7 @@ export const routeMeta: RouteMeta = {
 @Component({
   selector: 'arc-dashboard',
   standalone: true,
-  imports: [LoaderComponent, CommonModule, RouterLink, PageHeaderComponent, TranslocoPipe, AnalyticsTrackingStatusComponent],
+  imports: [LoaderComponent, CommonModule, RouterLink, PageHeaderComponent, TranslocoPipe, AnalyticsTrackingStatusComponent, SetupPanelComponent],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.scss'],
 })
@@ -82,8 +83,9 @@ export default class DashboardComponent extends BaseComponent {
   private firestore = inject(Firestore);
   private injector = inject(Injector);
 
-  // Email configuration status
-  emailConfigService = inject(EmailConfigStatusService);
+  /** Finish setting up: the outside services still to connect, read each time the dashboard opens. */
+  readonly setupStatus = inject(SetupStatusService);
+  readonly showSetup = computed(() => this.setupStatus.loaded() && this.setupStatus.rows().length > 0);
 
   // App installs (docs/features/pwa.html), when this install's PWA is on
   readonly pwaEnabled = PWA.enabled;
@@ -230,6 +232,7 @@ export default class DashboardComponent extends BaseComponent {
     this.loadGrowthAndLeadsCounts();
     if (this.formsOn) this.loadRecentWaitlistSignups();
     if (this.pwaEnabled) void this.pwaStats.load();
+    void this.setupStatus.load();
     // Auto-refresh is handled reactively by the effect in the constructor
   }
 

@@ -4,6 +4,8 @@ import DashboardComponent from './dashboard.page';
 import { GlobalService } from '../../../../shared/services/global.service';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { EmailConfigStatusService } from '../../../../shared/services/email-config-status.service';
+import { SetupStatusService } from '../../../core/setup/setup-status.service';
+import type { SetupRow } from '../../../core/setup/setup-items';
 import { Location } from '@angular/common';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { DomSanitizer } from '@angular/platform-browser';
@@ -84,6 +86,11 @@ describe('DashboardComponent', () => {
         dismissBanner: vi.fn(),
         debugMode: vi.fn().mockReturnValue(false)
     };
+    const mockSetupStatus = {
+        rows: signal<SetupRow[]>([]),
+        loaded: signal(false),
+        load: vi.fn().mockResolvedValue(undefined),
+    };
     const mockAnalyticsConnectionStatus = {
         isConnected: vi.fn().mockReturnValue(false),
         isLoading: vi.fn().mockReturnValue(false),
@@ -130,6 +137,7 @@ describe('DashboardComponent', () => {
                 { provide: AudienceService, useValue: mockAudienceService },
                 { provide: UserService, useValue: mockUserService },
                 { provide: EmailConfigStatusService, useValue: mockEmailConfigService },
+                { provide: SetupStatusService, useValue: mockSetupStatus },
                 { provide: AnalyticsConnectionStatusService, useValue: mockAnalyticsConnectionStatus },
                 // The tracking status line above the numbers (docs/features/analytics.html).
                 { provide: SiteUsageService, useValue: { bannerEnabled: signal(false), settingsLoaded: signal(true) } },
@@ -440,17 +448,44 @@ describe('DashboardComponent', () => {
         });
     });
 
-    describe('Email Configuration Service', () => {
-        it('should have emailConfigService injected', () => {
-            expect(component.emailConfigService).toBeTruthy();
+    describe('Finish setting up', () => {
+        const row: SetupRow = {
+            item: { id: 'email', icon: 'fa-solid fa-envelope', route: '/admin/settings/email', pending: async () => null },
+            need: { required: true, title: 'Email', why: 'Email is off.' },
+        };
+        const show = (rows: SetupRow[], loaded = true) => {
+            mockSetupStatus.rows.set(rows);
+            mockSetupStatus.loaded.set(loaded);
+            fixture.detectChanges();
+        };
+        afterEach(() => show([], false));
+
+        it('checks what is still to set up when the dashboard opens', () => {
+            expect(mockSetupStatus.load).toHaveBeenCalled();
         });
 
-        it('should expose shouldShowBanner method via service', () => {
-            expect(component.emailConfigService.shouldShowBanner).toBeDefined();
+        it('shows the panel beside the dashboard while anything is pending', () => {
+            show([row]);
+            const el: HTMLElement = fixture.nativeElement;
+            expect(el.querySelector('.dashboard-layout')?.classList).toContain('with-setup');
+            expect(el.querySelector('[data-testid="setup-panel"] [data-setup-id="email"]')).toBeTruthy();
+            expect(el.querySelector('[data-testid="setup-panel"] [data-setup-id="email"]')?.textContent).toContain('Email is off.');
         });
 
-        it('should expose dismissBanner method via service', () => {
-            expect(component.emailConfigService.dismissBanner).toBeDefined();
+        it('shows no panel and no column when nothing is pending, or before the checks answer', () => {
+            show([]);
+            expect(fixture.nativeElement.querySelector('.dashboard-setup')).toBeNull();
+            expect(fixture.nativeElement.querySelector('.dashboard-layout')?.classList).not.toContain('with-setup');
+            show([row], false);
+            expect(fixture.nativeElement.querySelector('.dashboard-setup')).toBeNull();
+        });
+
+        it('has no email banners: the panel replaces them', () => {
+            show([row]);
+            const el: HTMLElement = fixture.nativeElement;
+            expect(el.querySelector('.alert-danger')).toBeNull();
+            expect(el.querySelector('.alert a[href*="/admin/settings/email"], .alert .btn-close')).toBeNull();
+            expect(el.textContent).not.toMatch(/email_not_configured|debug_banner/);
         });
     });
 });
