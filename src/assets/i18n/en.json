@@ -2708,7 +2708,6 @@
       "managing_types_one": "1 kind of content: {{ names }}.",
       "setup": {
         "heading": "Finish setting up",
-        "intro": "These services are not connected yet. Each one takes a few minutes in Settings.",
         "optional": "Optional",
         "needed": "Needed",
         "set_up": "Set up",
@@ -2727,7 +2726,9 @@
         "ai_error": "An AI key stopped working. Check it in AI settings.",
         "ai_test": "AI is in test mode and gives sample answers. Switch to live to use it.",
         "unsplash_title": "Free stock photos",
-        "unsplash_off": "Search Unsplash photos from the media library."
+        "unsplash_off": "Search Unsplash photos from the media library.",
+        "collapse": "Hide this list",
+        "show": "Show what is left to set up: {{count}} to do"
       }
     },
     "media": {

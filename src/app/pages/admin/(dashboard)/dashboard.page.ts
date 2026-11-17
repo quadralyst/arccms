@@ -86,6 +86,8 @@ export default class DashboardComponent extends BaseComponent {
   /** Finish setting up: the outside services still to connect, read each time the dashboard opens. */
   readonly setupStatus = inject(SetupStatusService);
   readonly showSetup = computed(() => this.setupStatus.loaded() && this.setupStatus.rows().length > 0);
+  /** The open panel takes a right-hand column; folded, it is a small button above the cards. */
+  readonly setupColumn = computed(() => this.showSetup() && !this.setupStatus.collapsed());
 
   // App installs (docs/features/pwa.html), when this install's PWA is on
   readonly pwaEnabled = PWA.enabled;

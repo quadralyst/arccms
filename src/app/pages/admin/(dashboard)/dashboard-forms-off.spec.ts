@@ -76,7 +76,7 @@ describe('dashboard with signup forms off', () => {
                 { provide: GoogleOAuthService, useValue: {} },
                 { provide: WaitlistAdminStore, useValue: waitlists },
                 { provide: Firestore, useValue: {} },
-                { provide: SetupStatusService, useValue: { rows: signal([]), loaded: signal(false), load: vi.fn() } },
+                { provide: SetupStatusService, useValue: { rows: signal([]), loaded: signal(false), collapsed: signal(false), setCollapsed: vi.fn(), load: vi.fn() } },
             ],
         }).compileComponents();
         fixture = TestBed.createComponent(DashboardComponent);

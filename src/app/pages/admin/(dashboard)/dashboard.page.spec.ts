@@ -89,6 +89,8 @@ describe('DashboardComponent', () => {
     const mockSetupStatus = {
         rows: signal<SetupRow[]>([]),
         loaded: signal(false),
+        collapsed: signal(false),
+        setCollapsed: vi.fn(),
         load: vi.fn().mockResolvedValue(undefined),
     };
     const mockAnalyticsConnectionStatus = {
@@ -478,6 +480,15 @@ describe('DashboardComponent', () => {
             expect(fixture.nativeElement.querySelector('.dashboard-layout')?.classList).not.toContain('with-setup');
             show([row], false);
             expect(fixture.nativeElement.querySelector('.dashboard-setup')).toBeNull();
+        });
+
+        it('gives the folded panel no column: the dashboard keeps its full width', () => {
+            mockSetupStatus.collapsed.set(true);
+            show([row]);
+            const el: HTMLElement = fixture.nativeElement;
+            expect(el.querySelector('.dashboard-layout')?.classList).not.toContain('with-setup');
+            expect(el.querySelector('.dashboard-setup')?.classList).toContain('folded');
+            mockSetupStatus.collapsed.set(false);
         });
 
         it('has no email banners: the panel replaces them', () => {

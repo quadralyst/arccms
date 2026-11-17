@@ -156,3 +156,23 @@ describe('pendingRows', () => {
         expect(orderRows(rows).map((r) => r.item.id)).toEqual(['b', 'a']);
     });
 });
+
+describe('the folded panel', () => {
+    it('is remembered in this browser, and open by default', async () => {
+        const { TestBed } = await import('@angular/core/testing');
+        const { Firestore } = await import('@angular/fire/firestore');
+        const { SetupStatusService, COLLAPSED_KEY } = await import('./setup-status.service');
+        localStorage.removeItem(COLLAPSED_KEY);
+        TestBed.configureTestingModule({ providers: [{ provide: Firestore, useValue: {} }] });
+        const first = TestBed.inject(SetupStatusService);
+        expect(first.collapsed()).toBe(false);
+        first.setCollapsed(true);
+        expect(localStorage.getItem(COLLAPSED_KEY)).toBe('1');
+        TestBed.resetTestingModule();
+        TestBed.configureTestingModule({ providers: [{ provide: Firestore, useValue: {} }] });
+        expect(TestBed.inject(SetupStatusService).collapsed()).toBe(true);
+        TestBed.inject(SetupStatusService).setCollapsed(false);
+        expect(localStorage.getItem(COLLAPSED_KEY)).toBeNull();
+        TestBed.resetTestingModule();
+    });
+});

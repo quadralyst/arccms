@@ -980,17 +980,18 @@ export type TranslationKey =
     | 'admin.dashboard.setup.ai_test'
     | 'admin.dashboard.setup.ai_title'
     | 'admin.dashboard.setup.check'
+    | 'admin.dashboard.setup.collapse'
     | 'admin.dashboard.setup.email_off'
     | 'admin.dashboard.setup.email_test'
     | 'admin.dashboard.setup.email_title'
     | 'admin.dashboard.setup.heading'
-    | 'admin.dashboard.setup.intro'
     | 'admin.dashboard.setup.needed'
     | 'admin.dashboard.setup.optional'
     | 'admin.dashboard.setup.payments_off'
     | 'admin.dashboard.setup.payments_test'
     | 'admin.dashboard.setup.payments_title'
     | 'admin.dashboard.setup.set_up'
+    | 'admin.dashboard.setup.show'
     | 'admin.dashboard.setup.sms_off'
     | 'admin.dashboard.setup.sms_signin'
     | 'admin.dashboard.setup.sms_title'
@@ -5224,17 +5225,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.dashboard.setup.ai_test',
     'admin.dashboard.setup.ai_title',
     'admin.dashboard.setup.check',
+    'admin.dashboard.setup.collapse',
     'admin.dashboard.setup.email_off',
     'admin.dashboard.setup.email_test',
     'admin.dashboard.setup.email_title',
     'admin.dashboard.setup.heading',
-    'admin.dashboard.setup.intro',
     'admin.dashboard.setup.needed',
     'admin.dashboard.setup.optional',
     'admin.dashboard.setup.payments_off',
     'admin.dashboard.setup.payments_test',
     'admin.dashboard.setup.payments_title',
     'admin.dashboard.setup.set_up',
+    'admin.dashboard.setup.show',
     'admin.dashboard.setup.sms_off',
     'admin.dashboard.setup.sms_signin',
     'admin.dashboard.setup.sms_title',

@@ -33,6 +33,17 @@ export function onceEach(fetch: SettingsReader): SettingsReader {
     };
 }
 
+/** Local storage key for the folded panel. */
+export const COLLAPSED_KEY = 'arc_setup_panel_collapsed';
+
+function readCollapsed(): boolean {
+    try {
+        return typeof localStorage !== 'undefined' && localStorage.getItem(COLLAPSED_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
 @Injectable({ providedIn: 'root' })
 export class SetupStatusService {
     private firestore = inject(Firestore);
@@ -44,7 +55,24 @@ export class SetupStatusService {
     /** True once a load has finished; the panel waits for it rather than flickering. */
     readonly loaded = signal(false);
 
+    /**
+     * The panel folded into its small "Finish setting up" button. Remembered in this browser only
+     * (local storage), as a viewer's own choice; open unless the admin folded it.
+     */
+    readonly collapsed = signal(readCollapsed());
+
     private items = setupItemsFor(CUSTOM_SETUP_ITEMS, isOn);
+
+    /** Folds or opens the panel, and remembers it in this browser. */
+    setCollapsed(collapsed: boolean): void {
+        this.collapsed.set(collapsed);
+        try {
+            if (collapsed) localStorage.setItem(COLLAPSED_KEY, '1');
+            else localStorage.removeItem(COLLAPSED_KEY);
+        } catch {
+            // No storage (private window, blocked site data): it holds for this visit only.
+        }
+    }
 
     /** Checks every item again. Server render: nothing, as the documents are admin-only. */
     async load(): Promise<void> {

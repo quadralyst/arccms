@@ -650,7 +650,7 @@ a.activity-item {
 // ── Finish setting up: a right-hand column while anything is pending ──
 .dashboard-layout.with-setup {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-columns: minmax(0, 1fr) 300px;
     gap: 1.5rem;
     align-items: start;
 }
@@ -664,6 +664,13 @@ a.activity-item {
 .dashboard-layout.with-setup .dashboard-setup {
     grid-column: 2;
     grid-row: 1;
+}
+
+// Folded: the small Finish setting up button at the top right, above the cards.
+.dashboard-setup.folded {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
 }
 
 // Phone and tablet: the panel sits above the dashboard, full width.

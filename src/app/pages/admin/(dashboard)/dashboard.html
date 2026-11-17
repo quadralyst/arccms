@@ -23,10 +23,10 @@
     }
 </arc-page-header>
 
-<div class="arc p-4 dashboard-layout" [class.with-setup]="showSetup()">
+<div class="arc p-4 dashboard-layout" [class.with-setup]="setupColumn()">
 <!-- Finish setting up: the outside services still to connect (docs/features/setup-panel.html) -->
 @if (showSetup()) {
-<aside class="dashboard-setup">
+<aside class="dashboard-setup" [class.folded]="!setupColumn()">
     <arc-setup-panel />
 </aside>
 }

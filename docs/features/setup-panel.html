@@ -14,7 +14,7 @@
     <p class="lead">The admin dashboard lists, on its right, each outside service that still needs connecting, says why it matters, and links to the settings page that connects it. It lists only what is still to do, and goes away once everything is done.</p>
 
     <h2>What it is</h2>
-    <p>A panel titled <strong>Finish setting up</strong> on <code>/admin/dashboard</code>. Each row has the service's name, a <strong>Needed</strong> or <strong>Optional</strong> tag, one line on why to set it up, and a button to its settings page: <strong>Set up</strong> for something not connected yet, <strong>Check</strong> (on an amber row) for something connected but not working for real yet, such as a test provider.</p>
+    <p>A panel titled <strong>Finish setting up</strong>, with the number of rows left, on <code>/admin/dashboard</code>. Each row has the service's name, a <strong>Needed</strong> or <strong>Optional</strong> tag, one line on why to set it up, and a button to its settings page: <strong>Set up</strong> for something not connected yet, <strong>Check</strong> (on an amber row) for something connected but not working for real yet, such as a test provider.</p>
     <table>
       <thead><tr><th>Row</th><th>Shows while</th><th>Tag</th><th>Feature</th><th>Settings page</th></tr></thead>
       <tbody>
@@ -39,6 +39,7 @@
       <li>The panel reads the settings each time the dashboard opens. Connect a service, come back to the dashboard, and its row is gone.</li>
       <li>While the checks run, nothing is shown, so a site that is set up never sees the panel flash.</li>
       <li>On a wide screen it is a column on the right. Below 992 pixels it sits above the dashboard cards, full width.</li>
+      <li>The <strong>&minus;</strong> button beside the heading folds the panel into a small <strong>Finish setting up</strong> button with the number of rows left, at the top right of the dashboard, and the cards take the full width. The button is red while a needed row is left, amber when only optional ones are. Click it to open the panel again. The choice is remembered in that browser only (local storage key <code>arc_setup_panel_collapsed</code>), and the number keeps up with what is still to do.</li>
       <li>A check that cannot read its settings (offline, or a permission error) leaves its row out rather than raising a false alarm, and logs the error in the browser console.</li>
       <li>The checks only ask whether a key is saved. No key's value is shown or sent anywhere.</li>
     </ul>
@@ -81,7 +82,7 @@ export const CUSTOM_SETUP_ITEMS: SetupItem[] = [
     <p>Arc CMS's own rows are in <code>src/app/core/setup/setup-items.ts</code>, one rule per service, and <code>SetupStatusService</code> in <code>src/app/core/setup/setup-status.service.ts</code> runs them. A new outside service in core gets its row there, with a test in <code>setup-items.spec.ts</code>.</p>
 
     <h2>What it stores</h2>
-    <p>Nothing. The panel reads the <code>Settings</code> documents the settings pages already write: <code>email_status</code>, <code>sms</code>, <code>users</code> (whether phone sign-in is on), <code>dodo-payments</code>, <code>ai</code> and <code>integrations</code>, each once when the dashboard opens, plus whatever an app's own rows read.</p>
+    <p>Nothing on the server. Whether the panel is folded is kept in the browser (local storage key <code>arc_setup_panel_collapsed</code>). The panel reads the <code>Settings</code> documents the settings pages already write: <code>email_status</code>, <code>sms</code>, <code>users</code> (whether phone sign-in is on), <code>dodo-payments</code>, <code>ai</code> and <code>integrations</code>, each once when the dashboard opens, plus whatever an app's own rows read.</p>
 
     <h2>Who can do what</h2>
     <table>

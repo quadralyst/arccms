@@ -21,6 +21,9 @@ analytics card and the content cards.
   "Set up" link to the settings tab.
 - Required rows come first, then optional ones.
 - No dismiss button and no "Not using this" choice: the panel is strictly the pending list.
+- Added after SU4: a fold button. Folded, the panel is a small "Finish setting up" button with the
+  count at the top right (red while a needed row is left), remembered per browser in local
+  storage. The open panel is compact: the button sits on each row's title line.
 - When nothing is pending, the panel and its column are gone and the dashboard uses the
   full width as it does today.
 - Shown only to someone who can open Settings (the admin role). Editors do not see it.
