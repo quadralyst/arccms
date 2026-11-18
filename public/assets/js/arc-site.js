@@ -36,6 +36,11 @@
  *   to the app on this browser, data-arc-signed-out for everyone else.
  * - Setup: a page published before the setup wizard was finished (data-setup)
  *   sends the owner to /onboarding, as the app's home page does. ?debug skips it.
+ * - The admin strip (specs/visual-editing-spec.md, VE-D12 and VE-D13): links to
+ *   edit the page, for someone the admin app marked as an editor on this browser
+ *   (localStorage arc_editor_strip). It reads the page's <meta name="arc-entry">,
+ *   draws in a shadow root so the site's CSS and its own never meet, hides when
+ *   printing, and its close button hides it for the tab. Visitors get nothing.
  *
  * Callables are called over plain fetch with the callable protocol ({ data } in,
  * { result } or { error } out), like arc-search.js.
@@ -820,11 +825,123 @@
         }).catch(function () { /* cannot tell: stay */ });
     }
 
+    // ─── Admin strip ───────────────────────────────────────────────────────
+
+    var EDITOR_STRIP_KEY = 'arc_editor_strip';
+    var STRIP_HIDDEN_KEY = 'arc_editor_strip_hidden';
+    var STRIP_ID = 'arc-editor-strip';
+
+    /** The page's arc-entry value: '{type}/{id}', '{type}', 'home', 'p/{name}', or ''. */
+    function pageEntry() {
+        var meta = document.querySelector('meta[name="arc-entry"]');
+        return ((meta && meta.getAttribute('content')) || '').trim();
+    }
+
+    /**
+     * The strip's links for a page (VE-D13): a content page is edited on the
+     * page, a list page adds an entry of its type; every page leads back to the
+     * admin, to the type's entries when the page has a type.
+     */
+    function stripLinks(entry) {
+        var enc = encodeURIComponent;
+        var links = [];
+        var type = '';
+        var parts = entry.split('/');
+        if (entry === 'home' || parts[0] === 'p' || !entry) {
+            // The home page and static pages are edited from VE5.
+        } else if (parts.length === 2 && parts[0] && parts[1]) {
+            type = parts[0];
+            links.push({ name: 'edit', text: t('strip_edit', 'Edit this page'), href: '/admin/edit/' + enc(type) + '/' + enc(parts[1]) });
+        } else if (parts.length === 1) {
+            type = parts[0];
+            links.push({ name: 'add', text: t('strip_add', 'Add new'), href: '/admin/contents/' + enc(type) + '/add' });
+        }
+        links.push({ name: 'admin', text: t('strip_admin', 'Back to admin'), href: type ? '/admin/contents/' + enc(type) : '/admin' });
+        return links;
+    }
+
+    function stripWanted() {
+        var on = false;
+        var hidden = false;
+        try { on = localStorage.getItem(EDITOR_STRIP_KEY) === '1'; } catch (e) { /* storage off */ }
+        try { hidden = sessionStorage.getItem(STRIP_HIDDEN_KEY) === '1'; } catch (e) { /* storage off */ }
+        // Never inside the admin's own preview and edit screens, or any frame.
+        var framed = false;
+        try { framed = window.self !== window.top; } catch (e) { framed = true; }
+        return on && !hidden && !framed && !/^\/admin(\/|$)/.test(location.pathname);
+    }
+
+    var STRIP_CSS = ':host{all:initial;position:fixed;z-index:2147483000;left:50%;bottom:16px;transform:translateX(-50%);}'
+        + '@media print{:host{display:none !important;}}'
+        + '.bar{display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:#1f2937;color:#f9fafb;'
+        + 'box-shadow:0 4px 16px rgba(0,0,0,.3);font:500 13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;}'
+        + 'a,button{font:inherit;color:inherit;text-decoration:none;border:0;background:transparent;cursor:pointer;'
+        + 'padding:6px 12px;border-radius:999px;margin:0;line-height:1.4;}'
+        + 'a:hover,button:hover{background:#374151;}'
+        + 'a:focus-visible,button:focus-visible{outline:2px solid #93c5fd;outline-offset:1px;}'
+        + 'a.edit{background:#f9fafb;color:#1f2937;}a.edit:hover{background:#e5e7eb;}'
+        + 'button.close{padding:6px 10px;}';
+
+    /** Draws, or redraws, the strip's links for the page as it is now. */
+    function fillStrip(root) {
+        var entry = pageEntry();
+        // The same page: the links stay, so a press that drew them again never loses its click.
+        if (root.host && root.host.getAttribute('data-entry') === entry && root.querySelector('a')) return;
+        if (root.host) root.host.setAttribute('data-entry', entry);
+        var bar = root.querySelector('.bar');
+        bar.innerHTML = '';
+        stripLinks(entry).forEach(function (link) {
+            var a = document.createElement('a');
+            a.href = link.href;
+            a.className = link.name;
+            a.setAttribute('data-arc-strip', link.name);
+            a.textContent = link.text;
+            bar.appendChild(a);
+        });
+        var close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'close';
+        close.setAttribute('data-arc-strip', 'close');
+        close.setAttribute('aria-label', t('strip_close', 'Hide for now'));
+        close.title = t('strip_close', 'Hide for now');
+        close.textContent = '×';
+        close.addEventListener('click', function () {
+            try { sessionStorage.setItem(STRIP_HIDDEN_KEY, '1'); } catch (e) { /* storage off */ }
+            var host = document.getElementById(STRIP_ID);
+            if (host) host.remove();
+        });
+        bar.appendChild(close);
+    }
+
+    function drawEditorStrip() {
+        var old = document.getElementById(STRIP_ID);
+        if (!stripWanted()) {
+            if (old) old.remove();
+            return;
+        }
+        if (old || !document.body || typeof document.body.attachShadow !== 'function') return;
+        var host = document.createElement('div');
+        host.id = STRIP_ID;
+        var root = host.attachShadow({ mode: 'open' });
+        var style = document.createElement('style');
+        style.textContent = STRIP_CSS;
+        var bar = document.createElement('nav');
+        bar.className = 'bar';
+        bar.setAttribute('aria-label', t('strip_label', 'Editing'));
+        root.appendChild(style);
+        root.appendChild(bar);
+        document.body.appendChild(host);
+        fillStrip(root);
+        // A page the app draws can change without a reload: the links follow it.
+        host.addEventListener('pointerenter', function () { fillStrip(root); });
+    }
+
     // ─── Start ─────────────────────────────────────────────────────────────
 
     function start() {
         try { localStorage.removeItem(OLD_REFERRAL_KEY); } catch (e) { /* storage off */ }
         applySignedIn();
+        drawEditorStrip();
         checkSetup();
         setupInstall();
         var forms = document.querySelectorAll('form[data-waitlist-form]');
@@ -842,6 +959,7 @@
 
     site._internal = {
         call: call, readDoc: readDoc, plain: plain, signupMetadata: signupMetadata,
+        stripLinks: stripLinks, drawEditorStrip: drawEditorStrip,
         redirect: function (url) { location.replace(url); },
     };
 

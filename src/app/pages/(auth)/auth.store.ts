@@ -7,7 +7,8 @@
 
 import { inject, Injector, runInInjectionContext } from '@angular/core';
 import { Auth, onAuthStateChanged, User } from '@angular/fire/auth';
-import { rememberSignedIn } from '../../core/site/signed-in-hint';
+import { ENTRY_EDITOR_ROLES, rememberEditorStrip, rememberSignedIn } from '../../core/site/signed-in-hint';
+import { isOn } from '../../core/features/features';
 import { Router } from '@angular/router';
 import { patchState, signalStore, withHooks, withMethods, withState } from '@ngrx/signals';
 import { BehaviorSubject, catchError, distinctUntilChanged, filter, finalize, firstValueFrom, from, map, Observable, of, Subscription, switchMap, tap, throwError } from 'rxjs';
@@ -496,6 +497,7 @@ export const AuthState = signalStore(
             const noRecord = (seq: number) => {
                 if (shared.value.seq !== seq) return;
                 patchState(store, { currentUser: null, isAuthenticated: false });
+                rememberEditorStrip(false);
                 settle(seq, null);
             };
 
@@ -566,6 +568,7 @@ export const AuthState = signalStore(
                         return;
                     }
                     if (!data.isActive) {
+                        if (trusted) rememberEditorStrip(false);
                         if (trusted && !signingOut) {
                             signingOut = true;
                             methods.logout().subscribe({ next: () => void router.navigate(['/signup']), error: () => undefined });
@@ -579,6 +582,9 @@ export const AuthState = signalStore(
                     // A later answer may have landed while the claims were checked.
                     if (shared.value.seq !== seq || n < applied) return;
                     applied = n;
+                    // The published pages' admin strip (VE-D12): only for someone the
+                    // edit screen lets in, and gone as soon as that role is.
+                    rememberEditorStrip(isOn('content') && ENTRY_EDITOR_ROLES.includes(data.role ?? ''));
                     const fields = {
                         currentUser,
                         isAuthenticated: data.role !== constant.USER,
@@ -612,6 +618,7 @@ export const AuthState = signalStore(
             const onAuthChange = (user: User | null) => {
                 // For the published pages' signed-in hint (arc-site.js).
                 rememberSignedIn(!!user);
+                if (!user) rememberEditorStrip(false);
                 recordRead?.unsubscribe();
                 recordRead = undefined;
                 clearTimeout(verdictTimer);

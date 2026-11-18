@@ -565,6 +565,100 @@ describe('signed-in hint', () => {
     });
 });
 
+describe('admin strip (VE-D12, VE-D13)', () => {
+    const entry = (value: string) => `<meta name="arc-entry" content="${value}">`;
+    const strip = () => document.getElementById('arc-editor-strip');
+    const links = () => Array.from(strip()?.shadowRoot?.querySelectorAll<HTMLAnchorElement>('a') ?? [])
+        .map((a) => [a.getAttribute('data-arc-strip'), a.getAttribute('href'), a.textContent]);
+
+    beforeEach(() => {
+        sessionStorage.clear();
+        localStorage.setItem('arc_editor_strip', '1');
+    });
+
+    it('draws nothing for a visitor', () => {
+        localStorage.removeItem('arc_editor_strip');
+        page('<p>Page</p>', '', entry('articles/doc1'));
+        expect(strip()).toBeNull();
+    });
+
+    it('offers Edit this page and Back to admin on a content page, in a shadow root', () => {
+        page('<p>Page</p>', '', entry('articles/doc1'));
+        expect(strip()!.shadowRoot).not.toBeNull();
+        expect(links()).toEqual([
+            ['edit', '/admin/edit/articles/doc1', 'Edit this page'],
+            ['admin', '/admin/contents/articles', 'Back to admin'],
+        ]);
+        // The site's CSS cannot reach it: nothing of it is in the page's own tree.
+        expect(document.querySelector('[data-arc-strip]')).toBeNull();
+    });
+
+    it('offers Add new on a list page', () => {
+        page('<p>List</p>', '', entry('articles'));
+        expect(links()).toEqual([
+            ['add', '/admin/contents/articles/add', 'Add new'],
+            ['admin', '/admin/contents/articles', 'Back to admin'],
+        ]);
+    });
+
+    it('offers only Back to admin on the home page, a static page and a page with no entry', () => {
+        for (const head of [entry('home'), entry('p/privacy-policy'), '']) {
+            page('<p>Page</p>', '', head);
+            expect(links()).toEqual([['admin', '/admin', 'Back to admin']]);
+            strip()?.remove();
+        }
+    });
+
+    it('escapes what the page names into the addresses', () => {
+        page('<p>Page</p>', '', entry('a b/x?y'));
+        expect(links()[0]).toEqual(['edit', '/admin/edit/a%20b/x%3Fy', 'Edit this page']);
+    });
+
+    it('hides for the tab with its close button, and stays hidden on the next page', () => {
+        page('<p>Page</p>', '', entry('articles/doc1'));
+        (strip()!.shadowRoot!.querySelector('[data-arc-strip="close"]') as HTMLButtonElement).click();
+        expect(strip()).toBeNull();
+        page('<p>Next</p>', '', entry('articles/doc2'));
+        expect(strip()).toBeNull();
+    });
+
+    it('keeps its links when pointed at on the same page, and follows a page the app moved to', () => {
+        page('<p>Page</p>', '', entry('articles/doc1'));
+        const host = strip()!;
+        const first = host.shadowRoot!.querySelector('a.edit');
+        host.dispatchEvent(new Event('pointerenter'));
+        // The same link element: a press and its release land on one element, so the click counts.
+        expect(host.shadowRoot!.querySelector('a.edit')).toBe(first);
+        document.head.innerHTML = entry('articles/doc2');
+        host.dispatchEvent(new Event('pointerenter'));
+        expect(links()[0]).toEqual(['edit', '/admin/edit/articles/doc2', 'Edit this page']);
+    });
+
+    it('is hidden when printing', () => {
+        page('<p>Page</p>', '', entry('articles/doc1'));
+        expect(strip()!.shadowRoot!.querySelector('style')!.textContent).toMatch(/@media print\{:host\{display:none !important;\}\}/);
+    });
+
+    it('is never drawn on the admin\'s own screens', () => {
+        page('<p>Preview</p>', '', entry('articles/doc1'));
+        strip()?.remove();
+        history.replaceState({}, '', '/admin/preview/articles/doc1');
+        document.body.innerHTML = '<p>Preview</p>';
+        new Function(SOURCE)();
+        expect(strip()).toBeNull();
+    });
+
+    it('keeps the key the admin app writes', async () => {
+        const { EDITOR_STRIP_KEY, rememberEditorStrip } = await import('../../src/app/core/site/signed-in-hint');
+        expect(EDITOR_STRIP_KEY).toBe('arc_editor_strip');
+        expect(SOURCE).toContain("var EDITOR_STRIP_KEY = 'arc_editor_strip';");
+        rememberEditorStrip(false);
+        expect(localStorage.getItem('arc_editor_strip')).toBeNull();
+        rememberEditorStrip(true);
+        expect(localStorage.getItem('arc_editor_strip')).toBe('1');
+    });
+});
+
 describe('setup', () => {
     type Site = { arcSite: { _internal: { redirect: (url: string) => void } } };
     function openSetup(state: string, search = ''): ReturnType<typeof vi.fn> {

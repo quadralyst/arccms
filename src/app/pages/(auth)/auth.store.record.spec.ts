@@ -245,6 +245,31 @@ describe('AuthState shared record (recordReady)', () => {
         expect(signIn.ensureRecordClaim).toHaveBeenLastCalledWith('doc-1', 'editor');
     });
 
+    it('marks the browser for the published pages\' admin strip while an admin is signed in, and clears it when the role goes or they sign out (VE-D12)', async () => {
+        localStorage.removeItem('arc_editor_strip');
+        const auth = store();
+        listener.fire(user);
+        read.next({ data: { ...record, role: 'admin' }, fromCache: false });
+        await auth.recordReady();
+        await vi.waitFor(() => expect(localStorage.getItem('arc_editor_strip')).toBe('1'));
+        // The role is taken away: the next copy of the record clears it.
+        read.next({ data: { ...record, role: 'user' }, fromCache: false });
+        await vi.waitFor(() => expect(localStorage.getItem('arc_editor_strip')).toBeNull());
+        read.next({ data: { ...record, role: 'admin' }, fromCache: false });
+        await vi.waitFor(() => expect(localStorage.getItem('arc_editor_strip')).toBe('1'));
+        listener.fire(null);
+        expect(localStorage.getItem('arc_editor_strip')).toBeNull();
+    });
+
+    it('never marks the browser for someone the edit screen does not let in', async () => {
+        localStorage.setItem('arc_editor_strip', '1');
+        const auth = store();
+        listener.fire(user);
+        read.next({ data: record, fromCache: false });
+        await auth.recordReady();
+        await vi.waitFor(() => expect(localStorage.getItem('arc_editor_strip')).toBeNull());
+    });
+
     it('signs out when the record cannot be read, as a failed read always did', async () => {
         const auth = store();
         listener.fire(user);

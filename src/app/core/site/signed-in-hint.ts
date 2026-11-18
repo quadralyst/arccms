@@ -27,3 +27,24 @@ export function readSignedIn(): boolean {
         return false;
     }
 }
+
+/**
+ * The admin strip on published pages (specs/visual-editing-spec.md, VE-D12):
+ * `arc_editor_strip` is `'1'` while someone the entry editor lets in is signed
+ * in on this browser, and absent otherwise. arc-site.js reads it to draw links
+ * to the edit screen. Like the signed-in hint it grants nothing: the edit
+ * screen checks the person's role as every admin page does.
+ */
+export const EDITOR_STRIP_KEY = 'arc_editor_strip';
+
+/** The roles the entry editor and the edit-on-page screen let in (app.routes.ts). */
+export const ENTRY_EDITOR_ROLES: readonly string[] = ['admin'];
+
+export function rememberEditorStrip(on: boolean): void {
+    try {
+        if (on) localStorage.setItem(EDITOR_STRIP_KEY, '1');
+        else localStorage.removeItem(EDITOR_STRIP_KEY);
+    } catch {
+        // Storage off: no strip on the published pages.
+    }
+}
