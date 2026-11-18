@@ -29,7 +29,7 @@ import { CreateContentComponent, PageModeHooks } from '../contents/create-conten
 import { previewSessionKey } from '../../../core/preview/preview-channel';
 import { HasUnsavedChanges } from '../../../guards/unsaved-changes.guard';
 import { PagePanel } from './page-panel';
-import { InPlaceEditing, InPlaceHost, RichAt, RichHandle, Spot, spotInfo } from './in-place';
+import { HintKind, InPlaceEditing, InPlaceHost, RichAt, RichHandle, Spot, spotInfo } from './in-place';
 import { editorExtensions } from '../../../../shared/components/tiptap-editor/editor-extensions';
 import { ArcEmptyLines } from './empty-lines';
 import { insertImageAndMoveOn } from '../../../../shared/components/tiptap-editor/service/insert-image';
@@ -46,6 +46,22 @@ const STATUS_EVERY_MS = 300;
 const DRAW_WAIT_MS = 20_000;
 
 export type EditStatus = 'saved' | 'saving' | 'unsaved' | 'not_saved';
+
+/** The hover text for each kind of value not edited in place (VE-D17). */
+const HINT_KEYS: Record<HintKind, string> = {
+    author: 'admin.edit_page.hint_author',
+    date: 'admin.edit_page.hint_date',
+    reading: 'admin.edit_page.hint_reading',
+    locked: 'admin.edit_page.hint_locked',
+    header: 'admin.edit_page.hint_header',
+    footer: 'admin.edit_page.hint_footer',
+    site: 'admin.edit_page.hint_site',
+};
+
+/** A label inside a sentence ("Add cover image"): its first letter small, unless it starts an acronym (URL, FAQ). */
+export function inSentence(label: string): string {
+    return /^\p{Lu}\p{Ll}/u.test(label) ? label[0].toLowerCase() + label.slice(1) : label;
+}
 
 /** The frame's address: the preview route in edit mode, on the session's channel. */
 export function editFrameUrl(type: string, id: string): string {
@@ -436,6 +452,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         image: (spot) => this.openImage(spot),
         popover: (spot) => this.openPopover(spot),
         panel: (spot) => this.openInPanel(spot),
+        placeholder: (field, label) => this.transloco.translate('admin.edit_page.add', { label: inSentence(label ?? this.fieldTitle(field)) }),
+        hint: (kind) => this.transloco.translate(HINT_KEYS[kind]),
         activeChanged: (_spot, rich) => {
             this.closePopover();
             this.richOn.set(!!rich);
@@ -673,7 +691,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         const maxLeft = (win?.innerWidth ?? 1024) - width - 8;
         const maxTop = (win?.innerHeight ?? 768) - 160;
         this.pop.set({
-            title: this.fieldTitle(spot.field),
+            title: spot.label ?? this.fieldTitle(spot.field),
             top: Math.max(48, Math.min(top, maxTop)),
             left: Math.max(8, Math.min(left, maxLeft)),
             image,

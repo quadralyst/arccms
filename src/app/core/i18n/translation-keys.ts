@@ -1197,6 +1197,7 @@ export type TranslationKey =
     | 'admin.drips.subtitle'
     | 'admin.drips.template'
     | 'admin.drips.title'
+    | 'admin.edit_page.add'
     | 'admin.edit_page.bold'
     | 'admin.edit_page.bullets'
     | 'admin.edit_page.done'
@@ -1205,6 +1206,13 @@ export type TranslationKey =
     | 'admin.edit_page.formatting'
     | 'admin.edit_page.frame'
     | 'admin.edit_page.heading'
+    | 'admin.edit_page.hint_author'
+    | 'admin.edit_page.hint_date'
+    | 'admin.edit_page.hint_footer'
+    | 'admin.edit_page.hint_header'
+    | 'admin.edit_page.hint_locked'
+    | 'admin.edit_page.hint_reading'
+    | 'admin.edit_page.hint_site'
     | 'admin.edit_page.image'
     | 'admin.edit_page.italic'
     | 'admin.edit_page.link'
@@ -5502,6 +5510,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.drips.subtitle',
     'admin.drips.template',
     'admin.drips.title',
+    'admin.edit_page.add',
     'admin.edit_page.bold',
     'admin.edit_page.bullets',
     'admin.edit_page.done',
@@ -5510,6 +5519,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.formatting',
     'admin.edit_page.frame',
     'admin.edit_page.heading',
+    'admin.edit_page.hint_author',
+    'admin.edit_page.hint_date',
+    'admin.edit_page.hint_footer',
+    'admin.edit_page.hint_header',
+    'admin.edit_page.hint_locked',
+    'admin.edit_page.hint_reading',
+    'admin.edit_page.hint_site',
     'admin.edit_page.image',
     'admin.edit_page.italic',
     'admin.edit_page.link',

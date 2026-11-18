@@ -41,7 +41,26 @@ export interface SpotInfo {
 
 export interface Spot extends SpotInfo {
     el: HTMLElement;
+    /** The template's name for it (data-arc-label, VE-D19), else null: the field's own label. */
+    label: string | null;
 }
+
+/** What a hint on a value the editor cannot change in place says (VE-D17). */
+export type HintKind = 'author' | 'date' | 'reading' | 'locked' | 'header' | 'footer' | 'site';
+
+/** The hint for a marked value that is not a spot: where it comes from, or where to change it. */
+export function hintKind(key: string): HintKind {
+    const k = key.toLowerCase();
+    if (k.includes('author')) return 'author';
+    if (k.includes('reading')) return 'reading';
+    if (/(^|[._-])(published|updated|created)|date/.test(k)) return 'date';
+    return 'site';
+}
+
+/** Media that shows something: an image with no address does not (an empty image field). */
+const SHOWN_MEDIA = 'img[src]:not([src=""]), video, iframe, svg, picture';
+/** Elements that cannot hold a placeholder's text. */
+const VOID_TAGS = new Set(['img', 'video', 'audio', 'iframe', 'input', 'source', 'picture', 'svg', 'br', 'hr', 'meta', 'link']);
 
 /** Custom field types edited in a popover on the element. */
 const POPOVER_TYPES = new Set(['number', 'date', 'datetime', 'dropdown', 'radio', 'checkbox', 'boolean', 'color', 'icon', 'file']);
@@ -106,6 +125,10 @@ export interface InPlaceHost {
     panel(spot: Spot): void;
     /** The spot being edited changed (null: none), for the strip's formatting buttons. */
     activeChanged(spot: Spot | null, rich: RichHandle | null): void;
+    /** An empty field's placeholder, "Add {label}" (VE-D18), in the admin's language. */
+    placeholder(field: string, label: string | null): string;
+    /** The hover text on a value that is not edited in place (VE-D17). */
+    hint(kind: HintKind): string;
 }
 
 /**
@@ -134,6 +157,14 @@ export const IN_PLACE_CSS = `
 [data-arc-editing], [data-arc-editing]:hover { outline: 2px solid var(--arc-edit-accent); outline-offset: 2px; }
 [data-arc-edit-kind]:focus-visible { outline: 3px solid var(--arc-edit-accent); outline-offset: 2px; }
 [data-arc-pv-highlight] { outline: 3px solid var(--arc-edit-accent) !important; outline-offset: 2px; }
+/* An empty field kept for the editor (VE-D18): faint, outlined, saying what it is for. */
+[data-arc-empty] { opacity: .65; outline: 1px dashed var(--arc-edit-accent); outline-offset: 2px; }
+[data-arc-empty] img:not([src]), [data-arc-empty] img[src=""] { display: none; }
+[data-arc-empty][data-arc-ph] { padding: 8px 12px; }
+[data-arc-ph]::before { content: attr(data-arc-ph); font-style: italic; opacity: .6; }
+[data-arc-editing]:empty { display: inline-block; min-width: 1ch; }
+/* A value worked out by the site (VE-D17): its title says where it comes from. */
+[data-arc-field][data-arc-hint] { cursor: help; }
 /* The page's own wrapping: TipTap's break-spaces lets a space at a line's end push a word down. */
 .ProseMirror.arc-in-place-rich { white-space: pre-wrap; word-wrap: break-word; outline: none; }
 /* An empty line the cursor is not in, drawn as the page draws it: not at all (empty-lines.ts). */
@@ -228,16 +259,53 @@ export class InPlaceEditing {
             }, 250);
             return;
         }
+        this.markEmpty(type);
         for (const el of Array.from(this.doc.querySelectorAll<HTMLElement>('[data-arc-field]'))) {
             if (this.active?.el === el || el.closest('[data-arc-editing]') && el !== this.active?.el) continue;
-            const info = spotInfo(el, type);
+            const locked = !!el.closest('[data-arc-locked]');
+            const info = locked ? null : spotInfo(el, type);
             if (!info) {
                 el.removeAttribute('data-arc-edit-kind');
+                el.removeAttribute('data-arc-ph');
+                this.setHint(el, locked ? 'locked' : hintKind(el.getAttribute('data-arc-field') || ''));
                 continue;
             }
             if (el.getAttribute('data-arc-edit-kind') !== info.kind) el.setAttribute('data-arc-edit-kind', info.kind);
             if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+            // An empty value shows what it is for, so there is something to click (VE-D18).
+            const empty = !info.attr && !VOID_TAGS.has(el.tagName.toLowerCase()) && !el.textContent?.trim() && !el.querySelector(SHOWN_MEDIA);
+            const placeholder = empty ? placeholderText(el) ?? this.host.placeholder(info.field, labelOf(el)) : null;
+            if (placeholder === null) el.removeAttribute('data-arc-ph');
+            else if (el.getAttribute('data-arc-ph') !== placeholder) el.setAttribute('data-arc-ph', placeholder);
         }
+        for (const [selector, kind] of [['arc-header', 'header'], ['arc-footer', 'footer']] as const) {
+            const part = this.doc.querySelector<HTMLElement>(selector);
+            if (part) this.setHint(part, kind);
+        }
+    }
+
+    /**
+     * An element kept by the renderer only because its field is empty
+     * (data-arc-empty, VE-D18) with nothing in it to click: it becomes the
+     * field's spot itself, so the placeholder opens the field.
+     */
+    private markEmpty(type: ContentType): void {
+        for (const box of Array.from(this.doc.querySelectorAll<HTMLElement>('[data-arc-empty]'))) {
+            const key = box.getAttribute('data-arc-empty') || '';
+            const field = resolvePreviewField(key, type)?.field;
+            if (!field || box.hasAttribute('data-arc-field')) continue;
+            const inside = Array.from(box.querySelectorAll<HTMLElement>('[data-arc-field]'))
+                .some((el) => !VOID_TAGS.has(el.tagName.toLowerCase()) && !el.getAttribute('data-arc-field-attr') && spotInfo(el, type)?.field === field);
+            if (!inside) box.setAttribute('data-arc-field', key);
+        }
+    }
+
+    /** The hover text on a value that is not edited in place, unless the template gave it a title of its own. */
+    private setHint(el: HTMLElement, kind: HintKind): void {
+        if (el.hasAttribute('title') && !el.hasAttribute('data-arc-hint')) return;
+        const text = this.host.hint(kind);
+        if (el.getAttribute('title') !== text) el.setAttribute('title', text);
+        el.setAttribute('data-arc-hint', kind);
     }
 
     /** The spots in page order, visible ones only. */
@@ -247,8 +315,9 @@ export class InPlaceEditing {
     }
 
     private spotAt(el: HTMLElement): Spot | null {
+        if (el.closest('[data-arc-locked]')) return null;
         const info = spotInfo(el, this.host.type());
-        return info ? { ...info, el } : null;
+        return info ? { ...info, el, label: labelOf(el) } : null;
     }
 
     // ── Events ───────────────────────────────────────────────────────────────
@@ -356,6 +425,7 @@ export class InPlaceEditing {
         this.active = spot;
         this.host.hold(true);
         el.setAttribute('data-arc-editing', '');
+        el.removeAttribute('data-arc-ph');
         el.setAttribute('contenteditable', 'plaintext-only');
         // A browser without plain-text editing gets ordinary editing; what is kept is the text.
         if ((el as HTMLElement).contentEditable !== 'plaintext-only') el.setAttribute('contenteditable', 'true');
@@ -370,6 +440,7 @@ export class InPlaceEditing {
         this.active = spot;
         this.host.hold(true);
         el.setAttribute('data-arc-editing', '');
+        el.removeAttribute('data-arc-ph');
         const html = String(this.host.value(spot.field) ?? '');
         const point: RichAt | undefined = at ? { ...at, text: textAt(this.doc, el, at) ?? undefined } : undefined;
         const shown = { before: el.innerHTML, typed: null as string | null };
@@ -407,6 +478,8 @@ export class InPlaceEditing {
         active.el.removeAttribute('spellcheck');
         this.host.activeChanged(null, null);
         this.host.hold(false);
+        // Left empty: its placeholder comes back, whether or not the page is drawn again.
+        this.scheduleMark();
     }
 }
 
@@ -474,4 +547,16 @@ function placeCaret(doc: Document, el: HTMLElement, at?: { x: number; y: number 
     }
     selection.removeAllRanges();
     selection.addRange(range);
+}
+
+/** The template's name for a spot (data-arc-label on it, or on the element kept for it, VE-D19). */
+export function labelOf(el: Element): string | null {
+    const own = el.getAttribute('data-arc-label') ?? el.closest('[data-arc-empty]')?.getAttribute('data-arc-label');
+    return own?.trim() || null;
+}
+
+/** The template's own placeholder for an empty spot (data-arc-placeholder, VE-D19). */
+function placeholderText(el: Element): string | null {
+    const own = el.getAttribute('data-arc-placeholder') ?? el.closest('[data-arc-empty]')?.getAttribute('data-arc-placeholder');
+    return own?.trim() || null;
 }

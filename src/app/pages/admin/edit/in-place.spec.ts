@@ -5,7 +5,7 @@
  * and no redraw under the cursor.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { InPlaceEditing, InPlaceHost, plainText, spotInfo, textAt } from './in-place';
+import { hintKind, InPlaceEditing, InPlaceHost, plainText, spotInfo, textAt } from './in-place';
 import { ContentType } from '../contents/content-types/content-types.model';
 
 const TYPE = {
@@ -122,6 +122,8 @@ describe('InPlaceEditing', () => {
             popover: vi.fn(),
             panel: vi.fn(),
             activeChanged: vi.fn(),
+            placeholder: vi.fn((field: string, label: string | null) => `Add ${label ?? field}`),
+            hint: vi.fn((kind: string) => `hint:${kind}`),
         } as never;
         editing = new InPlaceEditing(doc, host);
         editing.attach();
@@ -244,6 +246,60 @@ describe('InPlaceEditing', () => {
         expect(textAt(doc, box, { x: 1, y: 1 })).toBeNull();
         at(q('[data-arc-field="title"]').firstChild!, 1); // outside the spot
         expect(textAt(doc, box, { x: 1, y: 1 })).toBeNull();
+    });
+
+    describe('empty fields, read-only values and template hints (VE-D17 to VE-D19)', () => {
+        const add = (html: string) => {
+            doc.body.insertAdjacentHTML('beforeend', html);
+            editing.mark();
+        };
+
+        it('shows an empty value as a placeholder naming its field, or the template\'s label or text', () => {
+            add('<span id="v" data-arc-field="venue"></span>'
+                + '<div data-arc-empty="link" data-arc-label="Tickets"><a><span id="l" data-arc-field="link"></span></a></div>'
+                + '<span id="p" data-arc-field="notes" data-arc-placeholder="e.g. Doors at 7"></span>');
+            expect(q('#v').getAttribute('data-arc-ph')).toBe('Add events-venue');
+            expect(q('#l').getAttribute('data-arc-ph')).toBe('Add Tickets');
+            expect(q('#p').getAttribute('data-arc-ph')).toBe('e.g. Doors at 7');
+            // Filled in: the placeholder goes.
+            q('#v').textContent = 'Hall';
+            editing.mark();
+            expect(q('#v').hasAttribute('data-arc-ph')).toBe(false);
+        });
+
+        it('makes an empty element kept for a field with nothing to click in it that field\'s spot', () => {
+            add('<div id="box" data-arc-empty="poster"><img data-arc-field="poster" data-arc-field-attr="src" src=""></div>');
+            const box = q('#box');
+            expect(box.getAttribute('data-arc-field')).toBe('poster');
+            expect(box.getAttribute('data-arc-edit-kind')).toBe('image');
+            expect(box.getAttribute('data-arc-ph')).toBe('Add events-poster');
+            click(box);
+            expect(host.image).toHaveBeenCalledWith(expect.objectContaining({ field: 'events-poster', el: box }));
+        });
+
+        it('says where a value the site works out comes from, and leaves a title of the template\'s own', () => {
+            add('<span id="d" data-arc-field="publishedOn">Today</span><span id="t" title="Mine" data-arc-field="related_count">3</span>');
+            expect(q('#d').getAttribute('title')).toBe('hint:date');
+            expect(q('#t').getAttribute('title')).toBe('Mine');
+            expect(hintKind('author.name')).toBe('author');
+            expect(hintKind('readingTime')).toBe('reading');
+            expect(hintKind('share.twitter')).toBe('site');
+        });
+
+        it('never edits a locked value, and names the header and footer', () => {
+            add('<h2 data-arc-locked><span id="lk" data-arc-field="venue">Hall</span></h2><arc-header id="hd"></arc-header>');
+            expect(q('#lk').hasAttribute('data-arc-edit-kind')).toBe(false);
+            expect(q('#lk').getAttribute('title')).toBe('hint:locked');
+            click(q('#lk'));
+            expect(editing.current()).toBeNull();
+            expect(q('#hd').getAttribute('title')).toBe('hint:header');
+        });
+
+        it('gives the popover the template\'s label', () => {
+            add('<span id="pr" data-arc-field="price" data-arc-label="Ticket price">20</span>');
+            click(q('#pr'));
+            expect(host.popover).toHaveBeenCalledWith(expect.objectContaining({ field: 'events-price', label: 'Ticket price' }));
+        });
     });
 
     it('hands images, boxes and the panel to the screen', () => {

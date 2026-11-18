@@ -37,6 +37,12 @@ export abstract class DetailSource {
     readonly live?: Signal<LiveDetail | null>;
     /** Mark every element a value filled, for click to field (VE-D7). */
     readonly markFields?: boolean;
+    /**
+     * The Visual Editor's frame (VE-D17, VE-D18): an element hidden because a field
+     * the editor fills is empty is kept as a placeholder, and the template's
+     * scripts do not run.
+     */
+    readonly editing?: boolean;
 }
 
 /** The default: the route's parameters, as the detail page has always read them. */

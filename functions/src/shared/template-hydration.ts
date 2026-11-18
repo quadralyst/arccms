@@ -21,6 +21,9 @@ import { addressHtml, hasSiteInfo, mailHref, siteInfoValue, type SiteInfoSource,
 
 type TemplateContext = Record<string, any>;
 
+/** Template hints the Visual Editor reads (data-arc-label, data-arc-placeholder, data-arc-locked): removed on publish. */
+export const TEMPLATE_HINT_ATTRS = ['data-arc-label', 'data-arc-placeholder', 'data-arc-locked'] as const;
+
 export class TemplateHydrationService {
   /**
    * The longest side of the largest image size (Settings, Misc), which the
@@ -492,6 +495,8 @@ export class TemplateHydrationService {
             $(element).removeAttr('data-arc-if');
         }
       }
+      // Template hints for the Visual Editor (specs/visual-editing-spec.md, VE-D19) never reach a published page.
+      for (const name of TEMPLATE_HINT_ATTRS) if (attribs[name] !== undefined) $(element).removeAttr(name);
 
       for (const attrName in attribs) {
         const attrValue = attribs[attrName];

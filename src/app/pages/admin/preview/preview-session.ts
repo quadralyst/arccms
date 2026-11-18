@@ -34,6 +34,8 @@ export class PreviewSession extends DetailSource implements CardDraft {
 
     override readonly live = signal<LiveDetail | null>(null);
     override readonly markFields = true;
+    /** The Visual Editor loads this page with ?edit=1. */
+    override readonly editing = this.snapshot.queryParamMap?.get('edit') === '1';
 
     route(): DetailRoute {
         return { typeSlug: this.type, urlSlug: '', preview: false, lang: this.live()?.lang || '' };

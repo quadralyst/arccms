@@ -4156,7 +4156,15 @@
       "link": "Link",
       "image": "Insert image",
       "undo": "Undo",
-      "redo": "Redo"
+      "redo": "Redo",
+      "add": "Add {{label}}",
+      "hint_author": "Change the author in Page settings",
+      "hint_date": "Set when the entry is published",
+      "hint_reading": "Worked out from the body",
+      "hint_locked": "Fixed by the template",
+      "hint_header": "The site's header, the same on every page: not part of this entry",
+      "hint_footer": "The site's footer, the same on every page: not part of this entry",
+      "hint_site": "Worked out by the site"
     }
   },
   "user": {

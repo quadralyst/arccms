@@ -1,4 +1,5 @@
 import { arcEntry, setArcEntry } from '../../core/site/arc-entry';
+import { resolvePreviewField } from '../../core/preview/preview-channel';
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { SitePagesService } from '../../core/site/site-pages.service';
@@ -948,13 +949,15 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             siteInfo: siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()),
             itemsFromTypeRows: (loops) => this.itemsFromTypeRows(loops, contentType.slug, content.id),
             markFields: !!this.source.markFields,
+            // Only a field the editor fills: values the site works out stay hidden, as on the page.
+            keepEmpty: this.source.editing ? (key) => !!resolvePreviewField(key, contentType) : undefined,
         });
 
         this.templateHtml.set(hydratedHtml);
         
         // Execute scripts after view update (browser only). Skipped on a
         // re-hydration: the scripts already ran against this page.
-        if (runScripts && isPlatformBrowser(this.platformId)) {
+        if (runScripts && !this.source.editing && isPlatformBrowser(this.platformId)) {
             setTimeout(() => this.runTemplateScripts(), 0);
         }
         // Forms on the page work as when published (SS5), after every draw; on

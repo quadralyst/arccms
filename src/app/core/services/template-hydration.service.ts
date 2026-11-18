@@ -24,7 +24,17 @@ export interface HydrationOptions {
    * without the option; published pages never carry markers.
    */
   markFields?: boolean;
+  /**
+   * On the Visual Editor only (specs/visual-editing-spec.md, VE-D18): an element
+   * `data-arc-if` would remove because its key is empty is kept, marked
+   * `data-arc-empty="key"`, when this says the key is a field the editor fills,
+   * so it can show as a placeholder and be filled in. Off everywhere else.
+   */
+  keepEmpty?: (key: string) => boolean;
 }
+
+/** Template hints for the Visual Editor (VE-D19), never on a page anyone else sees. */
+export const TEMPLATE_HINT_ATTRS = ['data-arc-label', 'data-arc-placeholder', 'data-arc-locked'] as const;
 
 /** Elements whose text is not markup: a marker span cannot go inside them. */
 const UNMARKABLE_TEXT = new Set(['title', 'textarea', 'option', 'script', 'style', 'noscript']);
@@ -517,13 +527,15 @@ export class TemplateHydrationService {
         const key = attribs['data-arc-if'];
         const value = this.getNestedValue(data, key);
 
-        if (!value) {
+        if (!value && !options.keepEmpty?.(key)) {
             $(element).remove();
             return; // Skip further processing for this element
-        } else {
-            $(element).removeAttr('data-arc-if');
         }
+        $(element).removeAttr('data-arc-if');
+        if (!value) $(element).attr('data-arc-empty', key);
       }
+      // The Visual Editor reads the template hints; every other page drops them, as publishing does.
+      if (!mark) for (const name of TEMPLATE_HINT_ATTRS) if (attribs[name] !== undefined) $(element).removeAttr(name);
 
       // An element bound by data-arc-bind or [innerHTML] is marked with that key, not an attribute's.
       const boundWhole = mark && ['data-arc-bind', '[innerHTML]', '[innerhtml]'].some((name) => attribs[name] !== undefined);

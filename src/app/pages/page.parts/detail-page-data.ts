@@ -134,6 +134,8 @@ export interface DetailRenderContext {
     itemsFromTypeRows: (loops: ItemsFromTypeLoop[]) => Record<string, Record<string, any>[]>;
     /** Marks each element a value filled, for the live preview (VE-D7). Off on the site. */
     markFields?: boolean;
+    /** The Visual Editor's empty fields, kept as placeholders (HydrationOptions.keepEmpty). */
+    keepEmpty?: (key: string) => boolean;
 }
 
 /**
@@ -152,5 +154,5 @@ export function renderDetailPage(templateHtml: string, page: DetailPageData, con
         ...page.loops,
         ...context.itemsFromTypeRows(fromTypes.loops),
     }, options);
-    return TemplateHydrationService.hydrateTemplate(html, page.templateData, options);
+    return TemplateHydrationService.hydrateTemplate(html, page.templateData, { ...options, keepEmpty: context.keepEmpty });
 }

@@ -148,3 +148,27 @@ describe('markFields on (VE-D7)', () => {
         expect(out).toContain('&lt;/span&gt;&lt;script&gt;');
     });
 });
+
+describe('the Visual Editor\'s empty fields and template hints (VE-D18, VE-D19)', () => {
+    const template = '<div data-arc-if="price" data-arc-label="Ticket price"><b>Price</b> <span>{{ price }}</span></div>'
+        + '<p data-arc-if="related">Related</p><h1 data-arc-locked>{{ title }}</h1>';
+    const data = { title: 'Concert', price: '' };
+
+    it('keeps an empty field the editor fills, marked, and drops what the site works out', () => {
+        const html = App.hydrateTemplate(template, data, { markFields: true, keepEmpty: (key) => key === 'price' });
+        expect(html).toContain('<div data-arc-label="Ticket price" data-arc-empty="price">');
+        expect(html).toContain('<span data-arc-field="price"></span>');
+        expect(html).not.toContain('Related');
+        // The hints stay for the editor's screen.
+        expect(html).toContain('data-arc-locked');
+    });
+
+    it('removes the empty element and every hint anywhere else, as publishing does', () => {
+        const app = App.hydrateTemplate(template, data);
+        const published = Publish.hydrateTemplate(template, data);
+        expect(app).toBe(published);
+        expect(app).toContain('<h1>Concert</h1>');
+        expect(app).not.toContain('Price');
+        expect(App.hydrateTemplate(template, { ...data, price: '25' })).not.toMatch(/data-arc-(label|placeholder|locked|empty)/);
+    });
+});

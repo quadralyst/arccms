@@ -78,7 +78,10 @@
         <tr><td><code>{{ title }}</code></td><td>Insert a value into text or an attribute, such as <code>href="{{ url }}"</code>. A missing value prints nothing.</td></tr>
         <tr><td><code>data-arc-bind="title"</code></td><td>Replace the element's content with a value; on an <code>&lt;img&gt;</code> it sets the source, on an <code>&lt;a&gt;</code> the link</td></tr>
         <tr><td><code>data-arc-loop="items"</code></td><td>Repeat the first child once per item (on a list page or in cards), per tag (<code>tags</code>) or per row of a repeating field; <code>data-limit="6"</code> caps it, and <code>data-arc-items-src="events"</code> on a detail page repeats another type's entries (see <a href="#entries-of-another-type">Entries of another type on a detail page</a>)</td></tr>
-        <tr><td><code>data-arc-if="coverImage"</code></td><td>Remove the element when the value is empty</td></tr>
+        <tr><td><code>data-arc-if="coverImage"</code></td><td>Remove the element when the value is empty. On the <a href="../features/content.html#visual-editor">Visual Editor</a> an element hidden this way for a field the editor fills stays, as a placeholder that opens the field.</td></tr>
+        <tr><td><code>data-arc-label="Ticket price"</code></td><td>Optional, for the Visual Editor: the name its placeholder ("Add ticket price") and its box use, else the field's own label. On the element, or on the <code>data-arc-if</code> element around it.</td></tr>
+        <tr><td><code>data-arc-placeholder="e.g. 25"</code></td><td>Optional, for the Visual Editor: the words an empty value shows instead of "Add ...".</td></tr>
+        <tr><td><code>data-arc-locked</code></td><td>Optional, for the Visual Editor: the values inside are shown but never edited in place (they stay editable in the form).</td></tr>
         <tr><td><code>data-arc-t="read_more"</code></td><td>Translate fixed text into the page's language (see <a href="languages.html">Publish in more than one language</a>)</td></tr>
       </tbody>
     </table>

@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import EntryEditPage, { editFrameUrl, textPos } from './entry-edit.page';
+import EntryEditPage, { editFrameUrl, inSentence, textPos } from './entry-edit.page';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { previewSessionKey } from '../../../core/preview/preview-channel';
@@ -261,5 +261,14 @@ describe('textPos', () => {
         } finally {
             editor.destroy();
         }
+    });
+});
+
+describe('inSentence', () => {
+    it('puts a label inside "Add ..." with a small first letter, and leaves an acronym alone', () => {
+        expect(inSentence('Cover image')).toBe('cover image');
+        expect(inSentence('FAQ')).toBe('FAQ');
+        expect(inSentence('URL slug')).toBe('URL slug');
+        expect(inSentence('टिकट मूल्य')).toBe('टिकट मूल्य');
     });
 });

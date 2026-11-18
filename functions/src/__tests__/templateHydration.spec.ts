@@ -936,3 +936,14 @@ describe('Repeat from a number (data-arc-repeat, docs/features/templates.html)',
         expect(out).toContain('Sam: <span>' + '<i class="full"></i>'.repeat(3) + '<i class="half"></i></span>');
     });
 });
+
+describe('Template hints for the Visual Editor (specs/visual-editing-spec.md, VE-D19)', () => {
+    it('never reach a published page', () => {
+        const html = TemplateHydrationService.hydrateTemplate(
+            '<p data-arc-label="Ticket price" data-arc-placeholder="e.g. 25">{{ price }}</p><h1 data-arc-locked="">{{ title }}</h1>',
+            { price: '25', title: 'Concert' },
+        );
+        expect(html).toContain('<p>25</p><h1>Concert</h1>');
+        expect(html).not.toMatch(/data-arc-(label|placeholder|locked)/);
+    });
+});
