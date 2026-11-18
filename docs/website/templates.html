@@ -124,6 +124,7 @@
     <p>On the preview, each element a value filled is marked so a click on it finds the field: <code>data-arc-field="key"</code> on an element filled by <code>data-arc-bind</code>, <code>[innerHTML]</code> or an attribute (with <code>data-arc-field-attr</code> naming the attribute), a <code>&lt;span data-arc-field="key"&gt;</code> around each <code>{{ key }}</code> in text, and <code>data-arc-field="faq" data-arc-row="2"</code> on each row of a loop. Published pages never carry them, and the page is otherwise the same, so a style that targets <code>p &gt; span</code> or <code>:only-child</code> may match differently on the preview only.</p>
 
     <h3 id="preview-versus-live">Preview versus live</h3>
+    <p>A type without public pages previews in the page that shows its cards: the home page, a page with the header and footer, or its card row alone (see <a href="editable-sections.html#preview">Editable sections</a>).</p>
     <p>The app fills the same template with the same attributes, but it is not the published page. Check the live page before you call a template done:</p>
     <ul>
       <li><strong>Header and footer:</strong> the app draws them at the top and bottom of the page, wherever you put <code>&lt;arc-header&gt;</code> and <code>&lt;arc-footer&gt;</code>. The live page puts them where the tags are.</li>

@@ -29,6 +29,10 @@ import { arcHostingSite } from '../arc-config.js';
  * The content types a piece of the site's HTML shows cards of, from its
  * <arc-content-partials content-type="…">. A block in an HTML comment shows
  * nothing, so it does not count.
+ *
+ * Mirror of the app's copy, src/app/core/utils/card-blocks.ts, which is the
+ * source of truth (the live preview finds where a type shows with it); its
+ * spec runs both on the same cases.
  */
 export function cardBlockTypes(html: string): string[] {
     const types = new Set<string>();

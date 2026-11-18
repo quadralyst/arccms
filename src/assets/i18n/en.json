@@ -4109,6 +4109,12 @@
       "saved_copy": "Editor closed, showing the saved draft",
       "missing": "This draft was not found. Open it in the editor and press Preview.",
       "field_ready": "{{ field }} is ready in the editor",
+      "on_home": "Shown on the home page",
+      "on_every_page": "Shown in the header or footer of every page",
+      "cards_only": "Not placed on any page yet: its cards alone",
+      "took_last_place": "The block shows fewer cards, so this one takes the last card's place",
+      "also_on_home": "Also on: Home page",
+      "back_to_page": "Back to its own page",
       "fields": {
         "title": "Title",
         "content": "Body",

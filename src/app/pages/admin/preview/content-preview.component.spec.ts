@@ -1,45 +1,62 @@
 /**
- * The live preview window (specs/visual-editing-spec.md, VE1.4). The content page
- * is stubbed: its own specs cover what it draws; this covers the strip, the channel
- * and the clicks.
+ * The live preview window (specs/visual-editing-spec.md, VE1.4 and VE2.2 to VE2.4).
+ * The site's components are stubbed: their own specs cover what they draw; this
+ * covers which one the window shows, the strip, the channel and the clicks.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Component, signal } from '@angular/core';
+import { Component, input, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { of } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { of, throwError } from 'rxjs';
 import { ContentPreviewComponent } from './content-preview.component';
 import { PreviewSession } from './preview-session';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
 import { DraftContentsService } from '../contents/draft-content-store/draft-contents.service';
 import { LocalizationService } from '../../../core/services/localization.service';
+import { UiStringsService } from '../../../core/services/ui-strings.service';
 import { PreviewChannel } from '../../../core/preview/preview-channel';
 import { DetailSource } from '../../page.parts/detail-source';
+import { CardDraft } from '../../page.parts/card-draft';
 
 @Component({ selector: 'arc-content-detail', standalone: true, template: '<article><h1 data-arc-field="title">T</h1><p data-arc-field="price">20</p><ul><li data-arc-field="faq" data-arc-row="1"><b>Q</b></li></ul><span data-arc-field="publishedOn">D</span><a id="out" href="/elsewhere">x</a><a id="anchor" href="#top">y</a><form><button id="join">Join</button></form></article>' })
 class DetailStub {}
+@Component({ selector: 'arc-home', standalone: true, template: '<section><div data-arc-field="items" data-arc-row="0" data-arc-draft="last">Card</div></section>' })
+class HomeStub {}
+@Component({ selector: 'arc-header', standalone: true, template: '<header>H</header>' })
+class HeaderStub {}
+@Component({ selector: 'arc-footer', standalone: true, template: '<footer>F</footer>' })
+class FooterStub {}
+@Component({ selector: 'arc-content-partials', standalone: true, template: '<div class="cards">{{ contentType() }}</div>' })
+class PartialsStub { contentType = input(''); }
 
 describe('ContentPreviewComponent', () => {
     let fixture: ComponentFixture<ContentPreviewComponent>;
     let component: ContentPreviewComponent;
     let post: ReturnType<typeof vi.spyOn>;
     let types: any;
+    let http: any;
     let drafts: any;
     let id = 'e1';
 
-    async function create(type: Record<string, unknown>) {
+    const HOME_WITH = '<arc-content-partials content-type="quotes"></arc-content-partials>';
+
+    async function create(type: Record<string, unknown>, homeHtml = '') {
         types = { items: signal([type]), getAll: vi.fn(), isLoading: signal(false) };
+        http = { get: vi.fn().mockReturnValue(of(homeHtml)) };
         drafts = { getDraftById: vi.fn().mockResolvedValue({ id, title: 'Saved', type: type['slug'] }) };
         await TestBed.configureTestingModule({
             imports: [ContentPreviewComponent],
             providers: [
                 { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (k: string) => (k === 'type' ? type['slug'] : id) }, fragment: 's=key-1' } } },
                 { provide: ContentTypesStore, useValue: types },
+                { provide: HttpClient, useValue: http },
                 { provide: DraftContentsService, useValue: drafts },
                 { provide: LocalizationService, useValue: { load: vi.fn().mockResolvedValue({}), isMultilingual: () => true, find: (code: string) => ({ code, label: code === 'hi' ? 'Hindi' : code }) } },
+                { provide: UiStringsService, useValue: { use: vi.fn().mockResolvedValue({}) } },
             ],
         })
-            .overrideComponent(ContentPreviewComponent, { set: { imports: [DetailStub, (await import('@jsverse/transloco')).TranslocoPipe] } })
+            .overrideComponent(ContentPreviewComponent, { set: { imports: [DetailStub, HomeStub, HeaderStub, FooterStub, PartialsStub, (await import('@jsverse/transloco')).TranslocoPipe] } })
             .compileComponents();
         fixture = TestBed.createComponent(ContentPreviewComponent);
         component = fixture.componentInstance;
@@ -71,10 +88,11 @@ describe('ContentPreviewComponent', () => {
         TestBed.resetTestingModule();
     });
 
-    it('is the page\'s DetailSource, and asks the editor for the draft on its own key', async () => {
+    it('is the page\'s DetailSource and CardDraft, and asks the editor for the draft on its own key', async () => {
         await create({ slug: 'events', fields: [] });
         const injector = fixture.debugElement.injector;
         expect(injector.get(DetailSource)).toBe(injector.get(PreviewSession));
+        expect(injector.get(CardDraft)).toBe(injector.get(PreviewSession));
         expect(sent('hello')).toHaveLength(1);
         expect((component as any).channel).toBeTruthy();
         expect(text('[data-testid="preview-status"]')).toBe('Waiting for the editor');
@@ -205,6 +223,61 @@ describe('ContentPreviewComponent', () => {
             } finally {
                 vi.useRealTimers();
             }
+        });
+    });
+
+    describe('types without pages (VE2)', () => {
+        it('on the home page when it has the type\'s cards, with the place and the last-place note', async () => {
+            await create({ slug: 'quotes', hasPublicUrl: false, fields: [] }, HOME_WITH);
+            state();
+            await settle();
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            await settle();
+            expect(fixture.nativeElement.querySelector('arc-home')).not.toBeNull();
+            expect(text('[data-testid="preview-place"]')).toBe('Shown on the home page');
+            expect(text('[data-testid="preview-last-place"]')).toContain("takes the last card's place");
+        });
+
+        it('a click on the draft\'s card opens its title', async () => {
+            await create({ slug: 'quotes', hasPublicUrl: false, fields: [] }, HOME_WITH);
+            state();
+            await settle();
+            post.mockClear();
+            click('[data-arc-draft]');
+            expect(sent('focus')).toEqual([{ kind: 'focus', key: 'title' }]);
+        });
+
+        it('its cards alone when no page shows the type', async () => {
+            await create({ slug: 'quotes', hasPublicUrl: false, fields: [] }, '<p>No blocks</p>');
+            state();
+            await settle();
+            expect(text('.cards')).toBe('quotes');
+            // No header or footer here to switch the site's stylesheets on: the window does (VE-D3).
+            expect((document.getElementById('arc-site-css-main') as HTMLLinkElement).disabled).toBe(false);
+            expect((document.getElementById('arc-site-css-site') as HTMLLinkElement).disabled).toBe(false);
+            expect(text('[data-testid="preview-place"]')).toBe('Not placed on any page yet: its cards alone');
+        });
+
+        it('the cards alone when the home page cannot be read', async () => {
+            await create({ slug: 'quotes', hasPublicUrl: false, fields: [] });
+            http.get.mockReturnValue(throwError(() => new Error('offline')));
+            await (component as any).loadHome();
+            state();
+            await settle();
+            expect(text('.cards')).toBe('quotes');
+        });
+
+        it('a type with pages whose cards are on the home page offers it (VE2.4)', async () => {
+            await create({ slug: 'quotes', fields: [] }, HOME_WITH);
+            state();
+            await settle();
+            expect(fixture.nativeElement.querySelector('arc-content-detail')).not.toBeNull();
+            expect(text('[data-testid="preview-also-on"]')).toBe('Also on: Home page');
+            click('[data-testid="preview-also-on"]');
+            await settle();
+            expect(fixture.nativeElement.querySelector('arc-home')).not.toBeNull();
+            expect(text('[data-testid="preview-also-on"]')).toBe('Back to its own page');
+            expect(text('[data-testid="preview-place"]')).toBe('');
         });
     });
 });

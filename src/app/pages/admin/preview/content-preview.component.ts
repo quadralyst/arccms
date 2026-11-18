@@ -4,8 +4,15 @@
  *
  * The editor opens it with Preview and sends its unsaved draft over the preview
  * channel (core/preview/preview-channel.ts) as it changes; this page draws it with
- * the site's own content page (ContentDetailComponent, fed by PreviewSession as its
- * DetailSource), so it looks as the published page will, with click to field (VE-D8).
+ * the site's own components, so it looks as the published page will:
+ *
+ * - a type with pages: its content page (ContentDetailComponent, fed by
+ *   PreviewSession as its DetailSource), with click to field (VE-D8);
+ * - a type without pages: the page that shows its cards (VE-D10), the home page,
+ *   else a page with the header and footer, else its card row alone, the draft
+ *   among the cards (CardDraft);
+ * - a type with pages whose cards are also on the home page offers "Also on:
+ *   Home page".
  *
  * Its address starts with /admin, but nothing of the admin is on screen: the
  * site's header, footer and stylesheets are, and a thin strip says what it is.
@@ -13,20 +20,31 @@
  * shows the saved draft (VE-D6).
  */
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import {
     ChangeDetectionStrategy, Component, DestroyRef, ElementRef, OnInit, PLATFORM_ID, ViewEncapsulation, computed, effect, inject, signal, untracked,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { firstValueFrom } from 'rxjs';
+import { header, footer } from 'virtual:arc-site';
 import { ContentDetailComponent } from '../../page.parts/content-detail.component';
+import { ContentPartialsComponent } from '../../page.parts/content-partials.component';
+import { HeaderComponent } from '../../page.parts/header.component';
+import { FooterComponent } from '../../page.parts/footer.component';
+import HomeComponent from '../../index.page';
 import { DetailSource } from '../../page.parts/detail-source';
+import { CardDraft } from '../../page.parts/card-draft';
 import { PreviewSession } from './preview-session';
 import { PreviewChannel, PreviewMessage, resolvePreviewField, sessionKeyFromFragment } from '../../../core/preview/preview-channel';
+import { cardPlaces, PreviewPlace, wherePreviewed } from '../../../core/utils/card-blocks';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
 import { ContentType, contentTypeFieldLabel } from '../contents/content-types/content-types.model';
 import { DraftContentsService } from '../contents/draft-content-store/draft-contents.service';
 import { LocalizationService } from '../../../core/services/localization.service';
+import { UiStringsService } from '../../../core/services/ui-strings.service';
 import { QueryParams } from '../../../../shared/models/queries.model';
+import { useSiteStyles } from '../../../core/site/site-styles';
 
 /** How long the page waits for the editor before showing the saved draft. */
 const EDITOR_WAIT_MS = 1200;
@@ -34,6 +52,7 @@ const EDITOR_WAIT_MS = 1200;
 const HIGHLIGHT_MS = 2000;
 
 export type PreviewStatus = 'waiting' | 'connected' | 'closed' | 'saved' | 'missing';
+type PreviewView = 'page' | PreviewPlace;
 
 /** The built-in fields' names in the admin language, for "Title is ready in the editor". */
 const BUILTIN_LABELS: Record<string, string> = {
@@ -53,16 +72,28 @@ const BUILTIN_LABELS: Record<string, string> = {
 @Component({
     selector: 'arc-content-preview',
     standalone: true,
-    imports: [ContentDetailComponent, TranslocoPipe],
+    imports: [ContentDetailComponent, ContentPartialsComponent, HeaderComponent, FooterComponent, HomeComponent, TranslocoPipe],
     providers: [
         PreviewSession,
         { provide: DetailSource, useExisting: PreviewSession },
+        { provide: CardDraft, useExisting: PreviewSession },
     ],
     template: `
     <div class="arc-pv-strip" role="region" [attr.aria-label]="'admin.preview.strip' | transloco" data-testid="preview-strip">
         <span class="arc-pv-title">{{ (status() === 'saved' ? 'admin.preview.strip_saved' : 'admin.preview.strip') | transloco }}</span>
         @if (languageLabel()) {
         <span class="arc-pv-chip" [title]="'admin.preview.language' | transloco">{{ languageLabel() }}</span>
+        }
+        @if (placeNote()) {
+        <span class="arc-pv-place" data-testid="preview-place">{{ placeNote()! | transloco }}</span>
+        }
+        @if (tookLastPlace()) {
+        <span class="arc-pv-place" data-testid="preview-last-place">{{ 'admin.preview.took_last_place' | transloco }}</span>
+        }
+        @if (alsoOnHome()) {
+        <button type="button" class="arc-pv-btn" (click)="showHome.set(!showHome())" data-testid="preview-also-on">
+            {{ (showHome() ? 'admin.preview.back_to_page' : 'admin.preview.also_on_home') | transloco }}
+        </button>
         }
         <span class="arc-pv-spacer"></span>
         <span class="arc-pv-widths" role="group" [attr.aria-label]="'admin.preview.width' | transloco">
@@ -75,8 +106,13 @@ const BUILTIN_LABELS: Record<string, string> = {
     <div class="arc-pv-note" role="status" data-testid="preview-note">{{ note() }}</div>
     }
     <div class="arc-pv-frame" [class.arc-pv-phone]="phone()">
-        @if (ready()) {
-        <arc-content-detail />
+        @if (view(); as current) {
+            @switch (current) {
+                @case ('page') { <arc-content-detail /> }
+                @case ('home') { @for (lang of [lang()]; track lang) { <arc-home /> } }
+                @case ('every-page') { <arc-header /><div class="arc-pv-blank"></div><arc-footer /> }
+                @case ('cards') { <div class="arc-pv-cards"><arc-content-partials [contentType]="session.type" /></div> }
+            }
         } @else if (status() === 'missing') {
         <p class="arc-pv-empty">{{ 'admin.preview.missing' | transloco }}</p>
         } @else {
@@ -95,7 +131,7 @@ const BUILTIN_LABELS: Record<string, string> = {
             box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
         }
         .arc-pv-title { font-weight: 600; }
-        .arc-pv-chip {
+        .arc-pv-chip, .arc-pv-place {
             padding: 1px 8px; border-radius: 999px; background: #374151; color: #f9fafb; font-weight: 500;
         }
         .arc-pv-spacer { flex: 1 1 auto; }
@@ -118,6 +154,8 @@ const BUILTIN_LABELS: Record<string, string> = {
             max-width: 390px; margin: 16px auto; overflow-x: hidden;
             box-shadow: 0 0 0 1px #d1d5db, 0 8px 24px rgba(0, 0, 0, .12);
         }
+        .arc-pv-blank { min-height: 40vh; }
+        .arc-pv-cards { padding: 24px 0; }
         .arc-pv-empty { padding: 48px 16px; text-align: center; color: #6b7280; font: 15px/1.5 system-ui, sans-serif; }
         arc-content-preview [data-arc-field] { cursor: pointer; }
         arc-content-preview [data-arc-pv-highlight] { outline: 3px solid var(--arc-admin-accent) !important; outline-offset: 2px; }
@@ -132,10 +170,12 @@ export class ContentPreviewComponent implements OnInit {
     private host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
     private platformId = inject(PLATFORM_ID);
     private destroyRef = inject(DestroyRef);
+    private http = inject(HttpClient);
     private transloco = inject(TranslocoService);
     private typesStore = inject(ContentTypesStore);
     private drafts = inject(DraftContentsService);
     private localization = inject(LocalizationService);
+    private uiStrings = inject(UiStringsService);
 
     private channel: PreviewChannel | null = null;
     readonly status = signal<PreviewStatus>('waiting');
@@ -143,6 +183,9 @@ export class ContentPreviewComponent implements OnInit {
     /** "Also on: Home page" pressed: the home page instead of the entry's own page. */
     readonly showHome = signal(false);
     readonly note = signal('');
+    readonly tookLastPlace = signal(false);
+    /** The site's home page HTML, to tell whether it shows this type's cards. */
+    private homeHtml = signal<string | null>(null);
 
     /** The type, kept once read: a store reload never blanks the page. */
     private typeSeen: ContentType | null = null;
@@ -153,8 +196,32 @@ export class ContentPreviewComponent implements OnInit {
     });
     readonly lang = computed(() => this.session.live()?.lang || '');
 
-    /** The page is drawn once there is a draft and its type. */
-    readonly ready = computed(() => !!this.type() && !!this.session.live());
+    /** Where the type's cards show (VE-D10), once the home page is read. */
+    private places = computed(() => {
+        const home = this.homeHtml();
+        return home === null ? null : cardPlaces(this.session.type, home, header, footer);
+    });
+
+    /** What is drawn: nothing until there is a draft and its type. */
+    readonly view = computed<PreviewView | null>(() => {
+        const type = this.type();
+        if (!type || !this.session.live()) return null;
+        if (type.hasPublicUrl !== false) return this.showHome() ? 'home' : 'page';
+        const places = this.places();
+        return places ? wherePreviewed(places) : null;
+    });
+
+    readonly alsoOnHome = computed(() => this.type()?.hasPublicUrl !== false && !!this.places()?.home);
+
+    readonly placeNote = computed(() => {
+        if (this.type()?.hasPublicUrl !== false) return null;
+        switch (this.view()) {
+            case 'home': return 'admin.preview.on_home';
+            case 'every-page': return 'admin.preview.on_every_page';
+            case 'cards': return 'admin.preview.cards_only';
+            default: return null;
+        }
+    });
 
     readonly languageLabel = computed(() => {
         const lang = this.lang();
@@ -171,10 +238,26 @@ export class ContentPreviewComponent implements OnInit {
     } as const)[this.status()]);
 
     constructor() {
-        // Each draw: back to where the editor was reading.
+        // The site's stylesheets, whichever page is drawn: the card row alone has no
+        // header or footer to switch them on (VE-D3).
+        useSiteStyles(['main', 'site']);
+        // The card blocks and the header and footer speak the draft's language,
+        // as the content page does for itself.
+        effect(() => {
+            const lang = this.lang();
+            if (this.view() === 'page') return;
+            untracked(() => void this.uiStrings.use(lang));
+        });
+        // Each draw: back to where the editor was reading, and the draft's card found.
         effect(() => {
             this.session.live();
-            untracked(() => this.afterDraw());
+            const view = this.view();
+            untracked(() => {
+                // Another page: its draft card is scrolled to again.
+                if (view !== this.lastView) this.draftCardShown = false;
+                this.lastView = view;
+                this.afterDraw();
+            });
         });
     }
 
@@ -187,6 +270,7 @@ export class ContentPreviewComponent implements OnInit {
         } as QueryParams);
         if (!isPlatformBrowser(this.platformId)) return;
         void this.localization.load();
+        void this.loadHome();
 
         const key = sessionKeyFromFragment(this.route.snapshot.fragment ?? this.document.location?.hash);
         this.channel = new PreviewChannel(key, (message) => this.onMessage(message));
@@ -242,19 +326,48 @@ export class ContentPreviewComponent implements OnInit {
         this.session.live.set({ content: draft as unknown as Record<string, any>, lang: '', translation: null });
     }
 
+    private async loadHome(): Promise<void> {
+        try {
+            const html = await firstValueFrom(this.http.get('/_site/home.html', { responseType: 'text' }));
+            this.homeHtml.set(html || '');
+        } catch {
+            this.homeHtml.set('');
+        }
+    }
+
     /** The scroll position when the last draft arrived, kept across the redraw (VE-D9). */
     private scrollToKeep: number | null = null;
+    /** The draft's card has been brought into view once on this page. */
+    private draftCardShown = false;
+    private lastView: PreviewView | null = null;
+
     private afterDraw(): void {
         if (!isPlatformBrowser(this.platformId)) return;
         const keep = this.scrollToKeep;
         this.scrollToKeep = null;
-        if (keep === null) return;
-        // The page redraws on the next frames.
-        for (const delay of [0, 80]) {
+        // The page redraws on the next frames; a card block can take longer.
+        for (const delay of [0, 80, 400, 1500]) {
             setTimeout(() => {
                 const win = this.document.defaultView;
-                if (win && Math.abs(win.scrollY - keep) > 2) win.scrollTo({ top: keep, behavior: 'instant' });
+                if (keep !== null && delay < 400 && win && Math.abs(win.scrollY - keep) > 2) win.scrollTo({ top: keep, behavior: 'instant' });
+                this.findDraftCard();
             }, delay);
+        }
+    }
+
+    /** Scrolls to the draft's card the first time it is drawn, and says when it took the last place. */
+    private findDraftCard(): void {
+        if (this.view() === 'page' || !this.view()) {
+            this.tookLastPlace.set(false);
+            return;
+        }
+        const card = this.host.querySelector<HTMLElement>('[data-arc-draft]');
+        this.tookLastPlace.set(card?.getAttribute('data-arc-draft') === 'last');
+        if (!card) return;
+        if (!this.draftCardShown) {
+            this.draftCardShown = true;
+            card.scrollIntoView?.({ block: 'center' });
+            this.outline([card], HIGHLIGHT_MS);
         }
     }
 
@@ -286,6 +399,7 @@ export class ContentPreviewComponent implements OnInit {
 
     /** The editor field behind the clicked element: the nearest marked element the editor can focus. */
     fieldAt(target: Element): { key: string; row?: number } | null {
+        if (target.closest('[data-arc-draft]')) return { key: 'title' };
         for (let el: Element | null = target.closest('[data-arc-field]'); el; el = el.parentElement?.closest('[data-arc-field]') ?? null) {
             const resolved = resolvePreviewField(el.getAttribute('data-arc-field') || '', this.type());
             if (!resolved) continue;

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Let editors change your home page | Arc CMS docs</title>
   <meta name="description" content="Turn the hard-coded sections of a mockup (services, a hero, questions and contact details) into content that admins edit, with no page of its own for each item.">
-  <meta name="docs:sources" content="docs/examples/sections, functions/src/pages/deployHomePage.ts, functions/src/pages/card-blocks.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/shared/content-cards.ts, functions/src/shared/display-order.ts, functions/src/shared/site-info.ts, functions/src/shared/site-info-source.ts, src/app/pages/page.parts/content-partials.component.ts, src/app/pages/page.parts/site-fragment.ts, src/app/pages/admin/contents/entry-order, src/app/pages/admin/contents/content-types, public/_site/footer.html">
+  <meta name="docs:sources" content="docs/examples/sections, functions/src/pages/deployHomePage.ts, functions/src/pages/card-blocks.ts, functions/src/publishQueue/processPublishQueue.ts, functions/src/shared/content-cards.ts, functions/src/shared/display-order.ts, functions/src/shared/site-info.ts, functions/src/shared/site-info-source.ts, src/app/pages/page.parts/content-partials.component.ts, src/app/pages/page.parts/card-draft.ts, src/app/core/utils/card-blocks.ts, src/app/pages/admin/preview, src/app/pages/page.parts/site-fragment.ts, src/app/pages/admin/contents/entry-order, src/app/pages/admin/contents/content-types, public/_site/footer.html">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="website/editable-sections.html">
@@ -109,6 +109,16 @@
       <li>A block that cannot be filled, such as one whose <code>template-folder</code> the live site does not have, is left out of every page, and the pages publish without it. The function log names the block's <code>content-type</code> and <code>template-folder</code>. Deploy the website before publishing with a new folder, then choose <strong>Republish website</strong> to put the block back.</li>
       <li>A block in an HTML comment (<code>&lt;!-- … --&gt;</code>) shows nothing and republishes nothing.</li>
     </ul>
+
+    <h2 id="preview">Preview an entry where it shows</h2>
+    <p>An entry of a type without pages has no page of its own to preview, so <strong>Preview</strong> in the editor shows it where visitors will see it, and changes as you type (see <a href="../features/content.html#live-preview">Live preview</a>):</p>
+    <ul>
+      <li><strong>The home page</strong>, when <code>home.html</code> has a card block for the type.</li>
+      <li><strong>A page with the header and footer</strong>, when only they have one.</li>
+      <li><strong>Its card row alone</strong>, drawn by the type's <code>partials.html</code> with its other published entries, when no page shows the type yet.</li>
+    </ul>
+    <p>The draft takes the place of its published copy among the cards, or for an entry never published, the place the type's order gives it (first when newest first, after the arranged ones in your own order). The preview scrolls to its card and outlines it, and a click on that card goes to the title in the editor. When the block's <code>count</code> would leave it out, it takes the last card's place and the strip says so. Only that window shows the draft: every other page keeps the published cards until you publish. The home page in the preview runs its scripts as it does in <code>npm run dev</code>.</p>
+    <p>A type that has pages and is also in a card block previews on its own page, and the strip offers <strong>Also on: Home page</strong> to see its card there.</p>
 
     <h2>5. Put it live</h2>
     <ol class="steps">

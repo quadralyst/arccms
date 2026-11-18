@@ -31,6 +31,7 @@ import { useSiteStyles } from '../core/site/site-styles';
 import { arcSiteScriptElement, prepareLiveParts } from '../core/site/live-parts';
 import { letIntoSearch } from '../core/site/search-engines';
 import { pageLanguageHold, siteLanguageDir } from '../core/site/page-language';
+import { DetailSource } from './page.parts/detail-source';
 
 export const routeMeta: RouteMeta = {
     title: 'Home',
@@ -84,6 +85,8 @@ export default class HomeComponent implements OnInit, OnDestroy {
     private contentTypes = inject(PublicContentTypesService);
     private siteIdentity = inject(SiteIdentityService);
     private sitePages = inject(SitePagesService);
+    /** On the live preview, the page's language comes from the editor, not the route (VE-D10). */
+    private source = inject(DetailSource, { optional: true });
     /** `<html lang>` and `dir`: the page's own while it shows (core/site/page-language.ts). */
     private language = pageLanguageHold();
     /** The published standard pages of the page being shown (SS6). */
@@ -105,10 +108,10 @@ export default class HomeComponent implements OnInit, OnDestroy {
 
     ngOnInit(): void {
         if (!isPlatformBrowser(this.platformId)) return;
-        const lang = this.route.snapshot.paramMap.get('lang') || '';
+        const lang = this.source ? this.source.route().lang : this.route.snapshot.paramMap.get('lang') || '';
 
-        // First run, or a setup started and never finished: the wizard first.
-        if (!new URLSearchParams(window.location.search).has('debug')) {
+        // First run, or a setup started and never finished: the wizard first. Not inside the preview.
+        if (!this.source && !new URLSearchParams(window.location.search).has('debug')) {
             this.onboarding.shouldShowOnboarding().pipe(take(1)).subscribe((show) => {
                 if (show) this.router.navigate(['/onboarding']);
             });
@@ -155,7 +158,8 @@ export default class HomeComponent implements OnInit, OnDestroy {
         const description = page.querySelector('meta[name="description"]')?.getAttribute('content');
         if (description) this.meta.updateTag({ name: 'description', content: description });
         // The home page is public content: listed, unless its own file says otherwise (RF6 6.3).
-        letIntoSearch(this.meta);
+        // Not inside the live preview, a draft under /admin.
+        if (!this.source) letIntoSearch(this.meta);
         const robots = page.querySelector('meta[name="robots"]')?.getAttribute('content');
         if (robots) this.meta.updateTag({ name: 'robots', content: robots });
         this.holdLanguage();

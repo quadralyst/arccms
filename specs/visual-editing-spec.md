@@ -1,10 +1,13 @@
 # Visual Editing: Build Spec (VE)
 
-**Status:** SPEC, agreed in discussion 2026-11-17. VE1 built 2026-11-18 (live preview window,
-`/admin/preview/:type/:id`); VE2 to VE5 not built. Notes from the build: the preview window is
+**Status:** SPEC, agreed in discussion 2026-11-17. VE1 and VE2 built 2026-11-18 (live preview window,
+`/admin/preview/:type/:id`, and types without pages previewed where their cards show); VE3 to VE5
+not built. Notes from the build: the preview window is
 opened with `window.open('', name)` then pointed at its address, so an open one is brought forward
 without a reload; a browser that blocks the pop-up gets a message in the editor. The Phone toggle
 frames the page in a 390 px column; the site's own phone layout still follows the window width.
+VE2: a type shown only in the header or footer previews as the header and footer around an empty
+body (the cards are what change), not a particular content page.
 **Branch:** `feat/visual-editing`, cut from `dev`, in a worktree (`../arccms-visual-editing`), so the
 main checkout and its running dev server are never switched.
 

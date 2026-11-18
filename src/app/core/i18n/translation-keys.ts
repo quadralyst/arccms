@@ -2065,6 +2065,9 @@ export type TranslationKey =
     | 'admin.onboarding.toasts.setup_done_no_form'
     | 'admin.onboarding.toasts.setup_failed'
     | 'admin.onboarding.toasts.test_sent'
+    | 'admin.preview.also_on_home'
+    | 'admin.preview.back_to_page'
+    | 'admin.preview.cards_only'
     | 'admin.preview.connected'
     | 'admin.preview.editor_closed'
     | 'admin.preview.field_ready'
@@ -2082,10 +2085,13 @@ export type TranslationKey =
     | 'admin.preview.full_width'
     | 'admin.preview.language'
     | 'admin.preview.missing'
+    | 'admin.preview.on_every_page'
+    | 'admin.preview.on_home'
     | 'admin.preview.phone'
     | 'admin.preview.saved_copy'
     | 'admin.preview.strip'
     | 'admin.preview.strip_saved'
+    | 'admin.preview.took_last_place'
     | 'admin.preview.waiting'
     | 'admin.preview.waiting_short'
     | 'admin.preview.width'
@@ -6337,6 +6343,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.onboarding.toasts.setup_done_no_form',
     'admin.onboarding.toasts.setup_failed',
     'admin.onboarding.toasts.test_sent',
+    'admin.preview.also_on_home',
+    'admin.preview.back_to_page',
+    'admin.preview.cards_only',
     'admin.preview.connected',
     'admin.preview.editor_closed',
     'admin.preview.field_ready',
@@ -6354,10 +6363,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.preview.full_width',
     'admin.preview.language',
     'admin.preview.missing',
+    'admin.preview.on_every_page',
+    'admin.preview.on_home',
     'admin.preview.phone',
     'admin.preview.saved_copy',
     'admin.preview.strip',
     'admin.preview.strip_saved',
+    'admin.preview.took_last_place',
     'admin.preview.waiting',
     'admin.preview.waiting_short',
     'admin.preview.width',

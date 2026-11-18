@@ -13,6 +13,7 @@ import HomeComponent from './index.page';
 import { ContentsStore } from './admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from './admin/contents/content-types/content-types.store';
 import { ContentPartialsComponent } from './page.parts/content-partials.component';
+import { DetailSource } from './page.parts/detail-source';
 import { OnboardingSetupService } from './(onboarding)/onboarding-setup.service';
 import { LocalizationService } from '../core/services/localization.service';
 import { UiStringsService } from '../core/services/ui-strings.service';
@@ -47,7 +48,7 @@ describe('HomeComponent (home page preview)', () => {
         defaultLanguage: signal('en'),
     });
 
-    async function open(lang = ''): Promise<HTMLElement> {
+    async function open(lang = '', extra: any[] = []): Promise<HTMLElement> {
         await TestBed.configureTestingModule({
             imports: [HomeComponent, translocoTestingModule({ lang: 'en' })],
             providers: [
@@ -67,6 +68,7 @@ describe('HomeComponent (home page preview)', () => {
                 },
                 { provide: PublicContentTypesService, useValue: { slugs: signal(new Set(['articles'])), load: vi.fn().mockResolvedValue(new Set(['articles'])) } },
                 { provide: ContentTypesStore, useValue: { items: signal([]), isLoading: signal(false), getAll: vi.fn(), unsubscribeStore: vi.fn() } },
+                ...extra,
             ],
         })
             .overrideComponent(ContentPartialsComponent, {
@@ -112,6 +114,16 @@ describe('HomeComponent (home page preview)', () => {
         expect(arcSite.getAttribute('data-group')).toBe('arccms');
         expect(arcSite.getAttribute('data-functions')).toMatch(/^https:\/\/[a-z0-9-]+-.+\.cloudfunctions\.net$/);
         expect(arcSite.getAttribute('data-database')).toBeTruthy();
+    });
+
+    it('inside the live preview: the language on the editor\'s screen, and never the setup wizard (VE-D10)', async () => {
+        onboarding.shouldShowOnboarding.mockReturnValue(of(true));
+        strings = { home_heading: 'नमस्ते' };
+        const source = { route: () => ({ typeSlug: 'quotes', urlSlug: '', preview: false, lang: 'hi' }) };
+        const el = await open('', [{ provide: DetailSource, useValue: source }]);
+        expect(onboarding.shouldShowOnboarding).not.toHaveBeenCalled();
+        expect(el.querySelector('.hero h1')!.textContent).toBe('नमस्ते');
+        expect(el.querySelector('a.more')!.getAttribute('href')).toBe('/hi/articles');
     });
 
     it('cleans up what it added when it goes', async () => {

@@ -3,7 +3,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { SitePagesService } from '../../core/site/site-pages.service';
 import { siteInfoOf } from '../../core/site/site-info-source';
 import { SiteIdentityService } from '../../core/services/site-identity.service';
-import { entryOrderOf, sortForDisplay } from '../../core/utils/display-order';
+import { entryOrderOf } from '../../core/utils/display-order';
 import { QueryParams } from '../../../shared/models/queries.model';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, Injector, Input, input, OnInit, PLATFORM_ID, signal, TransferState, makeStateKey, untracked, ViewEncapsulation } from '@angular/core';
@@ -24,6 +24,7 @@ import { IContentTranslation, mergeTranslation } from '../admin/contents/draft-c
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { siteTemplateUrl } from '../../core/site/site';
 import { ArcZones } from '../../core/time/arc-zones.service';
+import { CardDraft, cardsWithDraft } from './card-draft';
 
 /** The most entries a card block shows, as when published (functions/src/pages/card-blocks.ts). */
 export const MAX_CARD_BLOCK_COUNT = 50;
@@ -117,6 +118,8 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
     private siteIdentity = inject(SiteIdentityService);
     private sitePages = inject(SitePagesService);
     contentsStore = inject(ContentsStore);
+    /** On the live preview: a draft to show among the cards (VE-D10). */
+    private cardDraft = inject(CardDraft, { optional: true });
 
     // Inputs - support both property binding and attribute binding
     contentType = input<string>('articles');
@@ -199,9 +202,12 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         return latest ? interpolate(latest, { contentType: typeName }) : `Latest ${typeName}`;
     });
 
-    filteredContents = computed(() => {
+    filteredContents = computed(() => this.shownCards().cards);
+
+    /** The cards shown, with the preview's draft among them when it is of this type. */
+    private shownCards = computed(() => {
         const contentTypeSlug = this.contentType();
-        if (!contentTypeSlug) return [];
+        if (!contentTypeSlug) return { cards: [] as IContents[], draftIndex: -1, tookLastPlace: false };
 
         const lang = this.pageLang();
         const translations = this.translations();
@@ -213,8 +219,10 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         // In the type's entry order (newest first, or the order an admin
         // arranged), as when published (core/utils/display-order.ts), then cut.
         const order = entryOrderOf(this.currentContentType());
-        return sortForDisplay(items as unknown as Record<string, any>[], order)
-            .slice(0, this.shownCount()) as unknown as IContents[];
+        const draft = this.cardDraft?.entry();
+        const ofType = draft?.type === contentTypeSlug ? draft.content : null;
+        const shown = cardsWithDraft(items as unknown as Record<string, any>[], ofType, order, this.shownCount());
+        return { ...shown, cards: shown.cards as unknown as IContents[] };
     });
 
     constructor() {
@@ -377,15 +385,33 @@ export class ContentPartialsComponent extends BaseComponent implements OnInit {
         // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
         const localizedTemplate = TemplateHydrationService.applySiteInfo(
             TemplateHydrationService.applyStrings(templateHtml, this.uiStrings.strings()), siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
-        let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData });
-        hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
+        // On the live preview the cards are marked, so the draft's card can be found (VE2.2).
+        const markFields = !!this.cardDraft;
+        let hydratedHtml = TemplateHydrationService.processLoops(localizedTemplate, { items: listData }, { markFields });
+        hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData, { markFields });
 
         this.templateHtml.set(hydratedHtml);
+        if (this.cardDraft && isPlatformBrowser(this.platformId)) {
+            const { draftIndex, tookLastPlace } = untracked(() => this.shownCards());
+            setTimeout(() => this.markDraftCard(draftIndex, tookLastPlace), 0);
+        }
 
         if (!this.scriptsRun && isPlatformBrowser(this.platformId)) {
             this.scriptsRun = true;
             setTimeout(() => this.runTemplateScripts(), 100);
         }
+    }
+
+    /**
+     * Marks the draft's card (`data-arc-draft`, "last" when it took the last
+     * card's place) so the preview can scroll to it and outline it.
+     */
+    private markDraftCard(draftIndex: number, tookLastPlace: boolean): void {
+        const host = this.host.nativeElement as HTMLElement;
+        host.querySelectorAll('[data-arc-draft]').forEach((card) => card.removeAttribute('data-arc-draft'));
+        if (draftIndex < 0) return;
+        const card = host.querySelector(`[data-arc-field="items"][data-arc-row="${draftIndex}"]`);
+        card?.setAttribute('data-arc-draft', tookLastPlace ? 'last' : '');
     }
 
     /** Runs the template's script tags, which [innerHTML] leaves inert. */
