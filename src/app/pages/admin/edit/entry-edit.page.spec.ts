@@ -25,6 +25,11 @@ function fakeEditor() {
         entryChanged: signal(false),
         entryGone: signal(false),
         publishProblem: signal(''),
+        showLanguageBar: signal(false),
+        enabledLanguages: signal([{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi' }]),
+        defaultLang: signal('en'),
+        activeLang: signal('en'),
+        isTranslating: signal(false),
         unsaved: false,
         hasUnsavedChanges() { return this.unsaved; },
     };
@@ -53,6 +58,7 @@ function fakeEditor() {
         removeCustomFieldImage: vi.fn(),
         focusField: vi.fn(),
         currentContentType: () => null,
+        switchLanguage: vi.fn(async (code: string) => { session.activeLang.set(code); session.isTranslating.set(code !== 'en'); }),
     };
 }
 
@@ -239,6 +245,23 @@ describe('EntryEditPage', () => {
             expect(page.pop()).toBeNull();
             expect(page.panel.open()).toBe(true);
         });
+    });
+
+    it('offers the site\'s languages on a multilingual site, edits a translation, and locks what every language shares', async () => {
+        page.readStatus();
+        expect(page.langs()).toEqual([]);
+        editor.session.showLanguageBar.set(true);
+        page.readStatus();
+        expect(page.langs().map((l) => l.code)).toEqual(['en', 'hi']);
+        expect(page.sharedField('events-price', false)).toBe(false);
+        await page.switchLanguage('hi');
+        expect(editor.switchLanguage).toHaveBeenCalledWith('hi');
+        expect(page.lang()).toBe('hi');
+        // A number is the same in every language; the title and body are translated.
+        expect(page.sharedField('events-price', false)).toBe(true);
+        expect(page.sharedField('coverImage', true)).toBe(true);
+        expect(page.sharedField('title', true)).toBe(false);
+        expect(page.sharedField('content', true)).toBe(false);
     });
 
     it('opens the panel for a field the form editor asks for that the page does not show', () => {

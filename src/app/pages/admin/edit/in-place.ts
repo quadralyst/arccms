@@ -46,7 +46,7 @@ export interface Spot extends SpotInfo {
 }
 
 /** What a hint on a value the editor cannot change in place says (VE-D17). */
-export type HintKind = 'author' | 'date' | 'reading' | 'locked' | 'header' | 'footer' | 'site';
+export type HintKind = 'author' | 'date' | 'reading' | 'locked' | 'header' | 'footer' | 'site' | 'shared';
 
 /** The hint for a marked value that is not a spot: where it comes from, or where to change it. */
 export function hintKind(key: string): HintKind {
@@ -131,6 +131,11 @@ export interface InPlaceHost {
     hint(kind: HintKind): string;
     /** Escape, first: the screen closes a box of its own (a picture's) and says so. */
     escape?(): boolean;
+    /**
+     * While a translation is on screen, a field every language shares (a picture, a
+     * number, a choice): shown, marked "Same in every language", not edited here (VE3.8).
+     */
+    shared?(field: string, builtin: boolean): boolean;
 }
 
 /**
@@ -169,6 +174,9 @@ export const IN_PLACE_CSS = `
 [data-arc-editing]:empty { display: inline-block; min-width: 1ch; }
 /* A value worked out by the site (VE-D17): its title says where it comes from. */
 [data-arc-field][data-arc-hint] { cursor: help; }
+/* Shared by every language, while a translation is on screen (VE3.8). */
+[data-arc-shared] { cursor: not-allowed; }
+[data-arc-shared]:hover { outline: 2px dotted var(--arc-edit-accent); outline-offset: 2px; }
 /* The page's own wrapping: TipTap's break-spaces lets a space at a line's end push a word down. */
 .ProseMirror.arc-in-place-rich { white-space: pre-wrap; word-wrap: break-word; outline: none; }
 /* An empty line the cursor is not in, drawn as the page draws it: not at all (empty-lines.ts). */
@@ -270,12 +278,22 @@ export class InPlaceEditing {
         for (const el of Array.from(this.doc.querySelectorAll<HTMLElement>('[data-arc-field]'))) {
             if (this.active?.el === el || el.closest('[data-arc-editing]') && el !== this.active?.el) continue;
             const locked = !!el.closest('[data-arc-locked]');
-            const info = locked ? null : spotInfo(el, type);
+            const found = locked ? null : spotInfo(el, type);
+            const shared = !!found && this.isShared(found);
+            const info = shared ? null : found;
             if (!info) {
                 el.removeAttribute('data-arc-edit-kind');
                 el.removeAttribute('data-arc-ph');
-                this.setHint(el, locked ? 'locked' : hintKind(el.getAttribute('data-arc-field') || ''));
+                el.toggleAttribute('data-arc-shared', shared);
+                this.setHint(el, locked ? 'locked' : shared ? 'shared' : hintKind(el.getAttribute('data-arc-field') || ''));
                 continue;
+            }
+            if (el.hasAttribute('data-arc-shared')) {
+                el.removeAttribute('data-arc-shared');
+                if (el.getAttribute('data-arc-hint') === 'shared') {
+                    el.removeAttribute('title');
+                    el.removeAttribute('data-arc-hint');
+                }
             }
             if (el.getAttribute('data-arc-edit-kind') !== info.kind) el.setAttribute('data-arc-edit-kind', info.kind);
             if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
@@ -324,7 +342,12 @@ export class InPlaceEditing {
     private spotAt(el: HTMLElement): Spot | null {
         if (el.closest('[data-arc-locked]')) return null;
         const info = spotInfo(el, this.host.type());
-        return info ? { ...info, el, label: labelOf(el) } : null;
+        return info && !this.isShared(info) ? { ...info, el, label: labelOf(el) } : null;
+    }
+
+    /** A field every language shares, while a translation is on screen; rows still open the panel, which locks what it must. */
+    private isShared(info: SpotInfo): boolean {
+        return info.kind !== 'panel' && !!this.host.shared?.(info.field, info.builtin);
     }
 
     // ── Events ───────────────────────────────────────────────────────────────

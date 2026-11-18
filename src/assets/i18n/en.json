@@ -4168,7 +4168,9 @@
       "picture": "Picture",
       "alt": "Alt text",
       "alt_placeholder": "What the picture shows",
-      "replace_image": "Replace image"
+      "replace_image": "Replace image",
+      "language": "Language",
+      "hint_shared": "Same in every language: change it in {{language}}"
     }
   },
   "user": {

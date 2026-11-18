@@ -4160,7 +4160,9 @@
       "picture": "चित्र",
       "alt": "वैकल्पिक पाठ",
       "alt_placeholder": "चित्र में क्या दिखता है",
-      "replace_image": "चित्र बदलें"
+      "replace_image": "चित्र बदलें",
+      "language": "भाषा",
+      "hint_shared": "हर भाषा में एक जैसा: इसे {{language}} में बदलें"
     }
   },
   "user": {

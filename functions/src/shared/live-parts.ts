@@ -208,7 +208,7 @@ export async function setupState(): Promise<SetupState> {
 export function arcSiteScript(src: string, setup: SetupState = '', strings: Record<string, string> = {}): string {
     const project = process.env.GCLOUD_PROJECT || '';
     const panels = Object.fromEntries(Object.entries(strings).filter(([key, value]) =>
-        (key.startsWith('signup_') || key.startsWith('contact_')) && typeof value === 'string'));
+        (key.startsWith('signup_') || key.startsWith('contact_') || key.startsWith('strip_')) && typeof value === 'string'));
     const attrs = [
         `src="${escapeAttr(src)}"`,
         `data-functions="${escapeAttr(`https://${arcFunctionsRegion()}-${project}.cloudfunctions.net`)}"`,

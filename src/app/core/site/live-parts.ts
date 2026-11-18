@@ -52,7 +52,7 @@ export function prepareLiveParts(
  */
 export function panelStrings(strings: Record<string, string> = {}): Record<string, string> {
     return Object.fromEntries(Object.entries(strings).filter(([key, value]) =>
-        (key.startsWith('signup_') || key.startsWith('contact_')) && typeof value === 'string'));
+        (key.startsWith('signup_') || key.startsWith('contact_') || key.startsWith('strip_')) && typeof value === 'string'));
 }
 
 /** arc-site.js with what the published page gives it (arcSiteScript in functions/src/shared/live-parts.ts). */

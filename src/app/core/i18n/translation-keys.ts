@@ -1198,6 +1198,8 @@ export type TranslationKey =
     | 'admin.drips.template'
     | 'admin.drips.title'
     | 'admin.edit_page.add'
+    | 'admin.edit_page.alt'
+    | 'admin.edit_page.alt_placeholder'
     | 'admin.edit_page.bold'
     | 'admin.edit_page.bullets'
     | 'admin.edit_page.done'
@@ -1212,17 +1214,21 @@ export type TranslationKey =
     | 'admin.edit_page.hint_header'
     | 'admin.edit_page.hint_locked'
     | 'admin.edit_page.hint_reading'
+    | 'admin.edit_page.hint_shared'
     | 'admin.edit_page.hint_site'
     | 'admin.edit_page.image'
     | 'admin.edit_page.italic'
+    | 'admin.edit_page.language'
     | 'admin.edit_page.link'
     | 'admin.edit_page.loading'
     | 'admin.edit_page.not_saved'
     | 'admin.edit_page.numbers'
     | 'admin.edit_page.page_settings'
+    | 'admin.edit_page.picture'
     | 'admin.edit_page.quote'
     | 'admin.edit_page.redo'
     | 'admin.edit_page.replace'
+    | 'admin.edit_page.replace_image'
     | 'admin.edit_page.saved'
     | 'admin.edit_page.saving'
     | 'admin.edit_page.strip'
@@ -5511,6 +5517,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.drips.template',
     'admin.drips.title',
     'admin.edit_page.add',
+    'admin.edit_page.alt',
+    'admin.edit_page.alt_placeholder',
     'admin.edit_page.bold',
     'admin.edit_page.bullets',
     'admin.edit_page.done',
@@ -5525,17 +5533,21 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.hint_header',
     'admin.edit_page.hint_locked',
     'admin.edit_page.hint_reading',
+    'admin.edit_page.hint_shared',
     'admin.edit_page.hint_site',
     'admin.edit_page.image',
     'admin.edit_page.italic',
+    'admin.edit_page.language',
     'admin.edit_page.link',
     'admin.edit_page.loading',
     'admin.edit_page.not_saved',
     'admin.edit_page.numbers',
     'admin.edit_page.page_settings',
+    'admin.edit_page.picture',
     'admin.edit_page.quote',
     'admin.edit_page.redo',
     'admin.edit_page.replace',
+    'admin.edit_page.replace_image',
     'admin.edit_page.saved',
     'admin.edit_page.saving',
     'admin.edit_page.strip',

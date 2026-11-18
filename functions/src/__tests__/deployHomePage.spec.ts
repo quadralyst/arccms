@@ -345,13 +345,14 @@ describe('deployHomePage', () => {
     describe('the default language\'s strings file', () => {
         it('words the default page, its notice and its signup panels when the site has one', async () => {
             mockGetUiStrings.mockImplementation(async (lang: string) => (lang === 'en'
-                ? { home_heading: 'Welcome aboard', legal_terms: 'Terms', signup_on_list: 'Thanks, you are in!', signup_success_text: 'Watch {{ email }}.' }
+                ? { home_heading: 'Welcome aboard', legal_terms: 'Terms', signup_on_list: 'Thanks, you are in!', signup_success_text: 'Watch {{ email }}.', strip_edit: 'Change this page' }
                 : {}));
             await generateAndDeployHomePage();
             const $ = loadHtml(released()['/index.html'], { xmlMode: false });
             expect($('h1').text()).toBe('Welcome aboard');
             expect(JSON.parse($('script[src^="/assets/js/arc-site.js"]').attr('data-strings')!))
-                .toEqual({ signup_on_list: 'Thanks, you are in!', signup_success_text: 'Watch {{ email }}.' });
+                // The admin strip's words go too (specs/visual-editing-spec.md, VE3.8).
+                .toEqual({ signup_on_list: 'Thanks, you are in!', signup_success_text: 'Watch {{ email }}.', strip_edit: 'Change this page' });
             expect(mockGetUiStrings).toHaveBeenCalledWith('en');
         });
 

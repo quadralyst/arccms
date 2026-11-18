@@ -314,6 +314,24 @@ describe('InPlaceEditing', () => {
             expect(q('#hd').getAttribute('title')).toBe('hint:header');
         });
 
+        it('marks a field every language shares while a translation is on screen, and does not edit it', () => {
+            add('<span id="pr2" data-arc-field="price">20</span><span id="vn" data-arc-field="venue">Hall</span>');
+            (host as unknown as { shared: (field: string) => boolean }).shared = (field) => field === 'events-price';
+            editing.mark();
+            expect(q('#pr2').hasAttribute('data-arc-edit-kind')).toBe(false);
+            expect(q('#pr2').hasAttribute('data-arc-shared')).toBe(true);
+            expect(q('#pr2').getAttribute('title')).toBe('hint:shared');
+            click(q('#pr2'));
+            expect(host.popover).not.toHaveBeenCalled();
+            expect(q('#vn').getAttribute('data-arc-edit-kind')).toBe('text');
+            // Back on the default language: editable again, the mark and its title gone.
+            (host as unknown as { shared: () => boolean }).shared = () => false;
+            editing.mark();
+            expect(q('#pr2').getAttribute('data-arc-edit-kind')).toBe('popover');
+            expect(q('#pr2').hasAttribute('data-arc-shared')).toBe(false);
+            expect(q('#pr2').hasAttribute('title')).toBe(false);
+        });
+
         it('gives the popover the template\'s label', () => {
             add('<span id="pr" data-arc-field="price" data-arc-label="Ticket price">20</span>');
             click(q('#pr'));

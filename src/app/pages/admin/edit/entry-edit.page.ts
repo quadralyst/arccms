@@ -32,6 +32,7 @@ import { PagePanel } from './page-panel';
 import { HintKind, InPlaceEditing, InPlaceHost, RichAt, RichHandle, Spot, spotInfo } from './in-place';
 import { editorExtensions } from '../../../../shared/components/tiptap-editor/editor-extensions';
 import { ArcEmptyLines } from './empty-lines';
+import { isTranslatableField, TRANSLATABLE_BUILTIN_FIELDS } from '../contents/draft-content-store/content-translation.model';
 import { placeImage, removeImage, selectImage, selectedImage, setImageAlt } from '../../../../shared/components/tiptap-editor/service/image-actions';
 import { UrlAddDialog } from '../../../../shared/components/tiptap-editor/service/url-add-dialog/add-url.component';
 import MediaManagerComponent, { MediaSelection } from '../(media)/media.page';
@@ -56,6 +57,7 @@ const HINT_KEYS: Record<HintKind, string> = {
     header: 'admin.edit_page.hint_header',
     footer: 'admin.edit_page.hint_footer',
     site: 'admin.edit_page.hint_site',
+    shared: 'admin.edit_page.hint_shared',
 };
 
 /** A label inside a sentence ("Add cover image"): its first letter small, unless it starts an acronym (URL, FAQ). */
@@ -89,6 +91,15 @@ export function editFrameUrl(type: string, id: string): string {
         </span>
         }
         <span class="arc-ed-spacer"></span>
+        @if (langs().length > 1) {
+        <!-- The language edited on the page (VE3.8): a translation, as the form's language tabs. -->
+        <span class="arc-ed-group" role="group" [attr.aria-label]="'admin.edit_page.language' | transloco" data-testid="edit-languages">
+            @for (l of langs(); track l.code) {
+            <button type="button" class="arc-ed-btn" [class.arc-ed-on]="lang() === l.code" [attr.aria-pressed]="lang() === l.code"
+                [title]="l.label" (click)="switchLanguage(l.code)" [attr.data-lang]="l.code">{{ l.code.toUpperCase() }}</button>
+            }
+        </span>
+        }
         <span class="arc-ed-group" role="group" [attr.aria-label]="'admin.preview.width' | transloco">
             <button type="button" class="arc-ed-btn" [class.arc-ed-on]="!phone()" [attr.aria-pressed]="!phone()" (click)="phone.set(false)">{{ 'admin.preview.full_width' | transloco }}</button>
             <button type="button" class="arc-ed-btn" [class.arc-ed-on]="phone()" [attr.aria-pressed]="phone()" (click)="phone.set(true)" data-testid="edit-phone">{{ 'admin.preview.phone' | transloco }}</button>
@@ -278,6 +289,10 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     /** Bumped on each change in the rich editor, so the buttons show what the selection has. */
     private readonly formatTick = signal(0);
     /** The box on a spot: a field's own control, or an image's Replace and Remove. */
+    /** The site's languages when it has several, and the one being edited (VE3.8). */
+    readonly langs = signal<{ code: string; label: string }[]>([]);
+    readonly lang = signal('');
+
     /** The picture selected in the body, and where its box goes (VE-D16). */
     readonly pic = signal<{ pos: number; alt: string; top: number; left: number } | null>(null);
     readonly pop = signal<{ title: string; top: number; left: number; image: boolean; spot: Spot } | null>(null);
@@ -336,6 +351,9 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     readStatus(): void {
         const session = this.editor?.session;
         if (!session) return;
+        const langs = session.showLanguageBar() ? session.enabledLanguages().map((l) => ({ code: l.code, label: l.label })) : [];
+        if (langs.map((l) => l.code).join() !== this.langs().map((l) => l.code).join()) this.langs.set(langs);
+        if (session.activeLang() !== this.lang()) this.lang.set(session.activeLang());
         const failed = session.saveFailed() || session.entryChanged() || session.entryGone();
         const saving = session.isSavingDraft || session.isAutoSaving || session.creating();
         this.status.set(saving ? 'saving' : failed ? 'not_saved' : session.hasUnsavedChanges() ? 'unsaved' : 'saved');
@@ -480,7 +498,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         popover: (spot) => this.openPopover(spot),
         panel: (spot) => this.openInPanel(spot),
         placeholder: (field, label) => this.transloco.translate('admin.edit_page.add', { label: inSentence(label ?? this.fieldTitle(field)) }),
-        hint: (kind) => this.transloco.translate(HINT_KEYS[kind]),
+        hint: (kind) => this.transloco.translate(HINT_KEYS[kind], { language: this.defaultLanguageLabel() }),
+        shared: (field, builtin) => this.sharedField(field, builtin),
         escape: () => {
             if (!this.pic()) return false;
             this.closePicture();
@@ -658,6 +677,34 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     private pickerTitle(key: 'admin.media.picker.image_in' | 'admin.media.picker.files_in'): string {
         const field = this.inPlace?.current()?.field || 'content';
         return this.transloco.translate(key, { field: this.fieldTitle(field) });
+    }
+
+    /** Edits another language on the page: what is being typed in is kept first, as the form's tabs do. */
+    async switchLanguage(code: string): Promise<void> {
+        if (!this.editor || code === this.lang()) return;
+        this.inPlace?.leave();
+        this.closePopover();
+        this.closePicture();
+        await this.editor.switchLanguage(code);
+        this.readStatus();
+        // The spots shared by every language change with it.
+        this.inPlace?.mark();
+    }
+
+    /** While a translation is on screen, a field every language shares: the form locks it, and so does the page. */
+    sharedField(field: string, builtin: boolean): boolean {
+        const session = this.editor?.session;
+        if (!session?.isTranslating()) return false;
+        if (builtin) return !(TRANSLATABLE_BUILTIN_FIELDS as readonly string[]).includes(field);
+        const def = this.editor?.currentFields.find((f) => f.key === field);
+        return def ? !isTranslatableField(def) : false;
+    }
+
+    private defaultLanguageLabel(): string {
+        const session = this.editor?.session;
+        if (!session) return '';
+        const code = session.defaultLang();
+        return session.enabledLanguages().find((l) => l.code === code)?.label ?? code;
     }
 
     /** A strip button's name: the image button replaces a selected picture. */
