@@ -3,7 +3,7 @@
  * (specs/app-accounts-spec.md, docs/app/app-accounts.html).
  */
 import { HttpsError } from 'firebase-functions/v2/https';
-import { Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { db, owner } from '../init.js';
 import { canSignIn, findUserByUid, newUserRecord } from '../auth/accounts.js';
 import { APP_ACCOUNT_BY, SELF_SERVICE } from '../users/lockedAppAccount.js';
@@ -12,6 +12,20 @@ import { isActiveAdmin, requireAnotherActiveAdmin } from '../users/activeAdmins.
 
 /** What sets an app account apart in the users list. */
 export const APP_ACCOUNT = APP_ACCOUNT_BY;
+
+/** The record's `status` while its app has turned its sign-in off (setAppSignIn); Users shows "Sign-in off". */
+export const SIGN_IN_OFF = 'Off';
+
+/** What setAppSignIn writes on the record while sign-in is off, for the admin's view of the person. */
+export interface SignInOff {
+    /** The app's words for why, shown on the person's page in Users. */
+    reason?: string;
+    at: Timestamp;
+    /** An admin had blocked the account already: turning sign-in on leaves it blocked. */
+    wasBlocked: boolean;
+}
+
+const MAX_REASON_LENGTH = 200;
 
 export interface CreateAppAccountInput {
     /** The name shown in the admin and the member area. */
@@ -128,7 +142,8 @@ export async function restoreAppSignIn(uid: string, claims: Record<string, unkno
         await owner.getUser(uid);
     } catch (err) {
         if ((err as { code?: unknown })?.code !== 'auth/user-not-found') throw err;
-        await owner.createUser({ uid, ...(name ? { displayName: name } : {}) });
+        // A record whose sign-in its app turned off gets its sign-in back off too (setAppSignIn).
+        await owner.createUser({ uid, ...(name ? { displayName: name } : {}), ...(record.data['status'] === SIGN_IN_OFF ? { disabled: true } : {}) });
     }
     // A blocked or detached record gets no ArcCMS claims back, as at any sign-in.
     const role = typeof record.data['role'] === 'string' ? record.data['role'] : '';
@@ -137,4 +152,55 @@ export async function restoreAppSignIn(uid: string, claims: Record<string, unkno
         : { [ROLE_CLAIM]: null, [USER_RECORD_CLAIM]: null };
     await mergeClaims(uid, { ...claims, ...arc }, checkClaimsSize);
     return { uid, userDocId: record.ref.id };
+}
+
+/** Firebase Auth's answer when the account is gone, which turning sign-in off or on can ignore. */
+const isUserNotFound = (err: unknown) => (err as { code?: unknown })?.code === 'auth/user-not-found';
+
+/**
+ * Turns an app account's sign-in off, or on again, keeping the account and everything
+ * under it: for a person the app removed but whose name must stay on what they did
+ * (docs/app/app-accounts.html#sign-in-off).
+ *
+ * Off: the record's `status` becomes `Off` (Users shows "Sign-in off", the reason on the
+ * person's page) and `isActive` false, so ArcCMS's claims go as for a blocked account;
+ * the Firebase sign-in is disabled and its sessions are ended. On: `status` is `Active`
+ * again and the sign-in enabled; `isActive` comes back unless an admin had blocked the
+ * account before, whose block stays. Safe to repeat. Only for accounts made by
+ * createAppAccount(); refused (`last-admin`) for the site's last active admin.
+ */
+export async function setAppSignIn(uid: string, change: { on: boolean; reason?: string }): Promise<AppAccount> {
+    if (typeof change?.on !== 'boolean') throw new HttpsError('invalid-argument', 'Turn sign-in on or off? Pass { on: true } or { on: false }.');
+    const reason = typeof change.reason === 'string' ? change.reason.trim() : '';
+    if (reason.length > MAX_REASON_LENGTH) throw new HttpsError('invalid-argument', `A reason can be at most ${MAX_REASON_LENGTH} characters.`);
+    const found = uid ? await findUserByUid(uid) : null;
+    if (!found) throw new HttpsError('not-found', 'No account has this uid.');
+    if (found.data['by'] !== APP_ACCOUNT) {
+        throw new HttpsError('failed-precondition', 'Only an account made by createAppAccount() can have its sign-in turned off or on this way.');
+    }
+    await db.runTransaction(async (tx) => {
+        const snap = await tx.get(found.ref);
+        if (!snap.exists) throw new HttpsError('not-found', 'No account has this uid.');
+        const data = snap.data() ?? {};
+        if (data['status'] === 'Detached') throw new HttpsError('failed-precondition', 'This account is detached, so its sign-in cannot be turned on or off.', { reason: 'detached' });
+        const off = data['status'] === SIGN_IN_OFF;
+        if (!change.on) {
+            if (!off && isActiveAdmin(data)) await requireAnotherActiveAdmin(tx, found.ref.id, data['uid']);
+            const before = data['signInOff'] as SignInOff | undefined;
+            const record: SignInOff = { ...(reason ? { reason } : {}), at: Timestamp.now(), wasBlocked: off ? before?.wasBlocked === true : data['isActive'] === false };
+            tx.update(found.ref, { status: SIGN_IN_OFF, isActive: false, signInOff: record, modifiedAt: Timestamp.now() });
+        } else if (off) {
+            const wasBlocked = (data['signInOff'] as SignInOff | undefined)?.wasBlocked === true;
+            tx.update(found.ref, { status: 'Active', isActive: !wasBlocked, signInOff: FieldValue.delete(), modifiedAt: Timestamp.now() });
+        }
+    });
+    try {
+        await owner.updateUser(uid, { disabled: !change.on });
+        // Sessions end at once, not when their hour runs out.
+        if (!change.on) await owner.revokeRefreshTokens(uid);
+    } catch (err) {
+        // No sign-in account (deleted outside Arc CMS): the record says off, which is what counts.
+        if (!isUserNotFound(err)) throw err;
+    }
+    return { uid, userDocId: found.ref.id };
 }

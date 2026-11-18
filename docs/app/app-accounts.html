@@ -156,6 +156,20 @@ const { pos } = sessionClaims(request); // 'pos-2', or undefined when the sessio
     <h2 id="sessions">Sessions</h2>
     <p><code>revokeSessions(uid)</code> signs the person out on every device: their refresh tokens are revoked, so each session ends at its next token refresh, within the hour. Use it when a member of staff leaves or a device is lost. They can sign in again as usual afterwards.</p>
 
+    <h2 id="sign-in-off">Turn sign-in off and on</h2>
+    <p>When someone leaves but their name must stay on what they did, such as the sales a member of staff made, keep the account and turn its sign-in off:</p>
+    <pre><code>import { setAppSignIn } from '../app-kit/index.js';
+
+await setAppSignIn(staff.uid, { on: false, reason: 'Removed by the owner' });
+// Later, if they come back:
+await setAppSignIn(staff.uid, { on: true });</code></pre>
+    <ul>
+      <li><strong>Off</strong> disables the Firebase sign-in and ends its sessions at once. The record's <code>status</code> becomes <code>Off</code> (<code>SIGN_IN_OFF</code>) and <code>isActive</code> false, so Arc CMS's claims go as for a blocked account, and your <code>issueSignInToken()</code> token no longer signs in. Admin, Users shows <strong>Sign-in off</strong>, and the person's page shows your reason (up to 200 characters, optional). The All, People and App accounts filters still list it.</li>
+      <li><strong>On</strong> enables the sign-in and sets <code>status</code> back to <code>Active</code>. <code>isActive</code> comes back too, unless an admin had blocked the account before it was turned off: that block stays.</li>
+      <li>An admin's own Block stays as it is. On an account whose sign-in its app turned off, Users offers no Unblock, and the server refuses one (reason <code>sign-in-off</code>): your app turns it on. Your app can still delete it with <code>deleteAppAccount()</code>.</li>
+      <li>Only for accounts <code>createAppAccount()</code> made, safe to repeat, and refused (<code>last-admin</code>) for the site's last active admin. If the sign-in was deleted meanwhile, the record is still turned off, and <code>restoreAppSignIn()</code> gives the sign-in back disabled while the record is off.</li>
+    </ul>
+
     <h2 id="delete-an-account">Delete an account</h2>
     <p><code>deleteAppAccount(uid)</code> deletes the person's <code>users</code> record, unless it is the site's last active admin: then it throws with the reason <code>last-admin</code>, since the site always keeps an admin. Arc CMS's account deletion then does what it does for anyone (see <a href="account-contract.html#what-deleting-an-account-removes">Follow the account contract</a>): it ends their access, deletes the sign-in, their PIN and their data under the record, and last emits <code>user.deleted</code> with <code>userId</code> (the Auth uid) and <code>data.userDocId</code>. Clean up your own data from that event:</p>
     <pre><code>export const onStaffDeleted = onDocumentCreated(arcDocument('AppEvents/{id}'), async (event) =&gt; {

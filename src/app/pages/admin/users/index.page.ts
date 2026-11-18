@@ -31,7 +31,7 @@ import { ToastService } from '../../../../shared/services/toast.service';
 import AddUserComponent from './(add-user)/add.page';
 import EditUserComponent from './(edit-user)/edit.[userId].page';
 import ViewUserComponent from './(view-user)/view.[userId].page';
-import { ACCOUNT_KINDS, AccountKind, accountKindConditions, IUser, isAppAccount, matchesUserSearch, MAX_SEARCHED_USERS, roleLabel, userActionError } from './user.model';
+import { ACCOUNT_KINDS, AccountKind, accountKindConditions, IUser, isAppAccount, matchesUserSearch, MAX_SEARCHED_USERS, roleLabel, signInOffByApp, userActionError } from './user.model';
 import { UserService } from './user.service';
 import { injectT } from '../../../core/i18n/inject-t';
 import { UserStore } from './user.store';
@@ -561,7 +561,7 @@ export default class UsersComponent implements OnDestroy {
                     trueClass: 'active',
                     falseClass: 'inactive',
                     // Read at each render, so a change of language shows at once.
-                    textFn: (row: IUser) => this.t(row.isActive !== false ? 'admin.users.status_active' : 'admin.users.status_blocked'),
+                    textFn: (row: IUser) => this.t(signInOffByApp(row) ? 'admin.users.status_sign_in_off' : row.isActive !== false ? 'admin.users.status_active' : 'admin.users.status_blocked'),
                 },
                 classFn: (row: IUser) => (row.isActive !== false ? 'active' : 'inactive'),
             },
@@ -597,8 +597,9 @@ export default class UsersComponent implements OnDestroy {
                         labelFn: (row) => row.isActive !== false ? 'admin.users.block' : 'admin.users.unblock',
                         class: 'edit', // or custom class
                         // Never on your own row: another admin blocks you (the server refuses it too).
-                        // Not on a detached record: unblocking it could not let it sign in.
-                        hide: (row) => this.isMe(row) || row.status === 'Detached',
+                        // Not on a detached record: unblocking it could not let it sign in. Not on
+                        // one whose app turned its sign-in off: the app turns it on (setAppSignIn).
+                        hide: (row) => this.isMe(row) || row.status === 'Detached' || signInOffByApp(row),
                         onAction: (row) => this.onActiveDeactivate(row)
                     },
                     {

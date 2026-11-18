@@ -37,6 +37,14 @@
             </p>
         </div>
 
+        @if (signInOff() && currentItem.signInOff?.reason) {
+        <!-- Why its app turned its sign-in off (setAppSignIn) -->
+        <div class="detail-row">
+            <h6 class="detail-label">{{ 'admin.users.view.sign_in_off_reason' | transloco }}</h6>
+            <p class="detail-value">{{ currentItem.signInOff?.reason }}</p>
+        </div>
+        }
+
         <!-- Role -->
         <div class="detail-row">
             <h6 class="detail-label">{{ 'admin.users.view.role' | transloco }}</h6>
@@ -49,6 +57,8 @@
             <p class="detail-value">
                 @if(currentItem.isActive) {
                 <span class="badge bg-success">{{ 'admin.users.status_active' | transloco }}</span>
+                } @else if (signInOff()) {
+                <span class="badge bg-warning text-dark">{{ 'admin.users.status_sign_in_off' | transloco }}</span>
                 } @else {
                 <span class="badge bg-danger">{{ 'admin.users.status_blocked' | transloco }}</span>
                 }

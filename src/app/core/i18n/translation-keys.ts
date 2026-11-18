@@ -3340,6 +3340,7 @@ export type TranslationKey =
     | 'admin.users.errors.own_account'
     | 'admin.users.errors.pin_sign_in'
     | 'admin.users.errors.shared_account'
+    | 'admin.users.errors.sign_in_off'
     | 'admin.users.errors.unverified_account'
     | 'admin.users.errors.unverified_add'
     | 'admin.users.form.add_title'
@@ -3413,6 +3414,7 @@ export type TranslationKey =
     | 'admin.users.status_blocked'
     | 'admin.users.status_detached'
     | 'admin.users.status_pending'
+    | 'admin.users.status_sign_in_off'
     | 'admin.users.unblock'
     | 'admin.users.unblock_failed'
     | 'admin.users.unblock_message'
@@ -3430,6 +3432,7 @@ export type TranslationKey =
     | 'admin.users.view.none'
     | 'admin.users.view.not_verified'
     | 'admin.users.view.role'
+    | 'admin.users.view.sign_in_off_reason'
     | 'admin.users.view.status'
     | 'admin.users.view.title'
     | 'admin.users.view.updated'
@@ -7623,6 +7626,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.users.errors.own_account',
     'admin.users.errors.pin_sign_in',
     'admin.users.errors.shared_account',
+    'admin.users.errors.sign_in_off',
     'admin.users.errors.unverified_account',
     'admin.users.errors.unverified_add',
     'admin.users.form.add_title',
@@ -7696,6 +7700,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.users.status_blocked',
     'admin.users.status_detached',
     'admin.users.status_pending',
+    'admin.users.status_sign_in_off',
     'admin.users.unblock',
     'admin.users.unblock_failed',
     'admin.users.unblock_message',
@@ -7713,6 +7718,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.users.view.none',
     'admin.users.view.not_verified',
     'admin.users.view.role',
+    'admin.users.view.sign_in_off_reason',
     'admin.users.view.status',
     'admin.users.view.title',
     'admin.users.view.updated',
