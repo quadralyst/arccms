@@ -29,7 +29,7 @@ export function goodAccountId(accountId: unknown): accountId is string {
 
 /** What a page may read, with the address built, and nothing of Arc's bookkeeping. */
 export function publicView(account: AccountDoc): PublicPaymentAccount {
-    const { webhookId, alertsSaid: _said, silentFinishes: _silent, ...open } = account;
+    const { webhookId, alertsSaid: _said, silentFinishes: _silent, silenceEnded: _ended, ...open } = account;
     return { ...open, problems: account.problems ?? {}, webhookAddress: webhookAddress(webhookId) };
 }
 

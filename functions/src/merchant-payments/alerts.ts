@@ -4,6 +4,7 @@
  * changes (rule 10). Nothing is logged but the type and the account's provider (rule 9).
  */
 import { logger } from 'firebase-functions/v2';
+import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../init.js';
 import { ACCOUNTS, readAccount, type AccountDoc } from './store.js';
 import type { PaymentAlert, PaymentHooks, PaymentProblemType } from './types.js';
@@ -85,23 +86,40 @@ export async function sayCleared(account: Pick<AccountDoc, 'accountId' | 'provid
  * told of it, it hears `cleared` once, so its warning can come down. The problem is forgotten
  * only after the app took that, so a failed call is said again the next time it clears.
  */
-export async function clearAccountProblem(accountId: string, type: PaymentProblemType): Promise<void> {
+export async function clearAccountProblem(accountId: string, type: PaymentProblemType): Promise<boolean> {
     const account = await readAccount(accountId);
-    if (!account?.problems?.[type] && !account?.alertsSaid?.[type]) return;
-    if (account.alertsSaid?.[type] && !(await sayCleared(account, type))) return;
+    if (!account?.problems?.[type] && !account?.alertsSaid?.[type]) return true;
+    if (account.alertsSaid?.[type] && !(await sayCleared(account, type))) return false;
     await changeMaps(accountId, (problems, said) => {
         delete problems[type];
         delete said[type];
     });
+    return true;
 }
 
 /**
  * An event came for this account, so its webhook is on. For a provider that signs nothing this
  * proves little, and all a forger gains is an alert not said.
+ *
+ * The webhook itself (`fromWebhook`) never loads the app's hooks (rule 8): it only marks the
+ * silence ended, and the sweep says `cleared` within minutes (sayClearedSilences).
  */
-export async function noteEventArrived(accountId: string): Promise<void> {
+export async function noteEventArrived(accountId: string, options: { fromWebhook?: boolean } = {}): Promise<void> {
     const account = await readAccount(accountId);
-    if (!account || (!account.silentFinishes && !account.problems?.['webhook-silent'])) return;
+    const silent = !!(account?.problems?.['webhook-silent'] || account?.alertsSaid?.['webhook-silent']);
+    if (!account || (!account.silentFinishes && !silent)) return;
+    if (options.fromWebhook) {
+        await db.collection(ACCOUNTS).doc(accountId).update({ silentFinishes: 0, ...(silent ? { silenceEnded: true } : {}) });
+        return;
+    }
     await db.collection(ACCOUNTS).doc(accountId).update({ silentFinishes: 0 });
-    await clearAccountProblem(accountId, 'webhook-silent');
+    if (await clearAccountProblem(accountId, 'webhook-silent')) await db.collection(ACCOUNTS).doc(accountId).update({ silenceEnded: FieldValue.delete() });
+}
+
+/** The sweep's part: a silence the webhook saw end is said `cleared`, and taken away. */
+export async function sayClearedSilences(limit = 100): Promise<void> {
+    const ended = await db.collection(ACCOUNTS).where('silenceEnded', '==', true).limit(limit).get();
+    for (const doc of ended.docs) {
+        if (await clearAccountProblem(doc.id, 'webhook-silent')) await doc.ref.update({ silenceEnded: FieldValue.delete() });
+    }
 }

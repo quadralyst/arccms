@@ -169,7 +169,8 @@ async function noteFinished(record: PaymentRecord, via: 'event' | 'sweep' | 'app
         if (!snap.exists) return null;
         const current = snap.data() as AccountDoc;
         const silentFinishes = silent ? (current.silentFinishes ?? 0) + 1 : 0;
-        tx.update(ref, { lastPaymentAtIso: new Date(nowMs).toISOString(), lastPaymentStatus: record.status, silentFinishes });
+        // Silent again: a silence the webhook saw end has not ended after all.
+        tx.update(ref, { lastPaymentAtIso: new Date(nowMs).toISOString(), lastPaymentStatus: record.status, silentFinishes, ...(silent ? { silenceEnded: FieldValue.delete() } : {}) });
         return { ...current, silentFinishes };
     });
     if (account && silent && account.silentFinishes >= SILENT_FINISHES_ALERT) {

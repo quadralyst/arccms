@@ -126,7 +126,7 @@ export const PAYMENT_HOOKS: PaymentHooks = {
           <tr><td><code>webhook-silent</code></td><td>3 payments in a row finished with no event, whether the sweep or your own <code>readPayment</code> found them. Neither provider's docs show a call that says a webhook was switched off, so this is how Arc notices: it was never added, or it is off. Goes away when an event arrives.</td></tr>
           <tr><td><code>payment-held</code></td><td>A payment is held for a person (<a href="#held">below</a>). <code>reasons</code> says what did not match; <code>amountMinor</code> and <code>currency</code> say what reached the account, as the provider gave them, when it said (they are left out when nothing paid was read back, as for <code>provider-status</code>).</td></tr>
           <tr><td><code>delivery-failed</code></td><td>Your <code>onResult</code> has failed 10 times for one payment.</td></tr>
-          <tr><td><code>cleared</code></td><td>A <code>key-expiring</code>, <code>key-refused</code> or <code>webhook-silent</code> you were told of has gone (named in <code>cleared</code>): the keys work again, events arrive again, new keys went in or the daily check finds they no longer end soon. Take your warning down.</td></tr>
+          <tr><td><code>cleared</code></td><td>A <code>key-expiring</code>, <code>key-refused</code> or <code>webhook-silent</code> you were told of has gone (named in <code>cleared</code>): the keys work again, events arrive again, new keys went in or the daily check finds they no longer end soon. Take your warning down. An event for a payment already final reaches only the webhook, which never calls your code, so that silence is said cleared by the next sweep, within minutes.</td></tr>
         </tbody>
       </table>
     </div>

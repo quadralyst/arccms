@@ -62,6 +62,11 @@ export interface AccountDoc extends Omit<PublicPaymentAccount, 'webhookAddress'>
     alertsSaid?: Record<string, string>;
     /** Payments the sweep found finished with no event in between (rule 10). */
     silentFinishes?: number;
+    /**
+     * The webhook heard an event while `webhook-silent` stood. The webhook never loads the
+     * app's hooks (rule 8), so the sweep says `cleared` and takes the problem away.
+     */
+    silenceEnded?: boolean;
 }
 
 export async function readAccount(accountId: string): Promise<AccountDoc | null> {

@@ -797,7 +797,7 @@ describe('rule 10: a problem that goes away is said once, as cleared (F45)', () 
         expect((await readPaymentAccount(ACCOUNT))?.problems['key-refused']).toBeUndefined();
     });
 
-    it('a silent webhook whose events come again: cleared once', async () => {
+    it('a silent webhook whose events come again: the webhook loads no hook, and the sweep says cleared once', async () => {
         await connectPretend();
         for (const reference of ['a', 'b', 'c']) {
             await startPretend(reference);
@@ -805,9 +805,44 @@ describe('rule 10: a problem that goes away is said once, as cleared (F45)', () 
             await readPayment({ accountId: ACCOUNT, reference });
         }
         expect(alerts.filter((a) => a.type === 'webhook-silent')).toHaveLength(1);
+        // Events for payments already final reach only the webhook, which never calls the app (rule 8).
         await pretendPayment({ accountId: ACCOUNT, reference: 'c', outcome: 'paid' });
         await pretendPayment({ accountId: ACCOUNT, reference: 'b', outcome: 'paid' });
+        expect(cleared()).toEqual([]);
+        await runPaymentSweep();
+        await runPaymentSweep();
         expect(cleared()).toEqual(['webhook-silent']);
+        expect((await readPaymentAccount(ACCOUNT))?.problems['webhook-silent']).toBeUndefined();
+        expect((db.read('MerchantAccounts', ACCOUNT) as any).silenceEnded).toBeUndefined();
+    });
+
+    it('an event through the trigger says cleared at once', async () => {
+        const { webhookAddress } = await connectPretend();
+        for (const reference of ['a', 'b', 'c']) {
+            await startPretend(reference);
+            await pretendPayment({ accountId: ACCOUNT, reference, outcome: 'paid', deliver: 'none' });
+            await readPayment({ accountId: ACCOUNT, reference });
+        }
+        await startPretend('order-next');
+        await receivePaymentEvent(signedRequest(webhookAddress.split('/').pop()!, { id: 'e-back', type: 'x', reference: 'order-next' }));
+        await runTrigger();
+        expect(cleared()).toEqual(['webhook-silent']);
+    });
+
+    it('a silence that comes back before the sweep is not said cleared', async () => {
+        const later = Date.now() + 3_600_000;
+        await connectPretend();
+        for (const reference of ['a', 'b', 'c']) {
+            await startPretend(reference);
+            await pretendPayment({ accountId: ACCOUNT, reference, outcome: 'paid', deliver: 'none' });
+            await readPayment({ accountId: ACCOUNT, reference });
+        }
+        await pretendPayment({ accountId: ACCOUNT, reference: 'c', outcome: 'paid' });
+        await startPretend('d');
+        await pretendPayment({ accountId: ACCOUNT, reference: 'd', outcome: 'paid', deliver: 'none' });
+        await runPaymentSweep(later);
+        expect(cleared()).toEqual([]);
+        expect((await readPaymentAccount(ACCOUNT))?.problems['webhook-silent']).toBeTruthy();
     });
 
     it('keys that ended, replaced by new ones: every problem the app heard of is cleared', async () => {
@@ -873,11 +908,12 @@ describe('rule 10: a webhook that is off, when the app reads every payment itsel
         expect((db.read('MerchantAccounts', ACCOUNT) as any).silentFinishes).toBe(0);
     });
 
-    it('an event for a final payment still clears a silence already told', async () => {
+    it('an event for a final payment still clears a silence already told, by the next sweep', async () => {
         await connectPretend();
         for (const reference of ['a', 'b', 'c']) await finishByPolling(reference);
         expect((await readPaymentAccount(ACCOUNT))?.problems['webhook-silent']).toBeTruthy();
         await pretendPayment({ accountId: ACCOUNT, reference: 'c', outcome: 'paid' });
+        await runPaymentSweep();
         expect((await readPaymentAccount(ACCOUNT))?.problems['webhook-silent']).toBeUndefined();
     });
 });

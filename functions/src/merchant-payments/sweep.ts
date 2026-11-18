@@ -5,6 +5,7 @@
  */
 import { logger } from 'firebase-functions/v2';
 import { FieldValue } from 'firebase-admin/firestore';
+import { sayClearedSilences } from './alerts.js';
 import { db } from '../init.js';
 import { STARTING_MS } from './payments.js';
 import { applyRead, checkGapMs, checkPayment, CLOSE_GRACE_MS, deliverPending, holdPayment } from './settle.js';
@@ -95,6 +96,7 @@ export async function runPaymentSweep(nowMs = Date.now()): Promise<{ read: numbe
             logger.error('merchant-payments: a result could not be delivered');
         }
     });
+    await sayClearedSilences().catch(() => logger.error('merchant-payments: a cleared silence could not be said'));
     return { read: due.size, delivered: waiting.size };
 }
 
