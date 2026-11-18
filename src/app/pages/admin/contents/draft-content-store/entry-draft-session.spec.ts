@@ -445,6 +445,19 @@ describe('EntryDraftSession', () => {
       expect(states()[0].draft.title).toBe('Typed on the page');
     });
 
+    it('redraws the page with an entry loaded again, such as the other admin\'s after Reload theirs', async () => {
+      loadStored();
+      session.connectPreview();
+      await new Promise((resolve) => setTimeout(resolve, EntryDraftSession.PREVIEW_DELAY_MS + 30));
+      post.mockClear();
+      session.load({ id: 'doc-1', title: 'Their title', modifiedAt: 2 });
+      view.values.title = 'Their title';
+      await new Promise((resolve) => setTimeout(resolve, EntryDraftSession.PREVIEW_DELAY_MS + 30));
+      const states = post.mock.calls.map((call: any[]) => call[0]).filter((m: any) => m.kind === 'state');
+      expect(states).toHaveLength(1);
+      expect(states[0].draft.title).toBe('Their title');
+    });
+
     it('a click on the preview asks the screen for the field', () => {
       session.onPreviewMessage({ kind: 'focus', key: 'price', row: 2 });
       expect(view.focused).toEqual([['price', 2]]);

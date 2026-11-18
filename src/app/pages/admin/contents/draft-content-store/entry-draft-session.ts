@@ -345,6 +345,9 @@ export class EntryDraftSession implements OnDestroy {
     this.view.expectEchoes();
     this.captureDraftBaseline();
     this.view.refresh();
+    // The preview window and the Visual Editor's page show what was loaded, such as
+    // the other admin's entry after Reload theirs, not what was on screen before.
+    this.schedulePreview();
   }
 
   /**
