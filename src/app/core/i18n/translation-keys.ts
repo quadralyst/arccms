@@ -1225,6 +1225,8 @@ export type TranslationKey =
     | 'admin.edit_page.numbers'
     | 'admin.edit_page.page_settings'
     | 'admin.edit_page.picture'
+    | 'admin.edit_page.published'
+    | 'admin.edit_page.publishing'
     | 'admin.edit_page.quote'
     | 'admin.edit_page.redo'
     | 'admin.edit_page.replace'
@@ -5544,6 +5546,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.numbers',
     'admin.edit_page.page_settings',
     'admin.edit_page.picture',
+    'admin.edit_page.published',
+    'admin.edit_page.publishing',
     'admin.edit_page.quote',
     'admin.edit_page.redo',
     'admin.edit_page.replace',

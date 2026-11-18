@@ -4162,7 +4162,9 @@
       "alt_placeholder": "चित्र में क्या दिखता है",
       "replace_image": "चित्र बदलें",
       "language": "भाषा",
-      "hint_shared": "हर भाषा में एक जैसा: इसे {{language}} में बदलें"
+      "hint_shared": "हर भाषा में एक जैसा: इसे {{language}} में बदलें",
+      "publishing": "प्रकाशित हो रहा है...",
+      "published": "प्रकाशित"
     }
   },
   "user": {

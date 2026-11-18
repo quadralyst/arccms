@@ -46,7 +46,7 @@ const STATUS_EVERY_MS = 300;
 /** How long the screen waits for the frame to draw the page before giving up on the peek. */
 const DRAW_WAIT_MS = 20_000;
 
-export type EditStatus = 'saved' | 'saving' | 'unsaved' | 'not_saved';
+export type EditStatus = 'saved' | 'saving' | 'unsaved' | 'not_saved' | 'publishing' | 'published';
 
 /** The hover text for each kind of value not edited in place (VE-D17). */
 const HINT_KEYS: Record<HintKind, string> = {
@@ -181,7 +181,8 @@ export function editFrameUrl(type: string, id: string): string {
         }
         .arc-ed-title { font-weight: 600; white-space: nowrap; }
         .arc-ed-status { padding: 1px 8px; border-radius: 999px; background: #4b5563; white-space: nowrap; }
-        .arc-ed-status.arc-ed-saved { background: #15803d; }
+        .arc-ed-status.arc-ed-saved, .arc-ed-status.arc-ed-published { background: #15803d; }
+        .arc-ed-status.arc-ed-publishing { background: #a16207; }
         .arc-ed-status.arc-ed-not_saved { background: #b91c1c; }
         .arc-ed-spacer { flex: 1 1 auto; }
         .arc-ed-group { display: inline-flex; gap: 2px; }
@@ -273,6 +274,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         saving: 'admin.edit_page.saving',
         unsaved: 'admin.edit_page.unsaved',
         not_saved: 'admin.edit_page.not_saved',
+        publishing: 'admin.edit_page.publishing',
+        published: 'admin.edit_page.published',
     } as const)[this.status()]);
 
     @ViewChild(CreateContentComponent) editor?: CreateContentComponent;
@@ -356,7 +359,11 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         if (session.activeLang() !== this.lang()) this.lang.set(session.activeLang());
         const failed = session.saveFailed() || session.entryChanged() || session.entryGone();
         const saving = session.isSavingDraft || session.isAutoSaving || session.creating();
-        this.status.set(saving ? 'saving' : failed ? 'not_saved' : session.hasUnsavedChanges() ? 'unsaved' : 'saved');
+        const unsaved = session.hasUnsavedChanges();
+        // A publish shows on the strip until the page is live, and then until the next change.
+        const deploy = session.deployStatus();
+        this.status.set(saving ? 'saving' : failed ? 'not_saved' : deploy === 'pending' ? 'publishing'
+            : unsaved ? 'unsaved' : deploy === 'deployed' ? 'published' : 'saved');
         this.busy.set(session.isSavingDraft || session.creating());
         // A line the editor must act on is in the panel: it opens on it.
         const alerting = failed || !!session.publishProblem();

@@ -30,6 +30,7 @@ function fakeEditor() {
         defaultLang: signal('en'),
         activeLang: signal('en'),
         isTranslating: signal(false),
+        deployStatus: signal<string | null>(null),
         unsaved: false,
         hasUnsavedChanges() { return this.unsaved; },
     };
@@ -107,6 +108,19 @@ describe('EntryEditPage', () => {
         editor.session.saveFailed.set(true);
         page.readStatus();
         expect(page.status()).toBe('not_saved');
+    });
+
+    it('says Publishing until the page is live, then Published until the next change', () => {
+        editor.session.deployStatus.set('pending');
+        page.readStatus();
+        expect(page.status()).toBe('publishing');
+        editor.session.deployStatus.set('deployed');
+        page.readStatus();
+        expect(page.status()).toBe('published');
+        editor.session.unsaved = true;
+        page.readStatus();
+        expect(page.status()).toBe('unsaved');
+        editor.session.unsaved = false;
     });
 
     it('opens the panel when a line the editor must act on appears, once', () => {
