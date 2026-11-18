@@ -410,6 +410,15 @@ input:focus {
     border-radius: var(--arc-sign-in-field-radius, 8px) !important;
 }
 
+// The number box beside the country chip (arc-phone-country, F49). The chip has no end
+// border, so the box's start side is the line between them: it stays square there in every
+// state, over the rules above that round a focused or invalid field all round, else the
+// box's corners curve away and the chip's outline looks cut.
+.input-group > arc-phone-country + .form-control {
+    border-start-start-radius: 0 !important;
+    border-end-start-radius: 0 !important;
+}
+
 // The boxed icons in front of fields (a lock, a person); --arc-sign-in-field-icons: none hides them.
 .input-group > .input-group-text:first-child {
     display: var(--arc-sign-in-field-icons, flex);
