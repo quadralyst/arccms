@@ -8,7 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
-import EntryEditPage, { editFrameUrl } from './entry-edit.page';
+import EntryEditPage, { editFrameUrl, textPos } from './entry-edit.page';
+import { Editor } from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';
 import { previewSessionKey } from '../../../core/preview/preview-channel';
 import { MatDialog } from '@angular/material/dialog';
 import { ContentTypesStore } from '../contents/content-types/content-types.store';
@@ -243,5 +245,21 @@ describe('EntryEditPage', () => {
         expect(page.hooks.reveal('price')).toBe(false);
         page.hooks.openPanel();
         expect(page.panel.open()).toBe(true);
+    });
+});
+
+describe('textPos', () => {
+    it('finds the clicked text in the editor, the same piece of several alike, else nothing', () => {
+        const el = document.createElement('div');
+        const editor = new Editor({ element: el, extensions: [StarterKit], content: '<p>Same</p><p><strong>Same</strong> and more</p>' });
+        try {
+            const second = textPos(editor, { data: 'Same', nth: 1, offset: 2 })!;
+            expect(editor.state.doc.textBetween(second, second + 2)).toBe('me');
+            expect(editor.state.doc.resolve(second).parent.textContent).toBe('Same and more');
+            expect(textPos(editor, { data: 'Missing', nth: 0, offset: 0 })).toBeNull();
+            expect(textPos(editor, undefined)).toBeNull();
+        } finally {
+            editor.destroy();
+        }
     });
 });

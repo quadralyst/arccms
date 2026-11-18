@@ -29,7 +29,7 @@ import { CreateContentComponent, PageModeHooks } from '../contents/create-conten
 import { previewSessionKey } from '../../../core/preview/preview-channel';
 import { HasUnsavedChanges } from '../../../guards/unsaved-changes.guard';
 import { PagePanel } from './page-panel';
-import { InPlaceEditing, InPlaceHost, RichHandle, Spot, spotInfo } from './in-place';
+import { InPlaceEditing, InPlaceHost, RichAt, RichHandle, Spot, spotInfo } from './in-place';
 import { editorExtensions } from '../../../../shared/components/tiptap-editor/editor-extensions';
 import { insertImageAndMoveOn } from '../../../../shared/components/tiptap-editor/service/insert-image';
 import { UrlAddDialog } from '../../../../shared/components/tiptap-editor/service/url-add-dialog/add-url.component';
@@ -504,9 +504,21 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         return {
             focus: (at) => {
                 if (!editor) return;
-                const pos = at ? editor.view.posAtCoords({ left: at.x, top: at.y }) : null;
-                if (pos) editor.chain().focus(undefined, { scrollIntoView: false }).setTextSelection(pos.pos).run();
-                else editor.chain().focus('start', { scrollIntoView: false }).run();
+                const pos = at ? (textPos(editor, at.text) ?? editor.view.posAtCoords({ left: at.x, top: at.y })?.pos ?? null) : null;
+                if (pos === null) {
+                    editor.chain().focus('start', { scrollIntoView: false }).run();
+                    return;
+                }
+                editor.chain().focus(undefined, { scrollIntoView: false }).setTextSelection(pos).run();
+                // The editor drew the spot a little taller or shorter: the clicked line goes back under the pointer.
+                try {
+                    const caret = editor.view.coordsAtPos(pos);
+                    const drift = (caret.top + caret.bottom) / 2 - at!.y;
+                    // Instant: a site with smooth scrolling would slide the page away from the click.
+                    if (Math.abs(drift) > 2) el.ownerDocument.defaultView?.scrollBy({ top: drift, behavior: 'instant' });
+                } catch {
+                    // No layout (a hidden frame): the caret is placed all the same.
+                }
             },
             destroy: () => {
                 editor?.destroy();
@@ -723,4 +735,24 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
 
 function cssEscape(value: string): string {
     return typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(value) : value.replace(/["\\]/g, '\\$&');
+}
+
+/**
+ * The editor position of the text an editor clicked on the page (RichAt.text): the
+ * nth editor text piece with the same text, at the same offset. Null when the
+ * editor has no such piece, and the point is used instead.
+ */
+export function textPos(editor: Editor, text: RichAt['text']): number | null {
+    if (!text) return null;
+    let seen = 0;
+    let found: number | null = null;
+    editor.state.doc.descendants((node, pos) => {
+        if (found !== null) return false;
+        if (node.isText && node.text === text.data) {
+            if (seen === text.nth) found = pos + Math.min(text.offset, text.data.length);
+            seen++;
+        }
+        return true;
+    });
+    return found;
 }

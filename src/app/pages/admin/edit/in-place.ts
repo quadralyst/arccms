@@ -108,9 +108,21 @@ export interface InPlaceHost {
     activeChanged(spot: Spot | null, rich: RichHandle | null): void;
 }
 
+/**
+ * Where a rich spot was clicked, read from the page before the editor took it: the
+ * point, and the piece of text under it (its text, which of the spot's pieces with
+ * that same text it is, and the offset in it). The editor lays some blocks out a
+ * little differently from the page, so the point alone can land lines away.
+ */
+export interface RichAt {
+    x: number;
+    y: number;
+    text?: { data: string; nth: number; offset: number };
+}
+
 export interface RichHandle {
-    /** Takes the cursor: where the spot was clicked, else at its start. */
-    focus(at?: { x: number; y: number }): void;
+    /** Takes the cursor: on the clicked text, else at the point, else at its start. */
+    focus(at?: RichAt): void;
     destroy(): void;
 }
 
@@ -131,6 +143,12 @@ const STYLE_ID = 'arc-in-place-style';
 export class InPlaceEditing {
     private active: Spot | null = null;
     private rich: RichHandle | null = null;
+    /**
+     * The rich spot's page as drawn before the editor took it, and the HTML typed
+     * since (null: nothing). Leaving puts one of them back: the editor empties the
+     * spot when it goes, and an unchanged value is never drawn again by the page.
+     */
+    private richShown: { before: string; typed: string | null } | null = null;
     private observer: MutationObserver | null = null;
     private markTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly listeners: [string, EventListener, boolean][] = [];
@@ -350,10 +368,16 @@ export class InPlaceEditing {
         this.host.hold(true);
         el.setAttribute('data-arc-editing', '');
         const html = String(this.host.value(spot.field) ?? '');
+        const point: RichAt | undefined = at ? { ...at, text: textAt(this.doc, el, at) ?? undefined } : undefined;
+        const shown = { before: el.innerHTML, typed: null as string | null };
+        this.richShown = shown;
         el.innerHTML = '';
-        this.rich = this.host.mountRich(el, html, (value) => this.host.setRich(spot.field, value));
+        this.rich = this.host.mountRich(el, html, (value) => {
+            shown.typed = value;
+            this.host.setRich(spot.field, value);
+        });
         this.addStyles();
-        this.rich.focus(at);
+        this.rich.focus(point);
         this.host.activeChanged(spot, this.rich);
     }
 
@@ -371,6 +395,10 @@ export class InPlaceEditing {
         this.active = null;
         this.rich?.destroy();
         this.rich = null;
+        const shown = this.richShown;
+        this.richShown = null;
+        // The editor left the spot empty: what the page showed, or what was typed until the page draws it.
+        if (shown) active.el.innerHTML = shown.typed ?? shown.before;
         active.el.removeAttribute('contenteditable');
         active.el.removeAttribute('data-arc-editing');
         active.el.removeAttribute('spellcheck');
@@ -411,6 +439,22 @@ export function plainText(el: HTMLElement): string {
 }
 
 /** The caret where the spot was clicked, else at its end. */
+/** The text under a point in `el`: see RichAt. Null when the point is on no text. */
+export function textAt(doc: Document, el: HTMLElement, at: { x: number; y: number }): RichAt['text'] | null {
+    const fromPoint = (doc as Document & { caretRangeFromPoint?: (x: number, y: number) => Range | null }).caretRangeFromPoint;
+    const found = fromPoint?.call(doc, at.x, at.y);
+    const node = found?.startContainer;
+    if (!found || !node || node.nodeType !== 3 || !el.contains(node)) return null;
+    const data = (node as Text).data;
+    if (!data.trim()) return null;
+    let nth = 0;
+    const walker = doc.createTreeWalker(el, 4 /* NodeFilter.SHOW_TEXT */);
+    for (let n = walker.nextNode(); n && n !== node; n = walker.nextNode()) {
+        if ((n as Text).data === data) nth++;
+    }
+    return { data, nth, offset: found.startOffset };
+}
+
 function placeCaret(doc: Document, el: HTMLElement, at?: { x: number; y: number }): void {
     const selection = doc.getSelection?.();
     if (!selection) return;

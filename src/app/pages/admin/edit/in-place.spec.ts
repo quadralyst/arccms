@@ -5,7 +5,7 @@
  * and no redraw under the cursor.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { InPlaceEditing, InPlaceHost, plainText, spotInfo } from './in-place';
+import { InPlaceEditing, InPlaceHost, plainText, spotInfo, textAt } from './in-place';
 import { ContentType } from '../contents/content-types/content-types.model';
 
 const TYPE = {
@@ -108,8 +108,14 @@ describe('InPlaceEditing', () => {
             setText: vi.fn(),
             setRich: vi.fn(),
             hold: vi.fn(),
-            mountRich: vi.fn((_el: HTMLElement, _html: string, onChange: (html: string) => void) => {
+            mountRich: vi.fn((el: HTMLElement, html: string, onChange: (html: string) => void) => {
                 richChange = onChange;
+                // As TipTap does: its own element in the spot while open, gone when destroyed.
+                const editorEl = doc.createElement('div');
+                editorEl.className = 'ProseMirror';
+                editorEl.innerHTML = html;
+                el.appendChild(editorEl);
+                rich.destroy.mockImplementation(() => editorEl.remove());
                 return rich;
             }),
             image: vi.fn(),
@@ -191,6 +197,53 @@ describe('InPlaceEditing', () => {
         click(doc.body);
         expect(rich.destroy).toHaveBeenCalled();
         expect(host.hold).toHaveBeenLastCalledWith(false);
+    });
+
+    it('puts the page back when a rich spot is left, unchanged or typed in', () => {
+        const body = q('[data-arc-field="content"]');
+        const drawn = body.innerHTML;
+        click(body);
+        expect(body.querySelector('.ProseMirror')).not.toBeNull();
+        // Opened and left with nothing typed: the page never draws the same value again, so it is put back.
+        click(doc.body);
+        expect(body.innerHTML).toBe(drawn);
+        click(body);
+        richChange!('<p>Body, longer</p>');
+        click(doc.body);
+        // Typed in: the new text shows until the page draws it.
+        expect(body.innerHTML).toBe('<p>Body, longer</p>');
+    });
+
+    it('tells the editor which text was clicked, read before the editor takes the spot', () => {
+        const body = q('[data-arc-field="content"]');
+        const text = body.querySelector('p')!.firstChild as Text;
+        (doc as Document & { caretRangeFromPoint?: unknown }).caretRangeFromPoint = () => {
+            const range = doc.createRange();
+            range.setStart(text, 2);
+            return range;
+        };
+        body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 50 }));
+        expect(rich.focus).toHaveBeenCalledWith({ x: 40, y: 50, text: { data: 'Body', nth: 0, offset: 2 } });
+    });
+
+    it('counts which of several pieces with the same text was clicked, and reads no text off one', () => {
+        const box = doc.createElement('div');
+        box.innerHTML = '<p>Same</p>\n<p><b>Same</b></p><p>Other</p>';
+        doc.body.appendChild(box);
+        const second = box.querySelector('b')!.firstChild as Text;
+        const at = (node: Node, offset: number) => {
+            (doc as Document & { caretRangeFromPoint?: unknown }).caretRangeFromPoint = () => {
+                const range = doc.createRange();
+                range.setStart(node, offset);
+                return range;
+            };
+        };
+        at(second, 3);
+        expect(textAt(doc, box, { x: 1, y: 1 })).toEqual({ data: 'Same', nth: 1, offset: 3 });
+        at(box.childNodes[1], 0); // the line break between blocks
+        expect(textAt(doc, box, { x: 1, y: 1 })).toBeNull();
+        at(q('[data-arc-field="title"]').firstChild!, 1); // outside the spot
+        expect(textAt(doc, box, { x: 1, y: 1 })).toBeNull();
     });
 
     it('hands images, boxes and the panel to the screen', () => {
