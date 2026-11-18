@@ -11,8 +11,8 @@ import { copyMenu, type MenuItem } from './menu';
 /** Just before or just after the item with this id: in its list, top level or a group's sub-items. */
 export type NavPlace = { before?: string; after?: string };
 
-/** The fields of an item a change may set. */
-export type NavFields = Pick<MenuItem, 'route' | 'queryParams' | 'externalUrl' | 'icon' | 'label' | 'labelKey' | 'allowRoles'>;
+/** The fields of an item a change may set; a change names only the ones it changes. */
+export type NavFields = Partial<Pick<MenuItem, 'route' | 'queryParams' | 'externalUrl' | 'icon' | 'label' | 'labelKey' | 'allowRoles'>>;
 
 /** A change to an item the menu has: new fields, hidden, or moved with `before` or `after`. */
 export type NavEdit = NavFields & NavPlace & {
