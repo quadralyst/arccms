@@ -3876,12 +3876,15 @@ export type TranslationKey =
     | 'member.auth.server_error.no_email_account'
     | 'member.auth.server_error.no_pin'
     | 'member.auth.server_error.number_taken'
+    | 'member.auth.server_error.on_another_account'
     | 'member.auth.server_error.password_required'
     | 'member.auth.server_error.phone_off'
     | 'member.auth.server_error.pin_format'
     | 'member.auth.server_error.pin_required'
     | 'member.auth.server_error.pin_sign_in'
     | 'member.auth.server_error.pin_sign_in_off'
+    | 'member.auth.server_error.same_pin'
+    | 'member.auth.server_error.self_delete_off'
     | 'member.auth.server_error.session_claims'
     | 'member.auth.server_error.sign_in_again'
     | 'member.auth.server_error.sign_in_managed'
@@ -4016,6 +4019,8 @@ export type TranslationKey =
     | 'member.methods.save_pin'
     | 'member.methods.send_code'
     | 'member.methods.sign_in_elsewhere'
+    | 'member.methods.taken_email'
+    | 'member.methods.taken_number'
     | 'member.methods.title'
     | 'member.methods.verified'
     | 'member.not_found.description'
@@ -8154,12 +8159,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.auth.server_error.no_email_account',
     'member.auth.server_error.no_pin',
     'member.auth.server_error.number_taken',
+    'member.auth.server_error.on_another_account',
     'member.auth.server_error.password_required',
     'member.auth.server_error.phone_off',
     'member.auth.server_error.pin_format',
     'member.auth.server_error.pin_required',
     'member.auth.server_error.pin_sign_in',
     'member.auth.server_error.pin_sign_in_off',
+    'member.auth.server_error.same_pin',
+    'member.auth.server_error.self_delete_off',
     'member.auth.server_error.session_claims',
     'member.auth.server_error.sign_in_again',
     'member.auth.server_error.sign_in_managed',
@@ -8294,6 +8302,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'member.methods.save_pin',
     'member.methods.send_code',
     'member.methods.sign_in_elsewhere',
+    'member.methods.taken_email',
+    'member.methods.taken_number',
     'member.methods.title',
     'member.methods.verified',
     'member.not_found.description',

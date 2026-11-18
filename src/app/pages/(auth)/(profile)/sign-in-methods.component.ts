@@ -457,6 +457,8 @@ export class SignInMethodsComponent implements OnInit, OnDestroy {
                 this.flow.set({ ...f, check });
                 if (check.status === 'yours') throw { code: 'local', message: this.t(f.kind === 'email' ? 'member.methods.already_yours_email' : 'member.methods.already_yours_number') };
                 if (check.status === 'blocked') throw { code: 'local', message: this.t('member.methods.blocked_email') };
+                // The app keeps an address or number on the account that has it (src/custom/own-account.ts).
+                if (check.status === 'taken') throw { code: 'local', message: this.t(f.kind === 'email' ? 'member.methods.taken_email' : 'member.methods.taken_number') };
                 if (check.status === 'other') return; // shown; the next press sends the code
             }
             // An account with a way in already confirms it is them first, on their own

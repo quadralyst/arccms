@@ -29,7 +29,10 @@ vi.mock('firebase-admin/firestore', async () => {
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 // The app's password and PIN strength (src/custom/sign-in.ts): strict unless a test says simple.
 const strength = vi.hoisted(() => ({ value: 'strict' as 'strict' | 'simple' }));
-vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value, fixedSignIn: () => ({ emailSignIn: null, newDeviceCode: null }) }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => strength.value, pinStrength: () => strength.value, fixedSignIn: () => ({ emailSignIn: null, newDeviceCode: null }) }));
+// What a person may do to their own account (src/custom/own-account.ts): everything unless a test says not.
+const own = vi.hoisted(() => ({ value: { selfDelete: true, moveIdentifiers: true } }));
+vi.mock('../own-account-choice', () => ({ ownAccount: () => own.value }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: vi.fn((handler: unknown) => handler),
     HttpsError: class extends Error {
@@ -94,6 +97,7 @@ beforeEach(() => {
     mem.store.clear();
     vi.clearAllMocks();
     strength.value = 'strict';
+    own.value = { selfDelete: true, moveIdentifiers: true };
     providers = { 'uid-a': ['password'], 'uid-b': [] };
     owner.getUser.mockImplementation(async (uid: string) => ({ uid, providerData: (providers[uid] ?? []).map((providerId) => ({ providerId })) }));
     owner.getUserByEmail.mockRejectedValue(Object.assign(new Error('not found'), { code: 'auth/user-not-found' }));
@@ -277,6 +281,50 @@ describe('linkEmail', () => {
 
     it('needs the code verified by this same account', async () => {
         await expect(linked(link.linkEmail, { email: 'new@example.com' }, 'uid-a')).rejects.toMatchObject({ code: 'failed-precondition' });
+    });
+});
+
+describe("an app that keeps addresses and numbers where they are (moveIdentifiers: false, F44)", () => {
+    beforeEach(() => {
+        own.value = { selfDelete: true, moveIdentifiers: false };
+    });
+
+    it('the check says a number or email on another account is taken', async () => {
+        mem.seed('users', 'b-doc', { ...mem.read('users', 'b-doc'), email: 'old@example.com' });
+        await expect(call(link.checkIdentifierForLink, { identifier: '+91 98765-43210' }, 'uid-a')).resolves.toMatchObject({ status: 'taken' });
+        await expect(call(link.checkIdentifierForLink, { identifier: 'old@example.com' }, 'uid-a')).resolves.toMatchObject({ status: 'taken' });
+        await expect(call(link.checkIdentifierForLink, { identifier: 'new@example.com' }, 'uid-a')).resolves.toMatchObject({ status: 'available' });
+    });
+
+    it('linkPhone refuses a number on another account, before its code is used up, and leaves both accounts alone', async () => {
+        await verifyPhoneForA();
+        await expect(linked(link.linkPhone, { phone: '9876543210', pin: '246810' }, 'uid-a'))
+            .rejects.toMatchObject({ code: 'failed-precondition', details: { reason: 'on-another-account' } });
+        expect(mem.read('users', 'b-doc')).toMatchObject({ phone: B_PHONE, status: 'Active' });
+        expect(mem.read('users', 'a-doc')!['phone']).toBeUndefined();
+        expect(mem.read('auth_pins', 'uid-b')).toBeDefined();
+        expect(mem.all('account_transfers')).toEqual([]);
+        // The code is still there: allowed again, the same code moves it.
+        own.value = { selfDelete: true, moveIdentifiers: true };
+        await expect(linked(link.linkPhone, { phone: '9876543210', pin: '246810' }, 'uid-a')).resolves.toMatchObject({ moved: true });
+    });
+
+    it('linkEmail refuses an email on another account and touches neither sign-in', async () => {
+        mem.seed('users', 'b-doc', { ...mem.read('users', 'b-doc'), email: 'old@example.com' });
+        owner.getUserByEmail.mockResolvedValue({ uid: 'uid-b', providerData: [{ providerId: 'password' }] });
+        await call(link.requestEmailLinkOtp, { email: 'old@example.com' }, 'uid-a');
+        await call(verifySignupOtp, { email: 'old@example.com', code: lastEmailCode(), purpose: 'link' }, 'uid-a');
+        await expect(linked(link.linkEmail, { email: 'old@example.com' }, 'uid-a'))
+            .rejects.toMatchObject({ code: 'failed-precondition', details: { reason: 'on-another-account' } });
+        expect(owner.updateUser).not.toHaveBeenCalled();
+        expect(mem.read('users', 'b-doc')).toMatchObject({ email: 'old@example.com' });
+        expect(mem.read('users', 'a-doc')).toMatchObject({ email: 'asha@example.com' });
+    });
+
+    it('still adds an address or number nobody has', async () => {
+        await call(link.requestEmailLinkOtp, { email: 'new@example.com' }, 'uid-a');
+        await call(verifySignupOtp, { email: 'new@example.com', code: lastEmailCode(), purpose: 'link' }, 'uid-a');
+        await expect(linked(link.linkEmail, { email: 'new@example.com' }, 'uid-a')).resolves.toEqual({ linked: true, moved: false });
     });
 });
 

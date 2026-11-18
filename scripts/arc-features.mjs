@@ -10,9 +10,12 @@
  *                                           functions/src/feature-tasks file whose
  *                                           features are all on, by the same naming
  *                                           (specs/scheduled-tasks-spec.md)
- *   functions/src/sign-in.gen.ts            the password and PIN strength, and the sign-in
- *                                           choices the app fixed, in src/custom/sign-in.ts
+ *   functions/src/sign-in.gen.ts            the password and PIN strength, the rule for new
+ *                                           PINs (weakPins), and the sign-in choices the app
+ *                                           fixed, in src/custom/sign-in.ts
  *                                           (specs/sign-in-strength-spec.md)
+ *   functions/src/own-account.gen.ts        what a person may do to their own account, in
+ *                                           src/custom/own-account.ts
  *
  * The functions cannot import src/custom/features.ts (they compile only
  * functions/src), so this runs before every functions build (the `prebuild`
@@ -35,6 +38,9 @@ const TASKS_OUT = resolve(FUNCTIONS_SRC, 'feature-tasks.gen.ts');
 const SIGN_IN = resolve(ROOT, 'src/custom/sign-in.ts');
 const STRENGTH = resolve(ROOT, 'src/shared/utils/sign-in-strength.ts');
 const SIGN_IN_OUT = resolve(FUNCTIONS_SRC, 'sign-in.gen.ts');
+const OWN_ACCOUNT = resolve(ROOT, 'src/custom/own-account.ts');
+const OWN_ACCOUNT_RULE = resolve(ROOT, 'src/shared/utils/own-account.ts');
+const OWN_ACCOUNT_OUT = resolve(FUNCTIONS_SRC, 'own-account.gen.ts');
 
 const HEADER = '// Generated from src/custom/features.ts by scripts/arc-features.mjs. Do not edit.\n';
 
@@ -59,11 +65,12 @@ export function renderFeatureFiles(enabled, files = filesIn('features'), taskFil
     return { enabledFile, exportsFile, tasksFile };
 }
 
-/** The sign-in file's content: the strength, and the choices the app fixed (null: the admin's). */
-export function renderSignInFile(strength, fixed = { emailSignIn: null, newDeviceCode: null }) {
+/** The sign-in file's content: the strength, the rule for new PINs, and the choices the app fixed (null: the admin's). */
+export function renderSignInFile(strength, fixed = { emailSignIn: null, newDeviceCode: null }, pinStrength = strength) {
     return '// Generated from src/custom/sign-in.ts by scripts/arc-features.mjs. Do not edit.\n'
         + "import type { FixedSignIn, SignInStrength } from './shared/sign-in-strength.js';\n\n"
         + `export const SIGN_IN_STRENGTH: SignInStrength = ${JSON.stringify(strength)};\n`
+        + `export const SIGN_IN_PIN_STRENGTH: SignInStrength = ${JSON.stringify(pinStrength)};\n`
         + `export const SIGN_IN_FIXED: FixedSignIn = ${JSON.stringify({ emailSignIn: fixed.emailSignIn, newDeviceCode: fixed.newDeviceCode })};\n`;
 }
 
@@ -83,6 +90,32 @@ async function loadSignInChoice({ strengthPath, customPath }) {
 export async function signInStrength({ strengthPath = STRENGTH, customPath = SIGN_IN } = {}) {
     const loaded = await loadSignInChoice({ strengthPath, customPath });
     return loaded ? loaded.rule.resolveSignInStrength(loaded.choice) : 'strict';
+}
+
+/** The rule for this app's new PINs: its strength, or strict with weakPins: 'refuse'. A wrong value throws. */
+export async function pinStrength({ strengthPath = STRENGTH, customPath = SIGN_IN } = {}) {
+    const loaded = await loadSignInChoice({ strengthPath, customPath });
+    return loaded ? loaded.rule.resolvePinStrength(loaded.choice) : 'strict';
+}
+
+/** The own-account file's content: what a person may do to their own account. */
+export function renderOwnAccountFile(choice = { selfDelete: true, moveIdentifiers: true }) {
+    return '// Generated from src/custom/own-account.ts by scripts/arc-features.mjs. Do not edit.\n'
+        + "import type { OwnAccount } from './own-account-choice.js';\n\n"
+        + `export const OWN_ACCOUNT: OwnAccount = ${JSON.stringify({ selfDelete: choice.selfDelete, moveIdentifiers: choice.moveIdentifiers })};\n`;
+}
+
+/** What a person may do to their own account, from src/custom/own-account.ts; everything without the file. A wrong value throws. */
+export async function ownAccount({ rulePath = OWN_ACCOUNT_RULE, customPath = OWN_ACCOUNT } = {}) {
+    if (!existsSync(customPath)) return { selfDelete: true, moveIdentifiers: true };
+    let rule, custom;
+    try {
+        rule = await import(pathToFileURL(rulePath).href);
+        custom = await import(pathToFileURL(customPath).href);
+    } catch (error) {
+        throw new Error(`arc-features: could not load src/custom/own-account.ts (Node 22.18 or later is needed): ${error.message}`);
+    }
+    return rule.resolveOwnAccount(custom.CUSTOM_OWN_ACCOUNT);
 }
 
 /** The sign-in choices this app fixed (email PIN sign-in, the new-device code); none without the file. A wrong value throws. */
@@ -113,7 +146,7 @@ async function main() {
     // Only the functions folder is uploaded on deploy; if a build ever runs there,
     // keep the files generated locally.
     if (!existsSync(CUSTOM) || !existsSync(REGISTRY)) {
-        if (existsSync(ENABLED_OUT) && existsSync(EXPORTS_OUT) && existsSync(TASKS_OUT) && existsSync(SIGN_IN_OUT)) return;
+        if ([ENABLED_OUT, EXPORTS_OUT, TASKS_OUT, SIGN_IN_OUT, OWN_ACCOUNT_OUT].every((path) => existsSync(path))) return;
         throw new Error(`arc-features: ${CUSTOM} not found, and no generated files to keep.`);
     }
 
@@ -121,8 +154,11 @@ async function main() {
     const { enabledFile, exportsFile, tasksFile } = renderFeatureFiles(enabled);
     const changed = [writeIfChanged(ENABLED_OUT, enabledFile), writeIfChanged(EXPORTS_OUT, exportsFile), writeIfChanged(TASKS_OUT, tasksFile)].some(Boolean);
     if (changed) console.log(`arc-features: functions build with ${[...enabled].join(', ') || 'no optional features'}`);
-    const strength = await signInStrength();
-    if (writeIfChanged(SIGN_IN_OUT, renderSignInFile(strength, await fixedSignIn()))) console.log(`arc-features: ${strength} passwords and PINs`);
+    const [strength, pins] = [await signInStrength(), await pinStrength()];
+    if (writeIfChanged(SIGN_IN_OUT, renderSignInFile(strength, await fixedSignIn(), pins))) {
+        console.log(`arc-features: ${strength === pins ? `${strength} passwords and PINs` : `${strength} passwords, ${pins} PINs`}`);
+    }
+    writeIfChanged(OWN_ACCOUNT_OUT, renderOwnAccountFile(await ownAccount()));
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

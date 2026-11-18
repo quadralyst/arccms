@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Build the member area | Arc CMS docs</title>
   <meta name="description" content="Choose where each role lands after sign-in, put your own page at /user/dashboard, change the member menu per role, and gate content for paying members.">
-  <meta name="docs:sources" content="src/custom/user-dashboard.ts, src/custom/home.ts, src/custom/nav-changes.ts, src/app/core/home/home.ts, src/app/core/nav, src/app/pages/user, src/app/app.routes.ts">
+  <meta name="docs:sources" content="src/custom/user-dashboard.ts, src/custom/home.ts, src/custom/nav-changes.ts, src/custom/own-account.ts, src/shared/utils/own-account.ts, src/app/core/sign-in/own-account.ts, functions/src/own-account-choice.ts, src/app/core/home/home.ts, src/app/core/nav, src/app/pages/user, src/app/app.routes.ts">
   <link rel="stylesheet" href="../assets/docs.css">
 </head>
 <body data-root="../" data-page="app/member-area.html">
@@ -114,6 +114,23 @@ export const CUSTOM_NAV_CHANGES: NavChanges = {
 
 export const CUSTOM_HOME: HomePages = { user: '/learn' };</code></pre>
     <p>When a role's home is not <code>/user/dashboard</code> (and not an admin page), the member menu gets a <strong>Home</strong> item that leads there. A sign-in that started from a guarded page returns to that page instead. The keys, the <code>'*'</code> fallback and the return-to-page rules are in <a href="sign-in.html#set-each-role-s-home-page">Set up sign-in</a>.</p>
+
+    <h2 id="own-account">What people may do to their own account</h2>
+    <p>On their profile page, people can delete their own account (with a fresh code once they signed in more than 10 minutes ago), and add an email or number. An email or number that is on another account moves to theirs after its code, and the other account loses it (<a href="../features/sign-in.html">Sign-in</a>). When your app's accounts carry things that must not lose their owner, such as a business and its sales, turn either off in <code>src/custom/own-account.ts</code>:</p>
+    <pre><code>import type { OwnAccountChoice } from '../shared/utils/own-account';
+
+export const CUSTOM_OWN_ACCOUNT: OwnAccountChoice = {
+    selfDelete: false,        // no Delete my account
+    moveIdentifiers: false,   // an email or number on another account stays there
+};</code></pre>
+    <table>
+      <thead><tr><th>Choice</th><th>The profile page</th><th>The functions</th></tr></thead>
+      <tbody>
+        <tr><td><code>selfDelete: false</code></td><td>No Delete my account card</td><td><code>deleteMyAccount</code> refuses (<code>self-delete-off</code>); an admin still deletes the account under Users, and your app with <code>deleteAppAccount</code></td></tr>
+        <tr><td><code>moveIdentifiers: false</code></td><td>Says the email or number is on another account, and sends no code</td><td><code>checkIdentifierForLink</code> answers <code>taken</code>; <code>linkEmail</code> and <code>linkPhone</code> refuse (<code>on-another-account</code>) before using the code. An email or number nobody has is added as before</td></tr>
+      </tbody>
+    </table>
+    <p>Leave a choice out and it is allowed. It is read when the build starts (any value other than <code>true</code> or <code>false</code> stops it) and by the functions, through a copy <code>scripts/arc-features.mjs</code> writes to <code>functions/src/own-account.gen.ts</code>; after changing it, deploy the website and <code>deleteMyAccount</code>, <code>checkIdentifierForLink</code>, <code>linkEmail</code> and <code>linkPhone</code>. The words for the two refusals are <code>member.auth.server_error.self_delete_off</code> and <code>member.auth.server_error.on_another_account</code>, and the page's own line is <code>member.methods.taken_email</code> or <code>member.methods.taken_number</code>: add them to each member language your app adds.</p>
 
     <h2>Content for paying members</h2>
     <p>With the <code>payments</code> feature, guard a whole page with <code>entitledGuard</code>, or show part of a page to paying members with <code>*appIfEntitled</code>, both from <code>src/app/pages/user/</code>. See <a href="payments.html">Add payments and premium features</a>.</p>

@@ -18,7 +18,7 @@
 
 const pins = createPinStore('kiosk', { maxAttempts: 5 });</code></pre>
     <p>The namespace keeps kinds of PIN apart: a person can have a <code>kiosk</code> PIN and a <code>staff</code> PIN, each with its own lock. It is lower case letters, digits, <code>-</code> and <code>_</code>, 2 to 31 characters, starting with a letter. <code>maxAttempts</code> is 1 to 20, default 5.</p>
-    <p id="strength"><code>strength</code> is how hard a new PIN must be: leave it out for the app's choice in <code>src/custom/sign-in.ts</code> (see <a href="sign-in.html#strength">Set up sign-in</a>), or name one for this store. A casual app can keep a strict staff PIN with <code>createPinStore('staff', { strength: 'strict' })</code>. Under <code>'simple'</code> any 6 digits are taken; the lockout is the same in both. Your own code can ask the same question with <code>pinTooEasy(pin, strength?)</code>.</p>
+    <p id="strength"><code>strength</code> is how hard a new PIN must be: leave it out for the app's rule for PINs in <code>src/custom/sign-in.ts</code> (its strength, or strict with <code>weakPins: 'refuse'</code>; see <a href="sign-in.html#strength">Set up sign-in</a>), or name one for this store. A casual app can keep a strict staff PIN with <code>createPinStore('staff', { strength: 'strict' })</code>. Under <code>'simple'</code> any 6 digits are taken; the lockout is the same in both. Your own code can ask the same question with <code>pinTooEasy(pin, strength?)</code>.</p>
     <table>
       <thead><tr><th>Call</th><th>Does</th></tr></thead>
       <tbody>

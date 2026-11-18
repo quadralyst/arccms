@@ -18,6 +18,9 @@ vi.mock('firebase-admin/firestore', async () => {
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 const { mockErase } = vi.hoisted(() => ({ mockErase: vi.fn().mockResolvedValue({}) }));
 vi.mock('../email-core/eraseContact', () => ({ eraseContact: mockErase }));
+// What a person may do to their own account (src/custom/own-account.ts): everything unless a test says not.
+const own = vi.hoisted(() => ({ value: { selfDelete: true, moveIdentifiers: true } }));
+vi.mock('../own-account-choice', () => ({ ownAccount: () => own.value }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: vi.fn((handler: unknown) => handler),
     HttpsError: class extends Error {
@@ -46,6 +49,7 @@ beforeEach(() => {
     mem.store.clear();
     vi.clearAllMocks();
     for (const key of Object.keys(claims)) delete claims[key];
+    own.value = { selfDelete: true, moveIdentifiers: true };
     owner.getUser.mockImplementation(async (uid: string) => ({ uid, customClaims: claims[uid], metadata: { creationTime: new Date().toUTCString() } }));
     owner.setCustomUserClaims.mockImplementation(async (uid: string, value: Record<string, unknown>) => { claims[uid] = value; });
 });
@@ -273,6 +277,14 @@ describe('deleteMyAccount', () => {
         mockErase.mockRejectedValueOnce(new Error('down'));
         await expect(call(deleteMyAccount, {}, 'u1', { auth_time: nowSeconds() - 60 })).rejects.toThrow('down');
         expect(mem.read('users', 'rec-1')).toBeDefined();
+    });
+
+    it("refuses, whatever the proof, when the app chose selfDelete: false (F44)", async () => {
+        own.value = { selfDelete: false, moveIdentifiers: true };
+        await expect(call(deleteMyAccount, {}, 'u1', { auth_time: nowSeconds() - 60 }))
+            .rejects.toMatchObject({ code: 'failed-precondition', details: { reason: 'self-delete-off' } });
+        expect(mem.read('users', 'rec-1')).toBeDefined();
+        expect(mockErase).not.toHaveBeenCalled();
     });
 
     it('asks an account with no address or number to sign in again after 10 minutes', async () => {

@@ -32,6 +32,7 @@ import { ArcZones } from '../../../core/time/arc-zones.service';
 import { ZonePickerComponent } from '../../../../shared/components/zone-picker/zone-picker.component';
 import { readStoredSignInSettings, UserSettingService } from '../../admin/(settings)/user-setting/user-setting.service';
 import { emailPinOn } from '../../admin/(settings)/user-setting/user-setting.model';
+import { OWN_ACCOUNT } from '../../../core/sign-in/own-account';
 
 /** The fresh code's purpose for deleting your own account (functions/src/auth/freshCode.ts). */
 export const DELETE_ACCOUNT_PURPOSE = 'delete-account';
@@ -329,9 +330,12 @@ export default class ProfileComponent extends BaseComponent {
   /** Read only when deleting, so the page itself needs neither. */
   private readonly injector = inject(Injector);
 
-  /** Admins are removed by another admin, under Users; a locked app account by its app. */
+  /**
+   * Admins are removed by another admin, under Users; a locked app account by its app;
+   * nobody here when the app chose selfDelete: false (src/custom/own-account.ts).
+   */
   canDeleteAccount(): boolean {
-    return this.currentUser()?.role !== 'admin' && !this.locked();
+    return OWN_ACCOUNT.selfDelete && this.currentUser()?.role !== 'admin' && !this.locked();
   }
 
   /** Deletes the account and everything stored under it (docs/app/account-contract.html). */

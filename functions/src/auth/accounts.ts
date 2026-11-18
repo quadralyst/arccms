@@ -24,7 +24,7 @@ import { SIGN_IN_NOT_READY, alertSigningProblem, signingProblem } from './signIn
 import { isBlank } from '../shared/blank.js';
 import { refuseLockedAppAccount } from '../users/lockedAppAccount.js';
 import { refuse } from './refusal.js';
-import { fixedSignIn, signInStrength } from '../sign-in-choice.js';
+import { fixedSignIn, pinStrength } from '../sign-in-choice.js';
 import type { SignInStrength } from '../shared/sign-in-strength.js';
 
 const scryptAsync = promisify(scrypt) as (pin: string, salt: Buffer, keylen: number) => Promise<Buffer>;
@@ -269,9 +269,10 @@ export function isWeakPin(pin: string): boolean {
 /**
  * Whether a new PIN is refused: too easy to guess (isWeakPin) under the strict rule,
  * never under the simple one (src/custom/sign-in.ts, specs/sign-in-strength-spec.md).
- * Every path that sets a PIN asks this; the strength defaults to the app's choice.
+ * Every path that sets a PIN asks this; the strength defaults to the app's rule for
+ * PINs, which is strict under `weakPins: 'refuse'` even when passwords are simple.
  */
-export function pinTooEasy(pin: string, strength: SignInStrength = signInStrength()): boolean {
+export function pinTooEasy(pin: string, strength: SignInStrength = pinStrength()): boolean {
     return strength === 'strict' && isWeakPin(pin);
 }
 

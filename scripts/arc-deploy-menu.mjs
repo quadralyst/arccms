@@ -223,6 +223,7 @@ function closure(graph, file, seen = new Set()) {
 export const GENERATED_FROM = {
     'src/custom/features.ts': ['enabled-features.gen.ts', 'feature-exports.gen.ts', 'feature-tasks.gen.ts'],
     'src/custom/sign-in.ts': ['sign-in.gen.ts'],
+    'src/custom/own-account.ts': ['own-account.gen.ts'],
 };
 
 /**

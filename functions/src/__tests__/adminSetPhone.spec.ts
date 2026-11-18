@@ -32,7 +32,7 @@ vi.mock('firebase-admin/firestore', async () => {
 });
 vi.mock('firebase-functions/v2', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock('../search/auth', () => ({ requireAdmin: m.requireAdmin }));
-vi.mock('../sign-in-choice', () => ({ signInStrength: () => 'strict', fixedSignIn: () => ({ emailSignIn: null, newDeviceCode: null }) }));
+vi.mock('../sign-in-choice', () => ({ signInStrength: () => 'strict', pinStrength: () => 'strict', fixedSignIn: () => ({ emailSignIn: null, newDeviceCode: null }) }));
 vi.mock('firebase-functions/v2/https', () => ({
     onCall: (...args: any[]) => args[args.length - 1],
     HttpsError: class HttpsError extends Error { constructor(public code: string, msg: string, public details?: unknown) { super(msg); } },

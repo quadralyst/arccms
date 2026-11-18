@@ -5,13 +5,17 @@
  * photo upload via media manager, name/email editing, and password change.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { of } from 'rxjs';
 import ProfileComponent, { DELETE_ACCOUNT_PURPOSE } from './profile.page';
 import { english } from '../../../../test/english';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+// What a person may do to their own account (src/custom/own-account.ts): both allowed unless a test says not.
+const own = vi.hoisted(() => ({ selfDelete: true, moveIdentifiers: true }));
+vi.mock('../../../core/sign-in/own-account', () => ({ OWN_ACCOUNT: own }));
 
 describe('ProfileComponent', () => {
     describe('Component Definition', () => {
@@ -524,6 +528,26 @@ describe('ProfileComponent', () => {
             // Regression: getInitials("  John  ") would crash with undefined[0]
             expect(source).toContain('.trim()');
             expect(source).toContain('filter(Boolean)');
+        });
+    });
+
+    describe("who sees Delete my account (F44: selfDelete)", () => {
+        const can = (user: { role: string }, locked = false) =>
+            ProfileComponent.prototype.canDeleteAccount.call({ currentUser: () => user, locked: () => locked } as never);
+
+        it('a member does, an admin and a locked app account do not', () => {
+            expect(can({ role: 'user' })).toBe(true);
+            expect(can({ role: 'admin' })).toBe(false);
+            expect(can({ role: 'user' }, true)).toBe(false);
+        });
+
+        it('nobody does when the app chose selfDelete: false', () => {
+            own.selfDelete = false;
+            try {
+                expect(can({ role: 'user' })).toBe(false);
+            } finally {
+                own.selfDelete = true;
+            }
         });
     });
 

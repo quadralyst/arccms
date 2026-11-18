@@ -50,7 +50,8 @@ export interface EmailAccount extends CheckedCode {
 /** The codes an email gets for PIN sign-in: the first PIN sign-in on a device, or Forgot PIN (or a first PIN). */
 export type EmailPinPurpose = 'device' | 'pin-reset';
 
-export type LinkStatus = 'available' | 'yours' | 'other' | 'blocked';
+/** `other`: on another account, and moves here; `taken`: on another account, which keeps it (src/custom/own-account.ts). */
+export type LinkStatus = 'available' | 'yours' | 'other' | 'taken' | 'blocked';
 
 export interface LinkCheck {
     kind: 'email' | 'phone';
