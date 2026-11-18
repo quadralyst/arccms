@@ -43,7 +43,8 @@
  *   site's CSS and its own never meet, pushes the page down by its height, moves
  *   a header pinned to the top of the window down below it, and sets
  *   --arc-strip-height on <html> for a template that places such a header itself.
- *   It hides when printing, and its close button hides it for the tab. Visitors
+ *   It hides when printing, and its close button hides it until the page is loaded
+ *   again (a link on a published page, or a refresh). Visitors
  *   get nothing. window.arcSite.drawEditorStrip() draws it again for the page as
  *   it is now: the app calls it when a page it draws changes its arc-entry, and
  *   loads this script with data-parts="strip" to run only the strip.
@@ -836,7 +837,8 @@
     // ─── Admin strip ───────────────────────────────────────────────────────
 
     var EDITOR_STRIP_KEY = 'arc_editor_strip';
-    var STRIP_HIDDEN_KEY = 'arc_editor_strip_hidden';
+    /** Where the close button used to keep the strip hidden for the whole tab: cleared on start. */
+    var OLD_STRIP_HIDDEN_KEY = 'arc_editor_strip_hidden';
     var STRIP_ID = 'arc-editor-strip';
 
     /** The page's arc-entry value: '{type}/{id}', '{type}', 'home', 'p/{name}', or ''. */
@@ -875,13 +877,12 @@
 
     function stripWanted() {
         var on = false;
-        var hidden = false;
         try { on = localStorage.getItem(EDITOR_STRIP_KEY) === '1'; } catch (e) { /* storage off */ }
-        try { hidden = sessionStorage.getItem(STRIP_HIDDEN_KEY) === '1'; } catch (e) { /* storage off */ }
         // Never inside the admin's own preview and edit screens, or any frame.
         var framed = false;
         try { framed = window.self !== window.top; } catch (e) { framed = true; }
-        return on && !hidden && !framed && hasEntry() && !/^\/admin(\/|$)/.test(location.pathname);
+        // Closed on this page load: kept on window.arcSite, which every copy of this script shares.
+        return on && !site.stripClosed && !framed && hasEntry() && !/^\/admin(\/|$)/.test(location.pathname);
     }
 
     /** The strip's height: the page is pushed down by this much. */
@@ -934,7 +935,7 @@
         close.title = t('strip_close', 'Hide for now');
         close.textContent = '×';
         close.addEventListener('click', function () {
-            try { sessionStorage.setItem(STRIP_HIDDEN_KEY, '1'); } catch (e) { /* storage off */ }
+            site.stripClosed = true;
             removeStrip();
         });
         bar.appendChild(close);
@@ -1040,6 +1041,7 @@
     // ─── Start ─────────────────────────────────────────────────────────────
 
     function start() {
+        try { sessionStorage.removeItem(OLD_STRIP_HIDDEN_KEY); } catch (e) { /* storage off */ }
         if (config.parts === 'strip') {
             drawEditorStrip();
             return;

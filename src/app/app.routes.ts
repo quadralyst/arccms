@@ -39,7 +39,7 @@ export const routes: Routes = [
   // Outside the admin shell for the same reason as the preview; the entry editor's people.
   {
     path: 'admin/edit/:type/:id',
-    title: 'Edit on the page',
+    title: 'Visual Editor',
     canActivate: [roleGuard],
     canDeactivate: [unsavedChangesGuard],
     data: { titleKey: 'admin.titles.edit_on_page', allowedRoles: ['admin'], fullScreen: true },

@@ -571,9 +571,13 @@ describe('admin strip (VE-D12, VE-D13)', () => {
     const links = () => Array.from(strip()?.shadowRoot?.querySelectorAll<HTMLAnchorElement>('a') ?? [])
         .map((a) => [a.getAttribute('data-arc-strip'), a.getAttribute('href'), a.textContent]);
 
+    type Site = { arcSite?: { stripClosed?: boolean; drawEditorStrip: () => void } };
+    const freshLoad = () => { delete (window as unknown as Site).arcSite; };
+
     beforeEach(() => {
         sessionStorage.clear();
         localStorage.setItem('arc_editor_strip', '1');
+        freshLoad();
     });
 
     it('draws nothing for a visitor', () => {
@@ -690,12 +694,23 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         expect(links()[1]).toEqual(['edit', '/admin/edit/a%20b/x%3Fy', 'Edit this page']);
     });
 
-    it('hides for the tab with its close button, and stays hidden on the next page', () => {
+    it('hides with its close button until the page is loaded again', () => {
+        sessionStorage.setItem('arc_editor_strip_hidden', '1'); // the old tab-wide close
         page('<p>Page</p>', '', entry('articles/doc1'));
+        // The old tab-wide close is forgotten: the strip is back.
+        expect(strip()).not.toBeNull();
+        expect(sessionStorage.getItem('arc_editor_strip_hidden')).toBeNull();
         (strip()!.shadowRoot!.querySelector('[data-arc-strip="close"]') as HTMLButtonElement).click();
         expect(strip()).toBeNull();
-        page('<p>Next</p>', '', entry('articles/doc2'));
+        // The app moves to another page, or runs a second copy of the script: still closed.
+        document.head.innerHTML = entry('articles/doc2');
+        (window as unknown as Site).arcSite!.drawEditorStrip();
+        new Function(SOURCE)();
         expect(strip()).toBeNull();
+        // A new page load (a link on a published page, or a refresh): back.
+        freshLoad();
+        page('<p>Next</p>', '', entry('articles/doc2'));
+        expect(strip()).not.toBeNull();
     });
 
     it('keeps its links when pointed at on the same page, and follows a page the app moved to', () => {
