@@ -161,6 +161,10 @@ const BUILTIN_LABELS: Record<string, string> = {
         .arc-pv-cards { padding: 24px 0; }
         .arc-pv-empty { padding: 48px 16px; text-align: center; color: #6b7280; font: 15px/1.5 system-ui, sans-serif; }
         arc-content-preview [data-arc-field] { cursor: pointer; }
+        /* On the edit-on-page screen the page is drawn again each time a spot is left: no fade-in each time. */
+        arc-content-preview.arc-pv-editing arc-content-detail,
+        arc-content-preview.arc-pv-editing arc-content-list,
+        arc-content-preview.arc-pv-editing arc-content-partials { animation: none; }
         arc-content-preview [data-arc-pv-highlight] { outline: 3px solid var(--arc-admin-accent) !important; outline-offset: 2px; }
     `],
     changeDetection: ChangeDetectionStrategy.OnPush,

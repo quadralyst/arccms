@@ -21,12 +21,23 @@ import {
     computed, inject, signal,
 } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { MatDialog } from '@angular/material/dialog';
+import { Editor } from '@tiptap/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { CreateContentComponent, PageModeHooks } from '../contents/create-content/create-content.component';
 import { previewSessionKey } from '../../../core/preview/preview-channel';
 import { HasUnsavedChanges } from '../../../guards/unsaved-changes.guard';
 import { PagePanel } from './page-panel';
+import { InPlaceEditing, InPlaceHost, RichHandle, Spot, spotInfo } from './in-place';
+import { editorExtensions } from '../../../../shared/components/tiptap-editor/editor-extensions';
+import { insertImageAndMoveOn } from '../../../../shared/components/tiptap-editor/service/insert-image';
+import { UrlAddDialog } from '../../../../shared/components/tiptap-editor/service/url-add-dialog/add-url.component';
+import MediaManagerComponent, { MediaSelection } from '../(media)/media.page';
+import { mediaPickerDialogConfig } from '../(media)/media-picker-dialog';
+import { ContentType } from '../contents/content-types/content-types.model';
+import { ContentTypesStore } from '../contents/content-types/content-types.store';
+import { Injector } from '@angular/core';
 
 /** How often the strip reads the draft's state. */
 const STATUS_EVERY_MS = 300;
@@ -47,8 +58,19 @@ export function editFrameUrl(type: string, id: string): string {
     imports: [CreateContentComponent, TranslocoPipe],
     template: `
     <div class="arc-ed-strip" role="region" [attr.aria-label]="'admin.edit_page.strip' | transloco" data-testid="edit-strip">
+        @if (!richOn()) {
         <span class="arc-ed-title">{{ 'admin.edit_page.strip' | transloco }}</span>
+        }
         <span class="arc-ed-status" [class]="'arc-ed-status arc-ed-' + status()" role="status" data-testid="edit-status">{{ statusKey() | transloco }}</span>
+        @if (richOn()) {
+        <span class="arc-ed-group arc-ed-format" role="toolbar" [attr.aria-label]="'admin.edit_page.formatting' | transloco" data-testid="edit-format">
+            @for (b of formatButtons; track b.id) {
+            <button type="button" class="arc-ed-btn arc-ed-fmt" [class.arc-ed-on]="formatActive(b.id)" [attr.aria-pressed]="formatActive(b.id)"
+                [title]="b.label | transloco" [attr.aria-label]="b.label | transloco"
+                (mousedown)="$event.preventDefault()" (click)="format(b.id)" [attr.data-format]="b.id">{{ b.text }}</button>
+            }
+        </span>
+        }
         <span class="arc-ed-spacer"></span>
         <span class="arc-ed-group" role="group" [attr.aria-label]="'admin.preview.width' | transloco">
             <button type="button" class="arc-ed-btn" [class.arc-ed-on]="!phone()" [attr.aria-pressed]="!phone()" (click)="phone.set(false)">{{ 'admin.preview.full_width' | transloco }}</button>
@@ -70,7 +92,7 @@ export function editFrameUrl(type: string, id: string): string {
         }
         <aside id="arc-ed-panel" class="arc-ed-panel" #panelBox
             [class.arc-ed-dragging]="panel.dragging()"
-            [style.transform]="'translateX(calc(100% - ' + panel.shown() + 'px))'"
+            [style.transform]="panel.transform()"
             [attr.aria-label]="'admin.edit_page.page_settings' | transloco" data-testid="edit-panel">
             <button type="button" class="arc-ed-handle" data-testid="edit-handle"
                 [style.margin-right.px]="panel.shown() ? 0 : scrollbar()"
@@ -86,6 +108,21 @@ export function editFrameUrl(type: string, id: string): string {
             </div>
         </aside>
     </div>
+    <div class="arc-ed-pop" role="dialog" [hidden]="!pop()" [attr.aria-label]="pop()?.title || null"
+        [style.top.px]="pop()?.top" [style.left.px]="pop()?.left" data-testid="edit-popover" (keydown.escape)="closePopover(); $event.stopPropagation()">
+        <div class="arc-ed-pop-head">
+            <!-- A field's own control brings its label; an image's box names it here. -->
+            <span class="arc-ed-pop-title">{{ pop()?.image ? pop()?.title : '' }}</span>
+            <button type="button" class="arc-ed-pop-done" (click)="closePopover()" data-testid="edit-popover-done">{{ 'admin.edit_page.done' | transloco }}</button>
+        </div>
+        @if (pop()?.image) {
+        <div class="arc-ed-pop-actions">
+            <button type="button" class="btn btn-outline-primary btn-sm" (click)="replaceImage()" data-testid="edit-image-replace">{{ 'admin.edit_page.replace' | transloco }}</button>
+            <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeImage()" data-testid="edit-image-remove">{{ 'common.actions.remove' | transloco }}</button>
+        </div>
+        }
+        <div class="arc-ed-pop-body" #popBody></div>
+    </div>
     `,
     styles: [`
         :host { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #e5e7eb; }
@@ -94,6 +131,7 @@ export function editFrameUrl(type: string, id: string): string {
             padding: 6px 12px; background: #1f2937; color: #f9fafb;
             font: 500 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
             box-shadow: 0 1px 4px rgba(0, 0, 0, .25); position: relative; z-index: 3;
+            overflow-x: auto; scrollbar-width: none;
         }
         .arc-ed-title { font-weight: 600; white-space: nowrap; }
         .arc-ed-status { padding: 1px 8px; border-radius: 999px; background: #4b5563; white-space: nowrap; }
@@ -109,8 +147,9 @@ export function editFrameUrl(type: string, id: string): string {
         .arc-ed-btn.arc-ed-primary:hover:not(:disabled) { filter: brightness(1.1); }
         .arc-ed-btn:disabled { opacity: .55; cursor: default; }
         .arc-ed-btn.arc-ed-on { background: #f9fafb; color: #1f2937; border-color: #f9fafb; }
-        .arc-ed-btn.arc-ed-primary { background: var(--arc-admin-accent, #2563eb); border-color: var(--arc-admin-accent, #2563eb); }
-        .arc-ed-btn:focus-visible, .arc-ed-handle:focus-visible { outline: 2px solid #93c5fd; outline-offset: 1px; }
+        .arc-ed-btn.arc-ed-primary { background: var(--arc-admin-accent); border-color: var(--arc-admin-accent); }
+        .arc-ed-btn:focus-visible { outline: 2px solid #f9fafb; outline-offset: 1px; }
+        .arc-ed-handle:focus-visible { outline: 2px solid var(--arc-admin-accent); outline-offset: 1px; }
         .arc-ed-stage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
         .arc-ed-frame { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
         .arc-ed-frame.arc-ed-phone { width: 390px; margin: 0 auto; box-shadow: 0 0 0 1px #d1d5db, 0 8px 24px rgba(0, 0, 0, .12); }
@@ -137,6 +176,18 @@ export function editFrameUrl(type: string, id: string): string {
         }
         .arc-ed-handle > span { background: #fff; border-radius: 4px; padding: 0 1px; }
         .arc-ed-dragging .arc-ed-handle { cursor: grabbing; }
+        .arc-ed-fmt { padding: 3px 7px; min-width: 28px; font-weight: 600; }
+        .arc-ed-pop {
+            position: fixed; z-index: 1000; width: 320px; max-width: calc(100vw - 16px); max-height: 60vh; overflow: auto;
+            background: #fff; color: #1f2937; border: 1px solid #d1d5db; border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .18); padding: 10px 12px;
+        }
+        .arc-ed-pop-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font: 600 13px/1.4 system-ui, sans-serif; }
+        .arc-ed-pop-body ::ng-deep [id^="req-"] { margin-bottom: 0 !important; }
+        .arc-ed-pop-title { flex: 1 1 auto; }
+        .arc-ed-pop-done { font: 500 13px/1.4 system-ui, sans-serif; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; padding: 2px 10px; cursor: pointer; }
+        .arc-ed-pop-actions { display: flex; gap: 8px; }
+        .arc-ed-pop-body:empty { display: none; }
         @media (prefers-reduced-motion: reduce) { .arc-ed-panel { transition: none; } }
     `],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -148,6 +199,10 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     private platformId = inject(PLATFORM_ID);
     private destroyRef = inject(DestroyRef);
     private sanitizer = inject(DomSanitizer);
+    private dialog = inject(MatDialog);
+    private transloco = inject(TranslocoService);
+    private injector = inject(Injector);
+    private typesStore = inject(ContentTypesStore);
 
     readonly type = this.route.snapshot.paramMap.get('type') || '';
     readonly id = this.route.snapshot.paramMap.get('id') || '';
@@ -175,6 +230,34 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     @ViewChild(CreateContentComponent) editor?: CreateContentComponent;
     @ViewChild('frame') frame?: ElementRef<HTMLIFrameElement>;
     @ViewChild('panelBox') panelBox?: ElementRef<HTMLElement>;
+    @ViewChild('popBody') popBody?: ElementRef<HTMLElement>;
+
+    // ── Editing in place (VE-D16) ────────────────────────────────────────────
+    /** Editing in place on the page in the frame, once it is drawn. */
+    inPlace: InPlaceEditing | null = null;
+    /** The rich text editor on the page, while a rich spot is edited. */
+    private richEditor: Editor | null = null;
+    readonly richOn = signal(false);
+    /** Bumped on each change in the rich editor, so the buttons show what the selection has. */
+    private readonly formatTick = signal(0);
+    /** The box on a spot: a field's own control, or an image's Replace and Remove. */
+    readonly pop = signal<{ title: string; top: number; left: number; image: boolean; spot: Spot } | null>(null);
+    /** Where a control moved into the box came from, to put it back. */
+    private popReturn: { node: HTMLElement; marker: Comment } | null = null;
+
+    readonly formatButtons = [
+        { id: 'bold', text: 'B', label: 'admin.edit_page.bold' },
+        { id: 'italic', text: 'I', label: 'admin.edit_page.italic' },
+        { id: 'h2', text: 'H2', label: 'admin.edit_page.heading' },
+        { id: 'h3', text: 'H3', label: 'admin.edit_page.subheading' },
+        { id: 'bullets', text: '\u2022', label: 'admin.edit_page.bullets' },
+        { id: 'numbers', text: '1.', label: 'admin.edit_page.numbers' },
+        { id: 'quote', text: '\u201c', label: 'admin.edit_page.quote' },
+        { id: 'link', text: '\u{1F517}', label: 'admin.edit_page.link' },
+        { id: 'image', text: '\u{1F5BC}', label: 'admin.edit_page.image' },
+        { id: 'undo', text: '\u21b6', label: 'admin.edit_page.undo' },
+        { id: 'redo', text: '\u21b7', label: 'admin.edit_page.redo' },
+    ] as const;
 
     /** What the form editor in page mode asks of the page (VE-D26). */
     readonly hooks: PageModeHooks = {
@@ -188,6 +271,10 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
 
     ngAfterViewInit(): void {
         if (!isPlatformBrowser(this.platformId)) return;
+        // Every type, as the entries list loads them: the panel shows this one's fields
+        // and the page's spots are worked out from them. Nothing else on this screen,
+        // outside the admin shell, loads them.
+        if (!this.typesStore.items().some((t: ContentType) => t.slug === this.type)) this.typesStore.getAll();
         const timer = setInterval(() => this.readStatus(), STATUS_EVERY_MS);
         const onKey = (event: KeyboardEvent) => this.onKey(event);
         this.document.addEventListener('keydown', onKey);
@@ -195,6 +282,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             clearInterval(timer);
             this.document.removeEventListener('keydown', onKey);
             this.frameCleanup?.();
+            this.closePopover();
+            this.inPlace?.detach();
             this.panel.destroy();
         });
     }
@@ -222,6 +311,11 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     onKey(event: KeyboardEvent): void {
         if (event.key !== 'Escape' || event.defaultPrevented) return;
         if (this.document.querySelector('.cdk-overlay-container .mat-mdc-dialog-container')) return;
+        if (this.pop()) {
+            this.closePopover();
+            event.preventDefault();
+            return;
+        }
         if (this.panel.escape()) event.preventDefault();
     }
 
@@ -254,7 +348,11 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         const win = doc?.defaultView;
         if (!doc || !win) return;
         this.frameCleanup?.();
-        const onTouch = () => this.panel.touch();
+        const onTouch = (event: Event) => {
+            this.panel.touch();
+            // A click on the page puts a box away; the click may open the next one.
+            if (this.pop() && !(event.target as Element | null)?.closest?.('[data-arc-edit-kind]')) this.closePopover();
+        };
         const onKey = (event: KeyboardEvent) => {
             if (event.key === 'Escape') this.onKey(event);
             else this.panel.touch();
@@ -264,6 +362,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         this.frameCleanup = () => {
             doc.removeEventListener('pointerdown', onTouch, true);
             doc.removeEventListener('keydown', onKey);
+            this.inPlace?.detach();
+            this.inPlace = null;
         };
         this.waitForDraw(doc, win);
     }
@@ -289,19 +389,306 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     }
 
     /** The page is drawn in the frame: the place for editing in place to start. */
-    protected pageDrawn(_doc: Document): void {
-        // Editing in place (VE3.6) starts here.
+    protected pageDrawn(doc: Document): void {
+        this.inPlace?.detach();
+        this.inPlace = new InPlaceEditing(doc, this.inPlaceHost);
+        this.inPlace.attach();
     }
 
-    /** A field the page shows is scrolled to and outlined; false when the page does not show it. */
+    /**
+     * A field the form editor asks for (a required one left empty): its spot on the
+     * page is scrolled to and opened when it is typed in, else outlined. False when
+     * the page does not show it.
+     */
     revealOnPage(key: string): boolean {
         const doc = this.frameDocument();
-        const el = doc?.querySelector<HTMLElement>(`[data-arc-field="${cssEscape(key)}"]`);
+        if (!doc) return false;
+        const type = this.contentType();
+        const el = Array.from(doc.querySelectorAll<HTMLElement>('[data-arc-field]'))
+            .find((node) => spotInfo(node, type)?.field === key)
+            ?? doc.querySelector<HTMLElement>(`[data-arc-field="${cssEscape(key)}"]`);
         if (!el) return false;
         el.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+        const kind = spotInfo(el, type)?.kind;
+        if (this.inPlace && (kind === 'text' || kind === 'rich')) {
+            this.inPlace.open(el);
+            return true;
+        }
         el.setAttribute('data-arc-pv-highlight', '');
         setTimeout(() => el.removeAttribute('data-arc-pv-highlight'), 2000);
         return true;
+    }
+
+    /** The entry's type, as the form editor has it. */
+    contentType(): ContentType | null {
+        return (this.editor?.currentContentType() as ContentType | null) ?? null;
+    }
+
+    /** How a spot reads and writes the draft: through the form editor, as its own controls do. */
+    readonly inPlaceHost: InPlaceHost = {
+        type: () => this.contentType(),
+        value: (field) => this.fieldValue(field),
+        setText: (field, value) => this.setText(field, value),
+        setRich: (field, html) => this.setRich(field, html),
+        hold: (on) => this.editor?.session.holdPreview(on),
+        mountRich: (el, html, onChange) => this.mountRich(el, html, onChange),
+        image: (spot) => this.openImage(spot),
+        popover: (spot) => this.openPopover(spot),
+        panel: (spot) => this.openInPanel(spot),
+        activeChanged: (_spot, rich) => {
+            this.closePopover();
+            this.richOn.set(!!rich);
+            if (!rich) this.richEditor = null;
+        },
+    };
+
+    fieldValue(field: string): unknown {
+        const editor = this.editor;
+        if (!editor) return '';
+        switch (field) {
+            case 'title': return editor.pageTitle ?? '';
+            case 'summary': return editor.publishForm?.get('summary')?.value ?? '';
+            case 'content': return editor.publishForm?.get('content')?.value ?? '';
+            case 'coverImage': return editor.coverImage ?? '';
+            default: return editor.customFieldValues?.[field] ?? '';
+        }
+    }
+
+    /** Typed in place: the same steps as the form editor's own box for the field. */
+    setText(field: string, value: string): void {
+        const editor = this.editor;
+        if (!editor || this.fieldValue(field) === value) return;
+        if (field === 'title') {
+            editor.pageTitle = value;
+            editor.createSlag();
+            editor.triggerAutoSave();
+        } else if (field === 'summary') {
+            editor.publishForm?.get('summary')?.setValue(value);
+            editor.triggerAutoSave();
+        } else {
+            editor.onCustomFieldChange(field, value);
+        }
+    }
+
+    setRich(field: string, html: string): void {
+        const editor = this.editor;
+        if (!editor) return;
+        if (field === 'content') {
+            editor.passEditorContentToParent(html);
+            editor.triggerAutoSave();
+        } else {
+            editor.onCustomFieldChange(field, html);
+        }
+    }
+
+    /** The rich text editor on the element: the same extensions as the form editor's (spike fix 3). */
+    mountRich(el: HTMLElement, html: string, onChange: (html: string) => void): RichHandle {
+        let editor: Editor | null = null;
+        editor = new Editor({
+            element: el,
+            content: html,
+            autofocus: false,
+            enablePasteRules: false,
+            extensions: editorExtensions({
+                injector: this.injector,
+                translate: (key) => this.transloco.translate(key),
+                openOnClick: false,
+                pickers: { uploadImage: () => editor && this.insertImage(editor), attachFile: () => editor && this.attachFiles(editor) },
+            }),
+            editorProps: { attributes: { class: 'arc-in-place-rich', spellcheck: 'true' } },
+        });
+        // What the buttons show comes from the editor's own events, not straight after a click (spike fix 4).
+        editor.on('update', ({ editor: e }) => onChange(e.getHTML()));
+        editor.on('transaction', () => this.formatTick.update((n) => n + 1));
+        this.richEditor = editor;
+        return {
+            focus: (at) => {
+                if (!editor) return;
+                const pos = at ? editor.view.posAtCoords({ left: at.x, top: at.y }) : null;
+                if (pos) editor.chain().focus(undefined, { scrollIntoView: false }).setTextSelection(pos.pos).run();
+                else editor.chain().focus('start', { scrollIntoView: false }).run();
+            },
+            destroy: () => {
+                editor?.destroy();
+                if (this.richEditor === editor) this.richEditor = null;
+                editor = null;
+            },
+        };
+    }
+
+    formatActive(id: string): boolean {
+        this.formatTick();
+        const e = this.richEditor;
+        if (!e) return false;
+        switch (id) {
+            case 'bold': return e.isActive('bold');
+            case 'italic': return e.isActive('italic');
+            case 'h2': return e.isActive('heading', { level: 2 });
+            case 'h3': return e.isActive('heading', { level: 3 });
+            case 'bullets': return e.isActive('bulletList');
+            case 'numbers': return e.isActive('orderedList');
+            case 'quote': return e.isActive('blockquote');
+            case 'link': return e.isActive('link');
+            default: return false;
+        }
+    }
+
+    /** A formatting button: it keeps the focus in the page (mousedown is stopped) and acts on its selection. */
+    format(id: string): void {
+        const e = this.richEditor;
+        if (!e) return;
+        const chain = e.chain().focus();
+        switch (id) {
+            case 'bold': chain.toggleBold().run(); break;
+            case 'italic': chain.toggleItalic().run(); break;
+            case 'h2': chain.toggleHeading({ level: 2 }).run(); break;
+            case 'h3': chain.toggleHeading({ level: 3 }).run(); break;
+            case 'bullets': chain.toggleBulletList().run(); break;
+            case 'numbers': chain.toggleOrderedList().run(); break;
+            case 'quote': chain.toggleBlockquote().run(); break;
+            case 'undo': chain.undo().run(); break;
+            case 'redo': chain.redo().run(); break;
+            case 'image': this.insertImage(e); break;
+            case 'link': this.addLink(e); break;
+        }
+    }
+
+    private insertImage(editor: Editor): void {
+        const ref = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, title: this.pickerTitle('admin.media.picker.image_in') }));
+        ref.afterClosed().subscribe((result: MediaSelection | null) => {
+            if (result?.type === 'submit' && result.mediaUrl && !editor.isDestroyed) insertImageAndMoveOn(editor, result.mediaUrl, result.alt);
+        });
+    }
+
+    private attachFiles(editor: Editor): void {
+        const ref = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({
+            isDialogOpen: true, allowFiles: true, allowImages: false, initialTab: 'files', multiple: true,
+            title: this.pickerTitle('admin.media.picker.files_in'),
+        }));
+        ref.afterClosed().subscribe((result: MediaSelection | null) => {
+            if (result?.type !== 'submit' || result.kind !== 'file' || editor.isDestroyed) return;
+            let chain = editor.chain().focus();
+            for (const file of result.files ?? (result.file ? [result.file] : [])) chain = chain.insertFileCard(file);
+            chain.run();
+        });
+    }
+
+    /** A picker's heading naming the field being edited ("Image in Body"), as the editor's own pickers do. */
+    private pickerTitle(key: 'admin.media.picker.image_in' | 'admin.media.picker.files_in'): string {
+        const field = this.inPlace?.current()?.field || 'content';
+        return this.transloco.translate(key, { field: this.fieldTitle(field) });
+    }
+
+    private addLink(editor: Editor): void {
+        const ref = this.dialog.open(UrlAddDialog, { width: '70vh', data: { msg: 'common.add_url.link_text', placeholder: 'common.add_url.link' }, disableClose: true });
+        ref.afterClosed().subscribe((url: string | null) => {
+            if (!url || editor.isDestroyed) return;
+            editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+        });
+    }
+
+    // ── Images, boxes and the panel ──────────────────────────────────────────
+    /** An image spot: the picker at once when it is empty, else Replace and Remove on it. */
+    openImage(spot: Spot): void {
+        if (!this.fieldValue(spot.field)) {
+            this.pickImage(spot.field);
+            return;
+        }
+        this.showPopover(spot, true);
+    }
+
+    replaceImage(): void {
+        const spot = this.pop()?.spot;
+        this.closePopover();
+        if (spot) this.pickImage(spot.field);
+    }
+
+    removeImage(): void {
+        const spot = this.pop()?.spot;
+        this.closePopover();
+        if (!spot || !this.editor) return;
+        if (spot.field === 'coverImage') this.editor.removeCoverImage();
+        else this.editor.removeCustomFieldImage(spot.field);
+    }
+
+    private pickImage(field: string): void {
+        const editor = this.editor;
+        if (!editor) return;
+        if (field === 'coverImage') editor.openMediaManager();
+        else editor.openMediaManagerForField(field, this.fieldTitle(field));
+    }
+
+    /** A field edited in a box on the element: the form editor's own control for it, moved there. */
+    openPopover(spot: Spot): void {
+        const node = this.panelControl(spot.field);
+        if (!node) {
+            this.openInPanel(spot);
+            return;
+        }
+        this.showPopover(spot, false);
+        const body = this.popBody?.nativeElement;
+        if (!body) return;
+        const marker = this.document.createComment('arc-in-place');
+        node.parentNode?.insertBefore(marker, node);
+        body.appendChild(node);
+        this.popReturn = { node, marker };
+        setTimeout(() => node.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea, button')?.focus());
+    }
+
+    /** The custom field's box in the panel (`#req-{key}`), on the Basic tab. */
+    private panelControl(field: string): HTMLElement | null {
+        const editor = this.editor;
+        if (!editor || !editor.currentFields.some((f) => f.key === field)) return null;
+        if (editor.activeTab !== 'basic') {
+            editor.activeTab = 'basic';
+            editor.cdr.detectChanges();
+        }
+        return this.document.getElementById(`req-${field}`);
+    }
+
+    private showPopover(spot: Spot, image: boolean): void {
+        this.closePopover();
+        const frame = this.frame?.nativeElement.getBoundingClientRect();
+        const box = spot.el.getBoundingClientRect();
+        const win = this.document.defaultView;
+        const width = 320;
+        const top = (frame?.top ?? 0) + box.bottom + 6;
+        const left = (frame?.left ?? 0) + box.left;
+        const maxLeft = (win?.innerWidth ?? 1024) - width - 8;
+        const maxTop = (win?.innerHeight ?? 768) - 160;
+        this.pop.set({
+            title: this.fieldTitle(spot.field),
+            top: Math.max(48, Math.min(top, maxTop)),
+            left: Math.max(8, Math.min(left, maxLeft)),
+            image,
+            spot,
+        });
+    }
+
+    /** Puts the box away and its control back in the panel. */
+    closePopover(): void {
+        const back = this.popReturn;
+        this.popReturn = null;
+        if (back) {
+            if (back.marker.parentNode) back.marker.parentNode.insertBefore(back.node, back.marker);
+            back.marker.remove();
+        }
+        if (this.pop()) this.pop.set(null);
+    }
+
+    /** A field not edited on the page: the panel opens on it. */
+    openInPanel(spot: Spot): void {
+        this.panel.setOpen(true);
+        setTimeout(() => this.editor?.focusField(spot.field, spot.row ?? undefined), 260);
+    }
+
+    /** A field's name in the admin language. */
+    fieldTitle(field: string): string {
+        const def = this.editor?.currentFields.find((f) => f.key === field);
+        if (def) return this.editor!.fieldLabel(def);
+        const key = `admin.preview.fields.${field}`;
+        const text = this.transloco.translate(key);
+        return text === key ? field : text;
     }
 
     // ── The strip's buttons ──────────────────────────────────────────────────

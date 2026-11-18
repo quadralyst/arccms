@@ -427,6 +427,24 @@ describe('EntryDraftSession', () => {
       expect(store.saveDraft).not.toHaveBeenCalled();
     });
 
+    it('holds the page while a spot on it is typed in, and sends the draft when it is left (VE-D16)', async () => {
+      loadStored();
+      session.connectPreview();
+      await new Promise((resolve) => setTimeout(resolve, EntryDraftSession.PREVIEW_DELAY_MS + 30));
+      post.mockClear();
+      const states = () => post.mock.calls.map((call: any[]) => call[0]).filter((m: any) => m.kind === 'state');
+      session.holdPreview(true);
+      view.values.title = 'Typed on the page';
+      session.triggerAutoSave();
+      session.onPreviewMessage({ kind: 'hello' });
+      await new Promise((resolve) => setTimeout(resolve, EntryDraftSession.PREVIEW_DELAY_MS + 30));
+      expect(states()).toHaveLength(0);
+      session.holdPreview(false);
+      await new Promise((resolve) => setTimeout(resolve, EntryDraftSession.PREVIEW_DELAY_MS + 30));
+      expect(states()).toHaveLength(1);
+      expect(states()[0].draft.title).toBe('Typed on the page');
+    });
+
     it('a click on the preview asks the screen for the field', () => {
       session.onPreviewMessage({ kind: 'focus', key: 'price', row: 2 });
       expect(view.focused).toEqual([['price', 2]]);

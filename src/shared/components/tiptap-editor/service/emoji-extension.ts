@@ -2,6 +2,7 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import tippy, { Instance } from 'tippy.js';
+import { caretRect } from './caret-rect';
 
 interface EmojiPluginState {
   active: boolean;
@@ -204,17 +205,7 @@ export const EmojiExtension = Extension.create({
 
       if (!tippyInstance) {
         tippyInstance = tippy(document.body, {
-          getReferenceClientRect: () => ({
-            width: 0,
-            height: 0,
-            top: coords.top,
-            bottom: coords.bottom,
-            left: coords.left,
-            right: coords.right,
-            x: coords.left,
-            y: coords.top,
-            toJSON: () => '',
-          }),
+          getReferenceClientRect: () => caretRect(view.dom, coords),
           appendTo: () => document.body,
           content: element,
           showOnCreate: true,
@@ -224,17 +215,7 @@ export const EmojiExtension = Extension.create({
         });
       } else {
         tippyInstance.setProps({
-          getReferenceClientRect: () => ({
-            width: 0,
-            height: 0,
-            top: coords.top,
-            bottom: coords.bottom,
-            left: coords.left,
-            right: coords.right,
-            x: coords.left,
-            y: coords.top,
-            toJSON: () => '',
-          }),
+          getReferenceClientRect: () => caretRect(view.dom, coords),
           content: element,
         });
       }

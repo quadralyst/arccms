@@ -4142,7 +4142,21 @@
       "form": "Form",
       "form_title": "Edit in the form instead. Saves first.",
       "page_settings": "Page settings",
-      "loading": "Opening the page..."
+      "loading": "Opening the page...",
+      "formatting": "Formatting",
+      "done": "Done",
+      "replace": "Replace",
+      "bold": "Bold",
+      "italic": "Italic",
+      "heading": "Heading",
+      "subheading": "Subheading",
+      "bullets": "Bulleted list",
+      "numbers": "Numbered list",
+      "quote": "Quote",
+      "link": "Link",
+      "image": "Insert image",
+      "undo": "Undo",
+      "redo": "Redo"
     }
   },
   "user": {

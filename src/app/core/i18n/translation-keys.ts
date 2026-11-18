@@ -1197,15 +1197,29 @@ export type TranslationKey =
     | 'admin.drips.subtitle'
     | 'admin.drips.template'
     | 'admin.drips.title'
+    | 'admin.edit_page.bold'
+    | 'admin.edit_page.bullets'
+    | 'admin.edit_page.done'
     | 'admin.edit_page.form'
     | 'admin.edit_page.form_title'
+    | 'admin.edit_page.formatting'
     | 'admin.edit_page.frame'
+    | 'admin.edit_page.heading'
+    | 'admin.edit_page.image'
+    | 'admin.edit_page.italic'
+    | 'admin.edit_page.link'
     | 'admin.edit_page.loading'
     | 'admin.edit_page.not_saved'
+    | 'admin.edit_page.numbers'
     | 'admin.edit_page.page_settings'
+    | 'admin.edit_page.quote'
+    | 'admin.edit_page.redo'
+    | 'admin.edit_page.replace'
     | 'admin.edit_page.saved'
     | 'admin.edit_page.saving'
     | 'admin.edit_page.strip'
+    | 'admin.edit_page.subheading'
+    | 'admin.edit_page.undo'
     | 'admin.edit_page.unsaved'
     | 'admin.email_brand.add_social'
     | 'admin.email_brand.colors'
@@ -5488,15 +5502,29 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.drips.subtitle',
     'admin.drips.template',
     'admin.drips.title',
+    'admin.edit_page.bold',
+    'admin.edit_page.bullets',
+    'admin.edit_page.done',
     'admin.edit_page.form',
     'admin.edit_page.form_title',
+    'admin.edit_page.formatting',
     'admin.edit_page.frame',
+    'admin.edit_page.heading',
+    'admin.edit_page.image',
+    'admin.edit_page.italic',
+    'admin.edit_page.link',
     'admin.edit_page.loading',
     'admin.edit_page.not_saved',
+    'admin.edit_page.numbers',
     'admin.edit_page.page_settings',
+    'admin.edit_page.quote',
+    'admin.edit_page.redo',
+    'admin.edit_page.replace',
     'admin.edit_page.saved',
     'admin.edit_page.saving',
     'admin.edit_page.strip',
+    'admin.edit_page.subheading',
+    'admin.edit_page.undo',
     'admin.edit_page.unsaved',
     'admin.email_brand.add_social',
     'admin.email_brand.colors',

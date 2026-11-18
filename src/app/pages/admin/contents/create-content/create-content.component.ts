@@ -1116,7 +1116,12 @@ export class CreateContentComponent extends BaseComponent {
       prepareCustomFields: (values) => this.copyCustomFields(values),
       sharedValues: () => this.sharedDraftValues(),
       fill: (item) => this.fillForms(item),
-      expectEchoes: () => this.expectRichEchoes(),
+      expectEchoes: () => {
+        this.expectRichEchoes();
+        // In page mode no body editor echoes the loaded body, so loading is settled now;
+        // waiting would take the first edit on the page for the echo (VE-D26).
+        if (this.pageMode) this.session.settleLoad();
+      },
       revealMissing: (missing) => void this.revealMissingRequired(missing),
       entryCreated: (id) => this.showEntryAddress(id),
       focusField: (key, row) => this.focusField(key, row),

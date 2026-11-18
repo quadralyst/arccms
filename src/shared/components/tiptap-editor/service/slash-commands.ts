@@ -3,6 +3,8 @@ import { ARC_BLOCKS } from './arc-block-extension';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import tippy, { Instance } from 'tippy.js';
+import { caretRect } from './caret-rect';
+import { openEditorPicker } from './editor-pickers';
 
 interface SlashCommandsPluginState {
   active: boolean;
@@ -170,7 +172,7 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
           icon: 'bi bi-image',
           shortcut: '',
           command: () => {
-            (window as any).uploadImage();
+            openEditorPicker(this.editor.storage, 'uploadImage');
           },
         },
         {
@@ -179,7 +181,7 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
           icon: 'bi bi-filetype-gif',
           shortcut: '',
           command: () => {
-            (window as any).uploadImage();
+            openEditorPicker(this.editor.storage, 'uploadImage');
           },
         },
         {
@@ -188,7 +190,7 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
           icon: 'bi bi-paperclip',
           shortcut: '',
           command: () => {
-            (window as any).attachFile();
+            openEditorPicker(this.editor.storage, 'attachFile');
           },
         },
         {
@@ -428,17 +430,7 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
 
       if (!tippyInstance) {
         tippyInstance = tippy(document.body, {
-          getReferenceClientRect: () => ({
-            width: 0,
-            height: 0,
-            top: coords.top,
-            bottom: coords.bottom,
-            left: coords.left,
-            right: coords.right,
-            x: coords.left,
-            y: coords.top,
-            toJSON: () => '',
-          }),
+          getReferenceClientRect: () => caretRect(view.dom, coords),
           appendTo: () => document.body,
           content: element,
           showOnCreate: true,
@@ -448,17 +440,7 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
         });
       } else {
         tippyInstance.setProps({
-          getReferenceClientRect: () => ({
-            width: 0,
-            height: 0,
-            top: coords.top,
-            bottom: coords.bottom,
-            left: coords.left,
-            right: coords.right,
-            x: coords.left,
-            y: coords.top,
-            toJSON: () => '',
-          }),
+          getReferenceClientRect: () => caretRect(view.dom, coords),
           content: element,
         });
       }

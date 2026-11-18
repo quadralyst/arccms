@@ -10,6 +10,9 @@ import { signal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import EntryEditPage, { editFrameUrl } from './entry-edit.page';
 import { previewSessionKey } from '../../../core/preview/preview-channel';
+import { MatDialog } from '@angular/material/dialog';
+import { ContentTypesStore } from '../contents/content-types/content-types.store';
+import { translocoTestingModule } from '../../../../test/transloco-test-providers';
 
 function fakeEditor() {
     const session = {
@@ -23,11 +26,31 @@ function fakeEditor() {
         unsaved: false,
         hasUnsavedChanges() { return this.unsaved; },
     };
+    const summary = { value: 'Short', setValue: vi.fn(function (this: { value: string }, v: string) { summary.value = v; }) };
+    const content = { value: '<p>Body</p>' };
     return {
-        session,
+        session: Object.assign(session, { holdPreview: vi.fn() }),
         hasUnsavedChanges: () => session.hasUnsavedChanges(),
         saveAsDraft: vi.fn(async () => { session.unsaved = false; }),
         directPublishContent: vi.fn(async () => undefined),
+        pageTitle: 'Concert',
+        coverImage: '' as string | null,
+        customFieldValues: { 'events-venue': 'Hall' } as Record<string, unknown>,
+        publishForm: { get: (name: string) => (name === 'summary' ? summary : name === 'content' ? content : null) },
+        currentFields: [{ key: 'events-price', label: 'Price', type: 'number' }],
+        activeTab: 'seo',
+        cdr: { detectChanges: vi.fn() },
+        fieldLabel: (f: { label: string }) => f.label,
+        createSlag: vi.fn(),
+        triggerAutoSave: vi.fn(),
+        onCustomFieldChange: vi.fn(),
+        passEditorContentToParent: vi.fn(),
+        openMediaManager: vi.fn(),
+        openMediaManagerForField: vi.fn(),
+        removeCoverImage: vi.fn(),
+        removeCustomFieldImage: vi.fn(),
+        focusField: vi.fn(),
+        currentContentType: () => null,
     };
 }
 
@@ -39,7 +62,10 @@ describe('EntryEditPage', () => {
     beforeEach(() => {
         router.navigate.mockClear();
         TestBed.configureTestingModule({
+            imports: [translocoTestingModule()],
             providers: [
+                { provide: MatDialog, useValue: { open: vi.fn() } },
+                { provide: ContentTypesStore, useValue: { items: signal([]), getAll: vi.fn() } },
                 { provide: Router, useValue: router },
                 { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ type: 'articles', id: 'doc1' }) } } },
             ],
@@ -132,6 +158,85 @@ describe('EntryEditPage', () => {
         expect(page.hasUnsavedChanges()).toBe(false);
         editor.session.unsaved = true;
         expect(page.hasUnsavedChanges()).toBe(true);
+    });
+
+    describe('editing in place (VE-D16)', () => {
+        const spot = (field: string, el: HTMLElement = document.createElement('span')) =>
+            ({ el, key: field, field, builtin: !field.includes('-'), kind: 'popover', attr: '', row: null }) as never;
+
+        it('writes typed values through the form editor, as its own boxes do', () => {
+            page.setText('title', 'Concert night');
+            expect(editor.pageTitle).toBe('Concert night');
+            expect(editor.createSlag).toHaveBeenCalled();
+            expect(editor.triggerAutoSave).toHaveBeenCalled();
+            page.setText('summary', 'Longer');
+            expect(editor.publishForm.get('summary')!.setValue).toHaveBeenCalledWith('Longer');
+            page.setText('events-venue', 'Big hall');
+            expect(editor.onCustomFieldChange).toHaveBeenCalledWith('events-venue', 'Big hall');
+            editor.triggerAutoSave.mockClear();
+            page.setText('title', 'Concert night');
+            expect(editor.triggerAutoSave).not.toHaveBeenCalled();
+            page.setRich('content', '<p>New</p>');
+            expect(editor.passEditorContentToParent).toHaveBeenCalledWith('<p>New</p>');
+            page.setRich('events-notes', '<p>N</p>');
+            expect(editor.onCustomFieldChange).toHaveBeenCalledWith('events-notes', '<p>N</p>');
+        });
+
+        it('holds the page in the session while a spot is typed in', () => {
+            page.inPlaceHost.hold(true);
+            expect(editor.session.holdPreview).toHaveBeenCalledWith(true);
+        });
+
+        it('picks an image at once for an empty image spot, else offers Replace and Remove', () => {
+            page.openImage(spot('coverImage'));
+            expect(editor.openMediaManager).toHaveBeenCalled();
+            expect(page.pop()).toBeNull();
+            editor.coverImage = '/c.jpg';
+            page.openImage(spot('coverImage'));
+            expect(page.pop()?.image).toBe(true);
+            page.removeImage();
+            expect(editor.removeCoverImage).toHaveBeenCalled();
+            expect(page.pop()).toBeNull();
+            editor.customFieldValues['events-poster'] = '/p.jpg';
+            page.openImage(spot('events-poster'));
+            page.replaceImage();
+            expect(editor.openMediaManagerForField).toHaveBeenCalledWith('events-poster', 'events-poster');
+        });
+
+        it('puts the form editor\'s own control for a field in the box, and back in the panel after', () => {
+            const panel = document.createElement('div');
+            panel.innerHTML = '<div id="req-events-price"><label for="p">Price</label><input id="p" type="number"></div>';
+            document.body.appendChild(panel);
+            const body = document.createElement('div');
+            page.popBody = { nativeElement: body } as never;
+            page.openPopover(spot('events-price'));
+            expect(editor.activeTab).toBe('basic');
+            expect(body.querySelector('#req-events-price')).not.toBeNull();
+            expect(page.pop()?.image).toBe(false);
+            page.closePopover();
+            expect(panel.querySelector('#req-events-price')).not.toBeNull();
+            expect(body.children).toHaveLength(0);
+            expect(page.pop()).toBeNull();
+            panel.remove();
+        });
+
+        it('opens the panel on a field with no control to move', () => {
+            vi.useFakeTimers();
+            page.openPopover(spot('tags'));
+            expect(page.panel.open()).toBe(true);
+            vi.advanceTimersByTime(300);
+            expect(editor.focusField).toHaveBeenCalledWith('tags', undefined);
+            vi.useRealTimers();
+        });
+
+        it('closes a box before the panel on Escape', () => {
+            page.panel.setOpen(true);
+            editor.coverImage = '/c.jpg';
+            page.openImage(spot('coverImage'));
+            page.onKey(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+            expect(page.pop()).toBeNull();
+            expect(page.panel.open()).toBe(true);
+        });
     });
 
     it('opens the panel for a field the form editor asks for that the page does not show', () => {

@@ -3,7 +3,7 @@
 **Status:** SPEC, agreed in discussion 2026-11-17. VE1 and VE2 built 2026-11-18 (live preview window,
 `/admin/preview/:type/:id`, and types without pages previewed where their cards show). VE3.1
 (the shared `EntryDraftSession`) built and the VE3.2 spike done 2026-11-18, see the build notes
-under VE3; VE3.3 to VE5 not built. Notes from the build: the preview window is
+under VE3; VE3.3 to VE3.6 built 2026-11-18; VE3.7 to VE5 not built. Notes from the build: the preview window is
 opened with `window.open('', name)` then pointed at its address, so an open one is brought forward
 without a reload; a browser that blocks the pop-up gets a message in the editor. The Phone toggle
 frames the page in a 390 px column; the site's own phone layout still follows the window width.
@@ -166,6 +166,22 @@ few hooks (reveal a missing field, focus a field the preview asked for, the entr
 The form editor implements it over its forms and keeps every member name it had, as accessors
 onto the session, so its template and its 307 specs are unchanged. The edit-on-page screen of
 VE3.5 implements the same interface over the page.
+
+**Build note, VE3.4 to VE3.6 (2026-11-18):** the strip is `drawEditorStrip` in `arc-site.js`; the
+admin app writes `arc_editor_strip` from the auth store (`rememberEditorStrip`, for
+`ENTRY_EDITOR_ROLES` with Content on) and the route uses the same roles. A list page's link reads
+**Add new**: the page names only the type's slug, not its name. The edit screen
+(`src/app/pages/admin/edit/entry-edit.page.ts`) hosts the form editor in page mode as the Page
+settings panel (`pageMode`, `pageHooks`), so that editor owns the `EntryDraftSession` and the panel
+is literally the form editor's; it loads the content types itself, being outside the admin shell.
+The panel's state is `PagePanel`. In place (`in-place.ts`): `spotInfo` decides what a marked element
+edits, `InPlaceEditing` runs on the frame's document; while a spot is typed in the session holds
+the preview (`holdPreview`), so the page is redrawn only when the spot is left. A box for a field
+moves the form editor's own `#req-{key}` control onto the page and back, so every field type has
+its own wording and checks there. Spike fixes: TipTap's style is copied into the frame; caret menus
+are offset by the frame (`caret-rect.ts`); the extension list is `editorExtensions` with per-editor
+pickers (`ArcPickers`); the strip's buttons read the editor's state from its `transaction` event.
+The app's fade-in on content components is off in the edit frame, which redraws often.
 
 **Build note, VE3.3 (2026-11-18):** one place writes the meta: `arcEntry` and
 `arcEntryMetaTag` in `functions/src/shared/html-document.ts`. Content and list pages pass
