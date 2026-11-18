@@ -15,7 +15,7 @@ import { isOn } from './features';
 
 /** `a/b` matches that path exactly; `a/**` matches `a` and everything below it. */
 export const FEATURE_URLS: Record<FeatureId, readonly string[]> = {
-    content: ['admin/contents/**', 'admin/authors/**', 'admin/preview/**', 'p/**'],
+    content: ['admin/contents/**', 'admin/authors/**', 'admin/preview/**', 'admin/edit/**', 'p/**'],
     search: ['admin/search/**', 'search', 'admin/settings/search'],
     seo: ['admin/settings/discoverability'],
     forms: [

@@ -1579,9 +1579,22 @@ export class EntryDraftSession implements OnDestroy {
 
   private previewLeaving = (): void => this.previewChannel?.post({ kind: 'bye', from: 'editor' });
 
+  /**
+   * While a spot on the edit-on-page screen is being typed in, the page there
+   * shows the change already and must not be redrawn under the cursor
+   * (VE-D16): the draft goes when the spot is left.
+   */
+  private previewHeld = false;
+
+  holdPreview(hold: boolean): void {
+    if (this.previewHeld === hold) return;
+    this.previewHeld = hold;
+    if (!hold) this.schedulePreview();
+  }
+
   /** Sends the draft about 150 ms after the last change. */
   schedulePreview(): void {
-    if (!this.previewChannel) return;
+    if (!this.previewChannel || this.previewHeld) return;
     if (this.previewTimer) clearTimeout(this.previewTimer);
     this.previewTimer = setTimeout(() => {
       this.previewTimer = null;
@@ -1613,7 +1626,7 @@ export class EntryDraftSession implements OnDestroy {
   }
 
   private sendPreviewState(): void {
-    if (!this.previewChannel || !this.view?.ready()) return;
+    if (!this.previewChannel || this.previewHeld || !this.view?.ready()) return;
     this.previewChannel.post({ kind: 'state', ...this.previewState() });
   }
 

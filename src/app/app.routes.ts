@@ -34,6 +34,18 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/admin/preview/content-preview.component').then((m) => m.default),
   },
+  // The edit-on-page screen (specs/visual-editing-spec.md, VE-D14): the page as on the site in
+  // a frame, a strip on top and the Page settings panel, with nothing of the admin around it.
+  // Outside the admin shell for the same reason as the preview; the entry editor's people.
+  {
+    path: 'admin/edit/:type/:id',
+    title: 'Edit on the page',
+    canActivate: [roleGuard],
+    canDeactivate: [unsavedChangesGuard],
+    data: { titleKey: 'admin.titles.edit_on_page', allowedRoles: ['admin'], fullScreen: true },
+    loadComponent: () =>
+      import('./pages/admin/edit/entry-edit.page').then((m) => m.default),
+  },
   // The admin: one shell (pages/admin.page.ts, the side menu and layout) around every
   // page, so moving between pages keeps it, with the panel's scroll and open groups.
   // A page listed here shares it; a parent of its own would draw the shell again.

@@ -1,9 +1,10 @@
 @if(publishForm && seoForm){
 
 }
-<div class="create-content-container">
+<div class="create-content-container" [class.page-mode]="pageMode">
     
-    <!-- Top Navigation Bar -->
+    <!-- Top Navigation Bar: on the edit-on-page screen its strip has these buttons (VE-D14). -->
+    @if(!pageMode){
     <nav class="top-nav">
         <div class="nav-left">
             <i class="fa-solid fa-file-lines text-primary me-2"></i>
@@ -19,6 +20,14 @@
                 [disabled]="isSavingDraft" [title]="'common.actions.close' | transloco">
                 <i class="fa-solid fa-xmark"></i> <span class="btn-text">{{ 'common.actions.close' | transloco }}</span>
             </button>
+
+            @if(canEditOnPage()){
+            <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="openPageEditor()"
+                [disabled]="isSavingDraft || creating()"
+                [title]="'admin.contents.editor.edit_on_page_title' | transloco" data-testid="edit-on-page">
+                <i class="fa-solid fa-pen-ruler"></i> <span class="btn-text">{{ 'admin.contents.editor.edit_on_page' | transloco }}</span>
+            </button>
+            }
 
             <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="openPreview()"
                 [title]="'admin.contents.editor.preview_title' | transloco" data-testid="open-preview">
@@ -53,6 +62,7 @@
             </button>
         </div>
     </nav>
+    }
 
     <!-- What did not land, and what is still going on: lines that stay until
          they are resolved (specs/dev-review-fixes-spec.md, RF4 4.3 to 4.5). -->
@@ -110,8 +120,8 @@
     </div>
     }
 
-    <!-- Save Status Overlay -->
-    @if(saveStatusMessage){
+    <!-- Save Status Overlay: the edit-on-page strip says it there. -->
+    @if(saveStatusMessage && !pageMode){
     <div class="save-status-overlay">
         <div class="status-toast"
             [ngClass]="{'success': saveStatusType === 'success', 'error': saveStatusType === 'error', 'info': saveStatusType === 'info'}">
@@ -126,7 +136,9 @@
     <div class="main-content">
 
         <!-- VERSION PREVIEW MODE: replaces the editor when viewing a historical version -->
-        @if(previewingVersion()){
+        @if(pageMode){
+        <!-- On the edit-on-page screen the title and body are edited on the page. -->
+        } @else if(previewingVersion()){
         <div class="version-preview-area">
             <!-- Preview Header Bar -->
             <div class="version-preview-header">

@@ -1942,7 +1942,9 @@
         "entry_gone": "This entry was deleted. Copy anything you want to keep: it cannot be saved any more.",
         "reload_theirs_title": "Shows their version. Your changes on this page are dropped.",
         "preview_title": "Open the live preview in its own window",
-        "preview_blocked": "The preview window was blocked. Allow pop-ups for this site, then press Preview again."
+        "preview_blocked": "The preview window was blocked. Allow pop-ups for this site, then press Preview again.",
+        "edit_on_page": "Edit on the page",
+        "edit_on_page_title": "Edit this entry on its page, as the site shows it. Saves first."
       },
       "list": {
         "type_not_found": "Content type not found",
@@ -4093,7 +4095,8 @@
       "new_user": "New user",
       "edit_user": "Edit user",
       "view_user": "User",
-      "preview": "Preview"
+      "preview": "Preview",
+      "edit_on_page": "Edit on the page"
     },
     "preview": {
       "strip": "Draft preview, updating live",
@@ -4128,6 +4131,18 @@
         "authorId": "Author",
         "layout": "Layout"
       }
+    },
+    "edit_page": {
+      "strip": "Editing on the page",
+      "frame": "The page as the site shows it",
+      "saved": "Saved",
+      "saving": "Saving...",
+      "unsaved": "Unsaved changes",
+      "not_saved": "Not saved",
+      "form": "Form",
+      "form_title": "Edit in the form instead. Saves first.",
+      "page_settings": "Page settings",
+      "loading": "Opening the page..."
     }
   },
   "user": {

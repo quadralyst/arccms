@@ -565,6 +565,8 @@ export type TranslationKey =
     | 'admin.contents.editor.draft_saved_at'
     | 'admin.contents.editor.edit_address'
     | 'admin.contents.editor.edit_on_default_tab'
+    | 'admin.contents.editor.edit_on_page'
+    | 'admin.contents.editor.edit_on_page_title'
     | 'admin.contents.editor.editing_draft'
     | 'admin.contents.editor.enter_field'
     | 'admin.contents.editor.entry_gone'
@@ -1195,6 +1197,16 @@ export type TranslationKey =
     | 'admin.drips.subtitle'
     | 'admin.drips.template'
     | 'admin.drips.title'
+    | 'admin.edit_page.form'
+    | 'admin.edit_page.form_title'
+    | 'admin.edit_page.frame'
+    | 'admin.edit_page.loading'
+    | 'admin.edit_page.not_saved'
+    | 'admin.edit_page.page_settings'
+    | 'admin.edit_page.saved'
+    | 'admin.edit_page.saving'
+    | 'admin.edit_page.strip'
+    | 'admin.edit_page.unsaved'
     | 'admin.email_brand.add_social'
     | 'admin.email_brand.colors'
     | 'admin.email_brand.content_background'
@@ -3280,6 +3292,7 @@ export type TranslationKey =
     | 'admin.titles.contact_tags'
     | 'admin.titles.edit_content_type'
     | 'admin.titles.edit_entry'
+    | 'admin.titles.edit_on_page'
     | 'admin.titles.edit_user'
     | 'admin.titles.entries'
     | 'admin.titles.list'
@@ -4843,6 +4856,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.draft_saved_at',
     'admin.contents.editor.edit_address',
     'admin.contents.editor.edit_on_default_tab',
+    'admin.contents.editor.edit_on_page',
+    'admin.contents.editor.edit_on_page_title',
     'admin.contents.editor.editing_draft',
     'admin.contents.editor.enter_field',
     'admin.contents.editor.entry_gone',
@@ -5473,6 +5488,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.drips.subtitle',
     'admin.drips.template',
     'admin.drips.title',
+    'admin.edit_page.form',
+    'admin.edit_page.form_title',
+    'admin.edit_page.frame',
+    'admin.edit_page.loading',
+    'admin.edit_page.not_saved',
+    'admin.edit_page.page_settings',
+    'admin.edit_page.saved',
+    'admin.edit_page.saving',
+    'admin.edit_page.strip',
+    'admin.edit_page.unsaved',
     'admin.email_brand.add_social',
     'admin.email_brand.colors',
     'admin.email_brand.content_background',
@@ -7558,6 +7583,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.titles.contact_tags',
     'admin.titles.edit_content_type',
     'admin.titles.edit_entry',
+    'admin.titles.edit_on_page',
     'admin.titles.edit_user',
     'admin.titles.entries',
     'admin.titles.list',

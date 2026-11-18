@@ -95,6 +95,14 @@ function escapeHtml(text: string): string {
 /** The cover doubles as the social-share image, so its picker opens at full size. */
 const COVER_IMAGE_SIZE: ImageSize = 'xl';
 
+/** What the edit-on-page screen does for the editor in page mode (VE-D26). */
+export interface PageModeHooks {
+  /** Shows and focuses a field on the page; false when the page does not show it. */
+  reveal(key: string): boolean;
+  /** Opens the Page settings panel. */
+  openPanel(): void;
+}
+
 /** How long after the last title keystroke the address is checked with the server. */
 export const SLUG_CHECK_DELAY_MS = 300;
 
@@ -280,6 +288,15 @@ export class CreateContentComponent extends BaseComponent {
   private set baseStash(values: TranslatableValues | null) { this.session.baseStash = values; }
   /** Languages whose edits are not yet persisted. */
   private get dirtyTranslations(): Set<string> { return this.session.dirtyTranslations; }
+
+  /**
+   * On the edit-on-page screen (specs/visual-editing-spec.md, VE-D26) this
+   * editor is the Page settings panel: its side panel alone, with no top bar
+   * and no title or body column, since those are edited on the page.
+   */
+  @Input() pageMode = false;
+  /** What the edit-on-page screen does for fields on the page; null in the form editor. */
+  @Input() pageHooks: PageModeHooks | null = null;
 
   // Input for content type slug from parent route
   @Input() set contentTypeSlug(value: string) {
@@ -976,6 +993,11 @@ export class CreateContentComponent extends BaseComponent {
     }
     if (first !== 'title') {
       this.activeTab = 'basic';
+    }
+    // On the edit-on-page screen the page shows the field when it can, else the panel opens on it.
+    if (this.pageHooks) {
+      if (this.pageHooks.reveal(first)) return;
+      this.pageHooks.openPanel();
     }
 
     // The tab or language switch above has to render before the field exists.
@@ -2146,6 +2168,23 @@ export class CreateContentComponent extends BaseComponent {
     });
   }
   private navigationSubscription: Subscription | null = null;
+
+  /**
+   * The edit-on-page screen is for a saved entry of a type with pages
+   * (specs/visual-editing-spec.md, VE-D14), and only on the form editor itself.
+   */
+  canEditOnPage(): boolean {
+    return !this.pageMode && !!this.contentId && !!this.contentTypeSlug && this.currentContentType()?.hasPublicUrl !== false;
+  }
+
+  /** Edit on the page: the same entry on the edit-on-page screen, saving first. */
+  async openPageEditor(): Promise<void> {
+    if (!this.canEditOnPage()) return;
+    if (this.hasUnsavedChanges()) await this.saveAsDraft();
+    // A save that did not land keeps the editor here, with its line saying why.
+    if (this.hasUnsavedChanges()) return;
+    void this.router.navigate(['/admin/edit', this.contentTypeSlug, this.contentId]);
+  }
 
   /** Close: back to the type's entries, through the router, so the leave question can ask (RF4 review M1). */
   close(): void {

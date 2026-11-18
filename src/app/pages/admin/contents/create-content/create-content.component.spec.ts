@@ -3849,6 +3849,62 @@ describe('CreateContentComponent', () => {
     });
 
     // The live preview window (specs/visual-editing-spec.md, VE1.5).
+    describe('edit on the page (VE3.5)', () => {
+        it('is the side panel alone in page mode: no top bar, no title or body column', () => {
+            fixture.componentRef.setInput('pageMode', true);
+            fixture.detectChanges();
+            const el: HTMLElement = fixture.nativeElement;
+            expect(el.querySelector('.create-content-container.page-mode')).not.toBeNull();
+            expect(el.querySelector('.top-nav')).toBeNull();
+            expect(el.querySelector('.page-title-input')).toBeNull();
+            expect(el.querySelector('app-tiptap-editor')).toBeNull();
+            expect(el.querySelector('.settings-sidebar .sidebar-tabs')).not.toBeNull();
+        });
+
+        it('offers Edit on the page for a saved entry of a type with pages, on the form editor only', () => {
+            expect(component.canEditOnPage()).toBe(false);
+            component.session.typeSlug.set('article');
+            component.session.contentId = 'abc';
+            expect(component.canEditOnPage()).toBe(true);
+            mockContentTypesStore.items.set([{ name: 'Article', slug: 'article', hasPublicUrl: false }]);
+            expect(component.canEditOnPage()).toBe(false);
+            mockContentTypesStore.items.set([{ name: 'Article', slug: 'article' }]);
+            fixture.componentRef.setInput('pageMode', true);
+            expect(component.canEditOnPage()).toBe(false);
+        });
+
+        it('saves first, then opens the edit-on-page screen', async () => {
+            component.session.typeSlug.set('article');
+            component.session.contentId = 'abc';
+            let unsaved = true;
+            vi.spyOn(component, 'hasUnsavedChanges').mockImplementation(() => unsaved);
+            const save = vi.spyOn(component, 'saveAsDraft').mockImplementation(async () => { unsaved = false; });
+            await component.openPageEditor();
+            expect(save).toHaveBeenCalled();
+            expect(mockRouter.navigate).toHaveBeenCalledWith(['/admin/edit', 'article', 'abc']);
+        });
+
+        it('stays when the save did not land', async () => {
+            component.session.typeSlug.set('article');
+            component.session.contentId = 'abc';
+            vi.spyOn(component, 'hasUnsavedChanges').mockReturnValue(true);
+            vi.spyOn(component, 'saveAsDraft').mockResolvedValue(undefined);
+            await component.openPageEditor();
+            expect(mockRouter.navigate).not.toHaveBeenCalledWith(['/admin/edit', 'article', 'abc']);
+        });
+
+        it('shows a missing field on the page when it can, else opens the panel on it', async () => {
+            const hooks = { reveal: vi.fn((key: string) => key === 'title'), openPanel: vi.fn() };
+            fixture.componentRef.setInput('pageMode', true);
+            fixture.componentRef.setInput('pageHooks', hooks);
+            await (component as any).revealMissingRequired(['title']);
+            expect(hooks.reveal).toHaveBeenCalledWith('title');
+            expect(hooks.openPanel).not.toHaveBeenCalled();
+            await (component as any).revealMissingRequired(['price']);
+            expect(hooks.openPanel).toHaveBeenCalled();
+        });
+    });
+
     describe('live preview', () => {
         const flush = async () => { for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0)); };
         let post: ReturnType<typeof vi.spyOn>;

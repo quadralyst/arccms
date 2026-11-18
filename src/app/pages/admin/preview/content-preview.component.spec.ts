@@ -41,14 +41,14 @@ describe('ContentPreviewComponent', () => {
 
     const HOME_WITH = '<arc-content-partials content-type="quotes"></arc-content-partials>';
 
-    async function create(type: Record<string, unknown>, homeHtml = '') {
+    async function create(type: Record<string, unknown>, homeHtml = '', query: Record<string, string> = {}) {
         types = { items: signal([type]), getAll: vi.fn(), isLoading: signal(false) };
         http = { get: vi.fn().mockReturnValue(of(homeHtml)) };
         drafts = { getDraftById: vi.fn().mockResolvedValue({ id, title: 'Saved', type: type['slug'] }) };
         await TestBed.configureTestingModule({
             imports: [ContentPreviewComponent],
             providers: [
-                { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (k: string) => (k === 'type' ? type['slug'] : id) }, fragment: 's=key-1' } } },
+                { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (k: string) => (k === 'type' ? type['slug'] : id) }, fragment: 's=key-1', queryParamMap: { get: (k: string) => query[k] ?? null } } } },
                 { provide: ContentTypesStore, useValue: types },
                 { provide: HttpClient, useValue: http },
                 { provide: DraftContentsService, useValue: drafts },
@@ -106,6 +106,24 @@ describe('ContentPreviewComponent', () => {
         expect(fixture.nativeElement.querySelector('arc-content-detail')).not.toBeNull();
         expect(text('[data-testid="preview-status"]')).toBe('Connected');
         expect(text('.arc-pv-title')).toBe('Draft preview, updating live');
+    });
+
+    it('in the edit-on-page screen\'s frame (?edit=1): draws the page with no strip and leaves clicks to the screen (VE-D14)', async () => {
+        await create({ slug: 'events', fields: [{ key: 'events-price', label: 'Price' }] }, '', { edit: '1' });
+        expect(component.editMode).toBe(true);
+        expect(fixture.nativeElement.querySelector('[data-testid="preview-strip"]')).toBeNull();
+        expect(sent('hello')).toHaveLength(1);
+        state();
+        await settle();
+        expect(fixture.nativeElement.querySelector('arc-content-detail')).not.toBeNull();
+        const event = click('[data-arc-field="title"]');
+        expect(sent('focus')).toEqual([]);
+        expect(event.defaultPrevented).toBe(false);
+        expect(fixture.nativeElement.querySelector('[data-testid="preview-note"]')).toBeNull();
+        // Forms still never send.
+        const submit = new Event('submit', { bubbles: true, cancelable: true });
+        fixture.nativeElement.querySelector('form').dispatchEvent(submit);
+        expect(submit.defaultPrevented).toBe(true);
     });
 
     it('shows the language on the editor\'s screen', async () => {

@@ -78,7 +78,9 @@ const BUILTIN_LABELS: Record<string, string> = {
         { provide: DetailSource, useExisting: PreviewSession },
         { provide: CardDraft, useExisting: PreviewSession },
     ],
+    host: { '[class.arc-pv-editing]': 'editMode' },
     template: `
+    @if (!editMode) {
     <div class="arc-pv-strip" role="region" [attr.aria-label]="'admin.preview.strip' | transloco" data-testid="preview-strip">
         <span class="arc-pv-title">{{ (status() === 'saved' ? 'admin.preview.strip_saved' : 'admin.preview.strip') | transloco }}</span>
         @if (languageLabel()) {
@@ -102,7 +104,8 @@ const BUILTIN_LABELS: Record<string, string> = {
         </span>
         <span class="arc-pv-status" [class.arc-pv-live]="status() === 'connected'" role="status" data-testid="preview-status">{{ statusKey() | transloco }}</span>
     </div>
-    @if (note()) {
+    }
+    @if (note() && !editMode) {
     <div class="arc-pv-note" role="status" data-testid="preview-note">{{ note() }}</div>
     }
     <div class="arc-pv-frame" [class.arc-pv-phone]="phone()">
@@ -176,6 +179,12 @@ export class ContentPreviewComponent implements OnInit {
     private drafts = inject(DraftContentsService);
     private localization = inject(LocalizationService);
     private uiStrings = inject(UiStringsService);
+
+    /**
+     * Drawn inside the edit-on-page screen's frame (`?edit=1`, VE-D14): no strip of its
+     * own (the screen has one) and no click to field; the screen handles clicks on the page.
+     */
+    readonly editMode = this.route.snapshot?.queryParamMap?.get('edit') === '1';
 
     private channel: PreviewChannel | null = null;
     readonly status = signal<PreviewStatus>('waiting');
@@ -277,7 +286,7 @@ export class ContentPreviewComponent implements OnInit {
         this.channel.post({ kind: 'hello' });
         const wait = setTimeout(() => void this.showSavedDraft(), EDITOR_WAIT_MS);
 
-        const onClick = (event: MouseEvent) => this.onClick(event);
+        const onClick = (event: MouseEvent) => { if (!this.editMode) this.onClick(event); };
         const onSubmit = (event: Event) => { event.preventDefault(); event.stopPropagation(); };
         const onLeave = () => this.channel?.post({ kind: 'bye', from: 'preview' });
         this.document.addEventListener('click', onClick, true);

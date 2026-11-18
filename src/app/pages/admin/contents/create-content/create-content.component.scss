@@ -1706,3 +1706,38 @@
   }
   100% { box-shadow: 0 0 0 3px transparent; background-color: transparent; }
 }
+
+// The edit-on-page screen's Page settings panel (specs/visual-editing-spec.md, VE-D26): the side
+// panel alone, filling the panel the screen slides over the page. The screen is for desktops, so the
+// narrow-window stacking above does not apply; the panel keeps the width it was dragged to.
+.create-content-container.page-mode {
+    height: 100%;
+    min-height: 0;
+    container: none;
+    background-color: #fff;
+
+    .main-content {
+        flex-direction: row;
+        overflow: hidden;
+        height: auto;
+        min-height: 0;
+    }
+
+    .sidebar-resizer {
+        display: block;
+        background-color: #f8f9fa;
+    }
+
+    .settings-sidebar {
+        width: var(--sidebar-w, 320px);
+        min-width: 0;
+        max-width: calc(100vw - 48px);
+        height: 100%;
+        overflow: hidden;
+        border-top: none;
+    }
+
+    .sidebar-content {
+        overflow-y: auto;
+    }
+}

@@ -141,6 +141,22 @@ describe('App Routes', () => {
             expect((page as { name: string }).name).toContain('ContentPreviewComponent');
         });
 
+        it('draws the edit-on-page screen full screen, outside the admin shell, for the editor\'s people (VE-D14)', async () => {
+            const index = routes.findIndex(r => r.path === 'admin/edit/:type/:id');
+            const route = routes[index];
+            expect(route, 'the edit-on-page route is listed explicitly').toBeDefined();
+            expect(index, 'ahead of the admin parent').toBeLessThan(routes.findIndex(r => r.path === 'admin'));
+            expect(route.children, 'no admin shell around it').toBeUndefined();
+            expect(route.canActivate).toContain(roleGuard);
+            expect(route.canDeactivate, 'asks before leaving unsaved work').toHaveLength(1);
+            expect(route.data?.['allowedRoles']).toEqual(adminChild('contents/:slug/edit/:contentId')?.data?.['allowedRoles']);
+            expect(route.data?.['fullScreen']).toBe(true);
+            const { ENTRY_EDITOR_ROLES } = await import('./core/site/signed-in-hint');
+            expect(route.data?.['allowedRoles'], 'the published pages\' strip is drawn for the same people').toEqual(ENTRY_EDITOR_ROLES);
+            const page = await (route!.loadComponent as () => Promise<unknown>)();
+            expect((page as { name: string }).name).toContain('EntryEditPage');
+        });
+
         it('should have admin/waitlists route with correct layout', async () => {
             const adminRoute = adminChild('waitlists');
             expect(adminRoute, 'Admin waitlists route should exist').toBeDefined();
