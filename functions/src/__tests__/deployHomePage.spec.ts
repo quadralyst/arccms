@@ -146,6 +146,15 @@ describe('deployHomePage', () => {
             expect(Object.keys(released()).sort()).toEqual(['/hi/index.html', '/index.html']);
         });
 
+        it('names the home page in every language for the admin strip (VE-D11)', async () => {
+            await generateAndDeployHomePage();
+            for (const path of ['/index.html', '/hi/index.html']) {
+                const $ = loadHtml(released()[path], { xmlMode: false });
+                expect($('head meta[name="arc-entry"]').length).toBe(1);
+                expect($('head meta[name="arc-entry"]').attr('content')).toBe('home');
+            }
+        });
+
         it('keeps the page\'s own head and adds every SEO tag it does not set', async () => {
             await generateAndDeployHomePage();
             const $ = loadHtml(released()['/index.html'], { xmlMode: false });

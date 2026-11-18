@@ -71,6 +71,7 @@ describe('ContentListComponent', () => {
 
         mockMetaService = {
             updateTag: vi.fn(),
+            removeTag: vi.fn(),
         };
 
         mockGaTrackingService = {
@@ -161,6 +162,15 @@ describe('ContentListComponent', () => {
             expect(mockMetaService.updateTag).toHaveBeenCalledWith(expect.objectContaining({ property: 'og:title', content: 'My Articles' }));
             expect(mockMetaService.updateTag).toHaveBeenCalledWith(expect.objectContaining({ property: 'og:type', content: 'website' }));
             expect(mockMetaService.updateTag).toHaveBeenCalledWith(expect.objectContaining({ name: 'twitter:card', content: 'summary' }));
+        });
+
+        it('names the type for the admin strip (VE-D11), and takes it away when the page is left', () => {
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles', description: 'Articles desc' }]);
+            fixture.detectChanges();
+
+            expect(mockMetaService.updateTag).toHaveBeenCalledWith({ name: 'arc-entry', content: 'articles' });
+            fixture.destroy();
+            expect(mockMetaService.removeTag).toHaveBeenCalledWith("name='arc-entry'");
         });
 
         // Task 2.1: new SEO requirements

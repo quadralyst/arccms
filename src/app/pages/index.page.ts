@@ -1,3 +1,4 @@
+import { arcEntry, setArcEntry } from '../core/site/arc-entry';
 import { RouteMeta } from '@analogjs/router';
 import { SitePagesService } from '../core/site/site-pages.service';
 import { siteInfoOf } from '../core/site/site-info-source';
@@ -162,6 +163,8 @@ export default class HomeComponent implements OnInit, OnDestroy {
         if (!this.source) letIntoSearch(this.meta);
         const robots = page.querySelector('meta[name="robots"]')?.getAttribute('content');
         if (robots) this.meta.updateTag({ name: 'robots', content: robots });
+        // What the page is, for the admin strip (VE-D11); not inside the live preview.
+        setArcEntry(this.meta, this.source ? null : arcEntry.home());
         this.holdLanguage();
         for (const node of Array.from(page.head.querySelectorAll('link[rel="stylesheet"], style'))) {
             this.add(this.document.head, this.document.importNode(node, true) as Element);
@@ -220,6 +223,7 @@ export default class HomeComponent implements OnInit, OnDestroy {
             ref.destroy();
         }
         this.added.forEach((node) => node.remove());
+        setArcEntry(this.meta, null);
         this.localization.languageVariants.set(null);
         this.releaseLanguage();
     }

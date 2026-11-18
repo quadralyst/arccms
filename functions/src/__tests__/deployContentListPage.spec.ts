@@ -426,6 +426,15 @@ describe('deployContentListPage', () => {
             ]);
         });
 
+        it('names the type in every language\'s list page for the admin strip (VE-D11)', async () => {
+            mockGetLocalizationSettings.mockResolvedValue(EN_HI);
+
+            await generateAndDeployContentListPage('articles');
+
+            expect(htmlFor('/articles/index.html')).toContain('<meta name="arc-entry" content="articles">');
+            expect(htmlFor('/hi/articles/index.html')).toContain('<meta name="arc-entry" content="articles">');
+        });
+
         it('should deploy the language list page even with nothing translated', async () => {
             // The switcher needs somewhere to land, so the page must exist.
             mockGetLocalizationSettings.mockResolvedValue(EN_HI);

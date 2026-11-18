@@ -1,3 +1,4 @@
+import { arcEntry, setArcEntry } from '../../core/site/arc-entry';
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { SitePagesService } from '../../core/site/site-pages.service';
@@ -586,6 +587,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
 
     ngOnDestroy(): void {
         this.liveScript?.remove();
+        setArcEntry(this.metaService, null);
         // The next page may have no variants at all.
         this.localization.languageVariants.set(null);
         // Nor the same structured data: the home page writes its own site nodes.
@@ -693,6 +695,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         // Robots — allow indexing of all published content pages
         // The live preview is a draft under /admin: never listed.
         this.metaService.updateTag({ name: 'robots', content: this.live ? 'noindex, nofollow' : 'index, follow' });
+        // What the page is, for the admin strip (VE-D11); not in the live preview.
+        setArcEntry(this.metaService, !this.live && content.id ? arcEntry.content(this.contentTypeSlug(), content.id) : null);
 
         // Set Twitter Card tags
         this.metaService.updateTag({ name: 'twitter:card', content: 'summary_large_image' });

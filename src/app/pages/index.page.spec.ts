@@ -126,6 +126,20 @@ describe('HomeComponent (home page preview)', () => {
         expect(el.querySelector('a.more')!.getAttribute('href')).toBe('/hi/articles');
     });
 
+    it('names the home page for the admin strip (VE-D11), and takes it away when it goes', async () => {
+        await open();
+        const meta = TestBed.inject(Meta);
+        expect(meta.getTag('name="arc-entry"')?.content).toBe('home');
+        fixture.destroy();
+        expect(meta.getTag('name="arc-entry"')).toBeNull();
+    });
+
+    it('does not name the home page inside the live preview', async () => {
+        const source = { route: () => ({ typeSlug: 'quotes', urlSlug: '', preview: false, lang: '' }) };
+        await open('', [{ provide: DetailSource, useValue: source }]);
+        expect(TestBed.inject(Meta).getTag('name="arc-entry"')).toBeNull();
+    });
+
     it('cleans up what it added when it goes', async () => {
         await open();
         fixture.destroy();

@@ -32,7 +32,7 @@ describe('PublicPageRendererComponent', () => {
     // The header's language switcher reads `url` and subscribes to `events`.
     const routerSpy = { navigate: vi.fn(), url: '/', events: EMPTY };
     const titleSpy = { setTitle: vi.fn() };
-    const metaSpy = { updateTag: vi.fn() };
+    const metaSpy = { updateTag: vi.fn(), removeTag: vi.fn() };
 
     // Fresh per test: a shared subject would keep feeding components from
     // earlier tests whose injectors are already destroyed.
@@ -129,6 +129,18 @@ describe('PublicPageRendererComponent', () => {
         expect(metaSpy.updateTag).toHaveBeenCalledWith({ name: 'description', content: 'Test Desc' });
         expect(component.hasHeader).toBe(true);
         expect(component.hasFooter).toBe(true);
+    });
+
+    it('names the page for the admin strip (VE-D11), over one the file brought, and takes it away when left', () => {
+        paramsSubject.next({ fileName: 'test-page' });
+        createComponent();
+        httpMock.expectOne('/_site/pages/test-page.html')
+            .flush('<html><head><meta name="arc-entry" content="stale"></head><body><h1>Hi</h1></body></html>');
+
+        const calls = metaSpy.updateTag.mock.calls.map((call: any[]) => call[0]).filter((tag: any) => tag.name === 'arc-entry');
+        expect(calls.at(-1)).toEqual({ name: 'arc-entry', content: 'p/test-page' });
+        fixture.destroy();
+        expect(metaSpy.removeTag).toHaveBeenCalledWith("name='arc-entry'");
     });
 
     // specs/form-gamification-spec.md G-D4: the default language's strings file words a static page.

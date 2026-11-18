@@ -6,7 +6,7 @@ import { getSiteFile, getSiteManifest, pageStylesheets, versionedUrl, type SiteM
 import { langPrefix } from '../shared/content-translation.js';
 import { buildSiteNodes } from '../shared/site-jsonld.js';
 import { renderJsonLdScripts } from '../shared/structured-data.js';
-import { buildLanguageSwitcher, replaceArcComponents, toOgLocale, poweredByHtml } from '../shared/html-document.js';
+import { arcEntry, buildLanguageSwitcher, replaceArcComponents, setArcEntryMeta, toOgLocale, poweredByHtml } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
 import { prefixAnchorHrefs } from '../shared/language-links.js';
 import { publicContentTypeSlugs } from '../shared/public-content-types.js';
@@ -184,6 +184,8 @@ export async function generateAndDeployHomePage(batch?: HostingBatch): Promise<v
         }
         $('head').append('<meta name="arc-served-by" content="firebase-hosting">\n');
         $('head').append(`<meta name="arc-deployed-at" content="${new Date().toISOString()}">\n`);
+        // The admin strip's link to the home page (VE-D11), in every language.
+        setArcEntryMeta($, arcEntry.home());
         // Arc CMS's stylesheets first, so the page's own (after them) win.
         $('head').prepend(stylesheets.map((url) => `<link rel="stylesheet" href="${escapeAttr(url)}">`).join('\n') + '\n');
         const charset = $('meta[charset]');

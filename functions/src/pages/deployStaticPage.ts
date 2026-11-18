@@ -2,7 +2,7 @@ import { loadHtml } from '../shared/lazy-cheerio.js';
 import { getPartials, getSiteConfig, getMiscSettings, getLocalizationSettings, getUiStrings } from '../shared/site-settings.js';
 import { siteInfoFor } from '../shared/site-info-source.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
-import { replaceArcComponents, poweredByHtml } from '../shared/html-document.js';
+import { arcEntry, replaceArcComponents, poweredByHtml, setArcEntryMeta } from '../shared/html-document.js';
 import { buildSearchWidget } from '../search/widget.js';
 import { deployFileToHosting, type HostingBatch } from './deployToHosting.js';
 import { arcHostingSite } from '../arc-config.js';
@@ -98,6 +98,9 @@ export async function generateAndDeployStaticPage(
         if (!$('meta[name="arc-deployed-at"]').length) {
             $('head').append(`<meta name="arc-deployed-at" content="${new Date().toISOString()}">`);
         }
+
+        // The admin strip's link to this page (VE-D11).
+        setArcEntryMeta($, arcEntry.staticPage(pageSlug));
 
         // 6. The "Built with Arc CMS" line, in the page's words, if enabled
         if (miscSettings.showPoweredBy) {

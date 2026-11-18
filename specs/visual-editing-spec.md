@@ -167,6 +167,16 @@ The form editor implements it over its forms and keeps every member name it had,
 onto the session, so its template and its 307 specs are unchanged. The edit-on-page screen of
 VE3.5 implements the same interface over the page.
 
+**Build note, VE3.3 (2026-11-18):** one place writes the meta: `arcEntry` and
+`arcEntryMetaTag` in `functions/src/shared/html-document.ts`. Content and list pages pass
+`PageMeta.entry` to `buildHtmlDocument`; the home page and static pages, which keep their own head,
+call `setArcEntryMeta`, which replaces one the file brought. Static pages are published in the
+default language only, so they carry one. The app's own renderers set head tags too, so the
+detail, list, home and static page components set the same meta through
+`src/app/core/site/arc-entry.ts` (the same values, compared by a spec) and remove it when the page
+is left; inside the live preview (VE-D3) it is not set. Pages already published get it at the next
+Republish website, after the functions deploy.
+
 **Build note, VE3.2 spike (2026-11-18): TipTap in the frame works; the ES-D2 fallback is not
 needed.** Run in the browser on the dev project, against the form editor page, with no code kept:
 the preview route of VE-D3 loaded in a same-origin `iframe`, and a second TipTap `Editor` (the

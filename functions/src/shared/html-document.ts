@@ -111,6 +111,45 @@ export interface PageMeta {
      * compact form instead of the HTML.
      */
     markdownUrl?: string;
+    /**
+     * Which entry or page this is, for the admin strip on the published site
+     * (specs/visual-editing-spec.md, VE-D11): a value from `arcEntry`. Emitted
+     * as <meta name="arc-entry">.
+     */
+    entry?: string;
+}
+
+/**
+ * The value of a published page's `<meta name="arc-entry">`
+ * (specs/visual-editing-spec.md, VE-D11): what the page is, so the admin strip
+ * on the live site can link to its edit screen by id. It names no person and
+ * no draft state, only what the page's address already shows, and a published
+ * entry's id, which is its draft's id too.
+ */
+export const arcEntry = {
+    /** A content page: `{type}/{id}`. */
+    content: (type: string, id: string): string => `${type}/${id}`,
+    /** A type's list page: `{type}`. */
+    list: (type: string): string => type,
+    /** The home page, in every language. */
+    home: (): string => 'home',
+    /** A static page, served at `/p/{name}`: `p/{name}`. */
+    staticPage: (name: string): string => `p/${name}`,
+};
+
+/** `<meta name="arc-entry" content="…">`, its value escaped. */
+export function arcEntryMetaTag(entry: string): string {
+    return `<meta name="arc-entry" content="${escapeAttr(entry)}">`;
+}
+
+/**
+ * Puts the page's own arc-entry meta in a page that writes its own head (the
+ * home page, static pages). One that came with the file is replaced: the
+ * value is always the page's own.
+ */
+export function setArcEntryMeta($: cheerio.CheerioAPI, entry: string): void {
+    $('meta[name="arc-entry"]').remove();
+    $('head').append(`${arcEntryMetaTag(entry)}\n`);
 }
 
 /**
@@ -200,7 +239,7 @@ ${ogImageTags ? ogImageTags + '\n' : ''}    <link rel="canonical" href="${escape
     <meta name="robots" content="index, follow">
 ${hreflangLinks ? hreflangLinks + '\n' : ''}${rssLink ? rssLink + '\n' : ''}${markdownLink ? markdownLink + '\n' : ''}${jsonLdBlock ? jsonLdBlock + '\n' : ''}    <meta name="arc-served-by" content="firebase-hosting">
     <meta name="arc-deployed-at" content="${deployedAt}">
-${cssLinks}${stylesBlock}
+${meta.entry ? `    ${arcEntryMetaTag(meta.entry)}\n` : ''}${cssLinks}${stylesBlock}
 </head>
 <body>
 ${headerHtml}

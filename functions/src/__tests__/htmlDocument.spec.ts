@@ -8,7 +8,11 @@ import {
     injectSeoMetadata,
     fixPartialHashLinks,
     PageMeta,
+    arcEntry,
+    arcEntryMetaTag,
+    setArcEntryMeta,
 } from '../shared/html-document.js';
+import { loadHtml } from '../shared/lazy-cheerio.js';
 
 const baseMeta: PageMeta = {
     title: 'Test Page',
@@ -156,6 +160,33 @@ describe('buildHtmlDocument', () => {
         expect(result).toContain('<title>Test &amp; "Title" &lt;script&gt;</title>');
         // Attributes use escapeAttr which also escapes quotes
         expect(result).toContain('content="Desc &amp; &quot;quotes&quot;"');
+    });
+});
+
+describe('the arc-entry meta (VE-D11)', () => {
+    it('names each page kind', () => {
+        expect(arcEntry.content('events', 'abc123')).toBe('events/abc123');
+        expect(arcEntry.list('events')).toBe('events');
+        expect(arcEntry.home()).toBe('home');
+        expect(arcEntry.staticPage('privacy-policy')).toBe('p/privacy-policy');
+    });
+
+    it('is written in the head when the page says what it is, and not otherwise', () => {
+        const withEntry = buildHtmlDocument('<p>x</p>', { ...baseMeta, entry: 'events/abc123' }, '', '');
+        const head = withEntry.slice(0, withEntry.indexOf('</head>'));
+        expect(head).toContain('<meta name="arc-entry" content="events/abc123">');
+        expect(buildHtmlDocument('<p>x</p>', baseMeta, '', '')).not.toContain('arc-entry');
+    });
+
+    it('escapes the value', () => {
+        expect(arcEntryMetaTag('a"><script>')).toBe('<meta name="arc-entry" content="a&quot;&gt;&lt;script&gt;">');
+    });
+
+    it('replaces one a page brought with it', () => {
+        const $ = loadHtml('<html><head><meta name="arc-entry" content="old"></head><body></body></html>', { xmlMode: false });
+        setArcEntryMeta($, 'home');
+        expect($('meta[name="arc-entry"]').length).toBe(1);
+        expect($('meta[name="arc-entry"]').attr('content')).toBe('home');
     });
 });
 

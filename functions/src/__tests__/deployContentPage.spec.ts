@@ -573,6 +573,17 @@ describe('deployContentPage', () => {
             expect(deployedPaths()).toEqual(['/articles/test-article.html', '/articles/test-article.md']);
         });
 
+        it('names the entry in every language\'s page for the admin strip (VE-D11)', async () => {
+            withHindiTranslation();
+
+            await generateAndDeployContentDetailPage('articles', 'doc123');
+
+            for (const path of ['/articles/test-article.html', '/hi/articles/test-article.html']) {
+                expect(htmlFor(path)).toContain('<meta name="arc-entry" content="articles/doc123">');
+                expect(htmlFor(path).match(/name="arc-entry"/g)).toHaveLength(1);
+            }
+        });
+
         it('should deploy one page per translated language', async () => {
             withHindiTranslation();
 

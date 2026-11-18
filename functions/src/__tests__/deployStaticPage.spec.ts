@@ -143,6 +143,19 @@ describe('deployStaticPage', () => {
             );
         });
 
+        it('names the page for the admin strip (VE-D11), over any the file brought', async () => {
+            mockFetch.mockResolvedValue({
+                ok: true,
+                status: 200,
+                text: () => Promise.resolve(RAW_HTML.replace('</head>', '<meta name="arc-entry" content="stale"></head>')),
+            });
+            await generateAndDeployStaticPage('privacy-policy');
+
+            const deployedHtml = mockDeployFileToHosting.mock.calls[0][2] as string;
+            expect(deployedHtml).toContain('<meta name="arc-entry" content="p/privacy-policy">');
+            expect(deployedHtml).not.toContain('content="stale"');
+        });
+
         it('should replace <arc-header> with actual header HTML', async () => {
             await generateAndDeployStaticPage('privacy-policy');
 

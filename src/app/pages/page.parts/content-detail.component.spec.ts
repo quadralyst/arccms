@@ -78,6 +78,7 @@ describe('ContentDetailComponent', () => {
 
         mockMetaService = {
             updateTag: vi.fn(),
+            removeTag: vi.fn(),
         };
 
         mockGaTrackingService = {
@@ -709,6 +710,16 @@ describe('ContentDetailComponent', () => {
             content: '<p>Content</p>',
             publishedOn: new Date().toISOString(),
             ...overrides,
+        });
+
+        it('names the entry for the admin strip (VE-D11), and takes it away when the page is left', () => {
+            mockContentTypesStore.items.set([{ slug: 'articles', name: 'Articles' }]);
+            mockContentsStore.items.set([buildContent({ id: 'doc-7' })]);
+            fixture.detectChanges();
+
+            expect(mockMetaService.updateTag).toHaveBeenCalledWith({ name: 'arc-entry', content: 'articles/doc-7' });
+            fixture.destroy();
+            expect(mockMetaService.removeTag).toHaveBeenCalledWith("name='arc-entry'");
         });
 
         it('should set robots to "index, follow" for published content', () => {

@@ -32,6 +32,7 @@ import {
     replaceArcComponents,
     extractStylesAndScripts,
     PageMeta,
+    arcEntry,
     poweredByHtml,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
@@ -486,6 +487,8 @@ export async function generateAndDeployContentDetailPage(
             defaultLang,
             jsonLd,
             markdownUrl: markdownUrl(siteConfig.baseUrl, lang, defaultLang, contentTypeSlug, content.urlSlug),
+            // The admin strip's link to this entry (VE-D11): the published id is the draft's.
+            entry: arcEntry.content(contentTypeSlug, docId),
         };
 
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication

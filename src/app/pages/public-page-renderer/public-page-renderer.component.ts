@@ -1,3 +1,4 @@
+import { arcEntry, setArcEntry } from '../../core/site/arc-entry';
 import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit, PLATFORM_ID, ViewEncapsulation } from '@angular/core';
 import { SitePagesService } from '../../core/site/site-pages.service';
 import { siteInfoOf } from '../../core/site/site-info-source';
@@ -77,6 +78,8 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
      * page or another route, is never drawn: its styles and scripts would stay.
      */
     private asked = 0;
+    /** The static page asked for, `{name}` of `/p/{name}`, for its arc-entry meta. */
+    private pageName = '';
 
     sanitizedContent: SafeHtml = '';
     hasHeader = false;
@@ -85,6 +88,7 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
     ngOnDestroy(): void {
         this.asked++;
         this.liveScript?.remove();
+        setArcEntry(this.metaService, null);
         this.clearPageHead();
     }
 
@@ -102,6 +106,7 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
 
                 // Track public page view
                 this.gaTracking.trackPublicPageView(cleanFileName);
+                this.pageName = cleanFileName;
 
                 // A page the site does not have would answer with the app shell
                 // (HTTP 200), so only pages in the site's manifest are fetched.
@@ -207,6 +212,9 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
                 }
             }
         }
+
+        // What the page is, for the admin strip (VE-D11): its own name, over any the file had.
+        setArcEntry(this.metaService, this.pageName ? arcEntry.staticPage(this.pageName) : null);
 
         // 3. The page's own <head>, for its stylesheets and scripts (drawPageHead).
         this.pageHead = processedHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i)?.[1] ?? '';

@@ -1,3 +1,4 @@
+import { arcEntry, setArcEntry } from '../../core/site/arc-entry';
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { SitePagesService } from '../../core/site/site-pages.service';
@@ -357,6 +358,7 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
 
     ngOnDestroy(): void {
         this.liveScript?.remove();
+        setArcEntry(this.metaService, null);
         // The next page may have no variants at all.
         this.localization.languageVariants.set(null);
     }
@@ -553,6 +555,8 @@ export class ContentListComponent extends BaseComponent implements OnInit, OnDes
 
         // Robots — allow indexing of all published content list pages
         this.metaService.updateTag({ name: 'robots', content: 'index, follow' });
+        // What the page is, for the admin strip (VE-D11).
+        setArcEntry(this.metaService, arcEntry.list(contentType.slug));
 
         // Set Twitter Card tags
         this.metaService.updateTag({ name: 'twitter:card', content: 'summary' });

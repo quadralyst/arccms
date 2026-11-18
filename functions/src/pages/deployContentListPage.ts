@@ -20,6 +20,7 @@ import {
     replaceArcComponents,
     extractStylesAndScripts,
     PageMeta,
+    arcEntry,
     poweredByHtml,
 } from '../shared/html-document.js';
 import { TemplateHydrationService } from '../shared/template-hydration.js';
@@ -237,6 +238,8 @@ export async function generateAndDeployContentListPage(
             alternates,
             defaultLang,
             jsonLd,
+            // The admin strip's link to this type (VE-D11).
+            entry: arcEntry.list(contentTypeSlug),
         };
 
         // Header/footer already injected by replaceArcComponents — pass empty to avoid duplication
