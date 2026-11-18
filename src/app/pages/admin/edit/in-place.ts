@@ -134,7 +134,10 @@ export const IN_PLACE_CSS = `
 [data-arc-editing], [data-arc-editing]:hover { outline: 2px solid var(--arc-edit-accent); outline-offset: 2px; }
 [data-arc-edit-kind]:focus-visible { outline: 3px solid var(--arc-edit-accent); outline-offset: 2px; }
 [data-arc-pv-highlight] { outline: 3px solid var(--arc-edit-accent) !important; outline-offset: 2px; }
-.ProseMirror { white-space: pre-wrap; word-wrap: break-word; outline: none; }
+/* The page's own wrapping: TipTap's break-spaces lets a space at a line's end push a word down. */
+.ProseMirror.arc-in-place-rich { white-space: pre-wrap; word-wrap: break-word; outline: none; }
+/* An empty line the cursor is not in, drawn as the page draws it: not at all (empty-lines.ts). */
+.ProseMirror.arc-in-place-rich .arc-empty-line { display: none; }
 .ProseMirror [contenteditable="false"] { white-space: normal; }
 `;
 

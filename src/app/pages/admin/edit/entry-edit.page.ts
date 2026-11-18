@@ -31,6 +31,7 @@ import { HasUnsavedChanges } from '../../../guards/unsaved-changes.guard';
 import { PagePanel } from './page-panel';
 import { InPlaceEditing, InPlaceHost, RichAt, RichHandle, Spot, spotInfo } from './in-place';
 import { editorExtensions } from '../../../../shared/components/tiptap-editor/editor-extensions';
+import { ArcEmptyLines } from './empty-lines';
 import { insertImageAndMoveOn } from '../../../../shared/components/tiptap-editor/service/insert-image';
 import { UrlAddDialog } from '../../../../shared/components/tiptap-editor/service/url-add-dialog/add-url.component';
 import MediaManagerComponent, { MediaSelection } from '../(media)/media.page';
@@ -489,12 +490,15 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             content: html,
             autofocus: false,
             enablePasteRules: false,
-            extensions: editorExtensions({
-                injector: this.injector,
-                translate: (key) => this.transloco.translate(key),
-                openOnClick: false,
-                pickers: { uploadImage: () => editor && this.insertImage(editor), attachFile: () => editor && this.attachFiles(editor) },
-            }),
+            extensions: [
+                ...editorExtensions({
+                    injector: this.injector,
+                    translate: (key) => this.transloco.translate(key),
+                    openOnClick: false,
+                    pickers: { uploadImage: () => editor && this.insertImage(editor), attachFile: () => editor && this.attachFiles(editor) },
+                }),
+                ArcEmptyLines,
+            ],
             editorProps: { attributes: { class: 'arc-in-place-rich', spellcheck: 'true' } },
         });
         // What the buttons show comes from the editor's own events, not straight after a click (spike fix 4).
