@@ -153,6 +153,18 @@ deploy beyond the hosted admin.
 **Deploy:** functions (publish pipeline), then hosting (`arc-site.js`), then Republish website so
 every page carries the meta.
 
+**Build note, VE3.1 (2026-11-18):** `EntryDraftSession` is in
+`src/app/pages/admin/contents/draft-content-store/entry-draft-session.ts`, provided by the screen
+that edits the entry (one per screen). It holds loading, the saved baseline, auto-save, the
+conflict checks, the translations stash, the Save and Publish checks, the `[Replace:` question,
+publishing with its status line and the live preview channel. A screen gives it an
+`EntryDraftView`: how to read the language-varying values (`capture`), put them on screen
+(`apply`), read everything else a save writes (`sharedValues`), show a loaded entry (`fill`), and a
+few hooks (reveal a missing field, focus a field the preview asked for, the entry's first write).
+The form editor implements it over its forms and keeps every member name it had, as accessors
+onto the session, so its template and its 307 specs are unchanged. The edit-on-page screen of
+VE3.5 implements the same interface over the page.
+
 ### VE4: Repeating rows and widths
 
 | Task | What |

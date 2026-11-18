@@ -1,22 +1,17 @@
 import { parseHexColor } from '../../../../../shared/utils/color';
-import { hasReplacePrompt } from '../standard-pages/standard-pages';
 import { nextUrlSlug, toUrlSlug } from '../../../../../shared/utils/url-slug';
 import { authorCanonicalUrl } from '../../../../../shared/utils/canonical-url';
 import { SiteIdentityService } from '../../../../core/services/site-identity.service';
 import { ArcTimePipe } from '../../../../core/time/arc-time.pipe';
 import { ImageSize } from '../../../../../shared/utils/image-sizes';
 import { inject, computed, Component, ChangeDetectorRef, effect, HostListener, Input, ViewChild, AfterViewInit, signal, NgZone, afterNextRender, Injector, untracked, runInInjectionContext } from '@angular/core';
-import { ConfirmationPopupComponent } from '../../../../../shared/components/confirmation-popup/confirmation-popup.component';
-import { isEntryChanged, isEntryGone } from '../draft-content-store/entry-changed';
 import { TranslationKey } from '../../../../core/i18n/translation-keys';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule, formatDate } from '@angular/common';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { IDraftContents, INextContentReference } from '../draft-content-store/draft-contents.model';
-import {
-  BACKLINK_FIELD, BacklinkChange, SERIES_FIELDS, SeriesField, SeriesLinks, isRealId, linkedId, planBacklinks, seriesReference,
-} from '../draft-content-store/series-links';
+import { SeriesLinks, isRealId, linkedId, seriesReference } from '../draft-content-store/series-links';
 import { ActivatedRoute, NavigationCancel, ParamMap, Router, RouterLink } from '@angular/router';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
@@ -33,64 +28,29 @@ import { ArcIcon, isArcIcon } from '../../../../../shared/models/icon.model';
 import { FieldRepeaterComponent } from '../../../../../shared/components/field-repeater/field-repeater.component';
 import { ResizableDirective } from '../../../../../shared/directives/resizable/resizable.directive';
 import { SiteDriftNoticeComponent } from '../site-drift-notice/site-drift-notice.component';
-import {
-  isRepeaterType,
-  normalizeRepeaterRows,
-  prepareRepeaterRowsForSave,
-  RepeaterRow,
-  RepeaterSchema,
-  repeaterHeadingKey,
-  repeaterSchema,
-  sortRepeaterRows,
-} from '../../../../../shared/models/repeater.model';
+import { normalizeRepeaterRows, prepareRepeaterRowsForSave, RepeaterRow, RepeaterSchema, repeaterHeadingKey, repeaterSchema, sortRepeaterRows } from '../../../../../shared/models/repeater.model';
 import { MatDialog } from '@angular/material/dialog';
-import { CollectionRefSyncService } from '../content-store/collection-ref-sync.service';
-import { DraftContentsService } from '../draft-content-store/draft-contents.service';
 import { getDocs, query, limit } from '@angular/fire/firestore';
-import { PublishQueueService } from '../publish-queue/publish-queue.service';
-import { ContentsService, DeployStatusUpdate } from '../content-store/published-contents.service';
+import { ContentsService } from '../content-store/published-contents.service';
 import { FullscreenEditorDialogComponent } from './fullscreen-editor-dialog/fullscreen-editor-dialog.component';
-import { Subject, Subscription, firstValueFrom } from 'rxjs';
-import { debounceTime, filter, switchMap } from 'rxjs/operators';
+import { Subscription, firstValueFrom } from 'rxjs';
+import { filter, switchMap } from 'rxjs/operators';
 import { VersionHistoryComponent, VersionHistoryItem } from './version-history/version-history.component';
-import { LocalizationService } from '../../../../core/services/localization.service';
 import { AuthorsService } from '../../(authors)/authors.service';
 import { IAuthor } from '../../../../../shared/models/author.model';
 import { IReference, cleanReferences } from '../../../../../shared/models/references.model';
 import { ChecklistReport, evaluateDiscoverability } from '../../../../../shared/utils/discoverability-checklist';
 import { SearchService } from '../../../../core/services/search.service';
 import { SearchResult } from '../../../../../shared/models/search.model';
-import { AuthState } from '../../../(auth)/auth.store';
-import { ILanguage } from '../../../../../shared/models/localization.model';
-import {
-  IContentTranslation,
-  TRANSLATABLE_BUILTIN_FIELDS,
-  isTranslatableField,
-  translatableHeadingKey,
-  translatableRepeaterKeys,
-  isTranslationEmpty,
-} from '../draft-content-store/content-translation.model';
+import { IContentTranslation, isTranslatableField, translatableRepeaterKeys } from '../draft-content-store/content-translation.model';
 import { isOn } from '../../../../core/features/features';
-import {
-  PreviewChannel, PreviewMessage, previewSessionKey, previewUrl, previewWindowName,
-} from '../../../../core/preview/preview-channel';
+import { PreviewMessage } from '../../../../core/preview/preview-channel';
 import { layoutLabel, siteLayouts } from '../../../../core/site/site';
+import { EntryDraftSession, EntryDraftView, TranslatableValues, isEmptyFieldValue } from '../draft-content-store/entry-draft-session';
 import { SiteLook, SiteLookService } from '../../../../core/site/site-look.service';
 import { SiteLookViewComponent } from '../../../../core/site/site-look-view';
 
-/**
- * The subset of editor state that varies by language. Everything else on a
- * content item (slug, cover image, tags, dates, references) is shared across
- * languages — see specs/multilingual-spec.md decision M-D5.
- */
-interface TranslatableValues {
-  title: string;
-  content: string;
-  summary: string;
-  seoTitle: string;
-  metaDescription: string;
-  customFields: { [key: string]: any };
-}
+export { AUTO_SAVE_DELAY_MS, addressFromTitle } from '../draft-content-store/entry-draft-session';
 
 /**
  * Firestore date-ish value → 'YYYY-MM-DD' for an <input type="date">, or ''.
@@ -135,23 +95,8 @@ function escapeHtml(text: string): string {
 /** The cover doubles as the social-share image, so its picker opens at full size. */
 const COVER_IMAGE_SIZE: ImageSize = 'xl';
 
-/** How long after the last edit an entry saves itself. */
-export const AUTO_SAVE_DELAY_MS = 5_000;
-
 /** How long after the last title keystroke the address is checked with the server. */
 export const SLUG_CHECK_DELAY_MS = 300;
-
-/**
- * Whether an address is still the one made from a title (`guide`, or a
- * numbered `guide-2` when that was taken), so it may keep following the title.
- */
-export function addressFromTitle(slug: string, title: string): boolean {
-  const base = toUrlSlug(title || '');
-  if (!slug || !base) return false;
-  if (slug === base) return true;
-  const rest = slug.startsWith(base + '-') ? slug.slice(base.length + 1) : '';
-  return /^\d+$/.test(rest);
-}
 
 @Component({
   selector: 'arc-create-content',
@@ -170,6 +115,8 @@ export function addressFromTitle(slug: string, title: string): boolean {
     SiteDriftNoticeComponent,
     SiteLookViewComponent,
   ],
+  // One entry's draft per editor (VE-D15).
+  providers: [EntryDraftSession],
   templateUrl: './create-content.component.html',
   styleUrl: './create-content.component.scss',
 })
@@ -189,69 +136,48 @@ export class CreateContentComponent extends BaseComponent {
 
   contentTypeStore = inject(ContentTypesStore);
 
-  public errorSlug: boolean = false;
-  public isSavingDraft: boolean = false;
   public count = 0;
   
   // Service for fetching referenced content
-  private draftContentsService = inject(DraftContentsService);
-  private collectionRefSyncService = inject(CollectionRefSyncService);
-  private publishQueueService = inject(PublishQueueService);
   private siteIdentity = inject(SiteIdentityService);
   private contentsService = inject(ContentsService);
-  private deployStatusSubscription: Subscription | null = null;
+  /**
+   * The entry being edited: loading, saving, the checks, translations,
+   * publishing and the preview channel (specs/visual-editing-spec.md, VE-D15).
+   * The form editor shows it and reads it back through draftView().
+   */
+  readonly session = inject(EntryDraftSession);
 
-  // Deployment status tracking
-  deployStatus = signal<DeployStatusUpdate['deployStatus']>(null);
-  deployError = signal<string>('');
+  // Save and publish state, kept by the session.
+  get deployStatus() { return this.session.deployStatus; }
+  get deployError() { return this.session.deployError; }
+  get creating() { return this.session.creating; }
+  get entryGone() { return this.session.entryGone; }
+  get entryChanged() { return this.session.entryChanged; }
+  get saveFailed() { return this.session.saveFailed; }
+  get offline() { return this.session.offline; }
+  get publishedSlug() { return this.session.publishedSlug; }
+  get redirectOldAddress() { return this.session.redirectOldAddress; }
+  get publishProblem() { return this.session.publishProblem; }
+  get isSavingDraft(): boolean { return this.session.isSavingDraft; }
+  get saveStatusMessage(): string { return this.session.saveStatusMessage; }
+  get saveStatusType(): 'success' | 'error' | 'info' { return this.session.saveStatusType; }
+  get lastDraftSavedDate(): Date | null { return this.session.lastDraftSavedDate; }
+  get lastPublishedDate(): Date | null { return this.session.lastPublishedDate; }
+  /** Links to the published version: the same id once published. */
+  get publishedId(): string { return this.session.publishedId; }
+  get errorSlug(): boolean { return this.session.errorSlug; }
+  set errorSlug(value: boolean) { this.session.errorSlug = value; }
+  /** A new entry's address follows its title until it is edited by hand or published. */
+  private get slugFollowsTitle(): boolean { return this.session.slugFollowsTitle; }
+  private set slugFollowsTitle(value: boolean) { this.session.slugFollowsTitle = value; }
+  /** The address last found free on the server, or loaded with the entry. */
+  private set confirmedSlug(value: string) { this.session.confirmedSlug = value; }
 
-  // Auto-save infrastructure
-  private autoSaveTrigger$ = new Subject<void>();
-  private autoSaveSubscription: Subscription | null = null;
-  private isAutoSaving = false;
-
-  // ── No lost work (specs/dev-review-fixes-spec.md, RF4) ──────────────────
-  /** True while a new entry's first write is under way (4.1); Save and Publish wait for it. */
-  readonly creating = signal(false);
-  /** The first write under way, which Save and Publish wait for, then update (RF4 review H1). */
-  private createPromise: Promise<void> | null = null;
-  /** The new entry's id, chosen before its first write and kept for a retry (RF4 review H1, L1). */
-  private newEntryId: string | null = null;
-  /** Another admin deleted the entry: nothing more can be saved to it (RF4 review L3). */
-  readonly entryGone = signal(false);
   /** Rich text fields whose first update after a load is the editor's echo, not an edit (RF4 review M7). */
   private pendingRichEchoes = new Set<string>();
-  /** A Publish again is under way (RF4 review L5). */
-  private republishing = false;
   /** Title keystrokes: the address check waits for a pause (RF4 review L7). */
   private slugTimer: ReturnType<typeof setTimeout> | null = null;
-  /**
-   * The stored entry's modifiedAt as the editor opened it or last saved it.
-   * A save stops when the stored one differs: someone else saved since (4.5).
-   */
-  private openedModifiedAt: unknown = null;
-  /** Someone else saved the entry since it was opened; saving waits for Reload theirs or Keep mine. */
-  entryChanged = signal(false);
-  /** The save that found the change, run again over theirs by Keep mine. */
-  private overwriteAction: (() => void) | null = null;
-  /** The last write failed. Stays until a write works (4.4). */
-  saveFailed = signal(false);
-  /** What Retry runs: the write that failed. */
-  private retryAction: (() => void) | null = null;
-  /** The browser says there is no connection. */
-  offline = signal(typeof navigator !== 'undefined' && navigator.onLine === false);
-  /** A save is under way, so a second click does not start another. */
-  private saveInFlight = false;
-  /** A new entry's address follows its title until it is edited by hand or published. */
-  private slugFollowsTitle = true;
-  /** The address last found free on the server, or loaded with the entry. */
-  private confirmedSlug = '';
-  /** The address of the entry's live page; '' while it has none (4.6). */
-  publishedSlug = signal('');
-  /** "Send the old address to the new one", ticked by default. */
-  redirectOldAddress = signal(true);
-  /** Publishing could not start, or no answer came: the failure line stays (4.3). */
-  publishProblem = signal<'' | 'start' | 'no_answer' | 'template' | 'build'>('');
 
   // Store loaded options for collection reference fields: { [fieldKey]: ContentItem[] }
   public referenceOptions = signal<{ [key: string]: any[] }>({});
@@ -277,9 +203,6 @@ export class CreateContentComponent extends BaseComponent {
   coverImage: string | null = null;
   errorMessage: string | null = null;
 
-  // Save status
-  saveStatusMessage: string = '';
-  saveStatusType: 'success' | 'error' | 'info' = 'info';
 
   public isEditingSlug = signal<boolean>(false);
   private originalSlug: string = '';
@@ -314,10 +237,6 @@ export class CreateContentComponent extends BaseComponent {
   availableContents: IDraftContents[] = [];
   isLoadingContents = false;
 
-  private _contentId: string = '';
-  publishedId: string = ''; // Links to published version if editing a draft of published content
-  lastDraftSavedDate: Date | null = null;
-  lastPublishedDate: Date | null = null;
   paramContentType: string | null = null;
   activeTab: 'basic' | 'seo' | 'checks' | 'history' = 'basic';
 
@@ -339,65 +258,48 @@ export class CreateContentComponent extends BaseComponent {
   customFieldValues: { [key: string]: any } = {};
 
   // ── Translations (M2) ────────────────────────────────────────────────────
-  // The editor edits one language at a time. The default language is the base
-  // document and its editing path is unchanged; any other language is held in
-  // the same forms but saved to arc_{slug}_drafts/{id}/translations/{lang}.
-  private localization = inject(LocalizationService);
+  // The editor edits one language at a time; the session keeps the others.
   private authorsService = inject(AuthorsService);
-  private authState = inject(AuthState);
 
   /** Language currently being edited. Empty until the language list loads. */
-  activeLang = signal<string>('');
-  /** Codes this item already has a stored translation for — badges the tabs. */
-  translatedLanguages = signal<string[]>([]);
+  get activeLang() { return this.session.activeLang; }
+  /** Codes this item already has a stored translation for: badges the tabs. */
+  get translatedLanguages() { return this.session.translatedLanguages; }
   /** Unsaved edits exist for the active translation. */
-  translationDirty = signal<boolean>(false);
-  isSavingTranslation = signal<boolean>(false);
-
-  /** Default-language values, stashed while a translation is being edited. */
-  private baseStash: TranslatableValues | null = null;
-  /** In-memory edits per language, so switching tabs never loses work. */
-  private translationEdits = new Map<string, TranslatableValues>();
-  /** Languages already fetched from Firestore this session. */
-  private loadedTranslations = new Set<string>();
-  /** Languages whose edits are not yet persisted. Saved with the document. */
-  private dirtyTranslations = new Set<string>();
-
-  enabledLanguages = computed<ILanguage[]>(() => this.localization.enabledLanguages());
-  defaultLang = computed<string>(() => this.localization.defaultLanguage());
+  get translationDirty() { return this.session.translationDirty; }
+  get isSavingTranslation() { return this.session.isSavingTranslation; }
+  get enabledLanguages() { return this.session.enabledLanguages; }
+  get defaultLang() { return this.session.defaultLang; }
   /** The language bar only appears once a second language is configured. */
-  showLanguageBar = computed<boolean>(() => this.localization.isMultilingual());
+  get showLanguageBar() { return this.session.showLanguageBar; }
   /** True when the forms hold a translation rather than the base document. */
-  isTranslating = computed<boolean>(() => {
-    const active = this.activeLang();
-    return !!active && active !== this.defaultLang();
-  });
-  activeLanguageLabel = computed<string>(
-    () => this.localization.find(this.activeLang())?.label || this.activeLang(),
-  );
-
-  // Signal for content type slug to enable reactivity in computed properties
-  private contentTypeSlugSignal = signal<string>('');
+  get isTranslating() { return this.session.isTranslating; }
+  get activeLanguageLabel() { return this.session.activeLanguageLabel; }
+  /** Default-language values, stashed while a translation is being edited. */
+  private get baseStash(): TranslatableValues | null { return this.session.baseStash; }
+  private set baseStash(values: TranslatableValues | null) { this.session.baseStash = values; }
+  /** Languages whose edits are not yet persisted. */
+  private get dirtyTranslations(): Set<string> { return this.session.dirtyTranslations; }
 
   // Input for content type slug from parent route
   @Input() set contentTypeSlug(value: string) {
-    this.contentTypeSlugSignal.set(value);
+    this.session.typeSlug.set(value);
   }
   get contentTypeSlug(): string {
-    return this.contentTypeSlugSignal();
+    return this.session.typeSlug();
   }
 
   // Input for content ID from parent route (for editing)
   @Input() set contentId(value: string) {
-    if (value && value !== this._contentId) {
-      this._contentId = value;
-      this.loadContentById(value);
+    if (value && value !== this.session.contentId) {
+      this.session.contentId = value;
+      this.session.loadById(value);
       // The item is known now, so its existing translations can be badged.
-      this.refreshTranslatedLanguages();
+      this.session.refreshTranslatedLanguages();
     }
   }
   get contentId(): string {
-    return this._contentId;
+    return this.session.contentId;
   }
 
   // Computed property to get the content type name from the slug
@@ -425,23 +327,11 @@ export class CreateContentComponent extends BaseComponent {
   /** The summary before its latest change; the meta description follows only while it equals this. */
   private previousSummary = '';
 
-  /** The stored item as this editor's last save left it; the fill effect skips it. */
-  private storedEcho: unknown = null;
-
-  /**
-   * Brings the stored item up to date with what was just written, so a later
-   * publish keeps the first publishedOn and the reference sync compares with
-   * what is stored, without refilling the forms.
-   */
-  private refreshStoredItem(id: string, written: any): void {
-    this.draftContentStore.refreshCurrentItem(id, written);
-    this.storedEcho = untracked(() => this.draftContentStore.currentItem());
-  }
 
   // Computed property to get current content type with its fields
   currentContentType = computed(() => {
     const slug =
-      this.contentTypeSlugSignal() ||
+      this.session.typeSlug() ||
       this.paramContentType ||
       this.publishForm?.get('type')?.value;
     if (!slug) return null;
@@ -806,8 +696,7 @@ export class CreateContentComponent extends BaseComponent {
     if (!unshaped) return;
     // Compared with the rows unshaped, as the baseline was signed before the
     // fields were known; hasUnsavedDraftChanges would shape them first.
-    const untouched = this.savedDraftSignature !== null && this.savedDraftSignature
-      === this.draftSignature({ ...this.buildDraftFormValues(), customFields: { ...this.customFieldValues } });
+    const untouched = this.session.isBaseline({ ...this.buildDraftFormValues(), customFields: { ...this.customFieldValues } });
     this.customFieldValues = this.adoptCustomFields(this.customFieldValues);
     if (untouched) this.captureDraftBaseline();
   }
@@ -825,7 +714,7 @@ export class CreateContentComponent extends BaseComponent {
     // in its own form: part of loading, not an edit, so it neither saves nor
     // marks the entry edited (as the body's echo, awaitingBaselineCapture).
     if (this.pendingRichEchoes.delete(fieldKey)) {
-      const clean = this.savedDraftSignature !== null && !this.isTranslating() && !this.hasUnsavedDraftChanges();
+      const clean = this.session.hasBaseline() && !this.isTranslating() && !this.hasUnsavedDraftChanges();
       this.customFieldValues[fieldKey] = htmlContent;
       if (clean) this.captureDraftBaseline();
       return;
@@ -1043,57 +932,18 @@ export class CreateContentComponent extends BaseComponent {
     this.triggerAutoSave();
   }
 
-  // Validate for draft: only title is required.
-  // Validation always targets the default-language document — required fields
-  // belong to the item, not to a translation, and the editor may currently be
-  // showing a translated tab.
+  /** Save: only the title is required (the session's rule, on the default language). */
   validateForDraft(): { valid: boolean; errors: string[]; missing: string[] } {
-    const errors: string[] = [];
-    const missing: string[] = [];
-    const base = this.baseLanguageValues();
-
-    if (!base.title || base.title.trim() === '') {
-      errors.push(this.requiredMessage(this.t('admin.contents.editor.title_label')));
-      missing.push('title');
-    }
-
-    return { valid: errors.length === 0, errors, missing };
+    return this.session.validateForDraft();
   }
 
-  /** "{field} is required.", in the admin's language. */
-  private requiredMessage(field: string): string {
-    return this.t('common.validation.required', { field });
-  }
-
-  // Validate for publish: all mandatory fields including custom fields.
-  // `missing` lists the offending field keys (`title` for the title) in the
-  // order they appear on screen, so the first one is the one to focus.
+  /** Publish: the title and every required custom field (the session's rule). */
   validateForPublish(): { valid: boolean; errors: string[]; missing: string[] } {
-    const errors: string[] = [];
-    const missing: string[] = [];
-    const base = this.baseLanguageValues();
-
-    // Title is always required
-    if (!base.title || base.title.trim() === '') {
-      errors.push(this.requiredMessage(this.t('admin.contents.editor.title_label')));
-      missing.push('title');
-    }
-
-    // Check required custom fields
-    const requiredCustomFields = this.currentFields.filter(f => f.required);
-    for (const field of requiredCustomFields) {
-      if (this.isEmptyFieldValue(base.customFields?.[field.key])) {
-        errors.push(this.requiredMessage(this.fieldLabel(field)));
-        missing.push(field.key);
-      }
-    }
-
-    return { valid: errors.length === 0, errors, missing };
+    return this.session.validateForPublish();
   }
 
   private isEmptyFieldValue(value: unknown): boolean {
-    return value === undefined || value === null || value === '' ||
-      (Array.isArray(value) && value.length === 0);
+    return isEmptyFieldValue(value);
   }
 
   /**
@@ -1163,20 +1013,19 @@ export class CreateContentComponent extends BaseComponent {
 
   constructor(private fb: FormBuilder) {
     super();
+    this.session.attach(this.draftView());
     // Fills the forms when the stored item arrives or is replaced, and at no
     // other time. patchForms reads other signals (sources, tags, authors, the
     // active language); tracking them would refill the forms from the stored
     // copy on every one of those edits. A save refreshes the stored item with
-    // what this editor wrote (storedEcho); that is not a new item to load,
-    // and refilling from it would drop anything typed while the save ran.
+    // what this editor wrote; that is not a new item to load, and refilling
+    // from it would drop anything typed while the save ran.
     effect(() => {
       const item = this.draftContentStore.currentItem();
-      if (item === this.storedEcho) return;
-      if (item && Object.keys(item).length > 0) {
-        untracked(() => this.patchForms(item));
-        // A preview window left open for this entry carries on live (VE-D6).
-        untracked(() => this.connectPreview());
-      }
+      if (!this.session.isNewStoredItem(item)) return;
+      untracked(() => this.patchForms(item));
+      // A preview window left open for this entry carries on live (VE-D6).
+      untracked(() => this.session.connectPreview());
     });
 
     // Reactive: Load references whenever the content type structure is available/changes
@@ -1229,22 +1078,28 @@ export class CreateContentComponent extends BaseComponent {
       });
     });
 
-    // Auto-save pipeline: a few seconds after the last edit, for an entry that
-    // has been written once (a new one is written on its first input, see
-    // triggerAutoSave). Short, so the leave question only shows in that gap.
-    this.autoSaveSubscription = this.autoSaveTrigger$.pipe(
-      debounceTime(AUTO_SAVE_DELAY_MS),
-      filter(() => !!this.contentId),
-      filter(() => !this.isSavingDraft && !this.isAutoSaving && !this.creating() && !this.entryChanged()),
-      // Never rewrite an unchanged document: that bumps modifiedAt and makes
-      // the list report the item as edited-since-publish when it is not.
-      filter(() => this.hasUnsavedDraftChanges() || this.dirtyTranslations.size > 0),
-      // No title rule here: an entry begun in the body is already stored, and
-      // its later edits must not be lost while the title is still empty. The
-      // Save button keeps the rule (RF4 review M2).
-    ).subscribe(() => {
-      this.performAutoSave();
-    });
+  }
+
+  /** How the session reads and fills this editor: its forms and fields (VE-D15). */
+  private draftView(): EntryDraftView {
+    return {
+      ready: () => !!this.publishForm && !!this.seoForm,
+      formType: () => this.publishForm?.get('type')?.value || '',
+      fields: () => this.currentFields,
+      fieldLabel: (field) => this.fieldLabel(field),
+      pageTitle: () => this.pageTitle,
+      address: () => this.publishForm?.get('urlSlug')?.value || '',
+      capture: () => this.captureTranslatableValues(),
+      apply: (values) => this.applyTranslatableValues(values),
+      prepareCustomFields: (values) => this.copyCustomFields(values),
+      sharedValues: () => this.sharedDraftValues(),
+      fill: (item) => this.fillForms(item),
+      expectEchoes: () => this.expectRichEchoes(),
+      revealMissing: (missing) => void this.revealMissingRequired(missing),
+      entryCreated: (id) => this.showEntryAddress(id),
+      focusField: (key, row) => this.focusField(key, row),
+      refresh: () => this.cdr.detectChanges(),
+    };
   }
 
   ngAfterViewInit(): void {
@@ -1299,33 +1154,16 @@ export class CreateContentComponent extends BaseComponent {
   }
 
   // ── Translation editing (M2) ─────────────────────────────────────────────
+  // The stash and its rules are in the session; the forms hold whichever
+  // language is on screen.
 
-  /**
-   * Loads the site's language list and starts the editor on the default
-   * language. On a single-language site this leaves every code path below
-   * dormant — `isTranslating()` can never become true.
-   */
-  private async initLanguages(): Promise<void> {
-    await this.localization.load();
-    this.activeLang.set(this.defaultLang());
-    await this.refreshTranslatedLanguages();
-    this.cdr.detectChanges();
-  }
-
-  private async refreshTranslatedLanguages(): Promise<void> {
-    if (!this.contentId || !this.contentTypeSlug) {
-      this.translatedLanguages.set([]);
-      return;
-    }
-    const languages = await this.draftContentsService.getTranslatedLanguages(
-      this.contentTypeSlug,
-      this.contentId,
-    );
-    this.translatedLanguages.set(languages);
+  /** Loads the site's language list and starts the editor on the default language. */
+  private initLanguages(): Promise<void> {
+    return this.session.initLanguages();
   }
 
   hasTranslation(code: string): boolean {
-    return this.translatedLanguages().includes(code);
+    return this.session.hasTranslation(code);
   }
 
   /** Reads the language-varying values out of the forms. */
@@ -1342,10 +1180,9 @@ export class CreateContentComponent extends BaseComponent {
 
   /** Writes language-varying values back into the forms. */
   private applyTranslatableValues(values: TranslatableValues): void {
-    this.appliedSignature = this.valuesSignature(values);
     this.pageTitle = values.title;
-    // emitEvent:false — these writes are a language switch, not a user edit,
-    // and must not trip the summary→metaDescription sync or auto-save.
+    // emitEvent:false: these writes are a language switch, not a user edit,
+    // and must not trip the summary to metaDescription sync or auto-save.
     this.publishForm.get('title')?.setValue(values.title, { emitEvent: false });
     this.publishForm.get('content')?.setValue(values.content, { emitEvent: false });
     this.publishForm.get('summary')?.setValue(values.summary, { emitEvent: false });
@@ -1356,109 +1193,52 @@ export class CreateContentComponent extends BaseComponent {
     this.customFieldValues = this.adoptCustomFields(values.customFields);
     this.expectRichEchoes();
     this.cdr.detectChanges();
-    // A language switch shows in the preview too.
-    this.schedulePreview();
   }
 
-  /** The values a translation falls back to — shown as ghost placeholders. */
+  /**
+   * What a save writes that is the same in every language: the forms, the
+   * author, sources, series links and tags. The session puts the default
+   * language's title, body and the rest over it (buildDraftFormValues).
+   */
+  private sharedDraftValues(): Record<string, any> {
+    if (!this.isTranslating()) {
+      this.publishForm.get('title')?.setValue(this.pageTitle);
+    }
+    this.publishForm.get('coverImage')?.setValue(this.coverImage || null);
+    return {
+      ...this.publishForm.value,
+      ...this.seoForm.value,
+      updatedOn: fromDateInputValue(this.seoForm.get('updatedOn')?.value),
+      authorId: this.publishForm.get('authorId')?.value || null,
+      authorName: this.authorNameFor(this.publishForm.get('authorId')?.value),
+      references: cleanReferences(this.references()),
+      nextContent: this.selectedNextContent,
+      previousContent: this.selectedPreviousContent,
+      tagsWithColors: this.selectedTags().map(t => ({ name: t.label, color: t.color })),
+    };
+  }
+
+  /** The values a translation falls back to: shown as ghost placeholders. */
   private baseValues(): TranslatableValues {
-    return this.baseStash ?? this.captureTranslatableValues();
+    return this.session.baseValues();
   }
 
-  /**
-   * Default-language values, whichever tab happens to be on screen.
-   *
-   * Save and Publish act on the whole item, so they must write the base
-   * document from these rather than from the forms, which may be showing a
-   * translation.
-   */
+  /** Default-language values, whichever tab is on screen. */
   private baseLanguageValues(): TranslatableValues {
-    return this.isTranslating() ? this.baseValues() : this.captureTranslatableValues();
+    return this.session.baseLanguageValues();
   }
 
-  /**
-   * Moves whatever is on screen into the right stash, so every language's
-   * edits are in hand before a save.
-   */
-  private collectCurrentLanguageEdits(): void {
-    const captured = this.captureTranslatableValues();
-    const current = this.activeLang();
-    if (!current || current === this.defaultLang()) {
-      this.baseStash = captured;
-    } else {
-      this.translationEdits.set(current, captured);
-      if (this.translationDirty()) this.dirtyTranslations.add(current);
-    }
-  }
-
-  /**
-   * Writes every pending language variant. Called as part of saving the
-   * document — and before a publish is enqueued, so the publish pipeline
-   * copies the translations that were just saved rather than stale ones.
-   */
-  private async persistPendingTranslations(docId: string): Promise<void> {
-    if (!docId || !this.contentTypeSlug || this.dirtyTranslations.size === 0) return;
-
-    const languages = [...this.dirtyTranslations];
-    let failure: unknown = null;
-    let typedMeanwhile = false;
-    for (const lang of languages) {
-      const values = this.translationEdits.get(lang);
-      if (!values) continue;
-      // What this write stores, to tell afterwards whether more was typed (RF4 review H2).
-      const writtenSignature = this.valuesSignature(values);
-
-      const translation: IContentTranslation = {
-        lang,
-        ...values,
-        customFields: this.translatableCustomFields(values.customFields),
-        translatedAt: new Date(),
-        translatedBy: this.authState.currentUser()?.id || '',
-      };
-
-      try {
-        if (isTranslationEmpty(translation)) {
-          // Nothing left in this language — drop the variant so it falls back
-          // to the default language instead of publishing an empty page.
-          await this.draftContentsService.deleteTranslation(this.contentTypeSlug, docId, lang);
-          this.translatedLanguages.update(langs => langs.filter(l => l !== lang));
-        } else {
-          await this.draftContentsService.saveTranslation(this.contentTypeSlug, docId, translation);
-          this.translatedLanguages.update(langs => (langs.includes(lang) ? langs : [...langs, lang]));
-        }
-        // Clean only if nothing was typed in this language while it was written:
-        // the tab on screen is read from the forms, any other from its stash.
-        const onScreen = this.isTranslating() && this.activeLang() === lang;
-        const now = onScreen ? this.captureTranslatableValues() : this.translationEdits.get(lang);
-        const unchanged = !!now && this.valuesSignature(now) === writtenSignature;
-        if (onScreen) {
-          this.appliedSignature = writtenSignature;
-          this.translationDirty.set(!unchanged);
-        }
-        if (unchanged) {
-          this.dirtyTranslations.delete(lang);
-        } else {
-          typedMeanwhile = true;
-        }
-      } catch (error) {
-        console.error(`Error saving "${lang}" translation:`, error);
-        failure = failure ?? error;
-      }
-    }
-
-    // A translation that did not land is "Not saved" with Retry, like the
-    // entry itself (RF4 review M6).
-    if (failure) this.writeFailed(failure, () => void this.persistPendingTranslations(docId));
-    else if (typedMeanwhile) this.autoSaveTrigger$.next();
-    this.cdr.detectChanges();
+  /** The draft as a save writes it (in the session). */
+  private buildDraftFormValues(): any {
+    return this.session.buildDraftFormValues();
   }
 
   basePlaceholder(field: 'title' | 'content' | 'summary' | 'seoTitle' | 'metaDescription'): string {
-    return this.baseValues()[field] || '';
+    return this.session.baseValues()[field] || '';
   }
 
   baseCustomFieldValue(key: string): string {
-    const value = this.baseValues().customFields?.[key];
+    const value = this.session.baseValues().customFields?.[key];
     return value === null || value === undefined ? '' : String(value);
   }
 
@@ -1484,224 +1264,28 @@ export class CreateContentComponent extends BaseComponent {
    * Switches the editor to another language, stashing the current language's
    * edits in memory first so tab-switching never discards work.
    */
-  async switchLanguage(code: string): Promise<void> {
-    const current = this.activeLang();
-    if (!code || code === current) return;
-
-    // Stash what is currently in the forms.
-    const captured = this.captureTranslatableValues();
-    if (current === this.defaultLang()) {
-      this.baseStash = captured;
-    } else if (current) {
-      this.translationEdits.set(current, captured);
-    }
-
-    if (code === this.defaultLang()) {
-      if (this.baseStash) this.applyTranslatableValues(this.baseStash);
-      this.activeLang.set(code);
-      this.translationDirty.set(false);
-      return;
-    }
-
-    // Editing a translation: use in-memory edits, else the stored document,
-    // else start from blank fields that fall back to the base content.
-    let values = this.translationEdits.get(code);
-    if (!values && !this.loadedTranslations.has(code)) {
-      const stored = this.contentId
-        ? await this.draftContentsService.getTranslation(this.contentTypeSlug, this.contentId, code)
-        : null;
-      this.loadedTranslations.add(code);
-      values = this.toTranslatableValues(stored);
-      this.translationEdits.set(code, values);
-    }
-
-    this.activeLang.set(code);
-    this.translationDirty.set(false);
-    this.applyTranslatableValues(values ?? this.emptyTranslatableValues());
-  }
-
-  private emptyTranslatableValues(): TranslatableValues {
-    return { title: '', content: '', summary: '', seoTitle: '', metaDescription: '', customFields: {} };
-  }
-
-  private toTranslatableValues(stored: IContentTranslation | null): TranslatableValues {
-    const values = this.emptyTranslatableValues();
-    if (!stored) return values;
-    for (const field of TRANSLATABLE_BUILTIN_FIELDS) {
-      const value = stored[field];
-      if (typeof value === 'string') values[field] = value;
-    }
-    values.customFields = { ...(stored.customFields ?? {}) };
-    return values;
-  }
-
-  /**
-   * Normalized signature of the language-varying values, used to tell a real
-   * edit from editor noise. TipTap emits an update whenever its input changes
-   * — including the empty "<p></p>" it produces on a language switch — so a
-   * dirty flag driven purely by change events would always read "unsaved".
-   */
-  private valuesSignature(values: TranslatableValues): string {
-    const normalize = (value: unknown): string =>
-      typeof value === 'string'
-        ? value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
-        : value === null || value === undefined
-          ? ''
-          : String(value);
-
-    const custom = Object.keys(values.customFields ?? {})
-      .sort()
-      .map((key) => `${key}=${normalize(values.customFields[key])}`)
-      .join('|');
-
-    return [
-      normalize(values.title),
-      normalize(values.content),
-      normalize(values.summary),
-      normalize(values.seoTitle),
-      normalize(values.metaDescription),
-      custom,
-    ].join('\u0000');
-  }
-
-  /** Signature of what is currently stored/applied for the active language. */
-  private appliedSignature = '';
-
-  // ── No-op auto-save suppression ──────────────────────────────────────────
-  // The editor emits a content event when TipTap receives its value on load,
-  // which armed the auto-save debounce without the user touching anything —
-  // so merely opening an item rewrote it 30s later. That bumped `modifiedAt`
-  // and made every published item read as "Edited" in the list. Auto-save now
-  // compares against the state as loaded and skips when nothing has changed.
-  private savedDraftSignature: string | null = null;
-  /** Set when values are applied programmatically; the editor's echo of that
-   *  application re-captures the baseline instead of counting as an edit. */
-  private awaitingBaselineCapture = false;
-
-  /**
-   * Stable signature of the fields worth persisting. Volatile bookkeeping
-   * (timestamps, save status) is excluded so it never registers as a change.
-   */
-  private draftSignature(values: Record<string, unknown>): string {
-    // authorName is derived from authorId and the author list, which can load
-    // after the baseline is taken; authorId already records the real change.
-    const VOLATILE = new Set([
-      'updatedAt', 'modifiedAt', 'createdAt', 'modifiedBy', 'createdBy',
-      'publishedOn', 'lastPublishedAt', 'status', 'publishedStatus', 'authorName',
-      'redirectOldAddress',
-    ]);
-    const normalize = (value: unknown): unknown => {
-      if (value === null || value === undefined || value === '') return null;
-      if (Array.isArray(value)) return value.map(normalize);
-      if (value instanceof Date) return null;
-      if (typeof value === 'object') {
-        const entries = Object.entries(value as Record<string, unknown>)
-          .filter(([key]) => !VOLATILE.has(key))
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([key, val]) => [key, normalize(val)]);
-        return Object.fromEntries(entries);
-      }
-      return value;
-    };
-
-    const filtered = Object.entries(values)
-      .filter(([key]) => !VOLATILE.has(key))
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, val]) => [key, normalize(val)]);
-
-    return JSON.stringify(Object.fromEntries(filtered));
+  switchLanguage(code: string): Promise<void> {
+    return this.session.switchLanguage(code);
   }
 
   /** Records the current form state as "saved", so it stops looking dirty. */
   private captureDraftBaseline(): void {
-    if (this.isTranslating()) return;
-    this.savedDraftSignature = this.draftSignature(this.buildDraftFormValues());
+    this.session.captureDraftBaseline();
   }
 
   /** True when the base document differs from what was loaded or last saved. */
   private hasUnsavedDraftChanges(): boolean {
-    if (this.savedDraftSignature === null) return true;
-    return this.draftSignature(this.buildDraftFormValues()) !== this.savedDraftSignature;
+    return this.session.hasUnsavedDraftChanges();
   }
 
   /** Marks the active translation dirty; the base auto-save is not involved. */
   markTranslationDirty(): void {
-    if (!this.isTranslating()) return;
-    const changed = this.valuesSignature(this.captureTranslatableValues()) !== this.appliedSignature;
-    this.translationDirty.set(changed);
-    if (changed) {
-      this.dirtyTranslations.add(this.activeLang());
-    } else {
-      this.dirtyTranslations.delete(this.activeLang());
-    }
-  }
-
-  /**
-   * Keeps only the custom fields that are translatable for this content type.
-   *
-   * A repeating field is projected down to `{ id, …prose }` per row: the
-   * translation document carries the words and the row id that anchors them,
-   * never the structure. That is what makes the default language the single
-   * owner of how many rows there are, their order, and their images — and what
-   * lets a row be deleted without stranding a translation on the wrong one.
-   */
-  private translatableCustomFields(values: { [key: string]: any }): Record<string, unknown> {
-    const translatable: Record<string, unknown> = {};
-
-    for (const field of this.currentFields) {
-      if (!isTranslatableField(field)) continue;
-
-      if (isRepeaterType(field.type)) {
-        const rows = values[field.key];
-        if (Array.isArray(rows)) {
-          const keys = translatableRepeaterKeys(field);
-          translatable[field.key] = rows.map((row: Record<string, unknown>) => {
-            const projected: Record<string, unknown> = {};
-            for (const key of keys) {
-              if (row?.[key] !== undefined) projected[key] = row[key];
-            }
-            return projected;
-          });
-        }
-
-        const headingKey = translatableHeadingKey(field);
-        if (headingKey && values[headingKey] !== undefined) {
-          translatable[headingKey] = values[headingKey];
-        }
-        continue;
-      }
-
-      if (values[field.key] !== undefined) {
-        translatable[field.key] = values[field.key];
-      }
-    }
-
-    return translatable;
+    this.session.markTranslationDirty();
   }
 
   /** Deletes the active translation, reverting the language to base content. */
-  async clearTranslation(): Promise<void> {
-    if (!this.isTranslating() || !this.contentId) return;
-    const lang = this.activeLang();
-
-    this.isSavingTranslation.set(true);
-    try {
-      await this.draftContentsService.deleteTranslation(this.contentTypeSlug, this.contentId, lang);
-      this.translatedLanguages.update((langs) => langs.filter((l) => l !== lang));
-      this.translationEdits.delete(lang);
-      this.loadedTranslations.delete(lang);
-      this.applyTranslatableValues(this.emptyTranslatableValues());
-      this.translationDirty.set(false);
-      this.notify.success('admin.contents.editor.translation_cleared', {
-        language: this.activeLanguageLabel(),
-      });
-    } catch (error) {
-      console.error('Error clearing translation:', error);
-      this.notify.error('admin.contents.editor.translation_clear_failed');
-    } finally {
-      this.isSavingTranslation.set(false);
-      this.cdr.detectChanges();
-    }
+  clearTranslation(): Promise<void> {
+    return this.session.clearTranslation();
   }
 
   private fetchCurrentUrl() {
@@ -1710,10 +1294,10 @@ export class CreateContentComponent extends BaseComponent {
       this.initializeForms();
 
       // Only load from route if not already set via @Input
-      if (routeContentId && !this._contentId) {
-        this._contentId = routeContentId;
-        this.loadContentById(routeContentId);
-      } else if (!routeContentId && !this._contentId) {
+      if (routeContentId && !this.session.contentId) {
+        this.session.contentId = routeContentId;
+        this.session.loadById(routeContentId);
+      } else if (!routeContentId && !this.session.contentId) {
         this.draftContentStore.clearCurrent();
       }
     });
@@ -1723,61 +1307,16 @@ export class CreateContentComponent extends BaseComponent {
     });
   }
 
-  /**
-   * Load content by ID for editing
-   */
-  private loadContentById(id: string) {
-    if (id && id !== '') {
-      // Don't re-initialize forms here - they should already be initialized
-      // Just trigger the data fetch
-      this.draftContentStore.getByCustomField('id', '==', id, this.contentTypeSlug);
-    }
+  /** A stored entry arrived: the session takes it in and fills the forms (fillForms). */
+  private patchForms(contentData: any) {
+    this.session.load(contentData);
   }
 
-  private patchForms(contentData: any) {
-    // The stored entry as opened: a later save checks it is still this one (4.5).
-    this.openedModifiedAt = contentData?.modifiedAt ?? null;
-    if (contentData?.id) {
-      // A stored entry keeps its address, unless it was never published and
-      // its address is still the one made from its title (RF4 review M8).
-      this.slugFollowsTitle = !contentData?.publishedStatus && !contentData?.lastPublishedAt
-        && addressFromTitle(contentData?.urlSlug || '', contentData?.title || '');
-      this.confirmedSlug = contentData?.urlSlug || '';
-      void this.loadPublishedSlug(contentData);
-    }
-
-    // While a translation is loaded, the forms hold translated text. Refresh
-    // the stashed base values instead of overwriting the translation — the
-    // store can emit at any time (e.g. after an unrelated save).
-    if (this.isTranslating()) {
-      this.baseStash = {
-        title: contentData?.title || '',
-        content: contentData?.content || '',
-        summary: contentData?.summary || '',
-        seoTitle: contentData?.seoTitle || '',
-        metaDescription: contentData?.metaDescription || '',
-        customFields: this.copyCustomFields(contentData?.customFields ?? {}),
-      };
-      return;
-    }
-
+  /** Shows a stored entry in the forms: the default language. */
+  private fillForms(contentData: any) {
     this.pageTitle = contentData?.title;
     this.coverImage =
       contentData?.coverImage !== '' ? contentData?.coverImage : null;
-
-    // Set publishedId so the History tab becomes available.
-    // The published collection uses the same document ID as the draft,
-    // so when content has been published at least once, its ID IS the publishedId.
-    if (contentData?.publishedStatus && contentData?.id) {
-      this.publishedId = contentData.id;
-    }
-
-    // Set lastPublishedDate if available
-    if (contentData?.publishedOn) {
-      this.lastPublishedDate = contentData.publishedOn?.seconds
-        ? new Date(contentData.publishedOn.seconds * 1000)
-        : new Date(contentData.publishedOn);
-    }
 
     this.publishForm.patchValue({
       type: contentData?.type || this.paramContentType || '',
@@ -1826,9 +1365,6 @@ export class CreateContentComponent extends BaseComponent {
     // Pre-populate the series links
     this.selectedNextContent = contentData?.nextContent || null;
     this.selectedPreviousContent = contentData?.previousContent || null;
-    this.storedSeriesLinks = contentData?.id
-      ? { nextContent: this.selectedNextContent, previousContent: this.selectedPreviousContent }
-      : null;
 
     this.selectedTags.set((contentData?.tags ?? [])
       .map((label: string) => {
@@ -1843,16 +1379,6 @@ export class CreateContentComponent extends BaseComponent {
       },
       { injector: this.injector }
     );
-
-    // Freshly loaded content is by definition unmodified. The editor's echo
-    // (above) refines this once TipTap has normalized the body, and each rich
-    // text field's echo does the same for its field.
-    this.awaitingBaselineCapture = true;
-    this.expectRichEchoes();
-    this.captureDraftBaseline();
-
-    // Trigger change detection to update the view
-    this.cdr.detectChanges();
   }
 
   private initializeForms() {
@@ -2039,10 +1565,7 @@ export class CreateContentComponent extends BaseComponent {
     // That echo — and the summary/meta-description it cascades into above — is
     // the last step of loading, not a user edit, so the baseline is taken here
     // rather than in patchForms, once everything has settled.
-    if (this.awaitingBaselineCapture) {
-      this.awaitingBaselineCapture = false;
-      this.captureDraftBaseline();
-    }
+    this.session.settleLoad();
   }
 
   public createSlag(): void {
@@ -2401,7 +1924,7 @@ export class CreateContentComponent extends BaseComponent {
     try {
       this.availableContents = await this.draftContentStore.getContentsByType(
         contentType,
-        this._contentId // Exclude current content
+        this.contentId // Exclude current content
       );
     } catch (error) {
       console.error('Error loading available contents:', error);
@@ -2566,348 +2089,29 @@ export class CreateContentComponent extends BaseComponent {
     document.getElementById(`${which}-content-option-${index}`)?.scrollIntoView?.({ block: 'nearest' });
   }
 
-  public async saveAsDraft(afterSave?: () => void, overwrite = false): Promise<void> {
-    if (this.saveInFlight || this.entryGone()) return;
-    // A first write still under way: wait for it, then save as an update, so
-    // Save never makes a second entry (RF4 review H1).
-    if (await this.firstWriteDone()) return;
-    // Save acts on the whole item — the default language plus every
-    // translation — no matter which language tab is on screen.
-    this.collectCurrentLanguageEdits();
-
-    if (!this.isTranslating()) {
-      this.publishForm.get('title')?.setValue(this.pageTitle);
-    }
-    this.publishForm.get('coverImage')?.setValue(this.coverImage);
-
-    // Validate for draft: only title is required
-    const validation = this.validateForDraft();
-    if (!validation.valid) {
-      this.toastService.openCustomSnackbar(
-        validation.errors[0],
-        'error',
-        'error'
-      );
-      this.revealMissingRequired(validation.missing);
-      return;
-    }
-
-    this.saveInFlight = true;
-    this.isSavingDraft = true;
-    this.saveStatusMessage = this.t('common.actions.saving');
-    this.saveStatusType = 'info';
-    this.cdr.detectChanges();
-    try {
-      // The address is asked of the server when it changed since it was last
-      // found free (4.6).
-      if (this.addressNeedsCheck() && !(await this.addressIsFree(() => this.saveAsDraft(undefined, overwrite)))) return;
-
-      const formValues: any = this.buildDraftFormValues();
-      if (this.contentId) {
-        await this.updateContentInDraft(formValues, undefined, afterSave, overwrite);
-      } else {
-        await this.addContentInDraft(formValues, false, afterSave);
-      }
-    } finally {
-      // Never left disabled, whatever happened (4.4).
-      this.saveInFlight = false;
-      this.isSavingDraft = false;
-      this.rescheduleIfEdited();
-      this.cdr.detectChanges();
-    }
+  /** Save: the whole entry, every language (in the session, VE-D15). */
+  public saveAsDraft(afterSave?: () => void, overwrite = false): Promise<void> {
+    return this.session.saveAsDraft(afterSave, overwrite);
   }
 
-  /**
-   * Waits for a new entry's first write, if one is under way. True when the
-   * caller should stop: the write failed, and its "Not saved" line already
-   * says so with Retry.
-   */
-  private async firstWriteDone(): Promise<boolean> {
-    if (!this.createPromise) return false;
-    await this.createPromise;
-    return !this.contentId;
-  }
-
-  /** Edits made while Save or Publish ran are saved by the next auto-save (RF4 review M3). */
-  private rescheduleIfEdited(): void {
-    if (!this.contentId || this.saveFailed() || this.entryChanged() || this.entryGone()) return;
-    if (this.hasUnsavedDraftChanges() || this.dirtyTranslations.size > 0 || this.translationDirty()) {
-      this.autoSaveTrigger$.next();
-    }
-  }
-
-  public async directPublishContent(overwrite = false): Promise<void> {
-    if (this.saveInFlight || this.entryGone()) return;
-    if (await this.firstWriteDone()) return;
-    // Publishing acts on the whole item — the default language and every
-    // translation go live together, from whichever tab is on screen.
-    this.collectCurrentLanguageEdits();
-
-    if (!this.isTranslating()) {
-      this.publishForm.get('title')?.setValue(this.pageTitle);
-    }
-    this.publishForm.get('coverImage')?.setValue(this.coverImage || null);
-
-    // Validate for publish: all mandatory fields required
-    const validation = this.validateForPublish();
-    if (!validation.valid) {
-      // Show first error - user can fix and try again
-      this.toastService.openCustomSnackbar(
-        validation.errors[0],
-        'error',
-        'error'
-      );
-      this.revealMissingRequired(validation.missing);
-      return;
-    }
-
-    // Outline text still to replace, as the standard pages start with (SS6):
-    // ask before it goes live. A warning, not a block.
-    if (hasReplacePrompt(this.buildDraftFormValues()) && !(await this.askConfirm({
-      titleKey: 'admin.contents.editor.replace_prompt_title',
-      message: this.t('admin.contents.editor.replace_prompt_confirm'),
-      button: this.t('admin.contents.editor.publish_anyway'),
-    }))) {
-      return;
-    }
-
-    this.saveInFlight = true;
-    this.isSavingDraft = true;
-    this.saveStatusMessage = this.t('admin.contents.editor.publishing');
-    this.saveStatusType = 'info';
-    this.cdr.detectChanges();
-    try {
-      if (this.addressNeedsCheck() && !(await this.addressIsFree(() => this.directPublishContent(overwrite)))) return;
-
-      // Preserve publishedOn from existing content; only set on first publish.
-      const existingPublishedOn = this.contentId
-        ? this.draftContentStore.currentItem()?.publishedOn
-        : null;
-
-      const formValues: any = {
-        ...this.buildDraftFormValues(),
-        status: this.constantVariables.PUBLISH,
-        publishedOn: existingPublishedOn || new Date(),
-        publishedStatus: true,
-        // Whether the live page's old address sends visitors to the new one
-        // (4.6). The publish function acts on it only when the address changed.
-        redirectOldAddress: this.redirectOldAddress(),
-      };
-
-      if (this.contentId) {
-        await this.updateContentInDraft(formValues, this.constantVariables.PUBLISH, undefined, overwrite);
-      } else {
-        await this.addContentInDraft(formValues, true);
-      }
-    } finally {
-      this.saveInFlight = false;
-      this.isSavingDraft = false;
-      this.rescheduleIfEdited();
-      this.cdr.detectChanges();
-    }
-  }
-
-  /**
-   * Whether the entry's address may be saved: asked of the server when it
-   * changed since it was last found free, for a stored entry too (4.6). A
-   * taken address stops the save with a message; a check that could not be
-   * made stops it as not saved, with `retry` behind Retry.
-   */
-  private async addressIsFree(retry: () => void): Promise<boolean> {
-    const urlSlug = this.publishForm.get('urlSlug')?.value || '';
-    if (!this.addressNeedsCheck()) return true;
-    let taken: boolean;
-    try {
-      taken = await this.draftContentStore.isSlugTaken(urlSlug, this.contentTypeSlug, this.contentId || undefined);
-    } catch (error) {
-      console.error('Error checking the address:', error);
-      this.notify.error('admin.contents.editor.slug_check_failed');
-      this.writeFailed(error, retry);
-      return false;
-    }
-    if (taken) {
-      this.saveStatusMessage = '';
-      this.errorSlug = true;
-      this.notify.error('admin.contents.editor.slug_exists', { slug: urlSlug });
-      this.cdr.detectChanges();
-      return false;
-    }
-    this.errorSlug = false;
-    this.confirmedSlug = urlSlug;
-    return true;
-  }
-
-  /** The address changed since it was last found free, so the server is asked again. */
-  private addressNeedsCheck(): boolean {
-    const urlSlug = this.publishForm.get('urlSlug')?.value || '';
-    return !!urlSlug && urlSlug !== this.confirmedSlug;
-  }
-
-  /** The values a write of the base document adds: the new mark another save compares with (4.5). */
-  private stamped<T extends Record<string, any>>(values: T): T & { modifiedAt: Date } {
-    return { ...values, modifiedAt: new Date() };
-  }
-
-  /**
-   * Writes a stored entry. Unless `overwrite`, the stored entry must still
-   * be the one the editor opened (4.5). The new mark is kept for the next save.
-   */
-  private writeDraft(id: string, written: any, overwrite: boolean): Promise<void> {
-    // One write at a time: Save pressed while an auto-save is landing must
-    // compare with the mark that auto-save leaves, or it would take the
-    // editor's own write for someone else's.
-    const run = async () => {
-      await firstValueFrom(this.draftContentStore.saveDraft(
-        id, written, this.contentTypeSlug, overwrite ? null : this.openedModifiedAt,
-      ), { defaultValue: undefined });
-      this.openedModifiedAt = written.modifiedAt;
-    };
-    const next = this.writeQueue.then(run, run);
-    this.writeQueue = next.catch(() => undefined);
-    return next;
-  }
-
-  /** The write under way, which the next one waits for. */
-  private writeQueue: Promise<unknown> = Promise.resolve();
-
-  /**
-   * A write that did not land. Someone else's save shows Reload theirs and
-   * Keep mine (4.5); anything else shows "Not saved" with Retry, which stays
-   * until a write works (4.4). `run` is the write again, `run(true)` over
-   * theirs.
-   */
-  private writeFailed(error: unknown, retry: () => void, overwrite?: () => void): void {
-    this.saveStatusMessage = '';
-    if (isEntryGone(error)) {
-      // Deleted by someone else: no Retry would ever work (RF4 review L3).
-      this.entryGone.set(true);
-      this.saveFailed.set(false);
-      this.retryAction = null;
-    } else if (isEntryChanged(error) && overwrite) {
-      this.overwriteAction = overwrite;
-      this.entryChanged.set(true);
-    } else {
-      console.error('Error saving content:', error);
-      this.retryAction = retry;
-      this.saveFailed.set(true);
-    }
-    this.cdr.detectChanges();
-  }
-
-  /** A write landed: whatever failed before is behind us. */
-  private writeWorked(): void {
-    this.saveFailed.set(false);
-    this.retryAction = null;
+  /** Publish: the checks, then the whole entry goes live (in the session, VE-D15). */
+  public directPublishContent(overwrite = false): Promise<void> {
+    return this.session.directPublishContent(overwrite);
   }
 
   /** Retry on the "Not saved" line: the write that failed, again. */
   retrySave(): void {
-    const action = this.retryAction;
-    if (!action) return;
-    this.saveFailed.set(false);
-    action();
+    this.session.retrySave();
   }
 
   /** Keep mine: the save that stopped, written over the other admin's (4.5). */
   keepMine(): void {
-    const action = this.overwriteAction;
-    this.overwriteAction = null;
-    this.entryChanged.set(false);
-    action?.();
+    this.session.keepMine();
   }
 
-  /**
-   * Reload theirs: the stored entry replaces what is in the editor, every
-   * language included (4.5).
-   */
-  async reloadTheirs(): Promise<void> {
-    this.overwriteAction = null;
-    this.entryChanged.set(false);
-    this.writeWorked();
-    if (this.isTranslating()) await this.switchLanguage(this.defaultLang());
-    this.baseStash = null;
-    this.translationEdits.clear();
-    this.loadedTranslations.clear();
-    this.dirtyTranslations.clear();
-    this.translationDirty.set(false);
-    this.storedEcho = null;
-    this.loadContentById(this.contentId);
-    void this.refreshTranslatedLanguages();
-  }
-
-  /**
-   * Writes a new entry: on its first title or body input (4.1), or from Save
-   * or Publish. The address bar then shows the entry's own address, without
-   * leaving the page, so a reload opens it.
-   */
-  private async addContentInDraft(formValues: any, isPublish: boolean = false, afterSave?: () => void, fromInput = false): Promise<void> {
-    let finish!: () => void;
-    this.createPromise = new Promise<void>((resolve) => (finish = resolve));
-    try {
-      await this.createEntry(formValues, isPublish, afterSave, fromInput);
-    } finally {
-      this.createPromise = null;
-      finish();
-    }
-  }
-
-  private async createEntry(formValues: any, isPublish: boolean, afterSave: (() => void) | undefined, fromInput: boolean): Promise<void> {
-    const savedSignature = this.draftSignature(formValues);
-    const stamp = new Date();
-    // One id for this entry, kept for a retry: a write that landed but was
-    // reported failed is written again, not made twice (RF4 review H1, L1).
-    this.newEntryId ??= this.draftContentStore.newDraftId(this.contentTypeSlug);
-    // The list's Status filter is a server query, which skips a record without the field.
-    const data = { publishedStatus: false, ...formValues, createdAt: stamp, modifiedAt: stamp };
-    this.creating.set(true);
-    this.cdr.detectChanges();
-    let newId: string;
-    try {
-      newId = await firstValueFrom(this.draftContentStore.createDraft(data, this.contentTypeSlug, this.newEntryId));
-    } catch (error) {
-      this.creating.set(false);
-      // A retry never reruns a Preview's window.open (RF4 review L6).
-      this.writeFailed(error, () => void (fromInput
-        ? this.createOnFirstInput()
-        : isPublish ? this.directPublishContent() : this.saveAsDraft()));
-      return;
-    }
-    this.creating.set(false);
-    this.writeWorked();
-
-    // Not through the contentId input: that reloads the stored entry into the
-    // forms and would drop anything typed while this write ran. The store
-    // holds it as loaded, for a later publish and the reference sync (RF4 review M4).
-    this._contentId = newId;
-    this.draftContentStore.adoptCreated({ ...data, id: newId });
-    this.storedEcho = untracked(() => this.draftContentStore.currentItem());
-    this.openedModifiedAt = stamp;
-    this.lastDraftSavedDate = new Date();
-    // See updateContentInDraft: what was written is the clean state.
-    this.savedDraftSignature = savedSignature;
-    this.showEntryAddress(newId);
-
-    // Before any await: see updateContentInDraft (window.open).
-    if (afterSave) {
-      afterSave();
-    }
-
-    // Translations belong to the same save. Written before the publish
-    // is enqueued so the pipeline copies what was just saved.
-    await this.persistPendingTranslations(newId);
-
-    // Only now does the entry have an id for the others to point at.
-    await this.syncSeriesBacklinks(newId, formValues);
-
-    if (isPublish) {
-      await this.enqueuePublish(newId);
-    } else {
-      this.showSaved();
-    }
-
-    // Typed while the first write ran: saved by the next one.
-    if (this.hasUnsavedDraftChanges()) this.autoSaveTrigger$.next();
-    this.cdr.detectChanges();
+  /** Reload theirs: the stored entry replaces what is in the editor, every language included (4.5). */
+  reloadTheirs(): Promise<void> {
+    return this.session.reloadTheirs();
   }
 
   /** The editor of a new entry moves to the entry's address once it is written. */
@@ -2950,255 +2154,25 @@ export class CreateContentComponent extends BaseComponent {
     else this.globalService.goBack();
   }
 
-  /** "Saved", for a few seconds. */
-  private showSaved(): void {
-    this.saveStatusMessage = this.t('admin.contents.editor.saved');
-    this.saveStatusType = 'success';
-    this.cdr.detectChanges();
-    setTimeout(() => {
-      if (this.saveStatusType === 'success') {
-        this.saveStatusMessage = '';
-        this.cdr.detectChanges();
-      }
-    }, 3000);
+  /** Something changed on screen: the preview follows, and the entry saves itself after a pause. */
+  public triggerAutoSave(): void {
+    this.session.triggerAutoSave();
   }
 
-  private async updateContentInDraft(formValues: any, type?: string, afterSave?: () => void, overwrite = false): Promise<void> {
-    // Update updatedAt timestamp
-    formValues.updatedAt = new Date();
-
-    const savedSignature = this.draftSignature(formValues);
-    // The reference sync compares with what was stored before this write.
-    const id = this.contentId;
-    const before = untracked(() => this.draftContentStore.currentItem());
-    const isPublish = type === this.constantVariables.PUBLISH;
-
-    // Series links the editor did not change are left as they are stored.
-    const written = this.stamped(this.withChangedSeriesLinks(formValues));
-
-    try {
-      await this.writeDraft(id, written, overwrite);
-    } catch (error) {
-      // A retry never reruns a Preview's window.open (RF4 review L6).
-      const again = (force: boolean) => isPublish ? this.directPublishContent(force) : this.saveAsDraft(undefined, force);
-      this.writeFailed(error, () => again(false), () => again(true));
-      return;
-    }
-    this.writeWorked();
-
-    this.refreshStoredItem(id, written);
-    this.lastDraftSavedDate = new Date();
-    // What we just wrote is now the clean state. Without this a pending
-    // auto-save debounce fires later and rewrites the document,
-    // bumping modifiedAt past lastPublishedAt and making a just-published
-    // item report as "Edited" with nobody having touched it.
-    this.savedDraftSignature = savedSignature;
-
-    // Run the caller's continuation before any await. It is used by the
-    // preview action, which calls window.open: deferring that past a
-    // microtask loses the user-gesture context and browsers block it.
-    if (afterSave) {
-      afterSave();
-    }
-
-    // Translations belong to the same save. Written before the publish is
-    // enqueued so the pipeline copies what was just saved.
-    await this.persistPendingTranslations(id);
-
-    if (isPublish) {
-      await this.enqueuePublish(id);
-    } else {
-      this.showSaved();
-    }
-
-    // Trigger cascading updates for content that references this one. The
-    // series links are transactions, which fail at once offline. The other
-    // two write in batches, which wait for a connection: they run after Save
-    // and Publish are free again, not before (RF4 review M6).
-    await this.syncSeriesBacklinks(id, written);
-    void this.updateReferencingContents(formValues, id)
-      .then(() => this.triggerCollectionRefSync(formValues, before, id));
-    this.cdr.detectChanges();
+  /** A quiet save, a few seconds after the last edit (in the session). */
+  private performAutoSave(overwrite = false): Promise<void> {
+    return this.session.performAutoSave(overwrite);
   }
 
-  /**
-   * Hands the entry to the publish function and shows "Publishing" until its
-   * page is live (4.3). Waits for the queue write: a publish that could not
-   * start says so, and the line stays.
-   */
-  private async enqueuePublish(id: string): Promise<void> {
-    this.saveStatusMessage = '';
-    this.publishProblem.set('');
-    this.deployError.set('');
-    this.deployStatus.set('pending');
-    this.cdr.detectChanges();
-    try {
-      await this.publishQueueService.enqueue('publish', this.contentTypeSlug, id);
-    } catch (error) {
-      console.error('Error starting the publish:', error);
-      this.deployStatus.set('failed');
-      this.publishProblem.set('start');
-      this.cdr.detectChanges();
-      return;
-    }
-    // Published: the address is the live one now, and no longer follows the title.
-    this.slugFollowsTitle = false;
-    this.publishedSlug.set(this.publishForm.get('urlSlug')?.value || '');
-    this.redirectOldAddress.set(true);
-    this.lastPublishedDate = new Date();
-    this.startDeployStatusPolling(id);
-  }
-
-  /**
-   * Build draft form values without side effects. Used by both manual save and auto-save.
-   */
-  private buildDraftFormValues(): any {
-    // The base document always holds the default language, even when a
-    // translation tab is on screen — see baseLanguageValues.
-    const base = this.baseLanguageValues();
-
-    if (!this.isTranslating()) {
-      this.publishForm.get('title')?.setValue(this.pageTitle);
-    }
-    this.publishForm.get('coverImage')?.setValue(this.coverImage || null);
-
-    const contentType =
-      this.contentTypeSlug || this.publishForm.get('type')?.value || '';
-
-    return {
-      ...this.publishForm.value,
-      ...this.seoForm.value,
-      updatedOn: fromDateInputValue(this.seoForm.get('updatedOn')?.value),
-      authorId: this.publishForm.get('authorId')?.value || null,
-      authorName: this.authorNameFor(this.publishForm.get('authorId')?.value),
-      references: cleanReferences(this.references()),
-      type: contentType,
-      status: this.constantVariables.DRAFT,
-      updatedAt: new Date(),
-      nextContent: this.selectedNextContent,
-      previousContent: this.selectedPreviousContent,
-      tagsWithColors: this.selectedTags().map(t => ({ name: t.label, color: t.color })),
-      // Language-varying fields come from the default language, never from the
-      // form when a translation is being edited.
-      title: base.title,
-      content: base.content,
-      summary: base.summary,
-      seoTitle: base.seoTitle,
-      metaDescription: base.metaDescription,
-      customFields: base.customFields,
-    };
-  }
-
-  /**
-   * Perform an auto-save of the current draft content.
-   * A quiet save: no navigation, no publish, little on screen. It never
-   * writes over someone else's save: it stops and asks (4.5).
-   */
-  private async performAutoSave(overwrite = false): Promise<void> {
-    if (!this.contentId || this.isSavingDraft || this.isAutoSaving || this.creating() || this.entryGone()) return;
-    if (this.entryChanged() && !overwrite) return;
-
-    // Fold whatever language is on screen into its stash first. The base
-    // document is then written from the default-language values regardless of
-    // which tab is active — without this, a debounce armed on the default tab
-    // and fired after a language switch would overwrite the default-language
-    // content with the translation.
-    this.collectCurrentLanguageEdits();
-
-    // Re-checked here too: performAutoSave is also reachable directly.
-    if (!this.hasUnsavedDraftChanges() && this.dirtyTranslations.size === 0) return;
-
-    const formValues = this.buildDraftFormValues();
-    const savedSignature = this.draftSignature(formValues);
-    // Quiet: every few seconds a toast would only distract. "Auto-saved"
-    // shows beside the status once it lands.
-    this.isAutoSaving = true;
-
-    const id = this.contentId;
-    // Series links the editor did not change are left as they are stored.
-    const written = this.stamped(this.withChangedSeriesLinks(formValues));
-    try {
-      await this.writeDraft(id, written, overwrite);
-    } catch (error) {
-      this.isAutoSaving = false;
-      this.writeFailed(error, () => void this.performAutoSave(), () => void this.performAutoSave(true));
-      return;
-    }
-    this.isAutoSaving = false;
-    this.writeWorked();
-    this.refreshStoredItem(id, written);
-    this.lastDraftSavedDate = new Date();
-    this.justAutoSaved.set(true);
-    // What was written, not what is on screen now: an edit made while this
-    // write ran is still to save.
-    this.savedDraftSignature = savedSignature;
-    void this.persistPendingTranslations(id);
-    // Picking Next or Previous auto-saves, so the links follow here too.
-    void this.syncSeriesBacklinks(id, written)
-      .then(() => this.updateReferencingContents(formValues, id));
-    if (this.hasUnsavedDraftChanges()) this.autoSaveTrigger$.next();
-    this.cdr.detectChanges();
-
-    setTimeout(() => {
-      this.justAutoSaved.set(false);
-      this.cdr.detectChanges();
-    }, 3000);
-  }
+  /** The auto-save debounce's input (in the session). */
+  private get autoSaveTrigger$() { return this.session.autoSaveTrigger$; }
 
   /** "Auto-saved" beside the status, for a few seconds after an auto-save. */
-  justAutoSaved = signal(false);
+  get justAutoSaved() { return this.session.justAutoSaved; }
 
-  /**
-   * Trigger the auto-save debounce timer.
-   * Call this from any content change event (editor, form fields, tags, etc.)
-   */
-  public triggerAutoSave(): void {
-    // Every change shows in the live preview, saved or not (VE1.5).
-    this.schedulePreview();
-    // While a translation is on screen the change belongs to that language;
-    // auto-save then persists the base document *and* the pending translations
-    // together, exactly like the Save button.
-    if (this.isTranslating()) {
-      this.markTranslationDirty();
-    }
-    // A new entry is written on its first title or body input, so from then
-    // on it saves itself like any other (4.1).
-    if (!this.contentId) {
-      void this.createOnFirstInput();
-      return;
-    }
-    this.autoSaveTrigger$.next();
-  }
-
-  /** Whether a new entry has a title or a body worth keeping. */
-  private hasTypedSomething(): boolean {
-    const base = this.baseLanguageValues();
-    return !!(base.title || '').trim() || !!bodyExcerpt(base.content || '').trim();
-  }
-
-  /** Writes a new entry once it has a title or body (4.1). */
-  private async createOnFirstInput(): Promise<void> {
-    if (this.contentId || this.creating() || this.createPromise || this.saveInFlight || this.offline()) return;
-    if (!this.contentTypeSlug || !this.hasTypedSomething()) return;
-    this.collectCurrentLanguageEdits();
-    await this.addContentInDraft(this.buildDraftFormValues(), false, undefined, true);
-  }
-
-  /**
-   * Something on screen is not stored yet: an edit the auto-save has not
-   * written, a write under way or one that failed. The leave guard and the
-   * browser's own question on closing the tab ask before it is lost (4.2).
-   */
+  /** Something on screen is not stored yet (4.2): the leave guard asks. */
   hasUnsavedChanges(): boolean {
-    if (this.isSavingDraft || this.isAutoSaving || this.creating()) return true;
-    if (this.saveFailed() || this.entryChanged() || this.entryGone()) return true;
-    if (!this.publishForm) return false;
-    // Every language, not only the default one (RF4 review L11).
-    if (this.translationDirty() || this.dirtyTranslations.size > 0) return true;
-    if (!this.contentId) return this.hasTypedSomething();
-    // Not loaded yet: nothing on screen to lose.
-    if (this.savedDraftSignature === null) return false;
-    return this.hasUnsavedDraftChanges();
+    return this.session.hasUnsavedChanges();
   }
 
   /** Closing or reloading the tab with unsaved work: the browser's own question. */
@@ -3211,29 +2185,15 @@ export class CreateContentComponent extends BaseComponent {
 
   @HostListener('window:offline')
   onOffline(): void {
-    this.offline.set(true);
-    this.cdr.detectChanges();
+    this.session.goneOffline();
   }
 
   /** Back online: a write that failed is tried again at once. */
   @HostListener('window:online')
   onOnline(): void {
-    this.offline.set(false);
-    if (this.saveFailed()) this.retrySave();
-    else if (!this.contentId) void this.createOnFirstInput();
-    this.cdr.detectChanges();
+    this.session.backOnline();
   }
 
-  /** Reads the live page's address, for the redirect offer when the address changes (4.6). */
-  private async loadPublishedSlug(contentData: any): Promise<void> {
-    if (!contentData?.publishedStatus || !contentData?.id || !this.contentTypeSlug) {
-      this.publishedSlug.set('');
-      return;
-    }
-    const slug = await this.draftContentStore.publishedSlug(this.contentTypeSlug, contentData.id);
-    this.publishedSlug.set(slug);
-    this.cdr.detectChanges();
-  }
 
   /** The address changed since the page went live: the redirect box shows (4.6). */
   addressMoved(): boolean {
@@ -3242,301 +2202,42 @@ export class CreateContentComponent extends BaseComponent {
     return !!live && !!now && live !== now;
   }
 
-  /**
-   * Arc CMS's own question dialog, never the browser's (4.10): true when the
-   * admin pressed the confirm button.
-   */
-  private async askConfirm(options: { titleKey: TranslationKey; message: string; button: string; warn?: boolean }): Promise<boolean> {
-    const ref = this.dialog.open(ConfirmationPopupComponent, {
-      width: '380px',
-      maxWidth: '92vw',
-      data: {
-        titleKey: options.titleKey,
-        dialogMessage: escapeHtml(options.message),
-        btnText: options.button,
-        panelType: options.warn ? 'warn' : 'primary',
-      },
-    });
-    return (await firstValueFrom(ref.afterClosed(), { defaultValue: undefined })) === true;
+  /** Arc CMS's own question dialog, never the browser's (4.10). */
+  private askConfirm(options: { titleKey: TranslationKey; message: string; button: string; warn?: boolean }): Promise<boolean> {
+    return this.session.askConfirm(options);
   }
 
-  /**
-   * Start polling the published document for deployment status after a publish action.
-   * Shows "Publishing" until the page is live, and a failure that stays (4.3).
-   */
-  private startDeployStatusPolling(docId: string): void {
-    // Clean up any existing subscription
-    this.deployStatusSubscription?.unsubscribe();
-
-    this.deployStatus.set('pending');
-    this.deployError.set('');
-    this.publishProblem.set('');
-
-    this.deployStatusSubscription = this.contentsService
-      .pollDeployStatus(docId, this.contentTypeSlug)
-      .subscribe({
-        next: (status) => {
-          this.ngZone.run(() => {
-            // No answer within the wait: a failure, said so, that stays.
-            if (status.deployErrorCode === 'TIMEOUT') {
-              this.deployStatus.set('failed');
-              this.publishProblem.set('no_answer');
-              this.deployError.set(status.deployError || '');
-              console.error('Publishing gave no answer:', status.deployError);
-              this.cdr.detectChanges();
-              return;
-            }
-            // Not finished yet (the page is still being built): still publishing.
-            if (!status.deployStatus) return;
-            this.deployStatus.set(status.deployStatus);
-            this.deployError.set(status.deployError || '');
-
-            if (status.deployStatus === 'deployed') {
-              this.notify.success('admin.contents.editor.deployed_success');
-            } else if (status.deployStatus === 'skipped') {
-              this.notify.info('admin.contents.editor.deploy_skipped_info');
-            } else if (status.deployStatus === 'failed') {
-              // A plain sentence for the admin; the technical detail stays in the console (RF5 5.2).
-              console.error('Publishing failed:', status.deployErrorCode, status.deployError);
-              this.publishProblem.set(status.deployErrorCode === 'TEMPLATE_FOLDER_MISSING' ? 'template' : 'build');
-              this.notify.error('admin.contents.editor.publish_failed_toast');
-            }
-
-            this.cdr.detectChanges();
-          });
-        },
-        error: (err) => {
-          console.error('Deploy status polling error:', err);
-          this.deployStatus.set('failed');
-          this.publishProblem.set('no_answer');
-          this.cdr.detectChanges();
-        },
-      });
-  }
-
-  /**
-   * Publish again after a failure: the draft is already stored, so only the
-   * publish is asked for once more. Not while a save, a publish or another
-   * Publish again is under way (RF4 review L5).
-   */
+  /** Publish again after a failure (RF4 review L5). */
   public async retryDeployment(): Promise<void> {
-    if (!this.contentId || !this.contentTypeSlug) return;
-    if (this.saveInFlight || this.republishing || this.deployStatus() === 'pending') return;
-    this.republishing = true;
-    try {
-      await this.enqueuePublish(this.contentId);
-    } finally {
-      this.republishing = false;
-    }
+    return this.session.retryDeployment();
   }
 
-  /**
-   * Trigger sync for collection references
-   */
-  private async triggerCollectionRefSync(formValues: any, originalData: any, id: string = this.contentId): Promise<void> {
-    const contentType = this.contentTypeSlug || formValues.type;
-    if (!contentType) return;
-
-    try {
-        await this.collectionRefSyncService.syncReferencedData(
-            contentType,
-            id,
-            formValues,
-            originalData // what was stored before this save, for optimization
-        );
-    } catch (error) {
-        console.error('Error syncing collection references:', error);
-        // Non-blocking
-    }
-  }
-
-  /**
-   * Refresh the copy of this entry kept by entries whose Next or Previous
-   * points at it, after its title, summary (metaDescription) or slug changed.
-   * Entries whose copy already matches are not touched.
-   */
-  private async updateReferencingContents(formValues: any, id: string = this.contentId): Promise<void> {
-    if (!id) return;
-    const { title, summary, slug } = seriesReference(id, {
-      ...formValues,
-      title: formValues.title || this.pageTitle || '',
-    });
-    try {
-      await this.draftContentStore.updateNextContentReferences(id, { title, summary, slug }, this.contentTypeSlug);
-      await this.draftContentStore.updatePreviousContentReferences(id, { title, summary, slug }, this.contentTypeSlug);
-    } catch (error) {
-      console.error('Error updating referencing contents:', error);
-      // Don't block the save operation on cascading update failure
-    }
-  }
-
-  /**
-   * The values a save of a stored entry writes: a series link still pointing
-   * where it pointed when the editor last loaded or saved it is left out, so
-   * the stored one stands. Another editor's save may have set it in the
-   * meantime (picking this entry as its Next sets this entry's Previous), or
-   * removed it; writing the editor's older copy would undo that.
-   */
-  private withChangedSeriesLinks(values: any): any {
-    const stored = this.storedSeriesLinks;
-    if (!stored) return values;
-    const written = { ...values };
-    for (const field of SERIES_FIELDS) {
-      if (linkedId(written[field]) === linkedId(stored[field])) delete written[field];
-    }
-    return written;
-  }
-
-  /**
-   * Keep the other side of this entry's series links in step after a save:
-   * the entry picked as Next gets this one as its Previous, the entry picked
-   * as Previous gets this one as its Next, and an entry no longer picked loses
-   * the link back. Only once the entry has a real id, only for a link the save
-   * changed, and never over a link an editor pointed at another entry
-   * (series-links.ts). A link whose backlink could not be written is kept
-   * as not yet saved, so the next save asks for that backlink again.
-   */
-  private async syncSeriesBacklinks(id: string, written: any): Promise<void> {
-    const contentType = this.contentTypeSlug || written?.type;
-    if (!id || !contentType) return;
-    // Compared with the links as last loaded or saved (none for a new entry),
-    // then those become the saved ones for the next save. A link the save
-    // left out (see withChangedSeriesLinks) keeps its stored value.
-    const before = this.storedSeriesLinks;
-    const after: SeriesLinks = {};
-    for (const field of SERIES_FIELDS) {
-      after[field] = field in written ? written[field] ?? null : before?.[field] ?? null;
-    }
-    this.storedSeriesLinks = after;
-    const changes = planBacklinks(id, before, after);
-    if (changes.length === 0) return;
-    const owner = seriesReference(id, { ...written, title: written.title || this.pageTitle || '' });
-    let failed: BacklinkChange[];
-    try {
-      ({ failed } = await this.draftContentStore.applyBacklinks(contentType, owner, changes));
-    } catch (error) {
-      console.error('Error updating series links:', error);
-      // Non-blocking, like the other reference updates
-      failed = changes;
-    }
-    for (const change of failed) {
-      // The field on this entry whose change asked for the failed backlink.
-      const field: SeriesField = BACKLINK_FIELD[change.field];
-      const stored: SeriesLinks | null = this.storedSeriesLinks;
-      // Unless a later save moved the link on already.
-      if (stored && linkedId(stored[field]) === linkedId(after[field])) {
-        this.storedSeriesLinks = { ...stored, [field]: before?.[field] ?? null };
-      }
-    }
-  }
 
   // ── Live preview (specs/visual-editing-spec.md, VE1.5) ──────────────────
-  /** The channel to the preview window; open once Preview is pressed, or when a saved entry loads. */
-  private previewChannel: PreviewChannel | null = null;
-  /** This editor session's key, fixed for its life (a new entry keeps its key after its first save). */
-  private previewKey = '';
-  /** The saved entry the channel was opened for, '' for a new entry (which keeps its channel once saved). */
-  private previewFor = '';
-  /** The preview window's name: one window per entry (VE-D5). */
-  private previewName = '';
-  private previewTimer: ReturnType<typeof setTimeout> | null = null;
+  // The channel lives in the session (VE-D15); the editor finds the field a
+  // click on the preview asked for.
+
   /** How long after the last change the draft goes to the preview. */
-  static readonly PREVIEW_DELAY_MS = 150;
+  static readonly PREVIEW_DELAY_MS = EntryDraftSession.PREVIEW_DELAY_MS;
 
-  /**
-   * Opens the preview window, or brings it forward when it is open: one per
-   * entry. It shows the draft as it is on screen, so nothing is saved first,
-   * and works for an entry not saved yet.
-   */
+  /** This editor session's key, fixed for its life. */
+  private get previewKey(): string {
+    return this.session.previewKey;
+  }
+
+  /** Opens the preview window, or brings it forward when it is open: one per entry. */
   public openPreview(): void {
-    const type = this.contentTypeSlug || this.publishForm.get('type')?.value || '';
-    if (!type || typeof window === 'undefined') return;
-    this.connectPreview(true);
-    this.previewName ||= previewWindowName(type, this.contentId);
-    const url = previewUrl(type, this.contentId, this.previewKey);
-    // Opened by name with no address first, so a window already showing this entry
-    // is brought forward rather than reloaded.
-    const win = window.open('', this.previewName);
-    if (!win) {
-      this.notify.error('admin.contents.editor.preview_blocked');
-      return;
-    }
-    let fresh = true;
-    try {
-      fresh = win.location.href === 'about:blank';
-    } catch {
-      fresh = true;
-    }
-    if (fresh) win.location.href = url;
-    win.focus();
-    this.sendPreviewState();
+    this.session.openPreview();
   }
 
-  /**
-   * Opens the channel. A saved entry's key is its type and id, so an editor opened
-   * again finds a preview window left open; a new entry's channel opens with Preview.
-   */
-  private connectPreview(force = false): void {
-    // The editor moved to another saved entry: that entry gets a channel and a window of its own.
-    if (this.previewChannel && this.previewFor && this.contentId && this.previewFor !== this.contentId) {
-      this.previewLeaving();
-      this.previewChannel.close();
-      this.previewChannel = null;
-      this.previewName = '';
-    }
-    if (this.previewChannel || typeof window === 'undefined') return;
-    const type = this.contentTypeSlug || this.publishForm?.get('type')?.value || '';
-    if (!type || (!force && !this.contentId)) return;
-    this.previewKey = previewSessionKey(type, this.contentId);
-    this.previewFor = this.contentId;
-    this.previewChannel = new PreviewChannel(this.previewKey, (message) => this.onPreviewMessage(message));
-    window.addEventListener('pagehide', this.previewLeaving);
-    this.schedulePreview();
-  }
-
-  private previewLeaving = (): void => this.previewChannel?.post({ kind: 'bye', from: 'editor' });
-
-  /** Sends the draft about 150 ms after the last change. */
-  private schedulePreview(): void {
-    if (!this.previewChannel) return;
-    if (this.previewTimer) clearTimeout(this.previewTimer);
-    this.previewTimer = setTimeout(() => {
-      this.previewTimer = null;
-      this.sendPreviewState();
-    }, CreateContentComponent.PREVIEW_DELAY_MS);
-  }
-
-  /**
-   * The draft exactly as a save would write it (VE-D2), with the language on
-   * screen and, for a translation, its unsaved values.
-   */
-  previewState(): { draft: Record<string, any>; lang: string; translation: IContentTranslation | null } {
-    const stored: any = untracked(() => this.draftContentStore.currentItem());
-    const ownStored = stored && stored.id === this.contentId ? stored : null;
-    const draft = {
-      ...this.buildDraftFormValues(),
-      id: this.contentId || '',
-      createdAt: ownStored?.createdAt ?? null,
-      publishedOn: ownStored?.publishedOn ?? null,
-    };
-    let translation: IContentTranslation | null = null;
-    const lang = this.isTranslating() ? this.activeLang() : '';
-    if (lang) {
-      const values = this.captureTranslatableValues();
-      translation = { lang, ...values, customFields: this.translatableCustomFields(values.customFields) } as IContentTranslation;
-    }
-    // Plain data only: dates as text, Firestore timestamps as their seconds.
-    return JSON.parse(JSON.stringify({ draft, lang, translation }));
-  }
-
-  private sendPreviewState(): void {
-    if (!this.previewChannel || !this.publishForm || !this.seoForm) return;
-    this.previewChannel.post({ kind: 'state', ...this.previewState() });
-  }
-
+  /** A message from the preview window (in the session). */
   private onPreviewMessage(message: PreviewMessage): void {
-    if (message.kind === 'hello') this.sendPreviewState();
-    else if (message.kind === 'focus') this.focusField(message.key, message.row);
+    this.session.onPreviewMessage(message);
+  }
+
+  /** The draft exactly as a save would write it (VE-D2), with the language on screen. */
+  previewState(): { draft: Record<string, any>; lang: string; translation: IContentTranslation | null } {
+    return this.session.previewState();
   }
 
   /** Built-in fields by the element that edits them, and their tab. */
@@ -3606,20 +2307,13 @@ export class CreateContentComponent extends BaseComponent {
   /** Focusing a field outlines where it is on the preview (VE-D8). */
   @HostListener('focusin', ['$event'])
   onFieldFocus(event: FocusEvent): void {
-    if (!this.previewChannel) return;
-    const key = CreateContentComponent.fieldOfElement(event.target as Element | null);
-    if (key && key !== this.lastHighlighted) {
-      this.lastHighlighted = key;
-      this.previewChannel.post({ kind: 'highlight', key });
-    }
+    if (!this.session.previewOpen()) return;
+    this.session.highlight(CreateContentComponent.fieldOfElement(event.target as Element | null));
   }
-
-  /** The field last outlined, so moving within one field does not outline it again. */
-  private lastHighlighted = '';
 
   @HostListener('focusout')
   onFieldBlur(): void {
-    this.lastHighlighted = '';
+    this.session.unhighlight();
   }
 
   isEmpty(obj: any): boolean {
@@ -3841,12 +2535,7 @@ export class CreateContentComponent extends BaseComponent {
 
   ngOnDestroy(): void {
     // The preview keeps the last draft and says the editor closed (VE-D6).
-    if (this.previewTimer) clearTimeout(this.previewTimer);
-    this.previewLeaving();
-    this.previewChannel?.close();
-    if (typeof window !== 'undefined') window.removeEventListener('pagehide', this.previewLeaving);
-    this.deployStatusSubscription?.unsubscribe();
-    this.autoSaveSubscription?.unsubscribe();
+    this.session.close();
     this.navigationSubscription?.unsubscribe();
     if (this.slugTimer) clearTimeout(this.slugTimer);
   }
