@@ -5,7 +5,7 @@
  * and no redraw under the cursor.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { hintKind, InPlaceEditing, InPlaceHost, plainText, spotInfo, textAt } from './in-place';
+import { hintKind, InPlaceEditing, InPlaceHost, pictureAt, plainText, spotInfo, textAt } from './in-place';
 import { ContentType } from '../contents/content-types/content-types.model';
 
 const TYPE = {
@@ -246,6 +246,25 @@ describe('InPlaceEditing', () => {
         expect(textAt(doc, box, { x: 1, y: 1 })).toBeNull();
         at(q('[data-arc-field="title"]').firstChild!, 1); // outside the spot
         expect(textAt(doc, box, { x: 1, y: 1 })).toBeNull();
+    });
+
+    it('tells the editor which picture was clicked, and lets the screen close its box on Escape first', () => {
+        const body = q('[data-arc-field="content"]');
+        body.insertAdjacentHTML('beforeend', '<img src="/a.jpg"><img id="two" src="/a.jpg">');
+        (doc as Document & { elementFromPoint: unknown }).elementFromPoint = () => q('#two');
+        expect(pictureAt(doc, body, { x: 1, y: 1 })).toEqual({ src: '/a.jpg', nth: 1 });
+        body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 5, clientY: 6 }));
+        expect(rich.focus).toHaveBeenCalledWith(expect.objectContaining({ image: { src: '/a.jpg', nth: 1 } }));
+        let boxOpen = true;
+        (host as unknown as { escape: () => boolean }).escape = () => {
+            const was = boxOpen;
+            boxOpen = false;
+            return was;
+        };
+        doc.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        expect(editing.current()?.field).toBe('content');
+        doc.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        expect(editing.current()).toBeNull();
     });
 
     describe('empty fields, read-only values and template hints (VE-D17 to VE-D19)', () => {

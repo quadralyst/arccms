@@ -22,7 +22,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { Editor } from '@tiptap/core';
 import { TiptapEditorDirective, TiptapBubbleMenuDirective } from 'ngx-tiptap';
-import { insertImageAndMoveOn } from './service/insert-image';
+import { placeImage, removeImage, selectedImage, setImageAlt } from './service/image-actions';
 import { editorExtensions } from './editor-extensions';
 import { UrlAddDialog } from './service/url-add-dialog/add-url.component';
 import { ARC_BLOCKS, ArcBlockKind, ArcBlockMeta } from './service/arc-block-extension';
@@ -421,13 +421,34 @@ export default class TiptapEditorComponent {
   /**
    * Opens the Media Manager modal for inserting media into the editor
    */
+  // ── A picture in the body: the selection menu's Replace, Remove and Alt text (VE-D16) ──
+  /** The picture the selection is on, for the selection menu. */
+  selectedImage() {
+    return selectedImage(this.editor);
+  }
+
+  /** Replace: the media picker, whose choice takes the selected picture's place. */
+  replaceSelectedImage(): void {
+    this.openMediaManagerModal();
+  }
+
+  removeSelectedImage(): void {
+    const image = selectedImage(this.editor);
+    if (image) removeImage(this.editor, image.pos);
+  }
+
+  setSelectedImageAlt(alt: string): void {
+    const image = selectedImage(this.editor);
+    if (image) setImageAlt(this.editor, image.pos, alt);
+  }
+
   openMediaManagerModal(): void {
     const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, title: this.pickerTitle('admin.media.picker.image_in') }));
 
     dialogRef.afterClosed().subscribe((result: MediaSelection | null) => {
       if (result && result.type === 'submit' && result.mediaUrl) {
-        // Insert the selected image into the editor, with its library alt text (MF-D22).
-        insertImageAndMoveOn(this.editor, result.mediaUrl, result.alt);
+        // Into the editor with its library alt text (MF-D22); with a picture selected, in its place.
+        placeImage(this.editor, result.mediaUrl, result.alt);
       }
     });
   }

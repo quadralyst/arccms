@@ -32,7 +32,7 @@ import { PagePanel } from './page-panel';
 import { HintKind, InPlaceEditing, InPlaceHost, RichAt, RichHandle, Spot, spotInfo } from './in-place';
 import { editorExtensions } from '../../../../shared/components/tiptap-editor/editor-extensions';
 import { ArcEmptyLines } from './empty-lines';
-import { insertImageAndMoveOn } from '../../../../shared/components/tiptap-editor/service/insert-image';
+import { placeImage, removeImage, selectImage, selectedImage, setImageAlt } from '../../../../shared/components/tiptap-editor/service/image-actions';
 import { UrlAddDialog } from '../../../../shared/components/tiptap-editor/service/url-add-dialog/add-url.component';
 import MediaManagerComponent, { MediaSelection } from '../(media)/media.page';
 import { mediaPickerDialogConfig } from '../(media)/media-picker-dialog';
@@ -83,7 +83,7 @@ export function editFrameUrl(type: string, id: string): string {
         <span class="arc-ed-group arc-ed-format" role="toolbar" [attr.aria-label]="'admin.edit_page.formatting' | transloco" data-testid="edit-format">
             @for (b of formatButtons; track b.id) {
             <button type="button" class="arc-ed-btn arc-ed-fmt" [class.arc-ed-on]="formatActive(b.id)" [attr.aria-pressed]="formatActive(b.id)"
-                [title]="b.label | transloco" [attr.aria-label]="b.label | transloco"
+                [title]="buttonLabel(b) | transloco" [attr.aria-label]="buttonLabel(b) | transloco"
                 (mousedown)="$event.preventDefault()" (click)="format(b.id)" [attr.data-format]="b.id">{{ b.text }}</button>
             }
         </span>
@@ -139,6 +139,24 @@ export function editFrameUrl(type: string, id: string): string {
         </div>
         }
         <div class="arc-ed-pop-body" #popBody></div>
+    </div>
+    <!-- A picture selected in the body: the same actions as the form editor's selection menu (VE-D16). -->
+    <div class="arc-ed-pop arc-ed-pic" role="dialog" [hidden]="!pic()" [attr.aria-label]="'admin.edit_page.picture' | transloco"
+        [style.top.px]="pic()?.top" [style.left.px]="pic()?.left" data-testid="edit-picture"
+        (keydown.escape)="closePicture(); $event.stopPropagation()">
+        <div class="arc-ed-pop-head">
+            <span class="arc-ed-pop-title">{{ 'admin.edit_page.picture' | transloco }}</span>
+            <button type="button" class="arc-ed-pop-done" (click)="closePicture()" data-testid="edit-picture-done">{{ 'admin.edit_page.done' | transloco }}</button>
+        </div>
+        <label class="arc-ed-pic-alt">
+            <span>{{ 'admin.edit_page.alt' | transloco }}</span>
+            <input type="text" class="form-control form-control-sm" [value]="pic()?.alt ?? ''" [attr.placeholder]="'admin.edit_page.alt_placeholder' | transloco"
+                (change)="pictureAlt($any($event.target).value)" (keydown.enter)="pictureAlt($any($event.target).value)" data-testid="edit-picture-alt">
+        </label>
+        <div class="arc-ed-pop-actions">
+            <button type="button" class="btn btn-outline-primary btn-sm" (click)="pictureReplace()" data-testid="edit-picture-replace">{{ 'admin.edit_page.replace' | transloco }}</button>
+            <button type="button" class="btn btn-outline-danger btn-sm" (click)="pictureRemove()" data-testid="edit-picture-remove">{{ 'common.actions.remove' | transloco }}</button>
+        </div>
     </div>
     `,
     styles: [`
@@ -205,6 +223,8 @@ export function editFrameUrl(type: string, id: string): string {
         .arc-ed-pop-done { font: 500 13px/1.4 system-ui, sans-serif; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; padding: 2px 10px; cursor: pointer; }
         .arc-ed-pop-actions { display: flex; gap: 8px; }
         .arc-ed-pop-body:empty { display: none; }
+        .arc-ed-pic { width: 340px; }
+        .arc-ed-pic-alt { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px; font: 500 12px/1.4 system-ui, sans-serif; color: #374151; }
         @media (prefers-reduced-motion: reduce) { .arc-ed-panel { transition: none; } }
     `],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -258,6 +278,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     /** Bumped on each change in the rich editor, so the buttons show what the selection has. */
     private readonly formatTick = signal(0);
     /** The box on a spot: a field's own control, or an image's Replace and Remove. */
+    /** The picture selected in the body, and where its box goes (VE-D16). */
+    readonly pic = signal<{ pos: number; alt: string; top: number; left: number } | null>(null);
     readonly pop = signal<{ title: string; top: number; left: number; image: boolean; spot: Spot } | null>(null);
     /** Where a control moved into the box came from, to put it back. */
     private popReturn: { node: HTMLElement; marker: Comment } | null = null;
@@ -330,6 +352,11 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         if (this.document.querySelector('.cdk-overlay-container .mat-mdc-dialog-container')) return;
         if (this.pop()) {
             this.closePopover();
+            event.preventDefault();
+            return;
+        }
+        if (this.pic()) {
+            this.closePicture();
             event.preventDefault();
             return;
         }
@@ -454,6 +481,11 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         panel: (spot) => this.openInPanel(spot),
         placeholder: (field, label) => this.transloco.translate('admin.edit_page.add', { label: inSentence(label ?? this.fieldTitle(field)) }),
         hint: (kind) => this.transloco.translate(HINT_KEYS[kind]),
+        escape: () => {
+            if (!this.pic()) return false;
+            this.closePicture();
+            return true;
+        },
         activeChanged: (_spot, rich) => {
             this.closePopover();
             this.richOn.set(!!rich);
@@ -521,11 +553,23 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         });
         // What the buttons show comes from the editor's own events, not straight after a click (spike fix 4).
         editor.on('update', ({ editor: e }) => onChange(e.getHTML()));
-        editor.on('transaction', () => this.formatTick.update((n) => n + 1));
+        editor.on('transaction', () => {
+            this.formatTick.update((n) => n + 1);
+            if (editor) this.syncPicture(editor);
+        });
+        // The box stays beside its picture as the page scrolls.
+        const frameWin = el.ownerDocument.defaultView;
+        const onScroll = () => editor && this.syncPicture(editor);
+        frameWin?.addEventListener('scroll', onScroll, { passive: true });
         this.richEditor = editor;
         return {
             focus: (at) => {
                 if (!editor) return;
+                // A picture clicked: selected, so its box opens at once.
+                if (at?.image && selectImage(editor, at.image.src, at.image.nth) !== null) {
+                    editor.view.focus();
+                    return;
+                }
                 const pos = at ? (textPos(editor, at.text) ?? editor.view.posAtCoords({ left: at.x, top: at.y })?.pos ?? null) : null;
                 if (pos === null) {
                     editor.chain().focus('start', { scrollIntoView: false }).run();
@@ -543,6 +587,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
                 }
             },
             destroy: () => {
+                frameWin?.removeEventListener('scroll', onScroll);
+                this.pic.set(null);
                 editor?.destroy();
                 if (this.richEditor === editor) this.richEditor = null;
                 editor = null;
@@ -590,7 +636,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     private insertImage(editor: Editor): void {
         const ref = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, title: this.pickerTitle('admin.media.picker.image_in') }));
         ref.afterClosed().subscribe((result: MediaSelection | null) => {
-            if (result?.type === 'submit' && result.mediaUrl && !editor.isDestroyed) insertImageAndMoveOn(editor, result.mediaUrl, result.alt);
+            // With a picture selected, the choice takes its place (Replace), as in the form editor.
+            if (result?.type === 'submit' && result.mediaUrl && !editor.isDestroyed) placeImage(editor, result.mediaUrl, result.alt);
         });
     }
 
@@ -611,6 +658,60 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     private pickerTitle(key: 'admin.media.picker.image_in' | 'admin.media.picker.files_in'): string {
         const field = this.inPlace?.current()?.field || 'content';
         return this.transloco.translate(key, { field: this.fieldTitle(field) });
+    }
+
+    /** A strip button's name: the image button replaces a selected picture. */
+    buttonLabel(b: { id: string; label: string }): string {
+        return b.id === 'image' && this.pic() ? 'admin.edit_page.replace_image' : b.label;
+    }
+
+    /** Places the picture's box below it, or over its top when below is off the screen; hides it with no picture selected. */
+    private syncPicture(editor: Editor): void {
+        const image = editor.isDestroyed ? null : selectedImage(editor);
+        const dom = image ? (editor.view.nodeDOM(image.pos) as HTMLElement | null) : null;
+        const box = dom?.getBoundingClientRect?.();
+        if (!image || !box) {
+            if (this.pic()) this.pic.set(null);
+            return;
+        }
+        const frame = this.frame?.nativeElement.getBoundingClientRect();
+        const win = this.document.defaultView;
+        const width = 340;
+        const maxTop = (win?.innerHeight ?? 768) - 170;
+        const below = (frame?.top ?? 0) + box.bottom + 8;
+        const top = below <= maxTop ? below : Math.max(48, (frame?.top ?? 0) + Math.max(box.top, 0) + 8);
+        const left = Math.max(8, Math.min((frame?.left ?? 0) + box.left, (win?.innerWidth ?? 1024) - width - 8));
+        const now = this.pic();
+        if (now && now.pos === image.pos && now.alt === image.alt && now.top === top && now.left === left) return;
+        this.pic.set({ pos: image.pos, alt: image.alt, top, left });
+    }
+
+    /** Replace: the media picker; its choice takes the selected picture's place. */
+    pictureReplace(): void {
+        if (this.richEditor && this.pic()) this.insertImage(this.richEditor);
+    }
+
+    pictureRemove(): void {
+        const e = this.richEditor;
+        const pic = this.pic();
+        if (!e || !pic) return;
+        removeImage(e, pic.pos);
+        e.view.focus();
+    }
+
+    pictureAlt(alt: string): void {
+        const e = this.richEditor;
+        const pic = this.pic();
+        if (e && pic) setImageAlt(e, pic.pos, alt);
+    }
+
+    /** Done or Escape: the cursor goes just past the picture, so its box closes and typing carries on. */
+    closePicture(): void {
+        const e = this.richEditor;
+        const pic = this.pic();
+        this.pic.set(null);
+        if (!e || !pic || e.isDestroyed) return;
+        e.chain().focus(undefined, { scrollIntoView: false }).setTextSelection(Math.min(pic.pos + 1, e.state.doc.content.size)).run();
     }
 
     private addLink(editor: Editor): void {

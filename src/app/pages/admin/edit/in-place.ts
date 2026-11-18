@@ -129,6 +129,8 @@ export interface InPlaceHost {
     placeholder(field: string, label: string | null): string;
     /** The hover text on a value that is not edited in place (VE-D17). */
     hint(kind: HintKind): string;
+    /** Escape, first: the screen closes a box of its own (a picture's) and says so. */
+    escape?(): boolean;
 }
 
 /**
@@ -141,6 +143,8 @@ export interface RichAt {
     x: number;
     y: number;
     text?: { data: string; nth: number; offset: number };
+    /** A picture clicked: its address and which of the spot's pictures with that address it is. */
+    image?: { src: string; nth: number };
 }
 
 export interface RichHandle {
@@ -169,6 +173,9 @@ export const IN_PLACE_CSS = `
 .ProseMirror.arc-in-place-rich { white-space: pre-wrap; word-wrap: break-word; outline: none; }
 /* An empty line the cursor is not in, drawn as the page draws it: not at all (empty-lines.ts). */
 .ProseMirror.arc-in-place-rich .arc-empty-line { display: none; }
+/* A picture selected in the body: outlined, with its box beside it (VE-D16). */
+.ProseMirror.arc-in-place-rich img { cursor: pointer; }
+.ProseMirror.arc-in-place-rich img.ProseMirror-selectednode { outline: 3px solid var(--arc-edit-accent); outline-offset: 2px; }
 .ProseMirror [contenteditable="false"] { white-space: normal; }
 `;
 
@@ -346,6 +353,12 @@ export class InPlaceEditing {
         if (event.key === 'Escape') {
             // A menu at the caret (slash commands, emoji) closes first; the spot stays open.
             if (active?.kind === 'rich' && caretMenuOpen()) return;
+            // Then a box the screen shows for the spot (a selected picture's).
+            if (active && this.host.escape?.()) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
             if (active) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -442,7 +455,9 @@ export class InPlaceEditing {
         el.setAttribute('data-arc-editing', '');
         el.removeAttribute('data-arc-ph');
         const html = String(this.host.value(spot.field) ?? '');
-        const point: RichAt | undefined = at ? { ...at, text: textAt(this.doc, el, at) ?? undefined } : undefined;
+        const point: RichAt | undefined = at
+            ? { ...at, text: textAt(this.doc, el, at) ?? undefined, image: pictureAt(this.doc, el, at) ?? undefined }
+            : undefined;
         const shown = { before: el.innerHTML, typed: null as string | null };
         this.richShown = shown;
         el.innerHTML = '';
@@ -515,6 +530,15 @@ export function plainText(el: HTMLElement): string {
 }
 
 /** The caret where the spot was clicked, else at its end. */
+/** The picture under a point in `el`: see RichAt. Null when the point is not on one. */
+export function pictureAt(doc: Document, el: HTMLElement, at: { x: number; y: number }): RichAt['image'] | null {
+    const hit = typeof doc.elementFromPoint === 'function' ? doc.elementFromPoint(at.x, at.y) : null;
+    if (!hit || hit.tagName !== 'IMG' || !el.contains(hit)) return null;
+    const src = hit.getAttribute('src') || '';
+    const same = Array.from(el.querySelectorAll('img')).filter((img) => (img.getAttribute('src') || '') === src);
+    return { src, nth: Math.max(0, same.indexOf(hit as HTMLImageElement)) };
+}
+
 /** The text under a point in `el`: see RichAt. Null when the point is on no text. */
 export function textAt(doc: Document, el: HTMLElement, at: { x: number; y: number }): RichAt['text'] | null {
     const fromPoint = (doc as Document & { caretRangeFromPoint?: (x: number, y: number) => Range | null }).caretRangeFromPoint;

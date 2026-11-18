@@ -4164,7 +4164,11 @@
       "hint_locked": "Fixed by the template",
       "hint_header": "The site's header, the same on every page: not part of this entry",
       "hint_footer": "The site's footer, the same on every page: not part of this entry",
-      "hint_site": "Worked out by the site"
+      "hint_site": "Worked out by the site",
+      "picture": "Picture",
+      "alt": "Alt text",
+      "alt_placeholder": "What the picture shows",
+      "replace_image": "Replace image"
     }
   },
   "user": {

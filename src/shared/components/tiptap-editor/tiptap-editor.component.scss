@@ -344,3 +344,31 @@
   .arc-file-title { font-weight: 600; color: #06c; }
   .arc-file-meta { font-size: 0.85rem; color: #6e6e73; }
 }
+
+/* A selected picture: outlined, and the selection menu offers Replace, Remove and Alt text (VE-D16). */
+:host ::ng-deep .ProseMirror img.ProseMirror-selectednode {
+    outline: 3px solid var(--arc-admin-accent, currentColor);
+    outline-offset: 2px;
+}
+
+.image_menu {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.image_alt {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+
+    input {
+        width: 200px;
+        padding: 2px 6px;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        color: #111827;
+        background: #fff;
+    }
+}

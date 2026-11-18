@@ -4,6 +4,23 @@
     <tiptap-editor #contentArea [editor]="editor" id="editor-with-bubble-menu"></tiptap-editor>
     <tiptap-bubble-menu [editor]="editor">
         <div class="border rounded text-gray-300 divide-x p-1 bubble_menu" data-test-id="bubble-menu">
+            @if (selectedImage(); as image) {
+            <!-- A picture is selected: what can be done to it, as on the Visual Editor (VE-D16). -->
+            <span class="image_menu" data-test-id="image-menu">
+                <button type="button" class="px-2 hover:text-white border-0 menuButtonStyles" (click)="replaceSelectedImage()" data-test-id="image-replace">
+                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i> {{ 'admin.edit_page.replace' | transloco }}
+                </button>
+                <button type="button" class="px-2 hover:text-white border-0 menuButtonStyles" (click)="removeSelectedImage()" data-test-id="image-remove">
+                    <i class="bi bi-trash" aria-hidden="true"></i> {{ 'common.actions.remove' | transloco }}
+                </button>
+                <label class="image_alt px-2">
+                    <span>{{ 'admin.edit_page.alt' | transloco }}</span>
+                    <input type="text" [value]="image.alt" [attr.placeholder]="'admin.edit_page.alt_placeholder' | transloco"
+                        (change)="setSelectedImageAlt($any($event.target).value)" (keydown.enter)="setSelectedImageAlt($any($event.target).value)"
+                        data-test-id="image-alt">
+                </label>
+            </span>
+            } @else {
 
             <!-- Heading Buttons -->
             <button [matTooltip]="'common.editor_toolbar.text_style' | transloco" [attr.aria-label]="'common.editor_toolbar.text_style' | transloco" matTooltipPosition="below"
@@ -232,6 +249,7 @@
                 <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
             </button>
 
+            }
         </div>
     </tiptap-bubble-menu>
 </div>
