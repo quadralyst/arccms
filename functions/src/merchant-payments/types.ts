@@ -330,11 +330,20 @@ export interface PaymentResult {
     mode: PaymentMode;
     /** Paid after the app had heard failed or cancelled, as when a buyer finishes after the app gave up. */
     late: boolean;
+    /**
+     * An event from the provider had arrived for it when the result was handed over: its
+     * webhook works. False: Arc found the result by reading the provider (the sweep, or the
+     * app's own readPayment).
+     */
+    eventSeen: boolean;
     /** A person decided, with resolveHeldPayment. */
     resolvedBy?: string;
 }
 
-export type PaymentAlertType = 'key-expiring' | 'key-refused' | 'webhook-silent' | 'payment-held' | 'delivery-failed';
+/** The account problems that can go away again, each said with `cleared` when it does. */
+export type PaymentProblemType = 'key-expiring' | 'key-refused' | 'webhook-silent';
+
+export type PaymentAlertType = PaymentProblemType | 'payment-held' | 'delivery-failed' | 'cleared';
 
 /** Something the app should tell someone (rule 10). Each is said once, until it changes. */
 export interface PaymentAlert {
@@ -351,6 +360,14 @@ export interface PaymentAlert {
     reference?: string;
     /** payment-held: what did not match. */
     reasons?: string[];
+    /**
+     * payment-held: what reached the account, as the provider gave it, when it said; it may
+     * differ from what was asked (the reason `amount` or `currency`).
+     */
+    amountMinor?: number;
+    currency?: string;
+    /** cleared: the problem that went away, whose alert the app may now take down. */
+    cleared?: PaymentProblemType;
 }
 
 /** What `functions/src/custom/payments.ts` exports. */

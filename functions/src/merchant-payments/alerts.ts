@@ -6,7 +6,7 @@
 import { logger } from 'firebase-functions/v2';
 import { db } from '../init.js';
 import { ACCOUNTS, readAccount, type AccountDoc } from './store.js';
-import type { PaymentAlert, PaymentAlertType, PaymentHooks } from './types.js';
+import type { PaymentAlert, PaymentHooks, PaymentProblemType } from './types.js';
 
 let replaced: PaymentHooks | null = null;
 
@@ -54,10 +54,41 @@ async function changeMaps(accountId: string, change: (problems: Record<string, s
     });
 }
 
-/** The problem has gone; the same alert may be said again if it comes back. */
-export async function clearAccountProblem(accountId: string, type: PaymentAlertType): Promise<void> {
+/** Words for a log when a problem goes away. */
+const CLEARED_DETAIL: Record<PaymentProblemType, string> = {
+    'key-expiring': 'The keys were replaced: they no longer expire soon.',
+    'key-refused': 'The provider takes the keys again.',
+    'webhook-silent': 'Events from the provider are arriving again.',
+};
+
+const PROBLEM_TYPES = Object.keys(CLEARED_DETAIL) as PaymentProblemType[];
+
+/** The problems the app was told of on this account, which a `cleared` would take down. */
+export function problemsSaid(account: Pick<AccountDoc, 'alertsSaid'> | null | undefined): PaymentProblemType[] {
+    return PROBLEM_TYPES.filter((type) => account?.alertsSaid?.[type]);
+}
+
+/** Tell the app a problem it heard of has gone. False when the app did not take it. */
+export async function sayCleared(account: Pick<AccountDoc, 'accountId' | 'provider' | 'mode'>, type: PaymentProblemType): Promise<boolean> {
+    try {
+        const hooks = await paymentHooks();
+        await hooks.onAlert?.({ type: 'cleared', cleared: type, accountId: account.accountId, provider: account.provider, mode: account.mode, detail: CLEARED_DETAIL[type] });
+        return true;
+    } catch {
+        logger.warn('merchant-payments: an alert did not reach the app', { type: 'cleared', provider: account.provider });
+        return false;
+    }
+}
+
+/**
+ * The problem has gone; the same alert may be said again if it comes back. When the app was
+ * told of it, it hears `cleared` once, so its warning can come down. The problem is forgotten
+ * only after the app took that, so a failed call is said again the next time it clears.
+ */
+export async function clearAccountProblem(accountId: string, type: PaymentProblemType): Promise<void> {
     const account = await readAccount(accountId);
     if (!account?.problems?.[type] && !account?.alertsSaid?.[type]) return;
+    if (account.alertsSaid?.[type] && !(await sayCleared(account, type))) return;
     await changeMaps(accountId, (problems, said) => {
         delete problems[type];
         delete said[type];

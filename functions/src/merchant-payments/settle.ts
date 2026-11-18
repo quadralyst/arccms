@@ -228,6 +228,7 @@ export function resultFrom(record: PaymentRecord, item: PendingResult): PaymentR
         providerId: record.providerId,
         mode: record.mode,
         late: item.late,
+        eventSeen: record.eventSeen ?? false,
         ...(item.resolvedBy ? { resolvedBy: item.resolvedBy } : {}),
     };
 }
@@ -242,6 +243,9 @@ async function sendToApp(record: PaymentRecord, item: PendingResult): Promise<vo
             mode: record.mode,
             reference: record.reference,
             reasons: record.heldReasons,
+            // What the provider said reached the account, when it said: not what was asked.
+            ...(record.paidMinor !== undefined ? { amountMinor: record.paidMinor } : {}),
+            ...(record.paidCurrency !== undefined ? { currency: record.paidCurrency } : {}),
             detail: `The payment ${record.reference} is held for a person: ${record.heldReasons.join(', ')} did not match.`,
         });
         return;

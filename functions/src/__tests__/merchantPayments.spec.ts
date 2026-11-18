@@ -85,6 +85,7 @@ describe('the whole way: connect, start, the buyer pays, the app hears', () => {
             providerId: started.providerId,
             mode: 'test',
             late: false,
+            eventSeen: true,
         }]);
         expect((await readPaymentAccount(ACCOUNT))?.lastPaymentStatus).toBe('paid');
         expect(account.webhookAddress).toContain('/arccms-merchantPaymentWebhook/');
@@ -320,6 +321,27 @@ describe('rule 4: an event is never enough to say paid', () => {
         await runPaymentSweep(Date.now() + 3_600_000);
         expect(record().status).toBe('held');
         expect(alerts).toHaveLength(1);
+    });
+
+    it('a held alert says what reached the account, as the provider gave it, not what was asked (F45)', async () => {
+        await connectPretend();
+        await startPretend('order-1');
+        await pretendPayment({ accountId: ACCOUNT, reference: 'order-1', outcome: 'wrong-amount', processNow: true });
+        expect(alerts).toEqual([expect.objectContaining({ type: 'payment-held', reference: 'order-1', amountMinor: 1251, currency: 'CHF' })]);
+        await startPretend('order-2');
+        await pretendPayment({ accountId: ACCOUNT, reference: 'order-2', outcome: 'wrong-currency', processNow: true });
+        expect(alerts[1]).toMatchObject({ type: 'payment-held', reference: 'order-2', amountMinor: 1250, currency: 'EUR' });
+    });
+
+    it('a held alert with nothing paid read back carries no amount (F45)', async () => {
+        const unclear: PaymentConnector = { ...pretendConnector, read: async () => ({ ok: true, state: 'unclear', providerStatus: 'odd', mode: 'test' }) };
+        replaceConnectorForTest(unclear);
+        await connectPretend();
+        await startPretend();
+        await readPayment({ accountId: ACCOUNT, reference: 'order-1' });
+        expect(alerts).toEqual([expect.objectContaining({ type: 'payment-held', reasons: ['provider-status'] })]);
+        expect(alerts[0].amountMinor).toBeUndefined();
+        expect(alerts[0].currency).toBeUndefined();
     });
 
     it('paid with no amount, currency or reference read back is held, not believed', async () => {
@@ -758,6 +780,75 @@ describe('rule 10: a key can expire, and the app is told', () => {
     });
 });
 
+describe('rule 10: a problem that goes away is said once, as cleared (F45)', () => {
+    const cleared = () => alerts.filter((a) => a.type === 'cleared').map((a) => a.cleared);
+
+    it('a refused key the provider takes again: cleared once, by the daily check', async () => {
+        await connectPretend();
+        const keys = (db.read('MerchantAccountKeys', ACCOUNT) as any).modes.test;
+        const good = keys.secretKey;
+        keys.secretKey = PRETEND_REFUSED_KEY;
+        await runAccountCheck();
+        keys.secretKey = good;
+        await runAccountCheck();
+        await runAccountCheck();
+        expect(cleared()).toEqual(['key-refused']);
+        expect(alerts.find((a) => a.type === 'cleared')).toMatchObject({ accountId: ACCOUNT, provider: 'pretend', mode: 'test' });
+        expect((await readPaymentAccount(ACCOUNT))?.problems['key-refused']).toBeUndefined();
+    });
+
+    it('a silent webhook whose events come again: cleared once', async () => {
+        await connectPretend();
+        for (const reference of ['a', 'b', 'c']) {
+            await startPretend(reference);
+            await pretendPayment({ accountId: ACCOUNT, reference, outcome: 'paid', deliver: 'none' });
+            await readPayment({ accountId: ACCOUNT, reference });
+        }
+        expect(alerts.filter((a) => a.type === 'webhook-silent')).toHaveLength(1);
+        await pretendPayment({ accountId: ACCOUNT, reference: 'c', outcome: 'paid' });
+        await pretendPayment({ accountId: ACCOUNT, reference: 'b', outcome: 'paid' });
+        expect(cleared()).toEqual(['webhook-silent']);
+    });
+
+    it('keys that ended, replaced by new ones: every problem the app heard of is cleared', async () => {
+        const now = Date.now();
+        await connectPretend(ACCOUNT, { keyExpiresOn: new Date(now + 5 * 86_400_000).toISOString().slice(0, 10) });
+        await runAccountCheck(now);
+        expect(alerts.map((a) => a.type)).toEqual(['key-expiring']);
+        await connectPretend();
+        expect(cleared()).toEqual(['key-expiring']);
+        await runAccountCheck(now);
+        expect(cleared()).toEqual(['key-expiring']);
+    });
+
+    it('nothing is cleared that the app was never told of', async () => {
+        await connectPretend();
+        await runAccountCheck();
+        await connectPretend();
+        expect(cleared()).toEqual([]);
+    });
+
+    it('a cleared the app could not take is said again the next time, and the problem kept until then', async () => {
+        hooks.stop();
+        let failCleared = true;
+        const told: string[] = [];
+        hooks = capturePaymentHooks({ onAlert: (a) => { told.push(a.cleared ? `cleared:${a.cleared}` : a.type); if (a.type === 'cleared' && failCleared) throw new Error('down'); } });
+        await connectPretend();
+        const keys = (db.read('MerchantAccountKeys', ACCOUNT) as any).modes.test;
+        const good = keys.secretKey;
+        keys.secretKey = PRETEND_REFUSED_KEY;
+        await runAccountCheck();
+        keys.secretKey = good;
+        await runAccountCheck();
+        expect((await readPaymentAccount(ACCOUNT))?.problems['key-refused']).toBeTruthy();
+        failCleared = false;
+        await runAccountCheck();
+        await runAccountCheck();
+        expect(told).toEqual(['key-refused', 'cleared:key-refused', 'cleared:key-refused']);
+        expect((await readPaymentAccount(ACCOUNT))?.problems['key-refused']).toBeUndefined();
+    });
+});
+
 describe('rule 10: a webhook that is off, when the app reads every payment itself', () => {
     const finishByPolling = async (reference: string) => {
         await startPretend(reference);
@@ -916,6 +1007,8 @@ describe('the sweep', () => {
         const swept = await runPaymentSweep(Date.now() + 3 * 60_000);
         expect(swept.read).toBe(1);
         expect(results.map((r) => r.status)).toEqual(['paid']);
+        // The result says no event came: the sweep found it (F45).
+        expect(results[0].eventSeen).toBe(false);
         expect(record().nextCheckAtMs).toBeUndefined();
     });
 

@@ -100,18 +100,20 @@ import { db } from '../init.js';
 export const PAYMENT_HOOKS: PaymentHooks = {
   onResult: async (result) =&gt; {
     // result: { resultId, paymentId, accountId, reference, status, amountMinor, currency,
-    //           provider, providerId, mode, late, resolvedBy? }
+    //           provider, providerId, mode, late, eventSeen, resolvedBy? }
     if (result.mode === 'test') return; // test never counts as money
     await db.collection('SettledPayments').doc(result.resultId).create({ ... });
   },
   onAlert: async (alert) =&gt; {
-    // alert: { type, accountId, provider, mode, detail, expiresOn?, daysLeft?, reference?, reasons? }
+    // alert: { type, accountId, provider, mode, detail, expiresOn?, daysLeft?, reference?, reasons?,
+    //          amountMinor?, currency?, cleared? }
   },
 };</code></pre>
     <ul>
       <li><strong>Once.</strong> Each status reaches <code>onResult</code> once. If it throws, Arc tries again later with the same <code>resultId</code>, up to every hour, and raises <code>delivery-failed</code> after 10 tries. A crash just after your hook ran is the one way to hear something twice, so write with <code>resultId</code> as the document id, as above.</li>
       <li><strong>Late money.</strong> A payment that failed or that you ended can still become paid, as a buyer may already be paying. It arrives as a second result, <code>paid</code> with <code>late: true</code>. Decide what that means for your app. Connect's page cannot be closed early, so this will happen.</li>
       <li><strong>Test.</strong> <code>mode</code> is on every result. Check it before counting money.</li>
+      <li><strong>How it was found.</strong> <code>eventSeen</code> is <code>true</code> when an event from the provider had arrived for the payment by the time the result was handed over, so its webhook works; <code>false</code> when Arc found it by reading the provider, in the sweep or your own <code>readPayment</code>.</li>
     </ul>
     <p>Your hooks are not loaded by the webhook, so what they import cannot slow it down.</p>
     <h3 id="alerts">Alerts</h3>
@@ -122,12 +124,13 @@ export const PAYMENT_HOOKS: PaymentHooks = {
           <tr><td><code>key-expiring</code></td><td>At 30, 7 and 1 days before the day the merchant typed for the key's end, and when it has come. Worldline's API keys end; no call says when, so ask for the date.</td></tr>
           <tr><td><code>key-refused</code></td><td>The provider refused the keys, in use or in the daily check. Goes away by itself when they work again.</td></tr>
           <tr><td><code>webhook-silent</code></td><td>3 payments in a row finished with no event, whether the sweep or your own <code>readPayment</code> found them. Neither provider's docs show a call that says a webhook was switched off, so this is how Arc notices: it was never added, or it is off. Goes away when an event arrives.</td></tr>
-          <tr><td><code>payment-held</code></td><td>A payment is held for a person (<a href="#held">below</a>).</td></tr>
+          <tr><td><code>payment-held</code></td><td>A payment is held for a person (<a href="#held">below</a>). <code>reasons</code> says what did not match; <code>amountMinor</code> and <code>currency</code> say what reached the account, as the provider gave them, when it said (they are left out when nothing paid was read back, as for <code>provider-status</code>).</td></tr>
           <tr><td><code>delivery-failed</code></td><td>Your <code>onResult</code> has failed 10 times for one payment.</td></tr>
+          <tr><td><code>cleared</code></td><td>A <code>key-expiring</code>, <code>key-refused</code> or <code>webhook-silent</code> you were told of has gone (named in <code>cleared</code>): the keys work again, events arrive again, new keys went in or the daily check finds they no longer end soon. Take your warning down.</td></tr>
         </tbody>
       </table>
     </div>
-    <p>Each is said once until it changes. <code>onAlert</code> is the only way a held payment is told, so fill it in. What is wrong now is also in the account's <code>problems</code>, so your screens can show it.</p>
+    <p>Each is said once until it changes, and <code>cleared</code> once each time a problem goes. If <code>onAlert</code> throws, the alert is said again next time, and a problem stays in <code>problems</code> until its <code>cleared</code> was taken. <code>onAlert</code> is the only way a held payment is told, so fill it in. What is wrong now is also in the account's <code>problems</code>, so your screens can show it.</p>
 
     <h2 id="read-and-end">Read, end, refund</h2>
     <div class="table-wrap">

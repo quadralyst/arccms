@@ -31,20 +31,20 @@ export function expiryWord(expiresOn: string, nowMs: number): { word: string; da
 }
 
 async function checkAccount(account: AccountDoc, nowMs: number): Promise<void> {
-    if (account.keyExpiresOn) {
-        const expiry = expiryWord(account.keyExpiresOn, nowMs);
-        if (expiry) {
-            await raiseAccountAlert(
-                account,
-                {
-                    type: 'key-expiring',
-                    expiresOn: account.keyExpiresOn,
-                    daysLeft: expiry.daysLeft,
-                    detail: expiry.daysLeft > 0 ? `The provider's key ends in ${expiry.daysLeft} days. Replace it before then, or payments will fail.` : 'The provider\'s key has ended. Payments will fail until it is replaced.',
-                },
-                expiry.word,
-            );
-        }
+    const expiry = account.keyExpiresOn ? expiryWord(account.keyExpiresOn, nowMs) : null;
+    // Keys that no longer end soon, as after new ones went in: the app hears it cleared.
+    if (!expiry && (account.problems?.['key-expiring'] || account.alertsSaid?.['key-expiring'])) await clearAccountProblem(account.accountId, 'key-expiring');
+    if (expiry && account.keyExpiresOn) {
+        await raiseAccountAlert(
+            account,
+            {
+                type: 'key-expiring',
+                expiresOn: account.keyExpiresOn,
+                daysLeft: expiry.daysLeft,
+                detail: expiry.daysLeft > 0 ? `The provider's key ends in ${expiry.daysLeft} days. Replace it before then, or payments will fail.` : 'The provider\'s key has ended. Payments will fail until it is replaced.',
+            },
+            expiry.word,
+        );
     }
     const connector = connectorFor(account.provider);
     const keys = (await readAccountKeys(account.accountId))?.modes[account.mode];
