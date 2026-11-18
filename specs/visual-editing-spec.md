@@ -1,8 +1,9 @@
 # Visual Editing: Build Spec (VE)
 
 **Status:** SPEC, agreed in discussion 2026-11-17. VE1 and VE2 built 2026-11-18 (live preview window,
-`/admin/preview/:type/:id`, and types without pages previewed where their cards show); VE3 to VE5
-not built. Notes from the build: the preview window is
+`/admin/preview/:type/:id`, and types without pages previewed where their cards show). VE3.1
+(the shared `EntryDraftSession`) built and the VE3.2 spike done 2026-11-18, see the build notes
+under VE3; VE3.3 to VE5 not built. Notes from the build: the preview window is
 opened with `window.open('', name)` then pointed at its address, so an open one is brought forward
 without a reload; a browser that blocks the pop-up gets a message in the editor. The Phone toggle
 frames the page in a 390 px column; the site's own phone layout still follows the window width.
@@ -165,6 +166,33 @@ The form editor implements it over its forms and keeps every member name it had,
 onto the session, so its template and its 307 specs are unchanged. The edit-on-page screen of
 VE3.5 implements the same interface over the page.
 
+**Build note, VE3.2 spike (2026-11-18): TipTap in the frame works; the ES-D2 fallback is not
+needed.** Run in the browser on the dev project, against the form editor page, with no code kept:
+the preview route of VE-D3 loaded in a same-origin `iframe`, and a second TipTap `Editor` (the
+body editor's own class and configured extensions, so the same upload handler) created in the
+admin document with `element` set to the frame's `[data-arc-field="content"]` element.
+- **Works as it is.** ProseMirror reads selection and events from the element's own document
+  (`view.root` is the frame's document), so typing, mouse selection, undo and the keymaps work,
+  drawn with the site's CSS. Buttons in the admin document (Bold, Heading) act on the frame's
+  selection and give focus back to it, as long as they keep focus off themselves
+  (`mousedown` → `preventDefault`). The media picker opens in the admin document and inserts at
+  the frame's cursor. Drop and paste upload work with files from the frame's own realm (a real
+  drop into a frame gives such a `File`, which fails `instanceof File` in the admin document):
+  nothing on the upload path checks the realm, Firebase Storage included; the placeholder shows
+  while uploading and the image goes in with its library URL.
+- **To build in VE3.6.** (1) TipTap adds its base CSS (`style[data-tiptap-style]`, with
+  `white-space: pre-wrap` for `.ProseMirror`) to the admin document only: add it to the frame's
+  head too, or the frame collapses spaces. (2) Menus placed at the caret by `tippy` in
+  `document.body` (slash commands, emoji, the selection bubble menu) open in the admin document
+  at the frame's coordinates, off by the frame's position: give them a reference rect offset by
+  the frame's `getBoundingClientRect()`, or keep the formatting buttons on the strip and draw the
+  slash and emoji menus inside the frame. (3) The editor's extension list lives inside
+  `TiptapEditorComponent.initializeEditor()`, and the component sets `window.uploadImage` and
+  `window.attachFile` for its own editor: factor the list into a function both use, and give
+  Insert image and Attach file the editor they act on, so two editors on one screen never mix.
+  (4) The selection reaches the editor's state on the frame's `selectionchange`, a tick after the
+  mouse: read the state from editor events, not straight after a click.
+
 ### VE4: Repeating rows and widths
 
 | Task | What |
@@ -209,4 +237,4 @@ VE3.5 implements the same interface over the page.
 
 ## 4. Open questions
 
-None at the time of writing. The spike in VE3.2 may add one.
+None. The VE3.2 spike (2026-11-18) added none: TipTap works in the frame, see its build note under VE3.
