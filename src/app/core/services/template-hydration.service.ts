@@ -10,6 +10,34 @@ import { plainTextHtml } from '../../../shared/utils/plain-text';
 import { addressHtml, hasSiteInfo, mailHref, siteInfoValue, SiteInfoSource, siteLoopRows, telHref } from '../../../shared/utils/site-info';
 
 /**
+ * Options for the app's renderer. The functions copy has none: a published page
+ * is always drawn the one way.
+ */
+export interface HydrationOptions {
+  /**
+   * Marks every element a value filled, for the live preview's click to field
+   * (specs/visual-editing-spec.md, VE-D7): `data-arc-field="key"` on elements
+   * filled by data-arc-bind, [innerHTML] and [attr] (with `data-arc-field-attr`
+   * naming the attribute), `{{ key }}` in text wrapped in
+   * `<span data-arc-field="key">`, and each loop row marked
+   * `data-arc-field="faq" data-arc-row="2"`. Off, the output is exactly as
+   * without the option; published pages never carry markers.
+   */
+  markFields?: boolean;
+}
+
+/** Elements whose text is not markup: a marker span cannot go inside them. */
+const UNMARKABLE_TEXT = new Set(['title', 'textarea', 'option', 'script', 'style', 'noscript']);
+
+function escapeText(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeAttr(text: string): string {
+  return escapeText(text).replace(/"/g, '&quot;');
+}
+
+/**
  * Template Hydration Service
  *
  * Provides server-side HTML template hydration using cheerio.
@@ -412,7 +440,8 @@ export class TemplateHydrationService {
    * // Returns: '<h1>Hello World</h1>'
    * ```
    */
-  static hydrateTemplate(htmlContent: string, data: TemplateContext): string {
+  static hydrateTemplate(htmlContent: string, data: TemplateContext, options: HydrationOptions = {}): string {
+    const mark = options.markFields === true;
     const $ = cheerio.load(htmlContent, {
       xmlMode: false,
     });
@@ -469,6 +498,15 @@ export class TemplateHydrationService {
       });
     };
 
+    /** Marks an element with the key that filled it, unless something already did (VE-D7). */
+    const markElement = (element: any, key: string, attr?: string): void => {
+      if (!mark || !key || element.attribs['data-arc-field'] !== undefined) return;
+      $(element).attr('data-arc-field', key);
+      if (attr) $(element).attr('data-arc-field-attr', attr);
+    };
+    /** The first {{ key }} in a string, for marking the attribute it fills. */
+    const firstKey = (text: string): string => /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/.exec(text)?.[1] ?? '';
+
     // Traverse all elements to find text nodes and attributes with interpolation
     $('*').each((_, element) => {
       // Process Attributes
@@ -487,12 +525,15 @@ export class TemplateHydrationService {
         }
       }
 
+      // An element bound by data-arc-bind or [innerHTML] is marked with that key, not an attribute's.
+      const boundWhole = mark && ['data-arc-bind', '[innerHTML]', '[innerhtml]'].some((name) => attribs[name] !== undefined);
       for (const attrName in attribs) {
         const attrValue = attribs[attrName];
         if (attrName === '[innerHTML]' || attrName === '[innerhtml]') {
             const key = attrValue;
             if (data[key] !== undefined && data[key] !== null) {
                 $(element).html(String(data[key]));
+                markElement(element, key);
                 $(element).removeClass('arc-skeleton');
                 if (!$(element).attr('class')) {
                     $(element).removeAttr('class');
@@ -503,6 +544,7 @@ export class TemplateHydrationService {
         }
 
         if (attrValue.includes('{{')) {
+          if (mark && !boundWhole && !attrName.startsWith('data-arc-')) markElement(element, firstKey(attrValue), attrName);
           $(element).attr(attrName, replaceInterpolation(attrValue));
         }
 
@@ -515,13 +557,39 @@ export class TemplateHydrationService {
             
             if (value !== undefined && value !== null) {
                 $(element).attr(rawAttrName, String(value));
+                markElement(element, key, rawAttrName);
             }
             $(element).removeAttr(attrName);
         }
       }
 
       // Process Text Nodes (direct children only to avoid double processing)
+      const tag = ((element as { tagName?: string }).tagName || '').toLowerCase();
       $(element).contents().each((_, child) => {
+        if (mark && child.type === 'text' && child.data && child.data.includes('{{') && !UNMARKABLE_TEXT.has(tag)) {
+          // Each {{ key }} becomes a span naming its key; the text around stays text.
+          const parts: string[] = [];
+          let last = 0;
+          let replaced = false;
+          child.data.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match: string, key: string, offset: number) => {
+            parts.push(escapeText(child.data.slice(last, offset)));
+            const value = TemplateHydrationService.getNestedValue(data, key);
+            const text = value !== undefined && value !== null ? String(value) : '';
+            parts.push(`<span data-arc-field="${escapeAttr(key)}">${escapeText(text)}</span>`);
+            last = offset + match.length;
+            replaced = true;
+            return match;
+          });
+          if (replaced) {
+            parts.push(escapeText(child.data.slice(last)));
+            $(child).replaceWith(parts.join(''));
+            $(element).removeClass('arc-skeleton');
+            if (!$(element).attr('class')) {
+              $(element).removeAttr('class');
+            }
+          }
+          return;
+        }
         if (child.type === 'text' && child.data && child.data.includes('{{')) {
           const newData = replaceInterpolation(child.data);
           if (child.data !== newData) {
@@ -584,6 +652,7 @@ export class TemplateHydrationService {
 
         // Remove the data-arc-bind attribute for clean output
         $el.removeAttr('data-arc-bind');
+        markElement(element, bindKey);
       }
     });
 
@@ -796,7 +865,7 @@ export class TemplateHydrationService {
    * @param listData - Array of data objects (single loop) OR Object with keys matching data-arc-loop values (multiple loops)
    * @returns HTML with the loops expanded
    */
-  static processLoops(htmlContent: any, listData: any[] | Record<string, any[]>): any {
+  static processLoops(htmlContent: any, listData: any[] | Record<string, any[]>, options: HydrationOptions = {}): any {
     const $ = cheerio.load(htmlContent, {
       xmlMode: false,
     });
@@ -806,7 +875,7 @@ export class TemplateHydrationService {
       Object.keys(listData).forEach((loopName) => {
         const data = listData[loopName];
         if (Array.isArray(data)) {
-          this.processSingleLoop($, loopName, data);
+          this.processSingleLoop($, loopName, data, options);
         }
       });
     }
@@ -817,7 +886,7 @@ export class TemplateHydrationService {
       if ($container.length) {
         const loopName = $container.attr('data-arc-loop');
         if (loopName) {
-          this.processSingleLoop($, loopName, listData);
+          this.processSingleLoop($, loopName, listData, options);
         }
       }
     }
@@ -839,7 +908,7 @@ export class TemplateHydrationService {
   /**
    * Helper to process a single loop by name
    */
-  private static processSingleLoop($: cheerio.CheerioAPI, loopName: string, data: any[]) {
+  private static processSingleLoop($: cheerio.CheerioAPI, loopName: string, data: any[], options: HydrationOptions = {}) {
     const $container = $(`[data-arc-loop="${loopName}"]`);
 
     if ($container.length) {
@@ -857,9 +926,10 @@ export class TemplateHydrationService {
 
           // Generate HTML for each item
           const generatedHtml = dataToProcess
-            .map((item) => {
+            .map((item, index) => {
               // Recursively hydrate each template with item data
-              return this.hydrateTemplate(templateHtml, item);
+              const row = this.hydrateTemplate(templateHtml, item);
+              return options.markFields ? this.markRow(row, loopName, index) : row;
             })
             .join('');
 
@@ -875,6 +945,19 @@ export class TemplateHydrationService {
       $container.removeAttr('data-arc-loop');
       $container.removeAttr('data-limit');
     }
+  }
+
+  /**
+   * Marks a loop row's top element with its loop and place (VE-D7). The row's
+   * own values are not marked: a click anywhere in the row finds the row.
+   */
+  private static markRow(rowHtml: string, loopName: string, index: number): string {
+    const $ = cheerio.load(rowHtml, { xmlMode: false }, false);
+    const top = $.root().children().first();
+    if (!top.length) return rowHtml;
+    top.attr('data-arc-field', loopName);
+    top.attr('data-arc-row', String(index));
+    return $.html();
   }
 
   /**

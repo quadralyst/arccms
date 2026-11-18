@@ -71,6 +71,9 @@ import {
   isTranslationEmpty,
 } from '../draft-content-store/content-translation.model';
 import { isOn } from '../../../../core/features/features';
+import {
+  PreviewChannel, PreviewMessage, previewSessionKey, previewUrl, previewWindowName,
+} from '../../../../core/preview/preview-channel';
 import { layoutLabel, siteLayouts } from '../../../../core/site/site';
 import { SiteLook, SiteLookService } from '../../../../core/site/site-look.service';
 import { SiteLookViewComponent } from '../../../../core/site/site-look-view';
@@ -1171,6 +1174,8 @@ export class CreateContentComponent extends BaseComponent {
       if (item === this.storedEcho) return;
       if (item && Object.keys(item).length > 0) {
         untracked(() => this.patchForms(item));
+        // A preview window left open for this entry carries on live (VE-D6).
+        untracked(() => this.connectPreview());
       }
     });
 
@@ -1351,6 +1356,8 @@ export class CreateContentComponent extends BaseComponent {
     this.customFieldValues = this.adoptCustomFields(values.customFields);
     this.expectRichEchoes();
     this.cdr.detectChanges();
+    // A language switch shows in the preview too.
+    this.schedulePreview();
   }
 
   /** The values a translation falls back to — shown as ghost placeholders. */
@@ -3146,6 +3153,8 @@ export class CreateContentComponent extends BaseComponent {
    * Call this from any content change event (editor, form fields, tags, etc.)
    */
   public triggerAutoSave(): void {
+    // Every change shows in the live preview, saved or not (VE1.5).
+    this.schedulePreview();
     // While a translation is on screen the change belongs to that language;
     // auto-save then persists the base document *and* the pending translations
     // together, exactly like the Save button.
@@ -3421,16 +3430,196 @@ export class CreateContentComponent extends BaseComponent {
     }
   }
 
-  public navigateBySlug() {
-    void this.saveAsDraft(() => {
-      const slug = this.publishForm.get('urlSlug')?.value;
-      const contentType = this.contentTypeSlug || this.publishForm.get('type')?.value;
-      
-      if (slug && contentType) {
-        const url = `/${contentType}/${slug}?preview=true`;
-        window.open(url, '_blank');
-      }
-    });
+  // ── Live preview (specs/visual-editing-spec.md, VE1.5) ──────────────────
+  /** The channel to the preview window; open once Preview is pressed, or when a saved entry loads. */
+  private previewChannel: PreviewChannel | null = null;
+  /** This editor session's key, fixed for its life (a new entry keeps its key after its first save). */
+  private previewKey = '';
+  /** The saved entry the channel was opened for, '' for a new entry (which keeps its channel once saved). */
+  private previewFor = '';
+  /** The preview window's name: one window per entry (VE-D5). */
+  private previewName = '';
+  private previewTimer: ReturnType<typeof setTimeout> | null = null;
+  /** How long after the last change the draft goes to the preview. */
+  static readonly PREVIEW_DELAY_MS = 150;
+
+  /**
+   * Opens the preview window, or brings it forward when it is open: one per
+   * entry. It shows the draft as it is on screen, so nothing is saved first,
+   * and works for an entry not saved yet.
+   */
+  public openPreview(): void {
+    const type = this.contentTypeSlug || this.publishForm.get('type')?.value || '';
+    if (!type || typeof window === 'undefined') return;
+    this.connectPreview(true);
+    this.previewName ||= previewWindowName(type, this.contentId);
+    const url = previewUrl(type, this.contentId, this.previewKey);
+    // Opened by name with no address first, so a window already showing this entry
+    // is brought forward rather than reloaded.
+    const win = window.open('', this.previewName);
+    if (!win) {
+      this.notify.error('admin.contents.editor.preview_blocked');
+      return;
+    }
+    let fresh = true;
+    try {
+      fresh = win.location.href === 'about:blank';
+    } catch {
+      fresh = true;
+    }
+    if (fresh) win.location.href = url;
+    win.focus();
+    this.sendPreviewState();
+  }
+
+  /**
+   * Opens the channel. A saved entry's key is its type and id, so an editor opened
+   * again finds a preview window left open; a new entry's channel opens with Preview.
+   */
+  private connectPreview(force = false): void {
+    // The editor moved to another saved entry: that entry gets a channel and a window of its own.
+    if (this.previewChannel && this.previewFor && this.contentId && this.previewFor !== this.contentId) {
+      this.previewLeaving();
+      this.previewChannel.close();
+      this.previewChannel = null;
+      this.previewName = '';
+    }
+    if (this.previewChannel || typeof window === 'undefined') return;
+    const type = this.contentTypeSlug || this.publishForm?.get('type')?.value || '';
+    if (!type || (!force && !this.contentId)) return;
+    this.previewKey = previewSessionKey(type, this.contentId);
+    this.previewFor = this.contentId;
+    this.previewChannel = new PreviewChannel(this.previewKey, (message) => this.onPreviewMessage(message));
+    window.addEventListener('pagehide', this.previewLeaving);
+    this.schedulePreview();
+  }
+
+  private previewLeaving = (): void => this.previewChannel?.post({ kind: 'bye', from: 'editor' });
+
+  /** Sends the draft about 150 ms after the last change. */
+  private schedulePreview(): void {
+    if (!this.previewChannel) return;
+    if (this.previewTimer) clearTimeout(this.previewTimer);
+    this.previewTimer = setTimeout(() => {
+      this.previewTimer = null;
+      this.sendPreviewState();
+    }, CreateContentComponent.PREVIEW_DELAY_MS);
+  }
+
+  /**
+   * The draft exactly as a save would write it (VE-D2), with the language on
+   * screen and, for a translation, its unsaved values.
+   */
+  previewState(): { draft: Record<string, any>; lang: string; translation: IContentTranslation | null } {
+    const stored: any = untracked(() => this.draftContentStore.currentItem());
+    const ownStored = stored && stored.id === this.contentId ? stored : null;
+    const draft = {
+      ...this.buildDraftFormValues(),
+      id: this.contentId || '',
+      createdAt: ownStored?.createdAt ?? null,
+      publishedOn: ownStored?.publishedOn ?? null,
+    };
+    let translation: IContentTranslation | null = null;
+    const lang = this.isTranslating() ? this.activeLang() : '';
+    if (lang) {
+      const values = this.captureTranslatableValues();
+      translation = { lang, ...values, customFields: this.translatableCustomFields(values.customFields) } as IContentTranslation;
+    }
+    // Plain data only: dates as text, Firestore timestamps as their seconds.
+    return JSON.parse(JSON.stringify({ draft, lang, translation }));
+  }
+
+  private sendPreviewState(): void {
+    if (!this.previewChannel || !this.publishForm || !this.seoForm) return;
+    this.previewChannel.post({ kind: 'state', ...this.previewState() });
+  }
+
+  private onPreviewMessage(message: PreviewMessage): void {
+    if (message.kind === 'hello') this.sendPreviewState();
+    else if (message.kind === 'focus') this.focusField(message.key, message.row);
+  }
+
+  /** Built-in fields by the element that edits them, and their tab. */
+  private static readonly BUILTIN_FIELD_SPOTS: Record<string, { selector: string; tab: 'basic' | 'seo' | null }> = {
+    title: { selector: '.page-title-input', tab: null },
+    content: { selector: '.editor-wrapper', tab: null },
+    summary: { selector: '#summaryInput', tab: 'basic' },
+    coverImage: { selector: '.cover-image-upload, .shared-field-preview', tab: 'basic' },
+    authorId: { selector: '#authorSelect', tab: 'basic' },
+    layout: { selector: '#layoutSelect', tab: 'basic' },
+    tags: { selector: '#tagSearchInput', tab: 'basic' },
+    seoTitle: { selector: '#seoTitleInput', tab: 'seo' },
+    metaDescription: { selector: '#metaDescriptionInput', tab: 'seo' },
+    canonicalUrl: { selector: '#canonicalUrlInput', tab: 'seo' },
+    references: { selector: '[data-testid="add-reference"]', tab: 'seo' },
+  };
+
+  /**
+   * A click on the preview found a field (VE-D8): its tab opens, the field
+   * scrolls into view, takes the cursor and flashes. A repeating field's row
+   * is the one clicked.
+   */
+  focusField(key: string, row?: number): void {
+    if (typeof document === 'undefined') return;
+    const builtin = CreateContentComponent.BUILTIN_FIELD_SPOTS[key];
+    const custom = !builtin && this.currentFields.some((f) => f.key === key);
+    if (!builtin && !custom) return;
+    const tab = builtin ? builtin.tab : 'basic';
+    if (tab && this.activeTab !== tab) {
+      this.activeTab = tab;
+      this.cdr.detectChanges();
+    }
+    let spot: HTMLElement | null = builtin
+      ? document.querySelector<HTMLElement>(builtin.selector)
+      : document.getElementById(`req-${key}`);
+    if (spot && row !== undefined) {
+      const rows = spot.querySelectorAll<HTMLElement>('.repeater-row');
+      spot = rows[row] ?? spot;
+    }
+    if (!spot) return;
+    spot.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    const input = spot.matches('input, textarea, select, [contenteditable="true"]')
+      ? spot
+      // The words first: a row's text box, not its position number.
+      : spot.querySelector<HTMLElement>('[contenteditable="true"], input[type="text"]:not([disabled]), textarea:not([disabled])')
+        ?? spot.querySelector<HTMLElement>('input:not([type="hidden"]):not([type="file"]), select, button');
+    input?.focus({ preventScroll: true });
+    window.focus();
+    spot.classList.remove('arc-field-flash');
+    void spot.offsetWidth;
+    spot.classList.add('arc-field-flash');
+    setTimeout(() => spot?.classList.remove('arc-field-flash'), 1600);
+  }
+
+  /** The field an element in the editor edits, for outlining it in the preview. */
+  static fieldOfElement(target: Element | null): string {
+    if (!target || typeof target.closest !== 'function') return '';
+    // A custom field's own box first: some of its parts look like a built-in's.
+    const wrapper = target.closest('[id^="req-"]');
+    if (wrapper) return wrapper.id.slice(4);
+    for (const [key, spot] of Object.entries(CreateContentComponent.BUILTIN_FIELD_SPOTS)) {
+      if (target.closest(spot.selector)) return key;
+    }
+    return '';
+  }
+
+  /** Focusing a field outlines where it is on the preview (VE-D8). */
+  @HostListener('focusin', ['$event'])
+  onFieldFocus(event: FocusEvent): void {
+    if (!this.previewChannel) return;
+    const key = CreateContentComponent.fieldOfElement(event.target as Element | null);
+    if (key && key !== this.lastHighlighted) {
+      this.lastHighlighted = key;
+      this.previewChannel.post({ kind: 'highlight', key });
+    }
+  }
+
+  /** The field last outlined, so moving within one field does not outline it again. */
+  private lastHighlighted = '';
+
+  @HostListener('focusout')
+  onFieldBlur(): void {
+    this.lastHighlighted = '';
   }
 
   isEmpty(obj: any): boolean {
@@ -3651,6 +3840,11 @@ export class CreateContentComponent extends BaseComponent {
   }
 
   ngOnDestroy(): void {
+    // The preview keeps the last draft and says the editor closed (VE-D6).
+    if (this.previewTimer) clearTimeout(this.previewTimer);
+    this.previewLeaving();
+    this.previewChannel?.close();
+    if (typeof window !== 'undefined') window.removeEventListener('pagehide', this.previewLeaving);
     this.deployStatusSubscription?.unsubscribe();
     this.autoSaveSubscription?.unsubscribe();
     this.navigationSubscription?.unsubscribe();

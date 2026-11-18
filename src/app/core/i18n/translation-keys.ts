@@ -602,6 +602,8 @@ export type TranslationKey =
     | 'admin.contents.editor.offline'
     | 'admin.contents.editor.open_fullscreen'
     | 'admin.contents.editor.preview'
+    | 'admin.contents.editor.preview_blocked'
+    | 'admin.contents.editor.preview_title'
     | 'admin.contents.editor.previous_content_hint'
     | 'admin.contents.editor.previous_content_label'
     | 'admin.contents.editor.publish'
@@ -2063,6 +2065,30 @@ export type TranslationKey =
     | 'admin.onboarding.toasts.setup_done_no_form'
     | 'admin.onboarding.toasts.setup_failed'
     | 'admin.onboarding.toasts.test_sent'
+    | 'admin.preview.connected'
+    | 'admin.preview.editor_closed'
+    | 'admin.preview.field_ready'
+    | 'admin.preview.fields.authorId'
+    | 'admin.preview.fields.canonicalUrl'
+    | 'admin.preview.fields.content'
+    | 'admin.preview.fields.coverImage'
+    | 'admin.preview.fields.layout'
+    | 'admin.preview.fields.metaDescription'
+    | 'admin.preview.fields.references'
+    | 'admin.preview.fields.seoTitle'
+    | 'admin.preview.fields.summary'
+    | 'admin.preview.fields.tags'
+    | 'admin.preview.fields.title'
+    | 'admin.preview.full_width'
+    | 'admin.preview.language'
+    | 'admin.preview.missing'
+    | 'admin.preview.phone'
+    | 'admin.preview.saved_copy'
+    | 'admin.preview.strip'
+    | 'admin.preview.strip_saved'
+    | 'admin.preview.waiting'
+    | 'admin.preview.waiting_short'
+    | 'admin.preview.width'
     | 'admin.products.active'
     | 'admin.products.add_tier'
     | 'admin.products.code'
@@ -3254,6 +3280,7 @@ export type TranslationKey =
     | 'admin.titles.new_content_type'
     | 'admin.titles.new_entry'
     | 'admin.titles.new_user'
+    | 'admin.titles.preview'
     | 'admin.titles.view_user'
     | 'admin.transactions.col_amount'
     | 'admin.transactions.col_customer'
@@ -4847,6 +4874,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.contents.editor.offline',
     'admin.contents.editor.open_fullscreen',
     'admin.contents.editor.preview',
+    'admin.contents.editor.preview_blocked',
+    'admin.contents.editor.preview_title',
     'admin.contents.editor.previous_content_hint',
     'admin.contents.editor.previous_content_label',
     'admin.contents.editor.publish',
@@ -6308,6 +6337,30 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.onboarding.toasts.setup_done_no_form',
     'admin.onboarding.toasts.setup_failed',
     'admin.onboarding.toasts.test_sent',
+    'admin.preview.connected',
+    'admin.preview.editor_closed',
+    'admin.preview.field_ready',
+    'admin.preview.fields.authorId',
+    'admin.preview.fields.canonicalUrl',
+    'admin.preview.fields.content',
+    'admin.preview.fields.coverImage',
+    'admin.preview.fields.layout',
+    'admin.preview.fields.metaDescription',
+    'admin.preview.fields.references',
+    'admin.preview.fields.seoTitle',
+    'admin.preview.fields.summary',
+    'admin.preview.fields.tags',
+    'admin.preview.fields.title',
+    'admin.preview.full_width',
+    'admin.preview.language',
+    'admin.preview.missing',
+    'admin.preview.phone',
+    'admin.preview.saved_copy',
+    'admin.preview.strip',
+    'admin.preview.strip_saved',
+    'admin.preview.waiting',
+    'admin.preview.waiting_short',
+    'admin.preview.width',
     'admin.products.active',
     'admin.products.add_tier',
     'admin.products.code',
@@ -7499,6 +7552,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.titles.new_content_type',
     'admin.titles.new_entry',
     'admin.titles.new_user',
+    'admin.titles.preview',
     'admin.titles.view_user',
     'admin.transactions.col_amount',
     'admin.transactions.col_customer',

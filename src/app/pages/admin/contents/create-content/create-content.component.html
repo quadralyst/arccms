@@ -20,8 +20,8 @@
                 <i class="fa-solid fa-xmark"></i> <span class="btn-text">{{ 'common.actions.close' | transloco }}</span>
             </button>
 
-            <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="navigateBySlug()"
-                [disabled]="isSavingDraft || !publishForm.get('urlSlug')?.value" [title]="'admin.contents.editor.preview' | transloco">
+            <button type="button" class="btn btn-outline-secondary btn-sm me-2" (click)="openPreview()"
+                [title]="'admin.contents.editor.preview_title' | transloco" data-testid="open-preview">
                 <i class="fa-regular fa-eye"></i> <span class="btn-text">{{ 'admin.contents.editor.preview' | transloco }}</span>
             </button>
 

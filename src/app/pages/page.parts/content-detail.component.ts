@@ -9,10 +9,8 @@ import { ChangeDetectionStrategy, Component, computed, inject, Injector, OnDestr
 import { ActivatedRoute, Router } from '@angular/router';
 import { Meta, Title } from '@angular/platform-browser';
 import { SafeHtmlPipe } from '../../core/pipes/safe-html.pipe';
-import { TemplateHydrationService } from '../../core/services/template-hydration.service';
 import { isTemplateFragment } from '../../../shared/utils/template-fragment';
 import { detailTemplateCandidates } from '../../core/site/site';
-import { calculateReadingTime } from '../../core/utils/reading-time.util';
 import { BaseComponent } from '../../../shared/components/base/base.component';
 import { ContentsStore } from '../admin/contents/content-store/published-contents.store';
 import { ContentTypesStore } from '../admin/contents/content-types/content-types.store';
@@ -29,7 +27,6 @@ import { GaTrackingService } from '../../../shared/services/ga-tracking.service'
 import { LocalizationService } from '../../core/services/localization.service';
 import { usePageLanguage } from '../../core/site/page-language';
 import { UiStringsService } from '../../core/services/ui-strings.service';
-import { interpolate } from '../../core/i18n/interpolate';
 import { notFoundText, NotFoundStringKey } from './not-found-strings';
 import { MediaSettingsService } from '../../core/services/media-settings.service';
 import { ContentsService } from '../admin/contents/content-store/published-contents.service';
@@ -45,7 +42,9 @@ import { authorCanonicalUrl } from '../../../shared/utils/canonical-url';
 import { SearchService } from '../../core/services/search.service';
 import { isOn } from '../../core/features/features';
 import { RELATED_LIMIT, RelatedItem, pickRelated, relatedQuery } from '../../../shared/utils/related-content';
-import { ItemsFromTypeLoop, nameItemsFromTypeLoops } from '../../core/utils/items-from-type';
+import { ItemsFromTypeLoop } from '../../core/utils/items-from-type';
+import { detailPageData, readTimeOf, renderDetailPage, updatedOnText } from './detail-page-data';
+import { DetailSource, RouteDetailSource } from './detail-source';
 import { ItemsFromTypeService } from '../../core/services/items-from-type.service';
 import {
     buildBreadcrumbList,
@@ -83,7 +82,7 @@ const MAX_BLOCK_NODES = 12;
         <arc-page-spinner />
     }
     @if(hydrated()) {
-    @if(contentTypesStore.isLoading() || contentsStore.isLoading() || isCheckingDraft() || !contentsStore.isSuccess()) {
+    @if(storesLoading() || isCheckingDraft() || (!live && !contentsStore.isSuccess())) {
         <div class="loading-container">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">{{ 'common.state.loading' | transloco }}</span>
@@ -142,6 +141,10 @@ const MAX_BLOCK_NODES = 12;
 })
 export class ContentDetailComponent extends BaseComponent implements OnInit, OnDestroy {
     private route = inject(ActivatedRoute);
+    /** Where the entry comes from: the route, or the live preview's channel (VE-D4). */
+    private source = inject(DetailSource, { optional: true }) ?? new RouteDetailSource(this.route.snapshot);
+    /** The editor's draft, on the live preview; undefined on the site. */
+    readonly live = this.source.live;
     /** The site's zone, so the dates match the published page (docs/app/clock-and-zones.html). */
     private zones = inject(ArcZones);
     private http = inject(HttpClient);
@@ -224,6 +227,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private readonly serverRendered = !isPlatformBrowser(this.platformId)
         || !!this.document.getElementById('ng-state');
 
+    /** The type and entry stores are loading; the live preview loads no entry. */
+    storesLoading = computed(() => this.contentTypesStore.isLoading() || (!this.live && this.contentsStore.isLoading()));
+
     currentContentType = computed(() => {
         const slug = this.contentTypeSlug();
         const types = this.contentTypesStore.items();
@@ -248,6 +254,17 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     private translation = signal<IContentTranslation | null>(null);
 
     currentContent = computed(() => {
+        // The live preview: the editor's draft as it is on screen, unsaved.
+        if (this.live) {
+            const draft = this.live()?.content;
+            if (!draft) return null;
+            return this.localize({
+                ...draft,
+                publishedStatus: false,
+                publishedOn: draft['publishedOn'] || draft['createdAt'],
+            } as any) as IContents;
+        }
+
         // If we have a draft content loaded and we are in preview mode, use it
         if (this.isPreview() && this.draftContent()) {
           const draft = this.draftContent();
@@ -340,6 +357,22 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             this.hydrated.set(true);
         }
 
+        // The live preview follows the language on the editor's screen, with its unsaved translation.
+        const live = this.live;
+        if (live) {
+            effect(() => {
+                const data = live();
+                const lang = data?.lang || '';
+                untracked(() => {
+                    this.translation.set(data?.translation ?? null);
+                    if (lang !== this.pageLang()) {
+                        this.pageLang.set(lang);
+                        this.uiStrings.use(lang);
+                    }
+                });
+            });
+        }
+
         // Watch for content loading to trigger template loading and SEO updates
         // Load this page's translation once the content store has filled — the
         // document id is not known before then. Reads only the store and the
@@ -407,17 +440,19 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
             this.mediaSettings.maxSize();
             this.siteIdentity.identity();
             this.sitePages.pages();
+            // The live preview draws again with each change the editor sends.
+            const liveContent = this.live ? this.currentContent() : null;
             untracked(() => {
                 if (!this.lastTemplate) return;
                 const { html, contentType, content } = this.lastTemplate;
-                this.hydrateAndSetTemplate(html, contentType, content, false);
+                this.hydrateAndSetTemplate(html, contentType, liveContent ?? content, false);
             });
         });
 
         effect(() => {
             const contentType = this.currentContentType();
             const content = this.currentContent();
-            const isLoading = this.contentTypesStore.isLoading() || this.contentsStore.isLoading();
+            const isLoading = this.storesLoading();
             const isCheckingDraft = this.isCheckingDraft();
             // Read so the structured data is rewritten once the author lands.
             this.author();
@@ -430,7 +465,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
                     this.hydrated.set(true);
                 }
                 // Track content detail view (once per load)
-                if (!this.trackedContent && contentType) {
+                if (!this.trackedContent && contentType && !this.live) {
                     this.trackedContent = true;
                     this.gaTracking.trackContentDetailView(contentType.slug, content.urlSlug, content.title);
                 }
@@ -484,11 +519,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
     }
 
     ngOnInit() {
-        const typeSlug = this.route.snapshot.paramMap.get('contentTypeSlug') || '';
-        const contentSlug = this.route.snapshot.paramMap.get('urlSlug') || '';
-        const isPreview = this.route.snapshot.queryParamMap.get('preview') === 'true';
-        // Present only on the /{lang}/... routes; absent means default language.
-        const lang = this.route.snapshot.paramMap.get('lang') || '';
+        const { typeSlug, urlSlug: contentSlug, preview: isPreview, lang } = this.source.route();
 
         this.contentTypeSlug.set(typeSlug);
         this.urlSlug.set(contentSlug);
@@ -505,6 +536,16 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         // Eagerly set isCheckingDraft to prevent 404 flash before the effect fires
         if (isPreview) {
             this.isCheckingDraft.set(true);
+        }
+
+        if (this.live) {
+            // The editor's draft: only the type is loaded here, the entry comes with each message.
+            this.subscribeToData(this.contentTypesStore, {
+                whereConditions: [{ field: 'slug', operator: '==', value: typeSlug }],
+                orderByField: { field: 'slug', direction: 'asc' },
+                limitCount: 1,
+            });
+            return;
         }
 
         if (!typeSlug || !contentSlug) {
@@ -564,9 +605,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
      */
     updatedOnDisplay = computed(() => {
         const content = this.currentContent();
-        if (!content) return '';
-        const dates = resolveContentDates(content);
-        return dates.isUpdated ? this.formatContentDate(content.updatedOn) : '';
+        return content ? updatedOnText(content, (date) => this.formatContentDate(date)) : '';
     });
 
     /** `author.*` bindings and `authorName` for custom templates; empty without an author. */
@@ -602,8 +641,7 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
 
     getReadTime(): number {
         const content = this.currentContent();
-        if (!content) return 0;
-        return content.readTime || calculateReadingTime(content.content);
+        return content ? readTimeOf(content) : 0;
     }
 
     /**
@@ -653,7 +691,8 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         this.metaService.updateTag({ property: 'og:locale', content: this.ogLocale() });
 
         // Robots — allow indexing of all published content pages
-        this.metaService.updateTag({ name: 'robots', content: 'index, follow' });
+        // The live preview is a draft under /admin: never listed.
+        this.metaService.updateTag({ name: 'robots', content: this.live ? 'noindex, nofollow' : 'index, follow' });
 
         // Set Twitter Card tags
         this.metaService.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
@@ -883,111 +922,29 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
 
     private hydrateAndSetTemplate(templateHtml: string, contentType: ContentType, content: IContents, runScripts = true): void {
         this.lastTemplate = { html: templateHtml, contentType, content };
-        // Prepare next/previous content objects
-        const nextContent = content.nextContent ? {
-            ...content.nextContent,
-            url: `/${contentType.slug}/${content.nextContent.slug}`
-        } : null;
-
-        const previousContent = content.previousContent ? {
-            ...content.previousContent,
-            url: `/${contentType.slug}/${content.previousContent.slug}`
-        } : null;
-
-        // Prepare share URLs (SSR-safe).
-        // Prefer canonicalUrl when set — consistent with what og:url uses.
-        // Prefer seoTitle for share text — consistent with what og:title uses,
-        // but never across languages (see localizedPageTitle).
-        const shareUrl = this.authorCanonical(content) ||
-            (isPlatformBrowser(this.platformId) ? window.location.href : '');
-        const shareTitle = localizedPageTitle(content, this.translation());
-        const shareSummary = content.summary || content.metaDescription || '';
-
-        const share = {
-            facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
-            twitter: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`,
-            linkedin: `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(shareTitle)}&summary=${encodeURIComponent(shareSummary)}`,
-            whatsapp: `https://wa.me/?text=${encodeURIComponent(shareTitle + ' ' + shareUrl)}`,
-            email: `mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodeURIComponent(shareUrl)}`
-        };
-
-        // Prepare data for template hydration.
-        // Field aliases ensure custom templates using different naming conventions
-        // (e.g. {{ date }} instead of {{ publishedOn }}) populate correctly.
-        const typeName = contentTypeName(contentType, this.pageLang());
-        const templateData: any = {
-            contentType: typeName,             // in the page's language, as when published
-            cat: typeName,                     // alias: {{ cat }} → content type name
-            contentTypeSlug: contentType.slug,
-            ...content, // Spread content fields (title, content, tags, etc.)
-            publishedOn: this.formatContentDate(content.publishedOn),
-            date: this.formatContentDate(content.publishedOn),    // alias: {{ date }}
-            // Mirrors deployContentPage.ts: shown only for a real revision (D-D3).
-            updatedOn: this.updatedOnDisplay(),
-            updatedOnDisplay: this.updatedOnDisplay(),
-            // The page's language and URL prefix, as when published.
-            lang: this.pageLang() || this.localization.defaultLanguage(),
-            langPrefix: this.pageLang() ? `/${this.pageLang()}` : '',
-            readTime: this.getReadTime(),
-            // "5 min read" in the page's language, from its min_read string, as when published.
-            readingTime: this.uiStrings.strings()['min_read']
-                ? interpolate(this.uiStrings.strings()['min_read'], { readTime: this.getReadTime() })
-                : `${this.getReadTime()} min read`,
-            ...((content as any).customFields || {}),
-            // After custom fields, mirroring deployContentPage.ts (D2, D-D11).
-            ...this.authorTemplateData(),
-            references: this.references(),
-            hasReferences: this.references().length > 0,
-            related: this.related(),
-            hasRelated: this.related().length > 0,
-        };
-
-        // Add share object (nested for hydration)
-        templateData['share'] = share;
-
-        // Add nested next/prev content objects (better for hydration traverse)
-        if (nextContent) {
-            templateData['nextContent'] = nextContent;
-        }
-
-        if (previousContent) {
-            templateData['previousContent'] = previousContent;
-        }
-
-        // Hydrate the template
-        // Process loops (tags) — always called to ensure cleanup of empty containers
-        let hydratedHtml = templateHtml;
-        const tagsData = (content as any).tagsWithColors ||
-            (content.tags || []).map((t: string) => ({ name: t, color: '#6b7280' }));
-        
-        // Static chrome first — before loops and bindings, so a translated
-        // value may carry its own {{ }} and a repeated item template is
-        // translated once. Mirrors the publish pipeline's order.
-        hydratedHtml = TemplateHydrationService.applyStrings(hydratedHtml, this.uiStrings.strings());
-        // Then the site's own details (SS3), before a social row's {{ url }} can be hydrated.
-        hydratedHtml = TemplateHydrationService.applySiteInfo(hydratedHtml, siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()));
-        // Each loop of another type's entries (data-arc-items-src) becomes a loop
-        // of its own, as when published (core/utils/items-from-type.ts).
-        const fromTypes = nameItemsFromTypeLoops(hydratedHtml);
-        hydratedHtml = fromTypes.html;
-
-        // Always processing loops to ensure cleanup of placeholders if empty
-        hydratedHtml = TemplateHydrationService.processLoops(hydratedHtml, {
-            // Mirrors the publish pipeline: repeating custom fields become
-            // named loops so a preview shows the same cards the live page will.
-            ...TemplateHydrationService.arrayLoopData(
-                (content as any).customFields,
-                ['tags', 'items'],
-                this.contentTypeSlug(),
-            ),
+        // The data, built by the same function the live preview uses (VE-D4).
+        const page = detailPageData({
+            contentType,
+            content,
+            pageLang: this.pageLang(),
+            defaultLang: this.localization.defaultLanguage(),
+            strings: this.uiStrings.strings(),
+            formatDate: (date) => this.formatContentDate(date),
+            // Prefer canonicalUrl when set, as og:url does; prefer seoTitle for
+            // the share text, as og:title does, never across languages.
+            shareUrl: this.authorCanonical(content) ||
+                (isPlatformBrowser(this.platformId) ? window.location.href : ''),
+            shareTitle: localizedPageTitle(content, this.translation()),
+            author: this.authorTemplateData(),
             references: this.references(),
             related: this.related(),
-            tags: tagsData,
-            ...this.itemsFromTypeRows(fromTypes.loops, contentType.slug, content.id),
         });
-
-
-        hydratedHtml = TemplateHydrationService.hydrateTemplate(hydratedHtml, templateData);
+        const hydratedHtml = renderDetailPage(templateHtml, page, {
+            strings: this.uiStrings.strings(),
+            siteInfo: siteInfoOf(this.siteIdentity.identity(), this.sitePages.pages()),
+            itemsFromTypeRows: (loops) => this.itemsFromTypeRows(loops, contentType.slug, content.id),
+            markFields: !!this.source.markFields,
+        });
 
         this.templateHtml.set(hydratedHtml);
         
@@ -996,8 +953,9 @@ export class ContentDetailComponent extends BaseComponent implements OnInit, OnD
         if (runScripts && isPlatformBrowser(this.platformId)) {
             setTimeout(() => this.runTemplateScripts(), 0);
         }
-        // Forms on the page work as when published (SS5), after every draw.
-        if (isPlatformBrowser(this.platformId)) setTimeout(() => this.refreshLiveParts(), 0);
+        // Forms on the page work as when published (SS5), after every draw; on
+        // the live preview they are shown but never sent (VE-D9).
+        if (isPlatformBrowser(this.platformId) && !this.live) setTimeout(() => this.refreshLiveParts(), 0);
     }
 
     /**

@@ -47,6 +47,17 @@ describe('PoweredByFooterComponent', () => {
         });
     });
 
+    describe('where it shows', () => {
+        it('counts the live preview as the public page, and every other admin page as admin (VE-D3)', () => {
+            (component as any).checkRoute('/admin/preview/events/abc');
+            expect((component as any).isAdminRoute()).toBe(false);
+            (component as any).checkRoute('/admin/contents/events/edit/abc');
+            expect((component as any).isAdminRoute()).toBe(true);
+            (component as any).checkRoute('/events/abc');
+            expect((component as any).isAdminRoute()).toBe(false);
+        });
+    });
+
     describe('Default Visibility', () => {
         it('should show badge by default', () => {
             expect(component.showBadge()).toBe(true);

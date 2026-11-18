@@ -6,6 +6,7 @@ import { filter } from 'rxjs/operators';
 import { IMiscSettings, DEFAULT_MISC_SETTINGS } from '../admin/(settings)/misc/misc-settings.model';
 import { UiStringsService } from '../../core/services/ui-strings.service';
 import { POWERED_BY_NAME, POWERED_BY_URL, poweredByWords } from '../../../shared/constants/powered-by';
+import { isPreviewUrl } from '../../core/preview/preview-channel';
 import { lastKnownPoweredBy, rememberPoweredBy } from './powered-by-last-known';
 
 /**
@@ -130,7 +131,8 @@ export class PoweredByFooterComponent implements OnInit {
     }
 
     private checkRoute(url: string): void {
-        this.isAdminRoute.set(url.startsWith('/admin'));
+        // The live preview is under /admin but is the public page (specs/visual-editing-spec.md, VE-D3).
+        this.isAdminRoute.set(url.startsWith('/admin') && !isPreviewUrl(url));
         this.updateVisibility();
     }
 

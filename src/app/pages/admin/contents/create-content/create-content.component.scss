@@ -1692,3 +1692,17 @@
     margin: 0;
   }
 }
+
+// A field the live preview pointed to (specs/visual-editing-spec.md, VE-D8): a short flash.
+.arc-field-flash {
+  animation: arc-field-flash 1.6s ease-out;
+  border-radius: 6px;
+}
+
+@keyframes arc-field-flash {
+  0%, 30% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--arc-admin-accent) 55%, transparent);
+    background-color: color-mix(in srgb, var(--arc-admin-accent) 8%, transparent);
+  }
+  100% { box-shadow: 0 0 0 3px transparent; background-color: transparent; }
+}

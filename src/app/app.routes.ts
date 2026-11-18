@@ -23,6 +23,17 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/admin/unauthorized.page').then((m) => m.default),
   },
+  // The live preview window (specs/visual-editing-spec.md, VE-D3): full page, outside the
+  // admin shell, drawn as the public site. Listed ahead of the admin parent, which would
+  // otherwise draw its side menu around it. The same people as the entry editor.
+  {
+    path: 'admin/preview/:type/:id',
+    title: 'Preview',
+    canActivate: [roleGuard],
+    data: { titleKey: 'admin.titles.preview', allowedRoles: ['admin'] },
+    loadComponent: () =>
+      import('./pages/admin/preview/content-preview.component').then((m) => m.default),
+  },
   // The admin: one shell (pages/admin.page.ts, the side menu and layout) around every
   // page, so moving between pages keeps it, with the panel's scroll and open groups.
   // A page listed here shares it; a parent of its own would draw the shell again.

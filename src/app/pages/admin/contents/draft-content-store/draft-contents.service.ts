@@ -269,6 +269,13 @@ export class DraftContentsService extends DbService<IDraftContents> {
         }
     }
 
+    /** One entry's draft by its id, or null when there is none (the live preview without an editor). */
+    async getDraftById(contentType: string, id: string): Promise<IDraftContents | null> {
+        const ref = runInInjectionContext(this.injector, () => doc(this.getCollectionRef(contentType), id));
+        const snap = await runInInjectionContext(this.injector, () => getDoc(ref));
+        return snap.exists() ? { ...(snap.data() as unknown as Record<string, unknown>), id: snap.id } as IDraftContents : null;
+    }
+
     /**
      * Get all content items of a specific type
      * @param contentType The content type slug to filter by

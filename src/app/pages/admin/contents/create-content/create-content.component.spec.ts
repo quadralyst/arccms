@@ -25,6 +25,7 @@ import { SearchService } from '../../../../core/services/search.service';
 import { setSiteManifestForTesting } from '../../../../core/site/site';
 import { coreSiteManifest } from '../../../../../test/core-site';
 import { SiteLookService } from '../../../../core/site/site-look.service';
+import { PreviewChannel } from '../../../../core/preview/preview-channel';
 
 describe('CreateContentComponent', () => {
     let component: CreateContentComponent;
@@ -1093,57 +1094,41 @@ describe('CreateContentComponent', () => {
     });
 
     describe('Navigation', () => {
-        it('should save draft and open preview tab in navigateBySlug', async () => {
-            // Mock window.open
-            const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-            
-            component.publishForm.patchValue({ 
-                urlSlug: 'my-article',
-                type: 'article'
-            });
+        it('Preview opens one named window per entry, before the first save, and saves nothing (VE-D5)', () => {
+            const win: any = { location: { href: 'about:blank' }, focus: vi.fn() };
+            const openSpy = vi.spyOn(window, 'open').mockImplementation(() => win);
             component.contentTypeSlug = 'articles';
             component.pageTitle = 'Test Title';
 
-            component.navigateBySlug();
-            await new Promise((resolve) => setTimeout(resolve));
+            component.openPreview();
 
-            // navigateBySlug calls saveAsDraft, which calls afterSave
-            // afterSave should call window.open
-            
-            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
-            expect(openSpy).toHaveBeenCalledWith('/articles/my-article?preview=true', '_blank');
-            
+            expect(openSpy).toHaveBeenCalledWith('', 'arc-preview-articles-new');
+            expect(win.location.href).toMatch(/^\/admin\/preview\/articles\/new#s=articles\.new\./);
+            expect(win.focus).toHaveBeenCalled();
+            expect(mockDraftContentsStore.createDraft).not.toHaveBeenCalled();
+            expect(mockDraftContentsStore.saveDraft).not.toHaveBeenCalled();
             openSpy.mockRestore();
         });
 
-        it('should NOT open preview if save fails, and says Not saved (RF4 4.4)', async () => {
-             // Mock window.open
+        it('says so when the browser blocks the preview window', () => {
             const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-            
-            // Mock save failure
-            mockDraftContentsStore.createDraft.mockReturnValue(of(null)); // or throw error
-            // Actually implementation calls callback only on success (next with newId)
-            
-            component.publishForm.patchValue({ 
-                urlSlug: 'my-article',
-                type: 'article'
-            });
+            const notify = (component as any).notify;
+            const error = vi.spyOn(notify, 'error').mockImplementation(() => undefined);
             component.contentTypeSlug = 'articles';
-            component.pageTitle = 'Title'; // valid title
+            component.openPreview();
+            expect(error).toHaveBeenCalledWith('admin.contents.editor.preview_blocked');
+            openSpy.mockRestore();
+        });
 
-            // Override behavior to simulate failure (no callback execution)
-            mockDraftContentsStore.createDraft.mockReturnValue(throwError(() => new Error('Failed')));
-            vi.spyOn(console, 'error').mockImplementation(() => undefined);
-
-            component.navigateBySlug();
-            await new Promise((resolve) => setTimeout(resolve));
-
-            expect(mockDraftContentsStore.createDraft).toHaveBeenCalled();
-            expect(openSpy).not.toHaveBeenCalled();
-            expect(component.saveFailed()).toBe(true);
-            // Never left disabled after a failed write.
-            expect(component.isSavingDraft).toBe(false);
-            
+        it('Preview brings an open window forward without reloading it', () => {
+            const win: any = { location: { href: 'http://localhost/admin/preview/articles/new#s=x' }, focus: vi.fn() };
+            const openSpy = vi.spyOn(window, 'open').mockImplementation(() => win);
+            component.contentTypeSlug = 'articles';
+            component.openPreview();
+            component.openPreview();
+            expect(openSpy).toHaveBeenNthCalledWith(2, '', 'arc-preview-articles-new');
+            expect(win.location.href).toBe('http://localhost/admin/preview/articles/new#s=x');
+            expect(win.focus).toHaveBeenCalledTimes(2);
             openSpy.mockRestore();
         });
 
@@ -1163,14 +1148,13 @@ describe('CreateContentComponent', () => {
             expect(previewBtn.disabled).toBe(false);
         });
 
-        it('should have preview button disabled when urlSlug is empty', () => {
+        it('keeps Preview on for a new entry with no address yet: the preview needs no save (VE1.5)', () => {
             component.publishForm.patchValue({ urlSlug: '' });
             fixture.detectChanges();
-            
-            const buttons = fixture.nativeElement.querySelectorAll('button.btn-outline-secondary');
-            const previewBtn = Array.from(buttons).find((btn: any) => btn.textContent.includes('Preview')) as HTMLButtonElement;
-            
-            expect(previewBtn.disabled).toBe(true);
+
+            const previewBtn = fixture.nativeElement.querySelector('[data-testid="open-preview"]') as HTMLButtonElement;
+
+            expect(previewBtn.disabled).toBe(false);
         });
 
         it('should have preview button enabled in EDIT mode when urlSlug is present', () => {
@@ -3832,21 +3816,6 @@ describe('CreateContentComponent', () => {
             expect(queue.enqueue).toHaveBeenCalledTimes(1);
         });
 
-        it('L6: a retry of a Preview save does not open the preview again', async () => {
-            vi.spyOn(console, 'error').mockImplementation(() => undefined);
-            const open = vi.spyOn(window, 'open').mockImplementation(() => null);
-            loadEntry();
-            component.pageTitle = 'Edited';
-            mockDraftContentsStore.saveDraft.mockReturnValueOnce(throwError(() => new Error('offline')));
-            component.navigateBySlug();
-            await flush();
-            component.retrySave();
-            await flush();
-            expect(mockDraftContentsStore.saveDraft).toHaveBeenCalledTimes(2);
-            expect(open).not.toHaveBeenCalled();
-            open.mockRestore();
-        });
-
         it('L7: the address is checked after a pause in typing, once', () => {
             vi.useFakeTimers();
             try {
@@ -3876,6 +3845,160 @@ describe('CreateContentComponent', () => {
             expect(component.errorSlug).toBe(true);
             expect(component.isEditingSlug()).toBe(true);
             expect(mockToastService.openCustomSnackbar).toHaveBeenCalledWith(expect.stringContaining('taken'), 'error', 'error');
+        });
+    });
+
+    // The live preview window (specs/visual-editing-spec.md, VE1.5).
+    describe('live preview', () => {
+        const flush = async () => { for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0)); };
+        let post: ReturnType<typeof vi.spyOn>;
+        beforeEach(() => {
+            post = vi.spyOn(PreviewChannel.prototype, 'post');
+        });
+        afterEach(() => post.mockRestore());
+
+        function loadEntry(): void {
+            mockContentTypesStore.items.set([{
+                name: 'Event', slug: 'article',
+                fields: [{ key: 'article-price', label: 'Price', type: 'text' }, { key: 'article-faq', label: 'FAQ', type: 'faq' }],
+            }]);
+            component.contentTypeSlug = 'article';
+            component.contentId = 'doc-1';
+            mockDraftContentsStore.currentItem.set({
+                id: 'doc-1', title: 'Guide', content: '<p>Body</p>', urlSlug: 'guide', type: 'article',
+                tags: [], publishedStatus: true, publishedOn: '2026-11-01T10:00:00.000Z',
+                customFields: { 'article-price': '20' },
+            });
+            fixture.detectChanges(false);
+        }
+        const states = () => post.mock.calls.map((call: any[]) => call[0]).filter((m: any) => m.kind === 'state');
+
+        it('a saved entry opens its channel on load, so a preview left open carries on', async () => {
+            loadEntry();
+            await flush();
+            await new Promise((resolve) => setTimeout(resolve, CreateContentComponent.PREVIEW_DELAY_MS + 20));
+            expect((component as any).previewKey).toBe('article.doc-1');
+            const last: any = states().at(-1);
+            expect(last.draft.id).toBe('doc-1');
+            expect(last.draft.title).toBe('Guide');
+            expect(last.draft.customFields['article-price']).toBe('20');
+            expect(last.draft.publishedOn).toBe('2026-11-01T10:00:00.000Z');
+            expect(last.lang).toBe('');
+            expect(last.translation).toBeNull();
+        });
+
+        it('sends the unsaved draft about 150 ms after a change, once for a burst, and saves nothing for it', async () => {
+            loadEntry();
+            await flush();
+            await new Promise((resolve) => setTimeout(resolve, CreateContentComponent.PREVIEW_DELAY_MS + 20));
+            post.mockClear();
+            vi.useFakeTimers();
+            try {
+                component.onCustomFieldChange('article-price', '25');
+                component.pageTitle = 'Guide two';
+                component.triggerAutoSave();
+                vi.advanceTimersByTime(CreateContentComponent.PREVIEW_DELAY_MS - 10);
+                expect(states()).toHaveLength(0);
+                vi.advanceTimersByTime(20);
+                expect(states()).toHaveLength(1);
+                expect(states()[0].draft.customFields['article-price']).toBe('25');
+                expect(states()[0].draft.title).toBe('Guide two');
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('answers hello with the state at once', async () => {
+            loadEntry();
+            await flush();
+            post.mockClear();
+            (component as any).onPreviewMessage({ kind: 'hello' });
+            expect(states()).toHaveLength(1);
+        });
+
+        it('sends the translation on screen, with only its translatable values', async () => {
+            loadEntry();
+            await flush();
+            (component as any).baseStash = { title: 'Guide', content: '<p>Body</p>', summary: '', seoTitle: '', metaDescription: '', customFields: { 'article-price': '20' } };
+            component.activeLang.set('hi');
+            component.pageTitle = 'Hindi title';
+            component.customFieldValues = { 'article-price': '20' };
+            const state = component.previewState();
+            expect(state.lang).toBe('hi');
+            expect(state.translation?.title).toBe('Hindi title');
+            // The base document stays in the default language.
+            expect(state.draft.title).toBe('Guide');
+        });
+
+        it('a click on the preview opens the field: its tab, its row, the cursor in it', async () => {
+            loadEntry();
+            await flush();
+            component.activeTab = 'seo';
+            fixture.detectChanges(false);
+            component.focusField('article-price');
+            fixture.detectChanges(false);
+            expect(component.activeTab).toBe('basic');
+            const box = document.getElementById('req-article-price');
+            expect(box).not.toBeNull();
+            expect(document.activeElement).toBe(box!.querySelector('input'));
+            expect(box!.classList.contains('arc-field-flash')).toBe(true);
+        });
+
+        it('a click on a row puts the cursor in that row\'s words, not its position number', async () => {
+            loadEntry();
+            await flush();
+            const box = document.getElementById('req-article-faq')!;
+            box.insertAdjacentHTML('beforeend', [0, 1].map((i) =>
+                `<div class="repeater-row"><input type="number" value="${i + 1}"><input type="text" class="words-${i}"></div>`).join(''));
+            component.focusField('article-faq', 1);
+            expect(document.activeElement?.className).toBe('words-1');
+        });
+
+        it('a click on an SEO value opens the SEO tab', async () => {
+            loadEntry();
+            await flush();
+            component.focusField('seoTitle');
+            fixture.detectChanges(false);
+            expect(component.activeTab).toBe('seo');
+        });
+
+        it('ignores a field the editor does not have', async () => {
+            loadEntry();
+            await flush();
+            component.activeTab = 'seo';
+            component.focusField('not-a-field');
+            expect(component.activeTab).toBe('seo');
+        });
+
+        it('focusing a field outlines it on the preview, once per field', async () => {
+            loadEntry();
+            await flush();
+            post.mockClear();
+            const input = document.querySelector('#req-article-price input') as HTMLElement;
+            component.onFieldFocus({ target: input } as any);
+            component.onFieldFocus({ target: input } as any);
+            const highlights = post.mock.calls.map((call: any[]) => call[0]).filter((m: any) => m.kind === 'highlight');
+            expect(highlights).toEqual([{ kind: 'highlight', key: 'article-price' }]);
+        });
+
+        it('another entry opened in the same editor gets its own channel; the old preview hears the editor go', async () => {
+            loadEntry();
+            await flush();
+            post.mockClear();
+            component.contentId = 'doc-2';
+            mockDraftContentsStore.currentItem.set({ id: 'doc-2', title: 'Other', content: '', urlSlug: 'other', type: 'article', tags: [] });
+            fixture.detectChanges(false);
+            await flush();
+            expect(post).toHaveBeenCalledWith({ kind: 'bye', from: 'editor' });
+            expect((component as any).previewKey).toBe('article.doc-2');
+        });
+
+        it('tells the preview when the editor goes', async () => {
+            loadEntry();
+            await flush();
+            post.mockClear();
+            fixture.destroy();
+            expect(post).toHaveBeenCalledWith({ kind: 'bye', from: 'editor' });
         });
     });
 

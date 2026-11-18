@@ -1940,7 +1940,9 @@
         "publish_template_missing": "This entry's template folder is not on the live website yet. Deploy the website, then publish again.",
         "publish_build_failed": "The page could not be built or put on the website. Publish again; if it keeps failing, ask your developer to check the publish logs.",
         "entry_gone": "This entry was deleted. Copy anything you want to keep: it cannot be saved any more.",
-        "reload_theirs_title": "Shows their version. Your changes on this page are dropped."
+        "reload_theirs_title": "Shows their version. Your changes on this page are dropped.",
+        "preview_title": "Open the live preview in its own window",
+        "preview_blocked": "The preview window was blocked. Allow pop-ups for this site, then press Preview again."
       },
       "list": {
         "type_not_found": "Content type not found",
@@ -4090,7 +4092,36 @@
       "contact_tags": "Contact tags",
       "new_user": "New user",
       "edit_user": "Edit user",
-      "view_user": "User"
+      "view_user": "User",
+      "preview": "Preview"
+    },
+    "preview": {
+      "strip": "Draft preview, updating live",
+      "strip_saved": "Saved draft",
+      "language": "Language on screen in the editor",
+      "width": "Page width",
+      "full_width": "Full width",
+      "phone": "Phone",
+      "waiting": "Waiting for the editor...",
+      "waiting_short": "Waiting for the editor",
+      "connected": "Connected",
+      "editor_closed": "Editor closed",
+      "saved_copy": "Editor closed, showing the saved draft",
+      "missing": "This draft was not found. Open it in the editor and press Preview.",
+      "field_ready": "{{ field }} is ready in the editor",
+      "fields": {
+        "title": "Title",
+        "content": "Body",
+        "summary": "Summary",
+        "coverImage": "Cover image",
+        "tags": "Tags",
+        "seoTitle": "SEO title",
+        "metaDescription": "Meta description",
+        "canonicalUrl": "Canonical URL",
+        "references": "Sources",
+        "authorId": "Author",
+        "layout": "Layout"
+      }
     }
   },
   "user": {

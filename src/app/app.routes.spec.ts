@@ -127,6 +127,20 @@ describe('App Routes', () => {
             expect((page as { name: string }).name).toContain('UnauthorizedComponent');
         });
 
+        it('draws the live preview on its own, outside the admin shell, for the editor\'s people (VE-D3)', async () => {
+            const index = routes.findIndex(r => r.path === 'admin/preview/:type/:id');
+            const route = routes[index];
+            expect(route, 'the preview route is listed explicitly').toBeDefined();
+            expect(index, 'ahead of the admin parent').toBeLessThan(routes.findIndex(r => r.path === 'admin'));
+            expect(route.children, 'no admin shell around it').toBeUndefined();
+            expect(route.canActivate).toContain(roleGuard);
+            expect(route.data?.['allowedRoles']).toEqual(adminChild('contents/:slug/edit/:contentId')?.data?.['allowedRoles']);
+            // A page that scrolls like the site, not a one-screen full-screen route.
+            expect(route.data?.['fullScreen']).toBeUndefined();
+            const page = await (route!.loadComponent as () => Promise<unknown>)();
+            expect((page as { name: string }).name).toContain('ContentPreviewComponent');
+        });
+
         it('should have admin/waitlists route with correct layout', async () => {
             const adminRoute = adminChild('waitlists');
             expect(adminRoute, 'Admin waitlists route should exist').toBeDefined();
