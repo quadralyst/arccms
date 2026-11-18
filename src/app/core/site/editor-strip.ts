@@ -1,0 +1,41 @@
+/**
+ * The admin strip on the pages the app draws itself (specs/visual-editing-spec.md,
+ * VE-D12): the same bar as on published pages, drawn by the same script,
+ * arc-site.js, so there is one bar with one look and one set of rules.
+ *
+ * `setArcEntry` calls this each time a page names what it is, or stops naming
+ * it. For an editor (the flag `rememberEditorStrip` keeps) the first call loads
+ * arc-site.js with data-parts="strip", which runs only the strip; later calls ask
+ * it to follow the page. For anyone else nothing is loaded.
+ */
+import { EDITOR_STRIP_KEY } from './signed-in-hint';
+import { arcSiteScriptElement } from './live-parts';
+
+/** The script element the app adds for the strip, kept for the whole visit. */
+export const STRIP_SCRIPT_ID = 'arc-editor-strip-script';
+
+type ArcSiteWindow = Window & { arcSite?: { drawEditorStrip?: () => void } };
+
+function editorOnThisBrowser(): boolean {
+    try {
+        return localStorage.getItem(EDITOR_STRIP_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
+/** Draws, follows or takes away the strip for the page as it is now. */
+export function refreshEditorStrip(doc: Document | undefined = typeof document === 'undefined' ? undefined : document): void {
+    const win = doc?.defaultView as ArcSiteWindow | null | undefined;
+    if (!doc || !win || !doc.body) return;
+    const draw = win.arcSite?.drawEditorStrip;
+    if (draw) {
+        draw();
+        return;
+    }
+    if (!editorOnThisBrowser() || doc.getElementById(STRIP_SCRIPT_ID)) return;
+    const script = arcSiteScriptElement(doc);
+    script.id = STRIP_SCRIPT_ID;
+    script.setAttribute('data-parts', 'strip');
+    doc.body.appendChild(script);
+}

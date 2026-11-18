@@ -586,8 +586,8 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         page('<p>Page</p>', '', entry('articles/doc1'));
         expect(strip()!.shadowRoot).not.toBeNull();
         expect(links()).toEqual([
-            ['edit', '/admin/edit/articles/doc1', 'Edit this page'],
             ['admin', '/admin/contents/articles', 'Back to admin'],
+            ['edit', '/admin/edit/articles/doc1', 'Edit this page'],
         ]);
         // The site's CSS cannot reach it: nothing of it is in the page's own tree.
         expect(document.querySelector('[data-arc-strip]')).toBeNull();
@@ -596,22 +596,98 @@ describe('admin strip (VE-D12, VE-D13)', () => {
     it('offers Add new on a list page', () => {
         page('<p>List</p>', '', entry('articles'));
         expect(links()).toEqual([
-            ['add', '/admin/contents/articles/add', 'Add new'],
             ['admin', '/admin/contents/articles', 'Back to admin'],
+            ['add', '/admin/contents/articles/add', 'Add new'],
         ]);
     });
 
-    it('offers only Back to admin on the home page, a static page and a page with no entry', () => {
-        for (const head of [entry('home'), entry('p/privacy-policy'), '']) {
+    it('offers only Back to admin on the home page and a static page', () => {
+        for (const head of [entry('home'), entry('p/privacy-policy')]) {
             page('<p>Page</p>', '', head);
             expect(links()).toEqual([['admin', '/admin', 'Back to admin']]);
             strip()?.remove();
         }
     });
 
+    it('draws nothing on a page that does not name what it is', () => {
+        page('<p>Page</p>', '', '');
+        expect(strip()).toBeNull();
+        expect(document.getElementById('arc-editor-strip-push')).toBeNull();
+    });
+
+    it('sits across the top and pushes the page down by its height', () => {
+        page('<p>Page</p>', '', entry('articles/doc1'));
+        expect(strip()!.shadowRoot!.querySelector('style')!.textContent).toMatch(/:host\{[^}]*position:fixed;[^}]*top:0;left:0;right:0;height:40px;/);
+        const push = document.getElementById('arc-editor-strip-push')!;
+        expect(push.textContent).toContain('html{margin-top:40px !important;');
+        expect(push.textContent).toContain('--arc-strip-height:40px;');
+        // Nothing pushed on paper.
+        expect(push.textContent).toContain('@media print{html{margin-top:0 !important;}}');
+    });
+
+    it('moves a header pinned to the top below it, and puts it back when closed', () => {
+        page('<header id="fixed" style="position:fixed;top:0">Site</header>'
+            + '<nav id="sticky" style="position:sticky;top:0px">Menu</nav>'
+            + '<div id="low" style="position:fixed;top:120px">Toast</div>'
+            + '<div id="foot" style="position:fixed;bottom:0">Cookie</div>', '', entry('articles/doc1'));
+        const top = (id: string) => (document.getElementById(id) as HTMLElement).style.getPropertyValue('top');
+        expect(top('fixed')).toBe('40px');
+        expect(top('sticky')).toBe('40px');
+        expect(top('low')).toBe('120px');
+        expect(top('foot')).toBe('');
+        (strip()!.shadowRoot!.querySelector('[data-arc-strip="close"]') as HTMLButtonElement).click();
+        expect(top('fixed')).toBe('0px');
+        expect(top('sticky')).toBe('0px');
+        expect(document.getElementById('fixed')!.hasAttribute('data-arc-strip-top')).toBe(false);
+        expect(document.getElementById('arc-editor-strip-push')).toBeNull();
+    });
+
+    it('stops moving headers once another copy of the script took the strip away', async () => {
+        vi.useFakeTimers();
+        try {
+            page('<p>Page</p>', '', entry('articles/doc1'), ' data-parts="strip"');
+            // A second copy, as the app adds for a page with a form: it now answers drawEditorStrip.
+            new Function(SOURCE)();
+            document.head.innerHTML = '';
+            (window as unknown as { arcSite: { drawEditorStrip: () => void } }).arcSite.drawEditorStrip();
+            expect(strip()).toBeNull();
+            window.dispatchEvent(new Event('scroll'));
+            vi.advanceTimersByTime(200);
+            // An admin screen's pinned header appears: nothing moves it.
+            document.body.insertAdjacentHTML('beforeend', '<header id="admin" style="position:fixed;top:0">Admin</header>');
+            window.dispatchEvent(new Event('scroll'));
+            vi.advanceTimersByTime(200);
+            expect((document.getElementById('admin') as HTMLElement).style.getPropertyValue('top')).toBe('0px');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('puts Back to admin on the left and the page\'s own action on the right', () => {
+        page('<p>Page</p>', '', entry('articles/doc1'));
+        const order = Array.from(strip()!.shadowRoot!.querySelector('.bar')!.children).map((el) => el.className);
+        expect(order).toEqual(['admin', 'space', 'edit', 'close']);
+    });
+
+    it('runs only the strip for the app\'s own pages, and follows the page or leaves with it', async () => {
+        page(FORM, '', entry('articles/doc1'), ' data-parts="strip"');
+        expect(links()[1]).toEqual(['edit', '/admin/edit/articles/doc1', 'Edit this page']);
+        await signUp();
+        // The app runs its own forms: this copy left them alone.
+        expect(calls).toEqual([]);
+        const site = (window as unknown as { arcSite: { drawEditorStrip: () => void } }).arcSite;
+        document.head.innerHTML = entry('articles');
+        site.drawEditorStrip();
+        expect(links()[1]).toEqual(['add', '/admin/contents/articles/add', 'Add new']);
+        document.head.innerHTML = '';
+        site.drawEditorStrip();
+        expect(strip()).toBeNull();
+        expect(document.querySelector('[data-arc-strip-top]')).toBeNull();
+    });
+
     it('escapes what the page names into the addresses', () => {
         page('<p>Page</p>', '', entry('a b/x?y'));
-        expect(links()[0]).toEqual(['edit', '/admin/edit/a%20b/x%3Fy', 'Edit this page']);
+        expect(links()[1]).toEqual(['edit', '/admin/edit/a%20b/x%3Fy', 'Edit this page']);
     });
 
     it('hides for the tab with its close button, and stays hidden on the next page', () => {
@@ -631,7 +707,7 @@ describe('admin strip (VE-D12, VE-D13)', () => {
         expect(host.shadowRoot!.querySelector('a.edit')).toBe(first);
         document.head.innerHTML = entry('articles/doc2');
         host.dispatchEvent(new Event('pointerenter'));
-        expect(links()[0]).toEqual(['edit', '/admin/edit/articles/doc2', 'Edit this page']);
+        expect(links()[1]).toEqual(['edit', '/admin/edit/articles/doc2', 'Edit this page']);
     });
 
     it('is hidden when printing', () => {

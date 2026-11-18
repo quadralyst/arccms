@@ -47,4 +47,6 @@ export function rememberEditorStrip(on: boolean): void {
     } catch {
         // Storage off: no strip on the published pages.
     }
+    // A strip already on this page follows at once: signing out takes it away.
+    if (typeof window !== 'undefined') (window as Window & { arcSite?: { drawEditorStrip?: () => void } }).arcSite?.drawEditorStrip?.();
 }

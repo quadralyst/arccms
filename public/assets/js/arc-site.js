@@ -36,11 +36,17 @@
  *   to the app on this browser, data-arc-signed-out for everyone else.
  * - Setup: a page published before the setup wizard was finished (data-setup)
  *   sends the owner to /onboarding, as the app's home page does. ?debug skips it.
- * - The admin strip (specs/visual-editing-spec.md, VE-D12 and VE-D13): links to
- *   edit the page, for someone the admin app marked as an editor on this browser
- *   (localStorage arc_editor_strip). It reads the page's <meta name="arc-entry">,
- *   draws in a shadow root so the site's CSS and its own never meet, hides when
- *   printing, and its close button hides it for the tab. Visitors get nothing.
+ * - The admin strip (specs/visual-editing-spec.md, VE-D12 and VE-D13): a dark bar
+ *   across the top with links to edit the page, for someone the admin app marked
+ *   as an editor on this browser (localStorage arc_editor_strip), on a page that
+ *   names what it is (<meta name="arc-entry">). It draws in a shadow root so the
+ *   site's CSS and its own never meet, pushes the page down by its height, moves
+ *   a header pinned to the top of the window down below it, and sets
+ *   --arc-strip-height on <html> for a template that places such a header itself.
+ *   It hides when printing, and its close button hides it for the tab. Visitors
+ *   get nothing. window.arcSite.drawEditorStrip() draws it again for the page as
+ *   it is now: the app calls it when a page it draws changes its arc-entry, and
+ *   loads this script with data-parts="strip" to run only the strip.
  *
  * Callables are called over plain fetch with the callable protocol ({ data } in,
  * { result } or { error } out), like arc-search.js.
@@ -55,6 +61,8 @@
         project: (script && script.getAttribute('data-project')) || '',
         database: (script && script.getAttribute('data-database')) || '(default)',
         setup: (script && script.getAttribute('data-setup')) || '',
+        /** 'strip': the app's own pages run only the admin strip. */
+        parts: (script && script.getAttribute('data-parts')) || '',
     };
 
     /**
@@ -860,6 +868,11 @@
         return links;
     }
 
+    /** Whether the page names what it is: the strip shows only on a page that does. */
+    function hasEntry() {
+        return !!document.querySelector('meta[name="arc-entry"]');
+    }
+
     function stripWanted() {
         var on = false;
         var hidden = false;
@@ -868,19 +881,27 @@
         // Never inside the admin's own preview and edit screens, or any frame.
         var framed = false;
         try { framed = window.self !== window.top; } catch (e) { framed = true; }
-        return on && !hidden && !framed && !/^\/admin(\/|$)/.test(location.pathname);
+        return on && !hidden && !framed && hasEntry() && !/^\/admin(\/|$)/.test(location.pathname);
     }
 
-    var STRIP_CSS = ':host{all:initial;position:fixed;z-index:2147483000;left:50%;bottom:16px;transform:translateX(-50%);}'
+    /** The strip's height: the page is pushed down by this much. */
+    var STRIP_HEIGHT = 40;
+    var PUSH_ID = 'arc-editor-strip-push';
+    /** Marks a header the strip moved down, holding its own inline top to put back. */
+    var PUSHED_ATTR = 'data-arc-strip-top';
+
+    var STRIP_CSS = ':host{all:initial;position:fixed;z-index:2147483000;top:0;left:0;right:0;height:' + STRIP_HEIGHT + 'px;}'
         + '@media print{:host{display:none !important;}}'
-        + '.bar{display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:#1f2937;color:#f9fafb;'
-        + 'box-shadow:0 4px 16px rgba(0,0,0,.3);font:500 13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;}'
+        + '.bar{box-sizing:border-box;height:100%;display:flex;align-items:center;gap:8px;padding:0 12px;background:#1f2937;color:#f9fafb;'
+        + 'box-shadow:0 1px 4px rgba(0,0,0,.25);font:500 13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;overflow-x:auto;scrollbar-width:none;}'
         + 'a,button{font:inherit;color:inherit;text-decoration:none;border:0;background:transparent;cursor:pointer;'
-        + 'padding:6px 12px;border-radius:999px;margin:0;line-height:1.4;}'
+        + 'padding:4px 12px;border-radius:6px;margin:0;line-height:1.4;}'
         + 'a:hover,button:hover{background:#374151;}'
-        + 'a:focus-visible,button:focus-visible{outline:2px solid #93c5fd;outline-offset:1px;}'
-        + 'a.edit{background:#f9fafb;color:#1f2937;}a.edit:hover{background:#e5e7eb;}'
-        + 'button.close{padding:6px 10px;}';
+        + 'a:focus-visible,button:focus-visible{outline:2px solid #f9fafb;outline-offset:1px;}'
+        + '.space{flex:1 1 auto;}'
+        + 'a.edit,a.add{background:#f9fafb;color:#1f2937;font-weight:600;}a.edit:hover,a.add:hover{background:#e5e7eb;}'
+        + 'a.admin::before{content:"\\2039";margin-right:6px;}'
+        + 'button.close{padding:4px 10px;font-size:16px;line-height:1.2;}';
 
     /** Draws, or redraws, the strip's links for the page as it is now. */
     function fillStrip(root) {
@@ -890,14 +911,21 @@
         if (root.host) root.host.setAttribute('data-entry', entry);
         var bar = root.querySelector('.bar');
         bar.innerHTML = '';
-        stripLinks(entry).forEach(function (link) {
+        var links = stripLinks(entry);
+        // Back to admin on the left, where a way back is looked for; the page's own action on the right.
+        var add = function (link) {
             var a = document.createElement('a');
             a.href = link.href;
             a.className = link.name;
             a.setAttribute('data-arc-strip', link.name);
             a.textContent = link.text;
             bar.appendChild(a);
-        });
+        };
+        links.filter(function (link) { return link.name === 'admin'; }).forEach(add);
+        var space = document.createElement('span');
+        space.className = 'space';
+        bar.appendChild(space);
+        links.filter(function (link) { return link.name !== 'admin'; }).forEach(add);
         var close = document.createElement('button');
         close.type = 'button';
         close.className = 'close';
@@ -907,19 +935,91 @@
         close.textContent = '×';
         close.addEventListener('click', function () {
             try { sessionStorage.setItem(STRIP_HIDDEN_KEY, '1'); } catch (e) { /* storage off */ }
-            var host = document.getElementById(STRIP_ID);
-            if (host) host.remove();
+            removeStrip();
         });
         bar.appendChild(close);
     }
 
+    /**
+     * Moves down a header pinned to the top of the window (position fixed or
+     * sticky, top 0), so the strip does not cover it. Read again as the page
+     * scrolls, for a header that only pins once scrolled.
+     */
+    function pushPinned() {
+        if (!document.body) return;
+        var all = document.body.getElementsByTagName('*');
+        for (var i = 0; i < all.length; i++) {
+            var el = all[i];
+            if (el.id === STRIP_ID || el.hasAttribute(PUSHED_ATTR)) continue;
+            var style = getComputedStyle(el);
+            if (style.position !== 'fixed' && style.position !== 'sticky') continue;
+            if (Math.abs(parseFloat(style.top)) > 1 || isNaN(parseFloat(style.top))) continue;
+            el.setAttribute(PUSHED_ATTR, el.style.getPropertyValue('top') + '|' + el.style.getPropertyPriority('top'));
+            el.style.setProperty('top', STRIP_HEIGHT + 'px', 'important');
+        }
+    }
+
+    var pinTimer = null;
+    function onScrollPinned() {
+        if (pinTimer) return;
+        pinTimer = setTimeout(function () {
+            pinTimer = null;
+            // Another copy of this script (the app runs one per page with forms) may have
+            // taken the strip away: this copy's listeners go with it.
+            if (!document.getElementById(STRIP_ID)) {
+                window.removeEventListener('scroll', onScrollPinned);
+                window.removeEventListener('resize', onScrollPinned);
+                return;
+            }
+            pushPinned();
+        }, 150);
+    }
+
+    function pushPage(on) {
+        var style = document.getElementById(PUSH_ID);
+        if (on) {
+            if (!style) {
+                style = document.createElement('style');
+                style.id = PUSH_ID;
+                style.textContent = 'html{margin-top:' + STRIP_HEIGHT + 'px !important;scroll-padding-top:' + STRIP_HEIGHT + 'px;'
+                    + '--arc-strip-height:' + STRIP_HEIGHT + 'px;}@media print{html{margin-top:0 !important;}}';
+                (document.head || document.documentElement).appendChild(style);
+                window.addEventListener('scroll', onScrollPinned, { passive: true });
+                window.addEventListener('resize', onScrollPinned);
+            }
+            pushPinned();
+            return;
+        }
+        if (style) style.remove();
+        window.removeEventListener('scroll', onScrollPinned);
+        window.removeEventListener('resize', onScrollPinned);
+        Array.prototype.forEach.call(document.querySelectorAll('[' + PUSHED_ATTR + ']'), function (el) {
+            var was = (el.getAttribute(PUSHED_ATTR) || '|').split('|');
+            el.removeAttribute(PUSHED_ATTR);
+            if (was[0]) el.style.setProperty('top', was[0], was[1] || '');
+            else el.style.removeProperty('top');
+        });
+    }
+
+    function removeStrip() {
+        var host = document.getElementById(STRIP_ID);
+        if (host) host.remove();
+        pushPage(false);
+    }
+
+    /** Draws the strip for the page as it is now, follows a page the app moved to, or takes it away. */
     function drawEditorStrip() {
         var old = document.getElementById(STRIP_ID);
         if (!stripWanted()) {
-            if (old) old.remove();
+            removeStrip();
             return;
         }
-        if (old || !document.body || typeof document.body.attachShadow !== 'function') return;
+        if (old && old.shadowRoot) {
+            fillStrip(old.shadowRoot);
+            pushPage(true);
+            return;
+        }
+        if (!document.body || typeof document.body.attachShadow !== 'function') return;
         var host = document.createElement('div');
         host.id = STRIP_ID;
         var root = host.attachShadow({ mode: 'open' });
@@ -932,6 +1032,7 @@
         root.appendChild(bar);
         document.body.appendChild(host);
         fillStrip(root);
+        pushPage(true);
         // A page the app draws can change without a reload: the links follow it.
         host.addEventListener('pointerenter', function () { fillStrip(root); });
     }
@@ -939,6 +1040,10 @@
     // ─── Start ─────────────────────────────────────────────────────────────
 
     function start() {
+        if (config.parts === 'strip') {
+            drawEditorStrip();
+            return;
+        }
         try { localStorage.removeItem(OLD_REFERRAL_KEY); } catch (e) { /* storage off */ }
         applySignedIn();
         drawEditorStrip();
@@ -956,6 +1061,8 @@
         if (config.functions) Array.prototype.forEach.call(contactForms, bindContactForm);
         if (config.project) updateCounts();
     }
+
+    site.drawEditorStrip = drawEditorStrip;
 
     site._internal = {
         call: call, readDoc: readDoc, plain: plain, signupMetadata: signupMetadata,

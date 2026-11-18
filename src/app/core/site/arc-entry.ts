@@ -1,4 +1,5 @@
 import { Meta } from '@angular/platform-browser';
+import { refreshEditorStrip } from './editor-strip';
 
 /**
  * What a page is, for the admin strip on the site (specs/visual-editing-spec.md,
@@ -18,8 +19,12 @@ export const arcEntry = {
     staticPage: (name: string): string => `p/${name}`,
 };
 
-/** Writes the page's arc-entry meta, or removes it (null) when the page is left or is not one to name. */
+/**
+ * Writes the page's arc-entry meta, or removes it (null) when the page is left or
+ * is not one to name, and has the admin strip follow it (editor-strip.ts).
+ */
 export function setArcEntry(meta: Meta, entry: string | null): void {
     if (entry) meta.updateTag({ name: 'arc-entry', content: entry });
     else meta.removeTag("name='arc-entry'");
+    refreshEditorStrip();
 }
