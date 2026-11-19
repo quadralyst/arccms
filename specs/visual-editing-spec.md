@@ -256,6 +256,14 @@ to deploy beyond the hosted admin.
 | VE4.7 | Browser check on the dev project: every repeating type, empty and full, in two languages; add, move, remove and Undo; a placed field's rows; Phone and Full width. |
 | VE4.8 | Critical review of VE4, fixes, `npm run gate`. |
 
+**Built in three groups, one after another** (agreed 2026-11-19), each depending on the one before:
+
+| Group | Tasks | Ends with |
+|-------|-------|-----------|
+| 1. Rows on the page | VE4.1 to VE4.4 | The specs of the files changed, a short browser check of every repeating type empty and full (the marks touch the renderer published pages also use), and a short critical review of the group with its critical, high and medium findings fixed, before group 2 starts. |
+| 2. Map rows | VE4.5 | The same: its specs, a browser check of map rows in two languages, a short critical review of the group. |
+| 3. Finish | VE4.6 to VE4.8 | Docs, the full browser check, and the critical review of the whole of VE4 with `npm run gate`. |
+
 ### VE5: Home page and static pages
 
 | Task | What |
