@@ -124,6 +124,13 @@ export function moveFieldBlocks(html: string): string {
         const marker = $(el);
         const key = marker.attr(PLACE_ATTR) ?? '';
         const block = $(`[${BLOCK_OF_ATTR}]`).filter((__, b) => $(b).attr(BLOCK_OF_ATTR) === key).first();
+        // A block that holds the text itself (the template wraps the body in the field's
+        // data-arc-if) cannot go inside it: the field stays where the template puts it.
+        if (block.length && (block[0] === el || block.find(marker).length)) {
+            block.removeAttr(BLOCK_OF_ATTR);
+            marker.remove();
+            return;
+        }
         // Moved once: a second marker for the same field finds nothing and goes.
         if (block.length) marker.empty().append(block.removeAttr(BLOCK_OF_ATTR));
         else marker.remove();

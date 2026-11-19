@@ -77,6 +77,16 @@ for (const [name, impl] of [['app', app], ['published', published]] as const) {
             expect(html).not.toContain('data-arc-place');
         });
 
+        it('leaves a field whose block holds the text where the template puts it', () => {
+            const wrapped = '<html><body><section data-arc-if="faq" class="wrap"><div data-arc-bind="content"></div></section></body></html>';
+            const body = '<p>Hi</p><div data-arc-place="articles-faq"></div>';
+            let html = impl.prepareFieldPlaces(wrapped, impl.placedFields(body, FIELDS), 'articles');
+            html = TemplateHydrationService.hydrateTemplate(html, { contentTypeSlug: 'articles', content: body, 'articles-faq': ROWS });
+            html = impl.moveFieldBlocks(html);
+            expect(html).toContain('<section class="wrap"><div><p>Hi</p></div></section>');
+            expect(html).not.toContain('data-arc-place');
+        });
+
         it('shows a field once when the text holds two markers for it', () => {
             const html = render(impl, '<div data-arc-place="articles-faq"></div><p>Mid</p><div data-arc-place="articles-faq"></div>', FIELDS);
             expect(html.match(/class="arc-faq"/g)).toHaveLength(1);

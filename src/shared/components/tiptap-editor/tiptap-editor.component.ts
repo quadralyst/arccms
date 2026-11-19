@@ -1,4 +1,3 @@
-import { OverlayModule } from '@angular/cdk/overlay';
 import { CommonModule, DOCUMENT, isPlatformBrowser } from '@angular/common';
 import {
   Component,
@@ -17,9 +16,8 @@ import {
 } from '@angular/core';
 import { FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
-import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { TranslocoService } from '@jsverse/transloco';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltip } from '@angular/material/tooltip';
 import { Editor } from '@tiptap/core';
 import { TiptapEditorDirective, TiptapBubbleMenuDirective } from 'ngx-tiptap';
 import { placeImage } from './service/image-actions';
@@ -106,7 +104,7 @@ export interface EditorActionPayload {
 @Component({
   selector: 'app-tiptap-editor',
   standalone: true,
-  imports: [TiptapEditorDirective, TiptapBubbleMenuDirective, CommonModule, FormsModule, MatIconModule, MatTooltip, OverlayModule, TranslocoPipe, SelectionMenuComponent],
+  imports: [TiptapEditorDirective, TiptapBubbleMenuDirective, CommonModule, FormsModule, MatIconModule, SelectionMenuComponent],
   templateUrl: './tiptap-editor.component.html',
   styleUrl: './tiptap-editor.component.scss',
   providers: [
