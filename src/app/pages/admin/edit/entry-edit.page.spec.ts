@@ -598,7 +598,8 @@ describe('the Page settings panel scrolls (layout rules)', () => {
     // jsdom draws no layout, so the rules themselves are checked: without them the form
     // editor grows to its full height, its own list never scrolls and a jump to a field
     // scrolls the clipped panel instead, pushing the tabs out of sight.
-    const source = readFileSync(resolve(__dirname, 'entry-edit.page.ts'), 'utf8');
+    // The screen's styles, shared with a page's Visual Editor (edit-screen.css).
+    const source = readFileSync(resolve(__dirname, 'edit-screen.css'), 'utf8');
 
     it('holds the form editor to the panel height', () => {
         expect(source).toMatch(/\.arc-ed-panel-body > arc-create-content \{[^}]*min-height: 0;[^}]*height: 100%;/);
@@ -610,7 +611,7 @@ describe('the Page settings panel scrolls (layout rules)', () => {
 });
 
 describe('Full width and Phone slide into each other (layout rules)', () => {
-    const edit = readFileSync(resolve(__dirname, 'entry-edit.page.ts'), 'utf8');
+    const edit = readFileSync(resolve(__dirname, 'edit-screen.css'), 'utf8');
     const preview = readFileSync(resolve(__dirname, '../preview/content-preview.component.ts'), 'utf8');
 
     it('the edit screen\'s page slides its width, centred, and not for someone who asks for less motion', () => {

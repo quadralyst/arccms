@@ -38,8 +38,10 @@ describe('MorePagesPage', () => {
         expect(rows.map((r) => r.querySelector('.page-name')?.textContent?.trim())).toEqual(['Home page', 'About us']);
         expect(rows[0].textContent).toContain('Changes not published');
         expect(rows[1].textContent).toContain('Published');
-        expect(rows[0].querySelector('a.btn')?.getAttribute('href')).toBe('/admin/more-pages/home');
-        expect(rows[1].querySelector('a.btn')?.getAttribute('href')).toBe('/admin/more-pages/p/about-us');
+        expect(rows[0].querySelector('a.btn-outline-primary')?.getAttribute('href')).toBe('/admin/more-pages/home');
+        expect(rows[0].querySelector('[data-testid="visual-editor"]')?.getAttribute('href')).toBe('/admin/edit-page/home');
+        expect(rows[1].querySelector('a.btn-outline-primary')?.getAttribute('href')).toBe('/admin/more-pages/p/about-us');
+        expect(rows[1].querySelector('[data-testid="visual-editor"]')?.getAttribute('href')).toBe('/admin/edit-page/p/about-us');
         expect(el.textContent).not.toContain('Other pages show here');
     });
 

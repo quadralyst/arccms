@@ -16,6 +16,7 @@
 .status-published { background: #e3f4e8; color: #1e6b34; }
 .status-changes { background: #fff3cd; color: #7a5a00; }
 .page-published { font-size: 0.8rem; white-space: nowrap; }
+.page-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 
 @media (max-width: 640px) {
     .page-row { grid-template-columns: minmax(0, 1fr) auto; }

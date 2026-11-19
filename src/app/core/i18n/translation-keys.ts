@@ -1245,6 +1245,7 @@ export type TranslationKey =
     | 'admin.edit_page.rows_locked'
     | 'admin.edit_page.saved'
     | 'admin.edit_page.saving'
+    | 'admin.edit_page.section_title'
     | 'admin.edit_page.strip'
     | 'admin.edit_page.subheading'
     | 'admin.edit_page.undo'
@@ -1982,6 +1983,7 @@ export type TranslationKey =
     | 'admin.more_pages.status.published'
     | 'admin.more_pages.subtitle'
     | 'admin.more_pages.title'
+    | 'admin.more_pages.visual_editor'
     | 'admin.nav.about'
     | 'admin.nav.announcements'
     | 'admin.nav.app_users'
@@ -5672,6 +5674,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.edit_page.rows_locked',
     'admin.edit_page.saved',
     'admin.edit_page.saving',
+    'admin.edit_page.section_title',
     'admin.edit_page.strip',
     'admin.edit_page.subheading',
     'admin.edit_page.undo',
@@ -6409,6 +6412,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
     'admin.more_pages.status.published',
     'admin.more_pages.subtitle',
     'admin.more_pages.title',
+    'admin.more_pages.visual_editor',
     'admin.nav.about',
     'admin.nav.announcements',
     'admin.nav.app_users',

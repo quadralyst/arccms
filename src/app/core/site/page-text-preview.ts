@@ -10,6 +10,12 @@ import type { PageTextValues } from '../utils/page-text-model';
 export interface PageTextPreview {
     /** The draft's values as they are now. */
     values(): PageTextValues | null;
+    /**
+     * The Visual Editor's frame (VE-D55): the marks stay on the page, so the screen
+     * finds the areas, the page's own scripts do not run, and `<html>` carries
+     * `arc-editing`, for a developer to show what a script would reveal.
+     */
+    readonly editing?: boolean;
 }
 
 export const PAGE_TEXT_PREVIEW = new InjectionToken<PageTextPreview>('PAGE_TEXT_PREVIEW');

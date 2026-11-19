@@ -103,6 +103,7 @@
       </tbody>
     </table>
     <p>The page's title, description and share picture can be changed whether or not they are marked. <code>data-arc-label</code> names an area or a <code>&lt;section&gt;</code> for editors, and <code>data-arc-placeholder</code> gives the words an empty area shows. Published pages lose every one of these marks. Addresses must start with <code>https://</code>, <code>http://</code>, <code>/</code>, <code>mailto:</code>, <code>tel:</code> or <code>#</code>; others are ignored. A page with no marks and nothing saved is published exactly as before.</p>
+    <p>On the Visual Editor the page's scripts do not run, so what a script reveals (a fade-in, a slider's other slides) would stay hidden. The page's <code>&lt;html&gt;</code> carries the class <code>arc-editing</code> there: show such parts with it, as in <code>.arc-editing .reveal { opacity: 1; }</code>. A part the page hides, such as a closed menu, is changed in the classic editor.</p>
     <p>In more than one language: words are kept per language, pictures, addresses and backgrounds once for all. A language with its own file (<code>home.hi.html</code>) shows its own saved words, else its file's. Any other language shows its own saved words, else the area's <code>data-arc-t</code> translation, else the default language's saved words, else the file's. Put <code>data-arc-edit</code> and <code>data-arc-t</code> on the same element to have both.</p>
 
     <h2>What Arc CMS adds when it publishes</h2>

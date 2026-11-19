@@ -11,6 +11,10 @@ import { PublicPageRendererComponent } from '../../public-page-renderer/public-p
  * VE-D50): the page as the site draws it, filled with the draft's values. Every
  * field of the classic editor saves on its own, so the window follows the draft
  * in Firestore and draws the page again after each save.
+ *
+ * The Visual Editor loads it in its frame with `?edit=1` (VE-D49, VE-D55): drawn
+ * once, with the marks kept and the page's scripts off; the screen changes the
+ * page in place from then on, so it never jumps under the person editing it.
  */
 @Component({
     selector: 'arc-page-preview',
@@ -28,6 +32,8 @@ export default class PagePreviewPage implements PageTextPreview, OnDestroy {
     private route = inject(ActivatedRoute);
     private pageText = inject(PageTextService);
     readonly isHome = !this.route.snapshot.paramMap.get('fileName');
+    /** The Visual Editor's frame (`?edit=1`): drawn once; the screen then changes the page in place. */
+    readonly editing = this.route.snapshot.queryParamMap?.get('edit') === '1';
     private session: PageTextSession = this.pageText.session(
         this.isHome ? pageTextId.home() : pageTextId.staticPage(this.route.snapshot.paramMap.get('fileName') || ''),
     );
@@ -40,6 +46,7 @@ export default class PagePreviewPage implements PageTextPreview, OnDestroy {
         effect(() => {
             if (!this.session.loaded()) return;
             this.session.draft();
+            if (this.editing && this.drawn > 0) return;
             this.drawing.set([++this.drawn]);
         });
     }

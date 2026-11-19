@@ -44,6 +44,16 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/admin/more-pages/page-preview.page').then((m) => m.default),
   })),
+  // The Visual Editor for the home page or a static page (specs/visual-editing-spec.md, VE-D49):
+  // full screen like an entry's, outside the admin shell.
+  ...['admin/edit-page/home', 'admin/edit-page/p/:name'].map((path) => ({
+    path,
+    title: 'Visual Editor',
+    canActivate: [roleGuard],
+    data: { titleKey: 'admin.titles.edit_on_page', allowedRoles: ['admin'], fullScreen: true },
+    loadComponent: () =>
+      import('./pages/admin/more-pages/page-edit.page').then((m) => m.default),
+  })),
   // The edit-on-page screen (specs/visual-editing-spec.md, VE-D14): the page as on the site in
   // a frame, a strip on top and the Page settings panel, with nothing of the admin around it.
   // Outside the admin shell for the same reason as the preview; the entry editor's people.

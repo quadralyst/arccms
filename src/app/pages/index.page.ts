@@ -161,7 +161,10 @@ export default class HomeComponent implements OnInit, OnDestroy {
         let html = file;
         if (edited || hasPageTextMarks(file)) {
             const { applyPageText } = await import('../core/utils/page-text');
-            html = applyPageText(file, edited, { lang: this.pageLang, defaultLang, ownFile: ownFile || !lang || lang === defaultLang, strings: pageStrings });
+            html = applyPageText(file, edited, {
+                lang: this.pageLang, defaultLang, ownFile: ownFile || !lang || lang === defaultLang, strings: pageStrings,
+                keepMarks: !!this.textPreview?.editing,
+            });
             if (this.destroyed) return;
         }
         // A language's own file is already in its words; its forms' panels still take the strings, as when published.
@@ -204,6 +207,11 @@ export default class HomeComponent implements OnInit, OnDestroy {
         // Signup and contact forms: their notices, contact forms only with the feature (SS5).
         prepareLiveParts(this.host, this.document, this.pages, panelStrings, this.localization.defaultLanguage());
 
+        // On the Visual Editor the page's scripts do not run and the page shows at rest (VE-D55).
+        if (this.textPreview?.editing) {
+            this.document.documentElement.classList.add('arc-editing');
+            return;
+        }
         // The page's scripts, in order, as the published page runs them.
         for (const old of scripts) {
             const script = this.document.createElement('script');

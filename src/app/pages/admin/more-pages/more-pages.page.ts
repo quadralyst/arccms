@@ -44,9 +44,14 @@ import { MorePagesService, type MorePageRow } from './more-pages.service';
                                     {{ 'admin.more_pages.last_published' | transloco }} {{ row.lastPublished | arcTime }}
                                 }
                             </span>
+                            <span class="page-actions">
+                            <a class="btn btn-outline-secondary btn-sm" [routerLink]="visualLink(row)" data-testid="visual-editor">
+                                <i class="fa-solid fa-pen-ruler me-1" aria-hidden="true"></i>{{ 'admin.more_pages.visual_editor' | transloco }}
+                            </a>
                             <a class="btn btn-outline-primary btn-sm" [routerLink]="editLink(row)">
                                 <i class="fa-solid fa-pen me-1" aria-hidden="true"></i>{{ 'admin.more_pages.edit' | transloco }}
                             </a>
+                            </span>
                         </li>
                     }
                 </ul>
@@ -79,6 +84,11 @@ export default class MorePagesPage implements OnInit {
         } finally {
             this.loading.set(false);
         }
+    }
+
+    /** The Visual Editor of a page (VE-D49). */
+    visualLink(row: MorePageRow): string[] {
+        return row.kind === 'home' ? ['/admin/edit-page/home'] : ['/admin/edit-page/p', row.name];
     }
 
     /** The classic editor of a page (VE-D49). */

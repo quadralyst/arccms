@@ -1,0 +1,116 @@
+/*
+ * The Visual Editor's screen: the strip, the frame, the Page settings panel and its
+ * handle, the popovers and bars over the page. Shared by the entry's screen
+ * (entry-edit.page.ts) and a page's (more-pages/page-edit.page.ts), so the two look one.
+ */
+:host { display: flex; flex-direction: column; height: 100vh; overflow: hidden; background: #e5e7eb; }
+.arc-ed-strip {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+    padding: 6px 12px; background: #1f2937; color: #f9fafb;
+    font: 500 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .25); position: relative; z-index: 3;
+    overflow-x: auto; scrollbar-width: none;
+}
+.arc-ed-title { font-weight: 600; white-space: nowrap; }
+.arc-ed-status { padding: 1px 8px; border-radius: 999px; background: #4b5563; white-space: nowrap; }
+.arc-ed-status.arc-ed-saved, .arc-ed-status.arc-ed-published { background: #15803d; }
+.arc-ed-status.arc-ed-publishing { background: #a16207; }
+.arc-ed-status.arc-ed-not_saved { background: #b91c1c; }
+.arc-ed-spacer { flex: 1 1 auto; }
+.arc-ed-group { display: inline-flex; gap: 2px; }
+.arc-ed-btn {
+    font: inherit; color: #f9fafb; background: transparent; cursor: pointer; white-space: nowrap;
+    border: 1px solid #4b5563; border-radius: 6px; padding: 3px 10px; margin: 0; line-height: 1.4;
+}
+.arc-ed-btn:hover:not(:disabled):not(.arc-ed-on):not(.arc-ed-primary) { background: #374151; }
+.arc-ed-btn.arc-ed-primary:hover:not(:disabled) { filter: brightness(1.1); }
+.arc-ed-btn:disabled { opacity: .55; cursor: default; }
+.arc-ed-btn.arc-ed-on { background: #f9fafb; color: #1f2937; border-color: #f9fafb; }
+.arc-ed-btn.arc-ed-primary { background: var(--arc-admin-accent); border-color: var(--arc-admin-accent); }
+.arc-ed-btn:focus-visible { outline: 2px solid #f9fafb; outline-offset: 1px; }
+.arc-ed-handle:focus-visible { outline: 2px solid var(--arc-admin-accent); outline-offset: 1px; }
+.arc-ed-stage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; justify-content: center; }
+/* Full width and Phone slide into each other rather than jump. */
+.arc-ed-frame {
+    display: block; flex: 0 0 auto; width: 100%; height: 100%; border: 0; background: #fff;
+    transition: width .3s ease, box-shadow .3s ease;
+}
+.arc-ed-frame.arc-ed-phone { width: 390px; box-shadow: 0 0 0 1px #d1d5db, 0 8px 24px rgba(0, 0, 0, .12); }
+.arc-ed-loading {
+    position: absolute; inset: 0; margin: 0; display: flex; align-items: center; justify-content: center;
+    background: #fff; color: #6b7280; font: 15px/1.5 system-ui, sans-serif; pointer-events: none;
+}
+.arc-ed-panel {
+    position: absolute; top: 0; right: 0; bottom: 0; z-index: 2;
+    display: flex; background: #fff; box-shadow: -4px 0 16px rgba(0, 0, 0, .15);
+    transition: transform .25s ease;
+}
+.arc-ed-panel.arc-ed-dragging { transition: none; }
+.arc-ed-panel-body { display: flex; flex-direction: column; height: 100%; min-width: 0; overflow: clip; }
+/* The form editor fills the panel's height, so its own list scrolls; clip (not hidden) so a
+   jump to a field can never scroll the panel itself and push the tabs out of sight. */
+.arc-ed-panel-body > arc-create-content { display: block; flex: 1 1 auto; min-height: 0; height: 100%; }
+.arc-ed-handle {
+    position: absolute; right: 100%; top: 50%; width: 24px; height: 48px; margin-top: -24px; padding: 0;
+    display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none;
+    border: 1px solid #d1d5db; border-right: 0; border-radius: 8px 0 0 8px; color: #374151;
+    background-color: #fff;
+    background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1.2px);
+    background-size: 4px 5px; background-position: center;
+    box-shadow: -2px 2px 6px rgba(0, 0, 0, .15);
+    font: 700 18px/1 system-ui, sans-serif;
+}
+.arc-ed-handle > span { background: #fff; border-radius: 4px; padding: 0 1px; }
+.arc-ed-dragging .arc-ed-handle { cursor: grabbing; }
+.arc-ed-fmt { padding: 3px 7px; min-width: 28px; font-weight: 600; }
+.arc-ed-pop {
+    position: fixed; z-index: 1000; width: 320px; max-width: calc(100vw - 16px); max-height: 60vh; overflow: auto;
+    background: #fff; color: #1f2937; border: 1px solid #d1d5db; border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .18); padding: 10px 12px;
+}
+.arc-ed-pop-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font: 600 13px/1.4 system-ui, sans-serif; }
+.arc-ed-pop-body ::ng-deep [id^="req-"] { margin-bottom: 0 !important; }
+.arc-ed-pop-title { flex: 1 1 auto; }
+.arc-ed-pop-done { font: 500 13px/1.4 system-ui, sans-serif; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; padding: 2px 10px; cursor: pointer; }
+.arc-ed-pop-actions { display: flex; gap: 8px; }
+.arc-ed-pop-body:empty { display: none; }
+.arc-ed-sel { position: fixed; z-index: 1000; transform: translateY(-100%); max-width: calc(100vw - 16px); }
+.arc-ed-sel.arc-ed-sel-below { transform: none; }
+.arc-ed-pic { width: 340px; }
+.arc-ed-pic-alt { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px; font: 500 12px/1.4 system-ui, sans-serif; color: #374151; }
+.arc-ed-error { color: #b91c1c; }
+.arc-ed-pop.arc-ed-pop-map { width: 440px; max-height: 80vh; }
+.arc-ed-video { margin-top: 8px; margin-bottom: 0; }
+.arc-ed-bar {
+    position: fixed; z-index: 999; display: flex; gap: 2px; padding: 2px; transform: translateX(-100%);
+    background: #1f2937; border-radius: 6px; box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+    font: 500 12px/1.4 system-ui, sans-serif; color: #f9fafb;
+}
+.arc-ed-bar-btn {
+    width: 28px; height: 26px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.arc-ed-bar-btn:hover:not(:disabled) { background: #374151; }
+.arc-ed-bar-btn:disabled { opacity: .35; cursor: default; }
+.arc-ed-bar-btn:focus-visible { outline: 2px solid #f9fafb; outline-offset: -2px; }
+.arc-ed-bar-note { padding: 3px 8px; white-space: nowrap; }
+.arc-ed-spot {
+    position: fixed; z-index: 1000; display: flex; gap: 4px; transform: translateX(-100%);
+    font: 500 12px/1.4 system-ui, sans-serif;
+}
+.arc-ed-spot button {
+    display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 6px; cursor: pointer;
+    font: inherit; color: #1f2937; background: #fff; border: 1px solid #d1d5db; box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+}
+.arc-ed-spot button:hover { background: #f3f4f6; }
+.arc-ed-spot .arc-ed-spot-done { color: #fff; background: var(--arc-admin-accent); border-color: var(--arc-admin-accent); }
+.arc-ed-spot .arc-ed-spot-done:hover { filter: brightness(1.1); background: var(--arc-admin-accent); }
+.arc-ed-spot button:focus-visible { outline: 2px solid var(--arc-admin-accent); outline-offset: 1px; }
+.arc-ed-undo {
+    position: fixed; z-index: 1001; left: 50%; bottom: 24px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px; border-radius: 8px;
+    background: #1f2937; color: #f9fafb; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); font: 500 13px/1.4 system-ui, sans-serif;
+}
+.arc-ed-undo button { font: inherit; color: #f9fafb; background: transparent; border: 1px solid #6b7280; border-radius: 6px; padding: 2px 10px; cursor: pointer; }
+.arc-ed-undo button:hover { background: #374151; }
+@media (prefers-reduced-motion: reduce) { .arc-ed-panel, .arc-ed-frame { transition: none; } }

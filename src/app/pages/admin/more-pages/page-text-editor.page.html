@@ -24,6 +24,9 @@
                     }
                 </div>
             }
+            <a class="btn btn-outline-secondary btn-sm" [routerLink]="visualEditorLink()" data-testid="to-visual-editor">
+                <i class="fa-solid fa-pen-ruler me-1" aria-hidden="true"></i>{{ 'admin.more_pages.visual_editor' | transloco }}
+            </a>
             <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openPreview()" [disabled]="loading() || !!loadError()">
                 <i class="fa-regular fa-eye me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.live_preview' | transloco }}
             </button>
@@ -197,90 +200,9 @@
             </main>
 
             <aside class="panel">
-                <div class="panel-tabs" role="tablist">
-                    @for (tab of ['basic', 'seo', 'history']; track tab) {
-                        <button type="button" role="tab" class="panel-tab" [class.active]="panel() === tab" [attr.aria-selected]="panel() === tab"
-                            (click)="showPanel($any(tab))">{{ ('admin.more_pages.editor.tab_' + tab) | transloco }}</button>
-                    }
-                </div>
-
-                @if (panel() === 'basic') {
-                    <div class="panel-body" role="tabpanel">
-                        <div class="panel-row">
-                            <span class="panel-label">{{ 'admin.more_pages.editor.status' | transloco }}</span>
-                            <span class="page-status" [class]="'page-status status-' + status()">{{ ('admin.more_pages.status.' + status()) | transloco }}</span>
-                        </div>
-                        <div class="panel-row">
-                            <span class="panel-label">{{ 'admin.more_pages.last_published' | transloco }}</span>
-                            <span>@if (lastPublished()) { {{ lastPublished() | arcTime }} } @else { {{ 'admin.more_pages.never' | transloco }} }</span>
-                        </div>
-                        <button type="button" class="btn btn-primary w-100 mt-2" data-testid="publish" (click)="publish()"
-                            [disabled]="publishing() || status() !== 'changes' || saving() > 0">
-                            @if (publishing()) {
-                                <i class="fa-solid fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.publishing' | transloco }}
-                            } @else {
-                                <i class="fa-solid fa-upload me-1" aria-hidden="true"></i>{{ 'admin.more_pages.editor.publish' | transloco }}
-                            }
-                        </button>
-                        @if (publishError()) {
-                            <p class="text-danger small mt-2" role="alert">{{ publishError() }}</p>
-                        } @else if (status() === 'changes' && !publishing()) {
-                            <p class="text-muted small mt-2">{{ 'admin.more_pages.editor.publish_note' | transloco }}</p>
-                        }
-                        <p class="text-muted small mt-3 mb-0">{{ 'admin.more_pages.editor.cards_note' | transloco }}</p>
-                    </div>
-                }
-
-                @if (panel() === 'seo' && seo(); as seo) {
-                    <div class="panel-body" role="tabpanel">
-                        <label class="panel-label" for="seo-title">{{ 'admin.more_pages.editor.seo_title' | transloco }}</label>
-                        <input id="seo-title" class="form-control" type="text" [value]="shown('s:' + lang() + ':title', seo.title)" [placeholder]="seo.titleFallback"
-                            (input)="seoInput('title', $any($event.target).value)" (blur)="seoLeft('title')">
-                        <div class="counter" [class.over]="titleLength() > 60">{{ 'admin.more_pages.editor.title_count' | transloco: { count: titleLength() } }}</div>
-
-                        <label class="panel-label mt-3" for="seo-description">{{ 'admin.more_pages.editor.seo_description' | transloco }}</label>
-                        <textarea id="seo-description" class="form-control" rows="4" [value]="shown('s:' + lang() + ':description', seo.description)" [placeholder]="seo.descriptionFallback"
-                            (input)="seoInput('description', $any($event.target).value)" (blur)="seoLeft('description')"></textarea>
-                        <div class="counter" [class.over]="descriptionLength() > 160">{{ 'admin.more_pages.editor.description_count' | transloco: { count: descriptionLength() } }}</div>
-
-                        <span class="panel-label mt-3 d-block">{{ 'admin.more_pages.editor.share_image' | transloco }}</span>
-                        @if (seo.shareImage) {
-                            <img class="share-image" [src]="seo.shareImage" alt="">
-                        } @else {
-                            <p class="text-muted small mb-1">{{ 'admin.more_pages.editor.share_image_default' | transloco }}</p>
-                        }
-                        <div class="d-flex gap-2 flex-wrap">
-                            <button type="button" class="btn btn-outline-primary btn-sm" (click)="chooseShareImage()">{{ 'admin.more_pages.editor.choose_picture' | transloco }}</button>
-                            @if (seo.shareImage) {
-                                <button type="button" class="btn btn-link btn-sm" (click)="useFileShareImage()">{{ 'admin.more_pages.editor.use_file_picture' | transloco }}</button>
-                            }
-                        </div>
-                        @if (!isDefaultLang()) {
-                            <p class="text-muted small mt-3 mb-0">{{ 'admin.more_pages.editor.seo_language_note' | transloco }}</p>
-                        }
-                    </div>
-                }
-
-                @if (panel() === 'history') {
-                    <div class="panel-body" role="tabpanel" data-testid="history">
-                        @if (historyError()) {
-                            <p class="text-danger small" role="alert">{{ 'admin.more_pages.editor.history_failed' | transloco }}</p>
-                        } @else if (history() === null) {
-                            <p class="text-muted small" role="status">{{ 'admin.more_pages.loading' | transloco }}</p>
-                        } @else {
-                            @for (version of history(); track version.id; let first = $first) {
-                                <div class="version">
-                                    <div>
-                                        <div>{{ millis(version.publishedAt) | arcTime }} @if (first) { <span class="badge text-bg-success ms-1">{{ 'admin.more_pages.editor.live' | transloco }}</span> }</div>
-                                        <div class="text-muted small">{{ 'admin.more_pages.editor.version_count' | transloco: { count: entryCount(version) } }}</div>
-                                    </div>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restore(version)">{{ 'admin.more_pages.editor.restore' | transloco }}</button>
-                                </div>
-                            } @empty {
-                                <p class="text-muted small">{{ 'admin.more_pages.editor.no_history' | transloco }}</p>
-                            }
-                        }
-                    </div>
+                @if (session; as session) {
+                    <arc-page-text-panel [session]="session" [lang]="lang()" [defaultLang]="defaultLang()" [seo]="seo()"
+                        [busy]="saving() > 0" [beforePublish]="flushAll" />
                 }
             </aside>
         </div>

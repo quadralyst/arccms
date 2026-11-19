@@ -198,7 +198,7 @@ describe('PageTextEditorPage', () => {
 
     it('edits the title and description in the SEO tab', async () => {
         const el = await open();
-        fixture.componentInstance.showPanel('seo');
+        Array.from(el.querySelectorAll<HTMLButtonElement>('.panel-tab')).find((b) => b.textContent?.trim() === 'SEO')!.click();
         fixture.detectChanges();
         expect(input(el, 'seo-title').placeholder).toBe('Bakery');
         type(input(el, 'seo-title'), 'Fresh bread');
@@ -210,7 +210,7 @@ describe('PageTextEditorPage', () => {
         const el = await open();
         const version = { id: 'v1', text: { en: { hero: { value: 'Old' } } }, publishedAt: { toMillis: () => 1 } };
         (TestBed.inject(PageTextService).history as ReturnType<typeof vi.fn>).mockResolvedValue([version]);
-        fixture.componentInstance.showPanel('history');
+        Array.from(el.querySelectorAll<HTMLButtonElement>('.panel-tab')).find((b) => b.textContent?.trim() === 'History')!.click();
         await vi.advanceTimersByTimeAsync(0);
         fixture.detectChanges();
         el.querySelector<HTMLButtonElement>('[data-testid="history"] button')!.click();

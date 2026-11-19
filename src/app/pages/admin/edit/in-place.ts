@@ -879,7 +879,7 @@ export function soleSpot(target: Element): HTMLElement | null {
 }
 
 /** The admin's accent colour, for the spots' outlines; a dark grey when it has none. */
-function adminAccent(): string {
+export function adminAccent(): string {
     if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') return '#1f2937';
     const value = getComputedStyle(document.documentElement).getPropertyValue('--arc-admin-accent').trim();
     return /^[#\w(),.%\s-]+$/.test(value) && value ? value : '#1f2937';

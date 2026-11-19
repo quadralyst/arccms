@@ -147,7 +147,7 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
                     ]);
                     if (left()) return;
                     const lang = settings.defaultLanguage || '';
-                    htmlContent = applyPageText(htmlContent, edited, { lang, defaultLang: lang, ownFile: true });
+                    htmlContent = applyPageText(htmlContent, edited, { lang, defaultLang: lang, ownFile: true, keepMarks: !!this.textPreview?.editing });
                 }
                 // The site's own details for data-arc-site (SS3), read only when the page asks.
                 // Read only for a page that asks: the site's details (SS3), and the
@@ -173,7 +173,7 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
                     this.drawPageHead(content);
                     // Signup and contact forms on the page work as when published (SS5).
                     this.liveScript?.remove();
-                    this.liveScript = content ? attachLiveParts(content, this.document, pages, strings) : null;
+                    this.liveScript = content && !this.textPreview?.editing ? attachLiveParts(content, this.document, pages, strings) : null;
                 }
             } else {
                 this.router.navigate(['/404']);
@@ -293,6 +293,11 @@ export class PublicPageRendererComponent implements OnInit, OnDestroy {
             }
         }
         const bodyScripts = Array.from(content?.querySelectorAll('script') ?? []);
+        // On the Visual Editor the page's scripts do not run and the page shows at rest (VE-D55).
+        if (this.textPreview?.editing) {
+            this.document.documentElement.classList.add('arc-editing');
+            return;
+        }
         void this.runPageScripts([...headScripts, ...bodyScripts], content, drawn);
     }
 
