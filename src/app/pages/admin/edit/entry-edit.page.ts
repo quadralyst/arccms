@@ -332,7 +332,7 @@ export function editFrameUrl(type: string, id: string): string {
         .arc-ed-bar-btn:focus-visible { outline: 2px solid #f9fafb; outline-offset: -2px; }
         .arc-ed-bar-note { padding: 3px 8px; white-space: nowrap; }
         .arc-ed-spot {
-            position: fixed; z-index: 998; display: flex; gap: 4px; transform: translateX(-100%);
+            position: fixed; z-index: 1000; display: flex; gap: 4px; transform: translateX(-100%);
             font: 500 12px/1.4 system-ui, sans-serif;
         }
         .arc-ed-spot button {
@@ -580,6 +580,9 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             this.syncBar();
             this.syncSpotActions();
         };
+        // A value growing as it is typed in: its buttons move with its end.
+        const onInput = () => this.syncSpotActions();
+        doc.addEventListener('input', onInput, true);
         doc.addEventListener('pointerdown', onTouch, true);
         doc.addEventListener('keydown', onKey);
         win.addEventListener('scroll', onScroll, { passive: true });
@@ -587,6 +590,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             doc.removeEventListener('pointerdown', onTouch, true);
             doc.removeEventListener('keydown', onKey);
             win.removeEventListener('scroll', onScroll);
+            doc.removeEventListener('input', onInput, true);
             this.bar.set(null);
             this.inPlace?.detach();
             this.inPlace = null;
@@ -687,6 +691,10 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             this.richOn.set(!!rich);
             if (!rich) this.richEditor = null;
             this.syncSpotActions();
+            // A row is "just added" until its first value is left: Cancel, which runs next, still sees it.
+            if (this.justAdded && (!_spot || _spot.rowId !== this.justAdded.id)) queueMicrotask(() => {
+                if (!this.inPlace?.current() || this.inPlace.current()?.rowId !== this.justAdded?.id) this.justAdded = null;
+            });
         },
         cancelled: (spot) => this.spotCancelled(spot),
     };
@@ -1418,7 +1426,9 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         const top = Math.round(area.top + Math.min(box.bottom + 6, area.height - SPOT_ACTIONS_HEIGHT - 8));
         // Page settings open over the page: the buttons stay on the page's side of it.
         const panelLeft = this.panel.shown() ? this.panelBox?.nativeElement.getBoundingClientRect().left ?? Infinity : Infinity;
-        const left = Math.round(Math.min(area.left + Math.min(box.right, spot.el.ownerDocument.documentElement.clientWidth - 4), panelLeft - 8));
+        const right = Math.min(area.left + Math.min(box.right, spot.el.ownerDocument.documentElement.clientWidth - 4), panelLeft - 8);
+        // A short value near the left edge: the buttons keep inside the window.
+        const left = Math.round(Math.max(right, SPOT_ACTIONS_WIDTH + 8));
         const now = this.spotActions();
         if (now && now.top === top && now.left === left) return;
         this.spotActions.set({ top, left });
@@ -1613,8 +1623,9 @@ export interface RowBar {
     last: boolean;
 }
 
-/** How tall the Done and Cancel buttons are, to keep them inside the window. */
+/** How tall and wide the Done and Cancel buttons are, to keep them inside the window. */
 const SPOT_ACTIONS_HEIGHT = 28;
+const SPOT_ACTIONS_WIDTH = 170;
 
 /** About how tall the map box is: search, map, address and point boxes. */
 const MAP_BOX_HEIGHT = 470;

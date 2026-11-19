@@ -208,7 +208,9 @@ describe('InPlaceEditing', () => {
 
     it('Cancel puts back what a text spot held, in the draft and on the page (VE-D37)', () => {
         const title = q('[data-arc-field="title"]');
-        host.value.mockImplementation((field: string) => (field === 'title' ? 'Concert' : values[field] ?? ''));
+        let storedTitle = 'Concert';
+        host.value.mockImplementation((field: string) => (field === 'title' ? storedTitle : values[field] ?? ''));
+        host.setText.mockImplementation((field: string, value: string) => { if (field === 'title') storedTitle = value; });
         click(title);
         title.textContent = 'Something else';
         title.dispatchEvent(new Event('input', { bubbles: true }));
@@ -238,7 +240,7 @@ describe('InPlaceEditing', () => {
 
     it('an empty value keeps the page\'s layout while typed in; only one inside a line gets room for the cursor', () => {
         const css = doc.getElementById('arc-in-place-style')!.textContent!;
-        expect(css).toContain('[data-arc-editing][data-arc-inline]:empty { display: inline-block; min-width: 1ch; }');
+        expect(css).toContain('[data-arc-editing][data-arc-inline]:empty, [data-arc-editing][data-arc-inline][data-arc-unhide]:empty { display: inline-block !important; min-width: 1ch; }');
         expect(css).not.toMatch(/\[data-arc-editing\]:empty \{ display/);
         const title = q('[data-arc-field="title"]');
         title.style.display = 'inline';
@@ -539,6 +541,28 @@ describe('InPlaceEditing', () => {
             expect(key('Enter').defaultPrevented).toBe(false);
             expect(editing.current()).not.toBeNull();
             key('Escape');
+            expect(answer.innerHTML).toBe('<p>One.</p><p>Two.</p>');
+            expect(rowHost['setPartText']).not.toHaveBeenCalled();
+        });
+
+        it('Cancel puts a row\'s word back through the row, and the screen hears of it', () => {
+            Object.assign(host, { cancelled: vi.fn() });
+            const question = q('summary[data-arc-row-id="r_a"]');
+            click(question);
+            question.textContent = 'Why not?';
+            question.dispatchEvent(new Event('input', { bubbles: true }));
+            rowHost['partText'].mockReturnValue('Why not?');
+            editing.cancel();
+            expect(rowHost['setPartText']).toHaveBeenLastCalledWith(expect.objectContaining({ rowId: 'r_a', sub: 'question' }), 'Why?');
+            expect(question.textContent).toBe('Why?');
+            expect((host as unknown as { cancelled: ReturnType<typeof vi.fn> }).cancelled).toHaveBeenCalledWith(expect.objectContaining({ rowId: 'r_a' }));
+        });
+
+        it('Cancel on an FAQ answer shows its paragraphs again', () => {
+            const answer = q('[data-arc-sub="answer_html"]');
+            click(answer);
+            expect(answer.textContent).toBe('One.\n\nTwo.');
+            editing.cancel();
             expect(answer.innerHTML).toBe('<p>One.</p><p>Two.</p>');
             expect(rowHost['setPartText']).not.toHaveBeenCalled();
         });

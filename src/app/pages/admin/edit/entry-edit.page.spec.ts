@@ -378,6 +378,28 @@ describe('EntryEditPage', () => {
             expect(rows.map((r) => r['id'])).toEqual(['a', 'b']);
         });
 
+        it('places Done and Cancel at the value\'s bottom right, inside the window, hidden when out of sight', () => {
+            const el = document.createElement('h3');
+            document.body.appendChild(el);
+            let box = { left: 20, top: 100, right: 60, bottom: 120, width: 40, height: 20 };
+            el.getBoundingClientRect = () => box as DOMRect;
+            page.frame = { nativeElement: { getBoundingClientRect: () => ({ left: 0, top: 40, right: 1000, bottom: 740, width: 1000, height: 700 }) } } as never;
+            page.inPlace = { current: () => ({ kind: 'text', el }) } as never;
+            Object.defineProperty(document.documentElement, 'clientWidth', { value: 1000, configurable: true });
+            page.syncSpotActions();
+            // A short value near the left edge: the pair stays inside the window.
+            expect(page.spotActions()).toEqual({ top: 40 + 120 + 6, left: 170 + 8 });
+            box = { left: 300, top: 100, right: 700, bottom: 1200, width: 400, height: 1100 };
+            page.syncSpotActions();
+            // Taller than the window: held at the window's bottom.
+            expect(page.spotActions()).toEqual({ top: 40 + 700 - 28 - 8, left: 700 });
+            box = { left: 300, top: -300, right: 700, bottom: -10, width: 400, height: 290 };
+            page.syncSpotActions();
+            expect(page.spotActions()).toBeNull();
+            delete (document.documentElement as unknown as { clientWidth?: number }).clientWidth;
+            el.remove();
+        });
+
         it('Done leaves the value and Cancel cancels it', () => {
             const inPlace = { leave: vi.fn(), cancel: vi.fn(), current: vi.fn(() => null) };
             page.inPlace = inPlace as never;

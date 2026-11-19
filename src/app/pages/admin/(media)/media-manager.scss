@@ -223,6 +223,21 @@ arc-media-manager {
         min-width: 120px;
     }
 
+    /* The spinner and "Searching..." centred on one line, and the button as tall as
+       when it says Search: the icon's own line height no longer stretches it. */
+    .search-box button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Icons in the media manager are drawn large (arc-media-manager i): the button's
+       spinner is the size of its words. */
+    .search-box button i {
+        font-size: 1em;
+        line-height: 1;
+    }
+
     .search-box input:disabled {
         opacity: 0.6;
     }

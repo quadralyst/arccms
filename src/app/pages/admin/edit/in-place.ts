@@ -274,7 +274,8 @@ iframe[data-arc-sub][data-arc-edit-kind] { pointer-events: none; }
 /* An empty spot being typed in keeps the page's layout (a headline stays on its own line);
    only a value inside a line of text gets room for the cursor. */
 [data-arc-editing]:empty { min-height: 1em; }
-[data-arc-editing][data-arc-inline]:empty { display: inline-block; min-width: 1ch; }
+[data-arc-editing][data-arc-inline]:empty, [data-arc-editing][data-arc-inline][data-arc-unhide]:empty { display: inline-block !important; min-width: 1ch; }
+[data-arc-editing]:empty:not([data-arc-inline]) { min-width: 4ch; }
 /* A value worked out by the site (VE-D17): its title says where it comes from. */
 [data-arc-field][data-arc-hint] { cursor: help; }
 /* Shared by every language, while a translation is on screen (VE3.8). */
@@ -811,7 +812,9 @@ export class InPlaceEditing {
         const opened = this.opened;
         if (!active || !opened) return;
         if (active.kind === 'text') {
-            if (this.typedText(active) !== this.textAtStart) {
+            // Whatever is stored now (typing writes as it goes), the value goes back to what it was.
+            const now = isRowPart(active) ? this.host.partText?.(active) : String(this.host.value(active.field) ?? '');
+            if (now !== opened.value) {
                 if (isRowPart(active)) this.host.setPartText?.(active, opened.value);
                 else this.host.setText(active.field, opened.value);
             }
