@@ -41,6 +41,8 @@ export interface FieldPlaces {
     summary(key: string): string[];
     /** Words in the admin's language, from common.field_place keys. */
     translate(key: string, params?: Record<string, string>): string;
+    /** Calls `redraw` whenever the entry changes on screen, so the cards follow their fields; returns the unsubscribe. */
+    changes?(redraw: () => void): () => void;
 }
 
 declare module '@tiptap/core' {
@@ -99,14 +101,25 @@ export const FieldPlace = Node.create<FieldPlaceOptions>({
             dom.contentEditable = 'false';
             dom.setAttribute(PLACE_ATTR, key);
             drawCard(dom, key, places());
+            // ProseMirror redraws a node view only when its own node changes: the screen
+            // says when the field (or anything else in the entry) changed.
+            // Only when the card would change: a field drawn as on the page (a map's frame,
+            // say) is not drawn again on each keystroke.
+            let shown = cardSignature(key, places());
+            const stop = places()?.changes?.(() => {
+                const now = cardSignature(key, places());
+                if (now === shown) return;
+                shown = now;
+                drawCard(dom, key, places());
+            });
             return {
                 dom,
-                // The card is redrawn from the field each time the text changes around it.
                 update: (updated) => {
                     if (updated.type.name !== 'fieldPlace' || updated.attrs['field'] !== key) return false;
                     drawCard(dom, key, places());
                     return true;
                 },
+                destroy: () => stop?.(),
                 stopEvent: (event) => !!(event.target as HTMLElement | null)?.closest?.('button'),
                 ignoreMutation: () => true,
             };
@@ -131,6 +144,14 @@ export const FieldPlace = Node.create<FieldPlaceOptions>({
         };
     },
 });
+
+/** What the card would show, as a string: drawn as on the page, or the summary lines. */
+function cardSignature(key: string, places: FieldPlaces | null): string {
+    const field = places?.fields().find((f) => f.key === key);
+    if (!field || !places) return 'gone';
+    if (places.drawn?.(key)) return `${field.label}\u0000drawn`;
+    return [field.label, ...places.summary(key)].join('\u0000');
+}
 
 /** The card: the tag and name, what the field holds, and Edit. */
 function drawCard(dom: HTMLElement, key: string, places: FieldPlaces | null): void {

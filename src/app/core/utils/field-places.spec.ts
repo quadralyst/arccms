@@ -87,6 +87,30 @@ for (const [name, impl] of [['app', app], ['published', published]] as const) {
             expect(html).not.toContain('data-arc-place');
         });
 
+        it('never takes a name inside a loop\'s row for the page\'s field', () => {
+            const looped = '<html><body><div class="cards" data-arc-loop="info_cards"><img data-arc-if="image" data-arc-bind="image">'
+                + '<p data-arc-bind="info">Info</p></div></body></html>';
+            const fields = [{ key: 'articles_image', type: 'image' }, { key: 'articles_info', type: 'richtext' }];
+            const body = '<div data-arc-place="articles_image"></div><div data-arc-place="articles_info"></div>';
+            const html = impl.prepareFieldPlaces(looped, impl.placedFields(body, fields), 'articles');
+            expect(html).toContain('<img data-arc-if="image" data-arc-bind="image">');
+            expect(html).toContain('<p data-arc-bind="info">');
+            expect(html).toContain('<figure class="arc-field-image" data-arc-if="articles_image" data-arc-block-of="articles_image">');
+            expect(html).toContain('<div class="arc-field-text" data-arc-if="articles_info" data-arc-bind="articles_info" data-arc-block-of="articles_info">');
+        });
+
+        it('finds a field the template shows through [innerHTML], [src] or {{ name }}', () => {
+            const fields = [{ key: 'articles-notes', type: 'richtext' }, { key: 'articles-cover', type: 'image' }, { key: 'articles-intro', type: 'richtext' }];
+            const template = '<html><body><div class="n" [innerHTML]="notes"></div><img class="c" src="{{ cover }}"><p class="i">{{ articles-intro }}</p></body></html>';
+            const body = '<div data-arc-place="articles-notes"></div><div data-arc-place="articles-cover"></div><div data-arc-place="articles-intro"></div>';
+            const html = impl.prepareFieldPlaces(template, impl.placedFields(body, fields), 'articles');
+            expect(html).toMatch(/class="n"[^>]*data-arc-block-of="articles-notes"/);
+            expect(html).toMatch(/class="c"[^>]*data-arc-block-of="articles-cover"/);
+            expect(html).toMatch(/class="i"[^>]*data-arc-block-of="articles-intro"/);
+            expect(html).not.toContain('arc-field-text');
+            expect(html).not.toContain('arc-field-image');
+        });
+
         it('shows a field once when the text holds two markers for it', () => {
             const html = render(impl, '<div data-arc-place="articles-faq"></div><p>Mid</p><div data-arc-place="articles-faq"></div>', FIELDS);
             expect(html.match(/class="arc-faq"/g)).toHaveLength(1);

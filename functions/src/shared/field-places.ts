@@ -85,6 +85,17 @@ function namesOf(key: string, slug: string): string[] {
     return names;
 }
 
+/** True when the element shows the field through `[attr]="name"`, or `{{ name }}` in an attribute or its own text. */
+function boundTo(el: { attribs?: Record<string, string>; children?: { type: string; data?: string }[] }, names: string[]): boolean {
+    const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const mustache = (s: string) => escaped.some((n) => new RegExp(`\\{\\{\\s*${n}\\s*(\\|[^}]*)?\\}\\}`).test(s));
+    for (const [attr, value] of Object.entries(el.attribs ?? {})) {
+        if (attr.startsWith('[') && names.includes(value.trim())) return true;
+        if (mustache(value)) return true;
+    }
+    return (el.children ?? []).some((c) => c.type === 'text' && mustache(c.data ?? ''));
+}
+
 function loadLike(html: string): cheerio.CheerioAPI {
     return loadHtml(html, { xmlMode: false }, /<html[\s>]/i.test(html));
 }
@@ -96,15 +107,20 @@ function loadLike(html: string): cheerio.CheerioAPI {
 export function prepareFieldPlaces(templateHtml: string, fields: PlacedField[], slug = ''): string {
     if (!fields.length) return templateHtml;
     const $ = loadLike(templateHtml);
-    const outsideHead = (_: number, el: any) => $(el).closest('head').length === 0;
+    // Names inside a loop's row are the row's own fields, not the page's: never the field's block.
+    const candidates = $('body *').length ? $('body *') : $('*');
+    const pageLevel = candidates.filter((_, el) => $(el).closest('head').length === 0
+        && $(el).parents('[data-arc-loop], [data-arc-items-src]').length === 0);
     for (const field of fields) {
         const names = namesOf(field.key, slug);
-        // Read off each element's attributes: `[innerHTML]` cannot be written as a selector.
-        const named = (attr: string) => $('*').filter(outsideHead).filter((_, el) => names.includes((el as any).attribs?.[attr] ?? ''));
+        // Read off each element's attributes: `[innerHTML]` cannot be written as a selector,
+        // and the parser lowercases attribute names.
+        const named = (attr: string) => pageLevel.filter((_, el) => names.includes(((el as any).attribs?.[attr] ?? '').trim()));
+        const bound = pageLevel.filter((_, el) => boundTo(el as any, names));
         let block = named('data-arc-if').first();
         if (!block.length) block = named('data-arc-loop').first();
         if (!block.length) block = named('data-arc-bind').first();
-        if (!block.length) block = named('[innerHTML]').first();
+        if (!block.length) block = bound.first();
         if (block.length) {
             block.attr(BLOCK_OF_ATTR, field.key);
             continue;

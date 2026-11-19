@@ -180,6 +180,7 @@ export const IN_PLACE_CSS = `
 [data-arc-empty] img:not([src]), [data-arc-empty] img[src=""] { display: none; }
 [data-arc-empty][data-arc-ph] { padding: 8px 12px; }
 [data-arc-ph]::before { content: attr(data-arc-ph); font-style: italic; opacity: .6; }
+[data-arc-editing] { text-transform: none !important; }
 [data-arc-editing]:empty { display: inline-block; min-width: 1ch; }
 /* A value worked out by the site (VE-D17): its title says where it comes from. */
 [data-arc-field][data-arc-hint] { cursor: help; }
@@ -207,6 +208,8 @@ export class InPlaceEditing {
      * spot when it goes, and an unchanged value is never drawn again by the page.
      */
     private richShown: { before: string; typed: string | null } | null = null;
+    /** The text spot's words when it was opened: leaving writes them back only when changed. */
+    private textAtStart: string | null = null;
     private observer: MutationObserver | null = null;
     private markTimer: ReturnType<typeof setTimeout> | null = null;
     private readonly listeners: [string, EventListener, boolean][] = [];
@@ -277,6 +280,7 @@ export class InPlaceEditing {
         const type = this.host.type();
         // The type is still loading: marked once it is there.
         if (!type) {
+            if (this.markTimer) clearTimeout(this.markTimer);
             this.markTimer = setTimeout(() => {
                 this.markTimer = null;
                 this.mark();
@@ -401,9 +405,13 @@ export class InPlaceEditing {
             return;
         }
         if (event.key === 'Tab') {
+            // In a list, Tab indents and Shift+Tab outdents, as in the form editor.
+            if (active?.kind === 'rich' && this.selectionInList(active.el)) return;
+            // Past the last spot (or before the first), Tab goes on to the rest of the
+            // page and out of the frame: the strip and the panel stay in reach.
+            if (!this.step(event.shiftKey ? -1 : 1)) return;
             event.preventDefault();
             event.stopPropagation();
-            this.step(event.shiftKey ? -1 : 1);
             return;
         }
         if (active?.kind === 'text' && event.key === 'Enter') {
@@ -426,18 +434,35 @@ export class InPlaceEditing {
         this.host.setText(active.field, plainText(active.el));
     }
 
-    /** Tab: the next spot in page order (Shift: the one before), opened when it is typed in. */
-    step(direction: 1 | -1): void {
+    /** The caret is in a list item of the rich text spot. */
+    private selectionInList(el: HTMLElement): boolean {
+        const node = this.doc.getSelection?.()?.anchorNode ?? null;
+        const at = node && (node.nodeType === 1 ? node as Element : node.parentElement);
+        const item = at?.closest?.('li');
+        return !!item && el.contains(item);
+    }
+
+    /**
+     * Tab: the next spot in page order (Shift: the one before), opened when it is typed in.
+     * False past the last spot (or before the first): the spot is left and Tab carries on.
+     */
+    step(direction: 1 | -1): boolean {
         const spots = this.spots();
-        if (!spots.length) return;
+        if (!spots.length) return false;
         const from = this.active?.el ?? (this.doc.activeElement as HTMLElement | null);
         const index = from ? spots.indexOf(from) : -1;
-        const next = spots[index < 0 ? (direction > 0 ? 0 : spots.length - 1) : (index + direction + spots.length) % spots.length];
+        const target = index < 0 ? (direction > 0 ? 0 : spots.length - 1) : index + direction;
+        if (target < 0 || target >= spots.length) {
+            this.leave();
+            return false;
+        }
+        const next = spots[target];
         this.leave();
         next.scrollIntoView?.({ block: 'nearest' });
         const kind = next.getAttribute('data-arc-edit-kind');
         if (kind === 'text' || kind === 'rich') this.open(next);
         else next.focus({ preventScroll: true });
+        return true;
     }
 
     // ── Opening and leaving a spot ───────────────────────────────────────────
@@ -475,6 +500,7 @@ export class InPlaceEditing {
         // A browser without plain-text editing gets ordinary editing; what is kept is the text.
         if ((el as HTMLElement).contentEditable !== 'plaintext-only') el.setAttribute('contenteditable', 'true');
         el.setAttribute('spellcheck', 'true');
+        this.textAtStart = plainText(el);
         el.focus({ preventScroll: true });
         placeCaret(this.doc, el, at);
         this.host.activeChanged(spot, null);
@@ -512,7 +538,11 @@ export class InPlaceEditing {
     leave(): void {
         const active = this.active;
         if (!active) return;
-        if (active.kind === 'text') this.host.setText(active.field, plainText(active.el));
+        if (active.kind === 'text') {
+            const text = plainText(active.el);
+            // Unchanged: the stored value stays as it is (and a change made meanwhile in Page settings with it).
+            if (text !== this.textAtStart) this.host.setText(active.field, text);
+        }
         this.dropActive();
     }
 
@@ -520,6 +550,7 @@ export class InPlaceEditing {
         const active = this.active;
         if (!active) return;
         this.active = null;
+        this.textAtStart = null;
         this.rich?.destroy();
         this.rich = null;
         const shown = this.richShown;

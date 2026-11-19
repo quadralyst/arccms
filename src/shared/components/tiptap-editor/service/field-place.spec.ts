@@ -68,6 +68,23 @@ describe('FieldPlace', () => {
         expect(e.getHTML().indexOf('Two')).toBeLessThan(e.getHTML().indexOf('data-arc-place'));
     });
 
+    it('follows the field when it changes on screen, and draws again only when the card would change', () => {
+        let lines = ['One?'];
+        let redraw: () => void = () => undefined;
+        const stop = vi.fn();
+        const e = mount(MARKER, places({ summary: () => lines, changes: (cb) => { redraw = cb; return stop; } }));
+        const card = () => e.view.dom.querySelector('.arc-field-place')!;
+        const firstBody = card().querySelector('.arc-field-place-body');
+        redraw();
+        expect(card().querySelector('.arc-field-place-body')).toBe(firstBody);
+        lines = ['One?', 'Three?'];
+        redraw();
+        expect([...card().querySelectorAll('li')].map((li) => li.textContent)).toEqual(['One?', 'Three?']);
+        e.destroy();
+        editor = null;
+        expect(stop).toHaveBeenCalled();
+    });
+
     it('keeps a marker in a text with no places offered', () => {
         expect(mount(`<p>x</p>${MARKER}`, null).getHTML()).toContain(MARKER);
     });

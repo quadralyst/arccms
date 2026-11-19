@@ -136,17 +136,17 @@ export function editFrameUrl(type: string, id: string): string {
                 (keydown.enter)="$event.preventDefault(); panel.toggle()" (keydown.space)="$event.preventDefault(); panel.toggle()">
                 <span aria-hidden="true">{{ panel.open() ? '\u203a' : '\u2039' }}</span>
             </button>
-            <div class="arc-ed-panel-body" [attr.inert]="panel.shown() ? null : ''">
+            <div class="arc-ed-panel-body" [attr.inert]="panel.shown() ? null : ''" (focusin)="panelInUse()" (pointerdown)="panelInUse()">
                 <arc-create-content [contentTypeSlug]="type" [contentId]="id" [pageMode]="true" [pageHooks]="hooks" />
             </div>
         </aside>
     </div>
     <div class="arc-ed-pop" role="dialog" [hidden]="!pop()" [attr.aria-label]="pop()?.title || null"
-        [style.top.px]="pop()?.top" [style.left.px]="pop()?.left" data-testid="edit-popover" (keydown.escape)="closePopover(); $event.stopPropagation()">
+        [style.top.px]="pop()?.top" [style.left.px]="pop()?.left" data-testid="edit-popover" (keydown.escape)="donePopover(); $event.stopPropagation()">
         <div class="arc-ed-pop-head">
             <!-- A field's own control brings its label; an image's box names it here. -->
             <span class="arc-ed-pop-title">{{ pop()?.image ? pop()?.title : '' }}</span>
-            <button type="button" class="arc-ed-pop-done" (click)="closePopover()" data-testid="edit-popover-done">{{ 'admin.edit_page.done' | transloco }}</button>
+            <button type="button" class="arc-ed-pop-done" (click)="donePopover()" data-testid="edit-popover-done">{{ 'admin.edit_page.done' | transloco }}</button>
         </div>
         @if (pop()?.image) {
         <div class="arc-ed-pop-actions">
@@ -303,6 +303,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     // ── Editing in place (VE-D16) ────────────────────────────────────────────
     /** Editing in place on the page in the frame, once it is drawn. */
     inPlace: InPlaceEditing | null = null;
+    /** The screen has closed: a late timer does nothing. */
+    private destroyed = false;
     /** The rich text editor on the page, while a rich spot is edited. */
     private richEditor: Editor | null = null;
     readonly richOn = signal(false);
@@ -355,6 +357,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         const onKey = (event: KeyboardEvent) => this.onKey(event);
         this.document.addEventListener('keydown', onKey);
         this.destroyRef.onDestroy(() => {
+            this.destroyed = true;
             clearInterval(timer);
             this.document.removeEventListener('keydown', onKey);
             this.frameCleanup?.();
@@ -461,7 +464,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         const started = Date.now();
         const check = () => {
             if (this.frameDocument() !== doc) return;
-            if (doc.querySelector('[data-arc-field]')) {
+            // A page with no field marks but empty fields' boxes is drawn too.
+            if (doc.querySelector('[data-arc-field], [data-arc-empty]')) {
                 this.drawn.set(true);
                 this.measurePanel();
                 this.scrollbar.set(Math.max(0, win.innerWidth - doc.documentElement.clientWidth));
@@ -471,7 +475,11 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
                 return;
             }
             if (Date.now() - started < DRAW_WAIT_MS) setTimeout(check, 150);
-            else this.drawn.set(true);
+            else {
+                // A page that marks nothing: the cover goes, and later redraws are still watched.
+                this.drawn.set(true);
+                this.pageDrawn(doc);
+            }
         };
         check();
     }
@@ -496,7 +504,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             .find((node) => spotInfo(node, type)?.field === key)
             ?? doc.querySelector<HTMLElement>(`[data-arc-field="${cssEscape(key)}"]`);
         if (!el) return false;
-        el.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+        const reduced = !!doc.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView?.({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
         const kind = spotInfo(el, type)?.kind;
         if (this.inPlace && (kind === 'text' || kind === 'rich')) {
             this.inPlace.open(el);
@@ -655,24 +664,34 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
      * and Edit opens it in Page settings.
      */
     private fieldPlaces(drawn: Map<string, Element>): FieldPlaces {
+        // The page's drawing of a field holds until the field is changed in Page settings;
+        // from then on the card lists what the field holds.
+        const valueOf = (key: string) => JSON.stringify(this.editor?.customFieldValues[key] ?? null);
+        const drawnAs = new Map([...drawn.keys()].map((key) => [key, valueOf(key)]));
         return {
             fields: () => (this.editor?.currentFields ?? [])
                 .filter((f) => !!f.key && isPlaceable(f.type))
                 .map((f) => ({ key: f.key, label: this.editor!.fieldLabel(f), type: f.type })),
             open: (key) => this.openField(key),
-            drawn: (key) => (drawn.get(key)?.cloneNode(true) as Element | undefined) ?? null,
+            drawn: (key) => (drawnAs.get(key) === valueOf(key) ? (drawn.get(key)?.cloneNode(true) as Element | undefined) ?? null : null),
             summary: (key) => {
                 const field = this.editor?.currentFields.find((f) => f.key === key);
                 return field ? fieldSummary(field.type, this.editor!.customFieldValues[key]) : [];
             },
             translate: (key, params) => this.transloco.translate(key, params),
+            changes: (redraw) => {
+                const sub = this.editor?.session.edited$.subscribe(redraw);
+                return () => sub?.unsubscribe();
+            },
         };
     }
 
     /** Opens Page settings on a field. */
     openField(field: string): void {
         this.panel.setOpen(true);
-        setTimeout(() => this.editor?.focusField(field), 260);
+        setTimeout(() => {
+            if (!this.destroyed) this.editor?.focusField(field);
+        }, 260);
     }
 
     formatActive(id: string): boolean {
@@ -946,12 +965,31 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         });
     }
 
+    /**
+     * Work in Page settings starts: a box on the page closes (its control goes home before
+     * the panel's tab can change under it) and the spot being typed in is left, so leaving
+     * it later cannot write its older words over what the panel changes.
+     */
+    panelInUse(): void {
+        this.closePopover();
+        this.inPlace?.leave();
+    }
+
+    /** Done or Escape in the box: it closes and the keyboard is back on the spot. */
+    donePopover(): void {
+        const spot = this.pop()?.spot;
+        this.closePopover();
+        spot?.el.focus?.({ preventScroll: true });
+    }
+
     /** Puts the box away and its control back in the panel. */
     closePopover(): void {
         const back = this.popReturn;
         this.popReturn = null;
         if (back) {
-            if (back.marker.parentNode) back.marker.parentNode.insertBefore(back.node, back.marker);
+            // The panel drew its fields again meanwhile: the old control is not put back.
+            if (back.marker.isConnected && back.marker.parentNode) back.marker.parentNode.insertBefore(back.node, back.marker);
+            else back.node.remove();
             back.marker.remove();
         }
         if (this.pop()) this.pop.set(null);
@@ -960,7 +998,9 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     /** A field not edited on the page: the panel opens on it. */
     openInPanel(spot: Spot): void {
         this.panel.setOpen(true);
-        setTimeout(() => this.editor?.focusField(spot.field, spot.row ?? undefined), 260);
+        setTimeout(() => {
+            if (!this.destroyed) this.editor?.focusField(spot.field, spot.row ?? undefined);
+        }, 260);
     }
 
     /** A field's name in the admin language. */

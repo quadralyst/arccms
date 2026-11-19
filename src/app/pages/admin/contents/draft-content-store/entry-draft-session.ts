@@ -88,6 +88,8 @@ export interface EntryDraftView {
   fill(item: any): void;
   /** Rich text on screen whose next update is the editor giving back what was put in it. */
   expectEchoes(): void;
+  /** Loading is settled: an editor that has not echoed by now never will (one shown later starts with the value). */
+  echoesDone?(): void;
   /** Takes the admin to the first required field that is empty. */
   revealMissing(missing: string[]): void;
   /** A new entry was written for the first time, with this id. */
@@ -198,6 +200,8 @@ export class EntryDraftSession implements OnDestroy {
   // ── Auto-save ────────────────────────────────────────────────────────────
   /** Each change pushes here; the save runs a few seconds after the last one. */
   readonly autoSaveTrigger$ = new Subject<void>();
+  /** Fires on every change on screen, before the pause auto-save waits for (a placed field's card follows it). */
+  readonly edited$ = new Subject<void>();
   private autoSaveSubscription: Subscription | null = null;
 
   // ── Translations (M2) ────────────────────────────────────────────────────
@@ -246,6 +250,8 @@ export class EntryDraftSession implements OnDestroy {
   /** Set when values are put on screen by a load; the editor's echo of them
    *  re-captures the baseline instead of counting as an edit. */
   private awaitingBaselineCapture = false;
+  /** Settles a load no editor echoed (an unchanged body, or editors not on screen). */
+  private settleTimer: ReturnType<typeof setTimeout> | null = null;
   /** The stored item as this session's last save left it; the load skips it. */
   private storedEcho: unknown = null;
   /** The links as last loaded or saved, which the next save's backlinks compare with. */
@@ -345,6 +351,15 @@ export class EntryDraftSession implements OnDestroy {
     this.view.expectEchoes();
     this.captureDraftBaseline();
     this.view.refresh();
+    // An editor echoes while the screen is drawn, at once, or never: an empty body
+    // loaded again, say, gives nothing back. Without this the first edit after such
+    // a load would be taken for the echo and become the saved state, unsaved.
+    if (this.settleTimer) clearTimeout(this.settleTimer);
+    this.settleTimer = setTimeout(() => {
+      this.settleTimer = null;
+      this.settleLoad();
+      this.view.echoesDone?.();
+    });
     // The preview window and the Visual Editor's page show what was loaded, such as
     // the other admin's entry after Reload theirs, not what was on screen before.
     this.schedulePreview();
@@ -529,8 +544,12 @@ export class EntryDraftSession implements OnDestroy {
    * document, and before a publish is enqueued, so the publish pipeline
    * copies the translations that were just saved rather than stale ones.
    */
-  private async persistPendingTranslations(docId: string): Promise<void> {
-    if (!docId || !this.typeSlug() || this.dirtyTranslations.size === 0) return;
+  /**
+   * Writes the translations edited since the last save. False when one did not land:
+   * it is "Not saved" then, and Retry runs `retry` (by default, these writes again).
+   */
+  private async persistPendingTranslations(docId: string, retry?: () => void): Promise<boolean> {
+    if (!docId || !this.typeSlug() || this.dirtyTranslations.size === 0) return true;
 
     const languages = [...this.dirtyTranslations];
     let failure: unknown = null;
@@ -581,9 +600,10 @@ export class EntryDraftSession implements OnDestroy {
 
     // A translation that did not land is "Not saved" with Retry, like the
     // entry itself (RF4 review M6).
-    if (failure) this.writeFailed(failure, () => void this.persistPendingTranslations(docId));
+    if (failure) this.writeFailed(failure, retry ?? (() => void this.persistPendingTranslations(docId)));
     else if (typedMeanwhile) this.autoSaveTrigger$.next();
     this.view.refresh();
+    return !failure;
   }
 
   /**
@@ -1099,15 +1119,16 @@ export class EntryDraftSession implements OnDestroy {
 
     // Translations belong to the same save. Written before the publish
     // is enqueued so the pipeline copies what was just saved.
-    await this.persistPendingTranslations(newId);
+    // A publish waits for them: the page must not go live without a translation just typed.
+    const translated = await this.persistPendingTranslations(newId, isPublish ? () => void this.directPublishContent() : undefined);
 
     // Only now does the entry have an id for the others to point at.
     await this.syncSeriesBacklinks(newId, formValues);
 
     if (isPublish) {
-      await this.enqueuePublish(newId);
+      if (translated) await this.enqueuePublish(newId);
     } else {
-      this.showSaved();
+      if (translated) this.showSaved();
     }
 
     // Typed while the first write ran: saved by the next one.
@@ -1166,12 +1187,13 @@ export class EntryDraftSession implements OnDestroy {
 
     // Translations belong to the same save. Written before the publish is
     // enqueued so the pipeline copies what was just saved.
-    await this.persistPendingTranslations(id);
+    // A publish waits for them: the page must not go live without a translation just typed.
+    const translated = await this.persistPendingTranslations(id, isPublish ? () => void this.directPublishContent() : undefined);
 
     if (isPublish) {
-      await this.enqueuePublish(id);
+      if (translated) await this.enqueuePublish(id);
     } else {
-      this.showSaved();
+      if (translated) this.showSaved();
     }
 
     // Cascading updates for content that references this one. The series
@@ -1337,6 +1359,14 @@ export class EntryDraftSession implements OnDestroy {
 
   /** Something changed on screen: the preview follows, and the entry saves itself after a pause. */
   triggerAutoSave(): void {
+    this.edited$.next();
+    // An edit before loading settled (an echo settles first): the load's baseline stands.
+    if (this.settleTimer) {
+      clearTimeout(this.settleTimer);
+      this.settleTimer = null;
+      this.awaitingBaselineCapture = false;
+      this.view.echoesDone?.();
+    }
     // Every change shows in the live preview, saved or not (VE1.5).
     this.schedulePreview();
     // While a translation is on screen the change belongs to that language;
@@ -1660,6 +1690,8 @@ export class EntryDraftSession implements OnDestroy {
 
   /** The screen is going away: the preview keeps the last draft and says the editor closed (VE-D6). */
   close(): void {
+    if (this.settleTimer) clearTimeout(this.settleTimer);
+    this.settleTimer = null;
     if (this.previewTimer) clearTimeout(this.previewTimer);
     this.previewTimer = null;
     this.previewLeaving();

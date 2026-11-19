@@ -3,7 +3,7 @@
 **Status:** SPEC, agreed in discussion 2026-11-17. VE1 and VE2 built 2026-11-18 (live preview window,
 `/admin/preview/:type/:id`, and types without pages previewed where their cards show). VE3.1
 (the shared `EntryDraftSession`) built and the VE3.2 spike done 2026-11-18, see the build notes
-under VE3; VE3.3 to VE3.6 built 2026-11-18; VE3.7 to VE5 not built. Notes from the build: the preview window is
+under VE3; VE3.3 to VE3.10 built 2026-11-18 and 19, VE3.11 review done 2026-11-19 (VE3 complete, deploy pending); VE4 and VE5 not built. Notes from the build: the preview window is
 opened with `window.open('', name)` then pointed at its address, so an open one is brought forward
 without a reload; a browser that blocks the pop-up gets a message in the editor. The Phone toggle
 frames the page in a 390 px column; the site's own phone layout still follows the window width.
@@ -153,10 +153,12 @@ deploy beyond the hosted admin.
 | VE3.8 | Languages: the language switch on the strip edits that translation; fields shared by every language are marked "Same in every language". **Built 2026-11-18:** the strip's language buttons call the form editor's `switchLanguage` (one session, VE-D15), the frame redraws in that language; `InPlaceHost.shared` locks what `isTranslatableField` / `TRANSLATABLE_BUILTIN_FIELDS` leave out (rows still open the panel, which locks what it must); `strip_*` strings reach `arc-site.js` with the panels' strings. |
 | VE3.9 | Docs: `docs/features/content.html` (edit on the page, the strip), `docs/website/templates.html` (hints, what is editable in place), CHANGELOG. |
 | VE3.10 | Browser check: strip on a published content page, list page and home page as an admin, absent as a visitor; edit every field kind in place, switch to the form and back, publish, conflict with a second tab. |
-| VE3.11 | Critical review of VE3, fixes, `npm run gate`. |
+| VE3.11 | Critical review of VE3, fixes, `npm run gate`. **Done 2026-11-19:** four reviews (publish and site, draft session, Visual Editor, TipTap); the high and medium findings fixed (see CHANGELOG, Fixed); the low ones listed in the build note below. |
 
 **Deploy:** functions (publish pipeline), then hosting (`arc-site.js`), then Republish website so
 every page carries the meta.
+
+**Build note, VE3.11 (2026-11-19), low items left:** the strip on pages the app draws shows English when no site strings are loaded; a content type slugged `home` or `p` confuses the strip's links; the strip's pinned-header check reads every element's style while scrolling; a selected field card can be replaced by Insert block or table (undo brings it back); a pasted or copy-dragged card can give a field two markers (published once); a map in a card loads its frame again on a redraw; a marker can be pasted into a rich text field outside the body; switching language twice quickly can apply the first; work that finishes after the screen closes still refreshes it; the field box does not follow the page as it scrolls; Publish and Close can scroll off the strip on a phone.
 
 **Build note, after VE3.10 (2026-11-19):** the panel scroll fix (VE-D29), the shared selection
 menu (VE-D27) and fields placed in the text (VE-D28) on `feat/field-markers`. The publish side

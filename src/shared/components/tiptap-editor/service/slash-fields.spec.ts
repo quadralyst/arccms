@@ -62,6 +62,13 @@ describe('the / menu offers custom fields', () => {
     it('says where an FAQ field is added on a type with none', () => {
         const items = typeSlash(places([{ key: 'a-pics', label: 'Photos', type: 'gallery' }]), 'faq');
         expect(items).toEqual(['FAQNo FAQ field here.']);
+        const hint = document.querySelector<HTMLButtonElement>('.slash-commands .slash-command-item')!;
+        hint.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        expect(editor!.getText()).toBe('/faq');
+    });
+
+    it('finds the FAQ field with /faq whatever its label says', () => {
+        expect(typeSlash(places([{ key: 'a-qs', label: 'Questions', type: 'faq' }]), 'faq')).toEqual(['Field: Questions']);
     });
 
     it('offers no fields outside the body', () => {

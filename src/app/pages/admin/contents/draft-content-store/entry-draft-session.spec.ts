@@ -323,6 +323,20 @@ describe('EntryDraftSession', () => {
     });
   });
 
+  describe('a load no editor echoes', () => {
+    it('settles by itself, so the first edit after it is saved, not taken for the echo', async () => {
+      vi.useFakeTimers();
+      loadStored();
+      await vi.advanceTimersByTimeAsync(0);
+      // The body changes: the form editor's body handler settles loading, then saves.
+      view.values.content = '<p>Pasted</p>';
+      session.settleLoad();
+      session.triggerAutoSave();
+      await vi.advanceTimersByTimeAsync(AUTO_SAVE_DELAY_MS + 10);
+      expect(store.saveDraft).toHaveBeenCalledWith('doc-1', expect.objectContaining({ content: '<p>Pasted</p>' }), 'article', 'stamp-1');
+    });
+  });
+
   describe('auto-save', () => {
     it('saves a few seconds after the last change, and not when nothing changed', async () => {
       vi.useFakeTimers();
@@ -367,6 +381,25 @@ describe('EntryDraftSession', () => {
 
       await session.switchLanguage('en');
       expect(view.values.title).toBe('Guide');
+    });
+
+    it('a publish whose translation did not save does not go live, and Retry publishes', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      contents.pollDeployStatus.mockReturnValue(of({}));
+      await session.initLanguages();
+      loadStored();
+      await session.switchLanguage('hi');
+      view.values.title = 'Hindi title';
+      session.triggerAutoSave();
+      drafts.saveTranslation.mockRejectedValueOnce(new Error('offline'));
+      await session.directPublishContent();
+      await flush();
+      expect(publishQueue.enqueue).not.toHaveBeenCalled();
+      expect(session.saveFailed()).toBe(true);
+
+      session.retrySave();
+      await flush();
+      await vi.waitFor(() => expect(publishQueue.enqueue).toHaveBeenCalledWith('publish', 'article', 'doc-1'));
     });
 
     it('only translatable custom fields go into a translation', () => {

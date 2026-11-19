@@ -11,7 +11,7 @@ import { FormBuilder, FormControl, FormGroup, FormsModule, ReactiveFormsModule }
 import { CommonModule, formatDate } from '@angular/common';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { IDraftContents, INextContentReference } from '../draft-content-store/draft-contents.model';
-import { SeriesLinks, isRealId, linkedId, seriesReference } from '../draft-content-store/series-links';
+import { isRealId, linkedId, seriesReference } from '../draft-content-store/series-links';
 import { ActivatedRoute, NavigationCancel, ParamMap, Router, RouterLink } from '@angular/router';
 import { BaseComponent } from '../../../../../shared/components/base/base.component';
 import { DraftContentsStore } from '../draft-content-store/draft-contents.store';
@@ -236,8 +236,6 @@ export class CreateContentComponent extends BaseComponent {
   nextContentSearchTerm = signal<string>('');
   showNextContentDropdown = signal<boolean>(false);
   selectedPreviousContent: INextContentReference | null = null;
-  /** The links as last loaded or saved, which the next save's backlinks compare with. */
-  private storedSeriesLinks: SeriesLinks | null = null;
   previousContentSearchTerm = signal<string>('');
   showPreviousContentDropdown = signal<boolean>(false);
   /** The option the arrow keys are on in each picker's list. */
@@ -400,6 +398,10 @@ export class CreateContentComponent extends BaseComponent {
       return field ? fieldSummary(field.type, this.customFieldValues[key]) : [];
     },
     translate: (key, params) => this.translocoService.translate(key, params),
+    changes: (redraw) => {
+      const sub = this.session.edited$.subscribe(redraw);
+      return () => sub.unsubscribe();
+    },
   };
 
   // Get current content type fields
@@ -1141,6 +1143,7 @@ export class CreateContentComponent extends BaseComponent {
         // waiting would take the first edit on the page for the echo (VE-D26).
         if (this.pageMode) this.session.settleLoad();
       },
+      echoesDone: () => this.pendingRichEchoes.clear(),
       revealMissing: (missing) => void this.revealMissingRequired(missing),
       entryCreated: (id) => this.showEntryAddress(id),
       focusField: (key, row) => this.focusField(key, row),
@@ -1525,9 +1528,10 @@ export class CreateContentComponent extends BaseComponent {
       publishedOn: this.lastPublishedDate,
       updatedOn: fromDateInputValue(this.seoForm.get('updatedOn')?.value),
       siteOrigin: this.domain,
-      faqCount: this.currentFields
-        .filter((f) => f.type === 'faq')
-        .reduce((n, f) => n + (Array.isArray(this.customFieldValues[f.key]) ? this.customFieldValues[f.key].length : 0), 0),
+      // As the page's FAQPage counts them: the first FAQ field's questions that are filled in.
+      faqCount: ((rows: unknown) => (Array.isArray(rows) ? rows.filter((r) => String(r?.question ?? '').trim()).length : 0))(
+        this.customFieldValues[this.currentFields.find((f) => f.type === 'faq')?.key ?? ''],
+      ),
     }));
   }
 

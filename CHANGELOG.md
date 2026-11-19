@@ -133,6 +133,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Fixed
 
+- **Review of the Visual Editor (VE3.11).**
+  - A field placed in the text no longer takes a name inside a loop's row (an info card's `image`) for its block, and finds one the template shows through `[innerHTML]`, another `[attribute]` or `{{ key }}`, so it is not drawn twice.
+  - The keyboard can leave the page: Tab past the last spot goes on to the strip and the panel, and Tab in a list in the body indents.
+  - A text spot styled in capitals no longer saves its value in capitals, and leaving an unchanged spot writes nothing.
+  - Starting work in Page settings leaves the spot being typed in and closes a field's box, so neither writes older words over the panel's.
+  - Done or Escape in a field's box puts the keyboard back on its spot.
+  - A page with no field marks no longer keeps the Loading cover for 20 seconds.
+  - A Publish whose translation did not save does not go live; Retry publishes.
+  - The first edit after loading an entry with an empty body (or a rich text field not on screen) is saved, not taken for the editor giving back what it was loaded with.
+  - A field's card in the text follows the field when it changes; `/faq` finds the FAQ field whatever its name; the line for a type with no FAQ field keeps what was typed.
+  - The checklist counts an FAQ as the page's FAQPage does: the first FAQ field's filled-in questions.
 - On the Visual Editor, Page settings scrolls again after a click on the page opened a field in it (the tabs no longer slide out of sight), and a jump to a field shows the box that takes the cursor, also in a tall field such as an FAQ.
 
 - **An email's link no longer sticks the email log on "Loading...".** A link clicked in the preview of a logged email navigated its sandboxed frame, where the app's own page has no scripts and no stylesheet, so it stayed on its loading text. A link in the log's preview and the composer's now opens in a new tab and the email stays; the unsubscribe and preference links, which act for the recipient, do not open, and a line says so. A link in a preview drawn into a page (the block editor, the brand kit, a legacy template, the send and test dialogs, a content version) never leaves it and its unsaved work. A log with no content, or a file whose link does not answer, says so.

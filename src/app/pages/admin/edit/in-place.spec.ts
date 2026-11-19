@@ -370,6 +370,23 @@ describe('InPlaceEditing', () => {
         expect(doc.activeElement).toBe(q('[data-arc-field="price"]'));
     });
 
+    it('lets Tab go on past the last spot and before the first, so the keyboard can leave the page', () => {
+        for (const node of Array.from(doc.querySelectorAll<HTMLElement>('[data-arc-edit-kind]'))) node.getClientRects = () => [{}] as never;
+        const spots = Array.from(doc.querySelectorAll<HTMLElement>('[data-arc-edit-kind]'));
+        spots[spots.length - 1].focus();
+        expect(key('Tab').defaultPrevented).toBe(false);
+        spots[0].focus();
+        expect(key('Tab', true).defaultPrevented).toBe(false);
+    });
+
+    it('writes nothing back when a text spot is left unchanged', () => {
+        click(q('[data-arc-field="title"]'));
+        host.setText.mockClear();
+        key('Enter');
+        expect(host.setText).not.toHaveBeenCalled();
+        expect(doc.getElementById('arc-in-place-style')!.textContent).toContain('text-transform: none');
+    });
+
     it('lets go of a spot the page drew again, and holds no redraw after it', () => {
         click(q('[data-arc-field="title"]'));
         doc.body.innerHTML = PAGE;

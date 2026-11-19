@@ -117,6 +117,8 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
         type: '',
         icon: 'bi bi-input-cursor-text',
         shortcut: '',
+        // `/faq` finds the FAQ field whatever its label says.
+        keywords: [field.type, field.type === 'faq' ? t('faq') : ''].filter(Boolean),
         command: () => this.editor.chain().focus().placeField(field.key).run(),
       }));
       if (!fields.some((f) => f.type === 'faq')) {
@@ -126,6 +128,8 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
           type: '',
           icon: 'bi bi-patch-question',
           shortcut: '',
+          // Only says why: choosing it keeps what was typed.
+          inert: true,
           command: () => undefined,
         });
       }
@@ -309,7 +313,7 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
         ? allCommands
         : allCommands.filter((cmd: any) => {
           if (Object.keys(cmd).length === 0) return false; // Skip separators when filtering
-          return cmd.title.toLowerCase().includes(lowerQuery);
+          return [cmd.title, ...(cmd.keywords ?? [])].some((word: string) => word.toLowerCase().includes(lowerQuery));
         });
 
       const element = document.createElement('div');
@@ -442,6 +446,7 @@ export const SlashCommands = Extension.create<SlashCommandsOptions>({
           // mouseup, so the click never fired and a second press was needed.
           // preventDefault keeps the editor focused, so nothing rebuilds.
           const run = () => {
+            if (cmd.inert) return;
             const pluginState = plugin.getState(view.state);
             // Delete the slash and any query text
             if (pluginState?.range) {

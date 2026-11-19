@@ -282,11 +282,12 @@
 
     <h3 id="fields-in-the-text">Fields placed in the text</h3>
     <p>An editor can show a field inside the body instead of where the template puts it: typing <code>/</code> in the body offers the entry's <code>faq</code>, <code>gallery</code>, <code>infocard</code>, <code>labelvalue</code>, <code>maplocation</code>, <code>image</code>, <code>file</code> and <code>richtext</code> fields (see <a href="content.html#visual-editor">Visual Editor</a>). The body then holds a marker, <code>&lt;div data-arc-place="{field key}"&gt;&lt;/div&gt;</code>, and the field's content stays in the field.</p>
-    <p>When a detail page is filled (published, in the app and on the Visual Editor), the template's own block for the field moves into the marker, so the field keeps your markup and styles and shows once. The block is the first element, outside <code>&lt;head&gt;</code>, that names the field by its stored or short key:</p>
+    <p>When a detail page is filled (published, in the app and on the Visual Editor), the template's own block for the field moves into the marker, so the field keeps your markup and styles and shows once. The block is the first element, outside <code>&lt;head&gt;</code>, that names the field by its stored or short key, leaving out names inside a loop's row (those are the row's own fields):</p>
     <ol>
       <li>its <code>data-arc-if</code> (so a whole section with its heading moves, as in the default template's FAQ);</li>
       <li>else its <code>data-arc-loop</code>;</li>
-      <li>else its <code>data-arc-bind</code> or <code>[innerHTML]</code>.</li>
+      <li>else its <code>data-arc-bind</code>;</li>
+      <li>else an element that shows it through <code>[innerHTML]</code> or another <code>[attribute]</code>, or <code>{{ key }}</code> in an attribute or its own text.</li>
     </ol>
     <p>A template with no block for the field gets a plain one in the default template's classes (<code>arc-faq</code>, <code>arc-gallery</code>, <code>arc-info-cards</code>, <code>arc-glance</code>, <code>arc-locations</code>, and <code>arc-field-image</code>, <code>arc-field-files</code>, <code>arc-field-text</code> for the others); style those in <code>site.css</code> if your template does not. A marker whose field the template leaves out (it is empty) shows nothing. The marker stays around the block on the page, so <code>[data-arc-place] .arc-faq</code> styles a field in the text apart from one in its usual place.</p>
 
