@@ -561,3 +561,19 @@ describe('the Page settings panel scrolls (layout rules)', () => {
         expect(source).toMatch(/\.arc-ed-panel-body \{[^}]*overflow: clip;/);
     });
 });
+
+describe('Full width and Phone slide into each other (layout rules)', () => {
+    const edit = readFileSync(resolve(__dirname, 'entry-edit.page.ts'), 'utf8');
+    const preview = readFileSync(resolve(__dirname, '../preview/content-preview.component.ts'), 'utf8');
+
+    it('the edit screen\'s page slides its width, centred, and not for someone who asks for less motion', () => {
+        expect(edit).toMatch(/\.arc-ed-stage \{[^}]*justify-content: center;/);
+        expect(edit).toMatch(/\.arc-ed-frame \{[^}]*transition: width \.3s ease/);
+        expect(edit).toMatch(/prefers-reduced-motion: reduce\) \{ \.arc-ed-panel, \.arc-ed-frame \{ transition: none; \}/);
+    });
+
+    it('the preview window does the same', () => {
+        expect(preview).toMatch(/\.arc-pv-frame \{[^}]*transition: max-width \.3s ease/);
+        expect(preview).toMatch(/prefers-reduced-motion: reduce\) \{ \.arc-pv-frame \{ transition: none; \}/);
+    });
+});

@@ -125,7 +125,7 @@ export function editFrameUrl(type: string, id: string): string {
     <div class="arc-ed-stage">
         @if (frameUrl) {
         <iframe #frame class="arc-ed-frame" [class.arc-ed-phone]="phone()" [src]="frameUrl"
-            [title]="'admin.edit_page.frame' | transloco" (load)="onFrameLoad()" data-testid="edit-frame"></iframe>
+            [title]="'admin.edit_page.frame' | transloco" (load)="onFrameLoad()" (transitionend)="widthChanged()" data-testid="edit-frame"></iframe>
         }
         @if (!drawn()) {
         <p class="arc-ed-loading" role="status">{{ 'admin.edit_page.loading' | transloco }}</p>
@@ -270,9 +270,13 @@ export function editFrameUrl(type: string, id: string): string {
         .arc-ed-btn.arc-ed-primary { background: var(--arc-admin-accent); border-color: var(--arc-admin-accent); }
         .arc-ed-btn:focus-visible { outline: 2px solid #f9fafb; outline-offset: 1px; }
         .arc-ed-handle:focus-visible { outline: 2px solid var(--arc-admin-accent); outline-offset: 1px; }
-        .arc-ed-stage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
-        .arc-ed-frame { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
-        .arc-ed-frame.arc-ed-phone { width: 390px; margin: 0 auto; box-shadow: 0 0 0 1px #d1d5db, 0 8px 24px rgba(0, 0, 0, .12); }
+        .arc-ed-stage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; justify-content: center; }
+        /* Full width and Phone slide into each other rather than jump. */
+        .arc-ed-frame {
+            display: block; flex: 0 0 auto; width: 100%; height: 100%; border: 0; background: #fff;
+            transition: width .3s ease, box-shadow .3s ease;
+        }
+        .arc-ed-frame.arc-ed-phone { width: 390px; box-shadow: 0 0 0 1px #d1d5db, 0 8px 24px rgba(0, 0, 0, .12); }
         .arc-ed-loading {
             position: absolute; inset: 0; margin: 0; display: flex; align-items: center; justify-content: center;
             background: #fff; color: #6b7280; font: 15px/1.5 system-ui, sans-serif; pointer-events: none;
@@ -350,7 +354,7 @@ export function editFrameUrl(type: string, id: string): string {
         }
         .arc-ed-undo button { font: inherit; color: #f9fafb; background: transparent; border: 1px solid #6b7280; border-radius: 6px; padding: 2px 10px; cursor: pointer; }
         .arc-ed-undo button:hover { background: #374151; }
-        @media (prefers-reduced-motion: reduce) { .arc-ed-panel { transition: none; } }
+        @media (prefers-reduced-motion: reduce) { .arc-ed-panel, .arc-ed-frame { transition: none; } }
     `],
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -621,6 +625,15 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             }
         };
         check();
+    }
+
+    /** Full width and Phone finished sliding: what is drawn over the page follows it. */
+    widthChanged(): void {
+        const doc = this.frameDocument();
+        const win = doc?.defaultView;
+        if (win && doc) this.scrollbar.set(Math.max(0, win.innerWidth - doc.documentElement.clientWidth));
+        this.syncBar();
+        this.syncSpotActions();
     }
 
     /** The page is drawn in the frame: the place for editing in place to start. */

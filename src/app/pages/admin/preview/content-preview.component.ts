@@ -153,10 +153,13 @@ const BUILTIN_LABELS: Record<string, string> = {
             font: 500 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
             box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
         }
+        /* Full width and Phone slide into each other rather than jump. */
+        .arc-pv-frame { max-width: 100vw; margin: 0 auto; transition: max-width .3s ease, margin .3s ease, box-shadow .3s ease; }
         .arc-pv-frame.arc-pv-phone {
             max-width: 390px; margin: 16px auto; overflow-x: hidden;
             box-shadow: 0 0 0 1px #d1d5db, 0 8px 24px rgba(0, 0, 0, .12);
         }
+        @media (prefers-reduced-motion: reduce) { .arc-pv-frame { transition: none; } }
         .arc-pv-blank { min-height: 40vh; }
         .arc-pv-cards { padding: 24px 0; }
         .arc-pv-empty { padding: 48px 16px; text-align: center; color: #6b7280; font: 15px/1.5 system-ui, sans-serif; }
