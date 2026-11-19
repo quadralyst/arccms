@@ -4,8 +4,8 @@
  *
  * The page is drawn as on the site in a same-origin frame that loads the live
  * preview route in edit mode (`?edit=1`), so the site's CSS stays inside the
- * frame. On top is a one-line strip: the draft's status, Full width / Phone,
- * Form (the form editor for the same entry, saving first), Page settings,
+ * frame. On top is a one-line strip: the draft's status, Full width / Phone (icons),
+ * Classic editor (the form editor for the same entry, saving first), Page settings,
  * Publish and Close. Nothing of the admin is around it.
  *
  * The Page settings panel is the form editor itself in page mode: its side
