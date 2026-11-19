@@ -1,16 +1,6 @@
 /* Custom TipTap editor styles */
 
-/* Bubble Menu - Selection Toolbar */
-.bubble_menu {
-  display: flex;
-  align-items: center;
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  padding: 6px 8px;
-  gap: 2px;
-}
+
 
 /* TipTap popups are handled globally in styles.css */
 
@@ -86,77 +76,19 @@
   outline: none;
 }
 
-.menuButtonStyles:hover {
-  background-color: #f0f0f0 !important;
-  border-radius: 6px !important;
-}
 
-.menuButtonStyles {
-  background-color: transparent;
-  margin: 0 2px;
-  color: #37352f;
-  padding: 6px 8px;
-  border-radius: 6px;
-  position: relative;
-  border: none;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
 
-  i {
-    font-size: 16px;
-  }
-}
 
-.fixedMenuButtonStyles {
-  margin: 0 3px 0px 3px;
-  border-radius: 3px;
-}
 
-.fixed_custome_selected {
-  background-color: rgb(45, 107, 172);
-  color: #fff;
-  border: 1px solid rgb(89, 169, 255);
-}
 
-.menuButtonStyles:disabled {
-  background-color: #e8e8e8;
-  color: #bababa;
-}
 
-.text_styles_dropdown {
-  background-color: #fff !important;
-}
 
-.heading-list {
-  padding: 4px !important;
-  margin-bottom: 0 !important;
 
-  li {
-    button:hover {
-      background-color: #dfdfdf !important;
-      border-radius: 5px !important;
-    }
 
-    .fs-4 {
-      font-size: 18px !important;
-    }
 
-    .fs-5 {
-      font-size: 17px !important;
-    }
 
-    .fs-6 {
-      font-size: 16px !important;
-    }
 
-    .formate_custome_selected {
-      background-color: #e6e6e6 !important;
-      border: 1px solid rgb(221 221 221) !important;
-      border-radius: 5px !important;
-    }
-  }
-}
+
 
 /* Tiptap Placeholder Styles */
 ::ng-deep .ProseMirror.is-editor-empty::before {
@@ -186,10 +118,7 @@
   font-style: normal;
 }
 
-.bi-chevron-down {
-  font-size: 12px;
-  margin-left: 4px;
-}
+
 
 ::ng-deep .ProseMirror-focused {
   border: 0 !important;
@@ -247,10 +176,7 @@
   display: none;
 }
 
-.bi-chevron-down {
-  font-size: 12px;
-  margin-left: 4px;
-}
+
 /* Structured blocks (specs/discoverability-spec.md, D-D10): a labelled,
    tinted box so the author can see where a block starts and ends. The
    public page styles them differently; see the default templates. */
@@ -314,7 +240,7 @@
 /* An editing aid, with or without the site look. */
 ::ng-deep .ProseMirror table .selectedCell { background: color-mix(in srgb, var(--arc-admin-accent) 16%, #fff); }
 
-.blocks-list button i:first-child { width: 1.2em; }
+
 
 // A file card (file-card-node.ts) as it looks on the site (main.css, .arc-file).
 ::ng-deep .custom_tip_tap_editor .arc-file {
@@ -351,24 +277,6 @@
     outline-offset: 2px;
 }
 
-.image_menu {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-}
 
-.image_alt {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
 
-    input {
-        width: 200px;
-        padding: 2px 6px;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        color: #111827;
-        background: #fff;
-    }
-}
+

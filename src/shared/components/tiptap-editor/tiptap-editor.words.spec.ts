@@ -7,7 +7,8 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import en from '../../../assets/i18n/en.json';
 
-const template = readFileSync(resolve(__dirname, 'tiptap-editor.component.html'), 'utf8');
+// The toolbar is the selection menu, shared with the Visual Editor (VE-D27).
+const template = readFileSync(resolve(__dirname, 'selection-menu/selection-menu.component.html'), 'utf8');
 const slash = readFileSync(resolve(__dirname, 'service/slash-commands.ts'), 'utf8');
 
 describe('editor words', () => {

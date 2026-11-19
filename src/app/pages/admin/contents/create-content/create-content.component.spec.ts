@@ -4010,6 +4010,20 @@ describe('CreateContentComponent', () => {
             expect(document.activeElement?.className).toBe('words-1');
         });
 
+        it('scrolls the box that takes the cursor into view, not the middle of a tall field', async () => {
+            loadEntry();
+            await flush();
+            const box = document.getElementById('req-article-faq')!;
+            box.insertAdjacentHTML('beforeend', '<div class="repeater-row"><input type="text" class="words-0"></div>');
+            const boxScroll = vi.fn();
+            const inputScroll = vi.fn();
+            box.scrollIntoView = boxScroll;
+            (box.querySelector('.words-0') as HTMLElement).scrollIntoView = inputScroll;
+            component.focusField('article-faq', 0);
+            expect(inputScroll).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' });
+            expect(boxScroll).not.toHaveBeenCalled();
+        });
+
         it('a click on an SEO value opens the SEO tab', async () => {
             loadEntry();
             await flush();

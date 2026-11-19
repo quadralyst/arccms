@@ -35,6 +35,7 @@ import { ArcEmptyLines } from './empty-lines';
 import { isTranslatableField, TRANSLATABLE_BUILTIN_FIELDS } from '../contents/draft-content-store/content-translation.model';
 import { placeImage, removeImage, selectImage, selectedImage, setImageAlt } from '../../../../shared/components/tiptap-editor/service/image-actions';
 import { UrlAddDialog } from '../../../../shared/components/tiptap-editor/service/url-add-dialog/add-url.component';
+import { SelectionMenuComponent } from '../../../../shared/components/tiptap-editor/selection-menu/selection-menu.component';
 import MediaManagerComponent, { MediaSelection } from '../(media)/media.page';
 import { mediaPickerDialogConfig } from '../(media)/media-picker-dialog';
 import { ContentType } from '../contents/content-types/content-types.model';
@@ -74,7 +75,7 @@ export function editFrameUrl(type: string, id: string): string {
 @Component({
     selector: 'arc-entry-edit-page',
     standalone: true,
-    imports: [CreateContentComponent, TranslocoPipe],
+    imports: [CreateContentComponent, TranslocoPipe, SelectionMenuComponent],
     template: `
     <div class="arc-ed-strip" role="region" [attr.aria-label]="'admin.edit_page.strip' | transloco" data-testid="edit-strip">
         @if (!richOn()) {
@@ -153,6 +154,13 @@ export function editFrameUrl(type: string, id: string): string {
         }
         <div class="arc-ed-pop-body" #popBody></div>
     </div>
+    @if (sel(); as at) {
+    <!-- Text selected in the body: the form editor's selection menu, beside it (VE-D27). -->
+    <div class="arc-ed-sel" [class.arc-ed-sel-below]="at.below" [style.top.px]="at.top" [style.left.px]="at.left"
+        (mousedown)="keepSelection($event)" data-testid="edit-selection-menu">
+        <arc-selection-menu [editor]="at.editor" />
+    </div>
+    }
     <!-- A picture selected in the body: the same actions as the form editor's selection menu (VE-D16). -->
     <div class="arc-ed-pop arc-ed-pic" role="dialog" [hidden]="!pic()" [attr.aria-label]="'admin.edit_page.picture' | transloco"
         [style.top.px]="pic()?.top" [style.left.px]="pic()?.left" data-testid="edit-picture"
@@ -240,6 +248,8 @@ export function editFrameUrl(type: string, id: string): string {
         .arc-ed-pop-done { font: 500 13px/1.4 system-ui, sans-serif; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; padding: 2px 10px; cursor: pointer; }
         .arc-ed-pop-actions { display: flex; gap: 8px; }
         .arc-ed-pop-body:empty { display: none; }
+        .arc-ed-sel { position: fixed; z-index: 1000; transform: translateY(-100%); max-width: calc(100vw - 16px); }
+        .arc-ed-sel.arc-ed-sel-below { transform: none; }
         .arc-ed-pic { width: 340px; }
         .arc-ed-pic-alt { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px; font: 500 12px/1.4 system-ui, sans-serif; color: #374151; }
         @media (prefers-reduced-motion: reduce) { .arc-ed-panel { transition: none; } }
@@ -301,6 +311,8 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     readonly langs = signal<{ code: string; label: string }[]>([]);
     readonly lang = signal('');
 
+    /** Text selected in the body: the editor, and where the selection menu goes (VE-D27). */
+    readonly sel = signal<{ editor: Editor; top: number; left: number; below: boolean } | null>(null);
     /** The picture selected in the body, and where its box goes (VE-D16). */
     readonly pic = signal<{ pos: number; alt: string; top: number; left: number } | null>(null);
     readonly pop = signal<{ title: string; top: number; left: number; image: boolean; spot: Spot } | null>(null);
@@ -587,10 +599,15 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         editor.on('transaction', () => {
             this.formatTick.update((n) => n + 1);
             if (editor) this.syncPicture(editor);
+            if (editor) this.syncSelection(editor);
         });
-        // The box stays beside its picture as the page scrolls.
+        // The boxes stay beside their picture or text as the page scrolls.
         const frameWin = el.ownerDocument.defaultView;
-        const onScroll = () => editor && this.syncPicture(editor);
+        const onScroll = () => {
+            if (!editor) return;
+            this.syncPicture(editor);
+            this.syncSelection(editor);
+        };
         frameWin?.addEventListener('scroll', onScroll, { passive: true });
         this.richEditor = editor;
         return {
@@ -620,6 +637,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
             destroy: () => {
                 frameWin?.removeEventListener('scroll', onScroll);
                 this.pic.set(null);
+                this.sel.set(null);
                 editor?.destroy();
                 if (this.richEditor === editor) this.richEditor = null;
                 editor = null;
@@ -743,6 +761,43 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         const now = this.pic();
         if (now && now.pos === image.pos && now.alt === image.alt && now.top === top && now.left === left) return;
         this.pic.set({ pos: image.pos, alt: image.alt, top, left });
+    }
+
+    /**
+     * Shows the selection menu above selected text, or below it when above would go under
+     * the strip; hides it when nothing is selected. A selected picture has its own box.
+     */
+    private syncSelection(editor: Editor): void {
+        const { from, to, empty } = editor.isDestroyed ? { from: 0, to: 0, empty: true } : editor.state.selection;
+        if (empty || selectedImage(editor)) {
+            if (this.sel()) this.sel.set(null);
+            return;
+        }
+        let start: { top: number; bottom: number; left: number };
+        let end: { bottom: number };
+        try {
+            start = editor.view.coordsAtPos(from);
+            end = editor.view.coordsAtPos(to);
+        } catch {
+            return; // No layout (a hidden frame).
+        }
+        const frame = this.frame?.nativeElement.getBoundingClientRect();
+        const win = this.document.defaultView;
+        const frameTop = frame?.top ?? 0;
+        const above = frameTop + start.top - 8;
+        // About one row of buttons tall; under the strip, it goes below the selection.
+        const below = above < frameTop + 48;
+        const top = below ? frameTop + Math.max(end.bottom, 0) + 8 : above;
+        const left = Math.max(8, Math.min((frame?.left ?? 0) + start.left, (win?.innerWidth ?? 1024) - 600));
+        const now = this.sel();
+        if (now && now.editor === editor && now.top === top && now.left === left && now.below === below) return;
+        this.sel.set({ editor, top, left, below });
+    }
+
+    /** A press on the menu keeps the selection in the page, except in a box that takes typing. */
+    keepSelection(event: MouseEvent): void {
+        const target = event.target as HTMLElement | null;
+        if (!target?.closest('input, textarea, select')) event.preventDefault();
     }
 
     /** Replace: the media picker; its choice takes the selected picture's place. */

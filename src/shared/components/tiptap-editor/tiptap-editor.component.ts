@@ -22,10 +22,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { Editor } from '@tiptap/core';
 import { TiptapEditorDirective, TiptapBubbleMenuDirective } from 'ngx-tiptap';
-import { placeImage, removeImage, selectedImage, setImageAlt } from './service/image-actions';
+import { placeImage } from './service/image-actions';
+import { SelectionMenuComponent } from './selection-menu/selection-menu.component';
 import { editorExtensions } from './editor-extensions';
 import { UrlAddDialog } from './service/url-add-dialog/add-url.component';
-import { ARC_BLOCKS, ArcBlockKind, ArcBlockMeta } from './service/arc-block-extension';
 import MediaManagerComponent, { MediaSelection } from '../../../app/pages/admin/(media)/media.page';
 import { mediaPickerDialogConfig } from '../../../app/pages/admin/(media)/media-picker-dialog';
 import { SiteLook, SiteLookService } from '../../../app/core/site/site-look.service';
@@ -105,7 +105,7 @@ export interface EditorActionPayload {
 @Component({
   selector: 'app-tiptap-editor',
   standalone: true,
-  imports: [TiptapEditorDirective, TiptapBubbleMenuDirective, CommonModule, FormsModule, MatIconModule, MatTooltip, OverlayModule, TranslocoPipe],
+  imports: [TiptapEditorDirective, TiptapBubbleMenuDirective, CommonModule, FormsModule, MatIconModule, MatTooltip, OverlayModule, TranslocoPipe, SelectionMenuComponent],
   templateUrl: './tiptap-editor.component.html',
   styleUrl: './tiptap-editor.component.scss',
   providers: [
@@ -120,23 +120,6 @@ export default class TiptapEditorComponent {
   @ViewChild('contentArea', { static: true }) contentArea!: ElementRef;
   @Output() heightChanged = new EventEmitter<number>();
   showFiller = false;
-  isOpenFormateOverlay = false;
-  isOpenListTypeOverlay = false;
-  /** Structured blocks offered in the toolbar (specs/discoverability-spec.md, D-D10). */
-  readonly arcBlocks: readonly ArcBlockMeta[] = ARC_BLOCKS;
-  isOpenBlocksOverlay = false;
-
-  insertArcBlock(kind: ArcBlockKind): void {
-    this.editor.chain().focus().insertArcBlock(kind).run();
-    this.isOpenBlocksOverlay = false;
-  }
-
-  insertTable(): void {
-    this.editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
-    this.isOpenBlocksOverlay = false;
-  }
-
-  isOpenAlignOverlay = false;
   injector = inject(Injector);
   dialog = inject(MatDialog);
   allUsers: any[] = [];
@@ -418,30 +401,7 @@ export default class TiptapEditorComponent {
     });
   }
 
-  /**
-   * Opens the Media Manager modal for inserting media into the editor
-   */
-  // ── A picture in the body: the selection menu's Replace, Remove and Alt text (VE-D16) ──
-  /** The picture the selection is on, for the selection menu. */
-  selectedImage() {
-    return selectedImage(this.editor);
-  }
-
-  /** Replace: the media picker, whose choice takes the selected picture's place. */
-  replaceSelectedImage(): void {
-    this.openMediaManagerModal();
-  }
-
-  removeSelectedImage(): void {
-    const image = selectedImage(this.editor);
-    if (image) removeImage(this.editor, image.pos);
-  }
-
-  setSelectedImageAlt(alt: string): void {
-    const image = selectedImage(this.editor);
-    if (image) setImageAlt(this.editor, image.pos, alt);
-  }
-
+  /** The media picker; with a picture selected (the selection menu's Replace), its choice takes its place. */
   openMediaManagerModal(): void {
     const dialogRef = this.dialog.open(MediaManagerComponent, mediaPickerDialogConfig({ isDialogOpen: true, title: this.pickerTitle('admin.media.picker.image_in') }));
 

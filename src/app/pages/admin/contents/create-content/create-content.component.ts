@@ -2322,12 +2322,14 @@ export class CreateContentComponent extends BaseComponent {
       spot = rows[row] ?? spot;
     }
     if (!spot) return;
-    spot.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
     const input = spot.matches('input, textarea, select, [contenteditable="true"]')
       ? spot
       // The words first: a row's text box, not its position number.
       : spot.querySelector<HTMLElement>('[contenteditable="true"], input[type="text"]:not([disabled]), textarea:not([disabled])')
         ?? spot.querySelector<HTMLElement>('input:not([type="hidden"]):not([type="file"]), select, button');
+    // The box that takes the cursor is brought into view, not the field's middle: a tall
+    // field (FAQ, a list of rows) would otherwise leave its first box off screen.
+    (input ?? spot).scrollIntoView?.({ block: 'center', behavior: 'smooth' });
     input?.focus({ preventScroll: true });
     window.focus();
     spot.classList.remove('arc-field-flash');
