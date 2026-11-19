@@ -28,6 +28,11 @@ import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { GeocodeResult, GeocodingService } from '../../services/geocoding.service';
 import { DEFAULT_MAP_ZOOM, isValidCoordinate, parseCoordinatePair } from '../../utils/geo';
+// Leaflet finds its pin by a CSS trick that never reaches its own elements here, and
+// then asks for `marker-icon.png` beside the page: the pin is given its files instead.
+import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
+import markerIconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
 /** What the picker reports when the point moves. */
 export interface PickedLocation {
@@ -197,7 +202,16 @@ export class MapPickerComponent implements OnDestroy {
             return;
         }
 
-        this.marker = this.leaflet.marker([lat, lng], { draggable: !this.disabled() }).addTo(this.map);
+        const icon = this.leaflet.icon({
+            iconUrl: markerIconUrl,
+            iconRetinaUrl: markerIconRetinaUrl,
+            shadowUrl: markerShadowUrl,
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41],
+        });
+        this.marker = this.leaflet.marker([lat, lng], { draggable: !this.disabled(), icon }).addTo(this.map);
         this.marker.on('dragend', () => {
             const position = this.marker.getLatLng();
             this.emit(position.lat, position.lng, this.address());

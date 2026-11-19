@@ -19,6 +19,7 @@ const TYPE = {
         { key: 'events-faq', label: 'FAQ', type: 'faq' },
         { key: 'events-link', label: 'Link', type: 'text' },
         { key: 'events-cards', label: 'Cards', type: 'infocard' },
+        { key: 'events-where', label: 'Where', type: 'maplocation' },
     ],
 } as unknown as ContentType;
 
@@ -78,6 +79,14 @@ describe('spotInfo: what a marked element edits', () => {
             .toMatchObject({ kind: 'text', sub: 'answer', multiline: true });
         expect(kind('<img data-arc-field="cards" data-arc-sub="image" data-arc-row-id="r_c" data-arc-field-attr="src">')).toBe('image');
         expect(kind('<i data-arc-field="cards" data-arc-sub="icon" data-arc-row-id="r_c" data-arc-field-attr="class"></i>')).toBe('image');
+    });
+
+    it('opens the map box on a map row\'s map, address and directions link (VE-D34)', () => {
+        const info = (html: string) => spotInfo(el(html), TYPE);
+        expect(info('<p data-arc-field="where" data-arc-sub="address" data-arc-row-id="r_m">1 High St</p>')).toMatchObject({ kind: 'popover', sub: 'address', addressText: true });
+        expect(info('<iframe data-arc-field="where" data-arc-sub="map_embed" data-arc-row-id="r_m"></iframe>')).toMatchObject({ kind: 'popover', addressText: false });
+        expect(info('<a data-arc-field="where" data-arc-sub="map_directions" data-arc-row-id="r_m">Go</a>')?.kind).toBe('popover');
+        expect(info('<h3 data-arc-field="where" data-arc-sub="label" data-arc-row-id="r_m">Shop</h3>')?.kind).toBe('text');
     });
 
     it('a row itself, a row value in an attribute and a value no row holds are not spots', () => {
@@ -179,6 +188,7 @@ describe('InPlaceEditing', () => {
         expect(q('[data-arc-field="content"]').getAttribute('data-arc-edit-kind')).toBe('rich');
         expect(q('[data-arc-field="publishedOn"]').hasAttribute('data-arc-edit-kind')).toBe(false);
         expect(doc.getElementById('arc-in-place-style')!.textContent).toContain('white-space: pre-wrap');
+        expect(doc.getElementById('arc-in-place-style')!.textContent).toContain('[data-arc-unhide] { display: revert !important; }');
     });
 
     it('types the title in place: the draft follows, the page is held, Enter is done', () => {
@@ -550,6 +560,42 @@ describe('InPlaceEditing', () => {
             (doc as unknown as { execCommand: typeof exec }).execCommand = exec;
             expect(key(' ').defaultPrevented).toBe(true);
             expect(exec).toHaveBeenCalledWith('insertText', false, ' ');
+        });
+
+        it('a click on a map in a row opens its box, though the map takes no clicks itself', () => {
+            doc.body.insertAdjacentHTML('beforeend', '<article data-arc-field="where" data-arc-row="0" data-arc-row-id="r_m"><iframe data-arc-field="where" data-arc-sub="map_embed" data-arc-row-id="r_m"></iframe></article>');
+            editing.mark();
+            const map = q('iframe[data-arc-sub]');
+            expect(map.getAttribute('data-arc-edit-kind')).toBe('popover');
+            map.getBoundingClientRect = () => ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
+            const article = q('article');
+            article.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 50, clientY: 50 }));
+            expect(host.popover).toHaveBeenCalledWith(expect.objectContaining({ sub: 'address', rowId: 'r_m' }));
+        });
+
+        it('a click on something drawn over a map (a sticky header) does not open the map box', () => {
+            doc.body.insertAdjacentHTML('beforeend', '<article data-arc-field="where" data-arc-row="0" data-arc-row-id="r_m"><iframe data-arc-field="where" data-arc-sub="map_embed" data-arc-row-id="r_m"></iframe></article><header id="bar">Menu</header>');
+            editing.mark();
+            q('iframe[data-arc-sub]').getBoundingClientRect = () => ({ left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100 }) as DOMRect;
+            q('#bar').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 50, clientY: 50 }));
+            expect(host.popover).not.toHaveBeenCalled();
+        });
+
+        it('shows an empty spot the site hides only for being empty, and leaves one hidden on purpose', () => {
+            const style = doc.createElement('style');
+            style.textContent = '.loc h4:empty { display: none; } .d-none { display: none !important; }';
+            doc.head.appendChild(style);
+            doc.body.insertAdjacentHTML('beforeend', '<article class="loc" data-arc-field="where" data-arc-row="0" data-arc-row-id="r_m"><h4 data-arc-field="where" data-arc-sub="label" data-arc-row-id="r_m"></h4><p class="d-none" data-arc-field="where" data-arc-sub="label" data-arc-row-id="r_m"></p></article>');
+            editing.mark();
+            expect(q('h4[data-arc-sub]').hasAttribute('data-arc-unhide')).toBe(true);
+            expect(q('p.d-none').hasAttribute('data-arc-unhide')).toBe(false);
+        });
+
+        it('in a translation a map row\'s address is typed in place (VE-D35)', () => {
+            Object.assign(host, { translating: vi.fn(() => true) });
+            doc.body.insertAdjacentHTML('beforeend', '<article data-arc-field="where" data-arc-row="0" data-arc-row-id="r_m"><p data-arc-field="where" data-arc-sub="address" data-arc-row-id="r_m">1 High St</p></article>');
+            editing.mark();
+            expect(q('p[data-arc-sub="address"]').getAttribute('data-arc-edit-kind')).toBe('text');
         });
 
         it('tells the screen which row the pointer is on', () => {

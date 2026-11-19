@@ -52,6 +52,8 @@ export interface SpotInfo {
     heading?: boolean;
     /** Typed over several lines (an FAQ answer): Enter starts a new line. */
     multiline?: boolean;
+    /** A map row's address shown as text: in a translation it is typed in place, its point shared (VE-D35). */
+    addressText?: boolean;
 }
 
 /** A value in a row, or a section heading: typed through the row, not as a field of its own. */
@@ -156,6 +158,9 @@ function rowSpotInfo(el: Element, key: string, rowId: string, attr: string, row:
             return !attr ? { ...base, kind: 'text', multiline: true } : null;
         case 'media':
             return { ...base, kind: 'image' };
+        case 'location':
+            // The map, the address and the directions link open the map box (VE-D34).
+            return { ...base, kind: 'popover', addressText: found.exact && !attr && !VOID_TAGS.has(el.tagName.toLowerCase()) };
         default:
             return { ...base, kind: 'panel' };
     }
@@ -180,6 +185,8 @@ export interface InPlaceHost {
     setPartText?(info: SpotInfo, value: string): void;
     /** In a translation, a row value not translated yet: drawn faintly, typed in from empty (VE-D35). */
     untranslated?(info: SpotInfo): boolean;
+    /** A translation is on screen: a map row's address is typed in place instead of picked (VE-D35). */
+    translating?(): boolean;
     /** The pointer (or the keyboard) is on a row of a repeating field, or on none: its bar (VE-D32). */
     rowHover?(row: HTMLElement | null): void;
     /** An empty list's line: "Add the first {row}", or in a translation where rows are arranged (VE-D33, VE-D35). */
@@ -253,9 +260,15 @@ export const IN_PLACE_CSS = `
 /* A row's empty picture: a box to click (VE-D31). */
 img[data-arc-empty][data-arc-sub] { display: block !important; width: 100%; min-width: 48px; min-height: 48px; aspect-ratio: 4 / 3; max-height: 200px; object-fit: cover;
   background: repeating-linear-gradient(45deg, rgba(0,0,0,.04) 0 8px, rgba(0,0,0,.08) 8px 16px); }
+/* A map in a row: a click reaches the page, which opens the map box (VE-D34); the row shows it. */
+iframe[data-arc-sub][data-arc-edit-kind] { pointer-events: none; }
+[data-arc-row]:hover > iframe[data-arc-sub][data-arc-edit-kind] { outline: 2px dashed var(--arc-edit-accent); outline-offset: 2px; }
+[data-arc-row]:has(> iframe[data-arc-sub][data-arc-edit-kind]) { cursor: pointer; }
 /* An empty list: the line that adds its first row (VE-D33). */
 [data-arc-empty-loop][data-arc-ph] { display: block !important; padding: 12px 16px; outline: 1px dashed var(--arc-edit-accent); outline-offset: 2px; opacity: .75; }
 [data-arc-empty-loop][data-arc-edit-kind="add"] { cursor: pointer; }
+/* A site sheet may hide an empty element (:empty): on this screen such a spot shows, to be filled in. */
+[data-arc-unhide] { display: revert !important; }
 [data-arc-editing]:empty { display: inline-block; min-width: 1ch; }
 /* A value worked out by the site (VE-D17): its title says where it comes from. */
 [data-arc-field][data-arc-hint] { cursor: help; }
@@ -375,6 +388,7 @@ export class InPlaceEditing {
         }
         this.markEmpty(type);
         this.markEmptyLists(type);
+        const hiddenRules = emptyHidingRules(this.doc);
         // Every FAQ answer shows on the Visual Editor (VE-D31).
         for (const details of Array.from(this.doc.querySelectorAll<HTMLDetailsElement>('details:not([open])'))) {
             if (details.closest('[data-arc-editing], .ProseMirror')) continue;
@@ -385,7 +399,7 @@ export class InPlaceEditing {
             // A row edited value by value is not a spot itself; its bar is found from it (VE-D32).
             if (el.hasAttribute('data-arc-row-id') && !el.hasAttribute('data-arc-sub')) continue;
             const locked = !!el.closest('[data-arc-locked]');
-            const found = locked ? null : spotInfo(el, type);
+            const found = locked ? null : this.resolve(el, type);
             const shared = !!found && this.isShared(found);
             const info = shared ? null : found;
             if (!info) {
@@ -409,6 +423,9 @@ export class InPlaceEditing {
             const placeholder = empty ? placeholderText(el) ?? this.host.placeholder(info.field, labelOf(el), info) : null;
             if (placeholder === null) el.removeAttribute('data-arc-ph');
             else if (el.getAttribute('data-arc-ph') !== placeholder) el.setAttribute('data-arc-ph', placeholder);
+            // Shown when the site hides it only for being empty, never when it hides it on purpose.
+            const unhide = placeholder !== null && hiddenRules.some((selector) => matchesSafely(el, selector));
+            if (el.hasAttribute('data-arc-unhide') !== unhide) el.toggleAttribute('data-arc-unhide', unhide);
             el.toggleAttribute('data-arc-untranslated', info.kind === 'text' && isRowPart(info) && !empty && !!this.host.untranslated?.(info));
         }
         this.openPending();
@@ -523,8 +540,15 @@ export class InPlaceEditing {
 
     private spotAt(el: HTMLElement): Spot | null {
         if (el.closest('[data-arc-locked]')) return null;
-        const info = spotInfo(el, this.host.type());
+        const info = this.resolve(el, this.host.type());
         return info && !this.isShared(info) ? { ...info, el, label: labelOf(el) } : null;
+    }
+
+    /** What a marked element edits on this screen: a map row's address is typed in a translation (VE-D35). */
+    private resolve(el: Element, type: ContentType | null): SpotInfo | null {
+        const info = spotInfo(el, type);
+        if (info?.addressText && this.host.translating?.()) return { ...info, kind: 'text' };
+        return info;
     }
 
     /**
@@ -546,7 +570,7 @@ export class InPlaceEditing {
         }
         // Nothing on the page leaves it while editing, and an FAQ answer does not fold away.
         if (target.closest('a[href], summary')) event.preventDefault();
-        const el = target.closest<HTMLElement>('[data-arc-edit-kind]') ?? soleSpot(target);
+        const el = target.closest<HTMLElement>('[data-arc-edit-kind]') ?? this.frameSpotAt(target, event.clientX, event.clientY) ?? soleSpot(target);
         if (!el) {
             this.leave();
             return;
@@ -622,6 +646,18 @@ export class InPlaceEditing {
     private writeText(spot: Spot, text: string): void {
         if (isRowPart(spot)) this.host.setPartText?.(spot, text);
         else this.host.setText(spot.field, text);
+    }
+
+    /**
+     * A row's map under the point, inside what was clicked: it takes no clicks itself, so
+     * the page finds it (VE-D34). Something drawn over the map (a sticky header) is not it.
+     */
+    frameSpotAt(target: Element, x: number, y: number): HTMLElement | null {
+        for (const frame of Array.from(target.querySelectorAll<HTMLElement>('iframe[data-arc-sub][data-arc-edit-kind]'))) {
+            const box = frame.getBoundingClientRect();
+            if (box.width && x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) return frame;
+        }
+        return null;
     }
 
     /** The caret is in a list item of the rich text spot. */
@@ -806,6 +842,41 @@ function caretMenuOpen(): boolean {
     if (typeof document === 'undefined') return false;
     return Array.from(document.querySelectorAll<HTMLElement>('[data-tippy-root]'))
         .some((menu) => menu.getBoundingClientRect().height > 0 && getComputedStyle(menu).visibility !== 'hidden');
+}
+
+/**
+ * The site's rules that hide an element for being empty (`:empty { display: none }`),
+ * as selectors. A sheet the page cannot read is skipped.
+ */
+export function emptyHidingRules(doc: Document): string[] {
+    const found: string[] = [];
+    const walk = (rules: CSSRuleList) => {
+        for (const rule of Array.from(rules)) {
+            const style = (rule as CSSStyleRule).style;
+            const selector = (rule as CSSStyleRule).selectorText;
+            if (selector && selector.includes(':empty') && style?.display === 'none') {
+                for (const part of selector.split(',')) if (part.includes(':empty')) found.push(part.trim());
+            }
+            const inner = (rule as CSSGroupingRule).cssRules;
+            if (inner && !selector) walk(inner);
+        }
+    };
+    for (const sheet of Array.from(doc.styleSheets)) {
+        try {
+            walk(sheet.cssRules);
+        } catch {
+            // A sheet from another origin: its rules cannot be read.
+        }
+    }
+    return found;
+}
+
+function matchesSafely(el: Element, selector: string): boolean {
+    try {
+        return el.matches(selector);
+    } catch {
+        return false;
+    }
 }
 
 /** An FAQ answer typed in place: its lines, with no line breaks at its ends. */

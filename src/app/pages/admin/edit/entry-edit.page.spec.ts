@@ -420,6 +420,42 @@ describe('EntryEditPage', () => {
             expect(media[0]['video']).toBe('');
         });
 
+        it('the map box writes a map row\'s address and point, and clears them (VE-D34)', () => {
+            const where = { key: 'events-where', label: 'Where', type: 'maplocation' };
+            let places: Record<string, unknown>[] = [{ id: 'm', position: 1, label: 'Shop', address: '', lat: null, lng: null, zoom: null }];
+            Object.assign(editor, {
+                currentFields: [faqDef, where],
+                repeaterRows: vi.fn((def: { key: string }) => (def.key === 'events-where' ? places : rows)),
+                onRepeaterRowsChange: vi.fn((key: string, next: Record<string, unknown>[]) => { if (key === 'events-where') places = next; else rows = next; }),
+            });
+            const el = document.createElement('p');
+            document.body.appendChild(el);
+            page.openPopover({ key: 'where', field: 'events-where', builtin: false, attr: '', row: null, kind: 'popover', rowId: 'm', sub: 'address', el, label: null });
+            expect(page.pop()?.location).toEqual({ address: '', lat: null, lng: null, zoom: null });
+            page.rowLocationPicked({ address: '1 High St', lat: 51.5, lng: -0.1, zoom: 16 });
+            expect(places[0]).toMatchObject({ label: 'Shop', address: '1 High St', lat: 51.5, lng: -0.1, zoom: 16 });
+            expect(page.pop()?.location?.address).toBe('1 High St');
+            page.rowLocationCleared();
+            expect(places[0]).toMatchObject({ address: '', lat: null, lng: null, zoom: null });
+            // The box fits in the window: never wider than the room on the right, never past the bottom.
+            expect(page.pop()!.left).toBeLessThanOrEqual(window.innerWidth - 440 - 8);
+            expect(page.pop()!.top + page.pop()!.maxHeight!).toBeLessThanOrEqual(window.innerHeight);
+            // In a translation the point does not move.
+            editor.session.isTranslating.set(true);
+            page.rowLocationPicked({ address: 'x', lat: 1, lng: 2, zoom: 3 });
+            expect(places[0]['lat']).toBeNull();
+            el.remove();
+        });
+
+        it('in a translation a map row\'s point is shared and its address typed', () => {
+            const where = { key: 'events-where', label: 'Where', type: 'maplocation' };
+            Object.assign(editor, { currentFields: [faqDef, where] });
+            editor.session.isTranslating.set(true);
+            const spot = { key: 'where', field: 'events-where', builtin: false, attr: '', row: null, rowId: 'm', sub: 'address' };
+            expect(page.sharedField('events-where', false, { ...spot, kind: 'popover' })).toBe(true);
+            expect(page.sharedField('events-where', false, { ...spot, kind: 'text' })).toBe(false);
+        });
+
         it('an empty list adds its first row; in a translation a row\'s words are typed, its picture shared', () => {
             expect(page.emptyList('events-faq')?.add).toBe(true);
             expect(page.emptyList('events-price')).toBeNull();

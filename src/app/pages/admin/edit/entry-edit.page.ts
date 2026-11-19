@@ -31,10 +31,11 @@ import { previewSessionKey } from '../../../core/preview/preview-channel';
 import { HasUnsavedChanges } from '../../../guards/unsaved-changes.guard';
 import { PagePanel } from './page-panel';
 import { HintKind, InPlaceEditing, InPlaceHost, RichAt, RichContext, RichHandle, Spot, SpotInfo, spotInfo } from './in-place';
-import { insertRowsAfter, moveRow, removeRow, restoreRow, rowsAcross, setRowMedia, setRowValue } from './rows';
+import { insertRowsAfter, moveRow, removeRow, restoreRow, rowsAcross, setRowLocation, setRowMedia, setRowValue } from './rows';
+import { MapPickerComponent, PickedLocation } from '../../../../shared/components/map-picker/map-picker.component';
 import { repeaterFieldOf } from '../../../core/preview/row-fields';
 import {
-    isRepeaterRowEmpty, mediaRowKeys, newRepeaterRow, RepeaterMediaSubField, RepeaterRow, RepeaterSchema, repeaterSchema,
+    isRepeaterRowEmpty, mediaRowKeys, newRepeaterRow, RepeaterLocationSubField, RepeaterMediaSubField, RepeaterRow, RepeaterSchema, repeaterSchema,
 } from '../../../../shared/models/repeater.model';
 import { isYouTubeUrl } from '../../../../shared/utils/youtube';
 import { editorExtensions } from '../../../../shared/components/tiptap-editor/editor-extensions';
@@ -83,7 +84,7 @@ export function editFrameUrl(type: string, id: string): string {
 @Component({
     selector: 'arc-entry-edit-page',
     standalone: true,
-    imports: [CreateContentComponent, TranslocoPipe, SelectionMenuComponent],
+    imports: [CreateContentComponent, TranslocoPipe, SelectionMenuComponent, MapPickerComponent],
     template: `
     <div class="arc-ed-strip" role="region" [attr.aria-label]="'admin.edit_page.strip' | transloco" data-testid="edit-strip">
         @if (!richOn()) {
@@ -147,11 +148,11 @@ export function editFrameUrl(type: string, id: string): string {
             </div>
         </aside>
     </div>
-    <div class="arc-ed-pop" role="dialog" [hidden]="!pop()" [attr.aria-label]="pop()?.title || null"
+    <div class="arc-ed-pop" role="dialog" [hidden]="!pop()" [class.arc-ed-pop-map]="!!pop()?.location" [style.max-height.px]="pop()?.maxHeight ?? null" [attr.aria-label]="pop()?.title || null"
         [style.top.px]="pop()?.top" [style.left.px]="pop()?.left" data-testid="edit-popover" (keydown.escape)="donePopover(); $event.stopPropagation()">
         <div class="arc-ed-pop-head">
             <!-- A field's own control brings its label; an image's box names it here. -->
-            <span class="arc-ed-pop-title">{{ pop()?.image ? pop()?.title : '' }}</span>
+            <span class="arc-ed-pop-title">{{ pop()?.image || pop()?.location ? pop()?.title : '' }}</span>
             <button type="button" class="arc-ed-pop-done" (click)="donePopover()" data-testid="edit-popover-done">{{ 'admin.edit_page.done' | transloco }}</button>
         </div>
         @if (pop()?.image) {
@@ -171,6 +172,11 @@ export function editFrameUrl(type: string, id: string): string {
             }
         </label>
         }
+        }
+        @if (pop()?.location; as loc) {
+        <!-- A map row: the form's own map picker, search and drag (VE-D34). -->
+        <arc-map-picker [address]="loc.address" [lat]="loc.lat" [lng]="loc.lng" [zoom]="loc.zoom"
+            (picked)="rowLocationPicked($event)" (cleared)="rowLocationCleared()" data-testid="edit-row-map" />
         }
         <div class="arc-ed-pop-body" #popBody></div>
     </div>
@@ -300,6 +306,7 @@ export function editFrameUrl(type: string, id: string): string {
         .arc-ed-pic { width: 340px; }
         .arc-ed-pic-alt { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px; font: 500 12px/1.4 system-ui, sans-serif; color: #374151; }
         .arc-ed-error { color: #b91c1c; }
+        .arc-ed-pop.arc-ed-pop-map { width: 440px; max-height: 80vh; }
         .arc-ed-video { margin-top: 8px; margin-bottom: 0; }
         .arc-ed-bar {
             position: fixed; z-index: 999; display: flex; gap: 2px; padding: 2px; transform: translateX(-100%);
@@ -386,7 +393,13 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
     readonly sel = signal<{ editor: Editor; top: number; left: number; below: boolean } | null>(null);
     /** The picture selected in the body, and where its box goes (VE-D16). */
     readonly pic = signal<{ pos: number; alt: string; top: number; left: number } | null>(null);
-    readonly pop = signal<{ title: string; top: number; left: number; image: boolean; spot: Spot; video?: string } | null>(null);
+    readonly pop = signal<{
+        title: string; top: number; left: number; image: boolean; spot: Spot; video?: string;
+        /** A map row's place, for the map picker (VE-D34). */
+        location?: { address: string; lat: number | null; lng: number | null; zoom: number | null };
+        /** The map box's height, so it never runs past the window's bottom. */
+        maxHeight?: number;
+    } | null>(null);
     /** The pasted link in a gallery item's box is not a YouTube link. */
     readonly videoError = signal(false);
     /** The row bar (VE-D32): the row it is for and where it goes. */
@@ -525,8 +538,12 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         this.frameCleanup?.();
         const onTouch = (event: Event) => {
             this.panel.touch();
-            // A click on the page puts a box away; the click may open the next one.
-            if (this.pop() && !(event.target as Element | null)?.closest?.('[data-arc-edit-kind]')) this.closePopover();
+            // A click on the page puts a box away; the click may open the next one. A click on a
+            // row's map (which takes no clicks itself) is a spot too.
+            const target = event.target as Element | null;
+            const onSpot = !!target?.closest?.('[data-arc-edit-kind]')
+                || (!!target && !!this.inPlace?.frameSpotAt(target, (event as PointerEvent).clientX, (event as PointerEvent).clientY));
+            if (this.pop() && !onSpot) this.closePopover();
         };
         const onKey = (event: KeyboardEvent) => {
             if (event.key === 'Escape') this.onKey(event);
@@ -627,6 +644,7 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         setPartText: (info, value) => this.setPartText(info, value),
         untranslated: (info) => !!this.editor?.session.isTranslating() && !this.partText(info),
         rowHover: (row) => this.rowHover(row),
+        translating: () => !!this.editor?.session.isTranslating(),
         emptyList: (field) => this.emptyList(field),
         addFirst: (field) => this.rowAdd(field, null),
         escape: () => {
@@ -875,7 +893,12 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         if (!session?.isTranslating()) return false;
         const schema = info && (info.heading || info.sub) ? this.repeater(field)?.schema : null;
         if (schema && info?.heading) return schema.heading?.translatable !== true;
-        if (schema && info?.sub) return schema.subFields.find((s) => s.key === info.sub)?.translatable !== true;
+        if (schema && info?.sub) {
+            const sub = schema.subFields.find((s) => s.key === info.sub);
+            // A map row's point is the same in every language; its address is typed (VE-D35).
+            if (sub?.type === 'location') return info.kind !== 'text';
+            return sub?.translatable !== true;
+        }
         if (builtin) return !(TRANSLATABLE_BUILTIN_FIELDS as readonly string[]).includes(field);
         const def = this.editor?.currentFields.find((f) => f.key === field);
         return def ? !isTranslatableField(def) : false;
@@ -1265,6 +1288,59 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
         this.closePopover();
     }
 
+    /** A map row's place: the map picker in a box on the map, the address or the directions link (VE-D34). */
+    private openRowLocation(spot: Spot): void {
+        const sub = this.locationSub(spot);
+        const row = this.rows(spot.field).find((r) => r.id === spot.rowId);
+        if (!sub || !row || this.editor?.session.isTranslating()) return;
+        // Already open for this row: it stays, with what is typed in it.
+        const open = this.pop();
+        if (open?.location && open.spot.field === spot.field && open.spot.rowId === spot.rowId) return;
+        const num = (value: unknown) => (typeof value === 'number' ? value : null);
+        this.showPopover(spot, false);
+        // The map box is wide and tall: it opens where all of it fits in the window, and
+        // scrolls inside when the window is shorter than it.
+        const win = this.document.defaultView;
+        const height = win?.innerHeight ?? 768;
+        const width = win?.innerWidth ?? 1024;
+        this.pop.update((p) => {
+            if (!p) return p;
+            const top = Math.max(48, Math.min(p.top, height - MAP_BOX_HEIGHT - 8));
+            return {
+            ...p,
+            top,
+            left: Math.max(8, Math.min(p.left, width - MAP_BOX_WIDTH - 8)),
+            maxHeight: height - top - 8,
+            title: spot.label ?? sub.label,
+            location: { address: typeof row[sub.key] === 'string' ? row[sub.key] as string : '', lat: num(row[sub.latKey]), lng: num(row[sub.lngKey]), zoom: num(row[sub.zoomKey]) },
+            };
+        });
+    }
+
+    private locationSub(spot: Spot | undefined): RepeaterLocationSubField | null {
+        if (!spot?.rowId || !spot.sub) return null;
+        const sub = this.repeater(spot.field)?.schema.subFields.find((s) => s.key === spot.sub);
+        return sub?.type === 'location' ? sub : null;
+    }
+
+    /** The point moved or the address changed in the map box: the row takes both, as the form's row editor writes them. */
+    rowLocationPicked(picked: PickedLocation): void {
+        const spot = this.pop()?.spot;
+        const sub = this.locationSub(spot);
+        // The point is the same in every language: only the default language moves it (VE-D35).
+        if (!spot?.rowId || !sub || this.editor?.session.isTranslating()) return;
+        this.writeRows(spot.field, setRowLocation(this.rows(spot.field), spot.rowId, sub, picked));
+        this.pop.update((p) => (p ? { ...p, location: { address: picked.address, lat: picked.lat, lng: picked.lng, zoom: picked.zoom } } : p));
+    }
+
+    rowLocationCleared(): void {
+        const spot = this.pop()?.spot;
+        const sub = this.locationSub(spot);
+        if (!spot?.rowId || !sub || this.editor?.session.isTranslating()) return;
+        this.writeRows(spot.field, setRowLocation(this.rows(spot.field), spot.rowId, sub, null));
+        this.pop.update((p) => (p ? { ...p, location: { address: '', lat: null, lng: null, zoom: null } } : p));
+    }
+
     // ── Images, boxes and the panel ──────────────────────────────────────────
     /** An image spot: the picker at once when it is empty, else Replace and Remove on it. */
     openImage(spot: Spot): void {
@@ -1308,6 +1384,11 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
 
     /** A field edited in a box on the element: the form editor's own control for it, moved there. */
     openPopover(spot: Spot): void {
+        if (spot.rowId && spot.sub) {
+            if (this.locationSub(spot)) this.openRowLocation(spot);
+            else this.openInPanel(spot);
+            return;
+        }
         const node = this.panelControl(spot.field);
         if (!node) {
             this.openInPanel(spot);
@@ -1372,6 +1453,9 @@ export default class EntryEditPage implements AfterViewInit, HasUnsavedChanges {
 
     /** Puts the box away and its control back in the panel. */
     closePopover(): void {
+        // A box typed in commits on leaving it (the map's address): it is left before it goes.
+        const focused = this.document.activeElement as HTMLElement | null;
+        if (this.pop() && focused?.closest?.('[data-testid="edit-popover"]')) focused.blur();
         const back = this.popReturn;
         this.popReturn = null;
         if (back) {
@@ -1445,6 +1529,11 @@ export interface RowBar {
     first: boolean;
     last: boolean;
 }
+
+/** About how tall the map box is: search, map, address and point boxes. */
+const MAP_BOX_HEIGHT = 470;
+/** The map box's width (its CSS). */
+const MAP_BOX_WIDTH = 440;
 
 /** How long the bar stays with a row it just moved. */
 const BAR_PIN_MS = 1500;

@@ -8,7 +8,9 @@
  * rows and never changes the ones it is given.
  */
 import {
+    locationRowKeys,
     mediaRowKeys,
+    RepeaterLocationSubField,
     renumberRepeaterRows,
     RepeaterMediaSubField,
     RepeaterRow,
@@ -69,6 +71,22 @@ export function setRowMedia(rows: RepeaterRow[], id: string, sub: RepeaterMediaS
     const cleared: Record<string, unknown> = {};
     for (const key of mediaRowKeys(sub)) cleared[key] = key === sub.iconKey ? null : '';
     return rows.map((row) => (row.id === id ? { ...row, ...cleared, ...chosen } : row));
+}
+
+/**
+ * A row's place on the map, as the form's row editor writes it: the address and the
+ * point together (VE-D34); null clears the address and the point.
+ */
+export function setRowLocation(
+    rows: RepeaterRow[],
+    id: string,
+    sub: RepeaterLocationSubField,
+    picked: { address: string; lat: number; lng: number; zoom: number } | null,
+): RepeaterRow[] {
+    const values: Record<string, unknown> = picked
+        ? { [sub.key]: picked.address, [sub.latKey]: picked.lat, [sub.lngKey]: picked.lng, [sub.zoomKey]: picked.zoom }
+        : Object.fromEntries(locationRowKeys(sub).map((key) => [key, key === sub.key ? '' : null]));
+    return rows.map((row) => (row.id === id ? { ...row, ...values } : row));
 }
 
 /** One value of one row, as typed. */

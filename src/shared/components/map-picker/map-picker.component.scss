@@ -1,9 +1,17 @@
 /**
- * Leaflet ships its own stylesheet, imported here so it travels with this
+ * Leaflet ships its own stylesheet, loaded here so it travels with this
  * component rather than being loaded on every admin page — and never on a
  * published page, which renders its map as a plain iframe.
+ *
+ * Under ::ng-deep, inside this component: Leaflet draws its panes and tiles
+ * itself, so they never carry this component's style scope, and a scoped copy
+ * of the sheet left them unpositioned (tiles piled in one corner).
  */
-@use 'leaflet/dist/leaflet.css';
+@use 'sass:meta';
+
+:host ::ng-deep {
+    @include meta.load-css('leaflet/dist/leaflet');
+}
 
 .map-picker {
     --map-border: #dee2e6;
@@ -58,6 +66,9 @@
 
 .map-canvas {
     height: 220px;
+    /* Leaflet's panes and buttons carry z-indexes up to 1000: kept inside the map,
+       so they never paint over a sticky bar or a menu of the page around it. */
+    isolation: isolate;
     border: 1px solid var(--map-border);
     border-radius: 0.5rem;
 

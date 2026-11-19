@@ -3,8 +3,8 @@
  * ids, positions are renumbered 1 to n, and nothing given is changed.
  */
 import { describe, it, expect } from 'vitest';
-import { REPEATER_SCHEMAS, RepeaterMediaSubField } from '../../../../shared/models/repeater.model';
-import { insertRowsAfter, moveRow, removeRow, restoreRow, rowsAcross, setRowMedia, setRowValue } from './rows';
+import { REPEATER_SCHEMAS, RepeaterLocationSubField, RepeaterMediaSubField } from '../../../../shared/models/repeater.model';
+import { insertRowsAfter, moveRow, removeRow, restoreRow, rowsAcross, setRowLocation, setRowMedia, setRowValue } from './rows';
 
 const rows = () => [
     { id: 'b', position: 2, question: 'Two' },
@@ -90,6 +90,22 @@ describe('setRowMedia', () => {
         const out = setRowMedia(list, 'a', sub, {});
         expect(out[0]['image']).toBe('');
         expect(out[1]).toBe(list[1]);
+    });
+});
+
+describe('setRowLocation (VE-D34)', () => {
+    const sub = REPEATER_SCHEMAS['maplocation'].subFields[1] as RepeaterLocationSubField;
+    const list = [{ id: 'a', position: 1, label: 'Shop', address: '', lat: null, lng: null, zoom: null }];
+
+    it('writes the address and the point together, as the form\'s row editor does', () => {
+        const out = setRowLocation(list, 'a', sub, { address: '1 High St', lat: 51.5, lng: -0.1, zoom: 16 });
+        expect(out[0]).toEqual({ id: 'a', position: 1, label: 'Shop', address: '1 High St', lat: 51.5, lng: -0.1, zoom: 16 });
+        expect(list[0].address).toBe('');
+    });
+
+    it('null clears the address and the point, never the name', () => {
+        const placed = setRowLocation(list, 'a', sub, { address: 'x', lat: 1, lng: 2, zoom: 3 });
+        expect(setRowLocation(placed, 'a', sub, null)[0]).toEqual({ id: 'a', position: 1, label: 'Shop', address: '', lat: null, lng: null, zoom: null });
     });
 });
 
